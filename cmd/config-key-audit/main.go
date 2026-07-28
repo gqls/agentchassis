@@ -36,6 +36,7 @@ import (
 
 func main() {
 	declared := datahelpers.ListDeclaredConfigKeys()
+	conditional := datahelpers.ListConditionalConfigKeys()
 
 	if len(declared) == 0 {
 		fmt.Fprintln(os.Stderr,
@@ -47,9 +48,17 @@ func main() {
 		os.Exit(2)
 	}
 
+	// Two maps, not one: "every key this action recognises" and "of those, the
+	// ones honoured only under a condition". Merging them would recreate exactly
+	// the blindness this second map was added to fix.
+	out := map[string]interface{}{
+		"declared":    declared,
+		"conditional": conditional,
+	}
+
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(declared); err != nil {
+	if err := enc.Encode(out); err != nil {
 		fmt.Fprintf(os.Stderr, "config-key-audit: %v\n", err)
 		os.Exit(1)
 	}

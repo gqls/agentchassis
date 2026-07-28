@@ -47,6 +47,21 @@ var WebscrapeInputSpec = datahelpers.ActionInputSpec{
 	},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
+
+	// Declared, therefore not "unknown" — but only honoured on a crawl, because
+	// Firecrawl's /scrape endpoint fetches exactly one page and has nowhere to
+	// put them. Naming them here is what stops the offline audit reporting a
+	// clean bill for the two live steps that still advertise a three-page crawl
+	// (vet-practice-verifier/scrape_website, domain-research-classifier/scrape_site).
+	//
+	// Round 1 of the council gate shipped without this: declaring the keys made
+	// them recognised, the audit printed "UNKNOWN KEYS: none", and the defect
+	// became invisible to the very tool built to catch it (WRONG_CALLS.md
+	// 2026-07-28).
+	ConditionalKeys: map[string]string{
+		"max_pages":    `only on a crawl — set the step's config action to "crawl", or /scrape fetches exactly one page`,
+		"follow_links": `only on a crawl — set the step's config action to "crawl", or no links are followed`,
+	},
 }
 
 func init() {

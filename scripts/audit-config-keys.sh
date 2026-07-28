@@ -75,7 +75,9 @@ DECLARED="$DECLARED" LIVE="$LIVE" JSON_OUT="$JSON_OUT" python3 - <<'PY'
 import json, os, sys
 from collections import defaultdict
 
-declared = json.loads(os.environ["DECLARED"])
+_dump = json.loads(os.environ["DECLARED"])
+declared = _dump["declared"]
+conditional = _dump.get("conditional", {})
 # Framework keys are read by the orchestrator on ANY step, whatever the action.
 # Kept in step with datahelpers.frameworkStepConfigKeys — if these drift apart
 # this report grows false positives, which is how a report gets ignored.
@@ -88,6 +90,7 @@ framework = {
 
 unknown_by_action = defaultdict(list)
 undeclared_by_action = defaultdict(list)
+conditional_by_action = defaultdict(list)
 
 for line in os.environ["LIVE"].splitlines():
     line = line.strip()
@@ -99,12 +102,19 @@ for line in os.environ["LIVE"].splitlines():
     if action in declared:
         if key not in declared[action]:
             unknown_by_action[action].append(key)
+        elif key in conditional.get(action, {}):
+            # Recognised, so NOT unknown — but honoured only under a condition,
+            # which means this step may still describe behaviour it never
+            # performs. Reported separately because "no unknown keys" was
+            # previously printed over exactly this case.
+            conditional_by_action[action].append(key)
     else:
         undeclared_by_action[action].append(key)
 
 if os.environ["JSON_OUT"] == "1":
     json.dump({
         "unknown_keys": {k: sorted(v) for k, v in unknown_by_action.items()},
+        "conditional_keys": {k: sorted(v) for k, v in conditional_by_action.items()},
         "undeclared_actions": {k: sorted(v) for k, v in undeclared_by_action.items()},
         "declared_action_count": len(declared),
         "undeclared_action_count": len(undeclared_by_action),
@@ -115,6 +125,24 @@ else:
     if unknown_by_action:
         for action in sorted(unknown_by_action):
             print(f"  {action}: {', '.join(sorted(unknown_by_action[action]))}")
+    else:
+        print("  none")
+        if conditional_by_action:
+            print("  ^ read this WITH the next section — 'none' here does NOT mean")
+            print("    'no step misdescribes itself'.")
+
+    print()
+    print("=== CONDITIONALLY HONOURED (declared, so not unknown — but may not apply) ===")
+    if conditional_by_action:
+        for action in sorted(conditional_by_action):
+            for key in sorted(conditional_by_action[action]):
+                print(f"  {action}.{key}: {conditional[action][key]}")
+        print()
+        print("  These steps carry a key that is recognised but takes effect only under")
+        print("  the stated condition. Where it does not hold, the config describes")
+        print("  behaviour that does not happen — the same defect as an unknown key,")
+        print("  wearing a declaration. (bugs_closed/101; WRONG_CALLS.md 2026-07-28,")
+        print("  where declaring these keys is what silenced the section above.)")
     else:
         print("  none")
 

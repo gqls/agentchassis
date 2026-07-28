@@ -148,3 +148,75 @@ func TestListDeclaredConfigKeysOnlyIncludesOptedInActions(t *testing.T) {
 		t.Errorf("declared keys = %v, want [a b]", keys)
 	}
 }
+
+// TestConditionalConfigKeys pins the third state. Round 1 of this fix had two —
+// unknown and recognised — and the real world had three, so declaring a key was a
+// way of hiding it (WRONG_CALLS.md 2026-07-28).
+func TestConditionalConfigKeys(t *testing.T) {
+	RegisterActionInputSpec("test_action_conditional", ActionInputSpec{
+		ConfigKeys: []string{"url_field", "max_pages", "follow_links"},
+		ConditionalKeys: map[string]string{
+			"max_pages":    "only on a crawl",
+			"follow_links": "only on a crawl",
+		},
+	})
+
+	t.Run("present conditional keys are returned with their condition", func(t *testing.T) {
+		got, checked := ConditionalConfigKeys("test_action_conditional", map[string]interface{}{
+			"url_field": "input_data.url",
+			"max_pages": 3,
+		})
+		if !checked {
+			t.Fatal("checked=false for an action that declares ConditionalKeys")
+		}
+		if len(got) != 1 || got["max_pages"] != "only on a crawl" {
+			t.Errorf("got %v, want just max_pages with its condition", got)
+		}
+	})
+
+	t.Run("absent conditional keys are not invented", func(t *testing.T) {
+		got, checked := ConditionalConfigKeys("test_action_conditional", map[string]interface{}{
+			"url_field": "input_data.url",
+		})
+		if !checked {
+			t.Fatal("checked=false")
+		}
+		if len(got) != 0 {
+			t.Errorf("got %v, want none — only keys PRESENT in the config count", got)
+		}
+	})
+
+	t.Run("a conditional key is still recognised, never unknown", func(t *testing.T) {
+		// The two mechanisms must not double-report: a key cannot be both.
+		unknown, _ := UnknownConfigKeys("test_action_conditional", map[string]interface{}{
+			"max_pages": 3,
+		})
+		if len(unknown) != 0 {
+			t.Errorf("conditional key reported as unknown: %v", unknown)
+		}
+	})
+
+	t.Run("action with no ConditionalKeys reports checked=false", func(t *testing.T) {
+		RegisterActionInputSpec("test_action_no_conditional", ActionInputSpec{
+			ConfigKeys: []string{"a"},
+		})
+		if _, checked := ConditionalConfigKeys("test_action_no_conditional", map[string]interface{}{"a": 1}); checked {
+			t.Error("an action declaring no ConditionalKeys must report checked=false")
+		}
+	})
+}
+
+// TestUndeclaredConditionalKeysCatchesSpecError: a conditional key MUST also be in
+// ConfigKeys, or it reports as both unknown and conditional — two mechanisms
+// disagreeing about the same key.
+func TestUndeclaredConditionalKeysCatchesSpecError(t *testing.T) {
+	RegisterActionInputSpec("test_action_broken_spec", ActionInputSpec{
+		ConfigKeys:      []string{"url_field"},
+		ConditionalKeys: map[string]string{"max_pages": "only on a crawl"},
+	})
+
+	missing := UndeclaredConditionalKeys("test_action_broken_spec")
+	if len(missing) != 1 || missing[0] != "max_pages" {
+		t.Errorf("got %v, want [max_pages] — a conditional key absent from ConfigKeys is a spec error", missing)
+	}
+}

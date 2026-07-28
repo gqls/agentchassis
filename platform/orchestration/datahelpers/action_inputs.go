@@ -55,6 +55,25 @@ type ActionInputSpec struct {
 	// known to be COMPLETE — verified against every live definition using the
 	// action, not just the one in front of you.
 	StrictConfig bool
+
+	// ConditionalKeys maps a config key to a human-readable statement of the
+	// condition under which it actually takes effect. Keys listed here must
+	// ALSO appear in ConfigKeys — they are recognised, not unknown.
+	//
+	// This exists because declaring a key was, on its own, a way of hiding it.
+	// bugs_closed/101 shipped with max_pages/follow_links declared on scrape_web,
+	// which made them recognised — so the validator went quiet and
+	// scripts/audit-config-keys.sh printed "UNKNOWN KEYS: none" while two live
+	// steps still advertised a three-page crawl that a single-page /scrape
+	// cannot perform. The detector had two states, unknown and recognised, and
+	// the real world had three. Logged in WRONG_CALLS.md 2026-07-28: the fix
+	// authored the filter that hid its own remaining case.
+	//
+	// The condition is prose because it is not generically evaluable — it
+	// depends on the action's own dispatch (here, whether the step resolves to a
+	// crawl). Enforcement stays where it can actually be decided, at execution;
+	// this field is what stops the OFFLINE report claiming a clean bill.
+	ConditionalKeys map[string]string
 }
 
 // frameworkStepConfigKeys are step-config keys the orchestrator itself reads or
@@ -127,6 +146,71 @@ func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknow
 	}
 	sort.Strings(unknown)
 	return unknown, true
+}
+
+// ConditionalConfigKeys returns the conditionally-honoured keys PRESENT in this
+// step's config, mapped to the condition under which each takes effect.
+//
+// These are recognised keys, so UnknownConfigKeys is silent about them by
+// design. That silence is the whole reason this function exists: a key can be
+// perfectly well declared and still describe behaviour a given step will not
+// perform, and an audit that reports only unknown keys calls that clean.
+func ConditionalConfigKeys(actionName string, config map[string]interface{}) (map[string]string, bool) {
+	spec, ok := GetActionInputSpec(actionName)
+	if !ok || len(spec.ConditionalKeys) == 0 {
+		return nil, false
+	}
+
+	present := make(map[string]string)
+	for key, condition := range spec.ConditionalKeys {
+		if _, set := config[key]; set {
+			present[key] = condition
+		}
+	}
+	if len(present) == 0 {
+		return nil, true
+	}
+	return present, true
+}
+
+// ListConditionalConfigKeys returns every declared conditional key, by action.
+// Consumed by cmd/config-key-audit so the offline report can name them.
+func ListConditionalConfigKeys() map[string]map[string]string {
+	out := make(map[string]map[string]string)
+	for name, spec := range actionInputSpecs {
+		if len(spec.ConditionalKeys) == 0 {
+			continue
+		}
+		conds := make(map[string]string, len(spec.ConditionalKeys))
+		for k, v := range spec.ConditionalKeys {
+			conds[k] = v
+		}
+		out[name] = conds
+	}
+	return out
+}
+
+// UndeclaredConditionalKeys returns conditional keys an action declares that are
+// missing from its ConfigKeys list — a declaration error, since a conditional key
+// is by definition a recognised one. Used by a test rather than at runtime; a
+// spec that trips this would make the key report as BOTH unknown and conditional.
+func UndeclaredConditionalKeys(actionName string) []string {
+	spec, ok := GetActionInputSpec(actionName)
+	if !ok {
+		return nil
+	}
+	declared := make(map[string]bool, len(spec.ConfigKeys))
+	for _, k := range spec.ConfigKeys {
+		declared[k] = true
+	}
+	var missing []string
+	for k := range spec.ConditionalKeys {
+		if !declared[k] {
+			missing = append(missing, k)
+		}
+	}
+	sort.Strings(missing)
+	return missing
 }
 
 // IsStrictConfigAction reports whether unrecognised keys should fail validation
