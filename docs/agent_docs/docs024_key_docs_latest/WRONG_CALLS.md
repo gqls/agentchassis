@@ -10138,3 +10138,65 @@ is the mirror of [[shared-tree-wont-compile]], which is *their* WIP breaking *my
 five other sessions' modified files out. It cannot help with a file two sessions are editing at
 once, and this is what that costs. The fix was forward-only: I prepared the missing half as a
 labelled `sweep:` commit, and by the time it ran the owning session had committed it themselves.
+
+---
+
+## 2026-07-28 — a total that was before+after summed, and two "verbatim" fixtures that were paraphrased
+
+Session "bugsearch 7", fixing `bugs_open/102` (the claims layer reading page type). Two wrong
+calls, both mine, both caught inside the same hour — and the second one only because the test
+that caught it was written to be able to fail.
+
+**1. "124 findings before, 187 before." Both were printed by me, ten minutes apart.**
+
+The fleet survey wrote per-site scanner output to `survey/<domain>.out`, and the re-run with the
+fixed binary to `survey/<domain>.fixed.out`. Then:
+
+```bash
+cat survey/*.out | grep -cE '^(BANNED|NUMBER)'     # "before" = 187
+```
+
+`survey/*.out` matches `survey/x.fixed.out` too. **187 = 124 + 63 — the before and after totals
+added together** — and it did not look wrong, because 187 is an entirely plausible number of
+findings for nine sites. Had I quoted it in the bug file, the fix would have read as suppressing
+124 findings rather than 61, i.e. as roughly twice as blunt an instrument as it is.
+
+*What caught it:* the per-page-type breakdown summed to 124 while the total said 187. Two views
+of one population disagreeing.
+
+*The cheap check that would have:* **never let a glob define a population you are going to
+compare.** Iterate an explicit list of the things you exported, and print the row count per item
+alongside the total, so the two must agree in front of you. A suffix that is also a suffix of
+another suffix (`.out` ⊂ `.fixed.out`) is the specific trap; `-name '*.out' -not -name '*.fixed.out'`
+or, better, different directories.
+
+**2. I wrote "every fixture below is a VERBATIM live false positive" over two I had typed from
+memory of the scanner's output.**
+
+The file header of `claims_surface_test.go` claimed all eight test fixtures were live blocks. Two
+(the `tool` and `game` cases) were shortened paraphrases of the ±60-character snippet the scanner
+prints, not the block it actually scanned. Shortened past the point where they contained the word
+that made them flag at all — so they flagged **nothing on any surface** and could not have
+discriminated the fix from a scanner that was simply switched off.
+
+*What caught it:* the negative control in the same commit — the test asserting the same blocks
+still flag on `content`/`landing`/`report`/unknown surfaces. It failed on exactly those two rows.
+**Had I written only the "editorial pages raise nothing" direction, both fixtures would have
+passed and pinned nothing**, and the file would have carried a claim of live provenance over
+invented text.
+
+*The cheap check that would have:* if you label a fixture with its provenance, **paste it from the
+source** — and assert the fixture's precondition (that it flags at all) before asserting what the
+change does to it. A fixture that cannot fail the old code proves nothing about the new.
+
+*A third, same session, of the same family:* my first regression test looped over seven page types
+calling `ScanBannedClaims(block)` — a function that takes no page type. Seven iterations, one
+assertion, loop variable unused. It read as a per-page-type matrix and was a single check wearing
+a costume. **`go vet` does not flag an unused loop variable that is used in the failure message.**
+Rewritten as the discriminating pair (on a guide: banned fires, the number scan does not).
+
+**Related, and already logged from the other side:** the entangled-commit incident above
+(`## 2026-07-28 — "suites green" was true of my working tree…`) is the same afternoon and the same
+four files — that entry is by the session whose commit took my half; `3ddb4ed2d` is mine restoring
+it. Read the two together: neither session did anything careless, and HEAD still stopped compiling
+for four minutes.

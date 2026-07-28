@@ -44,8 +44,17 @@ Nine sites have a current `evidence_base` row.
 | guide | 1 |
 | **total** | **124** |
 
-Then I read every finding on an editorial page type. **47 of 47 are false
+Then I read every finding on an editorial page type. **61 of 61 are false
 positives**, and they are not marginal:
+
+> **CORRECTED after the after-run:** this paragraph first said "47 of 47", which
+> was `blog-post` (46) + `guide` (1) — the two types I had read snippets for when
+> I wrote it. The editorial class is **61**: those two plus `tool` 7, `game` 4,
+> `section-index` 2, `news-index` 1, which I reviewed separately further down and
+> then failed to add back into the headline figure. The exact `comm` diff of the
+> before/after finding lists settled it at 61 suppressed, 0 appearing. **A figure
+> assembled from the part of the evidence you happened to be looking at is the
+> shape to distrust — including in your own file.**
 
 - `gamesdesign.co.uk` blog-posts: `0.40 × 0.0833 = 3.33%`, "a 78.3% chance of
   getting the item within 60 kills", "10,000 active players farming that item" —
