@@ -511,3 +511,92 @@ earlier reflex of demanding a positive control: the first diff query returned "0
 nothing lost", which was **vacuous**, because its snapshot CTE was empty. A query whose
 input set is empty answers every question with reassurance. `[Pattern: an EXCEPT/NOT
 EXISTS diff needs its baseline COUNTED first, or the null result means nothing.]`
+
+---
+
+# OWNER RULING 2026-07-28 (evening) — the two are re-pointed, and it is LIVE
+
+**Ruling: option 1 — re-point both `image-build-handler` handlers at
+`mark_work_item_failed`.** Applied the same evening as seed
+`docs/agent_docs/sql_for_agents/259_image_build_handler_error_steps_repointed.sql`.
+DB config, so live immediately — no image roll involved.
+
+This discharges the last item the per-handler audit left open. The other eight stay
+disabled (seven by the audit's verdict, one — `tool-improver.note_refusal` — still oufe's
+to decide via `bugs_open/126`).
+
+## What was checked BEFORE applying, not after
+
+- **The converter really carries step-level `error_step` on the running binary.**
+  Pod `agent-chassis-f757fcf65-bg9t7`, `v1.0.1192`, started `18:23:03Z`:
+  fix marker `Step declares an error_step that is not in the plan` → **1**;
+  positive controls `routeToErrorStepOrFail` → **3**, `error_step` → **7**;
+  negative control `zzz_not_a_real_marker_zzz` → **0**. Without this the change would
+  have been inert and looked applied.
+- **Persisted plans carry it in data, not just in the binary:** 66 step-level
+  `error_step` entries across `image-build-handler` `workflow_plan`s created in the
+  previous 2 days. (This is also the data-level proof the original write-up listed as
+  outstanding.)
+- **The target lane works and terminates.** Two orchestrations reached
+  `mark_work_item_failed` on 07-28 (`37939c31…`, `b6b45178…`) — both `COMPLETED` at
+  `current_step = complete_error`. No cycle: that step's own `error_step` is
+  `complete_error`, a terminal.
+- **The target step exists** — the seed refuses to run if it does not, because a
+  dangling `error_step` is only a `Warn` in the converter and would be silently inert.
+
+## Post-checks, all as predicted
+
+| check | want | got |
+|---|---|---|
+| the two steps live, pointing at `mark_work_item_failed` | 2 | 2 |
+| step-level `error_step → complete` anywhere on the fleet | 0 | 0 |
+| still carrying `error_step_disabled_086` | 8 (was 10) | 8 |
+| live step-level handlers fleet-wide | 46 (was 44) | 46 |
+| pre-change snapshot in `agent_definitions_backup` | ≥1 | 1, `18:50:33.117Z` |
+| steps pointing at a step that does not exist | 0 | 0 |
+
+## Two consequences recorded rather than glossed
+
+1. **`flag_rebuild` runs AFTER `mark_work_item_complete`, so its failure path flips the
+   work item `complete` → `failed`.** `UpdateWorkItemStatusAction`'s UPDATE is
+   unconditional on the current status (`platform/orchestration/actions/v3_site_actions.go:4644-4661`)
+   and only the `complete` branch sets `completed_at`, so such a row ends up
+   `status='failed'` with `completed_at` populated and `attempt_count` incremented twice.
+   That combination is odd-looking on purpose — it is a truer record than a green
+   orchestration sitting over unreferenced imagery.
+2. **That flip does not regenerate the image.** The claim query takes only
+   `triaged`/`approved` (`claim_work_item_action.go:102`), so a failed item parks for
+   triage instead of retrying. The reason is not lost either: with no `error_message`
+   literal and a non-`complete` status, the action records `__step_error.message` into the
+   row's `error` column (`v3_site_actions.go:4599-4617`).
+
+## Still not witnessed
+
+The failing branch has **never** been exercised — all 8 runs on 07-28 completed with
+`__step_error` NULL. This is deployed-and-correct-by-construction, not proven in flight.
+See `[[verify-the-failing-branch]]`. The watch query:
+
+```sql
+SELECT os.orchestration_id, os.status, os.current_step,
+       os.collected_data->'__step_error'->>'failed_step' AS failed_step,
+       os.updated_at
+FROM orchestration_states os
+WHERE os.owner_agent_type='image-build-handler'
+  AND os.collected_data ? '__step_error'
+  AND os.updated_at > '2026-07-28 18:50:33+00'
+ORDER BY os.updated_at DESC;
+```
+
+A row where `failed_step` is `mark_work_item_complete` or `flag_rebuild`, ending at
+`complete_error` with the `site_work_items` row marked `failed` and its `error` populated,
+is what closes this.
+
+## A clobber risk found while applying, and blocked
+
+`107_image_build_handler.sql` — the seed that created `flag_rebuild` — still contains
+`"error_step": "complete"`, and its section-0 precondition ("expect
+`flag_rebuild_exists = f`") is a **printed expectation, not a guard**: the UPDATE runs
+regardless. A replay would silently restore the routing that seeds 220 and 259 both
+removed. A dated `SUPERSEDED IN PART — DO NOT REPLAY AS WRITTEN` block now sits above
+that section. Nothing else in the repo defines these steps: no Go source, no deployment
+config, no other seed — checked, so the DB row and the numbered seeds are the whole story.

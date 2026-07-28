@@ -1972,6 +1972,15 @@ ROLLBACK;   -- safe default: review first, then switch to COMMIT
 -- DB: templates_db   Table: agent_definitions   type = 'image-build-handler'
 -- Row id (from the provided dump): 04b10d94-11ee-447c-9ff9-7924b8e9897c
 --
+-- >>> SUPERSEDED IN PART — DO NOT REPLAY THIS SECTION AS WRITTEN (2026-07-28).
+-- >>> The `"error_step": "complete"` below was disabled by seed 220
+-- >>> (bugs_closed/086: it would end the orchestration GREEN on a failure) and
+-- >>> then re-pointed at `mark_work_item_failed` by seed 259 on the owner's
+-- >>> ruling. Section 0's precondition ("expect flag_rebuild_exists = f") is a
+-- >>> printed expectation, not a guard — the UPDATE runs regardless, so a
+-- >>> replay would silently restore the routing both later seeds removed.
+-- >>> Replay only with the error_step line changed to mark_work_item_failed.
+--
 -- Adds a terminal step `flag_rebuild` after `mark_work_item_complete` and
 -- redirects mark_work_item_complete.next_step → flag_rebuild. Every path
 -- (needs_imagery, logo, hero, variant) converges at mark_work_item_complete,

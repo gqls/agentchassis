@@ -10,7 +10,17 @@ on him. Written for a cold start: assume the reader knows nothing about this ses
 
 ---
 
-## 0. The one thing waiting on the owner
+## 0. The one thing waiting on the owner — ANSWERED AND APPLIED 2026-07-28 ~18:50Z
+
+> **RESOLVED. The owner ruled option 1: re-point both at `mark_work_item_failed`.**
+> Applied live as seed `sql_for_agents/259_image_build_handler_error_steps_repointed.sql`
+> — DB config, no roll. All six post-checks passed (disabled markers 10 → 8, live
+> step-level handlers 44 → 46, pre-change snapshot taken at `18:50:33.117Z`). The full
+> record, including two consequences worth knowing and a replay hazard found in seed 107,
+> is appended to `bugs_closed/086…md`. **Nothing here is blocked on him any more.**
+> The failing branch has still never fired — see the watch query in that file.
+
+The original item, left for context:
 
 **Two `image-build-handler` error handlers are disabled and the choice of what to do
 with them is his.** He has been reminded in chat; if he has not answered, ask again
@@ -241,7 +251,9 @@ bcc396b6b  bug(131 B): tag moved to v1.0.1192 and the fix survived — re-greppe
 
 ## 8. Where to go next
 
-1. **Get the owner's answer on §0.** It is the only blocked item and it is cheap to apply.
+1. ~~**Get the owner's answer on §0.**~~ **DONE 07-28 ~18:50Z** — option 1, applied as
+   seed 259. What remains is to *witness* the failing branch: nothing has ever routed
+   through it. The watch query is in `bugs_closed/086…md`.
 2. **Watch for the first `no_horizontal_overflow` firing** (§3 query). One run closes the
    check-side of 131 B or reopens it with real evidence.
 3. **Register `make deploy-<service>`** in the concept register (§4).
