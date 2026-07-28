@@ -2511,3 +2511,65 @@ refuses (empty spec sections / owned-page guard). One retry attempt burned provi
 (1 of 3); item re-parked `needs_human_review`, which is correct until it is routed
 through the tool pipeline or a scoped section edit. Handoff 07-28b item 1 corrected in
 place.
+
+---
+
+## 2026-07-28 evening — selector hero PLACED & SERVING; 090 verification of the 079 reopen FIRED
+
+**Context change that reordered the queue: the Anthropic cap was raised ~14:50 BST**
+(memory index; verified live — last `LLM_API_ERROR` naming an AI endpoint 13:13Z, nine
+council-gate orchestrations COMPLETED since, latest 15:33Z). So the "after 08-01" items
+became "now" items.
+
+**090 verification of the 079 reopen claim FIRED 16:38Z**, corr
+`954d8da9-789a-4515-be07-1b15b9511f4b`, item_key
+`needs_diagnosis:validate-page-content-repairs-dead-in-bo`. First attempt refused —
+"ref does not exist on origin": the diagnosis clones from the REMOTE, and
+`087_towards_multiple_domains` had never been pushed. Pushed the branch (forward-only,
+additive), re-fired, dispatched clean. Verdict pending as of this entry; close the
+intake row by hand when read (the printed step-4 UPDATE).
+
+**Selector hero placed by scoped edit + assemble-only rerender — LIVE.** The premise
+sharpened once more: `539893ae`'s generated file was ALREADY PUBLISHED at
+`/assets/images/content-hero-tool-model-approach-selector.jpg` (200 before any edit of
+mine — the imagery pipeline publishes the file; only the reference was missing).
+Correction to yesterday's model: tool pages here are `rebuild_policy='generic'`, NOT
+'owned' — the selector no-ops because `pages.sections` is EMPTY (`[]`), while the
+calculator has 4 section types. The route taken:
+
+- Prepended a `tool-hero` block (img + matching CSS) inside the existing single
+  component's `rendered_html` (`page_components fd56ef21`, 16479 → 16788 chars),
+  mirroring the component's own `.tool-container` idiom, NOT the calculator's `tgi-*`
+  classes. Verified the PERSISTED row before dispatch (L18).
+- Fired the cta_link_integrity thread's
+  `scripts/049b_deploy_single_page.sh <page> <site> fundamentallyai.com` with NO reason
+  → assemble-only `render_page` branch: stitches STORED rendered_html + chrome, no LLM,
+  no section rebuild. Corr `57ac70ab`, COMPLETED in under a minute (the 030 fix is
+  real — no 29-minute queue).
+- Served page verified: hero img 1, hero CSS 1, form intact, chrome intact; fetched the
+  actual JPEG and looked at it (three-path decision illustration, 16:9, no lettering —
+  correct for the page). Transient curl exit 56 on first image fetch — origin throttle,
+  clean on retry, same as the morning's 000s.
+- `56fbcc9a` marked complete 16:45Z (status was needs_human_review, attempt 1/3) — the
+  item's intent is satisfied; nobody should burn its remaining attempts.
+
+**Why NOT the fuller route** (populate `pages.sections` with the calculator's section
+family and let the pipeline build intro/hero/cta): that invokes the writer, and with 079
+reopened + 092 unmitigated, every writer run is an invented-link risk. Declined until
+092 moves. Also noted from the relojistas thread's fresh commit `5e873b354`:
+`pages.sections` entries must carry the SECTION_TYPE, not the component name, or the
+assembler silently drops the section — read before touching `pages.sections` here.
+Empty-sections danger checked before firing: `getPageSections` stitches from
+`page_components` rows; `pages.sections` feeds only diagnostics on that path
+(`rerender_single_page_action.go:591-624`).
+
+**§4.5 done: `bugs_open/128` read** (it is this workstream's own morning filing).
+Stays unowned, parked for its own thread. Carried fact: `/assets/images/hero.jpg` 404s
+and is referenced in the calculator's `tool-guide-intro` STORED html — same
+reference-to-nothing family as the capabilities repair (task pending). My morning crawl
+did not surface hero.jpg on the served calculator page — stored vs served divergence,
+NOT yet explained [UNVERIFIED which side is current].
+
+**Capabilities repair (13 refs) deliberately HELD until the 090 verdict lands** — if
+the loop refutes or refines the discard mechanism, the repair route (fix-079-first vs
+scoped re-render) changes.
