@@ -49,10 +49,35 @@
 #    instead. It is also the right semantics: a 26-minute LLM loop should not
 #    silently auto-retry.
 #
-# Automatic dispatch: `diagnose-dispatch-loop` + the `diagnose-pipeline-trigger`
-# scheduled task (0NN_diagnose_dispatch_loop.sql) claim awaiting_diagnosis items
-# on a 60s tick. The task ships DISABLED — enable it deliberately. Until then,
-# and for any ad-hoc run, THIS SCRIPT is the dispatcher.
+# ── 7. WHO DISPATCHES (rewritten 2026-07-28, bugs_open/124) ───────────────────
+#    This block used to read: "the task ships DISABLED — enable it deliberately.
+#    Until then, and for any ad-hoc run, THIS SCRIPT is the dispatcher." Somebody
+#    enabled it. Nobody told the script. From that moment every manual intake was
+#    dispatched TWICE — once by this script's kcat publish, and again ~60s later
+#    by `diagnose-dispatch-loop`, which claims exactly the `awaiting_diagnosis`
+#    rows this script writes. Two full diagnose-agent runs (12-14 min of LLM
+#    each), on two correlations that cannot be joined, and when the two chains
+#    disagreed the failing one wrote `failed` over the succeeding one's item —
+#    which then got counted as an instance of bugs_open/029.
+#
+#    So dispatch authority is no longer a comment anyone has to keep true. It is
+#    read from the live system, every run:
+#
+#      DISPATCH unset (default) → ASK. Loop live  ⇒ record the intake, publish
+#                                 NOTHING, let the loop dispatch (it is also
+#                                 FASTER: ~60s to run start against ~4min for a
+#                                 direct publish, which queues behind the shared
+#                                 generic lane). Loop not live ⇒ publish here.
+#      DISPATCH=1               → force a direct publish even if the loop is live.
+#                                 For a wedged loop. Says so loudly.
+#      DISPATCH=0               → record the intake only, publish nothing.
+#
+#    And, whichever branch runs, the CLAIM is the ticket: a direct publish first
+#    takes the row `awaiting_diagnosis → diagnosing` atomically, so the loop
+#    cannot also have it. Losing that claim means somebody else already owns the
+#    run, and this script does not publish. That is what makes the double
+#    dispatch unrepresentable rather than merely unlikely — the `enabled` read
+#    above is a snapshot, and the loop ticks every 60 seconds.
 #
 # Usage:
 #   ./090_TRIGGER_needs_diagnosis_v1.sh "symptom text — keep free of \" and \\"
@@ -101,7 +126,9 @@
 #   RECENT_WINDOW  site-level probe: how recently an open item must have been
 #                  touched to block (default '2 hours'; older open items are
 #                  listed FYI only — a parked backlog is not in-flight work)
-#   DISPATCH       1 (default) fires the Kafka envelope; 0 records the item only
+#   DISPATCH       unset (default) = ask the DB who the live dispatcher is;
+#                  1 = force a direct publish even if the loop is live;
+#                  0 = record the item only. See header note 7.
 set -euo pipefail
 
 SYMPTOM="${1:?usage: $0 \"symptom text\"}"
@@ -165,7 +192,10 @@ SEED_SCOPE="${SEED_SCOPE:-}"
 PAGES="${PAGES:-}"
 FORCE="${FORCE:-0}"
 RECENT_WINDOW="${RECENT_WINDOW:-2 hours}"
-DISPATCH="${DISPATCH:-1}"
+# Deliberately NOT defaulted here: "unset" is a third, distinct value meaning
+# "ask the database who dispatches" (header note 7). Collapsing it to 1 is the
+# bug this script had.
+DISPATCH="${DISPATCH-}"
 CLIENT_ID='demo_client'
 
 PSQL=(kubectl exec -i -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1)
@@ -362,13 +392,131 @@ WHERE site_id = '${SYSTEM_SITE_ID}' AND item_key = '${ITEM_KEY}'
   AND status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved');
 SQL
 
-if [ "$DISPATCH" != "1" ]; then
+if [ "$DISPATCH" = "0" ]; then
   echo ""
   echo "DISPATCH=0 — intake recorded, no Kafka message sent."
   exit 0
 fi
 
-# ── 2. dispatch, on the SAME correlation_id ───────────────────────────────────
+# ── 2. who dispatches? (header note 7 — bugs_open/124) ────────────────────────
+# Asked of the live system, not assumed. The agent row is joined deliberately:
+# an enabled task pointing at an archived/inactive agent is not a live
+# dispatcher, and firing nothing while believing the loop has it is the same
+# failure in the other direction.
+LOOP_LIVE=$(printf '%s' "
+  SELECT count(*) FROM scheduled_tasks t
+  JOIN agent_definitions a
+    ON a.type = t.target_agent_type
+   AND a.is_active
+   AND COALESCE(a.is_snapshot, false) = false
+   AND a.deleted_at IS NULL
+  WHERE t.name = 'diagnose-pipeline-trigger' AND t.enabled;" \
+  | "${PSQL[@]}" -t -A)
+
+if [ "${LOOP_LIVE:-0}" != "0" ] && [ "$DISPATCH" != "1" ]; then
+  cat <<EOF
+
+=========================================
+intake recorded — the DISPATCH LOOP will run it.
+=========================================
+\`diagnose-pipeline-trigger\` is enabled, so \`diagnose-dispatch-loop\` claims this
+item on its next 60s tick and runs the diagnosis. This script deliberately
+publishes NOTHING: publishing as well is bugs_open/124, and it costs a second
+full diagnose-agent run on a correlation that cannot be joined to this one.
+
+The loop mints its own correlation for the run and stamps it back onto the item
+as \`spec.dispatch_correlation_id\`. THAT is the key the artifacts are written
+under — not the intake correlation printed above.
+
+Waiting up to 180s for the loop to claim it ...
+EOF
+  # Poll on TWO facts, not one. `run_corr` alone cannot distinguish "the loop
+  # has not claimed it yet" from "it claimed it and this chassis image predates
+  # the $ctx. bind" — and the second case would otherwise burn the full 180s on
+  # every run before printing the fallback.
+  RUN_CORR=""
+  CLAIM_STATE="awaiting_diagnosis"
+  for _ in $(seq 1 36); do
+    ROW=$(printf '%s' "
+      SELECT COALESCE(spec->>'dispatch_correlation_id','') || '|' || status
+      FROM site_work_items
+      WHERE site_id = '${SYSTEM_SITE_ID}' AND item_key = '${ITEM_KEY}'
+      ORDER BY created_at DESC LIMIT 1;" | "${PSQL[@]}" -t -A)
+    RUN_CORR="${ROW%%|*}"
+    CLAIM_STATE="${ROW##*|}"
+    [ -n "$RUN_CORR" ] && break
+    [ "$CLAIM_STATE" != "awaiting_diagnosis" ] && break   # claimed, but unstamped
+    sleep 5
+  done
+
+  if [ -n "$RUN_CORR" ]; then
+    echo ""
+    echo "SAVE: RUN_CORRELATION_ID=${RUN_CORR}   <- use THIS for artifacts/orchestrations"
+  else
+    cat <<EOF
+
+No run correlation yet (item status: ${CLAIM_STATE}). If it is still
+'awaiting_diagnosis' that is queue latency, not a drop — do NOT re-fire (a second
+intake for the same slug is a no-op anyway; a second DISPATCH is what 124 is
+about). If it has already moved on, the loop has it but this chassis image
+predates the \$ctx. bind. Either way:
+
+  SELECT spec->>'dispatch_correlation_id' AS run_corr, status, claimed_at
+  FROM site_work_items WHERE item_key = '${ITEM_KEY}' ORDER BY created_at DESC LIMIT 1;
+
+If run_corr stays NULL while the item goes to 'diagnosing', the chassis image
+predates the \$ctx. bind (bugs_open/124 P3) — find the run by time instead:
+  SELECT correlation_id, owner_agent_type, created_at FROM orchestration_states
+  WHERE owner_agent_type LIKE 'diagnose%' ORDER BY created_at DESC LIMIT 6;
+EOF
+  fi
+  exit 0
+fi
+
+# ── 3. direct dispatch — and THE CLAIM IS THE TICKET ──────────────────────────
+# Take the row out of the claimable pool before publishing, with the same
+# atomic move the loop uses. If this returns nothing, someone else owns the run
+# and we must not publish a second one. This is what holds even when the
+# `enabled` read above is stale — the loop ticks every 60 seconds, so it can go
+# live between that SELECT and this UPDATE.
+if [ "$DISPATCH" = "1" ] && [ "${LOOP_LIVE:-0}" != "0" ]; then
+  echo ""
+  echo "!! DISPATCH=1 with the dispatch loop LIVE — forcing a direct publish."
+  echo "   Only correct for a wedged loop. The claim below is what stops the"
+  echo "   loop also running it (bugs_open/124)."
+fi
+
+echo ""
+echo "-- claiming the intake for a direct dispatch ..."
+CLAIMED_ID=$(printf '%s' "
+  UPDATE site_work_items
+     SET status = 'diagnosing',
+         claimed_by = '090_TRIGGER_needs_diagnosis',
+         claimed_at = NOW(),
+         spec = jsonb_set(COALESCE(spec, '{}'::jsonb),
+                          '{dispatch_correlation_id}',
+                          to_jsonb('${CORRELATION_ID}'::text), true)
+   WHERE site_id = '${SYSTEM_SITE_ID}' AND item_key = '${ITEM_KEY}'
+     AND status = 'awaiting_diagnosis'
+  RETURNING id::text;" | "${PSQL[@]}" -t -A)
+
+if [ -z "$CLAIMED_ID" ]; then
+  cat <<EOF
+
+=========================================
+NOT DISPATCHING: could not claim the intake.
+=========================================
+The row is not at 'awaiting_diagnosis' — the dispatch loop, or another session,
+already owns this run. Publishing anyway is exactly bugs_open/124: a second
+paid diagnosis whose trail cannot be joined to the first.
+
+  SELECT status, claimed_by, claimed_at, spec->>'dispatch_correlation_id'
+  FROM site_work_items WHERE item_key = '${ITEM_KEY}' ORDER BY created_at DESC LIMIT 1;
+EOF
+  exit 1
+fi
+echo "   claimed ${CLAIMED_ID} (status=diagnosing) — the loop cannot take it now."
+
 echo ""
 echo "-- dispatching to ${TARGET_AGENT_TYPE} ..."
 kubectl -n kafka run -i --rm "kcat-diagnose-$(date +%s)" \
@@ -429,8 +577,11 @@ intake recorded and dispatched.
      -t -A -c "SELECT body FROM diagnosis_artifacts WHERE correlation_id='$CORRELATION_ID' AND kind='bundle' AND iteration=1" \\
      > bundle_iter1.md
 
-4) The intake record, and closing it by hand until a diagnose dispatch loop exists:
-   SELECT status, created_at, completed_at FROM site_work_items WHERE item_key = '$ITEM_KEY';
+4) The intake record. This was a DIRECT dispatch, so the row is now 'diagnosing'
+   and CLAIMED BY THIS SCRIPT — nothing will close it for you. (The loop closes
+   its own; this path never had a closer, and leaving it at 'awaiting_diagnosis'
+   was worse: enabling the loop would then re-run the whole stale backlog.)
+   SELECT status, claimed_by, created_at, completed_at FROM site_work_items WHERE item_key = '$ITEM_KEY';
    UPDATE site_work_items SET status='complete', completed_at=now()
    WHERE item_key = '$ITEM_KEY' AND status NOT IN ('complete','verified');
 

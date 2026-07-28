@@ -35,6 +35,15 @@ func QueryDatabaseAction(ctx context.Context, params ActionParams) (interface{},
 			if !ok {
 				continue
 			}
+			// The $ctx. namespace resolves from the RUN's own identity rather
+			// than from collected_data — see executionContextParam.
+			if ctxValue, isCtx, err := executionContextParam(params.ExecutionContext, pathStr); isCtx {
+				if err != nil {
+					return nil, err
+				}
+				queryArgs = append(queryArgs, ctxValue)
+				continue
+			}
 			value := datahelpers.ExtractNestedField(params.CollectedData, pathStr)
 			if value == nil {
 				// Try with input_data prefix
