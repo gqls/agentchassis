@@ -94,6 +94,21 @@ jq -e '[.plan.edits[] | select((.file//"")=="" or (.operation//"")=="" or (.rati
 jq -e '.plan.grounded_in | type == "array" and length > 0' "$SUBMISSION_FILE" >/dev/null \
   || { echo "ERROR: .plan.grounded_in is empty — quote the evidence this change rests on" >&2; exit 1; }
 
+# ── the three TYPE traps, added 2026-07-28 after a submission died server-side ──
+# A submission that satisfies every check above can still be refused at
+# diagnose_persist_fix_plan, which unmarshals into Go structs
+# (diagnose_persist_fix_plan_action.go:57-77). That refusal costs a dispatch and
+# ~30 minutes of queue, and surfaces only as current_step='complete_invalid' with
+# no verdict row — so it reads exactly like "still queued" until you look.
+# All three below were tripped by ONE real submission (corr c43a1166), which had
+# invented plausible richer shapes than the structs allow.
+jq -e '[.plan.edits[].operation | select(. as $o | ["modify","add","remove","config_change"] | index($o) | not)] | length == 0' "$SUBMISSION_FILE" >/dev/null \
+  || { echo "ERROR: .plan.edits[].operation must be one of modify|add|remove|config_change (allowedFixOperations). 'create' is NOT valid — a new file is 'add'." >&2; exit 1; }
+jq -e '[.plan.grounded_in[] | select(type != "string")] | length == 0' "$SUBMISSION_FILE" >/dev/null \
+  || { echo "ERROR: .plan.grounded_in must be an array of STRINGS (Go: []string) — put the source and what it settles inside the quote text, not in an object." >&2; exit 1; }
+jq -e '(.plan.risks // "") | type == "string"' "$SUBMISSION_FILE" >/dev/null \
+  || { echo "ERROR: .plan.risks must be a STRING (Go: string), not an array — join the risks into one prose block." >&2; exit 1; }
+
 # Scope pre-filter (the cheap deterministic filter from the design — keeps
 # docs/site-content submissions from spending council credits at all).
 if ! jq -e --arg re "$SCOPE_RE" '[.plan.edits[].file | select(test($re))] | length > 0' "$SUBMISSION_FILE" >/dev/null; then
