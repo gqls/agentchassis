@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,642 concepts across 107 category register files. 1,627 consolidated from
+1,643 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -932,7 +932,7 @@ an ID prefix, or a status word.
 | SCR-002 | Fetch-recorded provenance (datahelpers.ExtractFetchProvenance) | deployed | Provenance read from the fetch record, never asked of the model; live on v1.0.1192 | adopting-and-scraping.md |
 | SCR-003 | Declared config-key contract + unknown-key detection (ActionInputSpec) | deployed | Actions declare the step-config keys they read; three states, unknown/recognised/conditionally honoured. Opt in with CheckConfig: true | adopting-and-scraping.md |
 | SCR-004 | Config-key COVERAGE report (scripts/audit-config-keys.sh, cmd/config-key-audit) | deployed | Joins the binary's declarations against every live agent_definitions step config; separates unknown keys from undeclared actions | adopting-and-scraping.md |
-| SCR-005 | Config-key ADOPTION report (cmd/config-key-coverage) | deployed | Dumps every action's FULL spec, so "who is one line away from opting in?" is answerable without hand-reading 208 actions | adopting-and-scraping.md |
+| SCR-005 | Config-key ADOPTION report (cmd/config-key-audit --specs) | deployed | Dumps every action's FULL spec, so "who is one line away from opting in?" is answerable without hand-reading 208 actions | adopting-and-scraping.md |
 | DIAG-029 | Diagnosis subject threading through orchestrator input_mapping | deployed | Optional subject_type/subject_key fields required three coordinated edits across mapping and both contracts | diagnosis-loop.md |
 | MDL-018 | Anthropic client temperature parameter removed unconditionally | superseded | Opus 4.7+ rejects any non-default temperature; client omits it on every call | model-infrastructure.md |
 | VMB-011 | Cloudflare-proxied-in-front option | deployed | Orange-cloud CF in front of the VM origin; real-IP nginx config required | vm-backend-sites.md |
@@ -1460,6 +1460,7 @@ an ID prefix, or a status word.
 | ADP-002 | Adapter response-header tier taxonomy and validator-coverage gap | partial | Tier-2 routing fields aren't validator-enforced; unfiled tracking issue | adapters.md |
 | NAV-006 | Nav quality mechanisms of 2026-04-17 | deployed | Tiered priority, child-page exclusion, label trust, footer quick links shipped together | navigation.md |
 | RSH-002 | Composition resolver orphan-rows policy | aspirational | Tolerate cheap orphaned rows from failed installs; sweep via database-cleanup | resilience-self-heal.md |
+| RSH-003 | Retry-as-replay: an awaited request is re-sent, never rebuilt | deployed | A retry replays the recorded original; rebuilding it sent the PARENT id, empty body, wrong action | resilience-self-heal.md |
 | TLIB-002 | Never load html_template in listing queries (storage discipline) | deployed | Tool/component templates are large; listing and discovery queries must select metadata only, loading... | tool-library.md |
 | SYS-085 | Project Manager / User Representative agent hierarchy (abandoned) | abandoned | Top-level PM/user-rep persona hierarchy vanished; review intent moved to HITL | system-architecture.md |
 | DBG-003 | LLM step config field-path shadowing (ai_service/max_tokens/temperature) | partial | Top-level ai_service shadows step overrides; misplaced max_tokens silently defaults to ~2048 | debugging.md |

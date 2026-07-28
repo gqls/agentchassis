@@ -886,3 +886,51 @@ switched off, which is the only property worth pinning here.
   believing I had broken something I had not.
 
 Council: submitted, corr `07cf67c6-12f6-4c56-9646-bc17c4753d5f`.
+
+## §16 — 2026-07-28 ~21:20 — council APPROVED, and I acted on an advisory anyway
+
+Corr `07cf67c6-12f6-4c56-9646-bc17c4753d5f`: **APPROVED**, *"approved with 3 advisory
+objection(s) — none high-severity"*, `unreadable: 0`. Nothing was owed.
+
+### The three checkable advisories, checked
+
+`guardian` and `bug_historian` each asked for a claim to be confirmed rather than
+taken on my word. All three came back clean, and they were right to ask — I had
+asserted two of them:
+
+| advisory | check | result |
+|---|---|---|
+| `bug_historian`: *"StrictConfig claims to be 'set by nobody' — worth confirming, not just asserting"* | `grep -rn "StrictConfig:" --include=*.go platform/ internal/ pkg/` minus its own definition | **no hits.** Set by nobody, confirmed |
+| `guardian`: does `ExtractActionInputs` read config on a **side path**, outside Required/Optional? The whole 56-action batch rests on it | every `config[...]` read inside the function | 4 reads over `allFields` (= Required+Optional), 1 over `Deprecated`, 1 of `config["input_fields"]` — a **framework** key, always recognised. **No side path** |
+| `guardian`: could the new test action names collide with existing ones in the package? | count each `RegisterActionInputSpec("test_…")` name | 10 names, **each appearing exactly once** |
+
+### The advisory I acted on, which was not owed
+
+`editquality` and `reuse_agent` **independently** objected to `cmd/config-key-coverage`
+being a second binary: same registry API, same struct, same init-side-effect import,
+overlapping question, and no evidence I had considered a flag on the existing tool
+first. `reuse_agent` named it as the estate's known pattern — *two code paths
+independently solving overlapping problems that nobody unifies once both exist*.
+
+**They were right and I had not considered it.** Folded it into
+`cmd/config-key-audit --specs` and deleted the second binary. Verified rather than
+assumed, because the existing tool has a live consumer:
+
+- default output shape unchanged, `scripts/audit-config-keys.sh` re-run and correct;
+- `--specs` diffed against the deleted tool: **152 actions, 0 differing on any spec
+  field**.
+
+> **Worth recording: an APPROVED verdict is where an advisory is easiest to ignore,
+> and where ignoring it is cheapest to get away with.** Nothing was owed, the code was
+> already committed, and the trailer was already earned. The objection was still
+> correct. If advisories only get actioned when they gate a verdict, the council is a
+> pass/fail oracle rather than a review — and two seats reaching the same conclusion
+> from different footprints is about as strong a signal as this harness produces.
+
+While consolidating I also caught myself writing a comment claiming `opted_in` was
+*"derived from what the binary reports rather than re-implemented"* — over a line that
+re-implemented `CheckConfig || len(ConfigKeys) > 0`. Fixed by actually deriving it
+from `ListDeclaredConfigKeys` membership. **A fourth copy of a rule that until this
+morning had three would have been this tool committing the exact defect it exists to
+find**, and the comment would have vouched for the opposite. Same class as everything
+else in this file.

@@ -19,6 +19,26 @@
 //	  {"declared":    {"<action>": ["<key>", ...], ...},
 //	   "conditional": {"<action>": {"<key>": "<the condition>", ...}, ...}}
 //
+//	go run ./cmd/config-key-audit --specs
+//	  {"<action>": {"required": [...], "optional": [...], "config_keys": [...],
+//	                "deprecated": [...], "opted_in": bool}, ...}
+//
+// --specs answers the ADOPTION question rather than the coverage one: not "who has
+// opted in?" but "who is one line away?". An action whose spec already enumerates
+// every key its live steps carry can opt in with `CheckConfig: true` and assert
+// nothing new about behaviour; one whose spec is missing keys, or which has no spec
+// at all, needs reading first. Declaring a key an action does NOT read is worse than
+// declaring nothing — it silences the detector for a dead key (WRONG_CALLS.md
+// 2026-07-28) — so that distinction is the whole cost model of the ratchet.
+//
+// It is a FLAG rather than a second binary because the council gate's editquality
+// and reuse_agent seats both objected to the second binary independently
+// (2026-07-28, corr 07cf67c6): same registry API, same struct, same init-side-effect
+// import, overlapping question. They were right — "two code paths independently
+// solving overlapping problems that nobody unifies once both exist" is a named
+// failure pattern in this estate. The DEFAULT output is unchanged byte-for-byte, so
+// scripts/audit-config-keys.sh is unaffected.
+//
 // TWO maps, not one merged list. "declared" is every key an action recognises;
 // "conditional" is the subset honoured only under a stated condition. Merging
 // them would recreate exactly the blindness the second map was added to fix —
@@ -39,6 +59,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 
 	// Imported for its init() side effects: every action registers its
 	// ActionInputSpec here.
@@ -46,7 +67,21 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
+// specDump is the --specs shape: an action's FULL declared contract, not just the
+// key set the coverage report joins on.
+type specDump struct {
+	Required   []string `json:"required"`
+	Optional   []string `json:"optional"`
+	ConfigKeys []string `json:"config_keys"`
+	Deprecated []string `json:"deprecated"`
+	OptedIn    bool     `json:"opted_in"`
+}
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--specs" {
+		emitSpecs()
+		return
+	}
 	declared := datahelpers.ListDeclaredConfigKeys()
 	conditional := datahelpers.ListConditionalConfigKeys()
 
@@ -74,4 +109,67 @@ func main() {
 		fmt.Fprintf(os.Stderr, "config-key-audit: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// emitSpecs dumps every registered action's full ActionInputSpec.
+//
+// Same refusal-on-empty as the default path, and for the same reason: a dropped
+// blank import would make this print "{}" — read as "no action declares anything",
+// which is a coverage gap of exactly the wrong sign — rather than failing.
+func emitSpecs() {
+	names := datahelpers.ListActionInputSpecNames()
+	if len(names) == 0 {
+		fmt.Fprintln(os.Stderr,
+			"config-key-audit --specs: no action registered an ActionInputSpec.\n"+
+				"That is either true or the actions package is no longer linked in, in "+
+				"which case this would report an empty gap rather than failing. Check "+
+				"the blank import before believing it.")
+		os.Exit(2)
+	}
+
+	// opted_in is taken from datahelpers' OWN gate rather than recomputed here.
+	// ListDeclaredConfigKeys already returns exactly the opted-in actions, so
+	// membership of it IS the answer. Re-deriving `CheckConfig || len(ConfigKeys)>0`
+	// in this file would create a fourth copy of a rule that until today had three,
+	// and those three silently disagreeing is the defect class this whole tool
+	// exists to surface — writing a fresh one here would be the tool committing it.
+	optedIn := datahelpers.ListDeclaredConfigKeys()
+
+	out := make(map[string]specDump, len(names))
+	for _, name := range names {
+		spec, ok := datahelpers.GetActionInputSpec(name)
+		if !ok {
+			continue
+		}
+		dep := make([]string, 0, len(spec.Deprecated))
+		for k := range spec.Deprecated {
+			dep = append(dep, k)
+		}
+		sort.Strings(dep)
+		_, isOptedIn := optedIn[name]
+		out[name] = specDump{
+			Required:   nonNil(spec.Required),
+			Optional:   nonNil(spec.Optional),
+			ConfigKeys: nonNil(spec.ConfigKeys),
+			Deprecated: dep,
+			OptedIn:    isOptedIn,
+		}
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(out); err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --specs: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// nonNil keeps the JSON shape stable: a missing list encodes as [] rather than
+// null, so a consumer can iterate without a nil check and cannot mistake
+// "declares nothing" for "key absent from the dump".
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
