@@ -81,6 +81,34 @@ failed; raise `thinking_reserve_tokens` in that step's `ai_service`.
 group). The owner has a thread on it. If the item sits at `triaged` with
 `attempt_count 0` and never moves, that is 029, not this workstream.
 
+### 2. ~~The cost question you cannot currently answer~~ — BUILT + APPROVED 2026-07-28, one step left
+
+> **UPDATED 2026-07-28.** `110` candidate 2 is **built, applied and council-APPROVED
+> unanimously** (`Council-Reviewed: fa4ec9c8-34f4-4ea1-afcd-79d3a219e899`,
+> `decided_by: "all reviewers approve"`, 10/10, `unreadable: 0`). Migration **245 is
+> live**: `wire_max_output_tokens`, `thinking_reserve_tokens`, `thinking_tokens`,
+> `total_output_tokens` on `llm_call_log`. Go committed `4ca21d7d6`.
+>
+> **THE ONLY REMAINING STEP IS AN IMAGE BUILT AT OR AFTER HEAD, THEN ONE GEMINI CALL.**
+> `110` stays OPEN until then and every column reads NULL. **v1.0.1180 does NOT carry
+> it** — the commit landed 22:02:16Z and the pod started 22:06:22Z, so the build was
+> already under way. Post-roll check: the four columns non-NULL on a Gemini row, with
+> `thinking_tokens` in the 2,764–2,878 range measured for the writer's real prompt.
+> Queries and their three traps are in RUNBOOK §10.
+>
+> **Do not pod-grep `wire_max_output_tokens` or `thinking_reserve_tokens` to check
+> whether it shipped** — they match `__sent_*` keys that have been in the binary since
+> `107`, so they count >0 on a binary WITHOUT the change. Only `total_output_tokens`
+> discriminates; pair it with a positive control from the same INSERT
+> (`rag_context_used`, `prompt_variant`).
+>
+> The design notes worth not re-deriving: **one `Options` map, not four settable
+> fields**, because there are **seven** `LogLLMCall` sites (the council found five I
+> had missed) and a map cannot be partially populated; and the four values are read
+> **before** the fire-and-forget goroutine starts, because the caller may reuse the map.
+
+*Original text, left for the record:*
+
 ### 2. The cost question you cannot currently answer
 
 The owner asked to keep an eye on costs. **You cannot, from a query.** `110`
