@@ -1971,3 +1971,46 @@ rewriting it in place would orphan the file descriptor and lose real events. Exc
 ⇒ **The only remaining relojistas work that a box can do is done.** Next: leave real-ip traffic
 to accumulate a few days, then re-check the P8 reversal trigger (board-param requests showing
 distinct real IPs or conditional GETs) — a question that was unfalsifiable until 07-27.
+
+
+## 2026-07-28 (2) — sitemap live; the crawler answer revisited and reversed in part
+
+**Sitemap SHIPPED** (`vm-sites 5058da7`, live and validated): 18 URLs with `lastmod`, and
+**every one probed 200 before being listed** — a sitemap advertising a 404 is worse than none.
+The site had never had one, and something was already asking: 16 requests in 33h carry
+`http://www.relojistas.com/sitemap.xml` as a *referer* while the file 404'd.
+
+**The owner pushed back on my crawler conclusion and was right.** Full revision at the foot of
+`EVIDENCE_2026-07-28_crawl_budget_and_the_dead_forum.md`. The short version of my error: I
+measured what crawlers do with **404s** — nothing — and presented it as what they would do with
+**content**. Two different questions; the evidence could not settle the second.
+
+What the second look found, all directly measured:
+
+```
+ClaudeBot / GPTBot / CCBot  -> DISALLOWED      Googlebot / Applebot -> allowed
+ClaudeBot: 24 requests, ALL of them robots.txt, ZERO pages.
+```
+
+- **The managed robots.txt contradicts itself**: `Content-Signal: use=reference` grants citation,
+  then the named-agent groups `Disallow: /` the very agents that would cite. The specific group
+  wins ⇒ the permission is a dead letter. Cloudflare's managed file + its block-AI toggle,
+  neither of which anyone here chose.
+- **The decisive argument I missed first time:** a robots.txt block is *voluntary compliance*.
+  The 184k/day sweep ignores it; ClaudeBot obeyed it. **So the block stops the crawlers that
+  would attribute and cite, and does nothing to the ones that take without credit.**
+
+*Check that would have caught the original error:* **when the answer is "nothing happens", ask
+whether the input was ever non-empty.** Every crawler was getting a 404; "they do nothing with
+our content" was never tested, because they never received any.
+
+**Housekeeping trap, third instance this week:** the revisit was written while another session
+had the shared tree **mid-merge on a different branch** (`086_experience_loop` →
+`087_towards_multiple_domains`, switched under me). `git commit <path>` refuses during a merge
+("cannot do a partial commit during a merge"), so the file sat uncommitted — and was then
+**swept into their merge commit `176e56ad8 "v1.0.1189 merge complete"`**. Content verified
+intact at HEAD; nothing lost, forward-only holds. Recording the pointer because the commit
+message says nothing about it and `git log` on the file would mislead anyone looking for the
+reasoning. This is the documented `add -A` hazard, and the mitigation remains the same: **commit
+narrowly the moment the work is coherent** — which a merge in progress can prevent, so also
+**check `.git/MERGE_HEAD` before assuming your commit will land.**
