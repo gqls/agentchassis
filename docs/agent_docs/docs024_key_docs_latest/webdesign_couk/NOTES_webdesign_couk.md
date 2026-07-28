@@ -1260,3 +1260,93 @@ exactly; `recommended: true` still set, so the site stays in `find_news_sites`;
 be known until the next ingestion — and note the measured behaviour that the
 6-hourly task effectively runs 12-hourly, so the realistic next chance is the
 ~07:49 tick. **Read the titles before building the news page.**
+
+---
+
+## 2026-07-28 09:10 — the beacon is in the chrome, and the news retune found a much bigger bug
+
+### Beacon: SQL_p13's fix is CONFIRMED
+
+Forced chrome rebuild (`nav_drift:...:cf-beacon-2`) on chassis v1.0.1180, 11h old
+so well clear of the ~300s dispatch window. Stored chrome now carries, verbatim:
+
+```html
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon='{"token": "633f794e53dc4f718e91be595d7037ff"}'></script>
+```
+
+`site_components.head.updated_at` 09:10:12, beacon `t`, token `t`. So the
+schema-`fallback` route works and the `content_data` route never could — settled.
+
+**Not live yet, and that is expected.** nav-updater queued **99 `page_rerender`
+items** itself (exactly 117's recipe — do not queue them yourself). A ~98-page
+rerender runs ~3.5h and shows nothing for ~20 min, so the live page will not carry
+the beacon for a while. `curl | grep -c cloudflareinsights` on the home page is
+still 0. **The stored artefact is the thing that proves the fix; the live page
+proves the rerender.**
+
+### The retuned queries: partly better, and the reason is NOT the wording
+
+Second ingestion (07:50 tick) fetched all five retuned sources, 53 items. Honest
+verdict — the retune only partly worked:
+
+- `design industry moves` — **2 of 10 useful.** It did surface *"Anticipated
+  acquisition by Adobe Inc. of Figma, Inc."*, which is exactly the target. But the
+  rest were `Design Agencies Market Research Report 2034`, `Creative Agency Market
+  Trends & Forecast Data 2035`, `Merge: Trusted M&A Advisor to Buy and Sell
+  Agencies` — **report vendors and M&A advisory marketing.** I replaced one market
+  category with another.
+- `typography and design systems` — **poor.** `28 Best Free Fonts for Modern UI
+  Design in 2026`, `Favourite free (open source) software? : r/typography` (twice,
+  so dedup missed it). "free"/"open source" pulled resource round-ups.
+- `web platform standards` — **poor, differently.** `HTML5 specification`, `The web
+  standards model — MDN`, `What is the difference between W3C and WHATWG? :
+  r/javascript`. Naming authorities got me the authorities' **evergreen
+  documentation**, not events.
+
+> **My "technology/authority beats market category" rule was half right and I
+> should have distrusted it sooner.** It explains why the two originals worked, but
+> it cannot explain 2034-dated forecast pages. The honest reading is that ALL of
+> these look like web-search results — ranked by authority and SEO, undated — and
+> that is a property no amount of phrasing changes.
+
+### Which turned out to be literally true — `bugs_open/127` (NEW, unowned, FLEET-WIDE)
+
+**Every "news search" feed on every site is a plain WEB search.** The chain is
+intact until the last hop, which is exactly why it reads as correct from the inside:
+
+1. `FetchNewsSearchAction` (`feed_fetch_async_actions.go:158`) **forces**
+   `params.StepConfig.Config["search_type"] = "news"`, and its doc comment at :119
+   states the guarantee.
+2. `WebSearchAction` reads it (`:62`) and puts it in the Kafka payload (`:161`).
+3. The adapter unmarshals it (`adapter.go:46`) and **logs it** (`:199`).
+4. Then: `provider.Search(attemptCtx, query, numResults)` (`adapter.go:371`) — and
+   `SearchProvider` (`providers/provider.go:7`) is
+   `Search(ctx, query string, numResults int)`. **There is no parameter for it to
+   travel in.** Unmarshalled, logged, dropped.
+
+`grep -c search_type providers/*.go` → duckduckgo **0**, scrapingbee **0**,
+firecrawl **0**. And `providers.SearchOptions{SearchType, Language, Region,
+TimeRange, SafeSearch, Domains}` is defined and **never constructed anywhere** — so
+`TimeRange` is dead too, i.e. **no recency constraint exists on any feed**. That is
+the direct explanation for market-forecast pages dated 2034–2035 arriving in a news
+feed, and for `source_published_at` being NULL on all 53 rows.
+
+> **I nearly filed the opposite claim.** My first reading was "the sources don't set
+> `search_type`, so they default to web" — I had the config in front of me and it
+> was absent. Reading one hop further showed the *action* forces it, which would
+> have made that filing wrong in a way a reviewer could not have caught without
+> opening the same file. **Grepping for the key in the CONSUMER is what settled
+> it** — and the sharpest form of the standing lesson: a dead key normally looks
+> like a live one, but this one looked *better* than live, because it is known,
+> typed, logged, and structurally unable to arrive.
+
+**Consequence for this site: keep SQL_p14 but stop expecting it to fix the feed.**
+The retune was still worth doing on its own compliance grounds — it retired the
+agency-ranking query that collided with the "never publish comparative rankings of
+named agencies" rail. But **the news page cannot be built on this material yet.**
+The honest options are (a) wait for 127, or (b) switch this site to `api_news`
+(`FetchLLMNewsAction`, which supports `hours_lookback` and genuinely searches for
+recent items) — that works TODAY with no code change, but costs LLM calls per fetch
+and the spec deliberately chose `news_search` to avoid an unchosen xAI source.
+**That is an owner call, not mine.**
