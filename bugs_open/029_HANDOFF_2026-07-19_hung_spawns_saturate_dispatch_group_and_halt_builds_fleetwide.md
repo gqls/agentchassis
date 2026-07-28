@@ -829,4 +829,35 @@ was still in flight**, so it is also duplicated paid work.
 
 Two consequences: counting `failed` needs_diagnosis items over-counts this bug, and the
 dispatch loop is manufacturing instances of it. The item-closing gap looks separable and
-cheaper than the spawn defect itself.
+cheaper than the spawn defect itself. **Now filed separately as `bugs_open/124`** with a
+live specimen — one item, two complete diagnosis chains, two correlations.
+
+### Re-measured 2026-07-28 10:00 on v1.0.1182 — ABATED, but NOT proven fixed
+
+Using the free reproducer above rather than a paid run.
+
+| window | image | `build-pipeline-trigger` runs | `spawn_dispatch` timeouts |
+|---|---|---|---|
+| 07-27 20:00–22:45 | 1179 → 1180 | 25, 24, 23 per hour | 12, 1, 13 |
+| **07-28 07:05–09:55** | 1180/1181 | 4, 1, **21** per hour | **0** |
+| 07-28 09:57–09:59 | 1182 | — | 2 |
+
+**The 09:00 hour is the meaningful cell: 21 spawns, zero timeouts.** The fleet was busy
+(150 orchestrations that hour), so unlike the overnight gap this is not an idle-fleet
+zero — the control was run precisely because the previous section warns about that.
+
+Two reasons not to call it fixed:
+
+- **The bug is bursty and has produced clean hours before** — 07-27 `21:00` was 24 runs
+  and 1 timeout, so one good hour is inside the historical variance. This needs a longer
+  busy window before anyone closes it.
+- **The two timeouts at 09:57:29 and 09:59:59 are almost certainly roll-casualties, not
+  the defect**: the chassis rolled at 09:55:02Z and they land in the two minutes after.
+  A roll kills in-flight work by design. `[INFERRED]` — I have not confirmed those two
+  requests belonged to orchestrations that were live across the restart.
+
+**What did NOT cause the improvement:** `afbd005f9` (*"CLAIM_RECOVERY may no longer steal
+a live claim"*) is in `processResponseClaimWithRetry`, adjacent to this bug's territory,
+but it was committed at **10:52** — after the clean window and after the `v1.0.1182` image
+started at 09:55:02Z, so it cannot be in it. Whatever changed between `1180` and `1182` is
+unidentified. Do not attribute the abatement to that fix.
