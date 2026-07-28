@@ -3793,6 +3793,61 @@ drift class the council reviews for.
 Category tags: `registered-but-never-read`, `grep-the-getter-not-the-setter`,
 `inert-layer`.
 
+### `psql -t -A` prints the command tag on a non-SELECT — and it can make a guard pass
+*(2026-07-28, bugs_open/124. Third independent hit; the first two were fixed
+locally and never written down where a third thread would look.)*
+
+`-t` suppresses the header and footer **of a result set**. It does nothing to the
+status line of an `UPDATE`/`INSERT`/`DELETE`. So this:
+
+```bash
+CLAIMED=$(printf '%s' "UPDATE q SET … WHERE … RETURNING id::text;" | psql -t -A)
+if [ -z "$CLAIMED" ]; then echo "someone else has it"; exit 1; fi
+```
+
+**never takes the guard branch.** A statement matching *zero rows* returns the
+eight-character string `UPDATE 0`, and `[ -z ]` sees a value. The happy path is
+perfect and conceals it completely: when a row *does* match, the RETURNING value
+comes back and looks exactly like a working claim.
+
+**Why this one is worth an entry rather than a shrug.** Two threads had already
+hit it and each solved it privately, in a comment in its own script:
+`idea_uk_vm_site/054_chrome_verify/02_verify_054_induced_fault.sh` avoided
+`RETURNING` altogether (INSERT, then a separate SELECT);
+`webdesign_couk/scripts/watch_park_webdesign.sh` filtered the tag out of the
+stream with `case "$line" in UPDATE\ [0-9]*) continue`. Neither reached 016b or
+`WRONG_CALLS`, so the third thread shipped it — into a **claim guard**, where the
+failure mode is far worse than theirs. Their bug printed noise you could see. Mine
+dispatched a paid job against a work item another dispatcher already owned, and
+reported success. **A local fix in a local comment is not a fix for the fleet.**
+
+**The check.** Grep your own scripts for a command substitution around a
+non-SELECT: `grep -n 'RETURNING' *.sh` and look at what captures it.
+
+**The fix, and use both halves.**
+
+1. **Wrap the statement in a CTE and SELECT from it**, so it genuinely is a SELECT
+   and no rows means no output:
+   ```sql
+   WITH claimed AS (UPDATE q SET … WHERE … RETURNING id) SELECT id::text FROM claimed;
+   ```
+   Verified both ways live: length 0 on no match, length 36 on a match.
+2. **Assert the SHAPE, not presence.** A guard that accepts any non-empty string is
+   what let `UPDATE 0` through — and note that `UPDATE 1` (the tag when a row *did*
+   match) would sail through a presence test as if it were an id.
+   ```bash
+   printf '%s' "$CLAIMED" | grep -Eq '^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$' || { …refuse… }
+   ```
+
+**Generalisation.** `psql -t -A` into a shell variable is safe for `SELECT` and
+unsafe for everything else. And the standing rule that found this: **a green happy
+path proves deployment, not correctness — induce the fault.** Two hours of live
+verification on the good case had already passed without touching it; five minutes
+of staging the bad case exposed it immediately.
+
+Category tags: `psql-command-tag`, `guard-that-cannot-fail`,
+`verify-the-failing-branch`, `local-fix-never-generalised`.
+
 ### Turning on the automatic path does not turn off the manual one
 *(bugs_open/124, 2026-07-28. Fleet-wide shape, not a diagnosis-lane quirk.)*
 
