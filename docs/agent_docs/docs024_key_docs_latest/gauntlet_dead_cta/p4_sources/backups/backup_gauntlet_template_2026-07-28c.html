@@ -1,0 +1,784 @@
+<style>
+  .gauntlet-interface-section {
+    --section-text: var(--color-primary-text, var(--color-background));
+    --section-text-muted: rgba(255,255,255,0.7);
+    --section-heading: var(--color-primary-text, var(--color-background));
+    --section-surface: rgba(255,255,255,0.05);
+    --section-border: color-mix(in srgb, var(--color-primary-text, var(--color-background)) 25%, transparent);
+    background: var(--color-primary);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,0,0,0.35) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.03) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.03) 60px);
+    color: var(--section-text);
+    padding: 4rem 1.5rem 5rem;
+    position: relative;
+    overflow: hidden;
+    font-family: inherit;
+  }
+
+  .gauntlet-interface-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 40% at 50% 100%, rgba(var(--color-primary, 220,38,38), 0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .gauntlet-interface-section .gi-container {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .gauntlet-interface-section .gi-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .gauntlet-interface-section .gi-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-accent, #fbbf24);
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.3);
+    padding: 0.35rem 1rem;
+    border-radius: 2px;
+    margin-bottom: 1.25rem;
+  }
+
+  .gauntlet-interface-section .gi-eyebrow::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--color-accent, #fbbf24);
+    border-radius: 50%;
+    animation: gi-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes gi-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  .gauntlet-interface-section .gi-title {
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 900;
+    line-height: 1.05;
+    color: var(--section-heading);
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+    text-shadow: 0 0 40px rgba(220,38,38,0.4);
+    overflow-wrap: anywhere;
+  }
+
+  /* The accent CANNOT be --color-primary: this section's own background IS
+     --color-primary, so both resolve to the same colour and the word vanishes.
+     Measured 2026-07-28: 1.00:1. It was 1.34:1 with the previous primary, i.e.
+     this was NEVER readable — not a recent regression. --color-stage measures
+     3.31:1 against #6d28d9, passing AA for large text while staying distinct
+     from the white run of the headline. bugs_open/131 item A. */
+  .gauntlet-interface-section .gi-title .gi-title-accent {
+    color: var(--color-stage, #f59e0b);
+  }
+
+  .gauntlet-interface-section .gi-subtitle {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    color: var(--section-text-muted);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Arena grid */
+  .gauntlet-interface-section .gi-arena {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .gauntlet-interface-section .gi-arena > * {
+    min-width: 0;
+  }
+
+  /* Challenge panel */
+  .gauntlet-interface-section .gi-challenge-panel {
+    background: var(--section-surface);
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius, 6px);
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  }
+
+  .gauntlet-interface-section .gi-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--section-border);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .gauntlet-interface-section .gi-panel-title {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--section-text-muted);
+  }
+
+  .gauntlet-interface-section .gi-difficulty-badge {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.75rem;
+    border-radius: 2px;
+    background: rgba(220,38,38,0.2);
+    color: var(--color-primary, #dc2626);
+    border: 1px solid rgba(220,38,38,0.4);
+  }
+
+  .gauntlet-interface-section .gi-challenge-body {
+    padding: 2rem 1.5rem;
+  }
+
+  .gauntlet-interface-section .gi-challenge-eyebrow {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-accent, #fbbf24);
+    margin-bottom: 0.75rem;
+  }
+
+  .gauntlet-interface-section .gi-challenge-title {
+    font-size: clamp(1.75rem, 3.6vw, 2.5rem);
+    font-weight: 800;
+    color: var(--section-heading);
+    margin: 0 0 1rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .gauntlet-interface-section .gi-challenge-text {
+    font-size: 1.15rem;
+    color: var(--section-text-muted);
+    line-height: 1.7;
+    margin: 0 0 1.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  .gauntlet-interface-section .gi-challenge-intro {
+    font-size: 1.05rem;
+    color: var(--section-text-muted);
+    line-height: 1.6;
+    margin: 0 0 1rem;
+  }
+
+  /* Status line — the honest channel for offline / errors / progress */
+  .gauntlet-interface-section .gi-status {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--section-text-muted);
+    background: rgba(255,255,255,0.04);
+    border-left: 3px solid var(--section-border);
+    padding: 0.65rem 0.9rem;
+    margin: 0 0 1.5rem;
+    border-radius: 0 4px 4px 0;
+    overflow-wrap: anywhere;
+  }
+
+  .gauntlet-interface-section .gi-status.is-working {
+    border-left-color: var(--color-accent, #fbbf24);
+    color: var(--section-text);
+  }
+
+  .gauntlet-interface-section .gi-status.is-error {
+    border-left-color: var(--color-primary, #dc2626);
+    background: rgba(220,38,38,0.1);
+    color: var(--section-text);
+  }
+
+  .gauntlet-interface-section .gi-status.is-live {
+    border-left-color: #22c55e;
+    color: var(--section-text);
+  }
+
+  /* Objectives — state is set by the round, never by clicking */
+  .gauntlet-interface-section .gi-objectives {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .gauntlet-interface-section .gi-objective {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 4px;
+    font-size: 0.875rem;
+    color: var(--section-text);
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .gauntlet-interface-section .gi-objective.is-complete {
+    border-color: rgba(34,197,94,0.3);
+    background: rgba(34,197,94,0.05);
+  }
+
+  .gauntlet-interface-section .gi-obj-check {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border-radius: 3px;
+    border: 2px solid rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .gauntlet-interface-section .gi-objective.is-complete .gi-obj-check {
+    background: #22c55e;
+    border-color: #22c55e;
+  }
+
+  .gauntlet-interface-section .gi-obj-check svg {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .gauntlet-interface-section .gi-objective.is-complete .gi-obj-check svg {
+    opacity: 1;
+  }
+
+  .gauntlet-interface-section .gi-obj-text {
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .gauntlet-interface-section .gi-objective.is-complete .gi-obj-text {
+    color: var(--section-text-muted);
+  }
+
+  /* Progress */
+  .gauntlet-interface-section .gi-progress-wrap {
+    margin-bottom: 1.75rem;
+  }
+
+  .gauntlet-interface-section .gi-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+
+  .gauntlet-interface-section .gi-progress-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--section-text-muted);
+  }
+
+  .gauntlet-interface-section .gi-progress-pct {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--color-primary, #dc2626);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gauntlet-interface-section .gi-progress-track {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .gauntlet-interface-section .gi-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary, #dc2626), var(--color-accent, #fbbf24));
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 0 8px rgba(220,38,38,0.6);
+  }
+
+  /* CTA row */
+  .gauntlet-interface-section .gi-cta-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .gauntlet-interface-section .gi-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.5rem;
+    background: var(--color-primary, #dc2626);
+    color: var(--color-primary-text, #ffffff);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+    text-decoration: none;
+    min-height: 44px;
+    box-shadow: 0 0 20px rgba(220,38,38,0.3);
+  }
+
+  .gauntlet-interface-section .gi-cta-row .gi-btn-primary {
+    flex: 1 1 12rem;
+  }
+
+  .gauntlet-interface-section .gi-btn-primary:hover {
+    background: var(--color-primary-hover, #b91c1c);
+    transform: translateY(-1px);
+    box-shadow: 0 0 30px rgba(220,38,38,0.5);
+  }
+
+  .gauntlet-interface-section .gi-btn-primary[aria-busy="true"] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .gauntlet-interface-section .gi-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 1.25rem;
+    background: transparent;
+    color: var(--section-text);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    text-decoration: none;
+    min-height: 44px;
+  }
+
+  .gauntlet-interface-section .gi-btn-secondary:hover {
+    border-color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.05);
+    color: #ffffff;
+  }
+
+  /* Debate steps */
+  .gauntlet-interface-section .gi-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .gauntlet-interface-section .gi-step {
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius, 6px);
+    background: rgba(255,255,255,0.03);
+    padding: 1.25rem;
+  }
+
+  .gauntlet-interface-section .gi-step.is-empty {
+    display: none;
+  }
+
+  .gauntlet-interface-section .gi-step-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-accent, #fbbf24);
+    margin: 0 0 0.5rem;
+  }
+
+  .gauntlet-interface-section .gi-step-hint {
+    font-size: 0.8rem;
+    color: var(--section-text-muted);
+    line-height: 1.5;
+    margin: 0 0 0.85rem;
+  }
+
+  .gauntlet-interface-section .gi-input {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--section-border);
+    border-radius: 4px;
+    color: var(--section-text);
+    font-family: inherit;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    padding: 0.75rem 0.9rem;
+    resize: vertical;
+    min-height: 6.5rem;
+  }
+
+  .gauntlet-interface-section .gi-input:focus-visible {
+    outline: 2px solid var(--color-accent, #fbbf24);
+    outline-offset: 1px;
+  }
+
+  .gauntlet-interface-section .gi-input::placeholder {
+    color: rgba(255,255,255,0.4);
+  }
+
+  .gauntlet-interface-section .gi-step-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.85rem;
+  }
+
+  .gauntlet-interface-section .gi-count {
+    font-size: 0.7rem;
+    color: var(--section-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gauntlet-interface-section .gi-count.is-over {
+    color: var(--color-primary, #dc2626);
+    font-weight: 700;
+  }
+
+  .gauntlet-interface-section .gi-reply-text,
+  .gauntlet-interface-section .gi-verdict-reasons {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: var(--section-text);
+    overflow-wrap: anywhere;
+  }
+
+  .gauntlet-interface-section .gi-reply-text {
+    border-left: 3px solid var(--color-primary, #dc2626);
+    padding-left: 0.9rem;
+  }
+
+  .gauntlet-interface-section .gi-reply-challenge {
+    margin: 1rem 0 0;
+    font-size: 1.08rem;
+    line-height: 1.65;
+    color: var(--section-text);
+    overflow-wrap: anywhere;
+  }
+
+  .gauntlet-interface-section .gi-reply-tag {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--section-text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .gauntlet-interface-section .gi-verdict-line {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--section-heading);
+    margin: 0 0 0.75rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  /* Sidebar */
+  .gauntlet-interface-section .gi-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .gauntlet-interface-section .gi-timer-card {
+    background: var(--section-surface);
+    border: 1px solid var(--section-border);
+    border-radius: var(--border-radius, 6px);
+    padding: 1.25rem;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .gauntlet-interface-section .gi-timer-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--color-primary, #dc2626), var(--color-accent, #fbbf24));
+  }
+
+  .gauntlet-interface-section .gi-timer-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--section-text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .gauntlet-interface-section .gi-timer-display {
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: var(--section-heading);
+    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    text-shadow: 0 0 20px rgba(220,38,38,0.5);
+  }
+
+  .gauntlet-interface-section .gi-timer-display.is-urgent {
+    color: var(--color-primary, #dc2626);
+    animation: gi-flicker 0.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes gi-flicker {
+    from { text-shadow: 0 0 10px rgba(220,38,38,0.8); }
+    to { text-shadow: 0 0 30px rgba(220,38,38,1), 0 0 60px rgba(220,38,38,0.4); }
+  }
+
+  .gauntlet-interface-section .gi-timer-sub {
+    font-size: 0.65rem;
+    color: var(--section-text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .gauntlet-interface-section .gi-rules-card {
+    background: linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(220,38,38,0.08) 100%);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: var(--border-radius, 6px);
+    padding: 1.25rem;
+    text-align: left;
+  }
+
+  .gauntlet-interface-section .gi-rules-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-accent, #fbbf24);
+    margin-bottom: 0.5rem;
+  }
+
+  .gauntlet-interface-section .gi-rules-list {
+    margin: 0.35rem 0 0.6rem;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .gauntlet-interface-section .gi-rules-list li {
+    font-size: 0.78rem;
+    color: var(--section-text-muted);
+    line-height: 1.45;
+  }
+
+  .gauntlet-interface-section .gi-rules-foot {
+    font-size: 0.75rem;
+    color: var(--section-text-muted);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .gauntlet-interface-section .gi-arena {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .gauntlet-interface-section .gi-sidebar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .gauntlet-interface-section {
+      padding: 3rem 1rem 4rem;
+    }
+    .gauntlet-interface-section .gi-sidebar {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .gauntlet-interface-section .gi-cta-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .gauntlet-interface-section .gi-btn-secondary {
+      width: 100%;
+    }
+  }
+</style>
+
+<section class="gauntlet-interface-section" data-component="gauntlet-interface">
+  <div class="gi-container">
+
+    <header class="gi-header">
+      <div class="gi-eyebrow">{{.eyebrow_label}}</div>
+      <h1 class="gi-title">{{.hero_title_plain}} <span class="gi-title-accent">{{.hero_title_accent}}</span></h1>
+      <p class="gi-subtitle">{{.hero_subtitle}}</p>
+    </header>
+
+    <div class="gi-arena">
+
+      <article class="gi-challenge-panel" aria-label="Today's provocation">
+        <div class="gi-panel-header">
+          <span class="gi-panel-title">{{.panel_active_label}}</span>
+          <span class="gi-difficulty-badge" data-gi-round-state>{{.difficulty_badge_label}}</span>
+        </div>
+        <div class="gi-challenge-body">
+          <div class="gi-challenge-eyebrow" data-gi-challenge-eyebrow></div>
+          <h2 class="gi-challenge-title" data-gi-challenge-title></h2>
+          <p class="gi-challenge-text" data-gi-challenge-body></p>
+          <p class="gi-challenge-intro">{{.challenge_intro}}</p>
+
+          <p class="gi-status" data-gi-status role="status" aria-live="polite">{{.status_initial}}</p>
+
+          <div class="gi-cta-row">
+            <button type="button" class="gi-btn-primary" data-gi-enter-btn>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              {{.cta_enter_label}}
+            </button>
+            <a href="#gi-rules" class="gi-btn-secondary" data-gi-rules-btn>{{.cta_preview_label}}</a>
+          </div>
+
+          <ul class="gi-objectives" aria-label="Round objectives" data-gi-objectives>
+            <li class="gi-objective" data-gi-obj>
+              <span class="gi-obj-check" aria-hidden="true">
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="gi-obj-text">{{.objective_1}}</span>
+            </li>
+            <li class="gi-objective" data-gi-obj>
+              <span class="gi-obj-check" aria-hidden="true">
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="gi-obj-text">{{.objective_2}}</span>
+            </li>
+            <li class="gi-objective" data-gi-obj>
+              <span class="gi-obj-check" aria-hidden="true">
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="gi-obj-text">{{.objective_3}}</span>
+            </li>
+          </ul>
+
+          <div class="gi-progress-wrap">
+            <div class="gi-progress-meta">
+              <span class="gi-progress-label">{{.progress_label}}</span>
+              <span class="gi-progress-pct" data-gi-pct>0% Complete</span>
+            </div>
+            <div class="gi-progress-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" data-gi-track>
+              <div class="gi-progress-fill" data-gi-fill></div>
+            </div>
+          </div>
+
+          <div class="gi-steps">
+
+            <section class="gi-step" aria-label="File your position">
+              <h3 class="gi-step-title">{{.position_step_title}}</h3>
+              <p class="gi-step-hint">{{.position_step_hint}}</p>
+              <textarea class="gi-input" data-gi-position-input maxlength="2000" rows="4"
+                        placeholder="{{.position_placeholder}}" aria-label="Your position"></textarea>
+              <div class="gi-step-foot">
+                <span class="gi-count" data-gi-position-count>0 / 2000</span>
+                <button type="button" class="gi-btn-primary" data-gi-position-submit>{{.position_submit_label}}</button>
+              </div>
+            </section>
+
+            <section class="gi-step gi-reply is-empty" data-gi-opponent-block aria-label="The opponent replies">
+              <h3 class="gi-step-title">{{.opponent_title}}</h3>
+              <blockquote class="gi-reply-text" data-gi-opponent-position></blockquote>
+              <p class="gi-reply-challenge">
+                <span class="gi-reply-tag">{{.opponent_challenge_label}}</span>
+                <span data-gi-opponent-challenge></span>
+              </p>
+            </section>
+
+            <section class="gi-step" aria-label="Send your defence">
+              <h3 class="gi-step-title">{{.defence_step_title}}</h3>
+              <p class="gi-step-hint">{{.defence_step_hint}}</p>
+              <textarea class="gi-input" data-gi-defence-input maxlength="2000" rows="4"
+                        placeholder="{{.defence_placeholder}}" aria-label="Your defence"></textarea>
+              <div class="gi-step-foot">
+                <span class="gi-count" data-gi-defence-count>0 / 2000</span>
+                <button type="button" class="gi-btn-primary" data-gi-defence-submit>{{.defence_submit_label}}</button>
+              </div>
+            </section>
+
+            <section class="gi-step gi-verdict is-empty" data-gi-verdict-block aria-label="The verdict">
+              <h3 class="gi-step-title">{{.verdict_title}}</h3>
+              <p class="gi-verdict-line" data-gi-verdict></p>
+              <div class="gi-verdict-reasons" data-gi-verdict-reasons></div>
+            </section>
+
+          </div>
+        </div>
+      </article>
+
+      <aside class="gi-sidebar" aria-label="Round sidebar">
+
+        <div class="gi-timer-card">
+          <div class="gi-timer-label">{{.timer_label}}</div>
+          <div class="gi-timer-display" data-gi-timer aria-live="off" aria-label="Time remaining">{{.timer_initial_display}}</div>
+          <div class="gi-timer-sub">{{.timer_sublabel}}</div>
+        </div>
+
+        <div class="gi-rules-card" id="gi-rules">
+          <div class="gi-rules-label">{{.rules_title}}</div>
+          <ol class="gi-rules-list">
+            <li>{{.rule_1}}</li>
+            <li>{{.rule_2}}</li>
+            <li>{{.rule_3}}</li>
+          </ol>
+          <p class="gi-rules-foot">{{.rules_footnote}}</p>
+        </div>
+
+      </aside>
+    </div>
+  </div>
+</section>
+<script src="/tools/assets/gauntlet-interface.js"></script>
