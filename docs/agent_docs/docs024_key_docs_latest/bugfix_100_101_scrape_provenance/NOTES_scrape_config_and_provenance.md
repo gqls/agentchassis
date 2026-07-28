@@ -1012,3 +1012,102 @@ included actions whose spec already covered every live key, so a warning means a
 definition changed or my classification was wrong for that action. Fix by adding the
 key to the spec if the action reads it; the warning is warn-only and blocks nothing
 (`StrictConfig` is set by nobody — grepped, not assumed).
+
+## §18 — 2026-07-28 ~21:30 — the detector's denominator filled in, and pile B gave up a rename that half-landed (`bugs_open/136`)
+
+**First: §17's headline is now out of date, and in the good direction.** §17 recorded
+`CheckConfig` as live-but-unexercised (0 of 13 runs). Re-measured at 21:29Z:
+
+```
+total_runs_since_roll | runs_touching_opted_in
+                   48 |                      9
+```
+
+Eight distinct opted-in actions were exercised, **all of them carrying config** — so the
+gate at `workflow.go:115` (`if len(step.Config) > 0`) was passed, not skipped:
+`rerender_page_sections`, `complete_work_item`, `diagnose_council_decide`,
+`diagnose_persist_fix_plan`, `emit_sprite_css`, `derive_brand_head_assets`,
+`deploy_image_asset`, `derive_card_asset`. **Zero warnings.**
+
+**But zero over that population still proves nothing on its own, and I nearly wrote it up
+as if it did.** The batch deliberately only contained actions whose spec already covered
+every live key, so a warning was impossible by construction — the same empty-denominator
+trap as §14 and §15, wearing a non-empty denominator. What makes the zero mean something
+is the **positive control**, which exists and passes:
+
+```
+go test ./platform/validation/ ./platform/orchestration/datahelpers/ -run 'Config|Unknown'
+--- PASS: TestUnknownConfigKeysWarnByDefault
+--- PASS: TestUnknownConfigKeysDetectsAndIgnoresCorrectly/unknown_keys_are_reported,_sorted
+--- PASS: TestStrictConfigActionFailsValidation/unknown_key_is_refused
+```
+
+So: the detector fires when there is something to fire at, and it found nothing because
+there was nothing. **Still not witnessed end-to-end in the running pod** — the unit test
+proves the function and the pod-grep proves the string is in the binary; nothing yet
+proves a warning has travelled from a real run to a real log. Recording that as owed
+rather than claiming it.
+
+### Pile B, first systematic pass
+
+Handoff §3b said the 34 "spec exists but misses live keys" actions need **reading**. Rather
+than read 34, I ranked first: for each missing key, grep the action's own registering file
+for the literal. Eight scored zero; six of those were dead. That ranking is cheap and it is
+**not** a verdict — written up in `016b` §9, because two escape hatches let a key be live
+and absent from the source, and I checked both before convicting anything.
+
+The finding is a family, not a list. `bugs_open/136`:
+
+| live key | steps | key the code reads | steps setting it |
+|---|---|---|---|
+| `check_domain` | 3 | `check_pipeline` | **0** |
+| `target_domain` | 3 | `target_pipeline` | **0** |
+| `item_domain` | 7 | `item_domain` ✔ | — |
+
+Three actions were renamed `domain` → `pipeline` in Go and the definitions kept the old
+word. **In both broken cases the hardcoded default equals what the dead config asks for**
+— `check_pipeline` defaults `"design"`, `target_pipeline` defaults `"build"` — so every run
+is correct, every test passes, and the config is evidence of nothing.
+
+I checked whether it is actually biting rather than assuming, and it is not:
+
+```sql
+SELECT created_by, pipeline, count(*) FROM site_work_items WHERE source='discovery' GROUP BY 1,2;
+-- completeness-discovery-agent | build 88 | content 56   (no 'design' rows)
+-- quality-discovery-agent      | build  7                (no 'design' rows)
+```
+
+Nothing is mislabelled, because the only four checks that propagate `dctx.Pipeline` live
+exclusively in the design agent's list. **That is luck, not containment** — it holds until
+a check moves between agents.
+
+### Two misses of my own, recorded
+
+- **I nearly called `create_work_item.domain` dead off the grep.** Then read
+  `ExtractActionInputs` and found Strategy 1: `input_fields` populates `Values` from names
+  outside the declared spec (`action_inputs.go:386-401`), while Strategies 0 and 2 iterate
+  `Required ∪ Optional` only. The claim only survived because that specific step sets no
+  `input_fields` — checked, not assumed. Had it set one, I would have filed a false bug.
+- **`item_key LIKE 'claims_llm%'` returned 0 rows.** That is *unexercised*, not *clean* —
+  marked `[UNEXERCISED]` in the bug rather than dressed up as a verification. Fourth
+  denominator trap of this workstream; I am now checking row counts before reading meaning
+  into them, which is the only reason this one got labelled correctly.
+
+### The one that is actually biting
+
+`grounded-explainer` sets `summary_template`; `create_work_item` reads `summary` and falls
+back `summary → config["summary"] → itemType` (`:133-139`). Two live rows:
+
+```
+grounded-explainer | grounded_draft_review | 2
+```
+
+Reviewers see the **item_type** where a sentence should be. The fallback is what hid it —
+an empty summary would have been noticed. Also `s3_bucket` on `training-data-preparer` is
+doubly dead: the action reads `bucket`, *and* the value `finetuning` names a bucket that
+does not exist — already discovered months ago and worked around in
+`internal/adapters/thunder/adapter.go:199-204` without anyone noticing the key was unread
+either way.
+
+**Not this lane's to fix.** Filed with fix order and the "do not silence it by declaring
+it" warning, which is the `WRONG_CALLS.md` mistake this workstream itself committed.

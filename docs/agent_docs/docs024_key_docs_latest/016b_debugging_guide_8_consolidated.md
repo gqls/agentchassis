@@ -3973,6 +3973,55 @@ result cannot be told from no traffic.
 Category tags: `null-legitimate-in-one-branch`, `coverage-query-spans-the-fork`,
 `count-the-denominator`.
 
+### A checker's missing false-positive apparatus may BE its per-site human audit — widening the scope deletes the safety net and keeps the consequence (2026-07-28)
+
+Found while measuring `bugs_open/104`: a proposal to make `banned_claims` patterns
+fleet-wide instead of per-site.
+
+`ScanBannedClaims` (`datahelpers/claims.go`) has **no** false-positive handling at
+all — no context gating, no exclusions — and that is deliberate, with the reason
+written beside it: *"Every match is a KNOWN falsehood for this site (each pattern
+was audited out by a human) — callers treat findings as blockers."* Its sibling
+`ScanUnregisteredNumbers`, in the same file, has an elaborate apparatus
+(`businessClaimContextRe`, `isExcludedNumber`, written-date and unit exclusions)
+and says why: *"Noise is not harmless in a checker: a scanner that always reports
+something is one people stop reading."*
+
+**The asymmetry is not an oversight — the human per-site review IS the apparatus.**
+So "just share the patterns fleet-wide, it's a small change" removes the thing
+that made blocker severity safe, while keeping blocker severity. Measured: the
+10 patterns human-audited for one site produced **7 findings across 908 components
+on 15 sites, and 4 were false positives** — every false positive firing on a
+*negated* sentence ("has **not** been independently verified", "**cannot** be
+independently verified"), i.e. on the honest disclosure the layer exists to
+encourage, at severity `blocker` = failed page build.
+
+Transferable rules:
+
+- **Before widening any checker's scope, ask what was compensating for its missing
+  guards.** If the answer is "a human read each rule against this specific
+  corpus", the widening is not a config change — it is a request to build the
+  guards that review was standing in for.
+- **A pattern pass-list must include the NEGATION of every pattern it bans.** The
+  original set was tested carefully — 10 fabrication shapes blocked, 13 legitimate
+  sentences passed — and still missed this, because no test sentence *contradicted*
+  a banned phrase. On one site that never comes up; across fifteen it comes up
+  immediately. This is the cheap check that would have caught it.
+- **In Go, you cannot fix this in the regex.** RE2 has no lookbehind, so
+  "not preceded by `not`" must be code (the `isExcludedNumber` shape). Do not
+  assume prior art exists because a grep for "negation" hits — here the only hit
+  (`voicetells.go:212`) *checks for* defining-by-negation as a style tell, the
+  opposite of a guard.
+- **Dry-run the widened scope over the real corpus with the real engine.** There
+  was already a tool (`cmd/claimscan`) running the same shared engine as the gate.
+  Grep the verify sections of related migrations for it before building one.
+
+Related: `### A false positive is a LOCATION, not a dismissal` (same section) —
+here the locations were legitimate copy, which is the case that inverts the fix.
+
+Category tags: `human-review-was-the-guard`, `scope-widening-deletes-the-premise`,
+`test-the-negation-of-your-own-pattern`, `no-lookbehind-in-re2`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -4091,6 +4140,7 @@ See `/bugs_closed/README.md`.
 | 106 | **The concept register has no staleness detector and 67% of workstreams postdate its freeze.** Extraction froze 2026-07-13; 51 of 76 workstream dirs postdate it. Three whole subsystems (fixloop 07-16, model-directory 07-17, claims-verification 07-27) were found missing **by coincidence**, each because someone happened to be working beside the hole — and the register is the instrument sessions are told to consult *before concluding a capability does not exist*, so a hole reads as absence rather than as not-having-looked. On 2026-07-26 a session concluded exactly that and was one step from building a redundant subsystem | **CLOSED 2026-07-28 → `bugs_closed/106`.** Candidates 2 (`covers-through:` stamps on all 109 files) and 1 (`102_CHECK_register_coverage.py`, sensor+ratchet) shipped 07-27 by the filing thread; what remained was that the sensor **had no cadence** — grep found it referenced only in its own docs, so it ran when a human remembered, *the same detected-by-coincidence mechanism one step earlier*. Closed by **`check_register_coverage`** (9th check in `scripts/pattern-check.py`, advisory, on the pre-commit path; concept register **OPP-004**): a commit that CREATES a workstream directory the register has never heard of says so, **to the person creating it**, naming both silencing routes. Commit trigger chosen over a cron on purpose — a cron reports a week late to nobody in particular. Only NEW dirs fire (43 uncovered ones are accepted backlog on the ratchet). **Imports the sensor rather than reimplementing `is_covered()`** — one matching rule, one implementation, the `idx_swi_dedup`↔`workItemTerminalStatuses` drift class. **Measured before inclusion** per pattern-check's own bar: 4 fires / 1,500 commits = 0.27%, 0 false positives — and because *a very low rate and a dead check look identical*, all 4 were inspected; 2 of them are the exact pair the sensor found by hand on 07-27, now caught at creation. **Induced-gap verified** (3 arms) and demonstrated on itself: its own workstream dir tripped it, OPP-004 silenced it. **RESIDUAL, recorded not fixed:** the register can be complete in coverage and **stale in CONTENT** — `SCH-012`'s `verify-later` stated an expected answer that had been false for weeks and helped hide `bugs_closed/124`. Sample of two; a third instance is the signature to act on | filed 2026-07-27; closed 2026-07-28; workstream `docs024/bugfix_106_register_coverage_cadence/` |
 
 | 134 | **A doc convention for "optional" leaked into the real key name, so two config keys are inert.** `product-spec-refresher/refresh_specs` declares `"limit?"` and `"category?"`; the action reads `limit` and `category` (`refresh_product_specs_action.go:177,211,215`) and **no Go code anywhere reads a `?`-suffixed key**. `limit` silently takes its hard-coded default of 20 and `category` is empty, whatever the caller passes. The origin is the load-bearing part: seed 156 line 15 is a COMMENT reading `-- {site_id, category?}` — the ordinary notation for "this field is optional" — and 45 lines later the same notation appears inside the actual JSON, so **fixing only the live row is undone by a replay**. Fleet swept for the class (keys ending in `?`, `*`, space or `:`): these two are the only instances | **OPEN, latent — 0 orchestrations have ever run this agent and no `scheduled_tasks` row matches**, which is also why nobody noticed. Fix order: (1) `CheckConfig: true` on the spec — this is exactly the "spec exists but misses live keys" case, and opting in makes the typo visible at runtime AND in the offline audit; (2) correct seed 156 AND the live row; (3) **do NOT add `category?` to the spec** — declaring a dead key silences the detector and leaves the behaviour broken (`WRONG_CALLS.md` 2026-07-28). Not this lane's agent; correcting inert keys IS a behaviour change | filed 2026-07-28 by session "bugsearch 3", found by `cmd/config-key-coverage` — i.e. by `101`'s own tooling |
+| 136 | **Live config says `*_domain` where the code reads `*_pipeline`, and the default hides it.** Three actions were renamed internally from `domain` to `pipeline`; the live definitions kept the old word. MEASURED fleet-wide: `check_domain` on 3 steps / `check_pipeline` on **0**; `target_domain` on 3 / `target_pipeline` on **0** (`item_domain`/`item_pipeline` are both genuinely read and are fine). `discovery_checks.go:66-69` defaults `check_pipeline` to `"design"`, `triage_detect_items_action.go:83-86` defaults `target_pipeline` to `"build"` — and in **both** cases the default equals what the dead config asks for today, so nothing looks broken. `run_discovery_checks`'s three carriers each ask for something *different* (`design`/`content`/`build`) and all three get `design`; containment is luck — the only four checks propagating `dctx.Pipeline` (`palette_contrast`, `image_url_404`, `unfulfilled_image_prompt`, `placeholder_image_in_use`) sit exclusively in the design agent's list. `[MEASURED]` no mislabelled row exists yet: neither non-design agent has a single `design`-pipeline row. Six further dead keys on the same sweep, of which **one is biting**: `grounded-explainer` sets `summary_template` but `create_work_item` reads `summary`, and `:137-139` falls back to the *item_type* — two live rows are captioned `grounded_draft_review` in the human-review queue instead of the intended sentence. Also doubly dead: `prepare_training_data.s3_bucket` (action reads `bucket`, *and* the value `finetuning` names a bucket that does not exist — already known at `internal/adapters/thunder/adapter.go:199-204` since 2026-05-23, where it was worked around without anyone noticing the key was unread) | **OPEN, unowned.** Fix order: (1) close the genuine **spec gaps** first — `run_discovery_checks` reads `checks` (`:73`) and `check_pipeline` (`:66`) and declares neither — then `CheckConfig: true`, so the *next* rename is caught at validation; (2) rename the definitions; (3) `summary_template` needs a **decision not a rename** — `create_work_item` does no template rendering, so renaming it to `summary` ships a literal `{{.input_data.topic}}` to the reviewer; (4) **never** silence one of these by adding the key to `ConfigKeys` (`WRONG_CALLS.md` 2026-07-28) | filed 2026-07-28 by session "bugsearch 7", from the first systematic pass over **pile B** of the `101` ratchet (`go run ./cmd/config-key-audit --specs` joined against `scripts/audit-config-keys.sh --json`) |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the
@@ -6921,4 +6971,56 @@ sequencing, or an owner call).
 **Generalises to:** any repo where CI/CD builds from a shared mainline and more than
 one agent or person can trigger a release — feature work awaiting sign-off, schema
 seams awaiting architecture review, anything with a stated "do not enable yet".
+
+### A config key that NOTHING sets is the tell of a half-landed rename — and if the default matches, no test can see it (2026-07-28)
+
+**The shape.** A field gets renamed in code (`check_domain` → `check_pipeline`). The Go
+side is updated; the live configuration is not. The old key is now read by nobody and
+the new key is written by nobody, so the action always takes its hardcoded default.
+**When that default happens to equal what the stale config asked for, behaviour is
+correct and the config is evidence of nothing** — and it stays that way until someone
+changes the config expecting an effect, or adds a consumer for whom the default is
+wrong.
+
+**The tell is the absence, not the presence.** Looking at a step and asking "is this key
+read?" is the expensive direction — it needs the action's source. Asking *"how many live
+definitions set the key the code reads?"* is one query, and **zero is damning**: a key
+the code reads, defaults, and nobody ever sets is either dead configuration surface or a
+rename that landed on one side.
+
+```sql
+SELECT ck.key, count(*) FROM agent_definitions ad,
+     jsonb_each(ad.default_config->'workflow'->'steps') AS e(k,v),
+     jsonb_object_keys(e.v->'config') AS ck(key)
+WHERE ad.deleted_at IS NULL AND COALESCE(ad.is_snapshot,false)=false AND ad.is_active
+  AND jsonb_typeof(e.v->'config')='object' AND ck.key IN ('<old_name>','<new_name>')
+GROUP BY 1;
+```
+
+**Observed 2026-07-28** (`bugs_open/136`): `check_domain` 3 steps / `check_pipeline` **0**;
+`target_domain` 3 / `target_pipeline` **0**. Both defaults matched what the dead config
+asked for, so every run was correct and every test would pass. The control that made it
+readable was checking a pair that was *fine* — `item_domain` (7) and `item_pipeline` (2)
+are both genuinely read — which is what separates "a rename half-landed" from "this
+codebase just spells it two ways".
+
+**Why grep alone is not the answer.** `grep '<key>' --include=*.go` returning nothing
+ranks a candidate; it does not convict one. Two escape hatches let a key be live and
+absent from the source: alias maps that synthesise `<field>_field` names
+(`BuildDeprecationMap`), and generic extractors driven by a list in the config
+(`ExtractActionInputs` Strategy 1 reads whatever `input_fields` names, *outside* the
+declared spec, while Strategies 0 and 2 iterate the spec only). **Check the escape
+hatches on the specific step before calling a key dead** — the same sweep produced a
+would-be finding that survived exactly because one step had no `input_fields`.
+
+**And when a default hides a missing value, suspect the fallback.** `create_work_item`
+falls back `summary → config summary → item_type`. A step setting the wrong key name got
+work items captioned with their *type* — a plausible-looking wrong value rather than a
+loud empty one. **A defaulting fallback over a missing config value converts a crash into
+a silent data defect**; it is worth asking, of any such fallback, what it would look like
+if the key above it were misspelled.
+
+**Generalises to:** any system where configuration is data and code is deployed
+separately — Kubernetes manifests, feature flags, workflow/DAG definitions, IaC. The
+rename is atomic in the code and never atomic across the data.
 **A verdict that is not enforced by a switch is enforced by luck.**

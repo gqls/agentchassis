@@ -153,3 +153,57 @@ of work has shipped a fix that hid its own problem — first a filter that silen
 report meant to catch it, now a gate that blocked its own adoption. I've logged both.
 The pattern is that whoever builds a mechanism is the worst-placed person to notice it
 is too expensive to use, because for them it wasn't.
+
+---
+
+**2026-07-28, later that evening.** Two things to report: the detector we shipped has
+finally had something to do, and looking through the backlog it was built to expose turned
+up a proper bug.
+
+The detector first. Last night's note said it was live but had never run against anything —
+which is a fair description of "we don't know if it works". That's changed: 48 workflow runs
+since the roll, nine of them using an action we'd signed up, and every one of those carrying
+the sort of configuration the check reads. It found nothing wrong. I want to be careful about
+what that's worth, because the actions we signed up were deliberately the ones we'd already
+proven clean, so "found nothing" was very nearly guaranteed. What makes it meaningful is that
+the tests prove the thing does shout when there is something to shout about. So: it runs, it
+would speak up, and it has nothing to say yet. There is still one gap I'm not papering over —
+nobody has yet watched a real warning travel from a real run into the log. I've written that
+down as owed rather than ticked off.
+
+Now the bug, which I think is a good one. The remaining work on this thread is a list of 152
+actions whose configuration nobody has checked. I picked at the most promising slice and
+found that three of them had been **renamed in the code and not in the configuration**. The
+code now looks for a setting called "pipeline"; the live configuration still says "domain".
+Nothing reads "domain" any more, and — this is the part I'd want someone to notice — *nothing
+anywhere sets "pipeline" either*. So those settings do nothing at all.
+
+Here's why it has gone unnoticed for so long, and why I don't think anyone was careless. When
+the setting is ignored, the code falls back to a built-in default. And in both cases the
+default happens to be exactly what the configuration was asking for anyway. So the system
+behaves correctly, every test passes, and the configuration file confidently describes a
+choice that is not actually being made. I checked the real data rather than assuming, and
+genuinely nothing is wrong today. But it's correct by luck. The moment somebody edits one of
+those settings expecting a change, nothing will happen, and there will be no error to explain
+why.
+
+One related thing *is* wrong right now. There's an agent that writes drafts into a
+human-review queue, and it sets a nicely worded caption for each one — "Grounded explainer
+draft ready for review", plus the topic. It's using the wrong setting name, so that caption
+is thrown away, and the code falls back to using the internal type name instead. Two items
+are sitting in the review queue today labelled `grounded_draft_review`. Someone reviewing
+them sees a database-ish label where a sentence should be. It's small, but it's the kind of
+small that quietly makes a queue harder to work through.
+
+I've written all of it up as bug 136 with the evidence and a fix order, and left it alone
+otherwise — these are other people's agents, and changing a setting that currently does
+nothing is a behaviour change, not a tidy-up. Worth flagging one trap in the fix, because
+this workstream already fell into it once: the tempting way to make the warning go away is to
+tell the system "yes, that key is fine". That silences the alarm and leaves the behaviour
+broken. The fix is to make the config say what the code reads, not to teach the code to
+tolerate a word it ignores.
+
+I also nearly filed a false one. I had a fourth case lined up and was about to call it dead,
+then found there's a legitimate back door where a step can pass values the code doesn't
+formally declare. It didn't apply here — I checked — but if it had, I'd have reported a bug
+that wasn't. Noted in the technical log, because the near-miss is the useful part.
