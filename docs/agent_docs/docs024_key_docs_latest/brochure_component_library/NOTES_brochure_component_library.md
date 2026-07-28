@@ -2347,3 +2347,47 @@ Worth a look, not yet acted on:
 *Cheap check that generalises:* **a green result from a check you just enabled proves
 nothing until you have seen it go red.** Pick the input you predicted would fail, run it
 there, and compare against the prediction — not just against "it didn't error".
+
+## 2026-07-28 — the imagery route is sound and BLOCKED ON BILLING, not on code
+
+Promoted the sweep's two `needs_imagery` items (`detected` → `triaged`, created today so
+the reaper would not park them). Both **failed on attempt 1 of 3**, claimed by
+`build-dispatch-loop`, `handled_by` empty.
+
+The reason is not in the work item. It is in the child orchestration:
+
+```
+provider banana: generate: POST /models/gemini-3-pro-image-preview:generateContent
+returned 429: "Your project has exceeded its monthly spending cap. Please go to
+AI Studio at https://ai.studio/spend to manage your project spend cap."
+    (code: IMAGE_GENERATION_ERROR) (code: CHILD_ORCHESTRATION_FAILED)
+    failed_step: call_imagery_gen
+```
+
+**Image generation is capped fleet-wide.** Nothing in the pipeline is broken — the
+detection was right, the routing was right, the handler exists and claimed the work, and
+the provider refused. Only the owner can lift the cap.
+
+4 banana failures in 24h, all within one minute of each other (09:22–09:23) — i.e. these
+two jobs and their retries, not a pre-existing backlog of failures. So the cap was hit
+*by* this attempt or shortly before it; it is not something that has been silently
+failing for days.
+
+### The diagnostic gap, which is the transferable part
+
+The work item says `status='failed'`, `attempt_count=1`, and **nothing else**.
+`resolution_path` and `suggested_action` are both empty. A human draining the queue —
+which is exactly what the owner is about to start doing (`review_queue_drain/HANDOFF_2026-07-28`)
+— sees "failed" and has no way to know it means *"your API spend cap is hit, this will
+fail again on every retry until you act"*.
+
+That is the `bugs_open/099` family (a run that failed a step reports `COMPLETED` with
+`error` NULL; the reason lives in `collected_data->'__step_error'`). Recording it here
+rather than filing a fourth account of the same mechanism — but note the specific shape:
+**a failure whose cause is EXTERNAL and PERMANENT until a human acts is the one most
+worth surfacing on the item**, because retrying it is pure waste and the queue gives the
+reader no way to tell.
+
+Left both items at `failed` deliberately. Retrying now burns attempts 2 and 3 against a
+provider that will refuse, and would leave them `unresolved` — which is in
+`idx_swi_dedup`'s terminal set, so the next sweep would happily file duplicates.
