@@ -536,6 +536,63 @@ func TestExperiencePatternJSONFields_CoversEveryJSONBColumn(t *testing.T) {
 	}
 }
 
+// TestExperiencePatternColumns_EveryCallerFacingColumnIsWritten closes the
+// FOURTH instance of the hand-maintained-list defect in this file, found by
+// running the check the WRONG_CALLS entry for the third one prescribes: after
+// fixing a class, grep your own diff for the same shape.
+//
+// experiencePatternColumns enumerates the SCALAR columns it writes, exactly as
+// it once enumerated the jsonb ones. A scalar column added to the table and not
+// to that literal is silently never written — no error, no warning — and
+// TestExperiencePatternJSONFields_CoversEveryJSONBColumn does not see it,
+// because it only walks jsonb columns.
+//
+// So: every column classified as caller-facing (contract, selection or cosmetic
+// — NOT system, which the platform owns) must actually be written.
+func TestExperiencePatternColumns_EveryCallerFacingColumnIsWritten(t *testing.T) {
+	cols := experiencePatternColumnsFromMigrations(t)
+
+	callerFacing := map[string]bool{}
+	for _, list := range [][]string{
+		experiencePatternContractFields,
+		experiencePatternSelectionFields,
+		experiencePatternCosmeticFields,
+	} {
+		for _, f := range list {
+			callerFacing[f] = true
+		}
+	}
+
+	// An entry carrying a value for every caller-facing column, typed to match
+	// the schema so the marshal path behaves as it would in production.
+	entry := map[string]interface{}{}
+	for f := range callerFacing {
+		switch cols[f] {
+		case "jsonb":
+			entry[f] = []interface{}{"x"}
+		default:
+			entry[f] = "x"
+		}
+	}
+	entry["name"], entry["kind"], entry["display_name"] = "n", "component-contract", "d"
+	entry["funnel_stage"] = "awareness"
+
+	written, _, err := experiencePatternColumns(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, c := range written {
+		got[c] = true
+	}
+
+	for f := range callerFacing {
+		if !got[f] {
+			t.Errorf("column %q is classified as caller-facing but experiencePatternColumns never writes it — a caller could supply it and it would be SILENTLY dropped", f)
+		}
+	}
+}
+
 func TestMissingExperienceInvariants_NilDBIsNotAFalsePass(t *testing.T) {
 	// The action must not report "no missing invariants" when it could not ask.
 	// With no DB it returns nil, so the caller's own guard is what stands
