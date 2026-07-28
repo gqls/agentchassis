@@ -374,6 +374,19 @@ in increasing cost:
 
 **Recommend 1 or 2. Do not build 3 yet.**
 
+> **DONE — OWNER PICKED OPTION 2 (2026-07-28 ~21:20): "a shareable card
+> generated from the real verdict text." Built and live the same evening.**
+> A canvas-drawn 1200×630 card, entirely client-side: the round's provocation,
+> the judge's actual verdict line, the date and the page address — every
+> string a fact of that visitor's own round, no number of any kind. Native
+> share sheet where the browser offers one, else a PNG download. The button
+> lives inside the verdict step, which is `display:none` until `/defend`
+> returns — the control cannot exist before the fact (asserted in the
+> harness: invisible pre-verdict, visible after, click produced a real
+> 60,614-byte 1200×630 PNG from a round the judge scored "opponent wins").
+> Option 3 (public archive) stays unbuilt, per this section's own constraint.
+> Sources: `p4_sources/*2026-07-28f_verdict_card*`.
+
 ---
 
 ## H. PRODUCT — "why argue with an AI when Perplexity or Google is free?" [owner-relayed user comment]

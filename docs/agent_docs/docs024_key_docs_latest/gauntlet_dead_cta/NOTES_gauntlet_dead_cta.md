@@ -1815,3 +1815,29 @@ the loop with three independent proofs, then closed the bug:
 
 **G decided mid-session by the owner: "a shareable card generated from the
 real verdict text"** — option 2. Build next.
+
+## 2026-07-28, ~21:20–21:40 BST — G SHIPPED: the verdict card. 131 A–G complete.
+
+Owner picked option 2 mid-session ("a shareable card generated from the real
+verdict text"). Built on the post-E/F base, delivered corr `ba1666a7`.
+
+- Canvas 1200×630, client-side only: provocation + the judge's actual verdict
+  line + date + page address. No backend, no numbers. Native share sheet when
+  the browser offers files-share, else PNG download.
+- The control sits INSIDE the verdict step (`display:none` until /defend
+  200) — cannot exist before the fact. Harness asserted: invisible
+  pre-verdict, visible after, and the click produced a REAL 60,614-byte
+  1200×630 PNG (magic bytes + geometry read from the file) on a round the
+  judge scored "opponent wins".
+- Live: rerender COMPLETED clean; served JS greps `buildVerdictCard` 2; page
+  carries the button; 0 placeholders. (This delivery's trigger fired ONCE —
+  the earlier double-fire did not recur; still worth the NOTES entry it got.)
+- **Milestone: every engineering item of the owner's audit (131 A–G) is now
+  resolved, same-day.** H (the product question) deferred by the owner's
+  design-first ruling. SUMMARY_2026-07-28 written (new file in the series).
+- Misstep, small but the third of its kind today: my build script printed
+  `len()` (characters) as "bytes", and I briefly read a 1,120-"byte" mystery
+  delta into freshly-pulled artefacts that were byte-identical bar a trailing
+  newline. `length()` vs `octet_length()`, `len()` vs `wc -c` — same trap,
+  three coats. *Check: when two sizes of "the same" content disagree, name
+  the UNITS of each before naming a culprit.*
