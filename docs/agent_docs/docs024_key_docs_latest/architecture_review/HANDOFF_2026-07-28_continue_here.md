@@ -21,7 +21,34 @@ narrow the guardian · **D9** do NOT add a second forward seat · **D11** seats 
 be able to look things up. Do not reopen D7(b) or D9 on a reversal trigger firing;
 after a ruling those are the evidence needed to *ask* to revisit, a higher bar.
 
-> ## ⚠ THE ONE OPEN ASK: the code index is 955 commits behind, and only a PUSH fixes it
+> ## ✅ RESOLVED 2026-07-28 12:47 — the branch was pushed, and the ref is now PINNED
+>
+> The staleness is gone: `ref='086_experience_loop'`, commit `d98010e8b`, **0
+> commits behind the branch tip**, **4,992 rows / 4,992 bodies**. Another session
+> also shipped the `ref` and `commit_time` columns (108 candidate 1), so the
+> freshness verdict now keys on the indexed COMMIT's own date, not the row clock.
+>
+> **Migration 252 pins the ref deterministically** — `code-index-refresh`'s
+> `pre_query` is now `SELECT '086_experience_loop'::text AS ref`. Proven through
+> the REAL scheduled path (not a manual dispatch): scheduler fired 12:46:27,
+> `index-orchestrator` → `code-indexer`, both `COMPLETED`, ref stored as pinned.
+>
+> **⚠ REVERSAL TRIGGER — CHANGE THE LITERAL IN 252 TO 'main' AS PART OF THE
+> MERGE.** Not after. Two reasons, and the second is the quiet one: the pin will
+> keep indexing a branch that has stopped moving while main becomes the live tree;
+> and the pre_query it REPLACED inferred the ref from `^[0-9]{3}_`-shaped refs, so
+> `main` would never have matched it — the day of the merge that old query would
+> have gone dry and **the refresh would have stopped silently**, since a pre_query
+> returning no rows makes the scheduler skip the task entirely rather than fall
+> back (`cmd/scheduler/main.go:198-212`).
+>
+> **Migration 251 is INERT — do not copy its pattern.** It put a static `ref` in
+> the task's `input_data`. That can never be read: the pre_query result is the
+> OVERLAY in `mergeJSON` (`:216`, `:480`) so it overwrites a static key of the same
+> name, and the no-rows path skips the task rather than falling back. Committed as
+> applied rather than rewritten, so its checksum still matches the ledger.
+>
+> ### The original ask, kept because the reasoning still applies
 >
 > `code_symbols` mirrors the **last pushed tip**. `origin/086_experience_loop` has
 > sat at `e19aa5d10` since 2026-07-24 while local HEAD moved ~955 commits. **A
