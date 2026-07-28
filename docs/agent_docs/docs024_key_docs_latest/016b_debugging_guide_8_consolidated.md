@@ -6826,3 +6826,42 @@ carve-out already exists for one class of target on the grounds that "those need
 full payload" — as one did here for adapters — that comment is the bug report for
 everything without the carve-out. **A special case written to preserve fidelity is
 evidence that fidelity was lost generally.**
+
+### On a shared HEAD that builds from HEAD, COMMITTING IS SHIPPING — "hold the deploy pending review" is not an available strategy (2026-07-28)
+
+**The shape.** Three rules that are individually correct combine into one that nobody
+wrote: (1) `make build-<service>` builds from committed `HEAD`, deliberately, so a
+build cannot bundle anyone's WIP; (2) CLAUDE.md forbids a long-lived dirty tree,
+because uncommitted work is shared mutable state another session will sweep; (3) the
+fleet rolls many times a day, fired by whichever session needs its own change out.
+
+Therefore **the moment your code is committed it is in the next roll**, whoever fires
+it, whatever verdict is outstanding on it, and with no signal to the roller that they
+are carrying it.
+
+**Observed 2026-07-28.** A change drew a guardian SCOPE veto at the council gate. The
+thread deliberately did not deploy and recorded "hold pending an owner call" as its
+chosen option. The fleet rolled to v1.0.1194 at 20:48Z for an unrelated change and
+carried it out anyway — commits at 19:57Z and 20:16Z. Confirmed by pod-grep on both
+pods, not inferred (`bugs_open/129`).
+
+**Why nobody is at fault.** The roller cannot see it. Reading every commit since the
+last roll is not something anyone does eight times a day, and the build rule that
+caused it is the same rule that stops builds shipping half-finished work — you do not
+want to weaken it.
+
+**The check, before you plan around holding a change back:** *ask when the fleet last
+rolled and how often.* `kubectl -n <ns> get pods -l app=<svc> -o custom-columns=IMAGE:.spec.containers[0].image,START:.status.startTime`
+against `TZ=UTC git log`. If the roll cadence is shorter than your review turnaround,
+**"hold the deploy" is not a plan, it is a wish.**
+
+**What actually works:** commit it **dark** — behind a flag, env gate or config switch
+that defaults OFF — so that *in the binary* and *in effect* are separate decisions.
+That is the only mechanism that survives someone else's roll, and it is what to reach
+for whenever a change must be committed (for safety) but must not act yet (for review,
+sequencing, or an owner call).
+
+**Generalises to:** any repo where CI/CD builds from a shared mainline and more than
+one agent or person can trigger a release — feature work awaiting sign-off, schema
+seams awaiting architecture review, anything with a stated "do not enable yet".
+**A verdict that is not enforced by a switch is enforced by luck.**

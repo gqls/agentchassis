@@ -178,3 +178,44 @@ is precisely why they noticed it was an assertion.
 
 **So: the bug stays open.** Our own rule is that a bug closes when it is fixed
 *and live*, and this is fixed and built but not live. It is one decision away.
+
+## 2026-07-28, ~22:20 — it went live on its own, which turns out to be the interesting bit
+
+I had decided not to switch it on, and to put the choice in front of you. **It got
+switched on anyway, about an hour ago, and not by me.**
+
+Another session rebuilt and rolled the system out for its own change at 21:48 our
+time. Our build tool always builds from the last saved state of the shared code —
+on purpose, so that nobody's half-finished work can accidentally ride along in a
+release. My work was saved. So it went out with theirs. Nobody did anything wrong;
+the session that pressed the button had no way of knowing what else it was carrying.
+
+I checked this rather than assuming it: I looked inside the actual running programs
+on both machines for a phrase my change **deletes** and three phrases it **adds**.
+The deleted one is gone and all three new ones are there, on both. It is live.
+
+**This is worth your attention beyond this one bug.** There is a standing rule from
+earlier today that says a change to shared plumbing should not ship ahead of its
+review. The rule quietly assumes the person who writes the change decides when it
+ships. **On this codebase they don't.** Saved work goes out in whoever's release
+comes next, and we release many times a day. So "wait for the review before shipping"
+isn't a thing anyone can actually do — the only way to genuinely hold something back
+is to ship it *switched off*, behind a toggle, and the rule doesn't currently ask for
+that. That's a change to the rule, and it's your call, not mine.
+
+**How it is behaving now that it is live.** The half I can check is working properly:
+every request the system has sent since the rollout has correctly kept a copy of
+itself, with the right recipient named on it — the exact thing that was wrong before.
+The check for the specific broken state returns zero, as it must. And the copies are
+about a kilobyte each, which answers a reviewer's worry that they might be huge.
+
+**The half I cannot yet claim** is the retry itself, because nothing has needed
+retrying since the rollout — the system has been quiet. I deliberately triggered a
+job that used to fail two times in three, and it sailed through and did real work,
+which is good news but is *not* proof: it succeeded first time, so it never needed
+the retry path at all. I would rather say that plainly than round it up.
+
+**So the bug stays open**, with exactly one thing owed: catch one real retry
+happening and confirm it goes out addressed to the right recipient. I have written
+down the two commands that check it, and what does and does not count as proof, in
+the handoff.

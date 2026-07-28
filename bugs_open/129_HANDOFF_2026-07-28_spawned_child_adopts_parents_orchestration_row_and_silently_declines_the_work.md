@@ -1,6 +1,51 @@
 # 129 — the spawned child ADOPTS the parent's orchestration row and silently declines the work
 
-> ## ROOT CAUSE FOUND AND FIXED IN CODE — 2026-07-28 evening (bugsearch 4 thread). STAYS OPEN: built, not live.
+> ## UPDATE 2026-07-28 ~22:15 — THE FIX IS **LIVE** on v1.0.1194, carried out by another session's roll. Still OPEN: the REPLAY half is not yet witnessed.
+>
+> I deliberately did not deploy (council veto, below). **It shipped anyway** — the
+> fleet rolled to **v1.0.1194 at 20:48:11Z**, and `make build-<service>` builds from
+> committed `HEAD`, so my 19:57Z and 20:16Z commits went out with someone else's
+> build. Pod-grepped on **both** pods rather than inferred: `is_retry` **0** (the
+> string this fix deletes), `RETRY_PAYLOAD_UNAVAILABLE` / `RETRY_SELF_ADDRESSED` /
+> `MISROUTED_REQUEST` / `RETRY_PAYLOAD_BACKFILL_MISSED` all **1**.
+>
+> **CAPTURE HALF — PROVEN on live traffic.** Both wired actions recorded a faithful
+> payload; the child's own id is stored, not the awaiting orchestration's:
+>
+> | step | awaiting orch | target orch | action | body | payload size |
+> |---|---|---|---|---|---|
+> | `call_scraper` (call_agent) | `b89b6e5e` | **`ef7e2ddb`** | `process` | 210 B | 1186 B |
+> | `spawn_scraper` (spawn_agent) | `b89b6e5e` | **`8b5dc669`** | `initialize` | 447 B | 1124 B |
+>
+> The invariant query returns **0** self-addressed payloads, as it must. Payload
+> size is ~1.1 KB, which retires the council's size risk with a number.
+>
+> **REPLAY HALF — NOT YET WITNESSED, and I am not calling it proven.**
+> `Replaying original request` appears **0** times in 90 minutes of live logs — but
+> so do `Retrying request` and all four new markers, i.e. **no timeout has occurred
+> yet**, not "replays are failing". Induced run `c54b3fdf-b556-45f1-8e59-8237bec64d2a`
+> (`TRIGGER_code_indexer_v2.sh`, the lane this file records as failing 2 of 3 on
+> v1.0.1184): `spawn_indexer` **processed at retry_version 0** → `call_indexer`, and
+> the child reached `EXECUTING_STEP / index_symbols`, i.e. step 2 of its 3-step
+> workflow, so `request_analysis` ran. **That is the lane working — but it succeeded
+> on the FIRST attempt, so it exercised the capture path and not the replay path.**
+> The defect was bursty (2 of 3), so one green run is weak evidence on its own.
+>
+> **WHAT IS STILL OWED TO CLOSE THIS** — one witnessed replay:
+> ```sql
+> SELECT step_name, retry_version, status FROM awaited_requests
+>  WHERE retry_version > 0 AND sent_at > '2026-07-28 20:48:11' ORDER BY sent_at DESC;
+> ```
+> ```bash
+> kubectl logs -n ai-persona-system -l app=agent-chassis --since=6h \
+>   | grep -E 'Replaying original request|RETRY_PAYLOAD_UNAVAILABLE|RETRY_SELF_ADDRESSED'
+> ```
+> A `Replaying original request` line whose `child_orchestration_id` differs from the
+> awaiting orchestration, followed by that request reaching `processed`, closes it.
+>
+> ---
+>
+> ## ROOT CAUSE FOUND AND FIXED IN CODE — 2026-07-28 evening (bugsearch 4 thread).
 >
 > **The child was never the defect.** It was handed the parent's identity, by the
 > coordinator's own retry path. `handleRecoverableError`

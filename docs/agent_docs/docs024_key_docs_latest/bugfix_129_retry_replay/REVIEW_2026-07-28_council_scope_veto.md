@@ -185,3 +185,63 @@ cannot open files. The single highest-severity objection in this round was raise
 against a file that existed, was committed and was already applied — because it
 was described in prose and absent from the eight edits. That is a submission
 defect that will recur, and it is free to avoid.
+
+---
+
+## ADDENDUM 2026-07-28 ~22:15 — option 3 was not available, and that is a finding about the RULING
+
+I chose option 3 above: hold the deploy, let a human break the veto. **That option
+does not exist on this tree, and I did not realise it when I chose it.**
+
+The fleet rolled to **v1.0.1194 at 20:48:11Z**, fired by another session for its own
+change. `make build-<service>` builds from committed `HEAD` — deliberately, so a
+build cannot bundle anyone's WIP. My commits (19:57Z, 20:16Z) were in `HEAD`. So they
+went out. Verified by pod-grep on both pods, not inferred: `is_retry` **0**, all four
+new markers **1**.
+
+Nobody did anything wrong. The build rule worked exactly as designed, and the session
+that rolled had no way to know it was carrying a vetoed seam — the tree gives it no
+signal, and reading every commit since the last roll is not a thing anyone does eight
+times a day.
+
+### Why this matters beyond this bug
+
+**The platform-seam ruling of 2026-07-28 assumes the committing thread controls when
+its seam reaches production. On this tree it does not.** HEAD is shared, builds come
+from HEAD by design, and the fleet rolled ~8 times on 2026-07-28. Therefore:
+
+> **Committing IS shipping — on someone else's schedule.**
+
+That makes "ship it ahead of review only under a stated ordering constraint" only
+half enforceable. It governs the thread that *writes* the seam, and there is nothing
+it can do to comply beyond not committing — which CLAUDE.md separately forbids,
+because a long-lived dirty tree is shared mutable state another session will sweep.
+
+The two options actually available to a thread told to hold a seam back are:
+
+- **(a) don't commit it** — forbidden, and unsafe for the reasons CLAUDE.md gives;
+- **(b) commit it behind a flag/config switch that defaults OFF** — the only one that
+  works, because it decouples *in the binary* from *in effect*.
+
+**Nothing in the current ruling asks for (b).** If the owner wants seams genuinely
+held pending architecture review on a tree that rolls this often, the ruling needs a
+third clause: *a seam that has not passed review ships DARK — behind a default-off
+switch — or it does not get committed to a shared HEAD.* That is a change to the
+ruling, not to this bug, and it is the owner's to make.
+
+### What this does to the three options
+
+- **Option 1 (deploy now, review in parallel)** has effectively happened, by
+  accident rather than by decision. The code is live and behaving (capture proven on
+  live traffic; the self-addressed invariant returns 0; payloads are ~1.1 KB).
+- **Option 2 (revert to the guardian's contained alternative)** is now a *revert of
+  live code*, not a decision not to ship. Materially more expensive than it was two
+  hours ago, and it would restore a defect that has been measured at 430/430.
+- **Option 3 (hold)** is retired — it was never available.
+
+**My recommendation is unchanged in substance and now cheaper to act on: leave the
+code live, and route the seam to architecture review on its own merits.** That is
+also exactly what `bugs_closed/124`'s owner ruling did with the `$ctx.` veto — *"the
+code stays and the precedent gets fixed"* — and this is the second instance in one
+day of the same shape. Two instances is the point at which the precedent is the
+thing worth fixing, not the individual case.

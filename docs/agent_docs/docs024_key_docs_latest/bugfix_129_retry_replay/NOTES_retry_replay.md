@@ -262,3 +262,79 @@ SCOPE veto gets broken by a human, not by the thread that drew it. So `bugs_open
 **stays open** — the bar for `bugs_closed` is fixed AND live, and this is fixed and
 built, not live. Everything needed to make it live is one `make deploy-agent-chassis`
 once someone rules; everything needed to reverse it is not doing that.
+
+## 2026-07-28, ~22:00 — it went live anyway, and THAT is the finding
+
+I deliberately did not deploy: the council vetoed on scope, and the owner ruling
+says a human breaks a SCOPE veto. **It shipped regardless.**
+
+The fleet is on **v1.0.1194**, rolled at **20:48:11Z** by another session. My
+commits landed at 19:57Z (`eb70c3dd3`) and 20:16Z (`17bd675dd`) — both *before*
+that build. `make build-<service>` builds from committed `HEAD`, so whoever rolled
+next carried my change out with theirs, exactly as designed.
+
+Verified rather than inferred, pod-grep on **both** running pods:
+
+```
+is_retry                       0     <- the string this change DELETED
+RETRY_PAYLOAD_UNAVAILABLE      1
+RETRY_SELF_ADDRESSED           1
+MISROUTED_REQUEST              1
+RETRY_PAYLOAD_BACKFILL_MISSED  1     <- from the LATER commit, so both are in
+```
+
+> **The finding, and it is bigger than this bug: on this tree, "hold the deploy
+> pending review" is not a strategy that exists.** The platform-seam ruling assumes
+> the committing thread controls when its seam reaches production. It does not.
+> HEAD is shared, `build-<service>` builds from committed HEAD *by design* (so that
+> a build cannot bundle WIP), and the fleet rolled ~8 times on 2026-07-28. So the
+> moment a seam is committed it is in the next roll, whoever fires it and whatever
+> verdict is outstanding. **Committing IS shipping, on someone else's schedule.**
+>
+> The two live options for a thread that wants to hold a seam back are therefore
+> (a) don't commit it — which CLAUDE.md forbids, because a long-lived dirty tree is
+> shared mutable state that another session will sweep, and (b) commit it behind a
+> flag or a config switch that defaults off. **(b) is the only one that actually
+> works**, and nothing in the current ruling asks for it. Written up in the REVIEW
+> doc as the thing the owner may want to change about the ruling itself.
+
+## 2026-07-28, ~22:05 — the capture half is PROVEN on live traffic
+
+Two awaited requests since the roll, one from each wired action, both recorded:
+
+| step | awaiting orch | target orch | parent orch | action | body | payload |
+|---|---|---|---|---|---|---|
+| `call_scraper` (call_agent) | `b89b6e5e` | **`ef7e2ddb`** | `b89b6e5e` | `process` | 210 B | 1186 B |
+| `spawn_scraper` (spawn_agent) | `b89b6e5e` | **`8b5dc669`** | `b89b6e5e` | `initialize` | 447 B | 1124 B |
+
+Every column is the fix: the target orchestration id is the **child's**, not the
+awaiting one; the parent link is set (the old synthesised message had none); the
+action is the real one (`process`/`initialize`) rather than the hardcoded
+`"execute"`; the body is present rather than a stub.
+
+The invariant query returns **0**, as it must:
+
+```sql
+SELECT count(*) FROM awaited_requests WHERE request_payload IS NOT NULL
+  AND request_payload->'message'->'headers'->>'orchestration_id' = orchestration_id::text;
+```
+
+**And it answers the council's size risk with a number instead of a worry:**
+`pg_column_size(request_payload)` is **~1.1–1.2 KB**, not the tens of KB
+`bug_historian` and I both guessed at. `[UNMEASURED]` a `call_agent` carrying a
+full LLM prompt will be larger — these two are a scraper's payloads. Re-measure
+the p95 once a day of mixed traffic has accumulated.
+
+## 2026-07-28, ~22:10 — the REPLAY half is NOT yet witnessed
+
+`Replaying original request` count over 90 minutes of live logs: **0**. So is
+`Retrying request`, and so is every one of the four new error markers — i.e. this
+is *no timeouts have happened*, not *replays are failing*. The fleet is quiet
+tonight; the capture half had only 2 rows to work with.
+
+**So the fix is half-proven and I am not going to call it more than that.** Capture
+is proven on live traffic. Replay is proven only in unit tests, which exercise a
+function that did not exist before and therefore cannot fail against the old code.
+Induced a real one via `TRIGGER_code_indexer_v2.sh` (correlation
+`c54b3fdf-b556-45f1-8e59-8237bec64d2a`) — the lane bugs_open/129 records as failing
+2 of 3 on v1.0.1184.
