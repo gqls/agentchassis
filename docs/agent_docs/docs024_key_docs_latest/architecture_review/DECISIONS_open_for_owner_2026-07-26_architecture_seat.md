@@ -967,3 +967,109 @@ Generalises `vm_estate`'s *"merge the generator, not the trust boundary."* Worke
 example: `med_export_json` (`registry.go:1691`) sits **ten lines above**
 `directory_export_json` (`:1701`), whose own header reads *"nothing site-specific
 may be hardcoded here."* Both registered, both live, nobody saw it.
+
+---
+
+# D12 — may a markdown row be STATIC-TIER evidence? (raised by the council, 2026-07-28, round 8)
+
+**Status: OPEN, blocking layer 1b. Nothing is broken today** — `code_symbols`
+holds 0 markdown rows and the CHECK constraint still refuses them. This is a
+decision to take *before* shipping, not a defect to repair.
+
+## What happened
+
+Round 8 came back **8 approve / 1 object**. Every seat that demanded evidence in
+round 7 — `guardian`, `reuse_agent`, `prior_art_librarian` — approved with zero
+objections once the measurements were attached. The single remaining objection is
+from `diagnosis_guardian`, it is `medium`, and **it is correct**. It also could not
+have been raised in rounds 1–7, because it is a consequence of the very evidence
+round 8 added: I proved *"no reader switches on `kind`"* as a **blast-radius
+reassurance**, and that same property is what makes this a **citation-integrity**
+problem.
+
+## The mechanism, from live code
+
+1. **The static tier IS `code_symbols`, by definition.**
+   `pkg/diagnose/loop.go:60` — `TierStatic Tier = iota // code_symbols + \d (T1)`
+2. **A CONFIRMED verdict is gated on a static citation.**
+   `pkg/diagnose/step.go:145-156` — `tierCovered` returns `static && observed`;
+   `step.go:79` degrades a confirm that has only one family.
+3. **Unknown tiers fail open TOWARD static.** `loop.go:66-73` (`default: return
+   "static"`), asserted deliberately in `verdict_wire_test.go:48` — *"unknown tier
+   should default to static"*.
+4. **The bundle tells the model, in words, that index results are code.**
+   `diagnose_assemble_bundle_action.go:266-270` emits, unconditionally, for
+   everything the index returns:
+   > `## Code search results (from the code_symbols index — STATIC tier)`
+   > `These answer code questions a previous iteration asked. They are CODE, so`
+   > `they are static evidence…`
+   The comment above it states the design intent plainly: *"the surest way to keep
+   that true is to never let them appear under a heading a verdicter could read as
+   observed state. **The heading says so in words, because the model reads the
+   heading and not this comment.**"* The guard is a rendered heading aimed at an
+   LLM, not a type system — so a wrong heading is the whole failure.
+5. **There is already a live comment asserting the invariant layer 1b breaks.**
+   `diagnose_assemble_bundle_action.go:239` — *"the static tier cannot reach it
+   (`code_symbols` indexes .go only)"*. That parenthetical becomes false the day
+   this ships.
+6. **The platform already knows this class of error at one level down.**
+   `diagnose_code_lookup_action.go` carries the `[body]`/`[decl]` marker precisely
+   because *"a reviewer who cannot tell them apart will read a doc-comment mention
+   as an implementation."* `diagnosis_guardian` is applying that same argument one
+   level up, to prose-vs-code. It is the same defect with a bigger blast radius.
+
+**Net:** as designed, a section of `bugs_open/135_….md` could satisfy the
+"mechanism in code" half of a CONFIRMED diagnosis, rendered to the verdicter under
+a heading that says *They are CODE*, and indistinguishable at read time from an
+inspected declaration. That is the stale-doc hazard this workstream exists to
+prevent, arriving through a door I opened.
+
+## Why this cannot be split out the way the prune was
+
+Round 7's split was legitimate because `bugs_open/135` is **pre-existing and
+independent** — the prune has no floor today, with or without markdown. **This is
+not.** The hazard does not exist until layer 1b ships. Filing a bug for a defect
+your own unshipped change creates, and shipping the change anyway, is not a split
+— it is shipping a known defect with a paper trail. The §4 accretion lesson says
+*split what review surfaced that isn't yours*; it does not license shipping what
+review surfaced that IS yours.
+
+## The options, costed
+
+| | what | cost | seam? |
+|---|---|---|---|
+| **1a** | Mark each doc hit **in the rendered text** where `[body]`/`[decl]` are already emitted — `[doc — prose, not code]` | Small, confined to the existing discriminator. **Residual contradiction: the bundle heading still says "They are CODE"** | no |
+| **1b** | 1a **plus** its own bundle heading saying prose is not static-tier | Closes the door at the point the model actually reads. Touches `diagnose_assemble_bundle_action.go` — **the diagnosis loop's contract surface, blast radius = every diagnosis run** | **YES** |
+| **2** | Exclude `kind='doc'` from the `code_check` path only (`AND kind <> 'doc'` in `diagnose_code_lookup`'s three queries) | No seam. But `feature-designer` and `fix-proposer` — both wired to `diagnose_code_lookup` — lose the doc corpus **entirely**; only `diagnose-agent`'s `lookup_code_symbols` reaches it. Guts most of the value | no |
+| **3** | Separate `doc_sections` table + its own lookup action | Loses the reuse of layer 1's `body` column and the shared top-k that motivated 1b at all; needs a new action, so a new seam anyway | yes |
+| **4** | Admit doc rows as static-tier **deliberately** — redefine "static" as *the platform's own written contract* | Cheapest. Arguable for `docs026` register entries and `016b` (which ARE contract documents); **indefensible for `bugs_open/*` handoffs**, which are the exact stale-doc hazard | contract change |
+
+## Recommendation, and why it is the owner's call and not mine
+
+**On the merits I would take 1b.** It makes the bad state unrepresentable at the
+only place that matters — what the verdicter reads — and it reuses the mechanism
+and the vocabulary the platform already chose for this exact class of confusion.
+Option 4 is the one to argue against: the four globs were picked to be durable,
+but "durable" is not "code", and `bugs_open/*` is where a superseded root cause
+lives longest.
+
+**But 1b alters a shared mechanism**, and the OWNER RULING of 2026-07-28 is
+directly on point: *a change that adds or alters a shared mechanism is
+architecture-scope even when it is additive, small and well tested.* The exemption
+for shipping a seam ahead of its review requires a **real, stated ordering
+constraint**, and there is none here — nothing is broken today, no config or data
+half is waiting on a binary, and layer 1b has waited eight rounds already.
+**"It would be convenient to fold it into round 9" is precisely the reason the
+ruling names as insufficient.**
+
+So: **layer 1b does not resubmit until this is answered.** Answering it inside
+round 9 would repeat rounds 4–6 exactly — objection, add mechanism, new surface —
+except this time the mechanism would be the diagnosis loop's citation contract
+rather than a prune floor, and the guardian that approved round 8 would be right
+to veto it on scope.
+
+## Also outstanding from round 8, trivial and not blocking
+
+`debug_historian` (low, **verdict: approve**): the migration sketch opens `BEGIN;`
+with no defensive `ROLLBACK;` preamble — an aborted transaction from a prior failed
+run in the same session is sticky. One line, folded into whichever round ships.

@@ -968,3 +968,80 @@ precisely the drift this workstream exists to review for. Fixed at source.
 `SUBMISSION_2026-07-28b_markdown_into_the_index.json` (a NEW file — round 7's text
 stays on disk so the round-7→8 diff is auditable). Two runs ahead of it in the
 lane at dispatch.
+
+---
+
+## 2026-07-28, 21:37 — round 8: 8/1, the measurements worked, and the last seat found something real
+
+**Round 8 = 8 approve / 1 object** (9 reviewers, 6 abstained, 1 unreadable).
+Verdict still `revise`, on a single `medium`.
+
+**The measurements did exactly what they were supposed to.** Every seat that
+objected in round 7 approved in round 8 **with zero objections**:
+
+| seat | round 7 | round 8 |
+|---|---|---|
+| `guardian` | object ×2 | **approve, 0** |
+| `reuse_agent` | approve, 1 objection | **approve, 0** |
+| `prior_art_librarian` | approve, 2 objections | **approve, 0** |
+| `debug_historian` | object ×1 | **approve**, 1 low (the `ROLLBACK;` preamble) |
+| `diagnosis_guardian` | approve, 0 | **object ×1, medium** ← new |
+
+So the round-8 discipline is confirmed as correct: **answering an evidence
+objection with evidence, and adding no mechanism, cleared every one of them in a
+single round.** Rounds 4–6 answered objections by building things and went
+5/3 → 6/4 → 9/3 without converging. Round 7→8 answered with queries and went
+8/2 → 8/1. That is the cleanest evidence this workstream has produced for its own
+central claim.
+
+### The remaining objection is correct, and it is MINE — it cannot be split out
+
+`diagnosis_guardian`, medium: widening `kind` to admit `'doc'` means a markdown
+excerpt can satisfy the **static tier** of a CONFIRMED verdict — the tier that is
+supposed to mean *code was read*.
+
+**Verified against live code, five sites** (full write-up + costed options in
+`DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` § D12):
+
+- `pkg/diagnose/loop.go:60` — `TierStatic Tier = iota // code_symbols + \d (T1)`.
+  The static tier is **defined as** this table.
+- `pkg/diagnose/step.go:145-156` — `tierCovered` = `static && observed`; a confirm
+  without both families degrades (`step.go:79`).
+- `pkg/diagnose/loop.go:66-73` — an unknown tier **defaults to `static`**, asserted
+  on purpose in `verdict_wire_test.go:48`. It fails open toward code.
+- `diagnose_assemble_bundle_action.go:266-270` — the bundle emits, unconditionally,
+  `## Code search results (from the code_symbols index — STATIC tier)` and then the
+  literal sentence **"They are CODE"**. The comment above says why the heading is
+  the guard: *"the model reads the heading and not this comment."*
+- `diagnose_assemble_bundle_action.go:239` — an existing comment asserting the very
+  invariant this change breaks: *"the static tier cannot reach it (`code_symbols`
+  indexes .go only)"*.
+
+> **The irony is the finding.** Round 8's own new evidence is what made this
+> objection possible. I proved *"no reader switches on `kind`"* as a **blast-radius
+> reassurance**; `diagnosis_guardian` read the same fact as a **citation-integrity**
+> problem — nothing distinguishes a doc row from a `func` row at read time, which
+> is exactly why it is safe to insert and exactly why it is dangerous to cite.
+> **The same measurement answers one question and raises another.** A seat that
+> re-frames your evidence rather than disputing it is doing the most valuable
+> thing a council does.
+
+**Why I am NOT splitting this out like the prune.** `bugs_open/135` was legitimate
+to split because the prune has no floor **today**, with or without markdown —
+pre-existing and independent. This hazard **does not exist until layer 1b ships**.
+Filing a bug for a defect your own unshipped change creates, then shipping it, is
+not a split; it is shipping a known defect with a paper trail.
+
+**And I am NOT answering it in round 9.** The fix that actually closes the door
+(1b in D12: doc hits get their own bundle heading so they are never rendered under
+"They are CODE") touches `diagnose_assemble_bundle_action.go` — **the diagnosis
+loop's citation contract, blast radius every diagnosis run**. That is a platform
+seam, the owner ruling of 2026-07-28 makes it architecture-scope, and the
+ordering-constraint exemption does not apply: nothing is broken today
+(`code_symbols` holds 0 markdown rows and the CHECK still refuses them), so there
+is no reason it must ship ahead of its review. Folding it into round 9 would repeat
+rounds 4–6 *exactly*, except the accreted mechanism would be the citation contract.
+
+**Layer 1b is therefore PAUSED pending owner decision D12**, not revised. This is
+the first time in eight rounds the blocker has not been something I could fix by
+writing better.

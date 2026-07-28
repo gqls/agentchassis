@@ -658,3 +658,70 @@ believed. I've measured what it reads today so that the check can actually tell 
 difference, rather than being decorative.
 
 Round eight is with the council now.
+
+**Later the same evening — the approach worked, and then the last reviewer found
+something I'd rather it had found than us.**
+
+Round eight came back eight approve, one object. Every single reviewer that had
+asked me for evidence in round seven approved this time with nothing further to
+say. So the thing I described above — answer an evidence objection with evidence
+and don't build anything — cleared all of them in one round. Rounds four to six,
+where I answered by building, never converged. I'd call that settled now.
+
+The one remaining objection is a good one, it's about the core of the change, and
+it's mine to deal with. I'll try to put it plainly.
+
+The whole diagnosis system rests on a distinction between two kinds of evidence:
+**the mechanism in the code**, and **the mechanism actually happening** in logs or
+data. A diagnosis is only allowed to be called CONFIRMED if it cites both. The
+first of those — "the code says so" — is fed by exactly the database table I'm
+proposing to put our markdown documents into.
+
+Nothing in the reading path can tell a document from a piece of code once it's in
+there. That's the same fact I spent round eight *proving*, as a safety argument:
+nothing branches on the type, so widening it breaks nothing. The reviewer took the
+identical fact and pointed out it cuts the other way. If nothing can tell them
+apart, then a paragraph from one of our own bug write-ups could be cited as "the
+code says so" — and a CONFIRMED diagnosis could rest on it.
+
+I went and checked, and it's worse than the reviewer knew. When the system hands
+evidence to the agent making the judgement, it prints a heading over the search
+results that says, in those words, **"They are CODE."** Unconditionally. There's a
+comment right above it explaining that the heading *is* the safeguard, because the
+model reads the heading and not the comment. So we wouldn't just be failing to
+mark documents as documents — we'd be actively telling the judge they were code.
+There's even a comment elsewhere in the same file stating the assumption my change
+would quietly falsify: that this index contains Go files only.
+
+**Nothing is broken right now.** The database still refuses these rows; there are
+zero of them. This is a thing to decide before shipping, not damage to repair.
+
+Two things I want to flag about my own judgement here, because both were tempting.
+
+The first: I could have done what I did last time and split it out into its own bug
+file. **That would have been wrong, and the difference is worth stating.** The
+prune problem I split out last round genuinely exists today whether or not I ever
+ship this — it was somebody else's bug that my review surfaced. This one doesn't
+exist until I ship. Filing a bug for a fault your own unshipped change creates, and
+then shipping the change, isn't splitting the work; it's shipping a known fault
+with paperwork attached.
+
+The second: I could fix it in round nine. I know roughly what the fix is. But it
+means changing how evidence is labelled for **every diagnosis the platform runs**,
+and that's a shared foundation, not a detail of my feature. Your ruling from
+earlier today is exactly about this: a change to shared machinery is an
+architecture decision even when it's small and additive, and it only gets to ship
+ahead of its own review if something genuinely can't wait. Nothing here can't
+wait. And folding it in would repeat rounds four to six precisely — objection,
+build something, the something becomes the new argument — except this time the
+something would be the citation rules themselves.
+
+So I've stopped, and written it up as a decision for you with four options costed,
+in the decisions file. My recommendation is there but the choice is a real one:
+the cleanest fix touches shared ground, the contained fix costs two of the three
+agents their access to the documents, and the cheapest option is to declare that
+our own written contracts *count* as code evidence — which I'd argue against for
+bug handoffs, though it's genuinely arguable for the concept register.
+
+**Eight rounds in, this is the first time the blocker isn't something I can fix by
+writing better.**
