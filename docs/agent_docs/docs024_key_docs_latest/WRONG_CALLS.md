@@ -8769,3 +8769,80 @@ manufacturing evidence, this one is about **fixing an instance and filing the cl
 
 Family: the-list-that-drifts, fixed-the-instance-not-the-class,
 the-lesson-applied-to-everything-except-the-file-it-was-written-in.
+
+## 2026-07-28 — I wrote "a null result is not a finding" last night, then made the mirror-image error three times before breakfast
+
+Bug-sweep thread, `bugs_open/087`'s acceptance test. Twelve hours earlier I filed
+the entry above about three zeros that were instrument failures, and added the
+rule to 016b §9 and to memory. This morning I made three fresh errors in one
+forty-minute exercise. **None of them was a zero.** They were the opposite, and
+my own entry had named the reason and I did not act on it.
+
+**Error 1 — the one that misinformed the owner.** Choosing a rebuild target, I
+tested whether the page was live by guessing its URL from its name:
+
+```
+https://finetuning.uk/ai-agent-roi-estimator.html   -> 404
+https://finetuning.uk/ai-agent-roi-estimator/       -> 404
+```
+
+and reported *"the page 404s on both URL shapes — nothing live is at risk"*. The
+owner then chose that target **partly on that assurance**. The page was live the
+whole time at `/tools/ai-agent-roi-estimator.html`, serving 35,129 bytes — and
+`pages.url` held that exact string, in a row I had already SELECTed and printed
+to my own terminal minutes earlier. I had the right answer on screen and tested a
+guess instead.
+
+**Error 2 — a poller that reported a live run as finished.** To find the parent
+orchestration I wrote `WHERE correlation_id = … ORDER BY created_at DESC LIMIT 1`.
+That returns the **newest** row under the correlation, which in a spawning
+workflow is a grandchild. It came back `COMPLETED @ complete`, I printed
+`=== PARENT TERMINAL ===`, and reported the run over. The parent was still
+running and went on to fail three minutes later at a different step. The correct
+predicate — `parent_orchestration_id IS NULL` — was one column away.
+
+**Error 3 — a target that could never pass.** I checked blast radius, deployment
+status, section shape and workstream ownership before choosing the page, and did
+not check `rebuild_policy`. It was `owned`, so `save_page_sections` was always
+going to refuse, and the acceptance test could not have completed on that page
+whatever the fix did.
+
+### Why the fresh rule did not catch any of them
+
+Last night's entry ends: *"Non-zero results are self-validating (the instrument
+demonstrably works), so we check positives casually and negatives not at all."*
+
+I fixed the second half and left the first. Every error this morning is a
+**positive result read as the thing I wanted**: a 404 is a real HTTP response, a
+row came back from the database, the target satisfied four genuine checks. Each
+returned *something*, so each felt verified — and none of them answered the
+question I actually had.
+
+**The sharper statement, which the earlier entry only half-made:** the danger is
+not the shape of the result. It is that **a check answers the question you
+encoded, and you then read it as answering the question you meant.** `curl
+<guessed-url>` answers "is there a page at this string I made up". `ORDER BY
+created_at DESC LIMIT 1` answers "what is the newest row". Both answered
+correctly. Neither was asked what I thought I was asking.
+
+### The cheap checks
+
+- **Never synthesise an identifier the database already stores.** URL, path,
+  filename, topic, key: if a column holds it, SELECT it. I had already printed
+  `url` and typed a guess anyway — so the rule is not "look it up", it is *"do
+  not type a value you could have pasted"*.
+- **Naming a row is a query about relationships, not recency.** Parent, head,
+  canonical, latest-of-its-kind — express the relationship (`parent_orchestration_id
+  IS NULL`), never a proxy for it (`ORDER BY created_at`). A proxy is right until
+  the shape of the data changes, and a spawning workflow changes it every run.
+- **Before an acceptance test, list what would make it fail for reasons unrelated
+  to the fix**, and check each. I checked four such things and missed the fifth;
+  ten seconds on `SELECT rebuild_policy` would have found it. A test that cannot
+  pass is worse than no test — it burns the setup cost and returns an ambiguous
+  answer.
+- **On writing a rule, ask which half you have actually adopted.** I generalised
+  correctly and then applied it to one shape only. The entry was in the file, in
+  016b, and in memory; recall was not the problem.
+
+Family: interceptor-existed-and-was-not-used, the-check-answers-the-question-you-
+encoded, proxy-for-a-relationship, rule-adopted-in-half.
