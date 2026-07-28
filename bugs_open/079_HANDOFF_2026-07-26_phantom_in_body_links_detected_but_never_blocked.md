@@ -82,6 +82,12 @@
 > recomputes the same repair on every pass; the store never changes. No counter-example
 > found anywhere: no run exists whose computed repair reached its saved row.
 >
+> **IMPLEMENTATION HANDOFF for candidate 1 (designed 2026-07-28 evening, NOT yet built):**
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_079_phantom_link_gate/HANDOFF_2026-07-28_platform_fix_candidate1.md`
+> — insertion point, the existing helpers to reuse (`loadValidPagePaths` is in the SAME
+> package as the save action), fail-open + reversal-lever design, test plan, and a
+> zero-LLM live verification via a gamesdesign rerender. Start there, not from scratch.
+>
 > **Live-reproduction note for the fixing thread:** fundamentallyai `capabilities.html` is
 > NO LONGER a live reproduction — the brochure thread reverted its two corrupted components
 > to pre-regression `content_data` (corrupted state archived in `page_component_history`,
