@@ -84,7 +84,15 @@ def tool_urls():
 
 
 class Auditor:
-    def __init__(self, port=9401):
+    # The debug port is per-instance and randomised by default: two audits
+    # running at once on a fixed port fight over the same Chrome and both fail
+    # with a broken pipe, which prints in the same column as a site verdict.
+    # Pass an explicit port only when you need a predictable one.
+    def __init__(self, port=None):
+        port = port or (9400 + os.getpid() % 500)
+        self._init(port)
+
+    def _init(self, port):
         self.port = port
         self.chrome = None
         self.profile = tempfile.mkdtemp(prefix="toolaudit-")
@@ -242,8 +250,56 @@ class Auditor:
                                     && !e.querySelector('input,select,textarea,button,canvas,svg,img,iframe,[contenteditable]'); })
               .map(e => (e.id ? '#'+e.id : '.'+String(e.className).split(' ')[0])).slice(0,4))""") or "[]")
 
+        # --- responsive: the check that would have caught fluid-typography ---
+        # Only for pages that actually claim viewport-relative sizing. A tool
+        # emitting clamp(...vw...) is promising the visitor that something
+        # scales; the only instrument that can test that is CHANGING THE
+        # VIEWPORT. Reading the CSS cannot: a clamp can be present, correct, and
+        # pinned at its maximum across every width a desktop uses, which is
+        # exactly the state fluid-typography shipped in.
+        r["responsive"] = self._responsive(cdp, bodies)
+
         cdp.call("Runtime.evaluate", {"expression": "1", "returnByValue": True}, timeout=10)
         return self._verdict(r, cdp)
+
+    def _responsive(self, cdp, bodies):
+        page = "\n".join(bodies)
+        if "vw" not in page or "clamp(" not in page:
+            return None  # makes no scaling claim; nothing to hold it to
+        target = self._eval(cdp, """(() => {
+            const el = [...document.querySelectorAll('main *')]
+              .find(e => (e.getAttribute('style') || '').includes('vw'));
+            if (!el) return null;
+            if (!el.id) el.id = '__audit_scale_target';
+            return el.id;
+        })()""")
+        if not target:
+            return None
+        # TWO BANDS, and the second is the one that matters. The full range
+        # (360/900/1600) only proves a clamp is wired up at all — it detects
+        # ANY correct clamp, including the one the owner complained about,
+        # because 360 sits below min-width so the size always differs there.
+        # It would NOT have caught the reported defect. The desktop band is
+        # what the visitor actually inhabits: a preview constant across
+        # 1280-1920 demonstrates nothing to anyone on a laptop, even though a
+        # clamp pinned above its max-width is perfectly correct CSS. So the
+        # desktop band is reported as DATA, not as a failure — the judgement
+        # ("this tool exists to show scaling and shows none") belongs in the
+        # tool's own criteria fence, not in a generic rule.
+        sizes = []
+        for w in (360, 900, 1600, 1280, 1920):
+            cdp.call("Emulation.setDeviceMetricsOverride",
+                     {"width": w, "height": 900, "deviceScaleFactor": 1, "mobile": False})
+            time.sleep(0.4)
+            sizes.append(self._eval(cdp, "getComputedStyle(document.getElementById(%s)).fontSize"
+                                    % json.dumps(target)))
+        cdp.call("Emulation.clearDeviceMetricsOverride")
+        full, desktop = sizes[:3], sizes[3:]
+        return {"target": target,
+                "full_range": dict(zip((360, 900, 1600), full)),
+                "desktop_band": dict(zip((1280, 1920), desktop)),
+                "scales": len(set(full)) > 1,
+                "scales_on_desktop": len(set(desktop)) > 1}
 
     def _verdict(self, r, cdp):
         if r["console"]:
@@ -258,6 +314,13 @@ class Auditor:
             r["verdict"] = "NO-CONTROL"; r["why"].append("nothing a visitor can touch")
         elif not r["changed"]:
             r["verdict"] = "DEAD"; r["why"].append("driven and pressed, nothing changed")
+        elif r.get("responsive") and not r["responsive"]["scales"]:
+            # Not BROKEN — the tool works, it just never shows what it promises.
+            # fluid-typography's own class, and it needs its own word: calling
+            # it RESPONDS is what let it sit unnoticed.
+            r["verdict"] = "NO-SCALING"
+            r["why"].append("claims viewport scaling; %s identical at 360/900/1600px"
+                            % r["responsive"]["target"])
         else:
             r["verdict"] = "RESPONDS"
         return r
