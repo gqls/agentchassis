@@ -363,3 +363,150 @@ untouched; noted here so nobody reads "clean" as "finished".
 archived, but the live header still serves the old chrome (bugs_open/117) — the three
 404 links will not disappear from the served pages until a chrome rebuild runs. Do not
 report the nav as fixed until `curl` says so.
+
+---
+
+## Session 2 — 2026-07-29 afternoon
+
+### CORRECTION to the closing block above: the nav diagnosis was wrong
+
+> **CORRECTED 2026-07-29 (session 2):** "the live header still serves the old chrome
+> (bugs_open/117) — the three 404 links will not disappear from the served pages until a
+> chrome rebuild runs" is **false**, and the fix it implied would have made things worse.
+
+Measured with `curl`, which is what the same paragraph told the next thread to do and
+which I had not done:
+
+| served page | /shop.html /brands.html /guides.html | last built |
+|---|---|---|
+| `/index.html` | clean | 2026-07-29 |
+| `/about.html` | clean | 2026-07-29 |
+| `/blog/barrel-weight.html` | clean | 2026-07-29 |
+| `/blog/beginners.html` | clean | 2026-07-29 |
+| `/shipping-returns.html` | clean | 2026-07-29 |
+| `/sale.html` | **3 dead links** | 2026-07-28 |
+| `/new-arrivals.html` | **3 dead links** | 2026-07-26 |
+| `/guides/index.html` | **3 dead links** | — |
+| `/contact.html` | **3 dead links** | — |
+
+The header is regenerated **per page at build time**, and `GetNavItems` already prunes
+never-deployed targets. That is why every page rebuilt on 07-29 came out clean with
+nobody touching chrome. `pages.rendered_header` is NULL on all nine, so the per-page
+header is assembled at render, not stored. `bugs_open/117` (chrome is a stored artefact
+no page re-render rebuilds) is real and is a different defect.
+
+**What the wrong diagnosis would have cost.** The queued fix was a chrome rebuild. But
+`site_nav_items` was itself stale — it still held the three archived orphan rows and had
+never heard of `guides-index` — so rebuilding chrome first would have produced a header
+with no dead links *and no Guides*, and every page would have needed building twice.
+The right order, and the one used:
+
+1. `nav_drift` → `nav-updater` alone, which re-runs `populate_nav_tables` from the
+   corrected `pages` rows. Queued 16:17Z, complete 16:20Z.
+2. Verify the table, not the item's status:
+   ```
+   primary:  Guides /guides/index.html · Start Here /new-arrivals.html · Deals /sale.html
+   utility:  Home · About · Contact · Shipping & Returns
+   ```
+3. Only then the page rebuilds.
+
+### CORRECTION: "all nine built pages clean" was a phrase-list result reported as a judgement
+
+> **CORRECTED 2026-07-29 (session 2):** the closing sweep and the SUMMARY line built on
+> it are both wrong. `/sale.html` was serving, and had been all along:
+> *"We cut prices across our sale range."* · *"We move high-density tungsten barrels,
+> shafts, and flights into clearance regularly."* · *"...when you shop the sale section."*
+
+The sweep tested a fixed list of literals taken from the three fabrication sites I had
+just fixed — `stock`, `Add to Bag`, `filter our ranges`, `Portland`, `darts.com`.
+`clearance`, `cut prices` and `sale range` were not on it, so the row printed `clean`.
+The check was correct; the sentence I wrote about it was not. Full entry, with the
+general form, in `WRONG_CALLS.md`.
+
+Confirmed at the source: `page_components.rendered_html ILIKE '%clearance%'` is **true**
+for both of `sale`'s components (hero and call-to-action, updated 2026-07-28). The data
+was there to catch this the whole time; only the query was narrow.
+
+### THE FOURTH HOME of the false premise — `site_plan_pages`
+
+Found by reading served `<title>` tags rather than page bodies. The current plan
+(`0fb05b75`, 2026-07-22) still carried:
+
+- `index` → `"Darts Online | Specialist Darts Equipment & Accessories"`
+- `about` → `"About Darts Online | Specialist Darts Retailer"`
+- `sale`  → `"Sale | Darts Deals & Clearance | Darts Online"`
+
+`site_plan_pages` is what a reconcile rebuilds `pages` FROM. Session 1 corrected
+`identity`, `classification`, `content_direction` and per-page `page_spec.purpose` — four
+readers — and left the writer intact. **Fixing every reader of a false premise is not the
+same as fixing its source.** Ask which table REGENERATES the ones you fixed.
+
+Also found the same way: 18 of 21 pages had **no `meta_description` at all**, and
+`assemblePage` emits `content=""` rather than omitting the tag — a blank authored answer
+to "what is this page", which is worse than no tag. Now written for 11 more pages, into
+both `pages` and `site_plan_pages`. My own two from session 1 (`index` 189 chars, `about`
+180) **failed my own ≤160 assertion** and were trimmed to 145; I had written them without
+measuring, in the same session I wrote the rule.
+
+### Retail pages: repurposed, not archived, and why
+
+`sale` and `new-arrivals` are retail landings on a site that sells nothing. Archiving is
+the obvious move and is wrong here: `bugs_open/098` establishes **archiving does not
+undeploy**, so an archived `/sale.html` goes on serving "we cut prices" to every visitor
+and crawler indefinitely. A live page that tells the truth beats an archived one that
+lies.
+
+- `sale.html` → *How to Spot a Genuine Darts Deal* (nav: **Deals**) — evergreen
+  buying-advice on judging a darts discount from the outside. High commercial intent,
+  honest without a feed, and it becomes the natural affiliate page later.
+- `new-arrivals.html` → *New to Darts? Start Here* (nav: **Start Here**) — signposting
+  hub putting the beginner decisions in the order they arise.
+
+Both keep their URLs and their existing `[hero, call-to-action]` section shape, so no new
+section machinery was needed. `shop-index`/`brands-index` set `in_header=false`: retail
+hubs with nothing to put in them until a feed exists.
+
+Rebuilt `new-arrivals` (complete 16:24Z) reads: *"Build Your First Setup… We break down
+how 22g versus 26g barrels, grip styles, and tungsten percentages actually change your
+throw."* Honest and on-voice. `[OBSERVED, not fixed]` it does **not** link out to the
+individual guides, because `hero + call-to-action` has nowhere to put a link list — the
+signposting job is only half done and needs a listing section to finish.
+
+### Council: APPROVED on round 2
+
+`RESUBMIT_CORR=f5fc3014-973c-49a2-8d42-4bf9b401eaeb`, submitted 16:08Z, approved 16:17Z
+— nine minutes, against the ~30 the runbook budgets. Five advisory objections, none
+high-severity.
+
+Round 1's three objections were answered with measurements, not argument:
+
+- **prior_art (import cycle asserted, not shown):** package `actions` imports
+  `discovery_checks` in **6** files; `discovery_checks` imports `actions` in **0**. And
+  `loadGrowthConfig` is unexported (`page_growth_budget.go:209`) with no such field on
+  `GrowthConfig`, so it was never callable anyway.
+- **debug_historian (status filter used without enumerating it):** right, and my figure
+  was wrong. `sites.status` = pool 17 / deployed 14 / system 1 = **32**. Re-measured with
+  no filter: 32 sites, **1** carries the key. Also measured the check's real footprint —
+  `evaluate_tools` items exist for 9 sites, all `deployed`.
+- **editquality (bundled scope):** conceded and declared rather than folded in.
+
+Three seats then independently made the same new point — the field lives only at its
+call site, so a future reader of `GrowthConfig` would not know it exists and would add a
+third ad-hoc reader. Acted on in `df682c339`: modelled in the canonical struct with the
+cycle evidence in the comment. Trailer recorded there, since the approved code
+(`f8190a7de`, `ced2bca08`) had already landed and forward-only means it cannot carry one
+retrospectively.
+
+### Queued and draining at time of writing
+
+| item | status |
+|---|---|
+| `nav_drift` → nav-updater | complete 16:20Z, table verified |
+| `new-arrivals` rebuild | complete 16:24Z, read and honest |
+| `sale` rebuild | claimed 16:24Z |
+| `contact`, `tungsten-guide`, `board-setup`, `brand-comparison`, `flight-shapes` | triaged |
+| `missing_news_page` → content-gap-planner | triaged 16:24Z |
+
+**Watch on the news page:** `page_type` must be the literal `news-index`. Several gates
+key on it and `bugs_open/081` is the case where a mistyped page was DEPLOYED — no repair
+path, looping ~3 months. Check the row BEFORE its build item runs, not after.

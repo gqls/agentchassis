@@ -138,3 +138,79 @@ your ratio: one tool per six published articles. It's off by default for every o
 (I checked: 13 of the 14 have no setting at all, so nothing changes for them), and it's
 gone to the review council. Nothing about dartsonline's own tools is built yet — that's
 next, starting with the setup-builder that was planned long ago and never made.
+
+---
+
+## Session 2, same afternoon — two things I told you yesterday were wrong
+
+I want to lead with the corrections rather than bury them, because one of them was in the
+handover note I wrote for whoever picked this up next.
+
+**I said all nine built pages were clean of shop language. They weren't.** The sale page
+was, and still is as I write this, telling visitors "We cut prices across our sale range"
+and "We move high-density tungsten barrels, shafts, and flights into clearance
+regularly". We don't cut prices. We don't move anything. There is no sale.
+
+The way I got it wrong is worth a sentence, because it isn't carelessness exactly and it
+could happen again. My check searched every page for a list of specific phrases — the
+ones I'd just spent the morning removing from other pages. "Clearance" and "cut prices"
+weren't on that list, because I hadn't seen them yet. So the check came back clean and I
+reported it as "the pages are clean", which is a much bigger claim than the one I'd
+actually tested. A word search can only ever tell you that the words you thought of
+aren't there. I found the real state of the page by opening it in the way a visitor
+would, an hour later, for an unrelated reason.
+
+**I also said the broken navigation links would stay on the site until we rebuilt the
+site header.** That was wrong too, and the fix I had lined up would have made more work
+rather than less. The dead links are on four pages, not all of them, and they're on
+exactly the four we haven't rebuilt since fixing the navigation data. The header is
+regenerated every time a page is built, so every page rebuilt yesterday came out right
+without anyone touching it. What was actually stale was the navigation table itself — it
+still listed three deleted pages and had never heard of the Guides section. So I rebuilt
+that first, on its own, checked it, and only then started rebuilding pages. Had I done it
+the other way round, seven pages would have been built with a menu missing the Guides
+link and would all have needed doing again.
+
+**And there was a fourth place the old lie was living.** I found it by looking at the
+page titles rather than the page text. The site's *plan* — the record the system rebuilds
+pages from when anything gets regenerated — still described us as "Specialist Darts
+Equipment & Accessories" and the About page as a "Specialist Darts Retailer". I'd fixed
+four things that read from that plan and left the plan itself alone, so the next time
+anything regenerated, the lie would have quietly come back. That's fixed now.
+
+**What I've done with the two shop pages.** The obvious move was to delete them. I
+didn't, and the reason matters: on this platform, archiving a page doesn't take it off
+the web. An archived sale page would go on serving "we cut prices" to every visitor and
+every search engine indefinitely. So I've repurposed both, keeping their web addresses:
+
+- The sale page becomes **"How to Spot a Genuine Darts Deal"** — what a real discount
+  looks like, why a cheap set can still be the wrong set, what to check before buying.
+  It's honest without needing a product feed, it's something people actually search for,
+  and it's the natural home for affiliate links the day we have them.
+- The new-arrivals page becomes **"New to Darts? Start Here"** — the decisions a beginner
+  faces, in the order they face them, each pointing at the guide that answers it.
+
+The second one has already rebuilt and reads well. It's a bit thin — it can't list links
+to the individual guides because that page shape has nowhere to put a link list — so
+that's half-finished rather than done, and I've written it down as such.
+
+**The menu now says what the site is.** Guides, Start Here, Deals, plus About, Contact
+and Shipping & Returns. Shop and Brands are out of it: they're retail sections with
+nothing to put in them until an affiliate feed exists.
+
+**Descriptions.** Eighteen of twenty-one pages had no description for search results at
+all — and the way the system works, that means it was publishing an empty one, which is
+worse than none. I've written them for every page that will exist. Two of the three that
+already had one were mine from yesterday, and both were too long for Google to show in
+full; I'd written the rule about length and then not measured my own.
+
+**Your tool ratio passed review.** The council approved it, nine minutes after
+submission. Round one had come back asking for changes, and one of the three points was
+a real mistake of mine: I'd claimed something about the code structure without checking
+it. This time I checked it and attached the numbers. Three reviewers then made the same
+new suggestion — that the setting should be written down where the next person will look
+for it, not only where it's used — which I've done.
+
+**Building now:** the sale page, the contact page, and four of the seven remaining buying
+guides. Plus, for the first time, a proper **news page** — the feed has fourteen relevant
+darts stories waiting and nowhere to show them.
