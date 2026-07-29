@@ -1239,3 +1239,57 @@ second time in two sessions the advisory has been the interesting part of an app
   `params.StepConfig.Config` directly. Worth an amendment; not mine to make unilaterally.
 - **`debug_historian`:** when this ships, confirm by **pod-grep**, not by git or tag. Already
   the plan.
+
+## §21 — 2026-07-29 ~08:10 — the change IS live on v1.0.1197, and the witness STILL cannot arrive by waiting
+
+**The change is live, and I did not establish that from the tag or the clock.** Fleet rolled
+to **v1.0.1197** (pods 08:04:57Z / 08:05:18Z, one image digest
+`sha256:458c9ad0…`, both pods identical). My commit `099476b56` is 07:16:56Z, which *looks*
+like it precedes the build — but a retag is not a rebuild and timing is not ancestry, so I
+dated the binary by bracketing it with strings from other sessions' commits:
+
+| control | commit | in binary |
+|---|---|---|
+| `check_claims_fleet_wide` (`a1428c908`) | ~07:38Z | **2** |
+| `banned-claim set is DISABLED` (`5db9f9081`) | 07:47Z | **1** |
+| `both artefacts locked` (`e9e345464`) | 07:58Z | **0** |
+| `zzz_not_a_real_symbol` | — | **0** |
+
+So v1.0.1197 was built from a HEAD **between 07:47Z and 07:58Z**, and 07:16:56Z is inside
+that. **`099476b56` is in the running binary.** Note why a direct grep for my own change was
+impossible and I had to borrow someone else's commits: my edit adds `ConfigKeys: []string{
+"checks", "check_pipeline"}` and `{"target_pipeline"}` — every one of those literals ALREADY
+existed in the binary, because the actions read them. **A change that adds no new string is
+invisible to `strings`; date the build instead of grepping the change.** That is a new entry
+in the pod-grep playbook.
+
+> **CORRECTED — §19 said "on that roll, the first run of any of the six agents should emit
+> it". That assumed those agents run. They do not.**
+> Measured: **0 of the six have run since the roll** (9 orchestrations total, none relevant),
+> `run_discovery_checks` ran **3 times in 24h and last at 2026-07-28 15:15Z — 17 hours ago**,
+> and `triage_detected_items` has **not run in 24h at all**. Worse, the schedule is off:
+>
+> ```
+> improvement-sweep              | improvement-loop             | enabled=f | last 2026-05-02
+> oneshot-discovery-aao-20260726 | completeness-discovery-agent | enabled=f | last 2026-07-26
+> ```
+>
+> **Both scheduled_tasks rows for these agents are DISABLED**, and no other row targets any of
+> the six. The three runs yesterday recorded no `triggered_by`/`source`, so they were ad-hoc
+> dispatches by some session. **There is therefore no mechanism that will produce the witness
+> on its own.** Waiting for it is not a plan, it is a wish — the same shape as 016b's
+> "hold the deploy pending review" entry, and I walked into it one section after writing that
+> down.
+
+**So the state is exactly this, and I am not dressing it up:** the detector is live, opted in
+against two actions with real dead keys, and the offline audit names them
+(`run_discovery_checks: check_domain`, `triage_detected_items: target_domain`). The runtime
+warning has **still never been witnessed**, now for a different and better-understood reason
+than in §17–§19: not "nothing can fire it" but "nothing is scheduled to run it". Getting it
+requires a deliberate dispatch of one of the six agents, which writes real work items to a
+real site — a production side effect I have not taken unilaterally.
+
+**[UNVERIFIED whether intentional]** that `improvement-sweep` has been disabled since
+2026-05-02. It may be a deliberate pause; it may be that the improvement loop quietly stopped
+running in May and nobody noticed. Not this lane's call, but somebody should know — flagged
+here rather than filed, because I have not checked whether another lane owns it.
