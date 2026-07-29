@@ -376,6 +376,10 @@ more than half — a far bigger regression than the value I raised. The live row
 the mirror are the source of truth here; the seed is history (`[[the seed is not
 the system]]`). Editing it to 16000 would leave the other 15 seats wrong at 3000.
 
+> **DISCHARGED 2026-07-29 07:15Z on chassis `v1.0.1196` — see the section below.
+> Proven by a positive control, not by an absence.** The block below is kept as
+> written because the check it prescribes is the one that ran.
+
 **OWED — this is not yet verified in effect.** Config is live immediately, but no
 council round has run since. The change is only proven when a round shows
 `review_editquality` completing without a `TOLERATED` row:
@@ -393,6 +397,77 @@ Success = `max_tokens` reads 16000 **and** the truncation share falls from the
 call count** — the same weak-control error this thread already made twice today.
 Note `output_tokens` is NULL on truncated rows, so count `error_message LIKE
 'TOLERATED%'`, never `output_tokens >= max_tokens`.
+
+## 2026-07-29 07:15Z on `v1.0.1196` — the raise is PROVEN, and the mirror tried to take it back
+
+Chassis rolled to **`v1.0.1196`** (both pods 22:37Z, **identical `imageID`
+sha256:76321ea7…**, so this is a real roll and not a retag with two divergent
+replicas). `124`'s per-roll landmine discharged on **both** replicas:
+`strings /app/agent-chassis | grep -c "unknown execution-context field"` → `1`, `1`.
+
+### The `max_tokens` raise worked — and the evidence is a positive control
+
+| window | calls | truncated | max_tokens | avg out | **max out** |
+|---|---|---|---|---|---|
+| 24h BEFORE the change | 51 | **13 (25%)** | 8000 | 5492 | 7773 |
+| since 21:43:00Z | 5 | **0** | 8000→16000 | 7270 | **8949** |
+
+**Read the last column, not the zero.** Four calls at the new ceiling produced up
+to **8949 output tokens — structurally impossible under the old 8000 cap.** That is
+what proves the change took effect. The `0 truncated` is *consistent* with success
+but on 5 calls it is worth almost nothing on its own: at the 25% baseline five
+calls predict ~1.3 failures, and observing zero of those is unremarkable. This
+thread has now made the weak-control error twice, so: **the discriminator is the
+8949, and the truncation share needs a few days before it means anything.**
+
+(The one remaining call at `max_tokens=8000` is the seat's twin on a *different*
+agent — `feature-designer` also owns a `review_editquality` step and was
+deliberately not changed. It has never truncated: 0 of 4 over 48h.)
+
+### The mirror DID run overnight, and patching both rows is why the change survived
+
+`agent_definitions.updated_at` on both rows is now **22:37:14Z**, not my
+21:43:00Z — another thread seated a new reviewer and ran `099 --apply`. The
+roster grew **16 → 17 seats** (a new `architecture` footprint — that is the
+architecture seat, which [[architecture-seat-has-never-fired]] recorded as never
+having fired).
+
+**That mirror run would have silently reverted a gate-only patch.** It rewrote
+every `review_*` step from `fix-proposer`, and `transform_step` copies
+`ai_service.max_tokens` verbatim. The change survived only because it was written
+to the mirror's **source** as well as its target. Re-verified after the fact:
+
+```
+$ python3 099_SYNC_gate_roster.py        # 2026-07-29, now at 17 seats
+  added: (none)   removed: (none)
+  drift (steps that would change): (none)
+```
+
+and exactly one seat sits off 8000 fleet-wide: `review_editquality` at 16000.
+**This is no longer a predicted risk — it is an observed near-miss**, and it is the
+strongest argument for the patch-both rule in this file.
+
+### The spawn-timeout class: 79 spawns, 0 timeouts, ~20 hours
+
+| | |
+|---|---|
+| reproducer spawns since 11:30Z | **79** |
+| timeouts fleet-wide since 11:30Z | **0** |
+| last timeout anywhere in `agent_error_log` | **2026-07-28 11:29:57Z** |
+
+Against the morning rate (46–67%) 79 spawns would have predicted ~36–53 failures.
+Post-roll on `v1.0.1196` the unfiltered error log holds only 2
+`page-build-handler/validate_content` and 1 `page-rerender/save_sections` — **no
+`spawn_dispatch` timeouts at all.**
+
+**But do not read the post-roll window itself as the discriminating test.** The
+roll landed at 22:37Z and the fleet was quiet overnight — the reproducer fired
+roughly 4–8 times between the roll and dawn, with **six consecutive hours at zero
+bpt spawns** (23:00, 00:00, 03:00–06:00). Overnight is a weak control by
+construction. The strong evidence remains yesterday's *daytime* window (50 spawns,
+0 timeouts); the overnight hours add duration, not power. **A properly busy
+post-roll window still has not been observed** — whoever is next should re-run the
+hourly table with the control column during a working hour today.
 
 ## Next actions (superseded above — kept for the record)
 
