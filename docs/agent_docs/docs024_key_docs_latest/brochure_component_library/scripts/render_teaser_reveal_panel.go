@@ -78,7 +78,7 @@ func main() {
 	fmt.Println("Rendered", len(html), "bytes")
 
 	// The reveal is native: no JS required for the core behaviour.
-	check("three cards rendered", strings.Count(markup, "trp__card\"") + strings.Count(markup, "trp__card trp__card--static") == 3)
+	check("three cards rendered", strings.Count(markup, "trp__card\"")+strings.Count(markup, "trp__card trp__card--static") == 3)
 	check("two openable <details>", strings.Count(markup, "<details class=\"trp__card\"") == 2)
 	check("one static card, not a details", strings.Count(markup, "trp__card--static") == 1)
 
