@@ -1438,3 +1438,84 @@ studio rebrand` is four design-specific nouns and no transaction vocabulary.
 back with fewer than ~3 relevant items, the honest conclusion is that design-trade
 business news is too thin a seam for a 30-day window and the source should be
 repurposed, not tuned a fourth time.
+
+---
+
+## 2026-07-28 late / 2026-07-29 — home page, favicon, and the news queries scored honestly
+
+### Home page: two "What's here" sections, resolved by DIFFERENTIATING them
+
+Positions 2 and 3 were both `info-card-grid` with the same eyebrow and near-identical
+titles — a generation artefact. They were not equal in quality, and that decided
+the fix: **position 3 was the good one** (every card → a real specific tool);
+**position 2 was the weak one** (five of six cards → the same generic
+`/tools/index.html`, because it promised categories that existed as prose only).
+
+Deleting 2 loses the browse-by-subject job; building four category PAGES was the
+earlier proposal and the expensive answer. **`tools/index.html` already grouped all
+63 tools under six `<h2>` headings carrying no `id`s.** Six anchors later, an
+existing page became navigable at no content cost. Position 2 → "Browse by
+category" (6 anchored cards), position 3 → "Start here" (specific tools).
+Live, and the home page now has **zero broken links: 17 links/anchors, all resolve** —
+first time since launch.
+
+**Counts reconciled before publishing any number** (this site has shipped invented
+figures before): 9+20+12+6+3+13 = **63**, matching cards-on-index and dirs-on-disk.
+A first pass gave 62 — a regex requiring `<h3>` immediately after the anchor missed
+one card — and **the mismatch is the only reason the undercount was caught.**
+
+> **The assemble trap, for the FOURTH time in two days.** Edited `content_data`,
+> queued a `page_rerender`, item reported **`complete`**, `rendered_html` untouched.
+> Assemble republishes STORED html and does not re-render a section from its data.
+> SQL_p10 and SQL_p11 both hit this. Answer is unchanged: **write both fields from
+> one source.** `rendered_html` is now regenerated from `content_data` by script
+> (`scratchpad/render_cards.py`), preserving each section's `<style>` byte for byte.
+
+### Favicon: derived, not invented — and it was hiding in plain sight
+
+`/favicon.ico` was the last broken link on all 98 pages. **`assets/images/logo.jpg`
+already held the site's mark** — two overlapping window frames with a `>` prompt and
+an underscore, in the site's own sage — and **nothing referenced it** (orphaned
+asset, `bugs_open/114`'s class). Extracted by keying on its green against the
+transparency checkerboard baked into that JPEG.
+
+**Size-specific artwork, decided by rendering rather than assuming:** the full mark
+(two frames + chevron + underscore) turns to mush at 16px. So 32/48/64 carry the
+full mark knocked out of a sage tile; **16 carries just the prompt glyph**, which is
+part of the same logo. Solid tile not transparent line-art — thin strokes lose all
+mass against a tab background. Live: `200`, `image/x-icon`, 8008 bytes.
+
+### The news queries, scored against a prediction made BEFORE the tick
+
+**`design industry moves` (round 3, `brand identity design studio rebrand`).**
+I predicted *"fewer items than 9, and a higher proportion on-topic."*
+
+- **Count prediction WRONG** — it returned exactly 9 again.
+- **Relevance prediction RIGHT and decisively so** — **9 of 9** are genuine
+  design-industry stories (Coca-Cola's global rebrand, Duedance's identity for
+  Yonbek, illustration taking the lead in type, OZEN's oral-care refresh), against
+  ~1 of 9 before.
+
+  **New flaw exposed: 5 of the 9 are the SAME Coca-Cola story from five outlets.**
+  Dedup keys on `source_url`, so one story covered five times passes as five items.
+  Real distinct stories ≈ 5. **Recorded, not fixed** — it needs story-level
+  clustering, which is a platform change, not a query change.
+
+**`AI in design` (new source, first fetch) — 2 of 9 on topic, and it refines the
+rule this thread has been building.**
+
+Returned: antibiotics design, energetic-materials design, 2D→3D CAD prototyping, a
+lighting-industry conference (LDI), a GenAI teaching course, and a vendor listicle.
+Only *"If Everybody's Using AI, What's An AI Design Studio For?"* and *"10 Claude
+Skills for Design"* were on brief.
+
+> **The refinement: a domain noun only discriminates if it is UNIQUE to the domain.**
+> My working rule was "domain nouns beat market categories", and it held for `CSS`,
+> `browser`, `WCAG`, `typeface`. But **"design" is shared with every engineering
+> field** — drug design, materials design, product design, lighting design — so it
+> discriminates nothing. Requery anchored to the web explicitly:
+> `AI web design UX interface designers`. Off-topic rows purged, same precedent as
+> SQL_p14/p16.
+
+**Pool now: 25 items, all on-topic** (CSS 9, design-industry 9, typography 4,
+accessibility 2, AI 1 pending its refetch).

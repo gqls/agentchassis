@@ -739,3 +739,61 @@ deliberately avoided. I don't think either is obviously right, so it's yours to 
 that was returning "Top Web Design Agencies in the UK" listicles, which was heading
 straight for the rule about never publishing rankings of named agencies. That was
 worth doing on its own, whatever happens to the rest.
+
+---
+
+### Wednesday 29 July, morning — the home page is clean, the site has a face, and the news is nearly right
+
+**The home page has no broken links at all now** — seventeen links and anchors, every
+one resolving. That's the first time since the site launched, and given we started
+the week with ten of thirteen home page links returning nothing, it's the milestone
+worth naming.
+
+**The two identical "What's here" sections are gone.** Rather than delete one, I
+made them do different jobs. One is now "Browse by category" and the other is
+"Start here". The interesting part is that this cost nothing: the tools page
+*already* sorted all sixty-three tools into six proper categories, and none of those
+headings could be linked to. Six small anchors later, a page we already had became a
+page you can navigate. The earlier plan was to build four brand-new category pages,
+which would have been a great deal of work for navigation the site could already
+express.
+
+I did check the tool counts before putting numbers on the page, and I'm glad I did —
+my first count came to sixty-two against sixty-three actually on the site, because
+of a flaw in how I was counting. The mismatch is the only reason I noticed. It's now
+nine, twenty, twelve, six, three and thirteen, which adds to sixty-three.
+
+**The site has a favicon**, which was the last broken link on every single page. It
+needed no decision from you in the end: the site's logo was already sitting in the
+assets folder — two overlapping windows with a command prompt inside, in our own
+green — and nothing on the site was using it. So it's your mark, not one I chose.
+
+One judgement I did make and you can overrule: the full logo has too much detail to
+survive at the size a browser tab shows, so the icon uses the whole mark at larger
+sizes and just the command prompt at the smallest. I checked that by actually
+rendering it small and looking, rather than assuming.
+
+**On the news, one query is fixed and one needs another go.** I'd written down a
+prediction before the overnight run so it couldn't be fudged afterwards, and I got
+it half right. I said the design-industry query would return fewer articles — it
+returned the same number. But I also said they'd be far more on topic, and that was
+right in a way that matters: **nine out of nine were genuine design stories**, where
+before it was about one in nine. Coca-Cola's global rebrand, a new brand identity
+for a dance company, illustration taking over from type. Real trade news.
+
+There's a wrinkle: five of those nine are the same Coca-Cola story from five
+different publications. The system spots duplicate *links* but not duplicate
+*stories*, so one big story crowds the feed. I've written it down rather than fixed
+it, because fixing it properly means changing the platform, not the query.
+
+**The AI query needs one more pass**, and it taught me something about my own
+reasoning. I'd worked out that queries built from words specific to our field work,
+while generic business words don't. That held up well. But "design" turns out to be
+a word we share with every engineering discipline — so asking for AI and design
+brought back drug design, materials science, computer-aided design and a lighting
+conference. Only two of nine were about our world. I've anchored it to the web
+explicitly and it'll refetch tonight.
+
+So the news pool is now twenty-five articles, all genuinely on topic. That's fewer
+than the seventy-eight we had two days ago, and far better — which is the rule you
+set.
