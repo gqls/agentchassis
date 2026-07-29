@@ -272,3 +272,72 @@ func TestUnparsablePaletteCallIsReported(t *testing.T) {
 		t.Error("a palette declaration the scanner could not parse was passed over in silence")
 	}
 }
+
+// TestIconGroundAndTheTileItLandsInAgree is the pairing test, and what it pins
+// changed once I measured.
+//
+// The defect is not "the tile is light" on its own — it is that TWO independent
+// things decide what sits behind an icon. The generator is told, by
+// flatKindPaletteClause, "flat solid <surface> background". The page paints the
+// tile from a CSS variable. If those disagree the icon reads as a sticker
+// pasted onto the card: the same visual failure as the pale icons, inverted,
+// and invisible to any check that only asks "is the tile dark?".
+//
+// I first pinned this by deriving a new `icon_chip_bg` palette slot. That was
+// wrong and the measurement said so: the palette reaches the stylesheet only via
+// `{{palette "X"}}` calls in a layout template, and 0 of 18 layouts name that
+// slot — so the derivation would have been dead config. What image cards
+// actually use is `image-hover-card-grid`, whose tile reads
+// `var(--color-surface-alt, var(--color-surface))`, and surface_alt IS derived.
+//
+// So the assertion is on the real pair: the ground the generator is told to use
+// and the slot the tile is painted from must both resolve to `surface`.
+func TestIconGroundAndTheTileItLandsInAgree(t *testing.T) {
+	core := darkCoreOnlyPalette()
+	p := fillDarkSchemeSpecialisedSlots(darkCoreOnlyPalette(), zap.NewNop())
+
+	tile, ok := p["surface_alt"]
+	if !ok || tile == "" {
+		t.Fatalf("surface_alt was not derived; image cards paint their icon tile from it")
+	}
+	clause := flatKindPaletteClause(core)
+	if clause == "" {
+		t.Fatalf("flatKindPaletteClause returned nothing for a complete core palette")
+	}
+	if !strings.Contains(clause, tile) {
+		t.Errorf("the generator is told %q but the tile is painted %s — the icon will read as a sticker on the card", clause, tile)
+	}
+}
+
+// The tile is behind an ICON, so the icon's own linework has to be legible on
+// it. Same bar as every other derived pair.
+func TestIconLineworkClearsAAOnTheTile(t *testing.T) {
+	core := darkCoreOnlyPalette()
+	p := fillDarkSchemeSpecialisedSlots(darkCoreOnlyPalette(), zap.NewNop())
+
+	ink, _ := pickInkOn(core["surface"], core)
+	ratio, err := wcagContrastRatio(ink, p["surface_alt"])
+	if err != nil {
+		t.Fatalf("contrast: %v", err)
+	}
+	if ratio < 4.5 {
+		t.Errorf("icon linework %s on tile %s = %.2f:1, want >= 4.5", ink, p["surface_alt"], ratio)
+	}
+}
+
+// A light site keeps every literal it has today. Four live palettes rely on
+// them and deriving would repaint live pages to no benefit — the boundary every
+// slot here observes, and the one composedPaletteDirection deliberately copies.
+func TestLightSiteGetsNoDerivationAtAll(t *testing.T) {
+	light := map[string]string{
+		"primary": "#1A1816", "secondary": "#4A4640", "accent": "#A8391A",
+		"background": "#EFE7D6", "surface": "#F7F2E6",
+		"text": "#1A1816", "text_muted": "#6B655C", "border": "#D8CEB8",
+	}
+	p := fillDarkSchemeSpecialisedSlots(light, zap.NewNop())
+	for _, slot := range []string{"card_bg", "surface_alt", "header_bg", "cta_bg"} {
+		if _, ok := p[slot]; ok {
+			t.Errorf("%s was derived for a LIGHT palette; the layout literal is correct there", slot)
+		}
+	}
+}

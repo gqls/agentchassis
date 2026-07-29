@@ -72,6 +72,27 @@ var darkSchemeDerivations = []derivedSlot{
 	{name: "background_alt", from: "surface"},
 	{name: "surface_alt", from: "surface"},
 
+	// NOT HERE: icon_chip_bg. I added it, then measured, and it would have been
+	// dead config — the exact shape that looks live and is not.
+	//
+	// The palette reaches the stylesheet only through `{{palette "X" "literal"}}`
+	// calls in a LAYOUT template, so a slot no layout names is never emitted and
+	// the component's own `var(--color-icon-chip-bg, #EEF2F8)` fallback ships
+	// regardless of what this list says. Measured 2026-07-29 across all 18
+	// layouts: card_bg declared by 18, surface_alt by 3, **icon_chip_bg by 0**.
+	//
+	// The literal is also far narrower than it looks: `icon-chip-bg` appears in
+	// exactly ONE active component fleet-wide (`info-card-grid`, and only in its
+	// image variant). `image-hover-card-grid` — the component image cards
+	// actually use — already reads `var(--color-surface-alt, var(--color-surface))`,
+	// which IS derived above. So the generated icon ground (flatKindPaletteClause
+	// asks for `surface`) and the tile it lands in already agree on the path that
+	// matters.
+	//
+	// Fixing info-card-grid's image variant means editing a fleet-shared
+	// component template with 23 placements across 11 sites. That is its own
+	// change with its own review, not a passenger on this one.
+
 	{name: "primary_hover", from: "primary", comment: "hover keeps the family"},
 	{name: "secondary_hover", from: "secondary"},
 

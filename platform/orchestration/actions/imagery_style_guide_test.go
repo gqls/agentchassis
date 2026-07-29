@@ -272,3 +272,98 @@ func TestComposeDirectionPaletteFirst(t *testing.T) {
 		t.Errorf("palette-only composition wrong: %q", got)
 	}
 }
+
+// ===========================================================================
+// flatKindPaletteClause — the floor for flat kinds on sites with no guide
+// ===========================================================================
+//
+// The hole this fills: directionAppliesToKind excludes icon/sprite_sheet/
+// content_hero from the free-text design_intent fallback (correctly — a
+// photographic direction prepended to a flat prompt composites the subject onto
+// a photo), which left those kinds with NO colour direction at all on any site
+// without a style guide. That is 9 of 10 sites, and into the hole went
+// build-site-planner's hardcoded "#4A4A4A line on #EEEEEE background" — a light
+// ground shipped to every site regardless of scheme. 17 near-white icons on a
+// #111520 page were the result.
+
+func TestFlatKindPaletteClauseUsesSurfaceNotBackground(t *testing.T) {
+	// surface, not background, because the chip the icon sits in derives from
+	// surface_alt <- surface. Naming background here would make the generated
+	// ground and the painted tile disagree — the same defect inverted.
+	got := flatKindPaletteClause(map[string]string{
+		"background": "#080E1C",
+		"surface":    "#111E33",
+		"text":       "#E4EAF2",
+		"accent":     "#C8902A",
+	})
+	if !strings.Contains(got, "#111E33") {
+		t.Errorf("clause %q does not name the surface colour the chip is derived from", got)
+	}
+	if strings.Contains(got, "#080E1C") {
+		t.Errorf("clause %q names the page background; the icon sits in a chip on a card, not on the page", got)
+	}
+	if !strings.Contains(got, "#C8902A") {
+		t.Errorf("clause %q drops the accent, so an icon can never carry the brand colour", got)
+	}
+}
+
+// The clause has to beat a literal that is still sitting in the subject prompt
+// (92 site_plan_imagery rows fleet-wide carry #EEEEEE and this change does not
+// rewrite them). Prepending "use X" is not enough on its own; the prohibition
+// is what makes the derived value win.
+func TestFlatKindPaletteClauseForbidsAnyOtherGround(t *testing.T) {
+	got := flatKindPaletteClause(map[string]string{
+		"surface": "#111E33", "text": "#E4EAF2",
+	})
+	if !strings.Contains(got, "no other background colour") {
+		t.Errorf("clause %q states a ground but does not exclude one, so a stale #EEEEEE in the subject prompt can still win", got)
+	}
+}
+
+// A palette with nothing usable must produce nothing. Emitting a clause that
+// names a colour we do not have would be worse than the planner's literal,
+// because it would look authoritative.
+func TestFlatKindPaletteClauseSilentWithoutAGround(t *testing.T) {
+	if got := flatKindPaletteClause(map[string]string{"text": "#E4EAF2"}); got != "" {
+		t.Errorf("got %q, want empty when the palette has neither surface nor background", got)
+	}
+	if got := flatKindPaletteClause(nil); got != "" {
+		t.Errorf("got %q, want empty for a nil palette", got)
+	}
+}
+
+// A ground with no legible palette colour still gets a clause, because
+// pickInkOn falls back to black or white rather than to nothing. Asserted here
+// rather than left implicit: the first version of flatKindPaletteClause carried
+// an `if ink == "" { return "" }` guard, which this case proved to be dead code
+// — pickInkOn returned "#ffffff". A legible fallback ink is better than no
+// clause at all, since no clause means the planner's #EEEEEE literal wins.
+func TestFlatKindPaletteClauseFallsBackToALegibleInk(t *testing.T) {
+	got := flatKindPaletteClause(map[string]string{"surface": "#111E33"})
+	if got == "" {
+		t.Fatalf("got empty; a ground with no palette ink must still produce a clause with a black/white fallback")
+	}
+	if !strings.Contains(got, "#ffffff") {
+		t.Errorf("clause %q does not carry the white fallback that is legible on #111E33", got)
+	}
+}
+
+// The linework is picked for legibility rather than assumed to be `text`,
+// because a palette whose text does not clear AA against its own surface is
+// exactly why pickInkOn takes a candidate list. An unreadable icon is the
+// failure being fixed, so it must not be reintroduced by the fix.
+func TestFlatKindPaletteClauseLineworkIsLegibleOnItsGround(t *testing.T) {
+	p := map[string]string{
+		"surface":    "#111E33",
+		"text":       "#152238", // deliberately near-invisible on the surface
+		"text_muted": "#7E91A8",
+		"background": "#E4EAF2", // the legible candidate
+	}
+	got := flatKindPaletteClause(p)
+	if got == "" {
+		t.Fatalf("no clause produced; a legible candidate existed in the palette")
+	}
+	if strings.Contains(got, "#152238") {
+		t.Errorf("clause %q picked an ink that is invisible on its own ground", got)
+	}
+}

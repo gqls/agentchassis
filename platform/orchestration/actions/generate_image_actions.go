@@ -412,9 +412,28 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 		// fallback for sites without a guide.
 		direction := styleGuide.directionForKind(kind)
 		directionSource := "+style_guide"
-		if direction == "" && directionAppliesToKind(kind) {
-			direction = getImageryDirectionForSite(ctx, params.DB, siteID, params.Logger)
-			directionSource = "+imagery_direction"
+		if direction == "" {
+			if directionAppliesToKind(kind) {
+				direction = getImageryDirectionForSite(ctx, params.DB, siteID, params.Logger)
+				directionSource = "+imagery_direction"
+			} else if kind != "logo" {
+				// Flat-vector kinds are excluded from the free-text fallback
+				// above for a good reason (a photographic direction prepended
+				// to a flat prompt composites the subject onto a photo), and
+				// that exclusion left them with NO colour direction at all on
+				// any site without a style guide — which is 9 of 10 sites. The
+				// only colour such a prompt then carries is build-site-planner's
+				// hardcoded "#4A4A4A line on #EEEEEE background", a LIGHT ground
+				// shipped to every site regardless of scheme. On dartsonline
+				// that produced 17 near-white tiles for a #111520 page.
+				//
+				// So derive the palette clause from the composed palette. Logos
+				// stay excluded — generated once, human-approved, then locked
+				// (the 2026-05-20 contamination lesson), and a locked asset must
+				// not acquire a new colour instruction on a re-run.
+				direction = composedPaletteDirection(ctx, params.DB, siteID, params.Logger)
+				directionSource = "+composed_palette"
+			}
 		}
 		if direction != "" {
 			composed, truncated := composeImagePromptWithDirection(promptTemplate, direction)

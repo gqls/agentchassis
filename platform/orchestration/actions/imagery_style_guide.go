@@ -132,6 +132,166 @@ func getImageryStyleGuideForSite(ctx context.Context, db interface{}, siteID str
 	return &g
 }
 
+// ============================================================================
+// Fallback: the composed palette, for flat kinds on sites with no style guide
+// ============================================================================
+//
+// THE DEFECT THIS CLOSES. A flat-vector kind (icon, sprite_sheet, content_hero)
+// takes its colour ONLY from the style guide — directionAppliesToKind excludes
+// these kinds from the free-text design_intent.imagery_direction fallback on
+// purpose, because a photographic direction prepended to a flat prompt makes
+// the model composite the flat subject onto a photo (icon_cycle_time,
+// 2026-05-20). That exclusion is right. What it left behind is a hole: a site
+// with no imagery_style_guide gives an icon NO colour direction at all.
+//
+// Into that hole went a literal. build-site-planner's prompt template pins
+// every icon prompt to "a darker grey (#4A4A4A) line on a flat solid light grey
+// (#EEEEEE) background", unconditionally, for every site. That literal was added
+// deliberately (053_build_site_planner.sql, "icon background: transparent/plain
+// -> flat selectable grey (embrace the chip)") to stop transparency and
+// checkerboard artefacts, and the flatness half of it is load-bearing. The
+// colour half is not — it is a LIGHT ground shipped to every site regardless of
+// scheme.
+//
+// Measured fleet-wide 2026-07-29: 92 site_plan_imagery rows across 14 plans
+// carry #EEEEEE, 62 of them on 9 sites' CURRENT plans; and 6 of the 10 sites
+// with a resolved composition are dark-background (dartsonline #111520,
+// fundamentallyai #080E1C, gamesdesign #121212, oufe #111922, robot-hands
+// #0F1218, vonc #0a0a0f). On dartsonline the result was 17 icons generated
+// exactly as instructed, every one a near-white tile, none usable.
+//
+// So: when no guide exists, derive the flat-kind palette clause from the palette
+// the RENDERER actually emits. That is the same source check_palette_contrast
+// reads, and it means a site gets a correct ground with no per-site config at
+// all. A guide still wins outright when one exists — this is strictly a floor.
+
+// composedPaletteDirection builds the palette clause for a flat-vector kind on
+// a site with no imagery_style_guide, from the site's resolved composition.
+//
+// Returns "" when the site has no resolved composition, no palette row, or no
+// background/text slots — every one of which means "nothing better to say than
+// the prompt already says", and the prompt still ships. It is a floor, never a
+// requirement, in keeping with getImageryStyleGuideForSite above.
+//
+// The SQL is deliberately the same shape as
+// discovery_checks.loadComposedPalette (check_palette_contrast.go:156-168) —
+// site_specs.resolved_composition.palette_id joined to palettes.colours. They
+// are two copies because discovery_checks is imported BY actions and its helper
+// is unexported and takes a DiscoveryCheckContext; if either query changes, the
+// other is wrong, and the failure is silent in both (an image generated against
+// a palette the page does not use looks deliberate).
+func composedPaletteDirection(ctx context.Context, db interface{}, siteID string, logger *zap.Logger) string {
+	if siteID == "" || db == nil {
+		return ""
+	}
+	const query = `
+		SELECT p.colours
+		  FROM site_specs ss
+		  JOIN palettes p ON p.id = (ss.data->>'palette_id')::uuid
+		 WHERE ss.site_id = $1
+		   AND ss.aspect  = 'resolved_composition'
+		   AND ss.is_current
+		 LIMIT 1`
+
+	var raw []byte
+	switch d := db.(type) {
+	case *sql.DB:
+		if err := d.QueryRowContext(ctx, query, siteID).Scan(&raw); err != nil {
+			if err != sql.ErrNoRows {
+				logger.Warn("composedPaletteDirection: query failed",
+					zap.String("site_id", siteID), zap.Error(err))
+			}
+			return ""
+		}
+	case *pgxpool.Pool:
+		if err := d.QueryRow(ctx, query, siteID).Scan(&raw); err != nil {
+			if !strings.Contains(err.Error(), "no rows") {
+				logger.Warn("composedPaletteDirection: query failed",
+					zap.String("site_id", siteID), zap.Error(err))
+			}
+			return ""
+		}
+	default:
+		return ""
+	}
+
+	var colours map[string]string
+	if err := json.Unmarshal(raw, &colours); err != nil {
+		logger.Warn("composedPaletteDirection: unparseable palettes.colours",
+			zap.String("site_id", siteID), zap.Error(err))
+		return ""
+	}
+
+	// DARK SITES ONLY, and this is a deliberate narrowing rather than an
+	// oversight. It is the same boundary fillDarkSchemeSpecialisedSlots draws,
+	// for the same reason and stated in its own words: "for a light site the
+	// layout's literals are broadly right, and four live palettes rely on them
+	// today. Deriving for them too would repaint live sites to no benefit."
+	//
+	// A light grey icon ground on a light site is unremarkable; on a dark site
+	// it is a hole in the page. And because these two mechanisms are a PAIR —
+	// the generated ground and the chip it lands in must agree — their gates
+	// have to match, or a site gets one half of the treatment. Keeping the
+	// boundaries identical is the property to preserve if either is changed.
+	//
+	// Measured 2026-07-29: 6 of the 10 sites with a resolved composition are
+	// dark (dartsonline, fundamentallyai, gamesdesign, oufe, robot-hands, vonc);
+	// the other 4 (idea.uk, relojistas, vetcomparison, webdesign) keep the
+	// planner's literal and are unaffected by this change.
+	if bg := colours["background"]; bg == "" || !isDarkHex(bg) {
+		return ""
+	}
+	return flatKindPaletteClause(colours)
+}
+
+// flatKindPaletteClause turns a palette into the one sentence a flat-vector
+// prompt needs: what colour the ground is, what colour the linework is, and
+// what may be used for a single accent stroke.
+//
+// GROUND IS `surface`, NOT `background`, and that is not a detail. An icon is
+// rendered inside a styled chip on a card, and the chip takes surface_alt which
+// itself derives from surface (palette_specialised_slots.go). If the generated
+// ground and the chip disagree, the icon reads as a tile pasted onto the card —
+// which is the SAME visual defect as the pale icons, merely inverted. The two
+// must be derived from one slot, and this is that slot.
+//
+// Falls back to `background` when a palette omits `surface`, and returns "" when
+// it has neither — a clause naming a colour we do not have would be worse than
+// the prompt's own literal.
+func flatKindPaletteClause(colours map[string]string) string {
+	ground := colours["surface"]
+	if ground == "" {
+		ground = colours["background"]
+	}
+	if ground == "" {
+		return ""
+	}
+
+	// Linework must be legible ON the ground, so it is picked the same way an
+	// ink slot is rather than assumed to be `text`: a palette whose text does
+	// not clear AA against its own surface exists (this is why pickInkOn takes
+	// a candidate list at all), and an unreadable icon is exactly the failure
+	// being fixed.
+	//
+	// pickInkOn never returns empty — when nothing in the palette clears AA it
+	// falls back to whichever of black/white contrasts better. So there is no
+	// "no ink" branch to guard, and adding one would be dead code that reads
+	// like a real case. (I wrote that guard first and a test caught it: the
+	// helper returned "#ffffff" where I had asserted "".)
+	ink, _ := pickInkOn(ground, colours)
+
+	clause := "flat solid " + ground + " background, " + ink + " linework"
+	if accent := colours["accent"]; accent != "" {
+		clause += ", " + accent + " permitted for a single accent stroke only"
+	}
+	// Said explicitly because the model is also being handed a prompt that may
+	// still carry the planner's own colour words. Naming the ground twice, once
+	// as an instruction and once as a prohibition, is what makes the derived
+	// value win over a stale literal in the subject prompt.
+	clause += "; one single uniform background colour, and no other background colour"
+	return clause
+}
+
 // composeDirection joins medium/mood/palette into the prompt-prefix voice.
 func composeDirection(medium, mood, palette string) string {
 	parts := make([]string, 0, 3)
