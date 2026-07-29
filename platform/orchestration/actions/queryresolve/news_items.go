@@ -61,11 +61,34 @@ const (
 	newsArchiveAgeHours = 720 * 4
 )
 
+// newsItemsPerToolCap: at most this many items about any one tool/brand in a
+// rendered set (owner ruling D14, 2026-07-29: "no more than two articles for
+// one tool, so we keep the usefulness of the site high" —
+// webdesign_couk/PLAN_2026-07-25 §D14). Bounds the observed shape where one
+// story or product release crowds the feed because dedup keys on source_url:
+// five outlets on one Coca-Cola rebrand passed as five items, and Firefox
+// 153/154 coverage took four slots. Applied here, inside the single shared
+// selection, so the server-rendered HTML and the client JSON stay in
+// agreement about which items exist.
+const newsItemsPerToolCap = 2
+
 // QueryNewsItems is the single news-item selection, shared by the query.*
 // resolvers and RenderNewsSectionAction's JSON path. The WHERE/ORDER BY are
 // the JSON path's semantics verbatim: relevant-first, then relevance score,
 // then recency; future-dated items (misdated feeds) excluded beyond one day.
+// The result obeys newsItemsPerToolCap: the query over-fetches, the cap drops
+// lower-ranked items sharing a tool key with two better-ranked ones, and the
+// set is trimmed back to maxItems.
 func QueryNewsItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHours, maxItems int, logger *zap.Logger) ([]NewsItem, error) {
+	// Over-fetch so capped items can be back-filled from the next-ranked ones
+	// rather than shrinking the page below maxItems.
+	fetchLimit := maxItems * 3
+	if fetchLimit > 150 {
+		fetchLimit = 150
+	}
+	if fetchLimit < maxItems {
+		fetchLimit = maxItems
+	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 			COALESCE(cfi.source_title, '')          AS title,
@@ -88,7 +111,7 @@ func QueryNewsItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHou
 			cfi.source_published_at DESC NULLS LAST,
 			cfi.created_at DESC
 		LIMIT $3
-	`, siteID, maxAgeHours, maxItems)
+	`, siteID, maxAgeHours, fetchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("QueryNewsItems: %w", err)
 	}
@@ -116,7 +139,179 @@ func QueryNewsItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHou
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("QueryNewsItems rows: %w", err)
 	}
+	topical := newsTopicalTokens(siteSourceQueries(ctx, db, siteID, logger), items)
+	items = capNewsItemsPerTool(items, newsItemsPerToolCap, topical)
+	if len(items) > maxItems {
+		items = items[:maxItems]
+	}
 	return items, nil
+}
+
+// siteSourceQueries returns the site's active content_sources query strings.
+// Best-effort: on error the cap still runs with frequency-derived topics only.
+func siteSourceQueries(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) []string {
+	rows, err := db.QueryContext(ctx, `
+		SELECT COALESCE(config->>'query', '') FROM content_sources
+		WHERE site_id = $1 AND is_active
+	`, siteID)
+	if err != nil {
+		logger.Warn("siteSourceQueries: query failed, cap runs without query topics", zap.Error(err))
+		return nil
+	}
+	defer rows.Close()
+	var queries []string
+	for rows.Next() {
+		var q string
+		if rows.Scan(&q) == nil && q != "" {
+			queries = append(queries, q)
+		}
+	}
+	return queries
+}
+
+// newsTopicalTokens builds the per-site set of TOPIC words the cap must never
+// treat as tool keys. Two sources, both derived rather than configured:
+//   - the site's own source queries: what a site asks its feed for IS its
+//     subject vocabulary ("CSS new features browser support" makes css and
+//     browser topics for webdesign.co.uk, never tools);
+//   - document frequency over the fetched pool: a token in >=25% of titles
+//     (min 3) is the site's subject matter even when no query names it —
+//     gaswholesalers' query says "gas" but its pool is oil-market coverage,
+//     and "Oil" must not be a tool key there.
+// Derivation matters because a hardcoded list is one site's topics in
+// disguise: the first cut of this cap hardcoded css/html/design and the
+// pre-submission simulation showed it dropping 13 of gaswholesalers' top 20.
+func newsTopicalTokens(queries []string, items []NewsItem) map[string]bool {
+	topical := make(map[string]bool)
+	for _, q := range queries {
+		for _, w := range strings.Fields(strings.ToLower(q)) {
+			w = strings.Trim(w, "\"'.,:;!?()[]")
+			if len(w) >= 2 {
+				topical[w] = true
+			}
+		}
+	}
+	// Frequency derivation needs a pool large enough that "appears a lot"
+	// means "is the subject matter", not "is one well-covered story". Below
+	// 12 items a genuine tool cluster (four Firefox headlines) would cross
+	// any workable threshold, so small pools rely on query topics alone.
+	if len(items) >= 12 {
+		df := make(map[string]int)
+		for _, it := range items {
+			for _, k := range titleTokens(it.Title) {
+				df[k]++
+			}
+		}
+		threshold := len(items) / 4
+		if threshold < 5 {
+			threshold = 5
+		}
+		for k, n := range df {
+			if n >= threshold {
+				topical[k] = true
+			}
+		}
+	}
+	return topical
+}
+
+// capNewsItemsPerTool walks the ranked items and drops any item whose title
+// shares a tool key with maxPer already-kept items. Order is preserved, so the
+// query's ranking (relevant-first, score, recency) decides WHICH two survive.
+func capNewsItemsPerTool(items []NewsItem, maxPer int, topical map[string]bool) []NewsItem {
+	if maxPer <= 0 || len(items) == 0 {
+		return items
+	}
+	counts := make(map[string]int)
+	out := make([]NewsItem, 0, len(items))
+	for _, it := range items {
+		keys := titleToolKeys(it.Title, topical)
+		blocked := false
+		for _, k := range keys {
+			if counts[k] >= maxPer {
+				blocked = true
+				break
+			}
+		}
+		if blocked {
+			continue
+		}
+		for _, k := range keys {
+			counts[k]++
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+// titleTokens returns the normalised capitalised tokens of a headline —
+// tool-key CANDIDATES, before topical filtering. Intra-word hyphens are kept
+// so "Coca-Cola" is one token; possessives are stripped.
+func titleTokens(title string) []string {
+	var toks []string
+	seen := make(map[string]bool)
+	for _, raw := range strings.Fields(title) {
+		tok := strings.Trim(raw, "\"'“”‘’.,:;!?()[]…")
+		tok = strings.TrimSuffix(tok, "'s")
+		tok = strings.TrimSuffix(tok, "’s")
+		if len(tok) < 3 {
+			continue
+		}
+		r := []rune(tok)
+		if r[0] < 'A' || r[0] > 'Z' {
+			continue // tool/brand names in headlines are capitalised
+		}
+		key := strings.ToLower(tok)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		toks = append(toks, key)
+	}
+	return toks
+}
+
+// titleToolKeys extracts the tool/brand keys a headline is about: capitalised
+// tokens that are neither generic headline vocabulary nor the site's own
+// topics. Deliberately a heuristic, not entity resolution — it only has to
+// make same-tool headlines COLLIDE ("Firefox 153 Officially Released" /
+// "Mozilla Firefox 154 Enters Beta" share "firefox"), and its failure modes
+// are bounded: a spurious collision costs one surplus item its slot, a missed
+// one leaves the feed no worse than before the cap.
+func titleToolKeys(title string, topical map[string]bool) []string {
+	var keys []string
+	for _, key := range titleTokens(title) {
+		if headlineStopwords[key] || topical[key] {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+// headlineStopwords are capitalised-in-headlines words that are not names:
+// articles, question openers, common verbs/adjectives that headline case or
+// sentence position capitalises, plus cross-domain tech acronyms. Site
+// SUBJECT vocabulary does not belong here — that is newsTopicalTokens' job,
+// derived per site.
+var headlineStopwords = map[string]bool{
+	"the": true, "and": true, "for": true, "with": true, "from": true,
+	"how": true, "why": true, "what": true, "when": true, "where": true,
+	"who": true, "this": true, "that": true, "these": true, "those": true,
+	"new": true, "your": true, "you": true, "its": true, "it's": true,
+	"are": true, "was": true, "will": true, "can": true, "not": true,
+	"all": true, "top": true, "best": true, "here": true, "there": true,
+	"after": true, "before": true, "into": true, "over": true, "under": true,
+	"released": true, "release": true, "releases": true, "official": true,
+	"officially": true, "unveils": true, "launches": true, "launch": true,
+	"introducing": true, "announces": true, "announced": true, "gets": true,
+	"enters": true, "arrives": true, "brings": true, "adds": true,
+	"update": true, "updates": true, "version": true, "beta": true,
+	"stable": true, "preview": true, "guide": true, "review": true,
+	"look": true, "first": true, "market": true, "industry": true,
+	"global": true, "report": true, "analysis": true,
+	"api": true, "pdf": true, "http": true, "https": true,
+	"json": true, "svg": true,
 }
 
 // resolveLatestNews backs `source: "query.latest_news"` — the homepage

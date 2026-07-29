@@ -305,3 +305,29 @@ exploitation value** (an invented statistic, a dead link, a broken build). If a
 defect is open and exploitable, it waits. This costs nothing — the closed set is
 already large and more honest, because a closed bug comes with its fix and its
 verification attached.
+
+### D14 — News caps at TWO articles per tool; content migrates one set in, one set out (owner, 2026-07-29)
+
+The owner's words, from the session: *"can we do say no more than two articles
+for one tool, so we keep the usefulness of the site high. Please also start
+doing one buyer related set in and one only-designer set out so we can start
+moving the site away from the duplicate content problems we might face."*
+
+Two rulings in one:
+
+1. **The news feed shows at most TWO articles about any one tool/story.** This
+   bounds the recorded dedup flaw (five outlets covering one Coca-Cola rebrand
+   passed as five items; three Firefox 153 pieces likewise) without waiting for
+   full story-level clustering. Usefulness over volume — same principle as the
+   earlier "fewer on-topic articles beat more off-topic" ruling.
+2. **Content migration begins, one paired cycle at a time: one buyer-related
+   set IN, one designer-only set OUT.** The driver is the duplicate-content
+   exposure: the ~94 imported practitioner pages duplicate the two source
+   domains, which stay live; buying-design content is the only zero-duplication
+   material. This refines (does not reverse) the 07-28 "designers STAY" ruling —
+   the traffic engine is migrated gradually, not deleted, and each removal is
+   paired with a buyer addition.
+   **Removal mechanics rail (mine, not the owner's):** while `bugs_open/132` is
+   open, a deleted file's URL serves the B2 worker's raw JSON error blob — so
+   "out" means de-index (robots noindex + removal from index pages and search),
+   NOT file deletion, until 132 closes or a redirect surface exists.
