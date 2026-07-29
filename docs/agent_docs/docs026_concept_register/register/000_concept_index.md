@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,649 concepts across 107 category register files. 1,627 consolidated from
+1,651 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -44,6 +44,17 @@ everything — which means dropping a ratchet line obliges you to register the
 mechanisms, not merely one of them. Status tags were
 documentary signals from the source material unless independently verified (see
 below).
+
+And 2 more (**PUB-002, PUB-003**) added 2026-07-29 by the consolidation
+programme, for the two shared packages it built on 07-28 — `platform/httpguard`
+(one client key, one banded limiter, one intake gate) and `platform/mailer` (the
+first SMTP sender inside the built code). Both were council-approved on the day
+they were built and **neither was registered then**, which is exactly the gap
+`bugs_open/106`'s coverage check exists to catch. Registered late rather than not
+at all, and both carry the honest status: **built, approved, and called by
+nothing.** PUB-002 also records the seam added on 07-29 — `ClientIP` now requires
+the caller to name the proxy in front of it, because its previous hard-coded
+rules were nginx's and are false on the estate's other front-end.
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
 `006_VERIFICATION_stage2.md` for method and full findings. Every one of the

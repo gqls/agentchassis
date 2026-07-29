@@ -15,16 +15,16 @@ func req(remoteAddr string, headers map[string]string) *http.Request {
 	return r
 }
 
-// THE regression test for bugs_open/090. nginx appends the real peer with
+// THE regression test for bugs_closed/090. nginx appends the real peer with
 // $proxy_add_x_forwarded_for, so a client-supplied header arrives on the LEFT and
 // the truth on the RIGHT. Trusting the first entry let a caller pick their own
 // rate-limit bucket, proven in production.
 func TestClientIPIgnoresAForgedForwardedForPrefix(t *testing.T) {
 	got := ClientIP(req("127.0.0.1:5000", map[string]string{
 		"X-Forwarded-For": "203.0.113.77, 198.51.100.9",
-	}))
+	}), Nginx())
 	if got == "203.0.113.77" {
-		t.Fatal("trusted the client-supplied FIRST X-Forwarded-For entry — this is bugs_open/090")
+		t.Fatal("trusted the client-supplied FIRST X-Forwarded-For entry — this is bugs_closed/090")
 	}
 	if got != "198.51.100.9" {
 		t.Fatalf("want the rightmost (proxy-appended) entry 198.51.100.9, got %q", got)
@@ -35,7 +35,7 @@ func TestClientIPPrefersXRealIPFromOurProxy(t *testing.T) {
 	got := ClientIP(req("10.0.0.5:41000", map[string]string{
 		"X-Real-IP":       "198.51.100.9",
 		"X-Forwarded-For": "203.0.113.77",
-	}))
+	}), Nginx())
 	if got != "198.51.100.9" {
 		t.Fatalf("want X-Real-IP 198.51.100.9, got %q", got)
 	}
@@ -47,19 +47,93 @@ func TestClientIPIgnoresHeadersFromAPublicPeer(t *testing.T) {
 	got := ClientIP(req("198.51.100.9:33000", map[string]string{
 		"X-Real-IP":       "203.0.113.77",
 		"X-Forwarded-For": "203.0.113.77",
-	}))
+	}), Nginx())
 	if got != "198.51.100.9" {
 		t.Fatalf("headers from a public peer must be ignored, got %q", got)
 	}
 }
 
 func TestClientIPFallsBackToPeerWithNoHeaders(t *testing.T) {
-	if got := ClientIP(req("127.0.0.1:5000", nil)); got != "127.0.0.1" {
+	if got := ClientIP(req("127.0.0.1:5000", nil), Nginx()); got != "127.0.0.1" {
 		t.Fatalf("want 127.0.0.1, got %q", got)
 	}
 	// A single-entry XFF from our proxy is the whole chain.
-	if got := ClientIP(req("127.0.0.1:5000", map[string]string{"X-Forwarded-For": "198.51.100.9"})); got != "198.51.100.9" {
+	if got := ClientIP(req("127.0.0.1:5000", map[string]string{"X-Forwarded-For": "198.51.100.9"}), Nginx()); got != "198.51.100.9" {
 		t.Fatalf("want 198.51.100.9, got %q", got)
+	}
+}
+
+// islandShape is what tools-api actually receives behind Cloudflare + cloudflared
+// + Caddy, measured 2026-07-29 (bugs_open/139):
+//
+//   - X-Forwarded-For is whatever CADDY wrote, and Caddy OVERWRITES it with its own
+//     immediate peer — the docker bridge gateway — rather than appending. So it is
+//     a constant, identical for every visitor on earth.
+//   - X-Real-IP is passed through by Caddy VERBATIM, so if one ever arrives it is
+//     the caller's own value. (Cloudflare happens to strip it today; that is the
+//     edge's behaviour, not the origin's, and it is not a guarantee this package
+//     may lean on.)
+//   - CF-Connecting-IP is written by Cloudflare and cannot be supplied by the
+//     caller — the edge 403s a request that tries.
+func islandShape(clientSuppliedRealIP string) *http.Request {
+	h := map[string]string{
+		"X-Forwarded-For":  "172.18.0.1",
+		"CF-Connecting-IP": "2a02:c7c:f61f:ac00:37e4:bb5f:7ea9:389a",
+	}
+	if clientSuppliedRealIP != "" {
+		h["X-Real-IP"] = clientSuppliedRealIP
+	}
+	return req("172.18.0.1:44000", h)
+}
+
+func TestClientIPOnTheIslandResolvesTheRealVisitor(t *testing.T) {
+	got := ClientIP(islandShape("203.0.113.77"), CloudflareTunnel())
+	if got == "203.0.113.77" {
+		t.Fatal("trusted a client-supplied X-Real-IP: Caddy forwards that header verbatim")
+	}
+	if got == "172.18.0.1" {
+		t.Fatal("resolved the docker bridge gateway — the constant every visitor shares (bugs_open/139)")
+	}
+	if got != "2a02:c7c:f61f:ac00:37e4:bb5f:7ea9:389a" {
+		t.Fatalf("want the CF-Connecting-IP the edge wrote, got %q", got)
+	}
+}
+
+// The failing branch, made executable: this is what adopting the OLD hard-coded
+// default into tools-api would have done. It is why FrontEnd is a required
+// argument rather than a package-level constant. Both outcomes below are wrong,
+// and which one you get depends only on whether the edge happened to strip a
+// header that day — neither is a client identity.
+func TestNginxRulesOnTheIslandShapeAreBothWrong(t *testing.T) {
+	// With a client-supplied X-Real-IP present, nginx's first rule hands the
+	// caller their own chosen key.
+	if got := ClientIP(islandShape("203.0.113.77"), Nginx()); got != "203.0.113.77" {
+		t.Fatalf("expected the nginx rules to return the caller's forged value here, got %q", got)
+	}
+	// With it absent, nginx's second rule falls to Caddy's overwritten
+	// X-Forwarded-For, which is the same constant for everybody.
+	if got := ClientIP(islandShape(""), Nginx()); got != "172.18.0.1" {
+		t.Fatalf("expected the nginx rules to return the gateway constant here, got %q", got)
+	}
+}
+
+func TestDirectFrontEndBelievesNoHeaders(t *testing.T) {
+	got := ClientIP(islandShape("203.0.113.77"), Direct())
+	if got != "172.18.0.1" {
+		t.Fatalf("Direct() must ignore every header and key on the peer, got %q", got)
+	}
+}
+
+// A trusted header carrying something that is not an address is skipped, not
+// returned: a value that cannot be an IP cannot be a client key. Without this the
+// next header in the list would never be consulted.
+func TestClientIPSkipsATrustedHeaderThatIsNotAnAddress(t *testing.T) {
+	got := ClientIP(req("10.0.0.5:41000", map[string]string{
+		"X-Real-IP":       "not-an-ip",
+		"X-Forwarded-For": "198.51.100.9",
+	}), Nginx())
+	if got != "198.51.100.9" {
+		t.Fatalf("want the fallback to the next trusted header, got %q", got)
 	}
 }
 
