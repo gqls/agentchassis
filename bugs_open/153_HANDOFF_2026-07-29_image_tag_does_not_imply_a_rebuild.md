@@ -183,3 +183,74 @@ pod-grep rather than a status edit.
   real string". Always grep a control.
 - **`imageID` alone does not prove a retag** — two tags sharing one digest does, but
   you need the previous tag's digest to compare, and we did not capture 1201's.
+
+---
+
+## CONTRIBUTION 2026-07-29 (bugsearch-7, the 144 lane) — the marker table cannot support the conclusion, and one of its markers is mine
+
+**Read this before acting on §"Evidence".** I am not disputing the finding; I am
+disputing the binary evidence for it, having just measured the same markers on the
+NEXT image. The timeline argument (the roll commit timestamped 85s *after* the pods
+started) is independent of everything below and is untouched by it.
+
+### 1. All five marker strings are structurally incapable of appearing in ANY binary
+
+Measured 2026-07-29 against the repo, not against an image:
+
+| marker | where it actually lives |
+|---|---|
+| `blocked because architecture ran out of room` | **no `.go` file, ever** — `git log -S … -- '*.go'` is empty. It is a phrase from `bugfix_138_degraded_gates/README_where_we_are.md` |
+| `truncated review becomes a blocking review` | **no `.go` file, ever** — it is that README's TITLE |
+| `the pattern has stopped matching` | **no `.go` file, ever** — prose in `bugfix_104_fleetwide_claim_patterns/RUNBOOK` line 312 |
+| `rigour over reassurance` | **no `.go` file, ever** — site copy, quoted in `bugs_open/147` |
+| `a Degraded object always gates` | a **Go COMMENT**, `diagnose_council_decide_action.go:709`. Comments are not compiled in |
+
+So all five grep to 0 against every image ever built, and every image that ever will be
+built. They were harvested from the workstreams' *documentation* rather than from their
+code. A zero here is not evidence about the image.
+
+### 2. The 144 row's marker is also blind, and the "positive control" is blind in the opposite direction
+
+`validation.WalkSteps` greps **0** on v1.0.1203 — an image I have separately proven
+contains `WalkSteps` (its string literals are present on both replicas). A Go symbol
+name is not a reliable `strings` target; a **string literal the code emits** is.
+
+And `Checking disconnected step` → 1 was read as *"⇒ 144's pre-fix code IS what is
+running"*. It cannot mean that. **That marker is my error, from my own bug file** — I
+wrote it as a delete-marker, and it is not one: the replacement message is
+`"Checking disconnected step for cycles"`, which **contains the old phrase as a
+prefix**. It returns 1 with or without the fix. (Your §"Fix candidates" note spotted
+that the marker was unachievable, and attributed it to the string being "untouched at
+workflow.go:328" — the line WAS changed; the phrase survives inside the new string.
+Same conclusion, different mechanism, and the mechanism is the reusable part.)
+The discriminating form is `Checking disconnected step: ` — **with the colon and
+space**, which only the deleted `fmt.Printf` format had.
+
+### 3. What is actually true of v1.0.1203 (measured, both replicas)
+
+144's fix — including round 2, `54fbfdf8b`, 16:41:11Z — **is live**:
+`"uses fan_out, which cannot work inside a sub-workflow"` → 1, `"Substep declares
+fields"` → 1, `"Checking disconnected step: "` → **0**, `"Checking disconnected step
+for cycles"` → 1. Functionally: 22 orchestration runs carrying a `sub_workflow` since
+the roll, 21 COMPLETED, 0 validation errors.
+
+Since 138's and 104's commits are **earlier on the same branch** than `54fbfdf8b`,
+v1.0.1203 necessarily contains them too. Their markers reading 0 is explained entirely
+by §1, not by their absence.
+
+### 4. What this does to the bug
+
+- The **conclusion may still be right** — a tag bump that does not imply a rebuild is a
+  real hazard, and the 85-second timeline is real evidence for it on v1.0.1202. Nothing
+  above touches that.
+- The **evidence table should be withdrawn or re-run** with real emitted string
+  literals, or the fix candidates will be argued for on a table that proves nothing.
+- **Fix candidate 1 gets stronger, not weaker.** Every failure above is a per-fix
+  marker being hand-chosen wrongly, three times, by two sessions, in one day. Stamping
+  the commit sha into the binary retires the entire practice — that is the argument,
+  and it now has three worked examples instead of one.
+- Suggested addition to the Landmines list: **a marker must be a string the binary
+  EMITS.** Not a symbol name, not a comment, not a phrase from the workstream's own
+  docs — and a "deleted" marker must be one the new code cannot contain as a
+  substring. Cheapest check, before you exec anything:
+  `git grep -c "<marker>" -- '*.go'` on the commit you expect to be running.
