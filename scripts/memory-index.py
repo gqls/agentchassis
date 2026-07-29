@@ -25,11 +25,35 @@ lines DOWN into topic-file frontmatter (making the topic file the source of trut
 going forward). `--rebuild` copies them back UP, but only for entries that already
 carry frontmatter, and leaves every hand-added line untouched and in place.
 
+NEWEST WRITER WINS (the direction guard, 2026-07-29)
+----------------------------------------------------
+`--rebuild` alone is still not safe, because "frontmatter is the source of truth"
+silently loses whichever edit landed most recently — and sessions are *instructed*
+to hand-edit `MEMORY.md`. Observed live on 2026-07-29: a session rewrote the
+architecture-review line minutes after a `--sync`, and a blind rebuild would have
+reverted it. So `--rebuild` compares mtimes per entry:
+
+    topic file newer  -> someone edited index_line deliberately   -> rebuild it
+    MEMORY.md newer   -> someone hand-edited the index            -> KEEP it,
+                         and it is listed so `--sync` can push it down
+
+Both directions therefore converge instead of fighting, and neither can clobber a
+concurrent session. Two invariants back it: the link SET may never change across a
+rebuild (a lost link is a memory no cold start reaches again), and `--sync` matches
+`index_line:` at ANY indent — it is conventionally nested under `metadata:`, and an
+anchored `^index_line:` created a SECOND key in 8 files before this was fixed.
+
 USAGE
   memory-index.py                 # check: sizes, budgets, over-length lines  (advisory)
   memory-index.py --strict        # same, but exit 1 on a breach (for a hook)
-  memory-index.py --sync          # back-fill index_line frontmatter into topic files
-  memory-index.py --rebuild       # rewrite index lines from topic-file frontmatter
+  memory-index.py --hook          # silent unless over budget; for a PostToolUse hook
+  memory-index.py --sync          # DRY RUN: index lines -> topic frontmatter
+  memory-index.py --sync --apply  # ...write it
+  memory-index.py --rebuild       # DRY RUN: topic frontmatter -> index lines
+  memory-index.py --rebuild --apply
+
+ROUTINE: `--sync` after you hand-edit the index; `--rebuild` after you edit a topic
+file's `index_line`. Running both in either order is safe and idempotent.
 """
 import argparse
 import os
@@ -58,12 +82,32 @@ CONTENT_CAP = 90
 
 FRONTMATTER_KEY = "index_line"
 
+# Sibling indexes. They are NOT topic files, and the links they hold are what
+# keeps a topic file off the orphan list.
+SIBLINGS = ("MEMORY_closed.md", "MEMORY_workstreams.md")
+
+LINK_RE = re.compile(r"\]\(([^)]+\.md)\)")
+
+
+def links_in(text):
+    """Every topic-file link in a string. A FAMILY line carries several."""
+    return LINK_RE.findall(text)
+
 
 def classify(line):
     if line.startswith(">") or line.startswith("# "):
         return "header/ruling"
     if not line.startswith("- "):
         return None
+    # FAMILY lines (2026-07-29 ruling): one line, several related memories, e.g.
+    #   - **A claim about behaviour is NOT the behaviour** — [a](x.md) · [b](y.md)
+    # They open with `- **` like a status banner but are the OPPOSITE of volatile —
+    # they are the compaction working, and they are long BY DESIGN. Billing them to
+    # the 1.5KB status-banner budget reported a 5.5KB breach that was mostly the
+    # merge everyone was asked to do. Count them as practice entries, which is what
+    # they are.
+    if len(links_in(line)) > 1:
+        return "practice entries"
     if re.match(r"- \[?\*{0,2}[Bb]ug", line):
         return "bug entries"
     if line.startswith("- **"):
@@ -138,15 +182,43 @@ def check(strict=False):
             print(f"    {t}")
         breaches.append(f"{len(missing)} dangling topic-file links")
 
-    # orphans: topic files nothing points at (informational only — recall still finds them)
-    linked = {split_entry(l)[2] for l in lines if split_entry(l)}
+    # orphans: topic files NO index points at (informational — recall still finds
+    # them, but a cold start never will).
+    #
+    # Two bugs lived here until 2026-07-29, and together they overstated this by
+    # 30x — 129 reported against 4 real:
+    #   1. `split_entry` returns only the FIRST link on a line, so every member of
+    #      a FAMILY line after the first counted as unlinked;
+    #   2. the sibling indexes were excluded from `on_disk` but never READ, so the
+    #      ~89 memories they link looked orphaned.
+    # Scan every link in every index instead.
+    linked = set(links_in("\n".join(lines)))
+    for sib in SIBLINGS:
+        try:
+            linked.update(links_in(open(sib, encoding="utf-8").read()))
+        except OSError:
+            print(f"\n  warn: sibling index missing: {sib}")
     on_disk = {f for f in os.listdir(".")
-               if f.endswith(".md") and f not in
-               {INDEX, "MEMORY_closed.md", "MEMORY_workstreams.md"}}
-    orphans = on_disk - linked
+               if f.endswith(".md") and f not in {INDEX, *SIBLINGS}
+               and not f.startswith("MEMORY.")}          # MEMORY.backup-*.md
+    orphans = sorted(on_disk - linked)
     if orphans:
-        print(f"\n  {len(orphans)} topic files are not linked from any index "
-              f"(reachable by recall, invisible to a cold start)")
+        print(f"\n  {len(orphans)} topic file(s) are not linked from ANY index "
+              f"(reachable by recall, invisible to a cold start):")
+        for o in orphans[:15]:
+            print(f"    {o}")
+        if len(orphans) > 15:
+            print(f"    … and {len(orphans)-15} more")
+
+    # a link owned by two entries means two places to update, i.e. drift
+    from collections import Counter
+    entry_links = [l for ln in lines if ln.startswith("- ") for l in links_in(ln)]
+    dupes = {k: v for k, v in Counter(entry_links).items() if v > 1}
+    if dupes:
+        print(f"\n  {len(dupes)} memory(ies) linked from more than one entry:")
+        for k, v in sorted(dupes.items()):
+            print(f"    x{v}  {k}")
+        breaches.append(f"{len(dupes)} duplicate memory link(s) — one memory, one home")
 
     print()
     if breaches:
@@ -161,10 +233,19 @@ def check(strict=False):
     return 0
 
 
-def sync():
+# The key is conventionally NESTED under `metadata:` (two-space indent), but some
+# files carry it at column 0. Both are "present"; an anchored `^index_line:` sees
+# only the second. That mismatch made --sync append a SECOND key to 8 files on
+# 2026-07-29 — two conflicting index lines in one file, which is the exact
+# duplicated-state problem this tool exists to remove. Match either form, and
+# write back in the form the file already uses.
+INDEX_LINE_RE = re.compile(rf"^(\s*){FRONTMATTER_KEY}:\s*(.*)$", re.M)
+
+
+def sync(apply=False):
     """Copy index lines DOWN into topic-file frontmatter. Never edits MEMORY.md."""
     lines = open(INDEX, encoding="utf-8").read().split("\n")
-    added = skipped = 0
+    added = updated = skipped = 0
     for l in lines:
         e = split_entry(l)
         if not e:
@@ -174,22 +255,46 @@ def sync():
         if fm is None:
             skipped += 1
             continue
-        if re.search(rf"^{FRONTMATTER_KEY}:", fm, re.M):
-            skipped += 1
-            continue
-        safe = content.replace('"', '\\"')
-        new_fm = fm + f'\n{FRONTMATTER_KEY}: "{safe}"'
-        open(topic, "w", encoding="utf-8").write(
-            text.replace(f"---\n{fm}\n---\n", f"---\n{new_fm}\n---\n", 1))
-        added += 1
-    print(f"index_line frontmatter: {added} added, {skipped} already present or no frontmatter")
+
+        safe = content.replace('\\', '\\\\').replace('"', '\\"')
+        m = INDEX_LINE_RE.search(fm)
+        if m:
+            # already present (at whatever indent) — refresh it in place, keeping
+            # the file's own indentation so we never create a second key
+            new_line = f'{m.group(1)}{FRONTMATTER_KEY}: "{safe}"'
+            if m.group(0) == new_line:
+                skipped += 1
+                continue
+            new_fm = fm[:m.start()] + new_line + fm[m.end():]
+            updated += 1
+        else:
+            # absent — nest it under `metadata:` if that block exists, matching the
+            # established convention rather than inventing a top-level key
+            mm = re.search(r"^metadata:\s*$", fm, re.M)
+            if mm:
+                insert = f'\n  {FRONTMATTER_KEY}: "{safe}"'
+                new_fm = fm[:mm.end()] + insert + fm[mm.end():]
+            else:
+                new_fm = fm + f'\n{FRONTMATTER_KEY}: "{safe}"'
+            added += 1
+
+        if apply:
+            open(topic, "w", encoding="utf-8").write(
+                text.replace(f"---\n{fm}\n---\n", f"---\n{new_fm}\n---\n", 1))
+
+    verb = "" if apply else "would be "
+    print(f"index_line frontmatter: {added} {verb}added, {updated} {verb}refreshed, "
+          f"{skipped} already current or no frontmatter")
+    if not apply:
+        print("DRY RUN — re-run with --apply to write.")
     return 0
 
 
-def rebuild():
+def rebuild(apply=False):
     """Copy frontmatter index lines back UP. Hand-added lines are left alone."""
-    lines = open(INDEX, encoding="utf-8").read().split("\n")
-    out, changed, untouched = [], 0, 0
+    original = open(INDEX, encoding="utf-8").read()
+    lines = original.split("\n")
+    out, changed, untouched, stale = [], 0, 0, []
     for l in lines:
         e = split_entry(l)
         if not e:
@@ -197,20 +302,68 @@ def rebuild():
             continue
         head, content, topic = e
         fm, _ = read_frontmatter(topic)
-        m = re.search(rf'^{FRONTMATTER_KEY}:\s*"(.*)"\s*$', fm or "", re.M)
+        # same either-indent match as sync(); an anchored pattern here would treat
+        # every conventionally-nested key as "no frontmatter" and rebuild nothing
+        m = re.search(rf'^\s*{FRONTMATTER_KEY}:\s*"(.*)"\s*$', fm or "", re.M)
         if not m:
             out.append(l)          # no frontmatter — this is someone's hand-added line
             untouched += 1
             continue
-        want = m.group(1).replace('\\"', '"')
+        want = m.group(1).replace('\\"', '"').replace('\\\\', '\\')
+
+        # DIRECTION GUARD. Sessions are instructed to hand-edit MEMORY.md, so a
+        # blind frontmatter-wins rebuild reverts whichever edit landed most
+        # recently — the data-loss machine this file's header warns about, and it
+        # was live on 2026-07-29: another session had just rewritten the
+        # architecture-review line and the frontmatter still held the older text.
+        # Newest writer wins, in both directions:
+        #   topic file newer  -> someone edited index_line deliberately  -> rebuild
+        #   MEMORY.md newer   -> someone hand-edited the index           -> keep,
+        #                        and --sync will push it down
+        if want != content:
+            try:
+                if os.path.getmtime(INDEX) > os.path.getmtime(topic):
+                    out.append(l)
+                    stale.append(topic)
+                    continue
+            except OSError:
+                pass
         if want != content:
             out.append(head + want)
             changed += 1
         else:
             out.append(l)
-    open(INDEX, "w", encoding="utf-8").write("\n".join(out))
+    result = "\n".join(out)
+
+    # THE invariant: a rebuild may reword an entry, never lose one. A dropped link
+    # is a memory that no cold start will ever reach again — and this file is edited
+    # by many concurrent sessions, so the damage would not be noticed for days.
+    from collections import Counter
+    before, after = Counter(links_in(original)), Counter(links_in(result))
+    if before != after:
+        lost = before - after
+        gained = after - before
+        sys.stderr.write(
+            "REFUSING to write: the rebuild changed the link set.\n"
+            f"  lost:   {dict(lost) or '{}'}\n"
+            f"  gained: {dict(gained) or '{}'}\n")
+        return 2
+
+    size = len(result.encode()) / 1024
     print(f"rebuilt {changed} line(s) from topic frontmatter; "
           f"{untouched} hand-added line(s) left untouched")
+    if stale:
+        print(f"  {len(stale)} entr(y|ies) KEPT because MEMORY.md is newer than the "
+              f"topic file (a hand-edit wins; run --sync to push it down):")
+        for t in stale:
+            print(f"    {t}")
+    print(f"  result {size:.1f}KB (was {len(original.encode())/1024:.1f}KB), "
+          f"link set unchanged ({sum(after.values())} links)")
+    if apply:
+        open(INDEX, "w", encoding="utf-8").write(result)
+        print("  written.")
+    else:
+        print("  DRY RUN — re-run with --apply to write.")
     return 0
 
 
@@ -220,6 +373,8 @@ if __name__ == "__main__":
     p.add_argument("--sync", action="store_true")
     p.add_argument("--rebuild", action="store_true")
     p.add_argument("--strict", action="store_true")
+    p.add_argument("--apply", action="store_true",
+                   help="with --sync: actually write (default is a dry run)")
     p.add_argument("--hook", action="store_true",
                    help="silent unless the index is over a budget; for a PostToolUse hook")
     a = p.parse_args()
@@ -251,4 +406,4 @@ if __name__ == "__main__":
             f"\n── memory index {total:.1f}KB: {head} ──\n"
             "  python3 scripts/memory-index.py   for the section breakdown\n")
         sys.exit(0)          # advisory: never block a write
-    sys.exit(sync() if a.sync else rebuild() if a.rebuild else check(a.strict))
+    sys.exit(sync(a.apply) if a.sync else rebuild(a.apply) if a.rebuild else check(a.strict))
