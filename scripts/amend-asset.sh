@@ -9,8 +9,15 @@
 #     → build-dispatch (~2 min tick) → asset-deployer → ingest_staged_asset
 #     → S3 (new key) + assets row amended in place.
 #
-# The base64 goes to psql on STDIN, never as an argv — a megabyte of argv
-# blows ARG_MAX (the lesson recorded in webdesign_publish_assets.sh).
+# PARAMETERISATION (council round 1, constitution seat): every operator-
+# controlled value reaches the SQL as a psql VARIABLE (:'var' — psql quotes
+# it safely), never by shell interpolation into the statement text. The ONE
+# exception is the base64 payload: it cannot ride argv (-v is argv; a
+# megabyte of argv blows ARG_MAX — the lesson recorded in
+# webdesign_publish_assets.sh), so it stays inline on stdin, made inert by
+# CONSTRUCTION — the script refuses to proceed unless the blob matches
+# ^[A-Za-z0-9+/=]+$, an alphabet that cannot contain a quote, a backslash,
+# or a colon. Validation, not escaping discipline.
 #
 # The work item's dedup key is amend_asset:<asset_key> — a second amend for
 # the same key while one is still in flight is REFUSED by idx_swi_dedup.
@@ -23,13 +30,13 @@
 # Usage:
 #   ./scripts/amend-asset.sh <domain> <asset_key> <file> [--purpose <p>] [--note "<why>"] [--dry-run]
 # Example:
-#   ./scripts/amend-asset.sh relojistas.com logo corrected-logo.png \
-#       --note "bugs_open/131: stored logo was a two-up spec sheet; cropped to the light-variant wordmark"
+#   ./scripts/amend-asset.sh gaswholesalers.com logo approved-logo.png \
+#       --note "bugs_open/131: stored logo was a nine-up contact sheet; owner-approved replacement"
 #
 # Watch:   printed at the end. Result lands in site_work_items.result.
-# Verify:  curl the presigned_url from the result (or assets.url) — then LOOK
-#          at the image. Every mechanical signal can be green while the
-#          picture is wrong; that is how this workstream started.
+# Verify:  curl the presigned_url from the result — then LOOK at the image.
+#          Every mechanical signal can be green while the picture is wrong;
+#          that is how this workstream started.
 # ============================================================================
 set -euo pipefail
 
@@ -53,13 +60,6 @@ done
 
 [ -f "$FILE" ] || { echo "no such file: $FILE" >&2; exit 1; }
 
-# Identifiers reach the SQL inside single quotes — keep them to a charset that
-# cannot escape one. The note is free text; escape it by doubling quotes.
-case "$DOMAIN$ASSET_KEY$PURPOSE" in
-  *[!a-zA-Z0-9._-]*) echo "domain/asset_key/purpose may only contain [a-zA-Z0-9._-]" >&2; exit 1 ;;
-esac
-NOTE_SQL=$(printf '%s' "$NOTE" | sed "s/'/''/g")
-
 SIZE=$(wc -c < "$FILE")
 if [ "$SIZE" -gt $((10 * 1024 * 1024)) ]; then
   echo "file is ${SIZE} bytes — the action refuses anything over 10MB" >&2; exit 1
@@ -67,8 +67,15 @@ fi
 SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
 B64=$(base64 -w0 "$FILE")
 
-PURPOSE_SQL="NULL"; [ -n "$PURPOSE" ] && PURPOSE_SQL="'$PURPOSE'"
-NOTE_VAL="NULL";    [ -n "$NOTE" ]    && NOTE_VAL="'$NOTE_SQL'"
+# The blob is the only inline literal — refuse anything outside the base64
+# alphabet (see header). Everything else travels as a psql variable.
+case "$B64" in
+  *[!A-Za-z0-9+/=]*) echo "base64 output contains bytes outside [A-Za-z0-9+/=] — refusing" >&2; exit 1 ;;
+  "") echo "empty payload" >&2; exit 1 ;;
+esac
+
+SUMMARY="Amend asset '${ASSET_KEY}' with operator-supplied bytes (${SIZE} bytes, sha ${SHA})"
+ITEM_KEY="amend_asset:${ASSET_KEY}"
 
 SQL=$(cat <<EOSQL
 \\set ON_ERROR_STOP on
@@ -76,26 +83,25 @@ BEGIN;
 
 DO \$guard\$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM sites WHERE domain = '$DOMAIN') THEN
-        RAISE EXCEPTION 'no site with domain $DOMAIN';
+    IF NOT EXISTS (SELECT 1 FROM sites WHERE domain = current_setting('amend.domain')) THEN
+        RAISE EXCEPTION 'no site with domain %', current_setting('amend.domain');
     END IF;
 END
 \$guard\$;
 
 WITH staged AS (
     INSERT INTO asset_ingest_staging (site_id, asset_key, purpose, content, sha256, note, created_by)
-    SELECT id, '$ASSET_KEY', $PURPOSE_SQL, decode('$B64', 'base64'), '$SHA', $NOTE_VAL, '$CREATED_BY'
-      FROM sites WHERE domain = '$DOMAIN'
+    SELECT id, :'asset_key', NULLIF(:'purpose', ''), decode('$B64', 'base64'), :'sha', NULLIF(:'note', ''), :'created_by'
+      FROM sites WHERE domain = :'domain'
     RETURNING id, site_id
 )
 INSERT INTO site_work_items (site_id, source, item_type, severity, summary, spec,
                              handler_agent, status, created_by, priority, pipeline,
                              item_key, triaged_at)
-SELECT site_id, 'operator', 'amend_asset', 'medium',
-       'Amend asset ''$ASSET_KEY'' with operator-supplied bytes ($SIZE bytes, sha $SHA)',
+SELECT site_id, 'manual', 'amend_asset', 'medium', :'summary',
        jsonb_build_object('mode', 'ingest_upload', 'staging_id', id),
-       'asset-deployer', 'triaged', '$CREATED_BY', 70, 'build',
-       'amend_asset:$ASSET_KEY', now()
+       'asset-deployer', 'triaged', :'created_by', 70, 'build',
+       :'item_key', now()
   FROM staged
 RETURNING id AS work_item_id, site_id, spec->>'staging_id' AS staging_id;
 
@@ -103,18 +109,27 @@ COMMIT;
 EOSQL
 )
 
+PSQL_ARGS=(
+  -v domain="$DOMAIN" -v asset_key="$ASSET_KEY" -v purpose="$PURPOSE"
+  -v note="$NOTE" -v created_by="$CREATED_BY" -v sha="$SHA"
+  -v summary="$SUMMARY" -v item_key="$ITEM_KEY"
+)
+
 if [ -n "$DRY_RUN" ]; then
   printf '%s\n' "$SQL" | sed "s/decode('[^']*'/decode('<BASE64 elided, $SIZE file bytes>'/"
-  echo "-- dry run: nothing executed" >&2
+  echo "-- dry run: nothing executed. psql vars: domain=$DOMAIN asset_key=$ASSET_KEY purpose=$PURPOSE created_by=$CREATED_BY" >&2
   exit 0
 fi
 
-printf '%s\n' "$SQL" | "${PSQL[@]}"
+# The guard block cannot read psql variables (server-side), so ship the domain
+# once via set_config on the same connection, parameterised the same way.
+{ printf "SELECT set_config('amend.domain', :'domain', false);\n"; printf '%s\n' "$SQL"; } \
+  | "${PSQL[@]}" "${PSQL_ARGS[@]}"
 
 cat >&2 <<EOF
 
 Staged. Dispatch picks it up within ~2 minutes. Watch:
-  ${PSQL[*]} -c "SELECT status, attempt_count, left(coalesce(error,'-'),80), result->'response'->'ingest_result' FROM site_work_items WHERE item_key='amend_asset:$ASSET_KEY' AND site_id=(SELECT id FROM sites WHERE domain='$DOMAIN') ORDER BY created_at DESC LIMIT 1;"
+  ${PSQL[*]} -c "SELECT status, attempt_count, left(coalesce(error,'-'),80), result->'response'->'ingest_result' FROM site_work_items WHERE item_key='$ITEM_KEY' AND site_id=(SELECT id FROM sites WHERE domain='$DOMAIN') ORDER BY created_at DESC LIMIT 1;"
 
 Then VERIFY: curl the presigned_url out of ingest_result and LOOK at the image.
 EOF
