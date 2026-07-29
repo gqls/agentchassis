@@ -66,21 +66,40 @@ genuine, owner-approved, locked brand asset in storage.
 have locked records. Until the new build is running, the thing actually protecting it remains
 an accident of a malformed row — so nobody should tidy that row yet.
 
-**The fix is built, pushed and approved but not yet running.** The deploy is being held
-deliberately while other sessions' review rounds are in flight, because a fleet restart kills
-them — which is what happened to my own first round this morning.
+**The fix is live**, on v1.0.1199 and carried forward into another session's v1.0.1201 rebuild,
+verified both times by grepping the running pods for a string that exists only in the approved
+revision. The deploy was held until other sessions' review rounds had finished, because a fleet
+restart kills them — which is what happened to my own first round this morning.
 
-**The repair list is five sites, not nine.** I had said nine; measuring the actual deployed
-logos says the stretch only damages non-square sources, and only five are non-square:
-relojistas.com, fundamentallyai.com, oufe.com, robot-hands.com and vetcomparison.uk. The other
-five are square marks that survive the old code unharmed.
+**relojistas is finished.** Its card was re-derived after the fix and checked by eye: the
+wordmark once, legible, on the brand cream, **and no letterbox rectangle** — which confirms
+that defect is a property of the logo file, not the code, and that knocking the background out
+resolves it.
+
+**The tab icon needs an honest qualification rather than a tick.** The distortion is fixed —
+wide logos are no longer squashed to fill a square. But rendered at the sixteen pixels a
+browser tab actually uses, relojistas' icon is a grey smudge: the wordmark puts 19 pixels of
+ink in a 64-pixel canvas. That is not a failure of the fix; it is that a long thin wordmark
+cannot be a legible tab icon at any resize quality. **The real fix is a square source** — the
+gear glyph inside the logo would do — and the deriving code cannot express that, because it
+always reads the site's `logo` asset.
+
+**Because of that I dropped the four-site sweep I had planned, rather than doing it quietly.**
+Re-deriving fundamentallyai, oufe, robot-hands and vetcomparison would give each an undistorted
+but equally illegible icon, at the cost of four slots in a queue currently a hundred deep with
+another lane's work. Undistorted-illegible is not materially better than distorted-illegible.
+
+**And the repair list was five sites, not nine.** I had said nine; measuring the deployed logos
+shows the stretch only damages non-square sources, and only five are non-square.
 
 ## Where we're going
 
-1. **Roll the approved build** (already pushed), then confirm it on the running pod — not on
-   the tag.
-2. **Re-derive relojistas' card and favicon**, and look at both.
-3. **Repair the four other squashed favicons** (fundamentallyai, oufe, robot-hands,
-   vetcomparison), each result looked at.
-4. Then the still-open items: the tag gate for sites with no card, the letterbox rectangles,
-   and the bare-domain `og:title` on about eight sites.
+1. **A square favicon source.** This is now the top item and it is the one that actually helps:
+   five of fourteen sites have a wide logo and therefore an illegible tab icon, distorted or
+   not. Needs a way to say "use this square mark for the favicon" — the deriving code has no
+   such concept today.
+2. **The tag gate** for sites with no card — unchanged, with its original constraint: do not
+   key it on an asset row, or it regresses the one site that always worked.
+3. **The bare-domain `og:title` on about eight sites**, and the missing description.
+4. **webdesign.co.uk emits no preview tag at all** — never investigated.
+5. The two bugs opened along the way: the blind watchdog and the sibling lock gap.
