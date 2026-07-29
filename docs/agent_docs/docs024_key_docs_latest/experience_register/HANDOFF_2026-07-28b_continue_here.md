@@ -197,3 +197,66 @@ holds a seam back is a default-OFF switch, and I did not build one.** That is th
 alternative D, written up as the option I should have taken.
 
 Three questions are put to the owner in RFC 002 §8. Do not answer them by resubmitting to the gate.
+
+---
+
+# ADDED 2026-07-29 (afternoon) — READ THIS FIRST; it supersedes §0 and §2.1 above
+
+## A. State
+
+- **Chassis is on v1.0.1198** (rolled twice more by other sessions; neither roll mine).
+  Both changes re-verified on 1198 by pod-grep with a negative control. **Re-grep after any roll
+  you did not do.**
+- **CC-001 has been through FIVE rounds** on trail `6ae724bf-ee99-4ff7-ac1f-068f38872025`.
+  Round 5 was seeded 2026-07-29 and **has NOT been submitted** — that is the one loose end.
+  Submit with:
+  `RESUBMIT_CORR=6ae724bf-ee99-4ff7-ac1f-068f38872025 ./260_TRIGGER_experience_approval_v1.sh feed-driven-teaser-list`
+- **RFC 002 is RATIFIED** with the owner's three answers (§9 of the RFC), and CLAUDE.md's seam
+  section carries them. **Condition (1) of the ordering exemption is RETIRED.**
+
+## B. The conclusion that matters more than the next round
+
+**CC-001 cannot be approved until bind + verify run at Tier 4, and no amount of revising changes
+that.** `deferral_honesty` has objected three rounds running that the central clause — the
+JS-bound handler, the "looks inert but isn't" case — is 100% deferred. It is, and it stays there
+because **this component renders its rows CLIENT-SIDE**: every clause about a live row is Tier 4
+by physics, not by choice.
+
+**So: do not open round six to improve the wording.** Wire the browser tier (§2.3). If you find
+yourself making a revision that changes only prose, that is polishing, not converging — and the
+same seat caught exactly that shape of self-deception two rounds ago.
+
+## C. What each round actually bought, so the effort is legible
+
+| round | verdict | what it changed |
+|---|---|---|
+| 1 | REVISE | invariant referenced not restated ×3; activation-handler clause given its own check |
+| 2 | REVISE | four silent gaps declared; `feed_loads` contradiction resolved |
+| 3 | REVISE | **the re-tier called out as evasion** — check put back at Tier 2, now fails honestly |
+| 4 | REVISE (1 unreadable) | `asset_loads` reason corrected; `interaction` proxy added (reuse I had missed) |
+| 5 | not yet submitted | last two prose restatements purged; a **validator** defect found |
+
+## D. Three things owed, none of them CC-001
+
+1. **`apply_experience_verdict` is still unbuilt** — the lifecycle's first gate. Nothing can write
+   `status='approved'`. Details in §2.2.
+2. **A validator defect the council found** (NOTES 2026-07-29b): `experience_criteria.go` emits a
+   deferral record whose reason contradicts itself (*"every part of it is executable today"*) with
+   an empty `field` key, for a check whose TYPE is executable but whose INSTANCE asserts nothing.
+   IMPLEMENTED-vs-SATISFIABLE inside the validator's own reporting. Wants its own gated change.
+3. **A needs_diagnosis is filed** for council runs that stall mid-step and are never recovered.
+   **The operational rule meanwhile:** a council row still on `EXECUTING_STEP` after ~15 minutes is
+   not a slow verdict — a healthy round of this council takes ~3 minutes. Compare `updated_at`,
+   not `created_at`; if it has not moved in 15 minutes the round is lost, so resubmit rather than
+   waiting four hours for the reaper to confirm it.
+
+## E. The RFC's live consequence for this workstream
+
+Of the four capability gaps now named — event-listener assertion, fault injection at the fetch
+boundary, per-row conditionals, count-threshold assertion — **none obviously changes a guarantee,
+so under the ratified ruling they are ordinary gated changes. EXCEPT fault injection**: "the
+runner may now break things on purpose" is plausibly a guarantee change. Ask, do not assume.
+
+And one that definitely is RFC-scope, discovered while answering the council: **making
+`asset_loads` actually fetch** would change what the type means for **63 live `doc_plans`
+fences**. Tempting, small-looking, and squarely governed.
