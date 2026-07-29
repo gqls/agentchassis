@@ -10,7 +10,7 @@
     "index list",
     "card list"
   ],
-  "description": "A list whose rows are cloned from a hidden template and filled from a feed. Whether a row is a control is decided by the DATA, not by the template: a row whose record carries the linked content becomes a real link; a row whose record does not is stripped of the template's placeholder href and left out of the tab order.",
+  "description": "A list whose rows are cloned from a hidden template and filled from a feed. Whether a row is a control is decided by the DATA, not by the template: a row whose record carries the linked content becomes a real link, and a row whose record does not is rendered so that it satisfies the no-inert-control invariant rather than being offered as openable.",
   "primitives": [],
   "section_types": [
     "provocations-archive-list"
@@ -29,9 +29,11 @@
     {
       "control_role": "list_item_openable",
       "primitive": "activate",
-      "outcome": "the row is a real control: it carries a genuine href and remains keyboard-reachable; what activation DOES is the referencing journey's clause, not this component's",
+      "outcome": "the row is a real control; what activation DOES is the referencing journey's clause, not this component's",
       "note": "this component contract stops at 'is a control / is not a control'. The behaviour behind the control belongs to a micro-journey entry that requires this contract (here: teaser-detail-deeplink).",
-      "evidence": "archive_loader_new.js --linked branch (sets href + click binding)"
+      "evidence": "archive_loader_new.js --linked branch (sets href + click binding)",
+      "enforces_invariant": "no-inert-control",
+      "_outcome_note": "REVISED 2026-07-29 (round 4, prior_art [medium]). This read 'carries a genuine href and remains keyboard-reachable' — the affirmative mirror of no-inert-control ('no placeholder href, no tab stop') restated in local prose. The two states were purged of exactly this two rounds ago and the contract was missed. Referenced now, not restated. The seat was right that a clause satisfying an invariant should say so rather than paraphrase it."
     }
   ],
   "_SCHEMA_DELTA": "states / data_contract / degraded_states are fields the draft DDL does not have — see HARVEST_01 §3.",
@@ -241,7 +243,8 @@
         "id": "rendered_rows_respect_the_cap",
         "type": "selector_count",
         "selector": "{{binding.list_container}} > *",
-        "_unsupported": "NEW 2026-07-29, answering the checkability seat: data_contract declares a cap ({{binding.max_rows}}) and nothing asserted it, in an entry that had given every other clause a check or a deferral. It cannot be asserted: no checker reads a maximum, a minimum or any expected count off a selector_count — the validator's P7 refuses such a key as a field no checker reads, which is exactly why rows_rendered disclaims its own quantity. Count-threshold assertion is the same missing capability the harness ranking already lists; recorded here so the cap is not the one clause left silent."
+        "tier": 4,
+        "note": "RE-ENCODED 2026-07-29 after the council read the record this produced. Marked `_unsupported` it hit the validator's 'marked deferred although every part of it is executable today' branch — a deferral record with an empty field key and a self-contradicting message, which the deferral_honesty seat correctly called an unfinished placeholder. THE UNDERLYING GAP IS THE VALIDATOR'S, NOT THIS ENTRY'S: `selector_count` is an executable TYPE, but this INSTANCE asserts nothing because no checker reads a maximum, minimum or expected count, and the validator has no way to say 'the type runs but this instance would be vacuous'. That is the IMPLEMENTED-vs-SATISFIABLE distinction with no vocabulary for it. Encoded as tier 4 here, which is true (only a browser sees the rendered rows at all) and produces an honest record; the validator gap is recorded in NOTES 2026-07-29b for a separate change."
       }
     ]
   },
@@ -249,5 +252,6 @@
   "source": "harvest",
   "harvested_from": "vonc.com provocations-archive-list (component 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37) + provocations-archive-loader js_snippet, live 2026-07-26.",
   "_REVISION_2026-07-29": "Round 3. The council's gating [high] was that re-tiering template_row_not_a_control to 4 — when the Tier 2 check exists and FAILS — 'reads as evasion'. It was right, and it matched a suspicion I had already logged about my own reasoning, so the check is back at Tier 2 and the entry now carries a real failure rather than a hidden question. Four silent gaps the seats found (the empty_list clause, keyboard-reachability, required 'title', and two deferrals that were placeholders rather than specs) are each declared or specified. The one objection NOT answered is deferral_honesty [high] #2 — that the central rule is 100% unasserted on live rows — because it is TRUE and not fixable by editing: the rows are cloned client-side, so only a browser can see them, and nothing in the register drives one yet. Saying so is the honest answer; making the ratio look better would mean exactly the move the same seat just caught.",
-  "_REVISION_2026-07-29b": "Round 4. Both [high] objections were the council finding things I had got wrong or missed, not disagreements. (1) My reason for deferring feed_loads described an implementation quirk as though it were an inherent limit; the true reason is that fixing it would change what asset_loads means for 63 live documents, which the owner's 2026-07-29 ruling makes RFC-scope. (2) The seat spotted that the executable `interaction` type can proxy the activation-handler clause by clicking the inert row — real reuse I had not considered — so that check now exists, bounded honestly to what it actually catches. THE ONE OBJECTION THAT WILL NOT GO AWAY BY EDITING is deferral_honesty's ratio finding, and it should stop being re-litigated each round: this component renders its rows CLIENT-SIDE, so every clause about a live row is Tier 4 by physics, and nothing in the register drives a browser yet. This entry cannot honestly reach a good executable/deferred ratio until bind+verify runs at Tier 4. That is a statement about the harness, not about the entry, and the next revision should not try to improve the ratio by moving clauses around."
+  "_REVISION_2026-07-29b": "Round 4. Both [high] objections were the council finding things I had got wrong or missed, not disagreements. (1) My reason for deferring feed_loads described an implementation quirk as though it were an inherent limit; the true reason is that fixing it would change what asset_loads means for 63 live documents, which the owner's 2026-07-29 ruling makes RFC-scope. (2) The seat spotted that the executable `interaction` type can proxy the activation-handler clause by clicking the inert row — real reuse I had not considered — so that check now exists, bounded honestly to what it actually catches. THE ONE OBJECTION THAT WILL NOT GO AWAY BY EDITING is deferral_honesty's ratio finding, and it should stop being re-litigated each round: this component renders its rows CLIENT-SIDE, so every clause about a live row is Tier 4 by physics, and nothing in the register drives a browser yet. This entry cannot honestly reach a good executable/deferred ratio until bind+verify runs at Tier 4. That is a statement about the harness, not about the entry, and the next revision should not try to improve the ratio by moving clauses around.",
+  "_description_note": "REVISED 2026-07-29 (round 4, prior_art [low]). The description spelled out 'stripped of the template's placeholder href and left out of the tab order' — the invariant's own wording in narrative form, in the one field the earlier revision did not sweep. Lower stakes than a must_not, and still the same drift."
 }
