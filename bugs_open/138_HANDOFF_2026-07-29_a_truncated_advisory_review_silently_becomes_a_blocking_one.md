@@ -139,7 +139,39 @@ worse than a spurious revise.
 **This fixes one seat. It does not fix the mechanism** — the other six seats in
 the table above are unchanged.
 
-**AND IT IS NOT YET PROVEN.** Config cutover was **2026-07-29 07:19:36Z**
+> ## ✅ THE SEAT FIX IS NOW PROVEN (2026-07-29 ~12:30). The MECHANISM is still open — that is what keeps this bug open.
+>
+> 12 further `review_architecture` reviews have run since the cutover.
+>
+> | | before fix | after fix |
+> |---|---|---|
+> | reviews | 3 | **12** |
+> | truncated (`stop_reason=max_tokens`) | 2 | **0** |
+> | `degraded` | 2 (67%) | **1 (8%) — and it is explained, below** |
+> | carries `ARCHITECTURE_SIGNAL` | 1 (33%) | **11 (92%)** |
+> | verdict object | 2 of 3 | **2 of 12** |
+>
+> `llm_call_log`: all 12 calls at `max_tokens=16000`, all `success=t`, **zero
+> truncations**, peak output **4,443 tokens — 28% of the cap**. Note the outputs got
+> *shorter*, not just the ceiling higher: the length budget in the prompt did as much
+> work as the extra headroom.
+>
+> **The single remaining `degraded` is not a residual defect.** It belongs to
+> orchestration `815b38c3`, spawned **07:16:59 — before the 07:19:36 cutover** — so
+> it carried the old 8,000 config. An orchestration keeps the workflow definition it
+> loaded at spawn. **Among rounds spawned after the cutover: 0 of 11 degraded.**
+>
+> **What this settles beyond the seat:** the object rate fell from 2-of-3 to 2-of-12
+> the moment it stopped truncating. The seat was never noisy — **it was being cut off,
+> and a degraded review gates unconditionally.** That is the confounder this bug is
+> named for, now demonstrated rather than argued: acting on the raw object rate would
+> have retired a seat that was working.
+>
+> **STILL OPEN, and it is the whole bug:** the other six seats in the table above are
+> unchanged, all still at `max_tokens: 8000`, and nothing surfaces a degraded gate as
+> distinct from a judged one. Fix candidates 1–4 stand.
+
+~~**AND IT IS NOT YET PROVEN.**~~ *(Discharged — see above.)* Config cutover was **2026-07-29 07:19:36Z**
 (`agent_definitions.updated_at`, not guessed). At the time of writing **no council
 round has spawned since**, so `llm_call_log` still shows `max_tokens = 8000` on
 every `review_architecture` call. That is **not** the change failing — both
