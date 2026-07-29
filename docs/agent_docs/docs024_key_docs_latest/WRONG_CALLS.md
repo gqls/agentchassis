@@ -11501,3 +11501,70 @@ workstream's own NOTES, repeated by the person who wrote it down. *What caught
 it:* grepping for the handler name before writing the finding, which took four
 seconds. **A tool that does nothing until you press the button is the norm on
 this site, not the exception.**
+
+---
+
+## 2026-07-29 — I measured against the superset flag and wrote the conclusion before checking which flag it was (bugfix 144)
+
+**The claim:** "0 of the 66 nested `(action, key)` pairs trips the strict-config rule",
+written into the PLAN as a safety argument for shipping hard errors.
+
+**What I actually measured:** `opted_in` from `config-key-audit --specs`, which is
+`CheckConfig || len(ConfigKeys) > 0` — every action that checks config at all. The rule
+that produces a hard error gates on `StrictConfig`, a strictly narrower set
+(`IsStrictConfigAction`). I had measured a superset and reported it as the thing.
+
+**What caught it:** a test I wrote failing — I registered a fixture action with
+`CheckConfig: true`, expected a hard error, and got none. Not the measurement, not
+review: a test, for an unrelated reason.
+
+**Why it survives:** the direction is conservative. Zero under the superset is zero
+under the subset, so the conclusion holds. **That is luck, not method.** Had the answer
+been "3 pairs", I would have shipped a safety argument built on the wrong population,
+and it would have read exactly as authoritative.
+
+**The cheap check:** before quoting a number as evidence, say out loud which predicate
+produced it and whether that predicate is the one the code gates on. One grep of
+`IsStrictConfigAction` would have done it. Related: the fleet-wide habit of naming the
+filter in the sentence — "0 of 66 pairs against the 63 config-CHECKING actions" is a
+claim you can audit; "0 pairs trip the strict rule" is not.
+
+## 2026-07-29 — I named a consumer that is not a consumer, in the direction that flattered the submission (bugfix 144)
+
+**The claim,** in a council submission, listing who is affected by a change to what
+`ValidateWorkflow` guarantees: *"platform/messaging/processor.go:276 (every agent
+message), platform/agentbase/agent.go, and scripts/audit-config-keys.sh."*
+
+**The fact:** `agentbase` never calls `ValidateWorkflow`. It constructs a
+`validation.Validator` and uses it for `ValidateIncomingMessage`. `ValidateWorkflow` has
+exactly **one** production call site. I had grepped for the package name, seen
+`platform/agentbase/agent.go` in the import list, and written it down as a consumer.
+
+**What caught it:** the guardian seat asking for a full call-site enumeration —
+`grep -rn "ValidateWorkflow(" --include=*.go` , which takes two seconds and which I had
+not run before asserting.
+
+**Note the direction of the error.** Overstating the blast radius made the submission
+look more thorough, not less: "I have thought about who this affects". An error that
+flatters the work is the one least likely to be re-checked by its author. Both of this
+session's wrong calls point the same way — the reassuring answer went unverified while
+the alarming ones got queries.
+
+**The cheap check:** an importer is not a caller. Grep the SYMBOL, not the package.
+
+## 2026-07-29 — my sketch summarised in prose what the code already did, and drew two objections for it (bugfix 144)
+
+Two council seats objected that nested cycle detection was "asserted in a trailing
+comment with no corresponding code shown" and untested. Both were already implemented
+and already tested before I submitted — `validateSubWorkflow` calls `checkForCycles`,
+and `TestNestedCycleDetected` pins A→B→A inside a sub-workflow.
+
+The gap was in the SUBMISSION: I showed three checks as code and listed six in a
+comment. **A reviewer can only review what is in front of it**, and "hard errors also
+cover: …" is a promise, not evidence. The cost was two medium objections on a change
+that already satisfied them, and an approval qualified by "approve once cycle detection
+is made concrete" — a condition that was already met and could not be seen to be.
+
+**The cheap check:** for each claim in a submission's prose, ask whether the sketch
+shows it. If the sketch is a summary of the diff rather than a sample of it, the
+reviewer is being asked to take the interesting parts on trust.
