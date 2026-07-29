@@ -649,3 +649,37 @@ think the finding belongs to that block rather than to a code change.
 
 One thing worth stating either way: **`8 REVIEWED / 40 UNREVIEWED` in a single day
 should not be read as 17% compliance** until this is resolved.
+
+> **CORRECTED 2026-07-29, same day, by the thread that wrote the entry above — the
+> attribution was wrong, and the owner caught it.** I wrote that the 07-29 ruling
+> "makes commit-then-submit the honest default". **It does not, and three separate
+> checks say so:**
+>
+> 1. **The ruling is about a different axis.** Q2 asked whether a seam must ship
+>    behind a **default-OFF switch**; the answer was no, and "review here is after
+>    the fact" means *after the change is LIVE* — because HEAD is shared and any
+>    session's build ships your commit. It constrains **submission** timing only:
+>    *"submit to the gate before or alongside committing."* It says nothing about
+>    waiting for the **verdict**, and does not forbid it.
+> 2. **The commit-early norm predates it by nine days and has a different source** —
+>    owner feedback of **2026-07-20**, after a thread held the `bugs_open/011` fix
+>    uncommitted across four council rounds and the OWNER's own sweep commit
+>    (`bca5d8255`) took it to production with the verdict still REVISE. That
+>    guidance also already anticipated this state: *let the trailer "or its
+>    deliberate absence" record the review status*, and **state the verdict status
+>    in the message body** — which I did not do on `3a59b5012`, and which would
+>    have left exactly the corr↔commit link I then went looking for.
+> 3. **Measured, which is what I should have done before writing "default":** of the
+>    trailered commits that day, **3 of 3 sampled were committed AFTER their
+>    approval** — `f5fc3014` approved 17:17 → committed 17:19 (2 min), `49392838`
+>    13:30 → 14:26, `7ba5b8c4` 13:33 → 14:24. Threads routinely wait. "Default" was
+>    an inference from my own single case, stated in the voice of a finding.
+>
+> **What survives, and it is sharper than what I claimed.** Not a policy
+> consequence — a **standing tension between two live practices**: the 07-20
+> feedback says commit the moment the work is coherent and let the trailer's
+> absence carry the status; the trailer mechanism only ever attaches to a commit
+> made *after* approval. **A thread cannot satisfy both**, and each resolves it ad
+> hoc — which is why `098`'s UNREVIEWED bucket mixes "never submitted" with
+> "approved, but committed first". That is worth a decision; blaming the 07-29
+> ruling for it was not.
