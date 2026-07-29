@@ -431,3 +431,40 @@ fix exists and has never run. That set is enumerable in one query per site
 (compare the served `--color-card-bg` against `#ffffff` while the palette is
 dark) and is not enumerated anywhere. A re-render is cheap — this one took under
 three minutes end to end.
+
+### Two more instances of the SAME pair, found 2026-07-29 17:50Z on new pages
+
+Both are `--color-primary`-as-an-ink and one more slot doing double duty. Recorded
+here rather than fixed, for the reason already established above: no value
+satisfies both roles, so repointing trades one failure for another.
+
+**Homepage went from 1 failure to 2** after a rebuild, not because anything
+regressed but because the new card content exposed a second consumer:
+
+```
+1.04:1  rgb(17,21,32) on rgb(14,16,25)   .info-card-grid__eyebrow      'SPEC-FIRST GUIDES'
+1.11:1  rgb(17,21,32) on rgb(26,31,46)   .info-card-grid__card-link    'Catch up on news'
+```
+
+`--color-primary` (#111520) is the ink for BOTH the eyebrow and the card link, on
+the page background and on the derived card background respectively. Worth noting
+because it shows the count is content-dependent: the same defect reports 1 or 2
+depending on which cards a page happens to render, so **a falling number here is
+not evidence of repair**.
+
+**A new component, a new pair.** `/news/index.html` was created today and audits
+at 28 failures, every one of them the same:
+
+```
+3.94:1  rgb(138,146,168) on rgb(44,52,80)   .news-list-tag   'World Matchplay'
+```
+
+That is `text_muted` (#8A92A8) on `border` (#2C3450) — a component using the
+BORDER slot as a fill and the muted slot as an ink on top of it. Neither slot was
+authored for that job. It is marginal (3.94 against a 4.5 floor) and on small
+tags, so it is the least urgent thing in this file, but it is the same class and
+it arrived on a brand-new page, which is the point: **the class is still being
+reproduced by new components, not just carried by old stylesheets.**
+
+`.news-list-tag` is worth a look by whoever takes the generator — a tag chip
+wants `surface` as its fill and `text` as its ink, and both are already derived.
