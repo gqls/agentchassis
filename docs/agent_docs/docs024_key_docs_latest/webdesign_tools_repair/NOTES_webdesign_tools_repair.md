@@ -169,3 +169,56 @@ tool is reported broken, the first question is what the prober did to it.**
 None of this softens the owner's report. 24 tools genuinely fail, and "OK" here
 still only means *responds* — correctness is untested, and the per-tool loop
 tests the tool's actual claim.
+
+---
+
+## 2026-07-29 (third pass) — a FOURTH harness fault, and the census that finally holds
+
+**`document.querySelector('a, b, c')` returns the first match in DOCUMENT
+order, not in the order the selectors are written.** My "drive the first
+meaningful control" list was written preference-first (range → number → text →
+… → button) and I read it as a priority list. It is not. On any page whose
+buttons sit above its inputs, the probe clicked a button — and on this site
+those are usually radio-style type pickers (`setType('dot')`, already active)
+or `Undo` with nothing to undo. Clicking them correctly does nothing, and the
+probe wrote DEAD.
+
+Caught on `svg-patterns`: the census called it DEAD, but evaluating in the page
+showed `setType`, `copyCSS` and `update` all defined, `cssOutput` full of valid
+CSS and `preview` carrying a live background image. **The tool had never been
+broken.** Fixed by trying each selector in turn and skipping controls whose id,
+class or label reads as undo/redo/reset/clear/copy/download/share/print — a
+control that is *supposed* to be a no-op on a fresh page cannot test liveness.
+
+Re-probing the 14 flipped **3 more to OK** (image-optimizer, privacy-redactor,
+svg-patterns).
+
+### Final census, 2026-07-29 — this is the one to work from
+
+| verdict | count | tools |
+|---|---:|---|
+| **OK** (responds to valid input) | **40** | the 37 earlier, plus image-optimizer, privacy-redactor, svg-patterns |
+| **DEAD** | **10** | aspect-ratio, blob-maker, clip-path, diff-checker, golden-ratio, head-architect, json-cleaner, magic-outliner, meme-generator, sri-generator |
+| **BROKEN** (console throws) | **8** | animated-favicon, asset-formatter, blueprint-compiler, insight-injector, logic-architect, micro-cms, mind-map, pasteboard |
+| **NO-CONTROL** | **3** | monolith-splitter, rls-architect, seo-injector — each has 0–1 controls where its own copy promises an interactive tool, so these are broken in a different way: the markup the script needs was never ported |
+| **UNVERIFIED** | **2** | cubic-bezier, vibe-equalizer |
+
+**23 of 63 fail. The repair queue is those 23.**
+
+### The pattern across four faults — worth carrying off this workstream
+
+Every one of my measurement errors made the site look **worse** than it is, and
+every one was invisible in the output, because a false DEAD and a true DEAD
+print the same word. The sequence: static read instead of browser (2 wrong) →
+`innerHTML.length` instead of content → invalid input into validating tools
+(7 wrong) → document-order control selection (3 wrong). **12 of 63 verdicts,
+19%, were my harness rather than the site.**
+
+The fix that would have caught all four earlier is the same one: **before
+believing a negative verdict, open the page and ask it what it thinks.** One
+`evalpage.py` call against `svg-patterns` refuted a verdict that four rounds of
+static reasoning had reinforced. The probe now prints the value it typed beside
+each verdict so the drive is auditable from the output alone.
+
+**This does not overturn the owner's report.** 23 tools genuinely fail, and OK
+still only means *responds* — the per-tool loop tests each tool's actual claim.

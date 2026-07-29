@@ -1655,3 +1655,28 @@ is why this cost seconds, not a corrupted page row).
 reconciliation (101 DB rows = 102 files − 404.html) held, but the site's own
 standing rule is reconcile-then-publish, and this site has shipped invented
 figures twice. Order was wrong even though the number was right.
+
+**D14 cap: council APPROVED round 1** (corr `d7268a32`, 12:25:19Z) — "approved
+with 6 advisory objection(s) — none high-severity". Three were checkable and are
+answered here rather than carried:
+
+- *"content_sources columns unverified — the schema is not reviewable"* (two
+  seats, medium+low). Verified: `information_schema.columns` gives
+  `config jsonb`, `is_active boolean`, `site_id uuid` — exactly the shape
+  `siteSourceQueries` assumes. Reviewers cannot open the DB, so this is the
+  submitter's job, not theirs.
+- *"siteSourceQueries degrades silently, no log"* (medium). Not so — the error
+  path calls `logger.Warn("siteSourceQueries: query failed, cap runs without
+  query topics")`. The objection is answered by the code as written.
+- *"pools under 12 skip frequency derivation; plausible for a homepage snippet
+  with maxItems<=4"* (medium). Live `max_items` is **6**, so the snippet
+  fetches 18 and derivation runs. A smaller caller would still get query-derived
+  topics; the degradation is graceful and one-directional. Recorded rather than
+  changed — the threshold exists because a genuine tool cluster crosses any
+  lower one.
+
+The remaining three (fleet-wide blast radius of a shared selection function, no
+deploy-time verification in the plan, no travelling-PLAN row for this "tool")
+are fair and stand: the first is inherent to the ruling being fleet-general, the
+second is answered by the post-roll check below, and the third is the exact gap
+the `webdesign_tools_repair` workstream exists to close.
