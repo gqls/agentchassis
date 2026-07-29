@@ -389,3 +389,46 @@ Also latent: pattern 2, `(does not|doesn't|do not|don't) appear here`, is itself
 negative construction — "prices do not appear here because they change daily"
 would match. Zero hits fleet-wide today; flagged in the code beside it and the
 most likely source of the next false positive.
+
+---
+
+## 2026-07-29 — two council rounds AFTER closure produced two real improvements. Neither reopened the bug; both are shipped.
+
+Recorded here because the closure above is easy to read as "done", and the useful part
+happened afterwards. Round 1 REVISE (guardian, scope), round 2 REVISE (**gating seat
+was `debug_historian` at HIGH — not the guardian, whose objections de-escalated to
+medium/low and dropped the architecture escalation**), round 3 submitted. Advisory
+throughout; none of it gated the roll, and the code was already live.
+
+**What the council found that I had not:**
+
+1. **My measurement was scoped by a variable the gate does not read.** Both my
+   population queries filtered on `sites.status` — round 1's reviewer used
+   `status='live'` (a value that does not exist here) and got `0`; I corrected it to
+   `status NOT IN ('pool','archived')` and got 908. `debug_historian` pointed out I had
+   *"replaced it with a different status-based exclusion rather than dropping status as
+   a scoping variable entirely"* — and the gate never reads site status at all. There
+   were **17 pool sites against my 15**, so the unmeasured slice was larger than the
+   measured one. Re-measured unfiltered and grouped: **908 components / 14 sites, all
+   `deployed`, and no other row** — pool and system sites hold zero stored components,
+   so the filter excluded nothing and 908 was the whole enforcement surface. **The
+   answer was favourable and the objection was still correct**; I inherited that filter
+   from this file's own § Measurement query, where it is right for a different question.
+2. **There was no way to withdraw the set without a build.** Guardian: *"shipping
+   without a kill switch is a containment gap independent of how good the
+   measurement is."* Now `check_claims_fleet_wide`, a `validate_page_content` config
+   key **defaulting TRUE** — DB config is live immediately, so a bad pattern is
+   withdrawn fleet-wide in seconds instead of commit + build + roll. Off restores the
+   pre-104 scan exactly, and does **not** disarm a site's own audited patterns.
+   Gate-only: `DiscoveryCheckContext` has no config map, so a sweep toggle would mean
+   a new field on a shared context, and the sweep is unreachable anyway.
+3. **A malformed fleet-wide pattern would have degraded silently.**
+   `globalEvidence()` inherits `ParseEvidenceBase`'s fallback — an uncompilable regex
+   becomes a literal substring — which is right for a site's hand-written config and
+   wrong for our own code, because it has no logger and no error path, so a typo
+   becomes a near-inert pattern that still looks armed. The fallback stays (panicking
+   at init over a regex is worse); two tests now move that failure to CI, including
+   the inverse case where an empty pattern compiles and matches **every** block.
+
+Commits: `a1428c908` (lever + guards), `804d021b2` (docs). Full trail in the
+workstream NOTES; council correlation `899ed92e-1bf7-4707-96d8-24f102aa14fa`.
