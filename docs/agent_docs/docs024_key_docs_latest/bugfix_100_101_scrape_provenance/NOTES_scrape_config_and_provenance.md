@@ -1326,3 +1326,47 @@ order of preference:
 **What is NOT affected by any of this:** the change is live and proven live on v1.0.1197 by
 ancestry bracketing, the offline audit names both dead keys, and `136`'s fix order stands.
 The witness is proof of the *warning path*, not of the finding.
+
+## §23 — 2026-07-29 ~09:15 — APPROVED again, and the objection I was wrong about found a bigger bug
+
+Corr `30a8785b-8cad-4d10-8633-486d81e837e9` (the `plan_sections` opt-in): **APPROVED, round 1**,
+~7 minutes again. Trailer on this commit.
+
+**The guardian objected on a claim I had already labelled MEASURED, and it was right.**
+
+> *"Plan asserts 'the only live plan_sections carrier is page-build-handler' but this is
+> measured from step configs elsewhere, not verified here — need to confirm no other
+> agent_definitions.default_config references a plan_sections step with different config keys."*
+
+My carrier query walked `jsonb_each(default_config->'workflow'->'steps')` — **top level only**.
+A full-text check found a **second** live carrier: `page-rebuild`, at
+`/workflow/steps/build_pages_loop/config/sub_workflow/steps/plan_sections`. Its keys are
+`page_name, sections, site_id` — all declared, so **the conclusion survived and 136's opt-in is
+unaffected**. But it survived by luck. The method was wrong, and I had written `MEASURED` next
+to it.
+
+**Following that up found `bugs_open/144`, which is the bigger finding of the two.**
+`ValidateWorkflow` runs once, on the top-level workflow (`processor.go:276`), and never
+descends (`grep -rn sub_workflow platform/validation/` → nothing). Nested steps are pulled
+from config and executed by `loop_actions.go:70-77`. **64 live steps across 17 agents are
+validated by nobody** — not just for config keys, but for cycles, `depends_on` existence,
+must-have-an-action and `fan_out` topics. 24 `(action,key)` pairs exist *only* nested and are
+seen by nothing at all.
+
+**And the reason it has survived is the sharp bit:** `scripts/audit-config-keys.sh` reads
+`->'workflow'->'steps'` too, so **the offline report and the runtime validator are blind in
+exactly the same direction and therefore agree with each other.** Cross-checking one against
+the other can never reveal it. *Consistent blindness reads exactly like correctness.* It also
+means this lane's own ratchet denominator understates the gap by those 24 pairs — 816 pairs is
+not the population.
+
+**Second objection (medium), which I am not acting on but should record:** *"this council
+should see what was said at corr 1c606c72 rather than re-litigate from scratch."* Fair — I
+submitted a fresh correlation instead of `RESUBMIT_CORR`, so the two reviews of the same
+mechanism have no shared trail and the same seats re-derived the same safety argument twice.
+**Use `RESUBMIT_CORR` when the second submission extends the first's mechanism**, even if the
+file differs.
+
+**The standing lesson, third session running:** an APPROVED verdict is where the advisory is
+easiest to skip, and this is now twice that the objection on an approval was the most valuable
+output of the run.
