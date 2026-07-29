@@ -456,3 +456,46 @@ gaswholesalers/idea.uk generations without checking whether another session had 
 sites. `scripts/who-owns.py` reads commits so it would likely have shown nothing (relojistas-4
 had not committed on them), but I did not run it, and the CLAUDE.md rule is to check BEFORE
 routing work at a target. Cost this time: two harmless S3 objects. The check exists; use it.
+
+---
+
+## 2026-07-29 (6) — header deployed to the repo; the roll killed the council round; leopardess locked; 142 filed
+
+**relojistas header: the deploy-repo leg is DONE, the live edge is not yet.** The flattened
+crop (white `#ffffff` per the site's `--color-header-bg`) went to `gqls/sites` via the contents
+API — commit `b42023b2`, "Deploy to B2" run 30435466455 green: log shows
+`delete assets/images/logo.jpg (old version)` + `upload assets/images/logo.jpg` +
+CF purge success. **Two traps met and survived, recorded:**
+- My first `gh api -X PUT` exited 1 on a malformed `--jq` OUTPUT expression — **the write had
+  already landed** (proved by the commit + blob bytes matching 21,556). The 409 on my retry was
+  the evidence, not a collision. An exit code can indict the reporting, not the operation —
+  read the artefact (same lesson as [[a-print-statement-is-not-a-config-row]]).
+- The live URL kept serving the OLD 91,171 bytes even after the CF purge, `last-modified`
+  17 Jul, nginx-style etag — so the serving chain is CF → an intermediate origin that syncs
+  from `b2://portfolio-sites/<domain>` on its own cadence; the B2 write alone does not update
+  it. `[INFERRED]` from the etag shape; a watcher polls every 60s and the SUMMARY should not
+  say "header live" until it flips.
+
+**The 08:19Z fleet roll to v1.0.1198 KILLED the council round mid-seat** (audit:
+`review_debug_historian` EXECUTING_STEP since 08:03:37, chassis pods started 08:19:17 —
+the [[imperative-kubectl-scale-is-undone-by-the-next-deploy]] landmine's "a roll kills an
+in-flight council", met live). Resubmitted on the SAME trail per practice:
+`RESUBMIT_CORR=bfd73f71-…` → run orch `e322da63-9486-4f79-b794-d4d3fb873a95`. Same submission
+file — round 1 died without producing objections, so there is nothing to answer.
+
+**leopardess: protection is now deliberate, not accidental.** Backfilled **locked** `og_card` +
+`favicon` rows (both hand-made files verified serving 200 first: 140,662 / 52,251 bytes;
+neither had a row). Inert on the current binary (the git commit still precedes the lock check
+there — but leopardess's malformed logo row keeps derivation failing before compositing);
+armed the moment `e9e345464` rolls. Expected side effect: one standing `undeployed_asset`
+false positive per row (deduped) — see below.
+
+**`bugs_open/142` filed** — the undeployed_asset detector's two defects (denominator is the
+assets table ⇒ blind to absence; deploy-evidence predicate reads `page_components.rendered_html`
+⇒ head-injected assets can never look deployed, robot-hands fired 5× while working). §9
+pattern appended to 016b. The leopardess backfill will add two deliberate false positives —
+warned inside 142 so nobody "fixes" them by deleting the locked rows.
+
+**Build pre-staged:** `make build-agent-chassis IMAGE_TAG=v1.0.1199` from HEAD in background;
+push/deploy strictly after the council verdict. Fleet is on 1198 (pods checked, not the
+makefile — the tree's uncommitted `IMAGE_TAG v1.0.1197` line is another session's stale bump).
