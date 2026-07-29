@@ -510,3 +510,101 @@ retrospectively.
 **Watch on the news page:** `page_type` must be the literal `news-index`. Several gates
 key on it and `bugs_open/081` is the case where a mistyped page was DEPLOYED — no repair
 path, looping ~3 months. Check the row BEFORE its build item runs, not after.
+
+### WCAG: 18 failures to 1, and the fix was already in the binary
+
+`bugs_open/122` had dartsonline down as a bad palette since 2026-07-27. Measured
+on the live page instead, `scripts/render_audit.py` 16:45Z:
+
+```
+FAIL https://dartsonline.com/                      contrast=13  h-overflow
+FAIL https://dartsonline.com/blog/barrel-weight.html  contrast=5   h-overflow
+```
+
+The entire homepage card grid was `rgb(240,242,247)` on `rgb(255,255,255)` —
+**1.12:1**, every card title and every card link — with the eyebrow at 1.04:1.
+
+**The component was innocent.** Every rule is variable-driven and correct
+(`background: var(--color-card-bg, var(--color-surface))`). The served
+`styles.css` is the `ecommerce-storefront` layout with its light literals intact:
+`--color-card-bg: #ffffff`, `--color-header-bg: #ffffff`, `--color-product-bg:
+#ffffff` — the last one carrying the comment *"Product cards stay neutral
+regardless of palette — product images demand a clean backdrop."* A sixth surface
+assuming a shop.
+
+`palette_specialised_slots.go` was written for exactly this on 2026-07-27 and was
+**live in both replicas** (pod-grepped `"a card is a raised surface"` → 1 and 1).
+The stylesheet simply predated it. Re-rendered via `webdesign-agent`
+(corr `4555d081`, deploy_css → `gqls/sites`, under 3 minutes end to end):
+
+```
+after  FAIL https://dartsonline.com/                      contrast=1
+       FAIL https://dartsonline.com/blog/barrel-weight.html  contrast=0
+```
+
+`--color-card-bg` `#ffffff` → `#1A1F2E`, `--color-header-bg` → `#0E1019`,
+`--color-cta-bg`/`-text` → `#1A1F2E`/`#F0F2F7`. **No palette edit was made.**
+
+**The remaining failure is not fixable at site level, and I checked rather than
+assumed.** The layout spends `--color-primary` on both a fill and an ink. Against
+background `#0E1019` / card `#1A1F2E` / text `#F0F2F7`:
+
+| value | ink on bg | ink on card | light text on it as fill |
+|---|---|---|---|
+| `#111520` (current) | 1.04 ✗ | 1.11 ✗ | **16.28 ✓** |
+| `#E8311A` (brand accent) | 4.41 ✗ | 3.82 ✗ | 3.84 ✗ |
+| `#FF5A3C` (lighter tint) | **6.13 ✓** | **5.30 ✓** | 2.77 ✗ |
+
+The site's own accent does not clear AA as an ink either (4.41 against 4.5). No
+value satisfies both roles, so repointing would trade one failing eyebrow for
+failing text on every primary button. **Nothing changed.** Contributed to
+`bugs_open/122` with the table; the generator fix belongs to whoever takes it.
+
+**016b §9 entry written**, because the transferable part is not about CSS: a fix
+that ships in the BINARY does not reach an artefact generated ONCE. Two
+populations exist and only one is ever counted — everything generated from now on
+(fixed at the roll, and the one the commit message describes) and everything
+already generated (unchanged indefinitely). The bug file says fixed, the code says
+fixed, the pod says fixed, and only the artefact disagrees with all three.
+
+### The news page exists
+
+`missing_news_page` completed 16:42Z and the row is right where `bugs_open/081`
+says to check it — BEFORE the build, not after:
+
+```
+news-index | /news/index.html | news-index | active | ["hero","news-listing","call-to-action"]
+```
+
+`page_type` is the exact literal several gates key on. `nav_order` set to 4 so
+News sits second in the primary group, and a second `nav_drift` run rebuilt the
+table:
+
+```
+primary:  Guides(0) · News(1) · Start Here(2) · Deals(3)
+utility:  Home · About · Contact · Shipping & Returns
+```
+
+### Nav verified where it counts — on the served pages
+
+```
+200 /                          dead:[none]
+200 /contact.html              dead:[none]
+200 /sale.html                 dead:[none]
+200 /new-arrivals.html         dead:[none]
+200 /guides/index.html         dead:[none]
+200 /blog/tungsten-guide.html  dead:[none]
+200 /blog/board-setup.html     dead:[none]
+200 /blog/brand-comparison.html dead:[none]
+200 /blog/flight-shapes.html   dead:[none]
+```
+
+Zero `/shop.html`, `/brands.html` or `/guides.html` anywhere. Served header now
+reads Home · Guides · Start Here · Deals · Get Started, and meta descriptions are
+injecting (`/blog/tungsten-guide.html` carries the 148-character one).
+
+`news-links: 0` on every page, which is correct rather than a fault: `GetNavItems`
+prunes never-deployed targets and news-index has not built yet. **The already-built
+pages will need a re-render pass to pick News up once it deploys** — that is the
+one job left in this batch, and it is the same shape as the four stale pages this
+session opened with.

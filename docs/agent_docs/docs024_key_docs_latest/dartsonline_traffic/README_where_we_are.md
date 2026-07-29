@@ -214,3 +214,66 @@ for it, not only where it's used — which I've done.
 **Building now:** the sale page, the contact page, and four of the seven remaining buying
 guides. Plus, for the first time, a proper **news page** — the feed has fourteen relevant
 darts stories waiting and nowhere to show them.
+
+---
+
+## Later the same afternoon — the site can now be read
+
+**The homepage was unreadable and nobody had noticed.** I measured it in a real
+browser rather than reading the stylesheet, and the whole block of cards on the front
+page — the four "what this site does" panels — was near-white text on white boxes, on a
+site whose background is nearly black. Thirteen separate failures on that page, five
+more on a guide page. It has presumably looked like that since the site was built.
+
+The cause turned out to be something worth explaining, because it's a trap we'll hit
+again. The site is built on a **shop layout**, and that layout has white as its
+built-in colour for cards — with a comment in the code saying, in effect, "product
+cards stay white because product photos need a clean backdrop". Our dark colour scheme
+overrode the page background but never overrode the card colour, because the card
+colour isn't one of the eight colours a site's palette defines. So the dark scheme and
+the shop layout's white cards coexisted, each internally consistent, producing white
+text on white.
+
+**Somebody had already fixed this two days ago** — for a different site, and properly,
+in the code. But a code fix can't reach into a stylesheet that was written once and has
+been sitting on the CDN ever since. So dartsonline was carrying a stale file. I
+regenerated it, which took under three minutes, and the page went from thirteen
+failures to one. I've written that lesson up in the debugging guide, because it isn't
+about colours: **when we fix something that generates files, only future files get
+fixed, and nobody ever counts the ones already out there.**
+
+The one remaining failure I've deliberately left alone, and I want to be clear why.
+The layout uses a single colour setting for two contradictory jobs — as the background
+of buttons (with pale text on top) and as the text colour of small labels (on the dark
+page). I worked out the numbers for every candidate, including our own brand red: there
+is no colour that works for both. Changing it would fix one small label and break the
+text on every button. So I left it and wrote the arithmetic into the bug file for
+whoever fixes the generator.
+
+**The news page now exists.** It's at /news/index.html, it's wired into the menu in
+second position, and it will list the darts stories the feed has been collecting. That
+was the biggest single gap — we'd armed the feed yesterday and had nowhere to put what
+it found.
+
+**The menu is right, and I checked it the proper way this time.** All nine live pages
+now serve a header with no broken links. The menu reads Home, Guides, Start Here,
+Deals, Get Started, and News joins it once that page goes live. I confirmed this by
+fetching each page and looking, not by querying the database — that being the exact
+mistake from this morning.
+
+**Eight of the nine buying guides are built and live**, including the three that
+matter most for search: tungsten percentages, dartboard setup measurements, and the
+brand comparison. I read the board-setup one closely because it's the page readers will
+check hardest, and the measurements are right (1.73m to the bullseye, 2.37m throwing
+distance, and it correctly tells you to measure from the board face rather than the
+wall). The ninth, grip styles, belongs to another workstream and I've left it alone.
+
+**On imagery**, I found the reason none of the generated icons are usable, and it isn't
+what anyone assumed. The instructions we give the image generator literally ask for
+"a darker grey line on a flat solid light grey background" — on a site with a
+near-black background. Seventeen icons were generated exactly as instructed and every
+one is unusable. Two of them also draw things that aren't true: a delivery van, and a
+"curated product range". I've rewritten all the instructions, written a proper style
+guide for the site's imagery, and marked the old icons as superseded so the system will
+generate replacements. Nothing has been generated yet — no credits spent — and I'll
+look at each new image before anything goes on the site.
