@@ -839,3 +839,30 @@ database if it ever misbehaves, without waiting for a new software build.
 
 Handoff doc is in the repo with everything needed to start cold; the bug file and my
 notes both point at it.
+
+2026-07-29 (session 4). Two pieces of news. First: the platform bug we spent Monday
+evening designing the fix for — the one where the system repairs a made-up link and then
+throws the repair away when it saves the page — was built and shipped overnight by
+another thread, exactly along the design we handed over. It's live, the review council
+approved it, and it's already been seen working on a real page build. So invented links
+can no longer reach a published page through the normal build. (Invented image paths
+still can — that half is a separate open bug.)
+
+Second: while checking the site over I found three pages quietly showing a broken
+background picture — capabilities, the self-correction blog post, and the selector
+guide. You couldn't see it as brokenness: the picture sits behind a dark tint, so the
+page just showed a flat band where an image should be. None of our link checks could
+ever have caught it, because it isn't a link or an image tag — it's a style rule. The
+cause was a site-wide default pointing at a filename that has never existed on this
+site. I pointed the default at the real homepage picture, gave the capabilities page its
+own picture (the one the site plan always intended for it), and re-rendered the three
+pages without involving any writing model. All three now show real pictures, and
+nothing else on those pages changed. Also tidied: the same dead filename was sitting
+unused in the calculator page's stored data, waiting to resurface on a future rebuild —
+replaced with the calculator's own picture.
+
+Housekeeping: the favicon worry from Monday is smaller than we thought — the pages'
+own favicon reference works; only the old-fashioned fallback path (favicon.ico at the
+site root) is missing. And the icon that seemed to flicker between working and broken
+looks like brief origin hiccups under load, not a missing file — six probes in a row
+all came back fine.

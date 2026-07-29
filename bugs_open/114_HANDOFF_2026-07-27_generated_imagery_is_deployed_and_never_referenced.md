@@ -127,3 +127,33 @@ then re-checks each one over HTTP before reporting.
   same owner report; it and this file were written within minutes of each other, and it
   was deliberately narrowed to the detection gap once the overlap was noticed. Read them
   together: 114 is why the imagery never arrived, 115 is why nobody was told.
+
+---
+
+> ## ADDENDUM 2026-07-29 — the hero.jpg fallback's mechanism traced, and the three live pages repaired (fundamentallyai)
+>
+> The "three components fell back to `/assets/images/hero.jpg`" finding is now fully
+> explained and repaired on fundamentallyai.com (data-level; the platform gap stays open):
+>
+> - The literal comes from **`sites.content_data.hero_url`** — a site-wide legacy default
+>   written before any hero asset existed. `BuildRenderContext` injects it site-wide; the
+>   comment at `plan_sections_action.go:1608` names this exactly.
+> - `plan_sections`' per-page hero aliasing defeats it **only on the plan_sections path**.
+>   The LLM-free rerender path does not re-resolve fields
+>   (`flag_page_image_rebuild_action.go` header), so scoped re-renders faithfully preserve
+>   the stale value forever.
+> - **`check_placeholder_image_in_use` can never fire for this class**: it keys on "no
+>   assets row with purpose='hero'", but a site whose pages merely PREDATE its hero assets
+>   has the assets row and still serves the placeholder. The check tests the wrong absence.
+> - Measured merge order on the rerender path: injected site-wide `hero_url` >
+>   per-page `content_data.hero_url`; only a `site_plan_imagery` page-scope row wins.
+> - A dead value can also sit **stored but unrendered** (`content_data.hero_url` on a page
+>   whose current template ignores it) — invisible to any crawl of rendered output, waiting
+>   for a future template change. Found one on fundamentallyai's calculator page.
+> - CSS `background-image: url()` references are invisible to href/img-src censuses, and
+>   the gradient overlay makes the failure visually silent. Any imagery audit here must
+>   grep `url('…')` in rendered_html too.
+>
+> Repair applied 2026-07-29 (fundamentallyai only): site default → real homepage hero,
+> plan-intended hero on capabilities, LLM-free re-renders; verified on persisted rows and
+> served pages. Full evidence: brochure_component_library NOTES, 2026-07-29 entry.

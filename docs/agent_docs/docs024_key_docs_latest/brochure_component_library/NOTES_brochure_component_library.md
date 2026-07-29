@@ -2633,3 +2633,79 @@ ours to assert from a stale count.
   step is STALE.
 - Items closed: `56fbcc9a` (selector hero — served), `51e7b867` (capabilities rerender),
   intake `needs_diagnosis:validate-page-content-repairs-dead-in-bo` (auto).
+
+## 2026-07-29 — session "fundamentallyai.com 4": 079 closed elsewhere; the dead hero.jpg background retired
+
+**`bugs_open/079` was CLOSED overnight by another thread** (`c275e6959`) — candidate 1
+exactly as this lane's implementation handoff designed it: `repairSectionsBeforePersist`
+in `SavePageSectionsAction`, council APPROVED round 2 (`7c24776e`), LIVE on v1.0.1196,
+proven by a NATURAL vetcomparison run (5 phantoms unlinked in the saved rows, +45ms).
+The lane's "biggest lever" is done; nothing to build here. Still open upstream: 092
+(writer constraints) and the sibling gap `bugs_open/136` (three other prose writers of
+`page_components` have no repair — and img `src` was never in the repair's remit, so
+the carousel-invention class is NOT covered by 079's fix).
+
+**Full served-site audit, all 10 deployed pages:** 12 unique internal href targets — all
+200. 18 `<img>` srcs — all 200. `icon-cap-review.jpg` 6/6 probes 200 (yesterday's "flap"
+reproduces only as connection-level failures under burst load — transient origin/edge,
+not a missing object). **Favicon residual is narrower than recorded:** the on-page
+reference `/assets/images/favicon.png` serves 200; only root `/favicon.png`/`.ico` 404
+(browser-fallback path only). Capabilities still clean: 0 phantoms, 2 charts, restored
+jpgs live.
+
+**Misstep, caught in-session:** my first crawl fetched the calculator page as **0 bytes**
+(burst of ~20 curls self-throttled the origin — the documented landmine, hit again) and
+I briefly read "no `<img>` on the calculator page" as fact; worse, the crawl's
+target list was silently missing every `/tools/` and `/guides/` page because those links
+come from the pages that failed to fetch. **A crawl built on empty fetches undercounts
+silently — check every fetched file's size before trusting the extraction.** Re-crawled
+serially with retry: sizes 23–69KB, then the numbers above.
+
+**THE FINDING: three pages served a dead CSS background — invisible to every `<img>`
+crawl.** `capabilities`, the self-correction blog post and the selector guide all carried
+`background-image: … url('/assets/images/hero.jpg')` (404, layered under a gradient, so
+it degrades to a flat band rather than looking broken). This is the `bugs_open/114`
+"three components fell back to hero.jpg" finding, mechanism now fully traced:
+
+- The literal lives in **`sites.content_data.hero_url`** — a site-wide legacy default
+  written when no hero asset existed. `BuildRenderContext` injects it site-wide
+  (`plan_sections_action.go:1608` comment names this exactly).
+- The per-page defeat (`plan_sections`' authoritative hero aliasing into resolved_data)
+  only runs on the plan_sections path; the LLM-free rerender path **does not re-resolve
+  fields** (`flag_page_image_rebuild_action.go` header), so yesterday's 16:59 restore
+  correctly left the stale value in place.
+- `check_placeholder_image_in_use` can never fire here: it keys on "no assets row with
+  purpose='hero'", and this site has 8 — the check tests the wrong absence for a page
+  that merely predates its assets.
+- A **fourth** dead value sat unrendered in the calculator row's `content_data.hero_url`
+  (set 07-28) — found only because the fix's readback listed all rows with the key; my
+  finding query had filtered on `rendered_html`, which a stored-but-unrendered value
+  never reaches.
+
+**Fix applied (data only, archived first, source `operator_hero_url_fix_2026-07-29`):**
+per-page `content_data.hero_url` set on the three rows (capabilities →
+`hero-capabilities.jpg`, per the plan's own `site_plan_imagery` row; blog →
+`hero-review-council.jpg`; guide → `content-hero-tool-model-approach-selector.jpg`;
+calculator row → its own content hero), and **`sites.content_data.hero_url` →
+`/assets/images/hero-home.jpg`** so the legacy injection points at a real file for any
+future render. All four targets probed 200 before writing. Three `page_rerender` items
+queued (`%herofix_20260729`), proven spec shape copied from yesterday's completed items.
+Old site-wide value recorded above for reversal. Background `url()` sweep across all 10
+pages: 6 targets, 5 × 200, the only 404 being hero.jpg on exactly these 3 pages.
+
+**Crawl-tooling lesson for the RUNBOOK:** the link census greps `href=` and `<img src=`;
+neither sees a CSS `background-image: url()`. Grep `url('…')` too, or a dead background
+ships invisible to every census this lane has run.
+
+**Verification (same session, ~08:28Z + served ~08:31Z):** all three `page_rerender`
+items completed in ~2 min (queue was quiet — the 7–9 min figure is a loaded-queue
+number). Persisted rows: `rendered_html LIKE '%hero.jpg%'` FALSE on all three; served
+pages carry `url('/assets/images/hero-capabilities.jpg')` (capabilities) and
+`url('/assets/images/hero-home.jpg')` (blog, guide). Capabilities integrity held:
+2 charts, 0 phantoms, 0 invented svgs. **Merge-order finding:** on the rerender path the
+site-wide injected `hero_url` BEAT the per-page `content_data` values I set for blog and
+guide (they took `hero-home.jpg`, not my choices) — only capabilities, whose plan carries
+a page-scoped `hero_capabilities` imagery row, got its own hero. So per-page hero art
+direction on this path requires a `site_plan_imagery` page-scope row, not a
+`content_data` value; the content_data values I set are inert but harmless (real files,
+recorded in history). Site is now background-clean as well as link/img-clean.

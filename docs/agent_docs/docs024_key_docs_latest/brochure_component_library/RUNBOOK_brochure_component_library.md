@@ -550,3 +550,24 @@ done < list.txt
 Every file after the first is silently missing. Redirect the inner command's
 stdin (`< /dev/null`) or iterate over an array instead. Cost 5 minutes and a
 confusing "No such file or directory" from a grep over files that should exist.
+
+## CSS backgrounds are invisible to the link/img census (added 2026-07-29)
+
+The census above greps `href="…"` and `<img … src="…"`. A dead
+`background-image: … url('/assets/images/hero.jpg')` passes both — it is neither an
+href nor an img src, and because the url() sits under a gradient the page degrades to
+a flat colour band instead of a visible broken image. Three pages shipped exactly this
+(114 family). Sweep backgrounds too:
+
+```bash
+grep -hoE "url\('[^']*'\)" page_* | sed "s/url('//;s/')//" | grep '^/' | sort -u \
+  | while read -r t; do
+      echo "$(curl -s -o /dev/null -w '%{http_code}' "https://fundamentallyai.com$t") $t"; sleep 0.5
+    done
+```
+
+Gotchas: probe serially with a sleep — a burst of ~20 curls self-throttles the origin
+and returns EMPTY 200s (check `wc -c` on every fetched page before extracting from it);
+and stored-but-unrendered values don't reach `rendered_html`, so also check
+`page_components.content_data->>'hero_url'` — the calculator row held a dead value no
+crawl could ever see.
