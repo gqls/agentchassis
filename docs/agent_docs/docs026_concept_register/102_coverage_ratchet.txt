@@ -46,3 +46,4 @@ vm_estate
 webdesign_couk
 webdesign_uk_build_service
 work_item_completion_integrity
+docs/agent_docs/docs024_key_docs_latest/idea_uk_demand — site-specific demand work for idea.uk, no reusable mechanism (vm 9 session, 2026-07-29)
