@@ -118,7 +118,14 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 		datahelpers.GetStringField(config, "domain_field", "site_record.domain"))
 
 	// Resolve the deployed URL: explicit config path first, else the pages
-	// table (generator tools: page name == function).
+	// table. Generator tools: page name == function. PORTED tools (eligible
+	// since tool_eligibility.go widened the ladder): the subject key is the
+	// page name MINUS its 'tool-' prefix, so the page is 'tool-'||function —
+	// without the second candidate every acceptance run the widened due-sweep
+	// emits for a ported tool would hard-error right here, on the ladder's
+	// first attempt to look at the population it was widened to see. The exact
+	// name wins the tie so a generator tool named like a ported page cannot be
+	// shadowed.
 	pageURL := ""
 	if uf := datahelpers.GetStringField(config, "url_field", ""); uf != "" {
 		pageURL = datahelpers.ExtractNestedFieldString(params.CollectedData, uf)
@@ -126,7 +133,10 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 	if pageURL == "" && params.DB != nil && siteID != "" {
 		err := params.DB.QueryRowContext(ctx, `
 			SELECT COALESCE(url, '') FROM pages
-			WHERE site_id = $1::uuid AND name = $2 AND status = 'active'
+			WHERE site_id = $1::uuid AND status = 'active'
+			  AND name IN ($2, 'tool-' || $2)
+			ORDER BY (name = $2) DESC
+			LIMIT 1
 		`, siteID, function).Scan(&pageURL)
 		if err != nil && err != sql.ErrNoRows {
 			return nil, fmt.Errorf("request_browser_run: page lookup failed: %w", err)
