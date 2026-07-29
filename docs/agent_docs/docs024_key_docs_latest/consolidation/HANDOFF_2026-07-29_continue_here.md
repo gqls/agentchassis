@@ -17,6 +17,12 @@ item on this lane is **adopting `platform/mailer` + `platform/httpguard` into
 a **filed, evidenced bug behind it (`bugs_open/139`)** instead of just a
 recommendation.
 
+> **CORRECTED 2026-07-29 (later the same day) — read §4 before acting on that
+> sentence.** The probe was run. **`139`'s headline claim is REFUTED**, a
+> different and live defect was proven in its place, and **`httpguard` does not
+> fix it** — so "adopt httpguard into tools-api" is no longer the next action as
+> written. §4 below is corrected in full.
+
 ## 2. What is LIVE (verified this session, not inherited)
 
 **Chassis `v1.0.1196`**, two replicas, started 2026-07-28 22:37/22:38Z — a roll I
@@ -90,10 +96,38 @@ What is established:
 - `bugs_closed/090` is the same mechanism, **proven against production** on
   idea.uk. 139 is a second service, not a reopening.
 
-**[UNMEASURED] — the one gap, and it is one command.** I did not fire the
-`curl -H 'X-Forwarded-For: …'` probe at tools-api, nor read gin's `ClientIP()`
-source. 090 shows the probe settles it outright. **Do that before quoting 139 as
-proven.**
+> **CORRECTED 2026-07-29 — measured, and it went the other way.**
+>
+> Both probes were fired (forged `X-Forwarded-For`, then forged `X-Real-IP`) and
+> gin's source was read. **A visitor CANNOT choose the IP.** Both requests
+> returned 200 and both stored the same hash as every other row.
+>
+> **What is real instead: the identity is a CONSTANT.** `client_ip_hash` is
+> `sha256("172.18.0.1")` — the docker bridge gateway — in **83 of 83 rows** since
+> 2026-07-25 (one distinct value, whole table). So the "per-IP" limiter is a
+> single global bucket shared by every visitor, and the stored identity column has
+> never distinguished anybody. No attacker required.
+>
+> **Why:** Caddy overwrites `X-Forwarded-For` with its own peer before the app
+> sees it, and Cloudflare strips `X-Real-IP` at the edge. tools-api is exactly as
+> trusting as filed (its log carries gin's `[WARNING] You trusted all proxies`);
+> it is simply never handed anything to be fooled by. **The protection is two
+> other components' defaults, none of it the service's own.**
+>
+> **This changes the next action.** `httpguard.ClientIP` **does not fix it** — its
+> peer gate passes, `X-Real-IP` is absent, and it falls to the rightmost XFF
+> entry, which is the same `172.18.0.1`. It would read as a fix while changing
+> nothing. The real client address reaches the app only in `CF-Connecting-IP`
+> (unforgeable — the edge 403s a supplied one), which nothing currently reads.
+> Revised, evidenced fix ordering is in `bugs_open/139`.
+>
+> **Still true and unchanged:** `platform/mailer` and `platform/httpguard` remain
+> approved, correct and with zero importers; the `mailer` half of the adoption is
+> untouched by this. What changed is only the *rationale* offered for the
+> `httpguard` half — and A3 now has a real design input: the package's docstring
+> justifies preferring `X-Real-IP` on a property of **nginx on idea.uk** that
+> **Caddy on the island does not provide**. A second adopter inherits the
+> reassurance without the mechanism.
 
 **This stays a conversation.** `tools-api` belongs to the **gauntlet_dead_cta**
 thread and `bugs_open/083` (slug `gauntlet_engine_503_discards_the_error` — the

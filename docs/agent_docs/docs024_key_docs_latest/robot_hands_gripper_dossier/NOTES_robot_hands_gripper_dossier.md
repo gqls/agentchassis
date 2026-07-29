@@ -1039,3 +1039,76 @@ and `/bugs_closed/` first — nothing covered tools-api.
 (slug `gauntlet_engine_503_discards_the_error`) open against it. 139 is the
 evidence half of a conversation; `who-owns.py` reads commits and cannot see a
 session mid-fix, so check the tree too before anyone acts on it.
+
+## 2026-07-29 — the probe was run, and it refuted 139's headline
+
+> **CORRECTION to the entry immediately above.** Its `[UNMEASURED]` marker was
+> right that the probe was owed. It was wrong to expect the probe to confirm.
+> **139's headline claim is REFUTED.** Full corrected record in the bug file;
+> what follows is the evidence and the order it arrived in, missteps included.
+
+**The two probes.** `POST https://tools.apis.uk/api/v1/tools/gauntlet/round`,
+`Origin: https://vonc.com`, browser UA (a `Python-urllib`/curl fingerprint draws
+Cloudflare's `error code: 1010`, per the gauntlet RUNBOOK). 07:46:07Z forging
+`X-Forwarded-For: 203.0.113.77`; 07:53:26Z forging `X-Real-IP: 203.0.113.77`.
+Both **200**. Both stored `client_ip_hash = 245c0ffc0f6a0215471542b9add1fa53`;
+the gin log recorded `172.18.0.1` for both. `sha256("203.0.113.77")[:16] =
+0c25434b09c62046f88142b1412b949e` appears nowhere in the table.
+
+**What the constant is.** `sha256("172.18.0.1")[:16] = 245c0ffc…` — the docker
+bridge gateway. Census:
+
+```
+SELECT count(*), count(DISTINCT client_ip_hash) FROM gauntlet_rounds;
+ -- 83 rows, 1 distinct, 2026-07-25 → 2026-07-29
+```
+
+So the real defect is a **degenerate identity**, not a spoofable one: the "per-IP"
+limiter is one global bucket for all visitors, and `client_ip_hash` has never
+distinguished anybody. Worse than what was filed, and it needs no attacker.
+
+**Wrong turn #1 — I had the mechanism backwards twice before measuring it.**
+Reading `gin.New()` + no `SetTrustedProxies` + `gin.go:474` `validateHeader`
+(walks right-to-left, every entry "trusted", returns `items[0]`) I predicted the
+forged value would win. It did not, and the prediction was confidently derived
+from correct source. The missing half was two hops I had not looked at, one of
+which is not in this repo at all (`/opt/island/Caddyfile`).
+
+**Wrong turn #2 — and I nearly wrote it into the bug file.** On seeing the
+constant, my next theory was that adopting `httpguard` would *create* the spoof,
+because `httpguard.ClientIP` prefers `X-Real-IP` and my local Caddy repro showed
+Caddy forwarding a client-supplied `X-Real-IP` **verbatim**. Plausible, and
+wrong: **Cloudflare strips `X-Real-IP` at the edge.** Caught only by firing it at
+the `020` probe vhost *with an arbitrary `X-Zzz-Control` header alongside* — the
+control arrived, `X-Real-IP` did not, so "absent" was distinguishable from "never
+sent". Without that control the result would have been unreadable.
+
+**The measured hop table** (each row is an observation, not a reading of docs):
+
+| hop | instrument | result |
+|---|---|---|
+| CF edge → origin | `020` probe vhost access log (logs all headers) | forged XFF **arrives** as `203.0.113.77,2a02:c7c:…` — CF appends, same shape as 090's nginx |
+| CF edge → origin | same + `X-Zzz-Control` control header | `X-Real-IP` **stripped**; control header arrived |
+| CF edge → origin | forged `CF-Connecting-IP` | **403, `error code: 1000`**; control without it → 404 from origin |
+| Caddy → app | local repro: `caddy:2.11.4` + the island's own Caddyfile → echo upstream | XFF **overwritten** with Caddy's peer in every case; `X-Real-IP` and `CF-Connecting-IP` forwarded verbatim |
+
+The local repro is worth keeping in mind as a technique: the island's Caddyfile
+plus the pinned image reproduced the hop exactly (same `172.18.0.1` peer shape)
+on this machine, in about two minutes, with no risk to the live service.
+
+**Consequence for our own NEXT action, which is the part that matters to this
+lane.** The handoff's item 1 was "adopt `platform/mailer` + `platform/httpguard`
+into tools-api". **`httpguard.ClientIP` would not have fixed this**: its peer gate
+passes (`172.18.0.1` is RFC1918), `X-Real-IP` is absent (CF strips it), so it
+falls to the **rightmost** XFF entry — which is `172.18.0.1`, the same constant,
+now reached through a shared helper and therefore *reading* as fixed. And its
+docstring's justification for preferring `X-Real-IP` ("set with
+`proxy_set_header`, so a client-supplied one is replaced") describes **nginx on
+idea.uk**, not Caddy here. That is a genuine design input for `features_open/024`
+A3 — the package should name the front-end its rules assume, or take the trusted
+header set as config — and it is **not** a reason to unpick A2/A3, which were
+approved on their merits.
+
+**Three rows left in their table**, ids and times listed in 139. Not deleted:
+they are the gauntlet thread's data and the evidence, and tidying up after myself
+inside another lane's production table is not my call.

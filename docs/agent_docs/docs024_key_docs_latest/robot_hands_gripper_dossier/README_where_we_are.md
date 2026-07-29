@@ -327,3 +327,69 @@ person doesn't inherit it as fact.
 Nothing about the change itself moved between the two rounds. Same fix, same
 six edits. All that changed is that four claims I'd made were replaced by
 evidence. That's a fair description of what the board is for.
+
+---
+
+**2026-07-29 — I was wrong about the security bug I filed yesterday, and the
+real one is more interesting.**
+
+Yesterday I filed a bug saying that a visitor to the gauntlet tool could lie
+about their own address — tell our server they were coming from somewhere else —
+and so slip past the limit on how often they can use it, while also poisoning the
+record we keep of who did what. I was confident, because we had proved exactly
+that on idea.uk a few days earlier and the code here looked the same. I did write
+down honestly that I hadn't actually tested it, and that someone should before
+quoting me.
+
+This morning I tested it. **It isn't true.** I sent the tool two requests
+pretending to be an address in a range reserved for documentation, once each way
+a visitor could try it. Both went through, and both were recorded as coming from
+the real place. A visitor cannot lie to us about this.
+
+**But the same test turned up something else, and this one is real.** Our server
+isn't recording visitors' addresses at all. It records the address of the machine
+sitting in front of it — the same value, every single time. I checked the whole
+table: eighty-three visits recorded since the twenty-fifth, and every one carries
+an identical entry. Not "mostly the same" — literally one value, for every visit
+we've ever had.
+
+Two things follow. The limit on how often the tool can be used is supposed to be
+per visitor; because everyone looks identical, it's actually one shared limit for
+the entire internet. One busy person uses up everybody's allowance, and nobody has
+to be malicious for that to happen. And the column where we record who visited is
+carrying no information whatsoever — if we ever need to ask "was that the same
+person?", the answer we've been storing is the same word, eighty-three times. It
+never looks broken, which is why nobody spotted it: it's always filled in, always
+well-formed, always the same.
+
+The reason my original claim was wrong is worth saying, because it's the sort of
+mistake that repeats. I reasoned about our own program and stopped there. But
+whether a visitor can lie about their address isn't decided by our program — it's
+decided by the two pieces of plumbing in front of it, Cloudflare and a small
+routing program on the island machine. Between them they clean up the lie before
+our code ever sees it. Neither of those is in this repository; one is a config
+file on a machine, the other is a supplier's service. So the answer simply wasn't
+in the place I was looking, and no amount of care reading our code would have got
+me there.
+
+**One practical consequence you should know about.** The next job on this list was
+to adopt a shared piece of security code we built and got approved last week, and
+plug it into this tool. **It wouldn't have fixed this.** It would have arrived at
+the same useless constant by a different route — and worse, it would have *looked*
+like a fix, because the change would be sitting right there in the code where the
+problem is. I've written down what would actually fix it: the visitor's real
+address does reach us, just in a different label that our code currently ignores,
+and it's one a visitor can't forge because Cloudflare rejects any request that
+tries. That's a small change, but it belongs to the thread that owns this tool,
+not to me, so I've put the evidence in the bug file rather than reaching into
+their service.
+
+I'd also flag the shared security code itself. It's fine where it's used today,
+but it carries a note explaining why it's safe that describes the plumbing on
+idea.uk, not the plumbing here. Anyone adopting it elsewhere would inherit the
+reassurance without the thing that makes it true. That's worth fixing in the
+package rather than in each place that uses it.
+
+Cost of finding all this: about half an hour, three test visits recorded in their
+table, and one throwaway copy of the routing program run on my own machine to
+watch what it does to a request. Nothing was changed on the live service.
