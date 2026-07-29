@@ -19,7 +19,8 @@ one**) · `RUNBOOK_architecture_seat.md`.
 |---|---|
 | D11 layer 2 (routing) | **LIVE** |
 | D11 layer 1 (symbol bodies) | **LIVE & PROVEN** — re-verified 07-29 on `v1.0.1196`: **5,017 rows / 5,017 bodies** (was 4,992; the count MOVES — re-measure, never quote) |
-| **D11 layer 1b (markdown)** | **PAUSED — blocked on owner decision D12.** NOT revising, NOT resubmitting |
+| **D11 layer 1b (markdown)** | **HELD at round 8** — corr `7ba5b8c4`. Resubmits only AFTER the guard below is approved and live |
+| **D12 citation guard** | **OWNER RULED 1b 07-29; IN COUNCIL** — corr `da1f9c81-0b4b-41ff-9b2c-bc0057ad3cf8`, 3 edits, inert on arrival |
 | `bugs_open/135` (prune has no floor) | **OPEN, UNOWNED** — pre-existing, independent of 1b |
 | `review_architecture` | **still 0 reviews** — rate limit, not fault |
 
@@ -100,10 +101,25 @@ waiting on a binary). Answering it inside round 9 would repeat rounds 4–6 exac
 with the citation contract as the accreted mechanism, and the `guardian` that
 approved round 8 would be right to veto it on scope.
 
-So: **put D12 to the owner.** When it is answered, fold in `debug_historian`'s
-one-line low objection (a defensive `ROLLBACK;` preamble before the migration's
-`BEGIN;` — an aborted transaction from a prior failed run in the same session is
-sticky) and resubmit on the same `RESUBMIT_CORR`.
+**DONE 2026-07-29 — the owner ruled 1b.** The guard is built and in council on its
+OWN correlation (`da1f9c81-…`, `SUBMISSION_2026-07-29_doc_rows_are_not_static_evidence.json`),
+deliberately ahead of the corpus it guards and separate from the markdown plan.
+
+**The order from here:**
+1. Guard APPROVED → build → roll → **pod-grep the DELETED string**: `'They are CODE'`
+   must go **1 → 0**, `docTag` **0 → >0**, `answerCodeCheck` stays `8` (control).
+   Commit with `Council-Reviewed: da1f9c81-…` on the IMPLEMENTATION commit.
+2. THEN resubmit layer 1b as round 9 on `RESUBMIT_CORR=7ba5b8c4-…`, citing the
+   guard as already live, and fold in `debug_historian`'s one-line low objection
+   (a defensive `ROLLBACK;` preamble before the migration's `BEGIN;` — an aborted
+   transaction from a prior failed run in the same session is sticky).
+3. Layer 1b's own VERIFY must then assert what THIS guard's VERIFY explicitly does
+   not: that a `kind='doc'` hit really does render under the prose heading carrying
+   `[doc]`. The guard proves presence and harmlessness only — that is stated in its
+   VERIFY §3 so nobody mistakes it for coverage.
+
+**Do NOT reorder these.** The guard is inert until the CHECK is relaxed, so shipping
+it first costs nothing and means the hazard is never representable.
 
 ## 5. Landmines earned in rounds 7–8
 

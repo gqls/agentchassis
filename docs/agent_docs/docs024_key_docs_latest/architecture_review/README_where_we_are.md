@@ -769,3 +769,50 @@ workstream has been making all along, now inherited by its own offspring.
 **And it has still never said a word.** Putting a seat in a room is not the same as
 it having an opinion. The first real test is the next platform change that goes
 through either lane.
+
+---
+
+**2026-07-29 — you chose 1b, so the guard goes in first and on its own.**
+
+Thank you — that's the option I'd have picked and I think it's right for the
+reason that matters: it fixes the problem at the only place that counts, which is
+what the judging agent actually reads.
+
+I've built it and put it to the council, but **separately from the markdown change,
+and ahead of it.** Two reasons, either of which would have been enough on its own.
+
+The first is your own ruling from yesterday. This changes how evidence is labelled
+for *every* diagnosis the platform runs. That's shared foundation, so it gets
+reviewed on its own merits rather than smuggled in as a detail of my feature.
+
+The second is the pattern this workstream has already been burned by. Rounds four
+to six died because every objection got answered by adding something *inside* the
+plan, and each addition became the next thing to argue about. You choosing the
+design changes who's responsible for it; it doesn't change whether it accretes.
+
+**The nice property of doing it this way: the guard is completely inert when it
+lands.** The database still refuses document rows, so on the day this ships there is
+literally nothing for it to tag — every new branch is unreachable code. That sounds
+like a criticism and it's the opposite. It means the protection is in place *before*
+the thing it protects against can exist, rather than both arriving together and
+hoping the ordering works out.
+
+Two things worth telling you from building it.
+
+**A warning in my notes predicted twice the work and was wrong in a good way.** I'd
+recorded that two separate parts of the system answer code questions, so I expected
+to make the same fix twice and to have to keep the copies in step forever. They turn
+out to call the *same* function — there's a comment saying so explicitly, that
+whoever wrote it did the sharing deliberately. So it's one edit covering both, and
+no risk of the two drifting apart later. Someone did the right thing before I got
+there.
+
+**And this change has an unusually solid way to prove it actually deployed.** Most
+of the time you check a deploy by looking for something new in the running program,
+which can fail quietly — a bad search looks identical to a missing change. This one
+*removes* a sentence ("They are CODE"). I can count it in the live program right
+now: it's there once. After the deploy it must be zero. A thing that has to
+*disappear* is much harder to fake than a thing that has to appear.
+
+Waiting on the council now. If it approves, I build and roll it, and only then does
+the markdown change go back for its ninth round — with the hazard already closed.

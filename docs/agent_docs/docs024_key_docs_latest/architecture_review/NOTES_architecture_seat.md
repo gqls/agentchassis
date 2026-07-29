@@ -1218,3 +1218,78 @@ prompt that names the mechanism, so brevity reads as a correctness constraint.
 objections**, editquality 9, prior_art_librarian 4, architecture 2, checkability 1,
 guardian 1. Distinct from `bugs_closed/076` (which added the carve-out) and
 `bugs_open/119` (unreadable, not degraded).
+
+---
+
+## 2026-07-29 — OWNER RULED D12 = option 1b. The guard goes in FIRST, on its own correlation
+
+`SUBMISSION_CORR=da1f9c81-0b4b-41ff-9b2c-bc0057ad3cf8`, plan committed at
+`SUBMISSION_2026-07-29_doc_rows_are_not_static_evidence.json` (3 edits, 11
+`grounded_in`). **Layer 1b (`7ba5b8c4`) is HELD at round 8** until this is decided.
+
+**Why a separate submission and not round 9.** Two independent reasons, and either
+would be sufficient:
+
+1. It alters a **shared mechanism** — the evidence labelling every diagnosis run
+   sees. The 2026-07-28 ruling says route a seam to review **on its own merits**
+   rather than letting it ride inside a feature plan.
+2. Folding it in would repeat rounds 4–6 exactly: answer an objection by adding
+   mechanism *inside* the plan, and watch the mechanism become the next argument.
+   The difference this time is only that the mechanism was owner-chosen — which
+   changes who is responsible for the design, not whether it accretes.
+
+**It is INERT on arrival, and that is the point rather than a caveat.**
+`code_symbols` holds **5,017 rows across five Go kinds and ZERO doc rows**, and
+`code_symbols_kind_check` still refuses `'doc'`. So every tagging branch it adds is
+unreachable the day it ships. **The guard precedes the hazard by construction** —
+which is the ordering the ruling asks for and which shipping them together would
+not give.
+
+### The design, and the one measurement that shrank it
+
+The fix is a **rendered string**, because the defect is one. The bundle's own
+comment says so: *"The heading says so in words, because the model reads the
+heading and not this comment."* So: `[doc]` tags on the rows, a prose sub-section
+in the answer, and the bundle heading stops asserting `They are CODE` over
+everything.
+
+**The measurement that mattered:** the memory landmine says *two* lanes answer code
+checks, which threatened two parallel edits and a drift risk. `diagnose_load_runtime_action.go:434-438`
+settles it — the second lane calls **the same helper**:
+
+> *"answered from the code_symbols index by the SAME helpers the council's verify
+> tier uses (diagnose_code_lookup_action.go — same package, so this is reuse, not a
+> second implementation)"* — and it calls `answerCodeCheck` at `:479`.
+
+**One edit to the shared helper reaches both lanes; there is no sibling copy to
+drift.** A landmine that predicted two edits produced one, because the platform had
+already done the reuse.
+
+### A third path, named so its absence is a decision
+
+`lookup_code_symbols` → `code_results` → `scopeFromCodeResults`
+(`diagnose_assemble_bundle_action.go:596`) turns rows into `path:Symbol` **scope**
+entries and renders no evidence text. So a doc row there is a **scope-pollution**
+question, not a citation one — it belongs to the markdown plan, not this guard.
+Written into the submission's risks rather than left silent, because an unexplained
+gap in a guard reads as an oversight.
+
+### Deploy marker: unusually good, because the change DELETES a string
+
+Measured on the live pod before submitting:
+
+```
+'They are CODE'    1   -> MUST become 0   (the string this change deletes)
+'docTag'           0   -> MUST become >0  (the symbol it adds)
+'answerCodeCheck'  8   -> stays >0        (positive control)
+```
+
+A deleted string going to 0 cannot be faked by a stale cached layer the way a
+missing added string can be faked by a bad grep. This is the first change in this
+workstream to have a genuine delete-marker.
+
+**Also noted:** the chassis rolled again during this session (pod hash changed
+mid-check, `cccfc8f5d` → `6d4777565`). Nothing in the analysis depends on the
+version — the baseline re-grep held on every pod checked — but it is a reminder
+that **the roll rate here is hours, not days**, and any pod-grep older than your
+last command is stale.
