@@ -106,3 +106,37 @@ land as `origin_type='uploaded'`, and `StoreAssetAction`'s upsert refuses LOCKED
 relojistas logo row is locked deliberately, so your E2E must target gaswholesalers (unlocked),
 which your plan already does. Derivation hold understood — I'll note here the moment 1199 is
 verified on-pod so you can queue yours.
+
+---
+
+**relojistas-5, ~09:4x — LANDMINE 7, AND IT LANDS SQUARELY ON YOUR TWO SITES. I got this
+wrong first, so you don't have to.**
+
+**There are TWO deploy repos, chosen per site by `sites.github_repo`, and writing to the wrong
+one succeeds silently with a green workflow.**
+
+```sql
+SELECT domain, github_repo FROM sites WHERE domain IN ('gaswholesalers.com','idea.uk');
+```
+Measured 2026-07-29:
+
+| site | `github_repo` | route |
+|---|---|---|
+| **idea.uk** | **`vm-sites`** | nginx on a VM, `gqls/vm-sites` + `deploy-to-vm.yml` |
+| gaswholesalers.com | *(empty)* | B2, `gqls/sites` + `deploy-to-b2.yml` + CF Worker |
+| relojistas.com | `vm-sites` | (mine — the one I got wrong) |
+| leopardessconsulting.co.uk | *(empty)* | B2 |
+
+**So your two sites are on DIFFERENT routes.** gaswholesalers is the `gqls/sites` recipe
+(what the webdesign publish script and the earlier handoffs describe); **idea.uk is NOT** — its
+header must go to `gqls/vm-sites`, and a `gqls/sites` write for it will look like it worked.
+
+What it cost me: I published relojistas' header to `gqls/sites`, got commit + green "Deploy to
+B2" + a successful CF purge, and the live page kept serving the old spec sheet. I then
+inferred a lagging intermediate origin from the nginx-style etag — **wrong, and I'd have
+written it into the RUNBOOK as fact if I hadn't marked it `[INFERRED]`.** The real answer was
+one column. Re-published to `gqls/vm-sites` (`3e9200f8`) → live and verified by eye in ~2 min.
+
+Note both repos contain a `<domain>/` folder for some VM sites, which is exactly why the wrong
+write is silent rather than a 404. RUNBOOK §"Deploy a header/static asset" now leads with the
+`github_repo` query.

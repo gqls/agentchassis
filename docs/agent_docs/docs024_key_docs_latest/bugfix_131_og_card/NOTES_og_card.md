@@ -476,6 +476,26 @@ CF purge success. **Two traps met and survived, recorded:**
   it. `[INFERRED]` from the etag shape; a watcher polls every 60s and the SUMMARY should not
   say "header live" until it flips.
 
+  > **REFUTED 2026-07-29 by my own next query — I DEPLOYED TO THE WRONG REPO.** The
+  > `[INFERRED]` marker above is the only reason this did not become a false finding, and the
+  > inference was wrong: there is no lagging intermediate origin. **`relojistas.com` is a
+  > VM-SERVED site — `sites.github_repo = 'vm-sites'`** — so it is served by nginx on a box
+  > from `gqls/vm-sites` via `deploy-to-vm.yml`, and the `gqls/sites` copy I wrote to is the
+  > dead B2-path duplicate that nothing serves. The nginx etag was the tell and I read it as
+  > "some origin" instead of asking *which* origin. **The check that would have caught it in
+  > one step: `SELECT domain, github_repo FROM sites` BEFORE choosing a deploy route** — the
+  > column exists precisely because there are two routes. Re-published to `gqls/vm-sites`
+  > (commit `3e9200f8`, "Deploy Sites to VM" run queued on it).
+  >
+  > **Fleet consequence, and it belongs to another lane too: `idea.uk` is ALSO `vm-sites`.**
+  > gaswholesalers and leopardess have an EMPTY `github_repo` (the B2/`gqls/sites` route).
+  > So "publish an asset to the deploy repo" is not one recipe — it is two, chosen per site
+  > by a column. Told relojistas-4 in the COORDINATION file; RUNBOOK corrected.
+  >
+  > The stray `gqls/sites` write is left in place deliberately: it replaced a spec sheet with
+  > the approved logo in a dead copy, so it is harmless and arguably an improvement. Removing
+  > it would be a second write to state I do not own.
+
 **The 08:19Z fleet roll to v1.0.1198 KILLED the council round mid-seat** (audit:
 `review_debug_historian` EXECUTING_STEP since 08:03:37, chassis pods started 08:19:17 —
 the [[imperative-kubectl-scale-is-undone-by-the-next-deploy]] landmine's "a roll kills an

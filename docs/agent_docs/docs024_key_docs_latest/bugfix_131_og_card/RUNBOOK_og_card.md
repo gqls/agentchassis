@@ -77,7 +77,18 @@ kubectl -n kafka run -i --rm "kcat-c-$(date +%s)" --image=edenhill/kcat:1.7.1 --
   content, so derivation is unaffected. Do not "fix" the extension.
 - Curl the presigned `image_url` and **Read the PNG** before any row is touched.
 
-## Deploy a header/static asset to the live site (gqls/sites contents API)
+## Deploy a header/static asset to the live site — TWO ROUTES, ASK THE DB FIRST
+
+```sql
+SELECT domain, github_repo FROM sites WHERE domain = '<domain>';
+```
+**This query is not optional.** `github_repo='vm-sites'` → the site is served by nginx on a
+VM from `gqls/vm-sites` (`deploy-to-vm.yml`). Empty → the B2 route, `gqls/sites` +
+`deploy-to-b2.yml` + a Cloudflare Worker. **Both repos contain a `<domain>/` folder for some
+VM sites**, so writing to the wrong one succeeds, runs a green workflow, and changes nothing
+a visitor sees. Measured 2026-07-29: relojistas.com and idea.uk are `vm-sites`;
+gaswholesalers.com and leopardessconsulting.co.uk are empty (B2). Substitute the right repo
+below.
 
 ```bash
 SHA=$(gh api "repos/gqls/sites/contents/<domain>/<path>" --jq '.sha' 2>/dev/null || true)
@@ -87,10 +98,12 @@ python3 -c "import base64,json;print(json.dumps({'message':'<msg>','content':bas
 - **A local error after the PUT does not mean the PUT failed** — a bad `--jq` output
   expression exits 1 AFTER the write lands; a 409 on retry means it already landed. Check
   `repos/gqls/sites/commits?path=…` before retrying.
-- The "Deploy to B2" workflow syncs `b2://portfolio-sites/<domain>` and purges Cloudflare —
-  but the live edge serves via an **intermediate origin that pulls from B2 on its own
-  cadence** (nginx-style etag), so the URL can serve stale bytes long after a green run.
-  Verify by size on the wire; poll, don't assume.
+- **A green workflow run is not a live change if you picked the wrong repo.** The B2 workflow
+  syncs `b2://portfolio-sites/<domain>` and purges Cloudflare, and reports success whether or
+  not anything serves from there. If the wire still shows old bytes, re-check `github_repo`
+  before theorising about caches — that mistake cost this lane an hour and a wrong inference
+  about a non-existent lagging origin (NOTES entry (6), refuted).
+- Verify by byte size on the wire with a cache-buster; poll, don't assume.
 
 ## Council verdict for this lane's code fix
 

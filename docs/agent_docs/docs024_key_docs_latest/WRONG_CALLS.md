@@ -11006,3 +11006,39 @@ briefly read as "no matching groups" — the NotFound error had gone to `2>/dev/
 Zero results with a suppressed stderr is the recorded grep-goes-silent shape wearing
 kubectl clothes; drop the suppression before believing an empty result
 (family: grep-silent-on-non-utf8 / a-check-answers-what-you-encoded).
+
+## 2026-07-29 — I deployed a site asset to the wrong deploy repo, then invented a lagging origin to explain it (bugfix_131_og_card, session relojistas-5)
+
+**The claim:** relojistas.com's live header kept serving the old logo after a green
+"Deploy to B2" run and a successful Cloudflare purge, so I concluded the serving chain
+is "CF → an intermediate origin that pulls from B2 on its own cadence", inferred from
+the nginx-style etag on the response.
+
+**What was actually true:** there are TWO deploy repos and the site picks one —
+`sites.github_repo`. relojistas.com is `vm-sites` (nginx on a box, `gqls/vm-sites` +
+`deploy-to-vm.yml`); I had published to `gqls/sites`, the B2 route, which for that
+domain is a dead duplicate folder that nothing serves. There is no lagging origin. The
+correct write went live and was verified by eye in about two minutes.
+
+**What caught it:** wondering *which* origin, and running
+`SELECT domain, github_repo FROM sites` — a query I could have run before choosing a
+route, since the column exists precisely because there are two.
+
+**The cheap check that would have prevented it:** ask the DB which repo serves the site
+BEFORE publishing. One query, no cluster access needed.
+
+**Why it is worth a row:** the failure is silent by construction — the wrong repo
+contains a same-named `<domain>/` folder, so the write succeeds, the workflow runs
+green, the purge reports success, and nothing changes. Every mechanical signal was
+green and the artefact was untouched, which is this lane's own recurring lesson
+arriving through a completely different door.
+
+**The near-miss that made it cheap:** I had marked the origin claim `[INFERRED]`. That
+marker is the only reason it did not go into the RUNBOOK as fact — the discipline is
+working, and it is worth noting that the marker paid off on the very first durable
+claim I made after writing it.
+
+Family: check-answers-the-question-you-encoded (the check asked "did the write land in
+the repo I chose", never "is that the repo that serves this site");
+a-print-statement-is-not-a-config-row (a green workflow run vouches for itself, not for
+the site); narrow-filter-defines-the-conclusion (one route assumed, two exist).
