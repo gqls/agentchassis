@@ -67,3 +67,74 @@ that would apply to every site in the estate, which is exactly the shape you ask
 on the news feed (the machinery is live on six other sites already and dartsonline is one
 config row away from joining), then imagery, then the affiliate plumbing built dark so
 that on the day you're accepted it's a config switch rather than a project.
+
+---
+
+## 2026-07-29, later — the first guides are built, and page one caught a lie the specs didn't
+
+Since the last entry the site has actually started moving, and one thing happened
+that's worth telling properly because it changes how I'd approach the rest.
+
+**The nine buying guides can now be built, and two of them are live.** The blocker was
+mundane once found: nobody had ever recorded what sections a guide page should contain,
+so the writer opened each one, found no structure, and gave up — five times, over three
+weeks. I gave all nine the platform's own standard article layout (hero, article body,
+call to action — I took the list from the code that creates blog posts rather than
+inventing one) and released just two for building. **barrel-weight is the first guide
+page this site has ever produced**, and beginners followed it.
+
+The writing is genuinely good. It talks about 21g to 26g for steel tip, the 22–24g sweet
+spot, what a heavier barrel does to your throw — specific, in the site's voice, no filler.
+That's the thing worth knowing: the content engine works, it was just never given
+anything to work with.
+
+**Then I read the page, and the last paragraph said "Filter our ranges by weight and
+tungsten percentage."** We have no ranges. Nothing to filter.
+
+This is the part I'd want you to take away. This morning I rewrote the two places that
+held the fake identity — the research record and the About page's source. I thought that
+was the honesty problem solved. It wasn't. There was a **third** place: the site's writing
+guide, which tells the writer how every page should sound. It says to write product
+listings, to end pages with "Add to Bag", to show savings on prices, to make brand pages
+that don't just list SKUs. Every one of those instructions assumes a shop. The writer
+wasn't making things up — it was following orders none of us had thought to read.
+
+So the same false premise lived in three places, and the one I'd missed was the one with
+the most reach, because it shapes every page the site will ever write. I've now rewritten
+it: the voice stays exactly as it was (that part was always good), but the shop
+instructions are gone, replaced with rules for a publication, plus explicit rules for news
+and analysis, plus a plain list of things no page may ever claim. Both guides are being
+rebuilt against it.
+
+**The lesson, and it's cheap to state and expensive to learn:** I only found this because
+I built one page and read it. No amount of looking at the configuration would have caught
+it, because each piece is perfectly sensible on its own — it's only wrong when measured
+against a business that doesn't exist any more. Releasing two guides instead of all nine
+is what kept it to two pages instead of nine.
+
+**Two more false pages found the same way.** The About page still claimed we stock and
+carry; its title tag literally called us a "Specialist Darts Retailer". Worse, the
+Shipping & Returns page promises dispatch, tracking, couriers, 2–4 day UK delivery,
+express options at checkout, a daily order cut-off and 30-day returns. There is no
+checkout. If someone had relied on that page there'd be a real problem, and it's exactly
+the page an affiliate network would check. Both are being rewritten now — Shipping &
+Returns keeps its address on the web but becomes an honest explanation that you buy from
+the retailer we link to and their terms apply, which is a genuinely useful page for the
+site we're actually building.
+
+**The news feed is armed.** The site now qualifies for the pipeline that six other sites
+already run. I checked seven candidate darts feeds by actually fetching them: Darts World
+and the official PDC feed are good and posting daily, a Google News darts search gives a
+wider net, and four were dead or wrong — including one Sky Sports feed that returned a
+perfectly healthy-looking 20 items and turns out to be their general news feed with
+almost no darts in it. There's a deliberate wait before I add those feeds: the seeding
+code skips everything if any source already exists, so adding mine too early would stop
+the automatic search sources being created at all.
+
+**On your tool-heavy request**, that's now built and committed. The platform already had
+a mechanism deciding when a site needs another tool, but it worked purely on a calendar —
+every 30 days, whether the site had published two guides or thirty. It now understands
+your ratio: one tool per six published articles. It's off by default for every other site
+(I checked: 13 of the 14 have no setting at all, so nothing changes for them), and it's
+gone to the review council. Nothing about dartsonline's own tools is built yet — that's
+next, starting with the setup-builder that was planned long ago and never made.
