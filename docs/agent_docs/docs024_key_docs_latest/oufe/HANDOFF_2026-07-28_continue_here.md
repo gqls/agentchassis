@@ -105,6 +105,42 @@ without an image:
 | registry entry | `registry.go`, category `quality` | same |
 | council | corr `4d6585dd-4678-4891-b9a9-7a37b32df1b6` | submitted |
 
+#### RENDER AUDIT — STATE AS OF 2026-07-29 MORNING (read this first)
+
+**Everything below the orchestration layer is proven. The top hop is not.**
+
+| layer | state |
+|---|---|
+| `cmd`/measurement | `internal/adapters/browserrunner/render_audit_action.go`, 6 tests green |
+| dedicated pod | `render-audit-adapter` LIVE, own topic/group/logs. **Proven end to end**: returned real measurements (nav elements, `rgba(255,255,255,0.9)`, ratio 3.54, `over_image:true`) |
+| chassis action | `request_render_audit` + `system.adapter.render-audit.requests` **both pod-verified in `v1.0.1196`** |
+| agent definition | `render-audit-agent` seeded (mig 256), row verified active/not-snapshot/not-deleted, 4 steps |
+| **orchestration dispatch** | **UNRESOLVED — see below** |
+
+**THE OPEN PROBLEM.** Dispatching `agent_type: render-audit-agent` on
+`system.agent.generic.requests` (corr `17a23aee-a85a-44df-bd23-4a88bc869185`)
+produced **no `orchestration_states` row**, while generic-lane lag sat at **0** —
+so the message WAS consumed and no orchestration started. No error in the chassis
+logs naming the agent or the correlation. Not the ~300s post-restart window (the
+pod had been up for hours). The agent row is correct.
+
+**Do NOT re-fire blindly** — that is the recorded 096 trap and it costs a
+duplicate. Next diagnostic steps, cheapest first:
+
+1. Compare against a KNOWN-GOOD dispatch of a different `agent_type` on the same
+   lane, same envelope. If that also produces no row, the problem is the envelope
+   or the lane, not this agent. **This is the untouched-peer check and it should
+   be step one.**
+2. `ensure_site_record` is the initial step and takes its input from
+   `input_data`. Confirm it accepts `domain`/`site_id` the way this dispatch
+   supplied them — a first step that rejects its input before the row is written
+   would look exactly like this.
+3. Check whether the chassis caches `agent_definitions` and needs a roll to see a
+   newly seeded type. If so, that is worth writing down for every future seed.
+
+**What is NOT the problem:** the pod, the topic, the action, the image, or the
+agent row. All four were verified independently.
+
 #### The audit has its OWN POD as of 2026-07-28 (owner ruling), and it is PROVEN LIVE
 
 `render-audit-adapter` — a second Deployment of the **same browser-runner image**
