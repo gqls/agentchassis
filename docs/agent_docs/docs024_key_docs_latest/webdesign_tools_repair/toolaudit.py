@@ -188,8 +188,18 @@ class Auditor:
             # have sent a fixer at a correct tool. Only an id present in
             # NEITHER the source nor the DOM is the ported-markup defect.
             served = self._served_html(url)
-            r["unresolved"] = [i for i in unresolved
-                               if ('id="%s"' % i) not in served and ("id='%s'" % i) not in served]
+            # An id the script CREATES counts as present even when it lands in
+            # a document this one cannot see: micro-cms's editor.js does
+            # style.id = "micro-cms-styles" inside its iframe, so the top
+            # document will never resolve it and the tool is perfectly correct.
+            created = "\n".join(bodies)
+            def known(i):
+                return (('id="%s"' % i) in served or ("id='%s'" % i) in served
+                        or ('.id = "%s"' % i) in created or (".id = '%s'" % i) in created
+                        or ('.id="%s"' % i) in created or (".id='%s'" % i) in created
+                        or ("'%s'" % i) in created.replace("getElementById('%s')" % i, "")
+                           and ("setAttribute" in created))
+            r["unresolved"] = [i for i in unresolved if not known(i)]
             r["self_removed"] = [i for i in unresolved if i not in r["unresolved"]]
 
         # --- emptiness: a visible region with nothing in it -------------------
@@ -211,8 +221,14 @@ class Auditor:
             [...document.querySelectorAll('main [id], main [class]')]
               .filter(e => !/^(INPUT|TEXTAREA|SELECT|BUTTON|CANVAS|SVG|IMG|LABEL|IFRAME)$/.test(e.tagName))
               .filter(e => !e.isContentEditable && !e.getAttribute('placeholder'))
+              // Painted, not written: exclude anything carrying a background
+              // image OR a background colour its parent does not have. Without
+              // the colour half this flagged vibe-equalizer's .card-img, a
+              // 200px image placeholder that is decorative by design.
               .filter(e => { const s = getComputedStyle(e);
-                             return s.backgroundImage === 'none' && s.visibility !== 'hidden'; })
+                             const p = e.parentElement ? getComputedStyle(e.parentElement) : null;
+                             return s.backgroundImage === 'none' && s.visibility !== 'hidden'
+                                    && (!p || s.backgroundColor === p.backgroundColor); })
               // childElementCount === 0 is load-bearing. Without it this flagged
               // clip-path, community-growth and shadow-stacker, whose regions hold
               // a styled child carrying no text — a clip-path polygon, twelve chart
@@ -316,9 +332,19 @@ DRIVE_JS = r"""
   }
   let changed = snap() !== before, pressed = null;
   if (!changed) {
-    const btn = usable.find(e => e.tagName === 'BUTTON' && ACTION.test(label(e)))
-             || usable.find(e => e.tagName === 'BUTTON');
-    if (btn) { pressed = btn.innerText.trim().slice(0, 30); btn.click(); }
+    // TRY EACH BUTTON IN TURN, not just the first. Pressing one button and
+    // concluding DEAD cannot tell an already-selected option from a dead
+    // control: clip-path's first button is Triangle and the shape shown on
+    // arrival IS a triangle, so the correct no-op scored the tool dead. Same
+    // family as cubic-bezier's Default preset, except a shape name cannot be
+    // recognised by a regex — only by trying the next one.
+    const buttons = usable.filter(e => e.tagName === 'BUTTON')
+                          .sort((a, b) => (ACTION.test(label(b)) ? 1 : 0) - (ACTION.test(label(a)) ? 1 : 0));
+    for (const btn of buttons.slice(0, 6)) {
+      btn.click();
+      pressed = btn.innerText.trim().slice(0, 30);
+      if (snap() !== before) { changed = true; break; }
+    }
   }
   return new Promise(res => setTimeout(() => res(JSON.stringify({
     controls: usable.length, changed: changed || snap() !== before,
