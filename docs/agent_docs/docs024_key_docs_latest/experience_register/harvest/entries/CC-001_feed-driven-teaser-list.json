@@ -119,6 +119,9 @@
     },
     "max_rows": {
       "type": "value"
+    },
+    "item_title_selector": {
+      "type": "selector"
     }
   },
   "criteria_template": {
@@ -148,8 +151,7 @@
         "attributes": [
           "href"
         ],
-        "tier": 4,
-        "note": "RE-TIERED 2026-07-28, and this is a correction to my own earlier claim rather than a convenience. The check type now EXISTS at Tier 2 and, run there, it FAILS this page: the served template carries href=\"#\". But the clause it encodes — 'the loader removes the template's own href' — is true only AFTER hydration, and the platform already exempts data-runtime-fill shells from its dead-control sweep for exactly that reason. Asserting it statically judges the page a moment before the sentence becomes true. The disagreement between the two mechanisms is real, is NOT resolved by this entry, and is filed as bugs_open/137; re-tiering here is the honest reading, not the settled one."
+        "note": "RE-TIERED TO 4 ON 2026-07-28, AND PUT BACK ON 2026-07-29 BECAUSE THE COUNCIL WAS RIGHT. The deferral_honesty seat: \"Moving a failing check to a tier the platform doesn't execute, rather than reporting the failure, reads as evasion even with the honest note attached.\" That is the same suspicion I had already recorded about my own reasoning in WRONG_CALLS.md — that re-tiering was the reading which made my own red result disappear — and an independent seat reaching it from the other direction settles it. So this runs at Tier 2 and it FAILS: the served template carries href=\"#\". Whether that is a real defect or is forgiven by the platform's data-runtime-fill exemption is bugs_open/137, and it is not this entry's job to pre-empt the answer by hiding the question. The consequence is accepted deliberately: while this fails, the vonc fork cannot reach 'verified'. An entry that cannot be verified because a check genuinely fails is honest; one that verifies because the failing check was moved somewhere nothing runs is not."
       },
       {
         "id": "openable_row_is_a_real_control",
@@ -158,7 +160,7 @@
         "attribute": "href",
         "not_matches": "^(#|\\s*)$",
         "tier": 4,
-        "note": "NEW 2026-07-28. The positive half of the split: a row the feed says is openable must carry a real destination, not the template's placeholder. Tier 4 because the rows are cloned client-side and do not exist in the served HTML — which is a statement about THIS component's rendering, not about a missing capability, and the difference matters: the day the browser runner is wired to the register this runs unchanged."
+        "note": "Tier 4 because the rows are cloned client-side and do not exist in the served HTML — a statement about THIS component's rendering, not a missing capability. DECLARED LIMITATION added 2026-07-29 after the checkability seat noted the name claims more than the type asserts: the contract promises the row 'carries a genuine href AND remains keyboard-reachable', and this check covers only the href half. Keyboard-reachability needs an assertion about tabindex's VALUE being absent-or-non-negative, which attribute_matches cannot express (it tests one attribute's value against a pattern, and 'absent is acceptable' is precisely the case it treats as failure). Named here rather than left implied by the id."
       },
       {
         "id": "no_dead_row_hrefs",
@@ -200,17 +202,30 @@
         "type": "degraded_state",
         "selector": "{{binding.empty_state_selector}}",
         "when": "feed missing, non-200 or malformed",
-        "_unsupported": "NEW 2026-07-28, answering the council's 'this is a silent gap, not a declared limitation'. Nothing at either tier can INDUCE a feed failure and then assert the result: Tier 2 fetches one page as served, Tier 4 drives a real browser against the real feed, and neither can serve a broken one. Needs fault injection at the fetch boundary, which does not exist. Declared so the requirement survives with its reason attached rather than looking covered."
+        "_unsupported": "NEW 2026-07-28, answering the council's 'this is a silent gap, not a declared limitation'. Nothing at either tier can INDUCE a feed failure and then assert the result: Tier 2 fetches one page as served, Tier 4 drives a real browser against the real feed, and neither can serve a broken one. Needs fault injection at the fetch boundary, which does not exist. Declared so the requirement survives with its reason attached rather than looking covered. MECHANISM, added 2026-07-29 for the same reason: serve the page with the feed path returning 404 (and separately, malformed JSON), then assert that the element matching list_container has no children beyond item_template and that empty_state_selector is still visible. The missing capability is the first clause — a fetch-boundary fault the runner can inject — not the assertion."
       },
       {
         "id": "absent_optional_field_hides_its_slot",
         "type": "conditional_per_row",
         "selector": "{{binding.stat_slot_selector}}",
-        "_unsupported": "NEW 2026-07-28, answering the council's finding that absence_semantics — the clause the description leans on for its 'no invented participation numbers' honesty pitch — had no check and no deferral note. Asserting it needs a per-row conditional: for each rendered row, the stat slot is present iff that row's record carries a stat. No check type expresses a per-element condition tied to the source data, at either tier. This is a third distinct capability gap, recorded as its own."
+        "_unsupported": "NEW 2026-07-28, answering the council's finding that absence_semantics — the clause the description leans on for its 'no invented participation numbers' honesty pitch — had no check and no deferral note. Asserting it needs a per-row conditional: for each rendered row, the stat slot is present iff that row's record carries a stat. No check type expresses a per-element condition tied to the source data, at either tier. This is a third distinct capability gap, recorded as its own. SPEC, added 2026-07-29 after the seat noted this was a placeholder rather than a runnable spec: for each rendered row, the element matching stat_slot_selector is present-and-visible IF AND ONLY IF that row's feed record carries the 'stat' field. The comparison is between the rendered DOM and the source record for the SAME row, which is why no existing type expresses it — every check we have takes a selector and looks at the page alone."
+      },
+      {
+        "id": "empty_state_visible_until_a_row_renders",
+        "type": "conditional_per_row",
+        "selector": "{{binding.empty_state_selector}}",
+        "_unsupported": "NEW 2026-07-29, answering the checkability seat: the empty_list state — 'the empty-state line remains visible; it is hidden only after at least one row renders' — was the one clause left with neither a check nor a deferral, which is the exact silence this entry spent a revision removing everywhere else. It needs two things we lack: an empty-region/visibility assertion (innerText on a display:none subtree falls back to textContent, so 'nothing is shown here' is not observable), and the ability to assert a relationship BETWEEN two states rather than one state at a time. Same missing capability as absent_optional_field_hides_its_slot."
+      },
+      {
+        "id": "rendered_row_carries_its_title",
+        "type": "selector_text_non_empty",
+        "selector": "{{binding.item_title_selector}}",
+        "_unsupported": "NEW 2026-07-29, answering the checkability seat: data_contract.required_per_row names 'title' as required and nothing asserted it. No non-empty-text assertion exists at either tier — Tier 2's expect struct carries a selector and nothing else, and selector_exists on a rendered row says the element is there, not that it has content. This is a fourth distinct capability gap (text-content assertion), recorded as its own rather than folded into an existing one."
       }
     ]
   },
   "status": "draft",
   "source": "harvest",
-  "harvested_from": "vonc.com provocations-archive-list (component 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37) + provocations-archive-loader js_snippet, live 2026-07-26."
+  "harvested_from": "vonc.com provocations-archive-list (component 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37) + provocations-archive-loader js_snippet, live 2026-07-26.",
+  "_REVISION_2026-07-29": "Round 3. The council's gating [high] was that re-tiering template_row_not_a_control to 4 — when the Tier 2 check exists and FAILS — 'reads as evasion'. It was right, and it matched a suspicion I had already logged about my own reasoning, so the check is back at Tier 2 and the entry now carries a real failure rather than a hidden question. Four silent gaps the seats found (the empty_list clause, keyboard-reachability, required 'title', and two deferrals that were placeholders rather than specs) are each declared or specified. The one objection NOT answered is deferral_honesty [high] #2 — that the central rule is 100% unasserted on live rows — because it is TRUE and not fixable by editing: the rows are cloned client-side, so only a browser can see them, and nothing in the register drives one yet. Saying so is the honest answer; making the ratio look better would mean exactly the move the same seat just caught."
 }
