@@ -1,8 +1,14 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-28 ~20:00 UTC (supersedes everything below)
+> ## ▶ START HERE — state as of 2026-07-29 (supersedes everything below)
 >
 > # The product is finished enough. The open question is demand, and it is not an engineering one.
+>
+> **Engineering queue is EMPTY.** Since the 07-28 20:00 block below was written: the two
+> never-exercised fixes are **PROVEN** in a rendered artefact (item 2), item 4 is **closed as a
+> non-defect**, the cost figure is **corrected to a USD range**, everything is **re-verified on
+> chassis v1.0.1196**, and `sql/p4_29` is committed. **Nothing is in flight and nothing is owed.**
+> Two things need a human, both below: **item 3 (specimen provenance)** and **demand**.
 >
 > **Owner's direction, 2026-07-28: "maybe we start thinking of how to get a buyer on the site" — IN
 > ANOTHER THREAD.** See *The next thread* at the foot of this block. Do not start it here.
