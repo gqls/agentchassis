@@ -84,7 +84,10 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 			return
 		}
 
-		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{})
+		// Same headroom as defend.go (bugs_open/083 candidate 4): sonnet-5
+		// thinks by default and max_tokens caps thinking + answer together —
+		// the 2048 default truncates intermittently.
+		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{"max_tokens": 8192})
 		if err != nil {
 			logAIFailure("position", "generate", req.RoundID, err)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent unavailable")

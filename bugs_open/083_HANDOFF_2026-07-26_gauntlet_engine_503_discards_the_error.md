@@ -490,3 +490,50 @@ ssh root@toolsapisuk.vs.mythic-beasts.com \
 [UNMEASURED] no failure has been observed under the new build, so the fix's
 ability to capture a REAL burst is proven only by the induced fault in §9, not by
 a wild one.
+
+---
+
+## 11. 2026-07-29 — THE ARMED LOG CAUGHT IT: candidate 4 CONFIRMED, not refuted
+
+> **CORRECTED 2026-07-29 — §10 said "candidate 4 is refuted so far; do not raise
+> the cap." That was the right posture on zero evidence, and the evidence has
+> now arrived and points the other way.** What caught it: the vonc6 session's
+> opinion-ledger harness ran two real rounds back-to-back; round 2's /defend
+> returned 503, and the §9 logging line named the cause on the first read.
+
+The catch (island log, both within the hour, matching the harness round and a
+CLI probe exactly):
+
+```
+2026/07/29 08:27:54 gauntlet/defend: generate TRUNCATED round_id=46499c98-… provider=anthropic reason=stop_reason=max_tokens output_tokens=2048 partial_chars=61
+2026/07/29 08:30:29 gauntlet/defend: generate TRUNCATED round_id=b5a66f13-… provider=anthropic reason=stop_reason=max_tokens output_tokens=2048 partial_chars=1044
+```
+
+**Mechanism, sharper than §4 imagined it:** the judge model is `claude-sonnet-5`
+(island compose `GAUNTLET_MODEL`). On the Claude 5 family, **adaptive thinking
+is ON when the request omits the `thinking` field** — which our
+`aiservice.GenerateText` always does — at a default effort of `high`, and
+**`max_tokens` caps thinking + answer TOGETHER**. The client's hard default of
+2048 (`anthropic.go:80`) is therefore mostly consumed by thinking on a judge
+prompt that weighs four texts; whether the JSON verdict fits is a coin toss.
+`output_tokens=2048, partial_chars=61` is the smoking gun: ~2,000 tokens spent,
+61 characters of visible text. This also explains the intermittency §2 found so
+confusing — same request shape, different thinking spend per run.
+
+**Fix, live-committed this session:** pass `"max_tokens": 8192` in the options
+map at both call sites (`defend.go`, `position.go` — position has the same
+shape and merely hadn't lost the toss yet). No change to the shared aiservice
+client — its 2048 default serves other callers; the override mechanism already
+existed for exactly this. 8192 keeps worst-case generation inside the
+Cloudflare proxy window.
+
+**Verify after the island swap** (behavioural, not marker — the change is a
+literal in an options map):
+
+```bash
+# ~5 consecutive real /defend calls with no 503 AND no new TRUNCATED line:
+ssh root@toolsapisuk.vs.mythic-beasts.com \
+  'cd /opt/island && docker compose logs --since 30m tools-api | grep -E "gauntlet/defend"'
+```
+
+Candidates 2 and 3 remain untouched, per §4's ordering and §10's reasoning.

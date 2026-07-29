@@ -90,7 +90,15 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 			return
 		}
 
-		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{})
+		// bugs_open/083 candidate 4, CONFIRMED 2026-07-29: claude-sonnet-5 runs
+		// adaptive thinking BY DEFAULT when no thinking config is sent, and
+		// max_tokens caps thinking + answer TOGETHER. The client's 2048 default
+		// was mostly eaten by thinking before the JSON finished (armed log:
+		// output_tokens=2048, partial_chars=61) — an intermittent truncation the
+		// handler rightly refuses to persist, surfaced to the visitor as a 503.
+		// 8192 leaves room for both while keeping worst-case latency inside the
+		// Cloudflare proxy window.
+		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{"max_tokens": 8192})
 		if err != nil {
 			logAIFailure("defend", "generate", req.RoundID, err)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge unavailable")
