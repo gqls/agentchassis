@@ -309,6 +309,20 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 	if checkClaims && params.DB != nil && siteIDStr != "" {
 		if siteID, err := uuid.Parse(siteIDStr); err == nil {
 			eb := loadEvidenceBase(ctx, params.DB, siteID, logger) // nil = no register; still scanned below
+			// A DISARMED GATE MUST NOT BE SILENT. The council's compliance seat
+			// (round 3, corr 899ed92e) noted that the lever above can restore the
+			// pre-104 unarmed state for one site — including vetcomparison.uk or
+			// idea.uk, the two sites this fix exists to protect — and that nothing
+			// would say so. It says so now, at Warn, naming the site: an operator
+			// reading logs can see a site whose honesty gate is off, and a
+			// register-less site loses its ONLY banned-claim protection this way.
+			if !claimsFleetWide {
+				logger.Warn("claims gate: fleet-wide banned-claim set is DISABLED for this build "+
+					"(check_claims_fleet_wide=false) — per-site patterns only, and a site with no "+
+					"evidence_base is scanned by nothing (bugs_open/104)",
+					zap.String("site_id", siteIDStr),
+					zap.Bool("site_has_register", eb != nil))
+			}
 			blocks := datahelpers.ExtractAssertionText(htmlStr)
 			issues = append(issues, checkBannedClaims(blocks, eb, claimsFleetWide)...)
 			if eb != nil {

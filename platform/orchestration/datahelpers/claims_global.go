@@ -99,11 +99,16 @@ func globalBannedClaims() []BannedClaim {
 			Reason:  "completeness-of-exclusion: claims that NOTHING unsourced is published. Unverifiable by anyone, including us.",
 		},
 		{
-			// LATENT FALSE-POSITIVE RISK, recorded 2026-07-28: this pattern is
-			// itself a negative construction, so a legitimate sentence like
-			// "prices do not appear here because they change daily" would match.
-			// Zero hits across all 908 live components today, so it ships — but
-			// it is the most likely source of the next false positive here.
+			// LATENT FALSE-POSITIVE RISK, recorded 2026-07-28 and widened
+			// 2026-07-29 at the council guardian's prompting: the three
+			// completeness-of-exclusion patterns (this one and the two either side)
+			// are ALL negative constructions — the same shape that produced all
+			// four false positives on the excluded (fully|independently|...)
+			// pattern. A legitimate sentence like "prices do not appear here
+			// because they change daily" matches this one. Zero hits across the
+			// whole 908-component live corpus today, so the family ships — but it
+			// is where the next false positive will come from, and a negation
+			// guard would let all four of these be stated more safely.
 			Pattern: `(does not|doesn't|do not|don't) appear here`,
 			Reason:  "completeness-of-exclusion, short form.",
 		},
