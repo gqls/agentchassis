@@ -859,3 +859,26 @@ Re-renders all verified against live pages, not statuses. robot-hands ends the
 day fully consistent: index 10/6/39, about 10/6 + honest differentiators,
 gripper-detail 10/6/4/39 bare, catalog page listing all 10, tool testing all 10,
 methodology describing the real tool.
+
+---
+
+## 2026-07-29 — two components claim the spec data is "independently verified" (from another lane)
+
+Appended by session "bugsearch 6" (the `bugs_closed/104` fleet-wide claims lane), not by this
+workstream. Found by the fleet claims dry run, not by looking at this site.
+
+`gripper-catalog`/`info-card-grid` and `how-it-works`/`generic-text-block` each assert the
+catalogue specs are **"independently verified"**. Nothing performs independent verification,
+and this site's own `evidence_base` has no fact for it (5 facts, all counts, `banned_claims:
+[]`). It also contradicts the site's own policy copy on `index` and `gripper-detail`, which
+promises unverified data is *labelled* as such — that pair is honest and is now protected by a
+negation guard in the scanner, so only the two assertions above are flagged.
+
+**Consequence for this lane: those two components will not rebuild** until the copy changes —
+the fleet-wide banned-claim set now carries the external-verification pattern at blocker
+severity. The live pages keep serving; the gate bites on rebuild only.
+
+Full case, with verbatim sentences, the reproduce command and three ranked fixes:
+`bugs_open/147`. **I have not edited the copy** — this site's voice belongs to this lane. The
+honest sentence you already ship elsewhere ("data source and last-verified date" per entry) is
+the natural replacement.

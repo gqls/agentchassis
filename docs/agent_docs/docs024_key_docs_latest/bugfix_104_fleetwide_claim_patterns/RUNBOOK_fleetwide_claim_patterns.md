@@ -279,3 +279,80 @@ SELECT COALESCE(s.status,'(no site row)') AS status, count(*) AS components,
 site hold **zero** components with stored `rendered_html`, so the filter excluded
 nothing. That is a fact about today's estate, not a property of the query: re-run it
 rather than trusting this line.
+
+---
+
+## 13. The negation guard (2026-07-29) — dry-running a pattern that the guard affects
+
+The excluded pattern is back (`claims_global.go`, 10th entry) because
+`negatedClaimMatch` now drops matches negated in the same clause. Two new commands
+matter, and one control that is not optional.
+
+```bash
+go build -o /tmp/claimscan ./cmd/claimscan
+/tmp/claimscan -show-suppressed -components comp.tsv          # unarmed site
+/tmp/claimscan -evidence eb.json -show-suppressed -components comp.tsv   # what the gate enforces
+```
+
+`-show-suppressed` prints `negated` lines: matches the guard removed. **They are not
+findings and are not counted in the exit status.** Read them — they are the only way
+to tell "the guard is working" from "the pattern has stopped matching", which look
+identical in a clean run.
+
+### THE CONTROL: claimscan prints its pattern count, so use it
+
+**A stale binary and a clean estate are indistinguishable.** This bit, hard: a
+`go build` run from the scratchpad directory failed with `go.mod file not found`, the
+`||` fallback failed the same way, and the *previous* binary silently scanned all 14
+sites — reporting **0 findings fleet-wide** for a pattern set that actually finds 2.
+The run looked perfect.
+
+```bash
+/tmp/claimscan -components /dev/null 2>&1 | head -1
+# claimscan: including 10 fleet-wide banned-claim pattern(s); -no-global to exclude
+```
+
+Check that number against `GlobalBannedClaimCount()` before believing any dry run.
+Build from the repo root, and never let a build failure scroll past into a loop.
+
+### Count components with the TOOL's number, not `wc -l`
+
+`claimscan` prints `across N component(s)`; use that. It also caught a second error:
+**the enforcement surface is 919 components today, not the 908 this workstream
+measured on 2026-07-28.** I "confirmed" the per-site table summed to 908 by adding it
+up wrong (dropping oufe's 11), and so recorded the corpus as unchanged when it had
+grown by 11. Re-derive with one query rather than summing a table by eye:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c "
+SELECT COALESCE(s.status,'(no site row)'), count(*), count(DISTINCT s.id)
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id LEFT JOIN sites s ON s.id=p.site_id
+ WHERE pc.rendered_html IS NOT NULL AND pc.rendered_html<>'' AND pc.locked_at IS NULL
+ GROUP BY 1 ORDER BY 2 DESC;"     # 2026-07-29: deployed|919|14
+```
+
+### Dry-run BOTH forms of a pattern you are about to narrow
+
+Narrowing a pattern to dodge a hypothetical false positive can make it **inert**, and
+an inert pattern looks exactly like a well-behaved one. Measured here, same corpus,
+same run:
+
+| candidate | findings | suppressed |
+|---|---|---|
+| bare `(fully\|independently\|externally\|properly) (verified\|audited\|fact.?checked)` | **2 real** | **4** |
+| subject-anchored (content noun + `is/are` within N chars) | **0** | 0 — matched nothing at all |
+
+The anchored form was my first shipped attempt. Always run the pattern you are
+replacing next to the pattern you are replacing it with.
+
+## 14. Current live findings — this set is no longer clean
+
+2026-07-29, 919 components / 14 sites, fleet-wide set + each site's own register:
+**2 findings, 4 suppressed.** Both findings are robot-hands.com (`gripper-catalog`,
+`how-it-works`) asserting spec data is "independently verified" — filed as
+`bugs_open/147`. Those two components will not rebuild until the copy changes.
+
+The 07-28 headline "0 findings across the whole surface" is therefore **spent, and it
+was an artefact of the excluded pattern** — not evidence the estate was clean. When
+you next quote a clean-sweep number, name the patterns that were armed when you
+measured it.

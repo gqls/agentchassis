@@ -443,7 +443,27 @@ type ClaimFinding struct {
 // ScanBannedClaims scans assertion blocks against the site's banned claim
 // patterns. Every match is a KNOWN falsehood for this site (each pattern was
 // audited out by a human) — callers treat findings as blockers.
+//
+// Matches whose claim is NEGATED in the same clause are dropped — see
+// negatedClaimMatch, and ScanBannedClaimsIgnoringNegation to see what that
+// suppressed.
 func (eb *EvidenceBase) ScanBannedClaims(blocks []string) []ClaimFinding {
+	return eb.scanBannedClaims(blocks, true)
+}
+
+// ScanBannedClaimsIgnoringNegation is the same scan with the negation guard
+// DISABLED, i.e. the pre-2026-07-29 behaviour.
+//
+// It exists so the guard cannot suppress silently. A guard that quietly drops
+// matches is indistinguishable from a gate that has stopped working, and this
+// estate has already been bitten by exactly that shape (a declared allow-list
+// that hid the case it was written to catch). cmd/claimscan diffs the two so an
+// operator can see every match the guard removed; nothing enforces this result.
+func (eb *EvidenceBase) ScanBannedClaimsIgnoringNegation(blocks []string) []ClaimFinding {
+	return eb.scanBannedClaims(blocks, false)
+}
+
+func (eb *EvidenceBase) scanBannedClaims(blocks []string, guardNegation bool) []ClaimFinding {
 	if eb == nil || len(eb.BannedClaims) == 0 {
 		return nil
 	}
@@ -459,21 +479,39 @@ func (eb *EvidenceBase) ScanBannedClaims(blocks []string) []ClaimFinding {
 			if bc.re == nil {
 				continue
 			}
-			loc := bc.re.FindStringIndex(block)
-			if loc == nil {
+			locs := bc.re.FindAllStringIndex(block, -1)
+			if len(locs) == 0 {
 				continue
+			}
+			// Keep only the matches that are actually asserted. A block whose
+			// every match is negated yields no finding at all — the same
+			// outcome as the pattern not matching, because the sentence is not
+			// making the claim.
+			live := locs
+			if guardNegation {
+				live = make([][]int, 0, len(locs))
+				for _, loc := range locs {
+					if negatedClaimMatch(block, loc[0]) {
+						continue
+					}
+					live = append(live, loc)
+				}
+				if len(live) == 0 {
+					continue
+				}
 			}
 			if a, ok := found[bc.Pattern]; ok {
-				a.finding.Occurrences += len(bc.re.FindAllString(block, -1))
+				a.finding.Occurrences += len(live)
 				continue
 			}
+			loc := live[0]
 			found[bc.Pattern] = &agg{finding: ClaimFinding{
 				Check:       "banned_claim",
 				Matched:     block[loc[0]:loc[1]],
 				Pattern:     bc.Pattern,
 				Reason:      bc.Reason,
 				Snippet:     claimSnippet(block, loc[0], loc[1]),
-				Occurrences: len(bc.re.FindAllString(block, -1)),
+				Occurrences: len(live),
 			}}
 			order = append(order, bc.Pattern)
 		}
@@ -484,6 +522,85 @@ func (eb *EvidenceBase) ScanBannedClaims(blocks []string) []ClaimFinding {
 		findings = append(findings, found[p].finding)
 	}
 	return findings
+}
+
+// ============================================================================
+// The negation guard (bugs_closed/104 follow-up, 2026-07-29)
+// ============================================================================
+//
+// WHY THIS EXISTS
+//   A banned-claim pattern matches a PHRASE, but what is banned is an
+//   ASSERTION. "Every figure is independently verified" is a fabrication;
+//   "where a figure has not been independently verified, that is stated" is the
+//   hedged disclosure this whole layer exists to encourage — and it contains the
+//   banned phrase verbatim. At severity blocker, the second one fails a page
+//   build for being honest.
+//
+//   That is not hypothetical. The 2026-07-28 fleet-wide dry run over 908 live
+//   components produced 7 findings and 4 were this exact class, all on negated
+//   sentences, all from ONE pattern — which was therefore left OUT of the
+//   fleet-wide set with a note saying it could not return until a guard existed
+//   in code, because Go's RE2 has no lookbehind. This is that guard, and the
+//   pattern is back (claims_global.go).
+//
+// WHAT IT DOES NOT DO
+//   It is a clause-local cue test, not a parser. It cannot read "we would never
+//   claim our analysis is anything other than accurate". It is deliberately
+//   NARROW: a guard that is too eager silently disarms the gate, which is worse
+//   than the false positive it set out to fix, and harder to notice. Every cue
+//   below is one that negates a following predicate in English; the near-misses
+//   that look like cues and are not are listed with their counter-examples, and
+//   the whole suppression is observable via ScanBannedClaimsIgnoringNegation.
+
+// negationCueRe matches a cue that negates a claim following it in the same
+// clause.
+//
+// DELIBERATELY ABSENT, each because it disarms a real overclaim:
+//
+//	"without" — "Without exception, every claim is verified." (intensifier)
+//	bare "no"  — "There are no exceptions: every claim is verified." (ditto)
+//	"rarely", "seldom", "hardly" — hedges; "our data is rarely wrong" is still
+//	                              an accuracy claim and should still be caught.
+//
+// Their absence is a KNOWN residual: "no figure here is independently verified"
+// would still be a false positive. No sentence of that shape exists in the live
+// corpus (checked 2026-07-29 over all 908 components), and the cost of getting
+// it wrong in the other direction is a silently weaker gate.
+// The contraction arm is written as "letter + n't" rather than a list of stems,
+// because the stems are irregular ("can't" is ca+n't, "won't" is wo+n't) and a
+// stem list gets one wrong silently. Curly apostrophes are included: site copy
+// is typographic, and `’` is what a renderer actually emits.
+var negationCueRe = regexp.MustCompile(
+	`(?i)\b(?:not|never|nor|cannot|unable to|fails? to|failed to|refuses? to)\b` +
+		`|[a-z]n['’‘]t\b` +
+		`|\b(?:cant|dont|doesnt|didnt|isnt|arent|wasnt|werent|hasnt|havent|hadnt|wont|couldnt|shouldnt|wouldnt)\b`,
+)
+
+// negationClauseBoundary ends the backwards search. The cue must be in the same
+// clause as the match: a comma or stronger stops the scan, so
+// "we do not use AI, and our analysis is always accurate" is still caught. HTML
+// angle brackets are included because assertion blocks are not always fully
+// tag-stripped, and a tag is a boundary in any sensible reading.
+const negationClauseBoundary = ".!?;:,<>\n\r\t–—"
+
+// negationWindowBytes bounds how far back the cue may sit. 64 bytes clears the
+// longest real form measured ("has not been " is 13) with room to spare, while
+// keeping the scan cheap: this runs per match, per pattern, per block.
+const negationWindowBytes = 64
+
+// negatedClaimMatch reports whether the banned phrase starting at `start` is
+// negated by a cue earlier in the same clause.
+func negatedClaimMatch(block string, start int) bool {
+	window := block[maxInt(0, start-negationWindowBytes):start]
+
+	// Trim to the current clause. LastIndexAny returns the byte index of the
+	// START of a multibyte boundary rune, so step over the whole rune rather
+	// than one byte — otherwise the window keeps a dash's trailing bytes.
+	if i := strings.LastIndexAny(window, negationClauseBoundary); i >= 0 {
+		_, size := utf8.DecodeRuneInString(window[i:])
+		window = window[i+size:]
+	}
+	return negationCueRe.MatchString(window)
 }
 
 // Number-bearing claim candidates: integers with thousands separators or

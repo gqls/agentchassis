@@ -46,16 +46,33 @@
 //   At severity blocker that fails a whole page build for making precisely the
 //   hedged disclosure this layer exists to encourage. All four came from ONE
 //   pattern — `(fully|independently|externally|properly)
-//   (verified|audited|fact.?checked)` — which is therefore NOT in the set below.
+//   (verified|audited|fact.?checked)`.
 //
-//   *** DO NOT RE-ADD IT WITHOUT A NEGATION GUARD. *** It is the strongest
-//   pattern of the ten (it catches the shape oufe actually shipped live), and it
-//   is unusable fleet-wide until the scanner can tell "X is independently
-//   verified" from "X is not independently verified". Go's RE2 has no lookbehind,
-//   so that guard cannot live in the pattern string — it must be code, in the
-//   shape of isExcludedNumber. There is no negation-guard prior art in the estate
-//   (voicetells.go:212 looks like one and is not: it CHECKS FOR defining-by-
-//   negation as a style tell).
+//   > *** UPDATED 2026-07-29 — THE GUARD NOW EXISTS AND THE PATTERN IS BACK. ***
+//   > This paragraph used to end "which is therefore NOT in the set below", with
+//   > a DO-NOT-RE-ADD warning. Both are now spent: negatedClaimMatch in claims.go
+//   > is the guard it asked for, all four sentences are regression fixtures, and
+//   > the pattern is the last entry in the set, BARE. The original reasoning is
+//   > kept above because it is why the guard is shaped the way it is: RE2 has no
+//   > lookbehind, so the test cannot live in the pattern string. (Re-checked
+//   > 2026-07-29: still no negation-guard prior art in the estate.
+//   > voicetells.go:212 looks like one and is not — it CHECKS FOR
+//   > defining-by-negation as a style tell.)
+//   >
+//   > AND THE SET NO LONGER SCANS CLEAN, which matters more than the guard.
+//   > The 07-28 measurement's headline — "fires exactly once across 908
+//   > components" — was an artefact of this pattern's absence. With it armed the
+//   > set finds **2 further live overclaims**, both on robot-hands.com, both
+//   > asserting its spec data is "independently verified". They were always
+//   > there; the four false positives were the reason nobody could see them.
+//   > A rebuild of those two components now FAILS until the copy is fixed. That
+//   > is the gate working as designed, not a regression — but it is a real
+//   > consequence, so it is written here and not only in a summary.
+//   >
+//   > The guard applies to EVERY banned-claim scan, per-site sets included, so
+//   > there is one rule and not two that drift (CLM-004). What it suppresses is
+//   > observable — ScanAllBannedClaimsWithSuppressed, printed by cmd/claimscan —
+//   > because a silent suppressor and a dead gate look identical from outside.
 //
 //   With that pattern removed the remaining set fires exactly ONCE across all
 //   908 components, on a true positive, and zero false positives on the other
@@ -150,6 +167,37 @@ func globalBannedClaims() []BannedClaim {
 			Pattern: `never (wrong|inaccurate|invents?|fabricates?|makes? (a )?mistakes?)`,
 			Reason:  "infallibility claim.",
 		},
+		{
+			// RESTORED 2026-07-29, the day after it was excluded. This is the
+			// pattern the header above says must not come back without a
+			// negation guard; negatedClaimMatch in claims.go IS that guard, and
+			// all four sentences it false-positived on are now regression
+			// fixtures (claims_global_test.go) asserting they stay silent.
+			//
+			// KEPT BARE — and the first attempt to narrow it was WRONG, which is
+			// worth more than the pattern. I first shipped this subject-anchored
+			// (requiring a claim/content noun + is/are within N chars) to avoid
+			// "our accounts are independently audited", a claim about a BUSINESS
+			// that may be true. Dry-run over all 908 live components: the
+			// anchored form matched **nothing at all** — 0 findings, 0
+			// suppressions — while the bare form found **2 real overclaims**
+			// (robot-hands.com how-it-works and gripper-catalog, both asserting
+			// spec data is "independently verified" when nothing outside this
+			// system checks it) and the guard removed all 4 negated sentences.
+			// Narrowing by reasoning about a hypothetical false positive made
+			// the pattern inert; the measurement is what caught it.
+			//
+			// KNOWN RESIDUAL, unmeasurable today: "our accounts are
+			// independently audited" WOULD be a false positive. The phrase
+			// occurs zero times in the estate (checked 2026-07-29: the only live
+			// sentences of this whole shape are the six in the dry run, all
+			// "independently verified"), so the guard for it would be a
+			// mechanism rotting unexercised. If a finance or accountancy site
+			// arrives, re-check here first — the cheap check is the corpus grep
+			// in the RUNBOOK, not a new code path.
+			Pattern: `(fully|independently|externally|properly) (verified|audited|fact.?checked)`,
+			Reason:  "external-verification claim: asserts our content was checked by someone outside this system. Nothing does that.",
+		},
 	}
 }
 
@@ -198,19 +246,62 @@ func GlobalBannedClaimCount() int { return len(globalEvidence().BannedClaims) }
 // already carries a fleet-wide pattern verbatim (oufe does, via mig 226) must
 // not produce two identical blockers for one sentence.
 func ScanAllBannedClaims(blocks []string, eb *EvidenceBase) []ClaimFinding {
-	findings := globalEvidence().ScanBannedClaims(blocks)
+	findings, _ := ScanAllBannedClaimsWithSuppressed(blocks, eb)
+	return findings
+}
 
-	seen := make(map[string]bool, len(findings))
+// ScanAllBannedClaimsWithSuppressed additionally returns the matches the
+// negation guard REMOVED — phrases that are banned but were read as negated in
+// their own clause ("where a figure has NOT been independently verified…").
+//
+// Nothing enforces the second list. It exists because a suppressor that leaves
+// no trace is the failure mode this estate keeps rediscovering: a silent guard
+// and a gate that has stopped matching are indistinguishable from outside, so
+// the strongest pattern in the set would go back to being unfalsifiable the
+// moment it stopped firing. cmd/claimscan prints it; an operator diffing a dry
+// run can see exactly what the guard is doing on real copy.
+func ScanAllBannedClaimsWithSuppressed(blocks []string, eb *EvidenceBase) (findings, suppressed []ClaimFinding) {
+	findings = dedupeByPattern(
+		globalEvidence().ScanBannedClaims(blocks),
+		// Nil-safe: ScanBannedClaims returns nil for a nil receiver.
+		eb.ScanBannedClaims(blocks),
+	)
+
+	// Suppressed = what the unguarded scan would have raised, minus what the
+	// guarded scan actually raised. Derived by subtraction rather than by a
+	// second guard implementation, so the two can never disagree.
+	raised := make(map[string]bool, len(findings))
 	for _, f := range findings {
+		raised[f.Pattern] = true
+	}
+	for _, f := range dedupeByPattern(
+		globalEvidence().ScanBannedClaimsIgnoringNegation(blocks),
+		eb.ScanBannedClaimsIgnoringNegation(blocks),
+	) {
+		if raised[f.Pattern] {
+			continue
+		}
+		suppressed = append(suppressed, f)
+	}
+	return findings, suppressed
+}
+
+// dedupeByPattern joins the fleet-wide and per-site results, reporting a pattern
+// present in both exactly once — a site whose register already carries a
+// fleet-wide pattern verbatim (oufe does, via mig 226) must not produce two
+// identical blockers for one sentence.
+func dedupeByPattern(global, site []ClaimFinding) []ClaimFinding {
+	out := global
+	seen := make(map[string]bool, len(global))
+	for _, f := range global {
 		seen[f.Pattern] = true
 	}
-	// Nil-safe: ScanBannedClaims returns nil for a nil receiver.
-	for _, f := range eb.ScanBannedClaims(blocks) {
+	for _, f := range site {
 		if seen[f.Pattern] {
 			continue
 		}
 		seen[f.Pattern] = true
-		findings = append(findings, f)
+		out = append(out, f)
 	}
-	return findings
+	return out
 }

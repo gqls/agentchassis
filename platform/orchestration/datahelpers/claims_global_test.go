@@ -34,8 +34,8 @@ func globalFindings(t *testing.T, sentence string) []ClaimFinding {
 // ---------------------------------------------------------------------------
 
 func TestGlobalSetIsWired(t *testing.T) {
-	if n := GlobalBannedClaimCount(); n != 9 {
-		t.Fatalf("expected 9 fleet-wide patterns, got %d — if this changed deliberately, "+
+	if n := GlobalBannedClaimCount(); n != 10 {
+		t.Fatalf("expected 10 fleet-wide patterns, got %d — if this changed deliberately, "+
 			"re-run the fleet dry run (see claims_global.go header) before editing this number", n)
 	}
 }
@@ -89,13 +89,179 @@ func TestGlobalDoesNotBlockNegatedDisclosure(t *testing.T) {
 			"When a figure cannot be independently verified, it is marked as unverified rather than carried forward as fact."},
 		{"vonc.com",
 			"Competitor characterisations reflect general platform mechanics as of 2026 and are Spark's own assessment, not independently verified."},
-		{"robot-hands.com",
-			"The catalog indexes gripper models across six actuation technologies — pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive — with specifications drawn directly from manufacturer datasheets and, where available, independently verified test data."},
+		// CORRECTED 2026-07-29 — a fourth fixture was removed from this list.
+		// It was robot-hands' "…with specifications drawn directly from
+		// manufacturer datasheets and, where available, independently verified
+		// test data", which I filed here on 07-28 as one of the four negated
+		// false positives. It contains NO negation. The 07-28 dry run produced 4
+		// FINDINGS from 3 distinct sentences (vonc's counted twice, on two
+		// components) — I read "4 findings" as "4 sentences" and recruited the
+		// nearest other sentence containing the phrase to make up the number.
+		// It is an ASSERTION and now sits in the must-block list below, where
+		// the fleet dry run says it belongs. It passed here for eight hours only
+		// because the pattern that matches it had been removed from the set.
 	}
 	for _, c := range mustPass {
 		if f := globalFindings(t, c.sentence); len(f) != 0 {
 			t.Errorf("FALSE POSITIVE on live %s copy — %q matched %q (%s)",
 				c.site, c.sentence, f[0].Pattern, f[0].Reason)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// THE GUARD, and why the test above is not enough on its own.
+//
+// From 2026-07-28 to 2026-07-29 TestGlobalDoesNotBlockNegatedDisclosure passed
+// for a reason that had nothing to do with negation: the only pattern that
+// matched those sentences had been REMOVED from the set. A pass from a check
+// that cannot fail outlives the blindness — it gets quoted later as "negated
+// copy is handled", which was not true and was never tested.
+//
+// So these assert the mechanism, not the outcome: the pattern DOES match the
+// sentence, and the guard is what drops it. If someone deletes the guard, the
+// test above starts failing; if someone deletes the pattern, THIS one does.
+// ---------------------------------------------------------------------------
+
+func TestNegatedCopyIsSuppressedByTheGuardNotByAbsence(t *testing.T) {
+	// Verbatim live copy, same source as the fixtures above.
+	negated := []string{
+		"Where manufacturer data has not been independently verified, that is stated explicitly.",
+		"When a figure cannot be independently verified, it is marked as unverified rather than carried forward as fact.",
+		"Competitor characterisations reflect general platform mechanics as of 2026 and are Spark's own assessment, not independently verified.",
+	}
+	for _, s := range negated {
+		blocks := ExtractAssertionText("<p>" + s + "</p>")
+		findings, suppressed := ScanAllBannedClaimsWithSuppressed(blocks, nil)
+		if len(findings) != 0 {
+			t.Errorf("guard failed to suppress a negated claim: %q raised %q", s, findings[0].Pattern)
+			continue
+		}
+		if len(suppressed) == 0 {
+			t.Errorf("VACUOUS PASS: nothing in the fleet-wide set matches %q at all, so the "+
+				"guard was never exercised. Either the external-verification pattern was "+
+				"removed, or this fixture no longer contains the phrase it was chosen for.", s)
+		}
+	}
+}
+
+// The unguarded scan must still fire, so "the guard suppressed it" is a claim
+// about the guard and not about a pattern that quietly stopped matching. This is
+// the pre-2026-07-29 behaviour, pinned.
+func TestUnguardedScanStillFiresOnNegatedCopy(t *testing.T) {
+	blocks := ExtractAssertionText(
+		"<p>Where manufacturer data has not been independently verified, that is stated explicitly.</p>")
+	if f := globalEvidence().ScanBannedClaimsIgnoringNegation(blocks); len(f) == 0 {
+		t.Fatal("ScanBannedClaimsIgnoringNegation raised nothing — it is supposed to reproduce " +
+			"the false positive this workstream exists to fix, so the guard's effect stays visible")
+	}
+}
+
+// The two live overclaims the guard made visible. They were in the corpus the
+// whole time, hidden behind the false positives that got the pattern excluded —
+// so they are fixtures now, and a build of those components is expected to fail.
+func TestGlobalBlocksTheLiveExternalVerificationOverclaims(t *testing.T) {
+	mustBlock := []struct{ site, sentence string }{
+		{"robot-hands.com/gripper-catalog",
+			"Grip force, stroke, cycle time, and IP rating pulled from manufacturer datasheets and independently verified."},
+		// VERBATIM, em-dash clause included. An abbreviated quote is a different
+		// claim, and the abbreviation would remove the ", where available," that
+		// makes this one a hedged assertion rather than a flat one — the very
+		// thing being tested.
+		{"robot-hands.com/how-it-works",
+			"The catalog indexes gripper models across six actuation technologies — pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive — with specifications drawn directly from manufacturer datasheets and, where available, independently verified test data."},
+	}
+	for _, c := range mustBlock {
+		if f := globalFindings(t, c.sentence); len(f) == 0 {
+			t.Errorf("live overclaim on %s no longer blocked: %q", c.site, c.sentence)
+		}
+	}
+}
+
+// The guard is clause-local on purpose. A negation in a DIFFERENT clause must
+// not launder an overclaim — otherwise "we do not use AI, and every claim here
+// is verified" becomes the evasion.
+func TestGuardIsClauseLocal(t *testing.T) {
+	stillBlocked := []string{
+		"We do not use AI, and every claim on this site is verified.",
+		"We never hide our sources. Our reporting is always accurate.",
+		"Sources are not paywalled; every figure is independently verified.",
+	}
+	for _, s := range stillBlocked {
+		if f := globalFindings(t, s); len(f) == 0 {
+			t.Errorf("guard laundered an overclaim across a clause boundary: %q", s)
+		}
+	}
+}
+
+// Denials of the banned claim, in the same clause, must pass — including the
+// contraction and typographic-apostrophe forms, which are what a renderer emits.
+func TestGuardHandlesRealNegationForms(t *testing.T) {
+	mustPass := []string{
+		"We do not claim every figure is verified.",
+		"We can't say that our reporting is always accurate.",
+		"We can’t say that our reporting is always accurate.", // curly apostrophe
+		"We cannot promise our analysis is always accurate.",
+		"We never claim you can rely on this.",
+		"We don't guarantee accurate pricing.",
+	}
+	for _, s := range mustPass {
+		if f := globalFindings(t, s); len(f) != 0 {
+			t.Errorf("FALSE POSITIVE on a denial: %q matched %q", s, f[0].Pattern)
+		}
+	}
+}
+
+// The three completeness-of-exclusion patterns are themselves NEGATIVE
+// constructions ("claims without a source do NOT appear here"). A guard that
+// looked anywhere nearby for a cue, rather than strictly BEFORE the match in the
+// same clause, would disarm all three — the guard's own worst failure mode, and
+// invisible from outside because the gate would simply go quiet.
+func TestGuardDoesNotDisarmTheNegativeConstructionPatterns(t *testing.T) {
+	stillBlocked := []string{
+		"A claim without a source does not appear here.",
+		"Prices do not appear here.",
+		"If we cannot verify a figure, it doesn't appear.",
+		"We are never wrong about a specification.",
+	}
+	for _, s := range stillBlocked {
+		if f := globalFindings(t, s); len(f) == 0 {
+			t.Errorf("the negation guard disarmed a pattern whose banned form IS negative: %q", s)
+		}
+	}
+}
+
+// The guard applies to per-site registers too — one rule, not two that drift
+// (CLM-004). A site's own audited pattern must behave the same way.
+func TestGuardAppliesToPerSitePatternsAsWell(t *testing.T) {
+	eb, err := ParseEvidenceBase([]byte(
+		`{"audit_doc":"x","facts":[],"banned_claims":[{"pattern":"award.winning","reason":"site-specific"}]}`))
+	if err != nil {
+		t.Fatalf("ParseEvidenceBase: %v", err)
+	}
+	if f := ScanAllBannedClaims(ExtractAssertionText("<p>We are an award-winning studio.</p>"), eb); len(f) != 1 {
+		t.Fatalf("per-site pattern should fire on the assertion, got %d findings", len(f))
+	}
+	if f := ScanAllBannedClaims(
+		ExtractAssertionText("<p>We are not an award-winning studio.</p>"), eb); len(f) != 0 {
+		t.Errorf("the guard must apply to per-site patterns too, got %d findings", len(f))
+	}
+}
+
+// Occurrence counts are computed from the SURVIVING matches. A block that says
+// the thing once and denies it once is one finding, not two — otherwise the
+// count reported to a page author is inflated by the sentences they got right.
+func TestOccurrenceCountExcludesSuppressedMatches(t *testing.T) {
+	blocks := ExtractAssertionText(
+		"<p>Every figure is independently verified. Where a figure has not been independently verified, we say so.</p>")
+	f := ScanAllBannedClaims(blocks, nil)
+	if len(f) == 0 {
+		t.Fatal("expected the asserted half to be blocked")
+	}
+	for _, x := range f {
+		if x.Occurrences != 1 {
+			t.Errorf("pattern %q reported %d occurrences; the negated one must not be counted",
+				x.Pattern, x.Occurrences)
 		}
 	}
 }

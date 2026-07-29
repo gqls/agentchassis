@@ -56,6 +56,8 @@ func main() {
 	componentsPath := flag.String("components", "-", "path to TSV export (page, slot, base64 html); '-' for stdin")
 	noGlobal := flag.Bool("no-global", false,
 		"exclude the fleet-wide banned-claim set, scanning ONLY -evidence. Use when testing a candidate pattern set in isolation; the default matches what the platform actually enforces")
+	showSuppressed := flag.Bool("show-suppressed", false,
+		"print each match the negation guard removed ('negated' lines). They are never findings; use this to see what the guard is doing to real copy")
 	flag.Parse()
 
 	// eb may stay nil: since bugs_open/104 the banned-claim scan is fleet-wide,
@@ -100,7 +102,7 @@ func main() {
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 1024*1024), 16*1024*1024)
 
-	var total, componentsScanned, withoutPageType int
+	var total, suppressedTotal, componentsScanned, withoutPageType int
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.TrimSpace(line) == "" {
@@ -129,14 +131,26 @@ func main() {
 		componentsScanned++
 
 		blocks := datahelpers.ExtractAssertionText(string(htmlBytes))
-		banned := datahelpers.ScanAllBannedClaims(blocks, eb)
+		banned, suppressed := datahelpers.ScanAllBannedClaimsWithSuppressed(blocks, eb)
 		if *noGlobal {
 			banned = eb.ScanBannedClaims(blocks)
+			suppressed = subtractByPattern(eb.ScanBannedClaimsIgnoringNegation(blocks), banned)
 		}
 		for _, f := range banned {
 			total++
 			fmt.Printf("BANNED   %-45s %-22s %-30q ×%d  %s\n    …%s…\n",
 				page, slot, f.Matched, f.Occurrences, f.Reason, f.Snippet)
+		}
+		// NOT findings, and not counted: matches the negation guard removed
+		// because the sentence denies the claim rather than making it. Printed
+		// so the guard cannot suppress silently — a dry run that shows nothing
+		// must be distinguishable from a guard that ate everything.
+		for _, f := range suppressed {
+			suppressedTotal++
+			if *showSuppressed {
+				fmt.Printf("negated  %-45s %-22s %-30q      %s\n    …%s…\n",
+					page, slot, f.Matched, f.Reason, f.Snippet)
+			}
 		}
 		for _, f := range eb.ScanUnregisteredNumbers(blocks,
 			datahelpers.ClaimSurface{PageType: pageType}) {
@@ -160,7 +174,28 @@ func main() {
 	}
 
 	fmt.Printf("\nclaimscan: %d finding(s) across %d component(s)\n", total, componentsScanned)
+	if suppressedTotal > 0 {
+		fmt.Printf("claimscan: %d match(es) suppressed by the negation guard (not findings)%s\n",
+			suppressedTotal, map[bool]string{true: "", false: " — -show-suppressed to list them"}[*showSuppressed])
+	}
 	if total > 0 {
 		os.Exit(1)
 	}
+}
+
+// subtractByPattern returns the members of `all` whose pattern is not in `kept`.
+// Only needed for the -no-global path, where the two scans are run directly
+// rather than through ScanAllBannedClaimsWithSuppressed.
+func subtractByPattern(all, kept []datahelpers.ClaimFinding) []datahelpers.ClaimFinding {
+	keptPatterns := make(map[string]bool, len(kept))
+	for _, f := range kept {
+		keptPatterns[f.Pattern] = true
+	}
+	var out []datahelpers.ClaimFinding
+	for _, f := range all {
+		if !keptPatterns[f.Pattern] {
+			out = append(out, f)
+		}
+	}
+	return out
 }
