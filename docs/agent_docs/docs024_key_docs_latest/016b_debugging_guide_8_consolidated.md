@@ -7296,3 +7296,50 @@ evidence actually lives — a predicate that is right for section images is wron
 for head assets, and the check enumerates purposes it never distinguishes.
 Filed as `bugs_open/142` (with fix candidates ranked); the dispatch half of why
 even the false positives went nowhere is `bugs_open/083`'s detected-status class.
+
+### A dependency's DEFAULT can invert a closed bug's premise — "we checked that provider, it's safe" expires (2026-07-29)
+
+**Shape.** A bug is diagnosed, fixed and closed. Its root-cause reasoning
+scopes a sibling out: *"provider/client/config X is safe because Y."* The fix
+stays verified forever; **the premise Y quietly expires** the next time X
+changes a default. Nothing re-opens the bug, because nothing was wrong with it
+at the time — and the closed file now reads as an authoritative all-clear for
+territory nobody has re-measured.
+
+**The instance.** `bugs_closed/107` (07-27) fixed Gemini's `maxOutputTokens`
+starving visible output, and scoped Anthropic out explicitly: *"Anthropic's
+`max_tokens`, with extended thinking off — which is how every agent in this
+platform runs — is entirely visible text."* True when written. Two days later
+`bugs_closed/083` recorded the identical starvation on the Anthropic client:
+the Claude 5 family enables **adaptive thinking BY DEFAULT when the request
+omits the `thinking` field**, and thinking spends from `max_tokens` before any
+visible text. The armed log: `stop_reason=max_tokens, output_tokens=2048,
+partial_chars=61` — 2,048 tokens spent, 61 characters delivered. Same
+mechanism, on the client the earlier bug had declared immune.
+
+**Why it hides.** The failure is intermittent by construction — identical
+requests differ only in how much the model chose to think, so the same call
+succeeds and fails at random. It reads as flakiness, upstream trouble, or
+load; the one thing it does not look like is a config defect. And a
+`max_tokens` sized as "visible text" is invisible in code review, because the
+number is not wrong for the definition it was written against.
+
+**Checks.**
+- Treat a closed bug's *scope-out* as dated evidence, never as a standing
+  guarantee. When a symptom pattern-matches a closed case whose reasoning
+  excludes your component, **re-verify the excluding premise against the live
+  system before trusting it** — usually one query or one log read.
+- For any LLM caller, read the CURRENT provider defaults from a reference, not
+  from memory or from a comment: whether thinking is on when unset, and
+  whether it is billed from the same ceiling as output.
+- `output_tokens == max_tokens` remains the tell (guide top-matter), but add
+  its sibling: **`output_tokens` at the ceiling with a tiny visible payload
+  means the budget went somewhere you are not looking.** Log both.
+- Sizing a budget as "the answer plus headroom" is only safe where the answer
+  is the only thing spending it. Otherwise the number is a claim about the
+  provider's accounting model — state which one you mean.
+
+**Fleet question deliberately left open, not asserted:** every chassis caller
+of `aiservice.GenerateText` that passes no override inherits the 2048 default.
+Whether any fleet lane is losing completions to this is a `llm_call_log` query,
+and it is filed as a diagnosis run rather than argued (090 corr `91cce28d`).
