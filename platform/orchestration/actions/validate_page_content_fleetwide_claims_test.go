@@ -39,6 +39,12 @@ import (
 // fails. A test that only inspected the issues list would report a pass on the
 // case where the gate had refused the build, which is the outcome 104 wants.
 func unarmedSiteGate(t *testing.T, html string) ([]ValidationIssue, error) {
+	return unarmedSiteGateCfg(t, html, nil)
+}
+
+// unarmedSiteGateCfg is the same harness with config overrides, for the reversal
+// lever. extra is merged over the defaults.
+func unarmedSiteGateCfg(t *testing.T, html string, extra map[string]interface{}) ([]ValidationIssue, error) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -52,16 +58,21 @@ func unarmedSiteGate(t *testing.T, html string) ([]ValidationIssue, error) {
 	mock.ExpectQuery("SELECT data FROM site_specs").
 		WillReturnError(sql.ErrNoRows)
 
+	cfg := map[string]interface{}{
+		"site_id":              uuid.New().String(),
+		"check_claims":         true,
+		"check_internal_links": false,
+		"check_emails":         false,
+		"check_stat_claims":    false,
+		"check_stat_units":     false,
+	}
+	for k, v := range extra {
+		cfg[k] = v
+	}
+
 	res, err := ValidatePageContentAction(context.Background(), ActionParams{
 		ExecutionContext: &types.ExecutionContext{},
-		StepConfig: models.Step{Config: map[string]interface{}{
-			"site_id":              uuid.New().String(),
-			"check_claims":         true,
-			"check_internal_links": false,
-			"check_emails":         false,
-			"check_stat_claims":    false,
-			"check_stat_units":     false,
-		}},
+		StepConfig:       models.Step{Config: cfg},
 		CollectedData: map[string]interface{}{
 			"page_content": map[string]interface{}{
 				"response": map[string]interface{}{"page_html": html},
@@ -153,7 +164,7 @@ func TestArmedSiteGetsBothItsOwnAndTheFleetWideSet(t *testing.T) {
 	blocks := datahelpers.ExtractAssertionText(
 		`<p>We span eight departments.</p><p>Our reporting is always accurate.</p>`)
 
-	got := checkBannedClaims(blocks, eb)
+	got := checkBannedClaims(blocks, eb, true)
 	if len(got) != 2 {
 		t.Fatalf("want 2 blockers (1 per-site + 1 fleet-wide), got %d: %+v", len(got), got)
 	}
@@ -161,5 +172,58 @@ func TestArmedSiteGetsBothItsOwnAndTheFleetWideSet(t *testing.T) {
 		if i.Severity != "blocker" {
 			t.Errorf("both sources are blockers; got %q for %+v", i.Severity, i)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The reversal lever (config check_claims_fleet_wide), asked for by the
+// council's guardian seat: the set is enforced at blocker severity on every
+// site, so withdrawing a bad pattern must not require a commit + build + roll.
+// DB config is live immediately; these prove the flag actually reaches the scan.
+// ---------------------------------------------------------------------------
+
+func TestFleetWideSetCanBeWithdrawnByConfig(t *testing.T) {
+	html := `<p>Every claim on this site is verified.</p>`
+
+	// Default (absent key) and explicit true both enforce.
+	if _, err := unarmedSiteGate(t, html); err == nil {
+		t.Fatal("default must enforce — an off-by-default set would leave 104 live")
+	}
+	if _, err := unarmedSiteGateCfg(t, html, map[string]interface{}{
+		"check_claims_fleet_wide": true,
+	}); err == nil {
+		t.Fatal("explicit true must enforce")
+	}
+
+	// Withdrawn: exactly the pre-104 behaviour — an unarmed site is scanned by
+	// nothing, so the same page builds.
+	got, err := unarmedSiteGateCfg(t, html, map[string]interface{}{
+		"check_claims_fleet_wide": false,
+	})
+	if err != nil {
+		t.Errorf("with the lever off an unarmed site must build as it did before 104: %v", err)
+	}
+	if c := claimsIssues(got); len(c) != 0 {
+		t.Errorf("with the lever off there must be no claims findings, got %+v", c)
+	}
+}
+
+// Withdrawing the fleet-wide set must NOT disarm a site's own audited patterns —
+// those predate 104 and are not this lever's business.
+func TestWithdrawingFleetWideSetKeepsPerSitePatterns(t *testing.T) {
+	eb, err := datahelpers.ParseEvidenceBase([]byte(claimsGateTestEB))
+	if err != nil || eb == nil {
+		t.Fatalf("ParseEvidenceBase: %v", err)
+	}
+	blocks := datahelpers.ExtractAssertionText(
+		`<p>We span eight departments.</p><p>Our reporting is always accurate.</p>`)
+
+	off := checkBannedClaims(blocks, eb, false)
+	if len(off) != 1 {
+		t.Fatalf("lever off must keep the site's OWN pattern and drop only the fleet-wide one, got %d: %+v",
+			len(off), off)
+	}
+	if off[0].Severity != "blocker" {
+		t.Errorf("a per-site banned claim is still a blocker, got %q", off[0].Severity)
 	}
 }

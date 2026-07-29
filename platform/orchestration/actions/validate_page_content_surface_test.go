@@ -98,7 +98,7 @@ func TestClaimsGateHonoursTheSurface(t *testing.T) {
 	if n := checkUnregisteredNumbers(blocks, eb, guide); len(n) != 0 {
 		t.Errorf("a guide must raise no unregistered-number errors, got %+v", n)
 	}
-	if b := checkBannedClaims(blocks, eb); len(b) != 1 || b[0].Severity != "blocker" {
+	if b := checkBannedClaims(blocks, eb, true); len(b) != 1 || b[0].Severity != "blocker" {
 		t.Errorf("the banned claim must still block on a guide, got %+v", b)
 	}
 

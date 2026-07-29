@@ -230,6 +230,21 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 	repairLinks := configBoolOrDefault(config, "repair_internal_links", true)
 	checkStatClaims := configBoolOrDefault(config, "check_stat_claims", true)
 	checkStatUnits := configBoolOrDefault(config, "check_stat_units", true)
+	// check_claims_fleet_wide is the reversal lever for bugs_open/104's fleet-wide
+	// banned-claim set, and exists for the same reason repair_internal_links does:
+	// the set is enforced at BLOCKER severity on every site, so a bad pattern would
+	// otherwise need a commit + build + roll to withdraw. DB config is live
+	// immediately, so this can be turned off fleet-wide in seconds.
+	//
+	// It defaults ON deliberately — an off-by-default set would be inert and 104
+	// would still be live, which is the same argument 079's lever settles. Turning
+	// it off restores the pre-104 behaviour exactly: per-site patterns only, and a
+	// site with no register is scanned by nothing.
+	//
+	// Asked for by the council's guardian seat (round 2, corr 899ed92e): "shipping
+	// without a kill switch is a containment gap independent of how good the
+	// measurement is."
+	claimsFleetWide := configBoolOrDefault(config, "check_claims_fleet_wide", true)
 
 	// ── Run all checks ──
 	var issues []ValidationIssue
@@ -295,7 +310,7 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 		if siteID, err := uuid.Parse(siteIDStr); err == nil {
 			eb := loadEvidenceBase(ctx, params.DB, siteID, logger) // nil = no register; still scanned below
 			blocks := datahelpers.ExtractAssertionText(htmlStr)
-			issues = append(issues, checkBannedClaims(blocks, eb)...)
+			issues = append(issues, checkBannedClaims(blocks, eb, claimsFleetWide)...)
 			if eb != nil {
 				// The page's structural type gates the PROSE number heuristic
 				// only (bugs_open/102) — banned claims are scanned on every
@@ -975,9 +990,16 @@ func checkEmails(html, officialEmail string) []ValidationIssue {
 // fleet-wide set. That is bugs_open/104's fix — see claims_global.go for why the
 // set is joined at scan time rather than unioned into the parsed EvidenceBase,
 // and for the pattern deliberately excluded from it.
-func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase) []ValidationIssue {
+// fleetWide is the reversal lever (config check_claims_fleet_wide, default true).
+// When false this is exactly the pre-bugs_open/104 scan: the site's own patterns
+// and nothing else, so a site with no register produces no findings at all.
+func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase, fleetWide bool) []ValidationIssue {
 	var issues []ValidationIssue
-	for _, f := range datahelpers.ScanAllBannedClaims(blocks, eb) {
+	found := datahelpers.ScanAllBannedClaims(blocks, eb)
+	if !fleetWide {
+		found = eb.ScanBannedClaims(blocks) // nil-safe: no register -> no findings
+	}
+	for _, f := range found {
 		issues = append(issues, ValidationIssue{
 			Type:        "banned_claim",
 			Category:    "claims",

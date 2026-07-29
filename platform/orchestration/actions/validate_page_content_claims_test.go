@@ -34,7 +34,7 @@ func TestClaimsGateSeverities(t *testing.T) {
 	blocks := datahelpers.ExtractAssertionText(
 		`<p>We span eight departments and serve 45 clients.</p>`)
 
-	banned := checkBannedClaims(blocks, eb)
+	banned := checkBannedClaims(blocks, eb, true)
 	if len(banned) != 1 || banned[0].Severity != "blocker" || banned[0].Category != "claims" {
 		t.Errorf("banned claim must be a blocker in category claims, got %+v", banned)
 	}

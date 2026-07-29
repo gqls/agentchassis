@@ -17,7 +17,11 @@
 
 package datahelpers
 
-import "testing"
+import (
+	"regexp"
+	"strings"
+	"testing"
+)
 
 func globalFindings(t *testing.T, sentence string) []ClaimFinding {
 	t.Helper()
@@ -172,5 +176,56 @@ func TestGlobalSetDoesNotArmTheNumberScan(t *testing.T) {
 	if f := nilEB.ScanUnregisteredNumbers(
 		ExtractAssertionText("<p>We serve 4,200 clients.</p>"), ClaimSurface{}); len(f) != 0 {
 		t.Errorf("a site with no register must raise no unregistered-number findings, got %d", len(f))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The fleet-wide patterns are OUR code, not a site's user-authored config, so a
+// malformed one is a programming error rather than a typo to be tolerated.
+//
+// globalEvidence() keeps ParseEvidenceBase's fallback — an uncompilable pattern
+// degrades to a literal case-insensitive substring — because taking the chassis
+// down at init over a regex would be far worse than one over-narrow pattern. But
+// that fallback is SILENT: it has no logger and no error path, so a typo would
+// quietly become a near-inert literal that still looks armed from outside. This
+// test is the guard that makes the fallback safe to keep: a malformed fleet-wide
+// pattern fails CI instead of shipping as a pattern that matches almost nothing.
+//
+// Raised by the council's bug_historian seat (round 2, corr 899ed92e).
+// ---------------------------------------------------------------------------
+
+func TestEveryGlobalPatternIsAValidRegex(t *testing.T) {
+	for i, bc := range globalBannedClaims() {
+		if _, err := regexp.Compile("(?i)" + bc.Pattern); err != nil {
+			t.Errorf("fleet-wide pattern %d does not compile, so it would silently "+
+				"degrade to a literal substring and match almost nothing:\n  pattern: %s\n  error: %v",
+				i, bc.Pattern, err)
+		}
+	}
+}
+
+// A pattern that compiles is not necessarily a pattern that MATCHES. An empty or
+// whitespace-only pattern compiles happily and then matches every block, which
+// would fail every build on every site — the opposite failure to the one above,
+// and equally invisible from outside.
+func TestNoGlobalPatternIsVacuous(t *testing.T) {
+	harmless := ExtractAssertionText("<p>We publish opening hours and a phone number.</p>")
+	for i, bc := range globalBannedClaims() {
+		if strings.TrimSpace(bc.Pattern) == "" {
+			t.Errorf("fleet-wide pattern %d is empty — it would match every block", i)
+			continue
+		}
+		if bc.Reason == "" {
+			t.Errorf("fleet-wide pattern %d has no reason; the reason is what the author of a "+
+				"blocked page reads: %s", i, bc.Pattern)
+		}
+		one := &EvidenceBase{BannedClaims: []BannedClaim{{Pattern: bc.Pattern, Reason: bc.Reason}}}
+		for j := range one.BannedClaims {
+			one.BannedClaims[j].re = regexp.MustCompile("(?i)" + one.BannedClaims[j].Pattern)
+		}
+		if f := one.ScanBannedClaims(harmless); len(f) != 0 {
+			t.Errorf("fleet-wide pattern %d fires on ordinary copy — %q matched %q",
+				i, bc.Pattern, f[0].Matched)
+		}
 	}
 }
