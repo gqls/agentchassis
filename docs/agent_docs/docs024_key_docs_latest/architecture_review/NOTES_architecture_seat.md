@@ -1509,3 +1509,85 @@ It adds no mechanism. The migration renumber, the `ROLLBACK;` preamble
 are the whole diff. **The objection that stopped round 8 is answered by a shipped,
 independently-reviewed change rather than by an argument in the document** — which
 is the only form of answer that objection could actually take.
+
+---
+
+## 2026-07-29, 11:00 — round 9 REVISE (12/2), the first HIGH in ten rounds, and it found something
+
+**Round 9: 12 approve / 2 object of 14 seats, 0 unreadable.** `bug_historian` raised
+**the first HIGH of the entire sequence.** Round 10 is submitted (envelope
+`94d94d6e`, plan `SUBMISSION_2026-07-29b_…r10.json`).
+
+### The HIGH, and what tracing it actually found
+
+Its claim: the D12 guard went into `diagnose_code_lookup_action.go`, but
+`lookup_code_symbols` is a **separate** wiring (`diagnose-agent/lookup_symbols`), so
+that seat gets raw `kind='doc'` rows untagged — "one call site guarded, the sibling
+unpatched", pattern instance #7.
+
+**Three findings, and they do not all point the same way:**
+
+1. **The stated mechanism is REFUTED.** `code_results` has exactly ONE Go consumer
+   (`diagnose_assemble_bundle_action.go`), which uses it as the **third fallback of a
+   SCOPE chain** (`:145 scopeFromCodeResults`) and never renders it as evidence text.
+   `diagnose-agent`'s `lookup_symbols` step declares **no `output_field`** and flows
+   to `load_runtime`. **There is no second renderer and no sibling copy of the
+   tagging logic to keep in step** — which is the specific thing the pattern warns
+   about, and it is not present here.
+2. **The instinct is RIGHT anyway.** Both lookup queries (`:528` vector, `:549`
+   trigram) filter on **nothing but** embedding/similarity and `repo`. The day this
+   plan ships, doc rows compete for top-k and then occupy **scope** slots, displacing
+   code the diagnosis actually needed — with one `logger.Warn` nobody watches.
+3. **And the boundary is WORSE than either of us argued.**
+   `analysis.ReadSymbolBody` (`symbolbody.go:50-58`) does **not** read the analyser
+   Output — it does `os.ReadFile` straight off **disk**, and `bugs_open/*.md` is on
+   disk. Then:
+   ```go
+   // Whole-file scope entry.
+   if namePart == "" { return string(src), nil }
+   ```
+   **A scope entry with no `:Symbol` part returns the ENTIRE FILE**, which the
+   assembler renders inside a ```go fence under `## In-scope code`. A doc row is
+   saved *only* by `findFile()` missing a `.md` in the Go-only Output
+   (`analyse.go:91`). **So today's safety rests on "no markdown heading is ever
+   empty" — a property of my `flattenMarkdown`, not of the boundary.**
+
+> **The lesson is about how to take a HIGH.** Its mechanism was wrong and its
+> conclusion was right, and I would have got neither by arguing with it. **Refuting
+> the stated path is not the same as clearing the concern** — I had to keep reading
+> after the refutation, and the third finding only appeared *because* I did.
+
+**The fix is one WHERE clause on two queries, and it is principled, not a patch:**
+`lookup_code_symbols` is a **scope seeder** — its rows exist to be sliced into Go
+bodies, so a row with no sliceable body can never be a valid result. Excluding
+non-code kinds is what the action already MEANT; it was simply never expressible
+while `kind` could only be Go. **Reuses the guard's live `codeKindsCSV`** — no second
+list to drift, which is the objection this council would raise next.
+
+### A landmine that will bite someone: a `const` never reaches the binary
+
+Answering `prior_art_librarian` (low — "you never grepped `kindDoc`"), I grepped the
+live pod:
+
+```
+docTag 1 · isCode 1 · codeKindList 1 · codeKinds 2      ← funcs and vars: present
+kindDoc 0 · docBlockHeader 0                            ← CONSTS: absent, on a pod that HAS them
+```
+
+**Go inlines constants, so the identifier never reaches the binary.** A pod-grep for
+a `const` reads *exactly* like "not deployed". This is the mirror of
+[[date-the-build-when-a-change-adds-no-new-string]]: **compile-level claims go to the
+SOURCE; the binary cannot answer them.** Written into the VERIFY so nobody re-derives
+it at 2am.
+
+### And the tag is not the artefact — demonstrated live today
+
+The fleet is running pods **labelled `v1.0.1198`** whose binary **contains the D12
+guard** (`They are CODE` 0, `docTag` 1). Another session rebuilt and re-pushed that
+tag from a HEAD that included my commit, and the overlay was reverted 1200 → 1198.
+
+**So: the guard is LIVE; round 9's "on v1.0.1200" is not.** I checked the pod before
+believing the tag, which is the only reason I know that. **This is the 1188/1189
+retag trap running in the opposite direction** — there, a newer tag held older code;
+here, an older tag holds newer code. Both are answered by the same rule and by no
+other: **grep the running pod.**
