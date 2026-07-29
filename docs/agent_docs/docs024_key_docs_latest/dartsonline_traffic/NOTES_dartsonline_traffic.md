@@ -259,3 +259,70 @@ with the next rebuild of that page rather than churning a build for one word.
 - Timing trap: I twice concluded "this has been stuck for minutes" from my own sense of
   elapsed time. `SELECT now()` said 56 seconds. Read the DB clock before calling
   something stalled.
+
+### The council gate earned its keep — and I gave it work I should have done myself
+
+Round 1 on corr `f5fc3014-973c-49a2-8d42-4bf9b401eaeb`: **REVISE**, 9 reviewers,
+7 abstained (relevance filter), **1 unreadable**.
+
+Two separate things came back, and they need separating because only one is about
+the change:
+
+1. **`decided_by: "unreadable reviewer(s): review_prior_art.result"`.** The verdict was
+   DECIDED by a seat whose output failed to parse — `bugs_open/138`'s class exactly
+   (a degraded review gates the round). Per [[council-revise-may-be-the-harness]], read
+   `unreadable`, not `abstained`. With 7 of 9 abstaining, ONE readable seat reviewed
+   this change.
+2. **A real defect, found by the reviewers' own read-only check.** They asked for the
+   fleet's `page_type` vocabulary, and it contains **`guide`** — separate from
+   `blog-post` and `content`. My article-count query was
+   `page_type IN ('blog-post','content')`, so it counted every `guide` page as nothing.
+   Measured after being told:
+
+   | page_type | deployed+active | sites |
+   |---|---|---|
+   | content | 117 | 13 |
+   | blog-post | 52 | 9 |
+   | **guide** | **52** | **5** |
+
+   The third-largest article-shaped type, excluded entirely. A site whose written
+   content is typed `guide` would count zero articles, never trip the ratio, and never
+   be asked for a tool — **silently**, because an omitted page_type does not error, it
+   just makes a site look emptier than it is.
+
+**The lesson is about the ORDER, not the error.** My own submission listed this exact
+hazard in its `risks` block and invited the reviewer to check it. CLAUDE.md is explicit
+that this is not evidence — *"'no collision is possible' is a query, not an argument"* —
+and it is right: the query took ten seconds. Writing "a reviewer should check whether
+guides under another page_type would undercount" is a confession that I knew where the
+hole was and asked someone else to look. Measure the blast-radius claim before you
+submit; do not ask the reviewer to.
+
+Fixed in `ced2bca08`: `articlePageTypes` is now a named var carrying the measurement and
+a reason for every exclusion, queried with `= ANY($2)`.
+`TestArticlePageTypes_CoversTheArticleShapedTypes` pins both the included AND excluded
+sets, so the silent failure mode becomes a failing test — and so `tool` can never creep
+in, which would let a site satisfy its tool ratio by publishing tools.
+
+The `editquality` objection is separate and also fair: the edit bundles the
+Sprintf→json.Marshal safety fix with the ratio change. Keeping it — reverting a genuine
+quote-injection fix to tidy a submission boundary is the worse trade — and saying so
+plainly rather than quietly, per [[answer-review-objections-with-evidence]].
+
+### News lane fully armed (13:52Z)
+
+The `content-feed-refresh` tick picked the site up on its first pass after the spec
+change and seeded **6 sources** — five `news_search`, one per `vertical_keyword` I
+authored, plus the `api_news` LLM source, all `error_count` 0. That confirmed the gate
+query end to end. Because seeding had now HAPPENED, the all-or-nothing skip could no
+longer bite, so the three verified RSS feeds went in immediately after: 9 sources total.
+First fetch 19:54Z; items become visible after the triage pass that follows it.
+
+### The page sweep is the reusable instrument
+
+One query classifies every built page clean/SHOP-LANGUAGE over
+`page_components.rendered_html`. Eight of nine came back clean, which is exactly what
+made the ninth — the homepage, hero saying *"we've got the barrels, shafts, flights and
+boards"* over a section headed **"What We Stock"** — worth trusting rather than
+dismissing as a false positive. Queued for rebuild; it is the last page carrying the
+claim.
