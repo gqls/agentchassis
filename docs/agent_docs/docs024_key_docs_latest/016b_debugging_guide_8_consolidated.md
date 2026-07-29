@@ -7235,3 +7235,20 @@ Fix shape: add the member + a regression test pinning both the canonical and the
 legacy URL shapes. Prevention shape (unbuilt): any switch that enumerates a
 type family which is also enumerated elsewhere wants a build-time or test-time
 cross-check, not a doc comment ([[a-doc-comment-is-not-an-enforcement-mechanism]]).
+
+### A detector whose denominator is the artefact table cannot see a MISSING artefact — and fires forever on ones whose deploy-evidence lives somewhere it does not look (2026-07-29)
+
+`undeployed_asset` (`check_undeployed_assets.go`) starts `FROM assets` — so the
+eleven sites whose og-card was never generated had no row and were structurally
+invisible, while the ONE working site (robot-hands) fired five times, because its
+"deployed" evidence is `page_components.rendered_html LIKE '%/assets/images/<purpose>.%'`
+and head-injected assets (favicon, og-card — injected into chrome by
+`injectBrandHeadTags`) never appear there. Both polarities wrong at once: silent
+on every true positive, loud on the false one. The general test, for any
+detector: (1) name the population an absent artefact belongs to — if the query's
+FROM clause is the table the artefact would be recorded in, absence is
+undetectable by construction; (2) for each artefact kind, ask where its deploy
+evidence actually lives — a predicate that is right for section images is wrong
+for head assets, and the check enumerates purposes it never distinguishes.
+Filed as `bugs_open/142` (with fix candidates ranked); the dispatch half of why
+even the false positives went nowhere is `bugs_open/083`'s detected-status class.
