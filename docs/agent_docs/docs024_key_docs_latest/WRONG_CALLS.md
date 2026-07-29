@@ -38,9 +38,9 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the ITEM's own row, with the columns that can carry bad news, before inferring its state from an aggregate over the queue containing it — "absence is not failure" does not license "absence is progress"** | **1** |
 | **grep for the capability before asserting it does not exist** | **6** |
 | **prove the artefact is current before reasoning from it** | **4** |
-| measure a property before describing it | 1 |
+| measure a property before describing it | **2** |
 | **record the CLOCK beside a reading, never infer it afterwards** | **2** |
-| **run a census against a known-positive control before reporting the count — and for a binary classifier, sample its BOUNDARY, because every implementation agrees at the extremes** | **2** |
+| **run a census against a known-positive control before reporting the count — and for a binary classifier, sample its BOUNDARY, because every implementation agrees at the extremes** | **3** |
 | **look at the real values before designing for the assumed ones** | **5** |
 | **follow the value across EVERY hop before sizing a fix — a struct→map→struct conversion is a hop, and a defect that fully explains the symptom can still be one of three** | **1** |
 | **read the SCHEMA before naming a column — a Go map key is not a column, and a CHECK constraint's allowed set is not guessable from the column name** | **3** |
@@ -55,7 +55,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
-| **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **2** |
+| **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **3** |
 | **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **3** |
 | read the rule before inferring its purpose | 1 |
@@ -71,6 +71,9 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the target file's own stated contract before appending to it** | **1** |
 | **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file; and run any pod-grep marker against the CURRENT binary first — if it passes before the change ships, it is not a test** | **2** |
 | **give an "absence means wait" rule an exit condition — check whether anything NEWER has drained past you before concluding you are merely queued** | **2** |
+| **never suppress stderr on a fetch whose ABSENCE becomes a finding — a transient failure then renders identically to a real empty result, and prints as a fact about the estate** | **1** |
+| **ask which line of your test fails if the feature is removed — assert on the mechanism the code actually uses to signal failure, not the one you assumed** | **1** |
+| **GROUP BY the variable you were about to filter on, so the excluded slice appears as a row instead of vanishing — and re-derive an inherited filter against YOUR question, because a filter copied from another document is still yours** | **1** |
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
 | **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
 | **when you write a counter-argument to your own change in its risks section, that is the change failing review, not a disclosure — split it out before shipping** | **1** |
@@ -10746,3 +10749,131 @@ stall, from numbers already on screen.
 
 Family: council-queue-latency-trap ("no rows = QUEUED, not dropped"),
 check-an-untouched-peer-in-the-same-batch (the cadence baseline IS the peer).
+
+---
+
+## 2026-07-29 — six wrong calls from the `bugs_open/104` session, and the family three of them share
+
+Session "bugsearch 6", making `banned_claims` fleet-wide. All six are mine. The
+"suites green" entry above (2026-07-28) is from the same session and is a seventh.
+**Every check named here is now written where the error was made** — the workstream
+`RUNBOOK_fleetwide_claim_patterns.md`, gotchas 1–5 and §§8–12 — because a check in a
+ledger nobody greps is a paragraph, not a check.
+
+**Three of the six are one family: a measurement that answered a different question
+than the one I asked.** That is the tally line worth reading, not the individual rows.
+
+### 1. "Zero findings on all fifteen sites" — I grepped for a string the tool never prints
+
+The fleet dry run reported **0** banned-claim findings on every one of 15 sites. I
+counted `grep -c "banned_claim"`. `cmd/claimscan` prints the line prefixes `BANNED`
+and `NUMBER`; `banned_claim` is the JSON `check` value and appears **nowhere** in its
+CLI output. The real count was **7**, four of them false positives — the entire finding
+of the session, invisible.
+
+**What caught it:** the positive control, not review. I fed the scanner nine synthetic
+sentences it *must* block and saw `BANNED` lines with my own eyes. Had I skipped the
+control, I would have reported a clean estate and shipped the false-positive class.
+**The cheap check:** run a known-positive through the tool and read its real output
+format before counting anything.
+
+### 2. `2>/dev/null` on a fetch turned a `kubectl` flake into a fact about the estate
+
+My per-site loop suppressed stderr. One `kubectl exec` failed transiently, the output
+file was empty, and my table printed **"vonc.com: no register"**. vonc has a current
+`evidence_base` row with 9 patterns and 4,651 characters — and vonc was the *one site
+whose register mattered most* to the finding.
+
+**What caught it:** it contradicted the § Measurement query I had run ten minutes
+earlier. Nothing else would have. **The cheap check:** never suppress stderr on a fetch
+whose *absence* becomes a finding; retry, and print `FETCH_FAIL` as a distinct state
+from `no-row`. An empty result and a failed request must not render identically.
+
+### 3. I wrote "fires on nothing fleet-wide" into a bug file before running it
+
+Recording the narrowed 9-pattern set in `bugs_open/104`, I wrote that it "measurably
+fires on nothing fleet-wide". Then ran it: it fires **once**, on a true positive. The
+difference mattered — it meant the option was not free, it landed a blocker on a live
+leopardess page. Corrected in place with a visible correction block.
+
+**What caught it:** running the command I had already described the output of. **The
+cheap check:** the word "measurably" is a promise; if the measurement has not run,
+write `[UNMEASURED]` instead.
+
+### 4. Two regression fixtures were sentences no site had ever published
+
+I built the negated-disclosure fixtures by retyping from `claimscan`'s output, whose
+snippets are elided with `…`. Two came out as plausible inventions: vonc's real sentence
+begins *"Competitor characterisations reflect general platform mechanics…"*, not
+*"These reflect platform mechanics…"*. The test comment said "real copy taken from a
+live site". **The tests passed either way** — they assert a negated sentence is not
+flagged, and a paraphrase negates too — which is exactly why it was worth fixing rather
+than shrugging at.
+
+**What caught it:** checking `grounded_in` quote fidelity for the council submission,
+then decoding the component base64 to get the sentence. **This is the second instance of
+this row in one day** — session "bugsearch 7" logged the same defect (entry
+2026-07-28, "two 'verbatim' fixtures that were paraphrased") while working the sibling
+bug. Two independent sessions, same tool, same class, same afternoon.
+
+### 5. My first gate test could not fail in the direction that mattered
+
+Testing that the build gate scans an unarmed site, I asserted on the returned `issues`
+list and treated a returned error as a test failure. On any blocker the action returns
+`(nil, error)` — **the error IS how the build fails.** So the test reported FAIL on the
+one outcome the bug wants, and had I "fixed" it by loosening the assertion, it would
+have passed on a working *and* a broken gate, because the issues map is nil on that path.
+
+**What caught it:** reading the failure message — `content validation failed: 1
+blockers, 0 errors` — which was the gate working correctly. **The cheap check:** before
+trusting a test, ask which line fails if the feature is removed. Same shape as the
+`psql -t -A` guard that could not fail, from this session's predecessor.
+
+### 6. THE ONE I DID NOT CATCH: I scoped a measurement by a column the code never reads — while correcting someone else's version of the same error
+
+The load-bearing claim of the whole change was "0 findings across 908 live components".
+Round 1 of the council ran its own check and returned `count 0` for that population,
+because it filtered `sites.status='live'` — a value that does not exist in this estate.
+I caught that, corrected it to `status NOT IN ('pool','archived')`, got 908, and felt
+pleased.
+
+Round 2's gating objection (`debug_historian`, HIGH) was that I had **"replaced it with
+a different status-based exclusion rather than dropping status as a scoping variable
+entirely"** — and that nothing in the build-gate path filters on `sites.status` at all.
+There were **17 pool-status sites against my 15 measured**, so the slice I had silently
+excluded was *larger than the slice I measured*.
+
+Re-run with status dropped and **grouped** instead of filtered: `deployed | 908 | 14`
+and no other row — pool and system sites hold zero components with stored
+`rendered_html`, so the exclusion happened to cost nothing. **The answer was favourable
+and the objection was still correct.** I had inherited that filter from `104`'s own
+§ Measurement query, where it is right for *"which live sites are armed"* and wrong for
+*"what will the gate fire on"*.
+
+**What caught it:** a reviewer, at HIGH severity, two rounds in. Not me, and not any
+check I would have run. **The cheap check:** when measuring an enforcement surface,
+`GROUP BY` the variable you were about to filter on, so the excluded slice appears as a
+row instead of vanishing. And: **a filter inherited from another document is still your
+filter** — re-derive it against *your* question before quoting the total.
+
+**Tally**, per the house convention:
+
+- "run a census against a known-positive control before reporting the count" **2→3** (row 1)
+- "measure a property before describing it" **1→2** (row 3)
+- "verify an embedded/quoted artifact is COMPLETE before asserting it" **2→3** (row 4) —
+  **its second instance in one day**, by a different session on the sibling bug, with the
+  same tool. Two independent hits on one afternoon is the signature this file exists to
+  surface: `claimscan`'s elided snippets are a quoting trap, and the fix belongs in the
+  tool (print a copy-safe full sentence, or refuse to print a truncated one) rather than
+  in two sessions' good intentions.
+- three NEW rows added: stderr suppression on a finding-bearing fetch; a test that cannot
+  fail in the direction that matters; `GROUP BY` the variable you were about to filter on.
+
+### The honest read-out
+
+Five of six I caught myself, and four of those only because something forced a second
+look: a positive control, a contradicting query, a failure message, a fidelity check for
+someone else's benefit. The sixth — the biggest, sitting under the headline number of
+the entire change — I did not catch, and neither would any check I had. It took an
+adversarial reader who asked *what is this filter for* rather than *is this filter
+correct*.
