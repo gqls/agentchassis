@@ -161,6 +161,34 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("tool %s has no HTML template", toolFunction)
 	}
 
+	// A tool whose script addresses elements its own template does not contain
+	// is broken before it is deployed: the script throws on load and the
+	// visitor gets a tool with no controls. Refusing here is the cheapest place
+	// to stop it — the alternative is a live page that renders, returns 200 and
+	// passes every downstream check while doing nothing (webdesign.co.uk shipped
+	// ten of those; see datahelpers/element_refs.go for the evidence).
+	//
+	// A tool widget is self-contained by design — tool_health already flags
+	// external dependencies — so the template alone is the right unit to judge,
+	// unlike the deployed-page check, which must see every component plus the
+	// chrome before it can call an id missing.
+	//
+	// Hard refusal rather than a warning, on measured grounds: all 32 library
+	// and fork tool templates were run through this on 2026-07-29 and NONE
+	// flagged, so this cannot fire on anything that exists today. It is a guard
+	// against a future bad template, not a change to current behaviour. If it
+	// ever does fire, the fix is the template, not this check: the ids it names
+	// are what the script requires and the markup must provide.
+	if orphans := datahelpers.OrphanElementRefs(toolHTMLTemplate.String); len(orphans) > 0 {
+		logger.Error("DeployToolToSiteAction: refusing to deploy a tool whose script addresses absent elements",
+			zap.String("tool_function", toolFunction),
+			zap.Strings("missing_element_ids", orphans))
+		return nil, fmt.Errorf(
+			"tool %s addresses %d element(s) its template does not contain (%s) — "+
+				"the script would throw on load and the tool would render no controls",
+			toolFunction, len(orphans), strings.Join(orphans, ", "))
+	}
+
 	// --- 2. Check for existing fork and deployment status ---
 	// Two-stage check:
 	//   a) Does a fork of this tool exist for this site? (catches orphans from partial failures)

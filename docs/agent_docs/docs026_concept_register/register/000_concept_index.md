@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,653 concepts across 107 category register files. 1,627 consolidated from
+1,655 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -9,7 +9,9 @@ froze; 2 more (MDL-038/039) added 2026-07-17 for two live platform bugs the
 fix-loop's own first real-case run found — see the addition notes further
 down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28; and 1 more (OPP-004) added
 2026-07-28 closing `bugs_open/106` — the register's own coverage check, wired to the
-commit path so a new subsystem announces its own absence
+commit path so a new subsystem announces its own absence; and 2 more (TL-032/033) added
+2026-07-29 for the orphan element-reference gate and the acceptance-ladder eligibility
+defect that let 63 broken tools ship unwatched
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
@@ -178,6 +180,8 @@ an ID prefix, or a status word.
 | TLIB-023 | intent-probe capture component | deployed | A NEW content-library section (built after a survey found nothing reusable among 83 existing sections) rendering... | tool-library.md |
 | DES-002 | Style collections (data bundle + design bridge ancestry) | deployed | A `style_collections` row bundles the components and tokens defining a site's visual identity:... | design-composition.md |
 | DES-050 | Library-row cleanup pattern for failed composition cascades | deployed | A bad composition cascade leaves one set of library rows... | design-composition.md |
+| TL-032 | Orphan element-reference detection (`OrphanElementRefs` + check `orphan_element_refs`) | built | A static detector for a page whose own JavaScript addresses element ids the page never contains or creates, so... | tool-lifecycle.md |
+| TL-033 | Ported tools were invisible to the whole acceptance ladder (eligibility + subject-key widening) | deployed | Every tier opened with `cc.component_level='tool'`, so 63 ported tools in one shared 'section' row were never... | tool-lifecycle.md |
 | TL-013 | Tier-2 static acceptance checker + the anchor rule (discovery check `tool_acceptance`) | deployed | A browserless discovery check (sibling of tool_health): loads the current travelling PLAN's criteria fence,... | tool-lifecycle.md |
 | CTXA-023 | "Verified against ALL forks" claim did not actually reconcile | partial | A canonical debugging-guide consolidation missed a parallel fork that kept diverging independently | context-assembly.md |
 | ONB-010 | Convention coverage IS capability reliability | aspirational | A capability is only as reliable as its manual convention's audit coverage | onboarding-config.md |

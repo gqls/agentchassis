@@ -38,21 +38,21 @@ func (c *ToolAcceptanceDueCheck) Name() string { return "tool_acceptance_due" }
 func (c *ToolAcceptanceDueCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 	result := &CheckResult{}
 
+	// Eligibility and subject key are shared with Tier 2 — see
+	// tool_eligibility.go for the rule and for why a ported tool must be keyed
+	// by its page rather than by cc.function (all 63 of webdesign.co.uk's
+	// carry function 'ported-page' and would otherwise collide onto one PLAN).
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT
 			cc.id::text   AS component_id,
-			cc.function,
+			`+toolSubjectKeyExpr+` AS function,
 			p.id::text    AS page_id,
 			p.name        AS page_name
 		FROM content_components cc
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON pc.page_id = p.id
 		WHERE p.site_id = $1
-		  AND cc.component_level = 'tool'
-		  AND cc.is_active = true
-		  AND p.status = 'active'
-		  AND p.build_status = 'deployed'
-	`, dctx.SiteID)
+		  AND p.build_status = 'deployed'`+toolEligibilityWhere, dctx.SiteID)
 	if err != nil {
 		return nil, fmt.Errorf("tool_acceptance_due: tool query failed: %w", err)
 	}

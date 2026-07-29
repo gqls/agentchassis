@@ -93,11 +93,18 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		return nil, fmt.Errorf("tool_acceptance: site lookup failed: %w", err)
 	}
 
+	// Eligibility and subject key are shared with Tier 4 — see
+	// tool_eligibility.go. display_name falls back to the derived key for a
+	// ported page, whose component row is a generic shared blob ("Ported Page
+	// (webdesign.co.uk)") and would otherwise label 63 different tools the same.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT
 			cc.id::text   AS component_id,
-			cc.function,
-			COALESCE(cc.display_name, cc.function) AS display_name,
+			`+toolSubjectKeyExpr+` AS function,
+			CASE WHEN cc.component_level = 'tool'
+			     THEN COALESCE(cc.display_name, cc.function)
+			     ELSE `+toolSubjectKeyExpr+`
+			END AS display_name,
 			p.id::text    AS page_id,
 			p.name        AS page_name,
 			COALESCE(p.url, '') AS page_url,
@@ -105,11 +112,7 @@ func (c *ToolAcceptanceCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		FROM content_components cc
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON pc.page_id = p.id
-		WHERE p.site_id = $1
-		  AND cc.component_level = 'tool'
-		  AND cc.is_active = true
-		  AND p.status = 'active'
-	`, dctx.SiteID)
+		WHERE p.site_id = $1`+toolEligibilityWhere, dctx.SiteID)
 	if err != nil {
 		return nil, fmt.Errorf("tool_acceptance: tool query failed: %w", err)
 	}

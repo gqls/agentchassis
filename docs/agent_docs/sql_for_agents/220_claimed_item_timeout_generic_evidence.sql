@@ -149,7 +149,14 @@ SET pre_query = $q$
         error = 'Auto-completed: handler orchestration completed after claim'
     WHERE wi.status = 'claimed'
       AND wi.claimed_at < NOW() - INTERVAL '15 minutes'
-      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section')
+      -- AMENDED 2026-07-29: 'orphan_element_refs' added (its Go verifier landed
+      -- with check_orphan_element_refs.go). The LIVE column was NOT changed by
+      -- re-applying this file — 269_orphan_element_refs_claim_timeout_exclusion.sql
+      -- did it with a targeted replace() plus a before/after assertion, exactly
+      -- as this file's own ROLLBACK note demands. This line is edited so the
+      -- declared list matches the live one; TestRegisteredVerifiersMatchClaimTimeoutExclusion
+      -- reads THIS FILE, so leaving it stale would make the guard lie.
+      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs')
       AND EXISTS (
         SELECT 1 FROM orchestration_states o
         WHERE o.initial_request_data->'input_data'->>'work_item_id' = wi.id::text
