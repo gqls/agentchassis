@@ -2069,3 +2069,36 @@ fixer failing to converge on intrinsic overflow on this very tool twice, so if i
 cycles, expect (and accept) an escalation at `fix_cycles_spent=2` rather than a fix.
 
 Artefacts kept: `p4_sources/scan_clipped_tools_2026-07-29.py` + its full output.
+
+## 2026-07-29, ~12:40 BST (vonc6) — the fleet suspicion MEASURED and refuted; the loop gave bundles, the query gave the answer
+
+The `[UNMEASURED]` marker I left in 083 is now resolved, in the file where the
+claim lives. **The fleet is not affected — the island was the single outlier.**
+
+7 days of `llm_call_log`, `provider='anthropic'`: **0 of 2,142
+`claude-sonnet-5` calls at the ceiling**, 0 at exactly 2048, and — denominator
+checked, because a NULL column would have made that zero vacuous — **all 2,142
+rows carry `max_tokens`** (range 16–32,000). 13 live agent types name
+sonnet-5, the only model in fleet use that thinks by default (4.6, 4.5 and 4.8
+run without thinking when the field is omitted), and every one passes an
+explicit override. The island's tools-api was the only caller that passed none.
+
+**Kept as a risk, not promoted to a bug:** the dominant bucket
+`max_tokens=8000` (1,866 calls) peaks at **7,986 output tokens = 99.8% of its
+own ceiling**; the 32,000 bucket peaks at 95.5%. Nothing has truncated. But on
+a model spending thinking from that same ceiling, 14 tokens is not headroom,
+and whoever chose 8000 may have sized it against the visible-text definition.
+One high-water mark is not a defect, so it is recorded and not escalated.
+
+**Two method notes worth more than the finding:**
+- **The 090 loop produced evidence bundles and no verdict** (5 × `kind=bundle`,
+  every step COMPLETED, corr `91cce28d`; the first dispatch `9e59d517` died
+  outright on the spawn→call handshake race — the known ~50% failure). Filing
+  was still right; the diagnosis-queue check is real. But **a loop run is not a
+  substitute for the one query the symptom already named** — I had the answer
+  in ten seconds after reading the bundle it assembled for me.
+- **A refutation is the cheap outcome, and this one shrank a scare to a fact.**
+  Had I written the fleet claim into a handoff instead of marking it
+  `[UNMEASURED]`, the next thread would have inherited "the fleet is losing
+  completions" — which is false, and expensive to unpick precisely because it
+  would have arrived stated with confidence.
