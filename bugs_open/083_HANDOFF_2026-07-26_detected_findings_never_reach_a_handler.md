@@ -429,3 +429,62 @@ row to where the reader looks.
 dispatch `tool-improver` at four live tool pages, and `bugs_open/126` says a fixer
 can be aimed at the wrong thing by a badly-specified criterion. I have not done it,
 and I would not without the owner call this file is already waiting on.
+
+---
+
+## Contribution, 2026-07-29 ~17:10Z — the promoter was RUN, and the premise needs narrowing
+
+**The owner instructed one firing of the disabled `improvement-sweep`** (see the
+section above; the `[UNVERIFIED]` question about hand-promotion is now moot for
+one of the seven — it went through the machinery, not by hand). Fired at
+gamesdesign.co.uk via
+`docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/run_improvement_sweep_once.sh`,
+orchestration `30692439-43d2-4406-9fe8-9734c3f5689a`, 17:05:43→17:10:01Z.
+
+**The promoter works.** 67 rows moved `detected`→`triaged` in one statement
+(identical `triaged_at 17:08:32.778827`), including `e7ea0125` — the parked
+Tier-4 catch — which is now `triaged`, `pipeline=build`, `handler_agent=tool-improver`.
+Dispatch followed on its own: first claim 17:09:48, `rerender-pages` working the
+site by 17:10:08. **So the parking is not a broken mechanism. It is an unrun one**
+— which is what this file said, now demonstrated rather than argued.
+
+**But this file's title over-reaches, and the run shows where.** Not every
+finding needs the promoter, because **not every agent inserts at `detected`**.
+Grouped by author, for the 97 triaged rows on that site afterwards:
+
+| created_by | inserted DIRECTLY as `triaged` | inserted as `detected` (needed the promoter) |
+|---|---|---|
+| `rerender-pages` | **32** | 0 |
+| `design-discovery-agent` | 3 | 37 |
+| `completeness-discovery-agent` | 0 | 19 |
+| `design-audit` | 0 | 5 |
+| `tool-acceptance-agent` | 0 | 1 |
+
+`rerender-pages` created 32 already-triaged follow-up items within a minute of
+starting work, and `design-discovery-agent` does BOTH depending on the path.
+**That is why nobody noticed.** The build pipeline never looked starved, because
+a large share of the fleet's work items skip the promoter entirely — so the
+symptom is not "the queue is empty", it is "one class of finding is missing from
+a queue that is visibly busy". Anyone measuring pipeline health to decide whether
+this bug is real will measure it healthy.
+
+**Consequence for the fix question.** The standing recommendation (an item type
+must declare its reader) is unchanged, but there is a second, cheaper question
+underneath it: **why does an item's initial status depend on which agent created
+it?** Two writers of the same table disagree about whether `detected` or
+`triaged` is the correct initial state, and nothing reconciles them. Fixing that
+would retire this bug for the affected types without needing the promoter to run
+at all.
+
+**Corrected in the same session, before it reached a conclusion here:** I first
+wrote that the downstream build pipeline was "idle for want of promotion" and had
+"woken up" on this run. False. Grouping `build-pipeline-trigger`'s own
+orchestrations by hour shows 6–17 dispatches per hour all day for other sites;
+the two `complete_idle` rows I saw were a lull. Parked items do not block the
+pipeline — they are invisible to it. Logged in `WRONG_CALLS.md`.
+
+**A separate defect found by the same run is filed as `bugs_open/150`**: the loop
+terminated at `complete_clean` ("No issues found — site is clean") immediately
+after promoting those 67 findings, and skipped its own dispatch branch. Relevant
+here only as a warning — anyone who runs the sweep to clear this backlog will get
+a success message asserting the opposite of what happened.
