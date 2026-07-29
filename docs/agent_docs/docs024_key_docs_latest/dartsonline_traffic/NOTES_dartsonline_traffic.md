@@ -326,3 +326,40 @@ made the ninth — the homepage, hero saying *"we've got the barrels, shafts, fl
 boards"* over a section headed **"What We Stock"** — worth trusting rather than
 dismissing as a false positive. Queued for rebuild; it is the last page carrying the
 claim.
+
+### End of session 1 — the sweep is clean on all nine built pages
+
+```
+about :: clean          barrel-weight :: clean   beginners :: clean
+contact :: clean        guides-index :: clean    index :: clean
+new-arrivals :: clean   sale :: clean            shipping-returns :: clean
+```
+
+The homepage was the last to fall and it rebuilt well: *"Read the Specs Before You Hit
+the Oche… We break down equipment specifications and track PDC tournament gear
+releases"*, with card CTAs reading "Read the tungsten guide →" and "See flight
+comparisons →". It even reuses `content_direction.example_phrases` verbatim — *"Your
+flights aren't an afterthought. They steer your dart."* — which is the evidence that
+replacing the four shop-assuming keys did NOT damage the voice keys.
+
+Still emoji on the homepage card grid (⚖️ 📐 🖐️). That is the imagery phase and is
+untouched; noted here so nobody reads "clean" as "finished".
+
+**State at close of session 1**
+- Honest: all 9 built pages, plus the identity/briefing/classification/content_direction
+  specs behind them.
+- Content: 9 guides have layouts; 2 built and deployed; 7 remain (the direction behind
+  them is now correct, so they can be released in batches).
+- News: 9 sources armed (5 news_search, 1 api_news, 3 verified RSS). First fetch 19:54Z,
+  visible after the following triage pass.
+- Generic: `content_tools_ratio` shipped (default-off, 1 of 14 sites opted in), council
+  round 1 REVISE — real defect found and fixed (`guide` page_type), resubmission owed on
+  `RESUBMIT_CORR=f5fc3014-973c-49a2-8d42-4bf9b401eaeb`.
+- NOT started: imagery (33 assets still barely referenced), tools (setup-builder still
+  unbuilt), affiliate resolver/ingester, SEO discovery files, WCAG palette (1.11:1),
+  meta descriptions, chrome rebuild for the nav fix to reach the served pages.
+
+**The nav fix is data-only so far.** `pages.in_header` is correct and the orphans are
+archived, but the live header still serves the old chrome (bugs_open/117) — the three
+404 links will not disappear from the served pages until a chrome rebuild runs. Do not
+report the nav as fixed until `curl` says so.
