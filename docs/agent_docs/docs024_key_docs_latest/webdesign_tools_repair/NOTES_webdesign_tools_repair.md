@@ -522,3 +522,41 @@ liveness.** The claim is what the PLAN's ```criteria fence is for, which is why
 every repaired tool gets one. `toolaudit.py` is the floor — it can only prove a
 tool is *not obviously broken*. It cannot tell you the contrast ratio is right,
 only that a number appeared.
+
+### Closing state, 2026-07-29
+
+Full audit over all 63 live tool pages: **63 RESPONDS, 0 flagged.** No BROKEN, no
+DEAD, no EMPTY, no NO-CONTROL.
+
+The number moved 34 → 24 → 23 → 20 → 9 → 5 → 0 across the day. **Every downward
+step but one was my measurement being corrected, not a repair.** The repairs
+themselves account for thirteen tools; the other thirty-odd "failures" never
+existed.
+
+Caveat, stated because the number invites the wrong reading: this run used the
+eight-check harness, BEFORE the two-band responsive check was wired in. And
+RESPONDS still only means *not obviously broken*. `fluid-typography` would have
+scored RESPONDS on the morning of the day the owner reported it, because it did
+respond — it just demonstrated nothing at the widths its visitors use. **The
+audit is the floor. The criteria fence is the claim.** 13 tools have one; 50 do
+not, and that is the whole of the remaining work.
+
+### The tally of harness faults, because it is the most useful thing here
+
+Nine, across two harnesses, every one making the site look worse than it was:
+
+1. static source read instead of a browser (2 tools wrong)
+2. `innerHTML.length` instead of content
+3. invalid input typed into validating tools (7 wrong)
+4. document-order control selection (3 wrong)
+5. never pressing the action button (3 wrong)
+6. `urllib` fetch of external scripts, refused by Cloudflare (would have been 63)
+7. unresolved id reported without asking whether the PAGE removed it (1 wrong)
+8. emptiness measured before the interaction, and without requiring no children (7 wrong)
+9. one button pressed instead of each in turn — an already-selected option reads
+   exactly like a dead control (2 wrong)
+
+Plus two transient network errors that printed in the verdict column.
+
+**The rule that would have caught all of them: before believing a negative
+verdict, ask the page directly — and prove you asked the right page.**
