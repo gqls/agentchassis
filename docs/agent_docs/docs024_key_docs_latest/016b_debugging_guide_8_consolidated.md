@@ -7203,3 +7203,35 @@ what the client sent — a request log that prints the resolved address
 fire, which is what settled the edge behaviour; send an arbitrary control header
 alongside so an absent header is distinguishable from a request that never
 carried it.
+
+### An enumerated type-family helper fails OPEN for every member someone forgot — and the failure surfaces far away, logged at info, with every status green (2026-07-29)
+
+`isSectionIndexType` answers "is this page_type a section PARENT?" by enumeration:
+`blog-index`, `entity-directory`, `section-index`. `news-index` — a typed index
+the platform itself mints (015's retype arm, `defaultSectionsForPage`) — was not
+in the list. The consumer, `classifyPagesForNav`, uses the helper as the ONLY
+exemption from its child-URL skip, so a news-index page at the canonical
+`/news/index.html` was classified as its own child and silently excluded from
+navigation, forever. The work item completed, the orchestration completed, the
+chrome re-rendered; the only trace was an `info`-level "skipping child page"
+line in the nav-updater pod (`bugs_open/141`, webdesign.co.uk, 2026-07-29).
+
+Three properties make the shape worth recognising:
+- **The family grows in more places than the helper.** New typed indexes get
+  minted where pages are created; the helper lives in a different file and
+  nothing forces the two to move together (the dedup-index/Go-list lockstep
+  problem, in miniature).
+- **Every prior instance dodged it by accident**, not by correctness: the other
+  news pages' URLs (`/news.html`, `/noticias/index.html`) missed the child-prefix
+  list, so the fleet looked healthy while converging (via 080's canonicalisation)
+  on exactly the URL the helper mishandles. A defect can be masked by the
+  non-canonical shapes an adjacent bug exists to remove.
+- **The census is one query** and decisive: pages under child prefixes whose
+  type is not in the exemption list, grouped by type. Here: 184 correctly
+  excluded, exactly 1 wrongly. Run it BEFORE asserting blast radius, and run it
+  again for the next typed index someone adds.
+
+Fix shape: add the member + a regression test pinning both the canonical and the
+legacy URL shapes. Prevention shape (unbuilt): any switch that enumerates a
+type family which is also enumerated elsewhere wants a build-time or test-time
+cross-check, not a doc comment ([[a-doc-comment-is-not-an-enforcement-mechanism]]).

@@ -90,6 +90,30 @@ primary, flat URL still enters primary, tool/blog-post children still skipped.
 3. Negative control: `/tools/touch-target/index.html` must still be absent from
    `site_nav_items`.
 
+## Council verdict — APPROVED round 1 (corr `e0a52a70`, 08:13:34Z)
+
+"approved with 1 advisory objection(s) — none high-severity"; 8 seats abstained
+(relevance-gated), 0 unreadable. The code commit `fc7c05c21` predates the
+verdict (committed-not-held, per practice), so no trailer rides it; this file is
+the join. Advisories, each answered with a query rather than carried:
+
+- **debug_historian (medium): closing needs pod-level verification, not
+  `go test ok`.** Agreed and already this file's closing bar (§ How to verify
+  live) — behaviour-based, because a one-word switch case has no discriminating
+  binary string.
+- **debug_historian (low): the ai-agent-orchestration.com check was deferred to
+  "a reviewer" instead of run.** Run 08:2xZ: its news page is
+  `page_type='content'`, `in_header=false` — it does not take the new branch.
+- **guardian (low): tier/stem call sites inherit the change untested.**
+  Quantified 08:2xZ against every news-index site: robot-hands 7 candidates for
+  8 slots (order may shift, membership cannot); relojistas and webdesign 5 each
+  (inert); **gaswholesalers 12 candidates for 8 slots — there the promotion is
+  LIVE behaviour change**: on its next nav rebuild News is guaranteed a header
+  slot and the last tier-3 content page drops. That is the truncation design
+  operating on correct classification (the site's own `in_header=true` flag says
+  News belongs there), recorded here so the change in its header is traceable to
+  this fix rather than mistaken for drift.
+
 ## The transferable pattern (016b §9 candidate)
 
 A "typed index" family that grows by enumeration (`blog-index`,

@@ -797,3 +797,49 @@ explicitly and it'll refetch tonight.
 So the news pool is now twenty-five articles, all genuinely on topic. That's fewer
 than the seventy-eight we had two days ago, and far better — which is the rule you
 set.
+
+---
+
+**2026-07-29 (session 4).** The news page is live. It turned out nothing was ever
+going to build it on its own: the page had been sitting marked "planned" for two
+days because the two mechanisms that file build work read from other lists, and
+this page was on neither. I filed the build request by hand and the machine did
+the rest in three minutes. The page serves real stories now.
+
+Reading the finished page found two things the machinery called fine. The
+headline the writer chose described a changelog for our own tools, which this
+page is not — it's industry news — and the big "browse the tools" invitation at
+the bottom had no button in it, because the writer supplied the button's words
+but not its destination, and the template quietly drops a button with no
+address. Both fixed.
+
+The bigger find: the promise in the last handoff that the News link would
+reappear in the site menu by itself was wrong. When the menu rebuild ran, it
+classified the news page as a child of itself and left it out — a genuine
+platform bug, one word missing from a list, and ours is the first site to hit
+it because ours is the first to put a news page at the standard address with a
+menu flag. I've fixed the word, written the tests, filed the bug, and put the
+change through the review council. The menu will get its News link when the fix
+rolls out, hopefully within the hour.
+
+The AI news query came back on its third wording and it works now: five or six
+of nine stories are genuinely about AI in web design, and the system itself
+flagged the duds for review. No more tuning needed.
+
+And the section you asked for is live: **Buying design**, at
+/buying-design/. Two pages to start. The front door says who we are, why we're
+not selling anything, and lists five of our own failures by name — the invented
+statistics, the tool that was destroyed and reported repaired, the button that
+led nowhere — with exactly one fix claimed, the one we can show evidence for.
+That's the shape you ruled: errors freely, fixes once or twice. The second page
+is the accessibility one: the duty in the Equality Act, the standard to write
+into a contract (WCAG 2.2 AA), and three failures anyone can see for themselves
+using tools this site already had. Every legal line on it was checked against
+the government's own text this morning, and every number has its source next to
+it. Nothing on either page was written by the machine.
+
+Still open tonight: the review council's verdict on the one-word fix, the
+rollout that carries it, and then the menu across all ninety-odd pages picks up
+both News and Buying design in one rebuild. The page-by-page refresh that bakes
+the new menu into every page moves at the platform's own slow drip and will
+take some hours.

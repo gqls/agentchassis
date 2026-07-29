@@ -1519,3 +1519,87 @@ Skills for Design"* were on brief.
 
 **Pool now: 25 items, all on-topic** (CSS 9, design-industry 9, typography 4,
 accessibility 2, AI 1 pending its refetch).
+
+---
+
+## 2026-07-29 — session 4: the news page finally gets a build item
+
+**Why the page sat 'planned' for two days — the missing link found.** SQL_p8 said
+*"build_status 'planned' so the build pipeline picks it up"*, but nothing watches
+the `pages` table for planned rows. Both filers of build items read a different
+store: `reconcile_site_plan` reads `site_plan_pages` (news page absent — it was
+hand-inserted into `pages` only), and the content-gap planner reads its own plans.
+The only items that ever touched the page were two feed-cycle `page_rerender`s,
+both "complete", both no-ops — assemble republishes STORED html and a never-built
+page has none. That is instance FIVE of "a green status is not evidence" on this
+site.
+
+**SQL_p18 applied 07:43 UTC:** sections widened `["news-listing"]` →
+`["hero","news-listing","call-to-action"]` (the shape all three deployed
+news-index pages use — gaswholesalers, robot-hands, relojistas — and what
+`defaultSectionsForPage()` returns for the type; p8 had copied the minimal note,
+not the working shape), and an operator-shaped `needs_page:news` item filed for
+`page-build-handler`, copied from the completed fundamentallyai.com precedent.
+Sections resolve via `load_page_sections_from_spec`'s `pages.sections` fallback
+(the page is in no plan, so both authoritative sources return nothing).
+`build-pipeline-trigger` sweeps every 120s.
+
+**Checked before acting:** homepage carries ZERO links to `/news/index.html`
+(curl grep -c = 0), so the unbuilt page was not a live 404 path, despite
+`RenderNewsSectionAction`'s `hasListingPage` check keying on `status='active'`
+alone (no build_status clause) and already emitting `data/news-archive.json`
+each cycle.
+
+**AI in design source state at 07:30:** retuned query (`AI web design UX
+interface designers`, updated 07:18 by session 3) has `last_fetched_at` /
+`next_fetch_at` both NULL — NULL sorts FIRST in the dispatch query
+(`next_fetch_at IS NULL OR next_fetch_at <= NOW()`, `ORDER BY … NULLS FIRST`,
+default `max_dispatches` 10 vs our 5 sources), so it fetches on the next
+`content-feed-refresh` tick, ~07:51 (6h interval, last 01:51). Judgement per
+handoff §7.1 happens after that tick.
+
+**News page BUILT, DEPLOYED, VERIFIED on the wire — and the artefact read caught
+two defects the green statuses missed.** Timeline 07-29: SQL_p18 filed
+`needs_page:news` 07:39 → claimed 07:42 → complete 07:44 → 200 on the wire with
+real server-rendered items. Artefact read found: (1) the LLM hero described a
+DIFFERENT page ("release notes for new utilities" on an industry-news feed — an
+invented PURPOSE, not an invented figure); (2) the CTA rendered an EMPTY buttons
+div (writer gave `primary_cta` text but no `primary_cta_url`, and the template
+gates on both — bugs_closed/023's cousin). SQL_p19 fixed both in content_data
+AND rendered_html; ships with the rerender fan-out.
+
+**The handoff's "nav row reappears by itself" was FALSE — bugs_open/141 filed
+and fixed.** `isSectionIndexType` omits `news-index`, so `classifyPagesForNav`
+treats the canonical `/news/index.html` as its own child and skips it, forever,
+silently. Watched live: nav-updater pod 07:52:09Z "skipping child page"
+name=news. The other three news-index sites only navigate because their URLs
+dodge the prefix list (`/news.html`, `/noticias/index.html`). Census: exactly
+ONE wrongly-excluded page fleet-wide. Fix = one word + tests, commit fc7c05c21,
+council corr e0a52a70, image v1.0.1198 building; roll deferred until the
+council verdict lands (a roll kills an in-flight council) and the ~95-item
+rerender queue drains. Correction written into HANDOFF §1 in place.
+
+**AI in design: third query WORKS — 5-6 of 9 on topic** (`AI web design UX
+interface designers`, fetched 07:57): AI-to-UI workflow, choosing an AI web
+partner, AI UX testing, Claude skills for design, AI/UX predictions. The
+platform's own triage routed the three off-topic career pieces to `review`.
+No repurpose. The unique-noun rule held: "web/UX/interface" anchored it.
+
+**Buying design section LIVE — first two pages, hand-authored.**
+`/buying-design/index.html` (front door: D13 positioning, five named failures
+from closed bug records — 043 invented stats, 073 honesty-punished build, 012
+truncation-reported-success, 023 dead CTA, this site's own two invented-figure
+incidents — ONE evidenced fix claim, three rails stated) and
+`/buying-design/accessibility.html` (Equality Act 2010 s.20 verbatim + GOV.UK
+scope quote + PSBAR 2018 / WCAG 2.2 AA, all fetched from primary sources this
+session; three checks mapped to smart-contrast / touch-target / focus-ring;
+sources footer). gqls/sites commit 7336286ca (rebase-then-push, no merge);
+registered in DB as ported-shape owned pages (SQL_p20, fragment = file body
+byte-for-byte). All 11 internal links verified 200. Style prompt v3 applied;
+no figure without a source anywhere.
+
+**Open at session close:** council verdict e0a52a70 → then roll v1.0.1198 →
+then a SECOND nav_drift (key suffix differs from p19's) to prove News +
+Buying design enter the nav — the 141 closing bar. Rerender fan-out (~95
+items) trickles at the build queue's own pace; hero/CTA fix and chrome land
+with it.

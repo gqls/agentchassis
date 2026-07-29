@@ -55,9 +55,22 @@ covered by five outlets passes as five items** — 5 of the 9 design-industry it
 are the same Coca-Cola rebrand. Story-level clustering is a platform change.
 
 **Then build the news page.** `/news/index.html` exists as `build_status='planned'`.
-The nav row will be **recreated automatically** once the page deploys — `refresh_nav_tables`
+~~The nav row will be **recreated automatically** once the page deploys — `refresh_nav_tables`
 rebuilds `site_nav_items` from DEPLOYED pages, and it deleted the News row on 07-27.
-There is no ordering trap left (see §5).
+There is no ordering trap left (see §5).~~
+
+> **CORRECTED 2026-07-29 (session 4) — the automatic-nav claim was FALSE, twice over.**
+> (1) Nothing rebuilds the nav on a deploy: `refresh_nav_tables` runs only inside a
+> `nav-updater` run, which needs a `nav_drift` work item (discovery files them but
+> they can sit at `detected`); session 4 filed one by hand. (2) When it DID run,
+> the News row still did not appear: `classifyPagesForNav` skips child-prefixed
+> URLs and `isSectionIndexType` omitted `news-index`, so a news page at the
+> canonical `/news/index.html` could NEVER enter the nav — watched live in the
+> nav-updater pod log 07:52:09Z. Filed + fixed as `bugs_open/141` (one word in
+> `v3_site_actions.go` + tests, council corr `e0a52a70`). What caught it: waiting
+> for the promised nav row and reading the pod log when it did not come. The page
+> build itself DID work automatically once a `needs_page` item existed (SQL_p18;
+> the missing link was that nothing watches `pages` for planned rows).
 
 ## 2. What is DONE and verified live
 
