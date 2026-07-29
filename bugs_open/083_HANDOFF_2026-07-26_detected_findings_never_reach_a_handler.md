@@ -368,3 +368,64 @@ Put to the owner 2026-07-28 as an explicit call, since it is about what he wants
 exist rather than about mechanism. Recommendation given: promote the 50, turn the 186
 into a periodic report rather than a queue, and stop writing any type whose reader is
 nobody. **Decision pending — do not act on this section until it is recorded here.**
+
+## 2026-07-29 — contributed (gauntlet_dead_cta / vonc 6): the acceptance ladder is a consumer nobody has listed, and the pile is now 250
+
+**Arrived here independently**, which is worth recording as corroboration: I was
+witnessing `bugs_open/131` B, watched a genuine Tier-4 catch produce an
+`improve_tool` item, and followed it to the same disabled promoter this file
+already names. Same root cause, reached from a different end — **no new
+diagnosis, one new consumer and a fresher number.**
+
+**The pile: 157 (07-27) → 250 (07-29 14:2xZ)**, still 23-ish types. Same query as
+the section above. That is roughly **+45/day** over two days, so the growth this
+file measured at 61%/day has not slowed just because the branch moved on.
+
+**The new consumer: Tier-2 and Tier-4 tool acceptance — the whole ladder is
+write-only.**
+
+```sql
+SELECT status, count(*), min(created_at)::date AS oldest
+FROM site_work_items WHERE item_type='improve_tool' GROUP BY 1;
+--  detected    | 7 | 2026-07-17     <- every one filed since 07-17
+--  cancelled   | 5 | 2026-07-10
+--  complete    | 2 | 2026-07-25
+--  wont_fix    | 2 | 2026-07-25
+--  unresolved  | 1 | 2026-04-23
+```
+
+`judge_acceptance_results` inserts the fixer's work item with the status
+**hardcoded** at `'detected'` (`platform/orchestration/actions/tool_acceptance_actions.go:698-702`,
+the literal is in the VALUES list), so it lands in exactly the queue this file is
+about. **Every `improve_tool` item created since 2026-07-17 is parked**; the two
+`complete` rows both predate that and neither came from the current path.
+
+**Why this consumer matters more than its seven rows.** The acceptance ladder is
+the platform's own quality immune system, and a large amount of shipped, verified
+machinery terminates in these parked rows:
+
+- `bugs_closed/010`'s convergence guard (escalate after 2 failed fix cycles) can
+  never reach cycle 1 — the cycle starts with a dispatched `improve_tool`.
+- `bugs_open/126`'s concern — that a repair loop inherits the authority of
+  whatever test it is given — is currently theoretical for the same reason.
+- A **live instance from today**: `e7ea0125-2a58-4e34-97c3-027f664588e6`, filed
+  12:30Z by a true-positive Tier-4 failure on `tool-loot-table-balancer`
+  (a `<select>` laid out entirely off-screen on mobile, confirmed by geometry and
+  by eye — `bugs_open/131` § "B check-side"). Detected, attributed, evidenced with
+  screenshots, and parked within the hour. **The page is still broken.**
+
+**What it adds to the fix question, not a new answer.** This file's standing
+recommendation — *an item type must declare who reads it, and "nobody" must be an
+answerable and refusable answer* — holds, and I am not acting on it (the owner
+call is still pending, per the section above). But `improve_tool` is a clean case
+FOR that framing rather than against it: its reader is real, named, built and
+tested (`tool-improver`, with a convergence guard and an escalation path). It is
+not an orphan type awaiting a decision about whether anyone wants it. **So if the
+50/186 split is what gets triaged, `improve_tool` belongs in neither bucket** — it
+is a type whose reader exists and whose only defect is that nothing promotes the
+row to where the reader looks.
+
+`[UNVERIFIED]` whether promoting these seven by hand is safe today. It would
+dispatch `tool-improver` at four live tool pages, and `bugs_open/126` says a fixer
+can be aimed at the wrong thing by a badly-specified criterion. I have not done it,
+and I would not without the owner call this file is already waiting on.
