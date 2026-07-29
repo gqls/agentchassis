@@ -142,3 +142,47 @@ cp platform/orchestration/actions/diagnose_council_decide_action.go \
 > session's uncommitted WIP rather than something I had done or something already
 > committed. **A red build in a shared tree is not evidence about your own change
 > until you have separated the two.**
+
+## 6. Verify the deploy at the POD — with controls, or it proves nothing
+
+Raised as a council objection (`debug_historian`, medium, corr `919a05bf`) against a
+submission that said only "inert until the next chassis image is rolled". It was
+right: naming the check is part of the change.
+
+**Capture the baseline BEFORE the roll.** After it, a 0 is unfalsifiable.
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- sh -c '
+echo "gated_by_truncation   : $(strings /app/agent-chassis | grep -c "gated_by_truncation")"
+echo "gating TRUNCATED      : $(strings /app/agent-chassis | grep -c "gating TRUNCATED objection from")"
+echo "all reviewers approve : $(strings /app/agent-chassis | grep -c "all reviewers approve")"
+echo "gating objection from : $(strings /app/agent-chassis | grep -c "gating objection from")"
+'
+```
+
+| marker | pre-roll (measured 2026-07-29, `agent-chassis-6fd7d88c4d-f6pgj`) | after |
+|---|---|---|
+| `gated_by_truncation` | **0** | **> 0** |
+| `gating TRUNCATED objection from` | **0** | **> 0** |
+| `all reviewers approve` | 1 | 1 — **positive control** |
+| `gating objection from` | 1 | 1 — unchanged string |
+
+> **The controls are not padding.** This change DELETES no string, so there is no
+> delete-marker (the strongest kind, where a count must go 1→0 and cannot be faked
+> by a bad grep). With additive markers only, a post-roll 0 is indistinguishable
+> from: wrong pod, wrong binary path, `strings` absent, a typo in the pattern. The
+> two controls must read non-zero **in the same command** or the whole result is
+> void. See `[[date-the-build-when-a-change-adds-no-new-string]]` for the case
+> where not even that is available.
+>
+> **A pod-grep proves the binary CONTAINS the change; it does not prove it RAN.**
+> For that, wait for a real council round and check the artifact:
+> `SELECT metadata->>'gated_by_truncation' FROM diagnosis_artifacts WHERE kind='council_report' ORDER BY created_at DESC LIMIT 1;`
+> — NULL means a pre-fix binary wrote it, `false` means the new code ran and found
+> no truncation gate. Those are different facts and the field is emitted
+> unconditionally so they stay distinguishable.
+>
+> **And a green round proves nothing about the failing branch.** To prove the
+> TRUNCATED wording, induce it: drop a scratch seat's `config.ai_service.max_tokens`
+> to ~500 and run one round.

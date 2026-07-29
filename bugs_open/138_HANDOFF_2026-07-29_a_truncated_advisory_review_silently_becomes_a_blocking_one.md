@@ -334,3 +334,68 @@ instead of after a 14-day forensic query.
 
 **Still open: candidates 2 (alert on the rate — now cheap, the flag exists) and 4
 (load-bearing field first in every seat's schema).**
+
+### Council verdict: APPROVED (corr `919a05bf-c51a-440b-865e-bd07e69e1c36`)
+
+11 seats, 6 abstained (relevance filter — not a health signal), **0 unreadable**,
+`decided_by: approved with 2 advisory objection(s) — none high-severity`. Two seats
+objected advisorily and **all four objections were right**; answered here with
+evidence rather than argument, per the practice that an evidence objection is
+answered with a QUERY, not with more code.
+
+**guardian, medium — "does `decideCouncil` have other callers? A signature change
+from 2 returns to 3 is a compile break, not just a behaviour change."** Answered:
+**5 call sites, all of them updated.** One production (`:450`) and four in
+`diagnose_council_test.go` (`:86`, `:288`, `:486`, `:496`). The grep is complete
+**by construction**, not by diligence — `decideCouncil` is lower-case, so it is
+package-private and unreachable outside `package actions`. And `git archive HEAD`
+built and tested clean *as committed*, which is the check that closes it: a missed
+call site cannot compile.
+
+**guardian, low — "confirm the four consumers are not near their own token caps
+before this ships; ironic for a change about truncation."** Fair, and I had written
+"worth a look" rather than looking. Measured: over 14 days, `council_report.body`
+maxes at **26,934 chars** and averages 14,471 (~6,700 tokens at ~4 chars/token
+[APPROX]). This change adds `"gated_by_truncation":false,` — **29 chars on every
+report** — plus ~110 chars of TRUNCATED wording **only on rounds where it fires**
+(10 in 14 days). Worst case **+139 chars on 26,934 = +0.5%**, against a consumer
+context window of 200k tokens of which the whole artifact is ~3%. No consumer is
+anywhere near a cap.
+
+**guardian, low — "downstream escalation/digest consumers may branch TEXTUALLY on
+`decided_by` even though grep says they don't today."** Correct that grep alone is
+weak evidence, so: both Go consumers were read, not just grepped.
+`fixloop_digest_action.go:242` `SELECT`s it as text for display.
+`diagnose_escalate_action.go:84` does `decidedBy, _ := council["decided_by"].(string)`
+and at `:113` writes it straight back out — **a pass-through, no inspection**. The
+prompt consumers embed the whole `council_report` body as context. Nothing splits,
+matches or switches on it.
+
+**debug_historian, medium — "nothing states how the deploy will be verified; name
+the pod-grep."** Entirely right, and the omission mattered: risk item 6 said "inert
+until rolled" and stopped there. **The baseline is now captured, which was only
+possible BEFORE the roll** (`agent-chassis-6fd7d88c4d-f6pgj`, pre-roll):
+
+| marker | pre-roll | must be after |
+|---|---|---|
+| `gated_by_truncation` | **0** | **> 0** |
+| `gating TRUNCATED objection from` | **0** | **> 0** |
+| `all reviewers approve` (positive control) | 1 | 1 |
+| `gating objection from` (unchanged string) | 1 | 1 |
+
+The two controls are the point: a new marker reading 0 after a roll is
+indistinguishable from a bad grep, a wrong pod or a wrong binary path unless
+something you expect to be there reads non-zero in the same command. Recipe in
+`bugfix_138_degraded_gates/RUNBOOK_degraded_gates.md` §6.
+
+> **The trailer cannot reach the commit it approves, and that is now the normal
+> case.** `3a59b5012` was committed before the verdict (per the 2026-07-29 ruling
+> that review here is after the fact by design), so it can never carry
+> `Council-Reviewed:` — forward-only forbids the amend. Verified rather than
+> assumed: `098` run at 1 day buckets `3a59b5012` under **UNREVIEWED**, alongside
+> 39 others, against 8 REVIEWED. **So `098`'s UNREVIEWED bucket conflates "never
+> submitted" with "submitted, approved, and committed first" — and the more the
+> 07-29 ruling is followed, the more of the second it contains.** That is a
+> measurement defect that grows with compliance, not an adoption gap. Contributed
+> to the council-gate lane's NOTES rather than filed as a competing bug; it is
+> their mechanism.

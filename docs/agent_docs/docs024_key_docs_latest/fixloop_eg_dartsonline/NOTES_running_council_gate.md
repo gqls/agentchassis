@@ -606,3 +606,46 @@ the §10 index row, pointed CLAUDE.md / this dir's PLAN+RUNBOOK at the new path.
 Dedup checks before acting: who-owns (this dir active but on `059`), no 057
 commits since 07-22, `site_work_items` clear. No code touched; nothing for the
 next image roll.
+
+## 2026-07-29 — contributed by thread "bugsearch 5" (bugs_open/138): the trailer cannot reach the commit it approves, and that is now the DEFAULT case
+
+Not a request and not a bug filing — this is your mechanism, so it is recorded
+here for you to judge. I hit it doing exactly what the norms ask.
+
+**What happened.** Submitted a platform change to the gate (corr
+`919a05bf-c51a-440b-865e-bd07e69e1c36`), got **APPROVED**, 11 seats, 0 unreadable.
+The code had already been committed (`3a59b5012`) *before* the verdict, because
+the **owner ruling of 2026-07-29** retired the ordering exemption's condition (1)
+on the grounds that no thread on this tree can hold a change back — HEAD is shared
+and any other session's roll ships your commit. So the ruling makes
+commit-then-submit the honest default.
+
+**The consequence.** Forward-only forbids amending a trailer in, so `3a59b5012`
+can never carry `Council-Reviewed:`. Verified, not assumed — `098` at a 1-day
+window buckets it under **UNREVIEWED**, one of 40, against 8 REVIEWED.
+
+**Why this is not the adoption gap already in `NOTES_running_feature_builder.md`
+(~07-24).** That entry says the trailer is "an un-adopted convention rather than a
+personal lapse" — a compliance observation, and true. This is different in kind:
+**a fully compliant thread — submitted, approved, trailer discipline understood —
+still lands in UNREVIEWED.** So the bucket now conflates two populations that mean
+opposite things:
+
+- never submitted (the thing the report exists to surface), and
+- submitted, approved, and committed first (the thing the 07-29 ruling asks for).
+
+**And the ratio moves the wrong way as compliance improves.** Every thread that
+follows the ruling adds to UNREVIEWED. The report's headline number therefore
+understates review coverage by an amount that grows with adoption — which is the
+one direction a visibility metric must not drift, because it makes the norm look
+ignored precisely when it is being followed.
+
+**Not proposing a fix** — options all have costs that are yours to weigh (a
+corr→commit mapping written at verdict time; `098` accepting a trailer on any
+commit in the window that names an approved correlation; or simply documenting the
+two populations as distinct in the report's own output). The honest-limits block at
+the top of `098` already models exactly this kind of disclosure, which is why I
+think the finding belongs to that block rather than to a code change.
+
+One thing worth stating either way: **`8 REVIEWED / 40 UNREVIEWED` in a single day
+should not be read as 17% compliance** until this is resolved.
