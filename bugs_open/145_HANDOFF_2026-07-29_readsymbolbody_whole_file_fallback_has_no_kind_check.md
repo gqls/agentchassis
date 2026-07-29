@@ -79,11 +79,31 @@ producer, not in the function that would be harmed.
 
 Layer 1b closed its own exposure at the query source (`lookup_code_symbols` now
 returns only code kinds, reusing the D12 guard's allow-list). That is correct and
-sufficient **for that producer**. Fixing the generic fallback is a change to a
-shared helper used by `cmd/assembler` and the bundle action alike — a different
-blast radius, a different review. **Splitting it out is legitimate precisely because
-it is pre-existing and not layer 1b's to create** (contrast the D12 citation hazard,
-which layer 1b *would* have created and therefore could not be split).
+sufficient **for that producer**. Fixing the generic fallback changes the shared
+helper itself, for every future producer — a different blast radius, a different
+review. **Splitting it out is legitimate precisely because it is pre-existing and
+not layer 1b's to create** (contrast the D12 citation hazard, which layer 1b *would*
+have created and therefore could not be split).
+
+> **CORRECTED 2026-07-29, before this file was an hour old.** The first version of
+> this section said the helper is "used by `cmd/assembler` and the bundle action
+> alike". **`cmd/assembler` does not exist in this repo.** The only live caller of
+> `ReadSymbolBody` is `diagnose_assemble_bundle_action.go:201`; the assembler lives
+> in archived reference code at
+> `docs/agent_docs/docs019_…/go_files/contextkit/cmd/assembler/main.go`.
+>
+> **So the blast radius is ONE call site, not two — the fix is cheaper than this
+> file first claimed.** I took the claim from the code comment at
+> `diagnose_assemble_bundle_action.go:641` ("so `cmd/assembler` and this action
+> slice IDENTICALLY"), **which is itself stale** and should be corrected by whoever
+> takes this bug.
+>
+> Caught by `scripts/pattern-check.py`'s `new-capability-surface` check, which
+> flagged that the file "proposes `cmd/assembler/`, which does not exist" — a check
+> written for a different purpose (spotting a second copy of a service) that
+> happened to catch a stale citation. **Worth recording as a fire that earned its
+> keep**, and as the third instance today of the same root error: repeating a claim
+> from a doc or comment without running the one command that checks it.
 
 ## Fix candidates, ordered by what makes the bad state unrepresentable
 
