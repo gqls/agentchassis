@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,652 concepts across 107 category register files. 1,627 consolidated from
+1,653 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -39,7 +39,10 @@ to supply corrected image bytes; and 1 more (CLC-012) added 2026-07-29 — a sec
 component implementing an ALREADY-REGISTERED experience pattern
 (`teaser-detail-deeplink`) rather than declaring a new shape, which is the property
 that makes a shape vocabulary worth keeping: two components that look nothing alike
-share one micro-journey.
+share one micro-journey; and 1 more (FIX-055) added 2026-07-29 — truncation-gate
+attribution on the council report, from `bugs_open/138`, because a reviewer that
+ran out of tokens was gating rounds under a label that named the SEAT, making an
+advisory seat blocking and a working seat look noisy enough to retire.
 That last group carries a note on method: the first of the five was added alone,
 and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
 workstream as covered while four callable mechanisms were still absent. The
@@ -1240,6 +1243,7 @@ an ID prefix, or a status word.
 | FIX-051 | Triage router (Phase 1): deterministic failure sorter | deployed | No-LLM router sorts every fleet failure into bug/blip/no-error/capability-gap | fix-loop.md |
 | FIX-052 | Silent-check verifier (Phase 2): the class no work item ever records | deployed | Finds bugs nothing flags (darts nav-page signature), routes via triage router | fix-loop.md |
 | FIX-053 | Feedback close-out (Phase 3): all-time resolution recheck + auto-reescalation | deployed | Closes parked escalations whose pattern genuinely resolved; re-escalates if it returns | fix-loop.md |
+| FIX-055 | Truncation-gate attribution: `gated_by_truncation` on every council report | built, not yet live | A revise now says whether a seat judged it or merely ran out of tokens; gate unchanged | fix-loop.md |
 | SOC-013 | Vertical integration of Spark mechanics into domain sites | aspirational | Same mechanics re-flavoured per vertical (vet, finance, fashion, food) | social-media.md |
 | SQLC-001 | SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits) | convention | Same method as DBG-016, extracted independently under this proposed category | sql-change-management.md |
 | DBG-070 | gpu-provisioner output-shape flattening (output_fields plural vs singular) | deployed | Same output_field/output_fields bug class as DBG-050 on a different agent | debugging.md |
