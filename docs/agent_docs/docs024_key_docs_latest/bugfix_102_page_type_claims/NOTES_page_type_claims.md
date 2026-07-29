@@ -188,3 +188,43 @@ row rewritten, and 016b §9 gained the shared-tree/HEAD pattern from this sessio
 **Three residuals were filed rather than absorbed**, so the closure is not overstated: the
 `report` model-number class, candidate 3 (tutorial framing), and the compliance seat's real
 gap — **no ongoing control for future page-type misclassification**, only this one-time check.
+
+### After the close: the misstep that was not about this bug at all
+
+The owner asked whether the page-type misclassification check should be part of the
+check-and-fix system fired from the improvement loop. **I had already answered that question
+wrongly, unprompted.** Asked how to make my one-time check ongoing, I recommended a bespoke
+scheduled SQL sweep, on the grounds that the natural home — a discovery check — "would never
+run, because the improvement-sweep has been disabled since 2026-05-02".
+
+Both halves of that were wrong, and the second is the one that matters:
+
+1. **A disabled scheduler is not a dead subsystem.** Measured only after being pushed:
+   `completeness-discovery-agent` had produced 144 work items and `design-discovery-agent` 108,
+   the latest on **2026-07-25 — three days earlier**, fired by routes other than the sweep,
+   including a one-shot `scheduled_tasks` row aimed straight at a discovery agent
+   (`oneshot-discovery-aao-20260726`). What is genuinely dead is far narrower and I could have
+   said it exactly: **`claims_unverified` items number zero, ever.** I took CLM-004's phrase
+   "effectively never runs" — scoped to one check's route — and widened it to the package.
+2. **`discovery_checks/` has build-enforced invariants I did not know existed**:
+   `handler_coverage_test.go`, `verifier_coverage_test.go`, and `remit.go`'s
+   detector-wider-than-handler residue rule. A parallel sweep with its own item type is
+   invisible to all three. And `IMP-016` already states the policy for my exact situation — a
+   check is enabled once its handler exists, observe-only ahead of that — so I proposed routing
+   around a written policy I had not read. My check needs no handler: it is HITL-terminal, the
+   same `HandlerAgent: ""` shape as the two checks either side of it.
+
+**The uncomfortable part.** I spent the whole session editing `check_unverified_claims.go`,
+which lives in that directory, and never listed its 69 siblings or opened `registry.go`.
+**Editing one file in a package is not knowing the package** — the invariants live in the files
+you have no reason to open for your own change. Logged in `WRONG_CALLS.md` with the two cheap
+checks: `ls` the directory you are standing in, and `grep` the concept register for the
+subsystem's own category before proposing anything beside it.
+
+Corrected recommendation, now grounded: a discovery check on
+**`completeness-discovery-agent`** (structural lane, ran three days ago) rather than
+`quality-discovery-agent` (thematic lane, 7 items ever, nothing since 07-17) — and
+`page_type` misclassification is genuinely structural, not claims-specific, since
+`page_growth_budget.go`, `apply_gap_plan_action.go` and `populate_nav_tables_action.go` all key
+on it too. `IMP-020` is the warning attached: a check written and never added to an agent's
+`checks` array has literally never fired.
