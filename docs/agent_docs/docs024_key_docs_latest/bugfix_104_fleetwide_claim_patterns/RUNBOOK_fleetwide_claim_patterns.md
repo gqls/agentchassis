@@ -356,3 +356,36 @@ The 07-28 headline "0 findings across the whole surface" is therefore **spent, a
 was an artefact of the excluded pattern** — not evidence the estate was clean. When
 you next quote a clean-sweep number, name the patterns that were armed when you
 measured it.
+
+## 15. Verifying the GUARD is live after the next roll (owed — raised by the council)
+
+The guard is a Go change, so it is **inert until a chassis image ships**. The
+`needle_gate` seat objected at low that the plan cited only dry-run and test evidence,
+never a running-pod grep — fair, and this is the marker to use. Pick a string only
+**this** change puts in the binary; the reason strings qualify, function names do too.
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "external-verification claim"'   # MARKER: 1 (the 10th pattern's reason)
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "suppressed as negated"'          # MARKER: 1 (the gate's suppression log)
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "completeness-of-exclusion"'      # POSITIVE CONTROL: 3 (pre-existing, unchanged)
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "zzz-not-a-real-marker"'          # NEGATIVE CONTROL: 0
+```
+
+**Check BOTH replicas** — `logs deploy/X` and a single-pod grep each read one pod of N.
+Zero on a marker with non-zero on the control means "not rolled yet"; zero on both means
+your grep is wrong. **A RETAG IS NOT A REBUILD**: compare `.ID` and `.CreatedAt`, because
+two tags have shared one image id on this fleet before.
+
+Once live, the guard's behaviour is observable **from the build logs**, not only from
+this tool:
+
+```bash
+kubectl logs -n ai-persona-system -l app=agent-chassis --tail=2000 \
+  | grep "claims gate: banned-claim match suppressed as negated"
+```
+
+Each line carries `site_id`, `pattern`, `matched` and `snippet`. **If that grep starts
+returning matches on sentences that are NOT denials, the guard is over-firing** — that
+is the failure this logging exists to make visible, and the fix is the cue list in
+`negationCueRe`, not the pattern.
