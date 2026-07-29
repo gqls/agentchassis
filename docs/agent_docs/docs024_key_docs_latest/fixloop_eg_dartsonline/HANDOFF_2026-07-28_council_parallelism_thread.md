@@ -469,6 +469,40 @@ construction. The strong evidence remains yesterday's *daytime* window (50 spawn
 post-roll window still has not been observed** — whoever is next should re-run the
 hourly table with the control column during a working hour today.
 
+### Where the flip preconditions now stand — 2 of 4 met, and the decision does NOT change
+
+The RESOLVED section above set four preconditions for a future thread to make the
+wrapper the default. Re-checked 2026-07-29:
+
+| precondition | state |
+|---|---|
+| `003` closed | ✅ `bugs_closed/003_…spawn_lost_child_response.md` |
+| `124` fixed | ✅ `bugs_closed/124_…runs_twice_under_two_correlations.md` |
+| `029` closed or accepted | ❌ **still `bugs_open/`** — and note the number collision: the phantom-tool-links `029` is CLOSED, the one that blocks this thread is `029_…hung_spawns_saturate_dispatch_group…`. **Resolve by slug.** |
+| Anthropic concurrency headroom measured | ❌ still `[UNMEASURED]` |
+
+**`029`'s fix is live even though the bug is open**, which is the interesting part:
+`CHASSIS_RESPONSES_START_AT=latest` is set on **both** replicas of `v1.0.1196` and
+the binary carries `NewConsumerFromLatest` — it was "shipped dark" when that file
+was last written, and it is not dark now. That, not luck, is what the clean window
+above is measuring.
+
+**A loose end found while checking, contributed into `029` rather than actioned
+here** (it is owned by the work-item parallelisation thread): the flag is **not in
+the repo** — absent from `deployments/`, no commit under
+`git log -S'CHASSIS_RESPONSES_START_AT'`, and absent from
+`last-applied-configuration`. It lives only as cluster state. I am **not** claiming
+`apply -k` strips it (env is a merge-keyed list; untested). The certain part is
+that a rebuild or a Deployment recreate yields a chassis without the fix and
+nothing in git says it is needed.
+
+**This does not reopen the flip.** The RESOLVED decision was not blocked on `029`
+alone — it rested on the council's REVISE being sound and the urgency being gone
+(the dedicated lane already stops councils blocking other work, and `replicas=2`
+already gives two concurrent councils). Two preconditions clearing does not restore
+an urgency that no longer exists. **Reviving it is an owner call, not a
+consequence of this table.**
+
 ## Next actions (superseded above — kept for the record)
 
 1. **Follow `chassis_replica_scaling`, do not re-diagnose.** They own the
