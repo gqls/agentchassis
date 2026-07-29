@@ -106,3 +106,32 @@ SELECT id, 'operator', 'needs_brand_head_assets', 'medium', 'Re-derive favicon +
 **Gotcha:** the header `<img>` src on older sites is `/assets/images/logo.jpg` (hero-purpose
 deploy geometry) while a logo-purpose deploy writes `logo.png` — check what the served page
 actually references before assuming the deploy landed in the right filename.
+
+### ⚠ THERE ARE TWO DEPLOY ROUTES, chosen per site by a column. Ask first.
+
+Paid for by relojistas-5 on 2026-07-29: they published relojistas' header to `gqls/sites`,
+watched the live page not change, and inferred a lagging intermediate origin that **does not
+exist**. The `[INFERRED]` marker on that claim is the only reason it did not become a false
+finding. The real cause: relojistas is a VM-served site and `gqls/sites` is a dead duplicate
+that nothing serves.
+
+**Run this BEFORE choosing a deploy route — the column exists precisely because there are two:**
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+  "SELECT domain, COALESCE(NULLIF(github_repo,''),'(empty)') FROM sites WHERE domain='<domain>';"
+```
+
+| `sites.github_repo` | route | served by |
+|---|---|---|
+| `vm-sites` | `gqls/vm-sites` via `deploy-to-vm.yml` | nginx on the box |
+| empty | `gqls/sites` via the contents API, then the B2 workflow | CF → B2 |
+
+Measured 2026-07-29 for this lane's sites: **`idea.uk` = `vm-sites`**; **`gaswholesalers.com`
+= empty (B2 route)**; relojistas = `vm-sites`; leopardess = empty. So the two sites this
+session owns take **different routes** — do not copy one recipe onto the other.
+
+Second-order lesson worth keeping: an nginx-shaped etag told relojistas-5 *some* origin was
+serving, and they read it as "which cadence?" instead of "**which origin?**". When a deploy
+lands and the page does not change, ask which of the two routes actually serves this domain
+before theorising about propagation delay.
