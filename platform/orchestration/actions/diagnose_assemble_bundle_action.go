@@ -256,18 +256,35 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		}
 	}
 
-	// Code-search answers (the breadth tier) — rendered BEFORE the runtime section
-	// and under an explicitly STATIC heading. These are index reads returning
-	// source code, so they are static-tier evidence: the two-evidence-family guard
-	// must not be satisfiable by them alone, and the surest way to keep that true
-	// is to never let them appear under a heading a verdicter could read as
-	// observed state. The heading says so in words, because the model reads the
-	// heading and not this comment.
+	// Code-search answers (the breadth tier) — rendered BEFORE the runtime section.
+	// Index reads returning source code are static-tier evidence: the
+	// two-evidence-family guard must not be satisfiable by them alone, and the
+	// surest way to keep that true is to never let them appear under a heading a
+	// verdicter could read as observed state. The heading says so in words,
+	// because the model reads the heading and not this comment.
+	//
+	// D12 (owner ruling 2026-07-29, council corr da1f9c81): this heading used to
+	// assert "They are CODE" over EVERYTHING the index returned. That is safe only
+	// while the index holds Go alone. Once markdown is indexed (D11 layer 1b), a
+	// section of bugs_open/*.md could satisfy the static half of a CONFIRMED
+	// verdict while this heading told the verdicter it was code. So the heading now
+	// names both, and answerCodeCheck tags prose rows [doc] and groups them under
+	// their own sub-heading. The guard shipped BEFORE the corpus, so it was inert
+	// on arrival by construction.
+	//
+	// STILL TRUE AND STILL LOAD-BEARING: the "confirm still needs a state/runtime
+	// citation" sentence below does separate work — it stops a code-only confirm —
+	// and must survive any future rewording of the [doc] wording around it.
 	if ce := datahelpers.ExtractNestedFieldString(params.CollectedData, codeField); ce != "" {
-		b.WriteString("## Code search results (from the code_symbols index — STATIC tier)\n\n")
-		b.WriteString("These answer code questions a previous iteration asked. They are CODE, so\n")
-		b.WriteString("they are static evidence: they can show a mechanism EXISTS, never that it\n")
-		b.WriteString("OCCURRED. A confirm still needs a state/runtime citation showing it happening.\n\n")
+		b.WriteString("## Index search results (from the code_symbols index)\n\n")
+		b.WriteString("These answer code questions a previous iteration asked.\n\n")
+		b.WriteString("Rows WITHOUT a [doc] tag are CODE, and therefore static-tier evidence:\n")
+		b.WriteString("they can show a mechanism EXISTS, never that it OCCURRED.\n\n")
+		b.WriteString("Rows tagged [doc] are PROSE from this repository's own documentation.\n")
+		b.WriteString("They are NOT static-tier evidence and must NOT be cited as \"the code\n")
+		b.WriteString("shows X\" — a document SAYS a mechanism exists; only code SHOWS it. Treat\n")
+		b.WriteString("one as a pointer to where to look, then read and cite the code itself.\n\n")
+		b.WriteString("A confirm still needs a state/runtime citation showing it happening.\n\n")
 		b.WriteString(ce)
 		b.WriteString("\n")
 	}

@@ -419,12 +419,82 @@ func validCodeCheckKind(kind string) bool {
 	return false
 }
 
+// kindDoc is the code_symbols.kind carried by an indexed markdown section.
+// Declared here rather than in the indexer because THIS is the reader that must
+// never present one as code, and the guard ships before the corpus does (D12).
+const kindDoc = "doc"
+
+// codeKinds is the set of kinds that ARE source code, and therefore static-tier
+// evidence. It is an ALLOW-LIST, and that direction is the whole point.
+//
+// The obvious form of this guard is `if kind == kindDoc { tag it }` — and that is
+// a denylist of one: every other value, including a kind nobody has invented yet,
+// silently falls through to "render as code, untagged". That is the shape the
+// bug_historian seat named on corr da1f9c81 (medium): a dispatch table's default
+// branch is a silent bug factory, once per new enum value. Inverted, the failure
+// mode is loud and safe instead — an unknown kind renders as NOT-code, which is
+// wrong in the direction that costs a reviewer one wasted lookup rather than a
+// CONFIRMED verdict resting on prose.
+// ONE source of truth: the slice below builds both the Go lookup and the CSV the
+// `ls` query binds, so the set cannot drift between them. (Two hand-maintained
+// copies of one list is precisely the class this council reviews for.)
+var codeKindList = []string{"func", "method", "struct", "interface", "alias", "type", "var", "const"}
+
+var codeKinds = func() map[string]bool {
+	m := make(map[string]bool, len(codeKindList))
+	for _, k := range codeKindList {
+		m[k] = true
+	}
+	return m
+}()
+
+// codeKindsCSV feeds `kind = ANY(string_to_array($4, ','))` — a plain string bind,
+// so no driver-specific array type is involved.
+var codeKindsCSV = strings.Join(codeKindList, ",")
+
+// docTag marks a row the verdicter must NOT read as code. Empty for every known
+// code kind, so code answers render byte-identically to before this change.
+func docTag(kind string) string {
+	if codeKinds[kind] {
+		return ""
+	}
+	return " [doc]"
+}
+
+// isCode reports whether a row belongs in the code block rather than the prose
+// block. Same allow-list, same reason.
+func isCode(kind string) bool { return codeKinds[kind] }
+
+// docBlockHeader introduces the prose rows inside ONE check's answer. It is
+// deliberately wordy: the reader is a model, and the bundle's own comment records
+// why the words are the guard — "the model reads the heading and not this comment".
+const docBlockHeader = "    ── documentation matches: PROSE from this repository's own docs.\n" +
+	"       NOT static-tier evidence. A document SAYS a mechanism exists;\n" +
+	"       only code SHOWS it. Do not cite these as \"the code shows X\" —\n" +
+	"       follow them to the code and cite that.\n"
+
 // answerCodeCheck runs ONE check against code_symbols. The SQL is fixed per
 // kind; the reviewer's query arrives only as a bind parameter — nothing
 // model-written is executed as SQL (contrast run_checks, whose whole point is
 // model-written SELECTs under containment; here the containment is that the
 // model writes no SQL at all).
+//
+// Rows whose kind is not in codeKinds are buffered into a separate block emitted
+// AFTER the code rows, under docBlockHeader, with a [doc] tag on each line. Both
+// code-answer lanes reach this function (diagnose_load_runtime_action.go:479
+// calls it — "same package, so this is reuse, not a second implementation"), so
+// this one guard covers the council's verify tier and the runtime lane alike.
 func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter string, rowCap, excerptChars int, scope codeIndexScope, b *strings.Builder) error {
+	// Prose rows for THIS check, emitted after its code rows. Nil-safe: with no
+	// doc rows in the index (the state on the day this ships) it stays empty and
+	// nothing is written, so the rendered answer is unchanged byte-for-byte.
+	var docs strings.Builder
+	defer func() {
+		if docs.Len() > 0 {
+			b.WriteString(docBlockHeader)
+			b.WriteString(docs.String())
+		}
+	}()
 	switch c.Kind {
 	case "symbol":
 		// Match every identifier token in the query as an AND of substrings,
@@ -438,7 +508,7 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		// the symbol column (never the body).
 		clause, args := symbolTokenClause(c.Query, repoFilter, rowCap)
 		rows, err := db.QueryContext(ctx, `
-			SELECT path, symbol, COALESCE(signature,''), COALESCE(line_start,0), COALESCE(line_end,0), COALESCE(commit_sha,'')
+			SELECT path, symbol, COALESCE(signature,''), COALESCE(line_start,0), COALESCE(line_end,0), COALESCE(commit_sha,''), kind
 			FROM code_symbols
 			WHERE `+clause+`
 			ORDER BY path, symbol
@@ -449,12 +519,16 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		defer rows.Close()
 		n := 0
 		for rows.Next() {
-			var path, symbol, sig, sha string
+			var path, symbol, sig, sha, kind string
 			var ls, le int
-			if err := rows.Scan(&path, &symbol, &sig, &ls, &le, &sha); err != nil {
+			if err := rows.Scan(&path, &symbol, &sig, &ls, &le, &sha, &kind); err != nil {
 				return err
 			}
-			fmt.Fprintf(b, "  - %s : %s  [L%d-%d]  %s  (commit %s)\n", path, symbol, ls, le, truncateCell(sig, 160), shortSHA(sha))
+			out := b
+			if !isCode(kind) {
+				out = &docs
+			}
+			fmt.Fprintf(out, "  - %s : %s%s  [L%d-%d]  %s  (commit %s)\n", path, symbol, docTag(kind), ls, le, truncateCell(sig, 160), shortSHA(sha))
 			n++
 		}
 		if n == 0 {
@@ -487,7 +561,7 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		// is not needed: it would duplicate every byte of both columns on disk and
 		// lose the body-vs-declaration distinction the [body]/[decl] marker needs.
 		rows, err := db.QueryContext(ctx, `
-			SELECT path, symbol, COALESCE(body,''), content, COALESCE(commit_sha,''), (body IS NOT NULL)
+			SELECT path, symbol, COALESCE(body,''), content, COALESCE(commit_sha,''), (body IS NOT NULL), kind
 			FROM code_symbols
 			WHERE (body ILIKE '%' || $1 || '%' OR content ILIKE '%' || $1 || '%')
 			  AND ($2 = '' OR repo = $2)
@@ -499,9 +573,9 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		defer rows.Close()
 		n := 0
 		for rows.Next() {
-			var path, symbol, body, content, sha string
+			var path, symbol, body, content, sha, kind string
 			var hasBody bool
-			if err := rows.Scan(&path, &symbol, &body, &content, &sha, &hasBody); err != nil {
+			if err := rows.Scan(&path, &symbol, &body, &content, &sha, &hasBody, &kind); err != nil {
 				return err
 			}
 			// Say WHICH text matched. "[body]" is a fact about the source;
@@ -512,8 +586,12 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			if strings.Contains(strings.ToLower(body), strings.ToLower(c.Query)) {
 				text, where = body, "body"
 			}
-			fmt.Fprintf(b, "  - %s : %s  (commit %s)\n    [%s] %s\n",
-				path, symbol, shortSHA(sha), where, matchingExcerpt(text, c.Query, excerptChars))
+			out := b
+			if !isCode(kind) {
+				out = &docs
+			}
+			fmt.Fprintf(out, "  - %s : %s%s  (commit %s)\n    [%s] %s\n",
+				path, symbol, docTag(kind), shortSHA(sha), where, matchingExcerpt(text, c.Query, excerptChars))
 			n++
 		}
 		if n == 0 {
@@ -522,13 +600,19 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		return rows.Err()
 
 	case "ls":
+		// GROUP BY, not SELECT DISTINCT ... kind. `ls` lists one row per PATH, and
+		// a Go file holds several kinds — adding kind to the DISTINCT would return
+		// one row per (path, kind) and multiply every source file in the listing.
+		// bool_or collapses it back: a path is code if ANY row under it is code.
 		rows, err := db.QueryContext(ctx, `
-			SELECT DISTINCT path, COALESCE(commit_sha,'')
+			SELECT path, COALESCE(commit_sha,''),
+			       bool_or(kind = ANY(string_to_array($4, ','))) AS has_code
 			FROM code_symbols
 			WHERE path LIKE $1 || '%'
 			  AND ($2 = '' OR repo = $2)
+			GROUP BY path, COALESCE(commit_sha,'')
 			ORDER BY path
-			LIMIT $3`, c.Query, repoFilter, rowCap)
+			LIMIT $3`, c.Query, repoFilter, rowCap, codeKindsCSV)
 		if err != nil {
 			return err
 		}
@@ -536,10 +620,15 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		n := 0
 		for rows.Next() {
 			var path, sha string
-			if err := rows.Scan(&path, &sha); err != nil {
+			var hasCode bool
+			if err := rows.Scan(&path, &sha, &hasCode); err != nil {
 				return err
 			}
-			fmt.Fprintf(b, "  - %s  (commit %s)\n", path, shortSHA(sha))
+			out, tag := b, ""
+			if !hasCode {
+				out, tag = &docs, " [doc]"
+			}
+			fmt.Fprintf(out, "  - %s%s  (commit %s)\n", path, tag, shortSHA(sha))
 			n++
 		}
 		if n == 0 {
