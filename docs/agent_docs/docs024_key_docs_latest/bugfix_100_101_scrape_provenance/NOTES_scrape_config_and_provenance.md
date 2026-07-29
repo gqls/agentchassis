@@ -1190,3 +1190,52 @@ has owed since §17. **Not claiming it until a pod log shows it.**
 Council submitted, corr `1c606c72-eb82-4761-b30d-1a7c653b744d`, queue depth 2 ahead.
 **Deliberately not rolling while it is in flight** — a roll kills an in-flight council, and
 I would be killing my own.
+
+## §20 — 2026-07-29 ~07:26 — APPROVED round 1 in 7 minutes, and the one advisory is a real point I am not taking
+
+Corr `1c606c72-eb82-4761-b30d-1a7c653b744d`. Submitted 07:18, decided **07:25:41** — about
+**7 minutes**, against the ~30 CLAUDE.md budgets. The queue was 2 deep and drained; do not
+generalise this into an ETA (the runbook says that lane has no stable drain rate).
+
+**APPROVED, round 1, 11 seats, `unreadable: 0`** — so no seat died on unparseable JSON and
+the verdict is a judgement, not a harness artefact. `decided_by` on the artifact row is
+EMPTY; the decision string lives in the report body (`approved with 1 advisory objection(s)
+— none high-severity`). Read the body, not the column.
+
+### The advisory, and why I am recording rather than acting
+
+**editquality, severity low:** edit 3 — the `batch_id` header correction — *"is a comment-only
+change … it does nothing to advance the stated goal … It should be split out of this plan or
+dropped: including it violates minimality (rule d) even though it is harmless on its own."*
+
+**That is a fair rule, and the seats disagreed with each other about this exact edit.**
+`guidelines`, `constitution` and `architecture` each cited the same `batch_id` handling
+*approvingly* — architecture called it "the correct instinct for this seat's concern", and
+constitution noted the plan "is self-aware of the exact anti-pattern this seat polices".
+
+My position, recorded so it can be judged later: editquality is right on minimality in the
+abstract, and I would split it next time. I am not reverting it, because it is **defensively
+load-bearing** — the header advertised `batch_id` as live config, and the tempting way to
+close the warning this very change switches on is to declare it, which is the recorded
+`WRONG_CALLS.md` mistake. Leaving a comment that invites the wrong fix, in the same file the
+next author will open *because* of my warning, is not minimal, it is a trap left set. It is
+already committed and forward-only holds. **Noting it because an APPROVED verdict is where
+an advisory is easiest to ignore — that is this workstream's own §16 lesson, and this is the
+second time in two sessions the advisory has been the interesting part of an approval.**
+
+### Non-blocking asks worth someone's time
+
+- **`guardian` and `prior_art_librarian` both flagged the same thing:** the "ConfigKeys is
+  inert" claim *"is the entire safety argument and should be confirmed by a human reading the
+  diff, not just this review"*. It is grep-checkable in one line and I have re-run it —
+  `grep -rn '\.ConfigKeys' platform/ cmd/` returns only `UnknownConfigKeys`,
+  `ListDeclaredConfigKeys`, the `IsCheckedAction` gate and `cmd/config-key-audit`. Two seats
+  independently declining to take the author's word for the load-bearing claim is the gate
+  working.
+- **`guidelines` found a genuine doc gap:** the DECLARED CONTRACTS rule names
+  `agent_definitions.input_contract` and does not mention `ConfigKeys`, *"a distinct,
+  lower-level Go declaration surface"* — so a future reviewer could read the rule and miss
+  that ConfigKeys is the **only** correct place to declare config for actions that read
+  `params.StepConfig.Config` directly. Worth an amendment; not mine to make unilaterally.
+- **`debug_historian`:** when this ships, confirm by **pod-grep**, not by git or tag. Already
+  the plan.
