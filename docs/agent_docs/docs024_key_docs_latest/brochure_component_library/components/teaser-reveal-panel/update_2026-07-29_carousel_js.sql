@@ -1,4 +1,11 @@
-/* teaser-reveal-panel — URL addressability + carousel navigation for the
+\set ON_ERROR_STOP on
+-- Re-apply teaser-reveal-panel's behaviour.js to the live js_snippets row
+-- (carousel prev/next navigation added; deep-link open now also scrolls
+-- horizontally, inline:'center', since a card can be off-screen to the side
+-- in a carousel, not just below the fold).
+BEGIN;
+UPDATE js_snippets
+   SET js_content = $JS$/* teaser-reveal-panel — URL addressability + carousel navigation for the
  * teaser-detail-deeplink shape.
  *
  * PROGRESSIVE ENHANCEMENT, deliberately. The reveal itself is native
@@ -133,3 +140,9 @@
     }
   });
 })();
+$JS$
+ WHERE name = 'teaser-reveal-panel';
+COMMIT;
+SELECT name, is_active, length(js_content) AS bytes,
+       js_content LIKE '%data-trp-prev%' AS has_carousel_nav
+  FROM js_snippets WHERE name = 'teaser-reveal-panel';

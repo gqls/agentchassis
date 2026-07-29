@@ -1,4 +1,25 @@
-<style>
+\set ON_ERROR_STOP on
+-- Re-apply teaser-reveal-panel's template + input_schema to the LIVE
+-- content_components row: carousel arrows (reusing hero-card-carousel's
+-- goTo/nearestIndex pattern), a single row at every viewport width (removes
+-- the desktop grid-wrap that produced 2 rows of cards), extra card padding, a
+-- CSS-drawn (never stored) ellipsis on the closed continuation, and an open
+-- state where continuation completes into body with no visible seam and the
+-- "Read the rest" control disappears rather than dangling with nothing left
+-- to invite. GENERATED from components/teaser-reveal-panel/{template.html,
+-- input_schema.json} -- edit those files and regenerate, do not hand-edit.
+--
+-- input_schema is unchanged this round (no new content fields) -- only
+-- template.html and behaviour.js changed, so no page's content_data needs
+-- touching, only a page_rerender to pick up the new template.
+BEGIN;
+
+DROP TABLE IF EXISTS bak_cc_teaser_reveal_panel_pre_carousel_update;
+CREATE TABLE bak_cc_teaser_reveal_panel_pre_carousel_update AS
+SELECT * FROM content_components WHERE function = 'teaser-reveal-panel';
+
+UPDATE content_components
+   SET html_template = $HTML$<style>
   /* Colour vocabulary verified against live css_themes before use (the
      --color-surface / --spacing-section class of error: those names are defined
      by NO active theme, so the fallback silently wins). Every var below was
@@ -140,3 +161,67 @@
     </div>
   </div>
 </section>
+$HTML$,
+       input_schema  = $SCHEMA${
+  "fields": {
+    "section_eyebrow": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "Short uppercase eyebrow, 2-4 words. Optional."
+    },
+    "section_title": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "Short heading for the panel, under 10 words."
+    },
+    "items": {
+      "type": "array",
+      "source": "llm",
+      "required": true,
+      "on_missing": "skip_section",
+      "missing_reason": "a teaser panel with no items is an empty shell; skip the section rather than render a heading over nothing",
+      "llm_guidance": "3 to 6 items. Each item is a teaser that opens in place. Write hook and continuation as ONE thought split across two fields, and put the completion in body. HARD RULES: (1) Never write a figure, percentage, count or date in hook or continuation. Any number and the words that give it meaning must sit together inside body, because a checker reads a number and its surrounding context as one unit and a split makes a true figure look invented. (2) continuation must be an incomplete clause that body genuinely completes. Never end it with an ellipsis, three dots or any other punctuation trick; the incompleteness is carried in the data, not in the typography. (3) Only tease what you can deliver. If you have no body for an item, write continuation as a COMPLETE sentence and omit body entirely; the item then renders as a plain statement with no control. Never write a teaser whose promise the body does not answer. (4) image_url is optional per item, but if set, image_alt MUST also be set to a genuine description of what the image shows \u2014 never the hook restated, because a screen reader will read hook immediately after alt and a repeated phrase is redundant, not descriptive.",
+      "items": {
+        "key": {
+          "type": "text",
+          "llm_guidance": "Short lowercase-kebab identifier, unique within the panel. It appears in the URL when the item is open, so keep it readable."
+        },
+        "hook": {
+          "type": "text",
+          "llm_guidance": "One very short complete sentence. Under 12 words. It must stand alone."
+        },
+        "continuation": {
+          "type": "text",
+          "llm_guidance": "The deliberately unfinished second sentence, completed by body. Under 20 words. No ellipsis."
+        },
+        "body": {
+          "type": "text",
+          "llm_guidance": "The full text revealed on activation. Optional: an item with no body is legitimate and renders as a plain statement."
+        },
+        "open_label": {
+          "type": "text",
+          "llm_guidance": "Optional label for the control, e.g. 'Read the rest'. Defaults to 'Read the rest'."
+        },
+        "image_url": {
+          "type": "text",
+          "required": false,
+          "llm_guidance": "Optional path to an existing site image, e.g. /assets/images/<name>.jpg. Never invent a filename; only reference an image known to exist."
+        },
+        "image_alt": {
+          "type": "text",
+          "required": false,
+          "llm_guidance": "Required whenever image_url is set. A genuine description of the image's content, not a restatement of hook."
+        }
+      }
+    }
+  }
+}$SCHEMA$::jsonb
+ WHERE function = 'teaser-reveal-panel';
+
+COMMIT;
+
+SELECT function, is_active, length(html_template) AS template_bytes,
+       html_template LIKE '%data-trp-prev%' AS has_arrows
+  FROM content_components WHERE function = 'teaser-reveal-panel';

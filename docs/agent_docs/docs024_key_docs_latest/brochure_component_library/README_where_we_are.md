@@ -986,3 +986,51 @@ click-to-reveal) and it has no images yet. Giving it images would mean changing
 that carousel's own code rather than reusing what I'd just built, so I left it
 as the one remaining picture-less card section on the site rather than rush it
 this round.
+
+**Then you looked at the panel and sent four notes.** All four are done.
+
+Padding: given the cards more breathing room, text no longer sits close to the
+edges.
+
+The "..." at the end of the cut-off sentence: I didn't literally type three
+dots into the stored text, and I want to explain why rather than just quietly
+doing something different from what you asked. Our own system watches for a
+trailing "..." as a sign that an AI generation got cut off partway through and
+tries to "fix" it — which is exactly the kind of thing this panel already goes
+out of its way to avoid tripping. So instead I drew the "…" as a pure visual
+effect that only exists on screen, never in the actual stored words. You'll see
+it exactly the same as if I'd typed it; underneath, the real text still reads
+cleanly with nothing missing or malformed. It disappears the moment you open
+the card, since a cliffhanger mark on a sentence that's just finished
+completing itself would be a lie.
+
+Reading as one section when opened: done as you described. The moment a card
+opens, the "Read the rest" prompt disappears completely rather than sitting
+there with nothing left to invite, and the cut-off sentence continues straight
+into the full text in the same colour and weight, so it reads as one
+continuous passage. Closing it is still just a click on the card itself.
+
+The carousel: this was a real bug, not just a look I chose badly. Fixed at
+its cause — there was a rule that switched the layout into a wrapping grid on
+wider screens, which is exactly what put six cards onto two lines. It's a
+single, scrollable row now at every screen size, and I added the left/right
+arrow buttons you asked for. I didn't invent the arrow design — this site
+already has one, on the sliding hero images near the top of a couple of pages,
+so I reused that same button and the same scrolling logic rather than making a
+second version of the same thing.
+
+**The one thing you said we should talk about — text that drops down inside a
+carousel.** I've made a call, but it's a genuine choice and I'd rather you saw
+it stated than just discover it: when a card opens inside a horizontal row, its
+extra text has to go somewhere, and if I let it grow freely, the row gets
+taller every time, which drags the left/right arrows out of position since
+they're sitting at a fixed height. My fix is to give the revealed text a
+maximum height with its own small scrollbar inside the card, so the row height
+and the arrows never move at all, no matter what opens. In practice none of
+the text we've written so far is long enough to ever actually hit that limit,
+so today it changes nothing you'll notice — it's there as a safety net for
+if a much longer answer gets written in future. The alternative is to let cards
+grow freely and have the arrows reposition themselves to match — more generous
+for long text, at the cost of the arrows shifting under your hand while you're
+mid-read. I went with the steadier option by default. Easy to switch if you'd
+rather have the other one after trying it.

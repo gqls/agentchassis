@@ -125,6 +125,20 @@ func main() {
 	check("alt text is never the hook restated", !strings.Contains(markup, `alt="A short complete first sentence."`))
 	check("no empty img src for the item without an image", !strings.Contains(markup, `src=""`))
 
+	// Carousel controls: arrows + a live region for the announcement.
+	check("prev arrow present", strings.Count(markup, "data-trp-prev") == 1)
+	check("next arrow present", strings.Count(markup, "data-trp-next") == 1)
+	check("live region present", strings.Contains(markup, "data-trp-live"))
+
+	// The ellipsis is CSS-drawn, never a real character: it must exist as a
+	// content: rule in the STYLE block (checked against the whole document,
+	// not the markup slice) and must be ABSENT as a literal character in the
+	// markup — a literal one is exactly what the platform's no-ellipsis rule
+	// forbids (a truncation checker reads a trailing "..." as damage).
+	check("decorative ellipsis rule present in CSS", strings.Contains(html, `content: "\2026"`))
+	check("open-state hides the control (CSS rule present)", strings.Contains(html, ".trp__card[open] .trp__control"))
+	check("continuation still has no literal ellipsis character", !strings.Contains(markup, "…") && !strings.Contains(markup, "..."))
+
 	if fail > 0 {
 		fmt.Printf("\n%d CHECK(S) FAILED\n", fail)
 		os.Exit(1)

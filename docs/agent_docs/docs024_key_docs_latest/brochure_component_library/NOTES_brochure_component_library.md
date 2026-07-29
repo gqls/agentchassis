@@ -2999,3 +2999,114 @@ already-working carousel mechanic (swipe cards, no reveal), and adding images to
 IT (rather than replacing it with `teaser-reveal-panel`) would need its own
 template change. Left alone this round; noted as the one remaining card-grid
 section on the site without images.
+
+## 2026-07-29 (evening) — owner feedback on the live panel: padding, ellipsis, open-state merge, real carousel arrows
+
+Owner looked at the served page and asked for four things, one of which (a
+literal "…" in the visible text) directly collides with a rule this component
+was built to enforce, so it needed a substitute, not silent compliance or a
+silent refusal.
+
+**1. Padding.** `.trp__text`/`.trp__body` horizontal+vertical padding
+`--spacing-lg` → `--spacing-xl`.
+
+**2. "Put an ellipsis … at the end of the cut-off text."** Did NOT put a real
+`…`/`...` character into `continuation`'s stored text — that is precisely what
+`input_schema.json`'s own `llm_guidance` forbids, for a reason recorded in this
+file three sessions ago: a truncation checker built on
+`output_tokens == max_tokens` reads a trailing ellipsis as a sign of a cut-off
+LLM generation, and this component was built partly to be readable by that
+class of checker. **Substitute: a CSS `content: "\2026"` on
+`.trp__continuation::after`**, hidden once `[open]`. It exists only in the
+rendered pixel, never in the HTML text node, so it is invisible to the claims
+gate and to any truncation heuristic in exactly the way the stored
+character would not have been. Harness gained a check that the STYLE block
+contains the CSS rule and the MARKUP contains no literal ellipsis character —
+a mutant re-adding a literal one to the data still fails "no ellipsis anywhere"
+correctly.
+
+**3. "Make the text read as one section when opened; the new text replaces the
+old 'Read the rest'."** Read literally, not as "relabel the control to 'Show
+less'": `.trp__card[open] .trp__control { display: none; }` — the control
+disappears entirely once open, rather than persisting with nothing left to
+invite. `.trp__continuation` changes from muted to full-strength text colour
+when `[open]`, so continuation-then-body reads as one paragraph with no colour
+seam. Closing still works: the whole `<summary>` (image + hook + continuation)
+remains the native toggle target, just with no explicit label once open.
+
+**4. "Six cards on two lines — make it a real left/right-arrow carousel."**
+Root cause: `@media (min-width: 60rem) { .trp__track { grid-auto-flow: row;
+... } }` switched the track from a horizontal scroll-snap row to a WRAPPING
+grid at desktop widths — that rule is gone; `grid-auto-flow: column` now holds
+at every width, only the column width changes above 60rem (more cards visible
+per row, never a second row). Added `data-trp-prev`/`data-trp-next` overlaid
+arrow buttons.
+
+**Reused, not reinvented: the exact `goTo`/`nearestIndex`/`scrollBy` pattern
+already live on `hero-card-carousel`** (same site, same component family) —
+same delta-via-`getBoundingClientRect` approach, same keyboard ArrowLeft/Right
+support, same `aria-live` "Card N of M" announcement pattern (`.trp__live`,
+matching `hero-card-carousel__live`'s `clip: rect(0 0 0 0)` visually-hidden
+convention, since no shared utility class for this exists site-wide). The
+deep-link open (`?open=<key>`) now also scrolls horizontally
+(`inline:'center'`) on top of the existing vertical centring, since a card can
+now be off-screen to the side, not just below the fold.
+
+**The genuine open question, which the owner explicitly invited discussion on:
+how should a dropdown behave inside a horizontally-scrolling carousel?**
+Answered with a specific, stated default rather than left unresolved:
+`.trp__body { max-height: 12rem; overflow-y: auto; }`, unconditionally, open or
+closed. Reasoning: without a cap, opening a card grows that grid row's height
+(rows are independent in `align-items:start`), which would drag the
+FIXED-position overlaid arrows (positioned at `top: 6.5rem`, not a percentage of
+a variable height) out of alignment every time a card opens or closes. A cap
+means the arrows never need to move and the track's overall height never
+jumps — in practice every body written so far is 1-2 sentences and never
+reaches 12rem, so this is a safety bound that is essentially never active, not
+a visible constraint. **Flagged to the owner as a choice, not a foreclosed
+decision** — the alternative (unbounded growth, arrows repositioned live via
+JS reading the track's current height) is more visually generous for a long
+body at the cost of the arrows moving underneath the user's cursor while
+reading. Went with the bounded version as the more STABLE default; reversible
+in one CSS rule if the owner prefers the alternative after seeing it.
+
+**Both template.html and behaviour.js changed** (this component's `js_snippets`
+row is ALSO fleet-shared like the content_component row, currently bundled by
+only this site — same low-risk profile already accepted for the html_template
+edit). Rebundled `snippets.js` via `site-asset-renderer` (no work-item route,
+per the existing runbook entry) and verified the live bundle's own text
+contains `data-trp-prev` before queuing the 4 page reranders — did not assume
+the dispatch landed from the printed correlation id alone.
+
+Harness grew from 18 to 23 checks (arrows present, live region present, the
+CSS ellipsis rule present, the open-state control-hiding rule present, no
+literal ellipsis character survives). **Three new mutants, each caught by
+exactly the check it should fail and nothing else**: stripping the arrow
+buttons, adding a literal `...` back into the stored continuation text, and
+removing the open-state control-hiding CSS rule.
+
+**Verified live, all four pages**: `data-trp-prev`/`data-trp-next`/
+`data-trp-live` each present once per page, 6 cards / 6 images unchanged, 0
+unrendered `{{`. `probe_reveal_open_state.py` re-run against the redesigned
+index panel: still 5/5 revealed (5 openable + 1 static = 6 total), still
+**13.19:1**, 0 failures — the open-state colour change (continuation going
+full-strength) didn't regress contrast, and the now-hidden `.trp__control` is
+correctly excluded from the probe's own measured set rather than silently
+counted as a false pass.
+
+**A screenshot tool limitation, not a product one:** tried to get a visual
+open-state screenshot via a local `file://` copy with an injected script
+(the same pattern `probe_reveal_open_state.py` uses for `--dump-dom`) but
+`chrome --headless=new --screenshot` on that same local file rendered
+near-blank (a few KB, vs ~1MB for the equivalent live-URL fetch) — `--dump-dom`
+doesn't need images to paint to report accurate layout numbers, `--screenshot`
+apparently does, and file:// + `<base href="https://...">` doesn't reliably
+paint remote images in this sandbox. Live-URL screenshots (closed state, both
+index and capabilities) worked fine and confirm the single-row carousel +
+overlaid arrows + wider padding visually. Recorded so the next thread doesn't
+re-spend the same 20 minutes: **for an open-state VISUAL check, `?open=<key>`
+against the live URL is the right lever in principle, but chrome's smooth-scroll
+animation does not resolve reliably inside `--virtual-time-budget`'s virtual
+clock, so the screenshot still lands scrolled to the top of the page** —
+untried remaining option is forcing `prefers-reduced-motion` (disables the
+smooth-scroll CSS) before screenshotting.
