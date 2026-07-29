@@ -174,3 +174,49 @@ right kind of answer to the question.
 "second binary" precedent — it is recorded in `cmd/config-key-audit/main.go`'s own
 header; and note `WalkSteps` in the register so a third consumer does not hand-roll a
 third traversal — done, WFA-003).
+
+## 2026-07-29 — LIVE on v1.0.1203, closed — and my delete-marker was not a delete-marker
+
+Rolled and verified on **both** replicas (`sha256:afd2a4683362…`):
+
+```
+"uses fan_out, which cannot work inside a sub-workflow"   1   (new)
+"Substep declares fields"                                 1   (new, round 2 specifically)
+"Checking disconnected step: "                            0   (DELETED — the real marker)
+"Checking disconnected step for cycles"                   1   (its replacement)
+"they are silently ignored at execution"                  1   (control: untouched 101 string)
+```
+
+**MISSTEP, and it escaped this workstream before I caught it.** The marker I wrote into
+the bug file, the runbook and the register was `"Checking disconnected step"` with an
+expected count of **0**. On a correctly deployed pod it returns **1** — because the
+replacement Debug message *contains the old phrase as a prefix*
+(`"Checking disconnected step for cycles"`). Following my own runbook would have read a
+correctly-deployed image as not deployed.
+
+It did not stay mine. Another session's `bugs_open/153` picked it up as a **positive
+control** and drew the inference *"⇒ 144's pre-fix code IS what is running"* — which the
+grep cannot support in either direction. Chasing that back produced a larger finding for
+their lane, contributed to their file rather than filed separately: **all five of 153's
+marker strings are structurally incapable of appearing in any binary** — four exist in no
+`.go` file in any commit (they are phrases from the 138 and 104 workstreams' own README
+and RUNBOOK prose, plus one line of site copy), and the fifth sits inside a Go comment.
+Their `validation.WalkSteps` marker is a symbol name, which greps 0 on an image I had
+just proven contains it.
+
+**The rule, stated so it survives:** a marker must be a string the binary **EMITS** —
+not a symbol name, not a comment, not a sentence from your own workstream docs. A
+*delete*-marker must additionally be a string the new code cannot contain **as a
+substring**. Cheapest possible check, before running anything against a pod:
+`git grep -c "<marker>" -- '*.go'` at the commit you expect to be running. Mine would
+have returned 1 for a phrase I believed I had deleted; theirs would have returned 0 for
+four phrases that were never code.
+
+**Functional proof, which no binary grep can give:** 22 orchestration runs whose
+`workflow_plan` carries a `sub_workflow` between 18:01Z and 18:49Z — 21 COMPLETED, one
+mid-flight at `process_item_iter_2_spawn_handler`, a **loop-expanded substep**, and **0
+validation errors** fleet-wide. The nested traversal ran in production against real
+definitions and passed them, which is the thing the 0-newly-rejected dry-run predicted.
+
+Bug moved to `/bugs_closed/`. Register WFA-003 → deployed. The RFC-vs-bug-patch venue
+question stays open for the owner; it is not a defect and does not hold the bug open.

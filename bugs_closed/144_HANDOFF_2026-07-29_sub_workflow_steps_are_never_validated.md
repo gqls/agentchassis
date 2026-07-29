@@ -1,6 +1,35 @@
 # 144 — Steps inside a `sub_workflow` are never validated, by anything
 
-> **STATUS 2026-07-29 (bugsearch-7): FIXED IN CODE, NOT YET LIVE — stays OPEN.**
+> **STATUS 2026-07-29 (bugsearch-7): CLOSED — FIXED AND LIVE on chassis v1.0.1203**
+> (`sha256:afd2a4683362…`), pod-verified on BOTH replicas, council **APPROVED round 1**
+> (`Council-Reviewed: 9194bc97-8475-4022-b658-2ac64f06dd63`). Commits `583f31eae` +
+> `54fbfdf8b`. Moved to `/bugs_closed/`.
+>
+> **Binary evidence (both replicas):** `"uses fan_out, which cannot work inside a
+> sub-workflow"` → 1 · `"Substep declares fields"` → 1 (the round-2 single-sourced
+> decoder) · DELETE-marker `"Checking disconnected step: "` → **0**, its replacement
+> `"Checking disconnected step for cycles"` → 1.
+> **CORRECTION — the marker first written into this file and the runbook was wrong:**
+> `"Checking disconnected step"` *without* the colon returns **1** on a correctly
+> deployed image, because the replacement message contains the old phrase as a prefix.
+> A delete-marker must be a string the new binary CANNOT contain.
+>
+> **Functional evidence, which a binary grep cannot give:** 22 orchestration runs whose
+> `workflow_plan` carries a `sub_workflow` since the roll (18:01→18:49Z) — 21 COMPLETED,
+> 1 mid-flight, **0 validation errors** — and one of them executing a loop-expanded
+> substep (`process_item_iter_2_spawn_handler`). The nested traversal ran in production,
+> against real definitions, and passed them.
+>
+> **ONE THING REMAINS OPEN AND IT IS NOT A DEFECT:** the guardian seat asked a HUMAN to
+> settle whether changing what `ValidateWorkflow` guarantees belongs in an RFC rather
+> than a bug patch. That is a venue judgement, recorded in the workstream PLAN §7 and in
+> register **WFA-003**; it does not keep this bug open, and it is not answerable by
+> resubmitting with better measurements.
+>
+> ---
+>
+> **Original closing note kept below for the trail (superseded by the block above).**
+> **FIXED IN CODE, NOT YET LIVE — stays OPEN.**
 > Both halves are done in one change: `ValidateWorkflow` descends into nested steps,
 > and the offline audit now walks the definition with the **same exported Go
 > traversal** (`validation.WalkSteps`) instead of its own top-level-only SQL, so the

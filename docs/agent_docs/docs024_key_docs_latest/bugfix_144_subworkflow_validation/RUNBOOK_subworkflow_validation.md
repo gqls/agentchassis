@@ -90,13 +90,21 @@ POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head 
 kubectl -n ai-persona-system exec $POD -- sh -c \
   'strings /app/agent-chassis | grep -c "uses fan_out, which cannot work inside a sub-workflow"'   # want 1
 kubectl -n ai-persona-system exec $POD -- sh -c \
-  'strings /app/agent-chassis | grep -c "Checking disconnected step"'                              # want 0
+  'strings /app/agent-chassis | grep -c "Checking disconnected step: "'                            # want 0  <- NOTE THE COLON
+kubectl -n ai-persona-system exec $POD -- sh -c \
+  'strings /app/agent-chassis | grep -c "Checking disconnected step for cycles"'                   # want 1
 ```
 
-**Gotcha: the second grep is the load-bearing one.** It is a string this change
-**deleted**, and a delete-marker cannot be satisfied by a stale binary that happens to
-contain a similar phrase. The first grep alone would pass on any image built after
-some *other* session added a similar string.
+**Gotcha: the delete-marker is the load-bearing one — and I got it wrong the first time.**
+This runbook originally said to grep `"Checking disconnected step"` and expect **0**. On
+the live post-roll pod that returns **1**, because the replacement Debug message
+*contains the old phrase as a prefix*: `"Checking disconnected step for cycles"`. Following
+my own instruction would have read a correctly-deployed image as not deployed.
+
+A delete-marker must be a string the new binary CANNOT contain. The discriminating form
+is the old literal including its format punctuation — `Checking disconnected step: ` with
+the colon and space, which only the deleted `fmt.Printf` had. Verified 2026-07-29 on
+v1.0.1203: old form 0, new form 1, on both replicas.
 
 **Gotcha: `logs deploy/X` reads one pod of N.** Grep the binary in each replica, or
 name the pod.
