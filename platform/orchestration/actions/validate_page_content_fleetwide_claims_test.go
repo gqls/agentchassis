@@ -18,6 +18,8 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"strings"
 	"testing"
 
@@ -164,7 +166,7 @@ func TestArmedSiteGetsBothItsOwnAndTheFleetWideSet(t *testing.T) {
 	blocks := datahelpers.ExtractAssertionText(
 		`<p>We span eight departments.</p><p>Our reporting is always accurate.</p>`)
 
-	got := checkBannedClaims(blocks, eb, true)
+	got := checkBannedClaims(blocks, eb, true, "test-site", zap.NewNop())
 	if len(got) != 2 {
 		t.Fatalf("want 2 blockers (1 per-site + 1 fleet-wide), got %d: %+v", len(got), got)
 	}
@@ -218,12 +220,71 @@ func TestWithdrawingFleetWideSetKeepsPerSitePatterns(t *testing.T) {
 	blocks := datahelpers.ExtractAssertionText(
 		`<p>We span eight departments.</p><p>Our reporting is always accurate.</p>`)
 
-	off := checkBannedClaims(blocks, eb, false)
+	off := checkBannedClaims(blocks, eb, false, "test-site", zap.NewNop())
 	if len(off) != 1 {
 		t.Fatalf("lever off must keep the site's OWN pattern and drop only the fleet-wide one, got %d: %+v",
 			len(off), off)
 	}
 	if off[0].Severity != "blocker" {
 		t.Errorf("a per-site banned claim is still a blocker, got %q", off[0].Severity)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The negation guard must not be silent AT THE GATE.
+//
+// Raised by the council's architecture seat at medium (corr 8a41e1a5, round 1):
+// the first version of this change made suppression observable only in
+// cmd/claimscan — an offline tool someone has to think to run. That is the
+// bugs_open/093 shape, in a change that cited 093. So the build gate logs what it
+// dropped, and this pins it: if the log line goes away, a future guard bug becomes
+// invisible in exactly the place it would do damage.
+// ---------------------------------------------------------------------------
+
+func TestGateLogsWhatTheNegationGuardSuppressed(t *testing.T) {
+	core, logs := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+
+	// Verbatim live copy (robot-hands.com index/features) — honest, negated, and
+	// it matches a fleet-wide pattern, so the guard is what keeps it quiet.
+	blocks := datahelpers.ExtractAssertionText(
+		"<p>Where manufacturer data has not been independently verified, that is stated explicitly.</p>")
+
+	issues := checkBannedClaims(blocks, nil, true, "site-under-test", logger)
+	if len(issues) != 0 {
+		t.Fatalf("negated copy must not raise an issue at the gate, got %d", len(issues))
+	}
+
+	found := logs.FilterMessage("claims gate: banned-claim match suppressed as negated").All()
+	if len(found) == 0 {
+		t.Fatal("the gate suppressed a match and said nothing — a silent suppressor and a " +
+			"dead gate are indistinguishable, which is the whole reason this change exists")
+	}
+	var sawSite bool
+	for _, f := range found[0].Context {
+		if f.Key == "site_id" && f.String == "site-under-test" {
+			sawSite = true
+		}
+	}
+	if !sawSite {
+		t.Error("suppression log must name the site; without it the line cannot be traced to a build")
+	}
+}
+
+// With the reversal lever OFF the gate runs the pre-104 scan, so it must not
+// report suppressions for a scan it did not perform — otherwise pulling the lever
+// produces log noise describing a mechanism that is switched off.
+func TestGateReportsNoSuppressionWhenFleetWideSetIsDisabled(t *testing.T) {
+	core, logs := observer.New(zapcore.InfoLevel)
+	logger := zap.New(core)
+
+	blocks := datahelpers.ExtractAssertionText(
+		"<p>Where manufacturer data has not been independently verified, that is stated explicitly.</p>")
+
+	if issues := checkBannedClaims(blocks, nil, false, "site-under-test", logger); len(issues) != 0 {
+		t.Fatalf("lever off + no register must raise nothing, got %d", len(issues))
+	}
+	if n := logs.FilterMessage("claims gate: banned-claim match suppressed as negated").Len(); n != 0 {
+		t.Errorf("lever is off, so no scan ran to suppress anything — got %d suppression log(s)", n)
 	}
 }

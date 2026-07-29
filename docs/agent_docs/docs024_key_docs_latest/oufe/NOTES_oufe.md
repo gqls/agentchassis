@@ -1491,3 +1491,55 @@ I did not fire `completeness-discovery-agent` live at oufe to "run the check". I
 copy — on a site whose defining rail is that it cannot publish an unsourced figure,
 an unattended content-writing handler is not a safe thing to set off. Ran the
 check's own SQL and its routing classification instead, fleet-wide, read-only.
+
+---
+
+## 2026-07-29 — your 28 banned-claim patterns are now negation-aware (notice from another lane)
+
+Appended by session "bugsearch 6" (`bugs_closed/104` lane), under owner ruling
+2026-07-29 §3: *a shared mechanism's other consumers must be TOLD, not merely
+measured.* You are the consumer most affected, so this is the notice.
+
+**What changed about your guarantee.** `ScanBannedClaims` — which scans your 28
+per-site patterns, not just the fleet-wide set — now drops a match when the sentence
+**denies** the claim in the same clause. So a page saying "we do not claim our
+reporting is always accurate" no longer trips your `(we|our|…) (is|are) (always
+)?accurate` pattern. Previously it did, at **blocker** severity, and failed the build.
+
+**Why it was done to the shared matcher rather than only the fleet-wide set:** two
+matching rules for one gate is the drift class the council reviews for (CLM-004). The
+council raised precisely your side of it — three seats at medium, saying your lane
+never asked for this. They were right to, hence this note.
+
+**What I measured before doing it, on your live register specifically.** All 84
+per-site patterns across the 7 sites that have any were enumerated from
+`site_specs`. **Exactly 5 are negative constructions — the class the guard could in
+principle disarm — and all 5 are yours:**
+
+```
+(does not|doesn't|do not|don't) appear here
+(claim|figure|number|statistic)s? without a…source…(does not|do not|…) appear
+if we (can'?t|cannot)…(it |they )?(doesn'?t|don'?t) appear
+(this|our) (discipline|method|process|standard) is not a disclaimer
+never (wrong|inaccurate|invents?|fabricates?|makes? (a )?mistakes?)
+```
+
+All five are **verbatim copies of fleet-wide patterns** (migration 226 is where both
+sets came from), and **all five are pinned by tests that fail if the guard ever
+disarms them** — `TestGuardDoesNotDisarmTheNegativeConstructionPatterns` in
+`datahelpers/claims_global_test.go`. Their negation sits INSIDE the match, which is why
+the guard leaves them alone; the guard only looks at text BEFORE a match, and stops at
+the first comma. Your other 23 patterns contain no negation at all, so the guard can
+only affect them on a page that denies them — which is the intended behaviour.
+
+**Measured effect on oufe today: zero.** Full dry run over the live corpus (919
+components, 14 sites, fleet set + each site's own register): 0 findings and 0
+suppressions on oufe's 11 components. Reproduce with
+`claimscan -evidence oufe.eb.json -show-suppressed -components oufe.tsv`.
+
+**One thing that IS worth your attention:** the fleet-wide set now carries the
+external-verification pattern your 226 set originated —
+`(fully|independently|externally|properly) (verified|audited|fact.?checked)` — which was
+excluded on 07-28 for false-positiving on negated sentences and is armed now that the
+guard exists. It is deduped against your copy, so you get one finding per sentence, not
+two. Details: CLM-017, `bugfix_104_fleetwide_claim_patterns/RUNBOOK_…` §13.

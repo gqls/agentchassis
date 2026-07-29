@@ -223,6 +223,13 @@ func TestGuardDoesNotDisarmTheNegativeConstructionPatterns(t *testing.T) {
 		"Prices do not appear here.",
 		"If we cannot verify a figure, it doesn't appear.",
 		"We are never wrong about a specification.",
+		// The fifth. Added 2026-07-29 after enumerating all 84 per-site patterns
+		// live: exactly 5 are negative constructions, all 5 are oufe.com's, and
+		// all 5 are verbatim copies of fleet-wide patterns. Four were already
+		// here; this one was covered only incidentally by the must-block list, so
+		// it is pinned explicitly — it is the one whose negation sits INSIDE the
+		// match, which is why the guard leaves it alone.
+		"Our method is not a disclaimer.",
 	}
 	for _, s := range stillBlocked {
 		if f := globalFindings(t, s); len(f) == 0 {

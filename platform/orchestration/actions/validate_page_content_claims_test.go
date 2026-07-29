@@ -9,6 +9,7 @@
 package actions
 
 import (
+	"go.uber.org/zap"
 	"testing"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -34,7 +35,7 @@ func TestClaimsGateSeverities(t *testing.T) {
 	blocks := datahelpers.ExtractAssertionText(
 		`<p>We span eight departments and serve 45 clients.</p>`)
 
-	banned := checkBannedClaims(blocks, eb, true)
+	banned := checkBannedClaims(blocks, eb, true, "test-site", zap.NewNop())
 	if len(banned) != 1 || banned[0].Severity != "blocker" || banned[0].Category != "claims" {
 		t.Errorf("banned claim must be a blocker in category claims, got %+v", banned)
 	}

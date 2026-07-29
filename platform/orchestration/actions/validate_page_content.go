@@ -324,7 +324,7 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 					zap.Bool("site_has_register", eb != nil))
 			}
 			blocks := datahelpers.ExtractAssertionText(htmlStr)
-			issues = append(issues, checkBannedClaims(blocks, eb, claimsFleetWide)...)
+			issues = append(issues, checkBannedClaims(blocks, eb, claimsFleetWide, siteIDStr, logger)...)
 			if eb != nil {
 				// The page's structural type gates the PROSE number heuristic
 				// only (bugs_open/102) — banned claims are scanned on every
@@ -1007,11 +1007,30 @@ func checkEmails(html, officialEmail string) []ValidationIssue {
 // fleetWide is the reversal lever (config check_claims_fleet_wide, default true).
 // When false this is exactly the pre-bugs_open/104 scan: the site's own patterns
 // and nothing else, so a site with no register produces no findings at all.
-func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase, fleetWide bool) []ValidationIssue {
+// The negation guard's suppressions are LOGGED HERE, not only in cmd/claimscan.
+// Raised by the council's architecture seat at medium on 2026-07-29, and it was
+// right: the whole argument for making suppression observable is that a silent
+// suppressor and a dead gate look identical — and the first version wired that
+// visibility only into the offline CLI, i.e. into a tool someone has to think to
+// run. That is the bugs_open/093 shape exactly ("one call site of a shared
+// judgement gets the rigorous fix; the sibling stays heuristic"), committed by the
+// same change that cited 093 as a reason to care. So the build gate says what it
+// dropped, at Info, with the site and the pattern — if the guard ever starts
+// eating real findings, it is in the build logs of the page it happened to rather
+// than discoverable only by re-running a dry run by hand.
+func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase, fleetWide bool, siteID string, logger *zap.Logger) []ValidationIssue {
 	var issues []ValidationIssue
-	found := datahelpers.ScanAllBannedClaims(blocks, eb)
+	found, suppressed := datahelpers.ScanAllBannedClaimsWithSuppressed(blocks, eb)
 	if !fleetWide {
 		found = eb.ScanBannedClaims(blocks) // nil-safe: no register -> no findings
+		suppressed = nil                    // the lever is off; report nothing about a scan we did not run
+	}
+	for _, f := range suppressed {
+		logger.Info("claims gate: banned-claim match suppressed as negated",
+			zap.String("site_id", siteID),
+			zap.String("pattern", f.Pattern),
+			zap.String("matched", f.Matched),
+			zap.String("snippet", f.Snippet))
 	}
 	for _, f := range found {
 		issues = append(issues, ValidationIssue{
