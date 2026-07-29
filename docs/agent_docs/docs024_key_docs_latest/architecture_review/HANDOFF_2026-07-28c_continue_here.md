@@ -18,7 +18,7 @@ one**) · `RUNBOOK_architecture_seat.md`.
 | thing | state |
 |---|---|
 | D11 layer 2 (routing) | **LIVE** |
-| D11 layer 1 (symbol bodies) | **LIVE & PROVEN** — 4,992 rows / 4,992 bodies, survived `v1.0.1194` |
+| D11 layer 1 (symbol bodies) | **LIVE & PROVEN** — re-verified 07-29 on `v1.0.1196`: **5,017 rows / 5,017 bodies** (was 4,992; the count MOVES — re-measure, never quote) |
 | **D11 layer 1b (markdown)** | **PAUSED — blocked on owner decision D12.** NOT revising, NOT resubmitting |
 | `bugs_open/135` (prune has no floor) | **OPEN, UNOWNED** — pre-existing, independent of 1b |
 | `review_architecture` | **still 0 reviews** — rate limit, not fault |
@@ -26,6 +26,17 @@ one**) · `RUNBOOK_architecture_seat.md`.
 **⚠ REVERSAL TRIGGER, unchanged:** migration 252 pins the indexer's ref to
 `086_experience_loop`. **Change that literal to `'main'` AS PART OF the merge.**
 A no-rows `pre_query` makes the scheduler SKIP the task — no fallback, silent.
+
+**⚠ NEW 2026-07-29 — the pin and the index now DISAGREE, and the scheduler wins.**
+`code_symbols.ref` is **`087_towards_multiple_domains`** (@ `b953b8a7c`, written
+21:11 on 07-28) while `code-index-refresh.pre_query` is untouched and still says
+`086_experience_loop`; `last_triggered_at` is 12:46, so **the scheduled task did
+not write the current index** — something dispatched the indexer directly. On the
+next scheduled fire the indexer runs at `086` and the unconditional prune
+(`DELETE … WHERE commit_sha IS DISTINCT FROM $2`) **deletes every `087` row**: the
+index mirrors ONE ref, it does not merge them. `[UNINVESTIGATED]` — divergence and
+consequence measured, cause not chased. Also **197 commits behind local HEAD**, so
+a `content` miss is not an absence.
 
 ## 2. Layer 1b: rounds 7 and 8, and why it stopped
 
@@ -51,6 +62,9 @@ Five live-code sites in `DECISIONS… § D12`; the sharpest is
 CODE"** over everything the index returns.
 
 **Nothing is broken today** — 0 markdown rows, the CHECK still refuses them.
+**Re-verified 2026-07-29 on `v1.0.1196` (a roll I did not do), both pods:**
+`flattenMarkdown` 0 / `composeSymbolContent` 2 (positive control), constraint
+unchanged. D12's evidence survives the roll.
 
 ## 3. THE TWO RULES THIS SEQUENCE PRODUCED — and the limit on the first
 

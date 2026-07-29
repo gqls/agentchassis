@@ -1094,3 +1094,77 @@ Short version:
 **The seat still has 0 reviews.** Seating it proves nothing — §5's kill switch
 applies unchanged. First real test is the next platform submission on either lane;
 read the `ARCHITECTURE_SIGNAL` line rather than counting verdicts.
+
+---
+
+## 2026-07-29, morning — re-verified against chassis `v1.0.1196`. D12 holds; two figures moved and one is mine
+
+A roll I did not do landed overnight: **`v1.0.1196`**, both pods restarted
+22:37–22:38 on 07-28 (was `v1.0.1194` when round 8 was submitted).
+
+**D12's evidence survives the roll, re-grepped on BOTH pods:**
+
+```
+agent-chassis-cccfc8f5d-9bb57  /  agent-chassis-cccfc8f5d-hqqbm
+  flattenMarkdown 0 · composeDocContent 0 · defaultDocGlobs 0   <- layer 1b, still unbuilt
+  composeSymbolContent 2 · scanCodeSymbolRows 2                 <- positive control, both pods
+```
+
+`code_symbols_kind_check` is **unchanged** and still refuses `'doc'`, and there
+are **0 markdown rows**. So D12 remains a decision to take before shipping, not a
+defect to repair. Layer 1 is still perfect: **5,017 rows / 5,017 bodies**, no
+kind without a body.
+
+### CORRECTION — I carried a stale figure into round 8 while fixing a different stale figure in the same file
+
+> **CORRECTED 2026-07-29:** round 8's `grounded_in` entry 1 says *"0 markdown,
+> **4992** total"*. The live count is **5,017**, and it was already 5,017 when I
+> submitted: a reindex completed at **21:11:19** and I dispatched round 8 at
+> **~21:30**. I carried 4,992 forward from the round-7 submission (and before that
+> from the handoff) **without re-measuring it**, in the very same submission where
+> I corrected the stale `~1,749` sizing *at source* and wrote that "a submission
+> that corrects a number in prose while leaving it in the evidence is exactly the
+> drift this workstream reviews for."
+>
+> **What caught it:** re-verifying the pod baseline after a roll I did not do, and
+> running the `kind` census while there rather than quoting the table. **The cheap
+> check that would have:** the rule already written in CLAUDE.md — *ground every
+> figure against the live system before repeating it from another doc* — applied to
+> the figures I inherited, not only to the ones I was already suspicious of.
+> **The tell I missed: I re-measured every claim a REVIEWER challenged and none
+> that no reviewer had mentioned.** Round 7's objections defined my re-measurement
+> scope, and a figure nobody objected to is exactly the one that rots quietly.
+> No reviewer had queried 4,992, so it was never re-run.
+>
+> Immaterial to the plan — the row count appears in sizing prose, and the ratio
+> (~3,472 doc sections against ~5,000 code rows) is unchanged at this precision.
+> Logged because the *mechanism* is not immaterial.
+
+### The index is on a DIFFERENT ref from the one the scheduler will use, and the next fire will prune it
+
+Three facts, each read from the live system this morning:
+
+| | value |
+|---|---|
+| `code_symbols.ref` (what is actually indexed) | **`087_towards_multiple_domains`** @ `b953b8a7c` |
+| `scheduled_tasks.pre_query` for `code-index-refresh` | still **`SELECT '086_experience_loop'::text AS ref`** |
+| `last_triggered_at` vs the rows' `max(updated_at)` | **12:46:27** vs **21:11:19** |
+
+The scheduled task did not write the current index — something dispatched the
+indexer directly at 21:11 with a different ref. **The pin was never changed; the
+content was.** So on the next scheduled fire (86400s after 12:46) the indexer runs
+at `086_experience_loop`, and the unconditional prune
+(`DELETE … WHERE commit_sha IS DISTINCT FROM $2`) **deletes every `087` row**. The
+index does not merge refs — it mirrors one.
+
+That is not `bugs_open/135` (which is about a *partial fetch* deleting a good
+index) but it is the same missing guard reached through a different door, and it
+argues 135 is worth more than it looked. **`[UNINVESTIGATED]`: I have not chased
+who dispatched the 21:11 run or why, and I am not claiming it was a mistake** —
+recording the divergence and its consequence, not a cause.
+
+Also: the index is **197 commits behind local HEAD** (`b953b8a7c` 07-28 17:36 vs
+`b5a7f016f` 07-29 08:17), so none of round 8's own commits are in it. Expected on
+a 24h cadence, noted so nobody reads a `content` miss as an absence.
+
+**Nothing here changes D12.** The decision stands exactly as written.
