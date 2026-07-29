@@ -11,7 +11,10 @@
 //
 // Config (literals):
 //   - target_pipeline: string — pipeline to set on promoted items (default: "build")
-//   - batch_id:      string (path) — optional, only promote items from this batch
+//   - batch_id:      NOT IMPLEMENTED. Advertised here since this file was written,
+//     but no code reads it (grep: this comment is its only occurrence). Setting it
+//     on a step does nothing and always has. Left documented-as-absent rather than
+//     deleted so the next reader does not re-add it to the spec believing it live.
 //
 // Data inputs (via ActionInputSpec):
 //   - site_id (required) — which site's items to promote
@@ -32,8 +35,22 @@ import (
 // ============================================================================
 
 var TriageDetectedItemsInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{},
+	Required: []string{"site_id"},
+	Optional: []string{},
+	// Exactly one key, because exactly one is read (:84). Opting in makes
+	// bugs_open/136 visible: all three live callers set `target_domain`, which
+	// nothing reads, while `target_pipeline` is set by ZERO definitions
+	// fleet-wide — the same domain→pipeline rename that half-landed on
+	// run_discovery_checks. It is invisible today only because every caller asks
+	// for "build" and the default at :83 is already "build".
+	//
+	// `batch_id` is NOT declared even though the header comment above advertises
+	// it, because no code reads it — it is documentation of an intention, not of
+	// a behaviour. Declaring it would make a dead key RECOGNISED and silence the
+	// detector for it, which is the recorded WRONG_CALLS.md 2026-07-28 mistake
+	// (committed by bugs_closed/101's own fix). If batch_id is ever implemented,
+	// add it here in the same commit that reads it.
+	ConfigKeys: []string{"target_pipeline"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }

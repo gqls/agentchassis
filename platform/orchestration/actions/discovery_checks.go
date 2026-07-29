@@ -24,8 +24,27 @@ import (
 // --- InputSpec (carried over from existing file) ---
 
 var RunDiscoveryChecksInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{},
+	Required: []string{"site_id"},
+	Optional: []string{},
+	// ConfigKeys, not Optional: both are settings read straight from
+	// params.StepConfig.Config below (:66, :73) and never routed through
+	// ExtractActionInputs, which is exactly the distinction ConfigKeys exists to
+	// draw. Declaring them opts this action into unknown-config-key detection.
+	//
+	// It is opted in deliberately, to make bugs_open/136 visible at runtime: all
+	// three live callers set `check_domain`, which NOTHING reads, while
+	// `check_pipeline` — the key that is actually read at :66 — is set by ZERO
+	// definitions fleet-wide. The rename landed in Go and never in the data, and
+	// because the default at :68 is "design" the mistake is currently invisible:
+	// behaviour is correct, and correct by luck.
+	//
+	// Declaring is safe here because it asserts nothing new about behaviour —
+	// ConfigKeys is read only by UnknownConfigKeys/ListDeclaredConfigKeys and the
+	// audit tool; ExtractActionInputs never looks at it (verified, not assumed).
+	// So this changes what is REPORTED, not what runs. The warning is warn-only
+	// (StrictConfig unset), so the three discovery agents keep working unchanged
+	// while the defect finally says so out loud.
+	ConfigKeys: []string{"checks", "check_pipeline"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
