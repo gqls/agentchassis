@@ -4,6 +4,20 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
+> **NOTICE 2026-07-29 — a shared gate this pipeline depends on changed what it guarantees.**
+> `validate_page_content` check 8 used to skip claims checks silently on any site with no
+> `site_specs` `evidence_base` row. It no longer does: nine **fleet-wide** banned-claim
+> patterns are scanned on **every** site at severity **blocker**, so **page-build-handler**'s
+> `validate_content` step can now fail a page build on a site that never opted in.
+> Six live sites are newly refutable (dartsonline, gaswholesalers, idea.uk, system.internal,
+> vetcomparison.uk, webdesign.co.uk); measured 0 findings across all 908 live components
+> before it shipped. **Withdrawal is config, not a release** — `check_claims_fleet_wide: false`
+> on that step, live immediately, restores the old behaviour and logs a Warn naming the site.
+> Full account: claims-verification **CLM-015**, `bugs_closed/104`,
+> `architecture_review/RFC_003_fleetwide_banned_claims_at_the_build_gate.md`. Told here
+> because ruling 2026-07-29 §3 requires a shared mechanism's consumers to be told, not
+> merely measured — object in RFC 003 if this is wrong for your pipeline.
+
 24 concepts, consolidated from 29 raw extractions across units U03, U05, U23.
 
 ### PBP-001 — Rebuild vs rerender semantics and stale-render fossilisation

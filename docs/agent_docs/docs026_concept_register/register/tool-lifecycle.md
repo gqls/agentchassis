@@ -4,6 +4,20 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
+> **NOTICE 2026-07-29 — a shared gate this pipeline depends on changed what it guarantees.**
+> `validate_page_content` check 8 used to skip claims checks silently on any site with no
+> `site_specs` `evidence_base` row. It no longer does: nine **fleet-wide** banned-claim
+> patterns are scanned on **every** site at severity **blocker**, so **tool-recreation-handler**'s
+> `validate_tool` step can now fail a page build on a site that never opted in.
+> Six live sites are newly refutable (dartsonline, gaswholesalers, idea.uk, system.internal,
+> vetcomparison.uk, webdesign.co.uk); measured 0 findings across all 908 live components
+> before it shipped. **Withdrawal is config, not a release** — `check_claims_fleet_wide: false`
+> on that step, live immediately, restores the old behaviour and logs a Warn naming the site.
+> Full account: claims-verification **CLM-015**, `bugs_closed/104`,
+> `architecture_review/RFC_003_fleetwide_banned_claims_at_the_build_gate.md`. Told here
+> because ruling 2026-07-29 §3 requires a shared mechanism's consumers to be told, not
+> merely measured — object in RFC 003 if this is wrong for your pipeline.
+
 30 concepts, consolidated from 51 raw extractions across units U01, U04, U05, U08, U09, U12, U13, U14, U15, U17a, U18, U19, U23, U24a, U25. One concept (fork-on-deploy tool ownership model) was cross-merged into register/tool-library.md's equivalent entry (TLIB-001) since it is the same mechanism described from a different angle — noted here and there.
 
 ### TL-001 — Tool widget clobber hazard (interactive content silently destroyed by content rebuild)
