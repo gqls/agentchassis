@@ -7,8 +7,27 @@ itself".
 site navigation, silently, with every green status along the way.
 **Class:** structural (shared classification helper), one-word fix.
 **Fix:** committed with this file (`isSectionIndexType` + regression tests).
-**OPEN until** the fix is live on a rolled image and the webdesign.co.uk News
-nav row survives a `populate_nav_tables` run.
+
+## ✅ CLOSED 2026-07-29, same morning — fixed AND live, proven by behaviour on production
+
+Filed ~08:05Z, closed ~08:35Z. The full chain, each link verified:
+
+- Fix commit `fc7c05c21`; standalone `git archive HEAD` build + tests green.
+- Council **APPROVED round 1** (corr `e0a52a70`, 08:13:34Z); all three advisory
+  objections answered with queries, recorded below.
+- Image `v1.0.1198` built 08:13:51Z from post-fix HEAD (image id `95bf3ca1e010…`
+  — created AFTER the fix commit, the retag-is-not-a-rebuild check), pushed,
+  Deployment rolled 2/2, `update-agent-images` synced 188 agent rows.
+- **The closing behaviour test, run 08:28-08:29Z on a fresh nav-updater spawn:**
+  a `nav_drift` item (`…:141-post-roll-verify`) completed and
+  `populate_nav_tables` produced the row that could never exist pre-fix —
+  `News → /news/index.html` at position 3 (plus `Buying design →
+  /buying-design/index.html` at position 4). **Negative control:** 0 `/tools/`
+  children in `site_nav_items`. Stored header AND footer chrome
+  (`site_components.rendered_html`, 08:29:10Z) both carry both URLs.
+- The per-page fan-out that bakes the new chrome into the ~101 static files
+  trickles behind at the build queue's pace (~2 min/page); that is delivery of
+  an already-proven fix, not part of this bug's bar.
 
 ---
 

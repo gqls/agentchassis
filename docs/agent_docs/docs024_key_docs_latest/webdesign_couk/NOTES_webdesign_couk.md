@@ -1603,3 +1603,12 @@ then a SECOND nav_drift (key suffix differs from p19's) to prove News +
 Buying design enter the nav — the 141 closing bar. Rerender fan-out (~95
 items) trickles at the build queue's own pace; hero/CTA fix and chrome land
 with it.
+
+**141 CLOSED same morning (08:35Z), on behaviour.** Post-roll nav_drift on
+v1.0.1198: `populate_nav_tables` produced News (pos 3) AND Buying design
+(pos 4); negative control 0 /tools/ children; stored header+footer chrome
+carry both URLs (08:29:10Z). Council advisories all answered with queries
+(recorded in the bug file). The ~101-page fan-out that bakes the new header
+into the static files trickles behind at ~2 min/page — delivery, not proof;
+the artefact-level proof is done. Also: search.json gained the 3 new pages
+(gqls/sites `6941cbcce`); page count reconciled 101 DB = 102 files − 404.html.
