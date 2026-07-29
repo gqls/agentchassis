@@ -11195,3 +11195,45 @@ applicable" (correct typography), and only 15 were visible prose. An earlier
 correction in this lane had already split writer prose from template text; the
 character count needed splitting again. *A character count is not a style
 measurement — grep the CONTEXT of each hit before quoting the total.*
+
+## 2026-07-29 — "do not write a check; schedule the agent" (oufe / bugs_open/146)
+
+**The claim.** Having found 11 unreachable tool pages and traced the detector
+(`check_orphan_pages`) to a discovery agent that has raised nothing automatically
+since 2026-07-17, I wrote the finding up as a pure cadence problem and put
+**"Do not write a check; schedule the agent"** at the top of the fix candidates.
+I filed it in `/bugs_open/` in that form.
+
+**What was true.** Scheduling the agent would have detected all 11 and fixed none.
+The check classifies a nav-flagged page as `nav_drift` and routes it to
+`nav-updater` → `populate_nav_tables`, and that action **skips every `/tools/` URL
+by design** (`populate_nav_tables_action.go:294,339` — "the parent /tools.html …
+represents them in navigation"). The handler completes and changes nothing. The
+proof was already in the database when I wrote the claim: a `nav_drift` item raised
+for a tool page on 2026-07-24 is `complete`, and that page has had **0 nav items
+and 0 chrome links** ever since. Fleet-wide, **2 nav items point at a tool page out
+of 95 deployed tool pages** — a number that alone should have stopped me.
+
+**What caught it.** The owner asking a question I had not asked: *why were these
+unreachable when they were created?* I had explained why nobody NOTICED, and
+mistaken it for why it HAPPENED.
+
+**The cheap check that would have.** Read the handler before recommending it. I had
+already read the check that RAISES the item and never opened the action that
+CONSUMES it — one `sed` on `populate_nav_tables_action.go` was the whole distance.
+**A work item's existence says a defect was detected; it says nothing about whether
+its handler can act on it. Before proposing "schedule the detector", follow one
+completed item of that type to the artefact and confirm something changed.**
+
+**Related error in the same file, same day.** I wrote that "every one of the 11
+carries a nav flag", presenting it as evidence the pages had *declared* they belong
+in nav. They had not: `pages.in_header` and `pages.in_footer` **default to `true`**
+in the schema, and one of the two creators omits both columns from its INSERT. The
+flag was a column default, not a decision — and it is what routes these pages into
+the branch that cannot fix them. *A boolean that is true on every row is a default
+until you have checked the DDL; `information_schema.columns.column_default` is the
+one-line check.*
+
+Family: grep-the-config-key-before-calling-it-a-win (a mechanism that looks live
+and is inert); zero-adoption-means-read-the-mechanism (I invoked this pattern by
+name and then applied it only to the detector, not to the handler).

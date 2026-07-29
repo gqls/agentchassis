@@ -1433,3 +1433,61 @@ pattern (a regeneration remedy destroys artefact-only content) is 016b §9.
 next-step was "add a tool" and the honest first question — where would a reader
 find it? — turned into an afternoon. That is the right trade: a second
 unreachable tool would have doubled the invisible surface.
+
+---
+
+## 2026-07-29 (later) — asked "why were they unreachable when they were CREATED?", and my answer above was wrong
+
+> **CORRECTED:** the line above — *"The real cause is cadence, not code"* — is
+> false, and so is the sentence ending *"...would have sent the next thread to edit
+> SQL instead of scheduling an agent."* **Scheduling the agent would have detected
+> all 11 and fixed none.** The cause is code, at creation time, in three places.
+
+The owner asked a question I had not asked. I had explained why nobody *noticed*
+the orphaned tool page and presented it as why it *happened*. Four things came out
+of reading the actual creation and repair paths:
+
+1. **Both tool creators mark the page "belongs in nav" without anyone choosing it.**
+   `deploy_tool_action.go:117` defaults `inHeader := true`; `create_tool_component_
+   action.go:280` omits `in_header`/`in_footer` from the INSERT entirely — and the
+   **columns default to `true`** (`information_schema`, checked). So my earlier
+   observation that "all 11 carry a nav flag" was true and meant nothing: it is a
+   schema default, not a declaration.
+2. **Neither creator finishes the job, in mirror-image ways.** `deploy_tool_to_site`
+   sets the flags and writes **no** `site_nav_items` row (only two files in the
+   platform write that table, and it is not one of them). `create_tool_component`
+   writes the nav item and never sets the flags. Neither re-renders chrome.
+3. **`populate_nav_tables` — the only action that builds nav from page flags —
+   skips every `/tools/` URL by design** (`:294,339`), on the stated ground that the
+   parent listing represents them. Fleet-wide: **2 nav items point at a tool page,
+   out of 95.**
+4. **So the orphan check's routing is a closed loop.** Nav-flagged (by 1) ⇒
+   classified `nav_drift` ⇒ handed to `nav-updater` ⇒ `populate_nav_tables` ⇒
+   skipped (by 3). Proof that was in the DB while I was writing the original claim:
+   a `nav_drift` item raised for a tool page on **2026-07-24 is `complete`**, and
+   that page has **0 nav items and 0 chrome links** today.
+
+The branch that would have been right — `needs_internal_links`, i.e. link it from
+the parent tools listing — is the one these pages cannot reach, because the default
+flag disqualifies them from it. And a listing alone is not enough: **gamesdesign
+has `/tools/index.html` and still has 4 orphans**, because the listing enumerates
+only the tools using one of its two URL conventions.
+
+What caught me: reading the action that **consumes** the work item, having already
+read the one that **raises** it. One `sed` was the whole distance. The reflex is now
+in 016b §9 — *a work item's existence proves detection, not repair; follow one
+`complete` item to the artefact before recommending the detector.* Logged in
+`WRONG_CALLS.md`; `bugs_open/146` re-ordered so creation-time correctness is
+candidate 0 and scheduling the agent is demoted with the reason attached.
+
+Also re-ran the check while writing this: still 11 orphan tool pages, **but not the
+same 11** — oufe out (fixed), `fundamentallyai.com/llm-cost-calculator` in, its row
+last touched 12:38Z today. The count held by coincidence. It is a live defect that
+keeps producing instances, not a backlog. Fleet total on the full predicate: **42
+orphan pages across 11 sites.**
+
+I did not fire `completeness-discovery-agent` live at oufe to "run the check". Its
+29 checks are one step config, not individually selectable, and their handlers write
+copy — on a site whose defining rail is that it cannot publish an unsourced figure,
+an unattended content-writing handler is not a safe thing to set off. Ran the
+check's own SQL and its routing classification instead, fleet-wide, read-only.

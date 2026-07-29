@@ -53,8 +53,106 @@ checks by hand**. Design-discovery *has* run on oufe (raised
 misleading: the discovery agent that would catch this one does not.
 
 This is the `zero-adoption-means-read-the-mechanism` shape: the capability is built
-and correct, and the cadence is what is missing. **Do not write a check; schedule
-the agent.**
+and correct, and the cadence is what is missing. ~~**Do not write a check; schedule
+the agent.**~~
+
+> **CORRECTED 2026-07-29 (later the same day, on the owner's question "why were
+> these unreachable when they were created?").** Scheduling the agent is still
+> right for DETECTION and still worth doing, but the sentence above implied it
+> would fix the problem. **It would not.** The items it raises for tool pages route
+> to a handler that structurally cannot link a tool page — see mechanism 4 below,
+> and the proof: a `nav_drift` item raised for a tool page on 2026-07-24 is
+> `complete`, and the page has had zero nav items and zero chrome links ever since.
+> What caught it: reading `populate_nav_tables_action.go` instead of assuming the
+> handler named "nav-updater" updates nav for every page type.
+
+## Mechanism 4 — they are unreachable AT BIRTH, and the routing is a closed loop
+
+Asked why the tools were unreachable when they were created, the answer is not
+drift. **Nothing ever linked them, and the fix path cannot.** Four parts, all in
+code, all verified 2026-07-29:
+
+**(a) Both creators mark the page "belongs in nav" without anyone choosing it.**
+`deploy_tool_action.go:117` sets `inHeader := true` as its Go default.
+`create_tool_component_action.go:280` omits `in_header`/`in_footer` from the INSERT
+altogether — and the **column defaults are `true`**:
+
+```
+ column_name | column_default      -- information_schema.columns, 2026-07-29
+ in_header   | true
+ in_footer   | true
+```
+
+So the nav flag is not a declaration that the page belongs in nav. It is a column
+default. This matters because `check_orphan_pages`' tool carve-out
+(`page_type NOT IN (...,'tool') OR in_header OR in_footer`) is defeated for
+essentially every tool page **by that default** — which is why "every one of the 11
+carries a nav flag" is true and means nothing.
+
+**(b) The two creators fail in mirror-image ways, and neither completes the job.**
+
+| | sets `pages.in_header/in_footer` | writes `site_nav_items` | re-renders chrome |
+|---|---|---|---|
+| `deploy_tool_to_site` | **yes** | **no** — the file contains no such write | no |
+| `create_tool_component` | **no** (column default) | **yes** (`addToolToNav`, best-effort, failures only logged) | no |
+
+Fleet-wide only two files insert into `site_nav_items` at all
+(`populate_nav_tables_action.go`, `create_tool_component_action.go`). A tool made
+by `deploy_tool_to_site` is therefore born in exactly the state the orphan check
+calls `nav_drift` — flagged for nav, absent from nav — with no drift having
+occurred.
+
+**(c) The only action that builds nav from page flags refuses tool pages by
+design.** `populate_nav_tables_action.go:294` — `isChildPageURL` matches `/tools/`,
+`/blog/`, `/guides/`, `/articles/`, `/case-studies/`, `/news/`, `/resources/`,
+`/insights/` — and line 339 `continue`s, dropping the page **entirely**. Its own
+comment states the intent: *"the parent /tools.html or /blog.html represents them
+in navigation."* The skip fires **before** the `neverPrimaryTypes` branch (which
+also lists `"tool": true`) could have demoted the page into utility nav, so a
+`/tools/` page gets neither.
+
+Measured consequence, fleet-wide: **2 nav items point at a tool page, out of 95
+deployed tool pages.**
+
+**(d) So the orphan check's routing is a closed loop.** Nav-flagged by (a) ⇒ the
+check sends them down `nav_drift` ⇒ `nav-updater` ⇒ `populate_nav_tables` ⇒ skipped
+by (c). The handler reports success and changes nothing. Proof:
+
+```
+-- site_work_items: nav_drift, ai-agent-orchestration.com, created 2026-07-24
+--   spec.affected_pages = ["tool-ai-agent-roi-estimator"], status = complete
+-- pages, same page, read 2026-07-29:
+ name                        | hdr | ftr | nav_items_now | chrome_links_now
+ tool-ai-agent-roi-estimator | t   | t   |             0 |                0
+```
+
+The branch that would actually be correct — `needs_internal_links`, i.e. link it
+from the parent listing — is the one these pages **cannot reach**, because the
+default flag from (a) disqualifies them from it.
+
+**(e) Two nav builders, opposite rules.** `buildServicesHTML`
+(`render_site_components_action.go:950`) selects *any* page with
+`in_header OR in_footer` for the chrome footer — tool pages included.
+`populate_nav_tables` excludes them. Whether a tool page is reachable therefore
+depends on **which builder last ran on that site**. That is why the oufe fix worked
+through chrome, and why vonc's `tool-arena` and gamesdesign's
+`tool-damage-formula-designer` sit in chrome with no nav item.
+
+**(f) The real contract is the parent listing page, and nothing keeps it in sync.**
+Sites whose tools are reachable are the ones with a listing that enumerates them —
+webdesign.co.uk (63 tools, 0 orphans), robot-hands (3/0), idea.uk (4/0), all via
+`in_body` links. But a listing is not sufficient: **gamesdesign.co.uk has
+`/tools/index.html` (`page_type='section-index'`) and still has 4 orphans**,
+because the listing enumerates only the tools using the `/tools/<name>/index.html`
+convention and not the four using `/tools/tool-<name>.html`. There is no
+`orphan_tool_pages → rebuild the tools listing` route — even though the exact
+analogue exists for blogs (`orphan_blog_posts → rerender-pages`).
+
+**This is live, not historical.** Running the check again at 15:xx on 2026-07-29
+still returns **11 orphan tool pages** — but not the same 11. oufe left (fixed) and
+**fundamentallyai.com's `llm-cost-calculator` joined**, its row last updated
+12:38Z that day, after the morning census. The count held at 11 by coincidence.
+Fleet total on the full predicate: **42 orphan pages across 11 sites.**
 
 ## Mechanism 2 — the obvious remedy destroys site content, silently
 
@@ -108,10 +206,39 @@ link and the note; oufe no longer appears in the orphan census.
 
 ## Fix candidates, ordered by what closes the door
 
+**Re-ordered 2026-07-29 after mechanism 4.** Detection was the wrong thing to put
+first: a scheduled check that routes into a no-op handler produces a tidy queue and
+an unreachable page. Creation-time correctness comes first, because it makes the
+bad state unrepresentable; detection then has something to catch that the handler
+can actually act on.
+
+0. **Stop the two creators from producing the bad state.** Smallest change with the
+   largest effect, and it is where the defect is:
+   - `deploy_tool_to_site` must either write the nav item / link the page from the
+     tools listing, or **not set `in_header`** — claiming a nav slot it never fills
+     is what mislabels the page as `nav_drift` for the rest of its life.
+   - `create_tool_component` must set `in_header`/`in_footer` **explicitly** from
+     its own config rather than inheriting `true` from the column default, so the
+     flag records a decision.
+   - Consider changing the `pages.in_header`/`in_footer` column defaults to
+     `false`. This is a **shared-schema change** — architecture scope, wants its
+     own council round, and needs the fleet swept first for rows that are only
+     correct by inheriting `true`.
+0b. **Add the missing route: `orphan_tool_pages` → rebuild the tools listing**,
+   mirroring `orphan_blog_posts` → `rerender-pages`, and stop classifying tool
+   pages as `nav_drift` — for a `/tools/` URL that branch is provably a dead end
+   (mechanism 4d). The listing page is the platform's own stated contract
+   (`populate_nav_tables_action.go:290`); nothing currently keeps it in sync, and
+   gamesdesign proves a listing can exist and still miss four tools.
+0c. **Reconcile the two nav builders** (mechanism 4e). `buildServicesHTML` includes
+   tool pages, `populate_nav_tables` excludes them; one of the two is wrong and
+   today the answer depends on which ran last.
 1. **Schedule `completeness-discovery-agent`** on the same cadence as
    design-discovery. Closes the detection gap for all 29 of its checks, not just
    this one. Needs someone to check why it stopped — the last automatic items are
    2026-07-17, which suggests a schedule that lapsed rather than one never written.
+   **Worth doing on its own merits, but it does not fix this bug** — see the
+   correction under mechanism 1.
 2. **Make the footer note survive a regeneration** — either promote it into the
    shared chrome template as an optional `{{if .footer_note}}` block fed from site
    data, or hold it in a component the regeneration does not own. This is a

@@ -7465,3 +7465,61 @@ safely", treat it as a required column regardless of the schema.
 three (`site_plan_sections`, `pages.sections`, `page_components.slot_name`) and all
 three must agree. This is the same family as `bugs_open/109`: four hand-maintained
 allowlists and nothing checks they agree.
+
+### A detected defect whose HANDLER cannot act on it: the queue is tidy, the artefact never changes (2026-07-29)
+
+**The shape.** A check correctly identifies a broken page, classifies it, and routes
+it to a handler agent. The handler runs, the work item goes `complete`, and the
+defect is untouched — because the action the handler performs excludes, by design,
+exactly the class of page the check routed to it. Nothing errors. The queue looks
+healthy. The page stays unreachable.
+
+**The worked case** (`bugs_open/146`). `check_orphan_pages` finds deployed pages
+with no inbound link. A page carrying `in_header`/`in_footer` is classified
+`nav_drift` and routed to `nav-updater`, whose first real step is
+`populate_nav_tables`. That action skips every URL under `/tools/`, `/blog/`,
+`/guides/`, `/articles/`, `/case-studies/`, `/news/`, `/resources/`, `/insights/`
+(`populate_nav_tables_action.go:294,339`) on the deliberate ground that "the parent
+listing represents them in navigation". So for any tool page — every one of which
+lives at `/tools/…` — the routing is a closed loop. Evidence that was sitting in
+the DB the whole time: a `nav_drift` item raised for a tool page on 2026-07-24 is
+`complete`, and the page has **0 nav items and 0 chrome links** five days later;
+fleet-wide, **2 nav items point at a tool page out of 95 deployed tool pages**.
+
+**Why it survives review.** Every component is individually correct and well
+commented. The check is right that the page is orphaned. The skip is right that
+child pages do not belong in primary nav. The defect is only visible *across* the
+seam, and neither file mentions the other.
+
+**The reflex.** *A work item's existence proves detection, not repair.* Before
+recommending "schedule the detector" or "raise more of these", **follow one
+`complete` item of that type through to the artefact and confirm something
+changed.** The one-line version: `status='complete'` is a statement about the
+handler's control flow, never about the page.
+
+**Two sub-patterns worth naming separately.**
+
+- **A boolean that is true on every row is a default until you have read the DDL.**
+  Here `pages.in_header`/`in_footer` **default to `true`**, and one of the two tool
+  creators omits both columns from its INSERT. "Every affected page carries a nav
+  flag" reads as a declaration by the page and is in fact a schema default — and it
+  is what routes the page into the branch that cannot fix it, and away from the one
+  that could (`needs_internal_links`, i.e. link it from the parent listing). Check
+  `information_schema.columns.column_default` before treating a flag as intent.
+- **Two builders of the same thing with opposite rules: correctness becomes an
+  ordering question.** `populate_nav_tables` excludes tool pages from nav;
+  `buildServicesHTML` (`render_site_components_action.go:950`) includes any page
+  with `in_header OR in_footer` in the chrome footer. Whether a tool page is
+  reachable depends on **which of the two last ran on that site** — so identical
+  rows produce different live sites. When you find a second implementation of a
+  selection rule, diff the predicates rather than assuming the newer one won.
+
+**Cousin, not the same.** `zero-adoption-means-read-the-mechanism` says: when a
+capability shows ~0 uptake, read the gate rather than pushing harder. This is its
+downstream twin — the mechanism *does* fire, and the gate is in the handler. Filing
+this one under the zero-adoption pattern is precisely the error that produced it
+(logged in `WRONG_CALLS.md`, same date).
+
+Category tags: `handler-cannot-act-on-what-the-check-routed`, `complete-is-about-
+control-flow-not-the-artefact`, `boolean-true-everywhere-is-a-default`,
+`two-builders-opposite-predicates`.
