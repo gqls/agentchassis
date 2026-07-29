@@ -275,9 +275,36 @@ What was done, in order:
 3. Fired the Tier-4 run (087 trigger, correlation `fcb58019`), through the
    v1.0.1205 fix.
 
-**Outcome:** *recorded below when the run completes.*
+**Outcome: PASSED, first complete run.** (Correlation `c258967d`; an earlier
+attempt, `fcb58019`, failed inside the G6 fix itself — a Postgres
+type-deduction error `go build` cannot see — which is exactly what a pilot is
+for. Corrected, proven by PREPARE/EXECUTE against the live schema, rolled as
+v1.0.1206, re-fired.)
 
-<!-- PILOT RESULT APPENDED AFTER THE RUN -->
+The verdict note, verbatim from `doc_notes` (`source='tool-acceptance'`,
+category `acceptance-run`):
+
+> Tier-4 acceptance PASSED — smart-contrast. Observed: all 11 of the tool's
+> own checks passed in headless Chromium across profiles: desktop, mobile
+> (1 skipped: mobile-fit@desktop). Verified: browser-runner-adapter run;
+> checks: boots@desktop, status@desktop, **claim-aa-boundary@desktop**,
+> **claim-maximum@desktop**, console@desktop, boots@mobile, status@mobile,
+> mobile-fit@mobile, **claim-aa-boundary@mobile**, **claim-maximum@mobile**,
+> console@mobile
+
+Zero work items raised — nothing to fix, and the correctly-skipped
+`mobile-fit@desktop` shows the profile scoping working rather than a vacuous
+pass (the note counts 11 passes, not "no failures").
+
+**What this proves, precisely:** the platform's own acceptance machinery —
+dispatched through its own agent, not a session harness — drove a PORTED
+tool's real controls in a real browser on two profiles and asserted its
+**arithmetic** against known answers. The chain from `doc_plans` fence to
+browser to verdict note runs end to end for the estate the ladder was widened
+to see. The bar-3 layer is not merely automatable; as of this run, it is
+automated. What remains is authoring: 50 tools still need a fence that states
+their claim, and the G1–G4 wiring so the loop reads, lints and reasons about
+those claims without a human in the middle.
 
 ---
 
