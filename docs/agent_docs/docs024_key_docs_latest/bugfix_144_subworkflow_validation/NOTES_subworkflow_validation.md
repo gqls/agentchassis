@@ -110,3 +110,67 @@ Council submission corr `9194bc97-8475-4022-b658-2ac64f06dd63`. Committed the co
 immediately without a trailer, per the standing practice: waiting for a verdict does
 not protect anything on a shared tree — it just exposes finished work to the next
 `git add -A` while forfeiting attribution. Trailer is earned by APPROVED only.
+
+## 2026-07-29 — council: APPROVED round 1, and two of the four objections were right
+
+Corr `9194bc97-8475-4022-b658-2ac64f06dd63`. 4 objections, none high-severity, 5 seats
+abstained. Taken one at a time, because "approved" is not a reason to skip reading them.
+
+**1. `reuse_agent` (medium) — RIGHT, and answered with code.** *"DecodeSubWorkflowStep
+is a hand-written second implementation of parseSubsteps' decode contract, pinned
+together only by a lockstep test rather than by sharing one function. The plan's own
+rationale for the founding incident is exactly this pattern."* It also noted, fairly,
+that I asserted a package-boundary justification without showing the alternative had
+been tried.
+
+It had been considered and dropped for the wrong reason — I did not want to touch the
+runtime decoder inside a validation fix. But extracting an identical field-by-field
+decode is not a behaviour change, and "a test proves the two copies agree" is precisely
+the shape of guarantee this bug exists to distrust. So: the decode moved to
+`pkg/models/substep_decode.go`, `parseSubsteps` now calls it, the validator calls it,
+and the lockstep test is honestly relabelled as a **re-inlining guard that cannot fail
+today**. The guarantee that CAN fail moved to `pkg/models/substep_decode_test.go`: add
+a field to `models.Step` and it fails until you say, in code, whether the loop reads it
+or knowingly drops it.
+
+**2. `debug_historian` (medium) — RIGHT to ask, and the answer holds.** *"Nothing
+enumerates whether `is_active` actually gates which definitions the processor dispatches
+against — this is exactly the `sites.status='active'` shape the lore warns about."* I
+had scoped the whole measurement by `is_active` without checking. Checked both ways:
+
+* `processor.go:357-360` filters on `is_active = true AND deleted_at IS NULL AND
+  (is_snapshot IS NULL OR is_snapshot = false)` — the same three predicates the export
+  used, so the population is exactly what can be dispatched;
+* and re-ran the dry-run over **all 183** non-deleted, non-snapshot definitions
+  regardless of `is_active`: same answer, 0 newly rejected, same 3 pre-existing.
+
+Answering it produced a **correction to my own submission**: I named
+`platform/agentbase/agent.go` as a consumer of the changed guarantee. It is not.
+`ValidateWorkflow` has exactly ONE production call site — `processor.go:276` — plus the
+`validation.Validator` wrapper; agentbase constructs that wrapper for
+`ValidateIncomingMessage` and never calls `ValidateWorkflow`. Blast radius is narrower
+than I claimed, and I claimed it in the direction that flatters the submission.
+
+**3. `editquality` (medium ×2) — right about the SUBMISSION, wrong about the code.**
+It objected that nested cycle detection is "asserted in a trailing comment with no
+corresponding code shown" and that no test exercises a cycle among nested steps. Both
+were already in the change before submission — `validateSubWorkflow` calls
+`checkForCycles` on the nested plan, and `TestNestedCycleDetected` pins A→B→A inside a
+sub-workflow. What was missing was in the **sketch**: I summarised six checks in prose
+and showed three in code. A reviewer can only review what is in front of it, and a
+sketch that lists what it omits is not the same as showing it. No code change; recorded
+because the lesson is about the submission, not the fix.
+
+**4. `guardian` (medium) — OPEN, and it is not mine to close.** Two asks: (a) a human
+should settle the RFC-vs-bug-patch venue question that my own risk #4 raised, and (b)
+confirmation that no consumer relies on today's silent pass-through as a feature. It
+also floated a warn-first period instead of shipping straight to hard-reject. Recorded
+as open and put to the owner; per CLAUDE.md a scope/venue judgement is broken by a
+human, not by a thread resubmitting with better measurements. Note the shape: the
+guardian is not disputing the measurement, it is disputing whether a measurement is the
+right kind of answer to the question.
+
+`prior_art_librarian` and `architecture` approved with low-severity notes (verify the
+"second binary" precedent — it is recorded in `cmd/config-key-audit/main.go`'s own
+header; and note `WalkSteps` in the register so a third consumer does not hand-roll a
+third traversal — done, WFA-003).

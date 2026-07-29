@@ -122,3 +122,43 @@ submission rather than merely measured: `processor.go:276`, `agentbase/agent.go`
 the reviewers explicitly rather than assumed away.
 
 Council submission: corr `9194bc97-8475-4022-b658-2ac64f06dd63` (2026-07-29).
+
+---
+
+## 7. Corrections after the council round (2026-07-29)
+
+> **CORRECTED 2026-07-29 — §6 named the wrong consumers.** The submission said the
+> changed guarantee reaches "`processor.go:276`, `agentbase/agent.go`,
+> `scripts/audit-config-keys.sh`". `agentbase` is **not** a consumer: it constructs a
+> `validation.Validator` for `ValidateIncomingMessage` and never calls
+> `ValidateWorkflow`. `ValidateWorkflow` has exactly **one** production call site,
+> `processor.go:276` (plus the thin `validation.Validator` wrapper). Blast radius is
+> narrower than claimed — and I claimed it in the direction that made the submission
+> look more thorough. Caught while answering the guardian's request for a full
+> call-site enumeration, which is the objection paying for itself.
+
+> **CORRECTED 2026-07-29 — the decoder is single-sourced, not lockstepped.** §4.1 said
+> `DecodeSubWorkflowStep` "mirrors `parseSubsteps`". After the council's reuse seat
+> objected that a test proving two copies agree is a backstop rather than
+> single-sourcing, the decode moved to `pkg/models/substep_decode.go` and BOTH the
+> executor and the validator call it. The lockstep test survives only as a
+> re-inlining guard and is labelled as one; the guard that can actually fail is now
+> `pkg/models/substep_decode_test.go` (a new field on `models.Step` that neither side
+> decides about).
+
+**The `is_active` question, settled twice** (debug_historian's objection — the
+`sites.status` shape: an informational-looking column assumed to bound blast radius):
+
+* `processor.go:357-360` filters agent definitions on exactly `is_active = true AND
+  deleted_at IS NULL AND (is_snapshot IS NULL OR is_snapshot = false)` — the same three
+  predicates the export used, so the measured population is precisely what can be
+  dispatched;
+* and the dry-run re-run over **all 183** non-deleted, non-snapshot definitions
+  *ignoring* `is_active` gives the same answer: 0 newly rejected, the same 3
+  pre-existing.
+
+**Still open, for a human** (guardian): whether a change to what `ValidateWorkflow`
+guarantees belongs in an RFC rather than a bug patch, and whether any consumer relies
+on today's silent pass-through. Recorded as open rather than argued away — per
+CLAUDE.md a scope/venue judgement is broken by a human, not by a thread resubmitting
+with better measurements.

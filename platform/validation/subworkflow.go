@@ -13,13 +13,13 @@
 //
 // TWO RULES SHAPE EVERYTHING BELOW.
 //
-//  1. VALIDATE WHAT RUNS, NOT WHAT IS WRITTEN. The runtime decoder for a nested step
-//     (parseSubsteps) reads seven fields and silently drops the rest — a nested
-//     `dependencies` or `sub_tasks` has no effect whatever. Decoding nested steps by
-//     JSON round-trip into models.Step would populate fields the executor never sees,
-//     and the validator would then vouch for behaviour that does not happen. So this
-//     file mirrors the runtime decoder exactly, and reports the dropped keys rather
-//     than pretending to enforce them.
+//  1. VALIDATE WHAT RUNS, NOT WHAT IS WRITTEN. A nested step is decoded here by the
+//     same function the executor uses — models.DecodeSubWorkflowStep — which reads
+//     seven fields and drops the rest, so a nested `dependencies` or `sub_tasks` has
+//     no effect whatever. Decoding by JSON round-trip into models.Step would populate
+//     fields the executor never sees, and the validator would then vouch for
+//     behaviour that does not happen. The dropped keys are REPORTED rather than
+//     pretend-enforced.
 //
 //  2. A REFERENCE OUT OF A SUB-WORKFLOW IS LEGITIMATE, so an unresolved one WARNS
 //     rather than fails. Loop expansion prefixes a next_step/error_step only when it
@@ -32,9 +32,9 @@
 //
 // EVERY hard error below was measured against the live fleet before it shipped: 0 of
 // the 85 nested steps fails any of them, and 0 of the 66 nested (action, key) pairs
-// trips the strict-config rule. That measurement is re-runnable — see
-// subworkflow_live_test.go, which replays this validator over an export of the live
-// definitions rather than over fixtures.
+// trips the strict-config rule. That measurement is re-runnable and ships with the
+// change — platform/orchestration/actions/subworkflow_live_dryrun_test.go replays this
+// validator over an export of the live definitions rather than over fixtures.
 package validation
 
 import (
@@ -53,63 +53,15 @@ import (
 // assurance that gets quoted without its qualifier.
 const maxSubWorkflowDepth = 8
 
-// subWorkflowStepFields is EXACTLY the set of keys the runtime decoder reads from a
-// nested step definition (loop_actions.go parseSubsteps). Anything else present on a
-// nested step is dropped before execution.
+// The nested-step decode is models.DecodeSubWorkflowStep — the SAME function the loop
+// action executes with, not a copy of it. It reads seven fields and reports the rest
+// as dropped; see that file for why the set is not models.Step's json tags.
 //
-// It is deliberately NOT derived from models.Step's json tags: models.Step has fields
-// (dependencies, sub_tasks, store_memory, timeout, name, target_agent_type) that the
-// top-level decoder populates and the nested decoder does not, and that DIFFERENCE is
-// the thing being reported. Pinned against the runtime decoder by
-// platform/orchestration/actions/subworkflow_decoder_lockstep_test.go — if the two
-// ever disagree, that test fails rather than this file quietly lying.
-var subWorkflowStepFields = map[string]bool{
-	"action":       true,
-	"config":       true,
-	"description":  true,
-	"error_step":   true,
-	"next_step":    true,
-	"output_field": true,
-	"topic":        true,
-}
-
-// DecodeSubWorkflowStep decodes one nested step the way the loop action decodes it at
-// execution time, and returns the keys it had to drop.
-//
-// Exported so the runtime decoder can be pinned against it by test. Callers that want
-// to know what a nested step will actually DO should use this rather than unmarshalling
-// into models.Step.
-func DecodeSubWorkflowStep(raw map[string]interface{}) (models.Step, []string) {
-	step := models.Step{
-		Action:      rawString(raw, "action"),
-		Description: rawString(raw, "description"),
-		NextStep:    rawString(raw, "next_step"),
-		ErrorStep:   rawString(raw, "error_step"),
-		OutputField: rawString(raw, "output_field"),
-		Topic:       rawString(raw, "topic"),
-	}
-	if config, ok := raw["config"].(map[string]interface{}); ok {
-		step.Config = config
-	} else {
-		step.Config = make(map[string]interface{})
-	}
-
-	var dropped []string
-	for key := range raw {
-		if !subWorkflowStepFields[key] {
-			dropped = append(dropped, key)
-		}
-	}
-	sort.Strings(dropped)
-	return step, dropped
-}
-
-func rawString(m map[string]interface{}, key string) string {
-	if s, ok := m[key].(string); ok {
-		return s
-	}
-	return ""
-}
+// This file used to hold a second implementation, pinned to the executor's by a
+// lockstep test. The council's reuse seat objected that a test proving two copies
+// agree is a backstop rather than single-sourcing, and that the founding incident
+// (bugs_open/144: two hand-written traversals, blind in the same direction, agreeing
+// with each other) is exactly what the backstop is supposed to prevent. It was right.
 
 // WalkSteps calls fn for every step in a plan: each top-level step, then every step
 // nested inside a loop sub-workflow, at any depth. `path` locates the step in the
@@ -226,7 +178,7 @@ func decodeSubWorkflow(path string, rawSteps map[string]interface{}, startStep s
 			sub.Steps[name] = models.Step{}
 			continue
 		}
-		step, dropped := DecodeSubWorkflowStep(rawStep)
+		step, dropped := models.DecodeSubWorkflowStep(rawStep)
 		sub.Steps[name] = step
 		if len(dropped) > 0 {
 			sub.Dropped[name] = dropped
@@ -342,7 +294,7 @@ func (v *WorkflowValidator) validateSubWorkflowStep(sub subWorkflow, name string
 			zap.String("action", step.Action),
 			zap.Strings("dropped_fields", sub.Dropped[name]),
 			zap.String("consequence", "the definition describes behaviour that does not happen"),
-			zap.String("honoured_fields", strings.Join(sortedKeys(subWorkflowStepFields), ", ")),
+			zap.String("honoured_fields", strings.Join(sortedKeys(models.SubWorkflowStepFields), ", ")),
 			zap.String("ref", "bugs_open/144"),
 		)
 	}

@@ -621,22 +621,24 @@ func parseSubsteps(substepsConfig map[string]interface{}, startStep string, logg
 			return nil, nil, fmt.Errorf("substep '%s' is not a valid step definition", substepName)
 		}
 
-		step := models.Step{
-			Action:      getStringValue(stepMap, "action"),
-			Description: getStringValue(stepMap, "description"),
-			NextStep:    getStringValue(stepMap, "next_step"),
-			// Same omission as convertToWorkflowPlan carried into loop substeps:
-			// without this a substep's error_step never reaches the expanded plan
-			// (bugs_open/086). Expansion prefixes it per iteration.
-			ErrorStep:   getStringValue(stepMap, "error_step"),
-			OutputField: getStringValue(stepMap, "output_field"),
-			Topic:       getStringValue(stepMap, "topic"),
-		}
-
-		if config, ok := stepMap["config"].(map[string]interface{}); ok {
-			step.Config = config
-		} else {
-			step.Config = make(map[string]interface{})
+		// The seven-field decode lives in models.DecodeSubWorkflowStep and is shared
+		// with the workflow validator, which must see EXACTLY what this executes —
+		// no more (or it vouches for fields dropped here) and no less (or it misses
+		// what runs). It was inlined here until 2026-07-29; bugs_open/144's fix
+		// briefly duplicated it in the validator with a lockstep test, and the
+		// council's reuse seat was right that a test is a backstop, not
+		// single-sourcing. Same fields, same behaviour, one definition.
+		step, dropped := models.DecodeSubWorkflowStep(stepMap)
+		if len(dropped) > 0 {
+			// Not an error: the step runs, minus these. The validator reports the
+			// same thing at definition time, where it can be acted on; this is the
+			// one place that can say it about a substep actually being executed.
+			logger.Warn("Substep declares fields the loop decoder does not read — they are dropped before execution",
+				zap.String("substep", substepName),
+				zap.String("action", step.Action),
+				zap.Strings("dropped_fields", dropped),
+				zap.String("ref", "bugs_open/144"),
+			)
 		}
 
 		substeps[substepName] = step
