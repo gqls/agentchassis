@@ -1460,3 +1460,52 @@ destroying someone else's round.** Waiting for a clear window.
 the plan's central safety claim had to be taken on trust. That is the same shape as
 the `architecture` seat's own limit, and it is a gap in the *reviewers' instruments*,
 not in the change.
+
+---
+
+## 2026-07-29, 10:25 — guard LIVE on v1.0.1200; layer 1b round 9 submitted
+
+**The guard is discharged.** Rolled to `v1.0.1200` and pod-grepped on BOTH replicas
+(`58487c98f6-r2pbt`, `-xsfnz`): `They are CODE` **0**, `docTag` **1**,
+`Index search results` **1**, `answerCodeCheck` **10** (control). The delete-marker
+did what a delete-marker is for — a `0` on a string that was `1` cannot be produced
+by a stale cached layer or a bad grep.
+
+**The roll was HELD for ~40s on purpose.** At push time a `council-gate` round was
+mid `review_guardian` — another session's — and `apply -k` would have killed it,
+costing them ~30 minutes and the credits. This change was inert; nothing justified
+that. Waited for a clear window, then rolled. **Worth stating as a norm: check
+in-flight orchestrations before `apply -k`, and if your change is not urgent, wait.**
+
+### Round 9 submitted — and re-measuring caught a live staleness
+
+`RESUBMIT_CORR=7ba5b8c4-…`, envelope `9e4c723e`, plan at
+`SUBMISSION_2026-07-29_markdown_into_the_index_r9.json`.
+
+Practising the rule from this morning's `WRONG_CALLS` entry — **re-run every figure,
+not just the challenged ones** — immediately paid:
+
+- **The migration number moved again: the plan said 254, the max on disk is 266, so
+  it is 267.** Round 8's own text warned "re-read the max immediately before writing
+  the file" and I would have submitted 254 if I had trusted my own warning instead of
+  running `ls`. **Third time this workstream's migration number has moved under it.**
+- `code_symbols` is **5,017 / 5,017 / 0 markdown / 5 kinds** — round 8 said 4,992.
+- The `kind` CHECK is **unchanged and still refuses `'doc'`**, which confirms the
+  ordering actually held: guard live, corpus not yet.
+
+### The integration detail worth flagging
+
+**`kindDoc` is now declared LIVE by the guard**, along with
+`codeKindList`/`codeKinds`/`docTag`/`isCode`. The round-8 plan's edit 3 declared it
+itself — that sketch would no longer compile. Round 9 says so explicitly so the
+implementer does not reintroduce it. **This is the ordinary, unavoidable cost of
+splitting one change into two**, and it is cheap: one line of guidance against a
+hazard that can no longer reach production.
+
+### What round 9 does NOT do
+
+It adds no mechanism. The migration renumber, the `ROLLBACK;` preamble
+(`debug_historian`, low) and the VERIFY's negative control (`architecture` seat, low)
+are the whole diff. **The objection that stopped round 8 is answered by a shipped,
+independently-reviewed change rather than by an argument in the document** — which
+is the only form of answer that objection could actually take.

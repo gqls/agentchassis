@@ -19,8 +19,8 @@ one**) · `RUNBOOK_architecture_seat.md`.
 |---|---|
 | D11 layer 2 (routing) | **LIVE** |
 | D11 layer 1 (symbol bodies) | **LIVE & PROVEN** — re-verified 07-29 on `v1.0.1196`: **5,017 rows / 5,017 bodies** (was 4,992; the count MOVES — re-measure, never quote) |
-| **D11 layer 1b (markdown)** | **HELD at round 8** — corr `7ba5b8c4`. Resubmits only AFTER the guard below is approved and live |
-| **D12 citation guard** | **OWNER RULED 1b 07-29; IN COUNCIL** — corr `da1f9c81-0b4b-41ff-9b2c-bc0057ad3cf8`, 3 edits, inert on arrival |
+| **D12 citation guard** | **✅ DONE — APPROVED 12-0 (`diagnosis_guardian`, who raised it, at ZERO objections), BUILT, ROLLED, POD-VERIFIED LIVE on `v1.0.1200` both replicas** (`"They are CODE"` 1→0). corr `da1f9c81` |
+| **D11 layer 1b (markdown)** | **ROUND 9 IN COUNCIL** — corr `7ba5b8c4`, envelope `9e4c723e`. The hazard is closed in production BEFORE the corpus; migration renumbered **254→267** |
 | `bugs_open/135` (prune has no floor) | **OPEN, UNOWNED** — pre-existing, independent of 1b |
 | **`review_architecture`** | **IT HAS FIRED — 9 reviews, 5 approve / 4 object, 07-28 22:10 → 07-29 08:41.** Another session seated it on `fix-proposer` + `council-gate` (owner REVERSED D9). **The 'still 0 reviews' line here was true when written and was false within 4 hours** |
 
