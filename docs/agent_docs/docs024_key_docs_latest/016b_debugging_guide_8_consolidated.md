@@ -7596,3 +7596,62 @@ known residual with the cheap re-check, over machinery that will rot unexercised
 
 **The tell you are about to do this:** your justification for the narrowing is a
 sentence you invented, not a sentence you found.
+
+### Two checks blind in the SAME direction agree with each other, and agreement reads as correctness (bugs_open/144, 2026-07-29)
+
+The runtime workflow validator walked `workflow->steps`. The offline config-key audit
+walked `workflow->steps`. Neither descended into a loop's `sub_workflow`, so **85 live
+steps across 18 agents were validated by nothing** and 25 `(action, key)` pairs existed
+where no report could see them — for months, while both halves passed.
+
+Cross-checking one against the other could never have found it. That is the property to
+internalise: **a cross-check only tests what the two implementations do DIFFERENTLY.**
+Two tools written from the same mental model of the data share its blind spots, and
+their agreement is evidence of shared ancestry, not of correctness. It was eventually
+found sideways, by a council seat objecting to an unrelated claim that had been measured
+with the same kind of query.
+
+**How to catch it in your own work:**
+- When two things agree, ask what would have to be true for them to agree *wrongly*.
+  If they share an author, a mental model, or a copied query, that is a live possibility.
+- Prefer **one implementation with two callers** over two implementations with a test
+  that they match. A lockstep test is a backstop; single-sourcing is a guarantee. (The
+  council's reuse seat made exactly this correction to the first 144 fix, which had
+  shipped a second decoder pinned by a lockstep test.)
+- The generalisable trap in this platform: **a query over `default_config->'workflow'->'steps'`
+  silently under-reports.** Cross-check with `default_config::text LIKE '%<action>%'`,
+  or walk the tree with `validation.WalkSteps`.
+
+### A measurement that comes back ZERO does not tell you the rule is right — only that it is not currently firing (2026-07-29)
+
+Before shipping hard errors into `ValidateWorkflow` (which runs on every message), the
+fleet was measured: 0 of 178 live definitions newly rejected. Good, necessary, and
+**not sufficient**. One of the rules under consideration — "a nested `next_step` must
+name a sibling step" — would also have measured 0, because no live nested step points
+out of its sub-workflow today. It was still wrong: loop expansion deliberately passes an
+external reference through untouched, so the rule would have broken the first workflow
+anybody wrote that way, at some later date, with no connection to the change that caused
+it.
+
+What distinguished the two rules was not the measurement but **reading the executor**
+(`coordinator.go:4009-4014`, `loop_expansion_handler.go:192`). A zero is evidence about
+the current population; the question "is this rule TRUE?" is answered by the code that
+implements the behaviour.
+
+**So:** when a new rule measures zero impact, ask separately whether the rule states
+something the system actually guarantees. If the only argument for it is "nothing fails
+it today", it is a rule about the sample, not about the system.
+
+### A log-call detector that skips "the format string" by splitting on the first comma does not skip it when there is no comma (2026-07-29)
+
+`scripts/pattern-check.py`'s `logged-model-output` check does
+`probe.split(",", 1)[-1]` to drop the format string before looking for a payload
+variable. With **no** argument after the message, that returns the whole statement, so
+`logger.Info("Starting loop completion")` is reported as passing `completion` unwrapped.
+Observed on `loop_actions.go:295` — pre-existing code, flagged because an unrelated edit
+touched the file.
+
+Harmless in itself; recorded because the failure mode is **a shared advisory tool
+crying wolf**, which is how a detector gets ignored, and because the shape recurs:
+**a "strip the first field" idiom silently strips nothing when there is only one field.**
+Whoever owns the check: the guard is `if "," not in stmt: continue`.
