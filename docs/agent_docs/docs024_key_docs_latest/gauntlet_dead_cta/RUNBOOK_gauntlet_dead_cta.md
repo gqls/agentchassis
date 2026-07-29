@@ -355,3 +355,90 @@ that the page still rendered its own content. **A diff proves what you changed; 
 cannot tell you what you destroyed.** Grep the served page for `{{.` after ANY
 component delivery — it costs one command and it is the difference between
 shipping a page and shipping a template.
+
+## 12. Delivering a change to the gauntlet component (proven 2026-07-29, the ledger)
+
+The gauntlet has **27 `{{.vars}}` and populated `content_data`**, so §11's rule
+applies: `html_template` and `rendered_html` are NOT the same string. Build the
+rendered copy by substituting, never by copying the template.
+
+**One guarded transaction, all three columns.** The `WHERE updated_at = <the
+value you read>` clauses are the concurrency guard — another session's write
+between your read and your write zeroes the row counts instead of silently
+overwriting them. The `DO` block is the anti-no-op guard: a `UPDATE 0` and a
+successful write are otherwise indistinguishable in the output.
+
+```bash
+# ids (stable): cc=5da50747-7936-4b8f-a66d-c1ea98919c75  pc=1048b344-f1fa-44ea-b936-951bc7eafc59
+# read updated_at FIRST and paste it into both WHERE clauses.
+T=$(base64 -w0 new_template.html); J=$(base64 -w0 new.js); R=$(base64 -w0 new_rendered.html)
+# BEGIN; UPDATE content_components SET html_template=…, js_content=…, updated_at=NOW()
+#   WHERE id='<cc>' AND updated_at='<read value>';
+# UPDATE page_components SET rendered_html=…, updated_at=NOW()
+#   WHERE id='<pc>' AND updated_at='<read value>';
+# DO $$ … RAISE EXCEPTION unless the new markers are present AND rendered_html
+#   NOT LIKE '%{{.%' … $$; COMMIT;
+```
+
+**Then the assemble-only rerender — use the gauntlet script, not the old one:**
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/rerender_gauntlet_vonc.sh
+```
+
+- `scripts/republish_gauntlet_js.sh` still carries the **racy `kubectl run -i`
+  heredoc** form that publishes nothing at exit 0 (~4 in 5 lost). The new
+  script is the hardened form (payload in the container COMMAND, `--command`,
+  `&& echo PUBLISH_OK`). Prefer it; it republishes `js_content` too.
+- It **double-fires** (measured twice now: 07-28 E+F, 07-29 ledger — two
+  orchestrations under one correlation, both COMPLETED). Assemble-only is
+  idempotent so it is harmless here; count orchestrations **by payload**.
+
+**Verify on the served page — and mind the URL shape:**
+
+```bash
+UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+curl -s -A "$UA" "https://vonc.com/tools/gauntlet/index.html?cb=$(date +%s)" -o live.html
+grep -c '{{\.' live.html            # expect 0
+grep -c 'YOUR_NEW_MARKER' live.html # expect >0, else the zero above is vacuous
+```
+
+- **GOTCHA (cost a verifier run):** the page serves **only** at
+  `/tools/gauntlet/index.html`. `/tools/gauntlet` and `/tools/gauntlet/` are
+  both **404** — there is no directory index. Probe the variants before reading
+  a 404 as a failed deploy.
+- Full behavioural verifier (13 checks incl. a real round on the live page):
+  `p4_sources/verify_live_ledger_2026-07-29.py`. It also asserts the **served
+  JS is byte-identical** to what was written to `js_content` — the check that
+  catches a rerender that redeployed HTML but not the asset.
+
+## 13. Swapping the island engine and PROVING it is the new binary (2026-07-29)
+
+```bash
+ISL=root@toolsapisuk.vs.mythic-beasts.com
+make build-tools-api-ref IMAGE_TAG=v1.0.XXXX     # pass the tag on the CLI, do NOT
+                                                 # edit the makefile — another session's
+                                                 # uncommitted IMAGE_TAG bump lives there
+docker save docker.io/aqls/tools-api:v1.0.XXXX | gzip | ssh $ISL 'gunzip | docker load'
+ssh $ISL 'cd /opt/island && cp docker-compose.yml docker-compose.yml.bak-<old>-pre<new> \
+  && sed -i "s|tools-api:v1.0.<old>|tools-api:v1.0.<new>|" docker-compose.yml \
+  && docker compose up -d tools-api'
+```
+
+**Identity — three checks, because a tag proves nothing:**
+
+```bash
+ssh $ISL 'cd /opt/island && docker compose ps --format "{{.Name}} {{.Image}} {{.RunningFor}}"'
+ssh $ISL 'docker inspect aqls/tools-api:v1.0.XXXX --format "{{.Id}} {{.Created}}"'  # CreatedAt must be NOW, not a retag
+ssh $ISL 'docker exec island-tools-api-1 sha256sum /tools-api'                       # must equal the local binary
+# local side: C=$(docker create aqls/tools-api:v1.0.XXXX); docker cp $C:/tools-api ./b; docker rm $C; sha256sum ./b
+```
+
+- **Image IDs are NOT portable across `save|load`** (07-28 landmine) — compare
+  the **binary hash**, which is.
+- **Mirror the tag back into the repo compose.** Found 07-29: repo said 1178
+  while live ran 1193 — an owner hand-swap that was never mirrored. The repo
+  copy is not authoritative; `diff` it against the live file before editing.
+- For a change with **no static marker** (a literal in an options map), the
+  verification is behavioural: N consecutive real calls with the failure
+  absent, plus the armed log still silent.
