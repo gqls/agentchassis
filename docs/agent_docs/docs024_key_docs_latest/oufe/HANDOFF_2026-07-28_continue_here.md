@@ -105,9 +105,32 @@ without an image:
 | registry entry | `registry.go`, category `quality` | same |
 | council | corr `4d6585dd-4678-4891-b9a9-7a37b32df1b6` | submitted |
 
-#### RENDER AUDIT — STATE AS OF 2026-07-29 MORNING (read this first)
+#### RENDER AUDIT — RESOLVED 2026-07-29, WHOLE CHAIN LIVE AND EXERCISED
 
-**Everything below the orchestration layer is proven. The top hop is not.**
+> **CORRECTED 2026-07-29 (same day).** The open problem below is SOLVED and the
+> claim "the agent row is correct / NOT the problem" was **wrong — the row was
+> the defect.** Mig 256 wrote `"initial_step"` where the chassis reads
+> `"start_step"`; the dispatch was consumed, REJECTED as `WORKFLOW_INVALID`, and
+> the error replied to `system.agent.generic.responses` — which no human reads,
+> so it presented as silence. Found in one query: `chassis_intake_events` rows
+> 1785/1786 for corr `17a23aee` — a `response` row seconds after the `request`
+> means the chassis answered you; the payload names the error. Seed + live row
+> fixed; fleet census clean; WRONG_CALLS + 016b §9 updated.
+>
+> **Three full runs since (all COMPLETED):** run 1, 7 pages clean — agreeing
+> with the Python, the stated bar. Run 2 exposed that `contact` was invisible
+> (`needs_rebuild` while serving 200: its planned `contact-info` section was
+> never built, so the partial-build guard refused the stamp forever; dropped the
+> section from the plan — the component FABRICATES phone/hours, see NEW
+> `bugs_open/140`) and then found a **real firm failure** on the newly covered
+> page: form submit white-on-gold 2.61 (026 family 3, the exact class the tool
+> exists for). Fixed in oufe's stylesheet (gqls/sites `ae0c28d51`, 253
+> precedent). Run 3: **8 pages, 0 firm, 0 broken images, 0 overflow.**
+> Recipe: RUNBOOK §14. Register: VIZ-012. Remaining render-audit work is
+> elsewhere's: fleet rollout to the 5 failing sites (other lanes), findings →
+> work items (122 cand 2 design), and the Python's retirement (brochure lane).
+
+**The historical record as written 2026-07-29 morning follows, superseded above.**
 
 | layer | state |
 |---|---|

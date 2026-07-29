@@ -446,3 +446,46 @@ Two ways out, and the right one is usually the second:
 
 Loosening or removing `context_terms` is the wrong fix: they exist to stop one fact
 blanket-supporting every similar number on the page.
+
+## 14. Dispatching a render audit (the whole-site contrast/images/overflow sweep)
+
+```bash
+CORR=$(cat /proc/sys/kernel/random/uuid); ORCH=$(cat /proc/sys/kernel/random/uuid)
+BODY='{"action":"orchestrate","config":{"agent_type":"render-audit-agent"},"input_data":{"domain":"oufe.com","site_id":"a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39","target_site_id":"a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39"}}'
+echo "CORR=${CORR}"
+kubectl -n kafka run "kcat-raudit-$(date +%s)-$RANDOM" --rm --restart=Never \
+  --image=edenhill/kcat:1.7.1 --attach=true --quiet \
+  --command -- sh -c "printf '%s' '${BODY}' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 -t system.agent.generic.requests \
+  -H correlation_id=${CORR} -H orchestration_id=${ORCH} \
+  -H request_id=$(cat /proc/sys/kernel/random/uuid) -H message_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H message_type=request -H client_id=demo_client -H action=orchestrate \
+  -H from_agent_type=cli -H from_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses && echo PUBLISH_OK"
+```
+
+No `PUBLISH_OK` → nothing sent (the recorded kcat-stdin landmine — payload MUST be
+in the container command). Completes in ~60–90s for 8 pages. Read the verdict:
+
+```sql
+SELECT jsonb_pretty(collected_data->'render_audit'->'response'->'summary')
+FROM orchestration_states WHERE correlation_id='<CORR>'::uuid;
+-- full findings: ->'response'->'contrast' / 'broken_images' / 'overflow'
+-- firm failures only: jsonb_path_query_array(..->'response', '$.contrast[*] ? (@.over_image == false)')
+```
+
+**Gotchas, each paid for:**
+- `pages_failed` counts pages with a **firm** contrast failure, not unreachable
+  pages — those land in `unreachable` and are worse.
+- It audits rows `build_status='deployed'` ONLY. A live page whose row says
+  `needs_rebuild` is invisible to it — contact.html was, for a day, because its
+  planned `contact-info` section was never built and the partial-build guard
+  (correctly) kept refusing the deploy stamp. Fixed by removing the never-built
+  section from `pages.sections` (the component would have fabricated phone/hours
+  — `bugs_open/140`).
+- **If a dispatch produces no orchestration row**: do NOT re-fire. One query
+  first — `SELECT kind, status, convert_from(payload,'UTF8') FROM
+  chassis_intake_events WHERE correlation_id='<CORR>';` A `response` row seconds
+  after the `request` means the chassis REJECTED it and replied to a topic
+  nobody reads; `body.error.message` names the cause. That is how the
+  `initial_step`-for-`start_step` seed defect hid for a day (016b §9,
+  2026-07-29).

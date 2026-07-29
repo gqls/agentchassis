@@ -10433,3 +10433,87 @@ know about.
 
 Family: narrow-filter-defines-the-conclusion (question-adjacent variant),
 verify-the-failing-branch, writes-the-field-is-not-reads-the-field.
+
+## 2026-07-29 — consolidation programme (tools-api client identity)
+
+**"tools-api: a visitor can still choose the IP they are rate-limited as (and the IP we
+store)."** Written as the TITLE of `bugs_open/139` and filed, on the strength of three
+verified code facts: two `c.ClientIP()` call sites, `gin.New()` with no
+`SetTrustedProxies`, and `bugs_closed/090` having proven that exact mechanism against
+production on a sibling service. **Refuted the next morning by two probes.** A forged
+`X-Forwarded-For` and a forged `X-Real-IP` each returned 200 and each stored the same
+hash as every other row: `sha256("172.18.0.1")` — the docker bridge gateway. Caddy
+overwrites `X-Forwarded-For` with its own peer before the app sees it, and Cloudflare
+strips `X-Real-IP` at the edge. The visitor chooses nothing.
+
+Every code fact in the filing was true. **The conclusion was drawn at the service
+boundary, and the two hops in front of the service decide the outcome** — one of which
+(Caddy) is in a config file on the island, not in this repo, and the other (Cloudflare)
+is not in any file at all. `090`'s mechanism transferred; `090`'s *proxy* did not, and
+the proxy was the load-bearing half.
+
+*What caught it:* **the check the file itself named.** The filing carried an honest
+`[UNMEASURED]` marker saying the probe had not been run and telling the reader to run it
+before quoting the bug as proven. That marker is the only reason this was caught in a
+day instead of surviving into the fix. **It is also not enough:** a marker on the
+evidence paragraph did nothing to stop the unhedged claim being written into the file's
+TITLE, into its `Class` line, and into the workstream handoff's NEXT action. **A hedge
+that does not reach the headline is not a hedge** — the title is what the next thread
+greps, and titles have no room for markers, which is precisely why an unmeasured claim
+should not be one.
+
+*Cheap check that would have:* the single `curl` already written into the file, ~30
+seconds. There was no obstacle — the probe was named, the command was drafted, the
+endpoint was known. The gap was purely that filing felt like the end of the work.
+**If you can write the verification command, you can run it; if you are not going to
+run it, the claim is not ready to be a title.**
+
+*What the same probe found, which is the actual bug:* the identity is a **constant** —
+83 of 83 rows, one distinct value, since the table was created. So the "per-IP" limiter
+is one global bucket shared by every visitor, and the persisted `client_ip_hash` column
+has never distinguished anybody. **Worse than the filed bug and it needs no attacker.**
+Also: the recommended fix (`platform/httpguard`) would NOT have fixed it, and its
+docstring's guarantee — "`X-Real-IP`, set with `proxy_set_header`, so a client-supplied
+one is replaced" — is a property of **nginx on idea.uk**, not of Caddy on the island,
+which forwards a client-supplied one verbatim. A second adopter inherits the docstring
+and not the nginx.
+
+*Second-order:* my first hypothesis on seeing the constant was that httpguard would
+therefore *create* the spoof by preferring `X-Real-IP`. That was wrong too, and I nearly
+wrote it into the bug file — Cloudflare strips the header, which I only learned by
+firing it at the `020` probe vhost **with an arbitrary control header alongside** to
+prove the request itself had carried it. Two wrong mechanism-stories in one morning, on
+the same defect, both plausible, both refuted by one cheap measurement each.
+
+Family: verify-the-failing-branch, a-scope-objection-is-not-answered-by-more-evidence
+(inverse: here more measurement WAS the answer), writes-the-field-is-not-reads-the-field.
+
+## 2026-07-29 — oufe render-audit agent seed
+
+> Heading added 2026-07-29 by the consolidation thread. This entry was appended
+> headingless while I was appending mine directly above it, so it briefly read as
+> part of the consolidation entry. **The words below are not mine and are
+> unedited** — only this heading was added, so the entry is attributed to the lane
+> that actually made the call.
+
+**"The agent row is correct" / "What is NOT the problem: … the agent row" (oufe handoff,
+2026-07-29 morning).** The row WAS the problem. The seed wrote `initial_step` where the
+chassis reads `start_step`, so every dispatch of `render-audit-agent` was rejected as
+`WORKFLOW_INVALID` — and the rejection went to `system.agent.generic.responses`, which no
+human reads, so it presented as "consumed, no row, no error". The row had been "verified"
+active / not-snapshot / not-deleted / 4 steps — every property EXCEPT the one the code
+branches on. Worse, the seed's own VERIFY block read back `initial_step`, so the
+verification asserted the wrong key existed, which it did (the recorded
+`check-answers-the-question-you-encoded` shape, in SQL). Caught by: reading the response
+payload in `chassis_intake_events` for the correlation — the error names the missing key
+verbatim.
+
+*Cheap check that would have:* compare the seeded workflow's top-level keys against ANY
+working definition — `SELECT type, default_config->'workflow'->>'start_step' FROM
+agent_definitions WHERE is_active LIMIT 8;` shows every live agent carrying the key and
+the new one NULL, in one screen. The handoff's own prescribed step 1 (untouched-peer
+diff) was this check; it was written down and not run before "the agent row is correct"
+was.
+
+Family: check-answers-the-question-you-encoded, grep-the-config-key-before-calling-it-a-win,
+a-print-statement-is-not-a-config-row (the VERIFY block variant).

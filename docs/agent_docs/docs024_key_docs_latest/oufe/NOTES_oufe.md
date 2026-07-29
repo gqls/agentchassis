@@ -1226,3 +1226,75 @@ still scanned).
 
 Final state: 8 pages live, claimscan **0 findings across 15 components**, contrast
 all measurable pairs passing.
+
+### 2026-07-29 (morning) — the "unresolved dispatch" was a one-key seed defect, and the audit's first full run caught a real failure
+
+**The open problem from the handoff resolved in one query.** The render-audit
+dispatch that "produced no orchestration row with lag 0" was never silent: with
+`CHASSIS_INTAKE_MODE=worker_pool_all`, every consumed message is a
+`chassis_intake_events` row, and corr `17a23aee` had TWO — the request, `done`,
+and **a response 2.3 seconds later**. The response payload:
+`WORKFLOW_INVALID: workflow must have a start_step`, `error_unrecoverable`,
+addressed to `cli-user` on `system.agent.generic.responses` — a topic no human
+reads. Mig 256 wrote `"initial_step"` where `processor.go` reads
+`"start_step"`; every other live definition has the key, ours was NULL. The
+095/096 vet-med seeds contain repair UPDATEs for this exact mistake — the trap
+was recorded and I copied the broken shape anyway.
+
+**The handoff's "the agent row is correct / NOT the problem" was wrong, and the
+seed's own VERIFY block is why it felt checked**: it read back `initial_step` —
+the check answered the question it encoded. Worse, the handoff's own step 1
+(untouched-peer comparison) would have shown it in one screen. Logged in
+`WRONG_CALLS.md`; the transferable signature (validation failure → error reply
+to an unread topic → looks like a vanished dispatch) is now 016b §9.
+
+Fixed live (jsonb_set start_step + remove initial_step; fleet census: zero other
+definitions carry `initial_step`), fixed in the seed file including its VERIFY.
+
+**Run 1 (7 pages): clean and it agreed with the Python** — 0 firm, 0 broken
+images, 0 overflow; 29 over_image approximations, all the known nav-over-gradient
+readings. The port and `scripts/render_audit.py` agree on this site, which was
+the handoff's stated bar.
+
+**But it was 7 pages, not 8 — and the missing one was hiding a real defect.**
+`contact` sat `build_status='needs_rebuild'`, `deployed_at` NULL, while serving
+200 with the current footer. Cause: the page plans THREE sections and only two
+were ever built (`contact-info` never was), so `UpdatePageStatusAction`'s
+partial-build guard — the bugs_open/040 fix, working exactly as designed —
+refused the deploy stamp on every rerender and re-flipped the row. A permanent
+2-of-3 page that no longer asks to be built loudly: the rerender deploys the
+file, then the stamp is refused, `COMPLETED`, no error (the recorded
+099-signature; the tell was `update_status`'s `"updated": false` reason string).
+
+**Why I did NOT build the missing section: the component fabricates.**
+`contact-info`'s template renders Phone and Hours cards unconditionally with
+invented fallbacks (`+1 (234) 567-890`, `Monday – Friday, 9am – 6pm`).
+Populating only the email would have published a fake phone number on a
+verified-facts-only site. Removed `contact-info` from `pages.sections` instead —
+the shipped page (hero + form) is what the owner has seen. Fleet census of the
+component: **all six live uses render the fabricated hours, served** — filed as
+`bugs_open/140` with the evidence; those six sites are other lanes' — routed,
+not fixed over.
+
+**Run 2 (8 pages): one FIRM failure — a real one.** The contact form's submit:
+hard-coded `--color-white` over `--color-accent`, which on this palette is gold
+`#C49A3C` — ratio **2.61** against 4.5. Family 3 of 026, caught by the
+instrument built to catch it, on the page the audit had been blind to an hour
+earlier. Fixed per the 253 precedent (site layer, not the shared component —
+other sites' palettes render it correctly): `button.form-submit { color:
+var(--color-primary-text) }` in oufe's styles.css (gqls/sites `ae0c28d51`);
+dark-on-gold ≈6.6, matching the hero button's pairing.
+
+**Run 3 (8 pages): clean.** 0 firm, 0 pages_failed, 0 broken images, 0
+overflow. The chain is now proven as a loop, not just a pipeline: found a
+defect, verified its fix, on the served site.
+
+Also learned: `pages_failed` counts pages with a firm finding (unreachable pages
+land in `unreachable`, reported separately) — and the audit reads
+`build_status='deployed'` rows, so a wrong row silently narrows the denominator.
+That is the lane's recorded empty-denominator family wearing a new coat: run 1's
+"clean" was true for 7/8 of the site.
+
+Register: VIZ-012 (the dispatchable chain, live+exercised); VIZ-010 marked
+capability-superseded — retiring the Python is the brochure workstream's call.
+Recipe: RUNBOOK §14.

@@ -4182,6 +4182,8 @@ See `/bugs_closed/README.md`.
 | 136 | **Live config says `*_domain` where the code reads `*_pipeline`, and the default hides it.** Three actions were renamed internally from `domain` to `pipeline`; the live definitions kept the old word. MEASURED fleet-wide: `check_domain` on 3 steps / `check_pipeline` on **0**; `target_domain` on 3 / `target_pipeline` on **0** (`item_domain`/`item_pipeline` are both genuinely read and are fine). `discovery_checks.go:66-69` defaults `check_pipeline` to `"design"`, `triage_detect_items_action.go:83-86` defaults `target_pipeline` to `"build"` — and in **both** cases the default equals what the dead config asks for today, so nothing looks broken. `run_discovery_checks`'s three carriers each ask for something *different* (`design`/`content`/`build`) and all three get `design`; containment is luck — the only four checks propagating `dctx.Pipeline` (`palette_contrast`, `image_url_404`, `unfulfilled_image_prompt`, `placeholder_image_in_use`) sit exclusively in the design agent's list. `[MEASURED]` no mislabelled row exists yet: neither non-design agent has a single `design`-pipeline row. Six further dead keys on the same sweep, of which **one is biting**: `grounded-explainer` sets `summary_template` but `create_work_item` reads `summary`, and `:137-139` falls back to the *item_type* — two live rows are captioned `grounded_draft_review` in the human-review queue instead of the intended sentence. Also doubly dead: `prepare_training_data.s3_bucket` (action reads `bucket`, *and* the value `finetuning` names a bucket that does not exist — already known at `internal/adapters/thunder/adapter.go:199-204` since 2026-05-23, where it was worked around without anyone noticing the key was unread) | **OPEN, unowned.** Fix order: (1) close the genuine **spec gaps** first — `run_discovery_checks` reads `checks` (`:73`) and `check_pipeline` (`:66`) and declares neither — then `CheckConfig: true`, so the *next* rename is caught at validation; (2) **prefer the back-compat shim over renaming the definitions** — `create_work_item:118-121` already handles *this exact rename* with `if item_pipeline == "" { item_pipeline = config["item_domain"] } // backwards compat`, so the migration was known and deliberate and was simply applied to one action and not the other two; three lines per action fixes it inside this repo, touches nobody else's agents, and makes the old name *work* rather than merely visible (then downgrade the new warnings to `Deprecated`, not delete them); (3) `summary_template` needs a **decision not a rename** — `create_work_item` does no template rendering, so renaming it to `summary` ships a literal `{{.input_data.topic}}` to the reviewer; (4) **never** silence one of these by adding the key to `ConfigKeys` (`WRONG_CALLS.md` 2026-07-28) | filed 2026-07-28 by session "bugsearch 7", from the first systematic pass over **pile B** of the `101` ratchet (`go run ./cmd/config-key-audit --specs` joined against `scripts/audit-config-keys.sh --json`) |
 | 138 | **A TRUNCATED advisory review silently becomes a BLOCKING one.** A reviewer's LLM call exceeds `max_tokens`; `tolerate_truncation` recovers the partial; the council marks it `degraded`; and `diagnose_council_decide_action.go:684` gates a `Degraded` object **unconditionally** (correctly — a high objection may have been cut off). So a token-budget overrun becomes a forced `revise`, and `decided_by` names the seat rather than the truncation. Measured 14d: **17 forced revises** (editquality 9, prior_art_librarian 4, architecture 2, checkability 1, guardian 1). Distinct from `bugs_closed/076` (which ADDED the carve-out and is working as designed) and `bugs_open/119` (`unreadable`, not `degraded`). **The live harm is the misleading signal**: a high object-rate with no signal line is also the documented kill-switch for retiring a seat, so a seat can be pulled for being noisy when it was being cut off. `review_architecture` fixed (max_tokens 16000, load-bearing field emitted first); the mechanism is untouched | **OPEN, unowned** — filed 2026-07-29 |
 
+| 140 | **The `contact-info` component FABRICATES a phone number and office hours when the data is absent.** Its template renders Email/Phone/Hours cards unconditionally, with invented fallback values (`+1 (234) 567-890`, `Monday – Friday, 9am – 6pm`). Measured 2026-07-29: **6 of 6 live uses render the fabricated hours, served** (curl-verified on 3); idea.uk's card also shows a phone its `content_data` no longer holds (117 drift family). Same rule 111 established for the footer — contact furniture renders only when the datum exists — never applied to the section component. Candidate 1: make absent mean absent in the template (blast radius: six other-lane sites lose the fake card on next rerender — needs council/owner, not a quiet patch) | **OPEN, unowned** — filed 2026-07-29 (oufe workstream; oufe itself dodged it by dropping the never-built section from its contact page plan) |
+
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the
 > "grep the index before filing" rule. Indexed rows stop at `081` apart from `098`
@@ -7110,3 +7112,94 @@ forward-only repair, and it takes about a minute.
 the tree — CI on a monorepo, a Docker build with a `git archive` context, `go install`
 from a tag. **"The suite is green" is a statement about your filesystem, not about
 what ships.**
+
+### An orchestrate dispatch that fails validation leaves NO orchestration row — the error is REPLIED, to a topic the dispatcher never reads (2026-07-29)
+
+A CLI dispatch of `render-audit-agent` on `system.agent.generic.requests` was
+consumed (lane lag 0) and produced no `orchestration_states` row, no chassis log
+line naming the agent or correlation, and no visible error anywhere. It looked
+exactly like the two recorded no-rows signatures (kcat stdin drop; queue
+latency). It was neither: the chassis processed it fully and REJECTED it —
+`WORKFLOW_INVALID: workflow must have a start_step` — and published the error as
+a normal response envelope (`is_error: true, status: error_unrecoverable`) to
+the requester's `responses_topic`. For a human publishing with kcat that topic
+is `system.agent.generic.responses`, which nobody tails, so a perfectly loud
+reply reads as total silence.
+
+**The check (one query, decisive):** with `CHASSIS_INTAKE_MODE=worker_pool*`,
+every consumed message is durably recorded —
+`SELECT id, kind, status, last_error FROM chassis_intake_events WHERE
+correlation_id='<corr>';` A `request` row `done` **plus a `response` row seconds
+later** means the chassis answered you; read the response payload
+(`convert_from(payload,'UTF8')`) and the error is in `body.error.message`.
+This turns "my dispatch vanished" from a three-hypothesis investigation into
+one SELECT. Order it BEFORE the kcat-drop and queue-latency checks: it is
+cheaper than both and refutes/confirms all three at once.
+
+**The cause class:** `agent_definitions.default_config->workflow` needs
+`start_step`; the seed wrote `initial_step` (an alias that has bitten before —
+the 095/096 vet-med seeds carry repair UPDATEs for exactly this key). The
+row passed every existence check (active, not snapshot, 4 steps) because the
+key the code reads (`processor.go` `workflowConfig["start_step"]`) was never
+compared. **Generalises to:** any config row "verified" by checks that never
+read the one field the consuming code branches on — and any request/reply
+system where the reply topic of a human-fired message is a place no human
+looks. The fleet-wide census afterwards (`WHERE default_config->'workflow' ?
+'initial_step'`) found zero others — run it again if you seed by copying an
+old file.
+
+### "Who is the client" is decided by the PROXY CHAIN, not by the service — so a spoof proven on one service does not transfer to another, and a CONSTANT identity is invisible from a single test machine (2026-07-29)
+
+`bugs_open/139` was filed claiming a visitor could choose the IP `tools-api`
+rate-limits and stores. Three code facts backed it, all true: two `c.ClientIP()`
+call sites, `gin.New()` with **no** `SetTrustedProxies` (so gin trusts every
+proxy and takes the **leftmost** `X-Forwarded-For` entry — the part a caller
+writes for itself), and `bugs_closed/090` having proven exactly that mechanism
+against production on a sibling service. The probe refuted it in one command.
+
+**What the hops actually do, each measured rather than reasoned about:**
+
+| hop | behaviour |
+|---|---|
+| Cloudflare edge | **appends** the real peer to a client-supplied `X-Forwarded-For` (so the forged value survives, leftmost); **strips `X-Real-IP` entirely**; **403s `error code: 1000`** on a request carrying `CF-Connecting-IP`, and sets a genuine one itself |
+| Caddy v2.11.4 `reverse_proxy` | **overwrites** `X-Forwarded-For` with its own untrusted peer — the forged chain never reaches the app. Forwards `X-Real-IP` and `CF-Connecting-IP` **verbatim** (it manages neither) |
+| gin `ClientIP()` | tries `RemoteIPHeaders` **in order**: `X-Forwarded-For`, then `X-Real-IP`. XFF is always present and valid, so it wins and the un-sanitised header is never consulted |
+
+Net effect: the app resolves the **docker bridge gateway** for every request on
+Earth. Not spoofable — and not a client identity either.
+
+**Generalises to three separate traps:**
+
+1. **A vulnerability proven on service A does not transfer to service B by code
+   similarity.** The mechanism transferred; the *proxy* did not, and the proxy is
+   the half that decides. On idea.uk the front-end was nginx (appends XFF, sets
+   `X-Real-IP`); here it is Cloudflare + Caddy, whose behaviours differ on all
+   three headers. **The front-end config is usually not in the repo you are
+   reading** — it was a `Caddyfile` on a VM and a vendor's edge — which is exactly
+   why the reasoning stops at the service boundary.
+2. **A "trustworthy client key" helper carries its estate's assumptions in its
+   docstring.** `platform/httpguard.ClientIP` prefers `X-Real-IP` on the stated
+   grounds that a proxy "set[s] it with `proxy_set_header`, so a client-supplied
+   one is replaced". True of nginx; **Caddy does not set it at all.** Adopting the
+   helper into a second estate silently changes its guarantees — here it would
+   have resolved the same constant while *reading* as a fix. **Before adopting a
+   security helper, check that the specific proxy in front of the ADOPTING
+   service provides the property its rules assume.**
+3. **A constant identity and a working one are indistinguishable from one test
+   machine.** Every probe from one source returns one value either way. The
+   discriminating check is a **census over the persisted column** —
+   `count(*) vs count(DISTINCT …)` — which here read **83 rows / 1 distinct value
+   over the table's whole life**, and a positive control from a genuinely
+   different network. Note the failure is silent by construction: the column is
+   never NULL, never malformed, always populated. **Any per-client control keyed
+   on a resolved address deserves that one-line census; a "per-IP" limiter that
+   resolves a constant is a single global bucket, which is a worse defect than the
+   spoof it was suspected of and needs no attacker.**
+
+**Cheap check, for any of the three:** ask what the app *actually received*, not
+what the client sent — a request log that prints the resolved address
+(`gin.Logger()` does), or an access log at the hop in front. On this estate the
+`features_open/020` probe vhost logs **all** forwarded headers and is free to
+fire, which is what settled the edge behaviour; send an arbitrary control header
+alongside so an absent header is distinguishable from a request that never
+carried it.

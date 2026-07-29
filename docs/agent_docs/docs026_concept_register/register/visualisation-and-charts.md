@@ -94,13 +94,22 @@ a live site*, that is said explicitly.
 - **relations:** VIZ-001, VIZ-002, VIZ-006, CLM-002
 
 ### VIZ-010 — `scripts/render_audit.py`: the post-deploy render witness
-- **status:** built (2026-07-27, brochure workstream), **run by hand only — NOT wired into anything**
+- **status:** built (2026-07-27, brochure workstream), **run by hand only — NOT wired into anything.** SUPERSEDED IN CAPABILITY 2026-07-29: the same measurement is now dispatchable as an orchestration (VIZ-012); the script's retirement is unblocked but is the brochure workstream's call, not made here.
 - **status-evidence:** checked 2026-07-28. Nothing in the Makefile, CI, any shell script, or any `agent_definitions` workflow invokes it. Run against oufe.com's Thames page that day: `contrast=0 broken-img=0`.
 - **what:** Renders a live page in headless Chromium and measures what a visitor actually sees. For **every element** (`body *`) it takes the computed colour, walks up through transparent ancestors compositing alpha to find the effective background, and applies 4.5:1 / 3.0:1. A background *image* under text is reported as `overImage` so a reader discounts it rather than trusting a number the page cannot justify. It also reports images that failed to load, which the DB-only `image_url_404` check cannot see.
 - **why it matters:** it is the only thing that catches 026's **family 3** — a component hard-coding an ink over a themed fill — which `check_palette_contrast` states in its own header it cannot see by construction. On fundamentallyai.com it found 101 AA failures across 5 pages in about two minutes, on a site where every page said `deployed` and none of ~50 discovery checks had objected.
 - **the duplication worth recording:** on 2026-07-28 this workstream built `cmd/contrastscan`, a Go tool doing the same job, without finding this one. **The prior-art grep was `--include=*.go` and the prior art is Python.** The Go tool was deleted on discovery; its one arguably-distinct behaviour (refusing to score an unknown backdrop rather than flagging it) is a stricter variant of `overImage` and not worth a second tool. See `WRONG_CALLS.md` 2026-07-28.
 - **sources:** `scripts/render_audit.py`; `platform/orchestration/actions/discovery_checks/check_palette_contrast.go:43,108`
 - **relations:** VIZ-011, CLM-001
+
+### VIZ-012 — `render-audit-agent`: the render audit as a dispatchable orchestration
+- **status:** **live and exercised** (2026-07-29 — three full runs against oufe.com; the third measured a fix the first had found)
+- **status-evidence:** publish `{"action":"orchestrate","config":{"agent_type":"render-audit-agent"},"input_data":{"site_id":…,"domain":…}}` on `system.agent.generic.requests`; the orchestration ran `ensure_site_record` → `request_render_audit` → complete, and findings landed in `collected_data->'render_audit'->'response'`. Recipe: oufe `RUNBOOK_oufe.md` §14.
+- **what:** The whole chain, callable per site: chassis action `request_render_audit` (enumerates `pages` where `build_status='deployed'`, caps at `max_pages`, reports truncation) → topic `system.adapter.render-audit.requests` → dedicated pod `render-audit-adapter` (browser-runner image, own consumer group/logs) → Chromium renders every deployed page → `ContrastFinding`/`BrokenImage`/`OverflowFinding` + a summary separating **firm** failures from `over_image` approximations. `pages_failed` counts pages with a firm contrast failure; unreachable pages are reported, not skipped.
+- **why it matters:** the only *dispatchable* detector for 026 family 3 (component hard-coding an ink over a themed fill). Proven predictive immediately: its first full-site run found a firm 2.61 white-on-gold on oufe's contact form submit — the shared `contact-form` component's hard-coded ink — fixed and re-measured clean the same morning.
+- **landmines:** the seed originally wrote `initial_step` for `start_step`, which makes every dispatch fail as `WORKFLOW_INVALID` replied to a topic nobody reads (016b §9, 2026-07-29). It audits **deployed rows only** — a live page whose row says otherwise is invisible to it (oufe's contact page was, for a day). It does not raise work items from findings (deliberate — `bugs_open/122` candidate 2 needs its own design).
+- **sources:** `docs/agent_docs/sql_for_agents/256_render_audit_agent.sql`; `platform/orchestration/actions/request_render_audit_action.go`; `internal/adapters/browserrunner/render_audit_action.go`; deployment `render-audit-adapter`
+- **relations:** VIZ-010 (the hand-run predecessor), VIZ-011, CLM-001, `bugs_open/122`
 
 ### VIZ-011 — chart furniture is a graphical object, so the 3.0 threshold applies to it
 - **status:** deployed (applied in VIZ-002 and VIZ-006)

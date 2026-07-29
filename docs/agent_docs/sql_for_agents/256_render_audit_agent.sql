@@ -91,7 +91,7 @@ VALUES (
           "description": "No verdict: the audit errored. Nothing was measured."
         }
       },
-      "initial_step": "site"
+      "start_step": "site"
     }
   }$cfg$::jsonb,
   now(), now()
@@ -108,9 +108,15 @@ DO UPDATE SET
 
 COMMIT;
 
--- VERIFY
+-- VERIFY. The key is `start_step` — processor.go reads workflowConfig["start_step"]
+-- and rejects the whole dispatch (WORKFLOW_INVALID, error_unrecoverable) if it is
+-- absent. The first version of this file wrote `initial_step`, and this VERIFY
+-- block read back `initial_step` too — so the verification passed while the agent
+-- was undispatchable. The error reply goes to the requester's topic, which for a
+-- CLI dispatch nobody reads, so the failure left no orchestration_states row and
+-- no visible error: corr 17a23aee, chassis_intake_events 1785/1786, 2026-07-29.
 SELECT type, is_active,
-       default_config->'workflow'->'initial_step' AS initial_step,
+       default_config->'workflow'->>'start_step' AS start_step,
        jsonb_object_keys(default_config->'workflow'->'steps') AS step
 FROM agent_definitions
 WHERE type = 'render-audit-agent' AND is_active;

@@ -390,3 +390,36 @@ You are right that we need a lot more charts and tools. One chart and one diagra
 one case is a demonstration, not a publication. But the pattern underneath it now
 works: a real figure, stored with the sentence it came from and the date we read it,
 drawn as a chart that cannot contain a number nobody verified.
+
+---
+
+2026-07-29, morning. The render audit — the thing that checks every page the way
+a visitor's browser sees it — is now fully working end to end, and it earned its
+keep within the hour.
+
+The mystery from last night (we asked for an audit and nothing appeared to
+happen) turned out to be embarrassing but instructive: the system had answered
+us immediately — with an error — on a reply channel nobody was listening to. The
+recipe we used to install the audit agent had one word wrong, so every request
+was politely refused into the void. One word fixed, and the audit ran.
+
+First run: seven pages, all clean. But the site has eight. The contact page had
+been invisible to the audit because its bookkeeping said "not deployed" — and
+THAT trail led somewhere genuinely useful. The page was planned with a third
+section, a standard "contact information" card, that was never built — and when
+we looked at what building it would do, the standard card **invents a phone
+number and office hours** if you don't supply them. Six other live sites are
+publishing those invented office hours right now. We've written that up as a bug
+for the owner and the other site teams — we didn't touch their sites — and for
+oufe we simply removed the never-built section from the plan: the page as it
+exists (intro + the email form) is the page you approved.
+
+With the contact page now visible, the audit immediately found one real problem
+on it: the "Send Message" button was white text on gold — measurably unreadable,
+the exact class of defect this tool was built to catch. Fixed (dark ink on gold,
+matching the hero button), audit re-run: all eight pages clean.
+
+So the loop is closed: the auditor found a real defect, we fixed it, and the
+auditor confirmed the fix — all on the live site, all in one morning. The next
+step for the audit is other people's: five other sites have known failures it
+should now be pointed at.

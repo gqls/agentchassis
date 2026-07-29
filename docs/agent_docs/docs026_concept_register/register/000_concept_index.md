@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,647 concepts across 107 category register files. 1,627 consolidated from
+1,648 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -1762,8 +1762,9 @@ an ID prefix, or a status word.
 | VIZ-007 | No arithmetic in the render funcmap; a missing func is a PARSE error | deployed | No inc/add. Rules out SVG coordinate maths in templates, which is why charts pass values to CSS custom properties | visualisation-and-charts.md |
 | VIZ-008 | $facts is declared by the template, not supplied by the engine | deployed | {{$facts := .facts}}. An undeclared variable is a parse error, so the component renders nothing rather than degrading | visualisation-and-charts.md |
 | VIZ-009 | Text inside <svg> is invisible to the claims gate | deployed | extractAssertions never reaches SVG text, so an SVG diagram could assert anything and scan clean | visualisation-and-charts.md |
-| VIZ-010 | scripts/render_audit.py: the post-deploy render witness | built, unwired | Renders every element in headless Chromium; the only thing that catches 026 family 3 (a component hard-coding ink over a themed fill), which check_palette_contrast states it cannot see | visualisation-and-charts.md |
+| VIZ-010 | scripts/render_audit.py: the post-deploy render witness | built, unwired; capability superseded by VIZ-012 | Renders every element in headless Chromium; the only thing that catches 026 family 3 (a component hard-coding ink over a themed fill), which check_palette_contrast states it cannot see | visualisation-and-charts.md |
 | VIZ-011 | Chart furniture is a graphical object, so 3.0 applies | deployed | Axis lines and connectors need 3.0. --color-border scores 1.66 on oufe and fails; the accent scores 6.86 | visualisation-and-charts.md |
+| VIZ-012 | render-audit-agent: the render audit as a dispatchable orchestration | live, exercised | Chassis action → dedicated pod → Chromium over every deployed page; firm vs over_image separated. First full-site run found a real 2.61 (fixed same morning). Audits deployed ROWS only; seed key is start_step, never initial_step | visualisation-and-charts.md |
 | CLM-013 | Series facts: many dated observations, each independently sourced | deployed | Every observation carries its OWN source, never inherited; a rule enforced only in a validator is not enforced | claims-verification.md |
 | LNK-023 | repairOutboundPageLinks: shared rerender-path link repair | deployed | The build gate's dead-link repair applied where rerendered HTML leaves for deploy, both paths, origin-stamped log | link-management.md |
 | CTXA-024 | GitHubSource.CommitInfo: commit identity + committer date | deployed | Resolves short sha to full + committer date so index freshness keys on the commit, never the row clock | context-assembly.md |
