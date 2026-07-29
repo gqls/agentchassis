@@ -151,7 +151,7 @@
         "attributes": [
           "href"
         ],
-        "note": "RE-TIERED TO 4 ON 2026-07-28, AND PUT BACK ON 2026-07-29 BECAUSE THE COUNCIL WAS RIGHT. The deferral_honesty seat: \"Moving a failing check to a tier the platform doesn't execute, rather than reporting the failure, reads as evasion even with the honest note attached.\" That is the same suspicion I had already recorded about my own reasoning in WRONG_CALLS.md — that re-tiering was the reading which made my own red result disappear — and an independent seat reaching it from the other direction settles it. So this runs at Tier 2 and it FAILS: the served template carries href=\"#\". Whether that is a real defect or is forgiven by the platform's data-runtime-fill exemption is bugs_open/137, and it is not this entry's job to pre-empt the answer by hiding the question. The consequence is accepted deliberately: while this fails, the vonc fork cannot reach 'verified'. An entry that cannot be verified because a check genuinely fails is honest; one that verifies because the failing check was moved somewhere nothing runs is not."
+        "note": "RE-TIERED TO 4 ON 2026-07-28, AND PUT BACK ON 2026-07-29 BECAUSE THE COUNCIL WAS RIGHT. The deferral_honesty seat: \"Moving a failing check to a tier the platform doesn't execute, rather than reporting the failure, reads as evasion even with the honest note attached.\" That is the same suspicion I had already recorded about my own reasoning in WRONG_CALLS.md — that re-tiering was the reading which made my own red result disappear — and an independent seat reaching it from the other direction settles it. So this runs at Tier 2 and it FAILS: the served template carries href=\"#\". Whether that is a real defect or is forgiven by the platform's data-runtime-fill exemption is bugs_open/137, and it is not this entry's job to pre-empt the answer by hiding the question. The consequence is accepted deliberately: while this fails, the vonc fork cannot reach 'verified'. An entry that cannot be verified because a check genuinely fails is honest; one that verifies because the failing check was moved somewhere nothing runs is not. DISCLOSURE ADDED 2026-07-29, to the entry's own standard: this check asserts the HREF half only. Nothing here asserts the template also lacks a tabindex or a bound listener, so 'not a control' in this id means 'carries no href'. The tabindex half is uncheckable for the same reason as everywhere else in this entry — attribute_matches tests one attribute's VALUE against a pattern and treats absence as failure, so 'absent, or present but non-negative' cannot be expressed; the listener half is inert_row_has_no_activation_handler's gap."
       },
       {
         "id": "openable_row_is_a_real_control",
@@ -184,11 +184,26 @@
         "_unsupported": "NEW 2026-07-28, answering the council's [high] finding that a third of the must_not had no check at all, not even a deferred one. No event-listener assertion exists at EITHER tier — this is a distinct missing capability from attribute assertion, not another instance of it, and it is recorded separately so the harness backlog does not read as one gap when it is two. It is also the hardest half to see by eye: a row can carry no href and no tabindex and still be made clickable by a listener, which looks inert in the markup and behaves as a control."
       },
       {
+        "id": "inert_row_click_changes_nothing",
+        "type": "interaction",
+        "steps": [
+          {
+            "action": "click",
+            "selector": "{{binding.item_static_selector}}"
+          }
+        ],
+        "expect": {
+          "selector": "{{binding.list_container}}"
+        },
+        "tier": 4,
+        "note": "NEW 2026-07-29, and it exists because the council found reuse I had missed: deferral_honesty pointed out that the executable `interaction` type can click the inert row and assert the outcome, which is a real proxy for 'no activation handler' rather than another deferral. Taken. WHAT IT CATCHES: a click that NAVIGATES — the expected container would be gone from the new page, so the check fails. WHAT IT DOES NOT CATCH, stated because the id could be read as broader: an in-place state change. `expect` carries only selector and text_matches, so 'nothing happened' is not directly expressible, and a handler that opened something without navigating would pass this. It is a partial proxy, deliberately kept alongside inert_row_has_no_activation_handler rather than replacing it. Tier 4 because the inert rows are cloned client-side and no static evaluation can click anything."
+      },
+      {
         "id": "feed_loads",
         "type": "asset_loads",
         "path": "{{binding.feed_path}}",
         "tier": 4,
-        "note": "CONTRADICTION RESOLVED 2026-07-28. The council was right that this sat in criteria_template AND deferred_checks with a reason ending 'remove the marker if the platform has caught up' — a self-contradicting status, and mine. The resolution is that the clause was mis-typed, not merely unsupported: what it means is 'the feed is actually fetched', which is a network claim only a browser can make. asset_loads at Tier 2 matches the path as TEXT in the page HTML, and this component's loader is an external bundle (/assets/js/snippets.js), so the path is never in the page — verified live 2026-07-28: /data/provocations.json serves 200 while the page references no json at all. Tier 4 states the truth once instead of two half-truths."
+        "note": "REASON CORRECTED 2026-07-29, because the council was right and my earlier reason was not. I wrote that asset_loads 'matches the path as TEXT in the page HTML' as though that were an inherent property. It is not — it is the current implementation (check_tool_acceptance.go: strings.Contains(html, ch.Path)), and the seat correctly named it an implementation quirk rather than a proof that the type could not fetch the path and check its status. THE HONEST REASON IS DIFFERENT AND STRONGER: making asset_loads fetch would change what it MEANS for the 63 doc_plans criteria fences already using it, and under the owner's ruling of 2026-07-29 (RFC 002 §9 Q1) a change to what a shared mechanism guarantees is architecture-scope and needs its own RFC. So this clause is blocked on a governed change to a shared type, not on a missing capability — a materially different kind of blocked, and one this entry must not resolve unilaterally."
       },
       {
         "id": "rows_rendered",
@@ -221,11 +236,18 @@
         "type": "selector_text_non_empty",
         "selector": "{{binding.item_title_selector}}",
         "_unsupported": "NEW 2026-07-29, answering the checkability seat: data_contract.required_per_row names 'title' as required and nothing asserted it. No non-empty-text assertion exists at either tier — Tier 2's expect struct carries a selector and nothing else, and selector_exists on a rendered row says the element is there, not that it has content. This is a fourth distinct capability gap (text-content assertion), recorded as its own rather than folded into an existing one."
+      },
+      {
+        "id": "rendered_rows_respect_the_cap",
+        "type": "selector_count",
+        "selector": "{{binding.list_container}} > *",
+        "_unsupported": "NEW 2026-07-29, answering the checkability seat: data_contract declares a cap ({{binding.max_rows}}) and nothing asserted it, in an entry that had given every other clause a check or a deferral. It cannot be asserted: no checker reads a maximum, a minimum or any expected count off a selector_count — the validator's P7 refuses such a key as a field no checker reads, which is exactly why rows_rendered disclaims its own quantity. Count-threshold assertion is the same missing capability the harness ranking already lists; recorded here so the cap is not the one clause left silent."
       }
     ]
   },
   "status": "draft",
   "source": "harvest",
   "harvested_from": "vonc.com provocations-archive-list (component 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37) + provocations-archive-loader js_snippet, live 2026-07-26.",
-  "_REVISION_2026-07-29": "Round 3. The council's gating [high] was that re-tiering template_row_not_a_control to 4 — when the Tier 2 check exists and FAILS — 'reads as evasion'. It was right, and it matched a suspicion I had already logged about my own reasoning, so the check is back at Tier 2 and the entry now carries a real failure rather than a hidden question. Four silent gaps the seats found (the empty_list clause, keyboard-reachability, required 'title', and two deferrals that were placeholders rather than specs) are each declared or specified. The one objection NOT answered is deferral_honesty [high] #2 — that the central rule is 100% unasserted on live rows — because it is TRUE and not fixable by editing: the rows are cloned client-side, so only a browser can see them, and nothing in the register drives one yet. Saying so is the honest answer; making the ratio look better would mean exactly the move the same seat just caught."
+  "_REVISION_2026-07-29": "Round 3. The council's gating [high] was that re-tiering template_row_not_a_control to 4 — when the Tier 2 check exists and FAILS — 'reads as evasion'. It was right, and it matched a suspicion I had already logged about my own reasoning, so the check is back at Tier 2 and the entry now carries a real failure rather than a hidden question. Four silent gaps the seats found (the empty_list clause, keyboard-reachability, required 'title', and two deferrals that were placeholders rather than specs) are each declared or specified. The one objection NOT answered is deferral_honesty [high] #2 — that the central rule is 100% unasserted on live rows — because it is TRUE and not fixable by editing: the rows are cloned client-side, so only a browser can see them, and nothing in the register drives one yet. Saying so is the honest answer; making the ratio look better would mean exactly the move the same seat just caught.",
+  "_REVISION_2026-07-29b": "Round 4. Both [high] objections were the council finding things I had got wrong or missed, not disagreements. (1) My reason for deferring feed_loads described an implementation quirk as though it were an inherent limit; the true reason is that fixing it would change what asset_loads means for 63 live documents, which the owner's 2026-07-29 ruling makes RFC-scope. (2) The seat spotted that the executable `interaction` type can proxy the activation-handler clause by clicking the inert row — real reuse I had not considered — so that check now exists, bounded honestly to what it actually catches. THE ONE OBJECTION THAT WILL NOT GO AWAY BY EDITING is deferral_honesty's ratio finding, and it should stop being re-litigated each round: this component renders its rows CLIENT-SIDE, so every clause about a live row is Tier 4 by physics, and nothing in the register drives a browser yet. This entry cannot honestly reach a good executable/deferred ratio until bind+verify runs at Tier 4. That is a statement about the harness, not about the entry, and the next revision should not try to improve the ratio by moving clauses around."
 }
