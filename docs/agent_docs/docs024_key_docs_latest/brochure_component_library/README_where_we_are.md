@@ -866,3 +866,68 @@ own favicon reference works; only the old-fashioned fallback path (favicon.ico a
 site root) is missing. And the icon that seemed to flicker between working and broken
 looks like brief origin hiccups under load, not a missing file — six probes in a row
 all came back fine.
+
+2026-07-29, later the same day. Four decisions came back and I've worked through
+all of them. Here's what each turned into.
+
+**The "you can read our decision record" promise.** You asked me to soften it on
+the self-correction page. Before editing I checked where else it appeared, and it
+was on seven pages, twelve times over: "a decision record you can read", "You can
+read it", "real and inspectable". Softening one page would have left the promise
+live everywhere else, so I changed all of them to say we can show it to you, which
+is true today. I deliberately left one alone: the home page says you can read the
+outputs and check the artefacts, and that one refers to the live sites, which
+genuinely are public.
+
+**The dead links on the capabilities page.** You said strip them. I did, with one
+refinement I want to flag because it's my judgement rather than your instruction:
+five of the ten pointed at things that DO exist elsewhere on the site, and the
+card's own wording said so. "See how it works" on a card about the review council
+now goes to the review council page; "Read the audit record" goes to the
+self-correction story; "Talk to us" goes to the contact page. The other five had
+no destination at all and lost their link, keeping the text. If you'd rather all
+ten simply lost their links, say so and it's a two-minute change.
+
+**The em-dashes.** I told you in the question that fixing the shared templates
+would affect other sites. I was wrong, and measuring it before touching anything
+is what caught it: each site has its own copy of those templates, so the change
+only touched this site. More usefully, the "21 em-dashes in templates" turned out
+to be three different things. Four were inside code comments that nobody ever
+sees. Two were the dash used in a table to mean "not applicable", which is just
+correct typography. Only fifteen were actually visible writing, and those are
+gone. I also fixed the instructions we give the tool-building model, which had no
+rule about this at all and was itself full of em-dashes that the model was quietly
+copying.
+
+**The carousel-with-a-cliffhanger idea.** This is the big one and it's built. The
+important thing I found first: your idea already had a name in our own system. We
+have a registry of "display shapes" and one of them, written before this project
+existed, describes exactly what you asked for: a teaser that opens its full text
+in place without loading a new page, at a web address you can share. So I built
+to that rather than inventing a second name for the same thing, which is the whole
+point of having the registry.
+
+The panel now on the home page replaces the old six-box "differentiators" grid
+with the same six pieces of copy in the new treatment: a short opening sentence, a
+second one that stops mid-thought, and the rest revealed when you click. Nothing
+was rewritten by a model, so no new claims entered the site. One of the six has no
+hidden text at all, and that one deliberately gets no button and no cliffhanger,
+because you should only tease something you can actually deliver.
+
+Three things I want to note about how it's built, because they're the difference
+between this working and this looking like it works. It opens and closes with no
+JavaScript at all; the JavaScript only adds the shareable web address, so if it
+fails to load, nothing on the page becomes a dead button. The hidden text is
+always really there in the page, not fetched when you click, because text that
+only appears after a click is invisible to our own fact-checking system and to
+Google. And the "unfinished sentence" is marked in the data rather than with a
+trailing "...", because our own tooling treats a trailing "..." as a sign that
+something got cut off mid-generation and would try to repair it.
+
+**Where it got hard, honestly.** Getting the panel to stay on the page took four
+attempts. Our rebuild process silently dropped it three times while reporting
+success each time, and each attempt taught me one more place a page's section list
+is written down: the plan, the page record, and a name field on the row itself.
+Miss any one and the section vanishes at the next rebuild with a green tick. That
+is worth knowing beyond this panel: it's the same "the status said fine and the
+page said otherwise" pattern that has now bitten this site five times.

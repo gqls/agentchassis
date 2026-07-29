@@ -2709,3 +2709,110 @@ a page-scoped `hero_capabilities` imagery row, got its own hero. So per-page her
 direction on this path requires a `site_plan_imagery` page-scope row, not a
 `content_data` value; the content_data values I set are inert but harmless (real files,
 recorded in history). Site is now background-clean as well as link/img-clean.
+
+## 2026-07-29 (later) — four owner decisions worked through; §4c has a first slice
+
+Owner decisions taken this session: (1) §4c → design **and** build a first slice;
+(2) decision-record page → soften the copy now, decide publication later; (3) the dead
+fragment anchors → unlink; (4) em-dashes → fix the templates.
+
+**(2) The overclaim was on SEVEN pages, not one.** The question named the
+self-correction blog post; a survey before editing found **12 instances across 7 pages**
+of "a decision record you can read" / "You can read it." / "real and inspectable".
+Softening one page would have left the same promise live everywhere else, so all
+eleven visitor-facing instances were changed to "we can show you" forms. **One was
+left deliberately**: index's `portfolio-showcase` says *"You can read the outputs,
+check the artefacts"* — that refers to the live sites, which are genuinely public, so
+it is true and stays. Archived under `operator_copy_anchors_2026-07-29`.
+
+**(3) Unlinked, with a rewrite arm in front of it.** 10 dead `/capabilities.html#…`
+fragments across two card components. Both templates gate the whole link affordance
+AND its label on `link_url` (`{{if .link_url}}`), so dropping the key removes the
+anchor and leaves the prose — correct-or-absent, no orphan "See how it works →" text.
+**5 were rewritten rather than unlinked**, because the card's own label named a page
+that exists: `#review-council` → `/multi-agent-review-council.html`, `#verification` →
+the self-correction post, `#embeddings` (label "Talk to us") → `/contact.html`. The
+other 5 (`#decision-record`, `#rapid-delivery`, `#production`) have no destination and
+lost their control. This is the platform's own rewrite-then-unlink order applied by
+hand — note the platform's repair would never have touched these, because the PATH
+(`/capabilities.html`) resolves and only the fragment is dead.
+
+**(4) The em-dash scope claim I put in the owner's question was WRONG, and measuring
+it first is what caught it.** I said template edits are fleet-shared. They are not for
+these three: `tool-llm-cost-calculator` has a **separate row per site** (ids
+`eb107351…` fundamentallyai, `c4f94a99…` ai-agent-orchestration, `6ae13838…`
+finetuning.uk + leopardess), and both other components are single-site. Blast radius
+was fundamentallyai only.
+**And "21 template em-dashes" is three populations, not one.** Of the 21:
+**4 are CSS comments** (`/* Track — native scroll-snap … */` in hero-card-carousel) —
+invisible, never prose, left alone; **2 are table cell placeholders** meaning "not
+applicable" in the calculator — correct typography, left alone; **15 were visible
+prose** and are gone (selector 12 → 0, calculator 5 → 2). The earlier correction split
+writer prose from template text; this splits template text again into rendered prose,
+inert comments and legitimate glyphs. *A character count is not a style measurement.*
+Also fixed the **tool-generator prompt** (`generate_tool_html` only): added rule 14
+forbidding em-dashes in visitor prose, and removed the 5 em-dashes from the prompt's
+own instruction text — a style rule the prompt itself violates is one the model will
+imitate past. `compose_plan`'s 8 were left alone deliberately: they are an internal
+PLAN document's required heading format (`# PLAN — {{…}}`), which other steps parse.
+
+**(1) §4c first slice: `teaser-reveal-panel`, live on the home page.** Full design in
+`PLAN_2026-07-29_teaser_reveal_panel.md`. The key decision was **not to invent a
+shape**: `experience_patterns` already holds `teaser-detail-deeplink`, which is the
+owner's idea written down before this workstream existed. Built to it, declared in the
+markup (`data-experience-pattern`). Three hazards §4c named are each answered
+concretely (figure-splitting banned in `llm_guidance`; cliffhanger marked with
+`data-continues`, never an ellipsis; no LLM on the render path). A **fourth hazard
+found while building**: a JS-populated reveal hides assertive prose from the claims
+gate and from crawlers — the same blind spot as text inside `<svg>` — so the reveal is
+native `<details>` with the body permanently in the DOM, and the JS adds only URL
+addressability. Registered as **CLC-012**; lane removed from the coverage ratchet.
+
+### Missteps this session, all caught by a check rather than by luck
+
+- **My render harness counted CSS class definitions as markup** and reported 4
+  failures against a correct template. Fixed to slice the `<style>` block away first.
+  *A check that cannot tell a CSS rule from an element is measuring the wrong thing* —
+  and it failed in the direction that would have made me "fix" a working template.
+- **The mutants earned their keep twice.** Beyond proving the checks non-vacuous
+  (bodyless-item-given-a-body fails 6 checks, ellipsis fails 1), mutant A **panicked**
+  the harness on an unguarded `strings.Index` returning -1. A missing degraded branch
+  is now a reported failure, not a crash.
+- **`page_components.id` is not stable across re-renders.** My placement keyed on an id
+  read ~40 minutes earlier silently matched nothing (`INSERT 0`, `DELETE 0`) and left
+  the old grid and the new panel BOTH at position 4. Key placement edits on
+  `(page_id, function)`. The landmine was already recorded by the robot-hands lane; I
+  hit it anyway.
+- **THE BIG ONE — a page-level placement does not survive a re-render, and the work
+  item said `complete`.** The first index re-render **dropped the panel entirely** and
+  renumbered the remaining sections. The rebuild resolves sections against
+  `site_plan_sections`, and the plan still said `differentiators` at ordering 3. So the
+  green status was accurate about the rerender and silent about the section it
+  discarded. Fixed by swapping the PLAN row, then re-inserting the page_components row.
+  The 07-25 entry in this very file already says "plan-level placement survives
+  rebuilds" — I placed at page level regardless. **Placement is a plan fact; a
+  `page_components` row alone is a render artefact.**
+- **A UTC/BST clock trap nearly produced a false stall report.** My poll printed local
+  BST while the DB reports UTC; I read "10 minutes queued" off a two-minute-old row and
+  started looking for a wedged lane. Print `now()` from the database before judging
+  latency.
+
+**VERIFIED LIVE 2026-07-29 (all four decisions, against the served site).**
+Panel: 5 openable `<details>`, 1 static card with no control, 5 `data-continues`
+marks, pattern declared, 0 ellipses, 0 unrendered vars — on the SERVED page, and
+matching the persisted row (7,779 bytes). JS bundle regenerated 2 → 3 snippets
+(`site-asset-renderer` via the new `rebundle_js_snippets_direct.sh`; there is no
+work-item route to that agent).
+**Contrast measured in the state that only exists after a click**: `render_audit.py`
+reported 0 failures on the open URL and that run proved nothing — it renders a LOCAL
+copy, so `?open=review-council` never reached `window.location`. Wrote
+`probe_reveal_open_state.py`, which forces every `<details>` open in the DOM: 5
+revealed bodies, all **13.19:1**, 0 failures. It prints the count it measured, so a
+probe that opened nothing is distinguishable from a clean result.
+Whole-site re-crawl after everything: **12/12 internal link targets 200, 17/17 image
+srcs 200, 6/6 CSS backgrounds 200, 0 "you can read" overclaims, 0 dead
+`/capabilities.html#` fragments.** Em-dashes across the ten served pages 92 → 78.
+Observation for the owner, not a defect: the new panel (position 4) and the
+surviving `info-card-grid` (position 6) still cover overlapping ground — that
+overlap predates today (differentiators + features + info-card-grid all did), but
+with the panel in place it is the most visible remaining duplication on the page.
