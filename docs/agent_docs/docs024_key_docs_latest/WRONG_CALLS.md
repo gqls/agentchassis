@@ -10696,3 +10696,53 @@ ones I had built a control for — the negative control caught the dead fixtures
 caught the summed glob and the bad headline. **Every misstep with no control attached was caught
 by somebody else**, and two of those went to a council that costs credits and thirty minutes.
 That is the argument for writing the control first, not the summary first.
+
+---
+
+**"Publish the chrome with a nav_drift item and nav-updater does the rest — the
+News row lands with it" — written into `webdesign_couk/SQL_p19`'s own header as
+the justification for firing it, wrong (caught 2026-07-29 ~08:00, same session,
+by the run itself).** The same session that logged the previous entry — the
+handoff's false "nav row reappears by itself" — then ACTED on that claim's
+mechanism without reading it, in the very hour it was writing the correction.
+The nav_drift completed green, the nav rebuilt WITHOUT News (`bugs_closed/141`:
+`isSectionIndexType` omitted `news-index`), and the run queued ~99 assemble
+re-renders of which ~98 republished byte-identical pages — then a second full
+fan-out was needed once the fix rolled. Cost: hours of queue occupancy, doubled.
+Caught by: the completed run's artefact disagreeing with its status (nav table
+unchanged), then the nav-updater pod log naming the skip.
+
+*Cheap check that would have:* the one this file's previous entry already
+prescribes — before writing (or obeying) "X happens automatically", find the
+code path that does X and run its selection against your row.
+`classifyPagesForNav` is one grep from `refresh_nav_tables`; the three-type
+exemption list is on one screen. **A correction you are writing about someone
+else's unverified mechanism claim is not immunity against acting on the same
+claim yourself — the entry above and this one are the same skipped check, one
+session apart, and the second one had the first open in its editor.**
+
+Family: writes-the-field-is-not-reads-the-field, the entry directly above.
+
+---
+
+**"The build queue has stalled post-roll" — stated as the working diagnosis
+2026-07-29 ~08:35 (session transcript, not a durable doc — logged here because
+the shape recurs), wrong within minutes.** Evidence read as a stall: 0 claimed,
+82 queued, priority-20 item unpicked "for ~10 minutes", trigger "not re-firing".
+Actual state: a normal long-running dispatch orchestration (`AWAITING_RESPONSES`
+means working, not stuck), the item claimed moments later, and the queue moving
+at exactly its measured ~2 min/item baseline — 18 items in 40 minutes. The
+"~10 minutes" itself was inflated by wall-clock drift: the session believed
+~15 more minutes had passed than had, having printed `SELECT now()` once at
+07:40 and never again. Nothing was cancelled (the standing "never cancel the
+failing row pre-diagnosis" rule held), so the cost was only wasted diagnosis
+down the spawn-drop path.
+
+*Cheap check that would have:* two, both one-liners. Print `SELECT now()`
+beside every latency judgement — client clock estimates drift within an hour of
+multitasking. And before saying "stalled", divide observed progress by the
+measured baseline: 18/40min ÷ 1/2min ≈ on pace, which is the opposite of a
+stall, from numbers already on screen.
+
+Family: council-queue-latency-trap ("no rows = QUEUED, not dropped"),
+check-an-untouched-peer-in-the-same-batch (the cadence baseline IS the peer).
