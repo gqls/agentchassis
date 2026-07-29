@@ -131,11 +131,16 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 		pageURL = datahelpers.ExtractNestedFieldString(params.CollectedData, uf)
 	}
 	if pageURL == "" && params.DB != nil && siteID != "" {
+		// $2 is cast explicitly at every use: mixing a bare $2 with
+		// 'tool-' || $2 makes Postgres deduce inconsistent types for the one
+		// parameter (SQLSTATE 42P08). The first live exercise of this lookup —
+		// the smart-contrast pilot — failed on exactly that, which go build
+		// could never have caught.
 		err := params.DB.QueryRowContext(ctx, `
 			SELECT COALESCE(url, '') FROM pages
 			WHERE site_id = $1::uuid AND status = 'active'
-			  AND name IN ($2, 'tool-' || $2)
-			ORDER BY (name = $2) DESC
+			  AND name IN ($2::text, 'tool-' || $2::text)
+			ORDER BY (name = $2::text) DESC
 			LIMIT 1
 		`, siteID, function).Scan(&pageURL)
 		if err != nil && err != sql.ErrNoRows {
