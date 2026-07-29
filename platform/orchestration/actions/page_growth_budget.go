@@ -84,6 +84,26 @@ type GrowthConfig struct {
 	WeeklyBlogPostsMax       int `json:"weekly_blog_posts_max"`
 	WeeklyStructuralPagesMax int `json:"weekly_structural_pages_max"`
 	AbsoluteMax              int `json:"absolute_max"`
+
+	// ContentToolsRatio: how many PUBLISHED articles/guides justify one tool
+	// (6 => a site with 18 guides should have about 3). 0 or absent means OFF,
+	// which is the default and the state of 31 of 32 sites.
+	//
+	// Nothing in THIS file reads it. It is modelled here because this struct is
+	// the canonical picture of the growth_config aspect, and the field's only
+	// live reader —- discovery_checks/check_missing_tools.go -- cannot use this
+	// struct: package actions imports discovery_checks in 6 files and
+	// discovery_checks imports actions in 0, so calling loadGrowthConfig from
+	// there would close an import cycle (and loadGrowthConfig is unexported
+	// besides). It therefore reads the one key with its own inline SQL.
+	//
+	// Added 2026-07-29 on the council gate's advice: three seats (reuse_agent,
+	// architecture, prior_art_librarian) independently objected that a field
+	// living only at its call site invites a THIRD ad-hoc reader, because a
+	// future author reading this struct would not know the key exists. Keeping
+	// it modelled here costs nothing at runtime — loadGrowthConfig unmarshals
+	// over defaults — and makes the surface discoverable.
+	ContentToolsRatio int `json:"content_tools_ratio"`
 }
 
 var DefaultGrowthConfig = GrowthConfig{
