@@ -187,3 +187,36 @@ Seed 220 carries the exact revert SQL in its header comment.
 That is now a live handler, and step-level handlers only began working at all in
 v1.0.1169 — so it has real routing behaviour that predates nothing. Worth a deliberate
 test of its failing branch rather than assuming it.
+
+### DECISION 2026-07-29 (oufe lane, as named owner): `note_refusal` STAYS DISABLED
+
+Ruling on the contribution above: **leave it as it is** — no live `error_step`, a
+failed note-append fails the run.
+
+Reasoning, weighed against the consideration the contributor flagged:
+
+- **The note is missing in BOTH outcomes.** The handler cannot save the note; it
+  only chooses whether the run then reports COMPLETED or FAILED. So the real
+  question is which report serves the next agent when the record is absent.
+- **A quiet COMPLETED with a silently missing note is a success-shaped
+  non-event** — this workstream's most-paid-for failure class (095's
+  `complete_skipped`, the partial-build loop found this same morning, "complete
+  is not proof the work happened"). A loud FAILED at least produces a failure
+  row the immune system sweeps; a quiet completion buries the gap where nothing
+  looks.
+- **Symmetry**: `append_note`, the success-path twin running the identical
+  action, has never had a handler. Re-enabling one branch alone makes twins
+  diverge for no stated reason.
+- The original author's `error_step: complete` read ("notes are best-effort") is
+  defensible but predates step-level handlers working at all (v1.0.1169), so it
+  was never an exercised design — there is no behaviour to preserve.
+
+Revert path if this proves wrong is unchanged: seed 220's header carries the
+rename-back SQL; snapshot `agent_definitions_backup` `snapshot_reason LIKE
+'220_%'` (2026-07-26 18:32:26Z).
+
+**Still owed from the same contribution (open):** a deliberate failing-branch
+test of `tool-improver.update_component`'s now-live
+`error_step → refuse_mangled_write` (gained `6e29d6d19`, live only since
+step-level handlers work). Verify-the-failing-branch applies: induce a mangled
+write in a sandbox item rather than assuming the route.
