@@ -1002,3 +1002,40 @@ asserted in a **file header comment** without checking the engine underneath it.
 workflow's error_step routes to the failure path"*, which is true for this
 workflow and under-states the engine — absent an `error_step` it fails outright.
 A comment describing the configured case as if it were the only one.
+
+### Post-roll re-verification (v1.0.1196) and the httpguard adoption opened
+
+**2026-07-29.** A roll I did not do took the fleet to **v1.0.1196** (both
+replicas, 22:37/22:38Z). Re-grepped rather than assumed: `carries no
+prose_sections` 1, `carries no no_match_sentence` 1, positive control `No gripper
+in this index` 3, negative control `nonexistent_marker_xyz` 0 — identical on
+both pods. The fix survives the roll.
+
+**Adoption item opened as `bugs_open/139`** rather than as a recommendation.
+Re-measured, not inherited: `platform/httpguard` and `platform/mailer` both exist
+and `grep -rl 'agentchassis/platform/httpguard'` over every `.go` in the repo
+returns **nothing** — still zero importers. And the exposure the handoff asserted
+is real at **two** sites, not one: `internal/tools-api/middleware/ratelimit.go:30`
+(`getLimiter(c.ClientIP())`) and `internal/tools-api/handlers/round.go:109`
+(`ipHash := hashIP(c.ClientIP())`, which is **persisted** — the worse of the two,
+because a poisoned identity column is a wrong answer nobody thinks to distrust).
+`internal/tools-api/api/server.go:14` is `gin.New()` with **no
+`SetTrustedProxies`**.
+
+**[UNMEASURED], stated in the bug file too:** I did not fire the
+`curl -H 'X-Forwarded-For: …'` probe at tools-api and did not read gin's
+`ClientIP()` source. `bugs_closed/090` proved the mechanism against production on
+idea.uk with exactly that one command, so it is cheap — but until someone runs it
+here, 139's headline is an inference from two call sites plus a missing
+`SetTrustedProxies`, not a demonstration. Marked as such rather than left to look
+checked.
+
+Filed as a NEW case rather than reopening 090: 090 is correctly closed (fixed,
+deployed, proven live) on **idea.uk**, a different service on a different box.
+Reopening it would have made its closure dishonest. Grepped both `/bugs_open/`
+and `/bugs_closed/` first — nothing covered tools-api.
+
+**Not taken on.** `tools-api` is the gauntlet_dead_cta thread's, with `083`
+(slug `gauntlet_engine_503_discards_the_error`) open against it. 139 is the
+evidence half of a conversation; `who-owns.py` reads commits and cannot see a
+session mid-fix, so check the tree too before anyone acts on it.
