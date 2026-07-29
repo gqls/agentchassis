@@ -203,3 +203,24 @@ has started actually truncating, not merely pressing the cap — 2 of ~58 calls 
 in `agent_error_log` at 21:55:47Z). That matches this file's 14-day table naming
 prior_art_librarian second-worst, and moves it from "likely to start" to
 "observed".
+
+## 2026-07-29 ~09:35Z — candidate 3 actioned for two more gate seats (owner call, council-parallelism thread)
+
+The per-seat 14-day measurement (`llm_call_log`, gate + generic populations
+combined): `prior_art` 7 truncations of 224 calls (3.1%), `guidelines` 7 of 154
+(4.5%), `guardian` 1 of 287, `bug_historian` 0 of 198, all other 8000-cap seats
+clean with p95 ≤ 6,960. **Owner ruled: raise `prior_art` + `guidelines` 8000 →
+16000, leave guardian/bug_historian until they actually truncate.** Applied to
+both `fix-proposer` and `council-gate` (guarded `jsonb_set`, 2 rows returned
+each; 099 dry-run `drift: (none)` after). Roster now: 4 seats at 16000, 13 at
+8000. Note this right-sizes three of your table's seven seats — **the mechanism
+(Degraded gates unconditionally, cause invisible in `decided_by`) is still
+untouched; candidates 1, 2 and 4 remain open.**
+
+**A data point from outside the council gate, same mechanism family:** the
+experience-approval council's `review_deferral_honesty` truncated **3 of 5 calls
+in 14d at cap 12000** (llm_call_log, `agent_type='experience-approval-council'`)
+— worst rate of any seat anywhere, already above 8000, which is direct evidence
+for your candidate 4 (schema order / length budget) over pure cap-raising.
+Owned by the experience-loop workstream; flagged here because this file is where
+the mechanism lives, not actioned by me.

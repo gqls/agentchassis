@@ -237,3 +237,42 @@ contributed into `bugs_open/138` (owned by the architecture_review workstream �
 that file also now records its architecture-seat fix as EXERCISED, verified by
 this session: 2 calls at cap 16000, 0 truncated). Raising the remaining seats
 stays an owner call, per §5.3 — now with a live instance to point at.
+
+## 2026-07-29 ~09:35Z — OWNER RULED on §5.3: prior_art + guidelines raised to 16000
+
+**The call was put with 14-day per-seat evidence and the owner chose the narrow
+option** — raise only the two seats with *observed* truncation losses; guardian
+and bug_historian stay at 8000 until they actually truncate:
+
+| seat (gate+generic populations) | calls 14d | truncated | p95 out | max out |
+|---|---|---|---|---|
+| `prior_art` | 224 | **7 (3.1%)** | 7,129 | 7,900 |
+| `guidelines` | 154 | **7 (4.5%)** | 6,953 | 8,000 (cut) |
+| `guardian` — NOT raised | 287 | 1 (0.3%) | 6,959 | 7,934 |
+| `bug_historian` — NOT raised | 198 | 0 | 6,499 | 7,531 |
+
+**Applied ~09:35Z** with the same guarded `jsonb_set` as the editquality raise
+(HANDOFF_2026-07-28 §"the fix"), to BOTH `fix-proposer` and `council-gate`
+(landmine 1): each UPDATE returned 2 rows individually. **099 dry-run:
+`drift: (none)`** — the mirror is a no-op, so a future `--apply` cannot revert
+this. Roster state: 4 seats at 16000 (architecture, editquality, guidelines,
+prior_art), 13 at 8000, gate ≡ proposer throughout.
+
+**The watch now covers three seats.** editquality is at **18 calls / 0
+truncated** since its 21:43Z raise (traffic resumed ~09:00Z; the single 8000-cap
+call at 21:43:54Z was an in-flight pre-cutover round — spawn-carries-config, see
+138). For prior_art (3.1% baseline) and guidelines (4.5%) a zero needs MORE
+calls than editquality's 25% baseline did to mean anything — expect **days**;
+the decisive observation for any of them is a single output >8000.
+
+**Caveat on populations:** no `generic` (spawned-pod) council has run
+editquality since 07-26 14:46Z, so the raised caps are unexercised in that
+population. The config is shared — one definition row, two pod identities
+`[INFERRED from the architecture seat's pre-raise truncations logging as
+agent_type='generic' off the same rows]` — but the first spawned council after
+the raises is worth a glance.
+
+**Out of this lane, flagged in 138, not actioned:** the experience-approval
+council's `review_deferral_honesty` truncated **3 of 5 calls at cap 12000** —
+the same mechanism family in a different apparatus, owned by the experience-loop
+workstream.
