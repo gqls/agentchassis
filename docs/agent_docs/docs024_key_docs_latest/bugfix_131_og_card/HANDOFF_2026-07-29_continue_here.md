@@ -173,7 +173,12 @@ file card.png          # must say PNG 1200 x 630 — a 404 page saves happily as
 
 ---
 
-## 6. Separate thread the owner raised (29 July) — branded image for dead forum hotlinks
+## 6. CLOSED by the owner (29 July) — branded image for dead forum hotlinks
+
+> **OWNER DECISION, 2026-07-29: "we can leave the 410s." The idea is DROPPED — do not reopen
+> it or re-derive the analysis.** `/attachment.php` and the rest of the dead vBulletin surface
+> keep returning `410 Gone`. The reasoning below is kept only so nobody re-costs it from
+> scratch.
 
 `foroderelojes.es`, a live Spanish watch forum, hotlinks `/attachment.php` (149 requests in the
 measurement window); we now serve **410 Gone**, so those old threads show broken images. Owner
