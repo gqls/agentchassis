@@ -218,3 +218,44 @@ change to `discovery_checks/check_missing_tools.go`, which today decides tool ne
 7-day/30-day timer with no reference to how much content a site has. Recorded as config
 so the policy and its future reader sit together, marked UNREAD so it is not mistaken
 for live behaviour.
+
+### Truth reset verified on the artefacts, not the status
+
+`about` and `shipping-returns` rebuilt and checked by counting phrases in the stored
+`rendered_html`, not by trusting `status='complete'`:
+
+| page | before | after |
+|---|---|---|
+| about | "we stock" x2, "we carry" x1, title "Specialist Darts **Retailer**" | all 0; now *"We don't sell darts, hold stock or ship products… an independent guide"* |
+| shipping-returns | dispatch / tracking / courier / working days / checkout / cut-off / 30 days | all 0; now *"This site holds no stock and ships no orders… you buy your gear from your preferred retailer"*, and an FAQ that answers "Do you ship darts directly to me?" with "We hold no stock and ship nothing" |
+
+The FAQ is the part I did not expect to come out well: asked "Who do I contact if I have
+a problem with an order?" it answers *"the specific store where you completed your
+purchase. We can't track shipments or process refunds"*. Setting
+`pages.page_spec->>'purpose'` with an explicit FORBIDDEN list was what did it — the same
+writer, one hour earlier, wrote the courier promises.
+
+**Follow-up (small, not worth its own build cycle):** shipping-returns contains
+"analyzing" — US spelling, against the platform's British-English convention. Sweep it
+with the next rebuild of that page rather than churning a build for one word.
+
+### Council + queue notes
+
+- Tool-ratio change submitted to the council gate, correlation
+  **`f5fc3014-973c-49a2-8d42-4bf9b401eaeb`**. Commit `f8190a7de` carries NO trailer yet;
+  add `Council-Reviewed:` on a later commit only if the verdict is APPROVED.
+- **The build dispatcher serves ONE SITE PER TICK, fleet-wide.**
+  `build-pipeline-trigger.find_dispatchable_site` is
+  `SELECT DISTINCT ON (wi.site_id) … ORDER BY wi.site_id, wi.priority ASC LIMIT 1`, so
+  the winner is chosen by **site_id UUID order**, not by priority or age, and a site with
+  any `claimed` item is excluded. I briefly diagnosed this as starvation when four
+  dartsonline items sat `triaged` while `gaswholesalers` (UUID `5fe15466…`, one sort
+  position ahead of `5fe8785b…`) held the slot with an `amend_asset:logo_failtest` row.
+  **It was contention, not starvation** — that item completed, dartsonline became the
+  selected site on the next tick, and the four items drained in sequence. Worth knowing
+  for pacing: queue several items for one site and they run one at a time, a few minutes
+  apart, not in parallel. Not filed as a defect; the throughput ceiling is real but no
+  site was actually starved.
+- Timing trap: I twice concluded "this has been stuck for minutes" from my own sense of
+  elapsed time. `SELECT now()` said 56 seconds. Read the DB clock before calling
+  something stalled.
