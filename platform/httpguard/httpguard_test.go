@@ -1,7 +1,9 @@
 package httpguard
 
 import (
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -134,6 +136,91 @@ func TestClientIPSkipsATrustedHeaderThatIsNotAnAddress(t *testing.T) {
 	}), Nginx())
 	if got != "198.51.100.9" {
 		t.Fatalf("want the fallback to the next trusted header, got %q", got)
+	}
+}
+
+// The peer gate is the single thing keeping CloudflareTunnel() honest: trusting
+// CF-Connecting-IP means trusting Cloudflare to be in front, and only this gate
+// makes the header revert to being ignored if the origin is ever reachable
+// without the tunnel. The architecture seat approved the FrontEnd change with one
+// standing objection — that the reversion was unit-tested but its BOUNDARY was
+// never stated — and asked that the next thing landing here close it.
+//
+// This pins where the boundary actually falls, measured rather than assumed.
+// Note the two that may surprise: Go's net.IP.IsPrivate covers RFC1918 and
+// RFC4193 ONLY, so a proxy behind CGNAT (100.64.0.0/10, RFC6598) or on a
+// link-local address is NOT trusted and its headers are ignored. That is the safe
+// direction to be wrong in — such a deployment keys on the peer instead of the
+// real visitor, which degrades to a coarse key rather than a spoofable one — but
+// it is a real constraint on where this package can be adopted, so it is stated
+// here rather than discovered later.
+func TestPeerGateBoundaryIsStatedNotAssumed(t *testing.T) {
+	const forged = "203.0.113.77"
+	for _, tc := range []struct {
+		remoteAddr string
+		peer       string
+		trusted    bool
+		why        string
+	}{
+		{"127.0.0.1:5000", "127.0.0.1", true, "IPv4 loopback"},
+		{"[::1]:5000", "::1", true, "IPv6 loopback, bracketed as a real socket presents it"},
+		{"10.0.0.5:41000", "10.0.0.5", true, "RFC1918"},
+		{"172.18.0.1:44000", "172.18.0.1", true, "RFC1918, the island's docker gateway"},
+		{"192.168.1.1:41000", "192.168.1.1", true, "RFC1918"},
+		{"[fc00::1]:41000", "fc00::1", true, "RFC4193 unique-local"},
+		{"100.64.0.1:41000", "100.64.0.1", false, "CGNAT — NOT covered by IsPrivate"},
+		{"169.254.1.1:41000", "169.254.1.1", false, "link-local — NOT covered by IsPrivate"},
+		{"198.51.100.9:33000", "198.51.100.9", false, "public IPv4: a direct caller"},
+		{"[2a02:c7c:f61f:ac00::1]:443", "2a02:c7c:f61f:ac00::1", false, "public IPv6: a direct caller"},
+	} {
+		got := ClientIP(req(tc.remoteAddr, map[string]string{"CF-Connecting-IP": forged}), CloudflareTunnel())
+		want := tc.peer
+		if tc.trusted {
+			want = forged
+		}
+		if got != want {
+			t.Errorf("%s (%s): want %q, got %q", tc.remoteAddr, tc.why, want, got)
+		}
+	}
+}
+
+// What could NOT be closed locally, stated so the gap is not mistaken for
+// coverage: every case above supplies RemoteAddr as a string. A genuine
+// direct-exposure path — a real connection from a real public peer — is not
+// constructible on a dev machine, because every address a local listener can bind
+// is loopback or RFC1918 and therefore lands on the trusted side of the gate.
+//
+// This test closes the half that IS constructible, and it is the half where a bug
+// would actually hide: that the peer is parsed correctly from what the RUNTIME
+// puts in RemoteAddr, rather than from what a test author types. A real IPv6 peer
+// arrives bracketed and with a port; leaking either into the key would silently
+// fragment every limiter bucket per-connection.
+func TestClientIPParsesTheRemoteAddrARealSocketProduces(t *testing.T) {
+	var resolved, actualPeer string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		actualPeer = r.RemoteAddr
+		resolved = ClientIP(r, Direct())
+	}))
+	defer srv.Close()
+
+	resp, err := srv.Client().Get(srv.URL)
+	if err != nil {
+		t.Fatalf("probe request: %v", err)
+	}
+	resp.Body.Close()
+
+	if resolved == "" {
+		t.Fatal("resolved nothing from a real request")
+	}
+	if net.ParseIP(resolved) == nil {
+		t.Fatalf("resolved %q, which is not a parseable IP — a port or brackets leaked into the key", resolved)
+	}
+	wantHost, _, err := net.SplitHostPort(actualPeer)
+	if err != nil {
+		t.Fatalf("real RemoteAddr %q did not split: %v", actualPeer, err)
+	}
+	if resolved != wantHost {
+		t.Fatalf("real RemoteAddr %q should resolve to %q, got %q", actualPeer, wantHost, resolved)
 	}
 }
 
