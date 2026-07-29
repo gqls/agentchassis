@@ -1153,6 +1153,20 @@ review surfaced that IS yours.
 | **3** | Separate `doc_sections` table + its own lookup action | Loses the reuse of layer 1's `body` column and the shared top-k that motivated 1b at all; needs a new action, so a new seam anyway | yes |
 | **4** | Admit doc rows as static-tier **deliberately** — redefine "static" as *the platform's own written contract* | Cheapest. Arguable for `docs026` register entries and `016b` (which ARE contract documents); **indefensible for `bugs_open/*` handoffs**, which are the exact stale-doc hazard | contract change |
 
+## Sharpening added 2026-07-29: option 2 blinds the seat this workstream exists to equip
+
+`review_architecture` sits on **`feature-designer`**, and `feature-designer`'s
+code path is **`diagnose_code_lookup`** — the very path option 2 would exclude doc
+rows from (measured: `agent_definitions` wires `diagnose_code_lookup` to
+`feature-designer/code_lookup` and `fix-proposer/code_lookup`; only
+`diagnose-agent` uses `lookup_code_symbols`).
+
+So option 2 does not merely cost "two of three consumers". It makes the markdown
+corpus invisible to **the architecture seat itself** — the seat D11 was directed
+to make able to look things up, and the reason layer 1b exists at all. It keeps
+the platform safe by removing the feature's purpose. That is worth stating plainly
+before it gets chosen for being the cheap safe option.
+
 ## Recommendation, and why it is the owner's call and not mine
 
 **On the merits I would take 1b.** It makes the bad state unrepresentable at the
