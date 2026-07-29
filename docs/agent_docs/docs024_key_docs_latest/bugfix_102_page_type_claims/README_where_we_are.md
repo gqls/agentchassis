@@ -111,3 +111,10 @@ The ticket is closed and moved to the closed-bugs folder. Three follow-ons are r
 rather than quietly dropped — including one the reviewers were right to press me on: nothing yet
 *watches* for a page being filed under the wrong type in future. Today I checked it by hand and
 it was fine except for the two pages above. That is a check, not a control, and the file says so.
+
+**Correction to the numbers above, 2026-07-28 (not an edit — the earlier text stands as what I
+believed at the time).** The two sections written before the review say "61 of 61 false alarms"
+and "124 became 63". After dropping the two page types the reviewers questioned, the shipped
+figures are: **59 false alarms removed, 124 became 65.** The two that come back are one quoted
+market-share sentence appearing on two robot-hands index pages — a known false positive I chose
+over an unknown blind spot. If you quote a number from this file, quote these.
