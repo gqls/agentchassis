@@ -1352,3 +1352,37 @@ and the 104 landmine says unknown keys can be dropped on re-marshal; identical
 copies beat a cosmetic decimal).
 
 Register: VIZ-002 → live+exercised, VIZ-003 → first live series noted.
+
+### 2026-07-29 (midday) — first use of `tool-guide-intro`: the tool page gets its guide, and its missing H1
+
+Owner ask #3 ("more explanation, helpful guides at each point") landed on the
+page that most needed it. Mig 267: `tool-guide-intro` at position 0 on the
+recovery-waterfall page, above the tool.
+
+**Findings and decisions:**
+- **The page had NO H1 at all** — the tool's own heading is an H2. The guide's
+  H1 ("Work a recovery waterfall for yourself") becomes the page's only one, so
+  the section fixes a real heading-structure gap rather than duplicating.
+- The component is `render_mode='agent'` (LLM-filled elsewhere). On this site
+  copy is authored: content_data written by hand in the house voice, template
+  executed offline through the same text/template harness as the charts. **No
+  figures anywhere in the copy**, so nothing touches the register.
+- **Step copy uses the tool's OWN control labels**, read from the served page
+  ("enterprise value", "New money, super-senior", "Write-down of the senior
+  claim") — a guide describing controls it hasn't read is how drift starts.
+  Step 1 is the consent gate, deliberately: it IS the real first interaction
+  (the 126 fence), and the guide framing it as "read it and accept it —
+  everything below is a simplified model" reinforces the disclaimer instead of
+  apologising for it.
+- **Most template fields are unguarded** (this morning's contact-info lesson in
+  another coat): an omitted `audience_value` renders an empty chip. All bare
+  fields were supplied with honest values; image + read-time + secondary CTA
+  are the guarded ones and were omitted.
+- Contrast pre-measured before writing (the 253 rule): eyebrow 6.27, button
+  ink 7.4, muted-on-surface 5.12. CTA targets `/cases/thames-water.html`
+  (live, in `pages.url` — the 097 rule).
+- Owned page ⇒ assemble-only deploy via 049b, no reason argument (§8b).
+
+**Verified:** served page carries guide above tool, one H1, the consent-gate
+markup byte-identical; claimscan **0/19**; render audit run 5 **8 pages, 0
+firm**. Replay guard in the migration from the start this time.

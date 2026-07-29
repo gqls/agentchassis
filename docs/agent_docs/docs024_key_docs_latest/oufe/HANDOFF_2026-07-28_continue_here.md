@@ -218,9 +218,10 @@ blocking a shared lane — worth deciding whether this wants its own.
 ### 3b. More charts, tools and guides — the owner's standing ask
 His words on seeing the first chart: *"this is starting to look great! We'll need
 a lot more of this of course, and tools as is already in the plan."*
-Reusable now: `evidence-chart` (magnitudes), `evidence-timeseries` (dated series,
-unused), `mechanism-flow` (process), `tool-guide-intro` (**exists** — the answer
-to "guides at each point", never used here).
+Reusable now, **all four exercised as of 2026-07-29**: `evidence-chart`
+(magnitudes), `evidence-timeseries` (dated series — first use mig 266),
+`mechanism-flow` (process), `tool-guide-intro` (first use mig 267, on the
+recovery-waterfall page — it also fixed the page's missing H1).
 
 ### 3c. First real use of `evidence-timeseries` — **DONE 2026-07-29 (migs 265/266)**
 > Thames leakage 2020-25 from the company's restated APR chart: five actuals,

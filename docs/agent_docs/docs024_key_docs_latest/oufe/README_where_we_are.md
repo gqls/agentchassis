@@ -447,3 +447,14 @@ series, and the chart's footnote says so, in the company's own words.
 Both checkers pass — the claims scanner (every figure on the page traces to a
 registered, sourced fact, including all five chart values) and the new automatic
 render audit (all eight pages, no readability failures). The page is live.
+
+---
+
+2026-07-29, midday. The waterfall tool now opens with a proper guide: what the
+tool does, three steps in plain words (accept the caveat, set the value and the
+debt stack, read where the value runs out), and a link across to the Thames
+case. The steps describe the tool's actual controls, in the tool's own words.
+Two quiet fixes rode along: the page previously had no top-level heading at all
+— it does now — and the guide's first step points people at the "this tool can
+be wrong" acknowledgement rather than hiding it. Both checkers still pass
+everywhere; the site remains clean.
