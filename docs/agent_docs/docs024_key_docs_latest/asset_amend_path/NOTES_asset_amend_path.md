@@ -136,3 +136,66 @@ and drawn fresh objections on the new surface.
 Per trailer discipline, `Council-Reviewed:` goes on a commit only now that the verdict is
 APPROVED — and it carries the **submission correlation**, which is the key the artifacts are
 written under.
+
+---
+
+## 2026-07-29 (4) — SHIPPED AND PROVEN END TO END on gaswholesalers
+
+**Roll.** v1.0.1201, image `a69a2ed7a1a4` built 13:24Z from committed HEAD — a genuine rebuild,
+distinct ID from 1198/1199/1200 (all built ≤10:46, before the action existed).
+**Pre-flighted the LOCAL image before pushing**, not after the roll:
+`ingest_staged_asset`=6, `asset_ingest_staging`=4, `composeFavicon`(relojistas-5's fix)=2,
+negative control=0. Pushed (digest `sha256:e7b7bfa4…`), deployed with
+`make deploy-agent-chassis` (single service + registry pre-flight, DMR-002 — never
+`deploy-agents`). Both pods on 1201 by 13:28:40, and pod-grepped on **both**: same four counts.
+
+> **relojistas-5's push blocker was not environmental.** Their SUMMARY said publishing to the
+> registry "needs a permission this session does not have". The identical push succeeded from
+> this session. Said plainly in the coordination file so it does not reach the owner as a false
+> environment problem — and their `e9e345464` shipped inside my image, so their lane is
+> unblocked without a second build.
+
+**Migrations.** 265 (table) then 266 (mode), in that order, after the pod-grep. 266's guard
+passed and its verify block confirmed the wiring:
+
+```
+check_card_mode_else = check_ingest_mode      ← rewired
+check_ingest_cond    = input_data.spec.mode == "ingest_upload" OR input_data.mode == "ingest_upload"
+check_ingest_then    = ingest_staged_asset_step
+check_ingest_else    = deploy_asset            ← default fall-through PRESERVED
+```
+
+**E2E — the happy path, on the owner-approved gaswholesalers logo.** One command; dispatch took
+~4.5 min (the 120s tick plus queue), the ingest itself seconds. `complete` / staging `ingested`.
+
+```
+bytes 87186 | 1264x848 | format jpeg   ← note: adapter wrote JPEG bytes under a .png key;
+s3_uri  s3://…/images/uploads/<site>/20260729/7b21c824….jpg     the action derives the ext from
+storage_path populated | url path-style HTTPS | alterations = 1  the FORMAT, not the key
+```
+
+Verified by fetching the object back: **HTTP 200, `image/jpeg`, 87,186 bytes, sha256
+byte-identical to the local file** — then `Read` as an image. It is the approved flame +
+"Gas Wholesalers" wordmark. The `alterations` entry carries the previous presigned URL and the
+new sha, which is the audit trail the column was documented for and never had.
+
+**E2E — the FAILING branch, because a green happy path proves deployment, not correctness.**
+Staged the same bytes with a deliberately corrupted sha (`deadbeef…`):
+
+```
+work item claimed → staging status = failed
+error: "sha256 mismatch between staged bytes and loader-computed digest — bytes corrupted…"
+assets row: untouched (updated_at unchanged, still 1 amendment, still the good object)
+uploads keys for this site: 1  ← the refusal happened BEFORE any S3 write; no orphan
+```
+
+That is [[verify-the-failing-branch]] discharged with the fault induced, not assumed.
+
+**Asset locked** (`locked_at`, `locked_by='admin'`) — owner-approved permanence, robot-hands
+precedent. The path now refuses to overwrite it, which is the same guard the `locked` unit test
+covers, so the mechanism's own protection is live on the first asset it ever wrote.
+
+**Not yet done for gaswholesalers:** the header. `https://gaswholesalers.com/assets/images/
+logo.png` still 404s and the page references exactly that path — so the site shows alt text
+until a `deploy_image_asset` run publishes it. **Route matters:** gaswholesalers has an EMPTY
+`sites.github_repo` ⇒ the `gqls/sites` + B2 route, NOT `vm-sites` (which is idea.uk's route).
