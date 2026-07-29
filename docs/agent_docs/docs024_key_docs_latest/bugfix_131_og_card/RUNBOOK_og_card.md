@@ -111,6 +111,31 @@ python3 -c "import base64,json;print(json.dumps({'message':'<msg>','content':bas
 SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
  WHERE correlation_id='bfd73f71-ad77-45b0-a1a2-433cc8dabc1e' AND kind='council_report' ORDER BY created_at;
 ```
-A fleet roll KILLS an in-flight council round (orchestration stays EXECUTING_STEP forever) —
-compare the audit trail's last change against chassis pod `startTime` before diagnosing a
-hang, and resubmit with `RESUBMIT_CORR=<corr>` (same trail), not a fresh submission.
+A fleet roll KILLS an in-flight council round (orchestration stays EXECUTING_STEP, later
+FAILED) — compare the audit trail's last change against chassis pod `startTime` before
+diagnosing a hang, and resubmit with `RESUBMIT_CORR=<corr>` (same trail), not a fresh
+submission.
+
+## Before rolling the chassis: who is mid-council?
+
+```sql
+SELECT left(orchestration_id::text,8) AS orch,
+       collected_data->'input_data'->>'submitter' AS submitter,
+       current_step, updated_at
+  FROM orchestration_states
+ WHERE status='EXECUTING_STEP'
+   AND (current_step LIKE 'review%' OR current_step LIKE 'gate%' OR current_step LIKE 'council%')
+   AND updated_at > now() - interval '15 min'
+ ORDER BY updated_at DESC;
+```
+- **The `submitter` field names the lane you would be damaging** — it comes from the
+  submission JSON, so it is how you find out whose round it is without guessing.
+- **Run this ADJACENT to the roll, not minutes before it.** A round can start in the gap: this
+  lane's own wait returned "clear", and 26 seconds later a fresh round was at `review_honesty`.
+  A stale all-clear is not an all-clear.
+- **`updated_at > now() - interval '<n> min'` is doing real work here** — rounds killed by a
+  previous roll sit at EXECUTING_STEP indefinitely, so without the recency bound you wait
+  forever on corpses. Distinguish: a live round's `updated_at` advances between checks.
+- **Do NOT count rounds with `WHERE current_step LIKE 'review%'` and call it a census of
+  council traffic.** `current_step` moves as the round progresses, so a finished round drops
+  out of the filter — the query answers "what is at a review step now", never "how many ran".
