@@ -5,9 +5,32 @@ WHY THIS EXISTS
 ---------------
 `MEMORY.md` is loaded into EVERY session automatically. That is its whole value —
 the lessons most worth heeding are the ones nobody thinks to look up — and also its
-whole problem: past a hard read limit it stops loading at all and every session
-loses its map. It reached 24.0KB against a 24.4KB limit on 2026-07-28, roughly
-400 bytes from that failure, after ~2.4KB of growth in one evening.
+whole problem: past a hard cap the harness TRUNCATES it. It reached 24.0KB against
+a 24.4KiB limit on 2026-07-28, roughly 400 bytes from that, after ~2.4KB of growth
+in one evening.
+
+THE CAP, READ FROM THE CLI BUNDLE — NOT INFERRED
+------------------------------------------------
+    var DS = "MEMORY.md", cie = 200, Ixe = 25000, ...
+
+  * byte cap  25,000 bytes  (= 24.41 KiB, the "24.4KB" everyone quotes)
+  * LINE cap  200 lines     (a second axis, easy to miss)
+  * warn at 0.8x cap, "compact to" target 0.7x cap — so 19.5KiB and 17.1KiB were
+    never independent judgements, just fractions of one constant.
+
+Not raisable: both are hardcoded constants, no setting and no environment variable
+(CLAUDE_COWORK_MEMORY_* covers path/guidelines/injected content, not caps).
+
+*** IT TRUNCATES — IT DOES NOT STOP LOADING. *** The harness's own over-cap message:
+
+    "The write succeeded, but everything past the limit is silently dropped each
+     time the index is loaded — entries at the end are already invisible to readers."
+
+This corrects what this file, MEMORY.md and memory-index-how-it-works.md all used to
+say. It matters because the failure is SILENT and PARTIAL, and it eats the TAIL —
+so the newest entries go first, and ENTRY ORDER IS A SAFETY PROPERTY: whatever must
+survive belongs at the top. (Same lesson as bugs_open/138 one layer down: put the
+load-bearing field first in any structured output that can be truncated.)
 
 Six hand-compactions in a fortnight is not a maintenance history, it is a design
 signal: thirty-odd concurrent sessions edit one document with no schema, no budget,
@@ -64,11 +87,18 @@ MEM_DIR = os.path.expanduser(
     "~/.claude/projects/-home-ant-projects-agentchassis/memory")
 INDEX = "MEMORY.md"
 
-# ── budgets (C) ────────────────────────────────────────────────────────────────
-# HARD is the point past which the index does not load and every session loses its
-# map. SOFT is the tooling's nag. The section budgets exist so that the answer to
-# "what do we cut" is decided when a line is ADDED, not in a panic at the ceiling.
-HARD_KB, SOFT_KB = 24.4, 17.1
+# ── budgets ────────────────────────────────────────────────────────────────────
+# The two hard caps, taken from the CLI bundle (`cie=200, Ixe=25000`), plus the
+# fractions the harness derives its warn/target from. Past the byte cap the file is
+# TRUNCATED and the tail is silently dropped — see the header. The section budgets
+# exist so that the answer to "what do we cut" is decided when a line is ADDED, not
+# in a panic at the ceiling.
+BYTE_CAP = 25_000
+LINE_CAP = 200
+WARN_FRAC, TARGET_FRAC = 0.8, 0.7
+
+HARD_KB = BYTE_CAP / 1024                    # 24.4
+SOFT_KB = BYTE_CAP * TARGET_FRAC / 1024      # 17.1
 SECTION_BUDGET_KB = {
     "practice entries": 8.0,   # protected: these must stay auto-loaded
     "bug entries": 5.0,
@@ -140,13 +170,38 @@ def check(strict=False):
         if k:
             sizes[k] = sizes.get(k, 0) + (len(l.encode()) + 1) / 1024
 
-    print(f"{INDEX}: {total:.1f}KB   (soft {SOFT_KB}KB · HARD {HARD_KB}KB)")
-    if total > HARD_KB:
-        breaches.append(f"TOTAL {total:.1f}KB EXCEEDS THE HARD LIMIT — the index "
-                        f"will not load; sessions are running blind")
+    nbytes = sum(len(l.encode()) + 1 for l in lines)
+    nlines = len(lines)
+    print(f"{INDEX}: {nbytes:,}B of {BYTE_CAP:,} ({nbytes*100//BYTE_CAP}%) · "
+          f"{nlines} of {LINE_CAP} lines ({nlines*100//LINE_CAP}%)")
+
+    if nbytes > BYTE_CAP:
+        breaches.append(
+            f"TOTAL {nbytes:,}B EXCEEDS THE {BYTE_CAP:,}B CAP — the tail past the cap "
+            f"is SILENTLY DROPPED on every load; the last entries are already invisible")
     elif total > SOFT_KB:
-        headroom = HARD_KB - total
-        print(f"  over soft budget, {headroom:.1f}KB of headroom before it stops loading")
+        print(f"  over soft budget, {BYTE_CAP - nbytes:,}B before the tail starts "
+              f"being truncated")
+
+    # The SECOND axis. Slack today, but it is the opposite lever to bytes: families
+    # trade lines for bytes, and "split the long lines up" trades bytes for lines.
+    # Unmonitored, someone fixes one cap by breaching the other.
+    if nlines > LINE_CAP:
+        breaches.append(f"{nlines} lines EXCEEDS THE {LINE_CAP}-line cap — same "
+                        f"silent tail truncation as the byte cap")
+    elif nlines > LINE_CAP * WARN_FRAC:
+        breaches.append(f"{nlines} lines is over {int(WARN_FRAC*100)}% of the "
+                        f"{LINE_CAP}-line cap")
+
+    # Truncation eats the TAIL, so what sits at the bottom is what disappears first.
+    # Naming them turns an abstract budget into "these three entries, by name".
+    if nbytes > BYTE_CAP * WARN_FRAC:
+        tail = [l for l in lines if l.startswith("- ")][-3:]
+        if tail:
+            print("\n  first to be silently dropped (truncation eats the tail):")
+            for l in tail:
+                e = split_entry(l)
+                print(f"    {e[2] if e else l[:72]}")
 
     print("\n  section                    size   budget")
     for k, budget in SECTION_BUDGET_KB.items():
@@ -399,9 +454,12 @@ if __name__ == "__main__":
         total = os.path.getsize(INDEX) / 1024
         if total <= SOFT_KB:
             sys.exit(0)
-        head = ("WILL NOT LOAD — sessions are running blind"
-                if total > HARD_KB else
-                f"over soft budget; {HARD_KB - total:.1f}KB before it stops loading")
+        nbytes = os.path.getsize(INDEX)
+        head = ("OVER CAP — the tail is being SILENTLY DROPPED on every load; "
+                "the last entries are already invisible to readers"
+                if nbytes > BYTE_CAP else
+                f"over soft budget; {BYTE_CAP - nbytes:,}B before the TAIL starts "
+                f"being truncated (newest entries go first)")
         sys.stderr.write(
             f"\n── memory index {total:.1f}KB: {head} ──\n"
             "  python3 scripts/memory-index.py   for the section breakdown\n")
