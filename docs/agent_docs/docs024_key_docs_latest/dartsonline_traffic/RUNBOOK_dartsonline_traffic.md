@@ -147,3 +147,47 @@ VALUES ('<SITE>','needs_page','<source>:<page>:<SITE>','triaged','build',50,
 `validate_page_content.go:1281-1288` reads FLAT `identity.data->>'email'` and
 `->>'contact_email'`. Write both. `sites.email` wins over either (first in the COALESCE)
 and is already correct here.
+
+## 9. Darts RSS feeds — probe results 2026-07-29 (re-probe before trusting)
+
+Every candidate fetched, parsed and recency-checked BEFORE any insert. Half the
+plausible-looking list failed, which is the whole reason for the step — an inserted
+dead feed just accrues `content_sources.error_count` and eventually trips
+`all_sources_erroring`.
+
+| feed | result |
+|---|---|
+| `https://dartsworld.com/feed/` | **USE** — 200, 10 items, newest same-day |
+| `https://www.pdc.tv/rss.xml` | **USE** — 200, 20 items, newest same-day. The official PDC feed |
+| `https://news.google.com/rss/search?q=darts+PDC&hl=en-GB&gl=GB&ceid=GB:en` | **USE as a wide net** — 200, 102 items. Aggregator, so lower credibility than the two above; expect triage to reject more of it |
+| `https://www.live-darts.com/feed/` | REJECT — HTTP 403 (blocks our fetcher) |
+| `https://www.dartsnews.com/feed/` | REJECT — HTTP 404 |
+| `https://www.dartsorakel.com/rss` | REJECT — HTTP 404 |
+| `https://www.skysports.com/rss/12040` | REJECT — 200 and 20 items, but it is the GENERIC Sky news feed: item titles empty, three occurrences of "darts" in the whole document. **A 200 with items is not evidence the feed is on-topic** — read the titles |
+
+Probe command (counts `<item>` properly; `grep -c "<item"` miscounts against
+`<itunes:*>` and self-closing forms):
+```bash
+curl -s -L --max-time 20 -o /tmp/f.xml -w "%{http_code}\n" "$URL"
+grep -o "<item>" /tmp/f.xml | wc -l
+grep -o "<pubDate>[^<]*" /tmp/f.xml | head -1
+grep -o "<title>[^<]*" /tmp/f.xml | head -6      # confirm the SUBJECT, not just the count
+```
+
+## 10. Seeding order — the all-or-nothing trap
+
+`seed_content_sources_action.go:92-111` skips seeding **entirely** if ANY active
+`content_sources` row already exists for the site, and `:216-227` deliberately never
+seeds `rss` or `scrape` ("requires manual URL config"). Put together:
+
+**Insert the curated RSS rows BEFORE the first orchestrator run and the site never gets
+its `news_search`/`api_news` sources at all.**
+
+Correct order:
+1. Write `classification.content_features.news_feed` (done 2026-07-29).
+2. WAIT for a `content-feed-refresh` tick (6-hourly; check
+   `SELECT last_completed_at FROM scheduled_tasks WHERE name='content-feed-refresh'`).
+   That run seeds the search/api sources from `vertical_keywords`.
+3. THEN insert the verified RSS rows from §9.
+4. Two-pass delay: triage scores the PREVIOUS run's items, so nothing appears on the
+   site until roughly two ticks (~12h) after arming. Not a failure.
