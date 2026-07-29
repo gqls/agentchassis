@@ -10956,3 +10956,53 @@ activity count, group it by what wrote the rows — or query the lane's own arte
 
 **Resolution.** Corrected in place in `bugs_open/131` (dated, visible); witness fired
 manually as work item `4e06c4ab` on the 010b manual precedent.
+
+**"Sourcing each observation from its own contemporaneous Ofwat report is the strongest
+possible provenance" (oufe timeseries planning, 2026-07-29).** The premise was refuted by
+the first cross-check: Ofwat's 2022-23 report records Thames leakage at −10.7 where the
+company's 2024-25 APR chart shows 11.1 for the same year — Thames RESTATED its history
+after 2023-24 methodology improvements, so the "strongest" per-point sourcing would have
+mixed two measurement methodologies inside one series and produced a chart that looked
+consistent and quietly wasn't. Caught before anything shipped, by cross-checking one
+overlapping year across the candidate sources.
+
+*Cheap check that would have (and did):* **before choosing per-point sources for any
+series, cross-check ONE overlapping period across all candidate sources.** Provenance
+quality is not additive across documents — five impeccable citations can still assemble a
+series no single source would publish. The failure class is invisible to every
+per-observation check, because each point individually verifies.
+
+Family: survey-the-premise-before-building; a new sub-family worth naming —
+**per-point verification cannot see a cross-point inconsistency.**
+
+**Mig 265 was written, applied and COMMITTED with no replay guard (2026-07-29).** The
+implicit claim — a supersede-then-insert migration file is a safe replayable record — was
+false, and in a sharper way than the recorded pattern (`bugs_open/007` Class C) names: a
+replay would not die on 23505, it would `||`-append the four facts a SECOND time,
+silently, leaving 40 facts where 36 belong and every downstream count wrong. Caught by
+the commit hook's `unguarded-migration-insert` advisory, post-commit. The 254 file this
+was modelled on has the same defect; copying an applied migration's shape copies its
+replay behaviour.
+
+*Cheap check that would have:* before applying any supersede-then-insert, ask "what does
+the SECOND run do?" — and if the answer involves `||` on a jsonb array, the failure is
+silent duplication, not a loud constraint error. Guard both statements on the new id
+being absent, and PROVE the no-op by actually replaying (UPDATE 0 / INSERT 0 / count
+unchanged — 30 seconds against the live DB).
+
+Family: verify-the-failing-branch (the replay IS the failing branch of a migration);
+a-doc-comment-is-not-an-enforcement-mechanism (the hook caught what the 007 write-up
+alone did not prevent).
+
+**Two same-day instances of recorded families, logged for the tally (2026-07-29):**
+(1) `pages_failed: 1` in the render-audit summary was read as "one page failed to
+load" and a `failed_pages` key was queried that does not exist — the struct comment
+defines it as "pages with a *non-approximate* contrast failure" and unreachable pages
+land in `unreachable`. A new instrument's field names are not their plain-English
+meanings; read the struct before interpreting the first result
+(family: check-answers-the-question-you-encoded, instrument-field variant).
+(2) A consumer-group listing against a guessed Kafka pod name returned nothing and was
+briefly read as "no matching groups" — the NotFound error had gone to `2>/dev/null`.
+Zero results with a suppressed stderr is the recorded grep-goes-silent shape wearing
+kubectl clothes; drop the suppression before believing an empty result
+(family: grep-silent-on-non-utf8 / a-check-answers-what-you-encoded).
