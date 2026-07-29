@@ -103,3 +103,38 @@ matter. So the argument for candidate 1 shifted while writing it — from "the c
 are wrong" to "a cap raise moves the door rather than closing it, and
 `architecture` proved that within hours by being a longer prompt against the same
 cap". The second argument is the true one and the first was never needed.
+
+## 2026-07-29 ~13:25Z — submitted to the council gate
+
+`SUBMISSION_CORR = 919a05bf-c51a-440b-865e-bd07e69e1c36`, via
+`TARGET_AGENT_TYPE=council-gate-orchestrator` (proven end to end 07-28; releases
+the request lane in ~8s so the round does not head-of-line block the fleet, per
+`bugs_open/096`). Budget ~30 minutes, not ~2 — the council itself takes 2–5 min
+and the rest is queue.
+
+Submitted **after** committing (`3a59b5012`), which the 2026-07-29 owner ruling
+says is the honest order on this tree rather than a lapse: HEAD is shared, and any
+other session's build ships my commit, so there is no version of this where I hold
+it back pending a verdict. Condition (1) of the old ordering exemption — "state
+your ordering constraint" — was retired precisely because no thread can supply one.
+
+Find the run by PAYLOAD, not by the printed id:
+
+```sql
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '919a05bf-c51a-440b-865e-bd07e69e1c36';
+```
+
+**A missing row is almost always latency, not a dropped dispatch.** Do not retry
+on that evidence — it costs a duplicate round.
+
+### One thing I did NOT do, and the reason
+
+Condition (2) of the seam rule — register in the SAME commit that ships it — I
+missed. FIX-055 went in as a follow-up (`6dd5cbb3d`) instead. Forward-only, so
+there is no amend; the commit message says plainly that it should have been in the
+previous one rather than presenting the split as the plan. Recording it here
+because the whole value of that condition is that it stops a seam becoming
+folklore, and a seam registered ten minutes late by the same thread is the *near*
+miss, not the safe case — the thread that forgets is usually the one that has
+moved on.
