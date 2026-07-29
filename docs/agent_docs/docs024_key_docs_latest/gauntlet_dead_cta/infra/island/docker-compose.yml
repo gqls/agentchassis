@@ -47,7 +47,7 @@ services:
     # an unusable response is logged as a structural fingerprint, never its text.
     # Built from committed HEAD via `make build-tools-api-ref`; shipped by
     # docker save|ssh load (no registry creds on the island, by design).
-    image: docker.io/aqls/tools-api:v1.0.1178
+    image: docker.io/aqls/tools-api:v1.0.1198
     restart: unless-stopped
     environment:
       PORT: "8080"

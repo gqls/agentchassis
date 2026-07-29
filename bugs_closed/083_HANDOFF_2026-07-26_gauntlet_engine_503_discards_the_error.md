@@ -537,3 +537,32 @@ ssh root@toolsapisuk.vs.mythic-beasts.com \
 ```
 
 Candidates 2 and 3 remain untouched, per §4's ordering and §10's reasoning.
+
+## 12. 2026-07-29 — DEPLOYED + VERIFIED on the island; council APPROVED round 1; CLOSED
+
+- Image `aqls/tools-api:v1.0.1198` built from committed HEAD (fix commit
+  `a9a1b3556` an ancestor), shipped save|gzip|load, compose bumped
+  1193→1198 (bak `docker-compose.yml.bak-1193-pre1198`), `up -d`.
+- **Identity:** image created 2026-07-29T09:38 (fresh build, not a retag);
+  running container's `/tools-api` sha256 `2d159e98…` byte-identical to the
+  locally extracted binary.
+- **Behavioural (§11 recipe): 6 real /defend calls since the swap — 6× 200,
+  0 TRUNCATED lines** (CLI probe 13.6s; two full ledger-harness rounds; three
+  browser rounds on the served vonc.com page with real CORS). The armed log
+  stays in place and would name any recurrence.
+- Council: **APPROVED round 1, all reviewers** —
+  `Council-Reviewed: 2903798e-3e2e-4f58-8c62-eb88cef7d8c0` (trailer on the
+  deploy-leg commit; the code commit `a9a1b3556` predates the verdict,
+  forward-only).
+- Repo compose copy was stale at 1178 vs live 1193 (owner's 07-28 hand swap
+  was never mirrored back); now 1198 in both places.
+- **CLOSED.** The title defect (discarded error) was fixed by candidate 1;
+  the 503 bursts' cause is fixed and verified by candidate 4. Candidate 2
+  (unbounded `&http.Client{}` fleet-wide — NOT island-only) stands as its own
+  concern to be argued on its own merits, per §10.
+- **[UNMEASURED] fleet-wide sibling suspicion, deliberately NOT asserted:**
+  every chassis caller of `aiservice.GenerateText` that passes no max_tokens
+  override gets the same 2048 default; on claude-5-family models thinking is
+  on by default and counts against it. Whether any FLEET lane is silently
+  losing completions to this is a llm_call_log query, not an argument — see
+  the diagnosis-queue check in the vonc6 session notes.
