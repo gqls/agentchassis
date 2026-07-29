@@ -139,6 +139,26 @@ worse than a spurious revise.
 **This fixes one seat. It does not fix the mechanism** — the other six seats in
 the table above are unchanged.
 
+**AND IT IS NOT YET PROVEN.** Config cutover was **2026-07-29 07:19:36Z**
+(`agent_definitions.updated_at`, not guessed). At the time of writing **no council
+round has spawned since**, so `llm_call_log` still shows `max_tokens = 8000` on
+every `review_architecture` call. That is **not** the change failing — both
+observed calls belong to rounds spawned at 07:16:59 and 07:18:26, i.e. **before**
+the cutover:
+
+> **An orchestration carries the workflow definition it loaded at SPAWN.** A live
+> config edit does not reach a round already in flight. So "DB config is live
+> immediately" is true of the row and false of any running orchestration — which
+> also means a config change cannot corrupt a round that is already going, and that
+> a verification looking at in-flight rounds will read as a failed change.
+
+**To close this out, confirm on a round spawned after the cutover:**
+```sql
+SELECT count(*) FROM llm_call_log WHERE step_name='review_architecture' AND max_tokens=16000;
+-- must become > 0; until then the fix is applied but UNEXERCISED
+```
+and then re-check that seat's degraded rate is 0 over its next handful of reviews.
+
 ## How to verify a fix
 
 Induce it rather than wait: set a seat's `max_tokens` low (say 500) on a scratch
