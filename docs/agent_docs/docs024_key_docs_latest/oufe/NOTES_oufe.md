@@ -1386,3 +1386,50 @@ recovery-waterfall page, above the tool.
 **Verified:** served page carries guide above tool, one H1, the consent-gate
 markup byte-identical; claimscan **0/19**; render audit run 5 **8 pages, 0
 firm**. Replay guard in the migration from the start this time.
+
+### 2026-07-29 (afternoon) — going to add a second tool, found the first one was unreachable
+
+Started on the owner's ask #2 (more tools) and on DESIGN §7's strongest
+recommendation (tools-per-premise). Step one was "where do I link it from" —
+which is how I discovered **nothing linked the tool we already had**. Live since
+07-28, Tier-4 verified 13/13, and reachable only by typing the URL. Every page
+checked, plus the stored components and the chrome: zero inbound links.
+
+**The investigation, and the wrong turn in the middle of it.** I read
+`check_orphan_pages.go:204`, saw `NOT IN ('blog-index','tool')`, and said out
+loud that tool pages are excluded — the exact case here. **Wrong: the clause is
+`NOT IN (...) OR in_header OR in_footer`, and all 11 fleet-wide unreachable tool
+pages carry a nav flag, oufe's included.** The exclusion applies to none of them.
+Retracted one query later by the census I was already running. Logged in
+WRONG_CALLS — a clause read is not a clause evaluated, and the wrong cause would
+have sent the next thread to edit SQL instead of scheduling an agent.
+
+**The real cause is cadence, not code.** `orphan_pages` is registered in exactly
+one of three discovery agents (`completeness-discovery-agent`), which has never
+run on oufe and has raised nothing automatically since 07-17. Design-discovery
+HAS run here (07-28) — so "discovery runs on this site" was true and completely
+misleading. Fleet: 11 of 94 deployed tool pages unreachable across 5 sites; 41
+deployed pages of any type.
+
+**The trap that made the fix interesting.** The platform's remedy is regenerate
+chrome — and `buildServicesHTML` already selects `in_header OR in_footer` pages,
+so a regeneration WOULD have added the link unaided. It would also have **deleted
+our footer honesty note**, which is in no template and no Go code and exists only
+in the stored artefact. Two greps settled it before I touched anything. So the
+page nobody could reach is fixed by the one action that removes the disclosure
+saying the site can be wrong. Patched the artefact instead (mig 268, guarded, with
+a VERIFY that asserts the note survives).
+
+**And the reassemble only did part of the site.** `rerender-pages` fanned out 8
+items; 5 completed, **3 sat at `triaged`, never claimed — exactly the three owned
+pages** (disclaimer, privacy, the tool), with no error and a COMPLETED
+orchestration. Deployed those three with 049b assemble-only. Verified 8/8 served
+pages carry both the link and the note; oufe is out of the orphan census.
+
+All of it filed as `bugs_open/146` with the fleet evidence; the transferable
+pattern (a regeneration remedy destroys artefact-only content) is 016b §9.
+
+**Worth saying plainly: the second tool is still not built.** The lane's own
+next-step was "add a tool" and the honest first question — where would a reader
+find it? — turned into an afternoon. That is the right trade: a second
+unreachable tool would have doubled the invisible surface.

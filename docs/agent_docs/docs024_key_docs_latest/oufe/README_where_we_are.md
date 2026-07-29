@@ -458,3 +458,35 @@ Two quiet fixes rode along: the page previously had no top-level heading at all
 — it does now — and the guide's first step points people at the "this tool can
 be wrong" acknowledgement rather than hiding it. Both checkers still pass
 everywhere; the site remains clean.
+
+---
+
+2026-07-29, afternoon. I set out to build a second tool and stopped almost
+immediately, because the obvious first question — where on the site would someone
+find it? — turned up something worse: **nothing linked to the tool we already
+have.** It has been live since yesterday, it passed its acceptance tests, and the
+only way to reach it was to type the address. Not in the menu, not in the footer,
+not mentioned on any page.
+
+That is now fixed: the tool appears in the footer of all eight pages, so it is
+reachable from anywhere on the site.
+
+Two things about the fix are worth telling you. First, this is not just us —
+across the whole estate there are eleven tool pages nobody can reach, on five
+sites. The platform has a checker that finds exactly this, and it works; it
+simply has not been run automatically anywhere for twelve days. I have written
+that up so whoever owns the schedule can turn it back on, and I have not touched
+the other sites.
+
+Second, the tidy way to fix it would have deleted something important. The
+standard repair is "rebuild the site's header and footer from the template" — and
+our footer carries the honesty note (the one saying we make mistakes and that AI
+assistance can invent convincing detail). That note is not in the template; it
+only exists in the stored copy of our footer. Rebuilding would have removed it
+from every page and reported success. So I patched the footer by hand instead and
+checked the note survived. Making that note permanent is a change to shared code
+that affects every site, so it needs a proper review rather than me doing it
+quietly.
+
+The second tool is still to come — but a second tool nobody could reach would
+have doubled the problem rather than solved anything.

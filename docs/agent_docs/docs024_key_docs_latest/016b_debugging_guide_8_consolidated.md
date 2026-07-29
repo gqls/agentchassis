@@ -4229,6 +4229,8 @@ See `/bugs_closed/README.md`.
 | 146 | **Seven live tool pages overflow on mobile and NO acceptance tier can ever see them.** Fleet scan of every deployed tool page with the shipped `no_horizontal_overflow` clause: 86 clean, 8 overflowing (7 on webdesign.co.uk, 11–293px past the edge). Cause is structural, not missed coverage: `tool_acceptance_due` filters `component_level='tool'`, and **all 64 of webdesign.co.uk's `/tools/*` page-components are `section`-level ported pages** — no PLAN, no criteria, outside Tier 2 and Tier 4 by construction. Fleet-wide the eligible population is **17 components, 8 with a criteria fence**. Candidate 1: make the porting path emit tool-level components (needs an owner call on whether ported pages are deliberately out of scope) | **OPEN, unowned** — filed 2026-07-29 (gauntlet_dead_cta, byproduct of witnessing 131-B) |
 | 140 | **The `contact-info` component FABRICATES a phone number and office hours when the data is absent.** Its template renders Email/Phone/Hours cards unconditionally, with invented fallback values (`+1 (234) 567-890`, `Monday – Friday, 9am – 6pm`). Measured 2026-07-29: **6 of 6 live uses render the fabricated hours, served** (curl-verified on 3); idea.uk's card also shows a phone its `content_data` no longer holds (117 drift family). Same rule 111 established for the footer — contact furniture renders only when the datum exists — never applied to the section component. Candidate 1: make absent mean absent in the template (blast radius: six other-lane sites lose the fake card on next rerender — needs council/owner, not a quiet patch) | **OPEN, unowned** — filed 2026-07-29 (oufe workstream; oufe itself dodged it by dropping the never-built section from its contact page plan) |
 
+| 146 | **11 deployed tool pages are unreachable, and the check that finds them has not run automatically since 2026-07-17.** Fleet census on the platform's own orphan predicate: 11 of 94 deployed tool pages across 5 sites have no nav row, no chrome link and no inbound page link — **every one carrying a nav flag**, so every one is `nav_drift` the platform would route. `check_orphan_pages` is correct and registered in ONE agent (`completeness-discovery-agent`), which has never run on oufe and has raised nothing automatically for 12 days; the recent detections are sessions firing it by hand. Two interlocking traps: the obvious remedy (regenerate chrome) **would delete oufe's footer honesty note, which is in no template and no Go code**; and a site-wide reassemble left the 3 `owned` pages at `triaged`, unclaimed, while reporting COMPLETED | **OPEN, unowned** — filed 2026-07-29 (oufe lane; its own instance FIXED by mig 268, 8/8 pages verified). Fix order: (1) schedule `completeness-discovery-agent` — do not write another check; (2) make a site-specific footer note survive regeneration (shared template ⇒ architecture scope, own council round); (3) make the owned-page skip fail loudly instead of sitting at `triaged` |
+
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the
 > "grep the index before filing" rule. Indexed rows stop at `081` apart from `098`
@@ -7387,3 +7389,45 @@ which nobody re-reads, written by someone with no reason to doubt it.
   sure is minutes.
 
 Worked evidence: `bugs_open/131` § "B check-side — WITNESSED AND CLOSED".
+
+### The remedy for a stored-artefact defect can DELETE content that lives only in the artefact — check what regeneration produces before you regenerate (2026-07-29)
+
+A live tool page was unreachable (no nav row, no chrome link, no inbound link).
+The platform's own routing for that condition is `nav_drift` → `nav-updater` →
+`refresh_site_components`, which re-renders chrome from the shared template. On
+this site that regeneration **would have worked**: `buildServicesHTML`
+(`render_site_components_action.go:950`) selects pages with `in_header OR
+in_footer`, so the missing link would have appeared unaided.
+
+It would also have deleted the site's standing fallibility disclosure. The
+footer note was **in no template and in no Go code** — it existed only in the
+stored `site_components.rendered_html`, hand-written by a workstream. The
+regeneration overwrites the artefact and reports success, so the loss is silent
+and site-wide.
+
+**The general shape: when a defect is "the stored artefact is stale", the fix is
+to regenerate it — and regeneration is exactly what destroys anything that was
+only ever written INTO the artefact.** The two are the same operation. Before
+regenerating any artefact that humans or agents have hand-patched, diff what the
+generator produces against what is stored, or at minimum grep the generator's
+template for the distinctive strings you would hate to lose. Here that was two
+greps and they were decisive (`footer-note`: absent; the note's own words:
+absent).
+
+**Corollary for routing work at such a defect:** a bug whose fix is "regenerate"
+is not safe to hand to an automated handler on a site whose artefacts have been
+hand-edited, and nothing in the work item records that they have. The safe form
+is a targeted patch (guarded, with a VERIFY that asserts the hand-written content
+survives), plus a separate decision about making the content durable.
+
+**Two neighbouring traps found in the same hour, both worth the same reflex:**
+- **A site-wide reassemble silently skips `rebuild_policy='owned'` pages.** 8
+  items fanned out, 5 completed, 3 sat at `triaged` — never claimed, no error —
+  and the orchestration reported COMPLETED. Those 3 were the owned pages. **After
+  a chrome change, count the DEPLOYED pages, not the orchestration status.**
+- **A check that exists and is correct still reports nothing if no scheduled
+  agent runs it.** `orphan_pages` is registered in exactly one of three discovery
+  agents; that agent had raised nothing automatically for 12 days, while a
+  *different* discovery agent ran on the site regularly. "Discovery runs on this
+  site" was true and irrelevant. **Resolve check → agent → cadence, not check →
+  exists.**
