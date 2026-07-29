@@ -116,3 +116,23 @@ never converged; answering with queries cleared every objecting seat in one.
   propagation is two existing work items (`deploy_image_asset`, `needs_brand_head_assets`),
   deliberately separate so the operator eyeballs the amended source first — which is the
   taste-gate this whole bug exists to serve.
+
+---
+
+## 2026-07-29 (3) — council round 2: APPROVED
+
+`0237eb64-fc03-4faa-a15a-439df6b12555`, second report 12:33:38Z. 13 reviewers, 4 abstained,
+**0 unreadable**, decision `approved`, `complete_approved/COMPLETED`. Round 2 took ~11 minutes.
+
+**Two rounds, ~24 minutes of council time total, and the shape held:** the round that changed
+CODE changed it for exactly two objections (the SQL construction and the `source` vocabulary);
+the other six were cleared by **queries**, not edits. That is
+[[answer-review-objections-with-evidence]] reproduced — answering by building never converged
+over the 8 rounds that memory records; answering with evidence cleared every objecting seat in
+one. Worth noting the counterfactual: had I "fixed" the six by writing more code (a url-format
+abstraction, an upload-surface audit, a propagation step folded in), the plan would have grown
+and drawn fresh objections on the new surface.
+
+Per trailer discipline, `Council-Reviewed:` goes on a commit only now that the verdict is
+APPROVED — and it carries the **submission correlation**, which is the key the artifacts are
+written under.
