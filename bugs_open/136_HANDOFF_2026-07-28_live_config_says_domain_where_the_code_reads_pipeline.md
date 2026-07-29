@@ -97,6 +97,38 @@ GROUP BY 1 ORDER BY 1;
 *the key the code reads is set by zero definitions fleet-wide.* A key nothing sets, whose
 default the code always takes, is the signature of a rename that landed on one side only.
 
+### Why `item_*` is fine is the most important line in this bug (added 2026-07-29)
+
+`create_work_item` handles **this exact rename** with an explicit back-compat shim —
+`create_work_item_action.go:118-121`:
+
+```go
+itemPipeline, _ := config["item_pipeline"].(string)
+if itemPipeline == "" {
+    itemPipeline, _ = config["item_domain"].(string) // backwards compat
+}
+```
+
+So this was **not** an unnoticed inconsistency in naming. The `domain` → `pipeline` migration
+was known, was deliberate, and someone wrote the fallback that makes old definitions keep
+working. **They wrote it on one action and not on the other two.** That reframes the bug from
+"two places spell it differently" to "a migration was applied inconsistently, and the two
+sites that missed it are silent because their defaults happen to match".
+
+**It also changes the recommended fix.** §5's step 2 (rename the six definitions) requires
+editing other lanes' agents, and renaming a key that currently does nothing is a behaviour
+change someone has to own. The shim above does not: three lines per action, entirely inside
+this repo, no definition touched, and it makes the old name *work* rather than merely
+*visible*. It is also the pattern already blessed in this codebase, so it needs no new
+argument. **Prefer it** — it makes the bad state unrepresentable from the code side, whereas
+renaming definitions leaves the next author free to write `check_domain` again.
+
+Applying it to `run_discovery_checks` and `triage_detected_items` would make `check_domain`
+and `target_domain` honoured — at which point the detector warnings this bug just switched on
+should be **downgraded to `Deprecated`**, not deleted: `Deprecated` is exactly the field for
+"recognised, still read, but the old name" (`ActionInputSpec.Deprecated`, and see
+`BuildDeprecationMap`), and it keeps the audit honest instead of silent.
+
 ### 2a. `run_discovery_checks.check_domain` — 3 agents, 3 different values, all discarded
 
 `discovery_checks.go:66-69` reads `config["check_pipeline"]` and defaults it to `"design"`.
