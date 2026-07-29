@@ -331,3 +331,38 @@ Two rulings in one:
    open, a deleted file's URL serves the B2 worker's raw JSON error blob — so
    "out" means de-index (robots noindex + removal from index pages and search),
    NOT file deletion, until 132 closes or a redirect surface exists.
+
+### D15 — Buying design is DITCHED; the site aims at what helps the visitor (owner, 2026-07-29)
+
+The owner, on seeing the section live: *"The buying design page is horrible let's
+ditch it. They don't care who we are and our mistakes we need to aim this site to
+what helps them - tools, helpful guides linking to the tools."*
+
+**This supersedes D13 entirely and the buyer half of D14.** The exposure ruling
+(publish our own named failures) is withdrawn as a *site* strategy — not because
+the record is wrong, but because the audience does not want it. What the visitor
+wants is the thing they came for: **working tools, and guides that lead to them.**
+
+Consequences, all of them:
+
+- `/buying-design/index.html` and `/buying-design/accessibility.html` are removed
+  (files, `pages` rows, components, nav entry, search entries). Written 2026-07-29,
+  removed 2026-07-29 — a few hours live.
+- **D13's exposure question is CLOSED, not deferred.** Do not re-propose an
+  "our failures" page, a founder story, or an about-us expansion. The About page
+  moves OUT of the header (owner, same message) — the direction of travel is that
+  who-we-are content gets less prominence, not more.
+- **D14's "one buyer set IN" half is withdrawn.** The duplicate-content problem is
+  real and still needs solving; the answer is now better/original TOOL and GUIDE
+  content, not buyer content. The "one designer-only set out" half is also on
+  hold: **fix the tools before removing anything** (owner: *"let's fix the tools
+  before deleting them"*).
+- The site's priority order is now, in the owner's own terms: **the tools must
+  actually work**, then guides that link to them, then everything else.
+
+**The transferable lesson, recorded because it cost a section:** the D13 exposure
+strategy was argued from OUR standing (we run the system, we have the receipts) and
+it was internally coherent — but nobody checked whether the reader wants it. A
+positioning argument about what makes US credible is not evidence about what a
+visitor came to the site to do. Test a section against the visitor's errand before
+writing it, not against how defensible its premise feels.
