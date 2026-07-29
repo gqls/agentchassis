@@ -162,3 +162,36 @@ all ten deployed logos and measured them: five are square and came out fine, fiv
 are squashed — relojistas (already fixed at source), fundamentallyai, oufe, robot-hands and
 vetcomparison. So the repair list is those four. I am sorry for the wrong figure; it went into
 the summary as well, and that is corrected too.
+
+---
+
+## 2026-07-29, mid-afternoon — relojistas is finished, and I want to be precise about one bit
+
+The re-run finally came through (it sat in a queue behind about a hundred jobs from another
+piece of work, then took seconds once its turn came). **relojistas' social preview card is now
+correct** — the name, once, legible, on the cream brand colour, and the ugly pale rectangle
+behind the logo that I mentioned on most of the other cards is gone too. That confirms the
+rectangle is a property of the logo file, not the code, and knocking the background out fixes
+it. So relojistas is done: header, social card and tab icon all come from one approved logo
+that is now locked so nothing can overwrite it.
+
+**The tab icon deserves a straight answer rather than a tick.** The bug I fixed was that wide
+logos were being *squashed* to fit a square. That is genuinely fixed. But when I rendered the
+result at the size a browser tab actually shows — sixteen pixels — it is a grey smudge. Not
+because the fix failed, but because a long thin wordmark cannot be legible that small, however
+carefully you shrink it. The honest fix is to use a *square* part of the brand as the tab icon
+— for relojistas, the little gear inside the "o" would work beautifully — and the system has no
+way to say "use this for the tab icon and that for everything else". I have written that up as
+the real outstanding item.
+
+**Because of that, I have changed my mind about something I told you I would do.** I said I
+would repair the tab icons on the other four affected sites. I am not going to, and it would be
+wrong to do it quietly. Re-running them would give each an undistorted icon that is still
+illegible at tab size — no real gain — while taking four slots in a queue that is currently
+busy with another piece of work. The change that would actually help all five is the square
+source described above. It can be done in one command whenever you think it is worth it; I just
+do not think it earns its place today.
+
+Everything else from this morning stands: the code fix is reviewed, approved and running on the
+live system, leopardess's approved artwork is now properly protected rather than protected by
+accident, and the two new problems I found along the way are written up as their own bugs.
