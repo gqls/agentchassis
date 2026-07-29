@@ -7,33 +7,31 @@ still hold and are not repeated.
 
 ---
 
-## 0. THE ONE THING BLOCKING EVERYTHING: the image is built and pushed, NOT rolled
+## 0. STATE AS OF 2026-07-29 08:20Z — it is LIVE, and CC-001 is mid-council
 
-`v1.0.1195` is **built and pushed** (image id `98ae7405f91b`, digest
-`sha256:f9958349d2dd…`, a real rebuild — distinct id from 1194's `46bf8f4ec3b6`, 94 minutes
-apart). **The fleet is still on v1.0.1194.** The roll was blocked by a permission gate at the end
-of the session, not by anything technical.
+**Both changes are LIVE on chassis v1.0.1197** (someone else's build carried the commits; the
+owner had it rolled). **Verified by pod-grep with a negative control, not by the tag:**
+
+```
+attribute_matches                              5
+attribute_absent                               3
+matched no elements in the served HTML         1
+criteria defect, not a page defect             3
+verify_site_experience evaluates Tier 2 only   1
+attribute_nonsense_xyz_negative_control        0   <- negative control
+```
+(`the REGISTER'S OWN CONSUMER` greps 0 and should — that string is migration 264's column
+comment, not Go.) Re-grep after any roll you did not do.
+
+**CC-001 is seeded and in its third approval round.** Trail
+`6ae724bf-ee99-4ff7-ac1f-068f38872025` (round 3 in flight at 08:20Z).
+Stored now: **3 executable, 9 deferred**. One of those three — `template_row_not_a_control` —
+is EXPECTED TO FAIL. That is deliberate; see §1.3.
 
 ```bash
-# roll it (checks first that no council is in flight — a roll KILLS one):
-kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At \
-  -c "SELECT count(*) FROM orchestration_states WHERE status='EXECUTING_STEP' AND current_step LIKE 'review_%';"
-# then, only when that returns 0:
-sed -i 's/newTag:.*/newTag: v1.0.1195/' deployments/kustomize/services/agent-chassis/overlays/production/uk_001/kustomization.yaml
-kubectl apply -k deployments/kustomize/services/agent-chassis/overlays/production/uk_001
+# read it — metadata FIRST, for unreadable
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At  -c "SELECT metadata::text FROM diagnosis_artifacts WHERE correlation_id='6ae724bf-ee99-4ff7-ac1f-068f38872025' AND kind='council_report' ORDER BY created_at;"
 ```
-
-Verify against the POD, never the tag:
-```bash
-kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "attribute_matches"'
-# positive control, expect > 0. Negative control, expect 0:
-kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "attribute_nonsense_xyz"'
-```
-
-`[PROVENANCE, stated]` The image is built from commit `b0c2da010`. Two later commits
-(`992652730` and this handoff) add a doc comment, an unused-at-runtime classification table and a
-test — **no behavioural change**, so 1195 is behaviourally complete. Do not pod-grep for
-`experienceStaticConfirming`: it is referenced only from tests, so the linker may drop it.
 
 ## 1. What changed today, and what it bought
 
@@ -56,15 +54,11 @@ live binary does not know `attribute_matches`, so the write path would refuse it
 
 ## 2. Do these next, in order
 
-### 2.1 Roll (§0), then seed CC-001 and resubmit its approval council
-```bash
-cd docs/agent_docs/docs024_key_docs_latest/experience_register
-./240_TRIGGER_seed_harvested_entries_v1.sh CC-001     # precheck pod-greps the binary; it will refuse before the roll
-RESUBMIT_CORR=ec91c7e4-1b2c-4329-be19-4231cdfa553b ./260_TRIGGER_experience_approval_v1.sh feed-driven-teaser-list
-```
-Expected after seeding: `executable_checks = 2`, 8 deferred. Both executable checks were proven to
-PASS against the live page before the entry was written — `list_exists` and the new
-`template_row_stays_hidden`.
+### 2.1 DONE — read round 3's verdict when it lands (§0)
+Seeded and resubmitted 2026-07-29. `RESUBMIT_CORR` now actually works on the 260 trigger: it used
+to mint a fresh uuid regardless and had no resubmit support at all, so round 2's verdict landed
+under its own key and split the trail. Fixed, and a non-uuid is now refused rather than silently
+replaced. **An env var nothing reads looks identical to one that works.**
 
 ### 2.2 `apply_experience_verdict` — still the gate that is shut
 Unchanged from the last handoff and still the register's most important missing piece: the council
@@ -151,3 +145,55 @@ unreadable seat** — the harness, not the change. Round 2: 13 reviewers, **0 un
   PLAN-043/044/045/046 + TL-031).
 - **A roll kills an in-flight council.** One was running when this session tried to deploy; the
   right move was to wait ~5 minutes, not to take the round off another session.
+
+---
+
+## 6. ADDED 2026-07-29 — the round-3 verdict, and the thing worth carrying out of it
+
+**The approval council caught me doing exactly what I had already accused myself of.**
+Round 2 (corr `6ae724bf`, 5 reviewers, 0 unreadable) gated on `deferral_honesty [high]`:
+
+> *"template_row_not_a_control is re-tiered to Tier 4 not because a capability is missing but
+> because the Tier-2 version of the same check type already runs and FAILS on the live page.
+> **Moving a failing check to a tier the platform doesn't execute, rather than reporting the
+> failure, reads as evasion** even with the honest note attached."*
+
+I had written the same suspicion into `WRONG_CALLS.md` the day before — *"the resolution I
+reached is also the reading that makes my own red result disappear"* — and then re-tiered it
+anyway. **Logging the doubt did not stop me acting against it.** An independent seat reaching the
+same conclusion from the other direction is what settled it.
+
+So the check is back at Tier 2 and **the entry now carries a real failure**. The vonc fork cannot
+reach `verified` while it fails, and that is correct: an entry unverifiable because a check
+genuinely fails is honest; one that verifies because the failing check was moved somewhere nothing
+runs is not. Whether the served `href="#"` is a defect or is forgiven by the `data-runtime-fill`
+exemption is `bugs_open/137` — **and that bug now blocks something real**, which is the right way
+for it to be prioritised rather than sitting as a curiosity.
+
+**One objection is deliberately unanswered.** `deferral_honesty [high] #2` — the central rule is
+100% unasserted on live rows — is TRUE and not fixable by editing: the rows are cloned
+client-side, so only a browser sees them, and nothing in the register drives one. **The fix for
+that objection is §2.3 (wire bind + verify) plus a browser tier, not a better-looking entry.**
+Anyone tempted to improve the ratio should re-read the objection above first.
+
+**Four more capability gaps are now named** (up from three), each recorded separately rather than
+counted as one: event-listener assertion · fault injection at the fetch boundary · per-row
+conditionals tied to source data · non-empty-text assertion. With attribute assertion done, these
+are the next tier of the §3.1 harness ranking.
+
+## 7. ADDED 2026-07-29 — the scope question is now RFC 002, on the owner's instruction
+
+The owner ruled: *route it to a real architecture review*. Done —
+`docs024_key_docs_latest/architecture_review/RFC_002_criteria_check_type_vocabulary.md`, status
+**DRAFT**, listed in that track's numbering ledger. It is retrospective by construction (the code
+is live), which is the `bugs_closed/124` shape: the code stays and the precedent gets fixed.
+
+**The uncomfortable finding is §1.3 of the RFC and it is mine.** CLAUDE.md lets a seam ship ahead
+of its review only on (1) a stated ordering constraint AND (2) same-commit registration. I met (2)
+and explicitly disclaimed (1) — and it shipped anyway, because on this tree **committing is
+shipping**: HEAD is shared, builds come from committed HEAD, another session's roll carried it. So
+the exemption's first condition is unsatisfiable-by-choice here. **The only thing that actually
+holds a seam back is a default-OFF switch, and I did not build one.** That is the RFC's
+alternative D, written up as the option I should have taken.
+
+Three questions are put to the owner in RFC 002 §8. Do not answer them by resubmitting to the gate.
