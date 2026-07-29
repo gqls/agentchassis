@@ -3,9 +3,25 @@
 **Filed 2026-07-27** by the fabricated-stats lane (`bugs_closed/043`, resolve **by slug**),
 while doing owed item (b) — building evidence registers for the remaining publishing sites.
 
-**Status: FIXED 2026-07-28** (`3ddb4ed2d` + `955832067`, session "bugsearch 7"), **council
-APPROVED** (`de4a19f5-8f03-4e74-92cb-c23c10ab829d`, round 1, 3 advisory objections — two acted
-on) — code committed, **inert until the next chassis roll**. Workstream:
+**Status: CLOSED — FIXED AND LIVE on `v1.0.1196`, 2026-07-28** (`3ddb4ed2d` + `955832067`,
+session "bugsearch 7"), **council APPROVED** (`de4a19f5-8f03-4e74-92cb-c23c10ab829d`, round 1,
+3 advisory objections — two acted on and they narrowed the fix).
+
+**Live verification, both pods** (`agent-chassis-cccfc8f5d-9bb57`, `-hqqbm`):
+
+```
+resolvePageType        = 2     <- the marker: this change's new function, 0 before the roll
+ProseNumbersAreClaims  = 5     <- the policy method
+scanComponentClaims    = 2     <- POSITIVE CONTROL: pre-existing, so the grep method works here
+```
+
+Image `v1.0.1196` is a real rebuild, not a retag: image id `d8a4a6f0b560`, distinct from
+`v1.0.1195`'s `98ae7405f91b`. **[INFERRED, and stated as such]** that the *narrowed* five-type
+set is the one live: the image was created 23:30:05 BST, **14 minutes after** `955832067`
+(23:16:12 BST), and builds take committed `HEAD`. The binary carries no `vcs.revision` stamp
+(the build uses `git archive` into a clean context, so there is no `.git` to stamp from), so
+that half rests on build time versus commit time, not on a symbol. The presence of the fix
+itself is proven by the greps above, not inferred. Workstream:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_102_page_type_claims/`. See
 § "The fix, 2026-07-28" at the bottom, which also **corrects two claims in this
 file's own opening**.
