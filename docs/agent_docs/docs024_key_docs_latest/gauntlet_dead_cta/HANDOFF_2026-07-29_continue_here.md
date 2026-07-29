@@ -64,6 +64,34 @@ Fleet context: v1.0.1196 rolled 22:37Z 07-28. A `render-audit-adapter` pod
    owner call and `bugs_open/126` is why aiming a fixer by hand is risky.
    (b) 010's line *"tool-loot-table-balancer passes Tier 4 now"* is retired — it
    passed a check that could not see this defect.
+
+   > **SUPERSEDED BY OWNER INSTRUCTION, 2026-07-29 ~17:05Z: "please run that
+   > scheduled task once."** The "do not hand-promote" line above stands as
+   > written — nothing was hand-promoted — but the question it was waiting on has
+   > been answered by running the machinery instead. One firing of
+   > `improvement-sweep` at gamesdesign.co.uk (script:
+   > `scripts/run_improvement_sweep_once.sh`, orchestration `30692439`) promoted
+   > **67** items in one statement, `e7ea0125` among them, and dispatch followed
+   > on its own within a minute. **So the promoter is not broken, it is unrun** —
+   > 083's premise demonstrated rather than argued, and contributed back there
+   > along with the narrowing that matters: **not every agent inserts at
+   > `detected`** (`rerender-pages` inserted 32 of 32 directly as `triaged`),
+   > which is why the queue never looked starved and nobody noticed.
+   >
+   > **Two things the next session must not inherit wrongly.** (1) The sweep
+   > picks its OWN site — `ORDER BY updated_at ASC LIMIT 1` — and filing a work
+   > item bumps that column, so a fresh finding sorts LAST; the script takes the
+   > site as an argument for exactly this reason. (2) The run surfaced a
+   > **separate defect, `bugs_open/150`**: the loop ended at `complete_clean`
+   > ("No issues found — site is clean") straight after promoting those 67, and
+   > skipped its own dispatch branch, because `triage_detected_items` is a step
+   > in three agents and the parent's copy runs last. Anyone firing the sweep to
+   > clear a backlog will be told the opposite of what happened.
+   >
+   > Scale, so nobody repeats my understatement: the discovery half outnumbered
+   > the promotion half ~60:1 on a site unswept since May — 1 detected item
+   > became 64 in three minutes, and the fixers are still working the queue
+   > hours later, including LLM copy rewrites on live pages.
 3. **og:image** — vonc's gauntlet page emits a 404 social image (owned by the
    OTHER bug numbered 131, `…og_image_points_at_a_card…`, UNDIAGNOSED). When
    fixed, shared verdict cards and links get a face. Do not build a generator
