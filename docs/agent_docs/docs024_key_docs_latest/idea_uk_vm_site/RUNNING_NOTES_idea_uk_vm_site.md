@@ -3236,3 +3236,65 @@ The transferable bit: **"free a slot" and "tell the customer" are the same butto
 one of them was in the request. Before running an operator action against a row that carries a real
 email address, grep the handler for `deliver(`/`send`/`mail` — the state change is the part you
 wanted; the message is the part that reaches a human and cannot be recalled.
+
+### §X.32 — the specimen is REFRESHED from the 07-28 report, provenance reworded (2026-07-29, session vm 9)
+
+Owner call obtained at session start (AskUserQuestion): **reword + refresh** — open
+item 3 in the handoff is closed. `sql/p4_32` applied; work item `e19629d3` queued
+08:49Z, complete 08:52:31Z, **live on the box 08:56:00Z** (curl marker).
+
+**What changed on `/report/example/`:**
+- Source is now `ord_1785274337709242206` (28 Jul, current binary, both fixes
+  exercised — §X.30). The vet price-comparison report is gone.
+- Provenance line: ~~"bought and delivered on 26 July 2026 for £29"~~ →
+  "produced on 28 July 2026 by exactly the process that writes every £29
+  report". This run was declined, never bought, never sent — every published
+  word is now true of it.
+- The idea is declared as **"a worked example we submitted ourselves"** — one
+  notch more honest than the old "submitted by us": the assessed business
+  (inventory inspections, 40k properties) was authored to exercise the scorer,
+  and a reader should not infer a real firm behind it.
+- The two-typo admission is DROPPED (this report needed no corrections), and the
+  heading "The report, exactly as it was sent" → "The report, in full" (this one
+  was not sent).
+- "We would not publish a customer's report **without their agreement**" — the
+  qualifier keeps the line compatible with the £8 consented-example tier.
+
+**Verbatim-ness was proven mechanically BEFORE publishing, not asserted:** the
+tag-stripped word stream of the generated HTML equals the stored text report's
+token-for-token (case-insensitive), differing only in heading colons, badge
+brackets, and URLs moving into hrefs — same transformations p4_24 made. The
+converter + proof live in the session scratchpad (`convert_0728.py`); the
+structural counts it enforces (5 h2 / 17 h3 / 6 h4 / 26 source links / 6 badges
+/ 0 doubled stops) were re-verified against the SERVED page at 08:56Z, and the
+old-content negative controls (bought/typographical/veterinary) are all 0.
+
+Misstep to record: my first order-count on the box repeated §X.30's exact
+documented mistake — counted the `{orders,events,subs}` wrapper's values — even
+though the correction was already written down. The absurd shape caught it
+again. A documented misstep read at speed is not yet an applied one.
+
+### §X.33 — demand lane phase 1: meta descriptions + robots + sitemap (2026-07-29)
+
+The demand thread (owner-directed; docs in `../idea_uk_demand/`) found the site
+invisible-by-construction to search — evidence in that lane's NOTES §D.1, the
+short version being: Google's index entry for idea.uk is still the Dan.com
+"Domain For Sale" page, real Googlebot has NEVER crawled /report.html or a
+guide, robots.txt 404'd 107 times, and 7 pages served an empty meta description.
+
+Engineering shipped from THIS lane's machinery:
+- `sql/p4_33` — meta descriptions for index/about/contact/tools/guides-index/
+  news-index (privacy SKIPPED: nginx 301s /privacy.html to the tool's page, the
+  static file is never served). Dispatched as PLAIN page_rerender (no
+  spec.reason): the head is rebuilt from `pages.meta_description` on every
+  render (`rerender_single_page_action.go:357`) and assemble mode never reads
+  content_data, so the derived hubs cannot LLM-escalate. All 6 complete.
+- robots.txt + sitemap.xml committed to `gqls/vm-sites` (`6b310d1`) — NOT
+  scp'd: sitesync is `rsync --delete` from that repo and deletes stray files.
+  Sitemap = 22 URLs, every one curl-verified 200 first, in the site's own
+  canonical form (`/guides/x/index.html`); robots disallows the tool's
+  operator/transactional paths (/op /confirm /approve /decline etc.).
+
+Side-finding, parked: /news/index.html shows "Loading latest news..." forever —
+its JS fetches /data/latest-news.json which 404s. Not this lane's fix; noted
+here so it is not re-discovered.

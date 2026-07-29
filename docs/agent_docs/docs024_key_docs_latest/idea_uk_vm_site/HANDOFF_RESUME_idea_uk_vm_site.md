@@ -107,7 +107,12 @@
 >    renderer, and the check was *exercised*: `business` ended in a full stop, which is the only
 >    trigger (`reportIntro(domain)`, `engine.go:1022`). The score line and bars were proven in the
 >    same run — an idea cleared the bar, so `(each out of 5)` and 42 nested-table bars rendered.
-> 3. **Refresh the specimen — BLOCKED ON PROVENANCE, NOT FORMATTING. Needs an owner call.**
+> 3. ~~**Refresh the specimen — BLOCKED ON PROVENANCE, NOT FORMATTING. Needs an owner call.**~~
+>    **DONE 2026-07-29 (session vm 9, NOTES §X.32).** Owner ruled reword + refresh: `/report/example/`
+>    now carries the 28 July report (`sql/p4_32`), provenance reads "produced on 28 July 2026 by
+>    exactly the process that writes every £29 report" on "a worked example we submitted ourselves",
+>    the typo admission is dropped, and verbatim-ness was proven mechanically before publishing.
+>    Verified on the served page 08:56Z. The paragraph below is kept for the reasoning record.
 >    Current formatting has now run, so the stated precondition is met. But `sql/p4_24` publishes
 >    *"This is a real report… **bought and delivered** on 26 July 2026 for £29"*, and the 07-28 run
 >    was **declined, not bought** — swapping it in makes a live provenance claim false. Two honest

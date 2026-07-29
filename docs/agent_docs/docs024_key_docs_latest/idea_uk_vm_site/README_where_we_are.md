@@ -1726,3 +1726,20 @@ the job.
 
 The one other tidy-up was real and is done: a database change from yesterday was live on the site
 but had never been saved into the project's history. It is now.
+
+**2026-07-29 (morning, session vm 9).** Two things done, one thing to ask of you.
+First: the example report on the site is now the newest one — the 28 July run
+with the score bars, the proper intro and the subheadings — and the small print
+above it now tells the exact truth about it: it was produced by the same process
+as every paid report, on an idea we wrote ourselves as a worked example, and
+nothing in it was reworded. The old version's admission of two hand-fixed typos
+is gone because this report needed none. Before publishing we checked
+mechanically, word by word, that the page matches the stored report.
+Second: the demand work has started in its own folder (idea_uk_demand), and the
+first finding was blunt — Google still lists idea.uk as "domain for sale" from
+before we owned it, and its crawler has never once read the report page. We have
+given the site the plumbing search engines expect (a sitemap, a robots file,
+descriptions on seven pages that had none). **The thing only you can do:
+register idea.uk in Google Search Console (DNS verification at Hetzner) and ask
+Google to re-read the homepage — that is what kills the "for sale" label.**
+Exact steps are in idea_uk_demand/README_where_we_are.md.
