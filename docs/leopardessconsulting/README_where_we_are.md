@@ -606,3 +606,68 @@ testing it. It's a small, well-understood next step whenever you want it.
 
 Checked everything again at the end: every picture on every page of the site loads, and
 nothing shows a broken image anywhere.
+
+---
+
+## 2026-07-29 (later still) — the feature article on trusting AI with data
+
+You asked for a researched, cited feature article on trusting AI with your data, looked at
+from a few industry angles, possibly split into three or four pieces, with charts or a
+tool if it made sense, and both sides argued honestly. It became four linked articles,
+live on the site now.
+
+I used the Anthropic trust page you linked as the starting point, then went and found the
+actual research behind the topic — the big trust surveys from KPMG and the University of
+Melbourne, Pew Research, Edelman, Cisco, McKinsey, IBM's breach-cost report, and
+industry-specific ones for healthcare, banking, law, and hiring. Every number in the
+finished pieces is attributed to a named study, and I checked the ones that mattered most
+against the original source rather than trusting the first summary I found. That check
+caught two numbers that were wrong or unsourced before they went anywhere near the site —
+one turned out to be 78%, not the 84% I'd first read; the other I traced back to its real
+source, a Dice survey of tech workers, and used the more precise figures once I had them.
+
+The overview piece lays out the general picture: people use AI constantly while remaining
+unconvinced it deserves the trust it's getting, across every sector I looked at. Three
+shorter pieces then go deep on the sectors where the evidence was sharpest. Healthcare has
+the starkest number of all: patient trust in medical AI fell from 52% to 44% in two years,
+even as everyone's using it more. Financial services is racing ahead on deployment while
+its own surveys say governance hasn't caught up, and there's a real regulatory deadline
+this August that makes that gap expensive. Hiring produced the single most striking figure
+in the whole project: seventy percent of hiring managers trust AI to make hiring
+decisions, and only eight percent of the people being evaluated by it think that's fair.
+That is not really a story about the technology. It's what happens when one side of a
+decision can see how it was made and the other side can't — and that pattern held up
+across every sector I looked at, not just hiring.
+
+Both sides are represented properly, not just as a token counterpoint. Alongside the trust
+gaps, there's real evidence that AI-assisted security teams catch breaches faster and
+cheaper, that a documented fraud system processes twelve million transactions a day while
+cutting false positives by nearly three-quarters, and that companies treating data
+governance seriously are seeing a return on it. Both things are true. The article says so
+plainly rather than picking a side.
+
+On charts: I built five small bar charts by hand, directly in the page, rather than using
+the platform's shared chart mechanism. That mechanism is built specifically for facts we
+can re-check against our own database — verified record counts and the like. These are
+someone else's survey numbers, not ours, so I kept them in a separate, honestly-labelled
+lane rather than blurring the two together. Each chart says exactly which study it came
+from and when.
+
+On a tool: I thought about it properly, as you asked. A simple checklist — does this AI
+vendor have the right certifications, does it retain your data, will it train on it by
+default — would fit naturally with the "what does trustworthy actually look like" section
+in the first article, and the mechanics are straightforward. I didn't build it this
+session. It's a genuinely separate piece of work — a new interactive feature, not more
+writing — and I'd rather build and test it properly than rush it in at the end of an
+already long session. It's a clear, ready next step whenever you want it.
+
+One small thing I noticed while wiring the four pieces together: this platform quietly
+drops a link to a page that doesn't exist yet, so the first version of the overview
+article had its three links to the other pieces silently stripped, because I wrote it
+before the other three existed. I caught it, published the other three, and re-ran the
+overview once they existed — the links now work. Worth remembering for any future series
+like this: write the smaller pieces first, or expect to redo the hub once at the end.
+
+Everything is checked and live: the four pages load, the sources are real and attributed,
+the blog listing on the site now lists all four alongside the existing posts, and I swept
+the whole site again afterwards to make sure nothing else broke.

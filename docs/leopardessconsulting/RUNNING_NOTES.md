@@ -1801,3 +1801,131 @@ Every image URL referenced anywhere on the site (14 distinct paths): HTTP 200
 Image-less pages: 5 (blog index, 4 tool pages) -- down from 9
 assets.url: 12/12 active rows now local paths, 0 presigned
 ```
+
+---
+
+## 2026-07-29 (cont.) — a 4-part feature series on trusting AI with data, researched and published
+
+Owner asked for a feature article on trusting AI with data, researched thoroughly, with
+sources cited and their opening lines quoted, looked at from multiple industry angles,
+charts and/or tools considered, real verified statistics, both sides argued honestly.
+Said explicitly it could become 3–4 linked articles.
+
+### Research
+
+Used `trust.anthropic.com` as the named starting point (its own JS shell defeated a plain
+fetch — Vanta-hosted trust centre, client-rendered — so pulled its certifications from
+`support.claude.com`'s own certifications article instead, which fetched cleanly). Then
+pulled and cross-checked primary-source statistics across: general consumer trust (KPMG/
+University of Melbourne 2025, n=48,000+/47 countries; Pew Research 2026; Edelman Trust
+Barometer 2026; Cisco 2025 Data Privacy Benchmark, n=2,600), healthcare (Reach3 Insights/
+Rival Technologies 2026 Digital Health Trends, n=1,043; KFF tracking poll; CHAI patient
+survey; IBM breach costs), financial services (Deloitte 2026; Cambridge Judge Business
+School 2026; McKinsey State of AI Trust 2026, n≈500 orgs; Salesforce, n=6,058), legal
+(Thomson Reuters Future of Professionals), hiring (Greenhouse 2025, n=4,136; Gartner,
+n=2,918; ResumeBuilder, n=948; Dice Trust Gap in Tech Hiring 2025, n=319), regulation (EU
+AI Act 2026 deadline), and the counter-case (IBM 2025 breach report's AI-positive findings;
+PwC 2026 AI Performance Study).
+
+**Caught two real errors before publishing, by verifying rather than trusting the first
+search synthesis:**
+1. A first pass had "84% of consumers would switch providers over data mishandling"
+   attributed loosely to financial services. Direct verification found the real, precisely
+   sourced figure is **78%** (Salesforce, n=6,058, 2023 survey) — the 84% was never
+   confirmed against a primary source and was dropped.
+2. A hiring-trust figure ("14% trust fully automated hiring, 46% trust hybrid") had no
+   named source in the first synthesis. Traced it to Dice's *Trust Gap in Tech Hiring 2025*
+   (n=319 US tech professionals) by fetching the report directly — which also surfaced a
+   companion, better-fitting statistic (68% distrust fully-AI hiring vs 80% trust
+   human-driven) from the SAME report, used instead.
+
+Every statistic in the published series is attributed to a specific named study with a
+sample size where available; nothing is "some survey found."
+
+### Architecture: 1 pillar + 3 industry deep-dives
+
+- `can-you-trust-ai-with-your-data` — the overview: the KPMG trust paradox, an industry
+  tour (healthcare/financial/legal/hiring/retail/government), the case against (breach
+  economics, governance gaps), the case for (fraud-detection ROI, Cisco/PwC figures), and
+  a concrete "what trustworthy looks like" section built around Anthropic's own published
+  certifications (SOC 2 I/II, ISO 27001:2022, ISO/IEC 42001:2023, HIPAA-ready + BAA, the
+  October 2025 training-data policy change, Zero Data Retention for regulated workloads).
+  ~3,100 words, 2 charts.
+- `ai-data-trust-in-healthcare` — the sharpest patient-trust decline (52%→44% in two years)
+  and the factors proven to rebuild it (FDA approval, clinician in the loop, representative
+  data). ~1,370 words, 1 chart.
+- `ai-data-trust-in-financial-services` — adoption outpacing governance (87% say they
+  could improve governance, only 13% call themselves leading-maturity), EU AI Act
+  deadline. ~1,080 words, 1 chart.
+- `ai-data-trust-in-hiring-and-hr` — the widest trust gap found anywhere in this research
+  (70% of hiring managers trust AI hiring decisions, 8% of job seekers call it fair).
+  ~1,010 words, 1 chart.
+
+All four cross-link to each other. `docs/leopardessconsulting/scripts/L8_article_*.sql`
+holds the exact insert used for each, for reproducibility.
+
+### Charts — built as hand-authored, code-rendered inline SVG, NOT the shared evidence-chart component
+
+Considered `evidence-chart` (the shared component from the 2026-07-26 chart work) first
+and deliberately did not use it. It resolves from `site_specs.evidence_base`, which this
+site already uses specifically for FIRST-PARTY, re-queryable facts (each fact row carries
+`source.sql` or `source.artifact` — something this platform's own DB or code can be
+re-checked against). Third-party survey statistics (KPMG's 46%, IBM's $4.44M) have no
+`SELECT count(*)` behind them and do not belong in that register — shoehorning them in
+would blur the exact distinction the claims-verification work on this site exists to
+draw, between "verified against our own system" and "cited from someone else's report".
+
+Instead: 5 inline `<svg>` bar charts, hand-coded directly into the article HTML, each
+captioned with its source and date, matching `design_intent.imagery_direction`'s own rule
+that a chart must carry its source and never be image-generated. Colours use the site's
+real palette hex values directly (`#836E32`, `#0D0D0D`, `#B9B3A6`, `#E4DFD5`) rather than
+CSS custom properties, since injected `content_data` HTML cannot reliably resolve a
+parent stylesheet's `:root` variables.
+
+### A platform behaviour worth knowing: cross-links to a page that doesn't exist YET get silently stripped
+
+Found this rendering the pillar article before its three siblings existed:
+`content_data.content` kept the `<a href="/blog/ai-data-trust-in-healthcare.html">` intact,
+but `rendered_html` did not — some render-time mechanism (not diagnosed further; matches
+this platform's general phantom-link-defence class, `bugs_open/029`/`079` family) strips
+anchors pointing at pages that don't resolve at render time. **Not a bug filed** — the fix
+is mechanical and now confirmed: publish the target pages first, or re-render the linking
+page afterward. Did the latter here (re-ran `can-you-trust-ai-with-your-data` after all
+three siblings existed) and the links resolved cleanly on the next render. Worth knowing
+before any future multi-page series on this platform: write leaf pages before the hub, or
+budget one extra re-render pass for the hub.
+
+### Blog listing extended, not rebuilt
+
+Did NOT fire the `rerender-pages` workflow to pick these up (it would run `rebuild_blog_listing`,
+but also `get_pages_for_rerender`/`create_rerender_items`/`render_site_components` — a much
+wider blast radius than "add 4 entries to one list", and this site has twice been bitten by
+a wider rebuild clobbering hand-fixed content). Instead, cloned one existing card's exact
+markup programmatically (Python, matched against the now-guarded `content-listing`
+template) and prepended 4 new entries to both `content_data.articles` and `rendered_html`
+directly — same no-LLM, no-full-rebuild technique as the original empty-`<img>` fix earlier
+this session. Blog listing now shows 10 articles, still 0 empty images.
+
+**Known gap, not fixed this session:** the 4 new pages are not yet in `sitemap.xml` — that
+generation is a separate, undiagnosed mechanism not touched by anything fired here.
+
+### Considered, and made a call on: a new interactive "AI vendor trust checklist" tool
+
+Owner asked to think about a tool for this content. Assessed it: technically straightforward
+(deterministic client-side scoring — SOC 2? ISO 42001? zero-retention offered? training
+opt-out by default? sub-processor list published?, same shape as the site's existing
+calculators) and would tie directly to the pillar article's "what trustworthy actually
+looks like" section. **Not built this session** — it is a genuinely separate feature (new
+JS, new page, new component, and this platform's own standard for UI work is to browser-test
+before calling it done), not a content-writing task, and deserves that same care rather
+than being rushed in at the tail of an already large session. Flagged to the owner as a
+concrete, scoped next step rather than built half-verified.
+
+### Verified live, end to end
+
+```
+All 4 new pages: HTTP 200, correct h2/svg counts, no missing required fields, no escalation
+Cross-links between all 4: resolve (after the one-extra-rerender fix above)
+Blog listing: 10 cards, 0 empty <img src="">
+Full 27-page sitemap re-sweep: 0 empty img tags anywhere on the site
+```
