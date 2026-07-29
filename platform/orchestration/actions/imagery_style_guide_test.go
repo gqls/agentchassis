@@ -367,3 +367,46 @@ func TestFlatKindPaletteClauseLineworkIsLegibleOnItsGround(t *testing.T) {
 		t.Errorf("clause %q picked an ink that is invisible on its own ground", got)
 	}
 }
+
+// The darkness gate and the clause must ask about the SAME colour. The first
+// version gated on `background` and built the clause from `surface`, and
+// defended the gap by noting that no live palette is shaped that way. The
+// council's guardian seat objected and was right: that is an assumption baked
+// into new code with a silent failure mode, and "I checked the ten current rows"
+// expires the moment an eleventh palette is authored.
+//
+// This is the palette nobody has authored yet — dark page, light cards. If the
+// gate and the clause ever disagree again, it produces a white icon tile on a
+// dark site, which is the original defect.
+func TestGateAndClauseAgreeOnWhichColourIsTheGround(t *testing.T) {
+	darkPageLightCards := map[string]string{
+		"background": "#0a0a0f", // dark
+		"surface":    "#f7f2e6", // light — the ground an icon would actually get
+		"text":       "#f0eeff",
+		"accent":     "#A8391A",
+	}
+	ground := flatKindGround(darkPageLightCards)
+	if ground != "#f7f2e6" {
+		t.Fatalf("flatKindGround = %q, want the surface — that is what the tile is painted from", ground)
+	}
+	if isDarkHex(ground) {
+		t.Fatalf("test premise broken: %s should be light", ground)
+	}
+	// The clause, if one were produced, must name the same value the gate judged.
+	if clause := flatKindPaletteClause(darkPageLightCards); !strings.Contains(clause, ground) {
+		t.Errorf("clause %q does not name the ground %s the gate judged", clause, ground)
+	}
+}
+
+// The ordinary shape: surface present and used, background ignored.
+func TestFlatKindGroundPrefersSurfaceAndFallsBack(t *testing.T) {
+	if got := flatKindGround(map[string]string{"surface": "#111E33", "background": "#080E1C"}); got != "#111E33" {
+		t.Errorf("got %q, want the surface", got)
+	}
+	if got := flatKindGround(map[string]string{"background": "#080E1C"}); got != "#080E1C" {
+		t.Errorf("got %q, want the background when there is no surface", got)
+	}
+	if got := flatKindGround(map[string]string{}); got != "" {
+		t.Errorf("got %q, want empty", got)
+	}
+}

@@ -52,10 +52,13 @@
 package discovery_checks
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/gqls/agentchassis/platform/colour"
 )
@@ -149,14 +152,38 @@ func roundTo2(f float64) float64 {
 	return float64(int(f*100+0.5)) / 100
 }
 
-// loadComposedPalette reads the palette the renderer actually emitted, via the
-// site's resolved composition. Returns (nil, "", nil) when the site has no
-// resolved composition or no palette row — both are "nothing to judge yet"
-// rather than errors.
-func loadComposedPalette(dctx DiscoveryCheckContext) (colour.PaletteSlots, string, error) {
+// LoadComposedPaletteHexes returns the hex-valued slots of the palette the
+// RENDERER actually emits for a site, reached via
+// site_specs.resolved_composition.palette_id. Also returns the palette's name,
+// for error messages worth reading.
+//
+// (nil, "", nil) means "nothing to judge yet" — no resolved composition or no
+// palette row — rather than an error.
+//
+// EXPORTED, AND WHY. There is a second consumer: actions.composedPaletteDirection
+// derives the colour clause for a flat-vector image prompt from this same
+// palette, so an icon's generated ground matches the tile the page paints it
+// into. It first arrived as a hand-copied version of this query, and the council
+// gate objected on 2026-07-29 — SEVEN of thirteen seats independently, which is
+// the strongest single signal that round produced. They were right: two readers
+// of resolved_composition.palette_id drift silently in both directions (an
+// aspect rename fixes one, and an image generated against a palette the page
+// does not use looks deliberate).
+//
+// It lives HERE rather than in a new shared package because the import direction
+// already permits it — package actions imports discovery_checks in 6 files and
+// discovery_checks imports actions in 0 — and inventing a package to hold one
+// query would be the heavier answer to a two-consumer problem. If a THIRD
+// consumer appears, that is the moment to extract it properly; the architecture
+// seat said so in the same round and it is the right trigger.
+//
+// Takes a plain *sql.DB and uuid rather than a DiscoveryCheckContext precisely
+// so a non-check caller can use it — the parameter type was the whole reason
+// the duplicate existed.
+func LoadComposedPaletteHexes(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]string, string, error) {
 	var raw []byte
 	var name string
-	err := dctx.DB.QueryRowContext(dctx.Ctx, `
+	err := db.QueryRowContext(ctx, `
 		SELECT p.colours, COALESCE(p.name, '')
 		  FROM site_specs ss
 		  JOIN palettes p
@@ -164,7 +191,7 @@ func loadComposedPalette(dctx DiscoveryCheckContext) (colour.PaletteSlots, strin
 		 WHERE ss.site_id = $1
 		   AND ss.aspect  = 'resolved_composition'
 		   AND ss.is_current
-		 LIMIT 1`, dctx.SiteID).Scan(&raw, &name)
+		 LIMIT 1`, siteID).Scan(&raw, &name)
 	if err == sql.ErrNoRows {
 		return nil, "", nil
 	}
@@ -177,7 +204,7 @@ func loadComposedPalette(dctx DiscoveryCheckContext) (colour.PaletteSlots, strin
 		return nil, "", fmt.Errorf("parse palettes.colours for %q: %w", name, err)
 	}
 
-	slots := make(colour.PaletteSlots, len(m))
+	out := make(map[string]string, len(m))
 	for k, v := range m {
 		s, ok := v.(string)
 		if !ok || s == "" {
@@ -189,10 +216,29 @@ func loadComposedPalette(dctx DiscoveryCheckContext) (colour.PaletteSlots, strin
 		// their absence matters. Silently judging an rgba() on its opaque
 		// colour would over-report contrast, which is the one direction a
 		// legibility check must never fail in.
+		//
+		// The second consumer needs the same filter for a different reason: a
+		// prompt that told an image generator to use "var(--color-surface)" as
+		// a background colour would produce something, and it would not be the
+		// site's colour.
 		if !strings.HasPrefix(s, "#") {
 			continue
 		}
-		slots[k] = s
+		out[k] = s
+	}
+	return out, name, nil
+}
+
+// loadComposedPalette is the check-side wrapper: same data, in the shape
+// colour.AuditPalette wants.
+func loadComposedPalette(dctx DiscoveryCheckContext) (colour.PaletteSlots, string, error) {
+	hexes, name, err := LoadComposedPaletteHexes(dctx.Ctx, dctx.DB, dctx.SiteID)
+	if err != nil || hexes == nil {
+		return nil, name, err
+	}
+	slots := make(colour.PaletteSlots, len(hexes))
+	for k, v := range hexes {
+		slots[k] = v
 	}
 	return slots, name, nil
 }

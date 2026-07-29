@@ -47,8 +47,11 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
+
+	discovery_checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 )
 
 type imageryStyleGuide struct {
@@ -173,52 +176,29 @@ func getImageryStyleGuideForSite(ctx context.Context, db interface{}, siteID str
 // the prompt already says", and the prompt still ships. It is a floor, never a
 // requirement, in keeping with getImageryStyleGuideForSite above.
 //
-// The SQL is deliberately the same shape as
-// discovery_checks.loadComposedPalette (check_palette_contrast.go:156-168) —
-// site_specs.resolved_composition.palette_id joined to palettes.colours. They
-// are two copies because discovery_checks is imported BY actions and its helper
-// is unexported and takes a DiscoveryCheckContext; if either query changes, the
-// other is wrong, and the failure is silent in both (an image generated against
-// a palette the page does not use looks deliberate).
-func composedPaletteDirection(ctx context.Context, db interface{}, siteID string, logger *zap.Logger) string {
+// It reads through discovery_checks.LoadComposedPaletteHexes rather than
+// re-issuing the query. It did NOT at first — it carried a hand-copied version,
+// and the council gate objected on 2026-07-29 with seven of thirteen seats
+// independently making the same point. They were right: two readers of
+// resolved_composition.palette_id drift silently in both directions, and an
+// image generated against a palette the page does not use looks deliberate.
+// Exporting the existing helper was the whole fix; its DiscoveryCheckContext
+// parameter had been the only reason for the copy.
+func composedPaletteDirection(ctx context.Context, db *sql.DB, siteID string, logger *zap.Logger) string {
 	if siteID == "" || db == nil {
 		return ""
 	}
-	const query = `
-		SELECT p.colours
-		  FROM site_specs ss
-		  JOIN palettes p ON p.id = (ss.data->>'palette_id')::uuid
-		 WHERE ss.site_id = $1
-		   AND ss.aspect  = 'resolved_composition'
-		   AND ss.is_current
-		 LIMIT 1`
-
-	var raw []byte
-	switch d := db.(type) {
-	case *sql.DB:
-		if err := d.QueryRowContext(ctx, query, siteID).Scan(&raw); err != nil {
-			if err != sql.ErrNoRows {
-				logger.Warn("composedPaletteDirection: query failed",
-					zap.String("site_id", siteID), zap.Error(err))
-			}
-			return ""
-		}
-	case *pgxpool.Pool:
-		if err := d.QueryRow(ctx, query, siteID).Scan(&raw); err != nil {
-			if !strings.Contains(err.Error(), "no rows") {
-				logger.Warn("composedPaletteDirection: query failed",
-					zap.String("site_id", siteID), zap.Error(err))
-			}
-			return ""
-		}
-	default:
+	siteUUID, err := uuid.Parse(siteID)
+	if err != nil {
 		return ""
 	}
-
-	var colours map[string]string
-	if err := json.Unmarshal(raw, &colours); err != nil {
-		logger.Warn("composedPaletteDirection: unparseable palettes.colours",
+	colours, name, err := discovery_checks.LoadComposedPaletteHexes(ctx, db, siteUUID)
+	if err != nil {
+		logger.Warn("composedPaletteDirection: composed palette unavailable",
 			zap.String("site_id", siteID), zap.Error(err))
+		return ""
+	}
+	if len(colours) == 0 {
 		return ""
 	}
 
@@ -229,19 +209,38 @@ func composedPaletteDirection(ctx context.Context, db interface{}, siteID string
 	// today. Deriving for them too would repaint live sites to no benefit."
 	//
 	// A light grey icon ground on a light site is unremarkable; on a dark site
-	// it is a hole in the page. And because these two mechanisms are a PAIR —
-	// the generated ground and the chip it lands in must agree — their gates
-	// have to match, or a site gets one half of the treatment. Keeping the
-	// boundaries identical is the property to preserve if either is changed.
+	// it is a hole in the page.
+	//
+	// THE GATE TESTS THE GROUND THE CLAUSE ACTUALLY NAMES, which is `surface`
+	// falling back to `background` — not `background` alone. The first version
+	// gated on `background` and built from `surface`, and defended the gap by
+	// having manually checked that no live palette is shaped that way. The
+	// guardian seat objected, correctly: that is an assumption baked into new
+	// code with a silent failure mode, and "I looked at the ten current rows"
+	// expires the moment an eleventh palette is authored. Asking the same
+	// question of the same value costs nothing and cannot go stale.
 	//
 	// Measured 2026-07-29: 6 of the 10 sites with a resolved composition are
 	// dark (dartsonline, fundamentallyai, gamesdesign, oufe, robot-hands, vonc);
 	// the other 4 (idea.uk, relojistas, vetcomparison, webdesign) keep the
 	// planner's literal and are unaffected by this change.
-	if bg := colours["background"]; bg == "" || !isDarkHex(bg) {
+	ground := flatKindGround(colours)
+	if ground == "" || !isDarkHex(ground) {
 		return ""
 	}
+	logger.Debug("composedPaletteDirection: derived from composed palette",
+		zap.String("site_id", siteID), zap.String("palette", name), zap.String("ground", ground))
 	return flatKindPaletteClause(colours)
+}
+
+// flatKindGround is the single definition of "the colour a flat image's
+// background should be", so the darkness gate and the clause cannot disagree
+// about which value they are talking about.
+func flatKindGround(colours map[string]string) string {
+	if s := colours["surface"]; s != "" {
+		return s
+	}
+	return colours["background"]
 }
 
 // flatKindPaletteClause turns a palette into the one sentence a flat-vector
@@ -259,10 +258,7 @@ func composedPaletteDirection(ctx context.Context, db interface{}, siteID string
 // it has neither — a clause naming a colour we do not have would be worse than
 // the prompt's own literal.
 func flatKindPaletteClause(colours map[string]string) string {
-	ground := colours["surface"]
-	if ground == "" {
-		ground = colours["background"]
-	}
+	ground := flatKindGround(colours)
 	if ground == "" {
 		return ""
 	}
