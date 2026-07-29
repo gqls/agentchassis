@@ -139,13 +139,20 @@ What is established:
 >
 > **Order of work, and the first item is ours alone:**
 >
-> 1. **Fix `httpguard`'s portability defect FIRST** — it assumes nginx's
->    `X-Real-IP` behaviour without saying so, so it is not yet safe to adopt
->    anywhere. Make the trusted header set stated and chosen, not assumed. Taught
->    the island's front-end (`CF-Connecting-IP`), adoption then *genuinely* fixes
->    the constant-identity defect rather than appearing to — which is what makes
->    adoption worth doing on its own merits again. **Architecture-scope: council on
->    its own, not folded into an adoption commit.**
+> 1. ~~**Fix `httpguard`'s portability defect FIRST**~~ **DONE 2026-07-29,
+>    council-APPROVED round 1.** `ClientIP` now takes a **required** `FrontEnd`
+>    (`Nginx()` / `CloudflareTunnel()` / `Direct()`), so the nginx assumption
+>    cannot be inherited silently. Commit `31c684124`; corr
+>    `49392838-5ada-4c8e-baeb-94b01e5855b4`; PUB-002 + PUB-003 registered in the
+>    same commit. **The venue question settled in favour of the normal gate** —
+>    the `architecture` seat returned `point_fix`, on the grounds that this is
+>    *"hardening a shared mechanism's own contract before its first real consumer,
+>    which is the cheapest point in its life to do it"*. Zero importers re-grepped
+>    after the verdict, still zero.
+>    **Carried obligation, from the `architecture` seat (low, but explicit):** the
+>    peer-gate reversion that keeps `CloudflareTunnel()` honest is unit-tested
+>    only. *"The next thing to land against this package should close it, not add a
+>    fourth FrontEnd."*
 > 2. **Adopt `platform/mailer`** — a consumer is waiting and it carries none of
 >    this complication.
 > 3. **Adopt `httpguard` into `tools-api`** — needs the gauntlet thread's
