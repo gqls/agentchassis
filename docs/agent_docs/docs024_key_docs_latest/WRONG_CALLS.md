@@ -11168,3 +11168,30 @@ the reading. A clause read is not a clause evaluated.
 
 Family: check-answers-the-question-you-encoded; a-count-you-kept-is-not-a-census (this is
 its inverse — a *condition* kept in the reading and dropped from the evaluation).
+
+## 2026-07-29 — "template edits are fleet-shared" (brochure_component_library)
+
+**The claim.** Presenting an em-dash cleanup choice to the owner, I wrote that
+editing the three component templates would change other sites too, and made that
+a stated trade-off of the option he was choosing between.
+
+**What was true.** Those components have a **separate row per site**:
+`tool-llm-cost-calculator` alone has four ids across fundamentallyai,
+ai-agent-orchestration, finetuning.uk and leopardess. Blast radius was one site.
+I put a scary and false consideration in front of a decision.
+
+**What caught it.** Measuring before editing — a `count(DISTINCT s.domain)` grouped
+by `content_components.id` on the way to writing the UPDATE.
+
+**The cheap check that would have.** The same query, before writing the question:
+`SELECT cc.id, count(DISTINCT s.domain) FROM content_components cc JOIN
+page_components pc … GROUP BY cc.id`. **A component is shared or copied as a matter
+of fact, not of category** — "it's a shared library" is a description of the table,
+not of the row.
+
+**Second error in the same breath: "21 template em-dashes" was three populations.**
+4 were inside CSS comments (invisible), 2 were table cell placeholders meaning "not
+applicable" (correct typography), and only 15 were visible prose. An earlier
+correction in this lane had already split writer prose from template text; the
+character count needed splitting again. *A character count is not a style
+measurement — grep the CONTEXT of each hit before quoting the total.*

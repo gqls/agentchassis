@@ -7431,3 +7431,37 @@ survives), plus a separate decision about making the content durable.
   *different* discovery agent ran on the site regularly. "Discovery runs on this
   site" was true and irrelevant. **Resolve check → agent → cadence, not check →
   exists.**
+
+### Two correct behaviours can compose into a silent disappearance — a section dropped by a `complete` re-render (fundamentallyai, 2026-07-29)
+
+A newly placed section component vanished from three consecutive page re-renders,
+each of which reported `complete` and each of which was, individually, behaving
+correctly.
+
+**The chain.** `rerender_page_sections` builds its component-schema lookup from
+`page_components.slot_name`
+(`loadComponentSchemas(ctx, db, names…)`, `rerender_page_sections_action.go:226-232`).
+`slot_name` is **nullable and nothing validates it**. With it NULL the lookup finds
+nothing, so the action takes its defensive branch — *"component not found, carrying
+stored HTML"* — which is right, because rendering an unknown component would be
+worse. It carries the row's stored `rendered_html`, which for a freshly inserted
+row is empty. Then `getPageSections` drops sections with empty HTML from the
+assembled page (`rerender_single_page_action.go:645`), which is also right: an
+empty section renders as dead space. Each step is defensible; the composition
+deletes a section and reports success.
+
+**The generalisable shape.** *A defensive fallback that produces an empty artefact,
+feeding a filter that drops empty artefacts, is a deletion with no error anywhere
+in it.* Look for this pair whenever something disappears without a failure: the
+fallback logs at WARN/INFO (not ERROR) and the filter logs the drop as routine.
+Both log lines existed here and neither is an error.
+
+**The reflex.** After any structural placement change, **count the components on
+the page you expect, on the persisted rows, before believing the status**. And when
+a nullable column is the join key for a lookup whose miss-branch is "carry on
+safely", treat it as a required column regardless of the schema.
+
+**Corollary — a page's section list is written in more than one place.** Here it is
+three (`site_plan_sections`, `pages.sections`, `page_components.slot_name`) and all
+three must agree. This is the same family as `bugs_open/109`: four hand-maintained
+allowlists and nothing checks they agree.
