@@ -157,13 +157,40 @@ what the next thread should do:
 
 ## 7. Next, in priority order
 
-1. **Read the next feed tick's titles** (§1). If `AI in design` is still under ~3
+> **UPDATED 2026-07-29 end of session 4 — items 1–3 below are DONE** (feed query
+> works on wording 3; /news/ live; /buying-design/ front door + accessibility
+> page live; `bugs_closed/141` closed on live behaviour). Full account:
+> `SUMMARY_2026-07-29_news_complete_buying_design_started.md` + NOTES tail
+> (including session 4's own missteps). **The list for the NEXT session:**
+>
+> 1. **Verify the fan-out landed** (it trickles ~2 min/page, so hours after
+>    08:30Z): spot-curl 3–4 pages across sections for the header carrying News
+>    + Buying design, and `/news/index.html` for the fixed hero ("What is
+>    changing in web design") and CTA buttons. Artefact-level proof is done;
+>    this is delivery. If a page still has the old header, check the
+>    `page_rerender` queue before diagnosing anything.
+> 2. **Buying design, next pillars** (plan §5): "Why large web projects fail"
+>    (pillar 2) and "What you should own at the end" (pillar 6) are the pair
+>    with the least dependency on figures. The flagship (pillar 1, AI) carries
+>    D13's two unresolved riders — see 3.
+> 3. **Owner items, batched:** (a) PLAN §D13's two riders still need his eye —
+>    the "almost comparable to a human" claim has no measurement (soften or
+>    measure), and the closed-failures-only rail (followed this session) wants
+>    his explicit confirmation; (b) "Buying design" now sits in the header nav
+>    (position 4) — one flag reverts it if he wants a quieter front door;
+>    (c) T1 (side-by-side benchmark, the anchor tool) needs REAL build work on
+>    browserrunner — sizing decision before anyone starts.
+> 4. **Standing engine work unchanged:** W2 practitioner copy rewrite before
+>    popularity ordering (owner sequencing). Open bugs this lane owns:
+>    `bugs_open/132` (B2 404 worker — owner-side), `116` (link checks never
+>    run), and the recorded-not-fixed story-clustering dedup flaw.
+
+~~1. **Read the next feed tick's titles** (§1). If `AI in design` is still under ~3
    on-topic, **repurpose it rather than tune a fifth time** — the seam may be too
-   thin for a 30-day window.
-2. **Build `/news/index.html`**, then let the nav row reappear by itself.
-3. **Write the buying-design section** — unblocked by D13. `PLAN_2026-07-27b_buying_design.md`
-   is the live plan. Start with the accessibility-duty tool (a reframe of tools that
-   already exist, not a build).
+   thin for a 30-day window.~~
+~~2. **Build `/news/index.html`**, then let the nav row reappear by itself.~~
+~~3. **Write the buying-design section** — unblocked by D13.~~ `PLAN_2026-07-27b_buying_design.md`
+   is the live plan.
 4. **Ordering by popularity** now has data arriving — but leave it until content is
    rewritten, per the owner's own sequencing: instrument → improve → measure → order.
 

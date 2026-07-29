@@ -1612,3 +1612,46 @@ carry both URLs (08:29:10Z). Council advisories all answered with queries
 into the static files trickles behind at ~2 min/page — delivery, not proof;
 the artefact-level proof is done. Also: search.json gained the 3 new pages
 (gqls/sites `6941cbcce`); page count reconciled 101 DB = 102 files − 404.html.
+
+### Session 4's own missteps (recorded per the standing rule: the check, not just the story)
+
+**1. I fired the first chrome rebuild on an unverified mechanism and doubled the
+fan-out.** SQL_p19's nav_drift went in BEFORE I had checked what
+`refresh_nav_tables` actually does with a news-index page — I was obeying the
+handoff's "the nav row reappears by itself". That run rebuilt chrome with an
+UNCHANGED nav (the 141 bug meant News could not be added) and queued ~99 assemble
+re-renders of which ~98 republished identical pages; after the fix rolled, a
+second full fan-out was needed. Cost: several hours of queue occupancy, doubled.
+The irony: I found 141 by investigating why that run produced nothing — so the
+waste bought the discovery, but only by accident.
+**The check (before, not after): a fleet-wide artefact rebuild that depends on a
+mechanism costs one grep to verify first.** `classifyPagesForNav` was one hop
+from `refresh_nav_tables`, and news-index's absence from `isSectionIndexType` is
+visible by eye. Same rule as the WRONG_CALLS entry this session wrote about the
+previous thread — I re-made a variant of the error I was correcting: obeyed a
+written claim about a mechanism without reading the mechanism.
+
+**2. I misjudged the wall clock and diagnosed a healthy queue as stalled.** I
+read "0 claimed, 82 queued, trigger not re-firing" as a post-roll stall and
+started down the spawn-drop/handshake theory — while believing ~15 more minutes
+had passed than actually had. The dispatch orchestration was a normal
+long-running loop (`AWAITING_RESPONSES` = working), the nav_drift was claimed
+moments later, and the queue had moved 18 items in 40 min — exactly the measured
+~2 min/item baseline. No harm done (nothing cancelled — the standing "never
+cancel the failing row pre-diagnosis" rule earned its keep), but the theory was
+wrong and clock drift fed it.
+**The check: print `SELECT now()` beside any latency judgement, and compare
+cadence against the measured baseline before saying "stalled"** — the session
+did the first at 07:40 and then stopped doing it; the second was one division.
+
+**3. Two mechanical retries that validation caught, worth a line each:** the
+council submission first went out with `plan` as an array (the 097 header
+specifies an object — reading the schema first would have saved a round trip),
+and the SQL_p20 generator's first output had broken dollar-quoting (caught by
+its own needs-repair check before anything touched the DB — that check existing
+is why this cost seconds, not a corrupted page row).
+
+**4. I published "101 pages" into the memory index BEFORE reconciling it.** The
+reconciliation (101 DB rows = 102 files − 404.html) held, but the site's own
+standing rule is reconcile-then-publish, and this site has shipped invented
+figures twice. Order was wrong even though the number was right.
