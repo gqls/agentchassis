@@ -439,3 +439,86 @@ locally" is not "already correct remotely."**
 - **The discovery check is not enabled anywhere.** It is inert until
   `orphan_element_refs` is added to a discovery agent's `checks` array. That is
   deliberate (the image must be live first) but it means nothing is watching yet.
+
+---
+
+## 2026-07-29 (sixth pass) — the owner opened two tools I had scored OK, and both were broken
+
+> *"the first tool I tested doesn't work properly, the fluid typography composer
+> text doesn't change size when I resize the viewport… The second tool I checked
+> doesn't work - /tools/micro-cms/index.html it has No Project Loaded and shows a
+> blank box. Please check all tools again thoroughly and establish a workflow
+> that checks everything we can check."*
+
+Two out of two. That is a fair verdict on the bar I was using: **"OK" meant the
+page reacted, not that the tool does what it claims.** I had written that caveat
+into this file in the first pass and then let the census stand on it anyway.
+
+### What each of the two actually was
+
+**micro-cms** — the port kept the editor stage and dropped the ENTIRE sidebar.
+The tool's logic lives in FOUR EXTERNAL FILES (`js/storage.js`, `editor.js`,
+`ui.js`, `app.js`), and **that is why the static orphan-reference check never saw
+it**: the check reads a page's own `rendered_html`, so all fourteen ids addressed
+from those files were invisible. Thirteen tools on this site load relative
+scripts the same way. Repairing it then exposed a SECOND bug underneath:
+`createProject()` builds `history: []`, `loadProject()` reads `history[0].html`,
+which threw before `setStatus()` could run — so a freshly created project still
+read "No Project Loaded". The first defect had been hiding the second.
+
+**fluid-typography** — not broken; *useless where people are*. It emits a
+correct `clamp()`, and the preview carries it. But the preview is styled in `vw`,
+and `vw` means the browser window. Measured across five widths before touching
+anything:
+
+```
+ 360px -> 16.7273px    900px -> 26.5455px   1600px -> 32px
+ 600px -> 21.0909px   1200px -> 32px
+```
+
+Above the max-width setting the clamp is pinned, so on any ordinary desktop
+nothing moves — while the copy told the visitor to resize their window and
+watch. Fixed by giving the preview its OWN viewport: a width slider driving an
+iframe, since `vw` resolves against the iframe. Verified live, and it reproduces
+the real-browser numbers exactly.
+
+### The workflow — `toolaudit.py`, and every rule in it was wrong first
+
+Nine checks. **Six of them I had to correct against a browser**, each after it
+produced a false verdict on a working tool. That sequence IS the record:
+
+| the rule as first written | what it wrongly condemned | the correction |
+|---|---|---|
+| fetch external scripts with `urllib` | every page — Cloudflare refuses a bare Python request | fetch **through the page**; it also sees exactly what the tool sees |
+| any unresolved id is a defect | `regex-tester`, which replaces its own editor via `outerHTML` and works perfectly | only if the id is in **neither** the served source **nor** the DOM |
+| flag any large empty region | 4 tools whose output boxes are *supposed* to start empty | measure **after** the interaction, not before |
+| ...and any region with no text | `clip-path`, `community-growth`, `shadow-stacker` — a clip polygon, 12 chart bars, a live box-shadow | require `childElementCount === 0`; empty means *nothing there*, not *nothing written* |
+| skip undo/copy/reset as no-ops | `cubic-bezier` — its first button is a preset named **Default**, a no-op on a fresh page | add `default` to the no-op list |
+| an element with a background-image is not empty | `svg-patterns` | already fixed in pass three; kept |
+
+**Twelve of 63 verdicts, before this, had been my harness rather than the site.
+Six more would have been.** Every one made the site look worse than it is, and
+every one was invisible in the output, because a false BROKEN prints exactly
+like a true one.
+
+### Repaired this pass, all driven live afterwards
+
+- **micro-cms** — sidebar restored (14 ids read off the four JS files), plus the
+  `history[0]` guard and a starter page. Now: `● LIVE EDITING: Test site`,
+  `designMode: on`, 188 characters of editable content in the iframe.
+- **blueprint-compiler** — opened at "2. Sitemap Architecture" with section 1,
+  the compile button and the whole output panel missing. Now compiles 2,478
+  characters naming the business and phone entered.
+- **vibe-equalizer** — the card said "adjust the sliders" and there were none.
+  Now the radius slider moves the card 20px → 36px with the readout tracking it.
+  `#prompt-output` is a TEXTAREA, not a div: `state.js` copies `output.value`, so
+  a div would have copied nothing while appearing to work.
+- **fluid-typography** — simulated viewport, above.
+
+### The rule this pass adds
+
+**A tool is not verified until something has asserted its CLAIM, not its
+liveness.** The claim is what the PLAN's ```criteria fence is for, which is why
+every repaired tool gets one. `toolaudit.py` is the floor — it can only prove a
+tool is *not obviously broken*. It cannot tell you the contrast ratio is right,
+only that a number appeared.
