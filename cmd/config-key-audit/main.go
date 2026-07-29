@@ -58,13 +58,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
+
+	"github.com/gqls/agentchassis/pkg/models"
 
 	// Imported for its init() side effects: every action registers its
 	// ActionInputSpec here.
 	_ "github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/validation"
 )
 
 // specDump is the --specs shape: an action's FULL declared contract, not just the
@@ -80,6 +84,10 @@ type specDump struct {
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--specs" {
 		emitSpecs()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--live-pairs" {
+		emitLivePairs()
 		return
 	}
 	declared := datahelpers.ListDeclaredConfigKeys()
@@ -162,6 +170,95 @@ func emitSpecs() {
 		fmt.Fprintf(os.Stderr, "config-key-audit --specs: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// emitLivePairs reads an export of live agent workflows on stdin and prints every
+// (action, config-key) pair they carry, as TSV: action, key, "nested"|"top".
+//
+// WHY THIS IS A GO MODE RATHER THAN THE SQL IT REPLACES (bugs_open/144). The audit's
+// query walked `default_config->'workflow'->'steps'` — the top level only, exactly
+// like the runtime validator did. Two halves blind in the same direction agree with
+// each other, and consistent blindness reads exactly like correctness: 25 (action,
+// key) pairs existed ONLY inside loop sub-workflows and were invisible to both
+// (measured 2026-07-29). Rewriting the SQL to descend would have fixed today's
+// numbers and left two hand-written traversals to drift apart again. This walks the
+// definition with validation.WalkSteps — the SAME traversal the validator enforces
+// against — so "what the audit sees" and "what is validated" cannot diverge without
+// a compile error.
+//
+// A flag rather than a second binary, on the precedent recorded in this file's
+// header: the council gate objected to a second binary over the same registry and
+// the same question, and was right.
+//
+// Input shape (see scripts/audit-config-keys.sh):
+//
+//	[{"type": "<agent>", "workflow": {"start_step": ..., "steps": {...}}}, ...]
+func emitLivePairs() {
+	raw, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --live-pairs: reading stdin: %v\n", err)
+		os.Exit(2)
+	}
+
+	var rows []json.RawMessage
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		fmt.Fprintf(os.Stderr,
+			"config-key-audit --live-pairs: stdin is not a JSON array of agents: %v\n"+
+				"A truncated kubectl exec exits 0, so a short read arrives here looking like a small fleet.\n", err)
+		os.Exit(2)
+	}
+
+	type liveAgent struct {
+		Type     string              `json:"type"`
+		Workflow models.WorkflowPlan `json:"workflow"`
+	}
+
+	// Decoded per agent: one undecodable definition must cost that definition, not
+	// the whole report. Failures are counted and printed to stderr rather than
+	// swallowed — a report that quietly covers less than it claims is the defect
+	// this tool exists to expose.
+	pairs := map[string]bool{}
+	decoded, failed := 0, 0
+	for _, row := range rows {
+		var agent liveAgent
+		if err := json.Unmarshal(row, &agent); err != nil {
+			failed++
+			fmt.Fprintf(os.Stderr, "config-key-audit --live-pairs: undecodable agent row: %v\n", err)
+			continue
+		}
+		decoded++
+		validation.WalkSteps(agent.Workflow, func(_ string, step models.Step, nested bool) {
+			if step.Action == "" {
+				return
+			}
+			where := "top"
+			if nested {
+				where = "nested"
+			}
+			for key := range step.Config {
+				pairs[step.Action+"\t"+key+"\t"+where] = true
+			}
+		})
+	}
+
+	if len(pairs) == 0 {
+		fmt.Fprintf(os.Stderr,
+			"config-key-audit --live-pairs: no (action, key) pairs found in %d decoded agents (%d undecodable).\n"+
+				"That is either an empty fleet or a broken export — refusing rather than printing "+
+				"an empty report that reads as 'nothing to fix'.\n", decoded, failed)
+		os.Exit(2)
+	}
+
+	out := make([]string, 0, len(pairs))
+	for p := range pairs {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	for _, p := range out {
+		fmt.Println(p)
+	}
+	fmt.Fprintf(os.Stderr, "config-key-audit --live-pairs: %d agents decoded (%d undecodable), %d distinct pairs\n",
+		decoded, failed, len(pairs))
 }
 
 // nonNil keeps the JSON shape stable: a missing list encodes as [] rather than

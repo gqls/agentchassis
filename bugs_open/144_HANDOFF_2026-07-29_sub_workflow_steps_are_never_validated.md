@@ -1,5 +1,41 @@
 # 144 — Steps inside a `sub_workflow` are never validated, by anything
 
+> **STATUS 2026-07-29 (bugsearch-7): FIXED IN CODE, NOT YET LIVE — stays OPEN.**
+> Both halves are done in one change: `ValidateWorkflow` descends into nested steps,
+> and the offline audit now walks the definition with the **same exported Go
+> traversal** (`validation.WalkSteps`) instead of its own top-level-only SQL, so the
+> two cannot go blind in the same direction again. Go is inert until a chassis image
+> carrying it is rolled; the bar for closing is fixed AND live.
+>
+> **The risk this file names — "a naive recursion could start rejecting workflows that
+> run today" — was measured, not argued: 0 of 178 live definitions newly rejected.**
+> The harness that establishes it ships with the fix and re-runs in seconds:
+> `SUBWF_LIVE_EXPORT=<export> go test ./platform/orchestration/actions/ -run TestLiveDefinitionsPassSubWorkflowValidation -v`.
+> It validates each plan twice — whole, and with sub-workflows stripped — and reports
+> only the difference, so a pre-existing rejection cannot be charged to the patch.
+>
+> **Two corrections to §5 of this file, both from reading the executor** (see the
+> workstream PLAN §3):
+> 1. *"Have ValidateWorkflow … validate each as a workflow in its own right"* would be
+>    wrong. A `next_step`/`error_step` **out of** a sub-workflow is legitimate —
+>    expansion passes it through untouched (`coordinator.go:4009-4014`) and it may
+>    resolve against the enclosing plan or against `<loop>_complete`, which the
+>    expander injects and which exists in **no** definition. Unresolved references
+>    therefore WARN; they never fail.
+> 2. A nested `depends_on`/`dependencies` cannot be enforced, because `parseSubsteps`
+>    **drops** it before execution (along with `sub_tasks`, `timeout`, `name`,
+>    `store_memory`, `target_agent_type`). The validator mirrors the runtime decoder
+>    exactly and REPORTS the dropped keys instead of vouching for them.
+>
+> Counts re-measured 2026-07-29 and they differ from §2 — **85** nested steps (this
+> file says 64; I count `substeps` carriers too) and **25** nested-only pairs (24).
+> Quote the date with the number.
+>
+> Workstream: `docs024_key_docs_latest/bugfix_144_subworkflow_validation/`.
+> Register: **WFA-003**. Council: corr `9194bc97-8475-4022-b658-2ac64f06dd63`.
+> Side-finding, filed separately: three live definitions are rejected by the validator
+> *today* because they name actions that exist in no registry.
+
 **Filed** 2026-07-29 · **Status** OPEN, unowned · **Class** silent coverage gap (sibling of
 `bugs_closed/101`) · **Found by** a council guardian objection on corr
 `30a8785b-8cad-4d10-8633-486d81e837e9`, which correctly flagged that a "the only live carrier

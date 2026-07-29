@@ -63,6 +63,24 @@ func (v *WorkflowValidator) ValidateWorkflow(workflow models.WorkflowPlan) error
 		return err
 	}
 
+	// Validate the steps nested inside loop sub-workflows (bugs_open/144).
+	//
+	// Until 2026-07-29 validation stopped here, at the top level. A nested step is
+	// extracted from config and executed directly by the loop action, so it reached
+	// production having been checked by nothing at all — 85 such steps across 18
+	// live agents. Everything specific to that traversal is in subworkflow.go; the
+	// visible set starts as the top-level step names because a reference out of a
+	// sub-workflow resolves against the enclosing plan.
+	visible := make(map[string]bool, len(workflow.Steps))
+	for stepName := range workflow.Steps {
+		visible[stepName] = true
+	}
+	for stepName, step := range workflow.Steps {
+		if err := v.validateSubWorkflowsOf("steps."+stepName, step, visible, 0); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -101,26 +119,8 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 		}
 	}
 
-	// Report step-config keys the action does not recognise (bugs_open/101).
-	//
-	// An unknown key is silently ignored at execution, so a stale or aspirational
-	// key is indistinguishable BY INSPECTION from a live one — the config reads as
-	// a specification of behaviour while being evidence of nothing. This is the
-	// only place that sees the action name and its config together on every run.
-	//
-	// Warn, don't fail, unless the action has declared its key set complete
-	// (StrictConfig). ValidateWorkflow rejecting a workflow fleet-wide on a key
-	// list that is merely incomplete would be a far worse defect than the one
-	// being reported.
-	if len(step.Config) > 0 {
-		if unknown, checked := datahelpers.UnknownConfigKeys(step.Action, step.Config); checked && len(unknown) > 0 {
-			if datahelpers.IsStrictConfigAction(step.Action) {
-				return fmt.Errorf("step '%s' (action '%s') has unrecognised config keys %v — "+
-					"this action declares its config contract as complete, so an unknown key is "+
-					"a definition error, not a no-op", name, step.Action, unknown)
-			}
-			v.warnUnknownConfigKeysOnce(name, step.Action, unknown)
-		}
+	if err := v.checkStepConfigKeys(name, step); err != nil {
+		return err
 	}
 
 	// Validate fan-out sub-tasks
@@ -135,6 +135,39 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 		}
 	}
 
+	return nil
+}
+
+// checkStepConfigKeys reports step-config keys the action does not recognise
+// (bugs_open/101).
+//
+// An unknown key is silently ignored at execution, so a stale or aspirational key is
+// indistinguishable BY INSPECTION from a live one — the config reads as a
+// specification of behaviour while being evidence of nothing. This is the only place
+// that sees the action name and its config together on every run.
+//
+// Warn, don't fail, unless the action has declared its key set complete
+// (StrictConfig). ValidateWorkflow rejecting a workflow fleet-wide on a key list that
+// is merely incomplete would be a far worse defect than the one being reported.
+//
+// `where` is the step name at the top level and the full path inside a sub-workflow,
+// so the same rule reads the same way at both depths. Shared with the nested
+// validator deliberately: two copies of this rule is how the top level and the nested
+// level came to disagree in the first place (bugs_open/144).
+func (v *WorkflowValidator) checkStepConfigKeys(where string, step models.Step) error {
+	if len(step.Config) == 0 {
+		return nil
+	}
+	unknown, checked := datahelpers.UnknownConfigKeys(step.Action, step.Config)
+	if !checked || len(unknown) == 0 {
+		return nil
+	}
+	if datahelpers.IsStrictConfigAction(step.Action) {
+		return fmt.Errorf("step '%s' (action '%s') has unrecognised config keys %v — "+
+			"this action declares its config contract as complete, so an unknown key is "+
+			"a definition error, not a no-op", where, step.Action, unknown)
+	}
+	v.warnUnknownConfigKeysOnce(where, step.Action, unknown)
 	return nil
 }
 
@@ -156,6 +189,17 @@ func (v *WorkflowValidator) warnUnknownConfigKeysOnce(stepName, action string, u
 		zap.String("fix", "implement the key, delete it from the definition, or add it to the action's ActionInputSpec.ConfigKeys if it is read elsewhere"),
 		zap.String("ref", "bugs_open/101"),
 	)
+}
+
+// warnOnce is the same dedupe applied to the sub-workflow warnings, for the same
+// reason: ValidateWorkflow runs on every message, and a warning that repeats for the
+// life of the pod is one nobody reads. `kind` namespaces the key so two different
+// findings about the same step cannot silence each other.
+func (v *WorkflowValidator) warnOnce(kind, key, msg string, fields ...zap.Field) {
+	if _, seen := v.warnedConfigKeys.LoadOrStore(kind+"\x00"+key, struct{}{}); seen {
+		return
+	}
+	v.logger.Warn(msg, fields...)
 }
 
 // IsLocalAction checks if an action is executed locally
@@ -276,7 +320,12 @@ func (v *WorkflowValidator) checkForCycles(plan models.WorkflowPlan) error {
 	// Check any unvisited steps (disconnected components)
 	for stepName := range plan.Steps {
 		if !visited[stepName] {
-			fmt.Printf("Checking disconnected step: %s\n", stepName)
+			// Was fmt.Printf to stdout. Left alone it would now fire for every step of
+			// every sub-workflow on every message — a sub-workflow usually has no
+			// start_step, so ALL of its steps take this branch (bugs_open/144).
+			// Unstructured stdout from a hot path is not a log, it is noise; nothing
+			// greps for it (checked across the tree).
+			v.logger.Debug("Checking disconnected step for cycles", zap.String("step_name", stepName))
 			if hasCycle(stepName) {
 				return fmt.Errorf("workflow contains a cycle")
 			}
