@@ -1,0 +1,74 @@
+<style>
+  /* Colour vocabulary verified against live css_themes before use (the
+     --color-surface / --spacing-section class of error: those names are defined
+     by NO active theme, so the fallback silently wins). Every var below was
+     confirmed present in an active theme on 2026-07-29. */
+  .trp { background: var(--color-background); color: var(--color-text); padding: var(--spacing-xl) 0; }
+  .trp__inner { max-width: 1200px; margin: 0 auto; padding: 0 var(--spacing-lg); }
+  .trp__eyebrow { color: var(--color-accent); text-transform: uppercase; letter-spacing: .08em;
+                  font-size: .78rem; font-weight: 700; margin: 0 0 .5rem; }
+  .trp__title { color: var(--color-text); font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0 0 var(--spacing-lg); }
+
+  /* Track: native scroll-snap gives swipe-on-mobile with zero JS.
+     align-items:start so one open card never stretches its siblings. */
+  .trp__track { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(min(20rem, 82vw), 1fr);
+                gap: var(--spacing-lg); align-items: start; overflow-x: auto; scroll-snap-type: x mandatory;
+                padding-bottom: var(--spacing-md); margin: 0; list-style: none;
+                scrollbar-width: thin; }
+  .trp__slot { scroll-snap-align: start; min-width: 0; }
+  @media (min-width: 60rem) {
+    .trp__track { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+                  overflow-x: visible; scroll-snap-type: none; }
+  }
+
+  /* Card. box-sizing + min-width:0 travel with any max-width in a grid track. */
+  .trp__card { box-sizing: border-box; min-width: 0; background: var(--color-card-bg);
+               border: 1px solid var(--color-border); border-radius: var(--border-radius);
+               padding: var(--spacing-lg); box-shadow: var(--shadow); }
+  .trp__summary { list-style: none; cursor: pointer; display: block; }
+  .trp__summary::-webkit-details-marker { display: none; }
+  .trp__card--static { cursor: default; }
+  .trp__hook { display: block; color: var(--color-text); font-weight: 700;
+               font-size: 1.12rem; line-height: 1.35; }
+  .trp__continuation { display: block; color: var(--color-text-muted); margin-top: .55rem; line-height: 1.55; }
+  .trp__control { display: inline-flex; align-items: center; gap: .4rem; margin-top: .9rem;
+                  color: var(--color-accent); font-weight: 600; font-size: .93rem; }
+  .trp__control::after { content: "\2193"; transition: transform .18s ease; }
+  .trp__card[open] .trp__control::after { transform: rotate(180deg); }
+  .trp__card[open] { border-color: var(--color-accent); }
+  .trp__summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+  .trp__body { margin-top: var(--spacing-md); padding-top: var(--spacing-md);
+               border-top: 1px solid var(--color-border); color: var(--color-text); line-height: 1.65; }
+  .trp__body p { margin: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .trp__control::after { transition: none; }
+  }
+</style>
+
+<section class="trp" data-component="teaser-reveal-panel" data-trp-param="open" data-experience-pattern="teaser-detail-deeplink">
+  <div class="trp__inner">
+    {{if .section_eyebrow}}<p class="trp__eyebrow">{{.section_eyebrow}}</p>{{end}}
+    {{if .section_title}}<h2 class="trp__title">{{.section_title}}</h2>{{end}}
+    <ul class="trp__track">
+      {{range $i, $item := .items}}
+      <li class="trp__slot">
+        {{if $item.body}}
+        <details class="trp__card" data-trp-key="{{$item.key}}">
+          <summary class="trp__summary">
+            <span class="trp__hook">{{$item.hook}}</span>
+            <span class="trp__continuation" data-continues="true">{{$item.continuation}}</span>
+            <span class="trp__control">{{if $item.open_label}}{{$item.open_label}}{{else}}Read the rest{{end}}</span>
+          </summary>
+          <div class="trp__body"><p>{{$item.body}}</p></div>
+        </details>
+        {{else}}
+        <article class="trp__card trp__card--static" data-trp-key="{{$item.key}}">
+          <span class="trp__hook">{{$item.hook}}</span>
+          <span class="trp__continuation">{{$item.continuation}}</span>
+        </article>
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+  </div>
+</section>

@@ -1,0 +1,24 @@
+{
+  "section_eyebrow": "Sample",
+  "section_title": "Sample panel for the render harness",
+  "items": [
+    {
+      "key": "with-body",
+      "hook": "A short complete first sentence.",
+      "continuation": "An unfinished second one that is completed by",
+      "body": "the body text, which is what the reveal shows. It is present in the DOM at all times so the claims gate and a crawler can both read it.",
+      "open_label": "Read the rest"
+    },
+    {
+      "key": "default-label",
+      "hook": "This item omits its open_label.",
+      "continuation": "The template should fall back to",
+      "body": "the default label, which is 'Read the rest'."
+    },
+    {
+      "key": "no-body",
+      "hook": "This item has no body at all.",
+      "continuation": "It must render as a plain statement with no control, never as a dead button."
+    }
+  ]
+}

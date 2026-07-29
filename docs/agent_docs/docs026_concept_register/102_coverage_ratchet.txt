@@ -5,7 +5,6 @@
 # Baseline taken 2026-07-27.
 
 about_page_commercial
-brochure_component_library
 bug020_tool_recreation_data_integrity
 bugfix_003_spawn_loss
 bugfix_006

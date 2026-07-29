@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,651 concepts across 107 category register files. 1,627 consolidated from
+1,652 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -35,7 +35,11 @@ approval council, and the attribute assertion that closed its largest harness ga
 and 1 more (IMG-065) added 2026-07-29 — the operator asset-amend path
 (staging BYTEA → ingest_staged_asset → S3 → in-place assets amend), built from
 the `bugs_open/131` og-card finding that the platform had NO path for a human
-to supply corrected image bytes.
+to supply corrected image bytes; and 1 more (CLC-012) added 2026-07-29 — a second
+component implementing an ALREADY-REGISTERED experience pattern
+(`teaser-detail-deeplink`) rather than declaring a new shape, which is the property
+that makes a shape vocabulary worth keeping: two components that look nothing alike
+share one micro-journey.
 That last group carries a note on method: the first of the five was added alone,
 and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
 workstream as covered while four callable mechanisms were still absent. The
@@ -1418,6 +1422,7 @@ an ID prefix, or a status word.
 | IMP-016 | improvement-sweep pause + gated re-enable sequencing | partial | The improvement-loop's triage sweep is deliberately off during core build; the detect→fix loop depends on it, and... | improvement-loop.md |
 | CLC-007 | F5 — regen-added required fallback-less fields strand renderability | aspirational | The incident's second facet: a regen also ADDED a required field (Tier-C source, no fallback) that no affected... | component-lifecycle.md |
 | CLC-011 | Superseded hypothesis: update_component_html re-renders dependents inline | superseded | The initial working theory held that update_component_html performed an inline dependent re-render (inferred from... | component-lifecycle.md |
+| CLC-012 | teaser-reveal-panel: a second component implementing an existing experience pattern | deployed | Teasers that open in place at a shareable URL; native <details> so it works with JS disabled, body always in the DOM so the claims gate can read it, and an item with no body renders with NO control rather than a dead one | component-lifecycle.md |
 | TLIB-006 | Tier-D list components: queryresolve + items-array contract (vs numbered-flat fabrication) | deployed | The list-component contract: a Tier-D component sources an `items` array field with `source: query.<name>` (e.g.... | tool-library.md |
 | DEV-051 | Workflow lives in default_config, not the workflow columns | deployed | The loader reads default_config; task_workflow/orchestrator_workflow columns are dead for working agents. | development-guide.md |
 | TL-015 | Criteria contract v0 (check-type vocabulary + profiles) + browser-runner-adapter design | deployed | The machine-readable criteria schema consumed by Tier 4: `profiles: [desktop, mobile]`; check types... | tool-lifecycle.md |
