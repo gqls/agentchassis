@@ -119,10 +119,33 @@
 > **Caveat worth carrying: the gate still has no `code_lookup`, so on the gate the
 > new seat's code questions are raised and never answered.**
 >
-> **Still open (unchanged by the above):** whether the platform-seam ruling gains a
-> "commit it dark" clause — the finding in §4 that on a shared HEAD the committing
-> thread does not control when its seam ships. `scrape_web`/`web_search` still record
-> no payload by design (§5) and need their own diagnosis.
+> ### OWNER RULING 2026-07-29 — the third question is answered; NOTHING is owed on 129
+>
+> §4's finding (on a shared HEAD the committing thread does not control when its seam
+> ships) asked whether the platform-seam ruling should gain a **"commit it dark"**
+> clause. **The owner ruled NO** — a default-OFF switch will not be required, because
+> its cost is *a mechanism rotting unexercised*, which this platform has been bitten
+> by before.
+>
+> **Instead the finding retired the opposite half.** Condition (1) of the ordering
+> exemption — "a real, stated ordering constraint" — **is gone**, because it asked
+> for something no thread on this tree can supply: it assumed a thread could hold a
+> change out of the fleet and was choosing not to. So:
+>
+> > **Review on this tree is AFTER THE FACT, by design.** Do not claim an ordering
+> > constraint you do not have; do not pretend you could have waited.
+>
+> What remains required: **register the seam in the concept register in the same
+> commit**, and **submit to the gate before or alongside the commit**. Two further
+> amendments landed with it — "architecture-scope even when additive" is **narrowed**
+> to changes in what the mechanism *guarantees* (additive-and-inert goes through the
+> normal gate), and a shared mechanism's other consumers must be **told, not merely
+> measured**. All three are in `CLAUDE.md`; raised via
+> `architecture_review/RFC_002_criteria_check_type_vocabulary.md`.
+>
+> **⇒ 129 is closed with nothing owed.** The one genuine follow-on is unrelated to
+> the ruling: `scrape_web`/`web_search` record no payload by design (§5) and need
+> their own diagnosis — scoped to the two ACTIONS, not the step names.
 >
 > ---
 >

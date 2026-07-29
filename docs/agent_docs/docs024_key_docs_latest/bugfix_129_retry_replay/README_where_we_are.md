@@ -280,3 +280,41 @@ actually available to me. Both of those need a call from you. And the two
 web-scraping steps I mentioned have a separate, smaller fault of their own that
 deserves looking at properly rather than being bundled in here — bundling is
 precisely what got objected to.
+
+---
+
+## 2026-07-29 — the last question is answered, and the answer went the other way
+
+The bug is done. What was left was a question about process, and you've settled it —
+though not in the direction I'd framed it.
+
+I'd asked whether the rule should require changes like this one to ship "switched
+off" behind a toggle, since that's the only way a thread can genuinely hold something
+back on a shared tree. You said no, and the reason is a good one I hadn't weighed
+properly: a switch that's always off is a piece of machinery nobody ever exercises,
+and machinery nobody exercises rots. We've been caught by exactly that before. Paying
+that cost on every shared change, to buy a delay we don't actually want, is a bad
+trade.
+
+So instead of adding my clause, you removed the one that was already broken. The rule
+used to say a change could go out ahead of its review if there was a genuine ordering
+reason. That condition quietly assumed a thread *could* have waited and was choosing
+not to — and on this tree it can't. It was asking for a justification nobody is in a
+position to give. It's gone.
+
+What that leaves is honest: **review here happens after the fact, deliberately.** The
+obligation isn't to hold anything back; it's to write the change into the register in
+the same commit, and to put it in front of the reviewers at the same time you commit
+it — not afterwards. And there's a specific instruction not to dress this up: don't
+claim an ordering constraint you don't have, and don't pretend you could have waited.
+
+Two other things were tightened at the same time. "Counts as architecture even when
+it's small and additive" was too broad — the test is now whether the change alters
+what the shared thing *promises*, not merely that other people use it. And measuring
+that nobody is affected isn't the same as telling them: if you change a shared
+mechanism, the other teams get told what changed about their guarantee.
+
+**Nothing is owed on this bug now.** The one genuine follow-on is unrelated to any of
+this: two web-search paths still don't keep a copy of what they send, and that needs
+its own look — at the two bits of shared code, not at the seven different names those
+steps go by.
