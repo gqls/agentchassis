@@ -11585,3 +11585,43 @@ reviewer is being asked to take the interesting parts on trust.
 > cheap check is to put the grouping column in the sentence — "**this agent** last
 > raised **this item type** on this date" — because a bare date cannot be wrong out
 > loud. Family: `a-count-you-kept-is-not-a-census`.
+
+---
+
+## 2026-07-29 — "the pipeline was idle and my run woke it up"
+
+**The claim.** Watching a hand-fired `improvement-sweep` promote 67 items, I saw
+`build-pipeline-trigger` go from `complete_idle` at 17:02 and 17:04 to
+`call_dispatch` at 17:07 and 17:09, and wrote in chat that the downstream build
+pipeline *"was idle for want of promotion, and woke up on it"* — and started to
+frame it as the fleet-level cost of `bugs_open/083`.
+
+**What caught it.** Nothing external. I went to quantify the claim for the bug
+file — "how long had it been idling?" — and the query answered a different
+question than the one I had already concluded:
+
+```
+ hour   | idle | dispatched
+ 16:00  |   11 |          6
+ 15:00  |    5 |          6
+ 14:00  |    7 |         17
+ 13:00  |    0 |         14
+```
+
+It had dispatched 6–17 times an hour, all day, for other sites. The two
+`complete_idle` rows were a lull of about four minutes, and I had read a
+two-sample window as a state of the world.
+
+**Why it matters.** It would have made 083 look like it stalls the fleet's build
+pipeline. It does not — parked items are *invisible* to that pipeline, not
+blocking it. That distinction is the whole difference between "urgent, everything
+is stuck" and "one class of finding is missing from a queue that looks healthy",
+and the second is the true and much harder-to-notice version.
+
+**The cheap check:** before describing a system as idle/stuck/dead from
+consecutive observations, `GROUP BY` an hour or a day and look at the column you
+did NOT sample. Two adjacent rows are a moment, not a rate. Family:
+`log-measurement-discipline` and `a-count-you-kept-is-not-a-census` — but the
+distinctive part here is that I had *already published the conclusion* and was
+only measuring to decorate it. **A number fetched to illustrate a claim is still
+allowed to refute it, and it is worth fetching for that reason alone.**
