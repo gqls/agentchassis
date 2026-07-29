@@ -7655,3 +7655,64 @@ Harmless in itself; recorded because the failure mode is **a shared advisory too
 crying wolf**, which is how a detector gets ignored, and because the shape recurs:
 **a "strip the first field" idiom silently strips nothing when there is only one field.**
 Whoever owns the check: the guard is `if "," not in stmt: continue`.
+
+### A fix that ships in the BINARY does not reach an artefact that was generated once — the bug's real population is "everything whose artefact predates the fix", and nobody enumerates it (2026-07-29)
+
+**Where it bit.** dartsonline.com's whole homepage card grid was unreadable:
+`rgb(240,242,247)` on `rgb(255,255,255)`, **1.12:1**, every card title and every
+card link, on a site whose background is near-black. The obvious reading is a bad
+palette, and `bugs_open/122` had recorded it as one since 2026-07-27.
+
+It was not. The component CSS was correct and entirely variable-driven
+(`background: var(--color-card-bg, var(--color-surface))`). The site's served
+`styles.css` was the `ecommerce-storefront` layout with its light-scheme literals
+intact — `--color-card-bg: #ffffff` — because a generated palette supplies only
+eight core slots and the layout's fallbacks fill the other nine.
+
+**And that exact defect had already been fixed.**
+`platform/orchestration/actions/palette_specialised_slots.go` was written on
+2026-07-27 to derive `card_bg` from `surface` for dark palettes; its own header
+measures the population — *"16 of 31 palettes define no `card_bg`, 12 of those
+dark"* — and names fundamentallyai.com at 1.21:1. The code was live in both
+chassis replicas (pod-grepped). The site was simply carrying a stylesheet
+generated before it, and **a Go fix cannot retro-edit an artefact that is written
+once and then served from a CDN.** Re-rendering took under three minutes and took
+the page from 13 contrast failures to 1.
+
+**The general shape, which is not specific to CSS.** For any defect whose remedy
+lives in a *generator*, there are two populations and only one of them is ever
+counted:
+
+1. **Everything generated from now on** — fixed the moment the image rolls. This
+   is the population the fix's own commit message describes, and it is the one
+   people mean when they say "fixed".
+2. **Everything already generated** — unchanged, indefinitely, because nothing
+   re-runs the generator on a schedule. Stylesheets, chrome, sitemaps, sprite
+   sheets, rendered sections, deployed HTML: all written once.
+
+Population 2 is invisible in every place you would normally look. The bug file
+says fixed. The code says fixed. The pod says fixed. The *page* says nothing has
+changed, and only a rendered-artefact measurement disagrees with all three.
+
+**What to do, and it is cheap.** When you fix a generator, in the same commit
+write down (a) the query that identifies artefacts predating the fix, and (b) what
+re-running it costs. Both are usually one line. Without (a) nobody can even name
+the affected set six weeks later; without (b) the re-render looks risky and gets
+deferred. For this case the query is "served `--color-card-bg` is `#ffffff` while
+the palette background is dark", and the cost is one `webdesign-agent`
+orchestration per site.
+
+**The tell that you are in this situation**: the fix's own header confidently
+quantifies the population ("16 of 31 palettes…") and nothing anywhere records how
+many of those were *re-rendered*. A count of affected sites is not a count of
+repaired ones, and the gap between them does not close by itself.
+
+Related: `bugs_open/117` (chrome is a stored artefact no page re-render rebuilds)
+and `bugs_open/098` (archiving does not undeploy) are the same family — a state
+change that never propagates to the artefact. So is the 2026-07-29 WRONG_CALLS
+entry on dartsonline's nav, where the *opposite* assumption was made and was also
+wrong: there the header WAS regenerated per page at build time, so the four stale
+pages were the ones nobody had rebuilt. **Before reasoning about whether a fix has
+reached a page, establish whether that page's artefact is generated per request,
+per build, or exactly once — the three behave completely differently and they look
+identical from the database.**
