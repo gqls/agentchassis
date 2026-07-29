@@ -11,16 +11,19 @@ all 15 sites, armed or not. See § "FIX BUILT" at the foot of this file, and the
 workstream at `docs024_key_docs_latest/bugfix_104_fleetwide_claim_patterns/`.
 
 > **Two things remain true and neither reopens this bug.** (1) The council trail is
-> **advisory and still open** on corr `899ed92e-1bf7-4707-96d8-24f102aa14fa` — round 1
-> REVISE (guardian, scope), round 2 REVISE (**gating seat `debug_historian` at HIGH, on
-> my measurement method, not on the design**), round 3 submitted. **Guardian
-> de-escalated in round 2** to medium/low and dropped the architecture escalation, so a
-> veto is no longer the live risk it was; what it still asks for is a human to confirm
-> the O11 ruling happened, which only the owner can do. Closure follows the
-> `/bugs_closed` bar (fixed AND live), independent of the verdict — the same way
-> `bugs_closed/124` closed carrying a REJECTED one. **Both of round 2's substantive
-> objections were right and are now shipped** — see the 2026-07-29 section at the foot.
-> (2) The strongest of the
+> **APPROVED on round 3** — corr `899ed92e-1bf7-4707-96d8-24f102aa14fa`, trailer on
+> `5db9f9081`, 12 reviewers / 0 unreadable / no high-severity objection. Round 1 REVISE
+> (guardian, scope); round 2 REVISE with the **gating seat `debug_historian` at HIGH on my
+> measurement method, not on the design**, while the guardian de-escalated. **Every
+> substantive objection across the three rounds was right and all are shipped** — the
+> reversal lever, the malformed-pattern guards and the disarm warning, all three of which
+> exist only because the council asked. Closure had followed the `/bugs_closed` bar (fixed
+> AND live) independently of the verdict, the same way `bugs_closed/124` closed carrying a
+> REJECTED one. **The one thing still owed to a human is filed, not open:** the architecture
+> seat's RFC point, settled against my round-3 answer by the owner ruling of 2026-07-29 —
+> now `architecture_review/RFC_003`, whose §8 leaves three questions for the owner
+> (including whether the 6 register-less sites should be armed properly rather than relying
+> on the fleet floor). (2) The strongest of the
 > ten candidate patterns is deliberately **excluded** pending a code-level negation
 > guard — that is a separate, unowned, architecture-scope piece of work, filed in
 > § "What is deliberately NOT fixed" below, NOT a residual of this bug.
