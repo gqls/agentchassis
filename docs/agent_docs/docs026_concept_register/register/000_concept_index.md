@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,656 concepts across 107 category register files. 1,627 consolidated from
+1,657 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -49,7 +49,11 @@ advisory seat blocking and a working seat look noisy enough to retire; and 1 mor
 and the exported step traversal that comes with it, because the runtime validator
 and the offline config-key audit had each written their own top-level-only walk,
 were therefore blind in the same direction, and agreed with each other over 85
-live steps that nothing had ever checked.
+live steps that nothing had ever checked; and 1 more (SCH-023) added 2026-07-29 —
+firing a DISABLED scheduled task once at a target you choose, built on owner
+instruction to run the `detected`→`triaged` promoter, whose own `pre_query`
+selects `ORDER BY updated_at ASC LIMIT 1` and therefore points AWAY from a fresh
+finding, because filing the work item is what bumps that column.
 That last group carries a note on method: the first of the five was added alone,
 and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
 workstream as covered while four callable mechanisms were still absent. The
@@ -606,6 +610,7 @@ an ID prefix, or a status word.
 | BIP-003 | Data observations provenance model | deployed | Every scrape/search logged as a data_observations row; staleness columns track freshness | business-intelligence-platform.md |
 | DOC-022 | Workflow-altering migrations write pipeline NOTES | deployed | Every workflow-altering migration appends a pipeline/build doc_notes entry | documentation-system.md |
 | SCH-022 | claimed-item-timeout evidence-gated completion + reset (Lever A/C) | deployed | Evidence-gated auto-completion/reset already existed; avoided duplicate watchdog build | scheduler-and-tasks.md |
+| SCH-023 | Firing a DISABLED scheduled task once, at a target you choose | deployed | One-off fireTrigger() envelope; target is an argument because a selecting pre_query picks the wrong row | scheduler-and-tasks.md |
 | DOC-041 | Doc-drift claim classifier (design only, named across three units, never built) | aspirational | Evidence-or-abstain claim classifier, tiered T1-T3, consistently deferred | documentation-system.md |
 | STY-030 | CSS applies_to granularity mismatch (known issue, unfixed) | partial | Exact-text overlap matching means only 2 of ~21 snippets ever ship | styling-render-pipeline.md |
 | DOC-047 | dedup (cmd/dedup) | deployed | Exact/near-duplicate file finder with report-only default and undo manifest | documentation-system.md |
