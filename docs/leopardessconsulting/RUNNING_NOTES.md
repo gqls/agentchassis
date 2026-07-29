@@ -1583,3 +1583,97 @@ Two corrections to PLAN §5 while I was in there, both from reading the tree:
   while building: text inside `<svg>` is invisible to the claims gate
   (`datahelpers/claims.go:137`), so an SVG chart's numbers would leave the
   verification net that currently covers them.
+
+---
+
+## 2026-07-29 — the six broken images on /blog.html (found, fixed, live)
+
+Owner asked to "fix the missing images". Swept all 27 pages in the sitemap rather than
+trusting any per-page claim in these notes, since the last inventory here is dated
+2026-07-18 and figures go stale.
+
+**First sweep was WRONG and said so within minutes — recording it because the mistake is
+the reusable part.** The regex matched `src="…"`/`href="…"` ending in an image extension.
+That missed **every hero on the site**, because the heroes are CSS backgrounds
+(`background-image: … url('/assets/images/hero-home.jpg')`), and it would equally have
+missed a presigned S3 URL, which ends in `&X-Amz-Signature=…` and not in `.jpg`. The
+corrected sweep matches `url('…')` too. **A URL-shaped regex anchored on file extension
+is not an image inventory** — it silently describes a smaller site than the one you have.
+
+**Every image URL the site references serves 200. Nothing 404s.** So "missing" was never
+a dead link:
+
+| what | where | state |
+|---|---|---|
+| `<img src="">` × 6 | `/blog.html` blog cards | **the defect — now fixed, live** |
+| garbled `hero.jpg` | hero background on **14** pages | still there |
+| no image at all | about, services, use-cases, contact, blog + 4 tool pages | still there |
+
+### The defect
+
+`/blog.html` served six `<img src="" alt="…" loading="lazy">`. An empty `src` renders as a
+broken-image icon, and the site carries **no `.article-card` CSS at all** (0 matches in
+`styles.css`, 0 in every inline `<style>` block), so the cards are unstyled and each one
+led with a raw broken icon. Verified in the served HTML, not inferred:
+`curl … | grep -c '<img src=""'` → `6`.
+
+Cause, both halves:
+1. `rebuild_blog_listing_action.go:218` hardcodes `"image": ""` for every article — there
+   is no per-article imagery on this platform (the "Phase I3" gap these notes already
+   describe). All 6 rows in `content_data->'articles'` carry `"image": ""`.
+2. The shared `content-listing` template in `content_components` emitted
+   `<img src="{{.image}}">` **unconditionally**, so an absent image became a broken one.
+
+**Landmine found while tracing it:** this page_component's `component_id` points at the
+site fork `blog-listing_pre_037` (which uses `{{.post1_image_url}}`-style placeholders),
+but the stored HTML was rendered from the shared `content-listing` template — the action
+calls `loadContentListingTemplate` and ignores the slot's component. So **a
+`page-rerender` in `section_data_resolved` mode would render this slot from the FORK and
+produce a listing of six empty placeholder cards.** That is why the fix below did not go
+near O8's `rerender_pages.sh`.
+
+### Fix (config only — no Go change, no image roll)
+
+Guarded the wrapper in both `content-listing` and `category-listing`:
+`{{if .image}}<div class="article-card__image">…</div>{{end}}`. An article with no image
+now emits no `<img>`. The Go half still writes `""`; the template is just honest about it.
+
+**Blast radius measured BEFORE applying, not left for a reviewer.** Only 3 page_components
+fleet-wide use these two components: `robot-hands.com/learning-center-hub` (3 articles,
+**all** with a non-empty image → wrapper still renders → byte-identical output) and two
+dartsonline pages with **0** articles. The only output that changes is leopardess's.
+
+Then regenerated this one component's `rendered_html` deterministically (asserted first
+that 0 of 6 cards had a real image, so removing the wrapper is exactly what the guard
+does) and deployed with `reassemble_pages.sh` — **assemble mode**, which embeds stored
+section HTML and deploys, and does not regenerate content. Deliberate: a full
+`rerender-pages` runs `rebuild_blog_listing` but risks the content clobber this lane has
+been bitten by twice (`bugs_open/001`).
+
+### Verified live, at the artefact
+
+```
+orchestration 9bd885ee  COMPLETED in 7s   (status alone is not proof — checked the page)
+curl https://leopardessconsulting.co.uk/blog.html | grep -c '<img src=""'   ->  0   (was 6)
+grep -c 'article-card__title'                                              ->  6   (cards intact)
+whole-site re-sweep, 27 pages: 0 empty img tags; all 9 image URLs HTTP 200
+```
+
+Contributed the transferable half to `bugs_open/128` (that check's third blind spot:
+`src=""` has no URL to probe, so the *proposed HTTP fix* would confirm it as **200 OK** —
+worth pinning before that half gets built).
+
+### Still open, NOT fixed by the above — both need an owner decision
+
+- **`hero.jpg` is garbled** — 900×900, AI-generated gibberish text, used as the hero
+  background on **14** pages. Looked at it directly this session; the 2026-07-18 note
+  calling it garbled is still accurate. It is the single worst-looking image on the site.
+- **9 pages carry no image at all** — about, services, use-cases, contact, blog, and the
+  4 tool pages. `about`/`services` need component work first (`hero-about`/`hero-services`
+  declare no image field), per the HANDOFF.
+- **[LATENT, not currently visible] 13 of 18 `assets` rows hold presigned S3 URLs that
+  have now EXPIRED** (`X-Amz-Expires=604800`, dated 16–18 July; probed one → **HTTP 401
+  "Request has expired"**). No page renders them today, so nothing is broken on the site
+  right now — but this is exactly the state the HANDOFF warns about ("verify `assets.url`
+  is `/assets/images/…`, NOT a presigned `s3…?X-Amz-…` URL"), and any path that resolves
+  an image from `assets.url` would emit a dead link.

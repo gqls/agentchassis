@@ -493,3 +493,57 @@ Commits: db9a4259b, 47a86c61b, 9b5b117bb, caea02324 — all on 085_debug_and_fea
 
 
 
+
+---
+
+## 2026-07-29 — the missing images on the blog page, fixed
+
+You asked me to fix the missing images. I checked all 27 pages rather than going from
+the notes, which were eleven days old.
+
+**The first thing worth saying: nothing on the site is a dead link.** Every image the
+site asks for loads fine. So "missing" turned out to mean three different things, and
+only one of them was an actual fault.
+
+**The actual fault was the blog page.** The six article cards on `/blog.html` each had a
+picture slot with nothing in it — not a wrong address, an *empty* one. A browser treats
+that as a picture it failed to load, so it draws the little broken-image icon. And
+because this site has no styling at all for those cards, there was nothing to soften it:
+each card led with a broken icon above the headline. That is fixed and live now — the
+cards render cleanly with their titles, dates, summaries and links, and simply no
+picture.
+
+The reason it happened is worth knowing, because it is the sort of thing that comes
+back. The template that builds those cards always wrote a picture tag, whether or not
+there was a picture to put in it. Blog cards on this platform have never had their own
+pictures — that was already on the list as unbuilt work — so the tag was always empty.
+I have changed the template so that when there is no picture, it writes no picture tag
+at all. I checked first what else uses that template: one other site, whose cards all do
+have pictures, so its pages come out exactly as before. Nothing else was affected.
+
+I did the repair the careful way rather than the quick way. The obvious move — rebuild
+the page — would have risked the rebuild problem you already know about, where something
+rewrites the copy we have carefully fixed. It would also have hit a second trap I found
+while looking: this page is wired to one template but was actually built from a
+different one, so a routine rebuild would have produced six blank cards instead of six
+good ones. So I regenerated just that one piece and re-assembled the page around it,
+which touches no copy. I then checked the live page rather than trusting the "completed"
+message: six broken icons before, none after, all six cards intact.
+
+**Two things I have NOT fixed, because they are bigger and I would rather you chose.**
+
+First, there is one genuinely bad picture. `hero.jpg` is the AI-generated one full of
+gibberish lettering — the one recorded as garbled back on 18 July. I looked at it again
+today and it is still bad, and it is still the banner behind **fourteen** pages. It is
+the worst-looking thing on the site. Replacing that one file fixes all fourteen at once.
+
+Second, nine pages have no picture at all: about, services, use cases, contact, the blog
+index, and the four tool pages. Two of those — about and services — need a small change
+to their page template before they can hold a picture at all.
+
+There is also one thing that is not visible but is worth knowing. Most of the stored
+picture records point at temporary web addresses that expired about a week ago — I
+tested one and it now refuses the request. Nothing on the site uses them, so nothing is
+broken today. But it is exactly the trap the handoff warns about, and if anything ever
+rebuilds a page from those records it would produce dead pictures. Worth tidying before
+it bites, rather than after.

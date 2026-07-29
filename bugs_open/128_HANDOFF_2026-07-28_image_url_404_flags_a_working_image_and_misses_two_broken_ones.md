@@ -254,3 +254,52 @@ favicon.png in page_components: 0     in site_components: 1
 times — but that lane's own `HANDOFF_2026-07-28b` lists 128 as *"read, still unowned"*
 and *"untouched"*. **A filing workstream is not an owning workstream**; check the named
 lane's handoff before believing the tool in either direction.
+
+---
+
+## Contribution 2026-07-29 (leopardess lane) — a THIRD blind spot: `src=""` is not a URL
+
+Found while fixing missing images on `leopardessconsulting.co.uk`. Not a new bug —
+it is the same check's blindness, one class wider than either defect above, so it is
+recorded here rather than filed separately.
+
+**`/blog.html` served six `<img src="" alt="..." loading="lazy">` tags** — one per card
+in the blog listing. Browsers render an empty `src` as a broken-image icon, and per the
+HTML spec resolve it against the current document, so each card also re-requested the
+page itself as an image. Measured before the fix:
+
+```
+$ curl -s https://leopardessconsulting.co.uk/blog.html | grep -c '<img src=""'
+6
+```
+
+**Why this matters for 128 specifically:** every defect and every fix candidate above
+reasons about a *path* — is it registered, does it 404, does it match a purpose or a
+path. An empty `src` has **no path to reason about**. It is invisible to:
+
+- the DB-only check as built (nothing to match against `assets`);
+- the **path-based predicate of fix candidate 1** (the empty string matches no asset row,
+  and would have to be special-cased not to be silently skipped);
+- **the HTTP half of candidate 4** — probing `""` either resolves to the page URL and
+  returns **200**, or is skipped as unfetchable. *An HTTP checker would actively confirm
+  this broken image as healthy.* That is worth pinning before the HTTP half is built,
+  because it is the one case where adding the outbound request makes the report worse
+  rather than merely incomplete.
+
+So the acceptance set for any fix here needs a fourth case alongside the triple above:
+**an `<img>` whose `src` is empty must be reported, and must not be probed.** The cheap
+predicate is structural, not networked — flag `src=""`/`src="#"`/whitespace-only in
+rendered HTML — and it needs no git-adapter integration, so it is not blocked by the
+standing objection in `verifier_coverage_test.go:171`.
+
+**Root cause of the leopardess instance, for reference** (fixed 2026-07-29, live):
+`rebuild_blog_listing_action.go:218` hardcodes `"image": ""` for every article — there is
+no per-article imagery on this platform yet — and the shared `content-listing` /
+`category-listing` templates in `content_components` emitted `<img src="{{.image}}">`
+**unconditionally**. Fixed by guarding the wrapper with `{{if .image}}` in both templates,
+so an article with no image now emits no `<img>` at all. Blast radius measured before
+applying: the only other consumer with articles (`robot-hands.com/learning-center-hub`,
+3 articles) has a non-empty image on all three, so its output is byte-identical.
+The Go half is untouched and still writes `""` — the template is now simply honest
+about it. **Real card thumbnails remain unbuilt** (per-card imagery, the leopardess
+lane's "Phase I3").
