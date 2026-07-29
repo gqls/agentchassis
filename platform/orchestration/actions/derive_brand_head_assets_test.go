@@ -1,7 +1,9 @@
 package actions
 
 import (
+	"image"
 	"image/color"
+	"image/draw"
 	"strings"
 	"testing"
 
@@ -25,6 +27,37 @@ func TestParseHexColour(t *testing.T) {
 		if got != color.Color(c.want) {
 			t.Errorf("parseHexColour(%q) = %v, want %v", c.in, got, c.want)
 		}
+	}
+}
+
+func TestComposeFaviconPreservesAspect(t *testing.T) {
+	// A wide wordmark: 200×100 solid red. The old resize.Resize(64,64)
+	// stretched it to fill the square; composeFavicon must instead fit it
+	// (64×32), centred, with the vertical padding transparent.
+	wide := image.NewRGBA(image.Rect(0, 0, 200, 100))
+	draw.Draw(wide, wide.Bounds(), &image.Uniform{C: color.RGBA{0xff, 0, 0, 0xff}}, image.Point{}, draw.Src)
+
+	got := composeFavicon(wide)
+	if b := got.Bounds(); b.Dx() != faviconSize || b.Dy() != faviconSize {
+		t.Fatalf("favicon canvas is %dx%d, want %dx%d", b.Dx(), b.Dy(), faviconSize, faviconSize)
+	}
+
+	// Padding rows (top and bottom) transparent, centre opaque.
+	if _, _, _, a := got.At(32, 2).RGBA(); a != 0 {
+		t.Errorf("top padding not transparent (alpha=%d) — logo was stretched to fill", a)
+	}
+	if _, _, _, a := got.At(32, 61).RGBA(); a != 0 {
+		t.Errorf("bottom padding not transparent (alpha=%d) — logo was stretched to fill", a)
+	}
+	if _, _, _, a := got.At(32, 32).RGBA(); a == 0 {
+		t.Errorf("centre is transparent — logo missing from canvas")
+	}
+
+	// A square logo still fills the box edge to edge.
+	square := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	draw.Draw(square, square.Bounds(), &image.Uniform{C: color.RGBA{0, 0xff, 0, 0xff}}, image.Point{}, draw.Src)
+	if _, _, _, a := composeFavicon(square).At(32, 2).RGBA(); a == 0 {
+		t.Errorf("square logo should fill the box; top row is transparent")
 	}
 }
 

@@ -15,7 +15,9 @@
 // fallback to the logo / brand hero when these files don't exist yet.
 //
 // Idempotent in effect: re-running overwrites favicon.png / og-card.png with
-// freshly-derived copies from the current logo.
+// freshly-derived copies from the current logo — EXCEPT artefacts whose
+// assets row is locked (locked_at set): those are owner approvals and are
+// skipped before the git commit, not just at the provenance upsert.
 //
 // Registration (registry.go):
 //   "derive_brand_head_assets": {
@@ -130,32 +132,56 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 		return nil, fmt.Errorf("decode logo image: %w", err)
 	}
 
-	// ── Derive favicon (square) and OG card (logo on brand background) ──
-	faviconPNG, err := encodePNG(resize.Resize(faviconSize, faviconSize, logoImg, resize.Lanczos3))
+	// ── Locked rows are owner approvals — honour them BEFORE the git commit ──
+	// recordDerivedAsset's own locked_at guard protects only the provenance
+	// row; by the time it runs the file in the site repo has already been
+	// replaced. An approved artefact (locked_at set, Phase I1 D5) must never
+	// be overwritten by a re-derivation, so the lock is checked here and the
+	// locked artefact is left out of the commit entirely.
+	lockedKeys, err := lockedBrandHeadKeys(ctx, params.DB, siteID)
 	if err != nil {
-		return nil, fmt.Errorf("encode favicon: %w", err)
+		return nil, fmt.Errorf("check locked brand-head assets: %w", err)
 	}
-	ogPNG, err := composeOGCard(logoImg, bgColour)
-	if err != nil {
-		return nil, fmt.Errorf("compose og card: %w", err)
+	if lockedKeys["favicon"] && lockedKeys["og_card"] {
+		logger.Info("derive_brand_head_assets: both artefacts locked — nothing to derive",
+			zap.String("domain", domain))
+		return map[string]interface{}{
+			"derived": false,
+			"reason":  "favicon and og_card are locked (owner-approved) — refusing to overwrite",
+		}, nil
 	}
 
-	// ── Commit both to the site repo ──
-	files := map[string]interface{}{
-		storage.DefaultAssetBasePath + "/favicon.png": map[string]interface{}{
+	// ── Derive favicon (square) and OG card (logo on brand background) ──
+	files := map[string]interface{}{}
+	if !lockedKeys["favicon"] {
+		faviconPNG, err := encodePNG(composeFavicon(logoImg))
+		if err != nil {
+			return nil, fmt.Errorf("encode favicon: %w", err)
+		}
+		files[storage.DefaultAssetBasePath+"/favicon.png"] = map[string]interface{}{
 			"content": base64.StdEncoding.EncodeToString(faviconPNG), "encoding": "base64",
-		},
-		storage.DefaultAssetBasePath + "/og-card.png": map[string]interface{}{
+		}
+	}
+	if !lockedKeys["og_card"] {
+		ogPNG, err := composeOGCard(logoImg, bgColour)
+		if err != nil {
+			return nil, fmt.Errorf("compose og card: %w", err)
+		}
+		files[storage.DefaultAssetBasePath+"/og-card.png"] = map[string]interface{}{
 			"content": base64.StdEncoding.EncodeToString(ogPNG), "encoding": "base64",
-		},
+		}
 	}
 	if _, err := sendGitCommitRequest(ctx, params, domain, files, "brand-head", logger); err != nil {
 		return nil, fmt.Errorf("git commit favicon/og: %w", err)
 	}
 
 	// ── Provenance rows (best-effort; derivation, origin = the logo) ──
-	recordDerivedAsset(ctx, params.DB, siteID, "favicon", "/assets/images/favicon.png", logger)
-	recordDerivedAsset(ctx, params.DB, siteID, "og_card", "/assets/images/og-card.png", logger)
+	if !lockedKeys["favicon"] {
+		recordDerivedAsset(ctx, params.DB, siteID, "favicon", "/assets/images/favicon.png", logger)
+	}
+	if !lockedKeys["og_card"] {
+		recordDerivedAsset(ctx, params.DB, siteID, "og_card", "/assets/images/og-card.png", logger)
+	}
 
 	logger.Info("derive_brand_head_assets: committed favicon + og card",
 		zap.String("domain", domain),
@@ -166,6 +192,45 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 		"favicon_url":  "/assets/images/favicon.png",
 		"og_image_url": "/assets/images/og-card.png",
 	}, nil
+}
+
+// composeFavicon scales the logo to FIT the square favicon box, preserving
+// aspect, centred on a transparent canvas. resize.Resize with both edges
+// pinned stretches a non-square logo to the box — a wide wordmark comes out
+// as an illegible horizontal smear — so the padding must come from the
+// canvas, not the resample.
+func composeFavicon(logo image.Image) image.Image {
+	canvas := image.NewRGBA(image.Rect(0, 0, faviconSize, faviconSize))
+	scaled := resize.Thumbnail(faviconSize, faviconSize, logo, resize.Lanczos3)
+	b := scaled.Bounds()
+	offX := (faviconSize - b.Dx()) / 2
+	offY := (faviconSize - b.Dy()) / 2
+	draw.Draw(canvas, image.Rect(offX, offY, offX+b.Dx(), offY+b.Dy()), scaled, b.Min, draw.Over)
+	return canvas
+}
+
+// lockedBrandHeadKeys reports which of the site's brand-head asset rows
+// (favicon, og_card) are active AND locked. A locked row is an owner
+// approval; the derivation skips that artefact rather than overwrite it.
+func lockedBrandHeadKeys(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]bool, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT asset_key FROM assets
+		 WHERE site_id = $1 AND asset_key IN ('favicon','og_card')
+		   AND status = 'active' AND locked_at IS NOT NULL
+	`, siteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	locked := make(map[string]bool, 2)
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		locked[key] = true
+	}
+	return locked, rows.Err()
 }
 
 // composeOGCard draws the logo centred on a solid brand-colour 1200×630 card.
