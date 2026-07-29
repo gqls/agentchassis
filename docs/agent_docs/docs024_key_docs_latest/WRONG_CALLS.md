@@ -11115,3 +11115,39 @@ world, it **silently selected the control group as the treatment group**.
 ('/','/index.html')`, `deployed_at IS NOT NULL`) and re-measured — 7 pages, 4
 sites, og:url = root everywhere, canonical absent everywhere. The finding held;
 the first instrument simply could not have found it either way.
+
+## 2026-07-29 — I inferred a live path from the existence of built machinery (gauntlet_dead_cta, vonc 6)
+
+**The claim, written into a handoff:** having watched my 131-B witness produce a
+real `improve_tool` item, I wrote *"if it cycles without fixing, that is
+`bugs_closed/010`'s guard — expect escalation at `fix_cycles_spent=2`."*
+
+**What was false:** it never cycles. `judge_acceptance_results` hardcodes the
+item's status to `'detected'`; the dispatch loop reads only `triaged`/`approved`;
+the sole promoter (`triage_detected_items`) lives inside the `improvement-sweep`
+scheduled task, **disabled, last triggered 2026-05-02**. Every `improve_tool`
+item filed since 2026-07-17 — 7 of 7 — is parked. So the fixer, the convergence
+guard and the escalation are all real, tested, deployed **and unreachable**.
+
+**Why I believed it.** I had *read the machinery*: 010's guard is well documented,
+the escalation path is unit-tested, `handler_agent` on the row literally says
+`tool-improver`. Every artefact I looked at was genuine. **None of them was a
+reader running on a schedule.** This is
+`[[writes-the-field-is-not-reads-the-field]]` one level up: there I would have
+needed the reader's file:line; here I needed the reader's *trigger*.
+
+**What caught it.** Curiosity, not a check — I went to watch the fixer work and
+found the row hadn't moved in an hour. Had I not looked, the wrong sentence would
+have shipped in a cold-start handoff, where the next thread would have waited for
+an escalation that cannot arrive.
+
+**The cheap check.** After writing *"the system will now handle X"*, name the
+component that reads X **and confirm something calls it on a cadence** — one
+query: `SELECT enabled, last_triggered_at FROM scheduled_tasks WHERE
+target_agent_type = '<reader>';` A disabled row and a busy one look identical
+from the producer's side, and "the handler exists" is not "the handler runs".
+
+**Not a new bug:** already filed and correctly diagnosed as `bugs_open/083`
+**by slug** (`…detected_findings_never_reach_a_handler`). Grepping before filing
+turned a would-be duplicate into a contribution — the acceptance ladder was a
+consumer that file had not listed, and the pile has grown 157 → 250 since 07-27.
