@@ -69,3 +69,32 @@ but never deployed") has fired five times, and every single one was for robot-ha
 site whose picture was already working. It has never once flagged any of the eleven broken ones,
 because it can only see assets that were *generated*, and theirs never were. A watchdog that
 starts from the list of things that exist cannot tell you about a thing that is missing.
+
+---
+
+## 2026-07-29, morning — you answered, and the plan is now concrete
+
+You gave me three answers: do the storage work **through the chassis** (no credentials handed
+to me — the platform does its own writes), apply the corrected relojistas logo **everywhere**
+(the social card, the tab icon and the page header all come right together), and **generate
+fresh logos** for the two sites whose stored "logo" turned out to be junk — with the promise
+that I look at every generated image and show you before anything goes live.
+
+One new finding while checking: idea.uk's problem is worse than a broken pointer. I pulled down
+the logo its own pages serve, and it is another AI mangle — lettering that reads more like
+"IBTA" than "IDEA". So even if I repaired its plumbing, the picture at the end would still be
+wrong. It needs a new logo, same as gaswholesalers, which is why I've put it in that bucket.
+
+And one course-correction on my own yesterday's advice: I suggested protecting leopardess's
+hand-made card by putting a lock on a database row. I read the actual code this morning and
+that lock would not protect the picture — the file is committed to the site before the lock is
+ever consulted. So the protection has to go into the deriving code itself: teach it to refuse
+to overwrite an artefact that has been marked as approved. I'm folding that into the same small
+code fix that stops tab icons coming out squashed, since they are two faces of the same rule:
+the machine must not destroy or distort things a person has signed off.
+
+Order of work from here: land that small code fix first (it goes through the reviewer council,
+a build and a deploy), because the relojistas re-run should produce its tab icon *after* the
+squashing is fixed, not before. While that is in review, get the corrected relojistas logo into
+storage via the cluster, and fire the two fresh-logo generations so there is something to show
+you. Nothing goes live on any of the three sites without the pictures having been looked at.

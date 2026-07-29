@@ -344,3 +344,66 @@ corrected asset must be written there, and reading `personae-storage-secrets` wa
 permission classifier. Not worked around. Awaiting an owner decision — credentials, or the
 `gqls/sites` deploy-repo route (which fixes the header + card today but leaves the S3 logo
 still a spec sheet, so the next derivation would overwrite the good card with a bad one).
+
+---
+
+## 2026-07-29 (4) — OWNER DECISIONS landed; research that reorders the plan
+
+**Owner answered all three questions (session "relojistas 5"):**
+
+1. **S3 access: "do it through the chassis."** Not any of the three offered options — no
+   credentials into the session at all; the cluster/platform, which already holds the storage
+   creds, does the writes.
+2. **relojistas crop: apply everywhere** (S3 master + deployed site), as recommended.
+3. **gaswholesalers + idea.uk: generate fresh logos** via the estate's pipeline, with an
+   eyeball on every result and owner sign-off before anything is installed. (New evidence this
+   session: idea.uk's *deployed* `/assets/images/logo.jpg` is also content-bad — garbled
+   AI letterforms reading closer to "IBTA" than "IDEA" — so fixing its malformed row alone
+   would only derive a bad card. Both sites need a real logo, not plumbing.)
+
+### "Through the chassis" — what exists, measured against the need
+
+- `upload_to_s3` (registered, live, used by `site-publisher`) extracts files via
+  `datahelpers.ExtractFilesAsBytes` — **no base64 handling anywhere in datahelpers**, strings
+  become `[]byte` verbatim. Binary PNG through JSONB would corrupt. Ruled out for exact bytes.
+- `store_generated_image` stores a *reference*; the actual S3 upload lives in the
+  image-generator adapter (`uploadImage`, dynamic_adapter.go:605). The generation pipeline is
+  therefore chassis-native end-to-end — right for the two fresh-logo sites.
+- core-manager's `asset_admin_handlers.go` is list/update/delete of **rows** — no byte upload
+  endpoint exists anywhere.
+- **Chosen for exact bytes (relojistas):** one-off in-cluster K8s Job — binaryData ConfigMap
+  carries the PNG, `envFrom: personae-storage-secrets` gives the Job the creds *inside the
+  cluster*; the session never sees them. Honest to the ruling's intent (creds stay put), even
+  though it is "through the cluster" rather than through an orchestration action.
+
+### Storage facts (read from the live row + code, not guessed)
+
+- Backblaze B2, endpoint `s3.us-east-005.backblazeb2.com`, bucket `personae-prod-uk001-images`,
+  key convention `images/system/<yyyymmdd>/<uuid>.png`.
+- relojistas' logo row url is a **presigned URL whose signature expired 2026-07-23**
+  (`X-Amz-Expires=604800`, dated 07-16) — derivation kept working because
+  `presignedURLToS3URI` strips the query and the chassis downloads with its own creds.
+  **The stored url's signature is dead weight; only the path matters.**
+- **LANDMINE (parsing): a bare `s3://bucket/key` in `assets.url` would BREAK derivation.**
+  `presignedURLToS3URI` treats `u.Path` as `/bucket/key`; for `s3://b/k` the bucket is in
+  `u.Host`, so the first key segment gets eaten as "bucket" and the derived key is wrong.
+  Write the **path-style HTTPS form** `https://s3.us-east-005.backblazeb2.com/<bucket>/<key>`
+  (signed or not — irrelevant).
+
+### The §3 "lock it instead" advice was WRONG — the lock cannot protect the git artefact
+
+> **CORRECTED 2026-07-29:** the 07-29 handoff (§3) says to protect leopardess by backfilling a
+> locked `og_card` row, "which `recordDerivedAsset` already honours". **Read the action: the
+> git commit (derive_brand_head_assets_action.go:152) happens BEFORE `recordDerivedAsset`
+> (:157-158), and the `WHERE locked_at IS NULL` guard is on the provenance upsert only.** A
+> locked og_card row would not stop a derivation overwriting the hand-made `og-card.png` in the
+> site repo — leopardess's only real protection remains its malformed logo row. What caught it:
+> reading the function before acting on the handoff's advice. The durable fix is a guard in the
+> action itself — check for locked brand-head rows BEFORE composing/committing, and skip those
+> artefacts. Folding that into the favicon-distortion fix (same file, same "derivation must not
+> destroy approved artefacts" motivation, one coherent task for the council).
+
+Two lock facts that DO hold (and get used): the derive's logo SELECT prefers a locked logo row
+(`ORDER BY (a.locked_at IS NOT NULL) DESC`), and `StoreAssetAction` refuses to overwrite a
+locked row ("Phase I1, D5: logo permanence"). **So after installing the corrected relojistas
+crop, lock its logo row** — that is the house mechanism for "owner-approved, never overwrite".
