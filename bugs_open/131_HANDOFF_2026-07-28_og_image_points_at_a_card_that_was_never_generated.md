@@ -164,3 +164,69 @@ Pass = `200`, or no tag at all. Fail = a tag whose target is not 200. Today: 11 
 - The `process_html` → `AddStructuredData` path is a third instance: registered
   (`registry.go:1042`), referenced by 2 agent definitions, and **zero of 14 sites emit any
   `application/ld+json`**, because it only fires when `business_name` is populated.
+
+---
+
+## CONTRIBUTION 2026-07-29 (gauntlet_dead_cta lane, vonc6) — the head block has NO page context, so `og:url` is wrong on every inner page fleet-wide
+
+Not filing a competing bug: `who-owns.py` and this file both say the head block
+is yours. This is evidence for the same emitter, found while shipping vonc's
+opinion ledger.
+
+**`og:url` is hard-coded to the site root**, `render_site_components_action.go:449`:
+
+```go
+origin := "https://" + ctx.Domain
+b.WriteString("  <meta property=\"og:url\" content=\"" + origin + "/\">\n")
+```
+
+**Measured live 2026-07-29 — 7 pages, 4 sites, no exceptions:**
+
+```
+vonc.com/tools/gauntlet/index.html   og:url = https://vonc.com/
+vonc.com/tools/arena/index.html      og:url = https://vonc.com/
+vonc.com/                            og:url = https://vonc.com/
+dartsonline.com/about.html           og:url = https://dartsonline.com/
+dartsonline.com/guides/index.html    og:url = https://dartsonline.com/
+finetuning.uk/about.html             og:url = https://finetuning.uk/
+leopardessconsulting.co.uk/          og:url = https://leopardessconsulting.co.uk/
+```
+
+`rel="canonical"` is **absent on all seven** (the emitter never writes one).
+
+**This sharpens fix candidate 3, and candidate 3 as written would not fix it.**
+Candidate 3 treats title/description as a *fallback* problem ("falls back to the
+bare domain when the display name is empty"). `og:url` shows the defect is
+structural and one level up: **`injectBrandHeadTags` takes a site context
+(`ctx.Domain`, `ctx.CompanyName`, `ctx.Tagline`) and no page context at all**,
+then that single block is injected into every page's head. So a site with a
+perfect display name still advertises the homepage's identity on every inner
+page — a share of any deep page unfurls as the site front door. Fixing the
+fallback makes `og:title` say the right *site*; it cannot make it say the right
+*page*.
+
+**Consequence for a lane you may not be tracking:** the owner's 2026-07-29 H
+ruling made distribution the next move for vonc.com — the share card and the
+daily provocation travel to where people argue. Today a shared Gauntlet link
+unfurls as "vonc.com", the site tagline, a 404 image, and the root URL: nothing
+that identifies the thing being shared. So this emitter is on the critical path
+for that experiment, alongside the missing card itself.
+
+**Suggested addition to your candidate list (yours to accept or reject):**
+give the injector the page it is rendering (url, title/`<h1>`, meta description)
+and emit per-page `og:url` + `og:title` + `og:description` + `rel="canonical"`;
+keep the site values as the fallback, not the value. That is a signature change
+on a shared renderer — architecture-shaped, not a bug patch — which is probably
+why it wants to be one deliberate change rather than three.
+
+**Verify (same shape as your og:image recipe — fetch, don't assert presence):**
+
+```bash
+u=$(curl -s "https://<site>/<inner-page>" | grep -o 'og:url" content="[^"]*"' | sed 's/.*content="//;s/"//')
+# FAIL today: $u is the site root for every inner page.
+```
+
+*Unrelated small fact from the same session, in case it bites your card work:*
+vonc's gauntlet serves **only** at `/tools/gauntlet/index.html` — both
+`/tools/gauntlet` and `/tools/gauntlet/` are 404. A share of the "tidy" URL is
+already dead before any unfurl.
