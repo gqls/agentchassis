@@ -14,6 +14,19 @@ the reference; `sql_for_agents/226`'s verify section already names it.
 go build -o /tmp/claimscan ./cmd/claimscan     # builds clean from the shared tree
 ```
 
+**Why `-o /tmp/...` and not the `go run` the parent runbook uses.**
+`claims_verification/RUNBOOK_claims_verification.md` §3 invokes it as
+`go run ./cmd/claimscan`, and adds the rule that matters: **never leave a built
+`claimscan` binary in the repo root** — `.gitignore` covers `bin/` and `/build/bin/`
+but not repo-root binaries, and this tree is forward-only, so one `git add -A` from
+any session makes it permanent. (Live proof, 2026-07-29: an **87MB
+`config-key-audit`** binary is sitting untracked in the repo root from another
+session.) Building to `/tmp` honours that rule and is preferred *here* only because
+these dry runs loop over 14 sites — `go run` recompiles per invocation. Either form is
+fine; a binary in the repo root is not. **claimscan itself is NOT deprecated** — it is
+CLM-014, it is what `226`/`166`/`233` tell you to verify with, and `cmd/voicescan` was
+built to its contract.
+
 ## 1. Which sites are armed — and the trap in the obvious query
 
 `104` § Measurement uses `jsonb_array_length(COALESCE(ss.data->'banned_claims','[]'))`.
