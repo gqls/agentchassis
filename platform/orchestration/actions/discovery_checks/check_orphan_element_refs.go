@@ -14,9 +14,10 @@
 //     cc.component_level = 'tool', and these are ported-page SECTIONS, so the
 //     ladder's eligibility query has never returned one of them;
 //   - dead_controls deliberately does not judge JS binding statically;
-//   - a browser probe can miss it too — css-filter-playground drives one
-//     surviving button, something changes, and it scores as working while all
-//     six of its sliders are absent.
+//   - a behavioural probe can score a broken tool OK — it drives one surviving
+//     control, something changes, and the verdict is "responds". Nine of these
+//     ten pages have a script that throws on load, and a census that drives
+//     controls found only eight of them.
 //
 // That last point is why this check earns its place beside the browser tier
 // rather than being made redundant by it.
@@ -28,9 +29,18 @@
 // datahelpers.OrphanElementRefs holds the rules and the reasoning for each
 // conservatism; all of them exist to avoid a false positive.
 //
-// MEASURED BEFORE SHIPPING (2026-07-29, live DB): 98 deployed script-carrying
-// pages fleet-wide, 10 flagged, all 10 on webdesign.co.uk, all 10 confirmed
-// broken in a real browser. No other site produced a finding.
+// MEASURED, AND THEN CORRECTED THE SAME DAY (2026-07-29, live DB): 98 deployed
+// script-carrying pages fleet-wide, 9 flagged, all 9 on webdesign.co.uk. No
+// other site produced a finding. Each of the 9 was adjudicated by loading the
+// live page AT THE URL THE DATABASE GIVES and asking whether the flagged id
+// resolves after load; every one fails to resolve.
+//
+// The correction matters more than the number. The first version reported TEN,
+// and the tenth — css-filter-playground — was a false positive that I had
+// "confirmed" against a URL I constructed rather than read, so the confirmation
+// was performed on a 404 page. Its sliders are generated from a data array with
+// `id="${f.name}"`, so they exist in the browser and nowhere in the source.
+// datahelpers.OrphanElementRefs now handles interpolated ids; see its header.
 //
 // Routing: needs_human_review with NO handler, following the check_dead_controls
 // precedent. The defect is unambiguous but the repair is not mechanical — the

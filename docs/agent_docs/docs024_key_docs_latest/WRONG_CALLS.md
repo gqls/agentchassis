@@ -11445,3 +11445,59 @@ believed a number or a sentence I had produced by reasoning, when the corpus was
 sitting right there and answering in one command. The two that reached a file were
 caught by a *test* and a *dry run* — not by re-reading my own work, which I did
 several times in between.
+
+---
+
+## 2026-07-29 — webdesign.co.uk tools repair: I confirmed a finding against a page I invented
+
+**The claim.** A new static check (orphan element references) flagged 10 pages
+fleet-wide. I "independently confirmed" one of them, `css-filter-playground`, in
+a real browser: six sliders, all `MISSING`, `rangeCount: 0`. On that basis I
+wrote — into a commit message, a concept-register entry, a Go file header and a
+**live council submission** — that the check finds what a browser probe misses,
+with that page as the worked example.
+
+**It was false, and so was the confirmation.** I fetched
+`/tools/css-filter-playground.html`. The URL the database gives is
+`/tools/css-filter-playground/index.html`. The first returns **404**, so I ran my
+browser evidence against Chrome's error page and read "no sliders here" as a
+finding about the tool. On the real URL: `rangeCount: 9`, all six ids present.
+The tool has never been broken. The check had a genuine false-positive class —
+the page builds its sliders with `id="${f.name}"` from a data array, so the ids
+exist in the browser and nowhere in the source.
+
+*What caught it:* not review, and not re-reading — I had re-read that evidence
+twice while quoting it into three documents. It fell out of a **different**
+question: two other flagged pages appeared to 404, which was implausible enough
+that I finally read `pages.url` out of the database instead of assuming its
+shape. The same mistake had been silently corrupting the evidence all along.
+
+*The cheap checks that would have caught it, in order of cheapness:*
+
+1. **`%{http_code}` on every fetch you draw a conclusion from.** The 404 was in
+   my terminal the whole time, as a `LOG:` line under a `VALUE:` line I was
+   reading. One `curl -o /dev/null -w '%{http_code}'` makes it unmissable.
+2. **Never construct a URL you can read.** `SELECT url FROM pages` is one query.
+   This platform serves at least three URL shapes and the bug file for that
+   (`bugs_open/029`) is about a tool cross-linker that *constructed*
+   `/tools/{function}.html` and matched no page on any of them. I re-made a
+   documented mistake.
+3. **A negative browser result deserves a positive control.** "The sliders are
+   absent" and "the page is absent" produce the same reading. Asking for
+   `document.title` in the same expression would have returned Chrome's error
+   page title and ended it instantly.
+
+**The generalisation worth keeping.** My own NOTES already said *"a negative
+verdict is a hypothesis until the page has been asked directly"* — and I did ask
+the page directly. The rule was not wrong, it was **incomplete**: asking the
+page directly is worthless if you cannot show you asked the right page.
+Make the identity of the thing you measured part of the measurement.
+
+**Second, smaller call the same hour.** I nearly filed "animated-favicon's code
+generator never runs" after driving two frames and seeing the placeholder text
+unchanged — there is a "Generate Script" button ten lines above in the same
+file, and I had not pressed it. That is the fifth harness fault from this
+workstream's own NOTES, repeated by the person who wrote it down. *What caught
+it:* grepping for the handler name before writing the finding, which took four
+seconds. **A tool that does nothing until you press the button is the norm on
+this site, not the exception.**

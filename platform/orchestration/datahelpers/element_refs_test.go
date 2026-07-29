@@ -33,21 +33,17 @@ func TestOrphanElementRefs_LiveDefects(t *testing.T) {
 			want: []string{"biz-fact", "biz-name"},
 		},
 		{
-			// tool-css-filter-playground: six sliders referenced, zero range
-			// inputs on the page. The browser probe scored this tool OK — it
-			// drove a different control and something changed — so this static
-			// check is not redundant with the behavioural tier.
-			name: "sliders referenced but never rendered",
-			html: `<div class="preview" id="preview"></div>
+			// tool-monolith-splitter: the whole input side was never ported, so
+			// the page renders its own copy about an interactive tool above a
+			// panel with nothing in it.
+			name: "input side never ported",
+			html: `<div class="output" id="results"></div>
 			       <script>
-			         ['brightness','contrast'].forEach(function (f) {
-			           document.getElementById(f);
-			         });
-			         const b = document.getElementById('brightness');
-			         const c = document.querySelector('#contrast');
-			         document.getElementById('preview').style.filter = b.value + c.value;
+			         const file = document.getElementById('target-file').value;
+			         const fw = document.getElementById('framework').value;
+			         document.getElementById('results').textContent = file + fw;
 			       </script>`,
-			want: []string{"brightness", "contrast"},
+			want: []string{"framework", "target-file"},
 		},
 	}
 
@@ -116,6 +112,26 @@ func TestOrphanElementRefs_NoFalsePositives(t *testing.T) {
 			html: `<input id='qty'><script>document.getElementById("qty").value = 1;</script>`,
 		},
 		{
+			// THE REGRESSION CASE. tool-css-filter-playground, verbatim in
+			// shape: six sliders generated from an array of descriptors, so no
+			// slider id appears in the source and all six resolve in a browser.
+			// The first version of this check reported all six as missing, and
+			// the wrong verdict reached a commit message, a register entry and
+			// a live council submission before the browser caught it.
+			name: "ids interpolated from data are present",
+			html: `<div id="sliders"></div>
+			       <script>
+			         const filters = [{name: 'brightness', val: 100}, {name: 'contrast', val: 100}];
+			         filters.forEach(function (f) {
+			           const g = document.createElement('div');
+			           g.innerHTML = ` + "`" + `<input type="range" id="${f.name}" value="${f.val}">` + "`" + `;
+			           document.getElementById('sliders').appendChild(g);
+			         });
+			         document.getElementById('brightness').value = 90;
+			         document.getElementById('contrast').value = 90;
+			       </script>`,
+		},
+		{
 			name: "no script at all",
 			html: `<div id="a"></div><p>Just content.</p>`,
 		},
@@ -131,6 +147,28 @@ func TestOrphanElementRefs_NoFalsePositives(t *testing.T) {
 				t.Fatalf("OrphanElementRefs() = %v, want no findings", got)
 			}
 		})
+	}
+}
+
+// The dynamic-id rule must LOOSEN the test, not disable it. Four of the nine
+// real findings are on tools that build markup dynamically AND are genuinely
+// broken (asset-formatter, logic-architect, mind-map, pasteboard), so a page
+// that interpolates ids still has to be judged on the ids it never mentions.
+func TestOrphanElementRefs_DynamicPageStillJudged(t *testing.T) {
+	// tool-pasteboard in shape: renders note cards with computed ids, while
+	// btnUndo and boardTitle are addressed and appear nowhere else at all.
+	html := `<div id="board"></div>
+	         <script>
+	           notes.forEach(function (n) {
+	             board.innerHTML += ` + "`" + `<div class="note" id="note-${n.key}">${n.text}</div>` + "`" + `;
+	           });
+	           document.getElementById('btnUndo').addEventListener('click', undo);
+	           document.getElementById('boardTitle').value = 'Untitled';
+	         </script>`
+	want := []string{"boardTitle", "btnUndo"}
+	if got := OrphanElementRefs(html); !reflect.DeepEqual(got, want) {
+		t.Fatalf("OrphanElementRefs() = %v, want %v — the dynamic-id rule must not "+
+			"blind the check on a page that computes SOME of its ids", got, want)
 	}
 }
 
