@@ -836,3 +836,14 @@ provocation that read as filler, the busy page, and now the keepable verdict.
 Filed at breakfast, all live by night. What's left is the question no code
 can answer: why someone argues here rather than in a chat window. The site is
 now good enough that the question deserves an answer.
+
+---
+
+2026-07-29. Your call is recorded: take the Gauntlet to people first — you
+doing the posting, the card doing the travelling — and let what real visitors
+do shape the communal version with its daily categories. And the idea you
+picked out gets built next: a dated diary of your own opinions. Every round
+you play already contains a day, a question, where you stood and how it was
+judged; kept on your own device and laid out in order, that becomes something
+no chat window gives anyone — a record of what you thought, when. It only
+ever grows from rounds that really happened, same as everything else here.

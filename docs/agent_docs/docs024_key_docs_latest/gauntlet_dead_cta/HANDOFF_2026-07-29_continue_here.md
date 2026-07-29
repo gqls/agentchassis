@@ -112,7 +112,21 @@ would return the Enter button to revealing nothing).
 - Plain-prose history: `README_where_we_are.md` (append-only).
 - Milestone read-out: `SUMMARY_2026-07-28_gauntlet_dead_cta.md`.
 
-## 7. H — the decision the owner is being asked to make
+## 7. H — DECIDED by the owner, 2026-07-29 morning: **3 leading to 2**
+
+> **Ruling:** the distribution experiment first (owner does the posting; the
+> share card and daily provocation are the travelling artefacts), feeding the
+> arena thesis (categories, one daily provocation each, communal views only
+> once participants exist). **Plus a named feature direction in the owner's
+> own words: "a (dated) personal history of your opinions might be a goldmine"
+> — a dated personal ledger of what you argued and when.** Full ruling +
+> design constraint (localStorage ledger, entries only from real /defend
+> responses, no accounts in v1) recorded in
+> `PLAN_2026-07-22_gauntlet_dead_cta.md` § OWNER DIRECTION 2026-07-29.
+> **The next session's first build is the opinion ledger.** The option text
+> below is kept for the record of what was decided between.
+
+The original framing, for the record:
 
 The user comment that started it: *"why argue with an AI when Perplexity or
 Google is free?"* The site is honest, reliable and now designed; nothing on it

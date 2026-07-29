@@ -1863,3 +1863,14 @@ table with proofs, next actions (H first), the seven 07-28 landmines, the
 rail + its two deliberate exceptions, and §7 laying out the H decision as
 four options (examination / arena / distribution-experiment / demonstration)
 for the owner. Session "vonc 5" hands off here — context budget spent.
+
+## 2026-07-29 — H DECIDED: 3→2, and the opinion ledger named
+
+Owner ruled on H within the hour of the options being laid out: **distribution
+first (his leg), feeding the arena thesis** — and seized on the personal
+history idea, sharpening it: *"a (dated) personal history of your opinions
+might be a goldmine."* Ruling + the localStorage-ledger design constraint
+recorded in the PLAN (§ 2026-07-29) and the handoff §7. The next session
+builds the ledger: dated entries of provocation + the visitor's own position +
+verdict, created only from real /defend responses, device-local, no accounts.
+This session ("vonc 5") ends here — context spent across two days.

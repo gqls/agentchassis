@@ -294,3 +294,36 @@ feature, it is a *first step toward liveliness*. Treat it as such when scoping.
 **Fix what exists before extending it.** `bugs_open/131` B–F is the near-term
 list; categories, graphs and groups are all downstream of that and of real
 participants.
+
+## OWNER DIRECTION — 2026-07-29 (the H ruling)
+
+Asked to choose between the four H options (HANDOFF_2026-07-29 §7), the owner
+ruled:
+
+> *"3 leading to 2"* — **the distribution experiment first, feeding the arena
+> thesis.** The owner does the distribution leg himself (the share card and
+> the daily provocation are the travelling artefacts); real behaviour then
+> informs the arena build (categories, one provocation per day per category,
+> group views only after participants exist).
+
+And one feature direction, in the owner's words:
+
+> *"I think a (dated) personal history of your opinions might be a goldmine
+> idea"* — **a dated personal ledger of what YOU argued and when.** Each
+> played round already contains everything needed: the day's provocation, the
+> position the visitor committed to, the verdict, the date. Accumulated, that
+> is a diary of your opinions — where you stood on X, dated — which composes
+> directly with the arena thesis (your stance beside the eventual communal
+> split) and gives a visitor a reason to RETURN, which the single-round page
+> never had.
+
+**Design constraint for whoever builds it (do not lose this):** the current
+round store is deliberately `sessionStorage` — tab-scoped, because a round is
+20 minutes and should not outlive the tab. A HISTORY is a different artefact
+with a different deliberate scope: client-side `localStorage` of the visitor's
+own completed rounds (dated provocation + their position + verdict) is honest
+by construction — facts of their own rounds, on their own device, no accounts,
+no server identity — and is the right first form. Server-side history implies
+identity and is a separate, later decision. The same rail applies as
+everywhere: entries are created ONLY as the consequence of a real /defend
+response, never synthesised or backfilled.
