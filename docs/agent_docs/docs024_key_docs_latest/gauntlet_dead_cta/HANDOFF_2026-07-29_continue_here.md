@@ -43,11 +43,18 @@ Fleet context: v1.0.1196 rolled 22:37Z 07-28. A `render-audit-adapter` pod
 
 1. **§7 — the H decision.** Owner's call; the options are laid out there.
    Everything else on this page is polish until it is answered.
-2. **Witness 131-B on the acceptance lane.** The clause is live and did real
-   work in the C build harness, but no `improve_tool` tier-4 run has exercised
-   it in production. Either wait for a natural run or fire one acceptance run
-   at any tool page with criteria including `no_horizontal_overflow` on
-   mobile. The first genuine catch (or clean sweep) closes 131-B fully.
+2. ~~**Witness 131-B on the acceptance lane.**~~ **DONE 2026-07-29 12:30Z — 131-B
+   is CLOSED.** The deployed adapter (1197) failed `mobile-fit@mobile` on
+   `tool-loot-table-balancer` with an attributed culprit on a page whose
+   `scrollWidth` is clean — the one shape only the new clause produces. Found by
+   scanning all 94 deployed tool pages with the clause extracted from the Go
+   source: 86 clean, 8 flagged, **1** on the new branch. Evidence in
+   `bugs_open/131` § "B check-side — WITNESSED AND CLOSED"; pattern in 016b §9.
+   **Two live consequences for whoever is next:** (a) `improve_tool`
+   `e7ea0125` now owns a genuinely broken page — if it cycles without fixing,
+   that is `bugs_closed/010`'s guard, expect escalation at
+   `fix_cycles_spent=2`; (b) 010's line *"tool-loot-table-balancer passes Tier 4
+   now"* is retired — it passed a check that could not see this defect.
 3. **og:image** — vonc's gauntlet page emits a 404 social image (owned by the
    OTHER bug numbered 131, `…og_image_points_at_a_card…`, UNDIAGNOSED). When
    fixed, shared verdict cards and links get a face. Do not build a generator

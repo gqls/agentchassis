@@ -2015,3 +2015,57 @@ family silently inverted (thinking ON by default when the field is omitted).
 083 was the first confirmed instance on the anthropic client. Whether any
 FLEET lane is losing completions to it is a query, not an argument ⇒ 090
 needs_diagnosis filed, RUN_CORRELATION_ID `9e59d517-f107-4d8c-8a94-36c5a3d1cc72`.
+
+## 2026-07-29, ~12:30 — 131-B WITNESSED: the clause caught a real one, and it retires a line in bugs_closed/010
+
+The check-side of 131-B is now **fixed, live AND demonstrated** — closed. Full
+evidence in `bugs_open/131` § "B check-side — WITNESSED AND CLOSED"; the short
+version and the missteps are here.
+
+**First run proved nothing, and I said so before running it.** The manual
+acceptance run on `tool-model-approach-selector` (item `4e06c4ab`) returned
+`mobile-fit@mobile PASS`. That is a green happy path: it proves the lane
+dispatches and the check executes on the deployed binary, and per
+[[verify-the-failing-branch]] it says nothing about whether the new branch can
+fire. The screenshot confirmed the pass was *correct* (page genuinely clean),
+which rules out a false positive but is not a witness.
+
+**So I went looking for a page the clause SHOULD fail.** Scanned all 94 deployed
+tool pages fleet-wide at the adapter's own mobile profile (390×844, iPhone UA,
+DSF 3, is_mobile, has_touch — read from `run_checks_action.go:201-205,574-583`,
+not guessed), using the clause JS **extracted from the Go source at runtime**.
+That extraction matters: a hand-copied clause would test my transcription, not
+the shipped code, and the script asserts the extracted literal contains
+`cutCount`/`overflowX`/`getBoundingClientRect` so a wrong-literal grab fails
+loudly instead of silently passing everything.
+
+- **86 clean · 8 flagged · 0 errors.** Of the 8, seven are ordinary
+  `scrollWidth` overflows the OLD clause already caught. **Exactly one** trips
+  the new branch: `tool-loot-table-balancer` (gamesdesign.co.uk) —
+  `over:0, clipped:true, cutCount:18`.
+- Verified it is real before firing anything at it, because this file's own
+  caution is that a false flag becomes a fixer aimed at a correct page:
+  geometry (`scrollWidth == clientWidth == 390`, yet a `<select>` at
+  `left:421 → right:501`, 111px off-screen, no scrollable ancestor) **and** by
+  eye — screenshotted, and the Rarity tier control is simply not on the page.
+- Fired acceptance run `71b5465d` at it. The **deployed adapter** (1197, binary
+  grep `cutCount` 4 / positive 1 / negative 0) returned `mobile-fit@mobile
+  pass:false` with `culprit:"label (123px)"`, `component:"main"`, `scope:"tool"`
+  and the clause's own detail string. 8 passed / 1 failed; `improve_tool`
+  `e7ea0125` created — correctly, the page IS broken.
+
+**The finding worth more than the witness.** `bugs_closed/010` — about this exact
+tool — says *"Do NOT use `tool-loot-table-balancer`: it passes Tier 4 now."* It
+did pass, on 07-21, **because the check was blind to this class of cut**. The
+page was never fine. A pass recorded by a blind check gets written down as a fact
+about the page and outlives the blindness; nothing re-reads a closed bug file.
+Generalised into 016b §9 ("A PASS recorded by a blind check becomes evidence the
+thing is fine"), with the checks: when you fix a detector, re-run it over what
+the blind version cleared, and date every pass you cite.
+`[UNVERIFIED]` whether today's cut is 010's original intrinsic overflow never
+fully resolved or a later regression — nobody has diffed the component history,
+and the fix loop owns the page now via `e7ea0125`. **Watch it**: 010 records the
+fixer failing to converge on intrinsic overflow on this very tool twice, so if it
+cycles, expect (and accept) an escalation at `fix_cycles_spent=2` rather than a fix.
+
+Artefacts kept: `p4_sources/scan_clipped_tools_2026-07-29.py` + its full output.

@@ -1,0 +1,226 @@
+clause extracted: 6118 chars, cutCount x5
+
+ok   https://ai-agent-orchestration.com/tools/tool-ai-agent-roi-estimator.html  (over=0)
+ok   https://ai-agent-orchestration.com/tools/tool-llm-cost-calculator.html  (over=0)
+ok   https://finetuning.uk/tools/tool-ai-data-risk-checker.html  (over=0)
+ok   https://finetuning.uk/tools/tool-ai-readiness-quiz.html  (over=0)
+ok   https://fundamentallyai.com/tools/model-approach-selector/index.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/damage-formula-designer/index.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/drop-rate-simulator/index.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/tool-drop-rate-tuner.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/ehp-calculator/index.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/jump-physics/index.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/lanchester-sim/index.html  (over=0)
+FLAG https://gamesdesign.co.uk/tools/tool-loot-table-balancer.html
+     {"over": 0, "clipped": true, "cutCount": 18, "culprit": "label (123px)", "selector": "label", "component": "main", "slot": "", "located": true, "inTool": true, "forcedBy": "", "forcedReason": "fixed width: 123px \u2014 use a relative width (max-width:100%)"}
+ok   https://gamesdesign.co.uk/tools/progression-architect/index.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/ttk-calculator/index.html  (over=0)
+ok   https://gamesdesign.co.uk/tools/tool-xp-curve-designer.html  (over=0)
+ok   https://gaswholesalers.com/tools/tool-breakeven-volume-calculator.html  (over=0)
+ok   https://gaswholesalers.com/tools/tool-fuel-budget-forecaster.html  (over=0)
+ok   https://gaswholesalers.com/tools/tool-fuel-cost-estimator.html  (over=0)
+ok   https://gaswholesalers.com/tools/tool-gas-unit-converter.html  (over=0)
+ok   https://idea.uk/tools/funding-fit/index.html  (over=0)
+ok   https://idea.uk/tools/patent-check/index.html  (over=0)
+ok   https://leopardessconsulting.co.uk/tools/tool-agent-complexity-estimator.html  (over=0)
+ok   https://leopardessconsulting.co.uk/tools/process-automation-scorer/index.html  (over=0)
+ok   https://oufe.com/tools/tool-recovery-waterfall.html  (over=0)
+ok   https://robot-hands.com/tools/grip-force-friction-calculator/index.html  (over=0)
+ok   https://robot-hands.com/tools/gripper-cycle-time-estimator/index.html  (over=0)
+ok   https://robot-hands.com/tools/gripper-payload-calculator/index.html  (over=0)
+ok   https://robot-hands.com/tools/matchmatrix/index.html  (over=0)
+ok   https://vonc.com/tools/archetype-taster-quiz/index.html  (over=0)
+ok   https://vonc.com/tools/arena/index.html  (over=0)
+ok   https://vonc.com/tools/gauntlet/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/ab-test-calculator/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/animated-favicon/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/aria-builder/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/aspect-ratio/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/asset-formatter/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/bayesian-rank/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/bg-remover/index.html  (over=0)
+FLAG https://webdesign.co.uk/tools/blob-maker/index.html
+     {"over": 33, "clipped": false, "cutCount": 0, "culprit": "div (402px)", "selector": "div", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "input#complexity", "forcedReason": "fixed width: 352px \u2014 use a relative width (max-width:100%)"}
+ok   https://webdesign.co.uk/tools/blueprint-compiler/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/clip-path/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/community-growth/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/csp-builder/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/css-filter-playground/index.html  (over=0)
+FLAG https://webdesign.co.uk/tools/css-variables/index.html
+     {"over": 95, "clipped": false, "cutCount": 0, "culprit": "div.section-box (464px)", "selector": "div.section-box", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "h3", "forcedReason": "fixed width: 414px \u2014 use a relative width (max-width:100%)"}
+ok   https://webdesign.co.uk/tools/cubic-bezier/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/diff-checker/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/entropy-meter/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/favicon-maker/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/fluid-typography/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/focus-ring/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/golden-ratio/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/grid-generator/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/head-architect/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/html-minifier/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/image-optimizer/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/insight-injector/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/json-cleaner/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/jwt-inspector/index.html  (over=0)
+FLAG https://webdesign.co.uk/tools/layout-generator/index.html
+     {"over": 119, "clipped": false, "cutCount": 0, "culprit": "div (488px)", "selector": "div", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "input#sideWidth", "forcedReason": "fixed width: 438px \u2014 use a relative width (max-width:100%)"}
+ok   https://webdesign.co.uk/tools/logic-architect/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/magic-outliner/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/markdown-tables/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/meme-generator/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/mesh-gradient/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/micro-cms/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/mind-map/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/monolith-splitter/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/noise-generator/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/oklch-picker/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/parallax-generator/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/pasteboard/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/performance-budget/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/privacy-redactor/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/prompt-architect/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/prompt-permutator/index.html  (over=0)
+FLAG https://webdesign.co.uk/tools/recommender-engine/index.html
+     {"over": 196, "clipped": false, "cutCount": 0, "culprit": "h3 (565px)", "selector": "h3", "component": "section", "slot": "", "located": false, "inTool": false, "forcedBy": "", "forcedReason": "fixed width: 565px \u2014 use a relative width (max-width:100%)"}
+ok   https://webdesign.co.uk/tools/regex-tester/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/rls-architect/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/seo-injector/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/seo-schema/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/shadow-stacker/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/smart-contrast/index.html  (over=0)
+FLAG https://webdesign.co.uk/tools/smooth-shadow/index.html
+     {"over": 293, "clipped": false, "cutCount": 0, "culprit": "section (330px)", "selector": "section", "component": "section", "slot": "", "located": false, "inTool": false, "forcedBy": "", "forcedReason": "flex row does not wrap (flex-wrap:nowrap) \u2014 allow wrapping or set min-width:0 on the items"}
+FLAG https://webdesign.co.uk/tools/social-card/index.html
+     {"over": 87, "clipped": false, "cutCount": 0, "culprit": "strong (455px)", "selector": "strong", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "", "forcedReason": "fixed width: 455px \u2014 use a relative width (max-width:100%)"}
+ok   https://webdesign.co.uk/tools/sri-generator/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/svg-optimizer/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/svg-patterns/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/text-extractor/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/text-sanitizer/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/token-calculator/index.html  (over=0)
+ok   https://webdesign.co.uk/tools/touch-target/index.html  (over=0)
+FLAG https://webdesign.co.uk/tools/vibe-equalizer/index.html
+     {"over": 11, "clipped": false, "cutCount": 0, "culprit": "a.card (380px)", "selector": "a.card", "component": "ported-page", "slot": "", "located": false, "inTool": false, "forcedBy": "", "forcedReason": "fixed width: 380px \u2014 use a relative width (max-width:100%)"}
+ok   https://webdesign.co.uk/tools/white-balance/index.html  (over=0)
+
+=== 86 clean · 8 FLAGGED · 0 errors ===
+
+FLAGGED https://gamesdesign.co.uk/tools/tool-loot-table-balancer.html
+{
+  "over": 0,
+  "clipped": true,
+  "cutCount": 18,
+  "culprit": "label (123px)",
+  "selector": "label",
+  "component": "main",
+  "slot": "",
+  "located": true,
+  "inTool": true,
+  "forcedBy": "",
+  "forcedReason": "fixed width: 123px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/blob-maker/index.html
+{
+  "over": 33,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "div (402px)",
+  "selector": "div",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "input#complexity",
+  "forcedReason": "fixed width: 352px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/css-variables/index.html
+{
+  "over": 95,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "div.section-box (464px)",
+  "selector": "div.section-box",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "h3",
+  "forcedReason": "fixed width: 414px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/layout-generator/index.html
+{
+  "over": 119,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "div (488px)",
+  "selector": "div",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "input#sideWidth",
+  "forcedReason": "fixed width: 438px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/recommender-engine/index.html
+{
+  "over": 196,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "h3 (565px)",
+  "selector": "h3",
+  "component": "section",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "",
+  "forcedReason": "fixed width: 565px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/smooth-shadow/index.html
+{
+  "over": 293,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "section (330px)",
+  "selector": "section",
+  "component": "section",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "",
+  "forcedReason": "flex row does not wrap (flex-wrap:nowrap) \u2014 allow wrapping or set min-width:0 on the items"
+}
+
+FLAGGED https://webdesign.co.uk/tools/social-card/index.html
+{
+  "over": 87,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "strong (455px)",
+  "selector": "strong",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "",
+  "forcedReason": "fixed width: 455px \u2014 use a relative width (max-width:100%)"
+}
+
+FLAGGED https://webdesign.co.uk/tools/vibe-equalizer/index.html
+{
+  "over": 11,
+  "clipped": false,
+  "cutCount": 0,
+  "culprit": "a.card (380px)",
+  "selector": "a.card",
+  "component": "ported-page",
+  "slot": "",
+  "located": false,
+  "inTool": false,
+  "forcedBy": "",
+  "forcedReason": "fixed width: 380px \u2014 use a relative width (max-width:100%)"
+}

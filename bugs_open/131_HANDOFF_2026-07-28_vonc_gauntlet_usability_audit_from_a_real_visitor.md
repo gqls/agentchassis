@@ -3,7 +3,9 @@
 **Filed:** 2026-07-28 · **By:** gauntlet_dead_cta, from the owner's own use of the
 live site · **Severity:** MIXED — one HIGH (A: headline invisible; long-standing, NOT a
 regression — see the correction in §A), two MEDIUM structural, the rest
-design/product · **Status:** OPEN — A fixed, B–H open
+design/product · **Status:** OPEN — **A, B, C, E, F, G fixed & live; B's check-side
+WITNESSED 2026-07-29 (see the section at the end). D open (design decision); H
+decided by the owner 2026-07-29, build in progress by the gauntlet workstream.**
 
 ## Why this file matters more than its severity suggests
 
@@ -518,3 +520,66 @@ deploy. `/bugs_closed/`'s bar is fixed AND live; this is live and unwitnessed.
 >
 > **Still unwitnessed.** `no_horizontal_overflow` has run **0** times since the 16:56Z
 > roll (checked 18:2xZ). Everything in "what to watch for" above stands unchanged.
+
+## B check-side — **WITNESSED AND CLOSED, 2026-07-29 12:30Z.** It caught a real one
+
+The clause has now been seen **failing a live page from the deployed adapter**, with
+exactly the shape this file predicted and nothing else produces. Item B is **CLOSED**
+(page-side was already fixed and live; check-side is now fixed, live AND demonstrated).
+
+**The witness.** Acceptance run on `tool-loot-table-balancer` (gamesdesign.co.uk),
+work item `71b5465d-efce-43ee-b7f6-5d9397aff17b`, orchestration completed 12:30Z,
+adapter `browser-runner-adapter:v1.0.1197` (pod `…-sdbpl`, started 08:05:17Z;
+binary grep at check time: `cutCount` **4**, positive `no_horizontal_overflow` **1**,
+negative **0** — grep the BINARY, no `strings` in this image):
+
+```
+check_id: mobile-fit   profile: mobile   pass: FALSE   scope: tool
+culprit: "label (123px)"   culprit_selector: "label"   component: "main"
+forced_reason: "fixed width: 123px — use a relative width (max-width:100%)"
+detail: "content is laid out past the right viewport edge but a parent CLIPS it —
+         the page does not scroll, so the scrollWidth check alone would pass while
+         the content stays cut off (bugs_open/131 B) on mobile; …"
+```
+
+`pass:false` **with** attribution, on a page whose `scrollWidth - clientWidth` is
+**0** — the old clause was structurally incapable of producing this. Verdict:
+8 passed / 1 failed; `improve_tool_created: true` →
+`e7ea0125-2a58-4e34-97c3-027f664588e6`.
+
+**It is a TRUE positive, verified three ways before the run was fired** — because
+this file's own caution says a false flag becomes a fixer aimed at a correct page:
+
+1. **Geometry**: `scrollWidth == clientWidth == 390`, yet the "Rarity tier"
+   `<select>` is laid out at `left:421 → right:501` — **111px beyond the viewport,
+   entirely off-screen**, with no horizontally scrollable ancestor. 18 elements cut.
+2. **By eye** (the check `[[curl-audit-has-no-opinion-about-rendering]]` demands):
+   screenshotted at the adapter's own mobile profile — the Weight inputs are sliced
+   by the right edge and the Rarity tier control is **not on the page at all**. A
+   visitor on a phone cannot see or reach a form field the tool needs.
+3. **The clause itself, verbatim**: scanned with the JS *extracted from
+   `run_checks_action.go` at runtime* (never hand-copied, so scan-vs-deployed drift
+   is impossible by construction) — `clipped:true, cutCount:18`.
+
+**How the page was found, and what it cost.** All 94 deployed tool pages fleet-wide
+were scanned at 390×844 with the extracted clause: **86 clean · 8 flagged · 0 errors**,
+and of the 8, **exactly one** trips the NEW branch (`over:0, clipped:true`). The other
+seven are ordinary `scrollWidth` overflows the OLD clause already caught. So the new
+branch is **rare and specific** — which is the answer to the false-positive worry, and
+also why no natural run had ever tripped it. Scanner:
+`scan_clipped_tools.py` (gauntlet workstream `p4_sources/`).
+
+> **This retires a claim in `bugs_closed/010`, which is about THIS EXACT TOOL.** 010
+> says: *"Do NOT use `tool-loot-table-balancer`: it passes Tier 4 now."* It passed
+> Tier 4 on 07-21 — but Tier 4 could not see this class of cut until 07-28. **The page
+> was not clean; the instrument was blind.** 010 stays closed (its own defects are
+> fixed and separately verified) and this is not a reopening — but anyone reading
+> "passes Tier 4" as "the page is fine" should read it as "passed the check as it
+> stood on 07-21". `[UNVERIFIED]` whether today's cut is 010's original intrinsic
+> overflow never fully resolved or a later regression; no one has diffed the
+> component's history, and the fix loop now owns the page via `e7ea0125`.
+>
+> **Worth watching, not blocking:** 010 records the fixer failing to converge on
+> intrinsic overflow **on this very tool, twice**. If `e7ea0125` cycles without
+> fixing it, that is 010's guard (b) doing its job — expect an escalation to
+> `needs_human_review` at `fix_cycles_spent=2`, not silence.

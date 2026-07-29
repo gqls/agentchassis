@@ -7343,3 +7343,46 @@ number is not wrong for the definition it was written against.
 of `aiservice.GenerateText` that passes no override inherits the 2048 default.
 Whether any fleet lane is losing completions to this is a `llm_call_log` query,
 and it is filed as a diagnosis run rather than argued (090 corr `91cce28d`).
+
+### A PASS recorded by a blind check becomes evidence the thing is fine — and it outlives the blindness (2026-07-29)
+
+**The shape.** A check cannot detect defect class X. Pages carrying X pass it.
+Those passes are then written into bug files, closures and handoffs as *"that
+page is fine / it passes Tier 4 now"*. Later the check is fixed — but **nothing
+re-examines the sentences the blind version produced**, because they do not look
+like claims about a check; they look like claims about a page.
+
+**The case.** `bugs_closed/010` says of `tool-loot-table-balancer`: *"Do NOT use
+it: it passes Tier 4 now."* It did pass, on 2026-07-21. But `no_horizontal_overflow`
+only failed on `scrollWidth - clientWidth > 2`, and this page's overflow is
+**clipped by a parent, so the document never scrolls**. On 2026-07-29 the fixed
+clause failed the same page from the deployed adapter: 18 elements cut, a `<select>
+laid out entirely off-screen at x=421 on a 390px viewport`, unreachable. The page
+had never been fine. The instrument was blind, and its verdict had been promoted
+to a fact about the world in a closed bug file.
+
+**Why it is hard to catch.** The blind pass is *indistinguishable from a real pass
+at the point of reading* — same field, same value, no marker saying "this check
+could not have failed here". And the wrong sentence is usually in a CLOSED file,
+which nobody re-reads, written by someone with no reason to doubt it.
+
+**Checks.**
+- **When you fix a check's blind spot, the change is not done when the code
+  ships.** Ask: *what passed under the blind version, and who wrote that pass
+  down?* Re-run the fixed check against the pages the old one cleared — the
+  fleet-wide sweep here was 94 pages and one scan.
+- **A PASS is a statement about the checker as much as the subject.** Cite it as
+  "passed `<check>` as it stood on `<date>`", not "is clean". The date is what
+  makes it re-checkable later; without it the claim silently becomes permanent.
+- **Rarity is worth measuring when you fix a detector**, and it answers the
+  false-positive objection at the same time: of 94 tool pages, 8 overflow at all
+  and exactly **1** trips the new branch. A clause that fires on 1% is specific;
+  it also explains why no natural run had ever exercised it, which is otherwise
+  easy to misread as "the fix is not deployed".
+- **Verify a detector's first catch three ways before acting on it** — geometry
+  (numbers), the rendered artefact (look at it), and the shipped clause itself
+  (extract it from source at runtime, never hand-copy). A fixer aimed at a
+  correct page is the expensive failure (`bugs_open/126`); the cost of being
+  sure is minutes.
+
+Worked evidence: `bugs_open/131` § "B check-side — WITNESSED AND CLOSED".
