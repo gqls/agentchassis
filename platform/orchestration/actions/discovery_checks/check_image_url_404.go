@@ -12,6 +12,31 @@
 // but is deferred until we have git-adapter integration on the discovery
 // path.
 //
+// READ THIS BEFORE TRUSTING THE NAME OR THE SILENCE (bugs_open/128, measured
+// 2026-07-29). The paragraph above understates the limitation in a way that
+// matters. What this check actually compares is a rendered path's BASENAME
+// against the set of active asset PURPOSES for the site (loadKnownAssetPurposes)
+// — and purposes are names like "hero"/"icon"/"logo", not paths. So:
+//
+//   - Owning ONE asset of a purpose, at any URL including an S3 one, makes every
+//     rendered path sharing that purpose's name unreportable. The `root` fallback
+//     below widens that to the whole `hero-*`, `icon-*`, `logo-*` prefix space.
+//   - Measured fleet-wide: **79 of 95** distinct rendered image paths across 13
+//     sites are masked this way — 83% of the surface — and SIX of the masked
+//     paths were serving live 404s at the time of measurement.
+//   - So a FINDING here means "no asset purpose matches this basename", which is
+//     neither HTTP status nor really registration; and ABSENCE means almost
+//     nothing at all. Do not read a clean run as "no broken images".
+//
+// A path-based predicate was measured and REFUTED as the fix: only 9 of those 79
+// paths have an assets row whose url/filename carries the basename, while 73 of
+// the 79 serve 200 — nothing in the DB records which static files were deployed,
+// so swapping the predicate would flag ~70 working images. See
+// check_image_url_404_masking_test.go, which pins this behaviour deliberately and
+// carries the trap: unmasking activates the knownPurposeMapping routing below,
+// which has NEVER fired in production (0 of 10 items ever created under an
+// image_url_404 key were needs_hero_image/needs_logo).
+//
 // Routing: the path's basename (without extension) is matched against
 // known purpose names. If a known purpose, route to image-build-handler.
 // Otherwise emit a flag-only finding — a human or a follow-up audit needs
