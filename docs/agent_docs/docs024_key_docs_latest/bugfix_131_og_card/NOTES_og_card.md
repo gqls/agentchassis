@@ -673,3 +673,51 @@ not eligibility. **If it is still `triaged` after the long watch, the next quest
 Amusing note for the record: I went looking for this because the council's `debug_historian`
 seat had warned me that morning about "the `sites.status` trap recurring on a different
 table". The warning was right about `assets.status` and did not transfer here.
+
+---
+
+## 2026-07-29 (10) — re-derived and LOOKED AT: the card is right; the favicon is fixed and still not good
+
+Item `0a6733e1` completed (~65 min queued, then seconds to run — queue contention, exactly as
+diagnosed, no intervention needed). On the wire:
+
+```
+og:image = https://relojistas.com/assets/images/og-card.png   200  31,293B  PNG 1200x630 RGB
+favicon                                                        200   2,231B  PNG 64x64 RGBA
+```
+
+**The card is correct — verified by `Read`, not by status.** The "Relojistas" wordmark, once,
+legible, centred on the cream brand ground, **and no letterbox rectangle** — the transparent
+knock-out on the source logo removed it, confirming that defect is an ASSET fix, not a code
+fix (NOTES (3) predicted this; now witnessed). This is the artefact that was a two-up spec
+sheet 24 hours ago.
+
+**The favicon is aspect-correct and RGBA (2,231B vs the old stretched RGB) — the fix works —
+and the honest read is that it is still not a good favicon.** Measured rather than eyeballed:
+
+```
+opaque bbox (4,22)-(60,41)  →  ink occupies 19px of the 64px canvas
+rendered at TRUE tab size (16px): an illegible grey smudge
+```
+
+**So do not claim "the favicon is fixed" without qualification.** What was fixed is the
+DISTORTION — a wide wordmark is no longer squashed to fill a square. What remains is
+structural and was never in scope: **a 2.35:1 wordmark cannot be a legible 16px favicon at
+any resize quality.** The right source for a favicon is a SQUARE mark — here, the gear glyph
+already inside the logo — not the full wordmark. `derive_brand_head_assets` has no concept of
+a separate favicon source; it always uses `asset_key='logo'`.
+
+> **This changes the plan I had written for the other four squashed sites, so I am saying so
+> rather than quietly doing it.** PLAN/SUMMARY said: sweep fundamentallyai, oufe, robot-hands,
+> vetcomparison. **I am NOT queueing those four**, and the reason is what the measurement above
+> just showed: all four are 1408×768 (1.83:1), so re-deriving buys them an *undistorted but
+> equally illegible* smudge, at the cost of four jobs in a queue already 104 deep with another
+> lane's work. **Undistorted-illegible is not materially better than distorted-illegible.**
+> The change that would actually help all five sites is a square favicon source, which is a
+> code + asset change nobody has scoped. Recorded as the real remaining work in the case file;
+> the sweep can be run in one command whenever someone judges it worth the queue slot.
+
+**Fleet-wide implication worth stating once:** every site whose `logo` is a wide image has an
+illegible tab icon today, distorted or not. That is 5 of 14 — and it is not a regression, it
+has always been true. `[UNVERIFIED]` whether the 9 square-logo sites' favicons are legible at
+16px; their sources are square marks so they should be, but I have not rendered them.
