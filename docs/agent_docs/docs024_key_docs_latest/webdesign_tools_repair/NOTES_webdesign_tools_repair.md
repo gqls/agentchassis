@@ -267,3 +267,43 @@ would have "repaired" working tools, most likely breaking some.
 **The rule this workstream now runs on: a negative verdict is a hypothesis
 until the page has been asked directly.** `evalpage.py <url> <expr>` is one
 command and it refuted four of my five faults on first use.
+
+---
+
+## 2026-07-29 — Repair #1: insight-injector (the loop, proven end to end)
+
+First tool through the full §3 loop. Timings and evidence, so the next one can
+be estimated:
+
+1. **Measured** — census verdict BROKEN, console: `TypeError: Cannot set
+   properties of null (setting 'innerHTML')` at load.
+2. **Diagnosed** — the script addressed five elements (`#biz-name`, `#biz-fact`,
+   `#biz-story`, `#biz-tone`, `#banned-tags`); the page contained one (`#output`).
+   **The port dropped the whole left-hand panel.** Its CSS survived intact
+   (`.tool-layout`, `.controls-panel`, `.input-group`, `.banned-words-box`,
+   `.banned-tag`) and so did every line of its JS. The page even still told the
+   visitor to "fill out the insights on the left" — and there was no left.
+3. **Fixed** — rebuilt the panel to the contract the surviving CSS and JS
+   already described. **Nothing redesigned and nothing invented**: every class
+   name and every element id came from code already on the page.
+4. **Verified in a browser, twice** — locally before shipping and on the live
+   URL after: 15 banned-word tags render, and a generated prompt carries the
+   business name, the hard fact, the customer story and the ban list. Screenshot
+   checked too, because "the JS returns the right string" is not the same as
+   "the page looks right".
+5. **PLAN + NOTES written to the database** (`SQL_t01`) — aim, delivery
+   mechanism, three *deliberate decisions — do not re-fix* (blank inputs are
+   allowed on purpose; the ban list is deliberately not user-editable; the
+   two-column layout is load-bearing because the copy refers to it), and a
+   `criteria` fence with eight checks including two interaction tests.
+   **This is the step that makes the repair durable** — the tool is now
+   something the acceptance ladder can test rather than a page nobody watches.
+6. **Shipped** — `gqls/sites`, deployed, re-probed live: **OK**.
+
+**The transferable finding for the remaining BROKEN seven:** all eight throw
+`null`-reference errors, and this one's cause was *missing markup, with working
+CSS and JS still in place*. If that holds for the others, the repairs are
+restorations rather than rewrites — cheap, and low-risk, because the surviving
+code states exactly what the markup must provide. Check that assumption per
+tool rather than assuming it: **the ids the script asks for are the
+specification.**
