@@ -30,6 +30,18 @@
 // low/medium objection is waved through. This corrects every council at once
 // (fix-proposer, gate, experience, concept-register) because they share it.
 //
+// That Degraded carve-out is right and stays, but 2026-07-29 (bugs_open/138)
+// measured what it costs: 17 rounds in 14 days were revised because a seat ran
+// out of tokens, and the verdict named the SEAT, so the cause was unattributable.
+// An advisory seat that runs long becomes a blocking seat, silently. The gate is
+// unchanged — relaxing it would let a cut-off high objection through, strictly
+// worse — but the round now SAYS SO: decided_by distinguishes "gating objection
+// from X" (a judgement) from "gating TRUNCATED objection from X" (a budget
+// overrun), and `gated_by_truncation` is persisted on every report so the rate is
+// countable rather than inferred. This matters because a high object-rate with no
+// signal line is also the documented kill-switch for retiring a seat, so the
+// missing label could get a working seat pulled for being cut off.
+//
 // The report is persisted to diagnosis_artifacts (kind='council_report') on
 // the SAME correlation_id as the diagnosis and the plan, and the decision is
 // returned so the workflow can route on it.
@@ -435,7 +447,7 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 			abstained, len(unreadable), strings.Join(unreadable, ", "))
 	}
 
-	decision, decidedBy := decideCouncil(reviews, hardVeto)
+	decision, decidedBy, truncationGated := decideCouncil(reviews, hardVeto)
 
 	// An unreadable seat must never be the difference between revise and approve.
 	// The hard error this replaces was protecting a real property — "a council
@@ -452,18 +464,24 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		decidedBy = fmt.Sprintf("unreadable reviewer(s): %s", strings.Join(unreadable, ", "))
 	}
 
+	// gated_by_truncation is emitted UNCONDITIONALLY, true or false, so its
+	// absence means "written before 2026-07-29" rather than "measured and clean" —
+	// a sometimes-present key cannot tell those apart, and the whole point of
+	// bugs_open/138 is that the rate was never measurable.
 	report, _ := json.Marshal(map[string]interface{}{
-		"decision":   decision,
-		"decided_by": decidedBy,
-		"reviews":    reviews,
-		"abstained":  abstained,
-		"unreadable": unreadable,
+		"decision":            decision,
+		"decided_by":          decidedBy,
+		"reviews":             reviews,
+		"abstained":           abstained,
+		"unreadable":          unreadable,
+		"gated_by_truncation": truncationGated,
 	})
 	metadata, _ := json.Marshal(map[string]interface{}{
-		"decision":   decision,
-		"reviewers":  len(reviews),
-		"abstained":  abstained,
-		"unreadable": len(unreadable),
+		"decision":            decision,
+		"reviewers":           len(reviews),
+		"abstained":           abstained,
+		"unreadable":          len(unreadable),
+		"gated_by_truncation": truncationGated,
 	})
 	if _, err := params.DB.ExecContext(ctx, `
 		INSERT INTO diagnosis_artifacts (
@@ -530,18 +548,20 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		zap.Strings("unreadable", unreadable),
 		zap.Int("round", round),
 		zap.Bool("should_revise", shouldRevise),
-		zap.Bool("should_reframe", shouldReframe))
+		zap.Bool("should_reframe", shouldReframe),
+		zap.Bool("gated_by_truncation", truncationGated))
 
 	return map[string]interface{}{
-		"decision":       decision,
-		"decided_by":     decidedBy,
-		"reviewers":      len(reviews),
-		"abstained":      abstained,
-		"unreadable":     len(unreadable),
-		"unreadable_at":  unreadable,
-		"round":          round,
-		"should_revise":  shouldRevise,
-		"should_reframe": shouldReframe,
+		"decision":            decision,
+		"decided_by":          decidedBy,
+		"reviewers":           len(reviews),
+		"abstained":           abstained,
+		"unreadable":          len(unreadable),
+		"unreadable_at":       unreadable,
+		"round":               round,
+		"should_revise":       shouldRevise,
+		"should_reframe":      shouldReframe,
+		"gated_by_truncation": truncationGated,
 	}, nil
 }
 
@@ -668,6 +688,18 @@ func severityGates(sev string) bool {
 	}
 }
 
+// hasGatingObjection reports whether the review contains an objection WE CAN
+// ACTUALLY SEE whose severity gates. Extracted 2026-07-29 (bugs_open/138) purely
+// so the reason a review gates stays recoverable — it does not change any rule.
+func hasGatingObjection(r councilReview) bool {
+	for _, o := range r.Objections {
+		if severityGates(o.Severity) {
+			return true
+		}
+	}
+	return false
+}
+
 // objectionGates reports whether an `object` review should force a revise rather
 // than be recorded as an advisory note. Only meaningful for verdict "object"
 // (veto and approve are handled by their own rules above). Two conservative
@@ -684,51 +716,95 @@ func objectionGates(r councilReview) bool {
 	if r.Degraded || len(r.Objections) == 0 {
 		return true
 	}
-	for _, o := range r.Objections {
-		if severityGates(o.Severity) {
-			return true
-		}
-	}
-	return false
+	return hasGatingObjection(r)
+}
+
+// gatesOnlyBecauseTruncated reports whether a gating review gates SOLELY because
+// its response was cut off — nothing that survived the truncation gates on its
+// own merits. This is the distinction bugs_open/138 is about: such a round would
+// have been approved (or carried advisory objections only) had the seat been read
+// in full, and until 2026-07-29 the verdict was indistinguishable from a genuine
+// one.
+//
+// Note the zero-objections case splits on Degraded, and deliberately: a review
+// cut off before it wrote ANY objection is truncated, not laconic, whereas a
+// complete review that objected without grading anything is a real (if sloppy)
+// judgement. Both still gate — only the label differs.
+func gatesOnlyBecauseTruncated(r councilReview) bool {
+	return objectionGates(r) && r.Degraded && !hasGatingObjection(r)
 }
 
 // decideCouncil applies the ordered rules. decidedBy names the rule that fired
 // so the report is auditable without re-deriving. A low/medium-only object does
 // not gate (rule 3, changed 2026-07-22) — see the file header for why.
-func decideCouncil(reviews []councilReview, hardVeto map[string]bool) (decision, decidedBy string) {
+//
+// truncationGated (added 2026-07-29, bugs_open/138) is true when the round gates
+// ONLY because one or more reviews were truncated — i.e. every gating review
+// would have been advisory had it been read in full. It is the flag that makes a
+// budget overrun countable and distinguishable from a judgement; see the naming
+// rule below for why a merits gate is named in preference to a truncated one.
+func decideCouncil(reviews []councilReview, hardVeto map[string]bool) (decision, decidedBy string, truncationGated bool) {
 	for _, r := range reviews {
 		if r.Verdict == "veto" && hardVeto[strings.ToLower(r.Reviewer)] {
-			return "rejected", "hard veto from " + r.Reviewer
+			return "rejected", "hard veto from " + r.Reviewer, false
 		}
 	}
 	for _, r := range reviews {
 		if r.Verdict == "veto" {
-			return "rejected", "veto from " + r.Reviewer
+			return "rejected", "veto from " + r.Reviewer, false
 		}
 	}
 	// Rule 3: only a HIGH-severity (or un-graded/degraded) objection gates. A
 	// low/medium objection is advisory — it rides along in the persisted report's
 	// `reviews` and reaches the proposer, but it does not force a revise.
-	var firstGate string
-	gating, advisory := 0, 0
+	var firstMeritsGate, firstTruncatedGate string
+	advisory, truncatedGates := 0, 0
 	for _, r := range reviews {
 		if r.Verdict != "object" {
 			continue
 		}
-		if objectionGates(r) {
-			gating++
-			if firstGate == "" {
-				firstGate = r.Reviewer
-			}
-		} else {
+		if !objectionGates(r) {
 			advisory++
+			continue
+		}
+		if !gatesOnlyBecauseTruncated(r) {
+			if firstMeritsGate == "" {
+				firstMeritsGate = r.Reviewer
+			}
+			continue
+		}
+		// Gates ONLY because it was cut off: nothing that survived the truncation
+		// gates on its own, and objectionGates kept it because a high objection
+		// may have been lost with the tail.
+		truncatedGates++
+		if firstTruncatedGate == "" {
+			firstTruncatedGate = r.Reviewer
 		}
 	}
-	if gating > 0 {
-		return "revise", "gating objection from " + firstGate
+	switch {
+	case firstMeritsGate != "":
+		// A merits gate is named in PREFERENCE to a truncated one even when the
+		// truncated seat came first in review order. The round genuinely gates on
+		// what a reviewer said, and labelling it TRUNCATED would invite the author
+		// to dismiss a real objection as a token-budget problem — the exact
+		// inversion of the harm this label exists to prevent.
+		return "revise", "gating objection from " + firstMeritsGate, false
+	case firstTruncatedGate != "":
+		// Every gating review was truncated. Say so: without this the verdict
+		// names a seat that did not intend to decide, and a high object-rate with
+		// no signal line is also the documented kill-switch for retiring a seat —
+		// so a seat can be pulled for being noisy when it was being cut off
+		// (bugs_open/138, proven on review_architecture: 2-of-3 → 2-of-12 once it
+		// stopped truncating).
+		also := ""
+		if truncatedGates > 1 {
+			also = fmt.Sprintf(" (+%d more truncated seat(s))", truncatedGates-1)
+		}
+		return "revise", fmt.Sprintf(
+			"gating TRUNCATED objection from %s%s — cut off at max_tokens, so the severities we can see cannot be trusted (a budget gate, not a judgement)",
+			firstTruncatedGate, also), true
+	case advisory > 0:
+		return "approved", fmt.Sprintf("approved with %d advisory objection(s) — none high-severity", advisory), false
 	}
-	if advisory > 0 {
-		return "approved", fmt.Sprintf("approved with %d advisory objection(s) — none high-severity", advisory)
-	}
-	return "approved", "all reviewers approve"
+	return "approved", "all reviewers approve", false
 }

@@ -256,3 +256,81 @@ in 14d at cap 12000** (llm_call_log, `agent_type='experience-approval-council'`)
 for your candidate 4 (schema order / length budget) over pure cap-raising.
 Owned by the experience-loop workstream; flagged here because this file is where
 the mechanism lives, not actioned by me.
+
+## 2026-07-29 ~13:10Z — CANDIDATE 1 IS WRITTEN AND TESTED (thread "bugsearch 5", the filer)
+
+`platform/orchestration/actions/diagnose_council_decide_action.go`. **The gate is
+untouched** — `objectionGates` is byte-for-byte the same rule, and its pre-existing
+test passes unmodified, which is the check that matters here. What changed is only
+that the *reason* a review gates is now recoverable and said out loud:
+
+- `hasGatingObjection(r)` extracted — is there an objection **we can actually see**
+  whose severity gates?
+- `gatesOnlyBecauseTruncated(r)` = gates AND `Degraded` AND nothing surviving gates
+  on its own. This is the round that would have been APPROVED had the seat been
+  read in full.
+- `decided_by` now reads `gating TRUNCATED objection from X — cut off at
+  max_tokens, so the severities we can see cannot be trusted (a budget gate, not a
+  judgement)`.
+- **`gated_by_truncation` is persisted on every council report**, in `body` AND in
+  `metadata` (jsonb, so candidate 2's alert is a one-line query on an indexed
+  column rather than a cast over text). Emitted unconditionally, true or false, so
+  its ABSENCE means "written before today" rather than "measured and clean" — a
+  sometimes-present key cannot tell those two apart, which is the exact ambiguity
+  this bug is about.
+
+**Two judgement calls, both pinned by tests:**
+
+1. **A merits gate is named in PREFERENCE to a truncated one**, even when the
+   truncated seat comes first in review order. Naming a round TRUNCATED when a
+   second seat gated on a real high-severity objection would invite the author to
+   dismiss a genuine objection as a token-budget problem — the exact inversion of
+   the harm this label exists to prevent. So the TRUNCATED label now carries a
+   precise meaning: *nothing else gated this round*.
+2. **A degraded review with ZERO objections counts as truncated, not as a bare
+   object.** It was cut off before it wrote any; a complete review that objected
+   without grading anything is a real (if sloppy) judgement. Both still gate —
+   only the label differs.
+
+### Measured on 14 days of real reports, by replaying the new rule in SQL
+
+Not a claim about what it would do — the rule re-run over the actual `reviews[]`
+history (query in the RUNBOOK):
+
+| | rounds |
+|---|---|
+| revise rounds gated by an objection | **63** |
+| would now read **TRUNCATED** (nothing else gated them) | **10 (16%)** |
+| mixed: a truncated gate AND a merits gate | 3 |
+| unchanged ordinary gate | 50 |
+
+**One round in 15 changes which seat is NAMED** (07-24 12:12: today names
+`editquality`, the truncated seat; under the new rule names `guidelines`, which
+raised the surviving gating objection). That is the whole behavioural blast radius
+of this change, and it moves the name onto the seat with the real objection.
+
+Reconciles with this file's seat-level "17" rather than contradicting it: **18**
+degraded gating seats in the (rolling, now later) window, of which **15** gate
+solely on truncation, appearing in **15 distinct reports** — 13 of which were
+actually decided by a gating objection (the other two: one `rejected` by hard veto,
+where the truncation never mattered and the new flag correctly stays false; one
+carrying the pre-07-22 `objection from X` label). Seat-level counts seats,
+report-level counts rounds; a round can hold more than one.
+
+### Candidate 3 is further along than this file says — read the roster, not the file
+
+`config.ai_service.max_tokens` (**not** `config.max_tokens` — a query at the wrong
+depth returns a confident "unset" for every seat, which is how I nearly recorded
+editquality as unfixed). Live roster now: **4 seats at 16000** — `architecture`,
+`editquality`, `guidelines`, `prior_art` — and **13 at 8000**.
+
+Cross that against the 14-day table above and **every seat that has actually
+produced a truncation gate is now at 16000 except `guardian` (1 occurrence)**. So
+the immediate exposure is small — but that is exactly why candidate 1 is still the
+load-bearing fix: raising a cap does not close the door, it moves it. `architecture`
+was the proof — a *new, longer* prompt reintroduced truncation against the same cap
+within hours of being seated. The label makes the next one legible on arrival
+instead of after a 14-day forensic query.
+
+**Still open: candidates 2 (alert on the rate — now cheap, the flag exists) and 4
+(load-bearing field first in every seat's schema).**

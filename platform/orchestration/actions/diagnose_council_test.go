@@ -19,6 +19,8 @@ func TestDecideCouncil(t *testing.T) {
 		}
 		return r
 	}
+	// degraded marks a review as recovered from a truncated response.
+	degraded := func(r councilReview) councilReview { r.Degraded = true; return r }
 	guardianVeto := map[string]bool{"guardian": true}
 
 	cases := []struct {
@@ -27,31 +29,106 @@ func TestDecideCouncil(t *testing.T) {
 		hard     map[string]bool
 		decision string
 		byPrefix string
+		trunc    bool
 	}{
-		{"all approve", []councilReview{rv("quality", "approve"), rv("guardian", "approve")}, guardianVeto, "approved", "all reviewers"},
+		{"all approve", []councilReview{rv("quality", "approve"), rv("guardian", "approve")}, guardianVeto, "approved", "all reviewers", false},
 		// A bare object with no gradable objection still gates (pre-severity behaviour kept).
-		{"bare object → revise", []councilReview{rv("quality", "object"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
-		{"hard veto wins over objections", []councilReview{rv("quality", "object"), rv("guardian", "veto")}, guardianVeto, "rejected", "hard veto from guardian"},
-		{"advisory veto still rejects", []councilReview{rv("quality", "veto"), rv("guardian", "approve")}, guardianVeto, "rejected", "veto from quality"},
-		{"hard veto reported as hard", []councilReview{rv("guardian", "veto"), rv("quality", "veto")}, guardianVeto, "rejected", "hard veto from guardian"},
+		{"bare object → revise", []councilReview{rv("quality", "object"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality", false},
+		{"hard veto wins over objections", []councilReview{rv("quality", "object"), rv("guardian", "veto")}, guardianVeto, "rejected", "hard veto from guardian", false},
+		{"advisory veto still rejects", []councilReview{rv("quality", "veto"), rv("guardian", "approve")}, guardianVeto, "rejected", "veto from quality", false},
+		{"hard veto reported as hard", []councilReview{rv("guardian", "veto"), rv("quality", "veto")}, guardianVeto, "rejected", "hard veto from guardian", false},
 		// Severity gate (owner ruling 2026-07-22): only high gates; low/medium are advisory.
-		{"high objection → revise", []councilReview{obj("quality", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
-		{"medium-only objection → approved (advisory)", []councilReview{obj("quality", "medium"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 1 advisory"},
-		{"low-only objection → approved (advisory)", []councilReview{obj("quality", "low"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 1 advisory"},
-		{"two medium seats → approved (only high gates)", []councilReview{obj("a", "medium"), obj("b", "medium"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 2 advisory"},
-		{"mixed low+high in one seat → high gates", []councilReview{obj("quality", "low", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
-		{"one medium seat, one high seat → high gates", []councilReview{obj("a", "medium"), obj("b", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from b"},
-		{"unset severity gates (not explicitly minor)", []councilReview{obj("quality", ""), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
-		{"unrecognised severity gates", []councilReview{obj("quality", "critical"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
+		{"high objection → revise", []councilReview{obj("quality", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality", false},
+		{"medium-only objection → approved (advisory)", []councilReview{obj("quality", "medium"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 1 advisory", false},
+		{"low-only objection → approved (advisory)", []councilReview{obj("quality", "low"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 1 advisory", false},
+		{"two medium seats → approved (only high gates)", []councilReview{obj("a", "medium"), obj("b", "medium"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 2 advisory", false},
+		{"mixed low+high in one seat → high gates", []councilReview{obj("quality", "low", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality", false},
+		{"one medium seat, one high seat → high gates", []councilReview{obj("a", "medium"), obj("b", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from b", false},
+		{"unset severity gates (not explicitly minor)", []councilReview{obj("quality", ""), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality", false},
+		{"unrecognised severity gates", []councilReview{obj("quality", "critical"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality", false},
+
+		// bugs_open/138: a truncated seat still gates (unchanged), but the verdict
+		// must now SAY the gate came from a token budget, not a judgement.
+		{"degraded medium-only → revise, named as TRUNCATED",
+			[]councilReview{degraded(obj("architecture", "medium")), rv("guardian", "approve")},
+			guardianVeto, "revise", "gating TRUNCATED objection from architecture", true},
+		{"degraded with zero objections → TRUNCATED (cut off before it wrote any)",
+			[]councilReview{degraded(rv("architecture", "object")), rv("guardian", "approve")},
+			guardianVeto, "revise", "gating TRUNCATED objection from architecture", true},
+		// A high objection that SURVIVED the truncation is a real judgement: the
+		// seat said the thing, we read it, the cut-off tail is beside the point.
+		{"degraded but a high objection survived → an ordinary gate",
+			[]councilReview{degraded(obj("architecture", "medium", "high")), rv("guardian", "approve")},
+			guardianVeto, "revise", "gating objection from architecture", false},
+		// The inversion this label must not cause: naming the round TRUNCATED when
+		// a second seat gates on merits would invite the author to dismiss a real
+		// objection as a budget problem. A merits gate is named in preference even
+		// though the truncated seat comes FIRST in review order.
+		{"truncated seat first, merits gate second → names the merits gate",
+			[]councilReview{degraded(obj("architecture", "medium")), obj("quality", "high"), rv("guardian", "approve")},
+			guardianVeto, "revise", "gating objection from quality", false},
+		{"two truncated gates → names one and counts the rest",
+			[]councilReview{degraded(obj("architecture", "medium")), degraded(obj("editquality", "low")), rv("guardian", "approve")},
+			guardianVeto, "revise", "gating TRUNCATED objection from architecture (+1 more truncated seat(s))", true},
+		// A degraded seat that APPROVED is not a gate at all — truncation only
+		// matters where it changed the outcome.
+		{"degraded approval is not a truncation gate",
+			[]councilReview{degraded(rv("architecture", "approve")), rv("guardian", "approve")},
+			guardianVeto, "approved", "all reviewers", false},
+		// A veto short-circuits before any gate counting, so the flag stays false
+		// even with a truncated objector in the round.
+		{"veto outranks a truncated gate",
+			[]councilReview{degraded(obj("architecture", "medium")), rv("guardian", "veto")},
+			guardianVeto, "rejected", "hard veto from guardian", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			d, by := decideCouncil(tc.reviews, tc.hard)
+			d, by, trunc := decideCouncil(tc.reviews, tc.hard)
 			if d != tc.decision {
 				t.Fatalf("decision: want %s got %s (by %s)", tc.decision, d, by)
 			}
-			if tc.byPrefix != "" && len(by) < len(tc.byPrefix) || by[:len(tc.byPrefix)] != tc.byPrefix {
+			if tc.byPrefix != "" && !strings.HasPrefix(by, tc.byPrefix) {
 				t.Fatalf("decided_by: want prefix %q got %q", tc.byPrefix, by)
+			}
+			if trunc != tc.trunc {
+				t.Fatalf("gated_by_truncation: want %v got %v (by %s)", tc.trunc, trunc, by)
+			}
+		})
+	}
+}
+
+// bugs_open/138: the two reasons a review can gate must stay distinguishable, and
+// objectionGates itself must not have moved while they were separated.
+func TestGatesOnlyBecauseTruncated(t *testing.T) {
+	o := func(sev string) councilObjection { return councilObjection{Problem: "p", Severity: sev} }
+	cases := []struct {
+		name      string
+		r         councilReview
+		wantGates bool
+		wantTrunc bool
+	}{
+		{"clean medium-only object: advisory, not a gate at all",
+			councilReview{Verdict: "object", Objections: []councilObjection{o("medium")}}, false, false},
+		{"clean bare object: gates on the not-explicitly-minor rule, NOT truncation",
+			councilReview{Verdict: "object"}, true, false},
+		{"clean high object: an ordinary gate",
+			councilReview{Verdict: "object", Objections: []councilObjection{o("high")}}, true, false},
+		{"degraded medium-only: gates ONLY because it was cut off",
+			councilReview{Verdict: "object", Degraded: true, Objections: []councilObjection{o("medium")}}, true, true},
+		{"degraded bare object: cut off before writing any objection",
+			councilReview{Verdict: "object", Degraded: true}, true, true},
+		{"degraded with a surviving high: a real judgement despite the truncation",
+			councilReview{Verdict: "object", Degraded: true, Objections: []councilObjection{o("medium"), o("high")}}, true, false},
+		{"degraded approval: nothing to gate",
+			councilReview{Verdict: "approve", Degraded: true}, false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := objectionGates(tc.r); got != tc.wantGates {
+				t.Fatalf("objectionGates: want %v got %v", tc.wantGates, got)
+			}
+			if got := gatesOnlyBecauseTruncated(tc.r); got != tc.wantTrunc {
+				t.Fatalf("gatesOnlyBecauseTruncated: want %v got %v", tc.wantTrunc, got)
 			}
 		})
 	}
@@ -208,7 +285,7 @@ func TestUnreadableSeatCannotApprove(t *testing.T) {
 	}
 	// The downgrade as applied in DiagnoseCouncilDecideAction.
 	decide := func(reviews []councilReview, unreadable []string) string {
-		d, _ := decideCouncil(reviews, map[string]bool{"guardian": true})
+		d, _, _ := decideCouncil(reviews, map[string]bool{"guardian": true})
 		if d == "approved" && len(unreadable) > 0 {
 			d = "revise"
 		}
@@ -406,7 +483,7 @@ func TestOneBadSeatDoesNotVoidTheRound(t *testing.T) {
 	// Seat B: read cleanly.
 	b := councilReview{Reviewer: "edit-quality", Verdict: "approve"}
 
-	decision, decidedBy := decideCouncil([]councilReview{a, b}, map[string]bool{"guardian": true})
+	decision, decidedBy, _ := decideCouncil([]councilReview{a, b}, map[string]bool{"guardian": true})
 	if decision != "revise" {
 		t.Fatalf("the salvaged seat's objection must still decide, got %s (%s)", decision, decidedBy)
 	}
@@ -416,7 +493,7 @@ func TestOneBadSeatDoesNotVoidTheRound(t *testing.T) {
 
 	// And a seat lost entirely still cannot be the difference between revise and
 	// approve: two clean approvals plus one unreadable seat downgrades.
-	d, _ := decideCouncil([]councilReview{b, {Reviewer: "guardian", Verdict: "approve"}}, map[string]bool{"guardian": true})
+	d, _, _ := decideCouncil([]councilReview{b, {Reviewer: "guardian", Verdict: "approve"}}, map[string]bool{"guardian": true})
 	if d != "approved" {
 		t.Fatalf("precondition: clean approvals should approve, got %s", d)
 	}
