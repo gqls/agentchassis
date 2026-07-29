@@ -194,3 +194,60 @@ Where it stands: the bug is fixed and live and now properly tested. The review i
 mid-second-round. If the guardian still thinks the scope was wrong after getting
 straight answers, that's a judgement for you rather than something I should argue
 into submission, and I'll bring it to you if so.
+
+---
+
+**2026-07-29, later the same day.** I went back and did the one thing this job left
+owed, and it turned out to be more interesting than expected.
+
+Recap of where it stood: we now have a set of ten "no site may say this" patterns, but
+only nine were switched on. The tenth — the one that catches a site claiming its
+information has been "independently verified" — was left out, because when I test-ran
+it yesterday it flagged four sentences and all four were **honest** ones. Sentences
+like "where manufacturer data has *not* been independently verified, we say so". The
+pattern can see the phrase but not the word "not" in front of it, so it was failing
+pages for being careful, which is the exact opposite of the point. I wrote a note in
+the code saying it must not come back until something in the code could tell the
+difference.
+
+That something now exists. It looks backwards from the phrase for a "not", "never",
+"cannot", "doesn't" and so on, and stops looking at the first comma — so a denial in
+the same breath counts, but "we do not use AI, **and** every claim here is verified"
+still gets caught, because the denial is about something else. All four honest
+sentences now pass, and they pass for the right reason rather than by accident.
+
+**Two things I got wrong, both caught by measuring rather than by thinking harder.**
+
+First, I tried to be clever. I worried the pattern would also flag a legitimate
+sentence like "our accounts are independently audited" — true of plenty of real
+businesses and none of our business — so I narrowed it to only fire when it was talking
+about claims, figures, prices and so on. Then I ran both versions over every page we
+have, and my clever version found **nothing at all**. Zero. The plain version found
+**two real problems**. So my narrowing hadn't made it safer, it had switched it off,
+and a switched-off check looks exactly like a check with nothing to find. I threw my
+version away and wrote down the trap instead.
+
+Second, and more embarrassing: I "confirmed" that our page count still matched
+yesterday's figure by adding up a column of numbers in my head and getting the answer I
+expected. It's 919, not 908. It had grown by eleven overnight and I'd manufactured the
+agreement rather than running the one-line query sitting right there.
+
+**The finding that actually matters to you.** Yesterday I told you this scan came back
+completely clean across the whole estate. That was true of the nine patterns switched
+on — and it was **clean because the interesting pattern was switched off**. With it on,
+two pages on robot-hands.com claim the gripper specification data is "independently
+verified". Nothing independently verifies it; we scrape it from manufacturer
+datasheets, and that site's own records have no entry saying otherwise. Worse, the same
+site promises elsewhere that it labels unverified data — so it's contradicting itself on
+its own pages.
+
+I have not touched the copy. That site belongs to another line of work and rewriting
+someone else's site voice isn't mine to do; I've written the case up with the exact
+sentences and three suggested fixes, and left a note where that lane will see it. The
+practical consequence is that those two page sections **won't rebuild** until the wording
+changes. Nothing goes down — the live pages carry on being served — but anyone who tries
+to regenerate them gets a clear refusal explaining why.
+
+So: the honest read is that we've swapped a comfortable "zero problems" for a real
+"two problems", and the two were always there. That's the check earning its keep. The
+review board is looking at it now.
