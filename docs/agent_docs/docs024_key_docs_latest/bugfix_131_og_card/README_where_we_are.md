@@ -98,3 +98,43 @@ a build and a deploy), because the relojistas re-run should produce its tab icon
 squashing is fixed, not before. While that is in review, get the corrected relojistas logo into
 storage via the cluster, and fire the two fresh-logo generations so there is something to show
 you. Nothing goes live on any of the three sites without the pictures having been looked at.
+
+---
+
+## 2026-07-29, late morning — relojistas' logo is fixed and live, and I got the deploy wrong once on the way
+
+**The headline: relojistas.com now shows its actual name in the header.** Not the two-up
+specification sheet squeezed into a thumbnail — the real wordmark, legible, on every page. I
+looked at the live file to confirm it rather than trusting the byte count.
+
+Getting there took a detour worth telling you about, because it is the kind of mistake that
+looks like success. I published the corrected logo, the deploy ran green, the cache purge
+reported success — and the site kept showing the old picture. I decided the cause was a
+slow intermediate server somewhere in the chain, and I was wrong. **We have two different
+publishing routes, and each site is on one of them:** some sites are served from a virtual
+machine, others from cloud storage. relojistas is a virtual-machine site and I had published
+to the storage route, into a folder that exists but that nobody reads. One database column
+would have told me. Republished to the right place and it was live in two minutes.
+
+I am flagging it rather than quietly fixing it for two reasons. First, **idea.uk is on the
+same virtual-machine route**, and that site now belongs to the other session, so they needed
+warning before making the same mistake — I've written it into the shared notes. Second, I had
+labelled my wrong explanation as a guess rather than a finding, and that label is the only
+reason it did not end up recorded as fact. That habit earned its keep today.
+
+**On the code fix:** the reviewers approved it, but not first time, and their objection was a
+good one. My original version only honoured an "approved, do not overwrite" mark on assets
+whose status was exactly *active* — and it turns out that status field is free text with no
+rules, so an approved item filed under any other status would have been quietly overwritten
+anyway. I removed the condition entirely: an approval now blocks overwriting whatever else is
+true of the record. They also asked, correctly, whether any *other* part of the system has the
+same flaw. It does — the content-card generator — so I measured it (nothing is currently at
+risk), wrote it up as its own bug, and left it for a separate fix rather than quietly widening
+this one.
+
+**Where it stops for now:** the fixed code is built and reviewed but not yet running, because
+publishing the new build to the image registry needs a permission I do not have in this
+session. Everything downstream of that — regenerating relojistas' social card and tab icon
+with the corrected logo, and the sweep to repair the squashed tab icons on the other nine
+sites — is waiting on that one command. Nothing is broken while it waits; the sites are all in
+the state they were this morning, plus relojistas' header being right.
