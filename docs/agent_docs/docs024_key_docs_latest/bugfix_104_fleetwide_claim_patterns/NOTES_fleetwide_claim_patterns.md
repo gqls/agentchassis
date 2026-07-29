@@ -527,3 +527,88 @@ re-deriving its justification, and a **silent failure mode in the lever itself**
 Not one of those would have been found by re-reading my own diff, and three of the
 four are the same shape — *a thing that looks identical whether it is working or
 not*, which is the failure this whole workstream started out being about.
+
+---
+
+## 2026-07-29 (session "bugsearch 6", second sitting) — the deferred guard, built; and the set stops being clean
+
+The one thing 104 left owed: the strongest pattern of the ten was excluded because all
+four of its dry-run findings were false positives on **negated** sentences, and the
+file recorded the condition for its return — a guard in code, since RE2 has no
+lookbehind. Built it. Committed `116fdffd8`, council `8a41e1a5-e670-4e50-a875-f8418ee15738`.
+
+**Re-checked the premise before building on it.** "No negation-guard prior art in the
+estate" was written 07-28; re-grepped `platform/ internal/ pkg/ cmd/` today for
+`negat|lookbehind|precededBy` — every hit is "negative control", "negative prompt", or
+a false-negative discussion. Still true. (`voicetells.go:212` still looks like one and
+still is not: it *checks for* defining-by-negation as a style tell.)
+
+**Design: universal, not pattern-opt-in.** The guard sits in the one shared
+`ScanBannedClaims`, so the fleet-wide set and every per-site register get identical
+treatment. Two rules for one gate is precisely the drift class this council reviews
+for (CLM-004). It cost a signature change — `FindStringIndex` → `FindAllStringIndex`,
+because a block can assert once and deny once, and the occurrence count must be of
+survivors.
+
+**Clause-local, and the cue list is narrow on purpose.** Stops at the first comma or
+stronger, so "we do not use AI, and every claim here is verified" still blocks.
+`without` and bare `no` are **excluded** — "Without exception, every claim is
+verified" and "There are no exceptions: …" are intensifiers, and including them would
+silently disarm a blocker gate. Residual stated, not guarded: "no figure here is
+independently verified" would still be a false positive; zero occurrences in the
+corpus.
+
+### The measurement contradicted my own design, twice, and that is the useful part
+
+I shipped the restored pattern **subject-anchored** first, to dodge "our accounts are
+independently audited". Then measured both forms over the full surface, same run:
+
+| candidate | findings | suppressed |
+|---|---|---|
+| bare | **2 real** | **4** |
+| subject-anchored | **0** | **0 — matched nothing at all** |
+
+Not narrower — **inert**. And an inert pattern looks exactly like a well-behaved one.
+Shipped bare. → 016b §9, and `WRONG_CALLS` 07-29 item 1.
+
+The bare form also surfaced a **fifth** live sentence of this shape that I had never
+seen: robot-hands `gripper-catalog`, *"…pulled from manufacturer datasheets **and
+independently verified**."* Assertive, unsupported, and invisible until now precisely
+because the four false positives were the reason the pattern got excluded. Its
+`evidence_base` has 5 facts, all counts, `banned_claims: []` — nothing to cite. Filed
+`bugs_open/147`, pointer in the `robot_hands` lane NOTES, **copy not touched** (that
+site's voice is theirs).
+
+### Two things I got wrong in this session's own record
+
+- **A "verbatim" fixture that isn't.** The 07-28 fixture list held four negated
+  sentences; there were only **three**. The dry run said "4 findings" and I read that
+  as 4 sentences — vonc's was counted twice, on two components — so I recruited a
+  nearby sentence containing the phrase. It contains no negation and is an assertion;
+  it is now in the must-block list, verbatim including the em-dash clause. **Findings
+  ≠ sentences**: a per-pattern scanner reports once per pattern per block.
+  *Caught by a test, not by review* — and it could not have been caught at all while
+  the pattern was absent from the set. That is the whole 016b §9 entry.
+- **The corpus is 919 components, not 908.** I "confirmed" the per-site table summed
+  to yesterday's 908 by adding it up wrong (dropped oufe's 11) and wrote that the
+  corpus was unchanged. It had grown by 11. One `count(*)` instead of arithmetic.
+  104's and RFC 003's 908 were right when measured; today's figure is 919 and both now
+  carry the correction.
+
+### The consequence that matters most, stated plainly
+
+**104's headline — "0 findings across the whole enforcement surface" — is spent, and it
+was an artefact of the excluded pattern**, not evidence the estate was clean. Armed:
+**2 findings, 4 suppressed, 919 components / 14 sites**. Two robot-hands components
+will not rebuild until their copy changes. Live pages keep serving; the gate bites on
+rebuild only. That is the gate working, and it is written into the code header, the
+register (CLM-015 correction + CLM-017) and the RUNBOOK rather than only here.
+
+### A stale binary nearly ate the whole measurement
+
+The dry-run loop reported **0 findings on all 14 sites** and looked perfect. The
+`go build` ahead of it had failed with `go.mod file not found` (run from the scratchpad
+dir), the `||` fallback failed the same way, and the previous binary — carrying the
+inert anchored pattern — scanned everything. Caught only because the build error was
+still on screen. `claimscan` prints its fleet-wide pattern count to stderr; **that
+number is the control, and it is now RUNBOOK §13.**

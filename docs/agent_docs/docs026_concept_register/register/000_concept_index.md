@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,655 concepts across 107 category register files. 1,627 consolidated from
+1,656 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -44,7 +44,12 @@ that makes a shape vocabulary worth keeping: two components that look nothing al
 share one micro-journey; and 1 more (FIX-055) added 2026-07-29 — truncation-gate
 attribution on the council report, from `bugs_open/138`, because a reviewer that
 ran out of tokens was gating rounds under a label that named the SEAT, making an
-advisory seat blocking and a working seat look noisy enough to retire.
+advisory seat blocking and a working seat look noisy enough to retire; and 1 more
+(WFA-003) added 2026-07-29 from the `bugs_open/144` fix — sub-workflow validation
+and the exported step traversal that comes with it, because the runtime validator
+and the offline config-key audit had each written their own top-level-only walk,
+were therefore blind in the same direction, and agreed with each other over 85
+live steps that nothing had ever checked.
 That last group carries a note on method: the first of the five was added alone,
 and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
 workstream as covered while four callable mechanisms were still absent. The
@@ -84,7 +89,7 @@ the entire **claims-verification** subsystem was absent. Its first plan is dated
 2026-07-16, three days after extraction froze, so V0–V5, the `evidence_base`
 register, the banned-claim scanner and the citation verifier were never
 extracted; `grep -rl evidence_base register/` returned nothing until today. Added
-as `claims-verification.md`, **15 concepts (CLM-001..015)**, grounded in code and
+as `claims-verification.md`, **17 concepts (CLM-001..017)**, grounded in code and
 DB read first-hand on 2026-07-27 rather than carried from other documents.
 
 Two of the twelve are recorded defects rather than descriptions — `CLM-009`
@@ -226,6 +231,7 @@ an ID prefix, or a status word.
 | TL-001 | Tool widget clobber hazard (interactive content silently destroyed by content rebuild) | deployed | A tool/game lives as a section's rendered_html, not a planned section, so any full rebuild (needs_page,... | tool-lifecycle.md |
 | WFA-001 | Workflow Builder & Validator (YAML DSL) | abandoned | A validation-first YAML-to-workflow-JSON authoring system; no later doc references it as ever used. | workflow-authoring.md |
 | WFA-002 | `$ctx.` execution-context parameter namespace for `query_database` | deployed | Any workflow's SQL can bind the identity of the run executing it ($ctx.correlation_id, …), so a claim step can record which run took a queued row. | workflow-authoring.md |
+| WFA-003 | Sub-workflow validation + one shared step traversal | built (inert until roll) | Steps nested in a loop's sub_workflow are validated at last (85 live steps, 18 agents); WalkSteps is exported so audits stop writing their own top-level-only walk. | workflow-authoring.md |
 | IMP-044 | Defect-cataloguing discipline (enumerate-before-fixing) | deployed | A working method for a real adoption-run defect sweep: group symptoms into lettered families by shared mechanism... | improvement-loop.md |
 | DBG-059 | orchestration_state_audit: temporary attachable trigger for state races | deployed | AFTER UPDATE trigger capturing every transition; explicitly removed after use | debugging.md |
 | SOC-002 | Spark — AI game-master social platform (core concept) | partial | AI as producer not performer; opinion-first provocation game; v1 live on vonc.com | social-media.md |
@@ -1797,7 +1803,8 @@ an ID prefix, or a status word.
 | CLM-013 | Series facts: many dated observations, each independently sourced | deployed | Every observation carries its OWN source, never inherited; a rule enforced only in a validator is not enforced | claims-verification.md |
 | LNK-023 | repairOutboundPageLinks: shared rerender-path link repair | deployed | The build gate's dead-link repair applied where rerendered HTML leaves for deploy, both paths, origin-stamped log | link-management.md |
 | CTXA-024 | GitHubSource.CommitInfo: commit identity + committer date | deployed | Resolves short sha to full + committer date so index freshness keys on the commit, never the row clock | context-assembly.md |
-| CLM-015 | The fleet-wide banned-claim set: nine patterns no site may assert about itself | committed, INERT until roll | Nil-safe, so an unarmed site is protected; NOT unioned at parse time because EvidenceBase is marshalled back to site_specs; the negation-prone pattern is deliberately excluded | claims-verification.md |
+| CLM-015 | The fleet-wide banned-claim set: ten patterns no site may assert about itself | LIVE v1.0.1196, council-APPROVED | Nil-safe, so an unarmed site is protected; NOT unioned at parse time because EvidenceBase is marshalled back to site_specs. UPDATED 07-29: the negation-prone pattern is now ARMED behind CLM-017's guard, and this entry's '0 findings' headline was an ARTEFACT of its absence — armed, the set finds 2 live overclaims (bugs_open/147) | claims-verification.md |
 | CLM-014 | cmd/claimscan: run the live gate's own engine over exported page HTML, offline | deployed | The only way to test a candidate pattern set against copy other than the site it was written for; a session nearly rebuilt it. Prints BANNED/NUMBER, never the string "banned_claim" | claims-verification.md |
 | CLM-016 | ClaimSurface: the page's structural type gates the prose number heuristic | committed, INERT until roll | 124 live findings -> 63, suppressing 61 measured false positives and nothing else; ONLY the heuristic is gated (banned claims and stat fields still scan every page type); zero value = UNKNOWN = scanned | claims-verification.md |
+| CLM-017 | The negation guard: a banned PHRASE is not a banned CLAIM | committed, INERT until roll | Clause-local (stops at the first comma) so a negation in another clause cannot launder an overclaim; applies to per-site registers too — one matcher, not two that drift; 'without' and bare 'no' deliberately EXCLUDED as intensifiers. Two landmines: a pattern-set test passes VACUOUSLY when the pattern is absent, and narrowing a pattern by reasoning made it match nothing across 919 live components | claims-verification.md |
 | LNK-024 | repairSectionsBeforePersist: dead-link repair at the PERSISTENCE point | deployed | The gate repairs clean_html, which the structured save path never reads — so repair moves to where sections are written; 4 of 6 persistence paths had none by any route | link-management.md |

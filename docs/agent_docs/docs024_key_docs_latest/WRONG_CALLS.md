@@ -11401,3 +11401,47 @@ about your change until you have separated HEAD from the working tree.**
 > here rather than built unasked: a `sql_for_agents` helper (or a pattern-check rule)
 > that reads a seat's cap by name, so no thread hand-writes the path again — the same
 > reasoning that earned `check_append_only_docs` its place in `scripts/pattern-check.py`.
+
+---
+
+## 2026-07-29 — bugsearch 6 — three in one session, all on the same change, all caught by measurement rather than by me
+
+Arming the negation guard for the fleet-wide claim set (`bugs_closed/104` follow-up,
+commit `116fdffd8`). The change is sound; these are the three claims I made along the
+way that were not.
+
+**1. I narrowed a pattern to dodge a false positive I had invented, and made it
+inert.** I shipped the restored external-verification pattern subject-anchored
+(content noun + `is/are` nearby) to avoid flagging "our accounts are independently
+audited". Dry run over 919 live components: the anchored form matched **nothing at
+all**, while the bare form found **2 real overclaims** and the guard suppressed the 4
+false positives. *The cheap check that would have:* run the pattern you are replacing
+next to its replacement, in the same run — one extra invocation. *The tell:* my
+justification was a sentence I made up, not one I found in the corpus. Now 016b §9.
+
+**2. I mis-added a column of numbers to "confirm" a prior figure, and recorded the
+corpus as unchanged when it had grown.** The per-site component counts summed to
+**919**; I read them as matching yesterday's 908 and wrote "matches the runbook, so
+the corpus is unchanged". Yesterday's 908 was correct yesterday. *The cheap check that
+would have:* one `count(*)` query instead of mental arithmetic over a 14-row table —
+and the general form, **never confirm a prior figure by re-deriving it the hard way;
+re-run the query that produced it.** Same family as the reflex that keeps stale
+premises alive, except here I actively manufactured the agreement.
+
+**3. A "verbatim" fixture list contained a sentence that does not belong to it.** The
+07-28 dry run reported **4 findings**; I read that as 4 sentences and recruited a
+nearby sentence containing the same phrase to make up the number. There were **3**
+distinct sentences — one site's was counted twice, on two components. The recruited
+one contains no negation at all and is in fact an assertion, so it now sits in the
+must-block list. *What caught it:* not review — a new test that asserts the pattern
+still matches the fixture. It could not have been caught while the pattern was
+excluded from the set, which is the point of the 016b §9 entry it produced. *The cheap
+check that would have:* **findings ≠ sentences.** A per-pattern scanner reports once
+per pattern per block, so a count of findings is a count of (pattern × component)
+pairs. Read the distinct snippets, not the total.
+
+**What the tally says.** All three are the same failure at different altitudes: I
+believed a number or a sentence I had produced by reasoning, when the corpus was
+sitting right there and answering in one command. The two that reached a file were
+caught by a *test* and a *dry run* — not by re-reading my own work, which I did
+several times in between.

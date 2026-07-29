@@ -7523,3 +7523,75 @@ this one under the zero-adoption pattern is precisely the error that produced it
 Category tags: `handler-cannot-act-on-what-the-check-routed`, `complete-is-about-
 control-flow-not-the-artefact`, `boolean-true-everywhere-is-a-default`,
 `two-builders-opposite-predicates`.
+
+### A test over a rule SET passes vacuously when the rule is absent — assert that the mechanism FIRED, not that the outcome was clean (2026-07-29)
+
+**The shape.** A detector is a set of rules (regex patterns, check types, lint rules,
+banned keys) plus an engine. A test says "this input must NOT be flagged". It passes.
+It will keep passing if the rule that would have flagged the input is **removed from
+the set** — because then nothing matches, and "nothing matched" and "the guard
+correctly suppressed the match" are the same observable. The test has stopped testing
+and looks identical.
+
+**How it bit.** The fleet-wide banned-claim set excluded its strongest pattern on
+2026-07-28 because that pattern false-positived on four honest negated sentences. The
+four sentences were kept as fixtures asserting "these must not be flagged", and they
+passed — for a reason that had nothing to do with negation. Eight hours later, adding
+a negation guard and restoring the pattern, the fixture list turned out to contain a
+**fifth** sentence with no negation in it at all: an assertion, recruited into the
+pass-list because the dry run reported "4 findings" and the author read that as "4
+sentences" (one site's sentence had been counted twice, on two components). Nothing
+could have caught that while the pattern was absent. The vacuous pass concealed a
+misfiled fixture *and* would later have been quoted as "negated copy is handled",
+which was never tested.
+
+**The rule.** For any test asserting a detector stays QUIET, assert the two halves
+separately:
+
+1. the rule **matches** the input at all (else the fixture is stale or the rule is
+   gone — fail with "VACUOUS PASS", naming both possibilities);
+2. the **guard/suppressor** is what removed it.
+
+Expose the unsuppressed scan for exactly this purpose — a `…IgnoringGuard` variant, or
+a suppressed-list return — and have the quiet test consume it. Then deleting the guard
+fails one test and deleting the rule fails the other. Cost: one extra function whose
+result nothing enforces.
+
+**Generalises to:** allow-lists and deny-lists, lint-rule suppressions, feature-flag
+"off" tests, alert-silencing rules, retry/backoff exclusions, permission checks that
+assert a DENY. Anywhere "no output" is the expected result, ask what else produces no
+output. Sibling entries: *a PASS recorded by a blind check becomes evidence the thing
+is fine*, and *declaring a key silences your own detector*.
+
+### Narrowing a detector to dodge a hypothetical false positive can make it INERT — and inert is indistinguishable from well-behaved (2026-07-29)
+
+**The shape.** You are about to arm a broad rule. You imagine a false positive it
+would cause, so you narrow it — add a required subject, an anchor, a proximity
+constraint. The narrowed rule ships. It never fires again, on anything, and nobody
+notices, because a rule that does not fire looks exactly like a rule with nothing to
+find.
+
+**Measured, same corpus, same run.** Restoring the external-verification pattern
+`(fully|independently|externally|properly) (verified|audited|fact.?checked)`, I first
+anchored it to a claim/content noun plus `is/are` within N characters, to avoid
+flagging "our accounts are independently audited" — a business claim that could be
+true. Over the full live surface, 919 components / 14 sites:
+
+| candidate | findings | suppressed |
+|---|---|---|
+| bare | **2 real overclaims** | 4 |
+| subject-anchored | **0** | **0 — matched nothing at all** |
+
+The anchoring was not narrower, it was inert; and the two real findings it lost had
+been invisible for a different reason (the false positives were why the pattern got
+excluded in the first place, so nobody had ever seen what it caught).
+
+**The rule.** **Dry-run the rule you are replacing next to the rule replacing it, in
+the same run, over the same corpus** — and report both numbers. A narrowing is only a
+narrowing if it still fires on the cases the broad form caught. If the hypothetical
+false positive occurs **zero** times in the real corpus, prefer recording it as a
+known residual with the cheap re-check, over machinery that will rot unexercised
+(owner ruling 2026-07-29 §2 makes that trade explicitly).
+
+**The tell you are about to do this:** your justification for the narrowing is a
+sentence you invented, not a sentence you found.

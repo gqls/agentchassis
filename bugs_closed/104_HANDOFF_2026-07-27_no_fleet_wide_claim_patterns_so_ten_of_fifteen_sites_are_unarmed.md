@@ -460,3 +460,43 @@ RFC 003 carries what the ruling asks for: blast radius derived mechanically (5 b
 three questions left for the owner without acting on any of them. Per ruling answer 3 the
 three affected consumers were **told** — a dated note in each one's own register category
 saying what changed about *their* guarantee — rather than merely counted.
+
+---
+
+## UPDATE 2026-07-29 (session "bugsearch 6") — the deferred negation guard is built, and this file's headline number is now WRONG
+
+The one item this case left owed is closed: the excluded pattern
+`(fully|independently|externally|properly) (verified|audited|fact.?checked)` is
+**armed**, behind a clause-local negation guard (`negatedClaimMatch`,
+`datahelpers/claims.go`). Commit `116fdffd8`; council
+`8a41e1a5-e670-4e50-a875-f8418ee15738`; registered as **CLM-017**. Go change, so
+**inert until the next chassis roll**. This case stays CLOSED — the defect it names
+(no fleet-wide patterns) was fixed and shipped; the guard is a follow-up, not a
+reopening.
+
+**TWO CORRECTIONS to figures in this file, both of which read as current and are not:**
+
+1. **"0 findings" across the enforcement surface was an ARTEFACT of the excluded
+   pattern**, not evidence the estate was clean. That was true of the nine patterns
+   shipped and it will be quoted as "the estate scans clean", which is now false. With
+   the tenth armed, the same corpus yields **2 findings** — robot-hands.com
+   `gripper-catalog` and `how-it-works`, both asserting the spec data is
+   "independently verified", which nothing performs and its own register has no fact
+   for. Filed `bugs_open/147`. Plus **4 matches suppressed** by the guard (the honest
+   negated sentences, including two on that same site). **Those two components will
+   not rebuild until the copy changes.**
+2. **The enforcement surface is 919 components / 14 sites, not 908.** 908 was correct
+   on 2026-07-28 and is quoted in four places above; it grew by 11. Re-derived
+   2026-07-29 with `sites.status` **grouped rather than filtered** (the query this
+   file's § "Round 2's real finding" already argues for): `deployed|919|14`. I first
+   "confirmed" it still summed to 908 by adding the per-site table up wrong — logged
+   in `WRONG_CALLS`.
+
+**The transferable finding is about the test, not the regex.** The four negated
+sentences were kept here as fixtures asserting they must not be flagged, and they
+passed — because the only pattern that matched them had been removed from the set. A
+pass from a check that cannot fail. When the pattern came back, that fixture list
+turned out to contain a **fifth** sentence with no negation in it at all, recruited
+because "4 findings" was read as "4 sentences" (one site's counted twice, on two
+components). Both patterns are now in 016b §9: *assert the mechanism fired, not that
+the outcome was clean*, and *narrowing a detector by reasoning can make it inert*.

@@ -181,3 +181,44 @@ my new symbols.
 I have deliberately not acted on any of the three. §1.3 is the reason: the last time I
 judged a scope question myself, the answer published the same day was that I had got it
 wrong.
+
+---
+
+## 9. UPDATE 2026-07-29 (later the same day) — two figures in §4/§5 are superseded, and question 3 answered itself
+
+Filed by the same session. Neither change alters the RFC's question — whether the
+guarantee change is acceptable — but both make its evidence honest.
+
+1. **The enforcement surface is 919 components / 14 sites, not 908** (§5). 908 was
+   right on 2026-07-28; the surface grew by 11. Re-derived with `sites.status` grouped,
+   not filtered: `deployed|919|14`.
+2. **"0 findings" (§5) is spent, and it was an ARTEFACT.** The tenth fleet-wide
+   pattern, excluded on 07-28 for false-positiving on negated sentences, is now armed
+   behind a clause-local negation guard (CLM-017, commit `116fdffd8`, council
+   `8a41e1a5-e670-4e50-a875-f8418ee15738`). Armed, the same corpus yields **2 findings
+   + 4 suppressed**. Both findings are robot-hands.com asserting its spec data is
+   "independently verified" (`bugs_open/147`); **those two components will not rebuild
+   until the copy changes.** Deployed pages keep serving.
+
+   **This strengthens §8 question 1 rather than changing it.** The guarantee change is
+   no longer hypothetical: a real page build will now be refused. It is refused for
+   making a false claim, which is the design — but the owner should answer question 1
+   knowing the gate has teeth in practice and not only in principle.
+3. **§8 question 3 (renaming the emitted item/reason) is answered: no rename needed.**
+   The new pattern ships with a reason string that says what it means without
+   pretending the site was audited — "external-verification claim: asserts our content
+   was checked by someone outside this system. Nothing does that." That is what a
+   blocked page author reads. The generic `banned_claim` item type stays; the reason
+   carries the meaning. Recording it as closed so it does not sit as an open question
+   nobody will act on.
+
+**Not RFC-scope in itself, and here is the test applied rather than asserted.** Under
+owner ruling 2026-07-29 §1, an addition needs an RFC when it changes what the shared
+mechanism GUARANTEES. Adding a pattern within an already-refutable gate does not — the
+guarantee change is the one this RFC already documents — and the guard **reduces** false
+refusals. It went through the normal council gate. The one part a reviewer should weigh
+as shared-mechanism: the guard applies to **per-site registers too**, so nine sites'
+human-audited patterns are now negation-aware without their owners asking. Measured
+blast radius: **zero suppressions on any per-site pattern** across all 919 components.
+That is a fact about today's copy, not consent, and it is named as the main risk in the
+submission for exactly that reason.
