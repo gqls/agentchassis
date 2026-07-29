@@ -230,3 +230,47 @@ u=$(curl -s "https://<site>/<inner-page>" | grep -o 'og:url" content="[^"]*"' | 
 vonc's gauntlet serves **only** at `/tools/gauntlet/index.html` — both
 `/tools/gauntlet` and `/tools/gauntlet/` are 404. A share of the "tidy" URL is
 already dead before any unfurl.
+
+---
+
+## STATUS 2026-07-29 (session relojistas-5) — mostly fixed; what remains is named below
+
+Workstream: `docs/agent_docs/docs024_key_docs_latest/bugfix_131_og_card/`. Read
+`SUMMARY_2026-07-29b_og_card.md` first, then NOTES (4)–(10).
+
+**DONE and verified by eye (the only verification that works here):**
+- 12 of 13 tagged sites serve a real 1200×630 card (was 2).
+- **relojistas is fully repaired at source**: owner-approved crop written to S3 through the
+  cluster, `logo` row repointed (path-style HTTPS) and **locked**, header live on the site,
+  card + favicon re-derived post-fix. Card is clean and **letterbox-free** — confirming the
+  letterbox was an ASSET defect (opaque logo), not a code one.
+- **Code fix LIVE on v1.0.1199+, council-APPROVED** (trail `bfd73f71`): favicon derivation
+  preserves aspect (`composeFavicon`), and `assets.locked_at` is honoured **before** the git
+  commit, with **no `status` filter** — a lock fails closed whatever status the row carries.
+  (Round 1's HIGH was right: `assets.status` is unconstrained free text.)
+- **leopardess protected deliberately**: locked `og_card` + `favicon` rows backfilled and now
+  armed. Its malformed `logo` row is no longer the only guard — but still do not tidy it.
+- gaswholesalers + idea.uk were reassigned to another session and are being fixed there.
+
+**STILL OPEN, in the order that matters:**
+1. **A wide logo cannot make a legible favicon, and 5 of 14 sites have one.** The distortion is
+   fixed; the illegibility is not. relojistas' repaired favicon puts 19px of ink in a 64px
+   canvas and renders as a grey smudge at true 16px tab size (measured, not guessed). The real
+   fix is a **square favicon source** — the mark, not the wordmark — which `derive_brand_head_assets`
+   cannot express: it always reads `asset_key='logo'`. Affects relojistas, fundamentallyai,
+   oufe, robot-hands, vetcomparison. **Deliberately did NOT re-derive the other four**: it
+   would buy undistorted-but-equally-illegible icons at the cost of four slots in a busy queue.
+2. **Fix 1, the tag gate** — unchanged and still worth landing; the original constraint holds
+   (**do not key it on an `og_card` row**: leopardess had a working card and no row). Follow
+   the `sprites.css` precedent at `render_site_components_action.go:704-712`.
+3. **`og:title` is the bare domain on ~8 sites; `og:description` absent on relojistas** — the
+   case file's "second defect", untouched.
+4. **webdesign.co.uk emits no `og:image`** — `injectBrandHeadTags` skips a head that already
+   has `rel="icon"`/`og:image`. Never investigated.
+5. Detector blindness → **`bugs_open/142`**. Sibling lock gap → **`bugs_open/143`**.
+
+**Landmine added by this session:** `sites.github_repo` selects which deploy repo serves a site
+(`vm-sites` = nginx on a VM; empty = B2 + Cloudflare Worker). **Both repos contain a
+`<domain>/` folder for some VM sites, so publishing to the wrong one succeeds with a green
+workflow and changes nothing.** relojistas + idea.uk are `vm-sites`. It cost this lane an hour
+and a wrong inference; see `WRONG_CALLS.md` 2026-07-29.
