@@ -1680,3 +1680,19 @@ deploy-time verification in the plan, no travelling-PLAN row for this "tool")
 are fair and stand: the first is inherent to the ruling being fleet-general, the
 second is answered by the post-roll check below, and the third is the exact gap
 the `webdesign_tools_repair` workstream exists to close.
+
+**"About in the bottom nav" needed TWO changes, and the flags were only the
+first.** Setting `about.in_header=false, in_footer=true` and rebuilding produced
+exactly the right nav tables (primary: Tools, Learn, News · utility: Home,
+About) and About did leave the header — but it did not arrive in the footer.
+This site's footer template ranges over `{{.categories}}`, and `categories` is
+built from the PRIMARY group only (`render_site_components_action.go:127`),
+while the primary+utility collection the footer actually wants is computed
+three lines earlier and left unused (`quick_links` / `footer_nav_items`).
+SQL_p22 switches the template to `quick_links`; the component is used by zero
+other sites (checked before editing). **The lesson is the shape: a nav "move"
+is two mechanisms — which GROUP a page belongs to, and which groups a given
+chrome slot RENDERS. Verifying the first and assuming the second leaves the
+page in a group nothing displays.** The platform question (should `categories`
+mean primary in a footer render?) is deliberately not answered here — it is a
+shared-mechanism change and needs its own review.
