@@ -136,3 +136,61 @@ checks to run written into it. And the strongest of the original ten patterns is
 deliberately left out — it's the one that caused the false alarms — so someone will
 need to teach the checker to tell "this is verified" from "this is not verified"
 before it can come back. That's a separate piece of work and nobody owns it yet.
+
+---
+
+**2026-07-29.**
+
+The chassis was rebuilt and deployed, so the change is now actually doing something.
+I checked it in the running pod rather than trusting the version number — three
+distinctive phrases that only this change puts in the binary are present, a control
+phrase that was always there is present, and a nonsense phrase I made up is absent.
+That last one matters: it proves the search itself works, so "found nothing" would
+have meant something. **The fleet-wide honesty check is live on all fifteen sites.**
+
+While I was in there I ran an unrelated check that's owed after every single deploy —
+a different bug's fix depends on the chassis being new enough, and if it isn't, a
+whole diagnostic lane stops working silently with nothing in the logs. It's fine.
+Nobody from that workstream saw this deploy happen, so somebody had to look.
+
+I also wrote a proper test for the thing that actually mattered and wasn't covered.
+All my earlier tests proved the *patterns* match the right sentences. None proved
+that **the build gate bothers to check a site that has no register** — which is the
+entire point of the bug. It now does, tested five ways: the overclaim fails the
+build, and four kinds of legitimate sentence still pass.
+
+Writing that test taught me something I had wrong. When the gate finds a blocker it
+doesn't return a list of problems — it returns an *error*, and that error is how the
+build gets stopped. My first version of the test treated the error as "the test
+failed", so it reported a failure on precisely the outcome we want. Worse, if I'd
+patched over it carelessly the test would have passed whether the gate worked or
+not. What caught it was reading the failure message, which said "1 blockers" — the
+gate telling me it had done its job.
+
+**The review came back "revise", not "approved", and I want to be straight about
+why.** The guardian reviewer — whose job is to object when a change touches shared
+machinery — said the honest thing: this alters the contract of a check that runs on
+every site's build, and no amount of "but the measurements are clean" changes that.
+It stopped short of vetoing, partly because of how thoroughly it was measured, and
+partly because at the time the change hadn't shipped yet. It has now, so I've told
+it that plainly in the resubmission rather than letting it find out. It asked one
+fair question — was your owner's decision actually reviewed by anyone, or are you
+asking us to rubber-stamp it — and the answer is that you ruled on it out of band,
+with the numbers in front of you, on a question that had been sitting filed and
+unanswered for months. That's not a rubber stamp, but it isn't this council's review
+either, and it deserved a straight answer.
+
+One thing I'd flag as a problem with the review system rather than with us. The
+council runs its own database queries to check the author's claims, and one of them
+came back saying there were **zero** live pages in the estate — which would mean my
+entire 908-page measurement was invented. It's wrong: it filtered on a site status
+value that doesn't exist here, and the council's *own* next query printed the real
+statuses that prove it. Re-run properly, the number is exactly 908. But a reviewer
+reading "zero" would have been quite reasonable to conclude I'd made the whole thing
+up, and nothing in the process checks the checker. I've put the corrected query in
+the resubmission so this round doesn't have to work it out.
+
+Where it stands: the bug is fixed and live and now properly tested. The review is
+mid-second-round. If the guardian still thinks the scope was wrong after getting
+straight answers, that's a judgement for you rather than something I should argue
+into submission, and I'll bring it to you if so.

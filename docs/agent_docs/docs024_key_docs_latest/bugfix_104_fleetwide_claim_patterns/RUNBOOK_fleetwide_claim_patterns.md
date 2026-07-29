@@ -174,3 +174,61 @@ for line in open('comp_<site>.tsv'):
     html=base64.b64decode(p[2]).decode('utf-8','replace')
     for m in re.finditer(r'[^.<>]*<phrase>[^.<>]*\.', html): print(repr(m.group(0).strip()))"
 ```
+
+## 9. Verifying the fleet-wide set is live after a roll
+
+**The marker must be a string only THIS change puts in the binary.** Pattern reasons
+qualify; function names like `ScanAllBannedClaims` would too, but page-type or
+generic words do not (the 102 workstream corrected exactly that mistake twice).
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "completeness-of-exclusion"'  # MARKER: 3 (three patterns share the reason)
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "verification-of-everything"' # MARKER: 1
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "banned_claim"'               # POSITIVE CONTROL: 2 before and after
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "zzz-not-a-real-marker"'      # NEGATIVE CONTROL: 0
+```
+
+Verified on **v1.0.1196**, 2026-07-29: 3 / 1 / 2 / 0. Zero on a marker with
+non-zero on the control means "not rolled yet"; zero on both means your grep is
+wrong, not that the fix is missing.
+
+**While you are in the pod, run the standing fleet invariant** — it is owed after
+every roll and is unrelated to this workstream (`bugs_closed/124`, migration 258):
+
+```bash
+kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis | grep -c "unknown execution-context field"'   # must be 1
+```
+
+Checked on v1.0.1196: **1**. Below chassis 1191 this silently stops the diagnose
+lane dispatching, with no failed row to find.
+
+## 10. Testing the GATE, not just the patterns — the seam and the trap
+
+`sqlmock` is already a dependency, and the gate's own DB use in check 8 is a single
+query, so the unarmed-site case is testable without a cluster. Switch every other
+DB-touching check off by config so `loadEvidenceBase` is the only query in play:
+
+```go
+mock.ExpectQuery("SELECT data FROM site_specs").WillReturnError(sql.ErrNoRows)  // THE UNARMED SITE
+res, err := ValidatePageContentAction(ctx, ActionParams{
+    ExecutionContext: &types.ExecutionContext{},
+    StepConfig: models.Step{Config: map[string]interface{}{
+        "site_id": uuid.New().String(), "check_claims": true,
+        "check_internal_links": false, "check_emails": false,
+        "check_stat_claims": false, "check_stat_units": false,
+    }},
+    CollectedData: map[string]interface{}{"page_content": map[string]interface{}{
+        "response": map[string]interface{}{"page_html": html}}},
+    DB: db, Logger: zap.NewNop(),
+})
+```
+
+**THE TRAP, which cost a wrong test first time round: on any blocker the action
+returns `(nil, error)`.** The error *is* the mechanism — it is how the page build
+fails. A test that treats that error as a failure reports a **pass on the very
+outcome you want**, and inspecting the `issues` list alone is vacuous because the
+map is nil on that path. Assert on the error and its blocker count; assert
+`err == nil` for the copy that must still build. Import paths are
+`pkg/models` and `platform/orchestration/types` (not the `orchestration/models`
+that looks right and does not exist).

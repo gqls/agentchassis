@@ -311,3 +311,93 @@ the actual sentence. Fixed in `7eeb28417` and in the submission.
 Submitted, advisory: `SUBMISSION_CORR 899ed92e-1bf7-4707-96d8-24f102aa14fa`. Queue
 showed two other councils mid-flight (`review_architecture` ×2 at depth 440–450),
 so ~30 minutes is the expectation, not 2. No verdict yet at time of writing.
+
+---
+
+## 2026-07-29 — the fix is LIVE, the council said REVISE, and one of its own checks was wrong
+
+### Live, and verified with discriminating markers
+
+Another session rolled the fleet to **v1.0.1196** (pods started 2026-07-28T22:37Z /
+22:38Z, both on that tag). Pod-grep with strings this change created:
+`completeness-of-exclusion` → **3** (three patterns share that reason),
+`verification-of-everything` → **1**, positive control `banned_claim` → 2, negative
+control → 0. So the fleet-wide set is enforcing on every site's build now.
+
+**The standing fleet invariant was checked in the same pod** and passes:
+`unknown execution-context field` → **1** (migration 258 needs chassis ≥1191,
+`bugs_closed/124`). Recording it because it is owed after *every* roll and this was
+a roll nobody from that workstream witnessed.
+
+### Council round 1: REVISE — and NOT a harness artefact
+
+`decision=revise`, `reviewers=12`, `abstained=5`, **`unreadable=0`** — so it is
+substance, not the ~11% one-seat-unparseable-JSON failure. Gating objection from
+**guardian**, verdict `object` (not veto), severity **high** on edit 3.
+
+Its reasoning is worth keeping: it explicitly declined to invoke the
+foundational-plumbing preference, and said what tipped it from veto to object was
+"the unusually thorough containment already done — dry-run against all 908 live
+components with a concrete zero-finding result, regression fixtures for every false
+positive found, explicit exclusion of the one unsafe pattern pending a negation
+guard, and the change being inert until the next chassis build." **The last of those
+four is no longer true**, which is why round 2 discloses it first rather than
+letting a reviewer discover it.
+
+Its `missing` was a fair, factual question: is O11 a council-reviewed decision or an
+out-of-band owner ruling being rubber-stamped? And it warned it would escalate to
+veto if the precedent check came back empty.
+
+### One of the council's own read-only checks returned a WRONG 0, and it was the load-bearing one
+
+The check *"checks the claimed 908-component dry-run population against actual live
+rendered_html row count, since the plan's zero-false-positive claim rests entirely
+on that measurement"* returned:
+
+```
+count
+0
+```
+
+That is a **wrong-filter artefact, not a refutation.** `sites.status` has no value
+`'live'` in this estate — the vocabulary is `deployed` (14), `pool` (17), `system`
+(1), which the council's own *sibling* check printed three paragraphs earlier. Re-run
+with the real predicate the population is **908**, exactly as claimed. This is the
+trap already in 016b §9 as *"sites.status: vocabulary, the legacy 'active' value, and
+a wrong blast-radius filter"*.
+
+**Worth sitting with: a seat reading `count 0` would reasonably have concluded the
+measurement was fabricated.** The reviewers' checks are machine-generated and are not
+themselves reviewed, so a wrong query in the evidence pack is indistinguishable from
+a wrong claim in the plan — and it lands on the author to notice. That is a property
+of the gate, not of this submission.
+
+### The caller census the guardian asked for
+
+Full-repo, non-test: `validate_page_content.go:980`, `check_unverified_claims.go:405`,
+`cmd/claimscan/main.go:132,134`, plus `claims_global.go:196,203` inside the join
+itself. **Three production call sites, all three already in the plan.** No other
+`eb == nil` guard anywhere gates a banned-claim scan — the rest are the stat lane,
+the kind accessors, `ScanBannedClaims`' own nil-receiver guard, and
+`ScanUnregisteredNumbers` (untouched, still opt-in). There is no fourth branch.
+
+Round 2 submitted on the same correlation with all of the above, the sketch fix
+editquality correctly demanded (`GlobalBannedClaimCount` was called in edit 5's
+sketch and never shown in edit 1's), and an explicit statement that if the scope
+concern survives the facts, it goes to the owner rather than to round 3.
+
+### Misstep 7 — my first gate test could not have failed in the direction that mattered
+
+I wrote the gate-wiring test asserting on the returned `issues` list, treating a
+returned error as a test failure. On any blocker the action returns **`(nil, error)`** —
+the error *is* how the build fails. So my first version **failed the test on the one
+outcome 104 wants**, and had I "fixed" it by loosening the assertion instead of
+reading the contract, the test would have passed on both a working and a broken
+gate: the `issues` map is nil on the blocker path, so `len(claimsIssues(nil)) == 0`
+would have looked like "no findings" either way.
+
+What caught it was the failure message itself — `content validation failed: 1
+blockers, 0 errors` — which is the gate working. Same family as the `psql -t -A`
+guard that could not fail, from the bugsearch-2 session. **A test whose harness
+discards the success signal is worse than no test.** The discrimination is now
+explicit: identical harness, one input errors, four inputs do not.
