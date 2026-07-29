@@ -4060,6 +4060,50 @@ here the locations were legitimate copy, which is the case that inverts the fix.
 Category tags: `human-review-was-the-guard`, `scope-widening-deletes-the-premise`,
 `test-the-negation-of-your-own-pattern`, `no-lookbehind-in-re2`.
 
+### A skip predicate that suppresses false positives suppresses the true ones with them — and the cases it removes are the ones the check was built for (2026-07-29)
+
+Found in `image_url_404` (`bugs_open/128`), and the same shape was independently found
+the same morning in its sibling `check_placeholder_image_in_use` — *"the check tests the
+wrong absence"*, in the other session's words.
+
+The check scans rendered HTML for `/assets/images/<name>.<ext>` and reports paths with no
+matching asset. To avoid flagging images that legitimately exist, it skips any path whose
+basename matches an **active asset purpose** for that site. **Purposes are names —
+`hero`, `icon`, `logo` — and it is comparing them against file paths.** So owning one
+hero asset, at any URL, makes every rendered `hero*` path unreportable. Measured
+fleet-wide: **79 of 95** distinct rendered image paths on 13 sites masked (83% of the
+nominal surface), **six of them serving live 404s.**
+
+Three transferable rules, in order of how much they cost to learn:
+
+- **A NAME-space and a PATH-space are different populations.** A predicate that mixes
+  them will look plausible in review and be wrong in exactly one direction. Ask what
+  population each side of the comparison is drawn from, and whether a member of one can
+  even in principle identify a member of the other.
+- **A suppression's blind spot correlates with the check's purpose, not randomly.** Here
+  the two purposes the routing table maps — `hero` and `logo` — are precisely the two most
+  likely to exist as assets, so the skip removes the check's own headline cases. When you
+  add a false-positive suppressor, **enumerate what it removes and check whether that set
+  is the interesting one.** `GROUP BY` the suppressor's predicate over live data.
+- **A masking bug can be load-bearing as a safety interlock, so "just remove the skip" is
+  not the small change it looks like.** The masked branch routes to `image-build-handler`
+  with a real `HandlerAgent`, i.e. automatic image regeneration — and it has **never fired
+  in production** (0 of 10 items ever created under that key were the routed type).
+  Removing the skip would switch on an untested fleet-wide auto-repair path for the first
+  time. **Before deleting a filter, check what is downstream of the rows it was hiding.**
+
+And the reason the obvious fix is not the fix: comparing paths to paths was **measured and
+refuted** — only 9 of the 79 masked paths have an asset row whose url/filename carries the
+basename, while 73 of the 79 serve 200. Nothing in the DB records which static files were
+deployed (`assets.url` is an S3 URL with `filename`/`storage_path` empty; `v_site_assets`
+is a count view), so a DB-only check *cannot* answer "does this path resolve". When a
+check's question is unanswerable from its data source, the honest moves are to rename it
+for what it does and route the real capability elsewhere — not to make the predicate
+cleverer. Pinned, with the trap, in `check_image_url_404_masking_test.go`.
+
+Category tags: `name-space-vs-path-space`, `suppressor-removes-the-interesting-set`,
+`masking-bug-as-safety-interlock`, `unanswerable-from-this-data-source`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
