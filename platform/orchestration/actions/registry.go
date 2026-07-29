@@ -188,6 +188,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Derive favicon + OG card from the site logo and commit to git",
 		IsLocal:     true,
 	},
+	"ingest_staged_asset": {
+		Handler:     IngestStagedAssetAction,
+		Category:    "image",
+		Description: "Ingest operator-supplied asset bytes from staging into S3 and the assets row",
+		IsLocal:     true,
+	},
 	"derive_card_asset": {
 		Handler:     DeriveCardAssetAction,
 		Category:    "image",
