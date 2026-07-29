@@ -1,12 +1,17 @@
 package actions
 
 import (
+	"context"
 	"image"
 	"image/color"
 	"image/draw"
 	"strings"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
@@ -58,6 +63,92 @@ func TestComposeFaviconPreservesAspect(t *testing.T) {
 	draw.Draw(square, square.Bounds(), &image.Uniform{C: color.RGBA{0, 0xff, 0, 0xff}}, image.Point{}, draw.Src)
 	if _, _, _, a := composeFavicon(square).At(32, 2).RGBA(); a == 0 {
 		t.Errorf("square logo should fill the box; top row is transparent")
+	}
+}
+
+// The lock guard is the safety half of this action: a locked row is an owner
+// approval and the derivation must skip that artefact BEFORE the git commit.
+// Deliberately no status filter — assets.status is unconstrained text, so a
+// locked row must fail closed whatever status it carries.
+func TestLockedBrandHeadKeys(t *testing.T) {
+	ctx := context.Background()
+	siteID := uuid.New()
+
+	cases := []struct {
+		name string
+		rows []string
+		want map[string]bool
+	}{
+		{"no locked rows", nil, map[string]bool{}},
+		{"og_card locked", []string{"og_card"}, map[string]bool{"og_card": true}},
+		{"both locked (any status — filter must not exist)", []string{"og_card", "favicon"},
+			map[string]bool{"og_card": true, "favicon": true}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock: %v", err)
+			}
+			defer db.Close()
+			r := sqlmock.NewRows([]string{"asset_key"})
+			for _, k := range c.rows {
+				r.AddRow(k)
+			}
+			mock.ExpectQuery("SELECT DISTINCT asset_key FROM assets").WillReturnRows(r)
+
+			got, err := lockedBrandHeadKeys(ctx, db, siteID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != len(c.want) {
+				t.Fatalf("got %v, want %v", got, c.want)
+			}
+			for k := range c.want {
+				if !got[k] {
+					t.Errorf("missing locked key %q in %v", k, got)
+				}
+			}
+		})
+	}
+}
+
+// Both artefacts locked → the action must refuse with derived:false BEFORE
+// touching storage or git. StorageClient is deliberately nil here: reaching
+// the storage type-assertion would error, so a clean refusal is also proof
+// of the ordering (lock check precedes any write machinery).
+func TestDeriveBrandHeadBothLockedRefuses(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("FROM assets a").WillReturnRows(
+		sqlmock.NewRows([]string{"url", "domain"}).
+			AddRow("https://s3.example.com/bucket/images/logo.png", "example.com"))
+	mock.ExpectQuery("color_palette").WillReturnRows(
+		sqlmock.NewRows([]string{"color_palette"}).AddRow(`{"background":"#ffffff"}`))
+	mock.ExpectQuery("SELECT DISTINCT asset_key FROM assets").WillReturnRows(
+		sqlmock.NewRows([]string{"asset_key"}).AddRow("favicon").AddRow("og_card"))
+
+	out, err := DeriveBrandHeadAssetsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData:    map[string]interface{}{"site_id": siteID.String()},
+	})
+	if err != nil {
+		t.Fatalf("expected clean refusal, got error: %v", err)
+	}
+	m, ok := out.(map[string]interface{})
+	if !ok || m["derived"] != false {
+		t.Fatalf("expected derived:false refusal, got %#v", out)
+	}
+	if reason, _ := m["reason"].(string); !strings.Contains(reason, "locked") {
+		t.Fatalf("refusal reason should name the lock, got %q", reason)
 	}
 }
 

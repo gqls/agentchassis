@@ -107,6 +107,26 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 
 	bgColour := loadBrandBackgroundColour(ctx, params.DB, siteID)
 
+	// ── Locked rows are owner approvals — honour them BEFORE the git commit ──
+	// recordDerivedAsset's own locked_at guard protects only the provenance
+	// row; by the time it runs the file in the site repo has already been
+	// replaced. An approved artefact (locked_at set, Phase I1 D5) must never
+	// be overwritten by a re-derivation, so the lock is checked here — before
+	// storage is even required — and the locked artefact is left out of the
+	// commit entirely.
+	lockedKeys, err := lockedBrandHeadKeys(ctx, params.DB, siteID)
+	if err != nil {
+		return nil, fmt.Errorf("check locked brand-head assets: %w", err)
+	}
+	if lockedKeys["favicon"] && lockedKeys["og_card"] {
+		logger.Info("derive_brand_head_assets: both artefacts locked — nothing to derive",
+			zap.String("domain", domain))
+		return map[string]interface{}{
+			"derived": false,
+			"reason":  "favicon and og_card are locked (owner-approved) — refusing to overwrite",
+		}, nil
+	}
+
 	// ── Fetch the logo bytes from storage ──
 	s3Client, ok := params.StorageClient.(*storage.S3Client)
 	if !ok || s3Client == nil {
@@ -130,25 +150,6 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 	logoImg, _, err := image.Decode(bytes.NewReader(logoBytes.Bytes()))
 	if err != nil {
 		return nil, fmt.Errorf("decode logo image: %w", err)
-	}
-
-	// ── Locked rows are owner approvals — honour them BEFORE the git commit ──
-	// recordDerivedAsset's own locked_at guard protects only the provenance
-	// row; by the time it runs the file in the site repo has already been
-	// replaced. An approved artefact (locked_at set, Phase I1 D5) must never
-	// be overwritten by a re-derivation, so the lock is checked here and the
-	// locked artefact is left out of the commit entirely.
-	lockedKeys, err := lockedBrandHeadKeys(ctx, params.DB, siteID)
-	if err != nil {
-		return nil, fmt.Errorf("check locked brand-head assets: %w", err)
-	}
-	if lockedKeys["favicon"] && lockedKeys["og_card"] {
-		logger.Info("derive_brand_head_assets: both artefacts locked — nothing to derive",
-			zap.String("domain", domain))
-		return map[string]interface{}{
-			"derived": false,
-			"reason":  "favicon and og_card are locked (owner-approved) — refusing to overwrite",
-		}, nil
 	}
 
 	// ── Derive favicon (square) and OG card (logo on brand background) ──
@@ -183,15 +184,30 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 		recordDerivedAsset(ctx, params.DB, siteID, "og_card", "/assets/images/og-card.png", logger)
 	}
 
-	logger.Info("derive_brand_head_assets: committed favicon + og card",
+	logger.Info("derive_brand_head_assets: committed brand-head assets",
 		zap.String("domain", domain),
-		zap.String("background", bgColour))
+		zap.String("background", bgColour),
+		zap.Int("files", len(files)))
 
-	return map[string]interface{}{
-		"derived":      true,
-		"favicon_url":  "/assets/images/favicon.png",
-		"og_image_url": "/assets/images/og-card.png",
-	}, nil
+	// The partial-lock case must be visible at the call boundary, not only in
+	// logs: URLs are reported only for artefacts actually derived, and
+	// skipped_locked names the ones the lock excluded.
+	result := map[string]interface{}{"derived": true}
+	skipped := []string{}
+	if lockedKeys["favicon"] {
+		skipped = append(skipped, "favicon")
+	} else {
+		result["favicon_url"] = "/assets/images/favicon.png"
+	}
+	if lockedKeys["og_card"] {
+		skipped = append(skipped, "og_card")
+	} else {
+		result["og_image_url"] = "/assets/images/og-card.png"
+	}
+	if len(skipped) > 0 {
+		result["skipped_locked"] = skipped
+	}
+	return result, nil
 }
 
 // composeFavicon scales the logo to FIT the square favicon box, preserving
@@ -209,14 +225,18 @@ func composeFavicon(logo image.Image) image.Image {
 	return canvas
 }
 
-// lockedBrandHeadKeys reports which of the site's brand-head asset rows
-// (favicon, og_card) are active AND locked. A locked row is an owner
-// approval; the derivation skips that artefact rather than overwrite it.
+// lockedBrandHeadKeys reports which of the site's brand-head asset keys
+// (favicon, og_card) have ANY locked row. Deliberately no status filter:
+// assets.status is unconstrained text (no CHECK; live vocabulary already
+// holds active/superseded/retired), so conditioning a safety guard on it
+// would silently fail open the day a locked row carries a status nobody
+// enumerated. A lock on any row of the key fails CLOSED — the artefact is
+// skipped, visibly, via skipped_locked / the both-locked refusal.
 func lockedBrandHeadKeys(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]bool, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT asset_key FROM assets
+		SELECT DISTINCT asset_key FROM assets
 		 WHERE site_id = $1 AND asset_key IN ('favicon','og_card')
-		   AND status = 'active' AND locked_at IS NOT NULL
+		   AND locked_at IS NOT NULL
 	`, siteID)
 	if err != nil {
 		return nil, err
