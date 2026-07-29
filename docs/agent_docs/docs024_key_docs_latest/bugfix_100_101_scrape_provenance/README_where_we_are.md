@@ -250,3 +250,33 @@ What I've left alone on purpose: the six agent configurations that carry the wro
 name. Fixing those means changing what other people's agents do, and a setting that currently
 does nothing is exactly the kind of thing where "just rename it" can have consequences
 nobody expects. That's written up with a suggested order in the bug, for whoever owns them.
+
+---
+
+**2026-07-29, mid-morning.** You've answered the question I left open, and it turned out to
+matter more than a footnote. The improvement loop being switched off is deliberate — you
+stopped it while we're in a heavy development stage. I've recorded that as a *decision*
+rather than a defect in three places, so that no future sweep files it as a dead scheduled
+task and nobody helpfully turns it back on.
+
+The reason it mattered: I'd been planning to prove our new warning works by triggering one of
+the discovery agents. Those are exactly the agents you've quiesced. Firing one would have
+pushed real work items into a queue you deliberately stilled, to buy myself a single line in
+a log. That's a bad trade, and I'd have made it if you hadn't said.
+
+So I went looking for a different route, and it turned out to be the better piece of work
+anyway. Instead of asking "which agent can I poke", I asked "which of the actions we haven't
+checked yet are actually *running*". Fifty-two of them had real traffic in the last day. Of
+those, exactly one was carrying a setting its own code never mentions: the page builder
+passes a `domain` value that nothing reads, on an action that runs about fourteen times a
+day. It's the same broken rename as the other two — third site, same story, and this one is
+on a live path.
+
+That means the proof can now come from work that's already happening, on its own, without
+touching anything you've turned off. I've made that change and sent it for review.
+
+Where that leaves the honest scorecard: the checker is live and now watches three real
+faults; the offline report names all three by name; and the thing I still haven't got is a
+real log line from a real run. That last one is no longer blocked on a mystery — it's just
+waiting for the next build to go out, and then for the page builder to run, which it does
+several times a day by itself.

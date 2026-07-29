@@ -1293,3 +1293,36 @@ real site — a production side effect I have not taken unilaterally.
 2026-05-02. It may be a deliberate pause; it may be that the improvement loop quietly stopped
 running in May and nobody noticed. Not this lane's call, but somebody should know — flagged
 here rather than filed, because I have not checked whether another lane owns it.
+
+## §22 — 2026-07-29 ~08:20 — OWNER RULING: the improvement loop is stopped DELIBERATELY
+
+> **RESOLVES the `[UNVERIFIED whether intentional]` flag in §21.** Owner, 2026-07-29:
+> **the improvement loop was deliberately stopped while we are in a massive development
+> stage.** So `improvement-sweep` (`enabled=f` since 2026-05-02) and the discovery one-shot
+> are a **decision, not a defect** — recorded as a decision so no future sweep re-files it
+> as a dead scheduled task, and so nobody "helpfully" re-enables it.
+
+**This changes the plan for `136`'s witness, it does not merely annotate it.** §21 concluded
+the runtime warning "needs a deliberate dispatch". That is still true, but the reason now
+matters: the six agents are quiet **by design**, and firing one would push real work items
+into a queue that has been intentionally stilled for months. **A verification that requires
+restarting something the owner deliberately stopped is not a verification worth having** —
+it buys one log line and adds noise to a quiesced system during the exact development phase
+the quiet was bought for.
+
+**So: do NOT dispatch a discovery agent to get the witness.** Two honest routes remain, in
+order of preference:
+
+1. **Opt in an action that is on a HOT path and has a real dead key.** The detector fires in
+   `ValidateWorkflow` for *any* step whose action is opted in and carries config — it does not
+   care which agent. The news/feed pipeline ran ~397 orchestrations overnight while discovery
+   ran zero. A dead key there would be witnessed within hours, from traffic that is already
+   happening, disturbing nothing. **This is also just the ratchet's own next step**, so it
+   costs nothing extra. Investigated below/next.
+2. **Defer the witness to whenever the improvement loop restarts.** Legitimate, and now a
+   *dated, understood, deliberate* condition rather than the mystery §21 left open — but it
+   parks the proof behind a phase change nobody can schedule.
+
+**What is NOT affected by any of this:** the change is live and proven live on v1.0.1197 by
+ancestry bracketing, the offline audit names both dead keys, and `136`'s fix order stands.
+The witness is proof of the *warning path*, not of the finding.

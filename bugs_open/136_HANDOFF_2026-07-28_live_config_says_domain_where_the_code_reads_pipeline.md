@@ -18,11 +18,28 @@ the config-key ratchet (`bugfix_100_101_scrape_provenance/HANDOFF_2026-07-28b` �
 > `ExtractActionInputs` never reads it (`grep -rn '\.ConfigKeys' platform/ cmd/`).
 > `StrictConfig` stays unset, so it warns and blocks nothing.
 >
-> **INERT until the next chassis roll** — Go change, committed but not in v1.0.1196.
-> **Still OPEN**, on two counts: the six definitions are unfixed (§5 steps 2–3, other lanes'
-> agents), and the runtime warning has **not yet been witnessed in a pod**. When it rolls,
-> the first run of any of the six agents should emit it; that is also the outstanding
-> end-to-end proof owed by the `101` ratchet itself.
+> **LIVE on v1.0.1197** — established by ancestry bracketing, not by the tag: a 07:47Z
+> commit's string is present in the binary, a 07:58Z commit's is absent, negative control
+> clean, and this commit is 07:16:56Z. (A direct pod-grep was impossible: every string
+> literal the change adds already existed, because the actions read those keys.)
+>
+> **A THIRD INSTANCE was then found and opted in — `plan_sections.domain`** (`07340d1e2`,
+> council `30a8785b-8cad-4d10-8633-486d81e837e9`). See §2c. The audit now names all three.
+>
+> **Still OPEN**, on two counts: the definitions are unfixed (§5, other lanes' agents), and
+> the runtime warning has **still not been witnessed in a pod**.
+
+> **OWNER RULING 2026-07-29 — the improvement loop is stopped DELIBERATELY**, during a heavy
+> development phase. `improvement-sweep` (`enabled=f` since 2026-05-02) and the discovery
+> one-shot are a **decision, not a defect** — do not re-file them as dead scheduled tasks and
+> do not re-enable them.
+>
+> **This is why §2a/§2b's warning cannot be the witness.** The six agents carrying
+> `check_domain`/`target_domain` are quiesced *by design*: `run_discovery_checks` last ran
+> 17h before the roll, `triage_detected_items` not in 24h, and no enabled `scheduled_tasks`
+> row targets any of them. Firing one would push real work items into a queue deliberately
+> stilled — **a verification that requires restarting something the owner stopped on purpose
+> is not a verification worth having.** Hence §2c.
 
 ---
 
@@ -174,6 +191,33 @@ the wrong queue, with no error and nothing in the config to suggest why.
 (`site-review-agent`, `improvement-loop`, `design-audit-agent`) set `target_domain: "build"`
 — **identical to the default**, so behaviour is correct today and the key has never once
 mattered. Change any of them to `content` and nothing happens, silently.
+
+### 2c. `plan_sections.domain` — the third instance, and the only one on a live path
+
+Found 2026-07-29 by intersecting the 151 undeclared actions with **what actually ran in the
+last 24h**: 52 of them had traffic, and exactly one carried a key absent from its own source.
+
+`page-build-handler`'s `plan_sections` step config is
+`{domain, error_step, page_name, sections, site_id, work_item_id}`. `error_step` is a
+framework key; every other key **is** in the spec — except `domain`. And:
+
+- `grep -c domain platform/orchestration/actions/plan_sections_action.go` → **0**. The action
+  never references the key at all.
+- The spec's `Optional` contains **`pipeline`** — which **no live step sets**. The same
+  half-landed rename, third site.
+- The value is a dot-path, `"site_record.domain"`, so the *intent* was plainly to resolve a
+  field. But `domain` is not in `Required ∪ Optional`, and **Strategy 0 iterates only those**
+  (`action_inputs.go:359-360, 368`), so the path is never resolved. Fetched by nobody, used by
+  nothing.
+
+Opted in with `CheckConfig: true` rather than `ConfigKeys`, because this action reads nothing
+from `StepConfig.Config` directly — everything arrives through `ExtractActionInputs` (`:620`),
+so the spec is already a verified statement of what it reads and opting in asserts nothing new.
+The step sets no `input_fields`, so the Strategy 1 escape hatch does not apply.
+
+**This is now the route to the owed witness.** `plan_sections` ran **14 times in 24h** against
+**0** for the other two, so the detector is exercised by traffic that is already happening,
+without disturbing the deliberately quiesced improvement loop.
 
 ---
 
