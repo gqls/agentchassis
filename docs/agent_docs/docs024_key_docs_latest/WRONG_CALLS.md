@@ -11237,3 +11237,141 @@ one-line check.*
 Family: grep-the-config-key-before-calling-it-a-win (a mechanism that looks live
 and is inert); zero-adoption-means-read-the-mechanism (I invoked this pattern by
 name and then applied it only to the detector, not to the handler).
+
+## 2026-07-29 — "all nine built pages clean" — a phrase-list sweep reported as a judgement about the pages (dartsonline_traffic)
+
+**The claim.** Session 1 of the dartsonline traffic workstream ended with a sweep
+over `page_components.rendered_html` for the nine built pages, printed as nine
+lines each reading `clean`, and I reported it as: the shop language is gone from
+every built page. I committed that as the session's closing state
+(`d57686ab9`) and repeated it in the SUMMARY.
+
+**What was true.** `/sale.html` was serving, and still serves as I write this:
+
+> "We cut prices across our sale range."
+> "We move high-density tungsten barrels, shafts, and flights into clearance
+> regularly."
+> "Testing a new grip profile or barrel weight costs less when you shop the sale
+> section."
+
+The sweep was not broken and it did not lie. It tested a fixed list of banned
+phrases — `stock`, `Add to Bag`, `filter our ranges`, `Portland`, `darts.com`,
+the ones from the three fabrication sites I had just fixed. `clearance`,
+`cut prices`, `sale range` and `shop the sale section` were not on it, so the
+row printed `clean`. **The sweep answered the question I had encoded. I reported
+it as the answer to the question I had asked**, and those were not the same
+question — the first is "does this page contain the phrases I already knew
+about", the second is "does this page still read like a shop".
+
+**What caught it.** Reading the served page, an hour later, for an unrelated
+reason. Not a check — an accident.
+
+**The cheap check that would have.** `curl` the page and read it. Ten seconds per
+page, nine pages. The stored-HTML sweep is the right tool for *regression* on
+phrases you have already found, and it is the wrong tool for *discovery*, which
+is what I was actually claiming to have done. A grep can only ever confirm the
+absence of what you thought of.
+
+**The stronger form, because this is the second time in one session.** The same
+list-shaped blindness had already bitten me twice that day in the other
+direction: `data::text ILIKE '%stock%'` matched my own new `honesty_rails` text
+("Never claim to stock…"), and `%Add to Bag%` matched `cta_style.never_use`. I
+noticed both, fixed the query, and did not draw the general lesson — that I was
+reasoning about a *string list* while writing sentences about *pages*. **When a
+check is a list of literals, the finding is "none of these literals appear",
+and that is the only sentence it licenses.** Write it that way in the doc, and
+the gap between it and what you wanted to say becomes visible instead of
+invisible.
+
+**A fourth home found by the same reading.** `site_plan_pages` — the rows a
+reconcile rebuilds pages FROM — still carried `"Darts Online | Specialist Darts
+Equipment & Accessories"` and `"About Darts Online | Specialist Darts Retailer"`.
+I had corrected `identity`, `briefing`/`classification`, `content_direction` and
+per-page `page_spec.purpose`, called it three homes, and the plan would have
+restored the lie on the next reconcile. *Fixing every reader of a false premise
+is not the same as fixing its source; ask which table REGENERATES the ones you
+fixed.*
+
+Family: check-answers-the-question-you-encoded; narrow-filter-defines-the-conclusion;
+curl-audit-has-no-opinion-about-rendering (inverted — here the DB had no opinion
+about what was served); a-pass-from-a-blind-check-outlives-the-blindness (the
+`clean` sweep was already quoted in a commit message and a SUMMARY before it was
+caught).
+
+## 2026-07-29 — "the live header serves stale chrome, so the 404 links remain" (dartsonline_traffic)
+
+**The claim.** Written into the same closing commit as a caution for the next
+thread: *"the nav fix is DATA-ONLY … the live header still serves stale chrome
+(bugs_open/117), so the three 404 links remain on the served pages until a chrome
+rebuild runs. Do not report the nav as fixed until curl says so."*
+
+**What was true.** Curl says the dead links are on **four** pages, not on all of
+them, and the four are exactly the pages that have not been rebuilt since the nav
+data was corrected — `/sale.html`, `/new-arrivals.html`, `/guides/index.html`,
+`/contact.html`. Every page rebuilt that day came out clean **without anybody
+touching chrome**, because the header is regenerated per page at build time and
+`GetNavItems` already prunes never-deployed targets. `bugs_open/117` (chrome is a
+stored artefact that no page re-render rebuilds) is a real bug and it is not this
+one.
+
+**What caught it.** Doing the thing my own caution told the next thread to do —
+`curl` — instead of reasoning from the stored `site_components.header`, which
+does contain all three dead links and is not what the pages are serving.
+
+**The cheap check that would have.** The one in my own sentence. I wrote "do not
+report the nav as fixed until curl says so" and then reported the *diagnosis*
+without asking curl either. **A caveat is not a measurement.** Attaching a
+correct warning to an unmeasured claim makes the claim read as careful rather
+than as unchecked, which is worse than stating it flatly.
+
+**What it cost, and what it would have cost.** Nothing, because it was caught
+before acting: the fix I had queued up in my head was a chrome rebuild, which
+would have rebuilt `site_nav_items` from *stale* `pages` rows and produced a
+header still missing Guides. The real order is nav-table rebuild first, then the
+four page rebuilds. One curl separated a wrong fix from the right one.
+
+Family: verify-the-failing-branch; measure-rendered-property-in-the-renderer;
+a-doc-comment-is-not-an-enforcement-mechanism (a caveat is not a control either).
+
+---
+
+## 2026-07-29 — NEAR MISS (caught before it was written): "no council seat has ever had its token cap raised" — off my own wrong-depth JSON path
+
+**Thread** "bugsearch 5", working `bugs_open/138`.
+
+**The claim I was about to write.** That candidate 3 (right-size `max_tokens` per
+seat) was barely started, because a query returned `(unset→default)` for **all 17**
+council seats — a clean, uniform, decisive-looking answer. I was one paragraph from
+putting it in the bug file, where it would have justified a whole line of work.
+
+**Why it was false.** I queried `s.value->'config'->>'max_tokens'`. The cap lives at
+`config.ai_service.max_tokens`. **A JSON path at the wrong depth does not error —
+it returns NULL for every row**, which my `COALESCE` then rendered as a tidy
+"(unset→default)". Four seats were already at 16000, including `editquality`, the
+single worst offender in my own 14-day table. The true state was the opposite of my
+claim: candidate 3 is nearly done for every seat that has actually truncated.
+
+**What caught it.** Not method — **luck**. The answer contradicted something I
+happened to know first-hand (I had raised `architecture` myself that morning and
+seen `max_tokens=16000` in `llm_call_log`). With any seat I had not personally
+touched, the wrong answer was unfalsifiable from the inside.
+
+**The cheap check that would have.** `jsonb_object_keys` on ONE object before
+querying a path into it — three seconds. Or: treat a uniform result across a
+heterogeneous population as a smell. 17 independently-configured seats agreeing
+exactly is either a fleet-wide default or a broken query, and both are worth one
+confirming query before they become a finding.
+
+**Why this is logged even though nothing was published.** The tally is the point,
+and this is the same silent-plausible-answer family as
+[grep-the-config-key-before-calling-it-a-win] and [a-count-you-kept-is-not-a-census]:
+a check that answers a different question than the one asked, cleanly, with no
+error. It is now a landmine on the register entry (FIX-055) and in
+`bugfix_138_degraded_gates/RUNBOOK_degraded_gates.md` §4.
+
+**Second, smaller, same session.** I read `go vet` failing on
+`datahelpers/claims.go: undefined: negatedClaimMatch` as possibly my own breakage.
+It was another session's uncommitted WIP — `git archive HEAD` built clean. The
+session-start `git status` I was working from did not list the file, because it is a
+snapshot and stale within minutes. **In a shared tree, a red build is not evidence
+about your change until you have separated HEAD from the working tree.**
