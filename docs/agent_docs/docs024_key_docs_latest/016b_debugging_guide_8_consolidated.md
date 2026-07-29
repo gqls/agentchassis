@@ -7821,6 +7821,36 @@ unable to touch a `/tools/` page. So the sentence was half true, which is precis
 what made it read as measured. **A paragraph that mixes one proven case with two
 unexercised ones inherits the credibility of the proven one.** Split them.
 
+### A shared fact pool handed unchanged to N isolated writers restates itself everywhere it's plugged in (`bugs_open/151`, 2026-07-29)
+
+**The shape.** A per-site "verified facts" block (`site_specs.evidence_base.writer_block`,
+built once by `composeWriterBlock`) is injected verbatim into every per-section
+content-generation call on every page of that site. Each call is otherwise
+isolated — no sibling section's output, same page or a different page, is passed
+in. Nothing in the fact struct records where a fact has already been asserted.
+Result: **18 sections across 5 pages of one site each independently restated 3+
+of the same 9 facts**, two of them only 18% textually similar
+(`difflib.SequenceMatcher`) while saying the identical six things — independent
+generation, not copy-paste, which is why no dedup-by-string check would have
+caught it.
+
+**Why it wasn't caught earlier.** Every existing check on this fact pool
+(`043`, `073`, `074`, `104`, `105`, the claims gate) verifies a fact is *true* and
+*current* — none of them ask whether it has already been said. A section passes
+every accuracy check by construction: it can only assert facts from the approved
+pool, so of course each restatement is individually correct. **Correctness
+per-call is not correctness across calls that share an unscoped input.**
+
+**The reflex.** When N generation calls draw from one shared, undifferentiated
+pool with no per-call scoping and no cross-call memory, expect the pool's
+contents to surface repeatedly, in proportion to N, regardless of how good any
+single call is. The fix is not a better prompt on one call — it is scoping what
+each call is even allowed to see, done at the one point that has visibility
+across all N calls (here: the once-per-site planner, which already emits every
+page's section list together and could assign disjoint fact subsets, but
+currently only guards against whole-*page* topic duplication, not fact- or
+component-shape duplication within or across pages).
+
 **And the corrected finding was sharper than the wrong one**, which is the usual
 reward: 20 of the 24 `unresolved` rows were **born** `unresolved` (`updated_at`
 within 5s of `created_at`), 16 distinct `item_key`s across 24 rows — repeat

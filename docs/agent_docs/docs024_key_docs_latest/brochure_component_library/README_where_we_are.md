@@ -931,3 +931,28 @@ is written down: the plan, the page record, and a name field on the row itself.
 Miss any one and the section vanishes at the next rebuild with a green tick. That
 is worth knowing beyond this panel: it's the same "the status said fine and the
 page said otherwise" pattern that has now bitten this site five times.
+
+**You then said the home page and the capabilities page seem very similar.** You
+were right, and it turned out to be bigger than those two pages. We keep nine
+approved facts about this business — things like the review council, the overnight
+build, the Stripe integration. Every time a section of writing gets generated, it's
+handed all nine with no record of what a different section, on the same page or a
+different page, already said with them. I counted: eighteen sections across five
+pages each said three or more of the same facts again. The home page's worst
+stretch had three sections in a row doing this, two of them under the identical
+heading. And it wasn't copy-paste — I compared the near-identical section on home
+and capabilities and it was only 18% the same wording while saying the exact same
+six things, which is worse in a way, because it reads as two separate pieces of
+content saying the same thing rather than one piece repeated.
+
+I fixed all five pages: kept whichever one section said it best, removed the
+others, checked nothing broke. Then you asked the more useful question: how do we
+stop this happening again, everywhere, not just here. I went and read the actual
+code before answering rather than guessing. The honest answer is nobody has built
+the part that would prevent it — the one piece of the system that sees the whole
+site at once (the planner that lays out every page before anything is written)
+only checks that you don't get two pages about the same topic; it never checks
+that you don't get two *sections* about the same facts. I've written up what a real
+fix looks like and filed it properly (`bugs_open/151`) so it doesn't get lost, but
+building it is a genuine piece of platform work, not a same-day tidy-up — it
+touches the planner and the writer both. Your call on when that gets picked up.

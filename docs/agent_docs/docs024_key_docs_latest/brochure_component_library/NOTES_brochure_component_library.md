@@ -2816,3 +2816,87 @@ Observation for the owner, not a defect: the new panel (position 4) and the
 surviving `info-card-grid` (position 6) still cover overlapping ground — that
 overlap predates today (differentiators + features + info-card-grid all did), but
 with the panel in place it is the most visible remaining duplication on the page.
+
+## 2026-07-29 (later still) — the owner flagged home/capabilities as "very similar"; it was worse than that, and site-wide
+
+The observation was right and undersold: home and capabilities were not copies of
+each other, they were two independently-written paraphrases of the same nine
+approved facts (`site_specs.evidence_base`, source `owner-directed seeding`, 9
+facts: live sites, council seats, relojistas, 24h build, leopardess correction,
+zero fabricated clients, idea.uk/Stripe, vector search). **Measured before touching
+anything**: a per-section fact-census across all ten served pages found **18
+sections across 5 pages each restating 3+ of the same nine facts** — home had SIX
+capability-listing sections out of eight, three of them consecutive (`features`,
+`info-card-grid` right after `teaser-reveal-panel`), two sharing the literal
+heading "What this platform demonstrably does" with a third instance on
+capabilities. The `info-card-grid` on home vs. capabilities was only **18% textually
+similar** (`difflib.SequenceMatcher`) while saying the identical six things — the
+worse kind of duplication, since it reads as independent content to a crawler.
+
+**Fixed on all five repeating pages** (owner chose "one list per page" + "all five",
+over the narrower two-page option): kept the section most on-topic for that page,
+archived and removed the rest via the same `page_component_history` pattern as the
+teaser panel's own displacement.
+- index (8→6): kept `teaser-reveal-panel` as the one list; dropped `features`,
+  `info-card-grid`.
+- capabilities (6→4): kept `services-grid` (the most detailed, on-topic one);
+  dropped `hero-card-carousel`, `info-card-grid`.
+- about (5→4): kept `about-content` (narrative prose, about-page-appropriate);
+  dropped `differentiators` (a second full card-grid restating the same facts).
+- multi-agent-review-council (5→4): kept `generic-text-block` + `info-card-grid`
+  (both genuinely on-topic — the info-card-grid here is about council roles/seats
+  specifically, unlike home/capabilities' version); dropped
+  `swipeable-insight-carousel`, which was the odd one out: a full nine-fact roster
+  with only one card actually about the council.
+- blog/self-correction-leopardessconsulting (5→4): kept `generic-text-block` (the
+  post's actual subject, prose) + `swipeable-insight-carousel` (one list, varied
+  component type); dropped `info-card-grid`, a second near-identical full roster.
+
+7 `page_components` rows archived under source
+`operator_dedup_capability_lists_2026-07-29`, then removed from `page_components`,
+`pages.sections`, and `site_plan_sections` in one transaction (all three, per the
+`(page_id, function)` lockstep this file already learned the hard way). Queued via
+5 `page_rerender` items — all `content_data IS NULL` checked clean first, all 5
+went `triaged`→`complete`. **Did not trust the status column**: refetched all five
+pages live afterwards (`data-component` census) and confirmed the exact intended
+section set is served on each, 0 dead extensionless hrefs, 0 unrendered `{{`.
+
+Not done, and flagged to the owner rather than assumed: this treats the *symptom*
+(repeated sections on this one site). The mechanism — a section writer receives
+all nine approved facts with no record of what a sibling section on the same page,
+or the same site, already used — is unfixed and would reproduce on the next site
+built the same way.
+
+**Owner then asked: how do we stop the framework making this mistake again.**
+Dispatched a grounded investigation (not speculation) into the actual write path
+and plan path before proposing anything. Confirmed:
+- `page-content-writer`'s `process_sections_loop` calls `generate_content` once
+  per section, fully isolated — no sibling section, same page or not, is visible.
+- Every one of those isolated calls gets the identical `writer_block`, built
+  ONCE per site by `composeWriterBlock` (`refresh_evidence_base_action.go:582-637`)
+  with no per-fact usage tracking — `EvidenceFact` (`claims.go:74-96`) has no such
+  field at all, not a dead one.
+- `build-site-planner` runs once per site with full cross-page visibility (the one
+  place that structurally could prevent this) but its only duplication guard is
+  page-level topic dedup (`053_build_site_planner.sql:2461`); nothing about facts
+  or component shape.
+- `SelectComponentByType`'s scoring (`component_selector.go:150-193`) has no notion
+  of a component being roster-shaped vs. single-topic, so nothing stops two
+  full-roster components landing on one page — which is exactly what home did
+  three times over.
+- No existing bug or register entry named this class; the closed `evidence_base`
+  bugs (043/073/074/104/105) are all about accuracy/staleness, none about
+  repetition.
+
+**Filed `bugs_open/151`** with three fix candidates ordered by what closes the
+door: (1) scope facts to sections at plan time — extend the planner's per-site
+output to assign each section a disjoint fact subset, since it already has the
+cross-page visibility to do this in one pass; (2) tag component shape so the
+planner/selector stop pairing two roster components on one page (weaker — doesn't
+stop two *narrative* sections restating the same fact, which is what `about.html`
+did); (3) a post-build fact-repetition census as a permanent gate, cheap to build
+(this session's own ad-hoc SQL+Python census took ~15 minutes) and the only one of
+the three that also protects the 9 already-deployed sites. Added the transferable
+pattern to 016b §9: *"A shared fact pool handed unchanged to N isolated writers
+restates itself everywhere it's plugged in"* — every existing check on this pool
+verifies a fact is true, none ask whether it's already been said.
