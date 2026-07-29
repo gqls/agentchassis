@@ -10385,3 +10385,51 @@ it happened.** Everything else in this session was already written down somewher
 
 Family: read-the-function-dont-infer-from-the-data, narrow-filter-defines-the-conclusion,
 a-slow-job-and-a-dead-one-look-identical, verify-on-the-path-a-user-takes.
+
+## 2026-07-29 — a repro that the render destroys, and a census that answered a different question
+
+**"The gamesdesign rerender will drive the stored `href=""` through `save_page_sections` and
+prove the 079 fix."** Pre-registered in a council submission, written into a verify script's
+own `EXPECT` line, and stated to the owner. **It ran, COMPLETED in 40s, and the `href=""`
+count went 2 → 0 — the predicted result, for the wrong reason.** `rerender_sections`
+re-renders each section from `content_data` through the CURRENT template; that page's
+`content_data` carries `cta_primary_label`/`cta_secondary_label` and **no url fields at all**,
+so the template's skip gate omitted the buttons entirely. The repair was never handed an
+anchor. No `action='save_page_sections'` repair row was written for the run at all.
+
+I had checked the preconditions I knew about — `content_data` non-NULL on every section (else
+the page escalates to the writer and `save_sections` is skipped), not runtime-fill exempt, not
+interactive, `rebuild_policy='generic'`, and the step graph confirming the `reason` routes
+through `save_sections`. Every one of those was a real trap and none of them was this one.
+
+*What caught it:* **the success was the wrong SHAPE.** Unlinking is defined to drop the `<a>`
+and keep the inner text; the anchor text had vanished too. A result that matches your headline
+metric while violating the mechanism's own invariant is the tell.
+
+*Cheap check that would have:* **before using a regenerate-from-source rerender as a repro,
+confirm the defect exists in the SOURCE, not only in the rendered artefact.** One query —
+`SELECT content_data FROM page_components …` — showed no url fields, i.e. nothing that could
+render an `href=""` the repair would then see. The defect lived in `rendered_html`; the render
+does not read `rendered_html`.
+
+*Second-order:* I nearly attributed the 2 unlinks that WERE logged for that page to my fix.
+They came from the outbound rerender seam (`action='rerender_page'`, LNK-023), a different
+call site acting on the assembled page's chrome. **When several call sites share one error
+code, the discriminating field is the only thing standing between you and a false positive** —
+here `action`, exactly as `linkRepairOrigin` was designed to allow.
+
+**"Six agent types call `save_page_sections`, so this closes the door."** Withdrawn under a
+council objection (`bug_historian`). The census enumerated `agent_definitions` carrying a
+`save_page_sections` STEP NAME; the load-bearing question was *who writes
+`page_components.rendered_html`*. Ten Go call sites do, and three persist LLM prose with no
+repair at all — including the one our own code comment tells operators to use for targeted
+edits. Same family as the earlier `narrow-filter-defines-the-conclusion` rows, one level up:
+not a filter that was too narrow, but **a question that was adjacent to the one the claim
+rested on**. Filed as `bugs_open/136_…section_editor_and_three_siblings…`.
+
+*Cheap check:* when a claim is about a COLUMN's contents, grep for writers of the COLUMN
+(`grep -rn "INTO <table>\|UPDATE <table>"`), never for the name of the step you happen to
+know about.
+
+Family: narrow-filter-defines-the-conclusion (question-adjacent variant),
+verify-the-failing-branch, writes-the-field-is-not-reads-the-field.
