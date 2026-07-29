@@ -2135,3 +2135,48 @@ confirm something actually calls it on a schedule.*
 that is not a free action; 083 is waiting on an owner call about who reads these
 queues at all. The broken page stays broken, visibly, in a filed bug — which is
 the honest state, not a loose end.
+
+---
+
+## 2026-07-29 ~17:05Z — the owner said run the promoter once, and the sweep is not a promoter
+
+Owner instruction: *"please run that scheduled task once."* Reading it before
+firing changed what "once" means, twice over.
+
+**1. The task picks its own site, and the rule points AWAY from fresh findings.**
+`improvement-sweep`'s `pre_query` ends `ORDER BY s.updated_at ASC NULLS FIRST
+LIMIT 1` — one site per firing, the least-recently-touched eligible one. Fired
+faithfully today it would have swept **idea.uk** (another lane's site), not
+gamesdesign, and would not have touched the parked catch at all. Worse, it is
+systematically wrong for this use: **creating a work item bumps
+`sites.updated_at`**, so the site you have just found a defect on sorts LAST of
+all eligible sites. Owner chose gamesdesign; the site is now an argument to
+`scripts/run_improvement_sweep_once.sh` for exactly this reason.
+
+**2. `triage_findings` has no item_type filter.** `WHERE site_id = $1 AND status
+= 'detected'` (`triage_detect_items_action.go:108`) — every detected item on the
+site, of every type. And promotion alone is the trigger: `build-pipeline-trigger`
+is ENABLED, ticks every 120s, and selects exactly `triaged` + `build`. So the
+promoter cannot be run "just for my item", and the dispatch step is not what
+starts the work — the `UPDATE` is.
+
+**Ruled out by evidence, not by hope:** the hardened kcat form printed
+`PUBLISH_OK` **twice** — the documented double-fire landmine. It was not one:
+counting orchestrations by payload gave exactly ONE `improvement-loop` row
+(`30692439-43d2-4406-9fe8-9734c3f5689a`). The second line was `kubectl run`'s
+attach failing over to streaming the same pod's logs. *Check: count by payload;
+never count PUBLISH_OK.*
+
+**[MEASURED 17:06–17:09Z] The floor was 1; the actual was 64.** Pre-state was
+one `detected` item (my 131-B catch — the other 17 open rows sit at
+`needs_human_review`/`unresolved`, which the WHERE clause cannot see). Then the
+five discovery agents ran and the pile went **1 → 60 → 64 in about three
+minutes**: 21 `undeployed_asset`, 9 `page_rerender`, 8 `needs_content_image`,
+7 `phantom_internal_link`, and a long tail. Nothing anomalous — it is the
+ordinary backlog of a site unswept since the loop was disabled on 2026-05-02 —
+but it is the honest scale of "run it once": **the discovery half dominates the
+promotion half by ~60:1 on an unswept site.** I had told the owner one was the
+floor and not the ceiling; stating the floor was right, and it was nowhere near
+enough to convey the size. *Check: on an unswept site, size the sweep by how
+long it has been off, not by what is currently queued.*
+
