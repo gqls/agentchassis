@@ -11042,3 +11042,50 @@ Family: check-answers-the-question-you-encoded (the check asked "did the write l
 the repo I chose", never "is that the repo that serves this site");
 a-print-statement-is-not-a-config-row (a green workflow run vouches for itself, not for
 the site); narrow-filter-defines-the-conclusion (one route assumed, two exist).
+
+---
+
+## 2026-07-29 — "charset-guarded identifiers, quote-doubled free text" — offered as a safety feature
+
+**Where I wrote it.** The council submission for the asset-amend path, describing
+`scripts/amend-asset.sh`: the loader built its SQL by interpolating shell variables into the
+statement text, and I listed the escaping around that as one of the edit's merits.
+
+**The truth.** The ALWAYS-ON parameterisation rule prohibits building SQL by interpolation
+**regardless of how well it is escaped**. The `constitution` seat called it flatly, and was
+right: my guards were sound as far as they went (a charset class on identifiers, doubled
+quotes on free text) and entirely beside the point. Fixed in `048dbd96b` — every operator value
+now travels as a psql variable, including the server-side guard's domain via
+`set_config`/`current_setting`.
+
+**What caught it.** The council gate, round 1. Nothing in my own testing could have: the
+dry-run output looked correct, the escaping worked, and no input I would ever have typed
+breaks it.
+
+**The cheap check that would have.** Read the rule before writing the file, not after the
+objection. The rule is ALWAYS-ON — it is in the standing set precisely so it does not need
+re-deriving per case.
+
+**The transferable bit, and it is the uncomfortable part.** *I did not merely break the rule —
+I advertised the workaround as a feature.* Escaping discipline presented as a merit is the
+signature of having chosen the wrong construction and then defended it, and it reads as
+diligence, which is what makes it survive review by anyone reading quickly. **Tell: if an edit's
+rationale is proud of its escaping, the escaping is load-bearing, and it should not have been.**
+The same shape shows up wherever a submission's rationale explains how carefully something
+unsafe is handled, rather than why the unsafe thing is absent.
+
+*Second, smaller, same round:* I invented `source='operator'` for a work item where
+`018_site_work_items.sql:18` sanctions `'manual'|'improvement'|'side_effect'`. The live table
+carries 8 rows at `'operator'` from other lanes, so I could have cited precedent — but
+**precedent in the data is not permission in the rules**, and the drift is exactly how a
+vocabulary stops meaning anything. Conformed rather than ratified.
+
+### The tally point
+
+Both entries this session are the same underlying skipped check: **the standing rule was not
+re-read before the work that engaged it.** The 07-28 entry above missed an entire audience
+because no check encoded it; this one missed a rule that was already written down. Those need
+different fixes — the first needs someone to notice the gap, the second needs nothing but
+looking. Cheapest general guard for the second class: when an edit touches SQL construction,
+credentials, or a vocabulary column, open the standing rule for that thing *first* and quote it
+in the rationale. A rationale that quotes the rule cannot also be proud of working around it.
