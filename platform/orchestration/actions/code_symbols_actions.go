@@ -532,6 +532,14 @@ func vectorSearchCodeSymbols(ctx context.Context, db *sql.DB, repo string, embed
 		query += ` AND repo = $2`
 		args = append(args, repo)
 	}
+	// lookup_code_symbols is a SCOPE SEEDER: its rows become "path:Symbol" scope
+	// entries (diagnose_assemble_bundle_action.go scopeFromCodeResults) which the
+	// assembler slices into Go bodies. A row with no sliceable Go body can never be
+	// a valid result, so non-code kinds are excluded at the source rather than
+	// filtered downstream. Reuses codeKindsCSV — the SAME allow-list the D12 guard
+	// tags with — so there is exactly one answer to "what is code".
+	args = append(args, codeKindsCSV)
+	query += fmt.Sprintf(` AND kind = ANY(string_to_array($%d, ','))`, len(args))
 	query += fmt.Sprintf(` ORDER BY embedding <=> $1::vector LIMIT %d`, topK)
 
 	rows, err := db.QueryContext(ctx, query, args...)
@@ -553,6 +561,11 @@ func trigramSearchCodeSymbols(ctx context.Context, db *sql.DB, repo, queryText s
 		query += ` AND repo = $2`
 		args = append(args, repo)
 	}
+	// Same scope-seeder invariant as the vector path above, and deliberately the
+	// same list: two searches feeding one consumer must not disagree about which
+	// rows are eligible.
+	args = append(args, codeKindsCSV)
+	query += fmt.Sprintf(` AND kind = ANY(string_to_array($%d, ','))`, len(args))
 	query += fmt.Sprintf(` ORDER BY similarity(content, $1) DESC LIMIT %d`, topK)
 
 	rows, err := db.QueryContext(ctx, query, args...)
