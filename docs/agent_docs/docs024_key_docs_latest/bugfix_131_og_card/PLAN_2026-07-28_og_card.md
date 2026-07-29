@@ -62,6 +62,27 @@ missing or whose derivation failed. It is second, not first.
 - **Out of scope, filed not fixed** — the `og:title` / `og:description` fallback (case file
   "second defect"); and the `undeployed_asset` detector blind spot found below.
 
+## Decisions added 2026-07-29 (owner, session relojistas-5)
+
+5. **Storage writes go "through the chassis"** — no credentials into any session. Implemented
+   for exact bytes as an in-cluster Job (`secretKeyRef` on `personae-storage-secrets`,
+   database-backup cronjob pattern); for new images, the adapter pipeline is already
+   chassis-native. RUNBOOK has both recipes.
+6. **relojistas' corrected crop applies EVERYWHERE** — S3 master (done, row locked), header
+   (deploy repo done; edge pending origin sync), card + favicon (pending the 1199 roll).
+7. **gaswholesalers + idea.uk belong to the relojistas-4 session** (owner reassignment,
+   mid-session). Split + generated candidate logos + landmines:
+   `COORDINATION_2026-07-29_who_does_what.md`. This lane no longer touches either site.
+8. **Decision 2's mechanism was resized by reading the code:** a locked `og_card` row does NOT
+   protect leopardess's card on the live binary — the derive's git commit precedes the lock
+   check (only the provenance upsert honours it). So the protection is now two-part: locked
+   rows backfilled (P4 done, 2026-07-29) **plus** commit `e9e345464`, which checks locks
+   BEFORE compositing/committing. Until that rolls, the malformed logo row remains the real
+   guard — leave it alone.
+9. **P3 is resized**: the council round in flight (`bfd73f71-…`) covers the favicon
+   aspect-distortion fix and the lock guard — NOT the tag gate (fix 1), which stays future
+   work with decision 3's constraint intact.
+
 ## Found while measuring — a second, separate defect
 
 The `undeployed_asset` detector has fired 5 times for `og_card`, **every one of them on
