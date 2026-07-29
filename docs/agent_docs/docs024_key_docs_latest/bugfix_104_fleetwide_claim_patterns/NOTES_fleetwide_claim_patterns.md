@@ -471,3 +471,59 @@ method and a defect in my error handling, neither of which any amount of re-read
 own diff would have surfaced.
 
 Round 3 submitted on the same correlation.
+
+---
+
+## 2026-07-29 — round 3: APPROVED, and what the trail was actually worth
+
+`decision=approved`, 12 reviewers, 5 abstained, **0 unreadable**, "approved with 4
+advisory objection(s) — none high-severity". Committed the trailer
+`Council-Reviewed: 899ed92e-1bf7-4707-96d8-24f102aa14fa` on `5db9f9081`.
+
+**Verified the approval was mine before trusting it**, because a later approval can
+attach to another lane's correlation: three `council_report` rows on my correlation
+in order (revise → revise → approved), and the approved body references
+`check_claims_fleet_wide` and the round-3 test names — symbols that did not exist
+before round 3, so it reviewed my plan and not an earlier one.
+
+### One advisory was worth code, and it is the sharpest thing anyone said in three rounds
+
+**compliance (medium):** the kill switch I added in round 2 *at the guardian's
+request* is a **silent** disarm path. Flipped false it restores the pre-104 unarmed
+state — *"including for vetcomparison.uk or idea.uk, the two sites this whole fix
+exists to protect"* — and a site with no register loses its only banned-claim
+protection that way, with nothing anywhere saying so.
+
+That is two seats pulling in apparently opposite directions and both being right:
+guardian wanted a lever because an unwithdrawable blocker is a containment gap;
+compliance noticed the lever I built could quietly undo the entire fix. **They only
+conflict if pulling the lever is quiet.** The gate now logs at Warn when the set is
+disabled, naming the site and whether it has a register at all. Same principle as
+everything else in this workstream: a disabled checker and a working one must not
+look identical from outside.
+
+**guardian (low):** pattern 1 is itself a negation construction — the same shape that
+caused all four false positives. Correct, and it is not one pattern but **three**: the
+whole completeness-of-exclusion family reads negatively. The code comment now covers
+the family rather than one member.
+
+**prior_art_librarian (low ×2):** flagged both my "mirrors `repair_internal_links`"
+precedent claim and my "no negation-guard prior art" absence claim as author-asserted.
+Fair on the epistemics — the first I read first-hand and it holds; the second is the
+class of claim that goes stale, and it is already recorded as such.
+
+**architecture + guardian (medium): a fleet-wide blocker-severity mechanism across
+three packages wants a filed RFC, and the substance of one exists without the
+artefact.** Left as filed deliberately: that is an owner call on venue, not something
+to self-approve, and `RFC_001` (from `bugs_closed/003`) is the precedent for how one
+gets ratified. Recorded here rather than acted on.
+
+### What the three rounds were actually worth, stated plainly
+
+Approval was the least valuable output. The trail produced, in order: a defect in my
+**measurement method** (status filtering the gate never applies), a missing
+**containment lever**, a **silent failure mode** in the fallback I had copied without
+re-deriving its justification, and a **silent failure mode in the lever itself**.
+Not one of those would have been found by re-reading my own diff, and three of the
+four are the same shape — *a thing that looks identical whether it is working or
+not*, which is the failure this whole workstream started out being about.
