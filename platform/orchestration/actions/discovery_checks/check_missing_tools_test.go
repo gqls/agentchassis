@@ -17,6 +17,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -39,9 +40,38 @@ func expectRatio(mock sqlmock.Sqlmock, siteID uuid.UUID, ratio int) {
 }
 
 func expectArticleCount(mock sqlmock.Sqlmock, siteID uuid.UUID, n int) {
-	mock.ExpectQuery(`page_type IN \('blog-post', 'content'\)`).
-		WithArgs(siteID).
+	mock.ExpectQuery(`page_type = ANY`).
+		WithArgs(siteID, pq.Array(articlePageTypes)).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(n))
+}
+
+// The first version of this change counted only ('blog-post','content'). The
+// council gate's own read-only check found `guide` is a separate, real page_type
+// — 52 deployed pages across 5 sites, the third-largest article-shaped type — so
+// every one of them was excluded and those sites would have counted zero
+// articles and never tripped the ratio.
+//
+// The failure mode is SILENT: an omitted type does not error, it just makes a
+// site look emptier than it is. This test is the tripwire — a new article-shaped
+// page_type must be added to articlePageTypes deliberately, and the excluded
+// list is asserted too so that "tool" can never be counted as content the ratio
+// is measured against (a site could otherwise satisfy its tool ratio by
+// publishing tools).
+func TestArticlePageTypes_CoversTheArticleShapedTypes(t *testing.T) {
+	got := map[string]bool{}
+	for _, pt := range articlePageTypes {
+		got[pt] = true
+	}
+	for _, want := range []string{"blog-post", "guide", "content"} {
+		if !got[want] {
+			t.Errorf("articlePageTypes is missing %q — a site whose written content uses that type counts as empty and is never asked for tools", want)
+		}
+	}
+	for _, mustNot := range []string{"tool", "game", "landing", "section-index", "blog-index", "news-index", "entity-directory"} {
+		if got[mustNot] {
+			t.Errorf("articlePageTypes must not contain %q: tools/games are what the ratio counts AGAINST, and the index types are navigational shells, not reading", mustNot)
+		}
+	}
 }
 
 // expectCooldown stubs step 3 and pins the cooldown the check chose — the whole

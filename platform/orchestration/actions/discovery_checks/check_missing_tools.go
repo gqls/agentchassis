@@ -36,8 +36,38 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
+
+// articlePageTypes is what "an article or guide" means when sizing the
+// content-to-tools ratio: reader-facing written content, as opposed to tools,
+// navigational shells and generated trackers.
+//
+// The list is enumerated rather than inferred because getting it wrong fails
+// SILENTLY — an excluded type just makes a site look like it has less content
+// than it does, and the ratio never fires. The first version of this change
+// said `IN ('blog-post','content')` and the council gate's own read-only check
+// caught it: `guide` is a real, separate page_type. Measured fleet-wide
+// 2026-07-29, deployed and active:
+//
+//	content 117 (13 sites) · blog-post 52 (9) · guide 52 (5) · entity-page 17
+//	section-index 15 · landing 14 · tool 105 · game 5 · news-index 4
+//	blog-index 3 · report 2 · entity-directory 1 · 3 tracker types 1 each
+//
+// So `guide` is the third-largest article-shaped type and the original list
+// excluded every one of its 52 pages. Deliberately still excluded: tool and
+// game (they ARE the tools this ratio counts against — including them would
+// let a site satisfy its own ratio by publishing tools); landing,
+// section-index, blog-index, news-index and entity-directory (navigational
+// shells, not reading); the tracker/directory/report types (generated
+// artefacts, 1-2 pages on a single site each).
+//
+// ADDING A PAGE TYPE LATER: a new article-shaped type not added here
+// undercounts silently. TestArticlePageTypes_CoversTheArticleShapedTypes pins
+// the list so the omission surfaces as a failing test rather than a site that
+// is quietly never asked for tools.
+var articlePageTypes = []string{"blog-post", "guide", "content"}
 
 func init() { Register(&MissingToolsCheck{}) }
 
@@ -95,10 +125,10 @@ func (c *MissingToolsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 			SELECT COUNT(*)
 			FROM pages
 			WHERE site_id = $1
-			  AND page_type IN ('blog-post', 'content')
+			  AND page_type = ANY($2)
 			  AND status = 'active'
 			  AND deployed_at IS NOT NULL
-		`, dctx.SiteID).Scan(&articleCount); err != nil {
+		`, dctx.SiteID, pq.Array(articlePageTypes)).Scan(&articleCount); err != nil {
 			return nil, fmt.Errorf("missing_tools: count published articles: %w", err)
 		}
 	}
