@@ -11151,3 +11151,20 @@ from the producer's side, and "the handler exists" is not "the handler runs".
 **by slug** (`…detected_findings_never_reach_a_handler`). Grepping before filing
 turned a would-be duplicate into a contribution — the acceptance ladder was a
 consumer that file had not listed, and the pile has grown 157 → 250 since 07-27.
+
+**"Tool pages are EXCLUDED from the orphan check — the exact case here" (oufe, 2026-07-29).**
+Said out loud, from reading `check_orphan_pages.go:204` — `NOT IN ('blog-index','tool')
+OR in_header OR in_footer` — and stopping at the exclusion without reading the `OR`, and
+without querying the flags. **Every one of the 11 unreachable tool pages fleet-wide carries
+a nav flag, oufe's included (`in_footer=true`), so the exclusion applies to none of them**
+and the check would have flagged all 11. Retracted one tool call later, by the census I was
+running anyway. Had the census not been the next step, a wrong cause ("the check excludes
+tools") would have gone into a bug file — and it is a plausible-sounding cause that would
+have sent the next thread to change the SQL instead of scheduling the agent.
+
+*Cheap check that would have:* when a predicate has an `OR` escape, **run it against the
+real rows before describing what it does** — the flags were one query away and they invert
+the reading. A clause read is not a clause evaluated.
+
+Family: check-answers-the-question-you-encoded; a-count-you-kept-is-not-a-census (this is
+its inverse — a *condition* kept in the reading and dropped from the evaluation).
