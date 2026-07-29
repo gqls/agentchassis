@@ -560,9 +560,40 @@ Candidates 2 and 3 remain untouched, per §4's ordering and §10's reasoning.
   the 503 bursts' cause is fixed and verified by candidate 4. Candidate 2
   (unbounded `&http.Client{}` fleet-wide — NOT island-only) stands as its own
   concern to be argued on its own merits, per §10.
-- **[UNMEASURED] fleet-wide sibling suspicion, deliberately NOT asserted:**
-  every chassis caller of `aiservice.GenerateText` that passes no max_tokens
-  override gets the same 2048 default; on claude-5-family models thinking is
-  on by default and counts against it. Whether any FLEET lane is silently
-  losing completions to this is a llm_call_log query, not an argument — see
-  the diagnosis-queue check in the vonc6 session notes.
+- **~~[UNMEASURED] fleet-wide sibling suspicion~~ — MEASURED 2026-07-29 and
+  REFUTED AS STATED. The fleet is not affected; the island was the outlier.**
+  The suspicion was that every chassis caller of `aiservice.GenerateText`
+  passing no max_tokens override inherits the same 2048 default. Census over
+  7 days of `llm_call_log` (`provider='anthropic'`):
+
+  | model | calls | at ceiling (`output >= max_tokens`) |
+  |---|---|---|
+  | claude-sonnet-5 | 2,142 | **0** |
+  | claude-sonnet-4-6 | 719 | 0 |
+  | claude-opus-4-6 | 4 | 0 |
+  | claude-haiku-4-5 | 1 | 0 |
+
+  Denominator checked, because a NULL column would have made that zero
+  vacuous: **all 2,142 sonnet-5 rows carry `max_tokens`** (16–32,000), 2,051
+  carry `output_tokens`, and **zero rows show `output_tokens = 2048`** — i.e.
+  no fleet caller is inheriting the default at all. 13 live agent types name
+  `claude-sonnet-5` (the only model in fleet use that thinks by default —
+  4.6, 4.5 and 4.8 all run without thinking when the field is omitted), and
+  every one of them passes an explicit override. **The island's tools-api was
+  the single caller that passed none.**
+
+  **What the census DID surface, stated as a risk and not as a defect:** the
+  dominant bucket is `max_tokens=8000` (1,866 calls) whose largest observed
+  completion is **7,986 output tokens — 99.8% of its own ceiling**; the
+  32,000 bucket peaks at 30,573 (95.5%). Nothing has truncated, but on a
+  model that spends thinking from that same ceiling, 14 tokens of headroom is
+  not headroom. Whoever owns those lanes may have sized the number against
+  the visible-text definition. Not filed as a bug — no failure has occurred —
+  and deliberately not escalated on a single high-water mark.
+
+  *Method note:* the 090 loop assembled evidence bundles but produced no
+  verdict artifact (`kind='bundle'` only, all steps COMPLETED, corr
+  `91cce28d`; the first dispatch `9e59d517` died outright on the spawn→call
+  handshake race). The answer above came from running the query the symptom
+  named. Filing was still correct — but a loop run is not a substitute for
+  the one query you can run yourself in ten seconds.
