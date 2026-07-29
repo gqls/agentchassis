@@ -1298,3 +1298,57 @@ That is the lane's recorded empty-denominator family wearing a new coat: run 1's
 Register: VIZ-012 (the dispatchable chain, live+exercised); VIZ-010 marked
 capability-superseded — retiring the Python is the brochure workstream's call.
 Recipe: RUNBOOK §14.
+
+### 2026-07-29 (late morning) — the first evidence-timeseries is live: Thames leakage 2020-25, and the restatement trap it stepped around
+
+**The data hunt honoured the "do not force it" rule and found a genuine series.**
+The handoff's candidate (performance commitments as baseline→target) is indeed a
+comparison. But Thames's own APR 2024-25 charts FIVE YEARS of leakage actuals
+(page "Leakage BW04"): 5.4 / 10.4 / 11.1 / 12.0 / 13.2 — % reduction from the
+2019-20 baseline, three-year average. One measure, five dates, one document.
+
+**The trap that mattered: mixing methodologies across sources.** First plan was
+per-year sourcing from Ofwat's own annual performance reports (strongest possible
+per-observation provenance). Then the cross-check: Ofwat's 2022-23 report says
+Thames's actual was **−10.7**; the APR's chart says **11.1** for the same year.
+Not a transcription error — the company restated prior years after 2023-24
+reporting-methodology improvements ("In 2023/24 we made improvements to our
+leakage reporting", the APR's own note). A series mixing contemporaneous Ofwat
+values with restated APR values would look consistent and be subtly wrong. So:
+all five observations from the restated chart, restatement disclosed in the
+chart footnote. The near-miss is the lesson: **cross-check one overlapping year
+across candidate sources BEFORE choosing per-point sources for a series.**
+
+**Column-mapping discipline (the 254 rule) had its best outing yet.** The chart
+pairs extract as columns; the Actual/Target assignment is corroborated three
+independent ways: the page's own 13.2 headline; Ofwat WCPR 23-24 and 24-25
+stating −12.0/−17.4 and −13.2/−20.5; and — the elegant one — the ODI table's
+reward/penalty SIGNS per year (rewards exactly when actual>target: 5.4>4.1,
+10.4>10.2; penalties the three years after). The signs pin every pair at once.
+
+**Built:** mig 265 (register: the FIRST series fact, `CIT-tw-leakage-series`,
+5 observations each with own citation; plus the 20.5 target, the £19.178m
+penalty, the 9.3% sector comparator) + mig 266 (the locked chart row, 182
+pattern, rendered offline through text/template mirroring
+`RenderTemplateWithMap` — parse, execute, strip `<no value>`). Scale denominator
+is the registered target fact, so a bar reaching the top would have met the
+final-year commitment — the shortfall IS the picture.
+
+**Verified:** page rerendered + deploy-stamped (5/5 planned sections — the
+partial-build guard satisfied); served page carries the five values; **claimscan
+0 findings across 18 components** — the first live exercise of
+`seriesSupports`; **render audit run 4: 8 pages, 0 firm, 0 broken images, 0
+overflow.** Chart furniture uses the accent (6.86 against the background,
+VIZ-011's measurement) by construction. NOT re-screenshotted — the 253 lesson
+says numbers alone are insufficient for chart furniture; noting honestly that
+the accent choice is the same one the screenshot DID verify on the sibling
+charts post-253.
+
+**Two accepted imperfections, both deliberate:** the axis ticks render `as_of`
+raw ("2021-03" for the year ending 31 March 2021 — footnote explains); and
+12.0 renders "12%" (`%.10g` drops the zero — the `display` override would make
+content_data diverge from the register by a key the Go struct doesn't carry,
+and the 104 landmine says unknown keys can be dropped on re-marshal; identical
+copies beat a cosmetic decimal).
+
+Register: VIZ-002 → live+exercised, VIZ-003 → first live series noted.

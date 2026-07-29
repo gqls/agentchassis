@@ -222,11 +222,13 @@ Reusable now: `evidence-chart` (magnitudes), `evidence-timeseries` (dated series
 unused), `mechanism-flow` (process), `tool-guide-intro` (**exists** — the answer
 to "guides at each point", never used here).
 
-### 3c. First real use of `evidence-timeseries`
-It needs a measure that genuinely moves over time. Ofwat's performance commitments
-(leakage, spills, sewer flooding) are stated as 2024-25 baseline → 2029-30 target
-and may yield one. **Do not force it** — twice today the honest answer was that
-the data was a comparison, not a trend.
+### 3c. First real use of `evidence-timeseries` — **DONE 2026-07-29 (migs 265/266)**
+> Thames leakage 2020-25 from the company's restated APR chart: five actuals,
+> each observation its own citation, scaled against the registered 20.5% final
+> target. claimscan 0/18, render audit 8 pages clean. **The catch worth keeping:
+> Ofwat's contemporaneous reports disagree with the restated series (−10.7 vs
+> 11.1 for 2022-23) — cross-check an overlapping year across candidate sources
+> BEFORE choosing per-point sources for any series.** Full account in NOTES.
 
 ### 3d. `bugs_open/126` has an inbound contribution from another thread
 Another workstream audited `tool-improver.note_refusal` and found its error

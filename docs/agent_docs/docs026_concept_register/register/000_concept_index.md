@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,648 concepts across 107 category register files. 1,627 consolidated from
+1,649 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -31,7 +31,11 @@ because `bugs_closed/124` and `129` were each vetoed on scope and told to route
 their seam to an architecture review reachable from neither lane; and 5 more
 (TL-031, PLAN-043/044/045/046) added 2026-07-28 for the experience register — its
 substrate, its validating write path, its bind/verify consumer, its five-seat
-approval council, and the attribute assertion that closed its largest harness gap.
+approval council, and the attribute assertion that closed its largest harness gap;
+and 1 more (IMG-065) added 2026-07-29 — the operator asset-amend path
+(staging BYTEA → ingest_staged_asset → S3 → in-place assets amend), built from
+the `bugs_open/131` og-card finding that the platform had NO path for a human
+to supply corrected image bytes.
 That last group carries a note on method: the first of the five was added alone,
 and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
 workstream as covered while four callable mechanisms were still absent. The
@@ -1431,6 +1435,7 @@ an ID prefix, or a status word.
 | TL-012 | "Completeness + validation passed" ≠ working — twice demonstrated | convention | The standing empirical argument for the behavioural tier: structural/validation checks measure output integrity,... | tool-lifecycle.md |
 | TP-003 | Inline-JS extraction ("Path 1" /tools/assets/<fn>.js) — designed, partly real, never on the live deploy path | partial | The store path's separateInlineJS extracts a bare inline `<script>` into js_content, nominally replaced by a... | tool-pipeline.md |
 | IMG-064 | Imagery work-item economy end-to-end chain | deployed | The umbrella planner→build→deploy→rebuild chain every imagery phase concept composes into. | imagery.md |
+| IMG-065 | Operator asset-amend path (ingest_staged_asset) | built | First human path to replace an asset's bytes: staging BYTEA → validate → S3 new key → in-place assets amend, lock-honouring. | imagery.md |
 | DES-011 | chief-strategist (build-plan LLM) + component placement dedup rules — superseded | superseded | The v1/v2 planning agent that produced sections/component_details build plans before build-site-planner existed. | design-composition.md |
 | DES-008 | Brand designer agent (theme selection) — earliest design decision point (superseded) | superseded | The very first brand/design decision point in the pipeline's history: an LLM agent analysing domain + objective... | design-composition.md |
 | DES-039 | Early "visual identity poles" layout taxonomy (dropped) | superseded | The very first migration draft described layout diversity as nine named "poles" tied to specific reference... | design-composition.md |
@@ -1754,7 +1759,7 @@ an ID prefix, or a status word.
 | BIZ-008 | Unit economics, pricing, and sourcing decisions (idea.uk) | deployed | £29 flat, cost-plus; self-hosted LLMs deferred to 2027 | business-strategy.md |
 | SOC-012 | Spark revenue model | aspirational | £3-5/mo subscription + meritocratic brand sponsorship + revenue share, no pay-to-win | social-media.md |
 | VIZ-001 | evidence-chart: magnitudes resolved through fact ids | deployed | CSS bars, no SVG; a chart point cannot carry its own number — every value resolves via fact_id and renders its verified date | visualisation-and-charts.md |
-| VIZ-002 | evidence-timeseries: one measurement over time | built | Companion to evidence-chart; one column per dated observation, each point rendering its OWN citation. Not yet on a live page | visualisation-and-charts.md |
+| VIZ-002 | evidence-timeseries: one measurement over time | live, exercised | Companion to evidence-chart; one column per dated observation, each point rendering its OWN citation. First live use 2026-07-29: Thames leakage 2020-25 (migs 265/266), claimscan + render audit clean | visualisation-and-charts.md |
 | VIZ-003 | Series facts: the substrate a time axis needs | deployed | Observation{as_of,value,source}; as_of is the date the value APPLIES to, distinct from the three provenance dates | visualisation-and-charts.md |
 | VIZ-004 | The honesty gate had to learn about series | deployed | numberSupported skips Value==nil, so without a series branch every plotted point reads as an unregistered number | visualisation-and-charts.md |
 | VIZ-005 | Generated images explain, code-rendered output states | designed | Diffusion imagery is wrong for anything exact, selectable or translatable. Stated in features_open/023; nothing enforces it | visualisation-and-charts.md |

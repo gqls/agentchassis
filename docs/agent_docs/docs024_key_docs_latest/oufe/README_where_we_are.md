@@ -423,3 +423,27 @@ So the loop is closed: the auditor found a real defect, we fixed it, and the
 auditor confirmed the fix — all on the live site, all in one morning. The next
 step for the audit is other people's: five other sites have known failures it
 should now be pointed at.
+
+---
+
+2026-07-29, late morning. The Thames page now has its third chart, and it's the
+one the machinery was really built for: a proper time series. Five years of
+Thames Water's leakage record, from the company's own annual report — each bar a
+year, each year separately sourced and dated, scaled so that a bar reaching the
+top of the plot would have exactly met the final-year promise. None does. The
+first two years beat their annual targets; the three after fell short, and the
+last miss carried a £19 million penalty. That story — improving, but not as fast
+as promised, with a price attached — is told entirely in the company's and the
+regulator's own published figures.
+
+One thing worth telling you because it's the kind of catch this site is for: we
+nearly built the chart from the regulator's yearly reports instead, one year
+from each. Cross-checking an overlapping year first showed the two sources
+disagree — the company restated its earlier figures after improving its
+measurement methods in 2023-24. Mixing the two would have produced a chart that
+looked consistent and quietly wasn't. All five points now come from the restated
+series, and the chart's footnote says so, in the company's own words.
+
+Both checkers pass — the claims scanner (every figure on the page traces to a
+registered, sourced fact, including all five chart values) and the new automatic
+render audit (all eight pages, no readability failures). The page is live.

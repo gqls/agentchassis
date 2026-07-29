@@ -32,8 +32,9 @@ a live site*, that is said explicitly.
 - **relations:** VIZ-002, VIZ-003, VIZ-005, CLM-001
 
 ### VIZ-002 — `evidence-timeseries`: one measurement over time
-- **status:** built, **not yet exercised on a live page**
-- **status-evidence:** applied 2026-07-28 (`sql_for_agents/250`); template executed against a real two-point series — 2 columns, correct values, dated axis, scale resolved, both sources linked, zero unrendered tags. No live page uses it yet.
+- **status:** **live and exercised** — first real use 2026-07-29, Thames page (`evidence-timeseries-leakage`, migs 265/266)
+- **status-evidence:** five-observation series (Thames leakage 2020-25, restated APR figures) served on `/cases/thames-water.html`; claimscan 0 findings across 18 components with the series values resolving through `seriesSupports`; render audit clean (8 pages, 0 firm) the same hour. Scale denominator is a registered fact (the 20.5% final-year commitment), per the component's own rule.
+- **first-use notes:** `as_of` renders raw as the axis tick, so year-end months read "2021-03" — honest but terse; the chart footnote explains the 31 March year end. `printf "%.10g"` renders 12.0 as "12" — accepted rather than adding a `display` key that would make content_data diverge from the register.
 - **what:** The companion to VIZ-001. That compares magnitudes *between things*; this shows one measurement *over time*, one column per observation, with the `as_of` of each point as the axis tick. Resolves the series through a `fact_id`, and renders **each point's own citation and date beneath the plot**.
 - **why it matters:** it is the first renderer whose x-axis is meaningful, and it is deliberately the *second* thing built — the substrate (VIZ-003) landed first, because a time-series component with no legitimate series to plot is an invitation for a writer to fill it from the model.
 - **sources:** `sql_for_agents/250_evidence_timeseries_component.sql`; `docs024/oufe/DESIGN_2026-07-28_premise_branching_and_deepthink.md` §3
@@ -41,8 +42,8 @@ a live site*, that is said explicitly.
 - **verify-later:** first live use; whether the column form reads as a time series to a reader, or wants a line
 
 ### VIZ-003 — series facts: the substrate a time axis needs
-- **status:** deployed (in `v1.0.1185`, pod-verified) — **no live site has a series fact yet**
-- **status-evidence:** three distinctive string literals from `claims_series.go` found in the running binary 2026-07-28, with a positive control.
+- **status:** deployed (in `v1.0.1185`, pod-verified); **first live series registered 2026-07-29** — `CIT-tw-leakage-series`, five observations each with its own citation (oufe register, mig 265)
+- **status-evidence:** three distinctive string literals from `claims_series.go` found in the running binary 2026-07-28, with a positive control. First-series verification 2026-07-29: 5/5 observations carry their own citation (checked per-observation, the way the gate checks it).
 - **what:** An `EvidenceFact` held one `Value` and three dates — `accessed`, `published`, `verified_at` — **all of which are provenance**. None is the date the value *applies to*, so a time series had no honest shape. `Observation{as_of, value, source, verified_at}` adds one. Two rules are load-bearing: **every observation carries its own source, never inherited from the parent fact**, and `as_of` is distinct from `verified_at` (re-checking a 2021 figure in 2026 moves `verified_at` and must not move the point on the axis).
 - **why it matters:** a series where the first point is cited and the rest "continue from the same source" is exactly how interpolation and extrapolation enter looking like data.
 - **sources:** `platform/orchestration/datahelpers/claims_series.go`; `claims.go` (`Observations` field, `numberSupported` branch)
