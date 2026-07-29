@@ -90,11 +90,11 @@ Backups (turn 17): `bak_pages_contentdata_leo_20260714`, `bak_usecases_leo_20260
 |---|---|---|
 | 1 | Tools not linked from nav | **FIXED** — a rebuild had stripped them; a `tools` nav group existed that renders in NEITHER header nor footer. 4 working tools now in the `utility` group (footer). |
 | 2 | Blank page behind "Monitoring Coverage Gap Finder" (services) | **ROOT-CAUSED, not fixed** — a phantom link *invented by the re-plan*. See the red box at the top; it is `bugs_open/001`, not a missing page. |
-| 3 | Hero image has unreadable text | **FIXED on index** (new text-free Banana hero). ⚠️ The garbled `/assets/images/hero.jpg` is **still the site-wide fallback** and still live on how-it-works, technical-architecture, engagement-model, faq, careers, insights. Replace the FILE to fix all at once. |
+| 3 | Hero image has unreadable text | **FIXED — `/assets/images/hero.jpg` replaced 2026-07-29** (clean Banana hero, same file, so all 14 consuming pages fixed at once; see RUNNING_NOTES same date). ~~The garbled file is still the site-wide fallback~~ |
 | 4 | "trust" / "honest" / "earns its keep" overused | **Config done, copy partly done.** Banned in `voice_gate` + `banned_language` (bak_voice_words_20260718). Homepage instances rewritten. The rest are in the 25 `voice_tells` items. |
 | 5 | Want infographics showing system strengths | **DONE ×4** — see the imagery table below. |
-| 6 | Want more imagery / graphics / better design | **In progress** — 3 heroes + 4 infographics live; about/services/use-cases/contact/blog still have nothing. |
-| 7 | Want more hero images | **3 live** (index, who-we-help, how-we-work). `about`/`services` need a shared-component change first: `hero-about` (9 sites) and `hero-services` (5 sites) have **no image field**. Additive gated field (`{{if .background_image}}`) is the fleet-safe pattern. |
+| 6 | Want more imagery / graphics / better design | **7 heroes + 4 infographics live as of 2026-07-29** (index, who-we-help, how-we-work, about, services, contact, use-cases). Only blog + the 4 tool pages have nothing now. |
+| 7 | Want more hero images | **7 live** (index, who-we-help, how-we-work, about, services, contact, use-cases — all added 2026-07-29). ~~about/services need a shared-component change first~~ **CORRECTED 2026-07-29: `about-hero`/`services-hero` already had the image field when checked — someone else added it fleet-wide since this row was written. Only `use-cases-hero` genuinely lacked it; added the same guarded pattern, 2-site blast radius measured first.** See RUNNING_NOTES same date for the real remaining gap this uncovered (the schema's `input_schema` field, not the template, gates whether an image actually resolves). |
 
 Plan for these: `PLAN_imagery_and_design_2026-07-18.md`.
 
@@ -484,8 +484,16 @@ auto-emits `needs_imagery`. BUT ⚠️ **a full re-plan may re-run content gener
 overwrite the carefully-fixed copy** — do NOT fire `build-site-planner` blind on this site.
 If used, scope it and verify content isn't clobbered. Route A is the safe default.
 
-**Per-card / per-section images = Phase I3 (content-imagery lane) — NOT built.** Cards get
-the page-hero fallback (`imageRoleAliases`) or empty. A section image is wired via a
+**Per-card / per-section images = Phase I3.** ~~content-imagery lane — NOT built~~
+**CORRECTED 2026-07-29: it IS built** — `derive_card_asset_action.go` (registered,
+`asset-deployer`'s `content_card` mode), cover-crops the page's hero to an 800×450 card,
+no LLM. Built by the `imagery` workstream (`docs024_key_docs_latest/imagery/`,
+"I3.2 ✅ built"); actively being hardened today by `bugfix_131_og_card`
+(`bugs_open/143`, latent lock-check race, not live). Never fired for leopardess (0
+`purpose='card'` assets) — a triggering gap, not a missing capability. See
+RUNNING_NOTES 2026-07-29 before building anything here; check who owns 143 first.
+Cards get the page-hero fallback (`imageRoleAliases`) or empty until it's fired. A
+section image is wired via a
 `site_plan_imagery` row `scope='section'`, `scope_ref='<page>:<ordering>'` joined to an asset
 by kind (`plan_sections_action.go:231-260`). Building I3 is real new work.
 

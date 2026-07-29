@@ -1677,3 +1677,127 @@ worth pinning before that half gets built).
   right now — but this is exactly the state the HANDOFF warns about ("verify `assets.url`
   is `/assets/images/…`, NOT a presigned `s3…?X-Amz-…` URL"), and any path that resolves
   an image from `assets.url` would emit a dead link.
+
+---
+
+## 2026-07-29 (cont.) — five more heroes, an expired-asset cleanup, and Phase I3 is not what HANDOFF said
+
+Continuing the same session, after the owner asked to also (a) replace the garbled
+`hero.jpg`, (b) give about/services/use-cases/contact a hero image, (c) clean up the
+expired asset URLs, (d) assess the blog-thumbnail (Phase I3) gap.
+
+### hero.jpg replaced
+
+Regenerated via the proven scope-less Route A recipe (`kind:"hero"` — now routed to
+Banana platform-wide since `bugs_closed/011`, not just `illustration`; confirmed
+`origin_model=banana/gemini-3-pro-image-preview` on the new row). `asset_key="hero"` ==
+`purpose`, so `DeployedWebPath` collapses to the same filename and the new file simply
+overwrites `/assets/images/hero.jpg` — no page rerender needed, since all 17 consuming
+pages hardcode that literal path in `content_data.background_image`. Verified: file
+byte-different from the old one, `last-modified` matches the fire time, looked at it —
+flat vector, charcoal ground, hairline gold radiating from one node, no text. Live on
+all 17 pages simultaneously the moment the deploy landed.
+
+### about / services / contact — the HANDOFF's "needs component work" was 11 days stale
+
+Checked before generating anything: `about-hero`/`services-hero`/`contact-hero`
+(their real component names — HANDOFF's `hero-about`/`hero-services` were the CSS class,
+not the component) **already declare `background_image`/`hero_url` in their
+html_template**, guarded (`{{if or .hero_url .background_image}}`). Someone had already
+done the component work platform-wide (12/6/12 site consumers respectively) since the
+11-day-old HANDOFF was written. `use-cases-hero` genuinely had no image support (2 site
+consumers) — added the identical guarded pattern, mirrored byte-for-byte from its
+siblings; blast radius measured first (finetuning.uk, the only other consumer, has
+neither field set, so byte-identical until it opts in).
+
+**Second correction, found empirically, not by reading first:** having the template
+guard is not sufficient. `plan_sections_action.go`'s `sectionHasImageField` gate — which
+drives the `site_assets.hero` → `content_data.background_image` alias-write — only fires
+when the component's `input_schema.fields` declares an image-typed field. None of these
+four components declare one (only the generic `hero` component does, with
+`"source":"site_assets.hero","fallback":"/assets/images/hero.jpg"`). Fired an
+`image_landed` rerender on `about` first to test this and confirmed empirically: asset
+generated, `site_plan_imagery` row wired correctly, rerender COMPLETED, **and
+`content_data.background_image` still empty** — the schema gate, not the template, was
+the actual gap.
+
+**Deliberately did NOT fix this by editing the shared components' `input_schema`.**
+Adding the field with a `fallback` would make EVERY page rendered through these
+components on ALL 12/6/12/2 consuming sites pick up a background image automatically at
+their next rerender, whether or not anyone asked for one there — a live behaviour change
+for other sites' pages, not merely an inert opt-in (unlike the template guard, which
+does nothing until a page's `content_data` sets a key). That crosses into the kind of
+shared-mechanism change CLAUDE.md's platform-seams section is about; not something to
+fold into a single-site imagery fix without measuring who else it touches.
+
+Instead, scoped it to leopardess alone: generated the four heroes (Route A, on-brand —
+about: two concentric rings around a centre node; services: three evenly-spaced nodes on
+one spine; contact: two nodes joined by a line through a midpoint; use-cases: one root
+node branching into three), wired `site_plan_imagery` rows exactly as for who-we-help/
+how-we-work, then **directly merged `background_image` into these four page_components'
+`content_data`** and regenerated their `rendered_html` to match what the (already-correct)
+template would itself produce — same technique as the blog-listing fix: deterministic,
+no LLM, so zero clobber risk. Reassembled + deployed (assemble mode). Verified live: all
+four show their image, headline copy byte-identical to before, whole-site re-sweep clean
+(0 empty img tags, every image URL 200).
+
+Contact and services came out visually similar (both read as "several nodes on a line")
+despite different prompts — a minor imperfection, not a defect; noted rather than
+re-rolled, since both are correctly on-brand and legible.
+
+Image-less pages count: **9 → 5** (blog index + the 4 tool pages remain; case-studies/
+how-it-works/technical-architecture/how-we-work/who-we-help/index already had one).
+
+### Expired asset URLs — turned out to be a live risk, not just stale data, and it's now filed
+
+Full inventory: **every one of 13 active hero/infographic asset rows** — including the
+four generated minutes earlier in this same session — carried a presigned S3 URL
+(`X-Amz-Expires=604800`). This is not a leftover from turn 17; it is standing behaviour
+of the deploy path (`deploy_image_asset` only rewrites `assets.url` when passed
+`asset_id`; RUNBOOK O5 landmine 6, apparently never actually exercised by any caller).
+
+Traced the actual risk rather than assuming it was cosmetic: `plan_sections_action.go`
+deliberately routes AROUND `assets.url` for rendering (`storage.DeployedWebPath`, with a
+comment saying so) — so this does not explain any symptom seen on the live site. But two
+other call sites read `assets.url` and fetch it directly: `derive_brand_head_assets_action.go`
+(favicon/og-card from the logo) and `derive_card_asset_action.go`'s `findCardSourceHero`
+(card thumbnails from a page's hero — exactly the mechanism the blog-thumbnail gap below
+needs). Either would 401 against a row past its 7-day window. Filed as
+`bugs_open/152` (platform-wide, unowned) rather than treating it as this-site-only.
+
+Fixed for leopardess: retired one orphaned row (`hero_case_studies` — wrong-provider
+SDXL leftover from turn 17, wired nowhere, referenced nowhere; same shape as
+`bugs_open/114`'s class, smaller scale) and rewrote `assets.url` to the real,
+already-verified-200 local path for all 12 remaining active rows. This is a contained
+fix, not a fix for the class — the same defect recurs on the next generation, here and
+everywhere.
+
+### Real blog thumbnails (Phase I3) — the HANDOFF was wrong; it is already built
+
+Asked to assess scope, not build. Reading the code turned up a second stale HANDOFF
+claim: **"Per-card / per-section images = Phase I3 — NOT built"** is false as of
+2026-07-29. `derive_card_asset_action.go` exists, is registered (`registry.go:197`),
+triggered by `asset-deployer`'s `content_card` mode, and is documented as shipped in
+`docs/agent_docs/docs024_key_docs_latest/imagery/PLAN_imagery_best_in_class.md`
+("I3.2 ✅ built"). It cover-crops a page's hero (falling back to the site brand hero —
+now clean, since hero.jpg was just replaced) to an 800×450 card, no LLM, no diffusion,
+and links it to the entity.
+
+It has never been fired for leopardess (0 `purpose='card'` assets on this site — a
+triggering gap, not a missing capability). It is also **owned and actively being
+hardened elsewhere right now**: the `imagery` workstream built it, and the
+`bugfix_131_og_card` lane found a sibling defect in this exact file TODAY
+(`bugs_open/143` — commits before its lock check; measured latent, 0 of 12 fleet-wide
+card rows are locked, so not a live risk for a first run). Given the task was framed as
+assess-not-build, and the action is mid-fix elsewhere today, I did not fire it — that is
+a small, well-defined next step, not a "needs new platform work" item as the old HANDOFF
+said. HANDOFF.md's imagery section needs a correction pass; not done yet this session.
+
+### Full verification, end of session
+
+```
+27/27 sitemap pages fetched; 0 empty <img src="">
+Every image URL referenced anywhere on the site (14 distinct paths): HTTP 200
+Image-less pages: 5 (blog index, 4 tool pages) -- down from 9
+assets.url: 12/12 active rows now local paths, 0 presigned
+```

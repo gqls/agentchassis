@@ -547,3 +547,62 @@ tested one and it now refuses the request. Nothing on the site uses them, so not
 broken today. But it is exactly the trap the handoff warns about, and if anything ever
 rebuilds a page from those records it would produce dead pictures. Worth tidying before
 it bites, rather than after.
+
+---
+
+## 2026-07-29 (later the same session) — the rest of the imagery
+
+You asked me to also replace the garbled picture, put images on the four remaining
+pages, tidy up the picture records, and look into real thumbnails for the blog cards.
+
+**The garbled picture is gone.** I generated a clean replacement in the same style as
+the two good ones — flat gold lines on dark, no gibberish — and it now appears on all
+fourteen pages that were using it, immediately, with no extra step, because they all
+point at the exact same file.
+
+**About, services, contact and use cases all now have their own picture too.** Four new
+images in the same visual language, each shaped to suit the page: a pair of rings for
+about, three evenly-spaced points for services, two points joined by a line for contact,
+one point branching into three for use cases. Worth knowing: while I was doing this I
+found that the platform had already grown the ability to put an image on the about and
+services pages, sometime in the last week and a half — the note saying they needed
+extra building work first was simply out of date. Use cases genuinely did need that
+small addition, so I made it, checking first that it wouldn't change anything on the one
+other site that shares that page type (it doesn't have a picture there either, so
+nothing changes for them). I did NOT make the equivalent change everywhere those
+generic hero components are shared, because that would have started showing a fallback
+image on other sites' pages that currently show none, without anyone there asking for
+it — that's a bigger decision than this session's brief, so I did it a narrower way for
+your site only, with the same end result.
+
+Nine pages had no picture at all when I started today; five now don't — the blog listing
+page and the four calculator/tool pages. Those weren't part of what you'd flagged, so I
+left them as they are.
+
+**The picture records had a real, if quiet, problem.** Every generated image on this
+site — old and brand new alike — records its address as a temporary link that goes dead
+after a week, regardless of when it was made. It didn't matter for anything you can see
+today, because the part of the platform that puts pictures on pages was already built to
+route around that address and use the real, permanent one instead. But I found two other
+parts of the platform that do read that temporary address directly and would try to
+fetch it — one derives the favicon and share-card from your logo, the other is the exact
+mechanism that would give the blog cards real thumbnails (see below). Either would fail
+once the address goes dead. I fixed the address on every current picture for your site so
+that clock stops being a problem here, and wrote up the general issue as a platform note
+so it gets fixed properly rather than needing this same repair on every site, every week.
+I also found and removed one leftover bad image from an earlier attempt that was never
+actually used anywhere.
+
+**On real blog thumbnails: the capability already exists — I just haven't switched it
+on for you, on purpose.** I went looking properly rather than assuming, and the honest
+answer is better than the one in the notes: the "not built yet" I'd expected to report
+back on turned out to be built already, elsewhere on the platform, in roughly the last
+two weeks. It takes whatever picture already leads a page and crops it neatly down to a
+card thumbnail — no new drawing, so no risk of gibberish. It has simply never been run
+for your site. The reason I didn't just switch it on: another team is actively fixing a
+small bug in that exact mechanism today, and you'd asked me to assess it rather than
+build anything, so turning it on felt like the wrong moment to also be the first person
+testing it. It's a small, well-understood next step whenever you want it.
+
+Checked everything again at the end: every picture on every page of the site loads, and
+nothing shows a broken image anywhere.
