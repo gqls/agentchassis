@@ -17,7 +17,6 @@ bugfix_040_partial_build
 bugfix_069_chrome_locks
 bugfix_079_phantom_link_gate
 bugfix_082_postgres_qos
-bugfix_104_fleetwide_claim_patterns
 chassis_replica_scaling
 content_quality2_silent_overwrite_of_dependent_pages
 cta_link_integrity
