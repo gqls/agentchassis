@@ -11671,3 +11671,39 @@ paragraph was half right, which is exactly why it read as measured.
 Family: zero-adoption-means-read-the-mechanism; two-blind-checks-agree-with-each-other
 ("a rule measuring ZERO impact may just not be firing" — I have this written down and
 applied it to detectors while missing it for handlers).
+
+## 2026-07-29 — I wrote a "delete-marker" that the new code still contains, and it escaped into another session's evidence (bugfix 144)
+
+**The claim,** written into `bugs_open/144`, the workstream RUNBOOK and the concept
+register as the way to verify the fix was live: *"`strings /app/agent-chassis | grep -c
+"Checking disconnected step"` → 0 … it is a string this change DELETED, and a
+delete-marker cannot be satisfied by a stale binary."*
+
+**The fact:** it returns **1** on a correctly deployed pod. I replaced
+`fmt.Printf("Checking disconnected step: %s\n", …)` with
+`logger.Debug("Checking disconnected step for cycles", …)` — the new string **contains
+the old phrase as a prefix**. The check I had labelled load-bearing could not
+discriminate in either direction.
+
+**What caught it:** running it. The fix was live and my own marker said it was not.
+
+**Why it is worse than a private slip:** within hours another session had adopted it as
+a **positive control** in `bugs_open/153` and drawn the inference *"⇒ 144's pre-fix code
+IS what is running"*. A wrong verification method propagates faster than a wrong fix,
+because it looks like rigour and gets quoted. Chasing it back showed **all five** of
+that bug's markers were unfindable in any binary — four are phrases from the 138 and 104
+workstreams' own README/RUNBOOK prose that were never `.go` strings, and the fifth is
+inside a Go comment. Three hand-picked markers, two sessions, one day.
+
+**The cheap check, which costs one command and no cluster access:**
+`git grep -c "<marker>" -- '*.go'` at the commit you expect to be running. Mine returns
+1 for a phrase I claimed to have deleted; theirs returns 0 for four phrases that were
+never code. **A marker must be a string the binary EMITS** — not a symbol name, not a
+comment, not a sentence from your own docs — and a delete-marker must be one the new
+code cannot contain **as a substring**.
+
+Note this is the SECOND time I have picked a bad pod-grep marker in two sessions (the
+first: `section-index`, a string in four other files that my change then removed). The
+first was caught before it left my desk; this one was not. The recurrence is the
+argument for `bugs_open/153`'s fix candidate 1 — stamp the commit sha into the binary
+and retire per-fix marker hunting entirely.
