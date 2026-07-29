@@ -1597,3 +1597,40 @@ source. Verified before filing, so it cost nothing this time.
 This is a fleet-wide queue rather than oufe work, but it is oufe's rail that made it
 visible: a site that cannot publish an unsourced figure is the one place where "the
 handler writes copy without a claims check" is not an abstraction.
+
+## 2026-07-29 (evening, cont.) — the owner overturned the headline of the queue I had just filed
+
+> *"the lack of evidence of these tools working is not evidence that they don't work.
+> they may not have run often."*
+
+He was right, and it took out the top item of Group A. I had written that
+`check_orphan_pages` **"has never repaired a page by any of its three branches"**,
+evidenced by `needs_internal_links` 33 items / 0 complete since 2026-04-23. Measured
+properly: **`claimed_by` and `claimed_at` are NULL on all 37** of those rows. Those
+handlers were never offered a single item. `internal-linker` is not implicated by
+anything I had. The rows are unreachable because the dispatcher claims only
+`status IN ('triaged','approved')` and **`unresolved` is a TERMINAL status** — I had
+read 27 closed rows as a three-month backlog.
+
+What makes it worth writing down rather than just fixing: **I had made the opposite
+error four hours earlier and learned from it.** This morning's lesson was "a
+`complete` work item proves detection, not repair — don't trust the status". Applied
+without a counterweight, that turns straight into "0 completions means the handler is
+broken", and I walked into it the same afternoon. Both errors are the same move —
+treating a count as a verdict without asking what would have had to happen for a
+non-zero to be possible. Both are now in 016b §9 as a pair, with the second explicitly
+told to be read immediately after the first.
+
+The other reason it slipped past me: the third branch (`nav_drift`) **is** a real
+defect and I had proven it properly — code path plus artefact. One proven case sitting
+in a paragraph with two unexercised ones lends them its credibility. Split findings by
+evidence class; 149 now labels every item **MECHANISM** or **NEVER RAN**, and four had
+to be relabelled.
+
+And the corrected finding is better than the wrong one, as usual: **20 of the 24
+`unresolved` rows were born `unresolved`** (`updated_at` within 5s of `created_at`),
+16 distinct `item_key`s across 24 rows — repeat detections branded terminal at birth.
+That is the recurrence failure already pinned in `work_item_recurrence_test.go:20,103`
+("*born 'unresolved' and never dispatched … which is how the fix loop silently
+died*"). A dispatch defect, testable, and it was invisible while the wide wrong claim
+occupied the space.

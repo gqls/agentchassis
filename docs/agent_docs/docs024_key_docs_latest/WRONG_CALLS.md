@@ -11625,3 +11625,49 @@ did NOT sample. Two adjacent rows are a moment, not a rate. Family:
 distinctive part here is that I had *already published the conclusion* and was
 only measuring to decorate it. **A number fetched to illustrate a claim is still
 allowed to refute it, and it is worth fetching for that reason alone.**
+
+## 2026-07-29 — "these handlers have never repaired anything" (bugs_open/149)
+
+**The claim.** Filing the checker-layer queue, I wrote that `check_orphan_pages`
+**"has never repaired a page by any of its three branches"**, evidencing it with
+`needs_internal_links` at 33 items / 0 complete since 2026-04-23 and
+`orphan_blog_posts` at 3 / 0. I put it at the top of Group A as a measured finding.
+
+**What was true.** The owner's reply: *"the lack of evidence of these tools working
+is not evidence that they don't work — they may not have run often."* Correct.
+`claimed_by` and `claimed_at` are **NULL on all 37 rows**. Those handlers have never
+been offered one of these items. `internal-linker` is not implicated by anything I
+measured. The rows are unreachable by the dispatcher, which claims only
+`status IN ('triaged','approved')` (`claim_work_item_action.go:102`) — and
+**`unresolved` is a TERMINAL status** (`work_items_common.go:29-35`). I had read 27
+closed rows as a three-month backlog.
+
+**What caught it.** The owner, on reading the file. Nothing in my own process would
+have — I had the completion counts and never asked what else must be true for a
+completion to be possible.
+
+**The cheap check that would have.** One column: `claimed_by IS NOT NULL`. And the
+general form: **before writing "X does not work", ask what would have had to happen
+for X to leave a trace, and verify THAT first.** A zero from a path that was never
+exercised looks identical to a zero from a path that fails.
+
+**The corrected finding is sharper and points elsewhere**, which is the usual reward
+for this: **20 of the 24 `unresolved` rows were BORN `unresolved`** (`updated_at`
+within 5s of `created_at`), across **16 distinct `item_key`s for 24 rows** — repeat
+detections branded terminal at birth. That is the recurrence failure already pinned
+in `work_item_recurrence_test.go:20,103` ("*born 'unresolved' and never dispatched …
+which is how the fix loop silently died*"). So the item is a dispatch/recurrence
+defect, not a handler defect, and it is testable.
+
+**The structural lesson, now a banner on 149.** Label every finding by the evidence
+it rests on: **MECHANISM** (the code path cannot do the thing, artefact confirms —
+survives "it hasn't run much") vs **NEVER RAN** (a zero that means unexercised —
+useful for prioritising cadence, useless for judging code). Four items in that file
+had to be relabelled, and two of my summary sentences to the owner were wrong in the
+same way. Note the asymmetry that makes this insidious: the surviving branch
+(`nav_drift`) IS a genuine defect, proven by the code path plus the artefact — so the
+paragraph was half right, which is exactly why it read as measured.
+
+Family: zero-adoption-means-read-the-mechanism; two-blind-checks-agree-with-each-other
+("a rule measuring ZERO impact may just not be firing" — I have this written down and
+applied it to detectors while missing it for handlers).

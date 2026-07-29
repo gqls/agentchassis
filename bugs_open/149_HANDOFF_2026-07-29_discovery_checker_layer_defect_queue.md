@@ -13,6 +13,25 @@ a cause is not yet established it is marked `[UNMEASURED]` and says so.
 the defect is in the seam between them and their handler. Read the handler's action
 before "fixing" a check. That mistake is what produced `146`'s first, wrong write-up.
 
+> **THE RULE THIS FILE KEEPS BREAKING — owner's correction, 2026-07-29:**
+> **a lack of evidence that a check or handler works is NOT evidence that it doesn't.
+> It may simply not have run.** A1 originally read "`check_orphan_pages` has never
+> repaired a page by any of its three branches", built from `0 complete` over three
+> months. The handlers had **never been offered a single one of those items** —
+> `claimed_by` NULL on all 37 — because the rows sit in statuses the dispatcher does
+> not claim. The corrected finding is sharper *and points somewhere else entirely*.
+>
+> So every item below is now labelled by **what kind of evidence it rests on**:
+> - **MECHANISM** — the code path cannot do the thing, and the artefact confirms it.
+>   This survives "it hasn't run much". (A2, A4, A5, A6, B4, and C1's structural half.)
+> - **NEVER RAN** — a count of zero that means *not exercised*, and says nothing
+>   about correctness. Useful for prioritising cadence, useless for judging code.
+>   (B1, B2, B3, C3, and now A1.)
+>
+> **Before writing "X does not work", ask what would have had to happen for X to
+> leave a trace, and check that first.** For a work item the check is one column:
+> `claimed_by IS NOT NULL`.
+
 ---
 
 ## Group C — the claims gate. **Owner's explicit requirement; top of the list.**
@@ -89,6 +108,14 @@ in its entire history, none since 2026-07-17**. Fleet-wide, `claims_unverified` 
 and that is right. But it means detection is the only backstop, and the backstop is
 not running.
 
+**NEVER RAN, not broken.** The zero rows are what you would expect from a check
+sitting in an agent that has raised 7 items in its life; they are **not** evidence
+the check is faulty, and it should not be rewritten on this basis. The cheap first
+move is to seat `unverified_claims` in an agent that actually runs and see what it
+says — the fleet claims dry run (`claimscan`) already finds real instances on live
+sites (`bugs_open/147`), so a working detector on a working cadence should too. If it
+then stays silent, *that* is a finding.
+
 **So today there is neither a write-time gate (C1) nor a working after-the-fact
 detector (C3).** That pairing is the actual exposure, and it is why C1 should not be
 deferred behind the routing work in Group A.
@@ -97,17 +124,53 @@ deferred behind the routing work in Group A.
 
 ## Group A — routing: detection that cannot repair
 
-### A1. `check_orphan_pages` has never repaired a page, by any of its three branches
+### A1. Two of the three branches never reach a handler at all — **the handlers are not implicated**
 
-| branch | item type | items | `complete` | last raised |
+> **CORRECTED 2026-07-29, before anyone worked this item.** This entry first read
+> *"`check_orphan_pages` has never repaired a page by any of its three branches"* and
+> presented `needs_internal_links` at 33 items / 0 complete as a handler that does not
+> work. **The owner's challenge was right: a lack of evidence that these handlers
+> work is not evidence that they don't — they may simply not have run.** They have
+> not. Measured below. `internal-linker` is not implicated by anything here.
+
+| branch | item type | items | **ever claimed** | reachable by the dispatcher? |
 |---|---|---|---|---|
-| blog | `orphan_blog_posts` | 3 | **0** | 2026-07-15 |
-| nav-flagged | `nav_drift` | 16 | 15 — **and proven no-op for `/tools/`** | 2026-07-29 |
-| unflagged | `needs_internal_links` | 33 | **0** | 2026-07-28 |
+| nav-flagged | `nav_drift` | 17 | **15 of 17** | yes — and 15 completed |
+| unflagged | `needs_internal_links` | 33 | **0 of 33** | no |
+| blog | `orphan_blog_posts` | 4 | **0 of 4** | 1 of 4 (the one raised today) |
 
-`needs_internal_links` has been accumulating since **2026-04-23** — three months, 33
-items, not one resolved. `internal-linker` exists and is active. Nobody has checked
-whether it fails, is never dispatched, or completes without effect. `[UNMEASURED]`
+`claimed_by` and `claimed_at` are **NULL on all 37** `needs_internal_links` and
+`orphan_blog_posts` rows. `internal-linker` and the blog rebuild have **never been
+offered one of these items**, so nothing here says anything about whether they work.
+
+**Why they are unreachable, which is the actual defect:**
+
+- `claim_work_item_action.go:102` claims only `status IN ('triaged','approved')`.
+- **`unresolved` is a TERMINAL status** (`work_items_common.go:29-35`), i.e. closed
+  and non-dispatchable. I read 27 terminal rows as a three-month backlog. They are
+  not a backlog; they are parked.
+- `detected` is not dispatchable either — `triage_detect_items_action.go` exists
+  precisely to promote `detected` → `triaged` ("*This action bridges the gap*"). The
+  9 `detected` items are awaiting triage, not awaiting a handler.
+
+**And the sharper finding that replaces the wrong one: 20 of the 24 `unresolved`
+`needs_internal_links` rows were BORN `unresolved`** (`updated_at` within 5s of
+`created_at` — created non-dispatchable and never touched again), across **16
+distinct `item_key`s for 24 rows**, i.e. repeat detections of the same pages. That is
+the documented recurrence-branding failure, already pinned in
+`work_item_recurrence_test.go:20,103`: *"later re-renders were born 'unresolved' and
+never dispatched … which is how the fix loop silently died."*
+
+**So the real item is:** why does a re-detected orphan get branded terminal at birth,
+and is the same true for other item types? That is a dispatch/recurrence defect, and
+it is testable. `[UNMEASURED]`: whether the branding is `insertWorkItem`'s dedup
+behaviour on a repeat `item_key` or something later. Establish that before touching
+either handler.
+
+**What still stands, on mechanism rather than absence:** the `nav_drift` branch. Those
+items **were** claimed (15 of 17) and **did** complete, and the handler provably
+cannot repair a `/tools/` page — see A2, where the evidence is the code path plus the
+artefact, not a missing row.
 
 ### A2. `nav_drift` for a `/tools/` URL is structurally unfixable by its own handler
 
@@ -158,7 +221,7 @@ unrepresentable, which is why `146` now ranks it above detection.
 
 ## Group B — coverage: checks that never run
 
-### B1. Six registered checks are configured in NO agent and have raised ZERO items, ever
+### B1. Six registered checks are configured in NO agent — **NEVER RAN**
 
 `backend_unreachable` · `cross_site_contamination` · `orphan_element_refs` ·
 `tool_recreation_needed` · `unrendered_templates` · `validate_component_standards`
@@ -167,8 +230,13 @@ Confirmed two ways: absent from every live `run_discovery_checks` `checks` array
 **0 rows across all 11 item types they raise**. `validate_component_standards` alone
 raises seven (`broken_template_slots`, `missing_logo_in_header`, `needs_content_page`,
 `slot_name_mismatch`, `stacked_nav`, `unlinked_site_component`, `unwanted_nav_element`).
-Each needs a decision: seat it in an agent, or delete it. Dead-but-plausible checks
-are worse than absent ones — they read as coverage.
+**The primary evidence is structural** — they appear in no live `checks` array, so
+they *cannot* have run; the zero item count is corroboration, not the finding.
+**Nothing here suggests any of these six is broken** — they are unexercised, which is
+a different problem with a different fix. Each needs a decision: seat it in an agent
+and see what it finds, or delete it. Dead-but-plausible checks are worse than absent
+ones — they read as coverage. Expect a seated check to raise a burst on first run;
+that is the check working, not a regression.
 
 > **Not a defect, checked and cleared:** six configured names
 > (`missing_*_tracker_page/section`, `missing_model_directory_*`) look unregistered to
@@ -235,8 +303,11 @@ to nothing should fail the step, not shrink it.
 5. **A4, A5** — schema default and the two nav builders. Both are shared-mechanism
    changes wanting their own council round; neither blocks the above.
 6. **B1** — seat or delete the six dead checks.
-7. **A1** — `internal-linker`'s 0-for-33 record. Likely subsumed by 2–3 above; check
-   before spending on it separately.
+7. **A1** — **not** a handler defect (corrected). The real item is the
+   **recurrence branding**: 20 of 24 repeat detections born `unresolved`, i.e.
+   terminal and non-dispatchable, across 16 distinct keys. Worth pairing with B2,
+   since dedup-on-repeat-`item_key` is one of B2's three candidate causes and this
+   may be the same mechanism seen from the other side.
 
 ## Relations
 
