@@ -1841,3 +1841,25 @@ verdict text"). Built on the post-E/F base, delivered corr `ba1666a7`.
   newline. `length()` vs `octet_length()`, `len()` vs `wc -c` — same trap,
   three coats. *Check: when two sizes of "the same" content disagree, name
   the UNITS of each before naming a culprit.*
+
+## 2026-07-29, morning — fresh fleet roll re-verified; continuation handoff written
+
+Owner reports a fresh chassis build deployed: fleet is on **v1.0.1196**
+(pods started 22:37–22:38Z 07-28). Re-grepped both of this workstream's
+markers on the NEW pods per the retag/roll discipline, controls clean:
+
+- chassis: `"unknown execution-context field"` = 1, negative 0 ⇒ the 124
+  marker survives ⇒ by ancestry (`af0cde87d` ⊇ `a554bc914`) the 130 ceiling
+  is still in the running binary.
+- browser-runner-adapter: 131-B fix marker 1 / positive 1 / negative 0
+  (binary grep — no `strings` in this image). Still LIVE, still unwitnessed
+  on the acceptance lane.
+
+Noted in passing: a `render-audit-adapter` pod (v1.0.1194) appeared 21:15Z —
+another workstream's; not touched.
+
+**`HANDOFF_2026-07-29_continue_here.md` written** (supersedes 07-28): state
+table with proofs, next actions (H first), the seven 07-28 landmines, the
+rail + its two deliberate exceptions, and §7 laying out the H decision as
+four options (examination / arena / distribution-experiment / demonstration)
+for the owner. Session "vonc 5" hands off here — context budget spent.
