@@ -11375,3 +11375,29 @@ It was another session's uncommitted WIP — `git archive HEAD` built clean. The
 session-start `git status` I was working from did not list the file, because it is a
 snapshot and stale within minutes. **In a shared tree, a red build is not evidence
 about your change until you have separated HEAD from the working tree.**
+
+> **CORRECTED 2026-07-29, same day, by the thread that wrote the entry above.** I
+> filed that as a novel near-miss. **It is a REPEAT of a trap already written down
+> in `016b` on 2026-07-20** — same file, same field, same wrong conclusion, nine
+> days earlier:
+>
+> > "(b) A NULL from a JSON path query is not evidence of absence: the per-seat cap
+> > lives at `steps.<seat>.config.ai_service.max_tokens`, and a query missing
+> > `->'config'` read all 13 seats as 'unset'."
+>
+> (`016b_debugging_guide_8_consolidated.md:1385`. It read 13 seats then; 17 now.)
+>
+> **What actually went wrong is therefore not the query — it is that I did not grep
+> the guide before trusting a uniform result.** "Grep before you file" is written for
+> BUGS; I had not applied it to a *measurement* I was about to build a conclusion on.
+> The cheap check was `grep -n 'ai_service.max_tokens' docs/.../016b*.md` — two
+> seconds, and it hands you the answer with the reason attached.
+>
+> **This is the tally doing its job.** One occurrence is an anecdote; the same trap
+> twice, on the same field, in the same subsystem, by two different threads, is the
+> signal that it should stop depending on memory. Deliberately NOT adding a fourth
+> §9 entry for it — a third restatement of a documented trap is not what is missing.
+> **What is missing is that nothing makes the wrong query fail.** Candidate, recorded
+> here rather than built unasked: a `sql_for_agents` helper (or a pattern-check rule)
+> that reads a seat's cap by name, so no thread hand-writes the path again — the same
+> reasoning that earned `check_append_only_docs` its place in `scripts/pattern-check.py`.
