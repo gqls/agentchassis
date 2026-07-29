@@ -105,3 +105,67 @@ class of error this file exists to catch.
   hand check when their turn comes in the loop, and until then they carry no
   verdict at all.** Writing UNVERIFIED where I cannot measure is the whole point
   of the marker.
+
+---
+
+## 2026-07-29 (later) — THE CENSUS WAS WRONG, and the reason is the most useful thing in this file
+
+**A third of the "DEAD" verdicts were my probe's fault, not the tools'.**
+Re-probing all 21 with corrected input: **7 flipped to OK, 14 stayed DEAD.**
+
+### Fault 1 — I drove the tools with input they were right to reject
+
+The probe typed `probe123` onto the end of whatever a text field held. For
+`smart-contrast` that made `#999999probe123` — not a colour. The tool's
+`hexToRgb` returned null, the tool correctly did nothing, and the probe wrote
+DEAD. **The tool was working the whole time.** Proof, evaluated in the page:
+
+```
+{engineLoaded: "function", ratioText: "2.85 : 1"}   # #999 on #fff, correct WCAG
+```
+
+So the probe was scoring *input validation* as *breakage* — it punished the
+tools that check their inputs, which are the better-written ones. Fixed by
+inferring a plausible value from the field itself: a hex field gets a different
+valid hex, a numeric field gets a different number, a JSON field gets JSON,
+an HTML field gets markup.
+
+### Fault 2 — comparing `innerHTML.length` instead of `innerHTML`
+
+A tool that rewrites `3.5` as `2.8` leaves the length identical. Same verdict,
+same cause: **the measurement could not see the change it was looking for.**
+Now compares the full markup, plus live form values, plus canvas pixel data
+(`toDataURL().length`), with the driven element excluded so the probe cannot
+mistake its own keystroke for the tool's answer.
+
+### Corrected census (2026-07-29)
+
+| verdict | count |
+|---|---:|
+| **OK** (responds to valid input) | **37** |
+| **DEAD** (responds to nothing) | **14** |
+| **BROKEN** (console throws) | **10** |
+| **UNVERIFIED** (probe cannot measure) | **2** |
+
+Still failing, 24 of 63 — the repair queue:
+
+- **BROKEN (10):** animated-favicon, asset-formatter, blueprint-compiler,
+  insight-injector, logic-architect, micro-cms, mind-map, pasteboard,
+  + cubic-bezier and vibe-equalizer once verified by hand.
+- **DEAD (14):** aspect-ratio, blob-maker, clip-path, diff-checker,
+  golden-ratio, head-architect, image-optimizer, json-cleaner, magic-outliner,
+  meme-generator, monolith-splitter, privacy-redactor, sri-generator,
+  svg-patterns.
+
+### The lesson, stated plainly
+
+**Three times today the measurement was wrong in a way that made the site look
+worse than it is** (static-read vs browser; length-compare; invalid input), and
+each time the error was invisible in the output — DEAD looked like DEAD.
+A verdict is only as good as the drive that produced it, so the probe now
+prints WHAT it typed (`value="..."` in the note) beside every verdict. **If a
+tool is reported broken, the first question is what the prober did to it.**
+
+None of this softens the owner's report. 24 tools genuinely fail, and "OK" here
+still only means *responds* — correctness is untested, and the per-tool loop
+tests the tool's actual claim.
