@@ -51,10 +51,19 @@ Fleet context: v1.0.1196 rolled 22:37Z 07-28. A `render-audit-adapter` pod
    source: 86 clean, 8 flagged, **1** on the new branch. Evidence in
    `bugs_open/131` § "B check-side — WITNESSED AND CLOSED"; pattern in 016b §9.
    **Two live consequences for whoever is next:** (a) `improve_tool`
-   `e7ea0125` now owns a genuinely broken page — if it cycles without fixing,
+   `e7ea0125` now owns a genuinely broken page — ~~if it cycles without fixing,
    that is `bugs_closed/010`'s guard, expect escalation at
-   `fix_cycles_spent=2`; (b) 010's line *"tool-loot-table-balancer passes Tier 4
-   now"* is retired — it passed a check that could not see this defect.
+   `fix_cycles_spent=2`~~ **CORRECTED same session: it will not cycle at all.**
+   The judge hardcodes the item's status to `detected`, and the only promoter to
+   `triaged` lives in a scheduled task disabled since 2026-05-02 — so the fixer
+   never sees it. That is `bugs_open/083` **by slug**
+   (`…detected_findings_never_reach_a_handler`, NOT the gauntlet-engine-503 083),
+   which I contributed the measurement to: 7 of 7 `improve_tool` items since
+   07-17 parked, pile now 250 fleet-wide. **The page stays broken and that is
+   not this lane's to fix** — do not hand-promote the row; 083 is waiting on an
+   owner call and `bugs_open/126` is why aiming a fixer by hand is risky.
+   (b) 010's line *"tool-loot-table-balancer passes Tier 4 now"* is retired — it
+   passed a check that could not see this defect.
 3. **og:image** — vonc's gauntlet page emits a 404 social image (owned by the
    OTHER bug numbered 131, `…og_image_points_at_a_card…`, UNDIAGNOSED). When
    fixed, shared verdict cards and links get a face. Do not build a generator

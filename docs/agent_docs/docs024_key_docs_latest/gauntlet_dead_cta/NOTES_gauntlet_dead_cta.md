@@ -2102,3 +2102,36 @@ One high-water mark is not a defect, so it is recorded and not escalated.
   `[UNMEASURED]`, the next thread would have inherited "the fleet is losing
   completions" — which is false, and expensive to unpick precisely because it
   would have arrived stated with confidence.
+
+## 2026-07-29, ~14:30 — the catch is parked: following my own improve_tool item into bugs_open/083
+
+Followed `e7ea0125` (the fixer item my 131-B witness created) to see it work.
+It has not moved and it will not: `judge_acceptance_results` hardcodes
+`'detected'` in its INSERT (`tool_acceptance_actions.go:698-702`), the dispatch
+loop reads only `triaged`/`approved`, and the sole promoter
+(`triage_detected_items`) runs inside `improvement-sweep` — **disabled, last
+triggered 2026-05-02**.
+
+**Already filed and correctly diagnosed: `bugs_open/083` BY SLUG**
+(`…detected_findings_never_reach_a_handler` — *not* this lane's gauntlet-engine
+083; the ambiguity CLAUDE.md warns about, met in the wild). Grepping before
+filing saved a duplicate. Contributed rather than competed (it is unowned;
+`who-owns.py` names no workstream): the acceptance ladder is a consumer nobody
+had listed — **7 of 7 `improve_tool` items since 07-17 parked**, which strands
+010's convergence guard (it can never reach cycle 1) and 126's fixer-authority
+concern — plus a re-measure, 157 → **250** parked rows, ~+45/day.
+
+**Correction to my own handoff text from an hour earlier**, made in place: I had
+written that if `e7ea0125` cycles without fixing, expect 010's escalation at
+`fix_cycles_spent=2`. Wrong — it never cycles. I inferred a live path from the
+existence of built machinery, which is [[writes-the-field-is-not-reads-the-field]]
+in another coat: the fixer, the guard and the escalation are all real, tested and
+deployed, and none of them runs because a row sits one status short of visible.
+*Check: after any "the system will now handle X", find the READER of X and
+confirm something actually calls it on a schedule.*
+
+**Deliberately NOT done:** hand-promoting the seven rows. That would aim
+`tool-improver` at four live tool pages, and `bugs_open/126` is precisely why
+that is not a free action; 083 is waiting on an owner call about who reads these
+queues at all. The broken page stays broken, visibly, in a filed bug — which is
+the honest state, not a loose end.
