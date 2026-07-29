@@ -1081,7 +1081,22 @@ may be hardcoded here."* Both registered, both live, nobody saw it.
 
 # D12 — may a markdown row be STATIC-TIER evidence? (raised by the council, 2026-07-28, round 8)
 
-**Status: OPEN, blocking layer 1b. Nothing is broken today** — `code_symbols`
+> ## ✅ OWNER RULING 2026-07-29: **OPTION 1b.**
+> Tag each doc hit where `[body]`/`[decl]` already appear, **and** give prose its
+> own heading in the evidence bundle. The costed options below stand as the record
+> of what was decided against — option 2 in particular, which measurement showed
+> would have blinded `review_architecture` itself.
+>
+> **Built as its own submission, ahead of the corpus it guards:**
+> `SUBMISSION_2026-07-29_doc_rows_are_not_static_evidence.json` (3 edits, 11
+> grounded_in, new correlation). It alters a shared mechanism — every diagnosis
+> run — so the 2026-07-28 ruling routes it to review **on its own merits** rather
+> than letting it ride inside the markdown plan. It is **inert on arrival**
+> (`kind='doc'` is unrepresentable until the CHECK is relaxed), so the guard lands
+> before the hazard can exist. **Layer 1b (corr `7ba5b8c4`) is HELD at round 8
+> until this is approved.**
+
+**Status: RULED 2026-07-29 (was OPEN, blocking layer 1b). Nothing is broken today** — `code_symbols`
 holds 0 markdown rows and the CHECK constraint still refuses them. This is a
 decision to take *before* shipping, not a defect to repair.
 
