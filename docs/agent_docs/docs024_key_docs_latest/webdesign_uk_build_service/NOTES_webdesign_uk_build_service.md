@@ -207,3 +207,104 @@ from earlier today:** I read the documents that stated the position and not the
 one that recorded the corrections. `EVIDENCE_…` is even named as though it settles
 the matter — and it did say clearly that it was a floor, which I repeated. Being
 faithful to a superseded source is still being wrong.
+
+---
+
+## 2026-07-29 — session 2: Fable 5, the offer rulings, and one landmine imported
+
+### "We're using Fable 5" — measured before acting on it
+
+The owner asked for the plan to be re-checked "now that we're using Fable 5". The
+first check was whether the *fleet* is:
+
+```sql
+SELECT model, count(*), max(created_at)::timestamp(0) latest FROM llm_call_log
+ WHERE created_at > now() - interval '4 days' GROUP BY 1 ORDER BY 3 DESC;
+-- claude-sonnet-5    1468  2026-07-28 22:19:56
+-- mistral-small3.1     85  2026-07-28 21:25:19
+-- gemini-pro-latest    33  2026-07-28 20:30:37
+-- claude-sonnet-4-6   311  2026-07-28 19:57:58
+-- claude-haiku-4-5      1  2026-07-27 11:06:13
+-- claude-opus-4-6       2  2026-07-25 18:55:13
+```
+
+**Zero `claude-fable-5` rows.** So the phrase covered two different things — the
+session's own model, and an intention for the builds — and only the second is a
+change to plan. Clarified with the owner: **both**, and the builds should be
+planned on Fable. Written up as PLAN §7b.
+
+**Why the distinction was worth four minutes:** DB model config is live
+immediately (CLAUDE.md), so "we're on Fable" could have been read as "the lanes
+already run it" and the three pre-flight checks below would have been skipped as
+redundant.
+
+### Fable 5 facts, from the skill on the day (not from memory)
+
+Read via the `claude-api` skill, 2026-07-29. The rows that bear on this plan:
+
+- **$10 / $50 per MTok** — 2× Opus 5 ($5/$25), ~5× Sonnet 5's introductory
+  $2/$10. Sonnet 5's intro rate **ends 2026-08-31** → $3/$15, which raises the
+  fleet's baseline ~50% on its dominant model.
+- **Thinking is always on.** `thinking: {type:"disabled"}` and
+  `{type:"enabled", budget_tokens:N}` both return 400.
+- **`temperature` / `top_p` / `top_k` all return 400.**
+- **Requires ≥30-day data retention** — a ZDR org gets `400
+  invalid_request_error` on *every* request, with a payload that is otherwise
+  perfectly valid. This is the one that would burn an afternoon: the error names
+  the request, not the org setting.
+- **Minutes-long turns are normal**, and **`stop_reason: "refusal"`** must be
+  handled before reading content.
+
+**Consequence recorded in §7b:** a model swap is **not** a config-only change if
+the chassis call layer passes any of those params — and it demonstrably sets
+params (all 16 council seats set `max_tokens=8000`). The P0 grep is therefore a
+prerequisite, not a nicety, and it is ordered *before* any lane is pointed at
+Fable precisely because config is live on write.
+
+### Landmine imported from `bugs_open/139` — a per-IP limiter that never was
+
+Picked up from `MEMORY_workstreams.md` (refreshed 07-29) while adding this lane's
+entry. The gauntlet/island lane found that its per-IP rate limiter keyed on a
+**constant**: `client_ip_hash = sha256("172.18.0.1")` — the docker gateway — in
+**83 of 83 rows**. Every visitor shared one bucket.
+
+Why it transfers directly: **we are about to build the same shape** — a Go
+service behind a reverse proxy behind Cloudflare — and our per-IP limit is the
+control bounding §8's spend faucet.
+
+- The real address is in **`CF-Connecting-IP` only**: Caddy overwrites
+  `X-Forwarded-For`, Cloudflare strips `X-Real-IP`.
+- **`platform/httpguard` does not fix it** — its rightmost-XFF fallback lands on
+  the same constant. It reads as a fix. (Noted against P0's httpguard item too,
+  which was about SSRF: *two different questions, same file.*)
+- **One test machine cannot detect it.** Your own traffic yields one value
+  whether the key works or not. The discriminating check is
+  `count(DISTINCT <ip key>) > 1` **from two networks**.
+
+Written into PLAN §5.1 as a block-quoted landmine rather than a table cell,
+because the "it reads as a fix" part is the whole content.
+
+### Owner rulings this session
+
+Recorded in the PLAN where each bites; summarised for the record:
+
+| ruling | where |
+|---|---|
+| Full sites, high quality-based price — supersedes cap-or-tiers | §7 (struck through, kept) |
+| Full money-back guarantee, **acceptance-gated on the preview** | §7a |
+| Corrections carry a fee; **changes paid, our defects free** | §7a |
+| Builds on `claude-fable-5` | §7b |
+| Preview host = a different, shorter domain, TBS | §6 |
+| Thousand-sites figure accepted as-is | §12 (closed) |
+
+**The one place I sharpened rather than transcribed** is the fee boundary. The
+owner said "any and every correction can carry a fee"; asked directly, he chose
+changes-paid/defects-free. Recorded because the *reason* is load-bearing and
+easy to lose: it makes §5.3a's fabrication controls revenue-protective — every
+invented detail that ships is a free repair we owe. That is a much stronger
+argument for those controls than the reputational one they were filed under.
+
+### Not done, deliberately
+
+No council run: the gate refuses docs client-side (`097_TRIGGER…:116`, scope is
+`platform/`, `internal/`, `pkg/`). P4/P5 are still the first submissions.

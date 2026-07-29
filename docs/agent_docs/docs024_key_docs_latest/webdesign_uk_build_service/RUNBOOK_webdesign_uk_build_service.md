@@ -70,6 +70,35 @@ system prompt fell under the cacheable minimum (512 tokens on Opus 5, 1024 on
 Sonnet 5) logged nothing, and 3 of 5 calls were invisible. Check the denominator
 before quoting a total.
 
+### Which model is the fleet actually on
+
+```sql
+SELECT model, count(*), max(created_at)::timestamp(0) latest FROM llm_call_log
+ WHERE created_at > now() - interval '4 days' GROUP BY 1 ORDER BY 3 DESC;
+```
+
+**Gotcha:** run this before acting on any statement of the form "we're on model
+X". On 2026-07-29 the answer was 1,468 Sonnet 5 and **zero Fable 5** while the
+session itself ran Fable — the phrase covered the session and an intention, not
+the fleet. DB model config is live on write, so the distinction decides whether
+the pre-flight checks below are still owed.
+
+### Fable-5 pre-flight (PLAN §7b) — in this order
+
+1. **Org data retention ≥ 30 days.** A ZDR org gets `400 invalid_request_error`
+   on *every* Fable request, and the error names the request, not the setting.
+2. **Grep the chassis LLM call layer** for params Fable rejects with a 400:
+
+```bash
+grep -rn "temperature\|top_p\|top_k\|budget_tokens\|\"thinking\"" \
+  --include="*.go" platform/ internal/ | head -40
+```
+
+   **Gotcha:** a clean grep of Go source is not the whole answer — model params
+   also live in `agent_definitions.default_config` as live DB rows, so check
+   both. (Precedent: all 16 council seats set `max_tokens=8000` from config.)
+3. **Then** measure one real Fable build from `llm_call_log`.
+
 ## DNS
 
 ```bash

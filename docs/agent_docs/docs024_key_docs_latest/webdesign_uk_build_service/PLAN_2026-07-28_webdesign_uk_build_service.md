@@ -224,7 +224,7 @@ go public:
 
 | control | why | reuse |
 |---|---|---|
-| Per-IP rate limit | the faucet | `middleware.RateLimitMiddleware` (tools-api) |
+| Per-IP rate limit | the faucet | `middleware.RateLimitMiddleware` (tools-api) — **but see the landmine below; do not reuse its keying** |
 | Request body cap | oversize prompts | `middleware.InputCapMiddleware` |
 | **Turn cap per session** | a chat has no natural end; a form does | new, trivial |
 | **Per-day global spend ceiling** | the only control that bounds total loss | new; `llm_call_log` makes it measurable |
@@ -237,6 +237,26 @@ setting. The chat transcript flows into the brief, which flows into the build. A
 visitor who types *"ignore your instructions and…"* is writing into a document
 that later agents read. **The transcript must enter the build as quoted customer
 statements in a named field, never as free prose spliced into a prompt.**
+
+> **LANDMINE — a "per-IP" limiter behind Cloudflare is usually one global bucket.**
+> Added 2026-07-29 from `bugs_open/139`, which is the same architecture we are
+> about to build (Caddy/nginx + Cloudflare in front of a Go service). The island's
+> per-IP limiter keyed on a **constant**: `client_ip_hash` was
+> `sha256("172.18.0.1")` — the docker gateway — in **83 of 83 rows**, so every
+> visitor on earth shared one bucket and the stored column had never
+> distinguished anybody. Two things make this expensive to find:
+> - **The real address is in `CF-Connecting-IP` only.** Caddy overwrites
+>   `X-Forwarded-For`; Cloudflare strips `X-Real-IP`. `platform/httpguard`'s
+>   rightmost-XFF fallback lands on the same constant — **it reads as a fix and
+>   is not one.**
+> - **One test machine cannot tell a constant from a working key.** Your own
+>   requests get one value either way, so the limiter appears to work. The
+>   discriminating check is `count(DISTINCT <ip key>) > 1` **from two different
+>   networks**.
+>
+> This bites the spend ceiling directly: a global bucket means one visitor can
+> exhaust the day's budget for everyone, and the per-IP control we are relying on
+> to bound §8's faucet would be decorative.
 
 idea.uk still supplies the page shape: one embedded `page.html` compiled into the
 binary, 46KB, no framework, no build step. The chat is a panel on it, not a
@@ -373,6 +393,19 @@ on one box we can reason about. Note the pages are built with **root-relative
 links**, so a path prefix (`/preview/<slug>/`) would break them — the subdomain is
 not cosmetic, it is required.
 
+> **DECIDED (owner, 2026-07-29): a different, shorter domain — to be supplied.**
+> So the previews do **not** live under `webdesign.uk`. The mechanism above is
+> unchanged and the domain name is a placeholder wherever it appears in this
+> workstream; substitute it once the owner names it. **Not blocking** — nothing
+> before P3 needs the name, and the wildcard-cert and vhost work is identical
+> whatever it turns out to be.
+>
+> Two properties the chosen domain must have, because §7a now leans on this host:
+> it carries the **guarantee mechanism** (a refund is "the preview comes down"),
+> and a customer will read the URL before they trust it — so it should look like
+> somewhere a real deliverable lives, and it must be a zone we control DNS for
+> (DNS-01 wildcard issuance).
+
 ---
 
 ## 7. Price, and what we are allowed to say about cost
@@ -388,19 +421,134 @@ now walked this twice and the second lap is the instructive one:
    against the previous run's 13,227 roughly doubled it
    (`idea_uk_vm_site/HANDOFF_RESUME…:42-43`, `RUNNING_NOTES…:3106`).
 
-**That second finding transfers directly and is the one to design around.** A
+~~**That second finding transfers directly and is the one to design around.** A
 website is a far more variable artefact than a report: a 5-page brochure site and
 a 40-page site are not the same product at the same cost. **So the price cannot be
 a single number unless the deliverable is capped** — which argues for a fixed page
-count in the offer, or tiers, rather than "we'll build you a website".
+count in the offer, or tiers, rather than "we'll build you a website".~~
+
+> **DECIDED (owner, 2026-07-29): full sites, at a high, quality-based price —
+> the cap-or-tiers recommendation above is SUPERSEDED** (kept struck-through, per
+> the working-docs rules). And the ruling dissolves the concern it answered: at a
+> high price point, model-cost variance of a few dollars is margin noise. The
+> length finding stays true — it just stops being a *pricing* constraint and
+> becomes a *margin* line-item. **The genuinely scarce, genuinely variable cost is
+> the owner's attention** (bugfixes, spec changes), and §7a is where that gets
+> priced.
+
+Model prices as of **2026-07-29** (from the claude-api skill, not memory — the
+fleet-relevant rows):
+
+| model | input $/MTok | output $/MTok | note |
+|---|---:|---:|---|
+| claude-fable-5 | 10.00 | 50.00 | **2× Opus 5; the build model per §7b** |
+| claude-opus-5 | 5.00 | 25.00 | |
+| claude-sonnet-5 | 2.00 intro | 10.00 intro | **intro ends 2026-08-31 → $3/$15** |
+| claude-haiku-4-5 | 1.00 | 5.00 | the chat/intake tier |
 
 Applied here:
 
-- Measure a full build from `llm_call_log` before quoting any cost or margin, and
-  **quote a range, or cap the deliverable.**
-- Any published figure carries its **measurement date**. `claude-sonnet-5` leaves
-  its introductory rate on **2026-08-31** — a 50% rise on that half of the bill,
-  five weeks out.
+- Measure a full build from `llm_call_log` before quoting any cost or margin —
+  the price is quality-based, but the **margin claim** still needs the
+  measurement, and P0 owns it (now on Fable 5 per §7b).
+- Any published figure carries its **measurement date**. The fleet's dominant
+  model is Sonnet 5 (**1,468 of the last 4 days' 1,900 calls**, measured
+  2026-07-29), so the current cost baseline rises ~50% on that share when the
+  introductory rate ends **2026-08-31**.
+
+## 7a. The offer, ruled and sharpened (owner, 2026-07-29)
+
+> **DECIDED (owner, 2026-07-29):** full sites · high quality-based price ·
+> full money-back guarantee, **acceptance-gated on the preview** · corrections
+> carry a fee, **boundary: customer changes paid, our defects free**. The
+> mechanics below are how the pieces were sharpened in discussion; the rulings
+> are the owner's.
+
+**Productised, not bespoke.** The owner's framing — *"they are buying what we are
+offering rather than something they get elsewhere"* — is the idea.uk shape: the
+page sells what our system builds, reviewed by a human, at a stated price. Not
+"we'll build whatever you want". This makes the page copy honest and simple, and
+it is what lets a fee-per-change model exist at all: changes are priced because
+the deliverable was defined.
+
+**The guarantee and the fee model are one mechanism, hinged on acceptance:**
+
+```
+   pay → build → PREVIEW on our subdomain → customer reviews
+                        │
+        ┌───────────────┴───────────────┐
+   refund (full)                    ACCEPT
+   preview comes down          handover; guarantee ends
+   nothing delivered           corrections now exist:
+                               our defects → free
+                               their changes → paid
+```
+
+- **Before acceptance:** the guarantee is the only instrument. No paid
+  corrections exist yet — revisions during preview are part of getting to
+  acceptance or the money comes back. Refund = the preview comes down; the
+  customer keeps nothing.
+- **After acceptance:** the guarantee has ended and the fee model starts. A
+  defect we caused — broken link, rendering bug, an invented fact — is fixed
+  free, indefinitely. A change they want — different copy, new colour, another
+  page — is paid work.
+- **Why defects-free is load-bearing, not generosity:** the whole positioning
+  (webdesign.co.uk's buying-design section, this product's pitch) is *we tell
+  the truth about AI builds*. Charging a customer to fix our own broken link is
+  the cheapest attack a competitor could quote. It also makes §5.3a's
+  fabrication controls **directly revenue-protective**: every invented detail
+  that ships is a free defect fix we owe — the no-invented-contact-block rule
+  now defends margin, not just reputation.
+- **The preview subdomain is therefore not just delivery — it is the guarantee
+  mechanism.** §6's choice of host carries this weight.
+
+**Terms must exist in writing before the first sale.** The guarantee, the
+acceptance event, and the fee boundary are all contractual claims; idea.uk
+already walked this (`idea.uk/LIABILITY_AND_TERMS.md` and its `terms_preview.html`
+are the precedent). One flag per the legal rail: whether the buyer is a business
+or a consumer changes what cancellation rights attach **[UNVERIFIED — needs a
+primary source before any terms page ships; do not write it from memory]**.
+
+## 7b. Model roles — builds on Fable 5 (owner direction, 2026-07-29)
+
+> **DECIDED (owner, 2026-07-29): the paid builds are planned on `claude-fable-5`.**
+> Checked against the skill the same day: Fable's stated sweet spot is exactly
+> this work — the most demanding long-horizon agentic tasks, first-shot
+> implementation of well-specified systems, self-verification. At $10/$50 per
+> MTok it is 2× Opus 5 and ~5× the fleet's current Sonnet 5 intro rate — small
+> against a high-priced site, and the measurement (P0) will say precisely how
+> small.
+
+| role | model | why |
+|---|---|---|
+| Chat/intake (P1) | cheap + fast — `claude-haiku-4-5` tier | the chat is intake, not the product; it faces strangers and its cost is bounded by §5.1's controls |
+| **Paid build** | **`claude-fable-5`** | the product; quality-based price funds the premium model |
+| Pre-release review | human (P3) | the honesty gate; automation of it is P5's question |
+
+**The fleet is NOT on Fable — measured, not assumed** (2026-07-29,
+`llm_call_log` last 4 days): claude-sonnet-5 1,468 · claude-sonnet-4-6 311 ·
+mistral-small3.1 85 · gemini-pro-latest 33 · **claude-fable-5 0**. So "builds on
+Fable 5" is a change to make deliberately, and P0 gains three items **in this
+order** — note DB model config is live immediately (CLAUDE.md), so (i) and (ii)
+come before any lane is pointed at Fable:
+
+1. **Verify org data retention ≥ 30 days.** Fable 5 is not available under zero
+   data retention — a ZDR org gets `400 invalid_request_error` on **every**
+   request, with a payload that looks perfectly valid.
+2. **Grep the chassis LLM call layer for `temperature` / `top_p` / `top_k` /
+   `budget_tokens` / `thinking` config.** Fable rejects all of them with a 400,
+   and thinking is always on (an explicit `disabled` also 400s). **A model swap
+   is NOT a config-only change if the call layer passes these params** — and it
+   demonstrably sets params (all 16 council seats set `max_tokens=8000`). Also
+   check `max_tokens` headroom: thinking spend counts against it.
+3. **Measure one real Fable-5 build** end to end from `llm_call_log` — that
+   number, dated, is the pricing input §7 waits on.
+
+Two more Fable properties the build lane must absorb: **minutes-long turns are
+normal** (timeouts and progress handling, not a hung-lane diagnosis), and
+**`stop_reason: "refusal"` must be handled** before reading content — a safety
+classifier can decline mid-build and the lane needs to treat that as a state,
+not a crash.
 - The durable story needs no arithmetic at all, and idea.uk's version is the
   model: *a bespoke site, built end to end by an AI pipeline, with a human
   reviewing it before it goes out.*
@@ -437,9 +585,13 @@ denominator — its 503 rate could not be honestly quoted at all.
 
 ## 9. Phasing — each phase independently useful, independently stoppable
 
-- **P0 — Decide and measure. No code.** Owner rules §11. Measure one full site
-  build's model cost from `llm_call_log`. Read `platform/httpguard` to see whether
-  risk 1 is already solved. *Output: a price, a cost, and the isolation ruling.*
+- **P0 — Decide and measure. No code.** Owner rules §11 (round two done
+  2026-07-29). Read `platform/httpguard` to see whether risk 1 is already solved
+  — **and note §5.1's landmine: httpguard does *not* solve the per-IP keying
+  problem, so check the two questions separately.** Then **§7b's three Fable-5
+  checks, in order** — data retention, then the call-layer param grep, then
+  measure one real Fable-5 build from `llm_call_log`. *Output: a cost, a price,
+  and a go/no-go on Fable.*
 - **P1 — The shopfront, with nothing behind it.** webdesign.uk on a VM: the
   minimal page, the **LLM chat**, the questionnaire, Stripe in **test mode**,
   orders stored on the box. Nothing builds. **This is the fake-door idea.uk
@@ -508,20 +660,45 @@ here:
 3. ~~**The chat box (§5.1).**~~ **DECIDED: a real LLM chat.** Resizes P1: the
    spend and abuse controls ship *with* the fake door.
 
-Still open, and the first two are the next things needed:
+**Ruled by the owner, 2026-07-29** — the second round:
 
-4. **Price**, and whether the teaser is free to everyone or gated on an email.
-   Blocked on nothing but the P0 cost measurement.
-5. **The preview host (§6)** — `*.preview.webdesign.uk` on the VM, or a subdomain
-   of a different domain of yours?
-6. **Isolation option (§4.2)**, at P3 — (a) `network_id`, (b) separate DB,
-   (c) namespace + DB, (d) dedicated cluster.
-7. **§12 — the "thousand sites" figure.** The one item here with a deadline
-   attached, because it is already in outward-facing copy.
+4. ~~**The offer shape.**~~ **DECIDED: full sites, high quality-based price, full
+   money-back guarantee, corrections carry a fee.** Mechanics in §7a: the
+   guarantee is **acceptance-gated on the preview**, and the fee boundary is
+   **customer changes paid, our defects free**. Supersedes §7's cap-or-tiers
+   recommendation.
+5. ~~**The preview host (§6).**~~ **DECIDED: a different, shorter domain, to be
+   supplied.** Mechanism unchanged; name is a placeholder. Non-blocking until P3.
+6. ~~**§12 — the "thousand sites" figure.**~~ **DECIDED: accepted as-is** —
+   *"we're about to do that"*. See §12.
+7. **Builds run on `claude-fable-5`** (§7b) — with three P0 checks that must
+   precede pointing any lane at it.
+
+Still open:
+
+8. **The price number itself**, and whether the teaser is free to everyone or
+   gated on an email. Unblocked by nothing but P0's Fable-5 build measurement.
+9. **The preview domain name** (item 5's placeholder).
+10. **Isolation option (§4.2)**, at P3 — (a) `network_id`, (b) separate DB,
+    (c) namespace + DB, (d) dedicated cluster.
 
 ---
 
-## 12. A figure that needs pinning before it is sold on
+## 12. A figure that needs pinning before it is sold on — RULED: accepted
+
+> **DECIDED (owner, 2026-07-29): the thousand-sites figure stands for now** —
+> *"I'm ok with a thousand site's figure for now because we're about to do that."*
+> The item is **closed**; the measurement below stays as the record of what was
+> true when it was checked, not as an objection.
+>
+> Two things worth keeping from it, neither of which reopens the decision:
+> (a) the figure is **forward-looking**, so it acquires a shelf life — the pool
+> build-out either happens or the sentence quietly becomes false, and nobody is
+> currently watching that; (b) when webdesign.uk's own copy is written it should
+> take its numbers from **this** workstream's measurements, not inherit
+> webdesign.co.uk's prose — the two sites make different promises and one of them
+> is now taking money.
+
 
 The buyer-track positioning rests on a claim of scale: *"we run one of these
 systems in production across about a thousand sites"*

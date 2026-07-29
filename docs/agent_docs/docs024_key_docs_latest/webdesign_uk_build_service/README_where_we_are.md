@@ -169,3 +169,83 @@ different direction.
 **Still needing you:** the price (unblocked as soon as I measure what a build
 actually costs), whether the preview sites sit on `*.preview.webdesign.uk` or a
 subdomain of another of your domains, and the thousand-sites figure.
+
+---
+
+## 2026-07-29 — Fable 5, and the offer takes shape
+
+**On Fable 5, first, because the answer has a trap in it.** I checked what the
+fleet is actually running before changing anything: over the last four days it
+made about 1,900 model calls, and **not one of them was Fable**. It's almost all
+Sonnet 5, with some Sonnet 4.6 and a little Gemini and Mistral. So "we're using
+Fable 5" is true of this session and true of where you want the builds to go, but
+it is not yet true of the system — which matters, because pointing a lane at a new
+model is a live database change that takes effect immediately, with no rebuild to
+slow it down.
+
+Fable is Anthropic's most capable model and it costs $10 per million tokens in and
+$50 out — twice Opus 5, and about five times what the fleet pays for Sonnet 5
+today on its introductory rate. For a site we're selling at a proper price that's
+noise, and what Fable is *for* reads like a description of this exact job: long
+autonomous runs, getting a well-specified thing right first time, checking its own
+work. So I've written the builds onto Fable as you asked.
+
+Three things have to happen before we point anything at it, and I've put them at
+the front of the first phase. Fable refuses to run at all for an organisation on
+zero data retention — every request fails, and the error looks like a bad request
+rather than a settings problem, which is exactly how you lose an afternoon. It
+also rejects several of the parameters our chassis currently sets on model calls,
+so swapping the model is not just a config edit if the calling code passes them —
+and we know it passes some, because every council seat sets a token limit. And
+we should measure what one real Fable build costs before we put a number on the
+page. That measurement is now the only thing standing between us and a price.
+
+**The offer.** Full sites at a proper price, money back if they don't want it,
+and changes cost money afterwards — I think that's right, and I've written it up
+with the joins made explicit, because the three parts only work together if
+acceptance is the hinge.
+
+Here's the shape. They pay, we build, the site goes up on the preview domain, and
+they look at it. Until they accept it, the guarantee is the only thing in play:
+if they want their money back they get all of it, the preview comes down, and
+they keep nothing. The moment they accept, the guarantee ends and the fee model
+starts. That gives us one clean line instead of two overlapping ones, and it
+means "corrections carry a fee" never collides with "full money back" — they
+simply can't both be live at the same time.
+
+On the fee boundary I'd draw one line inside it, and this is the part I'd argue
+for rather than just record. Charging for changes they want is obviously right —
+that's your time, and your time is the genuinely scarce thing here. But a broken
+link or an invented phone number is our defect, and I think those get fixed free,
+indefinitely. Two reasons. The first is that the entire pitch — on webdesign.co.uk
+and here — is that we're the ones who tell the truth about AI builds; "they
+charged me to fix their own bug" is the cheapest possible thing for a competitor
+to quote back at us. The second is more practical: it turns the anti-fabrication
+work into something that protects money rather than just reputation. Every
+invented detail that reaches a customer is now a free repair we owe, so the rule
+about never generating a contact block we weren't given is defending margin.
+
+One consequence worth flagging: the preview domain is no longer just where the
+site goes. It's the mechanism the guarantee runs on — a refund is literally "the
+preview comes down". So when you pick the short domain, it wants to be somewhere
+a customer will believe a real deliverable lives, and it has to be a zone we
+control the DNS for so we can issue the wildcard certificate. Nothing before the
+third phase needs the name, so there's no rush.
+
+**The thousand sites.** Taken as read, as you said — the item's closed. One note
+for whoever writes the copy later: it's a forward-looking number now, so it has a
+shelf life, and webdesign.uk's own claims should come from this project's
+measurements rather than inheriting webdesign.co.uk's prose. That site describes
+what we do; this one takes money for it.
+
+**Also folded in, from another thread's bad afternoon.** The gauntlet lane just
+found that its per-visitor rate limit had never worked: behind Cloudflare and a
+reverse proxy, every request arrived looking like it came from the same address,
+so all the visitors on earth shared one bucket. It only showed up because someone
+counted distinct values — from one machine it looks perfectly healthy. We're
+about to build the same shape of thing, and our per-visitor limit is what stops
+one stranger spending the whole day's model budget, so I've written the trap into
+the plan with the check that actually detects it.
+
+**Still needing you:** the price (unblocked the moment we've measured a Fable
+build), and the short domain when you've picked it.
