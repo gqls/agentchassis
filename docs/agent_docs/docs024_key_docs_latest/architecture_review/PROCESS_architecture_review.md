@@ -118,6 +118,12 @@ Sections, all required:
 
 - `RFC_001_at_least_once_delivery.md` — bug-003 delivery-guarantee redesign
   (the case that created this track).
+- `RFC_002_criteria_check_type_vocabulary.md` — who may add a check type to the
+  shared Tier 2 criteria vocabulary, and on what terms. **RETROSPECTIVE**: the
+  change is already live (v1.0.1197), routed here on the owner's instruction
+  after the `review_architecture` seat ruled it architecture-scope while the
+  guardian declined to veto in the same round. The first RFC on this track whose
+  subject is a precedent rather than a build.
 
 Claim the next number by adding a line here in the same commit as the RFC —
 the same collision discipline as migrations, and this list is the ledger.

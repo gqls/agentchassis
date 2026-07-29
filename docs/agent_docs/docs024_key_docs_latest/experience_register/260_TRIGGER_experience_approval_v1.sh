@@ -57,7 +57,27 @@ SUMMARY=$("${PSQL[@]}" -c "
 INVARIANTS=$("${PSQL[@]}" -c "SELECT string_agg('- ' || name || ': ' || clause, E'\n') FROM experience_invariants;")
 REGISTER_SUMMARY=$(printf 'ENTRIES\n%s\n\nSHARED INVARIANTS (reference these by name; do not restate them)\n%s\n' "$SUMMARY" "$INVARIANTS")
 
-FIX_CORR=$(cat /proc/sys/kernel/random/uuid)
+# RESUBMISSION: pass the previous correlation as RESUBMIT_CORR (or arg 2) so the
+# artifact trail — every round's council_report, under one key — accumulates in
+# one place, exactly as 097_TRIGGER_council_review_v1.sh does for the code gate.
+#
+# ADDED 2026-07-29 AFTER IT BIT ME. This script always minted a fresh UUID and
+# had no resubmit support, so `RESUBMIT_CORR=… ./260_…` ran happily and put
+# round 2's verdict under a NEW key, splitting the trail in exactly the place
+# the working-docs rules want it whole. Nothing failed and nothing warned: an
+# environment variable nothing reads looks identical to one that works, which is
+# the standing "grep the config key before calling it a win" lesson wearing a
+# shell script. The unknown-variable case is now refused rather than ignored.
+FIX_CORR="${2:-${RESUBMIT_CORR:-}}"
+if [ -n "$FIX_CORR" ]; then
+  case "$FIX_CORR" in
+    [0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*) ;;
+    *) echo "ERROR: RESUBMIT_CORR='$FIX_CORR' is not a uuid — refusing rather than silently minting a fresh one" >&2; exit 1 ;;
+  esac
+  echo "RESUBMISSION: verdicts accumulate under $FIX_CORR (the trail, not a round cap)"
+else
+  FIX_CORR=$(cat /proc/sys/kernel/random/uuid)
+fi
 CORRELATION_ID=$(cat /proc/sys/kernel/random/uuid)
 ORCHESTRATION_ID=$(cat /proc/sys/kernel/random/uuid)
 REQUEST_ID=$(cat /proc/sys/kernel/random/uuid)
