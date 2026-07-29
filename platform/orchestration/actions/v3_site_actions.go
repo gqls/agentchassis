@@ -4697,9 +4697,16 @@ func containsString(slice []string, item string) bool {
 // ============================================================================
 
 // isSectionIndexType reports whether a page_type is a directory/section index.
+//
+// news-index belongs here for the same reason blog-index does: it is the typed
+// PARENT of a section, not one of its children. Its absence meant a news-index
+// page at the canonical /news/index.html URL matched classifyPagesForNav's
+// child-prefix skip and could never enter the nav — while the same page at
+// /news.html (the non-canonical shape bugs_open/080 exists to eliminate)
+// navigated fine. bugs_open/141.
 func isSectionIndexType(pageType string) bool {
 	switch pageType {
-	case "blog-index", "entity-directory", "section-index":
+	case "blog-index", "entity-directory", "section-index", "news-index":
 		return true
 	}
 	return false
