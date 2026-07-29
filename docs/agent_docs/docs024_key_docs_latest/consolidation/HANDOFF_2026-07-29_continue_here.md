@@ -129,6 +129,35 @@ What is established:
 > **Caddy on the island does not provide**. A second adopter inherits the
 > reassurance without the mechanism.
 
+> ## OWNER RULING 2026-07-29 (later) — **"get it adopted."**
+>
+> The standing scope question — does this programme's job end at building the
+> shared primitive, or extend to getting it used — is **answered: adoption is in
+> remit.** A2/A3 are NOT done while they have zero importers. Recorded in full at
+> the top of `features_open/024`; read-out in
+> `consolidation/SUMMARY_2026-07-29_getting_the_shared_code_used.md`.
+>
+> **Order of work, and the first item is ours alone:**
+>
+> 1. **Fix `httpguard`'s portability defect FIRST** — it assumes nginx's
+>    `X-Real-IP` behaviour without saying so, so it is not yet safe to adopt
+>    anywhere. Make the trusted header set stated and chosen, not assumed. Taught
+>    the island's front-end (`CF-Connecting-IP`), adoption then *genuinely* fixes
+>    the constant-identity defect rather than appearing to — which is what makes
+>    adoption worth doing on its own merits again. **Architecture-scope: council on
+>    its own, not folded into an adoption commit.**
+> 2. **Adopt `platform/mailer`** — a consumer is waiting and it carries none of
+>    this complication.
+> 3. **Adopt `httpguard` into `tools-api`** — needs the gauntlet thread's
+>    agreement; their evidence is already filed in their directory
+>    (`gauntlet_dead_cta/CONTRIB_2026-07-29_…`). As of 2026-07-29 they had not yet
+>    picked it up.
+>
+> **The A3 rationale that died today, so nobody re-argues it:** `bugs_open/139` is
+> refuted and is no longer a reason to adopt `httpguard`. The general case never
+> depended on it — three limiters with the weakest on the only public endpoint,
+> four CORS postures, a honeypot the next build planned to copy — and stands.
+
 **This stays a conversation.** `tools-api` belongs to the **gauntlet_dead_cta**
 thread and `bugs_open/083` (slug `gauntlet_engine_503_discards_the_error` — the
 number is ambiguous, cite the slug) is open against it. Contribute into 139 and

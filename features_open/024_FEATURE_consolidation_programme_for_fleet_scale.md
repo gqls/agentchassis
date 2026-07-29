@@ -3,6 +3,42 @@
 **Status:** programme proposed, owner-directed 2026-07-27. Items sequenced, not
 bundled. Two items have a live consumer waiting; one is a recommended **won't-do**.
 
+> ## OWNER RULING 2026-07-29 — **"get it adopted."** The remit runs to ADOPTION, not to delivery of the package.
+>
+> Asked directly whether this programme's job ends at "build the shared primitive"
+> or extends to "get it used", the owner ruled the latter. **A2 and A3 are not done.**
+> They are built, tested, council-APPROVED (`6db59c8b`) and have **zero importers**
+> — which is the worst state shared code can occupy: all of the maintenance cost,
+> none of the benefit, while the copies they were written to replace carry on
+> diverging. An item on this programme is complete when something calls it.
+>
+> **Consequence for how work is scheduled here.** Most of what remains lives inside
+> services other threads own, so adoption is *a conversation followed by a commit*
+> and nothing currently schedules the conversation. That is now this programme's
+> work, not a precondition for it.
+>
+> **A3's justification changed the same day and the ruling survives it.** The bug
+> that was going to motivate wiring `httpguard` into `tools-api` — `bugs_open/139`,
+> "a visitor can choose their own rate-limit key" — was **refuted by its own owed
+> probe** (`1f780faba`). The general case is untouched and was always the stronger
+> one: three limiters, the weakest guarding the only public endpoint, four CORS
+> postures, and a honeypot the next build was planning to copy again.
+>
+> **But A3 is not yet safe to adopt anywhere, and that is now the first task.**
+> `httpguard.ClientIP` prefers `X-Real-IP` on the stated grounds that a proxy
+> replaces a client-supplied one — true of **nginx on idea.uk**, where it was
+> written; **false of Caddy on the island**, which forwards one verbatim. The
+> reassurance travels with the package and the mechanism that makes it true does
+> not. Fix that (state and *choose* the trusted header set, rather than assume it)
+> **before** adopting it anywhere. Done properly it converges with the live defect:
+> taught the island's front-end, `httpguard` would resolve real visitors there, so
+> adoption would genuinely fix the constant-identity bug instead of appearing to.
+> Evidence: `bugs_open/139`, `016b` §9, `consolidation/SUMMARY_2026-07-29`.
+>
+> **This is a shared-mechanism change ⇒ architecture-scope** under the 2026-07-28
+> platform-seam ruling. It goes to the council on its own merits, not folded into
+> an adoption commit.
+
 > **A2 + A3 BUILT 2026-07-28.** `platform/mailer` (commit `1d747f5e8`, 8 tests) and
 > `platform/httpguard` (commit `3632874d4`, 12 tests) are in the build, gofmt and
 > vet clean, stdlib only, **no service rewired**. `platform/mailer` is the first
