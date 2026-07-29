@@ -11089,3 +11089,29 @@ different fixes — the first needs someone to notice the gap, the second needs 
 looking. Cheapest general guard for the second class: when an edit touches SQL construction,
 credentials, or a vocabulary column, open the standing rule for that thing *first* and quote it
 in the rationale. A rationale that quotes the rule cannot also be proud of working around it.
+
+## 2026-07-29 — gauntlet_dead_cta (vonc6): "the inner-page census" that measured four homepages
+
+**The claim I nearly wrote:** "og:url = site root is vonc-only — other fleet
+sites set it per page." I ran a census across four sites to check, and it came
+back clean-looking.
+
+**What was actually wrong:** my script found each site's "inner page" by
+grepping the homepage for the first `href="/…​.html"`. On all four sites that
+first match was **`/index.html` — the homepage itself**. So the census compared
+each site's homepage against its own homepage, where `og:url` = root is
+*correct*, and would have licensed exactly the wrong conclusion.
+
+**What caught it:** reading the output rather than the verdict — the same path
+`/index.html` appearing in all four rows is not what four different sites'
+inner pages look like.
+
+**The cheap check that would have:** print the thing you selected, not just the
+result you computed. One glance at the four identical paths ends it. Corollary
+to [[narrow-filter-defines-the-conclusion]]: the filter here didn't narrow the
+world, it **silently selected the control group as the treatment group**.
+
+**Re-run properly:** pulled real inner pages from `pages` (`url NOT IN
+('/','/index.html')`, `deployed_at IS NOT NULL`) and re-measured — 7 pages, 4
+sites, og:url = root everywhere, canonical absent everywhere. The finding held;
+the first instrument simply could not have found it either way.
