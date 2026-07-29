@@ -10,13 +10,17 @@ wiring covered by five tests that induce both directions. Nine patterns now appl
 all 15 sites, armed or not. See § "FIX BUILT" at the foot of this file, and the
 workstream at `docs024_key_docs_latest/bugfix_104_fleetwide_claim_patterns/`.
 
-> **Two things remain true and neither reopens this bug.** (1) The council round is
-> **advisory and still open** — round 1 REVISE on a guardian *scope* objection (not a
-> veto), round 2 submitted on corr `899ed92e-1bf7-4707-96d8-24f102aa14fa`. Closure
-> follows the `/bugs_closed` bar (fixed AND live), which is independent of the verdict
-> — the same way `bugs_closed/124` closed carrying a REJECTED verdict. **If the
-> guardian escalates to veto and the owner sides with it, the design changes and this
-> file reopens**; that is a live possibility, not a formality. (2) The strongest of the
+> **Two things remain true and neither reopens this bug.** (1) The council trail is
+> **advisory and still open** on corr `899ed92e-1bf7-4707-96d8-24f102aa14fa` — round 1
+> REVISE (guardian, scope), round 2 REVISE (**gating seat `debug_historian` at HIGH, on
+> my measurement method, not on the design**), round 3 submitted. **Guardian
+> de-escalated in round 2** to medium/low and dropped the architecture escalation, so a
+> veto is no longer the live risk it was; what it still asks for is a human to confirm
+> the O11 ruling happened, which only the owner can do. Closure follows the
+> `/bugs_closed` bar (fixed AND live), independent of the verdict — the same way
+> `bugs_closed/124` closed carrying a REJECTED one. **Both of round 2's substantive
+> objections were right and are now shipped** — see the 2026-07-29 section at the foot.
+> (2) The strongest of the
 > ten candidate patterns is deliberately **excluded** pending a code-level negation
 > guard — that is a separate, unowned, architecture-scope piece of work, filed in
 > § "What is deliberately NOT fixed" below, NOT a residual of this bug.
