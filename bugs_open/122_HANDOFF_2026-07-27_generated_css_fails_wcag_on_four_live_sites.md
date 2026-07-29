@@ -280,3 +280,154 @@ So: `AuditPalette` is the cheap pre-deploy gate that should run every build;
 `contrastscan` is the post-deploy witness for everything the palette does not
 govern. Candidate 1 (stop the chrome hardcoding white) remains the fix that
 closes the door, because it removes the literal rather than detecting it.
+
+## Contribution 2026-07-29 — dartsonline.com: the mechanism is the LAYOUT'S OWN LIGHT LITERALS, and the fix already shipped
+
+From the `dartsonline_traffic` workstream. Contributing here rather than opening a
+parallel account, and **not** starting a competing generator fix — candidate 1
+still belongs to whoever takes it.
+
+**Re-measured on the live page** with `scripts/render_audit.py`, 2026-07-29 16:45Z:
+
+```
+FAIL https://dartsonline.com/                      contrast=13
+FAIL https://dartsonline.com/blog/barrel-weight.html  contrast=5
+```
+
+The homepage's whole card grid is unreadable, and the numbers say why:
+
+| pair | ratio | element |
+|---|---|---|
+| `rgb(240,242,247)` on `rgb(255,255,255)` | **1.12** | `.info-card-grid__card-title` — "Find Your Barrel Weight" |
+| `rgb(240,242,247)` on `rgb(255,255,255)` | **1.12** | `.info-card-grid__card` link — "Read the tungsten guide" |
+| `rgb(17,21,32)` on `rgb(13,16,25)` | **1.04** | `.info-card-grid__eyebrow` — "SPEC-FIRST BUYING GUIDES" |
+
+Near-white text on white cards, on a site whose background is near-black. Four
+cards, every one of them.
+
+**The component is not at fault, and this is the part worth carrying.** Every rule
+is variable-driven and correct:
+
+```css
+.info-card-grid__card       { background: var(--color-card-bg, var(--color-surface)); }
+.info-card-grid__card-title { color: var(--color-heading); }
+.info-card-grid__eyebrow    { color: var(--color-primary); }
+```
+
+The defect is in the served `styles.css`, which is the **`ecommerce-storefront`**
+layout with its light-scheme literals intact:
+
+```css
+--color-card-bg:   #ffffff;
+--color-header-bg: #ffffff;
+--color-product-bg:#ffffff;   /* "Product cards stay neutral regardless of
+                                  palette — product images demand a clean
+                                  backdrop." */
+--color-background:#0D1019;   /* the palette DID land here */
+--color-text:      #F0F2F7;
+```
+
+So the site's dark palette filled the eight core slots and the layout's white
+literals survived in the nine it does not define. That is **exactly** the defect
+`platform/orchestration/actions/palette_specialised_slots.go` was written for on
+2026-07-27 — its own header names fundamentallyai.com at 1.21:1 and measures "16
+of 31 palettes define no `card_bg`, 12 of those dark". dartsonline is one of them
+and nobody had connected it to this bug file.
+
+**So there is nothing to fix in the generator for this site — the fix is live and
+the CSS is simply stale.** Pod-verified on both replicas before acting:
+
+```
+$ kubectl exec -n ai-persona-system agent-chassis-6fd7d88c4d-f6pgj -- \
+    sh -c 'strings /app/agent-chassis | grep -c "a card is a raised surface"'
+1                       # and 1 on ...-ktnzr
+```
+
+Corroborating evidence that the stylesheet predates the palette: the served CSS
+does not match the `palettes` row at all. Served `--color-background: #0D1019`,
+`--color-primary: #111520`, `--color-surface: #1A1F2E`; the palette row
+(`b6f34e0e`) says `background #111520`, `primary #1A1F2E`, `surface #1E2436` —
+the served values are the palette's, shifted by one role, plus a `#0D1019` that
+appears nowhere in it. A re-render was triggered at 16:47Z via `webdesign-agent`
+(correlation `4555d081-65c2-47fc-a89b-e7c6a96badc5`).
+
+**Two things this adds to the file's own conclusions.**
+
+1. The 07-28 correction says `--color-primary` "is not the link colour on the
+   other sites". Correct — but on dartsonline it *is* an ink: the card-grid
+   eyebrow uses it, at 1.04:1. So the original 1.11 figure was arrived at by an
+   unsound method **and** there is a real near-invisible element using that
+   variable. Both statements are true, and the second one does not rescue the
+   first.
+2. The file's closing argument — palette audit is the cheap pre-deploy gate,
+   render audit the post-deploy witness — has a **third** gap between them that
+   dartsonline demonstrates: a palette can be perfectly legible, the component
+   CSS can hardcode nothing, and the page can still fail, because the LAYOUT
+   supplies literals for slots the palette never names. `AuditPalette` cannot see
+   it (the value is not in the palette), and `render_audit.py` sees it only after
+   it is already live and public. The pre-deploy check that would catch it is
+   over the *composed* layout+palette pair, which is what
+   `palette_specialised_slots.go` now derives — so the door is closed for new
+   renders and **open for every site whose CSS has not been re-rendered since
+   2026-07-27**. That set is not enumerated anywhere; it is probably the rest of
+   this bug's population.
+
+### Result, measured on the live page 2026-07-29 17:00Z
+
+The re-render deployed (`gqls/sites`, "Update stylesheet via webdesign-agent") and
+the derivation fired — `--color-card-bg` went `#ffffff` → `#1A1F2E`,
+`--color-header-bg` `#ffffff` → `#0E1019`, `--color-cta-bg`/`--color-cta-text`
+`#111827`/`#ffffff` → `#1A1F2E`/`#F0F2F7`:
+
+```
+before   FAIL  https://dartsonline.com/                      contrast=13  h-overflow
+         FAIL  https://dartsonline.com/blog/barrel-weight.html  contrast=5   h-overflow
+after    FAIL  https://dartsonline.com/                      contrast=1
+         FAIL  https://dartsonline.com/blog/barrel-weight.html  contrast=0
+```
+
+18 failures → 1, and the horizontal overflow went with it. **No site-specific
+palette edit was needed and none was made** — the site was simply carrying a
+stylesheet older than the fix.
+
+**The one that remains cannot be fixed at site level, and the arithmetic says
+why.** `.info-card-grid__eyebrow` uses `color: var(--color-primary)`, which is
+`#111520` on a `#0E1019` ground: **1.04:1**. But the same layout also uses
+`--color-primary` as a FILL, with `--color-primary-text` on top of it. Both
+consumers are on the served homepage:
+
+```
+background: var(--color-primary);  color: var(--color-primary-text);   /* button */
+color: var(--color-primary);                                            /* eyebrow, card links */
+border: 3px solid var(--color-primary);
+```
+
+So one variable is asked to be legible *on* the dark page and to *be* a dark page
+for light text. Measured candidates, against background `#0E1019`, card `#1A1F2E`
+and text `#F0F2F7`:
+
+| value | as ink on bg | as ink on card | `#F0F2F7` on it as fill |
+|---|---|---|---|
+| `#111520` (current) | 1.04 ✗ | 1.11 ✗ | **16.28 ✓** |
+| `#E8311A` (the brand accent) | 4.41 ✗ | 3.82 ✗ | 3.84 ✗ |
+| `#FF5A3C` (lighter tint, same hue) | **6.13 ✓** | **5.30 ✓** | 2.77 ✗ |
+
+Note the middle row: **the site's own accent does not clear AA as an ink either**,
+at 4.41 against a 4.5 floor. There is no value that satisfies both roles, so
+repointing the palette would trade one failing eyebrow for failing text on every
+primary button — a strictly worse position, and exactly the "findings get 'fixed'
+into real regressions" failure this file already warns about. **So nothing was
+changed.**
+
+The fix that closes this door is at the generator: a layout must not spend one
+palette slot on both a fill and an ink. That is adjacent to candidate 1 (stop the
+chrome hardcoding white) and belongs with whoever takes the generator — flagging,
+not claiming.
+
+**The transferable item, and the reason this is worth the space here.** The
+population of this bug is probably not "four sites with bad palettes" but **every
+site whose `styles.css` has not been re-rendered since 2026-07-27**, for whom the
+fix exists and has never run. That set is enumerable in one query per site
+(compare the served `--color-card-bg` against `#ffffff` while the palette is
+dark) and is not enumerated anywhere. A re-render is cheap — this one took under
+three minutes end to end.
