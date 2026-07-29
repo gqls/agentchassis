@@ -1111,3 +1111,82 @@ either way.
 
 **Not this lane's to fix.** Filed with fix order and the "do not silence it by declaring
 it" warning, which is the `WRONG_CALLS.md` mistake this workstream itself committed.
+
+## §19 — 2026-07-29 ~07:15 — v1.0.1196: the denominator is real now, and I opted in the first action that will actually WARN
+
+**Post-roll checks first** (fleet on **v1.0.1196**, rolled 2026-07-28 22:37:49Z — not my
+roll, so re-grepped rather than assumed). All markers survived:
+
+```
+keys this action does not read         1
+UnknownConfigKeys                      5
+unrecognised_keys                      1
+unknown execution-context field        1     <- bugs_closed/124, diagnose lane safe
+NEGATIVE CONTROL (should be 0)         0
+```
+
+**The exercise measurement is no longer thin.** Over the ~8.5h since the roll:
+
+| | §17 (v1.0.1194) | §18 (later) | §19 (v1.0.1196) |
+|---|---|---|---|
+| runs since roll | 13 | 48 | **397** |
+| touching an opted-in action | 0 | 9 | **32** |
+| distinct opted-in actions exercised | 0 | 8 | **16** of 58 |
+| warnings | — | 0 | **0** |
+
+Opted-in set re-derived and `diff`ed against last session's: **identical, 58**. So the zero
+is comparable across the three measurements, and it now rests on a real population plus a
+passing positive control.
+
+**But it is still zero for the same uninteresting reason, and that is the thing I finally
+acted on.** The batch only ever contained actions whose spec already covered every live key
+— a warning was impossible *by construction*, so no amount of traffic could ever produce
+one. Waiting for the witness was waiting for something that could not happen.
+
+### So I opted in an action that has a real dead key
+
+`bugs_open/136` gave me two. Commit `099476b56` declares exactly what each reads:
+
+```go
+// run_discovery_checks
+ConfigKeys: []string{"checks", "check_pipeline"},
+// triage_detected_items
+ConfigKeys: []string{"target_pipeline"},
+```
+
+That is **fix candidate 1 of 136**, and the spec gaps I listed there as a *prerequisite* are
+closed in the same commit — closing them is what makes the opt-in honest rather than
+noisy. The offline report changed state immediately:
+
+```
+=== UNKNOWN KEYS (action declared its contract; these are not in it) ===
+  run_discovery_checks: check_domain
+  triage_detected_items: target_domain
+```
+
+**That section has printed `none` since 101 shipped.** It now names two real defects.
+Ratchet 152→150 undeclared, 58→60 declared.
+
+**Why this is safe, checked rather than argued.** `grep -rn '\.ConfigKeys' platform/ cmd/`
+returns only `UnknownConfigKeys`, `ListDeclaredConfigKeys`, the `IsCheckedAction` gate and
+`cmd/config-key-audit`. **`ExtractActionInputs` never reads `ConfigKeys`** — so declaring
+cannot change extraction, input resolution or behaviour. `StrictConfig` stays unset.
+`go build ./platform/...` clean; validation + datahelpers packages pass.
+
+**What I deliberately did NOT do.** Fix the six definitions. Renaming a key that currently
+does nothing IS a behaviour change, and those agents belong to other lanes. And I did not
+declare triage's `batch_id`, which the file header has advertised since it was written and
+which **no code reads** — declaring it would make a dead key recognised and silence the
+detector for it, exactly the `WRONG_CALLS.md` 2026-07-28 mistake this workstream already
+committed once. Corrected the header to say it is unimplemented instead.
+
+### State of the owed witness
+
+Committed ≠ live: this is a Go change and v1.0.1196 predates it. **INERT until the next
+roll.** On that roll, the first run of any of the six agents should emit the warning, and
+that is simultaneously (a) 136's runtime proof and (b) the end-to-end witness this ratchet
+has owed since §17. **Not claiming it until a pod log shows it.**
+
+Council submitted, corr `1c606c72-eb82-4761-b30d-1a7c653b744d`, queue depth 2 ahead.
+**Deliberately not rolling while it is in flight** — a roll kills an in-flight council, and
+I would be killing my own.

@@ -1,8 +1,28 @@
 # 136 — Live config says `*_domain` where the code reads `*_pipeline`, and nine step-config keys are read by nobody
 
-**Filed** 2026-07-28 (late evening) · **Status** OPEN, unowned · **Class** `bugs_closed/101`
+**Filed** 2026-07-28 (late evening) · **Status** OPEN · **Class** `bugs_closed/101`
 (unknown config key silently ignored) · **Found by** the first systematic pass over pile B of
 the config-key ratchet (`bugfix_100_101_scrape_provenance/HANDOFF_2026-07-28b` §3b)
+
+> **UPDATE 2026-07-29 — fix candidate 1 is APPLIED for the two `*_domain` actions, and the
+> defect is now REPORTED instead of silent.** Commit `099476b56`: `run_discovery_checks` and
+> `triage_detected_items` now declare exactly the keys they read
+> (`checks`+`check_pipeline`, and `target_pipeline`), which opts both into the detector. The
+> spec gaps flagged as a prerequisite in §5 were closed in the same commit — that was the
+> whole reason they were a prerequisite. **`scripts/audit-config-keys.sh` UNKNOWN KEYS went
+> from `none` to naming exactly `check_domain` and `target_domain`**; ratchet 152→150
+> undeclared, 58→60 declared. Council corr `1c606c72-eb82-4761-b30d-1a7c653b744d`.
+>
+> **Behaviour is unchanged, verified rather than argued:** `ConfigKeys` is read only by
+> `UnknownConfigKeys`, `ListDeclaredConfigKeys` and `cmd/config-key-audit` —
+> `ExtractActionInputs` never reads it (`grep -rn '\.ConfigKeys' platform/ cmd/`).
+> `StrictConfig` stays unset, so it warns and blocks nothing.
+>
+> **INERT until the next chassis roll** — Go change, committed but not in v1.0.1196.
+> **Still OPEN**, on two counts: the six definitions are unfixed (§5 steps 2–3, other lanes'
+> agents), and the runtime warning has **not yet been witnessed in a pod**. When it rolls,
+> the first run of any of the six agents should emit it; that is also the outstanding
+> end-to-end proof owed by the `101` ratchet itself.
 
 ---
 

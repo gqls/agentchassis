@@ -207,3 +207,46 @@ I also nearly filed a false one. I had a fourth case lined up and was about to c
 then found there's a legitimate back door where a step can pass values the code doesn't
 formally declare. It didn't apply here — I checked — but if it had, I'd have reported a bug
 that wasn't. Noted in the technical log, because the near-miss is the useful part.
+
+---
+
+**2026-07-29, morning.** The new build went out overnight, so the first job was checking our
+work is still in it — it is, and the safety checks on the neighbouring bug are fine too. Then
+I had a look at how much the checker has actually had to do. Overnight it saw 397 workflow
+runs, 32 of them using something we'd signed up, across 16 different actions. It reported
+nothing wrong.
+
+Yesterday I said that "nothing wrong" was worth less than it looked, and having sat with it
+I think I understated the problem. It isn't that the evidence was thin. It's that **we had
+signed up only the things we'd already proved were clean**, so the checker could never have
+found anything, no matter how long we waited or how much traffic went through it. We were
+waiting for proof that was not capable of arriving.
+
+So I stopped waiting and gave it something real to find. Yesterday's bug turned up two
+actions with settings that genuinely do nothing. I've now told the system what those two
+actions actually read — which is a small, careful change: it declares the truth, it doesn't
+alter any behaviour. I checked that last part rather than assuming it, because it's the
+whole reason the change is safe: the declaration is only ever used for reporting, and never
+by the part of the code that decides what a step does.
+
+The effect was immediate in the offline report. There's a section in it headed "unknown
+keys" that has printed the word "none" every single time since we built it. It now names two
+real problems. That section going from empty to populated is, I think, the moment this piece
+of work started paying for itself — up to now it has been measuring its own coverage rather
+than finding anything.
+
+One honest caveat, and it's the same one as yesterday: the change is committed but it isn't
+running yet. Code changes here only take effect when a new build goes out. When the next one
+does, the first run of any of those six agents should produce the warning in the log — and
+that will finally be the thing we've been owed for two days: not a test proving the checker
+*can* speak, but a real run where it *did*. I'm not claiming that until I've seen it.
+
+I've also sent the change for review by the automated reviewer panel, and I'm deliberately
+not triggering a new build while that's running, because a build would kill the review
+halfway through. So the order is: let the review finish, then get it live, then watch for
+the warning.
+
+What I've left alone on purpose: the six agent configurations that carry the wrong setting
+name. Fixing those means changing what other people's agents do, and a setting that currently
+does nothing is exactly the kind of thing where "just rename it" can have consequences
+nobody expects. That's written up with a suggested order in the bug, for whoever owns them.
