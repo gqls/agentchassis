@@ -436,3 +436,24 @@ throughout; none of it gated the roll, and the code was already live.
 
 Commits: `a1428c908` (lever + guards), `804d021b2` (docs). Full trail in the
 workstream NOTES; council correlation `899ed92e-1bf7-4707-96d8-24f102aa14fa`.
+
+### RFC FILED 2026-07-29 — the venue question is settled, and it was settled against me
+
+`architecture_review/RFC_003_fleetwide_banned_claims_at_the_build_gate.md`.
+
+The council's `architecture` and `guardian` seats both said in round 3 that a fleet-wide
+blocker-severity mechanism across three packages wanted a filed RFC. **I answered that it
+was an owner call on venue and did not file.** The owner ruling published the same day
+(`CLAUDE.md` § "OWNER RULING 2026-07-29", answer 1) gives the test: an RFC is needed when a
+change alters what the shared mechanism **GUARANTEES**, not merely because the vocabulary is
+shared. Check 8's own header said *"sites without an evidence_base skip both silently"*, and
+it can now refuse such a site's build at blocker severity — the same shape as RFC 002's
+trigger. So the seats were right and my answer was wrong.
+
+RFC 003 carries what the ruling asks for: blast radius derived mechanically (5 binaries link
+`orchestration/actions`, **1** executes the gate; **4** active agent definitions have a
+`validate_page_content` step and **3 are affected** — `report-builder` already sets
+`check_claims:false`), the **6 named newly-refutable sites**, a config-only rollback, and
+three questions left for the owner without acting on any of them. Per ruling answer 3 the
+three affected consumers were **told** — a dated note in each one's own register category
+saying what changed about *their* guarantee — rather than merely counted.
