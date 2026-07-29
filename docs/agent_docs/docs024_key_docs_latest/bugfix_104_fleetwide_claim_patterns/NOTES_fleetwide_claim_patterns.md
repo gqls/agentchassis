@@ -401,3 +401,73 @@ blockers, 0 errors` — which is the gate working. Same family as the `psql -t -
 guard that could not fail, from the bugsearch-2 session. **A test whose harness
 discards the success signal is worse than no test.** The discrimination is now
 explicit: identical harness, one input errors, four inputs do not.
+
+---
+
+## 2026-07-29, round 2's verdict — REVISE again, and the gating seat was RIGHT about my measurement
+
+Round 2: **revise**, 13 reviewers (**not 12 — the panel grew mid-trail**), 4 abstained,
+0 unreadable. 6 approve / 7 object. **Gating objection: `debug_historian`, severity
+HIGH — not the guardian.**
+
+Guardian round 2 is worth reading as a de-escalation: still `object`, but medium/low,
+and it explicitly **dropped** the architecture escalation — *"Blast radius is small and
+fully enumerated (3 production call sites, all in-plan, census looks complete) rather
+than 'many packages,' and the population-count correction (908) checks out."* The
+council's own re-check now independently returns **908**.
+
+### The gating objection, and why it was right
+
+`debug_historian`: my *corrected* population query filtered
+`s.status NOT IN ('pool','archived')` — and **nothing in the build-gate path filters
+on `sites.status`**. So if pool-status sites' pages get built, the enforcement surface
+is larger than measured and the zero-findings conclusion has a gap exactly the size of
+what I excluded. Its sharpest line: *"Round 2 correctly caught round 1's status='live'
+artifact but replaced it with a different status-based exclusion rather than dropping
+status as a scoping variable entirely."*
+
+**That is the [[narrow-filter-defines-the-conclusion]] landmine, and I walked into it
+while congratulating myself for catching someone else's version of it.** I inherited
+the filter from `104`'s own § Measurement query, where it is correct for *"which live
+sites are armed"* — and never re-derived it for the different question *"what will the
+gate fire on"*. 17 pool sites vs 15 measured: the excluded slice was **larger** than
+the measured one.
+
+Measured properly — status dropped entirely, grouped so the excluded slice is visible
+rather than assumed:
+
+```
+ deployed | 908 components | 14 sites      <- and NO other row
+```
+
+Confirmed first that the gate never reads `sites.status`: the only status predicate in
+`validate_page_content.go` is `WHERE site_id = $1 AND status NOT IN ('deleted','archived')`
+on the **pages** table inside the link-index query — different table, different column.
+
+**So the excluded slice is empty and 908 was the whole surface.** The answer was
+favourable, which is the only reason it is safe to say the measurement was complete —
+and I would not have known that without being asked. A filter inherited from another
+document is still your filter.
+
+### Two things built rather than argued
+
+- **`check_claims_fleet_wide`, default TRUE** — the kill switch guardian asked for.
+  Mirrors `repair_internal_links` for the same reason: DB config is live immediately,
+  so a bad pattern is withdrawn fleet-wide in seconds instead of commit+build+roll. Off
+  = the pre-104 scan exactly. A separate test proves withdrawing it does **not** disarm
+  a site's own audited patterns. Gate-only, because `DiscoveryCheckContext` has **no
+  config map at all** — a sweep toggle would mean a new field on a shared context, i.e.
+  the very kind of seam this review is cautious about.
+- **Two pattern-validity tests** — `bug_historian` caught that `globalEvidence()`'s
+  regex fallback silently turns a malformed pattern into a near-inert literal, with no
+  log and no test able to tell "compiled" from "degraded". The fallback stays (panicking
+  at init over a regex is worse than one over-narrow pattern); the tests move the failure
+  from a live build to CI, and the second one catches the inverse — an empty pattern
+  compiles happily and matches **every** block.
+
+Both are genuine improvements I would not have made unprompted. Recording that plainly:
+the two most useful outcomes of this council trail so far are a defect in my measurement
+method and a defect in my error handling, neither of which any amount of re-reading my
+own diff would have surfaced.
+
+Round 3 submitted on the same correlation.

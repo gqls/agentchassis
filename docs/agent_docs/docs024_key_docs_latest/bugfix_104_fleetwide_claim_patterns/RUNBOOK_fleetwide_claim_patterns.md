@@ -232,3 +232,50 @@ map is nil on that path. Assert on the error and its blocker count; assert
 `err == nil` for the copy that must still build. Import paths are
 `pkg/models` and `platform/orchestration/types` (not the `orchestration/models`
 that looks right and does not exist).
+
+## 11. Withdrawing the fleet-wide set without a build (the reversal lever)
+
+`check_claims_fleet_wide` is a `validate_page_content` step config key, **default
+true**. DB config is live immediately, so this takes effect fleet-wide in seconds —
+no image, no roll. Off restores the pre-104 scan exactly: per-site patterns only, and
+a site with no register scanned by nothing. It does **not** disarm a site's own
+audited patterns.
+
+```sql
+-- inspect: which definitions set it at all (absent = default ON)
+SELECT type, jsonb_path_query_array(default_config, '$.workflow.steps.*.config.check_claims_fleet_wide')
+  FROM agent_definitions
+ WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+   AND default_config::text LIKE '%check_claims_fleet_wide%';
+```
+
+Set it to `false` on the step that runs `validate_page_content` for the affected
+pipeline. **Read the row first and merge — never replace `default_config`** (CLM-001's
+supersede rule is about `site_specs`, but the same read-before-write discipline
+applies to `agent_definitions`, and a replaced config silently drops every other key).
+
+## 12. Measuring the enforcement surface — do NOT scope by `sites.status`
+
+The build gate **never reads `sites.status`**. The only status predicate in
+`validate_page_content.go` is on the **pages** table in the link-index query. So any
+population query filtered by site status measures a smaller world than the one being
+enforced on — which is how round 1 of the council produced a `count 0` and round 2
+produced a *correct-looking* 908 that still had an unproven gap.
+
+Drop status entirely and **group by it** so the excluded slice is visible instead of
+assumed:
+
+```sql
+SELECT COALESCE(s.status,'(no site row)') AS status, count(*) AS components,
+       count(DISTINCT s.id) AS sites
+  FROM page_components pc
+  JOIN pages p ON p.id = pc.page_id
+  LEFT JOIN sites s ON s.id = p.site_id
+ WHERE pc.rendered_html IS NOT NULL AND pc.rendered_html <> '' AND pc.locked_at IS NULL
+ GROUP BY 1 ORDER BY 2 DESC;
+```
+
+2026-07-29: one row only — `deployed | 908 | 14`. The 17 pool sites and the system
+site hold **zero** components with stored `rendered_html`, so the filter excluded
+nothing. That is a fact about today's estate, not a property of the query: re-run it
+rather than trusting this line.
