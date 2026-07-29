@@ -307,3 +307,135 @@ restorations rather than rewrites — cheap, and low-risk, because the surviving
 code states exactly what the markup must provide. Check that assumption per
 tool rather than assuming it: **the ids the script asks for are the
 specification.**
+
+---
+
+## 2026-07-29 (fifth pass) — build the detector FIRST, then repair from what it says
+
+Owner instruction: *"please fix the tools that you know are broken, using the
+method of building them up step by step through the chassis. Please try and
+repair the chassis so broken tools don't get deployed."*
+
+I did the chassis half first, and that turned out to be the right order for a
+reason I did not anticipate: **the detector's output is the specification for
+each repair**, and the first thing it found was a defect in my own repair #1.
+
+### The chassis half
+
+`datahelpers.OrphanElementRefs` decides, from the artefact alone, which element
+ids a page's script addresses that the page never contains and never creates.
+Two consumers: a discovery check over deployed pages, and a hard pre-deploy
+refusal in `DeployToolToSiteAction`. Plus `tool_eligibility.go`, which fixes the
+structural reason none of this was ever watched.
+
+**The eligibility finding is the one worth carrying off this workstream.** Every
+tier of the acceptance ladder opened with `cc.component_level = 'tool'`. All 63
+tools here are `'section'`. But widening THAT alone would not have worked:
+
+```sql
+SELECT cc.id, cc.function, count(*) FROM page_components pc
+  JOIN content_components cc ON cc.id=pc.component_id ... GROUP BY 1,2;
+-- a7daa5c5-8cfd-4f2c-8e09-de6abcb637ef | ported-page | 97
+```
+
+**One component row is shared by 97 pages.** The ladder keys its subject on
+`cc.function`, so all 63 would have collided onto one PLAN. A ported tool's
+identity is its PAGE, not its component. That is why the widening derives the
+key from `p.name` minus a leading `tool-`.
+
+### THE MISSTEP THAT MATTERS: I confirmed a finding against a page I invented
+
+The check first reported **10** findings. I "confirmed" one of them,
+`css-filter-playground`, in a browser: six sliders, all missing, `rangeCount: 0`.
+That went into a commit message, a register entry, a Go file header and a **live
+council submission**.
+
+It was false. I fetched `/tools/css-filter-playground.html`; the URL the database
+gives is `/tools/css-filter-playground/index.html`. The first 404s, so I ran my
+evidence against Chrome's error page. On the real URL: nine range inputs, all six
+ids present. **The tool has never been broken.** Its sliders are built with
+`id="${f.name}"` from a data array — present in the browser, absent from the
+source. A real false-positive class, now handled.
+
+What caught it was not review. I re-read that output twice while quoting it into
+four documents. It fell out of a *different* question — two other pages appeared
+to 404, which was implausible enough that I finally read `pages.url` out of the
+database instead of assuming its shape.
+
+Full account and the three cheap checks that would have caught it:
+`docs024_key_docs_latest/WRONG_CALLS.md`, 2026-07-29.
+
+**And I repeated a fault from this very file.** I nearly filed
+"animated-favicon's code generator never runs" — there is a Generate Script
+button ten lines above in the same file and I had not pressed it. That is the
+fifth harness fault documented in the fourth pass above, repeated by the person
+who wrote it down. Writing a lesson down does not install it.
+
+### The repairs — nine tools, all driven, not merely loaded
+
+| tool | what was missing | second defect found by driving it |
+|---|---|---|
+| animated-favicon | the hidden 32×32 resize canvas | — |
+| asset-formatter | the whole input column + `#asset-list` | — |
+| insight-injector | the input panel | **fixed only in the repo, not at source** |
+| logic-architect | the toolbar | `saveHistory(true)` — no such function |
+| mind-map | the toolbar | `saveHistory(true)` — same |
+| monolith-splitter | the input column | — |
+| pasteboard | the app bar | none — it *defines* `saveHistory` |
+| rls-architect | the input column | — |
+| seo-injector | the input column | — |
+
+`saveHistory(true)` threw on **every** project load in two tools, so the
+`render()` and `renderSidebar()` calls after it never ran. Nothing static would
+have found it; it came from pressing the buttons. And **pasteboard genuinely
+defines `saveHistory`** — assuming the family shared the bug would have broken a
+working tool, which is why each was checked rather than swept.
+
+Verification was behavioural, not structural: a favicon built from two uploaded
+frames through the real file input; `seo-injector`'s output parsed back as JSON
+and asserted field by field; undo actually stepping node counts back down.
+
+### The other thing the detector found: my own repair #1 was not fixed at source
+
+`tool-insight-injector` appeared in the very first run — a tool I had "repaired"
+that morning. The repo file was fixed, deployed and re-probed OK; the DATABASE
+still held the broken copy, last written 2026-07-27. For a ported page,
+`page_components.rendered_html` **is** the artefact — `content_data` holds only
+port provenance — so a repo-only fix is undone by the next publish. It had
+already been undone: a `Rerender:` commit at 14:43 UTC reverted the file.
+
+**So the loop now ends at the database, and `toolsource.py` enforces it** —
+it refuses a push that still has orphan refs, that unbalances the section tags,
+or that shrinks the stored HTML by more than a third without `SHRINK_OK=1`
+(a truncated completion looks exactly like a small successful edit,
+`bugs_open/012`).
+
+A second, smaller trap the same hour: when the nine pages were spliced into the
+site repo, insight-injector's produced **bytes identical to the local working
+tree**, so it had no diff, so it was not in the commit — and the rebase onto
+origin then took the remote's reverted copy. **On a shared tree, "no diff
+locally" is not "already correct remotely."**
+
+### Where the count stands
+
+- **Before:** 9 pages fleet-wide whose scripts addressed absent elements.
+- **After:** `0 of 98`, measured by running the REAL Go function over a fresh
+  dump of the live database, not a Python mirror of it.
+- All nine now carry a `doc_plans` PLAN with a ```criteria fence and a `doc_notes`
+  repair entry, so the widened ladder can test them from here. That is the step
+  that makes the repair durable; without it they go back to being unwatched.
+
+### Still open
+
+- **The DEAD seven** (aspect-ratio, blob-maker, clip-path, diff-checker,
+  golden-ratio, magic-outliner, meme-generator) and the **UNVERIFIED two**
+  (cubic-bezier, vibe-equalizer) are untouched. They are a different defect
+  class — the orphan check does not flag them, and it was never going to.
+- **[UNVERIFIED] whether a future `Rerender:` will revert these again.** The one
+  that did it read a database that was still broken at the time, so it is not
+  evidence either way. The next rerender of a tool page is the test. If it strips
+  a panel again, the cause is the rerender regenerating from `content_data`
+  rather than republishing `rendered_html`.
+- **The discovery check is not enabled anywhere.** It is inert until
+  `orphan_element_refs` is added to a discovery agent's `checks` array. That is
+  deliberate (the image must be live first) but it means nothing is watching yet.
