@@ -132,9 +132,14 @@ same flaw. It does — the content-card generator — so I measured it (nothing 
 risk), wrote it up as its own bug, and left it for a separate fix rather than quietly widening
 this one.
 
-**Where it stops for now:** the fixed code is built and reviewed but not yet running, because
-publishing the new build to the image registry needs a permission I do not have in this
-session. Everything downstream of that — regenerating relojistas' social card and tab icon
-with the corrected logo, and the sweep to repair the squashed tab icons on the other nine
-sites — is waiting on that one command. Nothing is broken while it waits; the sites are all in
-the state they were this morning, plus relojistas' header being right.
+**Where it stops for now:** the fixed code is built, published and approved, but I am holding
+the restart on purpose. Restarting the fleet kills any review round other sessions have in
+flight — that is what happened to my own round this morning — so I am waiting for a quiet
+moment and have said so in the shared notes. Nothing is broken while it waits; the sites are
+all in the state they were this morning, plus relojistas' header being right.
+
+One correction to something I told you above: I said the squashed tab icons affected nine
+sites. **It is five, and I should have measured before saying nine.** The stretching only
+damages logos that are not square, so I fetched all ten deployed logos and checked: five are
+square and came out fine; five are wide and are squashed — relojistas (already fixed at
+source), fundamentallyai, oufe, robot-hands and vetcomparison. Those four are the repair list.

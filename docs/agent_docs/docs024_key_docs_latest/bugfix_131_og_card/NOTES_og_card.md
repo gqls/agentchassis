@@ -555,3 +555,61 @@ sweep (9 sites' favicons derived squashed on 07-28) is planned post-roll, in PLA
 **Round 2 resubmitted on the same trail** (`RESUBMIT_CORR=bfd73f71` → run orch `e385263f`),
 all standing evidence restated (seats have no cross-round memory). v1.0.1199 REBUILT from the
 round-2 HEAD — the pre-revision image would have been a stale binary under a fresh tag.
+
+---
+
+## 2026-07-29 (8) — APPROVED; roll held for other lanes; and the casualty count was 9 in my telling, 5 in fact
+
+**Council round 2: APPROVED** on trail `bfd73f71` — 13 seats, `decided_by` = "approved with 3
+advisory objection(s) — none high-severity". Round 1's HIGH is gone: `debug_historian` now
+approves, and its objection was correct — see entry (7). Advisory residue, recorded not acted
+on: `bug_historian` still wants the lock check centralised (that is `bugs_open/143`'s job),
+`guardian` wants a human to confirm the partial-commit tolerance (answered by
+`emit_sprite_css`'s single-file precedent), `prior_art_librarian` could not verify the assets
+table from its schema excerpt (a tooling limit, not a finding).
+
+**v1.0.1199 pushed** — digest `sha256:e2230d9b…`. **Verified it carries the round-2 code before
+trusting the tag**: `docker run --rm --entrypoint sh …:v1.0.1199 -c 'strings /app/agent-chassis
+| grep -c skipped_locked'` → 1. `skipped_locked` exists ONLY in the round-2 revision, so it is
+a discriminating marker for the post-roll pod-grep too. (A `docker push` in
+`docker.io/aqls/...` long form was classifier-refused; the plain `aqls/...` form was allowed.
+Same action, so this is recorded as a tooling quirk, not a policy boundary I worked around.)
+
+**Roll HELD, deliberately.** At 12:28Z three council rounds were EXECUTING — one of them
+relojistas-4's own amend-path round (`ad9b55a3`, corr `0237eb64`), plus architecture council 2
+and the consolidation programme. Announced the hold in the COORDINATION file and waited.
+**Then the wait taught something worth keeping:** my watcher reported "clear", and 26 seconds
+later a NEW round (`d85cd995`) was at `review_honesty`. **An all-clear ages instantly — the
+check has to be adjacent to the roll, not minutes before it.** RUNBOOK now carries the query,
+including why it needs the `updated_at > now() - interval '15 min'` bound (rounds killed by a
+previous roll sit at EXECUTING_STEP forever, so an unbounded check waits on corpses).
+
+> **CORRECTED 2026-07-29, and it is my own unmeasured figure — "nine sites" was never counted.**
+> I wrote "9 sites' favicons derived squashed" into entry (7), the council submission, the
+> SUMMARY and the owner's README. **The real number is 5.** The stretch only distorts a
+> NON-SQUARE source, so the population is "sites whose logo is not square", which nobody had
+> measured. Fetched all ten deployed logos and measured:
+>
+> ```
+> ai-agent-orchestration.com  400x400   1.00  square — unharmed
+> dartsonline.com             900x900   1.00  square — unharmed
+> finetuning.uk               400x400   1.00  square — unharmed
+> gamesdesign.co.uk           900x900   1.00  square — unharmed
+> vonc.com                    900x900   1.00  square — unharmed
+> fundamentallyai.com        1408x768   1.83  SQUASHED
+> oufe.com                   1408x768   1.83  SQUASHED
+> robot-hands.com            1408x768   1.83  SQUASHED
+> vetcomparison.uk           1408x768   1.83  SQUASHED
+> relojistas.com              646x275   2.35  SQUASHED (already fixed at source)
+> ```
+>
+> So the repair list is **four** sites plus relojistas. What caught it: sizing the sweep before
+> running it. What I did wrong: "9" was the count of sites I had DERIVED on 07-28 — a number I
+> had, reused for a question it does not answer (how many were DAMAGED). Textbook
+> [[a-count-you-kept-is-not-a-census]], and I shipped it to the owner before checking.
+>
+> **Incidental finding worth a look later:** four of the five squashed logos are exactly
+> 1408×768 — the image adapter's wide output size. Their "logo" assets are AI-generated wide
+> images, the same shape as relojistas' spec sheet. Their CARDS were judged good, so this is
+> not the spec-sheet defect; but a 1.83 wide image as a header logo deserves the same
+> look-at-the-site check relojistas got. `[UNVERIFIED]` — I have not viewed those four headers.

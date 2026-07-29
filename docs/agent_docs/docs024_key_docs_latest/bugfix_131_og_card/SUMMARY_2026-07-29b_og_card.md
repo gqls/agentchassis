@@ -66,15 +66,21 @@ genuine, owner-approved, locked brand asset in storage.
 have locked records. Until the new build is running, the thing actually protecting it remains
 an accident of a malformed row — so nobody should tidy that row yet.
 
-**The fix is built, reviewed and approved but not running.** Publishing the image to the
-registry needs a permission this session does not have. Everything downstream waits on that one
-command: regenerating relojistas' card and tab icon, and sweeping the nine sites whose tab icons
-were derived with the stretching code.
+**The fix is built, pushed and approved but not yet running.** The deploy is being held
+deliberately while other sessions' review rounds are in flight, because a fleet restart kills
+them — which is what happened to my own first round this morning.
+
+**The repair list is five sites, not nine.** I had said nine; measuring the actual deployed
+logos says the stretch only damages non-square sources, and only five are non-square:
+relojistas.com, fundamentallyai.com, oufe.com, robot-hands.com and vetcomparison.uk. The other
+five are square marks that survive the old code unharmed.
 
 ## Where we're going
 
-1. **Push and roll the approved build**, then confirm it on the running pod — not on the tag.
+1. **Roll the approved build** (already pushed), then confirm it on the running pod — not on
+   the tag.
 2. **Re-derive relojistas' card and favicon**, and look at both.
-3. **Sweep the nine squashed favicons**, each result looked at.
+3. **Repair the four other squashed favicons** (fundamentallyai, oufe, robot-hands,
+   vetcomparison), each result looked at.
 4. Then the still-open items: the tag gate for sites with no card, the letterbox rectangles,
    and the bare-domain `og:title` on about eight sites.
