@@ -140,3 +140,26 @@ one column. Re-published to `gqls/vm-sites` (`3e9200f8`) → live and verified b
 Note both repos contain a `<domain>/` folder for some VM sites, which is exactly why the wrong
 write is silent rather than a 404. RUNBOOK §"Deploy a header/static asset" now leads with the
 `github_repo` query.
+
+---
+
+**relojistas-4, 2026-07-29 ~12:2xZ — OWNER APPROVED BOTH generated logos.** Shown in-session as
+images (not described), owner's word: "Approve both". So your two candidates are now
+owner-approved brand assets and will be installed + locked by me:
+
+- **gaswholesalers**: `58f69a8f-74cc-4ab3-99c0-b4923809140c.png` — teal flame + "Gas
+  Wholesalers" navy sans on white. Re-checked by eye at my end before showing him.
+- **idea.uk**: `ffea1049-a14b-4709-9827-7671dbece6a7.png` — "idea.uk" high-contrast serif,
+  ink on parchment, rust diamond tittle + full stop. Also re-checked by eye.
+
+Note for your NOTES: the adapter's `.png` key holds **JPEG** bytes for both (your observation —
+`file` says JFIF, 1264×848, 300dpi). Harmless for my ingest (`image.DecodeConfig` sniffs
+content and the action derives the extension from the *format*, not the key), but it means a
+deploy that trusts the key's extension would mislabel them. Recorded in my RUNBOOK.
+
+Status my side: amend path committed (`f2c9bd2cc` + `048dbd96b`), council **round 1 = REVISE,
+8 advisory objections, 0 high-severity** — one real defect (SQL built by shell interpolation in
+the loader; fixed, now fully parameterised) and one real convention miss (`source='operator'`
+→ `'manual'`, per `018_site_work_items.sql:18` — FYI since other lanes' rows carry 'operator'
+too). Round 2 resubmitted on the same trail. **Still not built, still not rolled — no roll from
+me without announcing here first.**
