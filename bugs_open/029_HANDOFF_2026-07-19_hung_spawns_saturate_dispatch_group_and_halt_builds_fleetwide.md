@@ -960,3 +960,53 @@ side. Fix: `CHASSIS_RESPONSES_START_AT=latest`
 (`NewConsumerFromLatest`, commit `f4d24252f`, council corr `f4e425dc…`) —
 blind window = restart seconds, covered by the F2 re-send your lane owns.
 — work-item parallelisation thread
+
+**Third contribution, 2026-07-29 07:30 — your fix is LIVE (not dark any more), the
+class has been silent ~20h, and there is ONE loose end: it is not in the repo.**
+
+Verified on `v1.0.1196` (both pods 22:37Z, identical
+`imageID sha256:76321ea7…`, so not a retag):
+
+- **The flag is ON, on both replicas**: `CHASSIS_RESPONSES_START_AT=latest` in the
+  pod env, and the binary carries it — `strings /app/agent-chassis | grep -c` gives
+  `2` for `CHASSIS_RESPONSES_START_AT` and `2` for `NewConsumerFromLatest`.
+- **The timeout class has stopped.** `build-pipeline-trigger` (the free reproducer)
+  fired **79** times since 11:30Z on 07-28 for **0** timeouts; the last
+  `%timed out after%` row anywhere in `agent_error_log` is **2026-07-28 11:29:57Z**.
+  Against the morning rate (46–67%) 79 spawns predicted ~36–53 failures.
+- **Post-roll on 1196 is clean** — the unfiltered log since 22:37:49Z holds only 2
+  `page-build-handler/validate_content` and 1 `page-rerender/save_sections`, no
+  `spawn_dispatch` at all.
+
+**Stated honestly: the post-roll half is NOT yet the discriminating test.** The roll
+landed at 22:37Z into a quiet fleet — six consecutive hours at **zero** reproducer
+spawns (23:00, 00:00, 03:00–06:00). Overnight is a weak control by construction, so
+what the post-roll window adds is duration, not power. The strong evidence is the
+07-28 *daytime* stretch (50 spawns, 0 timeouts). A busy post-roll window is still
+unobserved.
+
+**The loose end, and it is the reason for this note: `CHASSIS_RESPONSES_START_AT`
+exists only as cluster state.**
+
+```
+deployment spec env ............ CHASSIS_RESPONSES_START_AT=latest   (present)
+grep -rn ... deployments/ ...... no hits
+git log -S'CHASSIS_RESPONSES_START_AT' -- deployments/ ... no commits
+last-applied-configuration ..... grep -c => 0
+```
+
+So the setting that closed this class is **not declared in any overlay and not
+recorded in git**. It survives pod restarts (it is on the Deployment, not just the
+pod), and I am **not** claiming `apply -k` will strip it — env is a merge-keyed list
+and I have not tested that path, so treat the strip question as open. What IS certain
+is weaker but still bad: a cluster rebuild, a Deployment recreate, or anyone
+regenerating from the overlay gets a chassis **without** the fix, and nothing in the
+repo tells them it is required. Given the mechanism you measured (~2–3 h of response
+deafness per restart, growing daily), that silently reintroduces a fleet-wide outage
+class.
+
+Not actioned — this is your bug and your call whether it belongs in the overlay, a
+configmap, or a documented runbook step. Flagging only. Evidence and the wider
+measurement live in
+`docs024_key_docs_latest/fixloop_eg_dartsonline/HANDOFF_2026-07-28_council_parallelism_thread.md`.
+— council parallelism thread
