@@ -54,6 +54,27 @@
 > grep -ac "EXAMPLE PLACE"        /opt/idea/idea   # the £8 tier    → 1
 > grep -ac "margin:18px 0 5px"    /opt/idea/idea   # subheadings    → 1
 > ```
+>
+> **RE-VERIFIED 2026-07-29 on chassis v1.0.1196 — all six still 1, service active, binary mtime
+> unchanged (2026-07-28 19:36 UTC).** The tool is a standalone module and a chassis roll cannot
+> touch it. **The PAGES are the half that moves** — the chassis builds them, and a later rerender is
+> when an earlier `content_data` fix silently disappears. So re-run this after any roll:
+>
+> ```bash
+> curl -s https://idea.uk/report.html > /tmp/r.html          # expect HTTP 200
+> grep -o 'href="[^"]*report/example[^"]*"' /tmp/r.html | wc -l   # specimen cards   → 6
+> grep -ci "ask an AI myself"                /tmp/r.html          # AI objection     → 1
+> grep -o 'maxlength='                       /tmp/r.html | wc -l  # length caps      → 5
+> grep -o '<input[^>]*type="checkbox"[^>]*>' /tmp/r.html | wc -l  # £8 consent boxes → 2
+> grep -o '<input[^>]*checkbox[^>]*checked'  /tmp/r.html | wc -l  # PRE-ticked       → 0
+> grep -o 'href=""'                          /tmp/r.html | wc -l  # dead links       → 0
+> curl -s -o /dev/null -w '%{http_code}\n' https://idea.uk/report/example/   # → 200
+> ```
+> **Do NOT add `grep -c 'contact.html' → 0` to this list.** It looks like the right negative control
+> and it is not: the page carries a legitimate **footer** Contact link, so the count is 1 on a
+> healthy page. The 07-28 defect was the *hero button's destination*, so check that instead —
+> `grep -o '<a[^>]*cta-btn[^>]*>'` must show `#request-a-report`. (Cost me a false alarm on 07-29;
+> NOTES §X.31.)
 > Rollbacks kept, newest last: `idea.prev-2026-07-28-pre-usage-log` · `-pre-intro` ·
 > `-pre-scorebars` · `-pre-subheads` · `-pre-tier`. Orders backed up before every deploy.
 >
@@ -94,10 +115,20 @@
 >    single sentence. **Do not "fix" this.**
 > 5. Two SES DNS records are **DONE** — `bounce.leopardess.uk` MX + TXT both resolve. The earlier
 >    SERVFAIL was a broken sub-zone, not propagation.
-> 6. **`ord_1785236456008987049` (Will) still holds a slot** — owner-confirmed a test, will not pay.
->    Auto-expires ~**4 August** on `STALE_PAYMENT_DAYS=7`; decline it sooner if a slot is wanted.
+> 6. **`ord_1785236456008987049` (Will) holds a slot — LEAVE IT. Do NOT decline it.**
+>    ~~decline it sooner if a slot is wanted~~ — **that advice was wrong and is withdrawn
+>    (2026-07-29, NOTES §X.31).** `decline()` **emails the requester** (`service.go:715`) a note
+>    saying we would not produce something worth £29 for their idea. That address is a live external
+>    Gmail, and he is `awaiting_payment` — i.e. we already sent him a pay link, so the note would
+>    also contradict us. Owner-confirmed "a test / will not pay" means stop chasing it; it does not
+>    license mailing him a rejection. **`ExpireStale` (`store.go:168`) emails nothing** — the row
+>    self-clears to `expired` on ~**4 August** (`STALE_PAYMENT_DAYS=7`). Correct action: none.
 >    NB §X.29 calls it "the outstanding real order", meaning *pre-existing*, not *a genuine
 >    customer* — `WRONG_CALLS.md` is authoritative here.
+>
+> **GENERAL RULE this earned:** before running any operator action against a row holding a real
+> email address, grep the handler for `deliver(` / `send` / `mail`. **"Free the slot" and "tell the
+> customer" are the same button in this codebase**, and only one of them is ever what was asked for.
 >
 > ### Landmines earned on 2026-07-28 — read before touching the chassis side
 >

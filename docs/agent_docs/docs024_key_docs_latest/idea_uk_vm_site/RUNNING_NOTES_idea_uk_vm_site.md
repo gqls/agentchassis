@@ -3163,3 +3163,76 @@ Making `row()` match `arow()` would put a block subheading above a single senten
   `WRONG_CALLS.md` record the owner correcting exactly that — Will was a test. §X.29's phrase means
   "the pre-existing order", not "a genuine customer". No factual conflict, but the looser phrase is
   the one a future reader would quote. Flagging rather than editing §X.29, which is append-only.
+
+### §X.31 — post-roll re-verification on v1.0.1196, and a decline that would have emailed a stranger (2026-07-29)
+
+Fleet rolled to **v1.0.1196**. Re-verified idea.uk end to end; **nothing regressed**, but two things
+came out of the check that are worth more than the green result.
+
+#### The tool is untouched, as predicted — and the prediction was still worth testing
+
+```
+/opt/idea/idea   mtime 2026-07-28 19:36:21 UTC   9,999,070 bytes   (pre-roll; unchanged)
+all six markers still 1 · systemctl is-active idea → active
+```
+
+The tool is a standalone Go module with its own build→scp→systemctl path, so a chassis roll cannot
+touch it. That was already written down. **The static pages are the half that CAN move**, because
+the chassis builds them — and this workstream's own landmine says a later rerender is exactly when
+an earlier `content_data` fix quietly disappears. So the pages are where the check belongs:
+
+```
+report.html HTTP 200 · /report/example/ HTTP 200
+links to /report/example  6      AI-objection section     1
+maxlength attrs           5      checkbox inputs          2      pre-ticked  0
+empty hrefs               0      specimen provenance      intact
+hero/CTA → "#request-a-report" and "/report.html"        (the 07-28 fix, intact)
+```
+
+#### `contact.html` counted 1 where I expected 0 — and my check was the thing that was wrong
+
+Momentary alarm: the 07-28 fix drove the hero misdirect out, and the handoff records it as
+"negative control: the misdirect is gone", so I asserted `contact.html == 0` page-wide. It came back
+**1**. It is a **footer "Contact" link under a Company column** (offset 46,682 of 47,090) — entirely
+legitimate, and nothing to do with the hero. The hero CTA points at `#request-a-report`.
+
+**The count encoded the wrong question.** "The misdirect is gone" is a claim about *one anchor's
+destination*, not about a *string's absence from the document* — and a site is supposed to link to
+its own contact page. A page-wide count conflates the two and would have had me "fix" a correct
+footer. The right check is positional: read what the hero anchor points at. Same family as
+`assert-position-not-just-presence`, arrived at from the opposite direction — there the risk was a
+LIKE guard that cannot tell "in the right place" from "anywhere"; here it is a count that cannot
+tell "the bad one" from "a good one".
+
+*Second-order note:* my first context grep (`grep -o '.\{200\}contact\.html.\{120\}'`) printed
+**nothing at all**, which briefly read as "no such string" right after a count of 1. `.` does not
+match a newline in grep, and the surrounding markup is newline-rich. **A fixed-width context grep
+silently returns nothing when a newline falls inside the window** — use a real parser (the python
+`re.finditer` + slice that followed) rather than reading the empty output as an absence.
+
+#### The housekeeping item I had proposed would have emailed an external stranger
+
+I had offered "decline the dead `awaiting_payment` order to free its slot", and the owner approved
+the housekeeping bundle. **Read the handler before firing it — and it is a good thing I did:**
+
+```go
+// service.go:715  decline()
+a.deliver(o.Email, "About your idea.uk request",
+  "Hi %s,\n\nThanks for the request. Honestly, we don't think we'd produce something "+
+  "worth £%d for this right now — %s. ...")
+```
+
+That order is `willappleby84@gmail.com` — a live external Gmail. Declining would have sent a real
+person an unsolicited note saying **his idea is not worth £29**, and it would have *contradicted us*,
+because he was already sent a pay link (he is `awaiting_payment`, so we had already said yes).
+"Owner says he was a test / will not pay" licenses us to stop chasing the order; it does **not**
+license mailing him a rejection.
+
+**`ExpireStale` (`store.go:168`) sends no email at all** — it flips the status and returns the row
+for the operator log. So the order self-resolves silently on ~**4 August** (`STALE_PAYMENT_DAYS=7`).
+**Correct action: do nothing.** The slot is 1 of 5 and is not scarce.
+
+The transferable bit: **"free a slot" and "tell the customer" are the same button here**, and only
+one of them was in the request. Before running an operator action against a row that carries a real
+email address, grep the handler for `deliver(`/`send`/`mail` — the state change is the part you
+wanted; the message is the part that reaches a human and cannot be recalled.

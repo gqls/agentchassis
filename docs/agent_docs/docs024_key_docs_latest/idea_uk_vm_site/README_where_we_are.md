@@ -1692,3 +1692,37 @@ when I hand you a figure.
 
 The box is healthy, 76 orders, the queue is back to one slot in use, and that one slot is Will's
 test from this morning, which will clear itself on 4 August.
+
+---
+
+## 29 July — checked everything again after the new build, and caught myself about to email a stranger
+
+A fresh chassis build went out (v1.0.1196). I re-checked idea.uk and **nothing broke.** The tool
+itself couldn't have been affected — it's a separate program with its own deployment, and its file
+on the box hasn't changed since I put it there. The pages are the part that *can* move, because the
+new build is what makes them, so that's where I actually looked: the six links to the example
+report, the "couldn't I just ask an AI" section, the length limits on the form, the two unticked
+consent boxes, the example report page itself. All present, all correct.
+
+**One false alarm, and it was my checking that was wrong, not the site.** I'd written down that the
+fix from yesterday should mean the word "contact.html" appears nowhere on the report page. It
+appears once. For about a minute I thought the old bug was back. It's the **Contact link in the
+footer** — which is supposed to be there. The bug I fixed yesterday was the big button at the top of
+the page sending people to the contact form instead of to the thing they came to buy; that button is
+still pointing at the right place. Counting the word across the whole page can't tell a good link
+from a bad one. I've corrected the check in the handoff so nobody else trips on it.
+
+**And the housekeeping job I offered you turned out to be a bad idea, so I haven't done it.** I'd
+suggested formally declining Will's unpaid order to tidy the queue up. Before doing it I read what
+that button actually does: **it emails the person.** It would have sent Will a note saying we don't
+think we'd produce anything worth £29 for his idea — to a real Gmail address, from a company that
+had already sent him a payment link, i.e. had already said yes. You telling me he was a test means
+we can stop chasing the money. It doesn't mean we should write to him and turn him down.
+
+The order clears itself on 4 August with no email to anybody, so the right thing to do is nothing,
+and that's what I've done. I've written the warning into the handoff, because in this system
+"free up the slot" and "write to the customer" are the same button and only one of those was ever
+the job.
+
+The one other tidy-up was real and is done: a database change from yesterday was live on the site
+but had never been saved into the project's history. It is now.
