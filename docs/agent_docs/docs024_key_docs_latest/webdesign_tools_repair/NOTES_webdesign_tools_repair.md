@@ -560,3 +560,44 @@ Plus two transient network errors that printed in the verdict column.
 
 **The rule that would have caught all of them: before believing a negative
 verdict, ask the page directly — and prove you asked the right page.**
+
+---
+
+## 2026-07-29 (seventh pass) — the concepts report, challenged before it was written
+
+Owner: *"go over this report again challenging your findings in order to improve
+it."* The findings came from three subagent sweeps; the challenge pass re-ran
+every load-bearing claim against the live system. Five survived intact, four
+were corrected, and one entirely new gap fell out — which is the strongest
+argument yet for the challenge habit.
+
+**Corrected before publication:**
+- fence count 78 → **23** (78 was RFC_002's point-in-time measure over all rows)
+- TL-014's "continuous sweep not in the binary" → STALE; `tool_acceptance_due`
+  is in the running binary [pod-grep]
+- G1 sharpened: the failing criteria DO reach the fixer's inputs
+  (`spec.acceptance_test`, dispatch passes spec whole) — the prompt just never
+  references them. Part of the fix is one prompt line.
+- G4 narrowed: the judge guards no-criteria and no-results; only the
+  all-individually-skipped case reads as PASS.
+- G5 reshaped: improvement-sweep is off DELIBERATELY (owner ruling) — the
+  draft would have recommended re-enabling something ruled stopped. The
+  acceptance checks live on design-discovery-agent; `orphan_element_refs` sits
+  on completeness-discovery-agent, which no enabled schedule targets.
+
+**Found by the challenge, fixed, and then found wanting once more:**
+**G6** — `request_browser_run` resolved pages by `name = function`, so every
+acceptance run for a ported tool (13 now carry fences) would have hard-errored;
+my morning eligibility widening had only reached the discovery side. Fixed
+(two-candidate lookup), rolled v1.0.1205 — and then **the pilot's first live
+run failed inside my fix**: mixing a bare `$2` with `'tool-' || $2` makes
+Postgres deduce inconsistent types (42P08). `go build` cannot see that class.
+Corrected with explicit casts, the statement proven by PREPARE/EXECUTE against
+the live DB before shipping, rolled v1.0.1206. Two lessons, both cheap:
+**the first live exercise of new SQL is part of the change, not part of the
+future**, and a PREPARE against the live schema costs one second.
+
+**The pilot** (smart-contrast, correlation fcb58019 failed on the 42P08; re-run
+after the 300s spawn window on 1206): the first fence on this estate asserting
+a tool's ARITHMETIC — known-answer pairs watched passing by hand first
+(#767676/#ffffff → "4.54 : 1", #000000 → "21.00 : 1") per migration 148's rule.

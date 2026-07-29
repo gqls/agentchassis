@@ -17,9 +17,9 @@
 ### TP-002 — Tool creation never enqueues the final page deploy (planned-pages gap)
 - **status:** partial
 - **status-evidence:** "Gap on record: tool creation ends at complete without enqueuing a page_rerender item — the pages deploy only when something else sweeps" (2026-07-10; pages hand-deployed by inserting page_rerender items in the interim).
-- **what:** tool-generator creates component + page + nav but leaves the page build_status='planned'; nothing enqueues the render+deploy hop, so new tool pages 404 until an unrelated sweep touches them. Recorded follow-up: a create_rerender_item tail on tool-generator. This interacts directly with acceptance timing — it is the reason post-creation acceptance hooks were rejected in favour of the deployed-pages-only tool_acceptance_due sweep (tool-lifecycle TL-031).
+- **what:** tool-generator creates component + page + nav but leaves the page build_status='planned'; nothing enqueues the render+deploy hop, so new tool pages 404 until an unrelated sweep touches them. Recorded follow-up: a create_rerender_item tail on tool-generator. This interacts directly with acceptance timing — it is the reason post-creation acceptance hooks were rejected in favour of the deployed-pages-only tool_acceptance_due sweep (tool-lifecycle TL-014; the TL-031 number was reassigned to attribute assertion on 2026-07-28 — corrected 2026-07-29).
 - **sources:** RUNNING_NOTES_travelling_docs(39).md#both-planned-tool-pages-deployed; HANDOFF_2026-07-10…md#§5.3
-- **relations:** continuous sweep design (tool-lifecycle TL-014, TL-031); build/rerender pipeline
+- **relations:** continuous sweep design (tool-lifecycle TL-014; stale TL-031 reference removed 2026-07-29 — that number now names attribute assertion); build/rerender pipeline
 - **verify-later:** whether tool-generator gained a rerender tail
 
 ### TP-003 — Inline-JS extraction ("Path 1" /tools/assets/<fn>.js) — designed, partly real, never on the live deploy path

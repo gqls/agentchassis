@@ -211,9 +211,9 @@
 ### TL-024 — Component quality tracking (0–100 score)
 - **status:** deployed (reconciled — see verify-later)
 - **status-evidence:** "None of these fields are required by the existing pipeline — they are additive... selector will use them when present and ignore when NULL."
-- **what:** Additive quality fields on content_components computed by a compute_component_quality action, with indexes for auditor queries (below threshold OR unscored) and planner preference (higher quality per function). Distinct from avg_quality_score in the selector metadata set (tool-library TLIB-016). Cross-reference: component-quality-auditor (tool-library TLIB-015) actively creates needs_component_regeneration items from this score in production, and a specific boundary bug (auto-regen threshold, TL-026) exists in that consuming code — so despite this entry's older "additive, optional" framing, the field is in active use.
+- **what:** Additive quality fields on content_components computed by a compute_component_quality action, with indexes for auditor queries (below threshold OR unscored) and planner preference (higher quality per function). Distinct from avg_quality_score in the selector metadata set (tool-library TLIB-016). Cross-reference: component-quality-auditor (tool-library TLIB-014; was mis-cited as TLIB-015, corrected 2026-07-29) actively creates needs_component_regeneration items from this score in production, and a specific boundary bug (auto-regen threshold, TL-026) exists in that consuming code — so despite this entry's older "additive, optional" framing, the field is in active use.
 - **sources:** docs/agent_docs/sql_for_tables/005_content_components.sql#component-quality-tracking
-- **relations:** component selector metadata (tool-library TLIB-016); component-quality-auditor (tool-library TLIB-015); component-quality-auditor auto-regeneration threshold (TL-026)
+- **relations:** component selector metadata (tool-library TLIB-016); component-quality-auditor (tool-library TLIB-014; was mis-cited as TLIB-015, corrected 2026-07-29); component-quality-auditor auto-regeneration threshold (TL-027; was mis-cited as TL-026, corrected 2026-07-29)
 - **verify-later:** compute_component_quality action in registry; populated quality_score values
 
 ### TL-025 — Component versioning (component_versions table) — schema-mode origin
@@ -237,7 +237,7 @@
 - **status-evidence:** Read from its default_config 2026-06-29: creates needs_component_regeneration items only for quality_score < 50, handler component-creator.
 - **what:** The auditor raises regeneration work items for low-quality components — but its strict `< 50` condition meant three vonc shells scoring EXACTLY 50 were never auto-picked-up (explaining zero queued items and requiring manual triggers). Its item shape confirms the designed regen path keys on function and routes to component-creator. Boundary-condition gap worth a rule review; also the future home of the autonomy plan's maintenance detections.
 - **sources:** docs/RUNNING_NOTES_vonc(36).md#2026-06-29-~21:00; docs/PLAN_dynamic_sections_and_loaders(4).md#maintenance
-- **relations:** Component regeneration in place (TL-026); component-quality-auditor (tool-library TLIB-015)
+- **relations:** Component regeneration in place (TL-026); component-quality-auditor (tool-library TLIB-014; was mis-cited as TLIB-015, corrected 2026-07-29)
 - **verify-later:** component-quality-auditor default_config condition; quality_score distribution at exactly 50
 
 ### TL-028 — Store-path template validation (+ pending `<script>`-balance hardening)
@@ -291,7 +291,7 @@
 - **completion verification:** `VerifyOrphanElementRefsResolved` is registered for the item type, and re-checks THE IDS THE ITEM NAMED rather than the whole-page predicate — a verifier stricter than the fixer's remit strands correctly-handled items in `failed` (the `page_rerender` cautionary tale in `verifier_coverage_test.go`). A new orphan introduced elsewhere is logged and reported in the detail but never counted against the item. Registering the verifier obliged a matching entry in the claim-timeout sweep's exclusion list (migration 269) — that lockstep is pinned by `TestRegisteredVerifiersMatchClaimTimeoutExclusion` and is what caught the omission.
 - **sources:** platform/orchestration/datahelpers/element_refs.go; platform/orchestration/datahelpers/element_refs_test.go; platform/orchestration/actions/discovery_checks/check_orphan_element_refs.go; platform/orchestration/actions/deploy_tool_action.go (the pre-deploy refusal); docs/agent_docs/sql_for_agents/269_orphan_element_refs_claim_timeout_exclusion.sql; docs024_key_docs_latest/webdesign_tools_repair/
 - **relations:** sibling of the dead-control sweep (`datahelpers.DeadControlAnchors`, TL/CQ dead_controls) and deliberately disjoint from it; the population it found was invisible because of the eligibility defect in TL-033; feeds the same `improve_tool`/human-review estate as `tool_health` (TL-013's Tier 1)
-- **verify-later:** whether the check is enabled in any discovery agent's `checks` array; whether the 10 findings close as the tools are repaired; whether the pre-deploy refusal ever fires
+- **verify-later:** whether the check is enabled in any discovery agent's `checks` array; whether the 9 findings close as the tools are repaired (was '10'; the entry's own correction reduced it — verify-later updated 2026-07-29); whether the pre-deploy refusal ever fires
 
 ### TL-033 — Ported tools were invisible to the whole acceptance ladder (eligibility + subject-key widening)
 - **status:** deployed
