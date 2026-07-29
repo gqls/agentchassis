@@ -471,11 +471,26 @@ which the pod-grep already proved. It says nothing about whether the clause fire
 
 ### The good news: no manual dispatch is needed to get there
 
-The clause is on an **actively exercised path**, so this will happen on its own. The
-check runs inside tool acceptance as `{"id": "no_overflow", "tier": 4, "type":
-"no_horizontal_overflow", "profiles": ["mobile"]}` — **14 orchestrations reference it,
-most recently `2026-07-28 15:17:51Z`** (i.e. shortly before this roll). The next
-acceptance run at the `mobile` profile exercises the new code with nothing fired by hand.
+> **CORRECTED 2026-07-29 (vonc 6):** the "14 orchestrations reference it" evidence
+> does not support "actively exercised". Classified by agent type, those hits are
+> council-gate reviews and experience-register writes whose *submission or pattern
+> text contains the check spec* — references, not executions (the "most recently
+> 15:17:51Z" row is an `experience-register-writer` doc write). The real execution
+> lane — `tool_acceptance_due` → `site_work_items(acceptance_run)` →
+> `build-dispatch-loop` → `tool-acceptance-agent` → `request_browser_run` — has run
+> **four times ever** (07-21 manual, 07-25, 07-26, 07-28 09:12Z), and **zero times
+> since the fixed adapter rolled**. Waiting for a natural run meant days, not hours,
+> so the witness was fired by hand: work item `4e06c4ab-0be7-47d8-9f2a-7f87875f1d38`
+> (`manual_131b_witness`, precedent `043bfe1d`'s 010b shape) at
+> `tool-model-approach-selector` / fundamentallyai.com, whose criteria carry
+> `{"id":"mobile-fit","type":"no_horizontal_overflow","profiles":["mobile"]}` —
+> read from its 07-28 run's loaded `doc_context`, not assumed. What caught it: the
+> [prompt-text-poisons-its-own-detector] check — grep what produced the rows before
+> counting the rows.
+
+The check runs inside tool acceptance as `{"id": "mobile-fit", "type":
+"no_horizontal_overflow", "profiles": ["mobile"]}` (the id is per-tool; `no_overflow`
+elsewhere). The next acceptance run at the `mobile` profile exercises the new code.
 
 **What to watch for, and where:** a `CheckResult` carrying `pass:false` **plus** a
 populated `culprit` / `component` / selector — the attribution fields are the tell. The

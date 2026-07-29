@@ -10877,3 +10877,82 @@ someone else's benefit. The sixth — the biggest, sitting under the headline nu
 the entire change — I did not catch, and neither would any check I had. It took an
 adversarial reader who asked *what is this filter for* rather than *is this filter
 correct*.
+
+---
+
+## 2026-07-29 — TWICE IN ONE DAY: what gets re-measured is whatever a reviewer challenged
+
+**The claims.** Two, both mine, both in the same 12 hours, both the same mechanism.
+
+1. Round 8 of a council submission cited *"0 markdown, **4992** total"* for the code
+   index. It was **5,017** — and it was already 5,017 when I submitted, a reindex
+   having landed 19 minutes earlier. I carried the figure forward from round 7
+   without re-running it.
+2. The handoff document that the next session cold-starts from stated
+   **"`review_architecture` — still 0 reviews"**, in its state table *and* its
+   open-items list. That was true when I wrote it at ~22:00 and **false by 22:10**.
+   It is the oldest open question in that workstream and its literal headline.
+
+**What is common to both, and it is not laziness.** In the same submission as (1) I
+*corrected a different stale figure at source* and wrote that leaving one in the
+evidence is exactly the drift this workstream reviews for. I was re-measuring
+carefully. **I re-measured every claim a REVIEWER had challenged, and nothing else.**
+The council's objections silently defined the scope of my re-verification. Nobody
+had queried 4,992, so it was never re-run. Nobody challenges a handoff at all, so
+nothing in it was re-run.
+
+**A figure nobody objects to is precisely the one that rots quietly**, because the
+only trigger for re-checking it — someone pushing back — never fires.
+
+**How each was actually caught.** Neither by checking. (1) fell out of re-grepping a
+pod after an unrelated deploy. (2) fell out of reading an unrelated line in the
+memory index during a compaction task. **Both were accidents**, which is the whole
+problem: there was no path by which either would have been caught on purpose.
+
+**The cheap check.** *A state table is a set of claims, and each claim has a query.*
+Before publishing a state table or a `grounded_in` block, re-run the query for every
+row — not the rows under dispute. For the handoff it was four seconds:
+
+```sql
+WITH r AS (SELECT da.body::jsonb->>'decision' AS d, rev FROM diagnosis_artifacts da,
+           jsonb_array_elements(da.body::jsonb->'reviews') rev WHERE da.kind='council_report')
+SELECT count(*) FROM r WHERE rev->>'reviewer'='architecture';
+```
+
+**The recurrence is the finding, not either instance.** One is an anecdote; two in a
+day, with the second landing in the document whose entire job is to be true at
+cold-start, says the trigger for re-verification is misplaced. It is currently
+*external* (someone objected). It has to be *structural* (this is a state claim, so
+it gets its query re-run before publication).
+
+Distinct from *"a count you KEPT is not a census"* (same day): there the tool was run
+and its output misread. **Here the tool was never run at all, because nothing asked
+me to.**
+
+## 2026-07-29 — "14 orchestrations reference it" counted the check's NAME, not its runs
+
+**The claim** (`bugs_open/131`, gauntlet slug, §"no manual dispatch is needed"): the
+`no_horizontal_overflow` clause "is on an actively exercised path, so this will
+happen on its own — 14 orchestrations reference it, most recently 15:17:51Z". Written
+to justify waiting for a natural witness instead of firing one.
+
+**What was false.** Classified by agent type, the referencing orchestrations are
+council-gate reviews and experience-register writes whose *text contains the check
+spec* — the 15:17:51Z row is an `experience-register-writer` doc write. The actual
+execution lane (`acceptance_run` work items → `tool-acceptance-agent` →
+`request_browser_run`) has fired **four times ever**, zero since the fixed adapter
+rolled. "Wait for a natural run" meant days, not the hours the sentence implies —
+and a session that believed it would have parked the witness indefinitely.
+
+**What caught it.** The next session (vonc 6) ran the reference query, then asked
+what *produced* each row before counting them — one `GROUP BY agent_type` collapsed
+14 references to 0 executions.
+
+**The cheap check that would have.** This is [prompt-text-poisons-its-own-detector]
+wearing acceptance-lane clothes: a `LIKE '%<name>%'` over orchestration state counts
+every document that *talks about* the thing. Before reading a reference count as an
+activity count, group it by what wrote the rows — or query the lane's own artefacts
+(here: `site_work_items WHERE item_type='acceptance_run'`, four rows, seconds).
+
+**Resolution.** Corrected in place in `bugs_open/131` (dated, visible); witness fired
+manually as work item `4e06c4ab` on the 010b manual precedent.

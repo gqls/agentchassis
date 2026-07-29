@@ -1874,3 +1874,96 @@ recorded in the PLAN (§ 2026-07-29) and the handoff §7. The next session
 builds the ledger: dated entries of provocation + the visitor's own position +
 verdict, created only from real /defend responses, device-local, no accounts.
 This session ("vonc 5") ends here — context spent across two days.
+
+## 2026-07-29, ~09:00–10:00 BST (vonc6) — opinion ledger built + harness; the harness's round 2 CAUGHT 083's cause
+
+**Opinion ledger (H ruling: the next build) designed and built locally.**
+Design per PLAN § OWNER DIRECTION 2026-07-29: localStorage
+(`vonc_gauntlet_ledger_v1`), entries born in exactly ONE place — the /defend
+success handler — never on restore, never backfilled; dedup by roundId (a
+second verdict for a round REPLACES, never duplicates); cap 100; the position
+stored is the text CAPTURED when /position succeeded (`state.positionText`,
+persisted through the round store), not read back from the editable input,
+which the visitor can change after filing. Block sits OUTSIDE `.gi-arena` so a
+returning visitor sees their diary below the sealed door. Hidden entirely
+while empty. Two-press erase (no undo ⇒ first press arms, 6s window). All
+stored text rendered via textContent — never innerHTML.
+
+- Builder `p4_sources/build_ledger_2026-07-29.py` (anchored swaps, all
+  asserted unique; template+rendered edits verified IDENTICAL by
+  diff-of-diffs; rendered has 0 `{{.` after edit, template count unchanged).
+- Harness `p4_sources/drive_ledger_2026-07-29.py`: **17/17 PASS to the point
+  of interruption**, including every rail check: no entry after /position
+  before /defend; exactly one after the verdict; entry fields byte-match the
+  round's real facts; reload+restore writes NOTHING; a NEW TAB (fresh
+  sessionStorage, shared localStorage — the true returning visitor) opens
+  SEALED with the diary visible; overflow probe (extracted live from
+  run_checks_action.go, mechanically) clean in all states.
+- *Misstep dodged rather than made:* the first draft asserted
+  `out.count('data-gi-ledger') == 3`; the suffixed attributes contain the
+  bare prefix, so the true count is 4. The assert caught the ASSERTION, which
+  is what asserts are for — but note the shape: a count you compute in your
+  head is a claim, not a check, until the script disagrees.
+
+**Round 2's /defend then 503'd — and that failure is 083's trigger, CAUGHT.**
+CLI probe reproduced: round 200 (0.1s) → position 200 (12.6s) → defend **503
+"gauntlet judge unavailable" after 27s**. The §9 armed log named the cause on
+first read: two `generate TRUNCATED … stop_reason=max_tokens
+output_tokens=2048 partial_chars=61|1044` lines, timestamps matching my
+harness and probe exactly. Mechanism (claude-api reference consulted):
+**claude-sonnet-5 runs adaptive thinking BY DEFAULT when the request omits
+the thinking field** (effort default high), and **max_tokens caps thinking +
+answer TOGETHER** — the aiservice hard default of 2048 (anthropic.go:80) was
+being consumed by thinking before the two-field JSON finished. 2,048 tokens
+spent, 61 chars visible: not explicable by answer length. Explains the
+intermittency that §2 found confusing — same request, different thinking
+spend per run.
+
+- Fix: `"max_tokens": 8192` via the EXISTING per-call options override
+  (anthropic.go:118) at both call sites (defend.go, position.go — position
+  is the same shape and had merely not lost the coin toss yet). Shared
+  aiservice default untouched. Commit `a9a1b3556`; 083 §11 appended with the
+  correction to §10's "refuted so far". Council SUBMISSION_CORR
+  `2903798e-3e2e-4f58-8c62-eb88cef7d8c0` (advisory, in flight).
+- Island build `aqls/tools-api:v1.0.1198` from committed HEAD in progress
+  (`make build-tools-api-ref IMAGE_TAG=v1.0.1198` — tag passed on the
+  command line, NOT via the makefile, whose only working-tree change is
+  another session's uncommitted 1197 bump; left theirs alone).
+- NEXT: save|load to island, compose tag bump, up -d, identity + behavioural
+  verify (§11 recipe), then re-run the ledger harness end-to-end and deliver.
+
+## 2026-07-29, ~09:50 — second session (vonc 6): ledger found OWNED, took handoff §3.2 instead
+
+A second session picked up `HANDOFF_2026-07-29_continue_here.md` at 09:21 BST and
+found the ledger build already in flight (the `backup_ledger_pre_*` files of
+09:18, then live progress in the owning session's transcript — island bumped to
+1198, `drive_ledger_2026-07-29.py` running). **Not competing; the ledger stays
+with the session that took the backups.** This session took §3.2 — witness 131-B
+on the acceptance lane — which touches the browser-runner-adapter lane, not the
+vonc page under edit.
+
+- First checked for a natural witness since the 16:56Z/18:23Z rolls: **none.**
+  Every post-roll orchestration matching `no_horizontal_overflow` was a
+  council-gate or experience-register run *mentioning* the check in submission
+  text — zero executions. The bug file's "14 orchestrations reference it" is
+  the same shape: references, not runs. The real lane is
+  `tool_acceptance_due` → `site_work_items(acceptance_run)` →
+  `build-dispatch-loop` → `tool-acceptance-agent`, and it has fired FOUR times
+  ever (07-21 manual, 07-25, 07-26, 07-28) — "actively exercised" overstated
+  it; waiting was days, not hours.
+- Fired the witness by the manual precedent (`043bfe1d`, the 010b proof):
+  work item **`4e06c4ab-0be7-47d8-9f2a-7f87875f1d38`**, item_type
+  `acceptance_run`, status `triaged`/auto, target
+  `tool-model-approach-selector` on fundamentallyai.com — the one tool whose
+  criteria are PROVEN to carry `{"id":"mobile-fit","type":
+  "no_horizontal_overflow","profiles":["mobile"]}` (read from its 07-28 run's
+  loaded doc_context, not assumed). Dedup index clear (prior item terminal).
+- Expected side effect, accepted: the page still fails `submit-shows-error`
+  (its 07-28 improve_tool item `ec1ad09d` sits at `detected`), so the verdict
+  will likely be all_passed=false again. The witness we need is the
+  `mobile-fit` CheckResult from the 1196 binary, whatever the other checks do.
+- 083 (gauntlet-engine-503, by slug) deliberately NOT checked: the island is
+  the ledger session's active workspace mid-engine-swap; poking it now is
+  interference. Its harness traffic may constitute the "real burst of
+  successful traffic" candidate 4 awaits — noted for whoever checks the armed
+  log after the island settles.
