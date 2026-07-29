@@ -1,5 +1,32 @@
 # 129 — the spawned child ADOPTS the parent's orchestration row and silently declines the work
 
+> ## RE-VERIFIED 2026-07-29 on chassis **v1.0.1196** — still fixed, still live, and a SECOND natural replay succeeded
+>
+> A fresh build rolled at 22:37:49Z (1194 → 1196). Per this file's own landmine the
+> pod-grep was re-run rather than assumed, on **both** pods:
+>
+> | marker | expected | 9bb57 | hqqbm |
+> |---|---|---|---|
+> | `is_retry` (the string this fix DELETED) | 0 | **0** | **0** |
+> | `RETRY_PAYLOAD_UNAVAILABLE` | 1 | **1** | **1** |
+> | `RETRY_SELF_ADDRESSED` | 1 | **1** | **1** |
+> | `MISROUTED_REQUEST` | 1 | **1** | **1** |
+> | `Replaying original request` | 1 | **1** | **1** |
+> | `unknown execution-context field` (124 / mig 258) | 1 | **1** | **1** |
+>
+> **Behavioural evidence, which is stronger:** a second natural replay ran on the new
+> image — `call_scraper` retried at **2026-07-29 03:25:19**, `processed` at 03:26:08.
+> Capture since the fix first went live: **139 of 145 replay-path requests recorded
+> (95.9%)**, and the only unrecorded step is `search_news` — see the §5 correction.
+>
+> ⚠ **Do NOT re-run the capture census without the time filter.** `request_payload`
+> has only been written since the 07-28 20:48 roll, so an all-history
+> `WHERE request_payload IS NULL` returns ~7,000 rows across ~100 step names and
+> reads as a catastrophic regression. It is pre-fix history. Always scope to
+> `sent_at > '2026-07-28 20:48:11'`.
+
+
+
 > ## CLOSED 2026-07-28 22:30 BST — **REPLAY WITNESSED on natural live traffic.** (thread "bugsearch 5")
 >
 > The one thing owed by the block below is discharged. A real 30-minute timeout —

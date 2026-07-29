@@ -10242,3 +10242,42 @@ passed only `criteria_template` + `binding_schema`. With the full document set: 
 **The pattern.** This is `check-answers-the-question-you-encoded` again: no filter to notice, no
 error raised, just a question quietly narrower than the one I meant to ask. The tell was not in the
 output — it was that the output disagreed with something I already knew to be true.
+
+---
+
+## 2026-07-29 — I removed a time filter and briefly believed my own fix had collapsed
+
+**Thread:** "bugsearch 5", re-verifying `bugs_closed/129` after a fresh roll.
+
+Chasing 6 unrecorded payloads, I re-ran the capture census **without a `sent_at`
+bound**. It returned ~7,000 NULL-payload rows across ~100 step names —
+`spawn_dispatch` 720, `call_dispatch` 553 — i.e. the fix appeared to have failed
+fleet-wide on exactly the steps it was written for.
+
+**It is pre-fix history.** `request_payload` has only been written since the
+07-28 20:48 roll, so every row before that is necessarily NULL. Correctly scoped:
+**145 replay-path requests, 139 recorded (95.9%)**, one step unrecorded.
+
+**What caught it.** The shape of the result. A fix that had genuinely collapsed
+would not produce a *uniform* failure across every step name including ones that
+demonstrably worked an hour earlier — and I had a verified 18/18 from the same
+query with a bound on it. Two runs of "the same" query disagreeing means one of
+them is a different question.
+
+**The cheap check that would have.** **When a column is new, bound every census by
+the migration or roll that introduced it.** Its "missing" count is otherwise
+dominated by the era before it existed. One clause: `AND sent_at > '<roll>'`.
+
+**The transferable bit, and it is the mirror image of the usual one.** The standing
+lesson is [[narrow-filter-defines-the-conclusion]] — a filter taken from the
+question describes a small world and flatters you. This is the same error running
+backwards: **removing** a filter silently widened the population to one that
+predates the thing being measured. Both are the same discipline —
+*state the population in words first, then check the query describes it* — and a
+count over a column that has not always existed is the most common instance.
+
+**Related, same session, same file:** §5 of the 129 handoff listed *step names*
+where the real defect is per-*action*, so `search_news` presented as a new gap when
+it is `WebSearchAction` under another name. **A "known exceptions" list should ship
+the predicate that generates it, not the instances** — instances go stale the moment
+someone adds a caller, and each staleness event costs another investigation.

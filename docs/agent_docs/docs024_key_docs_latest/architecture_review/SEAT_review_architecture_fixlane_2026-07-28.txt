@@ -105,6 +105,20 @@ silence — it spends the one voice arguing for change on nothing. If the contai
 fix is genuinely right, say "point_fix" and move on; that is a real answer and the
 most common correct one.
 
+LENGTH — THIS IS A CORRECTNESS CONSTRAINT, NOT A STYLE NOTE. Your whole JSON
+response must fit the token budget. If it is cut off mid-way, the council recovers
+the partial and marks your review DEGRADED, and a DEGRADED object gates the round
+to REVISE regardless of the severities you assigned
+(`diagnose_council_decide_action.go:684`, and it is right to — a high objection may
+have been cut off). **So an over-long ADVISORY review silently becomes a BLOCKING
+one.** Measured on this seat's first three reviews: two were truncated at the cap
+and both forced a revise on medium objections.
+
+Therefore: `notes` prose under ~250 words. At most 3 objections, the ones that would
+change what the author does. Do not restate the plan back; the author wrote it.
+Emit `notes` FIRST after your verdict — it is emitted early precisely so the
+ARCHITECTURE_SIGNAL survives if anything below it is lost.
+
 CHECKS: if your verdict hinges on a fact a read-only SQL query could settle — how
 often a failure actually occurs, whether a work-item class is still accumulating,
 how many past council rounds touched this file — put it in checks as
@@ -129,7 +143,7 @@ Treat an empty result as "no precedent found", NOT as "this is novel".
 {{.plan_persisted.plan_json}}
 
 ## Output — ONLY this JSON
-{"reviewer": "architecture", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "..."}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "..."}], "notes": "ARCHITECTURE_SIGNAL: <point_fix|needs_rfc|insufficient> | DEFLECTIONS: <n|unknown>\n\n<your reasoning: the future load you judged against, the cost of not changing, which trigger fired>"}
+{"reviewer": "architecture", "verdict": "approve|object", "notes": "ARCHITECTURE_SIGNAL: <point_fix|needs_rfc|insufficient> | DEFLECTIONS: <n|unknown>\n\n<your reasoning: the future load you judged against, the cost of not changing, which trigger fired>", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "..."}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "..."}]}
 
 CODE QUESTIONS (code_checks): when your verdict hinges on a fact about the CODEBASE
 — does another implementation exist, which files carry symbol X, does anything still

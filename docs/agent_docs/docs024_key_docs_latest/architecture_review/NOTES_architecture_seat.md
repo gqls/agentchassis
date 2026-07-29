@@ -1168,3 +1168,53 @@ Also: the index is **197 commits behind local HEAD** (`b953b8a7c` 07-28 17:36 vs
 a 24h cadence, noted so nobody reads a `content` miss as an absence.
 
 **Nothing here changes D12.** The decision stands exactly as written.
+
+## 2026-07-29 — the new seat was TRUNCATING, and that turned an advisory seat into a blocking one (thread "bugsearch 5")
+
+Follow-up on the seating recorded above. **The seat works and the content is good.
+The plumbing was wrong, and it was my error, inherited from the prompt I copied.**
+
+**First three reviews: 3 of 3 participation, but 2 of 3 DEGRADED.**
+
+| when | round decision | seat verdict | ARCHITECTURE_SIGNAL |
+|---|---|---|---|
+| 22:10 | approved | approve | `point_fix` ✅ |
+| 22:12 | **revise** | object | **absent** |
+| 22:19 | revise | object | **absent** |
+
+The 22:12 round reads `decided_by: gating objection from architecture` — **my
+advisory seat blocked a round**, on two objections it had graded `medium`, while
+its own prompt promises medium does not block.
+
+**Cause, and all three parts are individually correct.** The reviews hit
+`stop_reason=max_tokens` at the 8000 cap (`llm_call_log`: *"TOLERATED (step
+continued on the partial) … 6112 chars recovered"*); `tolerate_truncation`
+recovered a partial, which the council marks `degraded: true`; and
+`diagnose_council_decide_action.go:684` gates a `Degraded` object
+**unconditionally**, because a high objection may have been cut off. That
+carve-out is 076's fix working exactly as designed.
+
+**Two consequences worth your attention, both about this workstream's own doctrine:**
+
+1. **The kill-switch criterion is confounded by truncation.** §5 says *high
+   object-rate with no signal line ⇒ the seat is noise, pull it.* That is precisely
+   what a truncating seat looks like. I would have been reading the symptom of a
+   token budget as evidence of a bad seat — and pulling it would have been the
+   wrong call. **The signal line's absence needs `degraded` checked before it is
+   evidence of anything.**
+2. **`notes` was emitted LAST in the output schema**, and `notes` is the only
+   persisted field that can carry the signal. So truncation destroys exactly the
+   field that makes the seat measurable. That is a latent defect in the prompt as it
+   sits on `feature-designer` too — **the same schema order, the same 8000 cap** —
+   it has simply never fired there. **Your call whether to apply it; I have not
+   touched feature-designer.**
+
+**Fixed on `fix-proposer` + `council-gate` (mirrored via 099):** `max_tokens`
+8000 → 16000; `notes` moved ahead of `objections`; an explicit length budget in the
+prompt that names the mechanism, so brevity reads as a correctness constraint.
+
+**The mechanism is fleet-wide and is NOT fixed** — filed as
+`bugs_open/138`. Measured over 14 days: **17 forced revises from degraded
+objections**, editquality 9, prior_art_librarian 4, architecture 2, checkability 1,
+guardian 1. Distinct from `bugs_closed/076` (which added the carve-out) and
+`bugs_open/119` (unreadable, not degraded).

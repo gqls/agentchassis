@@ -412,3 +412,47 @@ about *how* the change shipped; they are untouched by this verification and live
 in `REVIEW_2026-07-28_council_scope_veto.md`. `scrape_web`/`web_search` still record
 no payload by design and need their own diagnosis — deliberately not bundled here,
 that being the exact thing the guardian vetoed.
+
+## 2026-07-29 — re-verified on v1.0.1196, and §5 corrected: the defect is per-ACTION, not per-step-name
+
+Fresh build rolled 22:37:49Z. Pod-grep re-run on both pods per this lane's own
+landmine: `is_retry` **0**, all four new markers **1**, plus 124's
+`unknown execution-context field` **1**. Behavioural evidence is better: a **second
+natural replay** ran on the new image (`call_scraper` retried 03:25:19 →
+`processed` 03:26:08).
+
+### Misstep — I removed a time filter and manufactured a catastrophe
+
+Chasing 6 unrecorded payloads I ran the capture census with **no `sent_at` bound**
+and got ~7,000 NULL-payload rows across ~100 step names, `spawn_dispatch` at 720.
+For a few seconds that read as a fleet-wide regression of the fix.
+
+It is **pre-fix history**: `request_payload` has only been written since the
+07-28 20:48 roll, so every row before it is necessarily NULL. Correctly scoped:
+**145 replay-path requests, 139 recorded (95.9%)**, and the only unrecorded step is
+`search_news`.
+
+The cheap check I skipped: **when a column is new, its "missing" count is dominated
+by the period before it existed** — bound every census by the migration/roll
+boundary, or the denominator is a different population than the one you mean. This
+is [[narrow-filter-defines-the-conclusion]] running backwards: usually a *narrow*
+filter flatters you, and here *removing* one did the opposite. Same root discipline:
+state the population, then check the query describes it.
+
+### §5's enumeration was by step name; the defect is per action
+
+`search_news` looked like a genuine new gap by §5's wording. It is not —
+`FetchNewsSearchAction` **delegates to `WebSearchAction`**
+(`feed_fetch_async_actions.go:177`), the same sender §5 already names. Measured
+scope: **10 step instances across 9 agents** over the two actions, under 7 distinct
+step names (`search_web` ×5, `search_area`, `search_domain`, `search_practice`,
+`search_news`, `scrape_source`). §5 listed two.
+
+The cost figure survives (`search_news`: 193 rows/14d, retried **0** times, so
+nothing is losing a retry today), but the exposure is 5× wider than documented.
+Corrected in the handoff §5 with the query that enumerates by action.
+
+**Transferable:** a doc that lists *instances* of a defect goes stale the moment
+someone adds another caller; a doc that names the *shared function* does not.
+Whenever a "known exceptions" list is written, write the predicate that generates
+it, not the list.

@@ -3973,6 +3973,44 @@ result cannot be told from no traffic.
 Category tags: `null-legitimate-in-one-branch`, `coverage-query-spans-the-fork`,
 `count-the-denominator`.
 
+### A degraded/partial result that "fails safe" changes the ROLE of the component (2026-07-29)
+
+Found closing out `bugs_open/138`. A council reviewer seat is **advisory** — its
+prompt offers only `approve`/`object`, and the decider waves through objections
+graded low/medium. Yet a round came back `decided_by: gating objection from
+architecture` on two `medium` objections.
+
+Three mechanisms, each individually correct, compose into a role change: the LLM
+call exceeded `max_tokens` → `tolerate_truncation` recovered a partial → the review
+is marked `degraded` → `diagnose_council_decide_action.go:684` gates a degraded
+objection **unconditionally**, because a high-severity objection may have been cut
+off before anyone saw it. The gate is right. The consequence — *an advisory
+component becomes a blocking one when it runs long* — was never costed.
+
+**The transferable shape.** Whenever a component has a conservative fallback
+("when in doubt, block / retry / escalate"), that fallback is a **role change**
+under load, not merely a stricter version of the same behaviour. Ask explicitly:
+*what is this component's authority when its output is incomplete?* An advisory
+seat that gates, a read-only check that fails closed, a soft quota that hard-stops
+— all the same shape. The fallback is usually correct in isolation and wrong in
+composition, so it will not look like a bug in any single file.
+
+**And the second-order harm is worse than the first.** The visible symptom (a seat
+objecting a lot, with its structured signal missing) is *identical* to the
+documented criterion for retiring that seat as noise. **So the failure mode
+impersonates the evidence you would use to act on it** — and the action it invites
+(pull the seat) is the opposite of the fix (give it headroom). Before concluding a
+component is behaving badly, check whether its output was complete:
+`rev->>'degraded'`, and `llm_call_log.error_message ILIKE '%stop_reason=max_tokens%'`.
+
+**Practical rule:** put the load-bearing field FIRST in any structured output that
+can be truncated. Truncation eats the tail, so schema order decides what survives.
+The signal that made this seat measurable was emitted last, and was therefore always
+the first thing lost.
+
+Category tags: `degraded-fallback-changes-role`, `failure-impersonates-its-own-evidence`,
+`load-bearing-field-goes-first`.
+
 ### A checker's missing false-positive apparatus may BE its per-site human audit — widening the scope deletes the safety net and keeps the consequence (2026-07-28)
 
 Found while measuring `bugs_open/104`: a proposal to make `banned_claims` patterns
@@ -4141,6 +4179,7 @@ See `/bugs_closed/README.md`.
 
 | 134 | **A doc convention for "optional" leaked into the real key name, so two config keys are inert.** `product-spec-refresher/refresh_specs` declares `"limit?"` and `"category?"`; the action reads `limit` and `category` (`refresh_product_specs_action.go:177,211,215`) and **no Go code anywhere reads a `?`-suffixed key**. `limit` silently takes its hard-coded default of 20 and `category` is empty, whatever the caller passes. The origin is the load-bearing part: seed 156 line 15 is a COMMENT reading `-- {site_id, category?}` — the ordinary notation for "this field is optional" — and 45 lines later the same notation appears inside the actual JSON, so **fixing only the live row is undone by a replay**. Fleet swept for the class (keys ending in `?`, `*`, space or `:`): these two are the only instances | **OPEN, latent — 0 orchestrations have ever run this agent and no `scheduled_tasks` row matches**, which is also why nobody noticed. Fix order: (1) `CheckConfig: true` on the spec — this is exactly the "spec exists but misses live keys" case, and opting in makes the typo visible at runtime AND in the offline audit; (2) correct seed 156 AND the live row; (3) **do NOT add `category?` to the spec** — declaring a dead key silences the detector and leaves the behaviour broken (`WRONG_CALLS.md` 2026-07-28). Not this lane's agent; correcting inert keys IS a behaviour change | filed 2026-07-28 by session "bugsearch 3", found by `cmd/config-key-coverage` — i.e. by `101`'s own tooling |
 | 136 | **Live config says `*_domain` where the code reads `*_pipeline`, and the default hides it.** Three actions were renamed internally from `domain` to `pipeline`; the live definitions kept the old word. MEASURED fleet-wide: `check_domain` on 3 steps / `check_pipeline` on **0**; `target_domain` on 3 / `target_pipeline` on **0** (`item_domain`/`item_pipeline` are both genuinely read and are fine). `discovery_checks.go:66-69` defaults `check_pipeline` to `"design"`, `triage_detect_items_action.go:83-86` defaults `target_pipeline` to `"build"` — and in **both** cases the default equals what the dead config asks for today, so nothing looks broken. `run_discovery_checks`'s three carriers each ask for something *different* (`design`/`content`/`build`) and all three get `design`; containment is luck — the only four checks propagating `dctx.Pipeline` (`palette_contrast`, `image_url_404`, `unfulfilled_image_prompt`, `placeholder_image_in_use`) sit exclusively in the design agent's list. `[MEASURED]` no mislabelled row exists yet: neither non-design agent has a single `design`-pipeline row. Six further dead keys on the same sweep, of which **one is biting**: `grounded-explainer` sets `summary_template` but `create_work_item` reads `summary`, and `:137-139` falls back to the *item_type* — two live rows are captioned `grounded_draft_review` in the human-review queue instead of the intended sentence. Also doubly dead: `prepare_training_data.s3_bucket` (action reads `bucket`, *and* the value `finetuning` names a bucket that does not exist — already known at `internal/adapters/thunder/adapter.go:199-204` since 2026-05-23, where it was worked around without anyone noticing the key was unread) | **OPEN, unowned.** Fix order: (1) close the genuine **spec gaps** first — `run_discovery_checks` reads `checks` (`:73`) and `check_pipeline` (`:66`) and declares neither — then `CheckConfig: true`, so the *next* rename is caught at validation; (2) rename the definitions; (3) `summary_template` needs a **decision not a rename** — `create_work_item` does no template rendering, so renaming it to `summary` ships a literal `{{.input_data.topic}}` to the reviewer; (4) **never** silence one of these by adding the key to `ConfigKeys` (`WRONG_CALLS.md` 2026-07-28) | filed 2026-07-28 by session "bugsearch 7", from the first systematic pass over **pile B** of the `101` ratchet (`go run ./cmd/config-key-audit --specs` joined against `scripts/audit-config-keys.sh --json`) |
+| 138 | **A TRUNCATED advisory review silently becomes a BLOCKING one.** A reviewer's LLM call exceeds `max_tokens`; `tolerate_truncation` recovers the partial; the council marks it `degraded`; and `diagnose_council_decide_action.go:684` gates a `Degraded` object **unconditionally** (correctly — a high objection may have been cut off). So a token-budget overrun becomes a forced `revise`, and `decided_by` names the seat rather than the truncation. Measured 14d: **17 forced revises** (editquality 9, prior_art_librarian 4, architecture 2, checkability 1, guardian 1). Distinct from `bugs_closed/076` (which ADDED the carve-out and is working as designed) and `bugs_open/119` (`unreadable`, not `degraded`). **The live harm is the misleading signal**: a high object-rate with no signal line is also the documented kill-switch for retiring a seat, so a seat can be pulled for being noisy when it was being cut off. `review_architecture` fixed (max_tokens 16000, load-bearing field emitted first); the mechanism is untouched | **OPEN, unowned** — filed 2026-07-29 |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the

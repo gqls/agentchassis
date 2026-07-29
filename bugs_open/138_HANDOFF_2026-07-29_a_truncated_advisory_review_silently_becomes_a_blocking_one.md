@@ -1,0 +1,150 @@
+# 138 — a TRUNCATED advisory review silently becomes a BLOCKING one: 17 council rounds in 14 days were revised on token budget, not judgement
+
+**Filed** 2026-07-29 by thread "bugsearch 5", found while verifying the
+`review_architecture` seat it had shipped hours earlier (`FIX-054`) ·
+**Status** OPEN, unowned · **Severity** medium — no correctness risk, pure waste
+and a misleading signal: each occurrence costs a full council round (credits +
+~30 min latency) and returns `revise` for a reason no reviewer intended ·
+**Distinct from `bugs_closed/076` and `bugs_open/119`** — see below, this is
+neither of them.
+
+---
+
+## Symptom
+
+A council round returns `revise` with
+
+```
+decided_by : gating objection from architecture
+```
+
+while every objection that seat raised is `"severity": "medium"` — and the seat's
+own prompt tells it that medium is *"recorded and returned to the author without
+blocking"*. Nothing in the verdict says why it actually gated.
+
+## Root cause — a correct carve-out with an uncosted consequence
+
+Three mechanisms compose, and each is individually right:
+
+1. A reviewer's LLM call exceeds `max_tokens`. Logged, but as a **tolerated**
+   failure:
+   ```
+   llm_call_log.success = false
+   error_message = "TOLERATED (step continued on the partial): response truncated:
+                    stop_reason=max_tokens (output_tokens=8000 reached the configured
+                    cap, 6112 chars recovered); raise max_tokens or shorten the prompt"
+   ```
+2. `tolerate_truncation: true` recovers the partial JSON, and the council marks
+   that review **`degraded: true`**.
+3. `diagnose_council_decide_action.go:684` — **a `Degraded` object gates
+   unconditionally**, ignoring severities:
+   ```go
+   if r.Degraded || len(r.Objections) == 0 {
+       return true   // gates
+   }
+   ```
+   The reasoning is sound and documented at `:675-677`: a high-severity objection
+   *may have been cut off before we ever saw it*, so a truncated objection cannot
+   be waved through on the severities that survived.
+
+**So the defect is not in any of the three.** It is that (3) converts a *token
+budget overrun* into a *forced revise*, and nothing anywhere measures or surfaces
+that. An advisory seat that runs long becomes a blocking seat, silently, and the
+verdict names the seat rather than the truncation.
+
+## Evidence — measured, all-seats, 14 days
+
+```sql
+WITH r AS (
+  SELECT rev->>'reviewer' AS reviewer, rev->>'verdict' AS verdict,
+         COALESCE((rev->>'degraded')::boolean,false) AS degraded
+  FROM diagnosis_artifacts d, LATERAL jsonb_array_elements(d.body::jsonb->'reviews') rev
+  WHERE d.kind='council_report' AND d.created_at > now() - interval '14 days'
+)
+SELECT reviewer, count(*) AS reviews,
+       count(*) FILTER (WHERE degraded) AS degraded,
+       count(*) FILTER (WHERE degraded AND verdict='object') AS degraded_objections_that_gate
+FROM r GROUP BY 1 HAVING count(*) FILTER (WHERE degraded) > 0 ORDER BY 3 DESC;
+```
+
+| reviewer | reviews | degraded | degraded objections that GATE |
+|---|---|---|---|
+| editquality | 241 | 14 | **9** |
+| prior_art_librarian | 200 | 6 | **4** |
+| guidelines | 142 | 4 | 0 |
+| **architecture** | **3** | **2** | **2** |
+| checkability | 3 | 1 | **1** |
+| guardian | 261 | 1 | **1** |
+| tooling_provenance | 110 | 1 | 0 |
+
+**17 forced revises in 14 days.** The absolute rate is low per seat (editquality
+5.8%) but the cost per occurrence is a whole round, and the *rate is not the
+point* — the point is that the verdict is unattributable to its real cause.
+
+**`architecture` at 2 of 3 (67%) is the outlier and is my own doing** — a longer
+prompt demanding four-dimension reasoning against the same fleet-wide
+`max_tokens: 8000`. Already fixed for that seat (below); the mechanism is
+untouched.
+
+## Why this is NOT `bugs_closed/076`
+
+076 asked whether *consumers check the truncation marker* and found them already
+guarded; its fix is what **added** the `Degraded` carve-out in
+`diagnose_council_decide_action.go`. That carve-out is working as designed. 076
+made truncation *visible to the decider*; it did not ask what the decider then
+does with an advisory seat's round, and the answer — block it — was never costed.
+**This is 076's fix behaving correctly and having a consequence nobody measured.**
+
+## Why this is NOT `bugs_open/119`
+
+119 is a seat emitting **structurally malformed** JSON → `unreadable` → the round
+is voided with `decided_by: unreadable reviewer(s)`. Here the JSON is **well-formed
+but incomplete** → `degraded` → the round is *decided*, by a seat that did not
+intend to decide it. Different field, different decided_by, different fix. They
+are siblings in one family ("a seat's output problem costs a round") and each
+needs its own fix.
+
+## Fix candidates, ordered by what closes the door
+
+1. **Make the cause visible in the verdict.** `decided_by` should distinguish
+   `gating objection from X` (a judgement) from `gating TRUNCATED objection from X`
+   (a budget overrun). Cheapest, no behaviour change, and it stops the wrong
+   conclusion being drawn — which is the live harm, because a high object-rate
+   with no signal line is *also* the documented kill-switch for retiring a seat.
+   **A seat could be pulled for being noisy when it was being cut off.**
+2. **Alert on the rate.** The query above is a one-line check; nothing runs it. A
+   seat whose degraded rate crosses a threshold is misconfigured, not noisy.
+3. **Right-size `max_tokens` per seat.** Every seat currently sits at 8000
+   regardless of how much its prompt asks for. The two seats with the longest
+   analytical remits (editquality, prior_art_librarian) are also the two with the
+   most degradations — that is not a coincidence and it is measurable per seat.
+4. **Emit the load-bearing field FIRST in every seat's output schema.** Truncation
+   eats the tail, so whatever must survive belongs at the head. Generalises the
+   fix already applied to `review_architecture`.
+
+Not recommended: relaxing the `Degraded` gate. It is the conservative half of 076
+and removing it would let a cut-off high objection through silently — strictly
+worse than a spurious revise.
+
+## What was already done (2026-07-29, this thread, `review_architecture` only)
+
+- `max_tokens` **8000 → 16000** on `fix-proposer`, mirrored to `council-gate`.
+- **`notes` moved ahead of `objections`** in the output schema. The mandated
+  `ARCHITECTURE_SIGNAL` lives in `notes`, which was emitted **last** — so
+  truncation destroyed exactly the field that makes the seat measurable, and the
+  result was indistinguishable from "the seat is noise, pull it".
+- An explicit length budget in the prompt, naming this bug's mechanism so the
+  seat knows why brevity is a correctness constraint and not a style note.
+
+**This fixes one seat. It does not fix the mechanism** — the other six seats in
+the table above are unchanged.
+
+## How to verify a fix
+
+Induce it rather than wait: set a seat's `max_tokens` low (say 500) on a scratch
+agent, run one round, and confirm the verdict distinguishes truncation from
+judgement. A green round proves nothing here — **the failing branch is the whole
+bug** ([[verify-the-failing-branch]]).
+
+Re-run the evidence query above; the count should not grow for a seat after its
+budget is right-sized.

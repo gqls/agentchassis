@@ -121,6 +121,33 @@ clause.**
 
 ## 5. Known, deliberate, NOT a gap to "fix"
 
+> **⚠ CORRECTED 2026-07-29 — THIS SECTION ENUMERATES STEP NAMES, BUT THE DEFECT IS
+> PER-ACTION, so the list below is incomplete and will keep "discovering" itself.**
+> On 07-29 a post-roll census turned up `search_news` as unrecorded, which by this
+> section's wording reads as a new gap. It is not: `FetchNewsSearchAction`
+> **delegates to `WebSearchAction`** — the same sender named below. Enumerate by the
+> ACTION, and the true scope is **10 step instances across 9 agents**:
+>
+> | action | instances | step names |
+> |---|---|---|
+> | `web_search` | 8 | `search_web` ×5 (adoption-researcher, directory-researcher, evidence-researcher, grounded-explainer, research-agent), `search_area`, `search_domain`, `search_practice` |
+> | `fetch_news_search` → `WebSearchAction` | 1 | `feed-ingester.search_news` |
+> | `fetch_scrape` → `WebscrapeAction` | 1 | `feed-ingester.scrape_source` |
+>
+> One query gets it, and it is the one to re-run rather than trusting this table:
+> ```sql
+> SELECT v->>'action' AS action, type||'.'||k AS step
+> FROM agent_definitions, LATERAL jsonb_each(default_config->'workflow'->'steps') e(k,v)
+> WHERE deleted_at IS NULL AND is_active AND COALESCE(is_snapshot,false)=false
+>   AND v->>'action' IN ('web_search','webscrape','fetch_news_search','fetch_scrape');
+> ```
+> **The `≤2 requests a fortnight` cost below was computed over the RETRIED
+> population and still holds** (`search_news` has 193 rows in 14 days and has been
+> retried **0** times) — but the *exposure* is 5× wider than the two step names
+> below suggest. Post-fix capture is **139/145 (95.9%)**, and every one of the 6
+> misses is `search_news`. Whoever takes the follow-on diagnosis: scope it to the
+> two ACTIONS, not to the step names.
+
 `scrape_web` / `web_search` (6 of 428 retried requests, 14 days) record no payload
 and now **fail fast instead of retrying**. They are a *different defect*:
 `web_search_action.go:139` puts `params.ExecutionContext.OrchestrationID` — the
