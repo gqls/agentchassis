@@ -608,3 +608,90 @@ prunes never-deployed targets and news-index has not built yet. **The already-bu
 pages will need a re-render pass to pick News up once it deploys** — that is the
 one job left in this batch, and it is the same shape as the four stale pages this
 session opened with.
+
+### The cause of the bad imagery prompts, found and fixed in the framework
+
+The owner asked for the cause, not the symptom. It is a **hole**, not a bug.
+
+`directionAppliesToKind` (generate_image_actions.go:1132) excludes
+`icon`/`logo`/`sprite_sheet`/`content_hero` from the free-text
+`design_intent.imagery_direction` fallback, and it is **right** to — prepending a
+photographic direction to a flat prompt makes the model composite the flat subject
+onto a photo (`icon_cycle_time`, 2026-05-20). What that exclusion left behind is a
+gap: a flat kind on a site with **no `imagery_style_guide` gets no colour direction
+at all.**
+
+Into that gap went a literal, in `build-site-planner`'s own prompt template:
+
+```
+053_build_site_planner.sql:2326
+  'a darker grey (#4A4A4A) line on a flat solid light grey (#EEEEEE) background,
+   one single uniform background colour, no gradients, no shadows, no checkerboard,
+   no transparency, no photorealism'
+```
+
+Confirmed present in the **live** `agent_definitions` row, not just the seed. Its
+snapshot label says why it was added — *"icon background: transparent/plain -> flat
+selectable grey (embrace the chip)"* — and the **flatness** half is load-bearing and
+stays. The **colour** half is a light ground shipped to every site regardless of
+scheme.
+
+**Fleet-wide:** 92 `site_plan_imagery` rows across 14 plans carry `#EEEEEE`; 62 on
+9 sites' current plans (fundamentallyai 15, webdesign 10, robot-hands 8, vonc 8,
+gamesdesign 7, relojistas 4, idea.uk 4, vetcomparison 3, oufe 3).
+
+**The fix** (committed `bd9ebfec6`, council `bf208075`): when no guide exists, derive
+the flat-kind palette clause from the palette the renderer emits. Ground is `surface`
+rather than `background`, because image cards paint the icon tile from
+`var(--color-surface-alt, var(--color-surface))` and `surface_alt` derives from
+`surface` — both sides land on one slot, so the icon cannot read as a sticker on the
+card. The test asserts they resolve to the **same value**, not that each is separately
+plausible.
+
+**Blast radius, with the denominator rather than a filter:** 32 sites → 10 with a
+resolved composition → 6 dark → 4 of those already have a style guide. So **exactly
+two sites change behaviour: fundamentallyai.com and vonc.com.**
+
+> **A half I wrote and then retired, because measuring killed it.** I also added
+> `icon_chip_bg` to `darkSchemeDerivations`. It would have been **dead config**: the
+> palette reaches the stylesheet only through `{{palette "X"}}` calls in a layout, and
+> across all 18 layouts `card_bg` is declared by 18, `surface_alt` by 3, and
+> **`icon_chip_bg` by 0**. The literal is also far narrower than it looked —
+> `icon-chip-bg` appears in exactly **one** active component fleet-wide
+> (`info-card-grid`, image variant), and `image-hover-card-grid`, which image cards
+> actually use, already reads `surface_alt`. Removed, with the negative result left as
+> a comment where the entry would have gone so nobody re-adds it.
+
+> **And a test caught dead code in my own draft.** I had guarded
+> `if ink == "" { return "" }`. `pickInkOn` never returns empty — it falls back to
+> whichever of black/white contrasts better. That guard read like a real case and was
+> unreachable.
+
+**OWED, and the precondition matters.** The second half is the planner config change:
+drop the hex, keep the flatness clause. It must **not** be applied until a chassis
+carrying `bd9ebfec6` is rolled and pod-verified, because removing the literal before
+the derivation is live would leave flat kinds with **no** colour direction at all —
+worse than a wrong one. Pod-grep marker after any roll:
+
+```
+kubectl exec -n ai-persona-system <pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "no other background colour"'
+```
+
+Not building or rolling the fleet from this thread: HEAD is shared and another
+session's roll carries it, which is the documented normal path.
+
+### Two hand-made work items failed, and the shape was mine
+
+The `page_rerender` items I raised for the two trimmed meta descriptions failed 3/3:
+
+```
+step render_page failed: failed to execute action rerender_single_page:
+page_id not found in input
+```
+
+I had copied the `needs_page` spec shape, which resolves by `page_name`. `page-rerender`
+does not — the machine-created items carry `page_id` in the spec **and** in the
+`page_id` column, plus `domain` and `filename`. Re-raised from a **completed row's**
+shape rather than from the action's source, which is the cheaper and more reliable
+place to read a contract from.
