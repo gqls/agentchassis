@@ -1376,3 +1376,87 @@ runs created AFTER mine COMPLETED (`bfd73f71` 08:33, `2903798e` 08:36), and anot
 run cleared `review_editquality` in 48s, so the seat is fine. Resubmitted on the
 same trail id (`RESUBMIT_CORR=da1f9c81…`, new envelope `3a9f4bf7`). Second wedge on
 this seat in two days — `bugs_open/119`.
+
+---
+
+## 2026-07-29, 10:10 — the guard is APPROVED and BUILT. Three advisory objections were right and are in the code
+
+**Council `da1f9c81` — APPROVED. 12 reviewers, 0 unreadable, 5 abstained.**
+
+**The two signals that matter more than the verdict:**
+
+1. **`diagnosis_guardian` approved with ZERO objections.** That is the seat that
+   raised D12 in the first place. The seat that found the hazard is satisfied the
+   guard closes it — which is a far better result than a majority that never
+   understood the objection.
+2. **`architecture` reviewed it** — the first time this workstream's own seat has
+   reviewed this workstream's own change. Approve, one low objection, and a useful
+   one (§4 below).
+
+### Advisory objections HONOURED, not noted — the three that changed the code
+
+- **`bug_historian` (medium), and it was right.** `if kind == "doc"` is **a denylist
+  of one**: every other value — including a kind nobody has invented yet — silently
+  defaults to *"render as code, untagged"*. It named the recurring shape: *a dispatch
+  table's `default:` branch is a silent bug factory, once per new enum value.*
+  **Inverted to an ALLOW-LIST** of the 8 Go kinds; an unknown kind now renders as
+  NOT-code — wrong in the direction that costs a reviewer one wasted lookup instead
+  of a CONFIRMED verdict resting on prose. **One source of truth** (`codeKindList`
+  builds both the Go map and the SQL bind) so the two cannot drift.
+- **`editquality` (low): `kindDoc` was never declared** — the sketch would not have
+  compiled, because the guard ships AHEAD of the markdown plan that declares it.
+  A real catch that only exists *because* the two were split.
+- **`guardian` (low): check nothing else asserts on the literal `They are CODE`
+  before deleting it.** Ran it: `grep -rn "They are CODE" --include=*.go .` returns
+  only the line being deleted. No test, no third renderer. **Clear.**
+- **`architecture` (low): the follow-up VERIFY must carry a NEGATIVE control**, not
+  a presence check — *no* doc row may render untagged or outside the prose block.
+  A presence check passes if ONE row is tagged; the negative control is what fails
+  if any is missed. Written into `VERIFY_2026-07-29_doc_tag_guard.md` §4 as a
+  requirement on corr `7ba5b8c4`'s VERIFY.
+
+### A bug I introduced and caught by reading back
+
+Adding `kind` to the `ls` case's `SELECT DISTINCT path, commit_sha` would have
+returned **one row per (path, kind)** — multiplying every Go source file in an `ls`
+listing, since a file holds several kinds. Replaced with
+`GROUP BY path, sha` + `bool_or(kind = ANY(string_to_array($4,',')))`: a path is
+code if ANY row under it is code. **Caught by re-reading the edit, not by a test** —
+no test covers `ls` row counts, and it would have shipped as a silent quality
+regression in a listing nobody diffs.
+
+### Built and verified BEFORE rolling
+
+`v1.0.1200` (live was 1198; another session had already taken 1199, so the makefile's
+`IMAGE_TAG ?= v1.0.1197` is stale — **passed the tag explicitly rather than editing
+the shared makefile mid-flight**). Grepped the image binary before pushing:
+
+```
+They are CODE 0   ← DELETED, the discriminating marker
+docTag        1   ← added
+answerCodeCheck 10 ← positive control
+Index search results 1 ← the new heading
+```
+
+Image id `4e7594975423`, created 10:10:45 — **a distinct id with a fresh timestamp,
+not a retag** (the 1188/1189 trap). `go build`, `go vet` and `go test` clean across
+`platform/orchestration/actions/...` and `pkg/diagnose/...`.
+
+**Pattern-check fired twice (`logged-model-output`) and BOTH are pre-existing** —
+verified against `HEAD~1`: the `matchingExcerpt` Fprintf and
+`diagnose_assemble_bundle_action.go:210` both predate this commit; I only changed
+which builder the first writes to.
+
+### Holding the roll, deliberately
+
+A chassis roll kills in-flight councils. At push time a `council-gate` round was mid
+`review_guardian` — **another session's**, and rolling would have cost them ~30
+minutes and the credits. **This change is inert; there is no urgency that justifies
+destroying someone else's round.** Waiting for a clear window.
+
+**Noted for the council-tooling backlog, filed nowhere yet:** three seats
+(`guardian`, `prior_art_librarian` ×2) independently reported they **cannot see
+`code_symbols` at all** — it is absent from the schema hint the council is given — so
+the plan's central safety claim had to be taken on trust. That is the same shape as
+the `architecture` seat's own limit, and it is a gap in the *reviewers' instruments*,
+not in the change.
