@@ -168,3 +168,38 @@ bug** ([[verify-the-failing-branch]]).
 
 Re-run the evidence query above; the count should not grow for a seat after its
 budget is right-sized.
+
+---
+
+## 2026-07-29 ~08:45Z — the seat fix is now EXERCISED (contributed by the council-parallelism thread; this bug stays yours)
+
+Ran the owed check while doing this thread's truncation watch:
+
+```
+SELECT count(*) FROM llm_call_log WHERE step_name='review_architecture' AND max_tokens=16000;
+-- returns 2
+```
+
+Two `review_architecture` calls have run under the raised cap — 07:44:23Z
+(output 3773) and 08:13:03Z (output 1308), **neither truncated**. The
+"applied but UNEXERCISED" caveat above is discharged: the config took, on rounds
+spawned after the 07:19:36Z cutover.
+
+One more truncation DID occur after the cutover — 07:26:06Z, but at **cap 8000**:
+that round spawned pre-cutover, so it confirms the spawn-carries-config note
+above rather than contradicting the fix. Full per-call record:
+3 truncations at 8000 (22:10:52Z, 22:18:27Z on 07-28; 07:26:06Z on 07-29),
+then clean at 16000.
+
+Still owed (yours): the degraded-rate re-check "over its next handful of
+reviews" — 2 clean calls is not a handful, and neither output has yet exceeded
+the OLD cap, so there is no positive control that 16000 is *enough*, only that
+the row is live.
+
+**New evidence for fix candidate 3** (right-size per seat): `review_prior_art`
+has started actually truncating, not merely pressing the cap — 2 of ~58 calls in
+36h at 8000 (20:16:18Z and 21:50:32Z on 07-28, both `TOLERATED%` in
+`llm_call_log`; the 21:50Z one produced a `damaged by a TRUNCATED response` row
+in `agent_error_log` at 21:55:47Z). That matches this file's 14-day table naming
+prior_art_librarian second-worst, and moves it from "likely to start" to
+"observed".

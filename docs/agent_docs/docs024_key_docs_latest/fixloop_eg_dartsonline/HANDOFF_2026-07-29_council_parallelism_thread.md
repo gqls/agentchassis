@@ -205,3 +205,35 @@ kubectl get deploy -n ai-persona-system agent-chassis \
 `bugs_closed/019` (the truncation case; its fix is what keeps rounds alive),
 `0NN_council_gate_orchestrator.sql`, `097_TRIGGER_council_review_v1.sh`,
 `099_SYNC_gate_roster.py`, `WRONG_CALLS.md` (four entries from this thread).
+
+---
+
+## 2026-07-29 ~08:45Z — watch check (session "council parallelism 3")
+
+**Per-roll ritual: CLEAN on `v1.0.1198`.** The fleet rolled again at 08:19Z
+(image `3730e90d…`, not the `458c9ad0…` this file was written against — a roll
+this thread did not perform). Both replicas carry 124's marker (`1` each);
+`CHASSIS_RESPONSES_START_AT=latest` survived a **second** real deploy, further
+narrowing 029's residual risk to rebuild-from-overlay / recreate / fresh-cluster.
+
+**The owed truncation watch: 11 calls since the raise, 0 truncated, max output
+10071 (cap 16000).** Only one new call since this handoff was written — councils
+were quiet overnight. The ≥40-call bar is not met; **the watch stays open.** The
+positive control (10071 > old 8000 cap) remains the load-bearing evidence.
+Nothing owed changed.
+
+**Timeout class: still closed.** 0 `%timed out after%` rows in 12h against a live
+control (38 `build-pipeline-trigger` spawns, 40–129 orch/hour). Re-ran the sweep
+UNFILTERED per §7 — no renamed timeout error hiding behind the ILIKE; the only
+truncation-family rows are the council-seat ones below.
+
+**Roster is now 17 seats** (architecture added 07-28 22:37Z, per §2's landmine 1
+— and that seat was raised to 16000 by its own thread at 07:19:36Z on 07-29,
+correctly on BOTH `fix-proposer` and `council-gate`; landmine 1 respected).
+
+**§5.3 has moved from prediction to observation:** `review_prior_art` truncated
+2 of ~58 calls in 36h at its 8000 cap (20:16:18Z, 21:50:32Z on 07-28). Evidence
+contributed into `bugs_open/138` (owned by the architecture_review workstream —
+that file also now records its architecture-seat fix as EXERCISED, verified by
+this session: 2 calls at cap 16000, 0 truncated). Raising the remaining seats
+stays an owner call, per §5.3 — now with a live instance to point at.
