@@ -43,7 +43,7 @@ Every line here was checked today. The full commands and their output are in
 | **A way to call the chassis from outside** | **Does not exist for untrusted callers.** core-manager has `POST /api/v1/admin/pipelines/:name/trigger` — behind `AuthMiddleware` + `AdminOnly()`, served inside the cluster behind api-gateway. tools-api holds no Kafka client at all. | `internal/core-manager/api/server.go:108-227`; `cmd/tools-api/main.go` |
 | **Automated "domain in → site out"** | **Does not exist.** New sites are created by hand-authored SQL seeding the `sites` row and its `site_specs` aspects, then trigger scripts publish to Kafka. | `oufe/SEED_2026-07-25_oufe_site_and_specs.sql`; oufe has 12 aspects seeded on day one |
 | **Per-call model cost** | **Measurable.** `llm_call_log` holds 45,205 rows, 2026-03-25 → 2026-07-28. | live query, 2026-07-28 |
-| **Fleet size** | **32 site rows, 14 deployed, 17 `pool-*` shells.** See §12 — this matters. | live query, 2026-07-28 |
+| **Fleet size** | **32 site rows, 14 deployed, 17 `pool-*` shells.** §12 — the owner has since ruled the "thousand sites" claim stands as forward-looking. | live query, 2026-07-28 |
 
 ### 2a. The correction that should change how this is read
 
