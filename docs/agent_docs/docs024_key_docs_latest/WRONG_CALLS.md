@@ -10517,3 +10517,55 @@ was.
 
 Family: check-answers-the-question-you-encoded, grep-the-config-key-before-calling-it-a-win,
 a-print-statement-is-not-a-config-row (the VERIFY block variant).
+
+---
+
+**"The nav row will be recreated automatically once the page deploys" — written in
+`webdesign_couk/HANDOFF_2026-07-29` §1 and §5, marked as the CORRECTION of an
+earlier wrong warning, wrong itself (caught 2026-07-29 morning, session 4).** Two
+independent errors under one confident sentence. First: nothing runs
+`refresh_nav_tables` on a deploy — it runs inside a nav-updater orchestration,
+which needs a `nav_drift` work item, and discovery-filed ones can sit at
+`detected` indefinitely (robot-hands has one). Second and worse: when a run WAS
+forced by hand, the row still could not appear — `isSectionIndexType` omits
+`news-index`, so `classifyPagesForNav` classifies the canonical
+`/news/index.html` as its own child and skips it, permanently, logging only an
+info line. The claim had survived one correction round already, which made it
+look tested; the first half had merely never been exercised (the page was never
+deployed until now), and the second half was invisible without a deployed page.
+Caught by: waiting for the promised row and, when it did not come after a
+COMPLETE nav_drift run, reading the nav-updater pod log for the page by name.
+Filed + fixed as `bugs_open/141`.
+
+*Cheap check that would have:* before writing "X happens automatically", find the
+code path that does X and run its selection query against the row you care
+about. Here: `classifyPagesForNav` is one grep from `refresh_nav_tables`, and
+the child-prefix list with the three-type exemption is on one screen —
+news-index's absence is visible by eye. The general form: an "automatically"
+claim is a claim about a MECHANISM, and it needs the mechanism's file:line, not
+an inference from a table's name.
+
+Family: writes-the-field-is-not-reads-the-field (nav flags are written, the
+classifier never reads them for this type), a-check-answers-the-question-you-encoded
+(the earlier session verified the DELETE happened, not that the re-ADD could).
+
+### 2026-07-29 — experience register — I logged the doubt, then acted against it anyway
+
+**The claim.** On 07-28 I re-tiered `template_row_not_a_control` from Tier 2 to Tier 4, reasoning
+that its clause is true only post-hydration. **In the same session I wrote, in this file and in the
+entry itself, that this was "the reading which makes my own red result disappear" and "the shape of
+reasoning I should distrust in myself."** Then I shipped the re-tier.
+
+**What caught it.** The approval council's `deferral_honesty` seat, gating on [high]: *"Moving a
+failing check to a tier the platform doesn't execute, rather than reporting the failure, reads as
+evasion even with the honest note attached."* Reversed: the check is back at Tier 2, fails
+honestly, and `bugs_open/137` now blocks something real instead of sitting as a curiosity.
+
+**The cheap check that would have.** There isn't one, and that is the entry's whole value.
+**Recording a suspicion about your own reasoning is not a control on it.** I did everything the
+working-docs rules ask — marked it unresolved, flagged it as self-serving, filed the bug for
+someone else — and still took the action the suspicion was about, because each of those steps
+*felt* like discharging the doubt. The rule that would have worked is procedural, not
+introspective: **when you notice that a resolution makes your own failing result disappear, do not
+ship that resolution in the same session you noticed it.** Leave the red result standing and let
+someone else break the tie. The council was that someone; it should not have had to be.
