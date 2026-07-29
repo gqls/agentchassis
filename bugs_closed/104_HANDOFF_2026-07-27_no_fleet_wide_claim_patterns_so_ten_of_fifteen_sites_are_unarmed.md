@@ -4,7 +4,24 @@
 **Severity** medium-high — not a code defect. The engine works; it is pointed at
 almost nothing. The two most exposed sites in the estate are among the unarmed.
 **Class** coverage / platform configuration.
-**Status** OPEN. Not a new idea — see "This decision is already filed" below.
+**Status** **CLOSED 2026-07-29 — fixed and LIVE on chassis v1.0.1196**, pod-verified
+with markers this change created plus a positive and a negative control, and the gate
+wiring covered by five tests that induce both directions. Nine patterns now apply to
+all 15 sites, armed or not. See § "FIX BUILT" at the foot of this file, and the
+workstream at `docs024_key_docs_latest/bugfix_104_fleetwide_claim_patterns/`.
+
+> **Two things remain true and neither reopens this bug.** (1) The council round is
+> **advisory and still open** — round 1 REVISE on a guardian *scope* objection (not a
+> veto), round 2 submitted on corr `899ed92e-1bf7-4707-96d8-24f102aa14fa`. Closure
+> follows the `/bugs_closed` bar (fixed AND live), which is independent of the verdict
+> — the same way `bugs_closed/124` closed carrying a REJECTED verdict. **If the
+> guardian escalates to veto and the owner sides with it, the design changes and this
+> file reopens**; that is a live possibility, not a formality. (2) The strongest of the
+> ten candidate patterns is deliberately **excluded** pending a code-level negation
+> guard — that is a separate, unowned, architecture-scope piece of work, filed in
+> § "What is deliberately NOT fixed" below, NOT a residual of this bug.
+
+Not a new idea — see "This decision is already filed" below.
 
 ## Measurement
 
