@@ -1543,3 +1543,57 @@ external-verification pattern your 226 set originated —
 excluded on 07-28 for false-positiving on negated sentences and is armed now that the
 guard exists. It is deduped against your copy, so you get one finding per sentence, not
 two. Details: CLM-017, `bugfix_104_fleetwide_claim_patterns/RUNBOOK_…` §13.
+
+## 2026-07-29 (evening) — the checker layer, measured and queued as `bugs_open/149`
+
+Owner: *"there are a lot of fixes to be done with the checkers — list them and we'll
+work through them"*, with one named requirement: **`run_discovery_checks` must write
+copy that follows the claims checking like everything else.**
+
+> **CORRECTED — and it corrects what I wrote this afternoon, twice.** I said the
+> orphan detector's agent "has raised nothing automatically since 07-17". Wrong
+> agent. `orphan_pages` is in `completeness-discovery-agent`, which **is** running:
+> 144 items, last **2026-07-25**. 07-17 belongs to `quality-discovery-agent` (7
+> items ever). Both errors were the same move — attaching a measurement to the
+> nearest plausible subject instead of the one it was grouped by. The cheap check is
+> to name the grouping column in the sentence; a bare date cannot be wrong out loud.
+
+What the measurement actually found, on the owner's requirement first:
+
+**There is no claims gate on discovery-triggered copy.** Of the 22 handler agents
+discovery checks route to, **2** run `validate_page_content` (`page-build-handler`,
+`tool-recreation-handler`). `page-content-writer` has **no validation step at all** —
+`research-agent` → `execute_llm_prompt` (gemini-pro-latest, 8000 tok) →
+`render_component` → compile → complete. `internal-linker` is the same. And the write
+happens inside a `loop` **sub_workflow**, which per `bugs_open/144` is validated by
+nothing — so 144 blocks *trusting* any fix placed there, even a correct one. The
+claims settings on `validate_page_content` all default to `true`, so the work is
+mostly adding the step; set it explicitly anyway, because a silent default is exactly
+what caused the `in_header` misrouting.
+
+**And the backstop is not running either.** `unverified_claims` is HITL-terminal by
+design (correct), but it lives in `quality-discovery-agent` — 7 items in its whole
+history, nothing since 07-17 — and `claims_unverified` has **zero rows fleet-wide**.
+No write-time gate *and* no working detector is the real exposure, which is why C1
+sits above the routing work in the queue.
+
+**The orphan check has never repaired a page by any of its three branches**:
+`orphan_blog_posts` 3 items / 0 complete, `needs_internal_links` **33 items / 0
+complete since 2026-04-23**, `nav_drift` completes and provably changes nothing for
+`/tools/`. And **no `nav_drift` item has ever been raised by a discovery agent** —
+all 16 came from sessions firing checks by hand. Cause left `[UNMEASURED]` with the
+three candidates named, because dispatch coverage, a swallowed check error and dedup
+suppression have different fixes and I have not excluded any of them.
+
+**Six registered checks are configured in no agent and have raised 0 items ever**,
+`validate_component_standards` among them (it alone raises 7 item types).
+
+One near-miss worth keeping: six *other* configured names looked unregistered to a
+grep for literal `Name()` returns, and I nearly filed them. They are registered
+dynamically per profile at `check_directory.go:111`. **A dynamic registration is
+invisible to a grep for string literals** — enumerate via the registry, not the
+source. Verified before filing, so it cost nothing this time.
+
+This is a fleet-wide queue rather than oufe work, but it is oufe's rail that made it
+visible: a site that cannot publish an unsourced figure is the one place where "the
+handler writes copy without a claims check" is not an abstraction.

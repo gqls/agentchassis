@@ -11568,3 +11568,20 @@ is made concrete" — a condition that was already met and could not be seen to 
 **The cheap check:** for each claim in a submission's prose, ask whether the sketch
 shows it. If the sketch is a summary of the diff rather than a sample of it, the
 reviewer is being asked to take the interesting parts on trust.
+
+> **CORRECTED 2026-07-29 (same day, while building `bugs_open/149`).** The entry
+> above says I traced the detector "to a discovery agent that has raised nothing
+> automatically since 2026-07-17". **That date is attached to the wrong agent.**
+> `orphan_pages` lives in `completeness-discovery-agent`, which **is** running — 144
+> work items, most recent **2026-07-25**. The 07-17 date belongs to
+> `quality-discovery-agent` (7 items in its whole history, dead since 07-17), which
+> carries `unverified_claims` and `voice_tells`. The accurate statement about the
+> orphan branch is narrower and stranger: the agent runs, and **no `nav_drift` item
+> has ever been raised by a discovery agent** — all 16 came from named sessions or
+> `created_by='generic'`. Cause still `[UNMEASURED]` (dispatch coverage / swallowed
+> check error / dedup suppression) and filed as `149` B2.
+> *Two errors in one line, and the same shape both times: I attached a measurement
+> to the nearest plausible subject instead of the one it was `GROUP BY`-ed on.* The
+> cheap check is to put the grouping column in the sentence — "**this agent** last
+> raised **this item type** on this date" — because a bare date cannot be wrong out
+> loud. Family: `a-count-you-kept-is-not-a-census`.

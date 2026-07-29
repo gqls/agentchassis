@@ -1,5 +1,14 @@
 # 146 — 11 deployed tool pages are unreachable, and the check that finds them has not run automatically since 2026-07-17
 
+> **THE TITLE IS WRONG — corrected 2026-07-29, file not renamed (forward-only).**
+> `orphan_pages` lives in `completeness-discovery-agent`, and that agent **is**
+> running: 144 work items, most recent **2026-07-25**. The 07-17 date belongs to
+> `quality-discovery-agent`. The accurate and stranger fact is that **no `nav_drift`
+> item has ever been raised by a discovery agent** — all 16 came from named sessions
+> or `created_by='generic'` — while the same agent kept raising other item types.
+> Cause `[UNMEASURED]`. Full working, and the rest of the checker-layer queue:
+> **`bugs_open/149`.**
+
 **Filed 2026-07-29 (oufe workstream, found while looking for where to link a second
 tool). One instance fixed in-lane; the fleet residual and the two mechanisms below
 are unowned.**

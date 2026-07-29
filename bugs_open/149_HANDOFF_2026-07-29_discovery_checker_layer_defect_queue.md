@@ -1,0 +1,249 @@
+# 149 — the discovery checker layer: defect queue
+
+**Filed 2026-07-29 at the owner's request ("there are a lot of fixes to be done with
+the checkers — list them and we'll work through them"). This is a QUEUE, not a
+diagnosis: every item below is measured, with the query that measured it, so the
+next thread can re-run it rather than trust it.**
+
+Everything here was found by pulling one thread — `bugs_open/146`, an unreachable
+tool page — and asking why it was never linked. Nothing here is speculative; where
+a cause is not yet established it is marked `[UNMEASURED]` and says so.
+
+**Standing caution for this whole queue:** several of these checks are *correct* and
+the defect is in the seam between them and their handler. Read the handler's action
+before "fixing" a check. That mistake is what produced `146`'s first, wrong write-up.
+
+---
+
+## Group C — the claims gate. **Owner's explicit requirement; top of the list.**
+
+> *"The rewrite for `run_discovery_checks` must write copy that follows the claims
+> checking like everything else."*
+
+### C1. Copy written by discovery-triggered handlers is never claims-checked
+
+**Measured 2026-07-29.** Of the 22 handler agents that discovery checks route work
+to, **exactly 2 gate on `validate_page_content`** — `page-build-handler` and
+`tool-recreation-handler`. The rest have no validation step and the string
+`validate_page_content` appears nowhere in their config.
+
+The important one is **`page-content-writer`**, the handler for `placeholder_contact`
+and for `validate_component_standards`' `needs_content_page`. Its entire workflow:
+
+```
+spawn_research_agent → spawn_link_resolver → load_site_specs → prepare_link_context
+  → build_render_context → resolve_links → select_sections
+  → process_sections_loop   [loop, sub_workflow:
+        call_researcher (call_agent research-agent)
+        → generate_content (execute_llm_prompt, gemini-pro-latest, max_tokens 8000)
+        → render_section (render_component)]
+  → compile_page → complete
+```
+
+There is no validation anywhere in it. An LLM writes prose, it renders, it compiles,
+it completes. `internal-linker` is the same shape — `plan_links` is an
+`execute_llm_prompt` with no gate.
+
+**Two aggravating factors, both already known and both landing exactly here:**
+- The LLM write happens **inside a `loop` sub_workflow** — and per `bugs_open/144`,
+  `sub_workflow` steps are validated by *nothing* (not cycle, not depends_on, not
+  must-have-action, not config-key). So even adding a validation step inside that
+  sub-workflow needs 144 resolved before anyone can trust it is wired.
+- `validate_page_content`'s claims settings **default to `true`**
+  (`validate_page_content.go:223,231,247` — `check_claims`, `check_stat_claims`,
+  `check_claims_fleet_wide`). So the fix is mostly *adding the step*, not configuring
+  it. Do not repeat the `in_header` mistake (A4) of relying on a default silently:
+  set it explicitly so the intent is on the record.
+
+**The fix.** Every handler that emits prose either runs `validate_page_content` with
+claims checking on, or routes its output through one that does. `run_discovery_checks`
+itself writes no copy — the rewrite the owner is asking for is at the handler seam,
+and the honest scope is "every content-emitting handler", not one action.
+
+**Verification query** (re-run after any fix; expect `validate_steps ≥ 1` for every
+handler with a content-generating step):
+```sql
+SELECT a.type,
+       (SELECT count(*) FROM jsonb_each(a.default_config->'workflow'->'steps') s
+        WHERE s.value->>'action'='validate_page_content') AS validate_steps
+FROM agent_definitions a
+WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL;
+```
+
+### C2. `report-builder` explicitly disables claims checking
+
+It is the **only** agent that sets `check_claims: false` on `validate_page_content`.
+Either there is a reason that belongs on the record, or it is a leftover. Find out
+which before switching it on — a report that legitimately restates figures from a
+cited upstream may need different handling, not the same gate.
+
+### C3. The claims DETECTOR lives in the least-run discovery agent
+
+`unverified_claims` and `voice_tells` are registered **only** in
+`quality-discovery-agent`, which carries just 5 checks and has raised **7 work items
+in its entire history, none since 2026-07-17**. Fleet-wide, `claims_unverified` has
+**zero rows ever**.
+
+`check_unverified_claims.go:145` is explicit that this is HITL-terminal by design —
+`HandlerAgent: ""`, `Status: needs_human_review`, *"no automated handler, ever"* —
+and that is right. But it means detection is the only backstop, and the backstop is
+not running.
+
+**So today there is neither a write-time gate (C1) nor a working after-the-fact
+detector (C3).** That pairing is the actual exposure, and it is why C1 should not be
+deferred behind the routing work in Group A.
+
+---
+
+## Group A — routing: detection that cannot repair
+
+### A1. `check_orphan_pages` has never repaired a page, by any of its three branches
+
+| branch | item type | items | `complete` | last raised |
+|---|---|---|---|---|
+| blog | `orphan_blog_posts` | 3 | **0** | 2026-07-15 |
+| nav-flagged | `nav_drift` | 16 | 15 — **and proven no-op for `/tools/`** | 2026-07-29 |
+| unflagged | `needs_internal_links` | 33 | **0** | 2026-07-28 |
+
+`needs_internal_links` has been accumulating since **2026-04-23** — three months, 33
+items, not one resolved. `internal-linker` exists and is active. Nobody has checked
+whether it fails, is never dispatched, or completes without effect. `[UNMEASURED]`
+
+### A2. `nav_drift` for a `/tools/` URL is structurally unfixable by its own handler
+
+`nav_drift` → `nav-updater` → `populate_nav_tables`, which **skips every URL under
+`/tools/`, `/blog/`, `/guides/`, `/articles/`, `/case-studies/`, `/news/`,
+`/resources/`, `/insights/`** (`populate_nav_tables_action.go:294,339`) on the stated
+ground that the parent listing represents them. Proof: a `nav_drift` item raised
+2026-07-24 for `tool-ai-agent-roi-estimator` is `complete`; the page has **0 nav
+items and 0 chrome links** today. Fleet-wide, **2 nav items point at a tool page, out
+of 95 deployed tool pages.** Full mechanism in `bugs_open/146` §4.
+
+### A3. Missing route: `orphan_tool_pages` → rebuild the tools listing
+
+The platform's own contract (that same comment) is that the parent listing
+represents child pages — but nothing keeps a tools listing in sync when a tool is
+added. The exact analogue exists for blogs (`orphan_blog_posts` → `rerender-pages`).
+A listing alone is not sufficient: **gamesdesign.co.uk has `/tools/index.html`
+(`page_type='section-index'`) and still has 4 orphans**, because the listing
+enumerates only the tools using one of its two URL conventions
+(`/tools/<name>/index.html` vs `/tools/tool-<name>.html`).
+
+### A4. `pages.in_header` / `in_footer` **DEFAULT TO TRUE**, and that default does the routing
+
+`create_tool_component_action.go:280` omits both columns from its INSERT;
+`deploy_tool_action.go:117` defaults `inHeader := true` in Go. So the nav flag
+records no decision — and `check_orphan_pages` branches on it, sending these pages to
+`nav_drift` (A2, unfixable) instead of `needs_internal_links` (the branch that would
+be right). Changing the column defaults is a **shared-schema change** — architecture
+scope, own council round, and the fleet needs sweeping first for rows that are only
+correct by inheriting `true`.
+
+### A5. Two nav builders with opposite predicates
+
+`populate_nav_tables` **excludes** tool pages from nav; `buildServicesHTML`
+(`render_site_components_action.go:950`) **includes** any `in_header OR in_footer`
+page in the chrome footer. Identical rows produce different live sites depending on
+which ran last. One of the two is wrong; decide which.
+
+### A6. The two tool creators each do half the nav write
+
+`deploy_tool_to_site` sets the flags and writes **no `site_nav_items` row at all**
+(only `populate_nav_tables_action.go` and `create_tool_component_action.go` write
+that table). `create_tool_component` writes the nav item but never sets the flags.
+Neither re-renders chrome. Fix at creation time — it makes the bad state
+unrepresentable, which is why `146` now ranks it above detection.
+
+---
+
+## Group B — coverage: checks that never run
+
+### B1. Six registered checks are configured in NO agent and have raised ZERO items, ever
+
+`backend_unreachable` · `cross_site_contamination` · `orphan_element_refs` ·
+`tool_recreation_needed` · `unrendered_templates` · `validate_component_standards`
+
+Confirmed two ways: absent from every live `run_discovery_checks` `checks` array, and
+**0 rows across all 11 item types they raise**. `validate_component_standards` alone
+raises seven (`broken_template_slots`, `missing_logo_in_header`, `needs_content_page`,
+`slot_name_mismatch`, `stacked_nav`, `unlinked_site_component`, `unwanted_nav_element`).
+Each needs a decision: seat it in an agent, or delete it. Dead-but-plausible checks
+are worse than absent ones — they read as coverage.
+
+> **Not a defect, checked and cleared:** six configured names
+> (`missing_*_tracker_page/section`, `missing_model_directory_*`) look unregistered to
+> a grep for literal `Name()` returns, but `check_directory.go:111-116` registers them
+> dynamically per profile. They are fine. *A dynamic registration is invisible to a
+> grep for string literals — enumerate via the registry, not the source.*
+
+### B2. No `nav_drift` item has ever been raised by a discovery agent
+
+All 16 came from named sessions or `created_by='generic'` — i.e. threads firing
+checks by hand. Meanwhile `completeness-discovery-agent` (which carries
+`orphan_pages`) *is* running — 144 items, most recent 2026-07-25 — but its
+orphan-branch output stopped: `needs_internal_links` last 2026-07-17,
+`orphan_blog_posts` last 2026-07-15, `nav_drift` never.
+
+**Cause undetermined `[UNMEASURED]`.** Three candidates, none excluded: (a) the agent
+is only dispatched at some sites and never at the ones with orphans; (b) the check
+errors and is swallowed — `discovery_checks.go:152` logs a failed check at WARN and
+`continue`s; (c) `insertWorkItem` dedup suppresses re-raising against an existing
+non-terminal item with the same `item_key` (`nav_drift:<site_id>` is one item per
+site). **Establish which before changing anything** — the three have different fixes.
+
+### B3. `quality-discovery-agent` is effectively dead
+
+5 checks, 7 work items in its whole history, nothing since 2026-07-17 — while its
+two siblings ran to 07-25 (144 and 108 items). It carries `unverified_claims` and
+`voice_tells`, so this is the same defect as C3 viewed from the cadence side.
+
+### B4. An unregistered check name is a WARN and a `continue`
+
+`discovery_checks.go:141-146`: `checks.Get(name)` returning nil logs
+*"Unknown discovery check — not registered"* and moves on. A typo in a `checks` array
+is invisible from outside the pod — the run reports success with a silently smaller
+check set. Same for a check that *errors* (`:152`). **`checks_run` in the output
+should record what actually ran, not what was requested** — and a name that resolves
+to nothing should fail the step, not shrink it.
+
+---
+
+## Corrections to `bugs_open/146`, made while measuring this queue
+
+- **The filename says "the check that finds them has not run since 07_17". That is
+  wrong as stated.** `completeness-discovery-agent`, which carries `orphan_pages`,
+  ran to **2026-07-25**. The 07-17 date belongs to `quality-discovery-agent`
+  (B3) and to that agent's `needs_internal_links` output. The file is not renamed —
+  forward-only — so read this correction with it. The accurate statement is B2:
+  the agent runs, and its orphan branch has produced nothing automatically.
+- `146`'s "cadence, not code" framing was corrected in that file earlier today; the
+  creation-time causes are now its candidate 0. See also `WRONG_CALLS.md` 2026-07-29.
+
+---
+
+## Suggested order of work
+
+1. **C1 + C3** — the claims gate. No write-time gate *and* no working detector is the
+   only item here with a content-correctness consequence rather than a
+   discoverability one.
+2. **B4** — make silent check-skipping loud. It is small, it is self-contained, and
+   every measurement in Group B is untrustworthy until it lands.
+3. **B2** — establish why the orphan branch never fires automatically. Cheap, and it
+   decides whether Group A's fixes would even be reached in production.
+4. **A6 → A2 → A3** — creation-time first (unrepresentable beats detectable), then
+   stop routing `/tools/` to a handler that cannot act, then add the real route.
+5. **A4, A5** — schema default and the two nav builders. Both are shared-mechanism
+   changes wanting their own council round; neither blocks the above.
+6. **B1** — seat or delete the six dead checks.
+7. **A1** — `internal-linker`'s 0-for-33 record. Likely subsumed by 2–3 above; check
+   before spending on it separately.
+
+## Relations
+
+`bugs_open/146` (the case this came from) · `bugs_open/144` (`sub_workflow` validated
+by nothing — blocks trusting any fix inside `page-content-writer`'s loop) ·
+`bugs_open/128` (`check_image_url_404` masks working images and misses broken ones —
+same layer, already owned) · `bugs_open/140` (a component asserting what the site
+never said) · `bugs_open/117`/`118` (chrome is a stored artefact) ·
+`bugs_open/098` (deployed ≠ fetchable; A1 is fetchable ≠ reachable) ·
+016b §9 *"a detected defect whose handler cannot act on it"*.
