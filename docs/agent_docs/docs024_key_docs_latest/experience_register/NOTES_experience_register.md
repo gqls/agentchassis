@@ -1008,3 +1008,48 @@ external bundle. `tier: 4` says the true thing once instead of two half-truths.
 So the honest reading of this entry today: **2 of 10 clauses checkable, both passing.** Up from 1 of
 5, and the denominator grew because gaps that were silent are now counted. A worse-looking ratio
 that is a better entry.
+
+---
+
+## 2026-07-29 — the owner's three rulings, and a council round that DIED rather than revised
+
+### The rulings (RFC 002 RATIFIED — full text in `architecture_review/RFC_002…` §9)
+
+1. **A shared-vocabulary addition needs an RFC only when it changes what the mechanism
+   GUARANTEES**, not merely because the vocabulary is shared. Our case triggered it because the
+   two types made Tier 2 able to **refute** where its rule was "confirm, never refute".
+   *Immediate consequence for this workstream:* of the three capability gaps queued
+   (event listeners, fault injection, per-row conditionals) none obviously changes a guarantee —
+   **except fault injection, which deserves a second look**: "the runner may now break things on
+   purpose" is plausibly a guarantee change. Ask, don't assume.
+2. **No default-OFF switch; review here is after the fact, by design.** This RETIRES condition (1)
+   of CLAUDE.md's ordering exemption — the "real, stated ordering constraint" — because it asked
+   for something no thread can supply on a shared HEAD. My §1.3 confession in RFC 002 is retired
+   with it: I was describing a rule that could not be complied with, not a lapse.
+3. **Other consumers must be TOLD, not merely measured.** Done: a dated note in
+   `travelling_docs/README_where_we_are.md` leading with what changed about *their* guarantee.
+
+### CC-001 round 3 did not come back REVISE — it came back not at all
+
+`[MEASURED]` The run dispatched at 08:19:54 stopped advancing at ~08:20 on
+`review_observable_outcome` and sat in `EXECUTING_STEP` for **239 minutes** before I looked.
+**A second council run, dispatched at 08:19:56, stalled at the same instant on a different seat.**
+Two runs, two seconds apart, both dead on their first review step; runs dispatched at 12:14–12:19
+completed normally. So it is a **window**, not a permanent break, and it is in something the two
+runs share rather than in one hung LLM call.
+
+**This is the third council outcome the handoff warns about, met for real.** The previous session
+recorded the class as `[UNDIAGNOSED]` with **"trigger to file is recurrence"** — that trigger is
+now met (07-28: 3 reaped of 48; 07-29: 1 reaped + 2 wedged of 16), so it is filed as a
+needs_diagnosis rather than root-caused here by me. `bugs_closed/043` is the same *shape* on the
+`route` step and is closed; this is `review_*`.
+
+> **The operational rule, because it cost me a wait:** a council row still on
+> `EXECUTING_STEP` after ~15 minutes is not "queued" and is not a slow verdict — round 2 of this
+> same submission took **three minutes end to end**. Poll with `error` in the SELECT, compare
+> `updated_at` not `created_at`, and if it has not moved in 15 minutes treat the round as lost and
+> resubmit. Waiting for the 4-hour reaper to confirm it costs four hours and tells you nothing new.
+
+Also: **the fleet rolled twice more while I worked** (1197 → 1198 by 09:55Z), neither roll mine.
+Re-grepped v1.0.1198 with a negative control; both changes still live. A roll you did not do is a
+reason to re-grep, and it is also why the 08:19 pair could never recover — their pods are gone.
