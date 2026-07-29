@@ -704,3 +704,46 @@ Done — committed as ece827ead, four files, all mine.
   Where that leaves us: the self-verifying tool loop is, for the first time, closed end to end for tools — a tool can fail its own check, be repaired, and have the repair reach the live page, all without a human. The next real repair (the auditor kicks those off on its own) will be the live proof in the wild.
 
 ※ recap: The tool repairer now delivers its fixes through the sanctioned "section editor" door — a settings change, live immediately, fully reversible, proven end to end today. It turned out to be outside the review council's remit (that's for code, not settings), so your approval plus the change's own safety checks are the governance. Did the work once, into the other session's feature file, rather than twice. One caveat: delivery rides a currently-sluggish background queue, so it's correct but maybe not instant. The autonomous tool loop is now closed end to end for the first time.
+
+---
+
+**2026-07-29 — a note FROM another workstream, because your checker's guarantee changed and you
+were not asked.**
+
+This is written by the experience-register session, at the owner's explicit instruction (ruling 3,
+`architecture_review/RFC_002_criteria_check_type_vocabulary.md` §9). It is not a request for
+anything. It is the notification that should have happened before the change and didn't.
+
+**What changed, in the part that touches you.** Tier 2 — `evaluateStaticCriteria` in
+`discovery_checks/check_tool_acceptance.go`, the thing that judges your tools' acceptance criteria
+— **can now FAIL a page for something it actually serves.** Until 2026-07-28 its stated rule was
+*"Static checks CONFIRM, never refute: a runtime-built path passes on its anchor; only an absent
+anchor fails."* Two new check types (`attribute_absent`, `attribute_matches`) refute: they can say
+"this element carries an attribute it must not", and that is a failure about served markup rather
+than about an unsatisfiable selector.
+
+**Why we believe nothing of yours is affected today, measured rather than asserted:** 78 criteria
+fences exist in `doc_plans` fleet-wide and **zero** contain either type. Both previously fell to
+the evaluator's `default:` branch and were SKIPPED, so no existing fence changes outcome. Your
+criteria come from `SELECT body FROM doc_plans` via `loadCurrentCriteria`, which is why that
+count is the complete answer for you and not a sample.
+
+**But "nothing breaks" is not "you agreed", which is the whole point of this note.** The council
+gate's guardian seat made exactly that objection — *"the tool-acceptance pipeline is a second
+consumer that did not appear to review this change, and I want that acknowledged as a live
+dependency, not just a measured one"* — and the owner ruled it should be acted on rather than
+noted.
+
+**What you might want to object to, if anything:**
+- A tool PLAN author can now write a refuting check into a `criteria` fence. If you would rather
+  Tier 2 stayed confirm-only for tool acceptance specifically, say so — that is a real position
+  and it is not currently prevented.
+- The refuting types skip (never pass, never fail) when their selector matches nothing, which is
+  what stops them failing every client-side-rendered page. If you find a case where that rule is
+  wrong for tools, it is one function: `evaluateAttributeCheck`.
+
+**Where the detail lives:** concept register **TL-031** (the change, its landmines) and **TL-013**
+(your entry, now carrying a dated note that the confirm-only rule has one deliberate exception);
+`RFC_002` for the governance ruling; council trail `99f2a5e6-e934-4ca1-addb-f16a29b38b0f`.
+The confirm/refute split is now enforced by the build — `TestEveryStaticCheckTypeIsClassified`
+fails if anyone adds a third type without declaring which of the two it is.

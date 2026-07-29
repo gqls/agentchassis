@@ -131,10 +131,12 @@ parameter namespace that way and drew a REJECTED verdict on exactly that ground.
 
 **The ruling is that the code stays and the precedent gets fixed.** So, from now:
 
-- **A platform seam may ship ahead of its review only when BOTH hold.** (1) There
+- ~~**A platform seam may ship ahead of its review only when BOTH hold.** (1) There
   is a **real, stated ordering constraint** — the config or data half cannot be
   applied against the old binary without breaking something live. Name it in the
-  commit message; "it was convenient" is not one. (2) The seam is **registered in
+  commit message; "it was convenient" is not one.~~ **Condition (1) SUPERSEDED by
+  the owner ruling of 2026-07-29 (below); condition (2) STANDS and is now the
+  whole of the requirement.** (2) The seam is **registered in
   the concept register in the same commit that ships it**, with its landmine and
   the open review question written down. Not "later" — later is how a seam becomes
   folklore.
@@ -149,6 +151,43 @@ parameter namespace that way and drew a REJECTED verdict on exactly that ground.
   human break it — especially when seats disagree with each other, which they did
   here: the guardian's contained alternative was precisely what the `reuse_agent`
   seat objected to in the same round.
+
+### OWNER RULING 2026-07-29 — three answers, and one of them retires a rule above
+
+Raised by `architecture_review/RFC_002_criteria_check_type_vocabulary.md` after the
+council gate's `architecture` and `guardian` seats reached opposite defensible
+conclusions about the same change in the same round.
+
+1. **An addition to a shared vocabulary needs an RFC only when it changes what the
+   shared mechanism GUARANTEES** — not merely because the vocabulary is shared. The
+   worked case: two new criteria check types made the Tier 2 evaluator able to
+   **refute** (fail a page for what it serves) where its stated rule had been
+   "confirm, never refute". *That* is the RFC trigger. A type that only adds an
+   opt-in capability, reachable by nothing until a document names it, goes through
+   the normal council gate. So the opening paragraph of this section — "even when it
+   is additive, small and well tested" — is **narrowed**: additive-and-inert is not
+   the same as additive-and-guarantee-changing, and only the second is
+   architecture-scope.
+
+2. **CONDITION (1) OF THE ORDERING EXEMPTION IS RETIRED, because it asks for
+   something no thread can supply.** It assumed a thread could hold a change out of
+   the fleet and was choosing not to. On this tree it cannot: HEAD is shared,
+   `make build-*` builds from committed HEAD, and any other session's roll ships
+   your commit. RFC 002's own case is the proof — the change was submitted before it
+   was committed, explicitly disclaimed an ordering constraint, and went live anyway
+   on another session's build. **The only mechanism that actually holds a seam back
+   is a default-OFF switch, and the owner has ruled we will NOT require one** (its
+   cost is a mechanism rotting unexercised, which this platform has been bitten by
+   before). So: **review here is after the fact, by design.** Do not claim an
+   ordering constraint you do not have; do not pretend you could have waited.
+   What is still required is condition (2) — registration in the same commit — plus
+   submitting to the gate before or alongside the commit.
+
+3. **A shared mechanism's OTHER consumers must be told, not merely measured.**
+   Measuring that zero existing documents are affected proves nothing breaks; it
+   does not establish that the other pipeline's owners would have agreed. Name the
+   consumers in the submission, and tell them — the useful message is what changed
+   about their guarantee, not a list of your new keys.
 
 Worked example, with the evidence and the three options costed:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_124_double_dispatch/REVIEW_2026-07-28_ctx_namespace.md`.

@@ -1,6 +1,6 @@
 # RFC 002 — Who may add a check type to the shared criteria vocabulary, and on what terms
 
-**Status: DRAFT** · raised 2026-07-29 by the experience-register session, **at the owner's
+**Status: RATIFIED 2026-07-29** (owner; three answers in §8, now §9) · raised 2026-07-29 by the experience-register session, **at the owner's
 explicit instruction** ("route it to a real architecture review") after the council gate's
 `review_architecture` seat ruled on corr `99f2a5e6-e934-4ca1-addb-f16a29b38b0f`.
 
@@ -191,3 +191,52 @@ That disagreement predates this change and survives its removal.
 **Related:** `bugs_closed/124` (the precedent: code stays, precedent gets fixed);
 `bugs_open/137`; concept register **TL-031** (the change, its landmines, and the ruling recorded
 verbatim); council trail `99f2a5e6-e934-4ca1-addb-f16a29b38b0f`, two rounds.
+
+---
+
+## 9. RATIFIED — the owner's three answers, 2026-07-29
+
+Asked as three plain questions and answered directly. Recorded here, and the two that
+change standing practice are written into `CLAUDE.md`'s seam section in the same commit,
+because a ruling that lives only in an RFC is a ruling nobody will find.
+
+**Q1 — does a new key in a shared check vocabulary need an RFC? → ONLY WHEN IT CHANGES A
+PROMISE.** Not merely because the vocabulary is shared. The distinction the owner adopted
+is the one this RFC proposed in §2.2: `attribute_absent`/`attribute_matches` needed review
+because they made Tier 2 able to **refute**, where its stated rule was "confirm, never
+refute" — a change to what the shared thing guarantees. A type that only adds an opt-in
+capability, reachable by nothing until a document names it, goes through the normal
+council gate.
+
+*Consequence, immediately:* of the **three capability gaps already queued** —
+event-listener assertion, fault injection at the fetch boundary, per-row conditionals —
+none obviously changes a guarantee, so on this ruling they are ordinary gated changes.
+**But fault injection deserves a second look before anyone assumes that**: serving a
+deliberately broken feed is not an assertion, it is a new power over the environment
+under test, and "the runner may now break things on purpose" is plausibly a guarantee
+change. Whoever builds it should ask, not assume.
+
+**Q2 — should changes like this ship behind a default-OFF switch? → NO. Review here is
+after the fact, by design.** This retires condition (1) of the ordering exemption, which
+asked for a "real, stated ordering constraint" as the price of shipping ahead of review.
+The condition assumed a thread could hold a change back and was choosing not to; on this
+tree it cannot. This RFC's own case is the proof — submitted before it was committed,
+explicitly disclaiming any ordering constraint, live anyway on another session's build.
+The owner weighed the off-switch and declined it: a switch nobody turns on is how a
+mechanism rots unexercised, and that cost was judged higher than the review-timing one.
+
+*So the honest rule is now:* register in the same commit, submit to the gate before or
+alongside committing, and **do not claim an ordering constraint you do not have.**
+§1.3 of this RFC — written as a confession — is retired as a finding: it was describing
+a rule that could not be complied with, not a lapse.
+
+**Q3 — tell the tool-acceptance owners retrospectively? → YES.** Measuring zero affected
+documents proves nothing breaks; it does not establish consent. Done in the same commit —
+a dated note in the travelling-docs workstream, which owns Tier 2 acceptance. The message
+is deliberately *"your evaluator can now fail a page for something it serves, where before
+it could only confirm"*, not a list of two new keys: the guarantee is the part that
+touches them.
+
+**What this RFC does NOT decide, and nobody should read into it:** whether the served
+`href="#"` on vonc's archive template is a defect. That is `bugs_open/137`, it is still
+open, and it now blocks CC-001 from verifying — which is the correct pressure on it.
