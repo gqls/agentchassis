@@ -157,3 +157,51 @@ then re-checks each one over HTTP before reporting.
 > Repair applied 2026-07-29 (fundamentallyai only): site default → real homepage hero,
 > plan-intended hero on capabilities, LLM-free re-renders; verified on persisted rows and
 > served pages. Full evidence: brochure_component_library NOTES, 2026-07-29 entry.
+
+---
+
+## Contribution 2026-07-29 (session "bugsearch 6") — your traced mechanism is live on SIX more sites, named and probed
+
+Not a fix and not my lane. The 07-29 repair note above says **"fundamentallyai only"**,
+and this file already says `/assets/images/hero.jpg` is *"a filename that exists on no
+site in the fleet"*. Both true. What was not written down is **how many sites are
+currently painting it**, so here it is, measured today.
+
+**Ten live sites still carry the legacy site-wide default** `sites.content_data.hero_url`
+— the injected value your session traced through `BuildRenderContext`:
+
+```
+dartsonline.com · gamesdesign.co.uk · idea.uk · oufe.com · relojistas.com
+robot-hands.com · vetcomparison.uk · vonc.com · webdesign.co.uk   -> /assets/images/hero.jpg
+fundamentallyai.com                                              -> /assets/images/hero-home.jpg   (your repair)
+```
+
+**Six of them are serving a 404 on deployed pages right now**, HTTP-probed
+2026-07-29, every one `/assets/images/hero.jpg`:
+
+```
+404  gamesdesign.co.uk    404  idea.uk        404  oufe.com
+404  relojistas.com       404  vonc.com       404  webdesign.co.uk
+```
+
+`idea.uk` is the site taking real money and `oufe.com` is the one with the
+contemporaneous legal record, so two of the six are the estate's more exposed sites.
+(The other four of the ten either do not reference the default on a deployed page or
+resolve it — `robot-hands.com` and `dartsonline.com` did not appear in the deployed-page
+reference scan, and `vetcomparison.uk` has no `/assets/images/*` references at all.
+Re-derive rather than trusting that parenthesis.)
+
+**Why no sweep will tell you this**, which is the part that connects to your own note
+that *"the check tests the wrong absence"*: `image_url_404` has the identical flaw, and
+I have just diagnosed it in `bugs_open/128`. It skips any rendered path whose basename
+matches an active **asset purpose** for that site — so every one of these six is masked
+by its own site's `hero` asset. Measured: **79 of 95 distinct rendered image paths on 13
+sites are invisible to that check, 83% of its nominal surface**, and these six 404s are
+inside the invisible set. So `check_placeholder_image_in_use` and `image_url_404` fail
+the same way for the same reason, which makes it a class rather than two bugs.
+
+Left entirely to this lane to decide whether to repair the other six the way
+fundamentallyai was repaired — you have the merge-order finding and the LLM-free rerender
+recipe, and I do not want to compete with a session that has that context. Flagging it
+because your repair note reads as complete for the site it names, and a reader could
+reasonably take "fundamentallyai only" as "the rest are fine".

@@ -124,3 +124,133 @@ A fix that reports all three identically has not distinguished anything.
 - Not `bugs_open/114` (imagery generated and never referenced) — that is the opposite
   direction: assets that exist and nothing points at them. This is references with no
   asset.
+
+---
+
+## Diagnosis 2026-07-29 — the filed hypothesis is REFUTED, and the real mechanism is worse: the check is blind to 83% of the surface it is named for
+
+Session "bugsearch 6". Code read first, as § Defect 2 asked. Not a fix — a diagnosis,
+three fact corrections, and a measured blast radius.
+
+### § Defect 2's hypothesis is wrong, and it matters that it is wrong
+
+The filed `[HYPOTHESIS]` was: *"`hero` is a known purpose and `brand-illustration` is
+not, so the two took different branches and only the flag-only branch produced a row."*
+
+**Both branches emit a work item.** `check_image_url_404.go:111-128` emits the flag-only
+`image_url_404` item; `:142-156` emits a `needs_hero_image` item routed to
+`image-build-handler` — with the **same** `ItemKey` (`image_url_404:hero`, `:154`), which
+is why the file's dedup ruling-out was searching the right key. Routing cannot explain
+the miss. Had the recognised branch fired, an item would exist.
+
+**The miss happens BEFORE the branch, at `:77-87`:**
+
+```go
+if knownPurposes[basename] { continue }   // <- hero.jpg dies here
+root := basename
+if idx := strings.Index(basename, "-"); idx > 0 { root = basename[:idx] }
+if knownPurposes[root] { continue }       // <- hero-anything.jpg dies here
+```
+
+`knownPurposes` is built by `loadKnownAssetPurposes` (`:207-230`) as
+`SELECT DISTINCT purpose FROM assets WHERE site_id=$1 AND purpose IS NOT NULL AND status='active'`.
+**It is a set of PURPOSE NAMES, and it is compared against a rendered FILE PATH's
+basename.** Verified on the reporting site:
+
+```
+fundamentallyai.com active asset purposes: hero (x4, all S3 URLs), icon (x13), og_card
+```
+
+So `knownPurposes["hero"]` is true, and `/assets/images/hero.jpg` is skipped — because
+the site owns *a* hero asset somewhere, which says nothing whatever about whether that
+path resolves. **The real defect: owning one asset of a purpose makes the check blind to
+every rendered path sharing that purpose's name** — and the `root` fallback at `:82-87`
+widens it to the whole `hero-*`, `icon-*`, `logo-*` prefix space.
+
+### Blast radius, measured fleet-wide rather than argued
+
+Every distinct `/assets/images/*` basename in deployed unlocked `page_components`,
+tagged by whether the purpose-skip masks it:
+
+| | distinct paths | sites |
+|---|---|---|
+| **masked — the check CANNOT report these** | **79** | **13** |
+| checkable | 16 | 4 |
+
+**The check is structurally blind to 79 of 95 paths — 83% of the surface its name
+claims.** Then probed all 79 over HTTP: **73 serve 200, and SIX ARE LIVE 404s:**
+
+```
+404  gamesdesign.co.uk   /assets/images/hero.jpg
+404  idea.uk             /assets/images/hero.jpg
+404  oufe.com            /assets/images/hero.jpg
+404  relojistas.com      /assets/images/hero.jpg
+404  vonc.com            /assets/images/hero.jpg
+404  webdesign.co.uk     /assets/images/hero.jpg
+```
+
+Six deployed sites painting a broken image, and **no sweep can ever surface them**,
+because every one is masked by its own site's `hero` asset. That root cause is already
+traced — see the contribution added to `bugs_open/114` today; it is a legacy site-wide
+`sites.content_data.hero_url` default, and **10 live sites still carry it**.
+
+### The check WORKS where it can see — which is the fair half of the story
+
+finetuning.uk's five `case-study-*.jpg` references (root `case`, not a purpose) are all
+live 404s and were **all five correctly flagged** on 2026-07-26, `item_type
+image_url_404`, status `detected`. The check is not broken in general; it is scoped by a
+predicate that removes most of its subject.
+
+`ai-agent-orchestration.com` has five identical live 404s (`case-study-*.png`) and no
+`image_url_404` item — **that one is NOT this bug.** Its `design` pipeline discovery last
+ran **2026-04-08**; `content` and `build` ran 07-24/07-26. Three and a half months of no
+design sweep, so the check never ran there. A cadence gap, of the `bugs_open/083` family.
+
+### § Defect 3 — CONFIRMED, by code and by data
+
+`collectImagePathReferences` (`:165-202`) queries `page_components` only.
+`site_components` — the chrome that appears on **every** page — is never scanned:
+
+```
+favicon.png in page_components: 0     in site_components: 1
+```
+
+### Three fact corrections — re-probe before quoting this file
+
+1. **`favicon.png` now serves 200**, not 404: 6,970 bytes, `image/png`, confirmed with a
+   cache-buster and `cf-cache-status: BYPASS`. It was repaired between 07-28 and 07-29.
+2. **`hero.jpg` is no longer referenced on any fundamentallyai deployed page** — the
+   brochure lane repaired it data-level at 09:30 on 07-29 (`69a93dffc`, under `114`). The
+   URL still 404s; nothing points at it *on that site* any more.
+3. **Therefore § "How to verify a fix" is stale as an acceptance set.** Two of its three
+   URLs no longer have the properties it relies on. A replacement triple, live as of
+   2026-07-29 and drawn from three different sites so it cannot be repaired out from
+   under you by one content fix:
+   - `vonc.com/assets/images/hero.jpg` — **404, masked by purpose skip** → must be reported;
+   - `finetuning.uk/assets/images/case-study-legal-rag.jpg` — **404, already correctly
+     reported** → must stay reported (regression guard);
+   - `fundamentallyai.com/assets/images/brand-illustration.jpg` — **200, unregistered** →
+     must not be described as a 404.
+
+### Fix candidates, revised against what is now known
+
+1. **Compare the rendered path against asset PATHS, not purposes** (new, and it is the
+   actual defect). `assets.url` already holds local paths for some rows — e.g.
+   fundamentallyai's `icon` row is literally `/assets/images/input-data.asset-key.jpg` —
+   so a path-based predicate is possible today without new plumbing. This is candidate 2
+   in the original list, correctly diagnosed: it recovers 79 paths and 6 real 404s.
+2. **Rename to `image_asset_unregistered`** (original candidate 1) — still right, and now
+   *more* obviously right: the check's finding set is "paths whose basename is not an
+   asset purpose", which is neither HTTP nor really registration.
+3. **Scan `site_components` too** (original candidate 4).
+4. **The HTTP half has a standing objection, so do not treat it as free.**
+   `discovery_checks/verifier_coverage_test.go:171` records `image_url_404` as
+   *"deliberately NOT a verifier candidate: verification would add an outbound HTTP call
+   to the completion path"*. `scripts/render_audit.py` already probes served images
+   outside the pipeline; `features_open/026` Phase 3 remains the right venue.
+
+**Status: still OPEN and still unowned.** `who-owns.py` reports the filing workstream
+(`brochure_component_library`) as owner because it is active and mentions `128` twelve
+times — but that lane's own `HANDOFF_2026-07-28b` lists 128 as *"read, still unowned"*
+and *"untouched"*. **A filing workstream is not an owning workstream**; check the named
+lane's handoff before believing the tool in either direction.
