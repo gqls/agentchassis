@@ -268,10 +268,44 @@ step derive_head_assets failed: download logo bytes: failed to download object f
 operation error S3: GetObject, StatusCode: 404, NoSuchKey
 ```
 
-Retried to `attempt_count=3` and failed correctly. **idea.uk's `logo` asset row is active and
-points at an S3 key that does not exist.** The row says the asset is there; the object is gone.
-Nothing else in the platform notices, because nothing else reads the bytes — the deployed page
-serves its own copy. Not fixed here.
+Retried to `attempt_count=3` and failed correctly.
+
+> **DIAGNOSED 2026-07-29 — it is not a missing object, it is the WRONG KIND OF URL in the row.**
+> My first reading above ("points at an S3 key that does not exist") was the obvious inference
+> from `NoSuchKey` and it is wrong. idea.uk's `logo` row holds:
+>
+> ```
+> logo | hero | active | stability/stable-diffusion-xl-1024-v1-0 | /assets/images/logo.jpg
+> ```
+>
+> **`url` is a deployed WEB PATH, not an S3 URI.** The generator does
+> `ExtractKeyFromS3URI(presignedURLToS3URI(logoURL))` on it, derives a nonsense key, and S3
+> answers `NoSuchKey`. The object was never missing — the pointer was never an S3 pointer.
+>
+> Measured fleet-wide, and it is bounded — **2 of 14**:
+>
+> ```sql
+> SELECT CASE WHEN a.url LIKE 'http%' THEN 'S3-URI' ELSE 'WEB-PATH' END, count(*),
+>        string_agg(s.domain, ', ' ORDER BY s.domain)
+>   FROM assets a JOIN sites s ON s.id=a.site_id
+>  WHERE a.asset_key='logo' AND a.status='active' GROUP BY 1;
+> ```
+> ```
+> S3-URI    12  (the twelve that derive fine)
+> WEB-PATH   2  idea.uk, leopardessconsulting.co.uk
+> ```
+>
+> **Two consequences worth having.** (1) idea.uk cannot derive brand-head assets at all until
+> its row carries an S3 URI. (2) **leopardess is in the same state — which is the only reason
+> its owner-approved hand-made card has never been overwritten.** Its protection from the
+> derivation is an accident of a malformed row, not a lock. If anyone ever "fixes" that row
+> without noticing, the next derivation replaces an approved brand artefact. That is a landmine,
+> and it is the exact inverse of the failure it is sitting next to.
+>
+> Note the same shape is being written *today*: `recordDerivedAsset` stores
+> `/assets/images/og-card.png` — a web path — into `assets.url` for the derived rows. Harmless
+> for `favicon`/`og_card` because nothing reads those bytes back, but it means the table mixes
+> two incompatible URL conventions under one column with nothing distinguishing them.
 
 ### Systemic and cosmetic: almost every card has a visible letterbox rectangle
 
