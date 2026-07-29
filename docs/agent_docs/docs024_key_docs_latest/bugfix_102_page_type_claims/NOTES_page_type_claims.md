@@ -162,3 +162,29 @@ step-to-step data inside one workflow, already covered by `load_page_record`'s o
 no workflow JSON changes here. The `compliance` seat's residual — *ongoing* monitoring for
 future page-type misclassification — is a genuine gap and a genuinely different mechanism;
 filed in the bug file as a named follow-on rather than accreted onto this change.
+
+### Live, verified, closed
+
+The owner deployed a fresh chassis: **v1.0.1196**, image id `d8a4a6f0b560` (distinct from
+1195's `98ae7405f91b`, so a real rebuild and not a retag). Both pods:
+
+```
+resolvePageType        = 2     <- marker, this change's new function; 0 before the roll
+ProseNumbersAreClaims  = 5     <- the policy method
+scanComponentClaims    = 2     <- POSITIVE CONTROL, pre-existing: the grep method works here
+```
+
+**One thing stated as inference, because it is one.** That the *narrowed* five-type set is live
+rests on the image being built 23:30:05 BST, **14 minutes after** `955832067` (23:16:12), plus
+builds taking committed `HEAD`. I tried to prove it by symbol and could not: the two dropped
+page types (`blog-index`, `section-index`) are strings that appear in four other Go files
+regardless, and the binary carries **no `vcs.revision` stamp** — `make build-*` uses `git
+archive` into a clean context, so there is no `.git` for the toolchain to stamp from. Presence
+of the fix is proven; which variant is inferred, and the bug file says so in those words.
+
+`bugs_open/102` → `bugs_closed/102`. Register CLM-016 updated to the shipped numbers, 016b §10
+row rewritten, and 016b §9 gained the shared-tree/HEAD pattern from this session.
+
+**Three residuals were filed rather than absorbed**, so the closure is not overstated: the
+`report` model-number class, candidate 3 (tutorial framing), and the compliance seat's real
+gap — **no ongoing control for future page-type misclassification**, only this one-time check.

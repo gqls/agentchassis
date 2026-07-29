@@ -90,3 +90,24 @@ Three things, each recorded in the bug file rather than quietly done:
   roll. There is a one-line check in the runbook to confirm it, and I have written
   down the trap: check for a string the change *introduced*, with a control, rather
   than one that was always there.
+
+## 2026-07-28, late — live, and closed
+
+You deployed a fresh chassis (v1.0.1196) and I checked it against the running pods rather than
+against the tag: the new code is in both. The checker now knows what kind of page it is reading,
+on the live system.
+
+One honest caveat, written into the case file as well. Between my first commit and the build I
+narrowed the fix — the council review had come back approved but with three comments, and two of
+them were right. I had included two page types on reasoning rather than evidence, and one of
+them turned out to cover gamesdesign's *about* and *contact* pages, which are filed in the
+database as "section-index" despite being ordinary marketing pages. So I took both out. What I
+cannot prove by inspecting the binary is *which of my two versions* is in it — the difference is
+two words that appear in several other files anyway. The build happened fourteen minutes after
+the narrowing commit and builds always take the committed code, so it is almost certainly the
+narrowed one; I have written that down as an inference rather than a fact, because it is one.
+
+The ticket is closed and moved to the closed-bugs folder. Three follow-ons are recorded there
+rather than quietly dropped — including one the reviewers were right to press me on: nothing yet
+*watches* for a page being filed under the wrong type in future. Today I checked it by hand and
+it was fine except for the two pages above. That is a check, not a control, and the file says so.
