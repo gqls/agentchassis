@@ -1,5 +1,12 @@
 # HANDOFF — council parallelism thread (2026-07-28)
 
+> ## ⚠ SUPERSEDED AS THE ENTRY POINT — cold-start from `HANDOFF_2026-07-29_council_parallelism_thread.md`
+> That file carries current state on `v1.0.1197`, the verified `max_tokens` fix,
+> the three live landmines and what is still owed. **This file remains the working
+> record** — the wrapper design, the three wrong calls, the full truncation
+> write-up and the day's corrections in the order they happened. Read the 07-29
+> handoff first; come here for detail and for how the understanding moved.
+
 Cold-start for whoever continues this. Written because the context got long, not
 because the work stopped. Everything below is committed.
 
