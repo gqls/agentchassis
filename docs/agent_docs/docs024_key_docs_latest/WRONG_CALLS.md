@@ -10281,3 +10281,107 @@ where the real defect is per-*action*, so `search_news` presented as a new gap w
 it is `WebSearchAction` under another name. **A "known exceptions" list should ship
 the predicate that generates it, not the instances** — instances go stale the moment
 someone adds a caller, and each staleness event costs another investigation.
+
+---
+
+## 2026-07-29 — six wrong calls in one webdesign.co.uk session, and the two families they fall into
+
+Logged together because the **pattern** is worth more than any single row. Six
+errors over two days, and every one belongs to one of two families.
+
+### FAMILY A — I reported a mechanism I had not watched run
+
+**A1. "Re-rendering chrome is safe because `applyNavVisibility` drops the News item."**
+Written into a handoff correction *and* the memory index as the reason a documented
+hazard was obsolete. The **conclusion was right** — no 404 shipped — and the
+**mechanism was wrong**. What actually fired was `refresh_nav_tables`, which DELETES
+and repopulates `site_nav_items` from deployed pages, so the row was simply never
+recreated. Two independent code paths would each have produced the observed outcome
+and I asserted the one that did not run.
+*Caught by:* reading the real orchestration's `collected_data` afterwards.
+*Cheap check:* the log says which path ran. **I had marked the claim `[UNVERIFIED —
+no production execution trace]`, and that marker is the only reason this was cheap
+to correct.** The discipline worked exactly as intended; the lesson is to keep using
+it, not that it failed.
+
+**A2. "The feed is failing fleet-wide."** Told the owner at 19:56 on a zero count
+across all sites over two hours, reading it as the same stall class as the previous
+tick. It was **slow, not stalled** — sites process one at a time, ~6 min per worker,
+and ours was 5th of 5. Items landed 15 minutes later.
+*Caught by:* waiting.
+*Cheap check:* **a slow job in progress and a dead one look identical.** The signal
+I used — parent `updated_at` frozen — is what a parent legitimately does while
+awaiting a child. Before declaring a stall, find something that would have moved.
+
+**A3. "No child orchestrations, so the spawn never took."** Wrong shape entirely:
+children are spawned **pods**, not rows carrying `parent_orchestration_id`. The
+worker was running the whole time.
+*Cheap check:* `kubectl get pods` before concluding a spawn was lost.
+
+**A4. Nearly filed the exact inverse of a real bug.** About to report that news feeds
+default to a web search *because the sources do not set `search_type`* — true of the
+config in front of me, and wrong about the system, because the action **forces** it
+one hop later. The real defect was further on again (the provider interface cannot
+carry it). A reviewer could not have caught this without opening the same file.
+*Cheap check:* **grep the key in the CONSUMER**, and follow it to the call that uses
+it. Presence in a payload, a log line or a doc comment proves nothing.
+
+### FAMILY B — a filter or a count that quietly answered a different question
+
+**B1. Two consecutive wrong link-topology counts, five minutes apart.** First: "63
+tool pages link to a guide" — an artefact of counting `/learn/index.html`, which is
+in the **footer of every page**. Second, after stripping chrome: "0 links
+everywhere" — my exclusion of landing pages dropped every URL ending `index.html`,
+which is **the entire tool namespace**. The true answer was the opposite of my first:
+tools linked nowhere, guides linked to tools well.
+*Caught by:* a debug sample printing a row that contradicted the aggregate.
+*Cheap check:* **print sample ROWS beside every aggregate.** An aggregate cannot
+contradict itself. Already recorded as `narrow-filter-defines-the-conclusion`; this
+is the third instance.
+
+**B2. Category counts summed to 62 against 63 tools on disk.** A regex requiring
+`<h3>` immediately after the anchor missed one card. The number was about to be
+printed on the live home page, on a site that has shipped invented figures twice.
+*Caught by:* the totals not reconciling.
+*Cheap check:* **reconcile any count against an independent source before
+publishing it.** The mismatch was the entire signal.
+
+**B3. A published prediction, half wrong.** I wrote before the tick that a retuned
+query would return **fewer than 9** items with better relevance. It returned **9
+again** — relevance right (9/9 on topic, up from ~1/9), count wrong.
+Kept as a row deliberately: **writing the prediction down first is what made the
+miss visible instead of retrofittable**, and the relevance half is the one that
+mattered. A half-wrong falsifiable claim beats a vague right one.
+
+### Two near-misses that cost nothing because the check ran first
+
+- **"Widen the starved feeds' window to a year."** Would have achieved nothing —
+  `feed_actions.go:878` hard-codes a 30-day ceiling, so a wider window fetches a
+  year only to discard past day 30. Checked before recommending; never left my head.
+- **My own verify blocks failed twice** — `array_agg(… ORDER BY 1)` sorts by the
+  *constant* 1, and `jsonb_array_elements_text(…) k` aliases the table, not the
+  value. Both times `ON_ERROR_STOP` rolled the transaction back and I confirmed
+  nothing had been applied. **A verify block that can fail closed is worth more than
+  one that always passes** — these cost a re-run each and would have caught a real
+  drift identically.
+
+### The row that is really about work, not words
+
+**"The 404 page now carries analytics."** True, deployed, verified present at
+`/404.html` — and **inert**, because a missing path never reaches that file. I had
+checked that the file was deployed and contained the change, which was true and
+beside the point.
+*Cheap check:* **fetch the artefact by the route a user takes.** That one probe
+turned a cosmetic fix into `bugs_open/132`, a fleet-wide finding.
+
+### Tally
+
+**Family A is the expensive one** — four of six, all of them "I explained a
+mechanism I had not watched run", and all four reached either the owner or a
+document before being corrected. Family B is well-covered by existing rows and keeps
+recurring anyway. **The single check that would have prevented the most damage here
+is the cheapest: before asserting *why* something happened, find the line that says
+it happened.** Everything else in this session was already written down somewhere.
+
+Family: read-the-function-dont-infer-from-the-data, narrow-filter-defines-the-conclusion,
+a-slow-job-and-a-dead-one-look-identical, verify-on-the-path-a-user-takes.
