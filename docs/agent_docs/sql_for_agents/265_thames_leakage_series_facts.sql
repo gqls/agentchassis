@@ -49,8 +49,17 @@ CREATE TEMP TABLE _cur ON COMMIT DROP AS
   SELECT * FROM site_specs
   WHERE site_id='a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39' AND aspect='evidence_base' AND is_current;
 
+-- REPLAY GUARD (added after the commit hook's unguarded-migration-insert
+-- advisory, and it found a sharper failure than the one it names): with no
+-- guard, a replay of this file would not die on 23505 — the || concatenation
+-- would silently APPEND THE FOUR FACTS A SECOND TIME. Both statements gate on
+-- the series fact's id already being present in the current row, so a replay
+-- supersedes nothing and inserts nothing. Verified by replaying against the
+-- live DB: fact count stayed 36.
 UPDATE site_specs SET is_current=false, superseded_at=now()
-WHERE site_id='a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39' AND aspect='evidence_base' AND is_current;
+WHERE site_id='a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39' AND aspect='evidence_base' AND is_current
+  AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements((SELECT data->'facts' FROM _cur)) f
+                  WHERE f->>'id'='CIT-tw-leakage-series');
 
 INSERT INTO site_specs (site_id, aspect, data, source, source_agent, created_by, is_current, pinned, notes)
 SELECT cur.site_id, cur.aspect,
@@ -97,7 +106,9 @@ SELECT cur.site_id, cur.aspect,
   ]$new$::jsonb),
   'oufe-workstream','session','oufe-workstream', true, COALESCE(cur.pinned,false),
   'Thames Water leakage 2020-25: the register''s FIRST series fact (5 observations, each with its own citation), plus the final-year target, its penalty, and the sector comparator. All five observations from the restated BW04 chart in the company''s APR 2024-25 - NOT from the contemporaneous Ofwat reports, which predate a methodology restatement (Ofwat 2022-23 says -10.7 where the restated chart says 11.1). Column mapping corroborated three ways: the page''s own 13.2 headline, Ofwat WCPR 23-24/24-25 cross-checks, and the ODI reward/penalty signs per year.'
-FROM _cur cur;
+FROM _cur cur
+WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(cur.data->'facts') f
+                  WHERE f->>'id'='CIT-tw-leakage-series');
 
 COMMIT;
 
