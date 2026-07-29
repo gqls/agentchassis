@@ -1967,3 +1967,51 @@ vonc page under edit.
   interference. Its harness traffic may constitute the "real burst of
   successful traffic" candidate 4 awaits — noted for whoever checks the armed
   log after the island settles.
+
+## 2026-07-29, ~10:00–11:00 BST (vonc6) — LEDGER DELIVERED + LIVE-VERIFIED; 083 CLOSED; a fleet-wide sibling filed
+
+**Island fix verified and 083 CLOSED.** v1.0.1198 swapped in (bak
+`docker-compose.yml.bak-1193-pre1198`); identity proven (fresh image, binary
+sha256 `2d159e98…` byte-identical local↔island); behavioural bar met: **6 real
+/defend since the swap, 6×200, 0 TRUNCATED**. Council **APPROVED round 1, all
+reviewers** — trailer `Council-Reviewed: 2903798e-…` on deploy-leg commit
+`94119287f` (code commit `a9a1b3556` predates the verdict; forward-only). File
+moved to `bugs_closed/` BY SLUG. Repo compose was stale at 1178 vs live 1193
+(the owner's 07-28 hand swap was never mirrored back) — now 1198 both ends.
+
+**Opinion ledger DELIVERED.** Guarded single transaction (both UPDATEs
+`WHERE updated_at='2026-07-28 21:17:32.757705+00'`, DO-guard RAISEs on missing
+markers or `{{.` residue) writing template+js_content+rendered_html; sizes in
+DB byte-match local (33,849/34,129/34,669). Assemble-only rerender via NEW
+committed script `scripts/rerender_gauntlet_vonc.sh` (the hardened kcat form
+adapted from the arena script — `republish_gauntlet_js.sh` still carries the
+racy stdin form, prefer the new one). Corr `1abb2b7a` — **double-fired again**
+(two orchestrations, same corr, both COMPLETED, `__step_error` NONE both;
+idempotent here, counted by payload per the standing landmine).
+
+**Live verify: ALL 13 PASS** (`p4_sources/verify_live_ledger_2026-07-29.py`)
+— served page carries the block, zero template residue, served JS
+byte-identical to js_content, fresh visit sealed + ledger hidden + overflow
+clean, ONE REAL ROUND on the production page (real CORS, no proxy) whose
+verdict became exactly one ledger entry, returning visitor (new tab) sees
+sealed door + diary, no console errors.
+
+Two missteps/quirks, both recorded where they bit:
+- **The page has NO directory index**: `/tools/gauntlet/` and
+  `/tools/gauntlet` are 404; only `/tools/gauntlet/index.html` serves. Cost
+  one verifier run. *Check: probe the URL variants before reading a 404 as a
+  failed deploy.* (Pre-existing; likely relevant to how shares/links travel —
+  the og:image lane may care.)
+- **First live verify timed out waiting for the verdict while the origin log
+  showed the /defend 200 delivered in 16.6s.** The instrumented re-probe and
+  the full re-run both passed cleanly (RESP 200 observed in-browser, verdict
+  rendered), so the failure was transient delivery, not the page. One
+  occurrence, unreproduced; noting rather than theorising.
+
+**Fleet-wide sibling FILED, not asserted:** `bugs_closed/107`'s root cause
+says Anthropic max_tokens is all visible text because thinking is off,
+"which is how every agent in this platform runs" — a premise the Claude 5
+family silently inverted (thinking ON by default when the field is omitted).
+083 was the first confirmed instance on the anthropic client. Whether any
+FLEET lane is losing completions to it is a query, not an argument ⇒ 090
+needs_diagnosis filed, RUN_CORRELATION_ID `9e59d517-f107-4d8c-8a94-36c5a3d1cc72`.

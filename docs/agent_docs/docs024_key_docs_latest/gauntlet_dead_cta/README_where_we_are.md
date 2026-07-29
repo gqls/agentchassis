@@ -847,3 +847,35 @@ you play already contains a day, a question, where you stood and how it was
 judged; kept on your own device and laid out in order, that becomes something
 no chat window gives anyone — a record of what you thought, when. It only
 ever grows from rounds that really happened, same as everything else here.
+
+---
+
+2026-07-29, late morning (vonc6). Your morning ruling — distribution first,
+arena thesis to follow, and "a dated personal history of your opinions might
+be a goldmine" — got its first build today, and it is live. The Gauntlet page
+now keeps an opinion ledger: every round you finish on a device is added to a
+dated diary at the bottom of the page — the day's question, where you stood,
+and the judge's verdict. It lives only in that browser; nothing is sent
+anywhere, there are no accounts, and you can erase it with two presses. A
+returning visitor now sees something the page never had before: the sealed
+door to today's round, and beneath it, their own record of where they've
+stood. An entry can only come from a real judged round — the diary cannot be
+faked, padded, or backfilled, same rail as everything else on the page.
+
+Building it flushed out a real bug. While testing with real rounds, the AI
+judge went "unavailable" — and the alarm we wired into the engine a few days
+ago caught the cause immediately. The judge's AI model (the newer Claude
+family) now "thinks" before answering by default, and that thinking was
+silently eating the word budget we give it, so its verdict got cut off
+mid-sentence and the engine (rightly) refused to show a half verdict. We gave
+it four times the room, rebuilt the engine, you-didn't-have-to-lift-a-finger
+deployed it to the island, and verified six real verdicts in a row came back
+clean. The reviewer council approved the change unanimously on the first
+round. That bug (083) is now closed.
+
+One thing worth your attention: the same silent model change could affect the
+main platform, not just the island — a closed bug from two days ago (107)
+explicitly assumed "thinking is off, which is how every agent runs", and
+that assumption is no longer true for the newest models. We've filed it for
+proper diagnosis rather than guessing; the loop will report what the data
+says.

@@ -112,6 +112,19 @@ would return the Enter button to revealing nothing).
 - Plain-prose history: `README_where_we_are.md` (append-only).
 - Milestone read-out: `SUMMARY_2026-07-28_gauntlet_dead_cta.md`.
 
+> **CORRECTED 2026-07-29 (vonc6, same day):** the ruling's first build — the
+> opinion ledger — is **SHIPPED and live-verified** (25-check harness + 13
+> live checks incl. a real round on the served page). En route, 083 (by slug)
+> was **CLOSED**: the armed log caught the judge thinking itself out of its
+> 2048-token budget (claude-sonnet-5 thinks by default); fix live on island
+> `v1.0.1198`, council APPROVED r1, 6 clean verdicts since. See
+> `SUMMARY_2026-07-29` + NOTES tail. §3's item 1 is done; item 5's posture
+> moves to CLOSED. Two new small facts: the page serves ONLY at
+> `/tools/gauntlet/index.html` (no directory index — both bare variants 404),
+> and `scripts/rerender_gauntlet_vonc.sh` is the hardened rerender for this
+> page (prefer it over `republish_gauntlet_js.sh`, which still carries the
+> racy kcat stdin form).
+
 ## 7. H — DECIDED by the owner, 2026-07-29 morning: **3 leading to 2**
 
 > **Ruling:** the distribution experiment first (owner does the posting; the
