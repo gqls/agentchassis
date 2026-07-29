@@ -499,3 +499,39 @@ warned inside 142 so nobody "fixes" them by deleting the locked rows.
 **Build pre-staged:** `make build-agent-chassis IMAGE_TAG=v1.0.1199` from HEAD in background;
 push/deploy strictly after the council verdict. Fleet is on 1198 (pods checked, not the
 makefile — the tree's uncommitted `IMAGE_TAG v1.0.1197` line is another session's stale bump).
+
+---
+
+## 2026-07-29 (7) — round 1 REVISE (a good catch), answered with evidence + two small changes
+
+**Round 1 verdict: REVISE, decided by ONE gating HIGH (debug_historian); 11 reviewers, 6
+abstained, 0 unreadable** — a real objection, not the harness. The HIGH: my guard filtered
+`status='active'`, and nobody had verified that `assets.status` is load-bearing rather than
+informational — the sites.status trap on a new table. **The seat was right on structure:**
+`assets.status` has NO CHECK constraint (free text; live vocabulary active 247 / superseded 30
+/ retired 3), so a locked row in an unenumerated status would have slipped the guard silently.
+
+Revisions (commit `a22010eaa`):
+- `lockedBrandHeadKeys` drops the status predicate entirely — **a lock in ANY status fails
+  CLOSED.** The safety property no longer depends on a vocabulary nobody owns.
+- Lock check moved BEFORE the storage-client requirement (a fully-locked site refuses before
+  any write machinery is touched).
+- Partial-lock case visible at the call boundary: per-artefact URLs + `skipped_locked` in the
+  return (consumers measured: none, in Go or the live asset-deployer row).
+- Tests per editquality's ask, on the package's sqlmock idiom: table-driven
+  `TestLockedBrandHeadKeys` (pins the no-filter behaviour) and
+  `TestDeriveBrandHeadBothLockedRefuses` — **StorageClient deliberately nil, so the clean
+  refusal doubles as proof of ordering.**
+
+Answered with QUERIES, not code (the practice held): status vocabulary + constraint
+enumeration; store_asset's lock enforcement is INLINE upsert SQL with no reusable helper
+(reuse_agent); single-file git commits are precedented in the same path (`emit_sprite_css`,
+one file — guardian); owning pipeline quoted from the live agent row (guardian);
+**bug_historian's sibling hunch CONFIRMED — `derive_card_asset` has the identical shape**
+(commit :163, guard :184), measured latent (0 of 12 card rows locked), filed as
+`bugs_open/143` with the third-call-site centralisation threshold recorded. The casualties
+sweep (9 sites' favicons derived squashed on 07-28) is planned post-roll, in PLAN.
+
+**Round 2 resubmitted on the same trail** (`RESUBMIT_CORR=bfd73f71` → run orch `e385263f`),
+all standing evidence restated (seats have no cross-round memory). v1.0.1199 REBUILT from the
+round-2 HEAD — the pre-revision image would have been a stale binary under a fresh tag.
