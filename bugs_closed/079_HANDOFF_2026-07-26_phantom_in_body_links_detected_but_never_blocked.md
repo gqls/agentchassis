@@ -1,5 +1,58 @@
 # Handoff — the platform detects a dead in-body link and deploys the page anyway
 
+> ## CLOSED 2026-07-29 — the repair now PERSISTS, proven on a natural production run
+>
+> Fixed by moving the repair to the persistence point: `repairSectionsBeforePersist` inside
+> `SavePageSectionsAction` (`save_sections_link_repair.go`, commits `5083124e3` + `fd87d6194`).
+> Council `7c24776e-07f8-4c2e-b1b6-ad3e73c6023c`: round 1 REVISE, round 2 **APPROVED** (11
+> reviewers, 0 unreadable). LIVE on chassis **v1.0.1196**, both replicas pod-grepped for the
+> compiled marker (`marker=1`, positive control `1`, v1.0.1194 baseline `0`).
+>
+> **The proof is a NATURAL run, not an induced one — vetcomparison.uk `index`, 2026-07-29
+> 01:58:04Z.** It is the exact inverse of this bug's own evidence, measured the same way:
+>
+> | | the bug (fundamentallyai, 07-28) | the fix (vetcomparison, 07-29) |
+> |---|---|---|
+> | repair logged | 10:45:01.347Z, 10 repairs | 01:58:04.382Z, 5 unlinks |
+> | components saved | 10:45:01.768–.807Z (+400ms) | 01:58:04.427–.451Z (+45ms) |
+> | hrefs in the saved rows | **still there, all 9** | **gone, all 5** |
+> | served page | all 9 × 404 | all 5 absent |
+>
+> The five were `/search`, `/about-pricing`, `/about-ownership-disclosure`,
+> `/guides/pet-owner-rights`, `/claim-listing` — re-probed live and all genuinely 404, so they
+> were real phantoms, not a false positive. **Attribution is exact:** the row carries
+> `action='save_page_sections'`, and that value was written **0 times before the roll and 1
+> after**, while `rerender_page` (20 before / 1 after) is the positive control proving the
+> query itself works. Only the new call site can have written it.
+>
+> **WHAT WAS NOT PROVEN — the induced repro FAILED, and it is worth knowing why.** The
+> pre-registered zero-LLM test (gamesdesign `bayesian-ranking`, stored `href=""` since 07-21)
+> did **not** exercise the fix. `rerender_sections` re-renders each section from
+> `content_data` through the CURRENT template, and that page's `content_data` has
+> `cta_primary_label`/`cta_secondary_label` but **no url fields at all** — so the template's
+> skip gate (LNK-006) dropped the buttons entirely and left an empty `brht-cta-row`. There was
+> nothing for the repair to act on; no `save_page_sections` repair row was written for that
+> run. The 2 unlinks logged against that page at 07:31:46Z came from the **outbound** rerender
+> seam (`action='rerender_page'`, LNK-023) acting on the assembled page's chrome — a different
+> call site. **A repro that is re-rendered from `content_data` can be destroyed by the render
+> itself; check the template gate before trusting one.** (Side effect, recorded: that rerender
+> removed two dead CTA buttons from the live gamesdesign page. Correct per the
+> correct-or-absent principle, but it was a change to a live page.)
+>
+> **STILL OPEN, and deliberately not closed here:**
+> - **`bugs_open/136_…section_editor_and_three_siblings…`** — `save_page_sections` is only 1 of
+>   **10** Go writers of `page_components.rendered_html`; three others persist LLM prose with no
+>   repair at all. Found by this fix's own council review. The claim "no build path can persist
+>   an unrepaired section" is FALSE; the true claim is "no `save_page_sections` invocation".
+>   (NB a different `bugs_open/136` exists — resolve by slug, per CLAUDE.md.)
+> - **`bugs_open/092`** — the upstream cause. vetcomparison's five phantoms and gamesdesign's
+>   missing url fields are both 092: the writer never receives its link constraints, so it
+>   invents targets or omits them. This fix makes the symptom un-shippable; it does not stop
+>   the writer producing it.
+>
+> Registered **LNK-024**. First `doc_notes` row for `subject_type='action'`,
+> `subject_key='save_page_sections'`.
+
 > ## REOPENED 2026-07-28 — the repair runs, and its output is DISCARDED before persistence
 >
 > Moved back from `bugs_closed/` by the brochure_component_library thread. The FIXED banner

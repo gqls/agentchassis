@@ -450,3 +450,80 @@ specifies, a `page_rerender` work item at gamesdesign `bayesian-ranking`, whose 
 sections have carried `href=""` since 07-21 — remembering `handler_agent='page-rerender'`
 in the INSERT or the item hard-blocks. Verify the PERSISTED rows, then crawl the SERVED
 page. Never the action's return map.
+
+## 2026-07-29 — CLOSED. Proven by a run I did not fire, after the one I did fire proved nothing.
+
+**Council round 2 APPROVED** (corr `7c24776e`, 11 reviewers / 0 unreadable / 4 advisory, none
+high). Round 1 was REVISE, gated by `debug_historian` on a HIGH: the plan carried no
+deploy-verification step, on a bug whose first closure was inert in production. Fair, and
+answered by pre-registering the protocol in round 2.
+
+**The roll happened without me.** By the time I went to deploy, another session had already
+built `v1.0.1195`/`1196` from a HEAD containing my commit and rolled the fleet at 22:37:49Z.
+Both replicas pod-grepped `marker=1` with the positive control at `1`, against a `v1.0.1194`
+baseline of `0`. Round 2 changed only a Go comment and a `_test.go`, so it does not alter the
+binary — nothing more to build. **"Committing IS shipping on a shared HEAD" is not a slogan;
+it is the delivery mechanism, and it delivered this.**
+
+### The induced repro FAILED, and the reason is the transferable part
+
+The pre-registered zero-LLM test was gamesdesign `bayesian-ranking`, whose stored sections had
+carried `href=""` since 07-21. I checked the preconditions properly — `content_data` non-NULL
+on all four sections (or the page escalates to the writer and `save_sections` is skipped
+entirely), not runtime-fill exempt, not interactive, `rebuild_policy='generic'`, and the step
+graph confirmed `reason: section_data_resolved` → `rerender_sections` → **`save_sections`**
+(the no-reason branch skips `save_sections` altogether, so the reason is load-bearing).
+
+It ran in 40s, COMPLETED, and the `href=""` count went 2 → 0. **That looked like success and
+was not.** Three signals said otherwise:
+
+1. The CTA anchor TEXT was gone too (`Start Ranking Free`, `See How It Works`). Unlinking
+   KEEPS inner text — that is the whole design. Text disappearing means something else acted.
+2. No `agent_error_log` row with `action='save_page_sections'` existed for that run.
+3. The container survived but empty: `brht-cta-row` present, `any_anchor` false.
+
+Cause: `rerender_sections` re-renders each section from `content_data` through the CURRENT
+template. That page's `content_data` has `cta_primary_label` and `cta_secondary_label` and
+**no url fields at all**, so the template's skip gate (LNK-006) omitted the buttons. The
+repair never saw an anchor. **A repro that is regenerated from `content_data` can be destroyed
+by the render itself** — check what the template does with the missing field before trusting
+one. The 2 unlinks logged against that page at 07:31:46Z were the OUTBOUND seam
+(`action='rerender_page'`, LNK-023) acting on the assembled page's chrome — a different call
+site, and I would have mis-attributed them if I had not discriminated on `action`.
+
+Side effect I caused and should record: that rerender removed two dead CTA buttons from the
+live gamesdesign page. Right outcome per correct-or-absent, but it was a change to a live page
+made in service of a test.
+
+### What actually proved it
+
+A **natural** run I did not fire: vetcomparison.uk `index`, 01:58:04.382Z. Five real phantoms
+unlinked at the persistence point. It is the exact inverse of this bug's own evidence:
+
+| | the bug (fundamentallyai 07-28) | the fix (vetcomparison 07-29) |
+|---|---|---|
+| repair logged | 10:45:01.347Z, 10 repairs | 01:58:04.382Z, 5 unlinks |
+| components saved | +400ms | +45ms |
+| hrefs in saved rows | **all 9 still there** | **all 5 gone** |
+| served page | 9 × 404 | all 5 absent |
+
+`/search`, `/about-pricing`, `/about-ownership-disclosure`, `/guides/pet-owner-rights`,
+`/claim-listing` — re-probed live, all genuinely 404. Attribution is exact:
+`action='save_page_sections'` had been written **0 times before the roll and 1 after**, with
+`rerender_page` (20 before / 1 after) as the positive control proving the query works.
+
+### The correction the council forced, which matters more than the fix
+
+`bug_historian` objected that my blast-radius census enumerated `agent_definitions` carrying a
+`save_page_sections` STEP NAME — a different question from *who writes
+`page_components.rendered_html`*. It was right. Ten Go writers set that column; three persist
+LLM prose with no repair at all, including `ApplySectionEditAction`, which
+`save_page_sections_action.go:156` itself directs operators to. **The more carefully a session
+follows documented practice, the more reliably it bypasses this fix.** Filed as
+`bugs_open/136_…section_editor_and_three_siblings…` (note a DIFFERENT `bugs_open/136` exists —
+resolve by slug). The round-1 claim "no build path can persist an unrepaired section" was
+withdrawn, and the over-broad wording was corrected in the code comment too, because that is
+where the next reader would have inherited it.
+
+079 → `bugs_closed/`. 092 and 136 stay open; 092 is the upstream cause of both this bug's
+phantoms and gamesdesign's missing url fields.

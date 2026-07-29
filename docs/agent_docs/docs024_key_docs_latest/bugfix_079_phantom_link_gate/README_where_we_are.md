@@ -113,3 +113,38 @@ Where it stands: written, tested, committed, and submitted to the reviewer counc
 **not live**. This kind of change does nothing until a new image is built and rolled out, and
 I will not call it fixed until I have watched a real page go through it and come out clean.
 The bug file stays open until then, deliberately — the 404s are still reproducible today.
+
+---
+
+**2026-07-29 — it works, and the test I designed to prove it proved nothing**
+
+The fix is live and the bug is closed. But the way it got proved is worth writing down, because
+I nearly recorded a success I had not earned.
+
+I had designed a careful test: take a page whose stored content still had two dead buttons on
+it, push it through the rebuild, and watch the dead links get cleaned. I checked the
+preconditions properly beforehand — several of them, any one of which would have invalidated
+the test. It ran, it finished, and the dead links were gone. That is exactly the result I
+predicted.
+
+It was the wrong result for the right-looking reason. The clean-up is supposed to remove the
+*link* and keep the *words* — a button that goes nowhere becomes plain text. But the words had
+vanished too. That mismatch is what made me look again, and the explanation was that the
+rebuild regenerates each section from stored data through the current template, and the
+template simply declines to draw a button when it has no destination for it. The buttons were
+never handed to my code at all. My test had destroyed its own subject.
+
+What actually proved the fix was a run I had nothing to do with. Overnight, an ordinary rebuild
+of a different site hit the same code and cleaned five genuinely broken links — I checked, all
+five really do 404 — and this time the evidence was unambiguous: the record of the repair, the
+saved page missing exactly those five links, and the live page missing them too. It is the
+precise mirror image of the original bug, where the repair was recorded and then thrown away
+400 milliseconds later.
+
+The other thing that came out of this: the reviewer council caught a real hole in my reasoning.
+I had measured how many build routines this touches by asking which ones are *configured* to
+save page sections. The right question was which code actually *writes* the page content, and
+that answer is ten places, not one. Three of them still have no protection — including,
+awkwardly, the one our own documentation tells people to use for small edits. So following the
+documented practice is the most reliable way to bypass this fix. That is now its own filed bug.
+I have not measured how often it bites, and I have said so rather than guess.
