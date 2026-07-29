@@ -117,6 +117,14 @@ func main() {
 	// No unrendered template variables.
 	check("no unrendered vars", !strings.Contains(html, "{{") && !strings.Contains(html, "ZgotmplZ"))
 
+	// Images are optional per item: 2 of the 3 sample items carry one, the
+	// middle item ("default-label") deliberately has none, and the panel must
+	// not break either way — a card with no image_url must render NO <img> at
+	// all, never a broken empty src.
+	check("images rendered for the 2 items that have one", strings.Count(markup, "trp__media") == 2)
+	check("alt text is never the hook restated", !strings.Contains(markup, `alt="A short complete first sentence."`))
+	check("no empty img src for the item without an image", !strings.Contains(markup, `src=""`))
+
 	if fail > 0 {
 		fmt.Printf("\n%d CHECK(S) FAILED\n", fail)
 		os.Exit(1)

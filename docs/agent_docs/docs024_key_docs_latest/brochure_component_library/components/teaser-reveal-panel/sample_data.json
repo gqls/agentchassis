@@ -7,7 +7,9 @@
       "hook": "A short complete first sentence.",
       "continuation": "An unfinished second one that is completed by",
       "body": "the body text, which is what the reveal shows. It is present in the DOM at all times so the claims gate and a crawler can both read it.",
-      "open_label": "Read the rest"
+      "open_label": "Read the rest",
+      "image_url": "/assets/images/sample-with-body.jpg",
+      "image_alt": "A genuine description of the sample image, not the hook restated."
     },
     {
       "key": "default-label",
@@ -18,7 +20,9 @@
     {
       "key": "no-body",
       "hook": "This item has no body at all.",
-      "continuation": "It must render as a plain statement with no control, never as a dead button."
+      "continuation": "It must render as a plain statement with no control, never as a dead button.",
+      "image_url": "/assets/images/sample-no-body.jpg",
+      "image_alt": "A genuine description of the static-card sample image."
     }
   ]
 }

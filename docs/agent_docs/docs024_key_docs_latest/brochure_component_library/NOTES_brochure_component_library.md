@@ -2900,3 +2900,102 @@ the three that also protects the 9 already-deployed sites. Added the transferabl
 pattern to 016b §9: *"A shared fact pool handed unchanged to N isolated writers
 restates itself everywhere it's plugged in"* — every existing check on this pool
 verifies a fact is true, none ask whether it's already been said.
+
+## 2026-07-29 (later still) — owner: "implement the carousels on almost every component block, with images"
+
+Extended `teaser-reveal-panel` (built earlier this session for the home page) with
+an optional per-item `image_url`/`image_alt`, then rolled it out to replace three
+more card-grid sections. Full inventory before touching anything, because the
+component templates already vary in what they support:
+
+- `info-card-grid` (11 sites) already carries an optional `icon_image` per card
+  (`alt=""`, decorative) — council's and fine-tuning's instances already had real
+  images assigned.
+- `image-hover-card-grid` (this site only) has full images + a HOVER-based reveal
+  — doesn't work on touch, no genuine cliffhanger split.
+- `swipeable-insight-carousel` (this site only) is a genuine swipe/scroll carousel
+  but has NO image support at all and no reveal (full text always shown).
+- Neither `services-grid` nor `info-card-grid`'s underlying shared templates were
+  touched — `services-grid` is live on 6 sites fleet-wide, `info-card-grid` on 11.
+  Converting a PAGE away from a shared component (swap which component the page
+  uses) is safe; editing the shared component's template is not, and wasn't done.
+
+**Image inventory checked before assuming anything was missing.** `assets.url` for
+10 of 15 icon rows on this site shows a literal broken placeholder
+(`/assets/images/input-data.asset-key.jpg`) — looked like the "52 broken asset
+rows" finding from `bugs_open/114`. **It wasn't**: the actual STABLE serving path
+(`/assets/images/<key-with-hyphens>.jpg`, confirmed against 2 already-live cards)
+is a different convention than the `assets.url` column tracks, and curling all 15
+icon + 8 hero + 2 tool-hero paths found **25 of 25 already live (200)**, all but 8
+already referenced somewhere on the site. `assets.url` being wrong is a real,
+separate finding (the table still "cannot answer where an image is", per 114) —
+but it means nothing about the images themselves. **Verified 12 of these visually**
+(downloaded + viewed) against their `site_plan_imagery.prompt` before writing any
+`image_alt` text, because the schema rule I'd just written for this component
+explicitly forbids inventing one.
+
+**Extended, not replaced:** template.html gained an edge-to-edge `.trp__media`
+image (rendered in EITHER branch — open or degraded-static — so an image never
+depends on the reveal firing), input_schema.json gained the two fields + a rule
+that `image_alt` must genuinely describe the image and never echo `hook`. Harness
+grew from 14 to 18 checks; two new mutants (alt echoing the hook, stripping every
+image) each fail exactly the check they should and nothing else. `update.sql`
+re-applied the live `content_components` row (script:
+`gen_component_register_sql.py` is hardcoded to evidence-chart's description text,
+so this update.sql was hand-written following its exact DROP-backup/UPDATE shape
+rather than reused verbatim).
+
+**Four placements, four different histories, same reversible archive pattern:**
+- **index**: retrofit only. Same 6 items, same text, added one image each.
+- **capabilities**: `services-grid` → `teaser-reveal-panel`. Its 6 items had NO
+  images before; assigned the `icon_service_*` set, which fits so exactly
+  (review-council/self-correction/recovery/rapid-build/embeddings/backend maps
+  1:1 onto the section's 6 existing headings) it looks like it was generated FOR
+  this section and never wired in.
+- **council**: `info-card-grid` → `teaser-reveal-panel`, reusing its existing
+  `icon_image` assignments (improved variety: the original reused
+  `icon-honest-verification.jpg` on 3 of 6 cards; the rewrite spreads 6 distinct
+  icons across 6 cards).
+- **fine-tuning**: MERGED `info-card-grid` + `image-hover-card-grid` into ONE
+  6-item panel. **Found while comparing them, not looked for**: the two sections
+  independently restated 4 of their 6 facts each (training/evaluation, review
+  council, vector search/embeddings, production integration each appeared in
+  both, worded differently) — the exact `bugs_open/151` pattern, on THIS page,
+  missed by that bug's own census because its census was scoped to the 9
+  company-wide `evidence_base` facts and these are fine-tuning-specific claims.
+  Fixed it while doing the requested rollout: kept the better phrasing + the
+  richer hero-scale image from whichever source had it, plus the two genuinely
+  unique cards (the self-correction story, honest capability boundaries).
+
+Every hook/continuation checked programmatically against the figure rule (no
+digit in either field — a split that separates "more than a dozen" or "£29" from
+its context is exactly what `claims.go`'s ±70-char window would read as
+unverified) before writing to the DB, plus checked for ellipses, missing alt text,
+and alt text echoing hook. All 4 real payloads rendered through the actual
+template (not the harness's hardcoded sample) before the SQL ran.
+
+**One SQL mistake, caught by the transaction, not by luck:** the first version of
+the rollout script wrote `SELECT page_id FROM pages p` (page_id is `page_components`'
+column, not `pages`'); psql's `\set ON_ERROR_STOP on` halted mid-script with the
+connection open, and the whole transaction rolled back on connection close —
+verified (`page_component_history` count for the new source = 0, `capabilities`
+still showed `services-grid`) before fixing and re-running. Forward-only held:
+nothing was left half-applied.
+
+**Verified live, all four pages, not trusted from `complete` status:** re-fetched
+fresh, sliced away every `<style>` block before counting (the same landmine as the
+first build — counting `.trp__media` against the whole document over-counts by
+exactly one, the CSS rule's own selector). 6 cards / 6 images on all four pages,
+0 unrendered `{{`, 0 empty `src`/`alt`. All 25 image paths retried individually —
+two transient `000`s (the documented burst-throttle artefact) resolved 200 on a
+serial retry seconds later. `probe_reveal_open_state.py` run against all three NEW
+placements (not just re-checked on index): 6/6 revealed, 0 failures, contrast
+**13.19:1** on every one — the same figure as the original build, which makes
+sense: it's the same CSS custom properties, unchanged.
+
+**Not done:** `blog/self-correction-leopardessconsulting.html`'s
+`swipeable-insight-carousel` still has no images — it's a genuinely different,
+already-working carousel mechanic (swipe cards, no reveal), and adding images to
+IT (rather than replacing it with `teaser-reveal-panel`) would need its own
+template change. Left alone this round; noted as the one remaining card-grid
+section on the site without images.

@@ -956,3 +956,33 @@ that you don't get two *sections* about the same facts. I've written up what a r
 fix looks like and filed it properly (`bugs_open/151`) so it doesn't get lost, but
 building it is a genuine piece of platform work, not a same-day tidy-up — it
 touches the planner and the writer both. Your call on when that gets picked up.
+
+**Then you asked me to go back and put the carousel treatment on almost every
+block, with images.** Done, on four pages: the home page (added images to the
+panel that was already there), the capabilities page, the review council page,
+and the fine-tuning page.
+
+The images aren't new — I went looking first, and there was already a stock of
+about twenty-five generated icons and illustrations for this site, most of them
+already live and working, just not all wired into a page yet. I downloaded and
+actually looked at a dozen of them before writing any descriptions for screen
+readers, rather than guessing what they showed. The capabilities page's six
+cards turned out to have an almost exact matching icon already made for each one
+— review council, self-correction, recovery, rapid build, embeddings, backend —
+like they'd been generated for this exact purpose and then never used.
+
+One extra find while doing this, not something I went looking for: the
+fine-tuning page had two separate card sections that, once I put them side by
+side, were saying four of their six things twice over in different words. That's
+the same repetition problem from earlier in the session, just not one the
+company-wide check would have caught, because these were fine-tuning-specific
+points rather than the nine headline facts. I folded the two sections into one
+while doing the requested rebuild, so that page also came out cleaner than it
+went in.
+
+One thing I deliberately didn't touch: the carousel on the self-correction blog
+post is a different, already-working design (cards you swipe through, no
+click-to-reveal) and it has no images yet. Giving it images would mean changing
+that carousel's own code rather than reusing what I'd just built, so I left it
+as the one remaining picture-less card section on the site rather than rush it
+this round.
