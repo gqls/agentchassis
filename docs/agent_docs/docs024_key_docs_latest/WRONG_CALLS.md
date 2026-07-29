@@ -10569,3 +10569,130 @@ someone else — and still took the action the suspicion was about, because each
 introspective: **when you notice that a resolution makes your own failing result disappear, do not
 ship that resolution in the same session you noticed it.** Leave the red result standing and let
 someone else break the tie. The council was that someone; it should not have had to be.
+
+---
+
+## 2026-07-29 — I proposed building a new mechanism beside a subsystem I had never read, from inside its own directory
+
+Session "bugsearch 7", immediately after closing `bugs_closed/102`. The owner asked whether the
+page-type misclassification check should live in the check-and-fix system fired from the
+improvement loop. **I had already recommended something else, and the recommendation was wrong
+on both of its premises.**
+
+**What I said.** That the natural home — a discovery check in
+`platform/orchestration/actions/discovery_checks/` — was unusable because "it would never run:
+the improvement-sweep that reaches those checks has been disabled since 2026-05-02". I
+recommended a bespoke scheduled SQL sweep instead, raising its own work item type.
+
+**Premise 1, wrong: "the discovery-check lane never runs."** One fact was true — the
+`improvement-sweep` scheduled task is `enabled=f` since 2026-05-02 — and I generalised it from
+*one check's route* to *the whole subsystem*. The measurement, which I only ran when pushed:
+
+```
+completeness-discovery-agent   144 work items   latest 2026-07-25
+design-discovery-agent         108 work items   latest 2026-07-25
+quality-discovery-agent          7 work items   latest 2026-07-17
+```
+
+Two of the three agents had produced 252 items and had run **three days earlier**, fired by
+other routes — including a demonstrated one-shot pattern sitting in `scheduled_tasks`
+(`oneshot-discovery-aao-20260726`, a task aimed straight at a discovery agent). **A disabled
+scheduler is not a dead subsystem.** What is genuinely dead is narrower and I could have said it
+precisely: `claims_unverified` items number **zero, ever**.
+
+I even had the sentence that misled me in front of me — CLM-004 says the sweep "effectively
+never runs", scoped to that one check's route. I widened it to the package.
+
+**Premise 2, wrong: that a new mechanism was cheap.** The package carries **build-enforced**
+invariants I did not know existed: `handler_coverage_test.go` (a check may not route at a
+handler agent that does not exist — two live violations found 07-26, noticed by nothing),
+`verifier_coverage_test.go` (every `item_type` must be verified or classified with a reason,
+enforced by a sensor that reads the package source), and `remit.go` (detector-wider-than-handler
+residue becomes one `capability_gap` item). A bespoke sweep with its own item type is invisible
+to all three — a second detection mechanism that must be kept in step by memory, which is the
+drift class this repo keeps paying to fix.
+
+And the platform's written policy for exactly my situation already existed: **`IMP-016`** — a
+discovery check is enabled once its handler exists, observe-only ahead of that. I proposed
+routing around a policy I had not read. My check needs no handler at all: it is HITL-terminal,
+the same `HandlerAgent: ""` / `needs_human_review` shape as its two neighbours.
+
+**What caught it.** The owner: *"should it be part of our check and fix system that gets fired
+from the improvement loop (which is currently switched off) see the files in
+discovery_checks/ look in the docs under improvement loop"* — three pointers, all of which I
+could have followed unprompted.
+
+**The cheap check that would have.** `ls` the directory. **I had been editing a file inside
+`discovery_checks/` all session** — `check_unverified_claims.go`, the post-deploy half of the
+very layer I was fixing — and never listed its 69 siblings or opened `registry.go`, `remit.go`
+or either coverage guard. Then: `ls docs/agent_docs/docs026_concept_register/register/ | grep
+improve` returns `improvement-loop.md`, 47 entries, one of which is the policy. CLAUDE.md names
+the register as the thing to consult **before concluding a capability does not exist**, and I
+consulted it for the thing I was building (CLM-016) but not for the thing I was proposing to
+build *beside*.
+
+**The transferable bit.** *Editing one file in a package is not knowing the package.* I had read
+`check_unverified_claims.go` closely enough to modify its query and its call sites, which felt
+like familiarity with the subsystem and was not — the invariants live in files I had no reason
+to open for my own change. **Before proposing a NEW mechanism, read the OWNING subsystem's
+registry, its guards, and its register category** — not the one file you happen to be standing
+in. And when the reason for a new mechanism is "the existing one is dead", **measure the
+existing one's output** before saying so: a scheduler flag is one hop, and the thing you
+actually care about is whether rows are still being produced.
+
+---
+
+## 2026-07-29 — the rest of that session's wrong calls: four more, and who caught each
+
+Session "bugsearch 7", `bugs_closed/102`. Two entries above already carry the summed-glob total,
+the paraphrased "verbatim" fixtures and the loop test that could not fail; this is the
+remainder, kept together because **the pattern across them is who did the catching.** Two of my
+own checks caught two, the council caught two, and none of the four was caught by me reading my
+own work.
+
+**1. A verification marker that would have produced a confident false "it is live".**
+My RUNBOOK told the next reader to confirm the roll by pod-grepping `section-index`, on the
+reasoning that it is a member of the new editorial page-type map. Both halves were wrong:
+`section-index` is a string literal in at least four other Go files (`page_growth_budget.go`,
+`v3_site_actions.go`, `apply_gap_plan_action.go`, `populate_nav_tables_action.go`), so a match
+proves nothing about my change; and I then **removed** `section-index` from the map entirely, so
+the documented grep would have returned `1` on a binary that did not contain the fix at all.
+*Caught by:* removing the page type, and re-reading the RUNBOOK because of it. *The cheap check:*
+before writing a marker down, `grep -rn '"<marker>"' --include='*.go'` — and prefer a **new
+function name**, which only your change can put in the binary. `resolvePageType` was 0 on the
+live pod before the roll and 2 after, with `scanComponentClaims` (2, unchanged) as the control.
+
+**2. A headline figure assembled from the part of the evidence I had read.**
+My PLAN said "47 of 47 editorial findings are false positives". 47 was `blog-post` + `guide` —
+the two page types whose snippets I had read when I wrote the sentence. I reviewed `tool`,
+`game`, `section-index` and `news-index` further down the same document and never carried them
+back into the headline. The class is 61 (and, after the council narrowed it, 59 suppressed).
+*Caught by:* the `comm` diff of the before/after finding lists, which is arithmetic rather than
+memory. *The cheap check:* derive a headline number from the artefact, never from the reading —
+if a figure and a breakdown appear in one document, make the document compute the figure.
+
+**3. I put a page type in the shipped set on analogy, in a change whose entire argument was
+"measure it".** `blog-index` went into `editorialPageTypes` because it looked like `blog-post`.
+It has three pages fleet-wide and raises zero findings even scanned against an empty register —
+no evidence in either direction. My own code comment two lines above says "do not widen this
+from intuition". *Caught by:* the council's edit-quality seat, which quoted my own method back
+at me. *The cheap check:* for a membership list, require the evidence cell to be non-empty
+before the row exists — write the table with the measurement column first and let a blank row
+be visibly unearned.
+
+**4. I named a risk and did not check it, in the same document that named it.**
+Risk #2 in my submission read: "a site filing marketing copy under an editorial `page_type`
+would go prose-unscanned. **Check whether any site does.**" I shipped it as a risk rather than
+as a query. *Caught by:* the guardian and compliance seats, both asking for the check rather
+than the caveat. The answer took one query and was not "no": **two of the twenty `section-index`
+pages are `about-index` and `contact-index`** — marketing bodies under an index name — which
+removed a whole page type from the fix. *The cheap check, and the one worth generalising:*
+**a risk you can answer with a query is not a risk, it is an unrun query.** Grep your own
+submissions for "check whether" and "verify that" before sending; every hit is either work you
+owe or a sentence you should delete.
+
+**Tally note.** Of the seven wrong calls in this session, the ones my own harness caught were the
+ones I had built a control for — the negative control caught the dead fixtures, the arithmetic
+caught the summed glob and the bad headline. **Every misstep with no control attached was caught
+by somebody else**, and two of those went to a council that costs credits and thirty minutes.
+That is the argument for writing the control first, not the summary first.
