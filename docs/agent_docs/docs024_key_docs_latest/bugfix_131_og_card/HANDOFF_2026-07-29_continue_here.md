@@ -1,5 +1,19 @@
 # HANDOFF — bugs_open/131 (og-card), continue from here — 29 July 2026
 
+> **SUPERSEDED IN PART, 2026-07-29 afternoon (session relojistas-5). Read
+> `SUMMARY_2026-07-29b_og_card.md` FIRST — this file's §0, §2 and §4 describe a state that no
+> longer holds.** What changed: the owner answered the §2 blocker (storage writes go *through
+> the chassis*; relojistas is done and its header is LIVE), gaswholesalers and idea.uk were
+> **reassigned to the "relojistas 4" session** (see `COORDINATION_2026-07-29_who_does_what.md`
+> — do not work them from here), and §4's items 1 and 3 are **done and live on v1.0.1199**
+> (favicon aspect + lock-before-commit, council-approved on trail `bfd73f71`).
+> **§4 item 3's figure was wrong**: the favicon distortion affects **5** sites, not "every wide
+> logo in the estate" — measured, see the SUMMARY. §4 items 2, 4, 5, 6, 7 still stand, and §7's
+> landmines still stand **except** the leopardess one, which is now handled deliberately (its
+> locked rows are backfilled and armed). One landmine to ADD: **`sites.github_repo` selects
+> which deploy repo serves a site, and publishing to the wrong one succeeds silently** —
+> relojistas and idea.uk are `vm-sites`, gaswholesalers and leopardess are B2.
+
 Repo-root `CLAUDE.md` binds. **`131` is one of the documented ambiguous numbers** — the other is
 the vonc gauntlet usability audit, owned by another lane. **Resolve by slug; `git log` the file
 PATH, never the number.**

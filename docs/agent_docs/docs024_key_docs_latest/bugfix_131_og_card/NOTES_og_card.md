@@ -658,3 +658,18 @@ completions at 13:50:34, 13:52:43, 13:53:16, 13:53:44, 13:54:16 — roughly ever
 > silently dropped. That is NOT what happened: a dropped spawn leaves the row `claimed`, and
 > this row is still `triaged`, i.e. never picked up. Recording the distinction because the two
 > look identical if you only check "did it run".
+
+**Refuted while waiting (recorded because a dead theory saves the next thread the query).**
+The item outranks the work that IS running (priority 60 vs the webdesign `page_rerender`
+batch's 80), so I suspected a site-level exclusion — specifically `sites.status`, since
+relojistas reads `deployed` and there is an index (`idx_sites_reconcile_due`) predicated on
+`status = 'active'`. **Wrong: ALL 14 live sites are `deployed`** — including the six that
+dispatched in the same window (ai-agent-orchestration, dartsonline, fundamentallyai,
+gaswholesalers, oufe, webdesign). `active` belongs to no live site at all; the vocabulary is
+`deployed` (14) / `pool` (17) / `system` (1). Site is not locked (`locked_at` NULL), item is
+well-formed (`triaged`/`build`/`attempt_count 0 < 3`/`asset-deployer`). So: queue position,
+not eligibility. **If it is still `triaged` after the long watch, the next question is
+`bugs_open/029` (trigger and dispatcher disagree) — another lane's, do not fix it here.**
+Amusing note for the record: I went looking for this because the council's `debug_historian`
+seat had warned me that morning about "the `sites.status` trap recurring on a different
+table". The warning was right about `assets.status` and did not transfer here.
