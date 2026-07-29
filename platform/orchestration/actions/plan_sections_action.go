@@ -47,10 +47,30 @@ import (
 )
 
 var PlanSectionsInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{"sections", "page_name", "pipeline", "work_item_id", "site_type", "page_type"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	Required: []string{"site_id"},
+	Optional: []string{"sections", "page_name", "pipeline", "work_item_id", "site_type", "page_type"},
+	// CheckConfig rather than ConfigKeys: this action reads nothing from
+	// params.StepConfig.Config directly — every key reaches it through
+	// ExtractActionInputs (:620), which iterates exactly Required ∪ Optional. The
+	// spec is therefore already a verified statement of what this action reads,
+	// and opting in asserts nothing new about behaviour.
+	//
+	// The third instance of bugs_open/136's half-landed domain→pipeline rename, and
+	// the only one on a path that actually runs: page-build-handler's step carries
+	// `domain: "site_record.domain"`, the spec has `pipeline` (which NO live step
+	// sets), and the string "domain" does not occur anywhere in this file. Because
+	// `domain` is not in the spec, Strategy 0 never resolves that dot-path — the
+	// value is fetched by nobody and used by nothing.
+	//
+	// Opted in HERE specifically because the six agents carrying the other two
+	// instances are deliberately quiesced (owner ruling 2026-07-29: the improvement
+	// loop is stopped during a heavy development phase), so their warning cannot
+	// fire without restarting something that was stopped on purpose. This action
+	// ran ~14 times in the preceding 24h, so the detector is exercised by traffic
+	// that is already happening.
+	CheckConfig: true,
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {
