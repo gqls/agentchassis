@@ -190,6 +190,19 @@ overwritten by Caddy (`X-Forwarded-For`) or stripped by Cloudflare (`X-Real-IP`)
    `bugs_closed/106` still applies: **measure the fire rate first — a very low
    rate and a dead check look identical.**
 
+> **UPDATED 2026-07-29 (later the same day) — the `httpguard` objection below is
+> now HISTORICAL. The package was fixed.** `ClientIP` takes a **required**
+> front-end argument, and `httpguard.CloudflareTunnel()` reads `CF-Connecting-IP`
+> — so candidate 1 and the "NOT a fix" note below have **converged**: adopting
+> `httpguard` now *is* candidate 1. Commit `31c684124`; council submission
+> `49392838-5ada-4c8e-baeb-94b01e5855b4` (verdict pending as written). A
+> ready-to-apply adapter, following `tools-api`'s own `httperr` precedent, is in
+> `gauntlet_dead_cta/CONTRIB_2026-07-29_…` — including the one thing that is still
+> `[INFERRED]` (that `CF-Connecting-IP` reaches the app process; measured at Caddy
+> and measured through Caddy, but never observed at the app, which has no
+> header-echo endpoint). The text below is kept unedited because *why* the package
+> was unsafe is the reusable part.
+
 **NOT a fix, and this is the important correction:**
 
 - **Adopting `platform/httpguard.ClientIP` verbatim leaves the defect exactly

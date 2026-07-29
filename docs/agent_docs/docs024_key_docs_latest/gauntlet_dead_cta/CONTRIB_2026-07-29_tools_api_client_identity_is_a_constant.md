@@ -93,3 +93,92 @@ longer appears" — passes **today, against the unfixed code**, so it cannot fai
 The discriminating check is `count(DISTINCT client_ip_hash)` going above 1, fired
 from two genuinely different networks. One test machine cannot tell a constant
 from a working key.
+
+---
+
+# Addendum 2026-07-29 — a ready patch, if you want it
+
+**The blocker on the shared package is cleared.** When I filed the above,
+adopting `platform/httpguard` would not have fixed anything: it hard-coded
+nginx's rules, which are false on your front-end, so it resolved the same
+constant. That is fixed and committed (`31c684124`, council submission
+`49392838-5ada-4c8e-baeb-94b01e5855b4`, verdict pending at time of writing).
+`httpguard.ClientIP` now takes a **required** argument naming the proxy in front
+of the service, and one of the three pre-declared front-ends is yours.
+
+**This is a proposal, not a patch I am going to apply.** `tools-api` is yours.
+Take it, change it, or bin it.
+
+## The shape, following your own `httperr` precedent
+
+`httperr` is already a tiny package imported by both `middleware` and `handlers`,
+which is exactly the shape this needs — so a sibling package rather than a
+duplicated helper:
+
+```go
+// internal/tools-api/clientip/clientip.go
+package clientip
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/gqls/agentchassis/platform/httpguard"
+)
+
+// From resolves the visitor's address for THIS deployment's proxy chain:
+// Cloudflare edge -> cloudflared -> Caddy -> here. CF-Connecting-IP is the only
+// header that carries the visitor and that the visitor cannot choose; Caddy
+// overwrites X-Forwarded-For with its own peer and forwards a client-supplied
+// X-Real-IP verbatim, so neither is usable here. See bugs_open/139.
+func From(c *gin.Context) string {
+	return httpguard.ClientIP(c.Request, httpguard.CloudflareTunnel())
+}
+```
+
+Then the two call sites, one line each:
+
+```
+middleware/ratelimit.go:30   getLimiter(c.ClientIP())  ->  getLimiter(clientip.From(c))
+handlers/round.go:109        hashIP(c.ClientIP())      ->  hashIP(clientip.From(c))
+```
+
+Optionally a third: `gin.New()` in `api/server.go:14` has no `SetTrustedProxies`,
+which is what makes `c.ClientIP()` trust-everything. Once nothing calls
+`c.ClientIP()` it stops mattering for correctness, but `engine.SetTrustedProxies(nil)`
+would make a future accidental call fall back to the peer instead of a header.
+
+## One thing I could NOT verify, marked rather than glossed
+
+**[INFERRED, from two separate measurements — not observed at your app]** that
+`CF-Connecting-IP` actually arrives at the `tools-api` process. What I measured
+directly is (a) the header arrives at **Caddy** carrying my real address — it is
+in the `020` probe vhost's access log — and (b) Caddy forwards it to an upstream
+**verbatim**, reproduced locally with `caddy:2.11.4` and your Caddyfile. The
+join between those two is an inference, because `tools-api` has no endpoint that
+echoes a header and I was not going to add one to your service. It is a strong
+inference and it is still an inference. If you want it settled before trusting
+it, the cheapest way is a temporary log line, or just let the acceptance check
+below settle it — a wrong inference shows up there immediately as "still one
+distinct value".
+
+## What makes this a fix rather than a plausible-looking change
+
+```sql
+SELECT count(*) AS rows, count(DISTINCT client_ip_hash) AS distinct_hashes
+FROM gauntlet_rounds WHERE created_at > '<the roll>';
+```
+
+Today: `distinct_hashes = 1` across all 83 rows. **The fix is proven when two
+requests from two genuinely different networks produce two different hashes** —
+one machine and one phone off wifi is enough. Keep the forged-header probe as the
+negative control: it must *still* not win. Note that a 200 proves nothing here,
+and neither does the forged value being absent, because it is already absent.
+
+## The larger half, separable
+
+The above fixes the identity. It does not touch the limiter itself, which is
+still a single token bucket with no retry-after. `httpguard.Limiter` is banded
+(so "a few per hour AND a sane daily ceiling" is expressible, which one bucket
+cannot say) and returns a retry-after so a throttled visitor can be told when to
+come back. That is a bigger change with a user-visible surface, so it is worth
+doing separately and on your own judgement about the gauntlet's traffic shape —
+the identity fix does not depend on it.
