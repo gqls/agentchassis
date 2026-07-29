@@ -401,7 +401,7 @@ Rules that make them worth the effort:
   committed but inert until the next roll stays OPEN, because the defect is still
   reproducible until it ships. **Grep BOTH directories before filing.** Numbering
   is one sequence across both dirs, never reassigned, and **several numbers name
-  two unrelated cases** (016, 017, 083, 112, 131 as of 2026-07-28, and the list grows)
+  two unrelated cases** (016, 017, 083, 112, 131, **146** as of 2026-07-29, and the list grows)
   — so a bare number is ambiguous and most commit messages saying "083" mean the
   *other* one. **Resolve by slug, and `git log` the FILE PATH, not the number.**
 - **Before routing work AT an existing bug, check who owns it:**
