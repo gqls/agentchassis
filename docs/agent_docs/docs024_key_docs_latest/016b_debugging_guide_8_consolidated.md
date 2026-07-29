@@ -7717,3 +7717,65 @@ pages were the ones nobody had rebuilt. **Before reasoning about whether a fix h
 reached a page, establish whether that page's artefact is generated per request,
 per build, or exactly once — the three behave completely differently and they look
 identical from the database.**
+
+### One responsibility implemented in three agents: whoever runs LAST reports zero, and a branch reading that output takes the "nothing happened" path (2026-07-29)
+
+**Where it bit.** A hand-fired `improvement-loop` run promoted **67** work items
+from `detected` to `triaged` on gamesdesign.co.uk and then terminated at step
+`complete_clean`, whose configured success message is *"No issues found — site is
+clean"*. It also skipped `insert_rerender_item` → `spawn_dispatch` →
+`call_dispatch`, so it dispatched none of the fixes it had just queued.
+(`bugs_open/150`.)
+
+**The mechanism.** `triage_detected_items` is a step in **three** live agent
+definitions — `improvement-loop`, `design-audit-agent`, `site-review-agent` — and
+the action is unconditional over the site: `UPDATE … WHERE site_id = $1 AND
+status = 'detected'`, no item_type filter, no ownership filter. The parent calls
+both children before running its own copy. So the first copy to execute takes
+**every** row, and each later copy correctly reports `promoted: 0`.
+
+The branch then reads the loser:
+
+```json
+"check_has_findings": {"condition": "triage_result.has_items == true",
+  "then_step": "insert_rerender_item", "else_step": "notify_scheduler_clean"}
+```
+
+`triage_result` is the parent's own `output_field`. It is written three times in
+one run — once per triage — and a conditional reading a key by name gets **the
+last writer, not the run**. The evidence is all in one row's `collected_data`:
+`call_design_audit.response.triage_result` = `{"promoted": 67}`, and the parent's
+`triage_result` = `{"promoted": 0}`.
+
+**Why it survived.** A separate scheduled task (`build-pipeline-trigger`)
+dispatches `triaged`+`build` items on its own 120s tick, so the fixes happened
+anyway — 25 minutes later the site had handlers running and items completing. The
+loop's dispatch branch is *redundant* with something that works, which is exactly
+the condition under which a dead branch goes unnoticed for months. What was
+actually lost was the one thing not redundant: the priority-99 closing rerender.
+
+**The transferable shape.** Three questions, in this order, whenever a workflow
+branches on a step's result:
+
+1. **Is this output_field written by more than one step?** `grep` the field name
+   across the definition AND across every agent it calls — a child's response is
+   merged into the parent's `collected_data` under its own keys, so a child can
+   overwrite a parent's field without either definition mentioning the other.
+2. **Is the underlying action idempotent-by-emptying?** An action whose effect is
+   "take everything in state X" reports honest, useful, *decreasing* numbers on
+   re-execution. Its second run is not a failure and logs no error — it reports
+   success and zero, which is indistinguishable from "there was nothing to do".
+3. **Which reading does the branch treat as the safe default?** Here `else` meant
+   "clean", so the failure mode was silence plus a reassuring message. A branch
+   whose no-op path is also its "everything is fine" path cannot fail loudly.
+
+**The cheap check** when you suspect it: the promoting UPDATE stamps a column, so
+`GROUP BY` that column. All 67 rows shared `triaged_at 17:08:32.778827` — one
+statement, at a timestamp inside the *child's* execution window and 20 seconds
+before the other child was spawned. A single shared timestamp tells you it was one
+statement; *whose* statement is then a matter of comparing windows.
+
+Related: `bugs_open/136` (a config key nothing sets, because a rename half-landed)
+is the static version of this — two writers disagreeing about one contract. This
+is the dynamic version: three writers agreeing about the contract and racing for
+the rows.
