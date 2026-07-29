@@ -222,3 +222,48 @@ each verdict so the drive is auditable from the output alone.
 
 **This does not overturn the owner's report.** 23 tools genuinely fail, and OK
 still only means *responds* — the per-tool loop tests each tool's actual claim.
+
+---
+
+## 2026-07-29 (fourth pass) — a FIFTH fault, and the census stabilises at 20
+
+**Most of these tools are paste-then-press, and the probe never pressed.**
+`sri-generator` was scored DEAD; driven properly it produces
+`integrity="sha384-vuz+yO71bcb30P4dMUNzy6/D2y+6d/n0KcOnt5clJtTBxEDoKAqGay0stFlC8Dpr"`,
+which **matches an independent Python `hashlib.sha384` of the same input
+byte-for-byte.** The tool was not merely alive — it was *correct*, while being
+counted among the broken.
+
+Added a second phase: if typing changed nothing, find the action button
+(generate/run/convert/build/calculate/format/minify/compile/analyse/check/…,
+excluding undo/copy/download), click it, wait 1.2s for async work
+(`crypto.subtle`, FileReader, image decode) and re-measure. That flipped
+`sri-generator`, `json-cleaner` and `head-architect` to OK.
+
+### Census, stabilised (2026-07-29)
+
+| verdict | count |
+|---|---:|
+| **OK** | **43** |
+| **DEAD** | **7** — aspect-ratio, blob-maker, clip-path, diff-checker, golden-ratio, magic-outliner, meme-generator |
+| **BROKEN** | **8** — animated-favicon, asset-formatter, blueprint-compiler, insight-injector, logic-architect, micro-cms, mind-map, pasteboard |
+| **NO-CONTROL** | **3** — monolith-splitter, rls-architect, seo-injector |
+| **UNVERIFIED** | **2** — cubic-bezier, vibe-equalizer |
+
+**20 of 63 fail.** The number moved 34 → 24 → 23 → 20 as the harness improved,
+**every time downward, every time because my measurement was wrong rather than
+the site.** Five distinct faults: static-read-not-browser, length-not-content,
+invalid-input-into-validating-tools, document-order-control-selection, and
+never-pressing-the-button.
+
+### What that means for this workstream, stated plainly
+
+The correct response is not "the tools are fine". Twenty genuinely fail, and the
+BROKEN eight throw `null`-reference errors that mean **markup the scripts need
+was never ported** — a real, common, fixable cause. But the repair queue is a
+third of what the first census said, and had I started fixing from that list I
+would have "repaired" working tools, most likely breaking some.
+
+**The rule this workstream now runs on: a negative verdict is a hypothesis
+until the page has been asked directly.** `evalpage.py <url> <expr>` is one
+command and it refuted four of my five faults on first use.
