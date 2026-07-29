@@ -22,7 +22,7 @@ one**) · `RUNBOOK_architecture_seat.md`.
 | **D11 layer 1b (markdown)** | **HELD at round 8** — corr `7ba5b8c4`. Resubmits only AFTER the guard below is approved and live |
 | **D12 citation guard** | **OWNER RULED 1b 07-29; IN COUNCIL** — corr `da1f9c81-0b4b-41ff-9b2c-bc0057ad3cf8`, 3 edits, inert on arrival |
 | `bugs_open/135` (prune has no floor) | **OPEN, UNOWNED** — pre-existing, independent of 1b |
-| `review_architecture` | **still 0 reviews** — rate limit, not fault |
+| **`review_architecture`** | **IT HAS FIRED — 9 reviews, 5 approve / 4 object, 07-28 22:10 → 07-29 08:41.** Another session seated it on `fix-proposer` + `council-gate` (owner REVERSED D9). **The 'still 0 reviews' line here was true when written and was false within 4 hours** |
 
 **⚠ REVERSAL TRIGGER, unchanged:** migration 252 pins the indexer's ref to
 `086_experience_loop`. **Change that literal to `'main'` AS PART OF the merge.**
@@ -149,10 +149,17 @@ it first costs nothing and means the hazard is never representable.
 
 ## 6. Still open, unchanged
 
-1. **The seat still has 0 reviews.** `review_architecture` sits only on
-   `feature-designer`, which refuses anything without an owner-approved
-   `capability_gap` spec. **Do NOT manufacture a review by firing at another
-   thread's ticket.**
+1. ~~**The seat still has 0 reviews.**~~ **CLOSED 2026-07-29 — and not by me.**
+   Another session seated `review_architecture` on `fix-proposer` + `council-gate`
+   (the owner REVERSED D9), which put it on the lane that actually has traffic.
+   **9 reviews in ~10.5 hours, 5 approve / 4 object**, and the D5 kill-switch is
+   NOT met: every objection carries a signal line, none is a correctness nit.
+   **The loop closed end-to-end**: its objection on corr `99f2a5e6` (new reserved
+   keys on a shared vocabulary) → owner instruction *"route it to a real
+   architecture review"* → **`RFC_002_criteria_check_type_vocabulary.md`, committed
+   `1023280e9` at 09:16.** D3's design — *advisory, the verdict is an RFC trigger
+   not an objection* — worked exactly as specified. See
+   `SUMMARY_2026-07-29_the_seat_has_spoken.md`.
 2. **`council-gate` still gets no code answers** — deliberate (no reproposer); the
    fix is surfacing code results into its verdict note.
 3. **D11 layer 3** — a seat cannot look things up *while reasoning*. `[UNSCOPED]`.

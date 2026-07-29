@@ -816,3 +816,52 @@ now: it's there once. After the deploy it must be zero. A thing that has to
 
 Waiting on the council now. If it approves, I build and roll it, and only then does
 the markdown change go back for its ninth round — with the hazard already closed.
+
+---
+
+**2026-07-29, later — the seat spoke, and I found out by accident.**
+
+The big news first: **the architecture seat has started reviewing.** Nine reviews
+since last night, five approve, four object. This was the thing we'd been waiting on
+for a week — we'd built a forward-looking reviewer and it had never once opened its
+mouth, so we had no idea whether the design worked.
+
+It wasn't me that fixed it and it wasn't fixed by waiting. Another session moved the
+seat onto the lanes that actually get used, after you reversed the earlier ruling
+against putting it on the fix lane. That was the right call: the problem was never
+the seat, it was that we'd seated it somewhere almost nothing happens.
+
+**And it's arguing the right side.** That was the real question — a forward-looking
+reviewer that just double-checks correctness is a wasted seat. This one doesn't. It
+flagged a fleet-wide lookup table that has "no owner or update trigger". It told an
+author that documenting a change in a comment isn't the same as enforcing it. It told
+another that their work was careful but that being careful doesn't change which
+review track a change belongs in. It said of a clean measurement across fifteen sites
+that it was "a snapshot, not a standing guarantee". Once, it objected to something
+everybody else approved.
+
+**One of those objections turned into an RFC this morning** — you instructed it be
+routed to a real architecture review, and the document filed names the seat's ruling
+and the exact review it came from. That's the whole loop working: seat raises it, it
+becomes a written decision, the next person inherits the reasoning instead of
+rediscovering it.
+
+Two things I want to be straight about.
+
+**The RFC needed you in the loop.** The design says the seat's verdict should be a
+trigger by itself. What we've actually shown is that the path works when a human
+walks it. One RFC isn't a rate, and I don't want that written up as more than it is.
+
+**And I got it wrong in a way worth recording.** Last night I wrote the handoff
+document that the next session starts from, and it says the seat has zero reviews.
+It had started firing ten minutes after I wrote that. I didn't discover it by
+checking my own workstream's headline claim — I found it sideways this morning while
+doing something completely unrelated to it. It was the oldest open question in this
+lane, I published a document saying it was still open, and the one query that would
+have caught it takes about four seconds. I've corrected the handoff and logged it.
+
+Meanwhile the guard for the document-indexing work got stuck in the review queue on
+the same flaky reviewer that hung once before. I checked it properly rather than
+guessing — two later submissions finished while mine hadn't moved at all, and the
+reviewer cleared someone else's in under a minute — so it's genuinely stuck rather
+than slow, and I've resubmitted it.

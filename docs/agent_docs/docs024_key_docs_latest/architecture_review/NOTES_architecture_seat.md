@@ -1293,3 +1293,86 @@ mid-check, `cccfc8f5d` → `6d4777565`). Nothing in the analysis depends on the
 version — the baseline re-grep held on every pod checked — but it is a reminder
 that **the roll rate here is hours, not days**, and any pod-grep older than your
 last command is stale.
+
+---
+
+## 2026-07-29, 08:50 — THE SEAT HAS SPOKEN. 9 reviews, and one of them produced an RFC
+
+> **CORRECTED 2026-07-29:** `HANDOFF_2026-07-28c` §1 and §6 both said
+> **"`review_architecture` — still 0 reviews"**. That was TRUE when I wrote it at
+> ~22:00 on 07-28 and **FALSE by 22:10**, ten minutes later. I did not catch it by
+> re-checking my own workstream's headline claim — I caught it sideways, reading an
+> unrelated memory line during the index compaction. **The oldest open item in this
+> workstream closed while I was writing a handoff that said it was open, and I
+> published the handoff anyway.** Cheap check that would have caught it: the
+> one-line census below, run before writing a state table. A state table is a set of
+> claims and each one has a query.
+
+```sql
+WITH r AS (SELECT da.created_at, da.correlation_id, da.body::jsonb->>'decision' AS decision, rev
+           FROM diagnosis_artifacts da, jsonb_array_elements(da.body::jsonb->'reviews') rev
+           WHERE da.kind='council_report')
+SELECT created_at, left(correlation_id::text,8), decision, rev->>'verdict'
+FROM r WHERE rev->>'reviewer'='architecture' ORDER BY created_at;
+```
+
+**9 reviews, 07-28 22:10:50 → 07-29 08:41:00. 5 approve / 4 object.** Not mine and
+not by waiting: **another session seated it on `fix-proposer` + `council-gate`
+(owner REVERSED D9)** — i.e. it was moved onto the lane that has traffic. The
+07-28 diagnosis ("rate limit, not fault") was right about the mechanism and wrong
+about the remedy: the fix was not a new owner-approved spec, it was a different lane.
+
+### Is it a forward seat or just another correctness reviewer? Read the objections
+
+**Forward, decisively.** Not one objection is a correctness nit. Every one is about
+a shared contract, an ownerless mechanism, or a guarantee that is really a snapshot:
+
+- *"`editorialPageTypes` is a fleet-wide hardcoded map with no per-site override …
+  the list itself has **no owner or update trigger** tied to page_type creation"*
+- *"**A doc comment is not an enforcement mechanism** — nothing stops a third future
+  check type from being added confirm-style by someone who never reads that comment."*
+- *"Per the plan's own cited **2026-07-28 seam ruling**, a new key on a shared
+  vocabulary is architecture-scope even when additive, small, well tested, and
+  measured at zero current collision."*
+- *"The engineering is careful … but **care does not relocate the review track**."*
+- *"The measurement (0 findings across 15 sites / 908 components) is **a snapshot,
+  not a standing guarantee**."*
+- *"Flagging for the record, not to block: this is already live on v1.0.1196 and
+  reverting would cost more than documenting."* ← calibrated, not noise
+
+It **cites this workstream's own charter** (`PROCESS_architecture_review.md`) and
+**enforces this workstream's own seam ruling**. It also **dissented from a round
+that was APPROVED overall** (07:45 on `899ed92e`) — the minority forward voice
+doing precisely what D1 seated it for.
+
+**D5's kill switch is NOT met** (*"high object-rate with no signal line ⇒ the seat
+is noise, pull it"*): 4 objections in 9 reviews, every one carrying its signal.
+
+### The loop closed END TO END, which is the part that matters
+
+`RFC_002_criteria_check_type_vocabulary.md` (committed `1023280e9`, 09:16 today)
+opens:
+
+> *"raised 2026-07-29 by the experience-register session, **at the owner's explicit
+> instruction** (\"route it to a real architecture review\") after the council gate's
+> `review_architecture` seat ruled on corr `99f2a5e6-e934-4ca1-addb-f16a29b38b0f`"*
+
+That is the seat's 22:12 objection, by correlation id. **Seat objects → owner
+instructs → RFC filed.** D3's design was *advisory; the verdict is an RFC trigger,
+not an objection* — and that is exactly the path it took. The RFC even adopts the
+`bugs_closed/124` shape this workstream wrote into CLAUDE.md: *the code stays and
+the precedent gets fixed.*
+
+**What is NOT yet shown:** that the trigger fires **without** an owner in the loop.
+This one needed an explicit instruction. `[UNMEASURED]` — one RFC is not a rate,
+and the honest reading is "the path works when a human walks it", not "the path is
+automatic".
+
+### Guard council: WEDGED, and the peer check called it
+
+`da1f9c81` sat at `review_editquality` **1,717s with its last state change equal to
+its creation time** — never advanced one step. Peer check met on both limbs: two
+runs created AFTER mine COMPLETED (`bfd73f71` 08:33, `2903798e` 08:36), and another
+run cleared `review_editquality` in 48s, so the seat is fine. Resubmitted on the
+same trail id (`RESUBMIT_CORR=da1f9c81…`, new envelope `3a9f4bf7`). Second wedge on
+this seat in two days — `bugs_open/119`.
