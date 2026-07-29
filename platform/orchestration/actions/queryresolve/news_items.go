@@ -178,6 +178,7 @@ func siteSourceQueries(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 //     (min 3) is the site's subject matter even when no query names it —
 //     gaswholesalers' query says "gas" but its pool is oil-market coverage,
 //     and "Oil" must not be a tool key there.
+//
 // Derivation matters because a hardcoded list is one site's topics in
 // disguise: the first cut of this cap hardcoded css/html/design and the
 // pre-submission simulation showed it dropping 13 of gaswholesalers' top 20.
