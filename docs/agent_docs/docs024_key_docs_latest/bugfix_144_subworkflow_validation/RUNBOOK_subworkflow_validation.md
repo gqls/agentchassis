@@ -17,9 +17,30 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 python3 -c "import json;d=json.load(open('/tmp/live_workflows.json'));print(len(d),'agents')"
 ```
 
-**Gotcha: a truncated `kubectl exec` exits 0.** The `python3` line is not decoration —
-it is the only thing standing between you and a "clean, small fleet" that is actually
-a short read. `json.load` fails loudly on a truncated array.
+**Gotcha: a truncated `kubectl exec` exits 0 — and this BIT, 2026-07-29.** The export came
+back 659,451 bytes instead of 1,051,075, exit 0, no error. The dry-run then failed with
+*"export is not a JSON array"* — which for ten seconds read exactly like "my fix has
+broken a live definition". The `python3` line is not decoration; it is the only thing
+between you and a "clean, small fleet" that is actually a short read.
+
+Use the retry loop rather than the bare export — the truncation is intermittent, and one
+retry cleared it:
+
+```bash
+for i in 1 2 3; do
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc "
+    SELECT jsonb_agg(jsonb_build_object('type', type, 'workflow', default_config->'workflow'))
+    FROM agent_definitions
+    WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active
+      AND default_config ? 'workflow';" > /tmp/live_workflows.json 2>/dev/null
+  python3 -c "import json;d=json.load(open('/tmp/live_workflows.json'));print('attempt $i OK:',len(d),'agents')" && break
+  echo "attempt $i TRUNCATED ($(wc -c < /tmp/live_workflows.json) bytes)"
+done
+```
+
+**The harness refusing a short export is deliberate and it earned its place on first
+use.** Without that check it would have parsed fewer agents and passed — reporting a
+clean fleet it had never looked at.
 
 ## Replay the validator over the fleet (the measurement that made this safe)
 
