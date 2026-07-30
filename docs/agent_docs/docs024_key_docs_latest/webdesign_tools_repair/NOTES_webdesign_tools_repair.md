@@ -601,3 +601,60 @@ future**, and a PREPARE against the live schema costs one second.
 after the 300s spawn window on 1206): the first fence on this estate asserting
 a tool's ARITHMETIC — known-answer pairs watched passing by hand first
 (#767676/#ffffff → "4.54 : 1", #000000 → "21.00 : 1") per migration 148's rule.
+
+---
+
+## 2026-07-30 — four more tools broken, and the lookup failure behind the report
+
+**The owner opened four tools this workstream had called repaired. All four were
+unusable.** Not near misses:
+
+- **micro-cms** — editable body 248px inside a 743px frame, so the caret could
+  not be placed in the bottom two thirds; and a query for formatting buttons
+  returned an EMPTY LIST. `designMode` was on and `execCommand('bold')` worked
+  when called directly — the capability was there with no way to reach it. The
+  false copy ("Click anywhere... Everything on this page is editable") was mine.
+- **pasteboard, logic-architect, mind-map** — work areas measuring **1146x0**.
+  One cause: each was ported from a standalone page whose `body` WAS the flex
+  container, so `flex: 1` had no flex parent and the height collapsed, while the
+  same rule restyled the host page (`overflow:hidden` on the site's own body).
+  Measured fleet-wide: exactly 3 pages carry that leak; these three.
+
+### How they passed me, which is the finding
+
+I verified pasteboard by calling `addItem(src)` and logic-architect by calling
+`loadTemplate('code')`. **A visitor cannot call a function.** Their real entry
+points are a paste event and a click on a visible control, and the areas those
+act on had no height. Two rules:
+
+1. **Verify through the visitor's GESTURE, never the tool's internal functions.**
+   If the vocabulary cannot express the gesture, that is a missing check type to
+   record as a deferral — not a licence to substitute a function call.
+2. **A fence asserts the TERMINAL value, not the first observable state change.**
+   "Status reads LIVE EDITING" is a waypoint; "text can be edited and
+   emphasised" is the point. My micro-cms fence asserted the waypoint.
+
+Built so the rule is enforced rather than written: **TL-034 `has_visible_area`**,
+a Tier-4 check measuring `getBoundingClientRect()` against a floor. Tier-4-only
+by necessity — it measures rendered layout, so a Tier-2 equivalent is impossible.
+
+### The lookup failure, recorded because it is the reusable part
+
+The owner had asked me to find a prior discussion of staged tool building. I
+searched `docs/` thoroughly, found two adjacent statements, and reported it not
+found. **It was in `features_open/015` — the repo root, not `docs/`.** A search
+agent I launched for it also died on a session limit, so nothing corrected me.
+
+**`features_open/` is a first-class source. Read it.** Three entries turned out
+to matter, at three scales: **015** the site maturity ladder (rungs, reference
+examples, measurable progression criteria — a criteria fence one rung at a
+time), **027** the component stage ladder S0–S7 raised the same day by another
+session, and **026** the render-before-ship gate (fifty checks, none renders a
+page; 101 WCAG-AA failures on one site while every status said deployed).
+
+**027 reached this workstream's conclusion independently, on the same day:**
+*"They all measured static markup or forced DOM state; not one ever fired a real
+click. What was missing was not rigour — it was a stage."* Two lanes, one day,
+one finding. Its S2 gate is the one thing neither lane had: **≥1 mutant red per
+assertion class** — prove a check can fail before trusting it to pass. Nine
+harness faults in this workstream are the argument for adopting it.

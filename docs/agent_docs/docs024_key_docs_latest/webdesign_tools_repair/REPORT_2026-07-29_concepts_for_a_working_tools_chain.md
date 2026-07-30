@@ -13,6 +13,10 @@ register and elsewhere and start a report on what concepts would touch the
 tools and in which way. Together they will almost certainly be enough to help
 us create a working workflow to build working tools."*
 
+**Extended 2026-07-30** with the owner's three corrections (validation vs
+judgement, check deeper, staged builds — §7b, §7c) and then with the documents
+the owner named: `features_open/015` the maturity ladder, plus `026` and `027`.
+
 **The answer, up front: you are right, and my earlier "can't be automated" was
 wrong.** The platform already holds nearly the entire chain, live. The distance
 between "responds to clicks" and "asserts its actual claim" is **five small
@@ -124,6 +128,7 @@ From the two evaluators' own switch statements (not from docs):
 | `attribute_absent` / `attribute_matches` | **refuting**, zero-matches-SKIPS | — (skipped) |
 | `no_console_errors` | — (skipped) | whole-session, evaluated last |
 | `no_horizontal_overflow` | — (skipped) | with culprit attribution |
+| `has_visible_area` (TL-034, new 07-30) | — (impossible: it measures layout) | rendered box vs a floor |
 
 `interaction` + `text_matches` is already enough to assert most of these tools'
 claims — a calculator's known-answer pair, a generator's output naming its
