@@ -158,3 +158,34 @@ ORDER BY created_at;
 ```
 **GOTCHA — do NOT roll the chassis while a council run is in flight**; a roll kills
 it and the review is lost (the run has to be resubmitted, spending credits again).
+
+## 10. The adoption crawl config (changed 2026-07-30)
+
+```sql
+SELECT jsonb_pretty(default_config->'workflow'->'steps'->'crawl_site'->'config')
+FROM agent_definitions WHERE type='site-adoption-agent' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+`formats` must contain **`rawHtml`** or verbatim adoption has nothing to preserve —
+it is there (`["markdown","rawHtml"]`), and `only_main_content: false`, both correct.
+
+**`scrape_config.limit` raised 30 → 60** (this lane, 2026-07-30). The site has 29
+HTML files and the old cap was 30: `/` and `/index.html` can each be crawled as a
+distinct URL, so a 29-file site can legitimately present 30–31 URLs and lose pages
+to the cap. **A page dropped by the cap is silently absent, not an error** — it just
+never appears in the crawl index, so it is never adopted.
+
+Snapshot taken first, and verified to hold the **pre-change** value:
+```sql
+SELECT snapshot_agent('site-adoption-agent', '<reason>');   -- two-arg form!
+SELECT snapshot_taken_at,
+       (default_config #>> '{workflow,steps,crawl_site,config,scrape_config,limit}')
+FROM agent_definitions_backup WHERE type='site-adoption-agent'
+ORDER BY snapshot_taken_at DESC LIMIT 1;                    -- must show 30, not 60
+```
+**GOTCHA (LANDMINES.md):** `snapshot_agent(text,text)` writes to
+`agent_definitions_backup`; the one-arg form writes an `is_snapshot=true` row into
+`agent_definitions`. Check the wrong table and a good snapshot looks like a no-op.
+**GOTCHA (LANDMINES.md):** `jsonb_set(..., create_if_missing := false)` on a wrong
+path is a **silent no-op**, not an error — assert `UPDATE 1` and re-read the value.

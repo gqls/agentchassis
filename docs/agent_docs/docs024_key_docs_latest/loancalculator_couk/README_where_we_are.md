@@ -80,3 +80,41 @@ rates and a "last updated" date from March. I'm leaving those alone — changing
 copy isn't part of adopting the site, and I'd rather not mix the two. But once it's
 managed, keeping figures like that current is exactly what the platform could be
 doing for us, and that's worth a conversation after this lands.
+
+**2026-07-30, later.** Two things done, one waiting.
+
+**The site is fixed and back up.** All the problems I listed above are repaired and
+live: the four broken pages now render properly, every page has its menu, the dead
+menu link is gone (with a forwarding page left at the old address so anything
+pointing there still works), the main calculator is styled again, and the address
+list search engines read is correct for the first time. I checked all 34 addresses
+and every one returns a page. I also confirmed the three dead files I deleted now
+genuinely return "not found" — which matters more than it sounds, because it proves
+the publish actually reached the storage bucket rather than me reading a stale copy.
+
+**The framework change is written and under review.** It does what I described:
+asking for "locked" fidelity now means the platform keeps a site exactly as it
+found it — same addresses, same pages, byte for byte — instead of rewriting it.
+Two focused changes, both switched off unless explicitly asked for, so no existing
+site can be affected. I wrote tests, and then deliberately broke each safety check
+to confirm the tests actually catch the failure rather than just passing quietly.
+One of those attempts taught me something: my first break didn't change behaviour
+at all, so the test passing proved nothing — I had to break it properly before the
+check was worth anything.
+
+It has gone to the review council and I'm waiting on the verdict, which usually
+takes about half an hour. I'm deliberately not deploying anything until it comes
+back, because deploying restarts the system and would kill the review mid-flight.
+
+**One preparation worth mentioning.** The crawler had a cap of 30 pages and this
+site has 29 files — and the homepage can count as two addresses, so it could
+genuinely have hit the cap and quietly left pages behind. A page lost that way
+doesn't error; it just never arrives. I raised the cap to 60 first, after taking a
+backup of the old setting and checking the backup really held the old value.
+
+**A mistake of mine, for the record.** I committed the framework change before
+submitting it for review, which meant the reference number linking the two was not
+available yet and I wrote a placeholder. The system that reports which changes have
+been reviewed will therefore not credit this one automatically. Nothing is broken and
+the review is happening normally, but the tidy trail is missing. The right order is
+submit first, then commit — I've written that into the runbook.
