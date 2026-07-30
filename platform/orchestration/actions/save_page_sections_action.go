@@ -379,6 +379,23 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
 		pageName, pageURL, sections, params.Logger)
 
+	// --- Claims floor (bugs_open/149 C1) ---
+	// Placed immediately after the link repair so it scans the bytes that will
+	// actually be written, and BEFORE the regression guards so a page refused for
+	// asserting a falsehood is refused for that reason rather than for whatever
+	// the guards notice next.
+	//
+	// Six live agents persist sections through here; only two of them run
+	// validate_page_content, so for the other four this is the only claims check
+	// that exists. A banned claim refuses the save; an unregistered number is
+	// recorded and allowed. See save_sections_claims_guard.go for the severity
+	// rule, the measured blast radius and the scope boundary.
+	if err := claimsGuardBeforePersist(ctx, params, siteID, pageID,
+		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+		pageName, pageURL, sections, params.Logger); err != nil {
+		return nil, err
+	}
+
 	// --- Content regression guard ---
 	// Refuse to overwrite content-rich pages with empty template shells.
 	// This prevents LLM failures (credit exhaustion, timeouts, empty responses)

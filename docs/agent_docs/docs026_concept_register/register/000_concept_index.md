@@ -100,7 +100,7 @@ the entire **claims-verification** subsystem was absent. Its first plan is dated
 2026-07-16, three days after extraction froze, so V0–V5, the `evidence_base`
 register, the banned-claim scanner and the citation verifier were never
 extracted; `grep -rl evidence_base register/` returned nothing until today. Added
-as `claims-verification.md`, **17 concepts (CLM-001..017)**, grounded in code and
+as `claims-verification.md`, **18 concepts (CLM-001..018)**, grounded in code and
 DB read first-hand on 2026-07-27 rather than carried from other documents.
 
 Two of the twelve are recorded defects rather than descriptions — `CLM-009`
@@ -1822,4 +1822,5 @@ an ID prefix, or a status word.
 | CLM-014 | cmd/claimscan: run the live gate's own engine over exported page HTML, offline | deployed | The only way to test a candidate pattern set against copy other than the site it was written for; a session nearly rebuilt it. Prints BANNED/NUMBER, never the string "banned_claim" | claims-verification.md |
 | CLM-016 | ClaimSurface: the page's structural type gates the prose number heuristic | committed, INERT until roll | 124 live findings -> 63, suppressing 61 measured false positives and nothing else; ONLY the heuristic is gated (banned claims and stat fields still scan every page type); zero value = UNKNOWN = scanned | claims-verification.md |
 | CLM-017 | The negation guard: a banned PHRASE is not a banned CLAIM | committed, INERT until roll | Clause-local (stops at the first comma) so a negation in another clause cannot launder an overclaim; applies to per-site registers too — one matcher, not two that drift; 'without' and bare 'no' deliberately EXCLUDED as intensifiers. Two landmines: a pattern-set test passes VACUOUSLY when the pattern is absent, and narrowing a pattern by reasoning made it match nothing across 919 live components | claims-verification.md |
+| CLM-018 | The CLAIMS FLOOR: claims checking at the persistence seam, not in workflow config | committed 07-30, INERT until roll | 6 agents persist page sections and only 2 gate — so the check moves to save_page_sections, where a workflow author cannot forget it. Blocker (banned claim) REFUSES the save, error (unregistered number) records and allows: severity-driven, not check-by-check. CORRECTS bugs_open/149 C1 — page-content-writer, the agent it named, PERSISTS NOTHING and is called by 4 of the 6. Blast radius measured first: 3 of 949 live components (0.32%) can no longer re-render, all 3 asserting something untrue | claims-verification.md |
 | LNK-024 | repairSectionsBeforePersist: dead-link repair at the PERSISTENCE point | deployed | The gate repairs clean_html, which the structured save path never reads — so repair moves to where sections are written; 4 of 6 persistence paths had none by any route | link-management.md |

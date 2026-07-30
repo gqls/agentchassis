@@ -44,7 +44,12 @@ var RunDiscoveryChecksInputSpec = datahelpers.ActionInputSpec{
 	// So this changes what is REPORTED, not what runs. The warning is warn-only
 	// (StrictConfig unset), so the three discovery agents keep working unchanged
 	// while the defect finally says so out loud.
-	ConfigKeys: []string{"checks", "check_pipeline"},
+	// allow_unregistered_checks added 2026-07-30 (bugs_open/149 B4). It MUST be
+	// declared here: this spec is opted into unknown-config-key detection, so an
+	// undeclared lever would be reported as a stray key by the very audit this
+	// list exists to feed — and the first person to set it would be told their
+	// correct config was wrong.
+	ConfigKeys: []string{"checks", "check_pipeline", "allow_unregistered_checks"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -133,14 +138,65 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	// --- Run each enabled check ---
+	//
+	// bugs_open/149 B4. Both arms below used to be a Warn and a `continue`, and
+	// `checks_run` in the output reported enabledChecks — what was REQUESTED. So a
+	// typo in a config array silently shrank the run and the step still reported
+	// success, from outside the pod indistinguishable from a clean site. Every
+	// Group B measurement in 149 was untrustworthy until this landed, because a
+	// zero finding count and a check that never ran look identical.
+	//
+	// The two arms are treated differently, deliberately:
+	//
+	//   UNREGISTERED NAME → fail the step. It is a config defect, not a runtime
+	//     condition: the registry is fully populated in init() before any run
+	//     (including the six directory checks registered per profile at
+	//     check_directory.go:111-116, which a grep for literal Name() returns
+	//     cannot see), so a name that does not resolve will never resolve. This
+	//     matches the contract the platform already has for its sibling — a seed
+	//     naming an unregistered ACTION fails at runtime, and an unregistered
+	//     CHECK should not be quieter than that.
+	//
+	//   CHECK ERRORED → report, do not kill the run. Failing all thirty because
+	//     one hit a transient DB error would discard twenty-nine checks' findings.
+	//     It is no longer silent because checks_failed names it in the output.
+	//
+	// Verified before shipping: of the 57 check names configured across the three
+	// live agents that call this action (completeness-, design- and
+	// quality-discovery-agent, measured 2026-07-30), every one resolves. Note
+	// maintenance-triage's `checks` array is NOT ours — that agent has no
+	// run_discovery_checks step and the array belongs to
+	// scan_sites_for_maintenance, whose vocabulary is entirely different.
 	var allFindings []interface{}
 	inserted := 0
 	skipped := 0
+	ranChecks := make([]string, 0, len(enabledChecks))
+	unregisteredChecks := []string{}
+	failedChecks := []map[string]string{}
+
+	// allow_unregistered_checks restores the previous tolerate-and-continue
+	// behaviour. It exists for the seed-ahead-of-image window: DB config is live
+	// immediately and Go is not, so a seed naming a check whose code has not
+	// rolled yet would otherwise stop the whole run. Off by default — on by
+	// default would leave the defect live — and withdrawable in seconds without
+	// an image roll, the same argument repair_internal_links settles.
+	allowUnregistered := configBoolOrDefault(config, "allow_unregistered_checks", false)
 
 	for _, checkName := range enabledChecks {
 		check := checks.Get(checkName)
 		if check == nil {
-			logger.Warn("Unknown discovery check — not registered",
+			unregisteredChecks = append(unregisteredChecks, checkName)
+			if !allowUnregistered {
+				logger.Error("Unknown discovery check — not registered; failing the step",
+					zap.String("check", checkName),
+					zap.Strings("registered", checks.Names()))
+				return nil, fmt.Errorf(
+					"discovery check %q is not registered — the run would have silently omitted it. "+
+						"Fix the agent's `checks` array, or set allow_unregistered_checks:true if the "+
+						"check's code has not rolled yet. Registered checks: %v",
+					checkName, checks.Names())
+			}
+			logger.Warn("Unknown discovery check — not registered; tolerated by allow_unregistered_checks",
 				zap.String("check", checkName))
 			continue
 		}
@@ -150,8 +206,13 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 			logger.Warn("Discovery check failed",
 				zap.String("check", checkName),
 				zap.Error(err))
+			failedChecks = append(failedChecks, map[string]string{
+				"check": checkName,
+				"error": err.Error(),
+			})
 			continue
 		}
+		ranChecks = append(ranChecks, checkName)
 
 		// Append findings
 		for _, f := range result.Findings {
@@ -196,15 +257,27 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("findings", len(allFindings)),
 		zap.Int("items_inserted", inserted),
 		zap.Int("items_skipped", skipped),
+		zap.Int("checks_requested", len(enabledChecks)),
+		zap.Int("checks_ran", len(ranChecks)),
+		zap.Int("checks_failed", len(failedChecks)),
 	)
 
+	// checks_run now reports what ACTUALLY ran, not what was requested
+	// (bugs_open/149 B4). checks_requested is kept alongside it so the difference
+	// is readable without re-deriving it, and so a consumer that wanted the
+	// requested list has somewhere to go rather than silently reading the wrong
+	// one. A downstream reader that treated checks_run as "the configured set" is
+	// now reading something narrower — which is the correction, not a regression.
 	return map[string]interface{}{
-		"site_id":        siteIDStr,
-		"domain":         siteDomain,
-		"checks_run":     enabledChecks,
-		"findings":       allFindings,
-		"items_inserted": inserted,
-		"items_skipped":  skipped,
-		"batch_id":       batchID.String(),
+		"site_id":             siteIDStr,
+		"domain":              siteDomain,
+		"checks_run":          ranChecks,
+		"checks_requested":    enabledChecks,
+		"checks_unregistered": unregisteredChecks,
+		"checks_failed":       failedChecks,
+		"findings":            allFindings,
+		"items_inserted":      inserted,
+		"items_skipped":       skipped,
+		"batch_id":            batchID.String(),
 	}, nil
 }
