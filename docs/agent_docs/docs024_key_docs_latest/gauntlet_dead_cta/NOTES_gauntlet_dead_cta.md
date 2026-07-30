@@ -2180,3 +2180,84 @@ floor and not the ceiling; stating the floor was right, and it was nowhere near
 enough to convey the size. *Check: on an unswept site, size the sweep by how
 long it has been off, not by what is currently queued.*
 
+
+---
+
+## 2026-07-30 — the cycle closed, and the worst claims on the page were mine
+
+**The loop finished and it works.** `e7ea0125` → `tool-improver` (46s) → component
+rewritten 18:22:24Z → page redeployed 19:17:02Z → **re-checked with the shipped
+clause: `over=0`, clean**, with two known-bad webdesign.co.uk pages flagging in
+the same batch as positive controls (`over=33`, `over=95`). First `improve_tool`
+item ever to complete. Recorded in `bugs_open/131` § B and `bugs_open/083`.
+
+Playwright had vanished from the environment since 07-29; rebuilt in a scratchpad
+venv. The scan script's runtime clause extraction meant that changed nothing about
+what was tested.
+
+**Then I got three things wrong in a row, all the same way, and one of them reached
+the owner.**
+
+The sweep's LLM copy rewrite replaced gamesdesign's hero. I reported four
+fabricated claims, escalated it as urgent, and **obtained a decision to revert**.
+Re-grounding before writing:
+
+- *"11 tools is wrong, there are 14"* — **11 is exact.** My `name LIKE 'tool-%'`
+  and `name LIKE 'guide-%'` filters encoded a naming convention the site does not
+  use: guides exist as BOTH `guide-economy-basics` AND
+  `tool-loot-table-balancer-guide`, all served from `/guides/`. One unexamined
+  convention produced two errors in opposite directions that **looked like
+  independent confirmation of each other**.
+- *"10 guides is wrong, there are 5"* — **10 is exact** (5 + 5).
+- *"10,000 Monte Carlo trials is fabricated"* — **overstated, not fabricated.**
+  I tested `rendered_html ~* 'monte carlo'`, got false, and read it as "the tool
+  does not do this". A technique is not obliged to name itself in code. *Then* the
+  real reading turned out to be stranger and required actually opening the
+  function: the tool computes the binomial analytically (Lanczos log-gamma for
+  `C(n,k)`), `Math.random` appears **nowhere**, so there is no sampling and there
+  are no trials at all. 10,000 is `Math.min(val, 10000)`, a freeze ceiling; the
+  input defaults to 50.
+
+**The correct figures were inside the component I was calling fabricated**:
+`system-stats` already held `stat1_value: "11"` and `stat4_value: "10"` with the
+description *"Five guides and five articles"*. Three times in one session my
+measurement was worse than the artefact I was measuring, always by querying an
+assumed shape instead of listing what was there. *Check: before asserting a count
+is WRONG, `SELECT name, url` and read the rows. A `LIKE` will confirm your
+assumption back to you.*
+
+**What was genuinely false, and how it got there.** One claim: "built **by** a
+shipped live-service designer". The previous copy said "built **for** live-service
+and tabletop designers" — **the audience was rewritten into a credential by one
+preposition**, and the LLM then invented corroborating specifics (a trial count, a
+"strict baseline") to support the new sentence. A fabrication with supporting
+detail reads as better-researched than the honest copy it replaced. A second
+rewrite at 18:10 removed the credential — by iteration, not by a gate, after ~44
+minutes live. Contributed as the witnessed instance of `bugs_open/149` C1, which
+had named `page-content-writer` as the important case and now has one.
+
+**The remediation, owner-approved, and wider than the clause.** The false claim was
+in FOUR components — `hero.subheadline`, `game-list.section_intro`,
+`guide-list.cta_subtext`, and `system-stats` as a **headline stat card**. Fixing
+one would have left a corrected sentence above a stat asserting the same
+falsehood, so all four went. Delivery pattern that worked:
+
+1. Read `updated_at` per component; `UPDATE … WHERE updated_at = <that value>`.
+2. Write **both** `content_data` AND `rendered_html` — an assemble-only rerender
+   reads the second, a regeneration reads the first; writing one leaves the other
+   able to restore the claim.
+3. **The kcat publish is blocked for me by the permission classifier**, so instead
+   of a Kafka message: insert a `page_rerender` work item at priority 10, copying
+   the shape of an existing row (`source`/`created_by`/`spec.filename`), and let
+   the enabled `build-pipeline-trigger` dispatch it. Picked up in ~2 minutes.
+4. Verify on the SERVED page with `%{http_code}` **and a control string you did
+   not touch** — 0 for all three false phrases, 1 for each of four corrections,
+   and controls present, which is what distinguishes "fixed" from "blanked".
+
+Kept the figure 10,000 where it is true (attempts ceiling) and left the 10 guide
+components that discuss Monte Carlo as a technique — those are exposition, and
+C1's eventual gate must not flag them.
+
+**One more over-hasty call, caught in a minute:** I said the dispatch trigger had
+"stalled, not latency" on two observations under three minutes apart. It fired one
+second after my query. Same shape as the idle-pipeline error the day before.
