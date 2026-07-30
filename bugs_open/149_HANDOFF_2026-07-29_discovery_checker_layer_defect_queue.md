@@ -8,7 +8,36 @@
 > positive control `CONTENT_LINK_REPAIR_DETAIL` 1, negative control 0. Concept
 > register **CLM-018**.
 >
-> **Council `2d0dbc2e-e125-41f6-876d-0f8d6cf96688`: round 1 REVISE, round 2 open.**
+> **Council `2d0dbc2e-e125-41f6-876d-0f8d6cf96688`: round 1 REVISE (evidence), round
+> 2 REVISE (HARNESS). Read `unreadable`, not `abstained`, before reading round 2 as a
+> judgement.** Round 2: `decided_by = "unreadable reviewer(s): review_guardian.result,
+> review_improvement_guardian.result"`, `unreadable` **0 → 2**. **No high-severity
+> objection was raised in round 2 at all** (3 medium, 6 low), 12 of 15 seats approved,
+> and **`prior_art_librarian` — the seat whose HIGH objection gated round 1 — flipped
+> to APPROVE.** So the evidence answer worked and the second REVISE is `bugs_open/119`'s
+> shape (a seat's malformed result costing a round), not a verdict on the change.
+> Not resubmitted a third time: the change is already live, the council is advisory,
+> and a round that was decided by two unreadable results is not evidence of anything
+> to fix.
+>
+> **The medium objections that survive round 2, recorded as follow-ups rather than
+> silently closed:**
+> - `bug_historian` (edit 3): an **erroring** check is reported in the step output but
+>   nothing durable records it — pod logs roll. This is the same "a pod log line is not
+>   a record" rule (`bugs_open/071` gap 3) that the claims floor **does** honour with
+>   `CONTENT_CLAIMS_FLOOR_DETAIL`, and B4 does not. **A real inconsistency in my own
+>   change; small, and deliberately not patched in after the verdict** — adding code
+>   post-review is the exact pattern the guardian seat objects to.
+> - `bug_historian` (edit 1) and `architecture`: the three unguarded persistence paths.
+>   Round 2 bounded two of them (`create_report_page` 2 components, `rebuild_blog_listing`
+>   7, together <1% of the 949-component surface) and stated plainly that
+>   `ApplySectionEditAction` **cannot** be bounded from `page_components` — it edits in
+>   place and the table has no provenance column. That residual is `bugs_open/136`'s.
+> - `editquality` (edit 2): the rationale should have named the consequence that a green
+>   orchestration status no longer implies the sections were written. It is in
+>   `LANDMINES.md`; it should have been in the submission too.
+>
+> Round 1 detail follows, kept because it is the more useful of the two:
 > 15 seats, **12 approve / 3 object**, 2 abstained, 0 unreadable, not truncated.
 > The gating objection (`prior_art_librarian`, high) and four of its five points
 > were **one objection**: load-bearing absence claims asserted as live measurements
