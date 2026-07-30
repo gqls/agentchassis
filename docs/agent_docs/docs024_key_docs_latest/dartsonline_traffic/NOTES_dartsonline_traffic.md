@@ -695,3 +695,62 @@ does not — the machine-created items carry `page_id` in the spec **and** in th
 `page_id` column, plus `domain` and `filename`. Re-raised from a **completed row's**
 shape rather than from the action's source, which is the cheaper and more reliable
 place to read a contract from.
+
+---
+
+## Session 3 — 2026-07-30 (short): the owed half landed
+
+### The roll was verified with a DELETE-marker, not just a presence check
+
+Chassis is on **v1.0.1207**. Both replicas
+(`agent-chassis-6c448c66d6-fjpd7`, `-kmm9b`), three markers:
+
+```
+"no other background colour"             -> 1, 1   the new clause: ADDED
+"composedPaletteDirection: query failed" -> 0, 0   first draft's string: DELETED
+"composed palette unavailable"           -> 1, 1   its replacement: ADDED
+```
+
+The middle one is what makes this conclusive. A positive control alone proves only
+that *some* build after `bd9ebfec6` shipped; the **delete-marker proves the binary
+also carries `88dee2a8d`**, the council follow-up, because that commit is what
+replaced the string. The timeline (both rolls postdating both commits) stayed
+`[INFERRED]` and was never used as the evidence — a retag is not a rebuild.
+
+### The planner config change applied
+
+`SQL_2026-07-30t_…`, 11:23Z. Dry run → commit → **re-read on a fresh connection**,
+because the in-file verify runs inside the same transaction as the UPDATE and can
+only ever agree with itself. `#EEEEEE` and `#4A4A4A` gone; every flatness guard
+kept verbatim; the prompt now explicitly refuses to name a colour.
+
+**Two traps, both mine, both now written into the file:**
+
+> **A `ROLLBACK` at the foot of a script is only safe if the `BEGIN` at the head is
+> real.** I wrote the file with `-- BEGIN;` commented and `ROLLBACK;` live. Run as
+> written, every statement autocommits and the trailing rollback is a no-op with a
+> warning — the "safe default" would have **committed the change while appearing
+> not to.** The dry run only worked because I uncommented BEGIN for it.
+
+> **`snapshot_agent` has two overloads with two destinations.**
+> `snapshot_agent(type, reason)` → `agent_definitions_backup`.
+> `snapshot_agent(type)` → an `is_snapshot` row in `agent_definitions`.
+> I called the two-arg form, checked `agent_definitions` for `is_snapshot`, found
+> **0 rows fleet-wide for this agent**, and was one step from reporting that the
+> snapshot had silently failed. It had not. The check that settles it is not "does
+> a snapshot row exist" but **does the backup carry the PRE-change text**:
+> `backup_has_old_hex = t`. A snapshot holding the post-change config restores
+> nothing.
+
+### Re-measured rather than carried forward
+
+The RSS feeds have now run: all 3 fetched, `error_count` 0 (they were unfetched
+yesterday, waiting on the 6-hourly tick). **Relevant feed items 14 → 52 overnight.**
+The news lane is flowing, not merely armed.
+
+And a correction to my own next-steps list: wiring the homepage icons is **two**
+steps, not one. The 7 new icons are `active` but **not deployed** — 19
+`undeployed_asset` items sit at `detected` (17 icons, favicon, og_card). The 8
+heroes shipped because their `needs_imagery` items were routed; these were not.
+Swapping the component before promoting the assets would wire the page to images
+that 404.
