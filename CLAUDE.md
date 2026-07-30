@@ -345,6 +345,26 @@ Rules that make them worth the effort:
   appearing is one worth automating. That tally is what earned
   `check_append_only_docs` its place in `scripts/pattern-check.py`. Distinct
   from 016b §9: that file records how the *system* fails, this one how *we* do.
+- **Log the landmines: `docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`**
+  (created 2026-07-29 at the owner's direction). Fleet-wide, append-only, **any
+  thread may append.** A landmine is the rung between the two files above: **a
+  trap that fires when you TOUCH a particular file, table, command or service,
+  where the wrong result looks exactly like the right one.** WRONG_CALLS is the
+  incident, retrospective; a landmine is the distilled check, prospective, and
+  you read it *before* you have a symptom. The test for an entry is strict:
+  **would a session touching this thing, with no symptom and no suspicion, get it
+  wrong without the entry?** If it needs a symptom first it is 016b §9.
+  - **Grep it by footprint before touching something unfamiliar** —
+    `grep -n "<path-or-table>" …/LANDMINES.md`. It solves *authoring*, not
+    *delivery*: nothing tells you an entry applies to what you are about to do.
+  - **Every entry carries a `footprint`** (the path/table/symbol it guards) so
+    entries convert mechanically to `doc_notes` rows —
+    `architecture_review/PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`, open
+    as **D10**, proposes exactly that and this file is written as its staging
+    format, not a competitor.
+  - **Do NOT drain `MEMORY.md`'s landmine lines into it.** D10 §5: moving them
+    before delivery exists removes protection we have today. Both run in
+    parallel; duplication is correct until D10 is decided.
 - **Point at bugs, don't restate them.** Durable defects belong in `/bugs_open/`
   (see Debugging below) — link them; do not fork a second account that drifts.
 - **Grep before you file.** `/bugs_open/` and the workstream dirs first: several
@@ -424,9 +444,11 @@ Rules that make them worth the effort:
   helper, agent, seat, check type or delivery path. NOT bug fixes, copy, or
   site-specific work. Update the index count and drop any matching line from
   `102_coverage_ratchet.txt`.
-  **Routing, because there are now four destinations:** how the SYSTEM fails →
-  016b §9 · how WE were wrong → `WRONG_CALLS.md` · what THIS workstream is doing →
-  the standing five · **what EXISTS and is callable → the concept register.**
+  **Routing, because there are now five destinations:** how the SYSTEM fails (you
+  have a symptom) → 016b §9 · how WE were wrong → `WRONG_CALLS.md` · **what will
+  mislead you when you TOUCH something (no symptom yet) → `LANDMINES.md`** · what
+  THIS workstream is doing → the standing five · **what EXISTS and is callable →
+  the concept register.**
   Why this earns its line: extraction froze 2026-07-13 and **67% of workstreams
   postdate it** (`bugs_open/106`), so the index sessions are told to consult
   *before concluding something does not exist* has been going blind ever since.

@@ -11707,3 +11707,61 @@ first: `section-index`, a string in four other files that my change then removed
 first was caught before it left my desk; this one was not. The recurrence is the
 argument for `bugs_open/153`'s fix candidate 1 — stamp the commit sha into the binary
 and retire per-fix marker hunting entirely.
+
+---
+
+## 2026-07-29 — I read the documents that stated the position, and not the one that recorded the corrections
+
+Two false claims in the same plan, from the same cause, caught the same way. Logging them
+together because separately they look like carelessness and together they look like a
+method failure, which is what they are.
+
+**The claims.** In the opening plan for the webdesign.uk build service:
+
+1. That idea.uk *"has taken real money"* and its payment code had *"survived a real sale"*,
+   citing the 27 July first sale as evidence the funnel works.
+2. That the unit cost of a production report was **$0.641**, cited from
+   `idea_uk_vm_site/EVIDENCE_2026-07-27_ai_unit_economics.md`.
+
+**Both wrong, and note that both cited a real source accurately.**
+
+1. **The buyer was the owner.** Genuine external buyers: still zero. The order that later
+   looked external was a test, and that lane had *already corrected its own inference*
+   (`HANDOFF_RESUME_idea_uk_vm_site.md:17`, `RUNNING_NOTES…:2764`). What I wrote was true
+   of the *transaction* and false of the *demand* — and demand is the entire question the
+   product I was planning has to answer.
+2. **$0.641 was a floor, not a total** — two of five calls — and the EVIDENCE file says so,
+   in bold, at the top. I repeated the caveat faithfully and still got it wrong, because by
+   then the complete measurement existed and gives a **range**: `~$1.20–$1.45 depending on
+   length`, since output tokens are ~92% of spend and cost tracks artefact length.
+
+**What caught it.** Adding this lane's line to `MEMORY_workstreams.md` — the idea.uk entry
+there carries both corrections. Cost: one grep.
+
+**The cheap check that would have.** Open the lane's `HANDOFF_RESUME` / `HANDOFF_*_continue_here`
+before quoting anything from its `PLAN` or its evidence files. **A workstream's plan holds
+its intentions; its resume doc holds its corrections.** I listed `idea_uk_vm_site/` as prior
+art, read three files in it, and skipped the one whose entire job is to say what has changed.
+
+**The transferable bit, and it is not "read more docs".** *Being faithful to a superseded
+source is still being wrong, and it does not feel like guessing* — which is what makes this
+class survive every instinct that catches ordinary invention. Both claims had a citation, a
+file path, and a line number. The failure mode of a well-documented project is not the
+unsourced claim; it is the **correctly-sourced stale one**. A document named `EVIDENCE_…`
+is the most dangerous shape here, because the name asserts that the matter is settled.
+
+**Two smaller ones from the same two sessions, recorded for the tally rather than the story:**
+
+- `SELECT type, name FROM agent_definitions` → the column is `display_name`. The "schema
+  first, `\d` before SQL" rule, skipped because the query felt too small to be worth a
+  check. Now a landmine entry.
+- After the owner ruled on the "thousand sites" figure, §2 of the same plan still said
+  *"see §12 — this matters"*, pointing at what was by then a closed decision. **A ruling
+  landing makes other parts of the same document lie**, and nothing checks cross-references
+  inside a file. Caught on a manual consistency pass; worth one grep of your own section
+  numbers whenever a decision closes.
+
+**Where the distilled checks went.** New file, `LANDMINES.md`, created this session at the
+owner's direction — the middle rung this file's own header has always implied
+(incident → landmine → automation) and that `PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`
+(open as **D10**) measured the cost of not having.
