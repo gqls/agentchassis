@@ -671,3 +671,60 @@ like this: write the smaller pieces first, or expect to redo the hub once at the
 Everything is checked and live: the four pages load, the sources are real and attributed,
 the blog listing on the site now lists all four alongside the existing posts, and I swept
 the whole site again afterwards to make sure nothing else broke.
+
+**2026-07-30 (evening) — the vendor trust checklist is built and live, and building it
+found a fault in one of our own testing tools.**
+
+The tool from the handoff exists now, at `/tools/ai-vendor-trust-checklist.html`. Twelve
+things you can actually check about an AI supplier — what's certified, what they keep,
+whether they train on your data, what happens when something goes wrong — grouped into
+four sections. Tick what the supplier publishes and it tells you how many of the twelve
+you were able to verify and which of three plain-English verdicts that earns. Every item
+you haven't ticked shows a one-line note on why it matters, so it doubles as a list of
+questions to take into the meeting. If the sector certification doesn't apply to you, you
+can say so and the total drops to eleven rather than counting it against them. Nothing is
+sent anywhere; it all happens in the page.
+
+The thing worth telling you is how it was built, because you'd asked another lane to work
+with me on exactly this. Their idea is that a build should be a sequence of small steps,
+each with its own check that has to be capable of failing, rather than one leap you inspect
+at the end. So instead of writing the tool and then testing it, I wrote down what it should
+do — including two specific answers I could check, like "nine of twelve should read Strong
+footing" — and built the checks before the thing they check.
+
+That changed the tool twice, which surprised me. The "Clear all" button exists because of
+how the tests run: they all drive one browser page in sequence, so each test has to be able
+to reset the form first or it inherits whatever the last one left ticked. Rather than order
+the tests carefully and hope nobody reorders them, I added a button — and it turns out to be
+something a real visitor wants anyway. And the tick boxes are a specific size because the
+test measures whether they're big enough to actually tap on a phone; my first version was
+slightly too small and would have failed that, correctly.
+
+Then the last step, which drives the real page in a real browser and clicks things, came
+back with three failures. All the earlier checks had passed. Everything about the tool
+looked right. So I did the thing I'd want anyone to do here and asked whether the *test*
+was wrong before I started changing the tool — and it was. One of our newest testing
+checks, the one that asks "is this thing actually big enough to see and click", reports
+zero for anything whose size happens to be a whole number, which then reads as "this is
+invisible". Our tick boxes are exactly 24 pixels, so it called them invisible. I confirmed
+it two ways: I took screenshots of the live page on a laptop and a phone size and the boxes
+are plainly there, and the very same test run had *successfully clicked* the boxes it
+claimed it couldn't see. The cause is a small type mistake in our code, about six lines to
+put right, and I've written it up properly.
+
+I've deliberately left our tool alone rather than nudging the box size to make the test go
+green, and written that down where the next person will see it. Making a correct page
+slightly wrong to satisfy a broken test is how a fault like that survives — and that page
+is now the clearest example we have of it.
+
+Two other things came out of it that affect more than this site. Our automatic browser
+testing can only find a tool if three separate names agree, and for six of our twenty-two
+tools across five sites they don't — including this site's own ROI estimator and cost
+calculator. Those tools cannot be browser-tested at all until they're renamed, and until
+now nobody knew. And the script we use to publish a page update sends its message in a way
+that quietly loses about four in five attempts while throwing away the output, so a lost
+publish looks identical to a slow one; I've written replacements that confirm they sent.
+
+The other lane has already picked all of this up and turned it into a rule I like better
+than my own version of it: when a check goes red, the first question is whether the check
+is right.
