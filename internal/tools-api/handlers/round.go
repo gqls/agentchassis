@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gqls/agentchassis/internal/tools-api/clientip"
 	"github.com/gqls/agentchassis/internal/tools-api/httperr"
 	"github.com/gqls/agentchassis/internal/tools-api/store"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -106,7 +107,9 @@ func RoundHandler(pool *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		ipHash := hashIP(c.ClientIP())
+		// clientip.From, not c.ClientIP(): this column was sha256("172.18.0.1") in
+		// 83 of 83 rows because Caddy overwrites X-Forwarded-For with its own peer.
+		ipHash := hashIP(clientip.From(c))
 
 		round, err := store.CreateRound(c.Request.Context(), pool, siteID, prov, ipHash)
 		if err != nil {

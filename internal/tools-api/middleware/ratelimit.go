@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gqls/agentchassis/internal/tools-api/clientip"
 	"github.com/gqls/agentchassis/internal/tools-api/httperr"
 	"golang.org/x/time/rate"
 )
@@ -27,7 +28,9 @@ func RateLimitMiddleware(rps float64, burst int) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		limiter := getLimiter(c.ClientIP())
+		// clientip.From, not c.ClientIP(): behind Caddy the latter is a constant,
+		// so this map held ONE bucket for every visitor. See clientip's package doc.
+		limiter := getLimiter(clientip.From(c))
 		if !limiter.Allow() {
 			httperr.JSONError(c, 429, "rate limit exceeded")
 			c.Abort()
