@@ -65,11 +65,47 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 
 	// Imported for its init() side effects: every action registers its
-	// ActionInputSpec here.
+	// ActionInputSpec here, AND registers the actioncheck.IsLocalAction checker
+	// that --unregistered-actions depends on (registry.go's init calls
+	// actioncheck.RegisterLocalActionChecker). Drop this import and both modes
+	// go quiet in different ways: ConfigKeys reports empty, IsLocalAction reports
+	// "not local" for every action — which is why both refuse to print a
+	// clean-looking result over zero registrations.
+	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
 	_ "github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/validation"
 )
+
+// liveAgent is one row of the export both --live-pairs and --unregistered-actions
+// read on stdin: [{"type": "<agent>", "workflow": {...}}, ...]. Shared so the two
+// questions ("what (action,key) pairs exist" and "what action is unrunnable") are
+// asked of the exact same decode, not two copies that could drift.
+type liveAgent struct {
+	Type     string              `json:"type"`
+	Workflow models.WorkflowPlan `json:"workflow"`
+}
+
+// decodeLiveAgents parses the stdin export. One undecodable definition costs that
+// definition, not the whole report — see emitLivePairs' original comment on why
+// failures are counted and printed rather than swallowed.
+func decodeLiveAgents(raw []byte, caller string) (agents []liveAgent, failed int, err error) {
+	var rows []json.RawMessage
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return nil, 0, fmt.Errorf("stdin is not a JSON array of agents: %w\n"+
+			"A truncated kubectl exec exits 0, so a short read arrives here looking like a small fleet.", err)
+	}
+	for _, row := range rows {
+		var agent liveAgent
+		if jsonErr := json.Unmarshal(row, &agent); jsonErr != nil {
+			failed++
+			fmt.Fprintf(os.Stderr, "config-key-audit %s: undecodable agent row: %v\n", caller, jsonErr)
+			continue
+		}
+		agents = append(agents, agent)
+	}
+	return agents, failed, nil
+}
 
 // specDump is the --specs shape: an action's FULL declared contract, not just the
 // key set the coverage report joins on.
@@ -88,6 +124,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--live-pairs" {
 		emitLivePairs()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--unregistered-actions" {
+		emitUnregisteredActions()
 		return
 	}
 	declared := datahelpers.ListDeclaredConfigKeys()
@@ -200,33 +240,18 @@ func emitLivePairs() {
 		os.Exit(2)
 	}
 
-	var rows []json.RawMessage
-	if err := json.Unmarshal(raw, &rows); err != nil {
-		fmt.Fprintf(os.Stderr,
-			"config-key-audit --live-pairs: stdin is not a JSON array of agents: %v\n"+
-				"A truncated kubectl exec exits 0, so a short read arrives here looking like a small fleet.\n", err)
+	agents, failed, err := decodeLiveAgents(raw, "--live-pairs")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --live-pairs: %v\n", err)
 		os.Exit(2)
 	}
 
-	type liveAgent struct {
-		Type     string              `json:"type"`
-		Workflow models.WorkflowPlan `json:"workflow"`
-	}
-
-	// Decoded per agent: one undecodable definition must cost that definition, not
-	// the whole report. Failures are counted and printed to stderr rather than
-	// swallowed — a report that quietly covers less than it claims is the defect
-	// this tool exists to expose.
+	// Walked per agent: one undecodable definition (counted above, in failed) must
+	// cost that definition, not the whole report. A report that quietly covers
+	// less than it claims is the defect this tool exists to expose.
 	pairs := map[string]bool{}
-	decoded, failed := 0, 0
-	for _, row := range rows {
-		var agent liveAgent
-		if err := json.Unmarshal(row, &agent); err != nil {
-			failed++
-			fmt.Fprintf(os.Stderr, "config-key-audit --live-pairs: undecodable agent row: %v\n", err)
-			continue
-		}
-		decoded++
+	decoded := len(agents)
+	for _, agent := range agents {
 		validation.WalkSteps(agent.Workflow, func(_ string, step models.Step, nested bool) {
 			if step.Action == "" {
 				return
@@ -259,6 +284,95 @@ func emitLivePairs() {
 	}
 	fmt.Fprintf(os.Stderr, "config-key-audit --live-pairs: %d agents decoded (%d undecodable), %d distinct pairs\n",
 		decoded, failed, len(pairs))
+}
+
+// unregisteredActionFinding names one step whose action neither the local
+// registry nor a topic can dispatch — the exact condition
+// platform/validation/workflow.go's validateStep and subworkflow.go's
+// validateSubWorkflowStep reject a MESSAGE on ("requires a topic"). This makes the
+// same check offline (bugs_open/148): the runtime validator only speaks once a
+// message arrives at a structurally unrunnable step, so a definition can carry
+// the defect for weeks with nothing reporting it.
+type unregisteredActionFinding struct {
+	Agent  string `json:"agent"`
+	Path   string `json:"path"`
+	Action string `json:"action"`
+	Nested bool   `json:"nested"`
+}
+
+// findUnregisteredActions is the pure check, separated from I/O so it can be
+// exercised by a fixture test without stdin/stdout plumbing. It walks with
+// validation.WalkSteps — the SAME traversal the runtime validator enforces
+// against, top-level and nested — for the reason recorded on that function:
+// bugs_open/144 was two hand-written traversals blind in the same direction,
+// agreeing with each other. A step with a topic is legitimately remote and is
+// NOT a finding; only the unregistered-and-untopic'd pair is (bugs_open/148 §6).
+func findUnregisteredActions(agents []liveAgent) []unregisteredActionFinding {
+	findings := []unregisteredActionFinding{}
+	for _, agent := range agents {
+		validation.WalkSteps(agent.Workflow, func(path string, step models.Step, nested bool) {
+			if step.Action == "" {
+				return
+			}
+			// Mirrors platform/validation/workflow.go's validateStep and
+			// subworkflow.go's validateSubWorkflowStep EXACTLY — including their
+			// choice not to exempt "fan_out": if a live fan_out step is neither
+			// locally registered nor topic-routed, the real validator rejects it
+			// too, and this tool exists to say so before a message finds out.
+			if actioncheck.IsLocalAction(step.Action) || step.Topic != "" {
+				return
+			}
+			findings = append(findings, unregisteredActionFinding{
+				Agent: agent.Type, Path: path, Action: step.Action, Nested: nested,
+			})
+		})
+	}
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].Agent != findings[j].Agent {
+			return findings[i].Agent < findings[j].Agent
+		}
+		return findings[i].Path < findings[j].Path
+	})
+	return findings
+}
+
+// emitUnregisteredActions reads the same stdin shape as --live-pairs and prints
+// every step that findUnregisteredActions flags, as JSON. Zero findings is a
+// legitimate, meaningful result (unlike an empty decoded-agent set, which is
+// refused below) — it says the fleet currently has none, not that the check
+// didn't run.
+func emitUnregisteredActions() {
+	raw, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --unregistered-actions: reading stdin: %v\n", err)
+		os.Exit(2)
+	}
+
+	agents, failed, err := decodeLiveAgents(raw, "--unregistered-actions")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --unregistered-actions: %v\n", err)
+		os.Exit(2)
+	}
+	if len(agents) == 0 {
+		fmt.Fprintf(os.Stderr,
+			"config-key-audit --unregistered-actions: 0 agents decoded (%d undecodable) — "+
+				"refusing to print a clean report over an empty or broken export.\n", failed)
+		os.Exit(2)
+	}
+
+	findings := findUnregisteredActions(agents)
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(findings); err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --unregistered-actions: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stderr, "config-key-audit --unregistered-actions: %d agents decoded (%d undecodable), %d finding(s)\n",
+		len(agents), failed, len(findings))
+	if len(findings) > 0 {
+		os.Exit(1)
+	}
 }
 
 // nonNil keeps the JSON shape stable: a missing list encodes as [] rather than
