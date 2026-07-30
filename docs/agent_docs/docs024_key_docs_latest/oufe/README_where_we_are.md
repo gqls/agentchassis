@@ -617,3 +617,24 @@ And I've left the bug file open. Three of its twelve items are done; several of 
 rest are decisions rather than code — whether to delete six checks nobody runs or find
 them a home, and two changes to shared defaults that ought to have their own review.
 Those are yours to call, not mine to quietly close.
+
+**2026-07-30 (later) — you signed off, and here is exactly what that covers**
+
+You said "yes they sign-off". That discharges the one objection the review could not
+settle on its own: four of our page-building pipelines now have a save that can
+*refuse*, where before it always went through, and the reviewer's point was that
+naming their owners in a risk section is not the same as asking them. It has now been
+asked and answered, so the behaviour is authorised rather than merely disclosed.
+
+Recorded in the bug file and in the concept register, with the terms it rests on:
+three pages out of 949 can be refused today, all three saying something untrue, and
+the off switch is a config change that takes effect in seconds rather than a release.
+
+**What I have deliberately not stretched it to cover**, because it would be easy to:
+it is not a ruling on the bigger thing I found afterwards — that the gate cannot
+actually recognise the fabrication another thread caught live on gamesdesign that same
+day. Nor on the two smaller follow-ups. Those stay open and are written up as such.
+
+The rest is unchanged: the fix is live and verified on both replicas, the checker
+queue keeps nine of its twelve items, and oufe's second tool is still the lane's next
+real piece of work.

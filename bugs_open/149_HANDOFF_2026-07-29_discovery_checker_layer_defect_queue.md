@@ -52,12 +52,26 @@
 > failed with `column "agent_type" does not exist`, so the seats could not check for
 > themselves even having asked the right question.
 >
-> **One objection is deliberately NOT answered by resubmission.** The `guardian`
-> seat (medium) asks that the owners of the four newly-gated pipelines
+> **✅ OWNER SIGN-OFF GIVEN 2026-07-30 — the `guardian` objection is DISCHARGED.**
+> That seat (medium) asked that the owners of the four newly-gated pipelines
 > (`pageflow-builder`, `page-rebuild`, `page-rerender`, `site-work-orchestrator`)
-> sign off on a save that can now refuse. That is a judgement about how a capability
-> reached production, not an evidence gap, and the estate's rule is that a scope
-> objection needs a human. **Owner: this is the decision that wants you.**
+> sign off on a save that can now refuse, rather than merely be named in a risk
+> section. It was deliberately NOT answered by resubmission — a judgement about how a
+> capability reaches production is not an evidence gap, and the estate's rule is that
+> a scope objection needs a human. **The owner gave it, in these words: *"yes they
+> sign-off"*.**
+>
+> **So the refusing behaviour is now authorised, not merely disclosed**, on these
+> terms as measured: the population that can be refused today is **3 of 949 live
+> components (0.32%)**, all three asserting something untrue, two of them already
+> `bugs_open/147`. Withdrawal remains config, not a release — `check_claims:false` or
+> `check_claims_fleet_wide:false` on the step, live immediately.
+>
+> **What the sign-off does NOT cover, said plainly so nobody stretches it:** it
+> authorises the four pipelines gaining a refusing save. It is not a ruling on the
+> ⚠ banner on C1 below (the floor cannot recognise the witnessed fabrication), nor on
+> B4's missing durable record for an erroring check, nor on the three unguarded
+> persistence paths. Those remain open items.
 >
 > **Still open: A1–A6, B1, B2, B3, C2.** Several need an owner ruling rather than
 > code (B1 is seat-or-delete; A4/A5 are shared-schema and shared-mechanism changes
