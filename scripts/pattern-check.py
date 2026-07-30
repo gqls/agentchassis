@@ -324,6 +324,11 @@ def check_declared_pairs(files, ref, findings):
 # legitimate appends, which is how a check teaches people to ignore it.
 SUMMARY_DELETION_FLOOR = 20
 
+# Fleet-wide append-only ledgers: many threads, one file, no owner. Guarded with a
+# floor of 1 (unlike SUMMARY) because there is no legitimate small edit — an entry
+# is either appended or it is somebody else's.
+FLEET_APPEND_ONLY = {"WRONG_CALLS.md", "LANDMINES.md"}
+
 
 def _deleted_lines(path, ref):
     return sum(
@@ -397,6 +402,24 @@ def check_append_only_docs(files, ref, findings):
                     "README_where_we_are.md is append-only: never rewrite, reorder, or edit the "
                     "owner's words — add a dated correction below instead. A session overwrote "
                     "one on 2026-07-19 after mistaking it for a stray file.",
+                ))
+        elif base in FLEET_APPEND_ONLY:
+            # These two are the fleet-wide shared ledgers: EVERY thread appends to
+            # them, so a deletion is almost never this thread's to make, and the
+            # loss is silent — the next reader cannot tell a removed entry from one
+            # that was never written. CLAUDE.md declares both append-only; until
+            # 2026-07-29 nothing checked either, while SUMMARY/README (single-author
+            # files, lower concurrency) were both guarded.
+            deleted = _deleted_lines(path, ref)
+            if deleted > 0:
+                findings.append((
+                    "shared-ledger-not-appended", path,
+                    f"{deleted} line(s) removed from {BOLD}{base}{RESET}, a fleet-wide append-only ledger",
+                    f"{base} is appended to by every thread — removed lines are most likely "
+                    "another session's entry, and nothing downstream can tell a deleted entry "
+                    "from one never written. Append below instead; correct in place with a "
+                    "dated note rather than a rewrite. If this IS a deliberate consolidation, "
+                    "say so in the commit message and carry on; this never blocks.",
                 ))
 
 
