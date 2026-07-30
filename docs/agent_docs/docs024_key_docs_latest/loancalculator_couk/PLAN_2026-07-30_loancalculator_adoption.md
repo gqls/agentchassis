@@ -122,3 +122,99 @@ Stale market-rate copy ("3.75%", "18 March 2026") — needs an owner call on man
 content; retiring the `~/projects/domains` generator; a redirects→stub deploy
 emitter; chassis sitemap/robots machinery; adopt-from-files crawl source; `www`
 record; meta descriptions; PLAN/acceptance criteria per tool.
+
+---
+
+## REVISED DIRECTION (owner, 2026-07-30 late): adopt from our own files, and let the site EVOLVE
+
+Owner's words: *"adopt from our own files. I want the site to be completely editable
+and evolve and improve like the other sites will, just as long as it starts similarly
+enough with working tools."*
+
+This **supersedes the `fidelity=locked` posture for this site** and resolves the two
+high objections the council raised (adoption_guardian's NO-BYPASS / WRITE-THEN-RELAY
+and mission's classifier-skip) — because the site will now go through the classifier
+cascade like any other, so nothing is bypassed.
+
+### What the owner is asking for, in platform terms
+
+Two requirements that pull in opposite directions under the current build:
+
+1. **Starts faithfully, tools working** — the calculators must work on day one and the
+   URLs must not move.
+2. **Then behaves like every other site** — editable, replanned, redesigned, improved
+   by the loops.
+
+`rebuild_policy='owned'` + `deploy_mode='verbatim'` delivers (1) by making (2)
+IMPOSSIBLE: the pipeline is contractually forbidden from touching an owned page, and
+`save_page_sections` refuses it. So this site must come OFF that posture.
+
+### The blocker that makes this a real build, not a config flip
+
+**A whole stored document cannot go through normal assembly.** `assemblePage`
+concatenates chrome + section HTML; feeding it a complete `<!DOCTYPE html>…</html>`
+blob produces nested `<html>`, i.e. invalid output. So "editable like other sites"
+requires the content **decomposed into real sections/components** — one blob per page
+is precisely what cannot evolve.
+
+**Do NOT flip `rebuild_policy` to `generic` before decomposition exists.** That would
+turn a working site into malformed pages on the next rerender. The current state
+(owned/verbatim, 27/27 byte-exact, zero queued items) is SAFE and is the right place
+to wait.
+
+### The design: map onto doc 028's existing dial rather than invent a mode
+
+- **`fidelity=locked`** — frozen for ever. BUILT (ADO-037). Stays, and is the right
+  answer for a site adopted as an archive. Not what this site wants.
+- **`fidelity=high`** — *seed faithfully, then evolve.* This is what the owner is
+  describing, and doc 028 already reserves the word for it. TO BUILD.
+
+`high` = source the starting content from **our own files** (exact bytes, no
+browser-rendered DOM — G10), decompose it, then hand the site to the normal cascade.
+
+### Build order
+
+1. **File source** (replaces the crawl for our own sites). The deploy repo already
+   holds exactly the bytes we publish — verified: origin bytes == repo bytes for all
+   27 pages. Read via git-adapter (platform-side, reusable) rather than a local CLI,
+   so any site in `gqls/sites` can be adopted this way. For a genuinely external
+   site a plain no-browser HTTP GET is the equivalent; firecrawl `rawHtml` is not
+   (G10).
+2. **Decompose each page into sections.** Prose → ordinary content sections the
+   writer/improvement loops can rewrite. **Each calculator → a
+   `component_level='tool'` component with its inline JS preserved BYTE-FOR-BYTE.**
+   That is the platform's first-class mechanism for interactive widgets and the only
+   way a tool survives a page rebuild.
+3. **⚠ The interactivity-regression guard will NOT protect these tools as written.**
+   `save_page_sections_action.go:292,449` keys on `<canvas`, `game-container` and
+   `tool-page`. Our calculators contain **none** of those — they are `<input>` +
+   `getElementById`. So either mark the extracted widgets with a `tool-page` class
+   (cheap, makes the existing guard apply) or extend the guard to recognise
+   `<input>`+`<script>` widgets. **Without one of the two, the first page rebuild
+   silently drops every calculator** — the exact failure class this lane has been
+   documenting all day.
+4. **`rebuild_policy='generic'`** + a **timed** adoption lock (the platform's existing
+   faithfulness mechanism — `FOCUS_adoption_faithfulness_via_locks(2).md`,
+   `locked_by='adoption'`, expiring) so the seeded state is protected briefly and
+   then evolves. Not a permanent lock.
+5. **Queue `needs_domain_research`** so classifier → strategist → briefing → planner →
+   composition → design all run. This is what makes the site "like the others", and it
+   discharges the council's two high objections.
+6. **Acceptance bar (the owner's own):** *"starts similarly enough with working
+   tools."* After the first full build: all 27 URLs still resolve, and every
+   calculator still computes in a real browser. Regenerated prose is EXPECTED and
+   acceptable; a dead calculator is not.
+
+### Watch items carried forward
+
+- **ADO-034** (in the register): the planner invents differently-slugged duplicate
+  pages for topics already adopted (`economy-basics` vs `guide-economy-basics`). With
+  27 adopted pages and the cascade now running, expect this — check for bare-name
+  duplicates after the planner runs.
+- URL preservation must survive the PLANNER too, not just adoption:
+  `CanonicalisePage` is what the planner uses, and it produces
+  `/tools/<slug>/index.html`. Adoption can seed the flat URL, and the planner may
+  still propose the directory form for the same page. That is the next place URLs can
+  silently move.
+- The checksum gate (G10's lesson) should be built into whichever source is used —
+  it is the only reason this lane caught the DOM substitution.
