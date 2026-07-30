@@ -11765,3 +11765,41 @@ is the most dangerous shape here, because the name asserts that the matter is se
 owner's direction — the middle rung this file's own header has always implied
 (incident → landmine → automation) and that `PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`
 (open as **D10**) measured the cost of not having.
+
+---
+
+## 2026-07-29 (later) — "that rung has never had a home", written into two shared docs while seven rows of it sat in Postgres
+
+**The claim.** Creating `LANDMINES.md` at the owner's direction, I wrote that the middle rung
+of the ladder (incident → landmine → automation) *"has never had a home"*, and put the same
+framing into `CLAUDE.md`. It is the sentence the whole file is justified by.
+
+**False.** `doc_notes` has carried a **`landmine` category since 2026-07-27** — 7 rows,
+written by two other threads (*architecture council 2*, *bugsearch-thread*), footprinted by
+action name (`subject_type='action'`, `subject_key` = `index_code_symbols`, `scrape_web`,
+`store_business_verification`, …). The rung had a home; what it lacked was a *decision*.
+
+**What caught it.** Being asked to present the D10 options, which meant measuring `doc_notes`
+properly — `SELECT jsonb_array_elements_text(categories), count(*) … GROUP BY 1`. The
+category was fifteenth in the list.
+
+**The cheap check that would have.** One query, before creating a store:
+`SELECT count(*) FROM doc_notes WHERE categories ? 'landmine';` — or more honestly, *any*
+query at all. **My prior-art search was `find . -iname "*landmine*"` plus a grep of
+`docs024_key_docs_latest/`. It never left the filesystem.**
+
+**The transferable bit, and it is the second time in two days.** The `cmd/contrastscan` entry
+above has the identical shape: the prior art existed, the search was real, and **the filter
+decided the answer** — there it was `--include=*.go` against Python, here it was the
+filesystem against Postgres. **On this platform, "does this already exist?" is not a
+filesystem question.** Config lives in `agent_definitions`, notes live in `doc_notes`, work
+lives in `site_work_items`, and none of it is greppable from a checkout. The proposal I was
+implementing *said so on its face* — D10's own §3 is titled "Reuse before building: the store
+already exists and is already used this way" — and I read that section, cited it, built
+alongside it anyway, because I checked for a *file*.
+
+**The irony worth keeping.** The new file's stated purpose is to catch exactly this: a trap
+that fires when you touch something, where the wrong result looks like the right one. Its
+own founding sentence was one. Corrected in place in both documents rather than edited away,
+and the file now opens by warning that **three** stores exist and that nobody should
+consolidate them unilaterally before D10 is ruled.

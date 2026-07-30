@@ -347,7 +347,11 @@ Rules that make them worth the effort:
   from 016b §9: that file records how the *system* fails, this one how *we* do.
 - **Log the landmines: `docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`**
   (created 2026-07-29 at the owner's direction). Fleet-wide, append-only, **any
-  thread may append.** A landmine is the rung between the two files above: **a
+  thread may append.** ⚠ **It is not the only landmine store, and D10 has not yet
+  said which is authoritative:** `doc_notes` carries a `landmine` category (7 rows,
+  written 2026-07-27/28 by two threads, footprinted by action name) and `MEMORY*.md`
+  carries 40 LANDMINE lines. **Add where you are, say where you added, and do not
+  consolidate on your own initiative.** A landmine is the rung between the two files above: **a
   trap that fires when you TOUCH a particular file, table, command or service,
   where the wrong result looks exactly like the right one.** WRONG_CALLS is the
   incident, retrospective; a landmine is the distilled check, prospective, and

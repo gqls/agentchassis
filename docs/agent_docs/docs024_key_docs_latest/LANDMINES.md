@@ -21,11 +21,28 @@ it belongs in `016b` §9. If it is the story of a claim that turned out false, i
 belongs in `WRONG_CALLS.md`. **This file is the middle rung: the distilled check,
 attached to the thing it guards.**
 
-That rung has never had a home. `PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`
-(open as **D10**) names exactly this gap and measures its cost: with nowhere to put
-a landmine, authors put it in the auto-loaded `MEMORY.md`, because that is the only
-file guaranteed to be read — which is why the index was compacted twice inside one
-hour on 2026-07-26 and re-inflated past its starting size in 46 minutes.
+~~That rung has never had a home.~~ **CORRECTED 2026-07-29, hours after this file
+was created — it had one, in Postgres.** `doc_notes` carries a **`landmine`
+category with 7 rows**, written 2026-07-27/28 by two other threads (*architecture
+council 2*, *bugsearch-thread*), footprinted by action name
+(`subject_type='action'`, `subject_key='index_code_symbols'`, `scrape_web`,
+`store_business_verification`, …). **So this file was created alongside an
+existing store, not into a vacuum**, and which one is the system of record is
+exactly what D10 has to decide. My prior-art search grepped the filesystem; the
+prior art was in the database. Same shape as `cmd/contrastscan` below — a search
+whose *filter* defined its answer.
+
+`PROPOSAL_D9_landmines_as_a_footprinted_corpus.md` (open as **D10**) names the
+gap and measures its cost: with no *agreed* home, authors put landmines in the
+auto-loaded `MEMORY.md`, because that is the only file guaranteed to be read —
+which is why the index was compacted twice inside one hour on 2026-07-26 and
+re-inflated past its starting size in 46 minutes. Measured 2026-07-29: **18
+LANDMINE lines in `MEMORY.md` (21.8KB against a 25,000-byte cap) and 22 more in
+`MEMORY_workstreams.md`.**
+
+> **⚠ Until D10 is ruled, there are THREE stores** — `MEMORY*.md` lines (40),
+> `doc_notes` landmine rows (7), and this file. Do not consolidate them on your
+> own initiative; add where you are and say where you added.
 
 **Routing, so this does not become a fifth pile:**
 
