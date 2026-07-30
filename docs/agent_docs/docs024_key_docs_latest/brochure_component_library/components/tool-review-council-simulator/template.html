@@ -315,6 +315,17 @@
     color: var(--color-text);
   }
 
+  .rcs-denominator {
+    margin: 0.75rem 0 0;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--color-border);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+  }
+
+  .rcs-denominator strong { color: var(--color-text); }
+
   .rcs-you {
     position: absolute;
     top: -0.2rem;
@@ -480,6 +491,7 @@
         <div class="rcs-reality-track" id="rcs-reality-track"></div>
         <div class="rcs-scale"><span>0% pass</span><span>100% pass</span></div>
         <ul class="rcs-legend" id="rcs-reality-legend"></ul>
+        <p class="rcs-denominator" id="rcs-denominator"></p>
       </div>
 
       <div class="rcs-assumptions">
@@ -565,12 +577,19 @@
 
     var THIN_AT = 20; // below this many recorded firings, a rate is not a rate
 
-    // Measured comparison figures, same 362 runs.
+    // Measured comparison figures, same 362 runs. These are all per-ROUND: the share of
+    // review rounds that approved.
     var REALITY = [
       { pct: 2.6,  label: 'us before 22 Jul (4 of 154)' },
       { pct: 30.4, label: 'all 362 runs (110)' },
       { pct: 51.0, label: 'us after 22 Jul (106 of 208)' }
     ];
+
+    // The SAME data on the other denominator: the share of submissions that eventually
+    // reached approved after however many revisions. 105 of 136 since 22 July. This is
+    // the figure the "passes within N rounds" output should be read against, and
+    // conflating the two is a documented way to misread a normal REVISE as a failure.
+    var REALITY_SUBMISSION = { pct: 77.2, approved: 105, total: 136 };
 
     // Which of these we actually run is a measured fact, not a preference: of our 110
     // approvals, 99 carried a medium-severity objection and passed anyway, and only one
@@ -723,6 +742,18 @@
         return '<li><span class="rcs-legend-pct">' + pct(m.pct, 1) + '</span>' +
           '<span>' + m.label + '</span></li>';
       }).join('');
+
+      var yours = r.seats.length ? pct(r.pPassN * 100, 0) : null;
+      el.denominator.innerHTML =
+        '<strong>Those three figures count ROUNDS.</strong> Counted per submission ' +
+        'instead, ' + pct(REALITY_SUBMISSION.pct, 0) + ' of our plans (' +
+        REALITY_SUBMISSION.approved + ' of ' + REALITY_SUBMISSION.total +
+        ' since 22 July) eventually reached approved after however many revisions. That ' +
+        'is the number to read against your ' +
+        (yours ? '<strong>' + yours + '</strong> ' : '') +
+        '"passes within your rounds" figure above. The two denominators differ by 26 ' +
+        'points, so quoting one as the other is how a perfectly normal revision starts ' +
+        'to look like a failing plan.';
     }
 
     function renderThinNote(r) {
@@ -797,6 +828,7 @@
       el.blockersList = document.getElementById('rcs-blockers-list');
       el.realityTrack = document.getElementById('rcs-reality-track');
       el.realityLegend = document.getElementById('rcs-reality-legend');
+      el.denominator = document.getElementById('rcs-denominator');
       el.thinNote = document.getElementById('rcs-thin-note');
 
       if (!el.threshold || !el.seats || !el.pass1) return;

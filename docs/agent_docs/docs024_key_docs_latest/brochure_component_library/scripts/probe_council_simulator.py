@@ -215,6 +215,20 @@ DRIVER = r"""
        document.querySelectorAll('#rcs-reality-legend li').length === 3,
        document.querySelectorAll('#rcs-reality-legend li').length);
 
+    // The band's figures are per-ROUND. Naming the other denominator is the point of
+    // this note, because conflating them is a recorded way to misread a normal REVISE.
+    var den = q('rcs-denominator');
+    ck('the note names the round denominator', den && /count ROUNDS/i.test(den.textContent));
+    ck('the note gives the per-submission figure', den && /105 of 136/.test(den.textContent),
+       den ? den.textContent.slice(0, 90) : null);
+    // The note must quote the CURRENT within-rounds figure, not a stale copy: build the
+    // needle by rounding the live stat, not by string-mangling it (a '.' that is both
+    // escaped and split on produces an invalid regex, which is how this first failed).
+    var passnInt = Math.round(parseFloat(q('rcs-passn').textContent));
+    ck('the note quotes the live within-rounds figure',
+       den && den.textContent.indexOf(String(passnInt) + '%') !== -1,
+       passnInt + '% vs note: ' + (den ? den.textContent.slice(-160) : null));
+
     // Guards the defect the first screenshot showed: a label positioned with
     // translateX(-50%) at 2.6% hangs outside the track. Checked at BOTH extremes,
     // because a centre-only check passes on the broken version.

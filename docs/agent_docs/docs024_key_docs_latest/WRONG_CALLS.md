@@ -12315,3 +12315,63 @@ mirror image: **evidence of absence that had already expired.**
   Corrected in place in all six places; shipped as one commit carrying both halves
   (`c659e312b`), mutation-proven (Go half alone → the lockstep test fails naming 184's
   failure mode). Landmine filed under footprint `doc_plans`/`doc_notes`/`subject_type`.
+
+- **2026-07-30 — I shipped a claim about our OWN review gate that was false, into
+  customer-facing copy, and the thing that caught it was a number disagreeing with
+  itself.** Building `tool-review-council-simulator` (fundamentallyai.com), I labelled
+  the middle position of its severity slider *"Medium and high block — **what we run**"*
+  and made it the default. That is not what we run. **What caught it:** not a review and
+  not the copy — the model's own output. With that setting it predicted ~5% of sound
+  changes would pass, against our measured 51%. A 10x gap is too big to be the
+  independence assumption I had already documented, so the disagreement was the signal.
+  **The cheap check, one query, decisive:** count approvals by whether they contain an
+  objection of each severity —
+  `count(*) FILTER (WHERE EXISTS (… o->>'severity'='medium'))` grouped by
+  `decision`. Answer: of **110 approvals, 99 carried a medium objection and passed**, 1
+  carried a high; of 15 rejections, **all 15** carried a high. High blocks, medium is
+  advisory, and the setting we actually run is the **loosest** of the three, not the
+  middle. **Why I got it wrong:** I read `decided_by` on one sample row — *"approved with
+  2 advisory objection(s) — none high-severity"* — which states the rule correctly, and
+  then encoded the opposite anyway, because my per-seat table was keyed on
+  `pct_med_plus` and the column I had built became the rule I assumed. **The
+  measurement I chose to compute quietly became the claim I made.**
+  **A second, smaller wrong call in the same hour, and it went the other way:** having
+  correctly found that `hero-tool` renders no CTA row unless `cta_primary_url` is set, I
+  then *talked myself out of my own finding* with `grep -c 'htl-cta-row'`, which returned
+  1 and looked like proof the row rendered. It was matching the class **definition**
+  inside the component's own inline `<style>` block. **A grep for a CSS class on a page
+  that inlines its stylesheet always returns at least one hit**; extracting the element
+  showed 0 anchors on the sibling page and 2 on mine. I published the retraction before
+  re-checking, so the sequence was right-answer → wrong retraction → right answer, and
+  the middle step would have stood if I had not looked twice. Both filed as landmines.
+
+- **2026-07-30 (same session, hours later) — I published a "correction" to CLAUDE.md that
+  was itself the error CLAUDE.md's own recorded measurement warns about, and the fleet had
+  already got this right two days earlier.** CLAUDE.md's council-gate section says approval
+  "ran ~80%". I measured 51% post-fix, concluded the doc was quoting a two-day peak, and
+  wrote that into NOTES, a handoff and a commit message before checking anything else.
+  **It is not a peak — it is a different denominator.** Per ROUND 50.7%; per SUBMISSION
+  77.2% (105 of 136 correlations eventually approved). Both true; the doc's figure is the
+  per-submission one and is sound on that basis. **What caught it:** opening
+  `council-review-practice-index.md` to add a line, where **line 24 already read
+  "per-ROUND 51% / per-SUBMISSION 76% — a REVISE is the median"**, measured 2026-07-28 by
+  another thread, with the query and the same conclusion. I reproduced their number
+  exactly and read the agreement as *novelty* instead of as corroboration.
+  **The cheap check, and it is embarrassingly cheap: read the existing memory on a
+  mechanism BEFORE publishing a correction to the doc about it.** `grep -ril "approval"
+  ~/.claude/projects/*/memory/` or simply opening the topic file the index already points
+  at. I did open it — but only *after* writing the claim, and only because I wanted to add
+  a line to it. **Had I been adding nothing, I would never have looked, and the wrong
+  explanation would have shipped in a handoff as fact.**
+  **The general shape, which is the reusable part:** a figure that *disagrees* with a doc
+  prompts a check; a figure that *agrees with your own new measurement* does not, so
+  "my number matches the recorded number" felt like confirmation of my reading rather than
+  evidence that the recorded reading was already correct. Two measurements agreeing tells
+  you nothing about whether your *interpretation* of them is the one already on file.
+  Tally: "read the fleet's existing record before correcting a shared doc" → this is the
+  first entry; adjacent to [[prior-art-search-goes-stale]] but the inverse failure — the
+  prior art was fresh, findable, and indexed, and I simply did not look.
+  Ended up net-positive rather than only a retraction: the tool now prints **both**
+  denominators, since conflating them is exactly how a normal REVISE reads as a failing
+  plan. Corrected in place in NOTES and the handoff; commit `32653bd85` carries the wrong
+  explanation and cannot be amended (forward-only).

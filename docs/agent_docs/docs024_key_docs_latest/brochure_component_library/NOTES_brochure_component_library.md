@@ -3448,10 +3448,29 @@ is `diagnosis_artifacts` where `kind='council_report'` — 362 rows, 2026-07-10 
   rounds a change takes. **All 266 council-gate verdict notes say `(round 1)`.** There
   is no distribution in that source. Nothing was built on it. Had I not looked, this
   page would have shipped a fabricated curve.
-- **Corrected: CLAUDE.md's "approval ran ~80%".** That is a two-day peak, not the
-  sustained rate. By day, post-fix is **51.0% (106/208)** from 07-22 against **2.6%
-  (4/154)** before; individual days do reach 62-73%. The tool quotes 51%, and the
-  pre/post pair became the most interesting thing on the page.
+- **~~Corrected: CLAUDE.md's "approval ran ~80%" is a two-day peak.~~** Post-fix is
+  **51.0% (106/208)** from 07-22 against **2.6% (4/154)** before, and the pre/post pair
+  became the most interesting thing on the page. But the *explanation* I attached to it
+  was wrong:
+
+  > **CORRECTED 2026-07-30, same evening, before the commit had been pushed anywhere it
+  > mattered — but AFTER I had already written the claim into NOTES, the handoff and a
+  > commit message.** "~80% is a two-day peak" is **false**. It is a **different
+  > denominator**, and another thread had already measured and recorded exactly this on
+  > 2026-07-28: **per ROUND 51%, per SUBMISSION 76%** — "both true; the doc's figure is
+  > the per-SUBMISSION one and is sound on that basis". Reproduced independently on my
+  > own window: post-fix **per-round 50.7%** (211 rounds) and **per-submission 77.2%**
+  > (105 of 136 correlations eventually approved). So CLAUDE.md is *sound*, merely
+  > silent about its basis, and my "correction" was the misreading it warns about.
+  > **What caught it:** opening the memory topic file `council-review-practice-index.md`
+  > to add a line to it — line 24 already said *"per-ROUND 51% / per-SUBMISSION 76% — a
+  > REVISE is the median"*. **The cheap check I skipped: read the existing memory on a
+  > mechanism before publishing a correction to the doc about it.** My 51% agreeing with
+  > theirs should have been the clue that we were measuring the same thing, not that I
+  > had found something new.
+  > Turned into a product improvement rather than only a retraction: the tool now names
+  > **both** denominators under the reality band, because conflating them is precisely
+  > how a normal REVISE reads as a failing plan.
 - **Denominators, counted not assumed:** 284 `doc_notes` carry the `council-gate`
   category but 18 are threads' own notes, not verdicts, so the verdict denominator is
   **266**. Separately the 362 `council_report` rows start 07-10 while the gate's notes

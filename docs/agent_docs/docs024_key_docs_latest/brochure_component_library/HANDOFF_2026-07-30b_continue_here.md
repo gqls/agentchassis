@@ -75,9 +75,18 @@ how I briefly talked myself out of landmine 1; and **`spec.filename` on a
 
 ## Two corrections to figures other docs still carry
 
-- **CLAUDE.md's council-gate section says approval "ran ~80%".** That is a two-day peak.
-  Measured by day over all 362 runs: **51.0% (106/208) from 07-22 onward** against
-  **2.6% (4/154) before**. Individual days reach 62–73%. Use 51% as the sustained rate.
+- **CLAUDE.md's council-gate "approval ran ~80%" is SOUND — I wrongly "corrected" it, so
+  ignore any claim of mine that it is a two-day peak.** It is the **per-SUBMISSION**
+  figure. Both denominators are real and they differ by 26 points:
+  - **per ROUND: 50.7%** post-fix (211 rounds) — *"will this round approve?"*
+  - **per SUBMISSION: 77.2%** (105 of 136 correlations) — *"will my plan get through?"*
+
+  Already measured and recorded by another thread on 2026-07-28; see the memory topic
+  `council-review-practice-index.md` line 24 and `council-gate-workstream.md`. My
+  independent numbers reproduce theirs. **A REVISE or two is the median path, not a
+  failure signal.** The commit message on `32653bd85` carries my wrong explanation and
+  cannot be amended (forward-only); this is the correction of record, and the tool itself
+  now prints both denominators.
 - **There is no rounds-to-approval distribution in `doc_notes`.** All 266 council-gate
   verdict notes say `(round 1)`. I had planned to model it and did not, because it is
   not there. Do not build on that field.
