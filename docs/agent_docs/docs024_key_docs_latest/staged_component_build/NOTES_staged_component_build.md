@@ -327,3 +327,82 @@ with the check for each, and asks four genuinely open questions. **It explicitly
 them to skip a stage that feels like ceremony and report that instead**, because the
 ladder has never been run *forwards* by anyone, including me, and compliance would teach
 us less than friction does.
+
+## 2026-07-30 (night) — THE LADDER RAN FORWARDS, by another lane, and corrected me twice
+
+Found in `git log` while checking my own commits, not reported to me: **`0bfdf5b2e`
+feat(leopardess): AI vendor trust checklist tool, built up the S0-S7 ladder**. The lane
+the owner asked to consult with us did not wait for the consult brief — it built.
+`docs/leopardessconsulting/tools/ai-vendor-trust-checklist/`.
+
+**This is the prospective validation this lane could not manufacture**, and the single
+most useful input it has received. It also read the substrate status correctly without
+being told: a **tool** can run today because `doc_plans` already accepts
+`subject_type='tool'`, so our blocked P1 migration was never on its path.
+
+**What it did:** fence authored BEFORE the build (S1 `fence_check.go`, 7 rules, **all 7
+proven able to fail**); render harness with **12 checks and 12 mutants, all red** (S2);
+then placed and driven in real Chromium, both profiles (S6): **18 pass, 3 fail, 0
+unexpected skips**, correlation `dc952633`. **The S2 mutation requirement — the gate I
+claimed nothing in the tools chain had — was adopted in full, on a first attempt, by a
+different lane.** That is much stronger evidence than my own compliance with my own rule.
+
+### It corrected two of my eight gates, and both corrections are better than what I wrote
+
+- **S3 was too narrow — I generalised from the wrong population.** I wrote the gate from
+  *section* components, where `js_content` publishes to `/tools/assets/` but the assemble
+  injects no `<script>` tag, so the working route is a `js_snippets` row. **For a tool page
+  the opposite holds:** `rerender_single_page_action.collectJSAssets` reads
+  `content_components.js_content` and emits `tools/assets/{function}.js` in the page's own
+  commit, so the asset path is **derived from `function`** instead of typed into a template
+  — which makes the `<script src>` mismatch that is a live defect on `llm-cost-calculator`
+  *structurally impossible* rather than merely checked. S3's gate is now "delivered by the
+  route this page type actually uses", not one named table.
+- **S4 did not apply, and asserting it would have BLOCKED the build.** Their site's
+  `site_plans` row has **zero** `site_plan_sections` rows; the mechanism protecting its
+  four other tool pages is `pages.rebuild_policy='owned'`, a hard refusal in
+  `save_page_sections_action.go`. And since `page-rerender`'s `save_sections` step *is* the
+  generic save that guard refuses, **`owned` blocks the first render** — the order is
+  forced: render `generic`, then flip to `owned`. They verified it as a red/green pair.
+  **A gate naming one mechanism where the platform has two in tension is wrong half the
+  time.** My S4 was written from the carousel, where the plan row was the whole story.
+
+### It confirmed D3 independently, and measured a population I did not have
+
+The skip-reads-as-pass hazard has a **second, entirely different trigger**: three values
+must be equal —
+`doc_plans.subject_key == pages.name == content_components.function` — or `load_docs`
+returns an empty fence and `request_browser_run` **SKIPS with `needs_criteria`**: honest,
+but not a failure either, so **it reads as a clean run that asserted nothing.** Measured:
+**6 of 22 hosted tools fleet-wide cannot be acceptance-tested at all** until renamed,
+across finetuning.uk, fundamentallyai.com, gamesdesign.co.uk, leopardessconsulting.co.uk
+and vonc.com. D3 was reasoned from one code path; this is measured, and the population is
+large.
+
+### `bugs_open/157` — the primitive I called my most valuable import is BROKEN
+
+Their 3 S6 failures were **not defects in their tool**. `has_visible_area` (TL-034)
+reports **0 for any axis whose rendered size is a whole number**. Verified in code myself:
+`chromiumPage.VisibleArea` (`run_checks_action.go:718-719`) does
+`w, _ := m["w"].(float64)`, and `playwright-go` returns an integral JS number as Go `int`
+— the assertion fails, **the `, _` swallows it**, and `w` keeps its zero value. A
+`24px × 24px` checkbox measures `0×0`; the `0×94` mobile reading, where only the integral
+axis is zero, is the observation that identifies it.
+
+So the check type I added to the reuse inventory hours ago as *"the single most valuable
+import for S2 and S6"* is **both unrolled and wrong** — and it fails in the worst possible
+direction: **reporting a defect that is not there**, which invites you to deform a correct
+product to satisfy it. Their note is exactly right and I have adopted it as a ladder rule:
+*"DO NOT make the checkbox size fractional to turn the gate green"* — the `24px` is a
+deliberate WCAG 2.2 target size, and that page is now the cleanest reproducer of 157.
+
+**New ladder rule, from this:** **when a gate goes red, the first question is whether the
+GATE is right.** File against the gate, keep the subject as the reproducer, never tune the
+subject to a green. This is the mirror of S2's mutation rule — mutants prove a gate *can*
+go red; 157 proves a red gate *can be wrong* — and without both halves the ladder is a
+machine for laundering broken checks into product changes.
+
+**Three of my four "what would make this lane wrong" predictions are now touched by
+evidence in one day:** gates catching real things (yes, by someone else, first try),
+gate-authoring being transmissible (yes), and the checks themselves being trustworthy
+(**no** — 157). The one still untested is the trigger question (G5): who fires the stages.

@@ -460,6 +460,26 @@ likely true here.
   separates *exists* from *usable*, and the carousel's own Round 5 was a
   reachability defect of the same family. **Committed but NOT YET ROLLED — see the
   hazard below before authoring any gate against it.**
+  > **CORRECTED 2026-07-30 (evening) — it is also BROKEN, and the first forward run of
+  > this ladder is what found it.** `bugs_open/157`: `has_visible_area` reports **0 for
+  > any axis whose rendered size is a whole number.** `chromiumPage.VisibleArea`
+  > (`run_checks_action.go:718-719`) does `w, _ := m["w"].(float64)` — and
+  > `playwright-go` returns an integral JS number as Go `int`, so the assertion fails,
+  > **the `, _` swallows it**, and `w` keeps its zero value. A `24px × 24px` checkbox
+  > measures `0×0`; a `0×94` reading on mobile (only the integral axis zero) is the
+  > observation that identifies the bug.
+  >
+  > **Two lessons for this ladder, and the second is the more important:**
+  > (1) The primitive I called the most valuable import fails **in the direction of
+  > reporting a defect that is not there** — the worst direction, because it invites you
+  > to deform a correct product to satisfy it. The lane that hit it wrote *"DO NOT make
+  > the checkbox size fractional to turn the gate green"*, which is exactly right: the
+  > `24px` is a deliberate WCAG 2.2 target size.
+  > (2) **A gate can be wrong, and the ladder must say what to do then.** The rule is now
+  > explicit: **when a gate fails, the first question is whether the gate is right** —
+  > file against the gate, keep the subject as the reproducer, and never tune the subject
+  > to a green. This is the mirror image of S2's mutation rule: mutants prove a gate can
+  > go red; 157 proves a red gate can be wrong.
 - **The ten-rule criteria validator** (P1–P10) from the experience register — exported,
   and currently applied only to `experience_patterns`.
 - **`experienceVerdict`** — the platform's only anti-vacuous verdict function
@@ -560,8 +580,8 @@ and **one gate**, and the gate is a check that can go red.
 | **S0 shape** | does this shape already exist? | a named `experience_pattern`, or a written justification for a new one | *(passed in Round 1 — this is the stage that worked)* |
 | **S1 contract** | is the contract sound, and are the hazards answered? | every field has `llm_guidance`; every named hazard has a concrete answer or an explicit accept; fence drafted | Round 1's four hazards; Round 4's ellipsis collision would have been a *known* collision |
 | **S2 template** | does it render, and are the checks real? | harness green **and ≥1 mutant red per assertion class** | the harness counting CSS as markup; the `strings.Index` panic |
-| **S3 register** | is it reachable? | present in `content_components`, returned by `load_component_library`; JS in `js_snippets` with the marker in the live bundle | the `js_content` publishes-but-inert trap |
-| **S4 place** | is the placement durable? | present in `site_plan_sections`, not only `page_components`; survives one re-render | **the panel silently dropped by a `complete` re-render** |
+| **S3 register** | is it reachable? | present in `content_components`, returned by `load_component_library`; JS delivered by the route that page type actually uses (see correction) | the `js_content` publishes-but-inert trap |
+| **S4 place** | is the placement protected by the mechanism that governs THIS page type? | `site_plan_sections` for planned sections; **`pages.rebuild_policy='owned'` for owned tool pages** (see correction) | **the panel silently dropped by a `complete` re-render** |
 | **S5 serve** | does the visitor get it? | fetched page, `<style>` sliced away before counting; 0 unrendered `{{`; contrast measured in the state that needs a click | the local-copy probe that proved nothing |
 | **S6 operate** | does it *work* when driven? | **real clicks in real Chromium on the live URL**, desktop + mobile, via `browser-runner-adapter` and the fence's `interaction` checks | **Round 5. The whole reason for this document.** |
 | **S7 regress** | does it still work? | S5 + S6 re-run after any roll, rebundle or rerender | a same-tag roll or rebundle silently reverting a DB-side repair |
@@ -577,6 +597,53 @@ does this and it should be the house style.
 **A later stage may not be assumed from an earlier one.** Round 5 is the proof: S2–S5
 all genuinely passed while S6 had never once succeeded. This is the same argument as
 TL-012 — *"completeness + validation passed" ≠ working* — one level down.
+
+### THE LADDER HAS NOW BEEN RUN FORWARDS ONCE — and it corrected itself twice
+
+**2026-07-30, `leopardessconsulting`, `ai-vendor-trust-checklist`** (`0bfdf5b2e`,
+`docs/leopardessconsulting/tools/ai-vendor-trust-checklist/`). A **tool**, not a
+component — which is why it could run the same day: `doc_plans` already accepts
+`subject_type='tool'`, so this ladder's blocked P1 migration was never on its path. That
+lane read the substrate status correctly and did not wait for us.
+
+**What it did:** authored the fence *before* building (S1, `fence_check.go`, 7 rules, all
+7 proven able to fail), a render harness with **12 checks and 12 mutants, all red** (S2),
+then placed it and drove it in real Chromium on both profiles (S6):
+**18 pass, 3 fail, 0 unexpected skips.** The S2 mutation requirement — the gate I claimed
+nothing in the tools chain had — was adopted in full, on the first try, by a different
+lane. That is the strongest available evidence the ladder is transmissible rather than
+personal.
+
+**It corrected two of my eight gates, and both corrections are better than what I wrote:**
+
+- **S3 was too narrow.** I generalised from *section* components, where `js_content`
+  publishes to `/tools/assets/` but the assemble injects no `<script>` tag, so the working
+  route is a `js_snippets` row. **For a tool page the opposite is true:**
+  `rerender_single_page_action.collectJSAssets` reads `content_components.js_content` and
+  emits `tools/assets/{function}.js` as part of the page's own commit. So the asset path is
+  **derived from `function`** rather than typed into a template — which makes a
+  `<script src>` mismatch *structurally impossible* rather than merely checked for, and
+  that exact mismatch is a live defect on `llm-cost-calculator`. **S3's gate is therefore
+  "delivered by the route this page type actually uses", not one named table.**
+- **S4 did not apply at all, and asserting it would have blocked the build.** Their site's
+  `site_plans` row has **zero** `site_plan_sections` rows; the mechanism actually
+  protecting its four other tool pages is `pages.rebuild_policy='owned'`, a hard refusal in
+  `save_page_sections_action.go`. And because `page-rerender`'s `save_sections` step *is*
+  the generic save that guard refuses, **`owned` blocks the initial render** — so the order
+  is forced: render with `generic`, then flip to `owned`. Verified as a red/green pair
+  (with `owned` set the same render refuses and the served page stays byte-identical).
+  **A gate that names one mechanism when the platform has two, in tension, is a gate that
+  will be wrong half the time.**
+
+**And it confirmed D3 independently, with a fleet measurement I did not have.** The
+skip-reads-as-pass hazard turns out to have a second, entirely different trigger: three
+values must be equal —
+`doc_plans.subject_key == pages.name == content_components.function` — or `load_docs`
+returns an empty fence and `request_browser_run` **SKIPS with `needs_criteria`**, which is
+honest but is *not a failure either*, so it reads as a clean run that asserted nothing.
+Measured: **6 of 22 hosted tools fleet-wide cannot be acceptance-tested at all** until
+renamed, across five sites — including two on the site they were working on. D3 was
+reasoned; this is measured, and the population is large.
 
 ### Two rules for authoring a gate, adopted from the tools lane
 
@@ -740,6 +807,15 @@ deliberately has **no aesthetic or editorial gate**, and that is not an omission
   design argument. The claim that stages would have caught Round 5 is a **reasoned
   inference [INFERRED]**, not an experiment — though it is a strong one, since Round 5's
   fix was found the first time anyone ran the S6-shaped check.
+  > **PARTIALLY DISCHARGED 2026-07-30 (evening), and stated precisely so it is not
+  > overclaimed.** The first forward run (above) proves the ladder *catches real defects
+  > nobody was looking for* — an S2 check found a two-file id contract that the platform's
+  > own `OrphanElementRefs` returns nil on, which is how `llm-cost-calculator` shipped
+  > pointing at another tool's JS filename; and S6 surfaced `bugs_open/157`. **It does not
+  > discharge the Round 5 counterfactual**, which is a different claim about a different
+  > defect, and no run has tested it. The marker stays. What *has* changed is that
+  > "would a stage have caught anything?" is now answered yes, by someone other than the
+  > author, on their first attempt.
 - ~~**It does not know that the reuse is as clean as it looks.** Whether the component
   case fits `doc_plans`' shape without schema change is **[UNVERIFIED]**.~~
   > **RESOLVED 2026-07-30, and the marker did its job.** Read the two tables: the reuse
