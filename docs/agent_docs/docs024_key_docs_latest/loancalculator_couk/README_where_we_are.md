@@ -118,3 +118,67 @@ available yet and I wrote a placeholder. The system that reports which changes h
 been reviewed will therefore not credit this one automatically. Nothing is broken and
 the review is happening normally, but the tidy trail is missing. The right order is
 submit first, then commit — I've written that into the runbook.
+
+**2026-07-30, late evening.** The site is adopted and healthy, the new mode works,
+and one thing needs your decision.
+
+**What went right.** The adoption ran through the real framework and did exactly what
+it was supposed to. All 27 pages are now recorded in the platform with their web
+addresses **unchanged** — `/tools/standard-calc.html` is still
+`/tools/standard-calc.html`, not the rewritten form the old path would have forced.
+Every page is marked as ours-not-the-pipeline's, and **not one of the twelve
+calculators was handed to a language model to rebuild**. Under the old behaviour all
+28 addresses would have changed and all twelve calculators would have been rewritten.
+
+I also proved the safety property rather than asserting it: I deliberately triggered a
+rebuild of one page afterwards and confirmed it republished **byte-for-byte identical**
+content. So a future maintenance sweep cannot quietly restyle this site.
+
+**What went wrong, and what caught it.** Before letting the deploy run I compared what
+the platform had captured against what the site actually serves. **None of the 27
+matched** — every stored page was about 9KB bigger, and the same ~9KB on all of them.
+That consistency was the clue. The crawler does not return the page the server sends;
+it returns the page *after the browser has run the JavaScript*. So the navigation menu
+that our site builds in the browser had already been baked into the file, every
+relative link had been rewritten to a full address, and the dropdown menu links had
+been turned into links back to the same page — which would make clicking "Tools"
+reload the page instead of opening the menu.
+
+Three pages slipped out to the live site before I stopped the rest. I restored them
+from our own copy and confirmed the live site is correct again; all 27 addresses
+return normally. The remaining 24 were cancelled before they could deploy.
+
+Two things are worth saying plainly about that. First, **the check that caught this
+was a manual one I ran by hand** — the review council had already told me that check
+was "aspirational, not built", and they were right; running it by hand is the only
+reason three pages were damaged instead of twenty-seven. It should be part of the
+pipeline. Second, restoring the files exposed a separate trap: the publishing step
+**silently skipped one of the three files** because the bad copy in storage was newer
+than my fix, and the deploy still reported success. I only found it by checking the
+storage directly rather than trusting the green tick.
+
+**Where it stands now.** I loaded the correct served bytes into the platform for all
+27 pages and verified every one matches exactly, so the record is now both correct and
+safe to redeploy. The site is live and unchanged from a visitor's point of view.
+
+**Your decision.** The new "keep it exactly as it is" mode is sound, but its source of
+truth — the crawler — cannot deliver exact bytes. Three ways to fix that properly:
+
+1. **Adopt from our own files** rather than by crawling. We already hold the exact
+   bytes we publish, so this is the obvious source. I had listed this as an optional
+   extra; it now looks like the right answer.
+2. **Fetch the pages plainly**, without a browser, just for this mode.
+3. **Build the byte-comparison check into the pipeline** so it refuses to deploy when
+   what was captured differs from what is served.
+
+My recommendation is 3 regardless of which source you choose, because it is the check
+that saved this run, and then 1 as the source. I have not started either — this is a
+genuine choice about how the framework should work and it is yours to make.
+
+**Also worth knowing:** the review council looked at the framework change and asked
+for revisions. Several were fair and I have already made them — the code now refuses
+to continue rather than quietly dropping a page, and it records in the database when
+it has skipped the design stage so that is never invisible. Two objections are
+genuinely for you rather than me: whether skipping the design cascade for preserved
+sites is acceptable (our own documentation says that stage always runs), and whether
+this needs a formal architecture review. I have not overridden either.
