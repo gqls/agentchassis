@@ -1634,3 +1634,102 @@ That is the recurrence failure already pinned in `work_item_recurrence_test.go:2
 ("*born 'unresolved' and never dispatched … which is how the fix loop silently
 died*"). A dispatch defect, testable, and it was invisible while the wide wrong claim
 occupied the space.
+
+---
+
+## 2026-07-30 — 149 C1 + C3 + B4: the claims floor, and two of the queue's own items corrected by re-measuring
+
+Picked up the checker queue per the handoff's recommendation (C1+C3, then B4). The
+`bugs_open/144` blocker it named is gone — 144 closed and live on v1.0.1203, and
+`e9de64d99` had already corrected the citation in `016b`: the workflow validator
+checks SHAPE, never page CONTENT, so nested-step validation never had anything to do
+with the missing claims gate.
+
+**The first question changed the fix.** Before writing code I re-ran C1's own
+measurement, because the handoff said its figures were a day old. Two things fell out:
+
+- **Six agents persist page body sections through `save_page_sections`; two of them
+  run `validate_page_content`.** That is the honest denominator — not "22 handler
+  agents, 2 gate", which counts a population the enforcement never sees.
+- **`page-content-writer`, the agent C1 is built around, persists nothing.** Its
+  workflow ends `compile_page → complete_workflow{output_field: page_content}` and it
+  is *called* by four of those six parents. A `validate_page_content` step there
+  would have gated a value in transit. `check_empty_sections.go:7` records the same
+  route being corrected once before: `HandlerAgent: "page-build-handler" (was
+  "page-content-writer")`.
+
+So the fix went to the persistence seam instead, which is where its own precedent
+already lives: `save_sections_link_repair.go` made exactly this argument for
+`bugs_open/079` ten days ago — *"persistence is the one chokepoint every body-section
+writer passes through"*. A config-shaped fix would need remembering by whoever writes
+the seventh agent; a floor would not. **The lesson worth keeping: "which agent writes
+the copy" and "which agent persists it" are different questions, and only the second
+one can carry an enforcement point.**
+
+**Severity rule, driven by severity rather than by check name** so it stays correct as
+checks are added: blocker (banned claim, a known falsehood) refuses the save, matching
+the four guards already refusing in that same function; error (unregistered number)
+records durably and allows, because its false-positive rate is the stated reason it is
+never a blocker in the engine either. Recording the numeric half also gives the
+platform a write-path claims measurement without seating a new check anywhere, which
+is half of what C3 wanted.
+
+**Blast radius measured before submitting, not left for the council** (124's REJECTED
+ground). `cmd/claimscan` over the complete corpus — 949 components, 14 sites, each
+against its own register: **3 banned-claim findings on 2 sites (0.32%)**, all three
+asserting something untrue today, two of them already filed as `bugs_open/147`. Those
+three pages cannot re-render until the copy changes; that is the whole cost. 59
+unregistered numbers on the 4 armed sites, record-only. Surface was 908 on 07-28, 919
+on 07-29, 949 on 07-30 — **re-measure, never quote.**
+
+### The misstep that matters: C3 was false when it was written, by 2m28s
+
+`claims_unverified` "has zero rows ever" — the sentence 149 C3 is built on. It has
+**two rows**, both `created_by = 'quality-discovery-agent'` (the detector itself, not a
+session by hand), created **2026-07-29 17:06:02 UTC**. 149 was committed at
+**17:08:30 UTC**. The detector had fired automatically and found two real things two
+and a half minutes before the file said it never had.
+
+The measurement was taken earlier in that session and written up without re-running.
+Full entry in `WRONG_CALLS.md`; the transferable line is that **a measurement has a
+timestamp and a claim does not**, so your own morning figure is another document by
+the afternoon. `[UNMEASURED]` markers cannot catch this — the figure *was* measured.
+
+What survives is narrower and is cadence, not code: quality-discovery-agent carries 5
+checks and has raised 9 items ever, against 30/22 checks and 172/152 items for its two
+siblings, all three of which ran on 07-29. I deliberately did **not** re-seat
+`unverified_claims` in a busier agent: double-seating interacts with `insertWorkItem`
+dedup on `item_key`, which is one of B2's three candidate causes, so doing it before
+B2 is established produces a change nobody can attribute. Written into 149 as a costed
+decision instead.
+
+### Three tooling traps, two of which were already written down
+
+- `kubectl exec -i` inside a `while read` loop **eats the loop's stdin** — I scanned
+  one site of fourteen and the script exited cleanly. Fix: `<&3` / `< /dev/null`.
+- `grep` in this shell is a **ugrep wrapper with `-I`**, so a scan output containing
+  one non-UTF-8 byte returns zero matches and **prints nothing at all** — not `0`.
+  `LC_ALL=C` does not help; `command grep -a` does. Both of these were already in
+  `CLM-014`'s landmine list, for the exact tool I was running. I had grepped
+  `LANDMINES.md` and they were in the **concept register** instead. Grepping one of
+  five destinations is not grepping. Both now in `LANDMINES.md`.
+- **New, not previously recorded:** the export itself truncated mid-stream on 2 of 14
+  sites (58/139 and 30/67 rows) with `unexpected EOF` on stderr and a perfectly
+  well-formed short file. A scan of that corpus is clean-looking and wrong.
+  finetuning.uk needed three attempts to come back complete. **Count the rows in the
+  DB first and assert the export matches before scanning anything.**
+
+And one for the deploy side: `strings` splits a Go literal at every non-ASCII byte, so
+my B4 marker (which contains an em dash) grepped to **0** in an image that demonstrably
+contains it. That is indistinguishable from `bugs_open/153`'s "tag bumped, never
+rebuilt". Pick ASCII-only markers, and run a positive **and** a negative control in the
+same exec — I did, which is the only reason the 0 read as a tooling artefact rather
+than a failed build.
+
+### State
+
+Committed `f61dce806` (5 platform files + the CLM-018 register entry, same commit, per
+the seam-registration rule). Image `v1.0.1208` built from that HEAD and marker-verified
+locally. Council submitted, `2d0dbc2e-e125-41f6-876d-0f8d6cf96688`. **Not rolled** —
+the council was mid-run and a roll kills an in-flight council. 149 stays OPEN: 3 items
+of 12, and several of the rest need an owner ruling rather than code.

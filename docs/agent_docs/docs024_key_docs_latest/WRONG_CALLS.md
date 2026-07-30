@@ -12132,3 +12132,70 @@ is never the cheapest way to answer a question a path-scoped build or a targeted
 tree-wide tool.
 
 Family: committing-is-shipping-on-shared-head; shared-tree-wont-compile.
+
+---
+
+## 2026-07-30 — I filed a "zero rows ever" two and a half minutes after it stopped being true
+
+**The claim.** `bugs_open/149` item C3, committed `b15b1456f` at 17:08:30 UTC:
+
+> *"Fleet-wide, `claims_unverified` has **zero rows ever**."*
+>
+> *"**NEVER RAN, not broken.** The zero rows are what you would expect from a check
+> sitting in an agent that has raised 7 items in its life."*
+
+**Wrong at the moment of writing.** Re-measured 2026-07-30: two rows, both
+`created_by = 'quality-discovery-agent'` — the detector itself, not a session firing
+by hand — created at **17:06:02 UTC on 2026-07-29**. That is **2m28s before the
+commit that said they did not exist.** The whole item is built on the zero: it
+argues the detector is unexercised, recommends seating it elsewhere, and pairs it
+with C1 as "neither a write-time gate *nor* a working backstop". The backstop was
+working. It had just found two real things.
+
+**What caught it.** Re-running the count before quoting it, because the handoff that
+sent me here said its own figures were a day old and needed re-running. One query.
+
+**The cheap check that would have.** Re-run the count **immediately before writing
+it down**, not once at the start of the session. The measurement was almost
+certainly correct when taken; it went stale during the session that took it.
+
+**Why this one is worth a row rather than a shrug.** The failure is not carelessness
+and it is not a stale *source* — the source was live data, read first-hand, by me.
+It is that **a measurement has a timestamp and a claim does not**, and the gap
+between them is invisible in the finished sentence. `[UNMEASURED]` markers do
+nothing here: the figure *was* measured. The estate already has the rule —
+*"ground every figure against the live system before repeating it"* — and I read it
+as being about quoting **other documents**. It is not. **Your own measurement from
+this morning is another document by the afternoon.**
+
+**And the correction is sharper than the claim was**, which is the tell that this
+class is worth catching: what survives is a cadence fact (5 checks / 9 items vs 30
+and 22 / 172 and 152), not a code judgement — and it explicitly does *not* justify
+the rewrite or the reseating C3 recommended. The same file's own banner warns
+*"a lack of evidence that a check works is NOT evidence that it doesn't"*. I did the
+mirror image: **evidence of absence that had already expired.**
+
+### Three smaller ones from the same session, recorded for the tally
+
+- **Two of the three traps I hit were already written down, in the concept register
+  entry for the exact tool I was using** (`CLM-014`, `cmd/claimscan`): that
+  `kubectl exec -i` eats a `while read` loop's stdin (it did — I scanned one site of
+  fourteen and the script exited looking successful), and that plain `grep -c`
+  returns empty on non-UTF-8 output (it did). I had grepped `LANDMINES.md` by
+  footprint, as the rules say, and these were not there — they were in the register.
+  **Grepping one of five destinations is not grepping.** Both are now in
+  `LANDMINES.md` too. This is `D10`'s "solves authoring, not delivery" gap, observed
+  live rather than argued.
+- **`CLM-014`'s stated fix for the grep trap is wrong in this shell.** It says use
+  `LC_ALL=C grep -ac`. `LC_ALL=C` changes nothing, because `grep` here is a **shell
+  function** wrapping `ugrep -I` (skip binary) — the file is skipped entirely and
+  `grep -c` prints **nothing at all**, not `0`. `command grep -a` is the fix. I
+  applied the documented remedy, got the same empty output, and only then read the
+  function. **A remedy that fails silently in the same way as the disease will be
+  read as "still clean".** Register updated.
+- **I called a scan clean while looking at an empty file.** `grep` over the scan
+  output returned nothing and I wrote "zero findings *and* zero output lines — that's
+  the shape of a scanner that never ran". That instinct was right and saved it, but I
+  had already typed the clean verdict once. The discipline that worked:
+  **`grep -c` printing nothing is not a count of zero** — real grep always prints a
+  number, so blank output is a tooling failure, never a result.

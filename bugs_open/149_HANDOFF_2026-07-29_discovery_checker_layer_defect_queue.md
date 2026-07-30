@@ -1,5 +1,27 @@
 # 149 — the discovery checker layer: defect queue
 
+> **STATUS 2026-07-30 — 3 of 12 items done; the file STAYS OPEN.**
+> **C1 ✅ · B4 ✅ · C3 ✅ (corrected — it was not a defect)** — all in commit
+> `f61dce806`, image `v1.0.1208` built and marker-verified, **inert until the next
+> chassis roll**. Council `2d0dbc2e-e125-41f6-876d-0f8d6cf96688` (submitted;
+> verdict pending at time of writing). Concept register **CLM-018**.
+>
+> **Still open: A1–A6, B1, B2, B3, C2.** Several need an owner ruling rather than
+> code (B1 is seat-or-delete; A4/A5 are shared-schema and shared-mechanism changes
+> wanting their own council round), which is why the queue is not closed.
+>
+> **Read the correction banners on C1 and C3 before using either.** Both items were
+> *wrong in a way that pointed at the wrong file*, and both corrections were made
+> by re-measuring rather than by reasoning:
+> - **C1's seam is PERSISTENCE, not the handler** — and `page-content-writer`, the
+>   agent it named, persists nothing.
+> - **C3's "zero rows ever" was false 2m28s before this file was committed** — the
+>   detector had already fired automatically and found two real things.
+>
+> The pattern across both, and across this file's earlier A1 correction: **a figure
+> measured at the start of a session and written up at the end of it is not a
+> measurement, it is a memory.**
+
 **Filed 2026-07-29 at the owner's request ("there are a lot of fixes to be done with
 the checkers — list them and we'll work through them"). This is a QUEUE, not a
 diagnosis: every item below is measured, with the query that measured it, so the
@@ -40,6 +62,58 @@ before "fixing" a check. That mistake is what produced `146`'s first, wrong writ
 > checking like everything else."*
 
 ### C1. Copy written by discovery-triggered handlers is never claims-checked
+
+> **✅ FIXED 2026-07-30 — committed `f61dce806`, INERT until the next chassis roll.**
+> Image `v1.0.1208` built from that HEAD and marker-verified. Concept register
+> **CLM-018**. Council `2d0dbc2e-e125-41f6-876d-0f8d6cf96688`.
+> **The fix is NOT where this item said it was — read the correction below before
+> using anything in it.**
+>
+> **CORRECTED 2026-07-30: the seam is PERSISTENCE, not the handler.** Re-measured
+> live that day (recursive `$.**.action` over `agent_definitions`, active
+> non-snapshot): **six** agents persist page body sections through
+> `save_page_sections` — `page-build-handler`, `pageflow-builder`, `page-rebuild`,
+> `page-rerender`, `site-work-orchestrator`, `tool-recreation-handler` — and
+> **two** of those run `validate_page_content`. That is the honest denominator.
+>
+> **And `page-content-writer`, which the rest of this item is built around,
+> PERSISTS NOTHING.** Its workflow ends `compile_page → complete_workflow
+> {output_field: page_content}` and it is **called by four of those six parents**
+> (`page-build-handler`, `pageflow-builder`, `page-rebuild`,
+> `site-work-orchestrator`). Adding `validate_page_content` to it would have
+> gated a value on its way to a caller, not a write. `check_empty_sections.go:7`
+> records the same route being corrected once already:
+> *`HandlerAgent: "page-build-handler" (was "page-content-writer")`*.
+>
+> **The general lesson, which is the transferable part:** *"which agent writes the
+> copy"* and *"which agent persists it"* are different questions, and an
+> enforcement point has to answer the second. This item asked the first and got a
+> plausible, wrong target — the same shape as this file's own A1 correction, one
+> level along the pipeline.
+>
+> **What shipped instead:** a claims FLOOR inside `SavePageSectionsAction`
+> (`save_sections_claims_guard.go`), reusing the same engine the gate calls. A
+> banned claim (blocker — a known falsehood) **refuses the save**; an unregistered
+> number (error) is **recorded durably and allowed**. Severity-driven, not
+> check-by-check, so it stays correct as checks are added. Same argument
+> `save_sections_link_repair.go` already settled for `bugs_open/079`: a gate can be
+> forgotten by whoever writes the seventh agent; a floor cannot.
+>
+> **Blast radius, measured before submission** (`cmd/claimscan`, the gate's own
+> engine, over the **complete** live corpus — 949 components / 14 sites, each
+> against its own register): **3 banned-claim findings on 2 sites (0.32%)** —
+> webdesign.co.uk `tool-blueprint-compiler` ("never invents"), robot-hands.com
+> `how-it-works` and `gripper-catalog` (both "independently verified" = the
+> already-filed `bugs_open/147`). Those three **cannot be re-rendered until the
+> copy changes**; all three assert something untrue today. Plus **59 unregistered
+> numbers** on the 4 armed sites, which record only. **Re-measure, do not quote:
+> the surface was 908 components on 07-28, 919 on 07-29, 949 on 07-30.**
+>
+> **Still open after this fix:** `ApplySectionEditAction`, `create_report_page` and
+> `rebuild_blog_listing` also persist LLM prose and are untouched (the first is
+> `bugs_open/136`'s territory, the second is C2's question below), and
+> `bugs_open/123`'s content-creator path has no site and no page row, so no
+> persistence-seam fix can reach it.
 
 **Measured 2026-07-29.** Of the 22 handler agents that discovery checks route work
 to, **exactly 2 gate on `validate_page_content`** — `page-build-handler` and
@@ -98,10 +172,40 @@ cited upstream may need different handling, not the same gate.
 
 ### C3. The claims DETECTOR lives in the least-run discovery agent
 
-`unverified_claims` and `voice_tells` are registered **only** in
-`quality-discovery-agent`, which carries just 5 checks and has raised **7 work items
-in its entire history, none since 2026-07-17**. Fleet-wide, `claims_unverified` has
-**zero rows ever**.
+> **⚠ CORRECTED 2026-07-30 — THE HEADLINE BELOW WAS FALSE WHEN IT WAS COMMITTED,
+> BY TWO AND A HALF MINUTES.** Re-measured live 2026-07-30:
+> `claims_unverified` has **2 rows**, and `created_by` on both is
+> **`quality-discovery-agent` itself** — not a session firing by hand:
+>
+> | created_at (UTC) | created_by | summary |
+> |---|---|---|
+> | 2026-07-29 17:06:02 | `quality-discovery-agent` | Unverified claims on about-index: 1 unregistered stat field(s) |
+> | 2026-07-29 17:06:02 | `quality-discovery-agent` | Unverified claims on bayesian-ranking: 2 unregistered stat field(s) |
+>
+> **This file was committed at 17:08:30 UTC** (`b15b1456f`, `2026-07-29 18:08:30
+> +0100`). The rows predate it by **2m28s**. The count was taken earlier in that
+> session and written up without re-running — the exact failure the standing rule
+> *"ground every figure against the live system before repeating it"* exists to
+> catch. Logged in `WRONG_CALLS.md`.
+>
+> **So the detector is not unexercised and it is not broken: it RAN, automatically,
+> and it FOUND things.** Both findings are `needs_human_review` with `claimed_by`
+> NULL, which is HITL-terminal **by design** (`check_unverified_claims.go:145`) —
+> correct behaviour, not a stuck queue.
+>
+> **What survives the correction is narrower and is a CADENCE fact, not a code
+> one:** `quality-discovery-agent` carries **5 checks and has raised 9 items in its
+> whole history**; its siblings carry **30 and 22** and have raised **172 and 152**
+> (all three ran on 2026-07-29). Whether `unverified_claims` should ALSO be seated
+> in `completeness-discovery-agent` is a real decision and is deliberately **not**
+> taken here: double-seating interacts with `insertWorkItem` dedup on `item_key`,
+> which is one of B2's three candidate causes, so seating it before B2 is
+> established could produce a change whose effect nobody can attribute.
+>
+> **The C1+C3 pairing this file argued for is now half-closed from the other
+> side:** C1's floor records every unregistered number it sees at write time under
+> `CONTENT_CLAIMS_FLOOR_DETAIL`, so the platform gets a fleet-wide claims
+> measurement from the write path without seating anything new.
 
 `check_unverified_claims.go:145` is explicit that this is HITL-terminal by design —
 `HandlerAgent: ""`, `Status: needs_human_review`, *"no automated handler, ever"* —
@@ -266,6 +370,32 @@ two siblings ran to 07-25 (144 and 108 items). It carries `unverified_claims` an
 `voice_tells`, so this is the same defect as C3 viewed from the cadence side.
 
 ### B4. An unregistered check name is a WARN and a `continue`
+
+> **✅ FIXED 2026-07-30 — committed `f61dce806`, INERT until the next chassis roll**
+> (image `v1.0.1208`, marker-verified). An unregistered name now **fails the step**,
+> naming the bad name and the registered set; an **erroring** check is reported
+> rather than fatal, because failing all thirty over one transient error would
+> discard twenty-nine checks' findings. `checks_run` reports what **actually ran**,
+> with new `checks_requested` / `checks_unregistered` / `checks_failed` keys
+> alongside. Lever `allow_unregistered_checks` (default false) covers the
+> seed-ahead-of-image window and is declared in `ConfigKeys`, or the audit would
+> report the correct config as a stray key.
+>
+> **The safety proof, because a hard failure is a production risk:** all **57**
+> check names configured across the three live agents that call this action were
+> verified to resolve, and a fixture test (`discovery_checks_registration_test.go`)
+> now pins them so a rename fails in CI rather than in the fleet.
+>
+> **One trap worth inheriting:** a `jsonb_path_query($.**.checks)` over
+> `agent_definitions` also returns **`maintenance-triage`'s** array
+> (`stale_pages`, `missing_content`, `orphan_nav`). Those are **not** discovery
+> checks — that agent has no `run_discovery_checks` step and the array belongs to
+> `scan_sites_for_maintenance`. Treating them as unregistered would have been a
+> fabricated defect, and it would have made this fix look unshippable.
+>
+> **Consequence for the rest of Group B: its numbers are still the pre-fix ones.**
+> Everything measured before this rolls was measured under the silent-skip
+> behaviour. Re-run B1/B2/B3 after the roll before acting on them.
 
 `discovery_checks.go:141-146`: `checks.Get(name)` returning nil logs
 *"Unknown discovery check — not registered"* and moves on. A typo in a `checks` array

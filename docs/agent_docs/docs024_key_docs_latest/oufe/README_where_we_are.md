@@ -550,3 +550,70 @@ The handoff for picking this up is `oufe/HANDOFF_2026-07-30_continue_here.md`. T
 second tool is still not built, but the thing that made it pointless to build is
 fixed. One practical note: the cluster login has expired, so none of the live figures
 can be re-checked until it's refreshed.
+
+---
+
+**2026-07-30 — the claims gate you asked for, and two things in our own bug file that
+turned out to be wrong**
+
+You'd said the checkers needed working through, and that the top item was that copy
+written off a discovery check must go through claims checking like everything else.
+That's what I did today, plus one small item next to it.
+
+The first thing I did was re-check our own numbers, because the note I picked up
+warned its figures were a day old. That turned out to matter twice.
+
+Our bug file said the missing check belonged on an agent called `page-content-writer`.
+It doesn't. That agent doesn't save anything — it writes the words and hands them back
+to whichever agent asked for them, and there are four of those. So putting a check
+there would have inspected the words on their way past, not the words being written
+down. We'd nearly made the same mistake once before and corrected it, and the note of
+that correction is still sitting in the code.
+
+So I put the check at the place where the words actually get saved. There are six
+agents that save page content and only two of them were checking anything. The other
+four had no claims check at all, ever. Now all six do, because the check lives in the
+saving itself rather than in each agent's settings — which means the next agent
+someone writes gets it for free, and can't forget it. We'd already done exactly this
+for broken links a week or so ago, for the same reason.
+
+What happens now: if the copy contains one of the claims we've decided no site of ours
+may make about itself — the "everything here is independently verified" family — the
+save is refused and the page keeps what it had. If it contains a number we can't
+source, that gets written down for a human but the save goes through, because that
+particular check gets it wrong often enough that blocking on it would stop builds for
+no good reason.
+
+Before shipping it I measured what it would break, across every page we have — 949
+pieces of content on 14 sites. **Three** of them would be refused. All three are
+saying something that isn't true: one claims a tool "never invents", two claim their
+data is independently verified when nothing verifies it (that's a bug we'd already
+filed). So the cost is that three pages can't be rebuilt until someone fixes the
+sentence, which seems like the right kind of cost.
+
+The second thing that was wrong is more uncomfortable. Our bug file said a particular
+detector had never found anything, ever — and used that to argue it needed re-siting.
+It had found two things. It found them **two and a half minutes before we wrote down
+that it never had.** The count was taken earlier that afternoon and written up at the
+end of the day without re-running it. Nothing was dishonest and nothing was
+unmeasured; the measurement simply went stale inside the session that took it. I've
+written that up properly because it's a failure mode our usual habits don't catch: we
+mark things as unverified, but there's no marker for "verified, this morning".
+
+The smaller item: when one of these checkers is given a name that doesn't exist —
+a typo in its settings — it used to shrug and carry on, and the run reported success
+with fewer checks than it was asked for. From outside there was no way to tell that
+from a clean site. It now stops and says so, and it reports which checks actually ran
+rather than which ones it was asked to run. I checked all 57 check names currently in
+use before making that stricter, and added a test so a rename breaks the build here
+rather than breaking the fleet quietly.
+
+Where this leaves things: the code is committed and the image is built and verified,
+but I have **not** rolled it out to the cluster, because our own council review was
+still running and a roll-out kills a review in progress. That's the one thing
+outstanding.
+
+And I've left the bug file open. Three of its twelve items are done; several of the
+rest are decisions rather than code — whether to delete six checks nobody runs or find
+them a home, and two changes to shared defaults that ought to have their own review.
+Those are yours to call, not mine to quietly close.
