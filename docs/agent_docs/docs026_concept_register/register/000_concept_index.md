@@ -1133,7 +1133,7 @@ an ID prefix, or a status word.
 | CTS-022 | component-creator prompt re-aim (painting rules, vocabulary) | deployed | Prompt rewritten from literal dark-section block to four painting models | contracts-and-standards.md |
 | FTW-009 | `<no value>` contamination + iter_1 filter floor | partial | Prompt-builder bug polluted iter_0 data; fix-date filter never recorded | finetuning-flywheel.md |
 | ADP-016 | vmhost/service-deployer adapter — persistent-VM provisioning | aspirational | Proposed adapter to automate what idea.uk and traffic_probe both did by hand | adapters.md |
-| ADP-017 | Shared reply-delivery policy (undeliverable reply → deliverable error) | built, not yet live | One implementation of degrade-resend-once-else-error; the rule held at 1 of 9 produce sites | adapters.md |
+| ADP-017 | Shared reply-delivery policy (undeliverable reply → deliverable error) | deployed | One implementation of degrade-resend-once-else-error; the rule held at 1 of 9 produce sites. Registration does NOT pre-clear adoption at the other 8 — architecture seat says that is an RFC moment | adapters.md |
 | RES-004 | Chat differentiator ideation agent | aspirational | Proposed agent ranking payable differentiators from asset × AI-capability combos | research-agents.md |
 | AME-003 | improvement_proposals — HITL-gated agent evolution queue | abandoned | Proposed agent/variant changes wait for human approval before applying | agent-memory-and-evolution.md |
 | TLIB-008 | Component selector by functional requirement (never-built proposal) | aspirational | Proposed capability-based search over content_components — finding a component by what it does rather than by... | tool-library.md |

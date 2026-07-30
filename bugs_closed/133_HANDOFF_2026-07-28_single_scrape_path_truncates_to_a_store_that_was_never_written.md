@@ -1,5 +1,67 @@
 # 133 — the single-scrape path truncates content to an S3 copy it never wrote, and still drops an oversized reply in silence
 
+> ## ✅ CLOSED 2026-07-30 — fixed AND live, by session "bugsearch 8"
+>
+> **Both defects fixed. Live on `web-scrape-adapter` v1.0.1209**, digest
+> `sha256:e2d376bdc92c6b09c38268230b640ae3470f41210ef19ba3fa9afa4d06d5d90b`,
+> verified on all 3 replicas; still carried by v1.0.1211 after another session's
+> roll (re-verified, not inferred). Council **APPROVED**
+> `7478233b-3986-4505-a747-c059dc87e9e7`, architecture seat
+> `ARCHITECTURE_SIGNAL: point_fix`.
+> Commits `6d71efa69` (the seam) and `92e50d038` (the fix).
+> Workstream: `docs024_key_docs_latest/bugfix_133_scrape_truncation_and_delivery/`.
+>
+> **A — the marker can no longer lie, structurally.** The defect was that
+> `"full version in S3"` was a **string literal reachable with no URI in scope**,
+> so rewording it would have left the shape intact. The marker is now *derived*
+> from the URI — `transportTruncationMarker(uri)`, where `""` produces
+> *"the remainder was DISCARDED and no copy was stored"*. There is no way to spell
+> the claim without naming a URI. Resolution is **per field**, because
+> `uploadScrapingResults` uploads each field separately and best-effort (every one
+> `logger.Warn`-and-continue on failure), so a single "did we upload?" flag would
+> have kept lying about whichever field's upload failed *even with the switch on*.
+> Also adds machine-readable `truncated` / `truncated_fields`.
+>
+> **B — an undeliverable reply now becomes a deliverable error.** Not by copying
+> the batch block: the census showed `016b §9`'s rule held at **1 of 9**
+> reply-producing sites, so copying would have made it 2 of 9 and created a second
+> hand-written copy of one rule — `bugs_closed/144`'s exact defect, which the
+> reuse seat objected to in 144's own round. The policy is now
+> `platform/kafka.DeliverReply` (**ADP-017**) with both webscrape paths as
+> callers, and the batch path's private copy deleted.
+>
+> **FUNCTIONAL PROOF, not just a pod-grep** — the measured incident reproduced on
+> the fixed binary. Probe corr `35c24f46-9f58-4015-b473-0b4d891f2dfa`,
+> `vetcomparison.uk`, `upload_results:false`:
+> ```
+> Truncating large field for Kafka  field=raw_html original_len=53536 truncated_to=50000 stored_copy=false storage_uri=""
+> Truncated content was DISCARDED, not stored — the reply carries less than was scraped  discarded_chars=3536
+> ```
+> and the **delivered** reply, read off the reply topic: `truncated: true`,
+> `truncated_fields: ["raw_html"]`, marker ends *"…the remainder was DISCARDED and
+> no copy was stored]"*, and the old sentence appears **nowhere** in it. The
+> defect's fingerprint (`stored_copy=false`) is now observable; it previously was
+> not, by construction.
+>
+> **⚠ CORRECTION TO THIS FILE'S OWN EXPOSURE FIGURE — it is 9 of 14, not 4 of 6.**
+> See §"Live exposure" below, corrected in place. The `IN (...)` list in the query
+> names three actions and there are **six**; the omission includes `fetch_scrape`
+> (`feed-ingester` — the highest-volume live scraper on the topic) and four
+> `firecrawl_crawl` steps, which are exactly the multi-page case where five of six
+> per-page fields can never have a stored copy. Nothing in the file was wrong
+> about what it counted; the filter described a small world.
+>
+> **NOT done, deliberately** (all three written up rather than dropped):
+> fix candidate 3 (defaulting `upload_results` to true) — an owner call across
+> four other lanes, and this file says not to do it as a side effect; adopting
+> `DeliverReply` at the other 8 sites — the architecture seat ruled that widening
+> **is an RFC moment** and today's approval does not cover it; and the
+> `storage.pages` index misalignment found while fixing this.
+> All three filed as `bugs_open/158`.
+>
+> **Still an owner decision:** the 1MB-vs-5MB `max.message.bytes` question this
+> file raises in passing. Untouched — guessing would add a third number.
+
 Filed 2026-07-28 by session "bugsearch 3", while giving the `bugs_closed/062`
 payload watch a non-zero denominator (that watch had been reading **0 errors over
 0 scrape attempts** since the 07-28 roll, so it was unfalsifiable rather than
@@ -72,6 +134,42 @@ invisible from the 062 watch, which only greps for produce errors.
 | `website-extract-structured` | `scrape_page` | `firecrawl_scrape` | true — safe |
 
 Query in the RUNBOOK section below; re-run it rather than trusting this table.
+
+> **CORRECTED 2026-07-30 (bugsearch 8, while fixing this) — the real figure is
+> 9 of 14, and the table above is not wrong so much as short-sighted: its query's
+> `IN ('scrape_web','firecrawl_scrape','batch_webscrape')` names three actions and
+> there are SIX that reach this adapter.** Every row above still holds. What is
+> missing is worse than what is there:
+>
+> | action | `upload_results` | steps | agents |
+> |---|---|---|---|
+> | `firecrawl_scrape` | **false** | 1 | site-scraper |
+> | **`fetch_scrape`** | **(unset)** | 1 | **feed-ingester** |
+> | **`firecrawl_crawl`** | **(unset)** | 4 | site-adoption-agent, vertical-exemplar-researcher |
+> | `firecrawl_scrape` | **(unset)** | 1 | site-adoption-agent |
+> | `scrape_web` | **(unset)** | 2 | domain-research-classifier, vet-practice-verifier |
+> | `firecrawl_scrape` | true | 2 | website-capture-firecrawl, website-extract-structured |
+> | **`firecrawl_extract`** | true | 1 | website-extract-structured |
+> | `batch_webscrape` | (unset) | 5 | 5 researcher agents — *batch handler, not this path* |
+>
+> `(unset)` **is** exposed: `webscrape_actions.go:209` sets
+> `uploadResults := false` and only overwrites it when the key is present, and the
+> adapter reads `data["upload_results"].(bool)` (`adapter.go:218`), which yields
+> `false` on a missing key.
+>
+> Two things this changes. **`feed-ingester`/`fetch_scrape` is the
+> highest-volume real scraper on the topic** — messages at 2026-07-29 19:54Z and
+> 2026-07-30 07:57Z, both `upload_results:false`, both scraping oilprice.com — so
+> this was firing on live traffic continuously, not just on four dormant steps.
+> And the four **`firecrawl_crawl`** steps produce the multi-page `pages` array,
+> where the uploader stores only `html`/`markdown` while the truncator cuts six
+> fields, so five of them can never have a stored copy at any setting.
+>
+> Found by reading a real message off the request topic before firing a probe —
+> the habit §14 of the filing lane's NOTES recommends after making the opposite
+> mistake. The corrected query (all six actions) is in the workstream RUNBOOK.
+> **The instruction "re-run it rather than trusting this table" needs taking
+> literally, including re-deriving the WHERE clause.**
 
 > **`[INFERRED]`, and it is the reason this is filed rather than noted:** the
 > field that gets cut is the **tail** of the document, and a UK company

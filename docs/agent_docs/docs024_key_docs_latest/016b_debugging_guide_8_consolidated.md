@@ -4303,7 +4303,7 @@ See `/bugs_closed/README.md`.
 
 | 124 | **One `needs_diagnosis` item ran TWICE, under two correlations — two dispatchers shared one queue.** `090_TRIGGER_needs_diagnosis_v1.sh` wrote its intake at `status='awaiting_diagnosis'` **and** published its own orchestrate envelope, while `diagnose-pipeline-trigger` was enabled — so `diagnose-dispatch-loop`, which claims exactly those rows, ran a second independent diagnosis ~60s later. Every 090-filed item inside the `orchestration_states` retention window showed both chains; each duplicate is a 12–14 min `diagnose-agent` run (31 min longest). When the two disagreed, the failing one wrote `failed` over the succeeding one's item, and those rows were then counted as instances of `029`. **Both filed mechanisms were refuted:** `mark_complete` exists and works (the `[VERIFIED]` claim that nothing closes these items came from a *print statement in the shell script*), and orchestration `41d64b75`, cited by `029` §6 and `124` as a re-dispatch "43 minutes after the diagnosis finished", was created **91 seconds after intake** — the concurrent duplicate. Both conclusions survived; both stories of *how* did not | **CLOSED 2026-07-28 → `bugs_closed/124`, fixed AND live AND verified on a real run.** Three parts: (1) **the claim is the ticket** — a direct publish first takes the row `awaiting_diagnosis → diagnosing` atomically and publishes nothing if it loses, which holds even though the `enabled` read is a snapshot and the loop ticks every 60s; (2) **dispatch authority read from live state** — `DISPATCH` unset now asks the DB whether the loop is live (task `enabled` **and** agent row active), `1` forces a direct publish for a wedged loop, `0` is intake-only; (3) **`$ctx.` execution-context parameter namespace for `query_database`** (concept register WFA-002, chassis **v1.0.1191**) so `claim_item` stamps `spec.dispatch_correlation_id` in the same atomic UPDATE (migration **258**). (3) was NOT cosmetic: `diagnosis_artifacts` are keyed on the **envelope** correlation, so a loop-dispatched item's `spec.correlation_id` names *nothing* — it resolved only because the duplicate ran under it, and both `diagnosis-triage` items point at a uuid no run ever used. Verified 17:04–17:11: **0** orchestrations under the intake correlation, exactly **1** `diagnose-agent` under the run correlation, item `complete` with no hand-written UPDATE. **LANDMINE, permanent:** migration 258 binds `$ctx.correlation_id`; a chassis below v1.0.1191 resolves it to nil and **fails `claim_item`, stopping the diagnose lane** — image first, pod-grep, then config, and any rollback reverts both. Also: do not re-derive `029`'s rate from `failed` needs_diagnosis rows without splitting on 2026-07-28. §9 entry: *"Turning on the automatic path does not turn off the manual one"* | filed + fixed 2026-07-28; workstream `docs024/bugfix_124_double_dispatch/` |
 
-| 133 | **The single-scrape path truncates content to an S3 copy it never wrote, and still drops an oversized reply in silence.** `adapter.go:331-344` cuts `markdown_content`/`html_content`/`raw_html` at 50,000 chars and appends *"full version in S3"*, justified by a comment asserting the full content "is already in S3". The upload it names is guarded at `adapter.go:313` by `if uploadResults && …` — so when `upload_results` is false or unset the content is **destroyed and the marker points at nothing**. MEASURED, not inferred: one scrape of `vetcomparison.uk` with `upload_results:false` (corr `1e97bd22`, 19:35:39Z, v1.0.1192) logged `raw_html 53805 → 50000` with **zero** S3-upload lines, and produced successfully — so it is invisible to the 062 watch, which only greps produce errors. **4 of the 6 live single-URL scrape steps are exposed** (`site-scraper`, `domain-research-classifier`, `site-adoption-agent`, `vet-practice-verifier`; the two `website-*` agents set `true` and are safe). Second defect, same function: `sendSuccessResponse` (`adapter.go:437-447`) logs a produce failure and returns — no degrade, no resend, **no error response**, though `sendErrorResponse` is defined at `:450`. That is exactly `bugs_closed/062`'s rule, applied to the batch sibling and not to this one; 062's note that the single path "is untouched" was about the bool-trap fields only. `[INFERRED]` and worth settling on vetcomparison's P1 pilot: the cut is the document **tail**, and a UK company number lives in the **footer** — which is precisely what `vet-practice-verifier` exists to extract | **OPEN, unowned by the filing lane.** Fix order: (1) make the marker say *discarded* when nothing was uploaded — two lines, kills the false claim; (2) apply 062's degrade/resend/deliverable-error to `sendSuccessResponse`; (3) do NOT default `upload_results` to true as a side effect — that is a cost + behaviour change across four other owners' agents. Also fix the watch command everywhere it is quoted: `deploy/web-scrape-adapter` reads **1 pod of 3** (3 replicas, 1 partition, 1 consumer group ⇒ two are idle for life), so it can report a clean log while the only working pod errors — use `-l app=web-scrape-adapter --tail=-1` | filed 2026-07-28 by session "bugsearch 3", while giving the 062 watch a non-zero denominator |
+| 133 | **The single-scrape path truncates content to an S3 copy it never wrote, and still drops an oversized reply in silence.** `adapter.go:331-344` cuts `markdown_content`/`html_content`/`raw_html` at 50,000 chars and appends *"full version in S3"*, justified by a comment asserting the full content "is already in S3". The upload it names is guarded at `adapter.go:313` by `if uploadResults && …` — so when `upload_results` is false or unset the content is **destroyed and the marker points at nothing**. MEASURED, not inferred: one scrape of `vetcomparison.uk` with `upload_results:false` (corr `1e97bd22`, 19:35:39Z, v1.0.1192) logged `raw_html 53805 → 50000` with **zero** S3-upload lines, and produced successfully — so it is invisible to the 062 watch, which only greps produce errors. **4 of the 6 live single-URL scrape steps are exposed** (`site-scraper`, `domain-research-classifier`, `site-adoption-agent`, `vet-practice-verifier`; the two `website-*` agents set `true` and are safe). Second defect, same function: `sendSuccessResponse` (`adapter.go:437-447`) logs a produce failure and returns — no degrade, no resend, **no error response**, though `sendErrorResponse` is defined at `:450`. That is exactly `bugs_closed/062`'s rule, applied to the batch sibling and not to this one; 062's note that the single path "is untouched" was about the bool-trap fields only. `[INFERRED]` and worth settling on vetcomparison's P1 pilot: the cut is the document **tail**, and a UK company number lives in the **footer** — which is precisely what `vet-practice-verifier` exists to extract | **CLOSED 2026-07-30 (bugs_closed/133), fixed AND live on `web-scrape-adapter` v1.0.1209, council-approved `7478233b`.** Both defects fixed structurally: the marker is now DERIVED from the storage URI (`transportTruncationMarker(uri)`, `""` ⇒ says DISCARDED), resolved **per field** because the uploads are independent and best-effort; and the degrade-resend-once-else-error policy was extracted to `platform/kafka.DeliverReply` (ADP-017) with BOTH webscrape paths as callers — rather than copied, which would have made the rule 2-of-9 and recreated `bugs_closed/144`'s drift defect. **CORRECTION to this row's own figure: exposure is 9 of 14 single-URL steps, not 4 of 6** — the query below filters three actions and there are six; it misses `fetch_scrape` (feed-ingester, the highest-volume live scraper) and four `firecrawl_crawl` steps. Functional proof: probe corr `35c24f46`, `raw_html 53536→50000 stored_copy=false`, and the delivered reply carries the DISCARDED marker with the old sentence absent. (3) defaulting `upload_results` to true was NOT done — still an owner call — that is a cost + behaviour change across four other owners' agents. Also fix the watch command everywhere it is quoted: `deploy/web-scrape-adapter` reads **1 pod of 3** (3 replicas, 1 partition, 1 consumer group ⇒ two are idle for life), so it can report a clean log while the only working pod errors — use `-l app=web-scrape-adapter --tail=-1` | filed 2026-07-28 by session "bugsearch 3", while giving the 062 watch a non-zero denominator |
 
 | 106 | **The concept register has no staleness detector and 67% of workstreams postdate its freeze.** Extraction froze 2026-07-13; 51 of 76 workstream dirs postdate it. Three whole subsystems (fixloop 07-16, model-directory 07-17, claims-verification 07-27) were found missing **by coincidence**, each because someone happened to be working beside the hole — and the register is the instrument sessions are told to consult *before concluding a capability does not exist*, so a hole reads as absence rather than as not-having-looked. On 2026-07-26 a session concluded exactly that and was one step from building a redundant subsystem | **CLOSED 2026-07-28 → `bugs_closed/106`.** Candidates 2 (`covers-through:` stamps on all 109 files) and 1 (`102_CHECK_register_coverage.py`, sensor+ratchet) shipped 07-27 by the filing thread; what remained was that the sensor **had no cadence** — grep found it referenced only in its own docs, so it ran when a human remembered, *the same detected-by-coincidence mechanism one step earlier*. Closed by **`check_register_coverage`** (9th check in `scripts/pattern-check.py`, advisory, on the pre-commit path; concept register **OPP-004**): a commit that CREATES a workstream directory the register has never heard of says so, **to the person creating it**, naming both silencing routes. Commit trigger chosen over a cron on purpose — a cron reports a week late to nobody in particular. Only NEW dirs fire (43 uncovered ones are accepted backlog on the ratchet). **Imports the sensor rather than reimplementing `is_covered()`** — one matching rule, one implementation, the `idx_swi_dedup`↔`workItemTerminalStatuses` drift class. **Measured before inclusion** per pattern-check's own bar: 4 fires / 1,500 commits = 0.27%, 0 false positives — and because *a very low rate and a dead check look identical*, all 4 were inspected; 2 of them are the exact pair the sensor found by hand on 07-27, now caught at creation. **Induced-gap verified** (3 arms) and demonstrated on itself: its own workstream dir tripped it, OPP-004 silenced it. **RESIDUAL, recorded not fixed:** the register can be complete in coverage and **stale in CONTENT** — `SCH-012`'s `verify-later` stated an expected answer that had been false for weeks and helped hide `bugs_closed/124`. Sample of two; a third instance is the signature to act on | filed 2026-07-27; closed 2026-07-28; workstream `docs024/bugfix_106_register_coverage_cadence/` |
 
@@ -8039,3 +8039,120 @@ the machine being wrong.
 Category tags: `tag-is-an-unbacked-claim`, `provenance-discarded-at-the-step-that-had-it`,
 `verifier-blind-to-the-defect-it-names`, `convention-without-an-enforcement-surface`,
 `positive-control-in-the-same-exec`, `bst-utc-skew`.
+
+### A false claim in a message is a STRING LITERAL reachable without its evidence — make the evidence a required parameter, not a rule to remember (`bugs_open/133`, 2026-07-30)
+
+**Symptom.** A reply carries a statement about itself that is false: "full
+version in S3", "see attached", "cached copy available". Nothing errors. The
+reader — human or model — acts on the claim and finds nothing.
+
+**Mechanism.** The claim is a literal, and the code path that emits it does not
+have the thing it is claiming. `webscrape/adapter.go` appended
+`[Content truncated for Kafka transport - full version in S3]` on every
+truncation, while the S3 upload that would make it true was guarded forty lines
+earlier by `if uploadResults && a.storageClient != nil`. The comment directly
+above the truncation asserted the precondition ("Full content is already in S3")
+— a **doc comment enforcing nothing**, next to code that could not check it.
+
+**Why rewording is not the fix.** Changing the sentence to "may be in S3", or
+adding `if uploadResults` around it, both leave the defect's shape intact: the
+claim is still spellable by code with no evidence, so the next edit reintroduces
+it. The structural fix is to make the evidence an **argument**:
+
+```go
+// The ONLY place either sentence exists. "" is not a special case to remember —
+// it is the absence of the thing being claimed, and it produces the honest form.
+func transportTruncationMarker(uri string) string {
+    if uri == "" { return "…the remainder was DISCARDED and no copy was stored]" }
+    return "…full version stored at " + uri + "]"
+}
+```
+
+Now there is no way to claim a stored copy without naming one, and a later edit
+cannot reintroduce the lie without deleting a parameter and noticing.
+
+**Resolve the evidence at the granularity it is PRODUCED at.** The uploads here
+are per-field and best-effort — each is `logger.Warn(...)` and carry on — so a
+single "did we upload?" boolean would have gone on lying about whichever field's
+upload failed, *even with the feature switched on*. Ask what granularity the
+evidence actually exists at, not what granularity is convenient to pass.
+
+**Prefer a failure direction over a failure rate.** Where the URI had to be
+matched to a page, the obvious route (index into the URI list) was wrong because
+that list is compacted — it would have attached *another page's* URI to this
+page's marker, i.e. a confidently wrong claim. Matching on the index embedded in
+the URI string degrades to the honest "discarded" form if the naming convention
+changes. **A mechanism that fails to a weaker true statement beats one that fails
+to a stronger false one**, even if the second is right more often.
+
+**Add a machine-readable signal while you are there.** The only pre-existing
+indication that a reply was short was English prose inside the content. A
+consumer should never have to parse a marker: `truncated: true`,
+`truncated_fields: [...]`.
+
+**The generalisation.** Grep your own outgoing messages for sentences that assert
+a fact the emitting function cannot see — `"in S3"`, `"see "`, `"available at"`,
+`"full "`, `"cached"`. Every one is this bug waiting for a config flag to flip.
+Sibling case: `bugs_closed/101` (config/text describing behaviour that does not
+happen). See also "A doc comment is not an enforcement mechanism".
+
+### A substring scan cannot tell an emittable string from a comment ABOUT it — parse literals, and the same distinction is why a pod-grep marker must be a literal (`bugs_open/133`, 2026-07-30)
+
+**Symptom.** A guard test that scans source for a forbidden phrase fires on a
+*comment* quoting the phrase to explain it. Or, worse and in the other direction,
+a deploy check greps a running binary for a phrase that only ever existed in
+documentation, gets 0, and concludes the wrong build is running.
+
+**Mechanism.** Both are the same confusion between *text in the repo* and *text
+the program can emit*. Only a string literal ships. Comments, doc prose, plan
+text, migration SQL and symbol names do not appear in a Go binary's string table
+(symbol names may, but not reliably, and never because you emitted them).
+
+**The cheap fix for a guard test** — parse, don't grep:
+
+```go
+func stringLiteralsIn(t *testing.T, filename string) []string {
+    fset := token.NewFileSet()
+    file, err := parser.ParseFile(fset, filename, nil, 0)
+    if err != nil { t.Fatalf("parse %s: %v", filename, err) }
+    var out []string
+    ast.Inspect(file, func(n ast.Node) bool {
+        if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+            if s, err := strconv.Unquote(lit.Value); err == nil { out = append(out, s) }
+        }
+        return true
+    })
+    if len(out) == 0 { t.Fatalf("%s yielded no literals — the check has gone blind", filename) }
+    return out
+}
+```
+
+Note the last `t.Fatalf`: a literal-scanner that finds nothing passes vacuously,
+so the absence of literals must itself be a failure.
+
+**Why this is the same lesson as the pod-grep rule.** `bugs_open/153` built an
+evidence table on five markers: four were sentences from two workstreams' own
+README/RUNBOOK **prose** (`git log -S … -- '*.go'` empty — they were never code),
+and the fifth was inside a **Go comment**. It read the resulting zeros as "the
+pre-fix binary is running". A `bugs_closed/144` marker in the same table was a
+**symbol name**, which greps 0 on an image proven to contain the change.
+
+**So, one command before you exec anything, and it costs nothing:**
+
+```bash
+git grep -c "<marker>" -- '*.go'        # is it in the repo's Go at all?
+```
+
+…then look at *where*. If the only hit is a `//` line, it is not a marker. And
+mind two traps in that command itself: `git grep` searches **tracked** files
+only, so a marker in a new, unstaged file returns 0 with exit 0 (another member
+of the silent-zero family — use plain `grep` on the working tree, or `git add`
+first); and a delete-marker must not be a **substring of its replacement**
+(`bugs_closed/144` published one that was, and it returned 1 on a correct deploy).
+
+**The verification that is actually sound** is two-directional, and it is cheap
+because you can run it on the OLD image before you ship: record the counts on the
+running binary *first*, so the post-roll check has a known-bad answer as well as
+a known-good one. Better still, run it on your own image before pushing —
+`docker run --rm --entrypoint sh <img> -c 'strings /app/<bin> | grep -c "…"'`
+answers "did my commit make the build" with no cluster involved.

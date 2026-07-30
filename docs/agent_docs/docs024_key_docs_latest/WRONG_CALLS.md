@@ -12421,3 +12421,72 @@ form of it.**
 
 No harm done beyond the wrong statement: nothing was changed on the basis of it, because I
 had explicitly not touched the task. Corrected to the owner in the next message.
+
+---
+
+## 2026-07-30 — I nearly filed two confident false findings into a bug file, both because my `sed` window stopped short (bugs_closed/133)
+
+**The claims:** while fixing `bugs_open/133` I was ready to write, as new findings extending
+the bug, (1) *"`raw_html` is never uploaded, so even the `upload_results: true` rows are
+unsafe"* and, minutes later, (2) *"per-page content is never uploaded, so a page marker can
+never be true."*
+
+**Both false.** `uploadScrapingResults` is ~340 lines. I read it with
+`sed -n '525,700p'`. `raw_html` is uploaded at **line 760**; the per-page uploads are at
+**812–856**. Both were past my window, in a function I had "read".
+
+**What caught it:** re-running the grep over the *whole* function rather than my window —
+`sed -n '525,830p' … | grep -n 'uploadInfo\['` — because I wanted the exact URI key names to
+build the field→URI map. Nothing about the first read felt partial; it had a plausible,
+complete-looking answer in it (three uploads, three truncated fields, one missing).
+
+**The cheap check that would have:** `grep -c` the symbol across the whole **function or
+file** before concluding an absence, never across the window you happened to read. An absence
+claim is only as wide as your search, and a window chosen to answer the question you are
+already asking will tend to confirm it. One command:
+`awk '/^func \(a \*Adapter\) uploadScrapingResults/,/^}/' file.go | grep -n needle`.
+
+**Direction of the error matters and it was the bad one:** both false findings would have made
+the bug look *worse* and would have been quoted forward as measured facts in a file whose
+whole value is that its measurements are trustworthy.
+
+Tally: "concluded an absence from a partial read" → 2 (same session, ten minutes apart, with
+the lesson from the first already written down). Same family as the truncated-query entry
+above: **the evidence was available and I read a reduced form of it** — now 5 instances.
+
+## 2026-07-30 — and then the same error in the bug's OWN measurement, which is why "re-run it" means re-derive the WHERE clause (bugs_closed/133)
+
+**The claim (not mine — the bug file's, carried forward by me for most of a session):**
+*"Live exposure — 4 of the 6 single-URL scrape steps in the fleet."* I re-ran its query as
+instructed, got the identical result, and recorded "confirmed unchanged 2026-07-30" in my PLAN
+and in my council submission.
+
+**It is 9 of 14.** The query filters
+`v->>'action' IN ('scrape_web','firecrawl_scrape','batch_webscrape')`. **Six** actions reach
+that adapter; the list omits `fetch_scrape`, `firecrawl_crawl` and `firecrawl_extract`. The
+omission includes `feed-ingester`, which is the **highest-volume live scraper on the topic**
+(real messages 07-29 19:54Z and 07-30 07:57Z, both `upload_results:false`), and four
+`firecrawl_crawl` steps, which are exactly the multi-page case where five of six per-page
+fields can never have a stored copy.
+
+**What caught it:** not the re-run — the re-run *confirmed* the wrong number, because I
+re-executed the SQL instead of re-deriving it. It was caught by reading a real message off the
+request topic (to copy a shape the adapter accepts before firing a probe) and noticing a
+`requesting_agent_type` that appeared nowhere in the table. The prior-art-librarian council
+seat had independently asked for exactly this claim to be re-checked against
+`agent_definitions`; it was right, and acting on it more than doubled the measured exposure.
+
+**The cheap check that would have:** derive the action list from the **code that dispatches**,
+not from the bug file's `IN (...)`:
+`grep -rn "webscrapeAdapterTopic" platform/orchestration/actions/` → then enumerate every
+action registered against those files. One command, and it is the difference between 4 and 9.
+
+**The transferable rule, which is stronger than "re-run the query":** *"re-run it rather than
+trusting this table"* is satisfied by re-executing the SQL, and re-executing the SQL
+reproduces the filter's blindness perfectly. **A re-measurement inherits every assumption
+encoded in the WHERE clause.** If the figure is load-bearing, re-derive the population, not
+just the count. Same shape as [[narrow-filter-defines-the-conclusion]] — but arriving in
+someone else's careful, well-evidenced measurement, which is what made it credible.
+
+Tally: "re-ran a query and called it re-measured" → 1. This is the one I would most expect to
+repeat, because it looks exactly like diligence.
