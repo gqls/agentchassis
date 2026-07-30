@@ -46,12 +46,43 @@ one report's editing window. Never carry it forward from a document.
 
 ---
 
-## 3. STAGED, NOT APPLIED — the migration that unblocks P1
+## 3. The change that unblocks P1 — TWO halves, one commit, migration NOT applied
 
-**Deliberately not a numbered file in `sql_for_agents/`** (PLAN D5): the runner takes
-*every* pending file in a directory, so an unreviewed `272_*.sql` could be swept in by
-another session's unrelated `--apply`. It gets a number when it goes to the council
-gate. Follow migration **270** exactly — it is the same shape, done for `landmine`.
+> **CORRECTED 2026-07-30 (see PLAN D5′). This section previously said the DDL was the
+> whole change and should be withheld from `sql_for_agents/`. Both were wrong.**
+> The DDL alone reproduces `bugs_open/064`, and withholding the number reddens HEAD
+> because a test parses the numbered file. The DDL below is retained for reference; the
+> shipped change is `273_doc_subjects_component.sql` + `doc_subjects_common.go`
+> (`c659e312b`), council `e5673868-7c5b-489c-931a-7ba59b959b91`.
+
+**Half 1 — Go, and it is the half that is easy to miss.** `validDocSubjectTypes` in
+`platform/orchestration/actions/doc_subjects_common.go` gates `write_doc_plan`,
+`append_doc_note`, `load_doc_context` and `persist_diagnosis_note`. Add `"component"`.
+The file's own comment carries the rule: *a value the DB accepts but a Go gate rejects
+is a split contract; move both together.* Migration 163 missed one gate; 184 moved the
+DB CHECKs only and left its own seeded docs unreachable — that is `bugs_open/064`.
+
+**Half 2 — the migration, numbered normally.** Follow **270** exactly (same shape, done
+for `landmine`). It must be numbered because
+`TestValidDocSubjectTypes_LockstepWithMigrationCheck` parses the newest numbered `.sql`
+recreating `doc_plans_subject_type_check` and fails on drift — which is also why both
+halves go in ONE commit.
+
+**Prove the guard is real before trusting it** (this lane's own S2 rule, applied to
+itself):
+```bash
+mv docs/agent_docs/sql_for_agents/273_doc_subjects_component.sql /tmp/hidden.sql
+go test ./platform/orchestration/actions/ -run TestValidDocSubjectTypes_LockstepWithMigrationCheck   # expect FAIL
+mv /tmp/hidden.sql docs/agent_docs/sql_for_agents/273_doc_subjects_component.sql
+go test ./platform/orchestration/actions/ -run TestValidDocSubjectTypes_LockstepWithMigrationCheck   # expect ok
+```
+Measured 2026-07-30: fails with *"split contract: validDocSubjectTypes = [action
+component …] but 218_experience_register_substrate.sql sets the CHECK to [action …]"*.
+
+**ORDER: image, then migration.** Until an image carries half 1, applying half 2 widens
+the CHECK past the Go gate — 184's split in a new spot. Mitigating fact so nobody
+over-reacts to an early apply: **nothing writes component docs yet**, so the widened
+CHECK is inert rather than broken.
 
 ```sql
 -- allow subject_type='component' on doc_plans and doc_notes

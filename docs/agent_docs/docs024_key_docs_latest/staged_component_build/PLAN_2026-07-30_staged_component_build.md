@@ -51,11 +51,41 @@ does not. A component's template is fleet-shared (one `content_components` row s
 11 sites for `info-card-grid`) so a site-less PLAN is correct; S4–S7 are per-site
 facts and land in NOTES.
 
-**D5 — Stage the enabling migration in the RUNBOOK, not in `sql_for_agents/`.**
-The migration runner takes *every* pending file in a directory, so an unreviewed
+**D5 — ~~Stage the enabling migration in the RUNBOOK, not in `sql_for_agents/`.~~**
+~~The migration runner takes *every* pending file in a directory, so an unreviewed
 `272_*.sql` could be swept in by an unrelated session's `--apply`. It gets a number
-when it goes to the council gate. *Reason:* a staged artefact that another session can
-apply by accident is not staged, it is armed.
+when it goes to the council gate.~~
+
+> **CORRECTED 2026-07-30, same session — D5 WAS WRONG, and what caught it was reading
+> the enforcement points instead of trusting my own read of the schema.**
+> Two things I had not looked at made it wrong:
+>
+> 1. **The migration was never the whole change.** `subject_type` has a **second
+>    enforcement point in Go** — `validDocSubjectTypes`
+>    (`platform/orchestration/actions/doc_subjects_common.go`), which gates
+>    `write_doc_plan`, `append_doc_note`, `load_doc_context` and
+>    `persist_diagnosis_note`. Shipping the DDL alone would have reproduced
+>    **`bugs_open/064` for the third time**: migration 163 missed the
+>    `persist_diagnosis_note` gate, migration 184 moved the DB CHECKs *only* and left
+>    its own seeded action docs unreachable through every doc action. The file's own
+>    comment states the rule — *a value the DB accepts but a Go gate rejects is a split
+>    contract; move both together.*
+> 2. **The migration MUST be numbered, because a test parses it.**
+>    `TestValidDocSubjectTypes_LockstepWithMigrationCheck` finds the newest **numbered**
+>    `.sql` under `sql_for_agents/` that recreates `doc_plans_subject_type_check` and
+>    fails if its ARRAY differs from the Go list. So withholding the number does not
+>    protect anything — it **reddens HEAD** for every other session the moment the Go
+>    edit lands. D5 as written was unbuildable.
+>
+> **Replaced by D5′: the Go edit and the numbered migration land in ONE commit, and the
+> migration is not applied until an image carries the Go half.** The residual risk D5
+> was worried about — another session's `--apply` sweeping the file in early — is real
+> but *inert here*, because nothing writes component docs yet, so a widened CHECK ahead
+> of the image has no effect. Shipped as `273_doc_subjects_component.sql` +
+> `doc_subjects_common.go`, commit `c659e312b`, council correlation
+> `e5673868-7c5b-489c-931a-7ba59b959b91`. **The lesson is the one this lane exists to
+> make mechanical: I costed a change by reading one enforcement point and calling it
+> "the smallest possible platform change". There were two.**
 
 **D6 — Do not take ownership of `features_open/015`.**
 The tools lane's decomposition (015 = rung vocabulary, 027 = gate mechanism, 026 =
@@ -73,11 +103,17 @@ supports it. A negative from a short marker is worthless.
 **P0 — adoption and design (this session).** Standing five created; the blocking
 unknown resolved; the proposal updated with what the review found. **Done.**
 
-**P1 — make a component documentable.** The `subject_type='component'` migration
-through the council gate, then one real component (`teaser-reveal-panel`, because its
-history is fully written down) gets a PLAN with a criteria fence and its NOTES
-backfilled from `NOTES_brochure_component_library.md`. Gate: the fence exists, passes
-the ten-rule validator, and every criterion has been watched to pass by hand.
+**P1 — make a component documentable. SUBMITTED 2026-07-30, awaiting verdict.**
+Both halves written, tested and committed (`c659e312b`); council correlation
+`e5673868-7c5b-489c-931a-7ba59b959b91`; **migration 273 NOT applied** — image first.
+Mutation-proven rather than merely green: with the Go half alone the lockstep test
+fails naming 184's exact failure mode, and with both it passes.
+Remaining in P1, in order: verdict → build/roll an image carrying the Go half →
+pod-grep to prove it shipped (a roll is not evidence) → apply 273 → then one real
+component (`teaser-reveal-panel`, because its history is fully written down, so nothing
+has to be reconstructed) gets a PLAN with a criteria fence and its NOTES backfilled
+from `NOTES_brochure_component_library.md`. Gate: the fence exists, passes the ten-rule
+validator, and every criterion has been watched to pass by hand.
 
 **P2 — make S6 real.** Dispatch a component's fence to `browser-runner-adapter` the
 way `tool-acceptance-agent` does for tools. This is the stage whose absence cost five

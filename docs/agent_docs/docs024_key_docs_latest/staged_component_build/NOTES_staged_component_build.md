@@ -119,3 +119,85 @@ lane's decomposition — **015 is the rung vocabulary, 027 is the gate mechanism
 the missing instrument** — makes the three composable rather than merged, so this lane
 can proceed without owning the site-scale question. Recorded as PROPOSED; whether 015
 stays a separate thread is the owner's call, not ours to take by adopting it.
+
+## 2026-07-30 (later) — SUBMITTED to the council; and D5 was wrong, twice over
+
+Owner: *"please carry on and take that through the council gate."* Done — correlation
+**`e5673868-7c5b-489c-931a-7ba59b959b91`**, commit `c659e312b`. Budget ~30 minutes for a
+verdict; the council itself takes 2–5 but the dispatch queues behind the fleet.
+
+**Two assumptions I held at the start of this were both wrong, and checking them is the
+whole content of this entry.**
+
+**Wrong assumption 1: "the gate will refuse this, because it is a DDL file under
+`docs/`."** I read the trigger script expecting a refusal —
+`SCOPE_RE='^(platform|internal|pkg)/'`, and its own comment says docs never spend
+council credits. I was ready to report that the honest governing path was owner approval
+plus the migration guards, citing migration 270 (which was indeed applied out of band
+that way). **That was wrong because my understanding of the CHANGE was incomplete, not
+because the scope rule is odd.** The change genuinely touches `platform/`, so it passes
+the scope check with no `FORCE`. Also worth recording: the check is
+`[.plan.edits[].file | select(test($re))] | length > 0` — **any** in-scope edit qualifies,
+not all.
+
+**Wrong assumption 2 — the serious one: "the migration is the whole change."** It is
+not. `subject_type` has a **second enforcement point in Go**: `validDocSubjectTypes`
+(`platform/orchestration/actions/doc_subjects_common.go:37`), which gates
+`write_doc_plan`, `append_doc_note`, `load_doc_context` and `persist_diagnosis_note`.
+Shipping the DDL alone would have reproduced **`bugs_open/064` for the third time** —
+migration 163 (+`experience`) missed the `persist_diagnosis_note` gate; migration 184
+(+`action`) moved the DB CHECKs **only** and left its own seeded action docs unreachable
+through every doc action. The file's own header says the rule outright: *a value the DB
+accepted but a Go gate rejects, or vice versa, is a split contract; move both together.*
+
+**My RUNBOOK, PLAN, PROPOSAL, NOTES and memory entry all described the incomplete fix**,
+and every one of them is now corrected in place rather than quietly edited. This is
+`WRONG_CALLS.md` material and is logged there.
+
+**What actually caught it:** not care, and not a review — a **code comment**, which
+pointed at `experience_register/design/subject_type_addition.md`, a checklist that
+already enumerates all four enforcement points and was written precisely because *"every
+addition so far has missed at least one"*. I found the checklist only because I opened
+the file I was about to edit. **The cheap check that would have caught it: grep the
+value you are adding, not the table you are changing** — `git grep -n
+"experience-pattern"` returns the Go list, the migration and the checklist in one shot.
+
+**D5 is REVERSED (→ D5′).** Beyond the Go half, the migration **must** be numbered in
+`sql_for_agents/`, because `TestValidDocSubjectTypes_LockstepWithMigrationCheck` parses
+the newest numbered `.sql` recreating `doc_plans_subject_type_check` and fails if its
+array differs from the Go list. So withholding the number protects nothing and **reddens
+HEAD** for every other session the moment the Go edit lands. D5 as written was
+unbuildable. The residual risk D5 worried about (another session's `--apply` sweeping it
+in early) is real but **inert here** — nothing writes component docs yet, so a widened
+CHECK ahead of the image has no effect. That is stated in the migration header so nobody
+over-reacts to an early apply.
+
+**Applied this lane's own S2 rule to itself.** The lockstep test passing is not evidence;
+it had to be seen red. Hid the migration → **FAIL**, naming 184's exact failure mode
+(*"split contract: validDocSubjectTypes = [action component experience
+experience-pattern pipeline tool] but 218_experience_register_substrate.sql sets the
+CHECK to [action experience experience-pattern pipeline tool] — move both together"*);
+restored → passes. `platform/...` and `internal/...` build clean; actions tests pass.
+
+**Blast radius measured, not asserted** (07-29 ruling §3 — name the consumers and tell
+them, do not merely measure). Consumers: `write_doc_plan`, `append_doc_note`,
+`load_doc_context`, `persist_diagnosis_note`, `check_tool_acceptance`,
+`check_tool_acceptance_due`, `rename_tool_identity`/`RekeyTravellingDocs`, and
+`scripts/landmines-sync.py`. **Nothing changes for any of them.** The one consumer that
+reads `doc_notes` without a `subject_type` filter is `digestGatherImmune`
+(`fixloop_digest_action.go:295-299`) and it is narrowed by
+`categories ? 'triage'`/`'silent-check'`, which component notes will not carry — they
+mirror the tool convention (`acceptance-run`/`acceptance-fail`). So the count does not
+move, and that is a query rather than an argument.
+
+**Registered in the shipping commit** as **DOC-068** (CLAUDE.md platform-seams condition
+2 — a shared-vocabulary seam must be registered in the same commit that ships it), with
+its landmine and its open review question; dropped from `102_coverage_ratchet.txt`
+accordingly. Index row added. Noted in passing, **not fixed**: DOC-067 is absent from
+`000_concept_index.md` — another thread's omission, and tidying it silently is not mine
+to do.
+
+**Unrelated red HEAD found while building, flagged not fixed:** `cmd/reasoningset/main.go`
+does not compile at HEAD (`declared and not used`, line 504) — confirmed present in
+HEAD's own copy with no local modifications, so it is another lane's (reasoning_dataset).
+`platform/...`, `internal/...` and every other `cmd/` build clean.

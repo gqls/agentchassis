@@ -12232,3 +12232,86 @@ mirror image: **evidence of absence that had already expired.**
   failed on the **failing branch**, which is the branch nobody exercises before
   shipping. The check is `\d <table>` before choosing a column value, which this
   repo's own conventions already say and I skipped on the way in.
+- **I wrote the trap down in my own query, then walked into it 30 seconds later —
+  because the wrong answer was a better story.** Measuring council seat headroom
+  (`bugs_open/138` candidate 2), I annotated my working query with the observation
+  that `max(max_tokens)` is the *highest* cap in the window and that caps had been
+  raised mid-window. The next result said `review_editquality` was at **p95 95.1% of
+  a 16000 cap**, and I began drafting it as the headline finding: *"the cap raise
+  created no headroom — the seat just wrote longer, which proves a raise only moves
+  the cliff."* It fitted the bug file's existing argument perfectly. It was an
+  artefact of the exact trap I had just typed: the p95 spanned rows at BOTH caps, the
+  95% belonged to the retired 8000-cap rows, and the 16000-cap rows peak at **62.9%**.
+  The raise worked. **What caught it:** the number was inconsistent with a `max(output_tokens)`
+  of 10,071 I had printed two queries earlier — 63% of 16000, not 95%. The cheap check
+  is to filter to the seat's CURRENT cap (`join on c.cap = p.cap`) before computing any
+  ratio. Two lessons, and the second is the transferable one: **naming a trap is not
+  avoiding it** — the note went in the query, not into a filter — and **a result that
+  confirms the argument you are already making is the one to re-derive first**, because
+  nothing in you will object to it. Same family as the mis-attribution logged above:
+  there, a real symptom lent credibility to an adjacent explanation; here, a real
+  mechanism lent credibility to a measurement artefact that illustrated it.
+- **The same wrong-depth JSON path, one field over, one day later, by the thread that
+  documented it.** On 2026-07-29 I logged that `agent_definitions` step caps live at
+  `config.ai_service.max_tokens` and that querying `config.max_tokens` returns a
+  confident uniform `(unset→default)` for every seat. On 2026-07-30 I read prompts
+  from `config.ai_service.prompt_template` and got NULL for **all 51 live review
+  seats** — a uniform answer that reads as "these seats have no prompts". The prompt
+  is `config.prompt_template`, a SIBLING of `ai_service`. **What caught it:** I had
+  successfully read one prompt minutes earlier via `jsonb_pretty(s.value->'config')`
+  and could see the shape, so the 51 NULLs contradicted something already on screen.
+  The cheap check is `jsonb_pretty` on one row before writing a query against 51.
+  **Why this is worth a second entry rather than a footnote on the first:** the
+  general lesson ("watch the depth") was already recorded and did **not** transfer,
+  because it does not say WHICH keys are nested. A rule that requires you to already
+  know the answer is not a check. Fixed by naming both paths in one table —
+  `bugfix_138_degraded_gates/RUNBOOK` §4 and LANDMINES (footprint
+  `agent_definitions.default_config`).
+- **REPEAT of an already-logged trap: I read a council verdict with the wrong JSON
+  field and got a clean, uniform, false answer.** Rendering each objection as
+  `o->>'detail'` printed `(no objections)` for **all five** objecting seats. The field
+  is `problem`. This is the identical shape logged on 2026-07-29 (`ad791d6db`, "a
+  wrong-depth JSON path returns a clean uniform answer for all 17 seats rather than
+  erroring") — and, per that entry's own correction, itself a repeat of a trap
+  documented in `016b` on 07-20. **Third recurrence of one trap in ten days.** What
+  saved it: five independent seats unanimously having nothing to say is not what
+  disagreement looks like, so the *shape* of the answer was wrong even though the
+  query succeeded. The cheap check is `jsonb_pretty(r)` on ONE element before writing
+  an aggregation over all of them — read the shape, then query it. Logging the repeat
+  rather than the lesson: a check that has now cost three sessions is one to automate,
+  not one to remember harder.
+- **I costed a platform change by reading ONE of its two enforcement points, wrote
+  "the smallest possible platform change" into five documents, and shipped a plan that
+  would have reproduced a bug filed for exactly that mistake — twice already.**
+  2026-07-30, `staged_component_build`. I read `doc_plans`/`doc_notes`, found
+  `subject_type` restricted by a CHECK constraint, and concluded the fix was one
+  additive migration with a four-times precedent. That claim went into the lane's PLAN
+  (as decision D5), RUNBOOK §3, the PROPOSAL's ordered build list, NOTES, the
+  `features_open/027` anchor and a memory topic file. **It was wrong: the contract has
+  a second enforcement point in Go** — `validDocSubjectTypes`
+  (`platform/orchestration/actions/doc_subjects_common.go`), gating `write_doc_plan`,
+  `append_doc_note`, `load_doc_context` and `persist_diagnosis_note`. DDL alone = the
+  DB accepts what every doc action refuses, which **is `bugs_open/064`**, filed because
+  migration 184 did precisely this and left its own seeded docs unreachable, after
+  migration 163 had already missed a different gate. A third instance of one mistake.
+  **What caught it:** not review and not care — a **code comment** in the file I was
+  about to edit, pointing at
+  `experience_register/design/subject_type_addition.md`, a checklist that already
+  enumerates all four enforcement points and exists because *"every addition so far has
+  missed at least one"*. I would not have found it had the edit lived elsewhere.
+  **The cheap check: grep the VALUE you are adding, not the table you are changing.**
+  `git grep -n "experience-pattern"` returns the Go list, the migration and the
+  checklist in one command — three seconds, and it names every point that must move.
+  Reading `\d <table>` tells you what the DATABASE enforces and is silent about every
+  gate in front of it; "schema first" is necessary and was not sufficient.
+  **A second, smaller wrong call in the same hour, same root:** because I thought the
+  DDL was the whole change, I decided (D5) not to number the migration into
+  `sql_for_agents/`, to stop another session's `--apply` sweeping it in. That was
+  unbuildable — `TestValidDocSubjectTypes_LockstepWithMigrationCheck` parses the newest
+  *numbered* migration and fails on drift, so withholding the number reddens HEAD for
+  every session the moment the Go edit lands. **A precaution derived from a wrong model
+  of the change was itself wrong**, which is the more general shape worth remembering:
+  when the diagnosis is incomplete, the mitigations inherit the error.
+  Corrected in place in all six places; shipped as one commit carrying both halves
+  (`c659e312b`), mutation-proven (Go half alone → the lockstep test fails naming 184's
+  failure mode). Landmine filed under footprint `doc_plans`/`doc_notes`/`subject_type`.

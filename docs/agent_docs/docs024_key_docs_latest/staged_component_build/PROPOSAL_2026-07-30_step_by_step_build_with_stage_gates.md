@@ -642,16 +642,29 @@ exists by then — which is what makes it groundable rather than invented.
    NOTES stream, in `doc_plans`/`doc_notes`. Reuses TL-017's tables and write path
    wholesale. **Without this there is nothing for any stage gate to read**, so it is
    first regardless of everything else.
-   **Now costed, since the blocking unknown is resolved:** one migration extending two
-   CHECK constraints by `'component'`, following migration 270 exactly (guard that the
-   constraint is the expected shape, refuse if already applied, re-run safe). Additive
-   and inert — nothing reads the new value until something writes it — which under the
-   2026-07-29 owner ruling §1 is **normal council-gate scope, not an RFC**: it adds an
-   opt-in capability and changes nothing `doc_plans` guarantees to existing users.
-   The DDL is staged in the RUNBOOK rather than as a numbered file in
-   `sql_for_agents/`, **deliberately**: the migration runner takes *every* pending file
-   in a directory, so an unreviewed `272_*.sql` sitting there could be swept in by an
-   unrelated session's `--apply`. It gets a number when it goes to the gate.
+   **SUBMITTED 2026-07-30** — council `e5673868-7c5b-489c-931a-7ba59b959b91`, commit
+   `c659e312b`, migration **not applied** (image first).
+   > **CORRECTED, and the correction is the most useful thing on this page.** I costed
+   > this as "one migration extending two CHECK constraints" and staged the DDL outside
+   > `sql_for_agents/` to keep it from being applied by accident. **Both halves of that
+   > were wrong.** `subject_type` has a **second enforcement point in Go** —
+   > `validDocSubjectTypes`, gating every doc action — so the DDL alone would have
+   > reproduced **`bugs_open/064` a third time** (163 missed a gate; 184 moved the DB
+   > CHECKs only and left its own seeded docs unreachable). And the migration **must** be
+   > numbered, because `TestValidDocSubjectTypes_LockstepWithMigrationCheck` parses the
+   > newest numbered file and fails on drift — so withholding it does not protect
+   > anything, it reddens HEAD. Shipped as one commit carrying both halves, mutation-proven
+   > (Go half alone → the test fails naming 184's failure mode).
+   >
+   > **Why this belongs in a document about stage gates:** I priced a platform change by
+   > reading *one* enforcement point and calling the result "the smallest possible
+   > change". The ladder exists because that class of miss is normal, and the fix is
+   > never "be more careful" — it is a gate that reads the other point for you. There is
+   > an existing checklist for exactly this
+   > (`experience_register/design/subject_type_addition.md`) and it names all four
+   > enforcement points; I found it only because a code comment pointed at it.
+   Still true and worth keeping: the change is additive and inert, so under the
+   2026-07-29 owner ruling §1 it is **normal council-gate scope, not an RFC**.
 2. **S6 via the existing browser-runner.** A component-scoped acceptance run that
    dispatches the fence to `browser-runner-adapter`, exactly as `tool-acceptance-agent`
    does. Reuses the mechanism the `smart-contrast` pilot proved end to end. Closes the
