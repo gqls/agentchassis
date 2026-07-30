@@ -88,3 +88,43 @@ counting sections that share 3+ facts, plus a `difflib.SequenceMatcher` textual-
 between same-shaped components on sibling pages — against a newly-built site. Zero sections sharing
 3+ facts is the target; the fundamentallyai.com fix (this session) is a hand-done existence proof of
 what "zero" looks like, not a fix to the mechanism.
+
+---
+
+## Second site measured: vonc.com, 2026-07-30 — and the method has a floor
+
+Run by the `gauntlet_dead_cta` lane at the owner's request ("check that we're not
+writing the same things all over the site"), using this bug's own method, now a
+reusable script: `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/dedup_census.py`
+(fact census + `difflib` + exact-block matching in one pass, any site).
+
+**This bug's shape reproduced.** vonc's eight `/archetypes/*.html` pages restate
+each other: `call-to-action` sections at **0.90** (oracle↔surgeon), 0.83, 0.79,
+0.74, and `hero` sections at 0.67–0.71 across ten more pairs. Same cause as
+recorded here — per-section copy written with no sibling context, one
+undifferentiated fact pool per site. Contributing the instance rather than
+refiling.
+
+**But the fact half of the method has a FLOOR, and vonc is under it.** vonc's
+`site_specs.evidence_base` holds **4** facts (8 archetypes / 3 tools / 2 guides /
+18 pages) against fundamentallyai's 9. Result: of 55 sections, **50 assert zero
+facts, 5 assert exactly one, and none assert 2 or more** — so this bug's "3+
+shared facts" threshold **cannot fire on this site at all**, and the duplication
+that is really there is textual.
+
+*The trap to record: a clean fact census reads identically to a site with no
+duplication problem.* On vonc it means the ruler is too short to measure with, not
+that the site is clean — and the site is in fact the worse of the two, because it
+has a page rendering every section twice (below). **Any future gate built from
+this method needs a stated minimum evidence-base size, or a fallback to the
+textual half when the fact pool is too small to discriminate.**
+
+**Unrelated to this mechanism, found by the same run and filed separately:**
+vonc's `/about.html` carries 12 component rows that are **6 identical pairs** (same
+`slot_name`, consecutive positions, similarity 1.00) and **paints twice** on the
+served page — `'The rules are simple'` ×2, `'Game Master'` ×16. That is duplicate
+ROWS, not independently-generated near-duplicate copy, so it is a different defect
+with a different cause. Handoff D in the `gauntlet_dead_cta` directory has the
+evidence and the first query to run; whoever picks it up should establish why two
+rows exist before deleting either, since an insert-instead-of-upsert path would be
+platform-wide.
