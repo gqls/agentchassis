@@ -1,7 +1,11 @@
 # 149 — the discovery checker layer: defect queue
 
 > **STATUS 2026-07-30 — 3 of 12 items done and LIVE; the file STAYS OPEN.**
-> **C1 ✅ · B4 ✅ · C3 ✅ (corrected — it was not a defect)** — all in commit
+> **C1 ⚠ (structural half only) · B4 ✅ · C3 ✅ (corrected — it was not a defect)** —
+> **C1 is NOT closed.** The floor now sits on all six persisting agents, but it would
+> **not** have caught the fabrication another session witnessed live the same day —
+> checked, 0 findings, see the ⚠ banner on C1. What is fixed is that no gate existed
+> on four of six; what remains is what the engine can *recognise*. All in commit
 > `f61dce806`. **LIVE on chassis `v1.0.1211`**, carried into another session's roll
 > at 17:33 UTC and **pod-verified on BOTH replicas**: `CONTENT_CLAIMS_FLOOR_DETAIL`
 > 1, `claims floor blocked` 1, `silently omitted it` 1, `checks_unregistered` 1,
