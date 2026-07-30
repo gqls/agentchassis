@@ -1,6 +1,10 @@
 # Concept Index — master register
 
-1,659 concepts across 107 category register files. 1,627 consolidated from
+1,672 concepts across 109 category register files (**counted 2026-07-30**, not
+accumulated: the running "+N more" chain below had drifted 13 behind the actual
+row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
+chain is kept only as a history of *why* entries postdate the freeze).
+1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -11,7 +15,9 @@ down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28; and 1 more (OPP-004) a
 2026-07-28 closing `bugs_open/106` — the register's own coverage check, wired to the
 commit path so a new subsystem announces its own absence; and 2 more (TL-032/033) added
 2026-07-29 for the orphan element-reference gate and the acceptance-ladder eligibility
-defect that let 63 broken tools ship unwatched
+defect that let 63 broken tools ship unwatched; and 1 more (ADP-017) added 2026-07-30
+for the shared reply-delivery policy `bugs_open/133` extracted from the one adapter
+path that had it
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
@@ -1121,6 +1127,7 @@ an ID prefix, or a status word.
 | CTS-022 | component-creator prompt re-aim (painting rules, vocabulary) | deployed | Prompt rewritten from literal dark-section block to four painting models | contracts-and-standards.md |
 | FTW-009 | `<no value>` contamination + iter_1 filter floor | partial | Prompt-builder bug polluted iter_0 data; fix-date filter never recorded | finetuning-flywheel.md |
 | ADP-016 | vmhost/service-deployer adapter — persistent-VM provisioning | aspirational | Proposed adapter to automate what idea.uk and traffic_probe both did by hand | adapters.md |
+| ADP-017 | Shared reply-delivery policy (undeliverable reply → deliverable error) | built, not yet live | One implementation of degrade-resend-once-else-error; the rule held at 1 of 9 produce sites | adapters.md |
 | RES-004 | Chat differentiator ideation agent | aspirational | Proposed agent ranking payable differentiators from asset × AI-capability combos | research-agents.md |
 | AME-003 | improvement_proposals — HITL-gated agent evolution queue | abandoned | Proposed agent/variant changes wait for human approval before applying | agent-memory-and-evolution.md |
 | TLIB-008 | Component selector by functional requirement (never-built proposal) | aspirational | Proposed capability-based search over content_components — finding a component by what it does rather than by... | tool-library.md |
