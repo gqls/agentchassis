@@ -12375,3 +12375,49 @@ mirror image: **evidence of absence that had already expired.**
   denominators, since conflating them is exactly how a normal REVISE reads as a failing
   plan. Corrected in place in NOTES and the handoff; commit `32653bd85` carries the wrong
   explanation and cannot be amended (forward-only).
+
+---
+
+## 2026-07-30 — I called a scheduled task's pre-query defective, from a `left(...,120)` truncation of it
+
+**The claim I made (in chat, to the owner):** `report-dispatch`'s `pre_query` "counts every
+`report_request` row **with no status filter**. It will read '3 queued' forever, including
+when the answer is zero" — offered as the platform making the same measurement mistake I had
+logged against myself the same afternoon, and as "a one-line fix if you want it".
+
+**It is false, and the task is well built.** The full query is:
+
+```sql
+SELECT count(*)::text AS queued_reports FROM site_work_items
+WHERE pipeline = 'reports' AND item_type = 'report_request'
+  AND ((status = 'awaiting_report' AND attempt_count < max_attempts)
+    OR (status = 'reporting' AND claimed_at < NOW() - INTERVAL '30 minutes'))
+HAVING count(*) > 0
+```
+
+It has the status filter, a `max_attempts` guard, a stuck-claim reaper clause **and** a
+`HAVING count(*) > 0` whose entire purpose is to return **zero rows** when there is nothing
+to do — which is what makes the scheduler skip publishing rather than wake an agent for
+nothing. The scheduler's own log said so plainly and I only read it afterwards:
+`"Pre-query found no rows — task ran with nothing to do","task":"report-dispatch"`.
+
+**What caught it:** the scheduler log contradicting my prediction. I had predicted the task
+would "fire every 90 seconds and claim nothing"; it did not fire a message at all, and
+chasing *why not* is what made me fetch the untruncated query.
+
+**The cheap check that would have:** do not display a query with `left(col,120)` and then
+reason about the query. I wrote the truncation myself, for table width, and then read the
+result as if it were the whole thing — the `HAVING` clause that refutes the entire claim was
+at character ~250. **If you truncate a field for display, you may quote what you SAW but not
+what it MEANS.** Same family as [[council-submission-quote-fidelity]] ("an abbreviated quote
+is a DIFFERENT claim"), which I had cited in my own memory index hours earlier — the trap is
+not ignorance of the rule, it is that a truncation you applied yourself does not *look* like
+someone else's abbreviation.
+
+Tally: "reasoned from a deliberately truncated read" → 1. Adjacent and worth counting
+together with the mutation-testing pair filed the same day in `LANDMINES.md`: all three are
+the same error at different altitudes — **the evidence was available and I read a reduced
+form of it.**
+
+No harm done beyond the wrong statement: nothing was changed on the basis of it, because I
+had explicitly not touched the task. Corrected to the owner in the next message.
