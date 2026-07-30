@@ -3,11 +3,39 @@
 **Raised:** 2026-07-30, owner, to the `fundamentallyai.com 4` session
 (`brochure_component_library` lane), after the `teaser-reveal-panel` carousel took five
 rounds and the fifth found a bug present since the first.
-**Status:** PROPOSED — designed as a document, nothing built.
-**Owner wants the work done in a SEPARATE thread.** This entry is the anchor.
+**Status:** **ADOPTED 2026-07-30 — OWNED by the `brochure_component_library` lane**
+(owner: *"This provenance and ladder project is now this lane's project"*). Designed,
+nothing built yet; the blocking unknown is resolved. ~~Owner wants the work done in a
+SEPARATE thread.~~ Superseded — the lane that produced the evidence owns it.
 
-**The proposal document is the brief — read it first, do not re-derive it:**
-`docs/agent_docs/docs024_key_docs_latest/staged_component_build/PROPOSAL_2026-07-30_step_by_step_build_with_stage_gates.md`
+**Before routing work at this feature, read the lane's docs — it has an owner and a
+plan.** Cold-start: `docs024_key_docs_latest/staged_component_build/` (standing five,
+created 2026-07-30). The design brief is
+`PROPOSAL_2026-07-30_step_by_step_build_with_stage_gates.md`; decisions D1–D7 and the
+phasing are in `PLAN_2026-07-30_staged_component_build.md`; **`RUNBOOK_…` carries the
+DDL that unblocks P1 and the pod-grep that must precede any gate.** Contribute into
+those rather than competing.
+
+## Resolved since filing (2026-07-30)
+
+- **The `[UNVERIFIED]` first action is DONE.** `doc_plans`/`doc_notes` do **not** fit a
+  component today: both carry a CHECK on `subject_type` and neither allows `component`.
+  The fix is one additive migration extending two constraints, with a four-times
+  precedent (163, 184, 218, **270** — the template). Normal council-gate scope, not an
+  RFC. **Trap:** the `doc_notes` re-add must keep `'landmine'` or it orphans 57 live
+  rows another thread wrote.
+- **Good news in the same read:** `doc_notes` has `site_id` and `doc_plans` does not,
+  which is exactly the split needed — **the PLAN is the fleet-wide contract, the NOTES
+  are the per-site verdicts.** No column has to be added.
+- **A hazard that constrains every gate here, filed to `LANDMINES.md`:** an unknown
+  check type is **skipped, not failed**, and an all-skipped set reads as PASS + a 7-day
+  cooldown. For a ladder that is corrosive, since stage N's pass licenses N+1 — so a
+  gate that cannot evaluate its question must be **inconclusive** (PLAN D3). Live now:
+  `has_visible_area` (TL-034) is committed and not rolled, so the most useful new check
+  type is currently the one that would silently skip.
+- **`features_open/015` deliberately NOT adopted.** Accepted decomposition (PROPOSED,
+  owner's call): **015 = rung vocabulary · 027 = gate mechanism · 026 = missing
+  instrument.** Composable, not merged — so this lane proceeds without owning 015.
 
 ## The owner's framing (2026-07-30)
 
@@ -48,18 +76,27 @@ already does what the hand-rolled real-click test did, and was proven end to end
 asserting arithmetic against known answers). The missing stage is **not new
 construction** — it is pointing a proven mechanism at components instead of only tools.
 
-## First actions for the separate thread
+## Next actions (P1 — the lane's own plan)
 
-1. **Run the one query this proposal could not:** does `doc_plans` fit a component's
-   needs without schema change? Marked `[UNVERIFIED]` in the proposal and it gates the
-   whole design.
-2. Create the standing five under `docs024_key_docs_latest/staged_component_build/`
-   (the PROPOSAL is already there; PLAN/RUNBOOK/NOTES/README_where_we_are next).
-3. Decide the six open questions in the proposal's final section rather than inheriting
-   them — especially **who fires the stages** (G5: discovery passes are manual-fire and
-   the improvement loop is ruled stopped, so a ladder with no trigger is inert) and
-   **whether a gate may refuse** (a blocking gate is a guarantee change → architecture
-   review under the 2026-07-29 ruling; a reporting gate is additive).
+~~1. Run the one query this proposal could not.~~ **DONE — see above.**
+~~2. Create the standing five.~~ **DONE 2026-07-30.**
+
+1. **Take the `subject_type='component'` migration through the council gate**, then
+   apply. DDL is staged in the lane's RUNBOOK, **deliberately not numbered in
+   `sql_for_agents/`** — the runner takes every pending file in a directory, so an
+   unreviewed `272_*.sql` could be swept in by an unrelated session's `--apply`.
+2. **Give `teaser-reveal-panel` a PLAN + criteria fence**, NOTES backfilled from
+   `brochure_component_library/NOTES_…`. Chosen because its five-round history is fully
+   written down, so nothing has to be reconstructed.
+3. **Make S6 real** — dispatch a component's fence to `browser-runner-adapter` as
+   `tool-acceptance-agent` does. Trusted only once a deliberately broken component makes
+   it go red.
+
+**Still open, and genuinely the owner's to decide** (unchanged from filing): **who fires
+the stages** — G5, discovery passes are manual-fire and the improvement loop is ruled
+stopped, so a ladder with no trigger is inert; and **whether a gate may refuse** — a
+blocking gate is a guarantee change under the 2026-07-29 ruling and goes to architecture
+review, a reporting gate is additive.
 
 ## Inputs to read first (don't re-derive)
 

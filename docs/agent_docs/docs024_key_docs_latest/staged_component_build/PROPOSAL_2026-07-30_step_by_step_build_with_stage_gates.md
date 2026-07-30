@@ -10,9 +10,33 @@ site build … We could for instance have a set of build tools and acceptance ch
 a particular stage in development — some may even be created dynamically at the
 start or at different stages of the project."*
 
-**Status: PROPOSAL. Nothing here is built.** This document is the anchor for a
-separate thread — see `features_open/027`. Part 1 is history and is evidenced;
+**Status: ADOPTED 2026-07-30 by the `brochure_component_library` lane** (owner
+direction: *"This provenance and ladder project is now this lane's project"*). It is
+no longer waiting for a separate thread — this lane owns it, and its standing five
+live beside this file in `staged_component_build/`. Nothing is BUILT yet; the first
+unknown is now resolved (see the box below). Part 1 is history and is evidenced;
 Part 2 is a design argument and is marked where it is not.
+
+> **RESOLVED 2026-07-30 — the question this document said to ask first.** The
+> proposal closed by marking `[UNVERIFIED]` whether `doc_plans` fits a component
+> without schema change, and named that as the next thread's first action. Asked
+> and answered: **no, and the reason is a one-line constraint, not a design
+> mismatch.** Both tables carry a CHECK on `subject_type` —
+> `doc_plans_subject_type_check` allows `tool|pipeline|experience|action|experience-pattern`
+> and `doc_notes_subject_type_check` the same plus `landmine`. **Neither allows
+> `component`**, so a component PLAN cannot be inserted today. Extending it is the
+> smallest possible platform change, it is purely additive, and **there is a
+> four-times precedent** (migrations 163, 184, 218, 270) — 270 is the template.
+>
+> **The better half of the answer, which changes the design for the better:**
+> `doc_notes` has a `site_id` column and `doc_plans` does not. That is exactly the
+> split a component needs and it was already there. A component's *contract* is
+> fleet-wide (one `content_components` row serves 11 sites for `info-card-grid`),
+> so the PLAN being site-less is correct. But S4–S7 are **per-site, per-page**
+> facts, and the verdicts land in NOTES, which can carry `site_id`. **The PLAN is
+> the fleet-wide contract; the NOTES are the per-site verdicts.** The schema
+> already encodes the distinction the ladder needs, which is mild evidence these
+> tables were built for something of this shape.
 
 **How to read it.** Part 1 is the provenance: what actually happened to the carousel,
 in order, with commits. Part 2 is the proposal, and it is *derived* from Part 1 rather
@@ -425,6 +449,17 @@ likely true here.
   `selector_exists`, `selector_count`, **`interaction` (fill/click/select + expect
   `text_matches`)**, `page_status_ok`, `asset_loads`, `attribute_absent`,
   `attribute_matches`, `no_console_errors`, `no_horizontal_overflow`.
+- **`has_visible_area` (TL-034), added 2026-07-30 by the `webdesign_tools_repair`
+  lane** — measures `getBoundingClientRect()` against a floor (default 24×24,
+  overridable per check), and **fails** on both a collapsed box and a missing
+  element. It exists because three tools served work areas measuring **1146×0**:
+  present in the DOM, invisible, and `selector_exists` passed all three. It is
+  **Tier-4-only by necessity** — it measures rendered layout, which no static read
+  of HTML can compute, so a Tier-2 equivalent is not unbuilt but impossible. This is
+  the single most valuable import for **S2 and S6**: it is the primitive that
+  separates *exists* from *usable*, and the carousel's own Round 5 was a
+  reachability defect of the same family. **Committed but NOT YET ROLLED — see the
+  hazard below before authoring any gate against it.**
 - **The ten-rule criteria validator** (P1–P10) from the experience register — exported,
   and currently applied only to `experience_patterns`.
 - **`experienceVerdict`** — the platform's only anti-vacuous verdict function
@@ -466,6 +501,36 @@ verified there against the live system on 2026-07-29):
   not a hypothetical one.
 - **`bugs_open/126`** — Tier 4 navigates once per profile and state accumulates across
   checks, so a consent-gated subject cannot pass.
+
+**The hazard that threatens every gate in this ladder, found 2026-07-30 and filed to
+`LANDMINES.md`.** An unknown check type is **skipped, not failed**: the Tier-4 type
+switch ends `default: skip(ch.ID, ch.Type+" not implemented")`
+(`internal/adapters/browserrunner/run_checks_action.go`). Combine that with **G4** —
+an all-skipped result set yields `len(Failed)==0` → **PASS note plus a 7-day
+cooldown** — and a gate written against a check type the running binary does not
+carry **passes vacuously and then suppresses its own re-check for a week.**
+
+This is not hypothetical and it is live right now. `has_visible_area` was committed
+at 07-30 15:19 (`1850acb07`); the running `browser-runner-adapter` pod is older and
+does not contain it (two long markers unique to the change grep 0 against three long
+pre-existing controls at 1 each, pod `browser-runner-adapter-8646cddb79-qfcmr`). So
+the newest and most useful check type for this ladder is, at the time of writing,
+**exactly the one that would silently skip.**
+
+Three consequences for the design, and they are requirements rather than notes:
+
+1. **No gate may be authored against a check type without first proving the type is
+   in the running binary** — and the marker must be LONG, because Go compiles short
+   string literals to immediate comparisons that never reach rodata (`grep -ac
+   "selector_count"` returns **0** on a binary that fully supports it). A negative
+   from a short marker is worthless.
+2. **`skip` is the wrong default for a stage gate.** A stage that cannot evaluate its
+   own question has not passed it; it is *inconclusive*. This is the same fix G4
+   already names (adopt `experienceVerdict`), and this ladder needs it more than the
+   tool chain does, because a ladder's whole value is that stage N's pass licenses
+   stage N+1.
+3. **S7 is therefore not optional.** A gate that passed against one binary is not
+   evidence against the next one, which is precisely what S7 exists to say.
 
 ## The proposed unit: a build step with a travelling doc
 
@@ -513,6 +578,36 @@ does this and it should be the house style.
 all genuinely passed while S6 had never once succeeded. This is the same argument as
 TL-012 — *"completeness + validation passed" ≠ working* — one level down.
 
+### Two rules for authoring a gate, adopted from the tools lane
+
+The `webdesign_tools_repair` lane reached the same conclusion this ladder is built on,
+**on the same day, from a different direction, and its two rules are better stated than
+mine.** Adopted verbatim in substance:
+
+1. **Verify through the visitor's gesture, never through the subject's internal
+   functions.** If the entry point is a paste, dispatch a paste. **If the vocabulary
+   cannot express the gesture, that is a MISSING CHECK TYPE to record as a deferral —
+   not a licence to substitute a function call.**
+2. **A gate must assert the TERMINAL value, not the first observable state change.**
+   *"Status reads LIVE EDITING"* is a waypoint; *"text can be edited and emphasised"*
+   is the point. A fence asserting the waypoint passed while the tool was unusable.
+
+**Why the convergence is worth recording rather than just the rules.** That lane
+verified `pasteboard` by calling `addItem()` and `logic-architect` by calling
+`loadTemplate()`; both returned the right answer, so both "passed", while a visitor
+could reach neither. This lane forced `.open = true` directly on DOM nodes and called
+it verified for four rounds. Those are not two similar mistakes — they are **one defect
+class: verifying through a privileged path the visitor does not have.** Two lanes, two
+subject types, one day, arriving independently. That is about as strong as evidence for
+a rule gets, and it is the reason S6 is a named stage rather than a line in a checklist.
+
+The corollary generalises past both lanes and is the strongest single argument for the
+browser tier: **a property of the COMPOSITION can only be checked in the composition.**
+`has_visible_area` exists because an element can be in the DOM and measure 1146×0;
+`features_open/026` exists because a colour can be valid in the palette and invisible
+on the page. Same shape, two altitudes, and both invisible to everything that reads a
+source.
+
 ## On dynamically created checks (the owner's question, answered with evidence)
 
 **It is already precedented, and it already has a measured failure mode.** The
@@ -547,6 +642,16 @@ exists by then — which is what makes it groundable rather than invented.
    NOTES stream, in `doc_plans`/`doc_notes`. Reuses TL-017's tables and write path
    wholesale. **Without this there is nothing for any stage gate to read**, so it is
    first regardless of everything else.
+   **Now costed, since the blocking unknown is resolved:** one migration extending two
+   CHECK constraints by `'component'`, following migration 270 exactly (guard that the
+   constraint is the expected shape, refuse if already applied, re-run safe). Additive
+   and inert — nothing reads the new value until something writes it — which under the
+   2026-07-29 owner ruling §1 is **normal council-gate scope, not an RFC**: it adds an
+   opt-in capability and changes nothing `doc_plans` guarantees to existing users.
+   The DDL is staged in the RUNBOOK rather than as a numbered file in
+   `sql_for_agents/`, **deliberately**: the migration runner takes *every* pending file
+   in a directory, so an unreviewed `272_*.sql` sitting there could be swept in by an
+   unrelated session's `--apply`. It gets a number when it goes to the gate.
 2. **S6 via the existing browser-runner.** A component-scoped acceptance run that
    dispatches the fence to `browser-runner-adapter`, exactly as `tool-acceptance-agent`
    does. Reuses the mechanism the `smart-contrast` pilot proved end to end. Closes the
@@ -565,6 +670,16 @@ exists by then — which is what makes it groundable rather than invented.
 
 Steps 1–3 are additive opt-ins: normal council gate, register in the same commit, no
 RFC needed. That is worth knowing before anyone starts.
+
+**One clarification the tools lane's revision forces, and it sharpens this ladder.**
+The owner's validation-versus-judgement correction (recorded in that lane's §4, which
+split its G2 into a cadence fix and a separate judgement seat) applies here directly:
+**every gate in S0–S7 is validation** — a closed question with a fixed rule, the same
+answer every time it is asked. *"Is this component any good? Is this treatment right
+for this page?"* is **judgement**, and it belongs to a reviewer seat, not to a stage
+gate. Keeping them apart matters because conflating them produces the worst of both:
+a gate that drifts per component and a judgement boxed into a checklist. So this ladder
+deliberately has **no aesthetic or editorial gate**, and that is not an omission.
 
 ## Open questions the next thread should decide, not inherit
 
@@ -596,16 +711,30 @@ RFC needed. That is worth knowing before anyone starts.
    also protects the nine already-deployed sites. It may be cheaper to build it *as* the
    first content-stage gate than as a standalone check.
 
+> **Questions 4 and 5 now have a proposed answer, from the tools lane rather than from
+> here — recorded as PROPOSED, not settled** (it is the owner's call, and 015 has never
+> been designed by anyone). Its formulation: **`015` is the rung vocabulary, `027` is the
+> gate mechanism, `026` is the missing instrument, and the existing tool chain is what
+> all three point at.** That is a better decomposition than "these should probably be one
+> design", because it makes them composable instead of merged — three things at three
+> scales that share a dispatch, rather than one document trying to be all of them. It
+> also means this lane does **not** need to own 015 in order to proceed, which unblocks
+> everything here. What still needs the owner: whether 015 stays a separate thread at all.
+
 ## What this proposal deliberately does not claim
 
 - **It is not measured.** Every figure in Part 1 is evidenced and dated; Part 2 is a
   design argument. The claim that stages would have caught Round 5 is a **reasoned
   inference [INFERRED]**, not an experiment — though it is a strong one, since Round 5's
   fix was found the first time anyone ran the S6-shaped check.
-- **It does not know that the reuse is as clean as it looks.** Whether the component
-  case fits `doc_plans`' shape without schema change is **[UNVERIFIED]** — nobody has
-  read the table against a component's needs. That is the first query the next thread
-  should run, before designing anything.
+- ~~**It does not know that the reuse is as clean as it looks.** Whether the component
+  case fits `doc_plans`' shape without schema change is **[UNVERIFIED]**.~~
+  > **RESOLVED 2026-07-30, and the marker did its job.** Read the two tables: the reuse
+  > is clean in shape and blocked by a one-line CHECK constraint, with a four-times
+  > precedent for extending it. Full answer in the box at the top. Recording this as a
+  > worked example of the practice rather than deleting it: **the `[UNVERIFIED]` marker
+  > is what made this the first thing anyone did**, and the answer arrived in two
+  > queries. An unmarked assumption would have been designed against for a week.
 - **It does not propose re-enabling the improvement loop.** That is ruled stopped.
 
 ---
