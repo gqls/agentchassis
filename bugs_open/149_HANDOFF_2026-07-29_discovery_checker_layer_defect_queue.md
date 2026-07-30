@@ -116,7 +116,8 @@ before "fixing" a check. That mistake is what produced `146`'s first, wrong writ
 > pod-verified on both replicas** (see the status block at the top of this file for
 > the marker counts and the controls). Concept register **CLM-018**. Council
 > `2d0dbc2e-e125-41f6-876d-0f8d6cf96688` — round 1 REVISE on evidence-attachment,
-> round 2 open, nothing refuted.
+> round 2 REVISE on two unreadable seat results with **no high-severity objection
+> raised**; nothing refuted in either round. See the status block at the top.
 > **The fix is NOT where this item said it was — read the correction below before
 > using anything in it.**
 >
