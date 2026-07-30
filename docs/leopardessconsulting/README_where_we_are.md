@@ -728,3 +728,42 @@ publish looks identical to a slow one; I've written replacements that confirm th
 The other lane has already picked all of this up and turned it into a rule I like better
 than my own version of it: when a check goes red, the first question is whether the check
 is right.
+
+**2026-07-30 (late) — the checklist is now linked from every page, and getting there
+found a trap worth knowing about.**
+
+The tool is in the footer of all 34 pages of the site now, alongside the other four,
+and the trust article links to it in the body text. Everything still loads.
+
+The route there is worth a paragraph, because the obvious way would have broken
+something. There is an agent whose whole job is updating navigation, and using it
+would have been the natural move. Reading what it does first showed that it rebuilds
+the navigation from scratch and, in doing so, throws away any link pointing at a page
+that lives in a sub-folder. Every one of our tool pages lives in /tools/. So it would
+have deleted all five tool links from the footer and put none of them back, on a run
+that reports success. I checked how far that reaches: sixteen links across seven of
+our sites are in that position, so it is not just this one.
+
+The safe route was two smaller steps instead: refresh the shared header and footer
+from the navigation list we already have, then rebuild each page in the mode that
+reuses its existing content and only swaps the surrounding furniture. That last part
+matters more than it sounds. The other mode regenerates each page's sections from
+stored data, and if any section is missing a required field the whole page gets handed
+to the automated writer to redo. Five of our thirty-four pages are currently in that
+state, so a site-wide refresh in the wrong mode could have had five pages rewritten.
+They weren't.
+
+Our five tool pages are also deliberately protected from being rebuilt, which means
+the ordinary refresh cannot reach them at all. They needed the protection lifted, the
+page rebuilt, and the protection put straight back. I have written that as a script
+that restores the protection even if it is interrupted half way, because a tool page
+left unprotected can be overwritten by anyone else's rebuild.
+
+Two smaller confessions from the same stretch of work. My first attempt at the
+site-wide refresh failed on all twenty-nine pages, because the request needs the
+page's internal identifier and I sent its name; nothing was written, so no harm, and
+it turns out one of our existing scripts has the same fault. And three times today a
+check of mine reported zero when the real answer was twelve, each time because I had
+written the search pattern slightly wrong rather than because anything was broken. I
+caught all three by having the check print the number it measured rather than just a
+pass or fail, which is the habit I would keep from today.
