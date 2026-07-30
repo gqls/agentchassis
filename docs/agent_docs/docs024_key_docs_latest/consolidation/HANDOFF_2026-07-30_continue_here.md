@@ -61,6 +61,42 @@ first, then grep the running pod for a string the change added.
 
 ## 4. THE ONE OPEN ITEM — and it is a delivery failure, so treat it as one
 
+> ## ✅ CORRECTED 2026-07-30 ~16:30Z — **THE NOTE WORKED. This section's premise is
+> spent within three hours of being written.** Read it as history, not as state.
+>
+> The owner asked which thread the gauntlet lane is, and identifying it settled the
+> delivery question outright. It is the session titled **`vonc 6`**
+> (`c4daed6f-5514-49f1-be6a-7bbf6bbd3c98`), last active 07-30 **15:19Z**. Its own
+> transcript shows:
+> - it **read this lane's appended note twice** — 07-30 **14:12Z** and **15:14Z** —
+>   the handoff file arriving with my block inline;
+> - at **15:15:39Z** it ran a Bash command whose description is literally *"has anyone
+>   acted on the CONTRIB?"*;
+> - and at **15:16:48Z** it put the finding to the owner as **item 3 of 4**, quoting
+>   the 83-of-83 measurement, naming the ready patch and its own `httperr` precedent,
+>   flagging the `[INFERRED]` last hop as theirs to settle, repeating the acceptance
+>   check **with** the warning that a presence check passes against unfixed code — and
+>   **recommending it be done BEFORE the distribution leg**, because *"the rate limiter
+>   is the one thing that behaves differently once more than one person is arguing"*.
+>   It also carried the mailer/httpguard offer as item 4.
+>
+> **So: appended 07-30 ~13:40Z, read at 14:12Z, escalated to the owner at 15:16Z.** The
+> gap was never persuasion and it was never their judgement — the stale *"nothing owed
+> yet"* line was the whole of it, and a dated pointer in their cold-start path closed it
+> in under an hour.
+>
+> **What this does and does not change.** The landmine stands and is if anything better
+> evidenced: filing into the right directory achieved nothing for a day, and appending
+> where their next session reads worked immediately. What is now **false** is the state
+> claim below — *"they have not picked it up"*. They have. **The next move is the
+> owner's sequencing call, not our contact.** Do not re-notify them; they are ahead of
+> this document.
+>
+> One honest note on my own method: I found this only because I went looking for the
+> thread's *identity*. My earlier check measured uptake by **commits and their
+> directory** — and a session that has read, decided and reported has produced neither.
+> **A quiet git log is not silence.**
+
 Adoption steps 2 and 3 both land inside **`internal/tools-api`**, which belongs to
 the **`gauntlet_dead_cta`** thread. `httpguard`'s only adoption target is that
 service; `mailer`'s only queued consumer (the gripper dossier's public half) would

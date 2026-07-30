@@ -1261,3 +1261,28 @@ contribute-don't-fix convention exists to prevent.
 > extended, that is the gap to name — and note that my own check nearly missed this,
 > because I measured *uptake by the owning lane* and the pickup came from a lane I had
 > not thought to look at. `git log -S` over the corpus, not just over their directory.
+
+> **CORRECTED AGAIN ~16:30Z, and this one retires the "not delivered" claim entirely.**
+> The owner asked which thread owns the gauntlet lane. It is the session titled **`vonc 6`**
+> (`c4daed6f-5514-49f1-be6a-7bbf6bbd3c98`, last active 07-30 15:19Z), and reading its
+> transcript settled the delivery question:
+>
+> | 07-30 | what its own record shows |
+> |---|---|
+> | ~13:40Z | my note appended to their `HANDOFF_2026-07-29_continue_here.md` |
+> | **14:12Z** | it reads that file, note inline (attachment record) |
+> | **15:14Z** | reads it again |
+> | **15:15:39Z** | runs a Bash call described *"has anyone acted on the CONTRIB?"* |
+> | **15:16:48Z** | puts it to the owner as **item 3 of 4** — the 83-of-83 measurement, the ready patch, their own `httperr` precedent, the `[INFERRED]` last hop as theirs to settle, the acceptance check **with** the presence-check warning — and **recommends it before the distribution leg** because *"the rate limiter is the one thing that behaves differently once more than one person is arguing"* |
+>
+> **Read at 14:12, in front of the owner at 15:16.** So the landmine is *better* evidenced
+> (right directory: nothing for a day; their cold-start path: under an hour) but the state
+> claim above is dead — **they have picked it up, and the next move is the owner's
+> sequencing call. Do not re-notify them.**
+>
+> **The methodological miss is the transferable part, and it is mine.** I measured uptake by
+> **commits and their directory**, and a session that reads, decides and reports to the owner
+> produces *neither*. **A quiet `git log` is not silence** — for "has another lane acted?",
+> the artefact is their transcript (`~/.claude/projects/<proj>/<id>.jsonl`; `customTitle`
+> sits on line 1), not the repo. Same family as *"your measurement answers the question you
+> ENCODED"*: I encoded "did they commit?" and read the answer as "did they engage?".

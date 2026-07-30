@@ -118,6 +118,29 @@ single value in all eighty-three records since it went live, which means the lim
 they think is per-visitor is one shared bucket, and the identity they store has never
 told anyone apart. No attacker required, and it is measured rather than reasoned.
 
+## Postscript, written three hours after the rest — the note worked
+
+You asked which thread owns that other service so you could resume it, and finding out
+answered the question this summary was built around. It is the session called `vonc 6`.
+Its own record shows it opened its start-here document twice this afternoon with my note
+in it, ran a check whose description was "has anyone acted on the contribution?", and then
+put the finding to you as one of four remaining items — quoting the measurement, naming the
+patch, flagging the one part it should verify itself, repeating the acceptance check
+*including* the warning about the check that would falsely pass, and recommending it be done
+**before** the distribution work, on the grounds that a rate limiter is exactly the thing
+that behaves differently once more than one person is using it.
+
+So: filed in their directory on the 29th and nothing happened for a day; appended to their
+start-here document early this afternoon, read within half an hour, and in front of you
+within two hours. The lesson survives intact and is better evidenced than when I wrote it —
+being in the right folder is not delivery, and being in the path someone actually reads is.
+What is no longer true is the part where they had not picked it up. They have, and the
+decision is now yours rather than theirs.
+
+I should say how nearly I missed this. My earlier check looked for uptake in their commits
+and their directory, and a thread that reads something, decides, and reports to you leaves
+no trace in either. A quiet history is not the same as silence.
+
 ## Where we're going
 
 Three things, and the first is a genuine choice for you rather than a task.
