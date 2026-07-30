@@ -4104,6 +4104,39 @@ cleverer. Pinned, with the trap, in `check_image_url_404_masking_test.go`.
 Category tags: `name-space-vs-path-space`, `suppressor-removes-the-interesting-set`,
 `masking-bug-as-safety-interlock`, `unanswerable-from-this-data-source`.
 
+### A shared cache keyed by PURPOSE instead of ASSET makes every deploy after the first silently fetch the wrong file (2026-07-30)
+
+Found in `deploy_image_asset_action.go`'s `resolveStorageURIFromAsset`
+(`bugs_open/155`), while deploying 7 distinct new icon assets (one site,
+`purpose='icon'` on all 7). Its Priority-1 lookup resolves the source image for a
+requested `asset_id` via `SELECT sites.content_data->>'{purpose}_uri' ... WHERE
+a.id = $1` — the `WHERE` clause checks the asset belongs to the right site, but the
+*value returned* is a single site-wide field keyed only by `purpose`, last-write-wins,
+written by `StoreAssetAction` every time ANY same-purpose asset is generated. Result:
+6 deploys, 6 distinct requested `asset_id`s, 6 distinct destination paths, all
+**reported `success:true`**, all **fetched the exact same (wrong) file** — caught only
+by hashing the six downloads and finding them byte-identical, not by anything the
+platform itself surfaced.
+
+Two transferable rules:
+
+- **A cache keyed one level coarser than its caller's identity is invisible until a
+  second caller at that coarser level exists.** This code path was presumably correct
+  for years — any site with exactly one asset per purpose (one logo, one hero) could
+  never notice, because the "wrong" file and the "right" file were the same file. The
+  bug is dormant until the FIRST site with two same-purpose assets exercises it, and it
+  produces no error when it wakes up — it produces a confident, wrong answer.
+- **`success:true` on a `deployed` field is a claim about the HTTP transfer, not about
+  which bytes were transferred.** The action correctly downloaded, optimized, and
+  wrote *an* image to *the* requested path — every mechanical signal was green. Only
+  comparing the ARTEFACT against what was asked for (sha256, then actually looking at
+  it) exposed the mismatch. Same family as "a `complete` work item is not a repaired
+  artefact" (§9 above), one layer further from the symptom: here even the *narrower*
+  claim ("this specific deploy succeeded") was true, and still the wrong file shipped.
+
+Category tags: `cache-keyed-coarser-than-caller-identity`, `dormant-until-second-caller`,
+`success-is-a-claim-about-transfer-not-content`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
