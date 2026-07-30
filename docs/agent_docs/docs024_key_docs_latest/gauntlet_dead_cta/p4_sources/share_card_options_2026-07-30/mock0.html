@@ -1,0 +1,40 @@
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:0;overflow:hidden}canvas{display:block}</style>
+<canvas id="c" width="1200" height="630"></canvas>
+<script src="round.js"></script>
+<script>
+// BASELINE — the card that ships TODAY, reproduced verbatim from
+// gauntlet_js_2026-07-29_opinion_ledger.js:589-619 (buildVerdictCard).
+// Content: provocation headline + the 13-character verdict word + date.
+var W = 1200, H = 630;
+var c = document.getElementById("c"), x = c.getContext("2d");
+function wrapText(x, text, left, top, maxWidth, lineHeight, maxLines) {
+  var words = String(text).split(/\s+/);
+  var line = "", lines = 0, y = top;
+  for (var i = 0; i < words.length; i++) {
+    var probe = line ? line + " " + words[i] : words[i];
+    if (x.measureText(probe).width > maxWidth && line) {
+      lines++;
+      if (lines >= maxLines) { x.fillText(line.replace(/.{3}$/, "") + "…", left, y); return y + lineHeight; }
+      x.fillText(line, left, y); y += lineHeight; line = words[i];
+    } else { line = probe; }
+  }
+  if (line) { x.fillText(line, left, y); y += lineHeight; }
+  return y;
+}
+x.fillStyle = "#6d28d9"; x.fillRect(0, 0, W, H);
+x.fillStyle = "#f59e0b"; x.fillRect(0, 0, 14, H);
+x.fillStyle = "rgba(255,255,255,0.85)";
+x.font = "700 28px system-ui, sans-serif";
+x.fillText("THE GAUNTLET — A JUDGED VERDICT", 70, 90);
+x.fillStyle = "#ffffff";
+x.font = "800 52px Georgia, serif";
+var afterProv = wrapText(x, "“" + R.headline + "”", 70, 175, W - 140, 62, 3);
+x.fillStyle = "#f59e0b"; x.fillRect(70, afterProv + 4, 120, 6);
+x.fillStyle = "#ffffff";
+x.font = "400 32px system-ui, sans-serif";
+wrapText(x, R.verdict, 70, afterProv + 62, W - 140, 42, 3);
+x.fillStyle = "rgba(255,255,255,0.7)";
+x.font = "600 24px system-ui, sans-serif";
+x.fillText("vonc.com/tools/gauntlet · 30/07/2026", 70, H - 48);
+</script>

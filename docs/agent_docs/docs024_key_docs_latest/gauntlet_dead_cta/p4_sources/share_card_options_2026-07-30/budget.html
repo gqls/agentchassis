@@ -1,0 +1,31 @@
+<meta charset="utf-8">
+<canvas id="c" width="1200" height="630"></canvas>
+<script src="round.js"></script>
+<script>
+// How many characters of REAL round prose fit on a 1200x630 card at each
+// type size, and what that size becomes once a timeline downscales the card.
+// Twitter/X in-timeline card width: ~504px desktop. 1200/504 = 2.38x.
+var x = document.getElementById("c").getContext("2d");
+var MAXW = 1200 - 56 * 2 - 14, USABLE = 630 - 104 - 42;
+var PROSE = [R.prov_body, R.position, R.counter_position, R.challenge, R.defence, R.reasons].join(" ");
+function linesFor(text, f) {
+  x.font = "400 " + f + "px system-ui, sans-serif";
+  var words = String(text).split(/\s+/), line = "", n = 0;
+  for (var i = 0; i < words.length; i++) {
+    var probe = line ? line + " " + words[i] : words[i];
+    if (x.measureText(probe).width > MAXW && line) { n++; line = words[i]; } else line = probe;
+  }
+  return line ? n + 1 : n;
+}
+var rows = [];
+[11, 16, 20, 24, 28, 31, 32, 36, 40].forEach(function (f) {
+  var lh = Math.round(f * 1.32);
+  var maxLines = Math.floor(USABLE / lh);
+  var totalLines = linesFor(PROSE, f);
+  var charsPerLine = Math.round(PROSE.length / totalLines);
+  var capacity = maxLines * charsPerLine;
+  rows.push([f, (f / 2.38).toFixed(1), charsPerLine, maxLines, capacity,
+             (capacity / 3357 * 100).toFixed(0) + "%"].join("|"));
+});
+document.title = "F|eff@504|cpl|lines|capacity|pct_of_3357 ;; " + rows.join(" ;; ");
+</script>

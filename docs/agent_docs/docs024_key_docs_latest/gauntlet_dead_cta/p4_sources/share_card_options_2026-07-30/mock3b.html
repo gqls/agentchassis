@@ -1,0 +1,128 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>The record of a round — vonc.com</title>
+<style>
+  :root{
+    --bg:#0a0a0f; --surface:#13121f; --border:#2a2640; --text:#f0eeff;
+    --muted:#8b85b0; --primary:#6d28d9; --on-dark:#a78bfa; --stage:#f59e0b;
+    --font-body:'DM Sans','Inter',system-ui,sans-serif;
+    --font-heading:'Syne','Space Grotesk',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;min-width:0}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);
+       font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:0 24px 72px}
+  header.site{border-bottom:1px solid var(--border);padding:18px 0;margin-bottom:44px}
+  header.site .wrap{padding-bottom:0;display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+  .brand{font-family:var(--font-heading);font-weight:800;letter-spacing:-.02em;font-size:20px}
+  .crumb{color:var(--muted);font-size:14px}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+           color:var(--stage);margin:0 0 12px}
+  h1{font-family:var(--font-heading);font-size:clamp(28px,4.4vw,40px);line-height:1.15;
+     letter-spacing:-.02em;margin:0 0 18px;font-weight:800}
+  .prov-body{color:var(--muted);font-size:18px;margin:0 0 10px;
+             border-left:3px solid var(--primary);padding-left:18px}
+  .meta{color:var(--muted);font-size:14px;margin:26px 0 0;padding-top:18px;
+        border-top:1px solid var(--border)}
+  .turn{margin:0 0 8px;padding:22px 0;border-bottom:1px solid var(--border)}
+  .who{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .who span{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  .them .dot{background:var(--stage)} .them span{color:var(--stage)}
+  .vonc .dot{background:var(--on-dark)} .vonc span{color:var(--on-dark)}
+  .turn p{margin:0;font-size:17px}
+  .them p{font-family:Georgia,'Times New Roman',serif;font-size:19px}
+  .challenge{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+             padding:20px 22px;margin-top:14px}
+  .challenge .who{margin-bottom:8px}
+  .verdict-block{background:var(--surface);border:1px solid var(--border);
+                 border-left:4px solid var(--stage);border-radius:10px;padding:26px 26px 24px;
+                 margin:34px 0 0}
+  .ruling{font-family:var(--font-heading);font-weight:800;font-size:24px;margin:0 0 4px}
+  .ruling-sub{color:var(--muted);font-size:13px;letter-spacing:.1em;text-transform:uppercase;
+              font-weight:700;margin:0 0 16px}
+  .reasons{margin:0;font-size:17px;color:var(--text)}
+  section{margin-top:46px}
+  h2{font-family:var(--font-heading);font-size:13px;font-weight:700;letter-spacing:.14em;
+     text-transform:uppercase;color:var(--muted);margin:0 0 6px;
+     padding-bottom:10px;border-bottom:1px solid var(--border)}
+  .cta{margin-top:44px;padding:26px;border:1px solid var(--border);border-radius:10px;
+       background:linear-gradient(180deg,rgba(109,40,217,.16),rgba(109,40,217,0))}
+  .cta p{margin:0 0 16px;font-size:17px}
+  .cta a{display:inline-block;background:var(--primary);color:#fff;text-decoration:none;
+         font-weight:700;padding:13px 22px;border-radius:8px;font-size:16px}
+  .honest{margin-top:34px;color:var(--muted);font-size:13.5px;line-height:1.6;
+          border-top:1px solid var(--border);padding-top:18px}
+  .honest strong{color:var(--text)}
+</style>
+<header class="site"><div class="wrap">
+  <span class="brand">vonc</span>
+  <span class="crumb">The Gauntlet · the record of one round</span>
+</div></header>
+
+<div class="wrap">
+  <p class="eyebrow">The provocation argued</p>
+  <h1 id="headline"></h1>
+  <p class="prov-body" id="prov-body"></p>
+
+  <section>
+    <h2>The round, as it happened</h2>
+
+    <div class="turn them">
+      <div class="who"><i class="dot"></i><span>Their opening position</span></div>
+      <p id="position"></p>
+    </div>
+
+    <div class="turn vonc">
+      <div class="who"><i class="dot"></i><span>vonc answered</span></div>
+      <p id="counter"></p>
+      <div class="challenge">
+        <div class="who vonc"><i class="dot"></i><span>and put this challenge</span></div>
+        <p id="challenge"></p>
+      </div>
+    </div>
+
+    <div class="turn them" style="border-bottom:none">
+      <div class="who"><i class="dot"></i><span>Their defence</span></div>
+      <p id="defence"></p>
+    </div>
+  </section>
+
+  <div class="verdict-block">
+    <p class="ruling" id="ruling"></p>
+    <p class="ruling-sub">The judge's ruling</p>
+    <p class="reasons" id="reasons"></p>
+  </div>
+
+  <p class="meta" id="meta"></p>
+
+  <div class="cta">
+    <p><strong>Think you'd do better?</strong> The same provocation is open. You get one
+       position, one challenge and one defence — then it judges you.</p>
+    <a href="/tools/gauntlet/index.html">Enter the Gauntlet →</a>
+  </div>
+
+  <p class="honest">
+    <strong>This is one real round, exactly as it ran.</strong> Every word below the
+    provocation was written either by the visitor who argued it or by the engine that
+    answered and judged them. Nothing is reconstructed, summarised or filled in, and
+    no round appears here unless the person who argued it chose to publish it.
+  </p>
+</div>
+
+<script src="round.js"></script>
+<script>
+  function set(id, text) { document.getElementById(id).textContent = text; }
+  set("headline", "“" + R.headline + "”");
+  set("prov-body", R.prov_body);
+  set("position", "“" + R.position + "”");
+  set("counter", R.counter_position);
+  set("challenge", R.challenge);
+  set("defence", "“" + R.defence + "”");
+  set("ruling", R.verdict.charAt(0).toUpperCase() + R.verdict.slice(1) + ".");
+  set("reasons", R.reasons);
+  var d = new Date(R.created_at);
+  set("meta", "Round " + R.round_id.slice(0, 8) + " · argued "
+    + d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    + " · vonc.com/r/" + R.round_id.slice(0, 8));
+</script>

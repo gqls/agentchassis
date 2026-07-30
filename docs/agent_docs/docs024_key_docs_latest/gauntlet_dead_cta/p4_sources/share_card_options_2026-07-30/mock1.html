@@ -1,0 +1,72 @@
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:0;background:#111;overflow:hidden}canvas{display:block}</style>
+<canvas id="c" width="1200" height="630"></canvas>
+<script src="round.js"></script>
+<script>
+// Option 1 — the WHOLE debate on one 1200x630 card.
+// The type size is not chosen; it is the largest size at which the real
+// round's 3,357 characters actually fit. That is the measurement.
+var W = 1200, H = 630, PAD = 56, MAXW = W - PAD * 2 - 14;
+var c = document.getElementById("c"), x = c.getContext("2d");
+
+var BLOCKS = [
+  ["THE PROVOCATION", R.prov_body],
+  ["THEIR POSITION",  R.position],
+  ["VONC ANSWERS",    R.counter_position],
+  ["THE CHALLENGE",   R.challenge],
+  ["THEIR DEFENCE",   R.defence],
+  ["THE JUDGEMENT — " + R.verdict.toUpperCase(), R.reasons]
+];
+
+// wrapText, copied from the shipped renderer (gauntlet_js_2026-07-29:568)
+function wrapLines(text, maxWidth) {
+  var words = String(text).split(/\s+/), line = "", out = [];
+  for (var i = 0; i < words.length; i++) {
+    var probe = line ? line + " " + words[i] : words[i];
+    if (x.measureText(probe).width > maxWidth && line) { out.push(line); line = words[i]; }
+    else line = probe;
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+// Find the largest body size at which every block fits the usable height.
+function heightAt(f) {
+  var lh = Math.round(f * 1.32), labelH = Math.round(f * 1.05) + 6, total = 0;
+  for (var i = 0; i < BLOCKS.length; i++) {
+    x.font = "400 " + f + "px system-ui, sans-serif";
+    total += labelH + wrapLines(BLOCKS[i][1], MAXW).length * lh + Math.round(f * 0.75);
+  }
+  return total;
+}
+var TOP = 104, USABLE = H - TOP - 42;
+var size = 40;
+while (size > 5 && heightAt(size) > USABLE) size--;
+document.title = "fit=" + size + "px usable=" + USABLE + " needed=" + heightAt(size);
+
+// ── draw ──
+x.fillStyle = "#6d28d9"; x.fillRect(0, 0, W, H);
+x.fillStyle = "#f59e0b"; x.fillRect(0, 0, 14, H);
+x.fillStyle = "rgba(255,255,255,0.85)";
+x.font = "700 26px system-ui, sans-serif";
+x.fillText("THE GAUNTLET — THE WHOLE ROUND", PAD + 14, 54);
+x.fillStyle = "#ffffff";
+x.font = "800 30px Georgia, serif";
+x.fillText("“" + R.headline + "”", PAD + 14, 90);
+
+var lh = Math.round(size * 1.32), labelH = Math.round(size * 1.05) + 6, y = TOP;
+for (var i = 0; i < BLOCKS.length; i++) {
+  x.fillStyle = "#fbbf24";
+  x.font = "700 " + Math.max(8, Math.round(size * 0.92)) + "px system-ui, sans-serif";
+  x.fillText(BLOCKS[i][0], PAD + 14, y);
+  y += labelH;
+  x.fillStyle = i === 5 ? "#ffffff" : "rgba(255,255,255,0.93)";
+  x.font = "400 " + size + "px system-ui, sans-serif";
+  var lines = wrapLines(BLOCKS[i][1], MAXW);
+  for (var j = 0; j < lines.length; j++) { x.fillText(lines[j], PAD + 14, y); y += lh; }
+  y += Math.round(size * 0.75);
+}
+x.fillStyle = "rgba(255,255,255,0.75)";
+x.font = "600 " + Math.max(9, Math.round(size * 0.95)) + "px system-ui, sans-serif";
+x.fillText("vonc.com/tools/gauntlet · 30/07/2026", PAD + 14, H - 18);
+</script>

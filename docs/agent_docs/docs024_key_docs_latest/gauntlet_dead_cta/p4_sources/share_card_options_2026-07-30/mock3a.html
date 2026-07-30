@@ -1,0 +1,57 @@
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:0;overflow:hidden}canvas{display:block}</style>
+<canvas id="c" width="1200" height="630"></canvas>
+<script src="round.js"></script>
+<script>
+// OPTION 3, the card — a HOOK, not a container. Keeps type large enough to
+// read in a timeline (34px body = ~14px at X's 504px width) by carrying only
+// the sharpest real line of the round plus the ruling, and spends the space
+// the current card wastes on one job: making the permalink worth tapping.
+// Every string is a fact of this round; the URL resolves to the whole thing.
+var W = 1200, H = 630, L = 70, MAXW = W - 140;
+var c = document.getElementById("c"), x = c.getContext("2d");
+function wrap(text, f, maxWidth) {
+  x.font = f;
+  var words = String(text).split(/\s+/), line = "", out = [];
+  for (var i = 0; i < words.length; i++) {
+    var probe = line ? line + " " + words[i] : words[i];
+    if (x.measureText(probe).width > maxWidth && line) { out.push(line); line = words[i]; }
+    else line = probe;
+  }
+  if (line) out.push(line);
+  return out;
+}
+x.fillStyle = "#6d28d9"; x.fillRect(0, 0, W, H);
+x.fillStyle = "#f59e0b"; x.fillRect(0, 0, 14, H);
+
+x.fillStyle = "rgba(255,255,255,0.85)";
+x.font = "700 26px system-ui, sans-serif";
+x.fillText("THE GAUNTLET — I ARGUED AND LOST", L, 76);
+
+// The provocation this round was actually started on.
+x.fillStyle = "#ffffff";
+x.font = "800 46px Georgia, serif";
+var y = 148, lines = wrap("“" + R.headline + "”", "800 46px Georgia, serif", MAXW);
+for (var i = 0; i < lines.length; i++) { x.fillText(lines[i], L, y); y += 56; }
+
+x.fillStyle = "#f59e0b"; x.fillRect(L, y + 6, 120, 6);
+
+// The judge's own words — the single sharpest real sentence of the round.
+var sharp = R.reasons.split(/(?<=\.)\s+/)[0];
+x.fillStyle = "rgba(255,255,255,0.95)";
+x.font = "400 30px system-ui, sans-serif";
+y += 62;
+var sl = wrap("“" + sharp + "”", "400 30px system-ui, sans-serif", MAXW);
+for (var j = 0; j < Math.min(sl.length, 4); j++) { x.fillText(sl[j], L, y); y += 40; }
+x.fillStyle = "rgba(255,255,255,0.6)";
+x.font = "600 22px system-ui, sans-serif";
+x.fillText("— the judge, ruling " + R.verdict, L, y + 12);
+
+// The hook: the permalink, given real weight.
+x.fillStyle = "#f59e0b";
+x.font = "800 32px system-ui, sans-serif";
+x.fillText("Read the whole round →", L, H - 74);
+x.fillStyle = "rgba(255,255,255,0.85)";
+x.font = "600 26px system-ui, sans-serif";
+x.fillText("vonc.com/r/39595461", L, H - 34);
+</script>
