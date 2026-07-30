@@ -490,3 +490,63 @@ quietly.
 
 The second tool is still to come — but a second tool nobody could reach would
 have doubled the problem rather than solved anything.
+
+---
+
+## 2026-07-30 — handoff written; where this leaves us in plain terms
+
+I went to build the second tool for oufe and never got there, for a reason I think was
+the right one. The first question when you add a tool is where a reader would find it,
+and the answer turned out to be: nowhere. The tool we already had — live since the
+28th, fully checked — was linked from nothing at all. You could only reach it by
+typing the address.
+
+That turned out not to be an oufe problem. Eleven tool pages across five sites are in
+the same state, and when I looked at why, it wasn't that anyone forgot. The code that
+creates a tool page marks it as belonging in the menu, but never actually puts it
+there; and the one piece of code that builds menus from those marks deliberately skips
+anything under /tools/, because it assumes a parent listing page will do the job. So
+the page is flagged as missing from the menu, gets routed to the tool that rebuilds
+menus, and that tool is the one thing that cannot help it. It reports success. Nothing
+changes. There is a case from the 24th that proves it: the job completed, and the page
+is still linked from nowhere today.
+
+Fixing oufe's copy came with a trap worth knowing about. The standard remedy is to
+regenerate the site's header and footer, and that would have added the link on its own
+— while deleting our footer note, the one saying we make mistakes and that AI
+assistance can invent convincing detail. That note exists nowhere except the stored
+page furniture; no template contains it. So the fix for "nobody can find this page"
+was, by default, "remove the notice explaining the site can be wrong". I patched the
+stored copy directly instead, with a check that the note survives, and all eight pages
+now carry both.
+
+You then asked for the checker problems to be written up as a list we can work
+through, and named the one that matters most: anything that writes copy off the back
+of a check has to go through the same claims checking as everything else. It doesn't.
+Of the twenty-two handlers these checks hand work to, two check their claims. The main
+copy-writing one has no checking step at all — it researches, asks a model to write,
+renders it, and calls it done. And the detector that would have caught unsourced
+claims after the fact sits in the one discovery agent that has effectively stopped
+running. So there's no gate on the way in and no net underneath. That's the top of the
+list.
+
+Then you corrected me, and you were right. I had written that several of these repair
+tools "have never fixed anything", counting three months of jobs that never completed.
+They never completed because they were never given the work — the records show nothing
+ever picked them up, and a batch I read as a backlog was actually closed. A tool that
+was never asked to run looks exactly like a tool that fails. I've rewritten that
+section, and every item in the list now says plainly whether it rests on reading the
+code or merely on an absence. What replaced the wrong claim is more useful anyway:
+repeat detections of the same problem are being marked closed the moment they're
+created, so they can never be worked. That's a real defect, and it was hidden
+underneath the wrong one.
+
+Worth saying: I made the opposite mistake in the morning and this one in the
+afternoon — first trusting a "completed" label too much, then trusting an absence of
+completions too much. Both are written down together now, because learning the first
+lesson is what set up the second.
+
+The handoff for picking this up is `oufe/HANDOFF_2026-07-30_continue_here.md`. The
+second tool is still not built, but the thing that made it pointless to build is
+fixed. One practical note: the cluster login has expired, so none of the live figures
+can be re-checked until it's refreshed.
