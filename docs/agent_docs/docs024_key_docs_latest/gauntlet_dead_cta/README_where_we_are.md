@@ -879,3 +879,71 @@ explicitly assumed "thinking is off, which is how every agent runs", and
 that assumption is no longer true for the newest models. We've filed it for
 proper diagnosis rather than guessing; the loop will report what the data
 says.
+
+---
+
+**2026-07-30 — the vonc about page says everything twice, and I need one decision
+from you.**
+
+You asked for the deduplication check to be run against vonc. It was, and it found
+two things. The one that matters is that the about page renders every single one of
+its six sections twice, so anyone reading vonc.com/about.html reads the whole page
+through twice over. That is live now. I picked this up to answer the one question
+the previous thread deliberately left open: *why*, because you should not delete
+half a page's contents until you know what put them there.
+
+Here is what I found. Every place the site's structure is properly recorded says
+six sections — the site plan, the page's own record, all of it. Only the table
+holding the actual built sections has twelve. So the plan was never wrong, which
+matters a lot: it means the doubling cannot come back on its own the next time
+something rebuilds that page, and it means cleaning it up is safe rather than a
+patch over a live fault.
+
+I can also tell you it happened in a single moment, not two builds. All twelve
+sections were written inside a tenth of a second on 28 July. My first guess was
+that two builds had collided — that is a real possibility in this system, because
+saving a page wipes the old sections and writes new ones, so two of them racing
+could plausibly leave you with twelve. That guess was wrong, and what disproved it
+was the numbering: the twelve sections are numbered one to twelve in a single
+unbroken run. Two colliding builds would each have numbered their own six sections
+one to six, and we would be looking at two number ones, two number twos, and so
+on. So it was one process working through a list that already had each section
+listed twice before it started. Worth recording that a column nobody thinks of as
+evidence answered the question, and killed a plausible theory in one query.
+
+What I cannot tell you is what produced that doubled list. It only ever existed in
+the memory of the run that did it, and the system's record of that run has since
+been aged out and deleted — I checked two separate places, both empty. I have
+narrowed it to one layer and written it down as explicitly unrecoverable rather
+than guessing, because a confident wrong answer here would send the next person
+hunting the collision theory I just ruled out.
+
+**The thing I would flag to you as the real problem is that nothing noticed.** The
+page went out doubled on 28 July and was found on 30 July by a person running a
+check by hand. There is no alarm for "this page contains two of the same thing" —
+I searched the entire codebase for any such check and there is none, anywhere, for
+any table. That is a whole category of fault with no detector, and I have filed it
+as bug 156 with the cheap fixes ordered by which one actually shuts the door.
+
+One genuinely useful near-miss, which I think justifies the time spent measuring:
+the obvious fix is to tell the database a page may only have one of each section
+type. It is the kind of change we normally prefer — it makes the bad state
+impossible. **It would have broken eleven other pages across five other sites.**
+Repeating a section type on a page turns out to be completely normal — a generic
+text block used two or three times down a page — and those repeats are legitimate
+because their *content* differs. Only vonc's six were word-for-word identical. So
+the test has to be "is the content the same", not "is the slot name the same". That
+took one query to establish and would have taken a broken migration and five
+damaged sites to learn the other way.
+
+**The decision I need.** The cleanup itself is six deletions and a renumber,
+followed by a republish of the page. I have it prepared and I have not run it: the
+deletion was blocked by the permission system, which I think is the right call for
+a destructive write to a live customer site, so it needs you. Nothing is lost by
+doing it — each row I would delete is byte-for-byte identical to the one beside it
+that stays. Say the word and I will run it and verify the served page. Separately,
+and much less urgently, the eight archetype pages restate each other fairly heavily
+(their calls-to-action are 83–90% identical, and more importantly their opening
+sections are around 70% identical, where each archetype is supposed to feel
+distinct). That one is a copy-editing judgement rather than a fault, and it is your
+call whether it is worth the edit.

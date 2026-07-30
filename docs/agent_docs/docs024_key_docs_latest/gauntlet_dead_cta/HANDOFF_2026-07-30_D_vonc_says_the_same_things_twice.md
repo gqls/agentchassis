@@ -58,6 +58,35 @@ So a visitor reads the entire about page twice over. **This is the highest-value
 item in this handoff — it is live, it is visible to anyone, and it needs no design
 decision.**
 
+> **ANSWERED 2026-07-30 — filed as `bugs_open/156`. Read that, not this section,
+> for the current state.** Findings, all measured:
+> - **Every persisted source says 6** — `site_plan_sections` (is_current),
+>   `pages.sections`, and one `pages` row. Only `page_components` is doubled, so
+>   the cleanup is safe and a legitimate rebuild will not restore it.
+> - **One write pass, not two builds** — all 12 rows inside 93 ms, `created_at`
+>   strictly increasing with `position`, positions 1..12 **distinct**. That last
+>   point **rules out** two concurrent saves, which would each number their rows
+>   1..6 and give two rows *per position*. It was one loop over a list that
+>   already held 12 entries, each section duplicated **adjacently**.
+> - **The 12-entry list is not recoverable** — it lived in the run's
+>   `collected_data`; `orchestration_states` and `site_work_items` for that window
+>   have both aged out (0 rows). `save_page_sections`, `CompilePageSections` and
+>   `loop_actions` each append once per item, so the loop's *item list* is as far
+>   as the evidence reaches. **[UNRECOVERABLE] — do not write a root cause on it.**
+> - **"the same cause may be live on other pages and other sites" measures
+>   FALSE.** Fleet-wide there are 17 duplicate `(page_id, slot_name)` groups; **11
+>   are legitimate** repeated slots with *differing* content (`generic-text-block`
+>   ×2–3 on five other sites). The 6 content-identical ones are all vonc `about`.
+>   ⇒ **A unique index on `(page_id, slot_name)` would break 11 real pages.** The
+>   discriminator is content identity, not slot repetition.
+> - **The durable defect is that nothing detects this**: no unique constraint,
+>   no guard in the save (all five existing guards compare sections to the *page*,
+>   never to each other), `content_hash` empty on all 12 rows, and
+>   `grep -rn "HAVING count(\*) > 1" platform/ internal/ pkg/ scripts/` returns
+>   nothing fleet-wide. Found by hand, two days after it shipped.
+>
+> The original first-move instructions are kept below as written.
+
 What is NOT yet established, and should be your first move: **why there are two
 rows.** Do not delete one until you know, because the same cause may be live on
 other pages and other sites. Start with:

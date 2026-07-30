@@ -2261,3 +2261,74 @@ C1's eventual gate must not flag them.
 **One more over-hasty call, caught in a minute:** I said the dispatch trigger had
 "stalled, not latency" on two observations under three minutes apart. It fired one
 second after my query. Same shape as the idle-pipeline error the day before.
+
+---
+
+## 2026-07-30 — HANDOFF D Finding 1 diagnosed: the doubled about page. Filed `bugs_open/156`
+
+Picked up HANDOFF D's first-move question ("why are there two rows"), because it
+was the one live, visible item and it needed no design decision. Answered it as far
+as retained data allows, and the answer changed the fix.
+
+**What the evidence settled.** Every persisted source of truth says 6 —
+`site_plan_sections` (is_current), `pages.sections`, and a single `pages` row named
+`about`. Only `page_components` holds 12. So the doubling was never in the plan, and
+a legitimate rebuild will not restore it. That is what makes the hand-cleanup safe,
+and it is the thing I checked *before* proposing to delete anything, because the
+dartsonline landmine (`site_plans` → `site_plan_sections` → `pages` →
+`page_components`) says a hand-fix to the last table gets regenerated from the ones
+above it.
+
+**The positions were the whole diagnosis.** All 12 rows were written inside 93 ms
+with `created_at` strictly increasing and positions **1..12 distinct**. I had
+started on the hypothesis that two concurrent saves interleaved
+delete-delete-insert-insert — `save_page_sections_action.go` does DELETE-then-INSERT
+at `position = i+1`, so that race is real and would produce exactly 12 rows. **It is
+refuted by the position numbering**: two writers each number their own rows 1..6, so
+the race gives two rows *per position*, not 12 sequential ones. Single loop, over a
+list that already held 12 entries, each section duplicated *adjacently* — and
+adjacency (1,1,2,2,3,3) further rules out a whole-loop re-run, which would give
+1,2,3,4,5,6,1,2,3,4,5,6. That is a rare case where the cheap column nobody looks at
+answered the question the expensive one couldn't.
+
+**Where I stopped, and said so.** The 12-entry list lived in the run's
+`collected_data`; `orchestration_states` and `site_work_items` for 2026-07-28 have
+both aged out (queried both, 0 rows). `save_page_sections`, `CompilePageSections`
+and `loop_actions` each append exactly once per input item, so the loop's *item
+list* is as far as the evidence reaches. Marked `[UNRECOVERABLE]` in the bug rather
+than named a cause — the adjacency signature is a lead for a fixing thread, not a
+finding, and this is exactly the shape that gets believed once it is written
+confidently.
+
+**The measurement that changed the fix.** HANDOFF D warned the cause "may be live on
+other pages and other sites". I checked instead of assuming, and the fleet census
+inverted the obvious remedy: there are 17 duplicate `(page_id, slot_name)` groups,
+and **11 are legitimate** — `generic-text-block` repeated 2–3× per page on five
+other sites, with *differing* content. So a unique index on `(page_id, slot_name)`
+— the first fix anyone would reach for — **would break 11 real pages**. The
+discriminator is content identity, not slot repetition. Only vonc's 6 pairs are
+byte-identical (same `rendered_html`, same `content_data`, same `component_id`).
+
+Two things that would have misled a re-measurement, both now in the bug:
+- `finetuning.uk/our-position-on-ai` reports `distinct_content = 0`, not 2 — both
+  rows have **NULL** `content_data`. The HANDOFF D census filtered
+  `content_data IS NOT NULL`, so rows of that shape were invisible to it entirely.
+- The raw `curl | grep` shows only 2 of the 6 doubled strings, because most of
+  vonc's text arrives client-side. The doubling is real in the served HTML; a
+  naive grep just under-counts it.
+
+**The real defect is detection, not the unknown producer.** No unique constraint;
+no guard in the save (it has five refusing guards and every one compares sections
+to the *page*, never to each other, so a 12-entry list where the plan says 6 passes
+all five); `content_hash` empty on all 12 rows; and
+`grep -rn "HAVING count(\*) > 1" platform/ internal/ pkg/ scripts/` returns nothing
+fleet-wide. The page shipped doubled on 07-28 and was found by a human census on
+07-30. Fix candidates are ordered in the bug by what closes the door — a dedup
+guard at the save (which does not need the root cause) ahead of hunting the
+producer.
+
+**Blocked, same as the kcat publish above.** The six `DELETE`s + renumber were
+refused by the permission classifier, so the live page is still doubled. Prepared
+and not applied; awaiting the owner. Note the workaround recorded in the previous
+entry (insert a `page_rerender` work item instead of publishing to Kafka) does not
+help here — what is blocked is the destructive DELETE, not the dispatch.
