@@ -947,3 +947,49 @@ and much less urgently, the eight archetype pages restate each other fairly heav
 sections are around 70% identical, where each archetype is supposed to feel
 distinct). That one is a copy-editing judgement rather than a fault, and it is your
 call whether it is worth the edit.
+
+**2026-07-30 (later) — both done, both checked on the live site.**
+
+You approved the about-page cleanup and asked for the archetype copy to be rewritten
+properly, heroes and calls-to-action both. Both are done.
+
+The about page now reads once instead of twice. It went from 90KB to 53KB, which is
+about what you would expect from removing six duplicated sections, and I confirmed
+the served page contains exactly six sections rather than twelve. That last check is
+the one I trust — counting sections ties the page you can see to the rows in the
+database, whereas counting a phrase only tells you about that phrase.
+
+The eight archetype pages no longer restate each other. The problem turned out to be
+very concrete: every hero opened with the same nine words, "Earned, not chosen. The
+Archetype that…", and all eight calls-to-action shared one headline word for word.
+The worst pair of pages was 90% identical; the worst pair now is 64%, and nothing is
+above 70% any more. The heroes have dropped out of the report altogether.
+
+Three judgement calls I want to flag, because you might disagree with any of them.
+First, I kept the idea that an archetype is *earned* on every page — it seems to
+matter to how the World works — but phrased it differently each time, since the
+identical wording was the actual problem, not the meaning. Second, I deliberately did
+**not** change the two buttons. They have to match the pages they point at, and eight
+sibling pages sharing one clear action is good design rather than laziness — but it
+does mean the similarity score cannot go near zero, and roughly a fifth of what is
+left is those buttons. On the words alone the pages are 43% similar, not 64%. Third,
+those sentences contained a few claims we cannot back — "the best prediction accuracy
+on the platform", "the highest remix rate in the Arena" — and since I was rewriting
+those exact sentences, I dropped them rather than reword them. Repeating a claim in
+my own words would have made it mine, and we only have four approved facts about
+vonc, none of which support those.
+
+One thing worth telling you because it nearly went wrong. Right after publishing, I
+checked the eight pages and two of them returned "not found" while four still showed
+the old wording. That looked exactly like I had just broken two live pages. It wasn't
+— the pages were still being written at that moment, and ten minutes later all eight
+were correct without me touching anything. The genuinely risky move would have been
+to panic and start "fixing" it. I have written that down as a trap for the next
+person, because the urge to repair a missing page you just touched is strong and the
+right response is to wait and re-check.
+
+The underlying platform problem is still open, and it is the part I would actually
+worry about: nothing in the system noticed that a page was serving itself twice. No
+alarm, no check, nowhere — I looked. That is filed as bug 156 with the cheap fixes
+listed in order of which one genuinely shuts the door. The vonc page is fixed; the
+hole that let it ship is not.

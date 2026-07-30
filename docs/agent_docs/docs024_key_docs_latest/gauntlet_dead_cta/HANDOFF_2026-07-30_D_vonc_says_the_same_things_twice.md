@@ -20,7 +20,10 @@ kubectl ... -At -c "SELECT data::text FROM site_specs
 WHERE site_id='<site>' AND aspect='evidence_base' AND is_current;" > evidence.json
 
 # 2. run the census
-python3 scripts/dedup_census.py sections.json evidence.json [min_shared_facts]
+#    CORRECTED 2026-07-30: the path below read `scripts/dedup_census.py`, which does
+#    not exist — the script is in THIS lane's scripts dir (committed in f599ed87c).
+python3 docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/dedup_census.py \
+  sections.json evidence.json [min_shared_facts]
 ```
 
 **Both halves are necessary and 151 is the proof.** On fundamentallyai two

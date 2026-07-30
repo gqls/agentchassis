@@ -2332,3 +2332,84 @@ refused by the permission classifier, so the live page is still doubled. Prepare
 and not applied; awaiting the owner. Note the workaround recorded in the previous
 entry (insert a `page_rerender` work item instead of publishing to Kafka) does not
 help here — what is blocked is the destructive DELETE, not the dispatch.
+
+## 2026-07-30 (later) — both HANDOFF D items applied and verified live
+
+Owner approved the about-page cleanup and, unlike the earlier read, asked for the
+archetype heroes **and** CTAs to be rewritten. Both are done and verified at the
+served artefact.
+
+**About page.** Six `DELETE`s + renumber in one transaction (`DELETE 6`,
+`UPDATE 5` — position 1 was already right), then an assemble-only rerender.
+Verified cache-busted: 90,220 → 53,372 bytes, doubled strings ×2 → ×1, and
+`data-component` exactly **6** (was 12). That last count is the one worth reusing —
+it ties the served HTML to the row count, where a phrase count only tells you about
+one phrase. The `DELETE` was refused by the permission classifier first time round,
+which was the right default; it went through on approval.
+
+**Generalised the rerender script rather than cloning it.**
+`scripts/rerender_page_vonc.sh <page_id>` — the existing `rerender_arena_vonc.sh`
+hardcodes the arena page id, and I needed nine different pages. Same envelope, same
+hardened publish (payload in the container COMMAND, `--command`, `&& echo
+PUBLISH_OK`); page comes in as `$1`.
+
+**Archetype copy.** All 8 heroes and all 8 CTAs. What was actually duplicated:
+every hero subheadline opened `"Earned, not chosen. The Archetype that/whose…"`,
+and all 8 CTAs shared the headline `"The Gauntlet is open. Your position isn't filed
+yet."`, the same two button labels, and 5 of 8 opened `"Every day, one
+Provocation."` Rewrote content_data **and** rendered_html together in one
+transaction, per the RUNBOOK's load-bearing fact — an assemble-only rerender reads
+the second, a regeneration reads the first, so writing one leaves the other able to
+restore the duplication.
+
+Three deliberate choices, recorded because each is arguable:
+- **Kept "earned, not chosen" as an idea on every page, phrased differently on each**
+  ("Not a badge you pick", "the Gallery hands it to you", "Given, never claimed",
+  "Nobody awards this to themselves", …). It is a real platform concept; the
+  identical *prefix* was the duplication, not the meaning.
+- **Did NOT vary the button labels.** They are functional, they must agree with the
+  URL they point at (catalyst's primary goes to `/tools/arena/`, the other seven to
+  `/tools/gauntlet/`), and a consistent action label across sibling pages is correct
+  UX. This puts a **floor** under the similarity score, which is why the numbers
+  below do not go near zero.
+- **Dropped the unverifiable superlatives in the sentences I was rewriting** — "best
+  prediction accuracy on the platform", "highest remix rate in the Arena",
+  "dominates the Stage", "Thousands of takes already on record". vonc has 4 approved
+  facts and none of them back these. Restating them in my own words would have made
+  them *my* claims, and I was editing those exact sentences anyway.
+
+**Measured, on the census's own basis** (its `SKIP_KEYS` drops url/asset keys but
+**keeps** the button labels, so this is comparable to HANDOFF D's table):
+
+| | before (HANDOFF D) | after |
+|---|---|---|
+| worst cross-page pair | **0.90** (oracle↔surgeon CTA) | **0.64** (scout↔maker CTA) |
+| pairs ≥0.70 | ~7 named, plus ~10 more at 0.67–0.69 | **0** |
+| hero pairs in the report | 0.71, 0.70 and others | **none appear at all** (<0.35) |
+| identical text blocks | present | **none** |
+
+And I checked the floor claim instead of asserting it: for the worst remaining
+pair, similarity is **0.64 with the button labels included and 0.43 on prose
+alone** — so ~0.2 of what is left is the shared functional labels I chose to keep.
+
+Side effect that confirms HANDOFF D's Finding 3 reading: the `vonc-archetypes` fact
+went from "5 sections on 2 pages" to **3 sections on 2 pages**, because four of
+those five were the duplicated about rows. The handoff predicted it was "largely an
+artefact of Finding 1"; it was.
+
+**The misstep, and it nearly became an incident.** I verified the 8 pages the moment
+the rerenders reported COMPLETED. Two came back **404** (~291 bytes) and four served
+stale copy. For a moment that read as *I have just destroyed two live pages*. It was
+not: `pages.deployed_at` showed all 8 deployed within the preceding minute, so I was
+fetching inside the deploy window — the 404 is the file mid-replacement, the stale
+200 is propagation. Ten minutes later all 8 were correct with no action taken. **The
+dangerous move here would have been to "fix" it** by re-firing or reverting. Filed as
+a landmine, because the instinct to repair a 404 on a page you just touched is
+strong and the correct response is to read `deployed_at` and wait. Verified properly
+in the end with a poll-until-clear loop, asserting on a string the change *removed*
+as well as ones it *added*, plus an untouched control — "new copy absent" and "page
+broken" are indistinguishable without that control.
+
+Also corrected a small doc defect in HANDOFF D: it gives the census script as
+`scripts/dedup_census.py`, which does not exist — it is in this lane's own
+`scripts/` dir (`f599ed87c`).

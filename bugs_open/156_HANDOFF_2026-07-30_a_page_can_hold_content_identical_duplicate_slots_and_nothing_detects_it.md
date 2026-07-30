@@ -1,8 +1,9 @@
 # BUG 156 (2026-07-30) — a page can hold content-identical duplicate slots, render itself twice, and nothing in the platform notices
 
-**Status:** OPEN. Live instance found on `vonc.com/about.html`; the data fix is
-pending an owner decision (see § "The live instance"). The *detection* gap is the
-durable defect and is unowned.
+**Status:** OPEN — as a **detection/prevention gap**, which is the durable defect
+and is unowned. The vonc data instance is **FIXED AND VERIFIED LIVE** (2026-07-30,
+owner-approved; see § "The live instance"). The bug stays OPEN because the defect
+is still reproducible: nothing prevents or detects a recurrence, here or anywhere.
 
 **Found by:** running the `bugs_open/151` dedup census against vonc
 (`docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/HANDOFF_2026-07-30_D_vonc_says_the_same_things_twice.md`,
@@ -146,19 +147,25 @@ Two footnotes that will bite whoever measures this again:
 4. Find the producer — needs a fresh reproduction, since the run is past
    retention. Lowest priority: (1) contains the damage without it.
 
-## The live instance
+## The live instance — FIXED AND VERIFIED 2026-07-30
 
-The data fix is six `DELETE`s plus a renumber to positions 1–6, then an
-assemble-only rerender. It is prepared and **not applied** — the destructive write
-was blocked by the permission classifier and is awaiting an owner decision.
-Deleting the even-position rows loses nothing (each is byte-identical to its
-survivor) and is consistent with the plan, which already says 6, so a later
-legitimate rebuild will not restore the doubling.
+Applied with owner approval (the `DELETE` was refused by the permission classifier
+on the first attempt, which is the correct default for a destructive write to a
+live site):
 
-Rerender path, once the rows are fixed — assemble-only, from
-`page_components.rendered_html`:
-`docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/rerender_arena_vonc.sh`
-with `PAGE_ID=a28abcd7-186b-4a33-9b89-5d7bfd727012` (`/about.html`).
+1. `DELETE` of the six even-position rows — each byte-identical to its survivor on
+   `rendered_html`, `content_data` and `component_id`, so nothing was lost — then a
+   renumber of the survivors to positions 1–6 (`DELETE 6`, `UPDATE 5`; position 1
+   was already correct). One transaction.
+2. Assemble-only rerender + deploy:
+   `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/rerender_page_vonc.sh a28abcd7-186b-4a33-9b89-5d7bfd727012`
+   — a generalisation of the arena script, which hardcoded its page id. `COMPLETED`.
+
+Verified at the served artefact, cache-busted: **90,220 → 53,372 bytes**, the
+doubled strings now appear **×1** (were ×2), and `data-component` appears exactly
+**6** times (was 12), which is the check that ties the served page to the 6 rows.
+Controls unaffected. The plan already said 6, so a later legitimate rebuild will
+not restore the doubling.
 
 ## How to verify
 
