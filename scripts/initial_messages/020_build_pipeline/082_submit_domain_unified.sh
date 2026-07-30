@@ -48,13 +48,36 @@
 #   ./082_submit_domain_unified.sh newthing.com --fidelity new --mission "best-in-class ..."
 #
 # NOTE on --fidelity (doc 028 "Fidelity"):
-#   Today fidelity is IMPLICIT high (Phase 1). The explicit input parameter, its
-#   build_policy / adoption_meta spec aspect, and per-item deployed/planned status
-#   are Phase 2-3 and NOT yet wired. So --fidelity here is RECORDED in input_data
-#   (for a fresh build it lands in the 'submission' spec the classifier reads) but
-#   does not yet modulate the build until that Go/classifier plumbing lands. It is
-#   forward-looking, not active. Defaults: adopt -> high, fresh -> medium.
-#   "new" = no adopted baseline, so fidelity instead means confidence tolerance.
+#   *** UPDATED 2026-07-30: `locked` IS NOW ACTIVE. The rest of the dial is not. ***
+#
+#   --fidelity locked  ADOPT ONLY, and it changes the build fundamentally: the site
+#     is PRESERVED, not recreated. apply_adoption_plan takes a byte-preserving path
+#     (adopt_verbatim.go, concept register ADO-037) that keeps each page's CRAWLED
+#     URL verbatim, stores the complete crawled document as one 'ported-page'
+#     component with rebuild_policy='owned' + content_data.deploy_mode='verbatim',
+#     queues one page_rerender each, and SKIPS the classifier handoff entirely — so
+#     no strategy/briefing/plan/design cascade runs and nothing restyles the site.
+#     rerender_single_page then ships those bytes untouched. Use this to adopt a
+#     hand-built site you intend to KEEP (working tools, indexed URLs). It is the
+#     wrong choice if you want the site rebuilt in our own style — that is `high`.
+#
+#   high | medium | low | new  STILL NOT WIRED, exactly as before: recorded in
+#     input_data (for a fresh build it lands in the 'submission' spec the classifier
+#     reads) but modulating nothing. Behaviour remains IMPLICIT high. The
+#     build_policy / adoption_meta spec aspect and per-item deployed/planned status
+#     (doc 028 Phases 2-3) are still unbuilt.
+#     Defaults: adopt -> high, fresh -> medium.
+#     "new" = no adopted baseline, so fidelity instead means confidence tolerance.
+#
+#   PLUMBING, because this bit was broken and silent (fixed by migration 274,
+#   2026-07-30): call_agent's input_mapping is an ALLOW-LIST, not a passthrough, so
+#   until 274 the ADOPT path dropped `fidelity` at the spawn boundary — the
+#   orchestrator had it, the spawned site-adoption-agent that actually runs
+#   apply_adoption_plan never did, and every run silently took the recreate path.
+#   If a locked adoption ever behaves like a rebuild again, check that first:
+#     SELECT collected_data->'input_data'->>'fidelity' FROM orchestration_states
+#     WHERE owner_agent_type='site-adoption-agent' ORDER BY created_at DESC LIMIT 1;
+#   Expect 'locked'. NULL means the mapping regressed, and nothing will error.
 #
 #   A fresh domain still gets a research step regardless: the classifier always
 #   runs in full (web research + synthesis), and now also emits a structured
