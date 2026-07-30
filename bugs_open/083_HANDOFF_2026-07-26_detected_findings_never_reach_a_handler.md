@@ -488,3 +488,45 @@ terminated at `complete_clean` ("No issues found — site is clean") immediately
 after promoting those 67 findings, and skipped its own dispatch branch. Relevant
 here only as a warning — anyone who runs the sweep to clear this backlog will get
 a success message asserting the opposite of what happened.
+
+---
+
+## Contribution, 2026-07-30 — the first complete cycle in this bug's history, and what it exposed
+
+The 07-29 contribution above showed the promoter works. **The cycle has now
+finished, and it worked**: `e7ea0125` → `tool-improver` (46s) → component
+rewritten → page redeployed → **re-verified clean on the served page with a
+positive control in the same batch** (`bugs_open/131` § "B check-side … FIXED AND
+VERIFIED"). Queue fully drained overnight: 139 complete, 0 triaged.
+
+**This is the first `improve_tool` item ever to complete.** The 07-29 measurement
+in this file — 7 of 7 parked since 07-17, none dispatched — means every downstream
+mechanism built for this item type had never once run. So the value of unparking
+was not the one page; it was that **four separate mechanisms got their first
+execution**, and half of them failed:
+
+| what ran for the first time | outcome |
+|---|---|
+| `tool-improver` on an acceptance-raised item | **worked** (46s, verified fix on the live page) |
+| `tool-improver` on a `tool-auditor`-raised item | **failed at step 1**, twice ⇒ `bugs_open/154` |
+| `bugs_closed/010`'s convergence guard | **still unexercised** — nothing reached cycle 1 |
+| `bugs_open/126`'s fixer-authority concern | **still theoretical** for the same reason |
+
+**The failure is worth this file's attention because it is the same class of
+defect.** 083 says a finding never reaches its handler; 154 says that for one of
+the two creators, reaching the handler is not enough — `input_data.component_id`
+resolves to nil at `load_tool`, and (the counterintuitive part) **it is the items
+whose `component_id` column is SET that fail.** A row can satisfy every visible
+precondition and still not carry what the workflow reads.
+
+**What that means for this file's standing recommendation.** "An item type must
+declare who reads it, and 'nobody' must be an answerable and refusable answer"
+survives, but it is now demonstrably not sufficient: `improve_tool` HAD a
+declared, built, tested reader, and 50% of the population still could not be
+processed by it. **A declared reader is not a working path.** The check that
+would have caught this at any point in the last two weeks is one dispatch — which
+is exactly what nothing was doing.
+
+Also recorded, so nobody re-derives it: the other 9 failures on that site were
+8 × `needs_content_image` (all one S3 download error) and 1 × `audit_tool`
+("Claim timed out (attempts exhausted)"). Neither is about promotion.
