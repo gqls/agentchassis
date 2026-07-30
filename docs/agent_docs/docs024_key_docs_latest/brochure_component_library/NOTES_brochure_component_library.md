@@ -3335,3 +3335,81 @@ build — including the one real lesson this session earned the hard way: build 
 tool's own render harness + mutants + a REAL CLICK test before calling any of it done,
 because a check that only reads markup or forces DOM state cannot tell you whether a
 button does anything.
+
+## 2026-07-30 (afternoon) — reviewed the other lane's rewritten tools-chain report; one live hazard, one stale action item
+
+The `webdesign_tools_repair` report that `features_open/027` and the staged-build
+PROPOSAL both cite as a key input was rewritten by its own lane
+(`348583d6c`, `0e30b9f68`, `f32050b20`, all 07-30 15:20–15:28) — the owner's three
+corrections plus §7c folding in `015`/`026`/`027`. Owner asked me to look it over.
+**Reviewed by re-checking its load-bearing claims against the live system, not by
+reading it.** Recording only what my own lane's readers need, since 027 cites it.
+
+**The finding that matters, and it is a live hazard, not a documentation nit.**
+§3's vocabulary table adds `has_visible_area` (TL-034) under *"what a claim can say
+today"* and §7b presents it as *"built, so the rule is enforced and not merely
+written"*. **It is not in the running binary.** Pod
+`browser-runner-adapter-8646cddb79-qfcmr` is 16h old and predates the commit that
+added it (`1850acb07`, 07-30 15:19). Two long markers unique to that change
+(`"too small to see or click"`, `"A collapsed flex/grid child is the usual cause"`)
+grep **0**; three long pre-existing controls (`"page overflows horizontally"`,
+`"but a parent CLIPS it"`, `"in the live DOM after settle"`) grep **1** each.
+
+Why it is a hazard rather than a lag: `run_checks_action.go`'s type switch ends
+`default: skip(ch.ID, ch.Type+" not implemented")` — an unknown type is **skipped,
+not failed** — and the same report's **G4** (verified in code, their evidence) says
+an all-skipped result set yields `len(Failed)==0` → **PASS note + 7-day cooldown**.
+So a fence authored now using the new type, which §7b actively urges, is silently
+skipped and can be recorded as a green acceptance verdict, with a week's cooldown
+suppressing the re-check. **That is the exact failure §7b was written to prevent.**
+Filed to `LANDMINES.md` (footprinted on the `default:` skip arm) rather than as a
+bug, because nothing is broken — the trap is authoring against it. The concept
+register is already honest here: TL-034 says status **`built`**, not deployed.
+
+**A method landmine found while proving it, worth more than the finding.** My first
+pod-grep used the check-type names themselves and returned `has_visible_area` 0 —
+but also `selector_count` **0**, on a binary that demonstrably supports it. **Go
+compiles short string literals to immediate comparisons that never reach rodata**,
+so a short marker returns 0 on a fully-supporting binary. A negative result off a
+short marker is worthless. Also: this image has **no `strings` binary** — use
+`grep -ac` on the binary directly. Both in the LANDMINES entry.
+
+**One stale action item, reported to the owner, not edited by me** (another lane's
+file; a same-file passenger is unpreventable per CLAUDE.md, so I did not touch it):
+§4's G2 was REVISED after the owner's validation-vs-judgement correction and split
+into G2a (leave `tool-auditor`'s function alone, fix its cadence) + G2b (a separate
+`review_claim_delivery` judgement seat). **§5's ordered "what to wire" list still
+says item 3 = "G2 (one migration) — the LLM audit judges against the claim"** — i.e.
+the design the owner corrected and §4 abandoned. §5 is the part someone executes, so
+that is the highest-consequence miss. G2c (fence authored after the build) is also
+enumerated in §4 with no place in §5's sequence.
+
+**Two figures drifted inside the report's own editing window**, which is its own rule
+catching it: it states 23 fences fleet-wide as *"measured now… never quote a count you
+didn't re-run"* — I re-ran it, **25** (`doc_plans` with a ```criteria block,
+`COALESCE(is_current,true)`); and "50 of 63 carry no fence (13 written this week)" was
+not re-derived after their four-tool day.
+
+**What I verified as SOUND, so nobody re-litigates it:** the validation-vs-judgement
+split is a real improvement and correctly generalised (G3 = validation, G2b =
+judgement); *"a Tier-2 equivalent is not unbuilt, it is impossible"* is right and the
+code agrees (`experience_criteria.go:72` pins the type to Tier 4); **"nine harness
+faults" is evidenced**, not a garbled "nine checks" — commit `e7f32944e` 07-29 19:11
+is literally *"the tally of nine harness faults"* (I suspected it was garbled; it is
+not); and its quotes from 027 are accurate.
+
+**On its independent-convergence claim — I agree in substance and the report undersells
+what makes it strong.** §7c says their §7b finding and 027's arrive at the same
+conclusion independently on the same day. The convergence is real and not superficial:
+mine was forcing `.open = true` on DOM nodes, theirs was calling `addItem()` /
+`loadTemplate()` — both are **verifying through a privileged path a visitor does not
+have**, which is one defect class, not two resemblances. The ordering is checkable and
+unstated though (027 committed 07-30 12:00 `155f24fbf`; their §7b 15:20 `348583d6c`),
+and since the report uses the convergence *as evidence for a rule*, it should date the
+discovery rather than the commit.
+
+**One abbreviation loss to restore if that table becomes the cross-lane canonical copy:**
+their reproduction of 027's S5 gate drops *"`<style>` sliced away before counting"*.
+That trap was hit **twice** in this lane (a CSS rule's own selector counted as an
+element, over-counting by exactly one) and it is the kind of clause that only looks
+redundant until it bites.
