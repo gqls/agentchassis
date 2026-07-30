@@ -18,7 +18,7 @@ status line. Current state in prose:
 | D8a′ council reads its own minutes | **LIVE** on all three councils |
 | D8e-1 generated case index for the historians | **LIVE** |
 | D9 does the FIX lane need the forward seat too | ~~**RULED: NO — do not act** (owner, 07-27 evening)~~ → **REVERSED BY THE OWNER 2026-07-28 evening: SEAT IT. Built & LIVE on `fix-proposer` + `council-gate` (17 seats each).** D9's own reversal trigger was run for the first time and had fired at >3× threshold — see §D9 |
-| D10 landmines as a footprinted corpus | **OPEN** — drafted by another thread (was numbered D9; renumbered on a concurrent collision) |
+| D10 landmines as a footprinted corpus | ✅ **RULED 2026-07-29:** markdown (`LANDMINES.md`) authoritative, **synced into** `doc_notes` — inverting the proposal's rows-first preference, for adoption. All three delivery routes (schema hint · SessionStart hook · discipline). `MEMORY*.md` lines stay until delivery works. See §D10 |
 | **D11 seats must be able to LOOK THINGS UP** | **OWNER DIRECTIVE 07-27 evening, go given.** Three layers — index *contains* it (bodies+markdown, needs a migration), question is *routed* (config, cheapest), and the *dynamic* round-trip (unscoped, own RFC). The shipped caveat is an interim, not a destination |
 
 > **⚠ SUPERSEDED IN PART, 2026-07-28 evening — D9 WAS REOPENED AND REVERSED BY THE
@@ -911,7 +911,49 @@ with the Step 2 real fix"), with the correction recorded that layer 3 was not wh
 
 ---
 
-### D10 — landmines as a footprinted corpus — DRAFTED BY ANOTHER THREAD, awaiting your fold-in
+### D10 — landmines as a footprinted corpus — ✅ RULED BY THE OWNER 2026-07-29
+
+> **RULED 2026-07-29 (owner), recorded by the `webdesign_uk_build_service` thread,
+> which was asked to present the options and did not write the proposal.** Four
+> answers; the proposal's §4 sub-decisions map onto them as noted.
+>
+> 1. **D10(a) — name the ladder: DONE**, ahead of the ruling. `CLAUDE.md` and the
+>    new `LANDMINES.md` both state incident → landmine → automation.
+> 2. **D10(b) — system of record: MARKDOWN, synced INTO `doc_notes`.**
+>    `docs024_key_docs_latest/LANDMINES.md` is authoritative; a script syncs
+>    entries to rows. **This inverts the proposal's own preference** (it argued
+>    rows-first). The reason is adoption: a markdown append costs ten seconds,
+>    needs no cluster, and works in a fresh clone or with an expired kubeconfig —
+>    and an unadopted ledger is the failure mode this whole item exists to fix.
+>    The `footprint` field in the entry format is what makes the sync mechanical.
+> 3. **D10(c) + D10(d) — delivery: ALL THREE**, not one. Council seats via the
+>    schema hint; sessions via a `SessionStart` hook; plus the standing discipline
+>    in `CLAUDE.md`. The proposal recommended against discipline *standing alone* —
+>    it is not alone here.
+> 4. **The 40 LANDMINE lines in `MEMORY*.md`: LEAVE THEM** until delivery works,
+>    per the proposal's own §5 staging rule. Duplication is the correct state.
+>
+> **Two corrections to the proposal, measured 2026-07-29 while costing the options:**
+>
+> - **§3's "No migration needed" is wrong if you want `subject_type='landmine'`.**
+>   `doc_notes_subject_type_check` restricts it to
+>   `tool|pipeline|experience|action|experience-pattern`. That is *why* the 7
+>   existing rows are `subject_type='action'` with a `landmine` **category** — the
+>   constraint left them no choice. Adding the type is migration **270** and is
+>   additive-and-inert, so it is normal council-gate scope, not RFC (owner ruling
+>   2026-07-29 §1).
+> - **§5's `[UNVERIFIED]` on the footprint map: RESOLVED.** It is real and lives in
+>   `council-gate.default_config` as a keyword→seat map (`doc_notes` sits under the
+>   `tooling_provenance` seat). But that is a seat **trigger**, not a context load —
+>   so D10(c) is confirmed genuinely open, exactly as the proposal said.
+>
+> **And the state the proposal could not have known**, because it postdates it:
+> `doc_notes` already carries **7 rows** under `categories ? 'landmine'`, written
+> 2026-07-27/28 by *architecture council 2* and *bugsearch-thread*, footprinted by
+> action name. The practice started without a decision. Those rows fold into the
+> markdown file as part of implementing (b) — they are not discarded.
+
+### D10 — the original proposal, as drafted
 
 > **RENUMBERED D9 → D10, 2026-07-27 evening — a genuine concurrent collision, not
 > a correction to anyone's work.** Two threads independently claimed D9 within
