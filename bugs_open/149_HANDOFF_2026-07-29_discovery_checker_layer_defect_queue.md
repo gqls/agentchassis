@@ -318,3 +318,65 @@ same layer, already owned) · `bugs_open/140` (a component asserting what the si
 never said) · `bugs_open/117`/`118` (chrome is a stored artefact) ·
 `bugs_open/098` (deployed ≠ fetchable; A1 is fetchable ≠ reachable) ·
 016b §9 *"a detected defect whose handler cannot act on it"*.
+
+---
+
+## C1 — WITNESSED, with the false copy live and deployed, 2026-07-29/30
+
+C1 was measured statically (2 of 22 handlers gate on `validate_page_content`).
+**It has now happened.** `page-content-writer` — the agent C1 names as "the
+important one" — wrote four false claims into gamesdesign.co.uk's homepage, which
+rendered, compiled, completed and **deployed**, with nothing anywhere in the path
+objecting.
+
+Provenance: a `content_rewrite` item raised by `site-review-agent` during the
+hand-fired `improvement-sweep` run of 07-29 (`bugs_open/083` contribution;
+`bugs_open/150`). Item `b587fe1e`, `page-build-handler` → `page-content-writer`
+17:17:34→17:26Z, page `deployed_at 17:26:22`.
+
+**What it wrote, and what was true:**
+
+| claim | reality |
+|---|---|
+| "built **by** a shipped live-service designer" | the previous copy said "built **for** live-service and tabletop designers". **The audience was rewritten into a credential** — a fabricated human qualification on a generated site |
+| "drop-rate simulators run **10,000 Monte Carlo trials per query**" | the tool computes the binomial distribution **analytically** (Lanczos log-gamma for `C(n,k)`); `Math.random` appears **nowhere**. No sampling, no trials. 10,000 is `Math.min(val, 10000)`, a browser-freeze ceiling on attempts modelled, and the input defaults to `value="50"` |
+| "11 interactive tools" / "10 technical guides" | **both exact** — and worth recording, because the same component's own `stat1_value`/`stat4_value` already held `11` and `10` |
+
+**The mechanism-shaped lesson, which is worse than a wrong number.** The false
+claims were not random: the LLM took a true sentence, made one grammatical
+substitution ("for" → "by"), and then **invented supporting specifics to justify
+the new sentence** — a trial count, a technique name, a "strict baseline". A
+fabrication that arrives with corroborating detail reads as *more* researched than
+the honest copy it replaced. No claims gate ran, and a human reading it for tone
+would not have caught it either.
+
+**The claim was repeated in four components, not one** — `hero.subheadline`,
+`game-list.section_intro`, `guide-list.cta_subtext`, and `system-stats` as a
+**headline stat card** (`stat2_label: "Monte Carlo Trials"`, `stat2_value:
+"10,000"`). So a write-time gate must consider the page, not the field: fixing one
+mention would have left a corrected sentence directly above a stat card asserting
+the same falsehood.
+
+**Partially self-corrected, by luck rather than by a gate.** A second rewrite at
+18:10:15 removed the fabricated credential and kept everything else. Nothing
+recorded *why*, and no gate was involved — so the one genuinely dangerous claim
+(a human qualification) survived on the live site for ~44 minutes and was then
+removed by an unrelated iteration. That is not a control.
+
+**Remediated by hand 2026-07-30** (owner instruction) across all four components,
+writing **both** `content_data` and `rendered_html` per component, each guarded on
+its own `updated_at`, so neither a regeneration-from-source nor an assemble-only
+rerender can restore it. The figure 10,000 was KEPT where it is true (the attempts
+ceiling) and the mechanism claim dropped; `stat2` became "Max Attempts Modelled".
+The 10 other site components mentioning Monte Carlo were left alone — they are
+guides *about* RNG design, i.e. legitimate exposition, and C1's gate must not flag
+those.
+
+**What this adds to C1's fix.** The verification query in C1 is necessary and not
+sufficient: it proves a `validate_page_content` step exists. It cannot prove the
+step would have caught THIS, because the two wrong counts were right and the
+detectable falsehoods were a mechanism name and a credential — the
+`banned_claims`/`stat_claims` families from `bugs_closed/104`. **Before declaring
+C1 fixed, run the gate against this exact stored copy** (recoverable from
+`page_component_history` for page `6e988cc4-4898-4021-aa5e-2ab0271f9b75`) and
+confirm it fires. A gate that passes this text is not a gate.
