@@ -489,3 +489,89 @@ FROM orchestration_states WHERE correlation_id='<CORR>'::uuid;
   nobody reads; `body.error.message` names the cause. That is how the
   `initial_step`-for-`start_step` seed defect hid for a day (016b §9,
   2026-07-29).
+
+---
+
+## Claims blast-radius scan, fleet-wide (added 2026-07-30)
+
+The measurement to run before changing anything in the claims layer, and the one
+that sized `bugs_open/149` C1. It uses the gate's own engine, so it predicts what
+the platform will actually do.
+
+**Every step below exists because it went wrong once.** Do not shorten it.
+
+```bash
+S=/tmp/scratch; mkdir -p "$S/corpus"
+go build -o "$S/claimscan" ./cmd/claimscan
+
+# 1. Site list WITH the expected component count — you need it to detect truncation.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT s.id, s.domain,
+  (SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id
+   WHERE p.site_id=s.id AND pc.rendered_html IS NOT NULL
+     AND pc.rendered_html <> '' AND pc.locked_at IS NULL) AS components
+FROM sites s ORDER BY 3 DESC;"
+
+# 2. Export per site. TWO traps in this loop:
+#    - kubectl exec -i EATS the loop's stdin -> read from fd 3 (or < /dev/null).
+#    - the stream TRUNCATES on large exports, leaving a well-formed SHORT file
+#      with only 'unexpected EOF' on stderr. Assert the count and retry.
+while IFS='|' read -r sid domain want <&3; do
+  for attempt in 1 2 3; do
+    kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c \
+      "SELECT p.name || E'\t' || COALESCE(pc.slot_name,'') || E'\t' ||
+              replace(encode(convert_to(pc.rendered_html,'UTF8'),'base64'), E'\n', '') ||
+              E'\t' || COALESCE(p.page_type,'')
+       FROM page_components pc JOIN pages p ON p.id = pc.page_id
+       WHERE p.site_id = '$sid' AND pc.rendered_html IS NOT NULL
+         AND pc.rendered_html <> '' AND pc.locked_at IS NULL" \
+      < /dev/null > "$S/corpus/$domain.tsv" 2>/dev/null
+    [ "$(wc -l < "$S/corpus/$domain.tsv")" = "$want" ] && break
+    echo "SHORT $domain — retrying"
+  done
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c \
+    "SELECT data FROM site_specs WHERE site_id='$sid' AND aspect='evidence_base' AND is_current" \
+    < /dev/null > "$S/corpus/$domain.evidence.json"
+done 3< sites.txt
+
+# 3. Scan each site against ITS OWN register. Omit -evidence for an unarmed site:
+#    that scans exactly as the platform scans it (fleet-wide patterns only).
+#    The 4th TSV column is page_type — WITHOUT it every page reads UNKNOWN and you
+#    get the editorial false positives the platform itself no longer raises.
+"$S/claimscan" -evidence "$S/corpus/$d.evidence.json" -components "$S/corpus/$d.tsv"
+
+# 4. Read the results with `command grep -a`. NOT bare grep: in the Claude Code
+#    shell grep is a ugrep wrapper with -I, and one non-UTF-8 byte in site copy
+#    makes it return zero matches AND PRINT NOTHING — not even 0. LC_ALL=C does
+#    not help. A blank where a count should be is the tell.
+command grep -ac "^BANNED" "$S/scan_all.txt"   # blockers — these REFUSE a save
+command grep -ac "^NUMBER" "$S/scan_all.txt"   # errors  — recorded, allowed
+```
+
+**Reading it:** `BANNED` lines are what the build gate AND (since `CLM-018`) the
+persistence floor will refuse. `NUMBER` lines only ever record. `banned_claim` is the
+JSON value and appears nowhere in the output — grepping for it returns 0 on every
+site, a false all-clear.
+
+**Result 2026-07-30, for comparison only — re-measure, never quote:** 949 components
+/ 14 sites → 3 BANNED (webdesign.co.uk `tool-blueprint-compiler`; robot-hands.com
+`how-it-works` and `gripper-catalog`), 59 NUMBER on the 4 armed sites. The surface was
+908 on 07-28 and 919 on 07-29 — it moves every day.
+
+## Verifying a chassis deploy carries your change (added 2026-07-30)
+
+`bugs_open/153`: an `IMAGE_TAG` bump does not imply a rebuild, and `verify-agent-images`
+prints all-green on a retag. So prove it in the binary, with controls:
+
+```bash
+docker run --rm --entrypoint sh docker.io/aqls/agent-chassis:<tag> -c '
+  strings /app/agent-chassis | grep -c "<a string YOUR change added>"      # expect >0
+  strings /app/agent-chassis | grep -c "CONTENT_LINK_REPAIR_DETAIL"        # positive control, expect >0
+  strings /app/agent-chassis | grep -c "<a string that exists nowhere>"'   # negative control, expect 0
+```
+
+**Pick an ASCII-ONLY marker.** `strings` splits a Go literal at every non-ASCII byte,
+so any marker containing an em dash — which house style makes likely in error messages
+— greps to **0** in an image that demonstrably contains it. That reads exactly like a
+failed build. Measured on `v1.0.1208`: em-dash form 0, ASCII fragment of the same
+literal 1.
