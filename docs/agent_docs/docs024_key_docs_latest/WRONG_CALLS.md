@@ -11803,3 +11803,239 @@ that fires when you touch something, where the wrong result looks like the right
 own founding sentence was one. Corrected in place in both documents rather than edited away,
 and the file now opens by warning that **three** stores exist and that nobody should
 consolidate them unilaterally before D10 is ruled.
+
+## 2026-07-29 — I fixed a defect with a derivation that could not reach it (dartsonline_traffic)
+
+**The claim.** Diagnosing why 17 generated icons were unusable, I found the tile
+behind an icon rendering from a light literal — `var(--color-icon-chip-bg,
+#EEF2F8)` — on a site whose background is `#111520`. I added `icon_chip_bg` to
+`darkSchemeDerivations` in `palette_specialised_slots.go`, wrote two tests, and it
+compiled and passed. I was ready to submit it as the second half of the fix.
+
+**What was true.** It would have changed nothing at all. The palette reaches a
+stylesheet **only** through `{{palette "X" "literal"}}` calls in a LAYOUT template,
+so a slot no layout names is never emitted and the component's own fallback ships
+regardless of what the derivation list says. Measured across all 18 layouts:
+`card_bg` declared by **18**, `surface_alt` by **3**, `icon_chip_bg` by **0**.
+
+And the literal was far narrower than it looked: `icon-chip-bg` appears in exactly
+**one** active component fleet-wide (`info-card-grid`, image variant only), while
+`image-hover-card-grid` — the component image cards actually use — already reads
+`var(--color-surface-alt, var(--color-surface))`, which *is* derived. So the path
+that mattered was already correct.
+
+**What caught it.** Going to check who consumed the slot, before submitting, in
+order to write the blast radius honestly. Two queries. Nothing prompted them
+except the habit of having to state a number.
+
+**The cheap check that would have.** `SELECT count(*) FROM layouts WHERE
+css_template LIKE '%palette "<slot>"%'` — one line, before writing any code.
+**A derivation is only live if a consumer asks for it.** Passing tests are not
+evidence of reach: mine asserted the derivation produced a value, which it did,
+and could not see that nothing read it.
+
+**The general form, and the reason this is the entry I most want to keep.** This
+is *dead config* — the shape CLAUDE.md warns about — and I was the one about to
+create it, while in the middle of fixing a different defect of the same family.
+A fix that cannot reach the artefact is indistinguishable from one that does, from
+everywhere except the artefact. Removed, and the negative result left as a comment
+where the entry would have gone, so the next author does not re-add it.
+
+Family: grep-the-config-key-before-calling-it-a-win; writes-the-field-is-not-reads-the-field;
+a-doc-comment-is-not-an-enforcement-mechanism.
+
+## 2026-07-29 — I typed plausible baseline numbers into a verification block, then ran the query (dartsonline_traffic)
+
+**The claim.** Writing a SQL file that queued a head-only rebuild of two pages, I
+recorded a "before" baseline in the verification comment so a later reader could
+tell whether the body copy had been rewritten:
+
+> `about: hero-about 2723 · about-content 4544 · differentiators 3903 · call-to-action 2179`
+> `index: hero 2621 · info-card-grid 4423 · category-listing 2151 · call-to-action 2118`
+
+**What was true.** `about: 2320 · 3358 · 2562 · 2227` and
+`index: 3007 · 7144 · 315 · 2336`. **Every one of the eight was wrong.** One was
+out by more than 2×, and `category-listing` was 315 bytes — an empty section that
+had been broken for a fortnight, which the invented figure of 2151 actively
+concealed.
+
+**What caught it.** Running the query, a minute later, because I wanted to paste
+the real output into the file. Not a check — an accident of ordering.
+
+**The cheap check that would have.** Running the query first. There is no
+sophistication to add here.
+
+**Why it is worth an entry rather than a shrug.** The numbers were not a guess I
+labelled as one; they were written in the position where measurements go, in a
+file whose whole purpose was to let someone verify a claim. A future reader
+comparing against them would have concluded the body had been rewritten when it
+had not — and the one genuinely diagnostic figure in the set, the 315-byte empty
+section, would have been read as normal. **An invented figure in a verification
+block is worse than no figure: it converts an unchecked claim into a checked-looking
+one, and it will be trusted by exactly the person who is trying to be careful.**
+
+Family: a-print-statement-is-not-a-config-row; check-answers-the-question-you-encoded.
+
+## 2026-07-29 — my council submission asserted an import cycle and a palette shape, and neither was evidence (dartsonline_traffic)
+
+**Two claims in one submission, both correctly objected to, recorded together
+because they are the same error at different scales.**
+
+**Claim 1: "discovery_checks is imported BY actions, so reusing its helper would be
+a cycle."** True, as it happens — 6 files one way, 0 the other — but in round 1 I
+asserted it without attaching the import graph. `prior_art_librarian` called it
+"exactly the ASSERTED-ABSENCE shape: a claim that a reuse path does not exist,
+used to license a duplicate implementation, with no import-graph or symbol
+evidence attached." Correct. And when I did produce the evidence in round 2, it
+showed the *real* obstacle was smaller than I had said: the helper was merely
+**unexported and took a `DiscoveryCheckContext`**. Round 2 was APPROVED — and
+**seven of thirteen seats** still objected that I had duplicated the query rather
+than exporting the function. Exporting it took twenty lines. **My reason for not
+reusing something was itself the whole fix, and I had not noticed because I had
+described the obstacle instead of measuring it.**
+
+**Claim 2: "no live palette has a dark background with a light surface."** I gated
+a new code path on `background` being dark while building its output from
+`surface`, and defended the gap in the submission's own risk section by saying I
+had manually checked the ten live palettes. The `guardian` seat: that is "an
+assumption baked into new code with a silent-failure mode". Correct — and *"I
+looked at the current rows"* expires the moment an eleventh palette is authored.
+Asking the same question of the same value costs nothing and cannot go stale; both
+now call one function.
+
+**What caught them.** The council, both times. Not me.
+
+**The cheap check that would have.** For claim 1: `grep -l` in both directions,
+plus `grep "func loadComposedPalette"` to see the signature — under a minute, and
+it would have turned "I cannot reuse this" into "I need to export this". For
+claim 2: gate on the value you use, not on a neighbouring one.
+
+**The pattern across both.** I wrote a *reason* where a *measurement* belonged, and
+in both cases the measurement was cheaper than the sentence. CLAUDE.md already says
+"'no collision is possible' is a query, not an argument" — I had that line quoted
+in my own round-2 rationale about a *different* defect while committing the same
+error twice more in the same document.
+
+Family: answer-review-objections-with-evidence; a-scope-objection-is-not-answered-by-more-evidence;
+survey-the-premise-before-building.
+
+## 2026-07-30 — the "safe default" in a script I wrote would have committed the change (dartsonline_traffic)
+
+**The claim.** I wrote a config-change SQL file in the house dry-run style —
+`-- BEGIN;` commented out at the head, `ROLLBACK;` live at the foot, with a comment
+reading *"safe default: flip to COMMIT only when step 3 and 4 read right"* — and
+handed it forward as safe to run unchanged.
+
+**What was true.** Run as written, there is no transaction. Every statement
+autocommits and the trailing `ROLLBACK` is a no-op that emits one line —
+`WARNING: there is no transaction in progress` — at the very end, after all the
+verification output you are actually reading. **The safe default would have
+committed the change while appearing not to.**
+
+**What caught it.** Wanting a genuine dry run, and therefore uncommenting `BEGIN`
+before the first execution. I got the dry run I intended by accident of intent, not
+because the file provided it.
+
+**The cheap check that would have.** Read the first non-comment statement. If it is
+not `BEGIN;`, there is no transaction to roll back.
+
+**Why it matters beyond one file.** The convention is sound and widely used here;
+the failure is that its two halves are commented out *independently*, so a file can
+sit in a state where the guard is present and inert. That is the same shape as the
+dead-config entry above: a mechanism that reads as protection and is not.
+`(echo 'BEGIN;'; cat file.sql; echo 'ROLLBACK;') | psql` cannot get this wrong.
+
+Family: logging-a-doubt-is-not-a-control-on-it; a-doc-comment-is-not-an-enforcement-mechanism.
+
+## 2026-07-30 — I was one step from filing "the snapshot silently failed" (dartsonline_traffic)
+
+**The claim, not made.** After a config change I checked that its
+`snapshot_agent('build-site-planner', '<reason>')` call had produced a restorable
+backup. `SELECT count(*) FROM agent_definitions WHERE type='build-site-planner'
+AND is_snapshot` returned **0**, and fleet-wide there was exactly **1** snapshot
+row, for an unrelated agent. The function had printed
+`NOTICE: Snapshot captured: type=build-site-planner, source_id=…` and returned a
+uuid. That is a mechanism reporting success while doing nothing — a bug file, and
+a good one.
+
+**What was true.** `snapshot_agent` has **two overloads with two destinations.**
+The one-argument form inserts an `is_snapshot = true` row into
+`agent_definitions`; the two-argument form I had called writes to
+**`agent_definitions_backup`**, with `snapshot_taken_at` and `snapshot_reason`
+columns. The snapshot was there, timestamped, and — the part that actually matters
+— carrying the pre-change text.
+
+**What caught it.** Reading the function body before writing the claim up.
+`pg_proc` showed two rows for `proname='snapshot_agent'` with different signatures,
+and I had read the wrong one's source first.
+
+**The cheap check that would have.**
+`SELECT pg_get_function_identity_arguments(oid) FROM pg_proc WHERE proname='…'`
+before concluding anything about what a function does. More usefully: I was asking
+the wrong question. **"Does a snapshot row exist" is not the check — "does the
+backup hold the PRE-change config" is**, because a snapshot written after the
+UPDATE would exist and restore nothing. `backup_has_old_hex = t` is the assertion,
+and it happens to answer the existence question for free.
+
+**The near-miss is the point.** Everything about the evidence supported the wrong
+conclusion: a success NOTICE, a returned uuid, zero rows in the table I checked, and
+a fleet-wide count of one that made "snapshots barely work here" feel plausible. It
+would have been a confident, cited, false bug report, and the cost would have been
+borne by whoever tried to reproduce it. Two overloads is a boring explanation and it
+was the true one.
+
+Family: check-answers-the-question-you-encoded; grep-the-config-key-before-calling-it-a-win;
+a-count-you-kept-is-not-a-census.
+
+---
+
+## 2026-07-30 — I told the owner a live page carried four fabricated claims. One did, and it had already been fixed.
+
+**The claim.** An LLM copy rewrite (from the `improvement-sweep` run of 07-29)
+replaced gamesdesign.co.uk's hero. I reported four false statements in it — two
+wrong counts, a fabricated mechanism, and an invented human credential — called
+it "fabricated claims live on a commercial-looking site", **escalated it to the
+owner as urgent, and obtained a decision to revert.** Then, re-grounding the
+figures before writing, three of the four collapsed:
+
+| what I said | what is true |
+|---|---|
+| "11 tools" is wrong, there are 14 | **11 is exact** — 11 pages under `/tools/` |
+| "10 guides" is wrong, there are 5 | **10 is exact** — 5 `guide-*` + 5 `tool-*-guide` |
+| "10,000 Monte Carlo trials" is fabricated | **overstated, not fabricated** — the simulator is real, defaults to `value="50"`, and 10,000 is `Math.min(val, 10000)`, a browser-freeze cap |
+| "built by a shipped live-service designer" is invented | **correct, and the only one** — and a later rewrite at 18:10 had already removed it |
+
+**What caught it.** Listing the rows instead of counting them. `SELECT name, url`
+on the tool and guide pages showed the site names its guides **two different
+ways** — `guide-economy-basics` AND `tool-loot-table-balancer-guide`, both served
+from `/guides/`. My `name LIKE 'guide-%'` filter missed five of the ten; my
+`name LIKE 'tool-%'` filter swept those same five IN. **One naming convention I
+had not looked at produced both errors, in opposite directions, and they looked
+like independent confirmation of each other.**
+
+The Monte Carlo error was different and worse in kind: I tested
+`rendered_html ~* 'monte carlo'` and read `false` as "the tool does not do this".
+A Monte Carlo simulation is repeated random sampling; **nothing obliges the code
+to contain the phrase.** I searched for the marketing wording and reported on the
+behaviour.
+
+**Why it matters more than the earlier entry on the same day.** The idle-pipeline
+call was wrong in a chat message I corrected myself. This one **reached the owner
+as an urgent finding with a recommended action, and he decided on it.** An
+approval obtained on a false premise is not an approval; had I acted on it
+immediately I would have reverted accurate copy, destroyed the one genuine
+improvement the loop made, and reported it as a fix. The pause between his
+decision and my acting on it was the only thing that caught this, and it was
+luck — the token expiring — not method.
+
+**The cheap checks, both of which I own as memory entries already:**
+1. **Before asserting a count is wrong, LIST the rows.** A prefix filter encodes a
+   naming convention you are assuming; `GROUP BY` and `LIKE` will both confirm it
+   back to you. Family: `narrow-filter-defines-the-conclusion`.
+2. **Never test a capability by grepping for its NAME.** Test for the behaviour —
+   the loop, the constant, the call. A technique that has a marketing name and an
+   unremarkable implementation will read as absent every time.
+3. **When escalating something as urgent, re-ground every figure in the escalation
+   BEFORE sending it, not before acting on the reply.** Urgency is exactly the
+   condition under which the checks get skipped, and it is also the condition under
+   which being wrong costs the most, because someone else now acts on it.
