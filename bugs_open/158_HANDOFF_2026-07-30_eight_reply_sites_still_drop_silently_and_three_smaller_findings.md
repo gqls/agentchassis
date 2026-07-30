@@ -89,6 +89,48 @@ unchanged. That is why 133's adoption tests live in the *adapter* package and
 assert an error response actually goes out. Copy that shape; do not rely on
 `platform/kafka`'s own tests to tell you a site is fixed.
 
+## 1b. THE CONTENT IS STILL DISCARDED — 133 made the claim honest, not the payload
+
+Stated plainly because it is the easiest thing to lose: **`bugs_closed/133` did not
+stop content being destroyed.** It stopped us lying about it.
+
+133's fix candidate 1 offered two variants:
+
+> *(a) do not truncate and let B's fix handle an oversized reply, or (b) truncate
+> with a marker that says the remainder was **discarded**, not stored. (b) is a
+> two-line change and removes the false claim immediately; **(a) is the better
+> behaviour but needs B first**.*
+
+133 shipped (b) plus the "best of all" URI-naming variant, **and it also shipped B**
+— so (a) is now available for the first time and was deliberately not taken. Why
+not: (a) means replies carry full content up to the broker limit and rely on the
+degrade path when they do not fit, which changes reply sizes on every scrape in the
+fleet and is entangled with the unresolved cap question below. That is a throughput
+and cost decision, not a bug fix.
+
+**What still bites, unchanged since 2026-07-28:** the cut is the document **tail**;
+a UK company registration number conventionally sits in the page **footer**;
+`vet-practice-verifier/scrape_website` exists to extract exactly that and still has
+`upload_results` unset. `bugs_open/100` waits on that pipeline. This is
+`[INFERRED]` — a mechanism, not a measurement — and 133 flagged it as cheap to
+settle: **if company-number extraction has a poor hit rate on pages over 50KB and a
+good one under, this is why.** No vet page has been scraped since 2026-03-18, so it
+has still never been observed.
+
+**The cheapest thing that would help without deciding (a):** turn `upload_results`
+on for the handful of steps whose *purpose* is extraction from a long page. That is
+per-step, reversible, and is not the fleet-wide default change that 133's fix
+candidate 3 rules an owner call. It also makes the marker *truthful and useful*
+rather than truthful and bleak, because there will be a URI to name.
+
+**And the cap question, unresolved, which (a) depends on:**
+`system.agent.generic.responses` has no topic-level `max.message.bytes` and the
+cluster CR sets none, so ~1MB applies — while
+`platform/kafka/topic_manager.go:151,227` sets **5,242,880** on topics it creates,
+which the auto-created reply topics are not. Two numbers, no stated intent. 133
+flagged it and deliberately did not guess; whoever decides (a) has to decide this
+first.
+
 ## 2. `storage.pages` is index-misaligned with `result.pages`
 
 `internal/adapters/webscrape/adapter.go:812-856`. The per-page upload record is
@@ -166,6 +208,11 @@ changes, and the choice is whether a shared double is wanted at all.
 
 ## Fix order
 
+0. **Item 1b's cheap half** — turn `upload_results` on for the few steps whose
+   purpose is extraction from a long page (`vet-practice-verifier` first, since
+   `bugs_open/100` waits on it). Per-step, reversible, not the fleet-wide default
+   change 133 rules an owner call — and it unblocks the company-number hit-rate
+   measurement that would settle a two-day-old `[INFERRED]`.
 1. **Item 4** — trivial, no behaviour risk, removes a trap. Do it first.
 2. **Item 1** — the real work, and it needs an RFC. Size it with the measurement
    above before writing one; the answer may be "7 latent, 2 exposed".
