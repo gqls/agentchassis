@@ -323,8 +323,6 @@ func portedPageComponentID(ctx context.Context, tx *sql.Tx) (id uuid.UUID, found
 			"no active content_components row with function=%q — verbatim adoption needs the shared passthrough component; seed it once, do not create a second",
 			portedPageSlot)
 	}
-	// Oldest wins, deterministically. cmd/webdesignport's own lookup takes the
-	// NEWEST, so a second row would split the two porters — hence the count.
 	return ids[0], len(ids), nil
 }
 
@@ -356,11 +354,27 @@ func applyVerbatimAdoption(
 			len(crawlPages))
 	}
 	if len(skipped) > 0 {
-		// Not fatal, but never silent: a page present in the crawl yet
-		// unpreservable is exactly what a caller asking for verbatim needs told.
-		logger.Warn("Verbatim adoption: crawled pages without rawHtml were SKIPPED",
-			zap.Int("skipped", len(skipped)),
+		// FAIL LOUD rather than adopt a partial copy.
+		//
+		// A warning was the original behaviour and it was wrong: for a
+		// PRESERVATION run an incomplete copy is not a partial success, it is the
+		// wrong result — the operator asked for the site as it stands and would
+		// have got it minus some pages, with the only trace a log line nobody
+		// reads. Dropping content instead of failing is the exact pattern the
+		// escalate-not-blank contract exists to prevent (raised by the
+		// render_guardian seat, council f9eae63e round 1).
+		//
+		// Naming the paths makes the next action obvious: either the crawl needs
+		// to capture them (JS-rendered pages may need a different scrape mode) or
+		// the operator genuinely does not want them, in which case they should not
+		// be reachable from the source site.
+		logger.Error("Verbatim adoption: crawled pages carry no rawHtml — refusing to adopt a partial copy",
+			zap.Int("unpreservable", len(skipped)),
+			zap.Int("preservable", len(byPath)),
 			zap.Strings("paths", skipped))
+		return 0, 0, fmt.Errorf(
+			"verbatim adoption would drop %d of %d crawled page(s) that carry no rawHtml (%s) — a preservation run must not adopt a partial copy; capture them or exclude them at the source",
+			len(skipped), len(skipped)+len(byPath), strings.Join(skipped, ", "))
 	}
 
 	componentID, componentsFound, err := portedPageComponentID(ctx, tx)
@@ -368,9 +382,23 @@ func applyVerbatimAdoption(
 		return 0, 0, err
 	}
 	if componentsFound > 1 {
-		logger.Warn("Verbatim adoption: MORE THAN ONE active ported-page component — using the oldest; cmd/webdesignport takes the NEWEST, so the two porters are now writing different components",
-			zap.Int("found", componentsFound),
-			zap.String("using", componentID.String()))
+		// REFUSE rather than pick, which is what removes the divergence instead
+		// of documenting it.
+		//
+		// Two porters write this slot: cmd/webdesignport resolves ties by the
+		// NEWEST matching row, this path by the OLDEST. While exactly one active
+		// row exists (verified: one, 2026-07-30) the tie-break never fires and the
+		// two agree by construction. A second row is the moment they silently
+		// disagree — each porting against a different component.
+		//
+		// The reuse_agent seat's objection (council f9eae63e round 1) was that
+		// logging a count "is a mitigation, not a unification — it lets the
+		// inconsistency ship". Correct. Failing here means the ambiguity must be
+		// resolved by a human before either porter runs again, which is the only
+		// outcome in which both porters remain consistent.
+		return pagesCreated, itemsQueued, fmt.Errorf(
+			"found %d active content_components rows with function=%q — verbatim adoption resolves ties by the OLDEST row while cmd/webdesignport takes the NEWEST, so two porters would write different components; consolidate to one active row (or deactivate the duplicates) before adopting",
+			componentsFound, portedPageSlot)
 	}
 
 	// Deterministic order so logs and any partial failure are reproducible.
@@ -398,13 +426,22 @@ func applyVerbatimAdoption(
 			continue
 		}
 		if prev, clash := usedNames[pageName]; clash {
-			// Two distinct paths reducing to one name would silently overwrite
-			// each other through ON CONFLICT (site_id, name).
-			logger.Warn("Verbatim adoption: page name collision, skipping later path",
+			// FAIL LOUD. Two distinct paths reducing to one name would overwrite
+			// each other through ON CONFLICT (site_id, name), so one of the two
+			// source pages would simply never be adopted.
+			//
+			// This used to skip-with-a-warning, which the render_guardian seat
+			// correctly called out (council f9eae63e round 1) as "silently drop
+			// content instead of failing loud" — a page from the source site
+			// vanishing with no artefact a human would see short of grepping logs.
+			// In a preservation run that is a wrong result, not a degraded one.
+			logger.Error("Verbatim adoption: two source paths reduce to one page name — refusing to overwrite one with the other",
 				zap.String("name", pageName),
-				zap.String("kept", prev),
-				zap.String("skipped", deployPath))
-			continue
+				zap.String("first", prev),
+				zap.String("second", deployPath))
+			return pagesCreated, itemsQueued, fmt.Errorf(
+				"verbatim adoption: source paths %q and %q both reduce to page name %q, so adopting both would overwrite one via ON CONFLICT (site_id, name) — resolve the collision (the identity derivation is verbatimPageIdentity) rather than losing a page",
+				prev, deployPath, pageName)
 		}
 		usedNames[pageName] = deployPath
 
@@ -533,6 +570,54 @@ func applyVerbatimAdoption(
 		if inserted {
 			itemsQueued++
 		}
+	}
+
+	// Record the classifier skip where a human will find it.
+	//
+	// The locked path deliberately does not queue needs_domain_research, so the
+	// strategist → briefing → planner → design cascade never runs for this site.
+	// That is the point (the cascade would restyle a site being preserved), but
+	// doc 028 states the classifier "always runs in full", so this is a real
+	// divergence from the documented pipeline and must not be discoverable only by
+	// reading Go comments — the adoption_guardian and mission seats both objected
+	// on exactly that ground (council f9eae63e round 1), mission's wording being
+	// that nothing "writes a work item or doc_note recording 'classifier did not
+	// run, fidelity=locked' the way the anti-silent-override principle expects".
+	//
+	// Written in the SAME transaction as the pages, so a site cannot exist in the
+	// skipped state without the note explaining it.
+	if _, nErr := tx.ExecContext(ctx, `
+		INSERT INTO doc_notes (subject_type, subject_key, site_id, body, categories,
+		                       source, source_agent, created_by)
+		VALUES ('pipeline', $1, $2, $3, '["adoption","fidelity-locked","classifier-skipped"]'::jsonb,
+		        'adoption', 'site-adoption-agent', 'apply_adoption_plan')
+	`, domain, siteID, fmt.Sprintf(
+		"## Classifier NOT run: adopted verbatim (fidelity=locked)\n\n"+
+			"%d page(s) adopted from %s with their crawled URLs and bytes preserved "+
+			"(rebuild_policy='owned', one 'ported-page' component each, "+
+			"content_data.deploy_mode='verbatim').\n\n"+
+			"**What did NOT happen.** No `needs_domain_research` item was queued, so "+
+			"none of domain-research-classifier → domain-strategist → build-briefing-agent "+
+			"→ build-site-planner → site-design-planner → webdesign-agent ran for this "+
+			"site. It therefore has no classification, no site plan, and no generated "+
+			"design — by intent: that cascade produces chrome and a page plan, and "+
+			"applying it to a site adopted for preservation would restyle and re-plan "+
+			"exactly what the operator asked to keep.\n\n"+
+			"**Why this note exists.** doc 028 says the classifier always runs in full "+
+			"and that inputs weight it rather than shortcut it. This path shortcuts it, "+
+			"so the divergence is recorded here rather than left implicit. If this site "+
+			"should later evolve as a normal platform site, the route is to queue "+
+			"`needs_domain_research` for it deliberately — and to expect the design "+
+			"cascade to replace the preserved pages, which is why it is not automatic.\n\n"+
+			"**Pages are not pipeline-owned.** `rebuild_policy='owned'` means "+
+			"save_page_sections refuses them and rerender ships their stored bytes "+
+			"unmodified, skipping assembly, outbound-link repair and CSS/JSON-LD "+
+			"injection. Quality layers that run at render time do not run for these pages.",
+		pagesCreated, sourceDomain)); nErr != nil {
+		// A missing note must not silently accompany a skipped classifier — that is
+		// the whole failure this note prevents.
+		return pagesCreated, itemsQueued, fmt.Errorf(
+			"verbatim adoption: failed to record the classifier-skip doc_note (refusing to leave the skip undocumented): %w", nErr)
 	}
 
 	logger.Info("Verbatim adoption complete",

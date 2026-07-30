@@ -423,3 +423,80 @@ func TestLoadVerbatimPageHTMLFallsBackOnQueryError(t *testing.T) {
 		t.Error("a failed lookup must not report the page as verbatim")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// portedPageComponentID — returns a COUNT so the caller can refuse ambiguity
+// rather than silently pick. cmd/webdesignport resolves ties by the NEWEST row
+// and this path by the OLDEST, so a second active row means the two porters
+// write different components; applyVerbatimAdoption fails on found > 1.
+// ---------------------------------------------------------------------------
+
+func TestPortedPageComponentID(t *testing.T) {
+	newID := func() string { return uuid.New().String() }
+
+	t.Run("exactly one active row is the healthy case", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		want := uuid.New()
+		mock.ExpectBegin()
+		mock.ExpectQuery("FROM content_components").
+			WithArgs(portedPageSlot).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(want))
+		tx, _ := db.Begin()
+		got, found, err := portedPageComponentID(context.Background(), tx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if found != 1 {
+			t.Errorf("found = %d, want 1", found)
+		}
+		if got != want {
+			t.Errorf("id = %s, want %s", got, want)
+		}
+	})
+
+	t.Run("no active row fails rather than seeding a second", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		mock.ExpectBegin()
+		mock.ExpectQuery("FROM content_components").
+			WithArgs(portedPageSlot).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}))
+		tx, _ := db.Begin()
+		if _, _, err := portedPageComponentID(context.Background(), tx); err == nil {
+			t.Error("expected an error when no ported-page component exists")
+		}
+	})
+
+	t.Run("two active rows are REPORTED, not silently resolved", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		oldest, newest := newID(), newID()
+		mock.ExpectBegin()
+		mock.ExpectQuery("FROM content_components").
+			WithArgs(portedPageSlot).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(oldest).AddRow(newest))
+		tx, _ := db.Begin()
+		got, found, err := portedPageComponentID(context.Background(), tx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// The count is the signal the caller refuses on; without it the ambiguity
+		// would ship as a warning at most.
+		if found != 2 {
+			t.Errorf("found = %d, want 2 — the caller cannot refuse what it is not told", found)
+		}
+		if got.String() != oldest {
+			t.Errorf("id = %s, want the OLDEST (%s) — ordering must be deterministic", got, oldest)
+		}
+	})
+}
