@@ -141,3 +141,20 @@ WHERE item_type='page_rerender' AND status='complete' LIMIT 1;
 ```
 Symptom if you get it wrong: `rerender_single_page: page_id not found in input`,
 retried to `attempt_count = 3` — reads like a flaky handler, is a malformed item.
+
+## 9. This lane's council submission
+
+| what | value |
+|---|---|
+| commit | `e6a8bb63b` (M1+M2, register, landmines) |
+| submission corr | `f9eae63e-05fb-40c8-b60c-1670c5681cbe` |
+| trailer on the commit | `Council-Submitted: pending` — **a placeholder, and a mistake**; see NOTES. The join in `098` will miss this commit. Submit BEFORE committing so the real correlation can go in the trailer. |
+
+Verdict:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='f9eae63e-05fb-40c8-b60c-1670c5681cbe' AND kind='council_report'
+ORDER BY created_at;
+```
+**GOTCHA — do NOT roll the chassis while a council run is in flight**; a roll kills
+it and the review is lost (the run has to be resubmitted, spending credits again).

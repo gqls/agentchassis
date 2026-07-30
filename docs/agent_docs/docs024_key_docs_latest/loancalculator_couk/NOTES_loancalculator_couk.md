@@ -129,3 +129,131 @@ shipped the smaller thing and called it done.
 Also: my first read of `webdesignport` (full-page verbatim) was wrong, as recorded
 above. Caught by actually reading `transform.go` rather than trusting the row shapes
 in `import.go` to imply what was stored in them.
+
+## 2026-07-30 — Phase A done: site repaired and live
+
+Commit `b4302e22b` in `gqls/sites`, pushed 15:22Z; `Deploy to B2` run 30556365792
+green in 23s (B2 sync + Cloudflare purge both ran).
+
+**Verified live, all of it:**
+- **34/34 URLs return 200** — 27 sitemap pages + redirect stub + 404 + 3 assets +
+  robots + sitemap.
+- **The three deleted files now 404** (`pdf-gen.js`, `search.js`, `style.css.1`).
+  This is the load-bearing check: a 404 on a deleted path proves `b2 sync --delete`
+  actually propagated, where an all-200 sweep would have passed just as happily
+  against a stale bucket.
+- **nav.js: phantom marker 0, correct marker 1.** Checked both directions per the
+  fleet practice — a DELETE-marker (the string the change removed) is the strongest
+  evidence, because it cannot pass against the old file.
+- **standard-calc.html**: absolute CSS ref present, old page-relative ref **gone**,
+  nav present, `id="monthly-display"` still there. It has been serving unstyled
+  since March; it is styled now.
+- **credit-roadmap.html**: doctype and title present — it was a bare fragment.
+- **sitemap**: 27 `<loc>` entries, phantom URL absent.
+
+**Two things I got wrong on the way, both worth recording:**
+
+1. **My first link audit under-reported the dead links.** I grepped
+   `href="(\.\./|\./)?[a-z0-9-]+\.html"` — one path component only — so it could not
+   see `../tools/overpayment.html` or `../tools/consolidation-calculator.html`. It
+   reported 2 relative links and no dead ones; the truth was 3 dead targets across
+   `404.html`, `guides/can-i-overpay.html` and
+   `guides/debt-consolidation-explained.html`. **The regex answered a narrower
+   question than the one I asked, and returned a clean-looking result** — exactly
+   the shape that gets believed. Caught only because I re-ran it broadly (every
+   `href` minus external/anchor) and then *resolved each target against the
+   filesystem* instead of eyeballing the list.
+2. **A `sed` that silently did nothing, twice.** `sed -i 's|(href|src)="..."|...|g'`
+   — `|` was both my delimiter and the alternation character, so the pattern was
+   truncated. Exit status was fine and 21 files were left untouched. My "verify"
+   step then printed both old and new refs and I nearly read past it. Second attempt
+   with `-E` failed the same way for the same reason; only using `#` as the
+   delimiter worked. **The tell was the verification output contradicting itself**
+   (old and new forms both present) — if I had only grepped for the new form I would
+   have seen 23 hits and called it done. Check the *old* form is gone, not just that
+   the new one exists.
+
+**Caveat on the redirect stub — it is not an HTTP redirect.**
+`/tools/tool-overpayment-calculator.html` returns **200**, then moves the browser via
+`<meta http-equiv="refresh">` + `location.replace()`. `curl -L` does **not** follow
+it (curl follows 3xx only), so a verification that expects `url_effective` to change
+will read as a failure when the stub is working correctly. Search engines get
+`noindex` + `rel=canonical`. A real 301 is not available to us: static B2 hosting has
+no redirect layer and the platform's `redirects` table has no consumer (G5).
+
+**Judgement calls made, flagged for the owner rather than buried:**
+- Added an `<h1>` to `damage-checker.html` (it had only an `<h3>`) and a lead
+  sentence, so it matches its sibling tool pages. That is content I wrote, not
+  content I preserved.
+- `overpayment-calculator.html` was self-styled with an inline `<style>` block and no
+  shared stylesheet. I added the shared sheet **before** its inline block so its own
+  rules still win — appearance should be unchanged where it defined something, and
+  inherit site styling where it did not. Also fixed `shadow:` → `box-shadow:` (a
+  no-op property, so the card had no shadow). **Not visually verified** — worth an
+  eyeball [UNVERIFIED: rendered appearance].
+- Fixed a markdown artefact in `hidden-loan-fees.html` (`**APR**` was rendering as
+  literal asterisks).
+
+## 2026-07-30 — Phase B: the mends built, tested, committed, submitted
+
+Commit **`e6a8bb63b`**. Council submission **corr `f9eae63e-05fb-40c8-b60c-1670c5681cbe`**.
+
+**M1** — `adopt_verbatim.go` (new) + the `fidelity == fidelityLocked` branch at
+`apply_adoption_plan_action.go` §3a. **M2** — `loadVerbatimPageHTML` + the bypass in
+`rerender_single_page_action.go`. `insertPageRerenderItem`'s parameter widened from
+`*sql.DB` to a 2-method interface (precedent: `datahelpers.DocRekeyer`) so the one
+canonical `page_rerender` INSERT could be called inside adoption's transaction —
+the alternative was a second copy of that row shape, which is the exact drift its
+own doc comment exists to prevent.
+
+Registered in the SAME commit: **ADO-037** (new) + **ADO-011** updated to record
+that its `locked` rung is no longer inert. Two **LANDMINES** appended and synced.
+
+**Two discoveries while reading, both of which changed the design:**
+
+1. **`cmd/webdesignport` is not a verbatim porter.** `transform.go:406` writes
+   `<section class="ported-page">` — a body FRAGMENT that relies on the chassis
+   assembling chrome around it. I had planned to reuse its path wholesale. If I
+   had, the adopted pages would have been re-wrapped in platform chrome and
+   `lang="en-GB"` would have been replaced — i.e. the one thing the owner asked
+   for (unchanged tools, unchanged pages) would have quietly failed. M2 exists
+   only because I read `transform.go` instead of inferring its behaviour from the
+   row shapes in `import.go`.
+2. **The crawl index stores one page under 2–3 keys.** `buildCrawlPageIndex`
+   registers the same `*crawlPageContent` under the absolute URL, the path-only
+   form and `sourceURL`, so `matchCrawlContent` can find it however the LLM plan
+   spells it. Enumerating those keys — the obvious way to get "the list of pages"
+   — would have created a page row per alias: ~60–80 rows for a 27-page site,
+   every one valid-looking. Now deduped by content POINTER, keys sorted first
+   because Go map order is random and an unsorted pick would write a different
+   `pages.url` on a re-run. → LANDMINES.
+
+**Mutation-verified rather than assumed green.** Both critical guards were broken
+on purpose to confirm the tests catch them:
+- removing the `componentRows > 1` refusal → `TestLoadVerbatimPageHTMLRefusals/
+  verbatim_but_extra_components_attached` fails. Caught.
+- forcing the root case to return `"/"` → `TestURLToDeployPath` fails on
+  **`path "/" yields an EMPTY deploy filename`**, i.e. on the invariant, not on a
+  spelling. Caught.
+- **A first mutation attempt was WORTHLESS and I nearly counted it as a pass:** I
+  removed `p == "/"` from the guard, the suite stayed green, and for a moment that
+  read as a test gap. It was not — the directory-join fallback still produced
+  `/index.html`, so the mutant was behaviourally identical to the original. A
+  mutation that does not change behaviour proves nothing about the test. The
+  sharper mutation (return `"/"` AND disable the join) is the one that counted.
+
+**MISSTEP — I wrote `Council-Submitted: pending` in the commit trailer.** The
+submission had not been made when I committed, so I had no correlation to write and
+put a placeholder. `098` resolves that trailer by looking the correlation up, so
+`pending` resolves to nothing: the commit will read as un-reviewed for ever, which
+is precisely the hole `Council-Submitted:` was added on 2026-07-30 to close. And
+forward-only forbids the amend that would fix it. **The correct order is: submit
+FIRST, take the correlation, then commit with it.** The real correlation for
+`e6a8bb63b` is recorded here and in the RUNBOOK; if the verdict is APPROVED it will
+also go on whatever commit follows, so the trail exists somewhere findable even
+though the join will miss.
+
+**Not rolling the chassis yet, deliberately.** A roll kills an in-flight council
+run, and this one has ~30 minutes to go. The code is committed (so any other
+session's roll ships it — both paths are opt-in and inert, so that is safe), but I
+will wait for the verdict before building, rather than destroying my own review.
