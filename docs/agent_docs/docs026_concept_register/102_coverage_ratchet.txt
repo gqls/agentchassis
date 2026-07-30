@@ -45,3 +45,4 @@ webdesign_couk
 webdesign_uk_build_service
 work_item_completion_integrity
 idea_uk_demand
+staged_component_build
