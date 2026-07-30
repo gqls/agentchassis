@@ -1,6 +1,7 @@
 # RESUME HERE — consolidation programme (supersedes the 07-29 door)
 
-**Written 2026-07-30 ~13:30Z.** Anchor: `features_open/024`.
+**Written 2026-07-30 ~13:30Z · state section REWRITTEN ~17:00Z after the delivery
+question resolved.** Anchor: `features_open/024`.
 Sibling cold-start: `robot_hands_gripper_dossier/HANDOFF_RESUME_gripper_dossier.md`.
 Read-out for the owner: `consolidation/SUMMARY_2026-07-30_the_last_mile_belongs_to_someone_else.md`.
 
@@ -12,11 +13,29 @@ below.
 
 ## 1. State in one line
 
-**Everything on this lane that is ours to do is done, committed and
-council-approved. What remains is not code — it is one other thread's agreement,
-and the blocker is DELIVERY, not persuasion:** the patch has been sitting in their
-directory since 07-29 13:34 and their own cold-start doc still tells them *"nothing
-owed yet"*, a line written five hours BEFORE it arrived.
+**Everything on this lane that is ours to do is done, committed and council-approved.
+Adoption is now in front of the OWNER, not in front of us and not in front of the
+other thread** — the gauntlet lane read our contribution on 07-30 and put it to him
+the same afternoon as item 3 of 4, recommending it be done before their distribution
+work. **So there is nothing to build, nothing to file and nobody to notify.** If you
+have just been handed this lane, your job is to answer questions and hold the debts in
+§6 — not to restart the adoption.
+
+> **This paragraph replaced one written 3½ hours earlier that said the blocker was
+> DELIVERY** — *"the patch has been sitting in their directory since 07-29 13:34 and
+> their own cold-start doc still tells them nothing owed yet"*. That was true when
+> written and false by mid-afternoon. **The original wording, why it was wrong, and the
+> timings that settled it are in §4** — kept because how it was wrong is the reusable
+> part, and because a successor who reads only §1 should not inherit a resolved
+> emergency.
+
+**The owner asked for instructions to hand the gauntlet thread on 07-30 ~17:00Z, and
+they were given as a paste-in brief rather than a seventh file.** The route was
+deliberate: this lane's own finding is that another file in their directory is
+authoring, and the owner speaking to the session directly is the shortest delivery path
+that exists. Substance is unchanged from
+`gauntlet_dead_cta/CONTRIB_2026-07-29_tools_api_client_identity_is_a_constant.md`,
+which stays the reference. **Do not re-send it.**
 
 Do not start by writing more code. Start at §4.
 
@@ -59,7 +78,12 @@ first, then grep the running pod for a string the change added.
 **Do not read "zero importers" as "unfinished work of mine".** The owner ruled on
 07-29 that adoption is in remit, and the reason it has not happened is in §4.
 
-## 4. THE ONE OPEN ITEM — and it is a delivery failure, so treat it as one
+## 4. THE LAST OPEN ITEM — RESOLVED as a delivery problem, now an owner decision
+
+**Read this section as the record of how the adoption reached a decision-maker, not as
+work to do.** The original text below (from ~13:30Z) treated it as a live delivery
+failure; the correction block that follows is what actually happened. Both are kept
+because the mechanism is the transferable part.
 
 > ## ✅ CORRECTED 2026-07-30 ~16:30Z — **THE NOTE WORKED. This section's premise is
 > spent within three hours of being written.** Read it as history, not as state.
@@ -96,6 +120,36 @@ first, then grep the running pod for a string the change added.
 > thread's *identity*. My earlier check measured uptake by **commits and their
 > directory** — and a session that has read, decided and reported has produced neither.
 > **A quiet git log is not silence.**
+
+### 4b. What THIS lane does next, by branch (added ~17:00Z)
+
+The decision is the owner's. Each branch has a different job for us, and in none of
+them do we touch `tools-api`:
+
+- **He tells the gauntlet thread to take the patch.** Our job is to be available for
+  the `[INFERRED]` question (does `CF-Connecting-IP` reach the app process) and to
+  **check the acceptance evidence when they claim it** — `count(DISTINCT
+  client_ip_hash) > 1` from two different networks, because a presence check passes
+  against unfixed code. **The moment `internal/tools-api` imports `platform/httpguard`,
+  A3 is genuinely done and PUB-002's `status:` line must change** — it currently reads
+  *"called by NOTHING"* and that is the honest state only until then.
+- **He defers it.** Nothing owed. Do **not** re-notify, do not re-file, do not raise it
+  again unprompted — it has been put to him with a recommendation and repeating that is
+  noise. Leave PUB-002 as-is.
+- **He asks us to do it.** That is a change of ownership and it should be explicit,
+  because `bugs_open/083` (by slug) is open against that service and the gauntlet thread
+  is mid-flight in it. Say so, ask for it in as many words, then contribute *into*
+  their lane rather than around it.
+- **He asks about mailer instead.** It is the easier half and carries none of the
+  proxy complication — but its only queued consumer is the gripper dossier's public
+  half, which would live in the same service, so it inherits the same ownership
+  question. Do not treat it as independently unblocked.
+
+**And do not re-verify what the gauntlet thread already measured on our behalf.** Their
+07-30 reply flags one thing explicitly: the 83-of-83 figure is **ours from 07-29** and
+they had not re-grounded it that day. If a decision is going to hang on it, re-run the
+census before it is quoted a fourth time — [[a-count-you-kept-is-not-a-census]] applies
+to our own figures too.
 
 Adoption steps 2 and 3 both land inside **`internal/tools-api`**, which belongs to
 the **`gauntlet_dead_cta`** thread. `httpguard`'s only adoption target is that
