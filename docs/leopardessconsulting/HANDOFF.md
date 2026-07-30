@@ -4,17 +4,34 @@
 the single source of truth for state. The deeper detail lives in the four companion
 docs, but this file is enough to resume without them.
 
-**Last updated:** 2026-07-18 (turn 25)
-**Branch:** `085_debug_and_feature_loops`
+**Last updated:** 2026-07-30 (see §10 below for everything since turn 25 — read that
+section first if you already know this file; it is the actual frontier, not this one)
+**Branch:** `087_towards_multiple_domains`
 **Site:** `leopardessconsulting.co.uk` · `site_id = 4851f6fc-71cf-4160-a270-e03d6d3e0732`
 **Plain-language status to show someone:** `SUMMARY_where_we_are.md` (this file is the technical resume point).
 
 ---
 
-## 🔴 READ FIRST — the blocker that makes content work provisional
+## 🔴 READ FIRST — the blocker that made content work provisional
 
-**Another session's `build-site-planner` re-plan keeps clobbering this site's pages.**
-Filed with fresh evidence at **`bugs_open/001`**. It hit twice in 24h:
+> **CORRECTED 2026-07-30: this whole box is HISTORICAL. `bugs_open/001` closed
+> 2026-07-20** — fixed in `c41e9ddbc` + migration 173, live on chassis `v1.0.1138`/
+> planner `v1.0.1139`, verified twice on dartsonline (proven as a genuine rescue: a
+> deployed page kept its real section against an LLM re-plan proposing to swap it, and
+> refused an injected section on a sibling page). A re-plan can no longer silently
+> re-compose or drop a `build_status='deployed'` page. **The "undefined shelf life"
+> warning below no longer applies** — hand-fixed `page_components` content is durable
+> again, the same as everywhere else on the platform. Left open by 001, but narrower and
+> not currently active on leopardess specifically: `bugs_open/037/038/039/040/050/051`
+> (see the closed file's own table for exactly what each one covers). This correction
+> matters because two full days of imagery + a 4-article blog series were hand-authored
+> directly into `page_components` on 2026-07-29/30 (§10) on the understanding that this
+> platform no longer clobbers deployed pages — if you find evidence that's wrong, that is
+> now itself a NEW bug, not a recurrence of 001.
+
+**Original 2026-07-18 text, kept for the record:** Another session's `build-site-planner`
+re-plan keeps clobbering this site's pages. Filed with fresh evidence at `bugs_open/001`.
+It hit twice in 24h:
 - **index, 07-17 14:14** — rebuilt 4→6 sections, re-adding *fabricated* "Functional Areas:
   150+" and invented case-study titles. Restored by hand; plans pruned.
 - **services, 07-18 07:50** — rebuilt; invented a link to
@@ -23,10 +40,11 @@ Filed with fresh evidence at **`bugs_open/001`**. It hit twice in 24h:
   — my earlier v2 copy on that page is gone.
 
 It is not only content *loss*, it is fabrication *injection*, and it defeats human review.
-**Anything you hand-fix in `page_components` has an undefined shelf life until 001 is fixed.**
+~~Anything you hand-fix in `page_components` has an undefined shelf life until 001 is fixed.~~
 
 **What survives a clobber:** heroes wired through `site_plans` / `site_plan_imagery` rows.
 That is why imagery work is durable here and copy work is not — prefer imagery until 001 lands.
+~~(superseded — 001 is closed; both are durable now)~~
 
 ### 🔧 2026-07-19 — a second, quieter clobber path on this site, now closed (not by your thread)
 
@@ -55,7 +73,8 @@ pages; the sweep query is RUNBOOK §5c-bis in `empty_sections_loop_integrity/`.
 
 This is the same *class* as 001 but a different *path* — 001 is the re-planner rewriting
 built pages; this was an authority source that never learned about a hand-added section.
-Fixing it does not close 001, and your "undefined shelf life" warning above still stands.
+~~Fixing it does not close 001, and your "undefined shelf life" warning above still stands.~~
+(001 closed 2026-07-20 regardless, see the correction at the top of this file.)
 
 ---
 
@@ -473,9 +492,21 @@ rebuild does: it preserved the honest voice (pinned specs held) but fabricated f
 titles and a phantom link on who-we-help — review everything it writes before deploying.
 
 Also: only pages whose hero component declares an image field can show a hero at all —
-`index`, `who-we-help`, `how-we-work` use `hero` (`background_image` ✓); `about`/`services`
-use `hero-about`/`hero-services` (NO image field — needs component work first).
-image-build-handler generates → asset-deployer commits to `/assets/images/<asset_key>.<ext>`.
+`index`, `who-we-help`, `how-we-work` use `hero` (`background_image` ✓). ~~`about`/`services`
+use `hero-about`/`hero-services` (NO image field — needs component work first).~~
+**STALE, corrected 2026-07-29: their real component names are `about-hero`/`services-hero`
+(this row's names were the CSS class, not the component), and both already declare
+`background_image`/`hero_url` in their template — someone added it fleet-wide (12/6 site
+consumers) sometime between 07-18 and 07-29. `use-cases-hero` genuinely lacked it and got
+the same guarded pattern added, 2-site blast radius measured first. The REAL remaining gate
+is a level down: `plan_sections_action.go`'s `sectionHasImageField` only auto-writes
+`background_image` when the component's `input_schema` declares an image-typed field —
+none of these four did, so having the template guard was not sufficient by itself. See
+RUNNING_NOTES 2026-07-29 for the full trace and why the fix was scoped to leopardess's
+`content_data` directly rather than the shared schema (a schema edit would auto-populate a
+fallback image on every consuming site's next rerender, not merely sit inert until opted
+into).** All 4 now have heroes on leopardess (§10). image-build-handler generates →
+asset-deployer commits to `/assets/images/<asset_key>.<ext>`.
 **Verify `assets.url` is `/assets/images/…`, NOT a presigned `s3…?X-Amz-…` URL.**
 For brand consistency, pass the logo as a reference image (Banana kinds only).
 
@@ -510,3 +541,156 @@ Key files: `internal/adapters/imagegenerator/dynamic_adapter.go`,
 `platform/orchestration/actions/{write_site_plan_action.go, emit_imagery_items_action.go,
 plan_sections_action.go, image build/deploy actions}`, `imageryplan/imageryplan.go`,
 `discovery_checks/{check_unfulfilled_imagery_plan.go, check_empty_blog.go}`.
+
+---
+
+## 10. STATE AS OF 2026-07-30 — start here if you already know the rest of this file
+
+Two sessions' worth of work happened on 2026-07-29 after §0–9 above were written (turn 25,
+2026-07-18). This section is the actual frontier. Everything below is verified live at
+time of writing, not carried forward from a status field.
+
+### 10.1 — Missing/broken images: closed out, five pages remain untouched by choice
+
+The owner's original ask ("fix the missing images") turned into a full pass:
+
+- **The real defect:** `/blog.html` served six `<img src="">` — empty `src`, not a dead
+  link. Root cause: `rebuild_blog_listing_action.go:218` hardcodes `image:""` for every
+  article (no per-article imagery on this platform), and the shared `content-listing` /
+  `category-listing` templates rendered the `<img>` unconditionally. **Fixed**: both
+  templates now guard with `{{if .image}}`. Blast radius measured first (only
+  `robot-hands.com` shares these components, and its 3 articles all have real images, so
+  its output is byte-identical). Commit `679f33685`.
+- **`hero.jpg` replaced.** Was AI-generated gibberish-text garbage, live as the fallback
+  on **14 pages**. Regenerated via Route A (`kind:'hero'`, now routed to Banana
+  platform-wide since `bugs_closed/011` — no more SDXL fallback trap). Same filename, same
+  asset_key as purpose, so the new file overwrote the old one and every consuming page
+  updated with zero rerenders. Origin model `banana/gemini-3-pro-image-preview`.
+- **4 new page heroes**: about, services, contact, use-cases (see the §9 correction above
+  for the schema-field gate this uncovered and why the fix was scoped to leopardess's
+  `content_data`, not the shared component schema).
+- **Expired asset URLs.** Found that `deploy_image_asset` never rewrites `assets.url` off
+  its presigned S3 URL unless called with `asset_id` — a known RUNBOOK landmine, but
+  apparently never actually exercised by any caller: **every** active hero/infographic row
+  here carried a presigned URL, including ones generated minutes earlier the same session.
+  Confirmed a REAL (not just theoretical) risk: `derive_brand_head_assets_action.go` and
+  `derive_card_asset_action.go`'s `findCardSourceHero` both fetch `assets.url` directly and
+  would 401 past the 7-day window — the latter is exactly the mechanism §10.3 below needs.
+  Filed **`bugs_open/152`** (platform-wide, unowned). Fixed here: retired one orphaned
+  wrong-provider row (`hero_case_studies`, wrong-routing SDXL leftover from turn 17, wired
+  nowhere), rewrote `assets.url` to the verified-200 local path for the other 12.
+- **Contributed to `bugs_open/128`** (that image-URL check's third blind spot: `src=""`
+  has no URL to probe, so its proposed HTTP-check fix would confirm a broken image as `200
+  OK`).
+
+**Still not fixed, by choice, not oversight:** blog index + the 4 tool pages carry no
+image. Not part of what was asked; noted as a remaining gap, not actioned.
+
+Full account with every command and verification: `RUNNING_NOTES.md`, 2026-07-29 entries
+(two separate dated sections — the first is the blog fix, the second is the rest of the
+imagery work). SQL for anything DB-config here is NOT saved to `scripts/` (these were
+template/data edits, not page inserts) — read RUNNING_NOTES for the exact statements if
+you need to reproduce or extend the pattern.
+
+### 10.2 — A 4-part researched feature series is live: "Can You Trust AI With Your Data?"
+
+Owner asked for a thoroughly researched, honestly-argued feature article on trusting AI
+with data, cited sources with their opening lines quoted, multiple industry angles,
+charts/tools considered, real statistics, both sides argued. Published as one pillar +
+three industry deep-dives, all cross-linked, all live:
+
+| Page | url | Words | What it covers |
+|---|---|---|---|
+| Pillar | `/blog/can-you-trust-ai-with-your-data.html` | ~3,100 | The KPMG trust paradox, an industry tour, both sides, a vendor-evaluation checklist built around Anthropic's own certifications |
+| Healthcare | `/blog/ai-data-trust-in-healthcare.html` | ~1,370 | Patient trust fell 52%→44% in 2 years; what's proven to rebuild it |
+| Financial services | `/blog/ai-data-trust-in-financial-services.html` | ~1,080 | Adoption outpacing governance; EU AI Act deadline (2 Aug 2026) |
+| Hiring/HR | `/blog/ai-data-trust-in-hiring-and-hr.html` | ~1,010 | The widest trust gap found anywhere: 70% of hiring managers trust AI hiring decisions, 8% of job seekers call it fair |
+
+**Every statistic is attributed to a named study with a sample size where available** —
+KPMG/University of Melbourne (n=48,000+), Pew Research 2026, Edelman 2026, Cisco 2025
+(n=2,600), Reach3/Rival 2026 (n=1,043), Deloitte 2026, Cambridge Judge 2026, McKinsey 2026
+(n≈500), IBM's 2025 Cost of a Data Breach Report, Salesforce (n=6,058), Thomson Reuters,
+Greenhouse 2025 (n=4,136), Gartner (n=2,918), ResumeBuilder (n=948), Dice (n=319), and
+Anthropic's own published trust-centre certifications. Two numbers from a first-pass
+search were caught and corrected against primary sources before publishing (a mis-cited
+84%→78% Salesforce figure; an unattributed hiring stat traced to a specific Dice report).
+**Do not add a statistic to this series without checking it against a named, dated
+source the same way** — that discipline is the entire point of the series, and it is
+what a `voice_tells`/`unverified_claims`-style scan on this content should hold it to if
+one is ever run against it.
+
+**Content is hand-authored HTML, inserted directly as `page_components.content_data`,
+NOT run through page-content-writer/page-build-handler.** This matches the site's
+established practice (the voice-rewrite pass in §6 item 2 used the same hand-edit route)
+and was the deliberate choice here specifically because an automated writer has no way to
+enforce "every number traces to a real source" — that discipline lives in the human doing
+the research, not in a prompt. Before every insert, both escalation-guard branches were
+checked clean (no missing required `content_data`, no missing required `source:"llm"`
+schema fields) so nothing ever risked escalating to an LLM rewrite on render.
+
+**5 charts, built as hand-coded inline `<svg>` inside the article HTML — deliberately
+NOT using the shared `evidence-chart` component.** That component resolves from
+`site_specs.evidence_base`, which this site uses specifically for FIRST-PARTY,
+re-queryable facts (`source.sql` / `source.artifact` — something rechecked against this
+site's own DB or code). Third-party survey citations have no such backing and do not
+belong in that register without blurring the distinction the claims-verification work
+exists to draw. If you want an evidence-chart-backed chart on this content later, it
+would need to be about LEOPARDESS'S OWN figures, not a cited survey number.
+
+**Platform behaviour worth knowing before writing another linked series here:** a page's
+`<a href="...">` to a page that doesn't exist YET gets silently stripped from
+`rendered_html` at render time (confirmed: `content_data` kept it, `rendered_html` did
+not). Not diagnosed to root cause or filed — the practical fix is mechanical: publish leaf
+pages before the hub, or budget one extra re-render of the hub once all targets exist.
+That is what was done here (published the 3 industry pages, then re-rendered the pillar).
+
+**Blog listing extended, not rebuilt**: cloned one existing card's markup programmatically
+and prepended the 4 new entries to both `content_data.articles` and `rendered_html`
+directly, rather than firing the full `rerender-pages` workflow (`rebuild_blog_listing` is
+one step in that workflow, but it also runs `get_pages_for_rerender`/
+`create_rerender_items`/`render_site_components` — a far wider blast radius than "add 4
+list entries" on a site that has been clobbered by a wide rebuild before, historically).
+Blog listing now shows 10 cards.
+
+**Known gap, not fixed:** the 4 new pages are not yet in `sitemap.xml` — a separate,
+undiagnosed generation mechanism (§6 item 5 already notes no platform sitemap generator
+exists fleet-wide; this is that same gap, now affecting new pages too).
+
+Full account: `RUNNING_NOTES.md`, 2026-07-29 "a 4-part feature series" entry. Insert SQL
+for all 4 pages + the blog-listing update saved at
+`scripts/L8_article_trust_{pillar,healthcare,financial,hiring}.sql` and
+`scripts/L8_blog_listing_add_trust_series.sql` — read these before writing a 5th article
+in this style; they are the working, verified pattern (dollar-quoted `content_data`/
+`rendered_html`, escalation-guard pre-checks, the meta_description `%%`-escaping trap
+noted in RUNNING_NOTES — do not sprinkle literal `%%` into an f-string SQL literal, it is
+not a printf format string and will land in the DB verbatim).
+
+### 10.3 — Considered and deliberately deferred: an AI-vendor-trust-checklist tool
+
+Assessed as a good fit for the pillar article's "what trustworthy actually looks like"
+section and technically straightforward (deterministic client-side scoring, same shape as
+the site's existing calculators). **Not built** — it's a separate feature (new JS, new
+page, needs browser testing per this platform's own UI-work standard), not a content task,
+and was scoped rather than rushed. **Full standalone build handoff, self-contained, for a
+fresh thread: `HANDOFF_vendor_trust_checklist_tool.md`** (same directory as this file).
+
+### 10.4 — What a fresh thread should actually do next, in order
+
+1. If picking up the tool: go straight to `HANDOFF_vendor_trust_checklist_tool.md`, it is
+   self-contained.
+2. If picking up general leopardess work: the blog index + 4 tool pages still have no
+   image (§10.1) — lowest-risk next imagery item, same Route A recipe already proven
+   working 6 times over on this site (see RUNNING_NOTES for the exact recipe and prompts).
+3. `sitemap.xml` doesn't include the 4 new trust-series pages (§10.2) — either find and fix
+   the (currently unlocated) generation mechanism, or hand-add 4 `<url>` entries the same
+   way the original 27-page sitemap was produced (§6 item 5 — check RUNNING_NOTES/git
+   history around the original sitemap work for how that was actually deployed, since it
+   is git-adapter-committed, not DB-driven).
+4. `bugs_open/152` (this session's finding: `assets.url` never gets rewritten off its
+   presigned form) is unowned and platform-wide — worth a diagnosis-loop run before anyone
+   builds more on the card-derivation path in §10.3's tool or elsewhere, since it will
+   recur on every future image generation, here and fleet-wide.
+5. The remaining sections of the article series (retail, government, legal, SMB) got
+   folded into the pillar as supporting evidence rather than becoming standalone pieces —
+   if the owner wants any of those as their own deep-dive, the research is already done
+   and cited in the pillar; it would need only expansion, not a fresh literature search.
