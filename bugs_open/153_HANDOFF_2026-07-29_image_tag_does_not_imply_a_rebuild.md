@@ -1,13 +1,51 @@
-# BUG 153 — an IMAGE_TAG bump does not imply a rebuild: the fleet ran v1.0.1202 on a binary older than its own roll commit
+# BUG 153 — an IMAGE_TAG bump does not imply a rebuild: nothing ties a tag to the code it was built from
 
 **Filed:** 2026-07-29 18:30 BST · found incidentally while auditing the auto-memory
 index (a banner claimed `v1.0.1192`; checking it against the live pods opened this).
 **Status:** OPEN, unowned. **Not a code defect in the chassis** — a defect in the
 build/deploy contract, so it bites every service and every session.
 
-**Affects:** anyone verifying "did my fix ship?", and — right now — at least three
-lanes (`104`, `138`, `144`) whose notes say "INERT until a roll" when the roll has
-already happened and delivered none of them.
+> ## ⚠ CORRECTED 2026-07-30 BY THE FILER — the original SYMPTOM is WITHDRAWN; the ROOT CAUSE stands
+>
+> This file was titled *"the fleet ran v1.0.1202 on a binary older than its own roll
+> commit"* and §"Evidence" below still argues it. **That claim is withdrawn.** Read
+> §CONTRIBUTION (bugsearch-7, the 144 lane) — it is correct, and I have re-verified
+> every part of it:
+>
+> - **All five ADD-markers in the evidence table are unfindable in any binary.** Four
+>   are prose from the 138/104 workstreams' own README/RUNBOOK; the fifth
+>   (`a Degraded object always gates`) is a Go **comment** at
+>   `diagnose_council_decide_action.go:709`. I harvested them by regexing quoted strings
+>   out of `git show <commit>`, which returns doc changes alongside code. **The zeros
+>   measured nothing**, so the 47-minute gap is unsupported.
+> - **My "the string is untouched at `workflow.go:328`" was also wrong.** `583f31eae`
+>   *did* remove the `fmt.Printf` form; the phrase survives as a **prefix** of the
+>   replacement `"Checking disconnected step for cycles"`. Same conclusion (the marker
+>   cannot discriminate), different and more reusable mechanism — substring containment,
+>   not an untouched line. Note `git log -S` on the phrase is blind to this too, because
+>   the occurrence count never changes.
+> - **Four positive controls passed and could not see any of it.** A positive control
+>   validates the *instrument*, not the *probe*. The tell I missed: a zero that does not
+>   move when the image does. Confirmed on `v1.0.1207` — the same markers still read 0.
+>
+> **What is NOT affected, because it was measured directly rather than inferred from
+> markers** (re-verified on `v1.0.1207`, 2026-07-30): the image carries no provenance —
+> **0 shas, 0 version strings** in the binary, no `ldflags`/`ARG`/`LABEL` in the
+> dockerfile — while `ref_build` computes the sha at `makefile:119` and discards it; and
+> `verify-agent-images` (`makefile:1937`) checks tag *consistency*, never tag↔code. The
+> fix candidates are unchanged and candidate 1 is now argued for by two independent
+> marker failures in one day (see `WRONG_CALLS.md` 2026-07-29).
+>
+> Logged fleet-wide by the 144 lane in `WRONG_CALLS.md`; not duplicated here.
+
+**Affects:** anyone verifying "did my fix ship?" — the reason this stayed invisible is
+that the only available verification method is per-fix marker hunting, which is itself
+error-prone enough to have produced two false readings in a single day.
+
+> **[SUPERSEDED 2026-07-30]** ~~and — right now — at least three lanes (104, 138, 144)
+> whose notes say "INERT until a roll" when the roll has already happened and delivered
+> none of them.~~ Withdrawn with the symptom above. The memory index records that
+> v1.0.1205/1206 (built 21:35+ BST 07-29 from HEAD) carry those three commits.
 
 ---
 
@@ -20,10 +58,18 @@ pods started*.
 
 Nothing anywhere reports an error. Every consistency check we own passes.
 
-## Evidence
+## Evidence — ⚠ WITHDRAWN 2026-07-30, retained only as the worked example of a broken probe
 
-All of it is **string presence in the running binary**, not timestamp arithmetic —
-see the § "Why this is not the trap that corrected 066" below for why that matters.
+**Do not cite the marker table below.** All five markers are unfindable in any binary
+(see the correction banner at the top). It is kept, not deleted, because the *shape* of
+the mistake is the reusable part: every number in it is real, every control passed, and
+the conclusion was still false.
+
+The original framing was: *"All of it is string presence in the running binary, not
+timestamp arithmetic"* — which was true and beside the point. Being immune to the
+BST/UTC trap does not make a probe valid; I had guarded the failure mode I knew about
+(§"Why this is NOT the trap that corrected 066", still sound) and never checked the
+markers were code at all.
 
 Running image, both replicas (`kubectl -n ai-persona-system get pods -l app=agent-chassis`):
 

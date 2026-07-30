@@ -4233,7 +4233,7 @@ See `/bugs_closed/README.md`.
 | 149 | **The discovery checker layer: a measured defect queue (Groups C/A/B).** **C — the claims gate:** of the 22 handler agents discovery checks route work to, **only 2 gate on `validate_page_content`** (`page-build-handler`, `tool-recreation-handler`); `page-content-writer` — the handler for `placeholder_contact` and `needs_content_page` — has **no validation step at all** (research-agent → `execute_llm_prompt` → render → compile → complete), and that write happens inside a `loop` sub_workflow, which per **144** was validated by nothing — **CORRECTED 2026-07-29: 144 is CLOSED and live on v1.0.1203, so nested steps ARE validated now. That does not fix C1/C3: the validator checks workflow SHAPE, never page CONTENT, so `page-content-writer` still has no `validate_page_content` step and the claims gate is still absent.** Meanwhile the DETECTOR (`unverified_claims`) sits in `quality-discovery-agent`: **7 items ever, dead since 07-17**, and `claims_unverified` has **zero rows fleet-wide** — so there is neither a write-time gate nor a working backstop. **A — routing:** the `nav_drift` branch is a **proven no-op for `/tools/`** (items claimed 15/17 and completed; `populate_nav_tables` skips the URL; artefact unchanged). **CORRECTED before anyone worked it — the other two branches are NOT handler defects:** `claimed_by` is NULL on **all 37** `needs_internal_links`/`orphan_blog_posts` rows, so those handlers were never offered one. The dispatcher claims only `triaged`/`approved` and **`unresolved` is TERMINAL**, so 27 closed rows read as a backlog. The real item is recurrence branding: **20 of 24 born `unresolved`**, 16 distinct keys for 24 rows (`work_item_recurrence_test.go:20,103`). **B — coverage:** 6 registered checks are configured in NO agent and have raised **0 items ever** (incl. `validate_component_standards`, which alone raises 7 item types); no `nav_drift` item has **ever** been raised by a discovery agent (all 16 from named sessions/`generic`); and an unregistered or erroring check name is a **WARN + `continue`**, so a config typo silently shrinks the run | **OPEN — filed 2026-07-29 at the owner's request, to be worked through.** Each item carries its measuring query; unestablished causes are marked `[UNMEASURED]` rather than guessed. Suggested order: C1+C3 (claims gate — the only content-correctness item) → B4 (make silent skipping loud; every Group B number is untrustworthy until it lands) → B2 (why the orphan branch never fires) → A6/A2/A3 (creation-time first) → A4/A5 (shared-mechanism, own council round) → B1 → A1 |
 | 146 | **11 deployed tool pages are unreachable, and the check that finds them has not run automatically since 2026-07-17.** Fleet census on the platform's own orphan predicate: 11 of 94 deployed tool pages across 5 sites have no nav row, no chrome link and no inbound page link — **every one carrying a nav flag**, so every one is `nav_drift` the platform would route. `check_orphan_pages` is correct and registered in ONE agent (`completeness-discovery-agent`), which has never run on oufe and has raised nothing automatically for 12 days; the recent detections are sessions firing it by hand. Two interlocking traps: the obvious remedy (regenerate chrome) **would delete oufe's footer honesty note, which is in no template and no Go code**; and a site-wide reassemble left the 3 `owned` pages at `triaged`, unclaimed, while reporting COMPLETED | **OPEN, unowned** — filed 2026-07-29 (oufe lane; its own instance FIXED by mig 268, 8/8 pages verified). **TITLE + FIX ORDER CORRECTED the same day — read the banner in the file.** The cause is creation-time code, not cadence: both tool creators half-write the nav (one sets the flags and writes no nav item, the other writes the item and never sets the flags), `pages.in_header/in_footer` **DEFAULT TO TRUE** so the flag is a schema default rather than intent, and `populate_nav_tables` **skips every `/tools/` URL by design** — so `nav_drift` → `nav-updater` is a **closed loop** (an item raised 07-24 is `complete`; the page still has 0 nav items, 0 chrome links; 2 nav items point at a tool page out of 95). Scheduling the agent would detect all 11 and repair none. New order: (0) fix the creators; (0b) add `orphan_tool_pages` → rebuild the listing; (1) cadence. Whole checker-layer queue ⇒ **149** |
 | 150 | **The improvement loop ends at "No issues found — site is clean" immediately after promoting 67 findings, and skips its own dispatch.** `triage_detected_items` is a step in **three** live agents (`improvement-loop`, `design-audit-agent`, `site-review-agent`) and the action is unconditional over the site (`WHERE site_id = $1 AND status = 'detected'` — no type filter). The parent calls both children before running its own copy, so a child takes all 67 rows (proven: one shared `triaged_at 17:08:32.778827`, inside the design-audit child's window and 20s before site-review was spawned) and the parent's copy honestly reports `promoted: 0`. `check_has_findings` reads that last writer, takes `else_step`, and lands on `complete_clean` — skipping `insert_rerender_item` → `spawn_dispatch` → `call_dispatch`. **Invisible because it is redundant with something that works**: `build-pipeline-trigger` dispatches `triaged`+`build` on its own 120s tick, so the fixes happen anyway. What is actually lost is the priority-99 closing rerender, plus a `final_result` asserting a site with 67 open findings is clean | **OPEN, unowned** — filed 2026-07-29 from a hand-fired run (owner instruction), orchestration `30692439`. Prerequisite: `bugs_open/083` BY SLUG, which is why nobody had ever seen this — the loop has been disabled since 2026-05-02. **"Always" is marked `[INFERRED]`, not measured**: `orchestration_states` retention has cleared every prior run, so this is the only row in all history and there is no base rate. Fix candidates ordered by what closes the door — (1) one triage, one owner; (2) branch on a `query_database` count of the site, not on a step's output; (3) accumulate across writers (worst — hardcodes today's agent list). Repro: `gauntlet_dead_cta/scripts/run_improvement_sweep_once.sh <site_id> <domain>`, but read its blast-radius header first. See §9 *"One responsibility implemented in three agents"* |
-| 153 | **An `IMAGE_TAG` bump does not imply a rebuild: the fleet ran `v1.0.1202` on a binary older than the roll commit that named it, by 47 minutes.** Three fixes committed *before the pods started* (138 `3a59b5012`, 104 `116fdffd8`, 144 `54fbfdf8b`) are **absent from production — 5 marker strings at 0, with 4 positive controls present in the same exec**. Root cause is two gaps, one documented and one not: `push-*`/`deploy-*` are git-blind **by design** (`makefile:106-108`), with provenance meant to be "established at build, verified at the pod" — but the image carries **no provenance to verify** (0 version strings, 0 shas in the binary; no `ldflags`/`ARG`/`LABEL` in the dockerfile), even though `ref_build` already computes the sha at `makefile:119` and discards it. So bumping the tag and skipping the build yields an undetectable retag. **`verify-agent-images` (`makefile:1937`) prints all-green** — it checks tag *consistency*, never tag↔code. Fix candidates ordered by what closes the door: (1) stamp the sha into binary+image via `--build-arg`/`ldflags`/OCI label, which also retires per-fix marker hunting; (2) make the tag imply the build (`v1.0.<n>-<shortsha>`, or refuse a push whose label ≠ the ref); (3) gate `push-*` on a build stamp file; (4) widen `verify-agent-images` to print provenance — detects, does not prevent | **OPEN, unowned** — filed 2026-07-29, found incidentally while auditing the auto-memory index. **Not a chassis code defect** — a build/deploy contract defect, so it affects every service. Operationally: makefile is already at `v1.0.1203`; the next roll must be built **after 17:41 BST 07-29** or 104/138/144 miss a second one. **Explicitly NOT the BST/UTC trap that corrected 066** — the finding is string presence in the binary, not clock arithmetic. See §9 *"A version tag is an unbacked CLAIM about provenance"* |
+| 153 | **An `IMAGE_TAG` bump does not imply a rebuild — nothing ties a tag to the code it was built from.** ⚠ **The filed SYMPTOM was refuted 2026-07-29 and is withdrawn** ("the fleet ran `v1.0.1202` on a binary 47 min older than its own roll commit"): all five "absent" markers were unfindable in any binary — four were prose from the 138/104 workstreams' own docs, the fifth a Go comment — so the zeros measured nothing. Four positive controls passed and could not see it; a zero that does not move when the image does is a broken probe (⇒ §9 method note, `WRONG_CALLS.md` 07-29). **The ROOT CAUSE stands on direct measurement and is unaffected**, re-verified on `v1.0.1207`: two gaps, one documented and one not: `push-*`/`deploy-*` are git-blind **by design** (`makefile:106-108`), with provenance meant to be "established at build, verified at the pod" — but the image carries **no provenance to verify** (0 version strings, 0 shas in the binary; no `ldflags`/`ARG`/`LABEL` in the dockerfile), even though `ref_build` already computes the sha at `makefile:119` and discards it. So bumping the tag and skipping the build yields an undetectable retag. **`verify-agent-images` (`makefile:1937`) prints all-green** — it checks tag *consistency*, never tag↔code. Fix candidates ordered by what closes the door: (1) stamp the sha into binary+image via `--build-arg`/`ldflags`/OCI label, which also retires per-fix marker hunting; (2) make the tag imply the build (`v1.0.<n>-<shortsha>`, or refuse a push whose label ≠ the ref); (3) gate `push-*` on a build stamp file; (4) widen `verify-agent-images` to print provenance — detects, does not prevent | **OPEN, unowned** — filed 2026-07-29, found incidentally while auditing the auto-memory index. **Not a chassis code defect** — a build/deploy contract defect, so it affects every service. Operationally: makefile is already at `v1.0.1203`; the next roll must be built **after 17:41 BST 07-29** or 104/138/144 miss a second one. **Explicitly NOT the BST/UTC trap that corrected 066** — the finding is string presence in the binary, not clock arithmetic. See §9 *"A version tag is an unbacked CLAIM about provenance"* |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the
@@ -7865,10 +7865,25 @@ Category tags: `unexercised-zero-vs-failing-zero`, `terminal-status-read-as-back
 
 ### A version tag is an unbacked CLAIM about provenance — and when the artefact cannot say what it was built from, "verify at the pod" is unperformable (`bugs_open/153`, 2026-07-29)
 
-The fleet ran `v1.0.1202` on a binary **older than the roll commit that named it, by
-47 minutes**. Three fixes committed *before the pods started* were absent from
-production. Every consistency check we own passed, because every place that records
-the tag genuinely said `v1.0.1202`.
+> **CORRECTED 2026-07-30, and the correction is the better lesson.** This entry
+> originally opened: *"The fleet ran `v1.0.1202` on a binary older than the roll commit
+> that named it, by 47 minutes. Three fixes committed before the pods started were
+> absent from production."* **That claim is withdrawn — the evidence for it was
+> invalid.** All five "absent" markers were incapable of appearing in any binary: four
+> were prose harvested from the 138/104 workstreams' own README/RUNBOOK, and the fifth
+> was a Go **comment** (`diagnose_council_decide_action.go:709`). I had extracted them
+> by regexing quoted strings out of `git show <commit>`, which returns documentation
+> changes alongside code. *What caught it:* the 144 lane re-ran the same markers against
+> the next image and got the same zeros — a zero that does not move when the image does
+> is a broken probe, not a finding (`WRONG_CALLS.md` 2026-07-29, and
+> `bugs_open/153` §CONTRIBUTION).
+>
+> **The structural finding below is untouched by this**, because it was measured
+> directly rather than inferred from markers: the image carries no provenance, and the
+> one verifier we own is blind to that. Re-verified on `v1.0.1207` — still 0 shas.
+
+Every consistency check we own passes on a stale image, because every place that
+records the tag genuinely says the tag.
 
 **The transferable shape: a pipeline can be correct at every step and still lose
 provenance, if the step that KNOWS the provenance does not write it down.** Our build
@@ -7899,11 +7914,35 @@ Bump the tag, skip the build, and the retag is undetectable by construction.
    closed by its own instruction. **One sha stamped into the binary retires every one
    of those bespoke tests.**
 
-**Method note — the check that keeps a marker grep honest:** always grep a **positive
-control in the same exec**. A bare 0 cannot distinguish "fix absent" from "image older
-than the commit" from "that string was never real". Here four controls
-(`orchestration` 7132, `unknown execution-context field` 1, and two known-present
-strings) turned five zeros from a suspicion into a finding.
+**Method note, REWRITTEN 2026-07-30 after the opening claim was refuted — and this is
+the transferable half: A POSITIVE CONTROL VALIDATES YOUR INSTRUMENT, NOT YOUR PROBE.**
+
+I ran four positive controls in the same exec (`orchestration` 7132, `unknown
+execution-context field` 1, two more present) and all four passed. They proved
+`strings | grep` worked, the pod was reachable, the binary was readable. **They could
+not detect that all five of my probes were aimed at strings which exist in no binary
+ever built.** So the controls made a broken measurement look rigorous — the exact
+failure mode "two checks blind in the SAME direction agree with each other" describes,
+except here the blind pair was *my probe* and *my control of the probe*.
+
+**A marker grep needs TWO independent checks, and the cheap one is the one everybody
+skips:**
+
+1. **Is the marker real code?** `git grep -c "<marker>" -- '*.go'` at the commit you
+   expect to be running. Costs one command, no cluster access. **Not a symbol name**
+   (Go symbols are not reliable `strings` targets — `validation.WalkSteps` greps 0 in an
+   image proven to contain it), **not a comment**, **not a sentence from your own docs**.
+   It must be a string the binary *emits*.
+2. **For a delete-marker, can the NEW code still contain it as a substring?** 144's
+   marker was `"Checking disconnected step"`; the replacement is
+   `"Checking disconnected step for cycles"`. It returns 1 with or without the fix, and
+   `git log -S` on the phrase is *also* blind, because the occurrence count never
+   changes. The discriminating form was `"Checking disconnected step: "` — with the
+   colon the deleted `fmt.Printf` had.
+
+**And the tell that costs nothing to look for: a zero that does not move when the image
+does.** One reading is a finding; the same reading on the next roll is a broken probe.
+That is what caught this, hours later, in another session.
 
 **And the trap to route around while doing it:** `git log` prints **BST** on this box,
 `kubectl` prints **UTC**. A naive comparison makes a live fix look un-shipped — the
