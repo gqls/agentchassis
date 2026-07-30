@@ -54,6 +54,17 @@
 # commit<->verdict join exact):
 #   Council-Reviewed: <the fix_correlation_id printed below>
 #
+# COMMITTING BEFORE THE VERDICT? Use the other trailer (added 2026-07-30):
+#   Council-Submitted: <the same correlation>
+# It makes no claim, so it cannot be a false one, and 098 resolves the verdict at
+# REPORT time — the commit is credited automatically when approval lands, with no
+# amend. This exists because owner feedback of 2026-07-20 says commit the moment
+# the work is coherent (a thread that held code for four council rounds had it
+# swept to production on a REVISE verdict), while `Council-Reviewed:` can only be
+# written after approval — so a compliant thread was landing in UNREVIEWED
+# permanently. Never write Council-Reviewed: on an unread verdict: that is a
+# MISMATCH, and surfacing it is what the report is for.
+#
 # Usage:
 #   ./097_TRIGGER_council_review_v1.sh submission.json
 #   RESUBMIT_CORR=<uuid> ./097_TRIGGER_council_review_v1.sh submission.json
@@ -199,3 +210,11 @@ echo "  SELECT body FROM doc_notes WHERE categories ? 'council-gate'"
 echo "  ORDER BY created_at DESC LIMIT 1;"
 echo ""
 echo "If APPROVED, commit with:   Council-Reviewed: ${FIX_CORR}"
+echo ""
+echo "COMMITTING BEFORE THE VERDICT LANDS? Use the other trailer instead:"
+echo "                            Council-Submitted: ${FIX_CORR}"
+echo "  It asserts nothing, so it can never be a false claim, and 098 resolves the"
+echo "  verdict at REPORT time — so the commit is credited automatically once this"
+echo "  correlation is approved, with no amend (forward-only forbids one anyway)."
+echo "  Do NOT write Council-Reviewed: before you have read an approved verdict:"
+echo "  098 buckets that as MISMATCH, which is the report's dishonesty surface."

@@ -5,13 +5,41 @@
 # WHAT. A deterministic join of git history against council verdicts: every
 # commit in the window touching the review scope (platform/, internal/, pkg/ —
 # owner ruling 2026-07-17) is bucketed as
-#   REVIEWED   — carries a "Council-Reviewed: <correlation>" trailer AND the
-#                latest council_report on that correlation says approved;
-#   MISMATCH   — carries the trailer but the report is missing or not approved
-#                (a claim of review the artifacts do not back);
+#   REVIEWED   — carries "Council-Reviewed:" or "Council-Submitted: <correlation>"
+#                AND the latest council_report on that correlation says approved;
+#   AWAITING   — carries "Council-Submitted:" and the verdict is not (yet) approved;
+#   MISMATCH   — carries "Council-Reviewed:" but the report is missing or not
+#                approved (a claim of review the artifacts do not back);
 #   UNREVIEWED — no trailer at all.
 # No LLM anywhere (digest rule: an awareness surface that could hallucinate
 # what happened would defeat itself). No enforcement: this script only reports.
+#
+# TWO TRAILERS, AND THE DIFFERENCE IS WHETHER A CLAIM IS BEING MADE (added
+# 2026-07-30, from bugs_open/138's council round):
+#   Council-Reviewed:  "this was APPROVED" — an assertion. If the artifacts
+#                      disagree it is a MISMATCH, and surfacing that is half the
+#                      point of this report.
+#   Council-Submitted: "I submitted this; resolve the verdict yourself" — no
+#                      assertion, so it CANNOT be a false claim. Use it when you
+#                      commit before the verdict arrives.
+#
+# WHY THE SECOND ONE EXISTS. Two live practices pulled in opposite directions and
+# a thread could not satisfy both. Owner feedback of 2026-07-20 says commit the
+# moment the work is coherent and never hold finished code for a verdict — a
+# thread that held the bugs_open/011 fix across four council rounds had it swept
+# to production by the owner's own sweep commit (bca5d8255) with the verdict still
+# REVISE, so waiting produced the exact outcome it was meant to prevent. But
+# `Council-Reviewed:` can only ever be written on a commit made AFTER approval,
+# and forward-only forbids amending it in later. So a thread that complied with
+# the 07-20 practice, submitted, and was APPROVED still landed in UNREVIEWED
+# permanently — and this report could not tell it apart from a thread that never
+# submitted at all. Measured 2026-07-29: 8 REVIEWED against 40 UNREVIEWED in one
+# day, at least one of which (3a59b5012) was approved on corr 919a05bf.
+#
+# The resolution costs one line at commit time and no new machinery, because
+# db_decision() already resolves a correlation to its LATEST verdict at REPORT
+# time. So a commit that records its correlation when the verdict is still pending
+# is credited automatically once approval lands. Nothing needs amending, ever.
 #
 # WHY REPO-SIDE, not a digest section: the digest action runs in the chassis
 # pod, which has no git repository — the join can only happen where git is.
@@ -27,6 +55,15 @@
 #   * DB verification needs kubectl access to postgres-clients-0
 #     (ai-persona-system). NO_DB=1 skips it: trailered commits then bucket as
 #     TRAILER-UNVERIFIED rather than silently passing as REVIEWED.
+#   * NEITHER trailer proves the correlation describes THIS change. A pasted or
+#     stale id resolves and is credited. That was already true of
+#     Council-Reviewed: and is not made worse by Council-Submitted:, but it is the
+#     reason this is a visibility report and not a gate.
+#   * Commits made BEFORE 2026-07-30 predate the Council-Submitted: convention and
+#     cannot be resolved retrospectively — forward-only forbids amending a trailer
+#     in. So UNREVIEWED counts for windows spanning that date still mix "never
+#     submitted" with "approved, but committed first". Do not read the historical
+#     ratio as a compliance rate.
 #
 # Usage:
 #   ./098_REPORT_unreviewed_commits_v1.sh                # last 7 days
@@ -74,7 +111,7 @@ db_decision() { # $1 = trailer id (raw, from a commit message — sanitised here
      ORDER BY created_at DESC LIMIT 1;" 2>/dev/null | tr -d '[:space:]'
 }
 
-reviewed=(); mismatch=(); missing=(); unreviewed=(); unverified=()
+reviewed=(); mismatch=(); missing=(); unreviewed=(); unverified=(); awaiting=()
 count=0
 
 while IFS='|' read -r sha short date subject; do
@@ -87,17 +124,33 @@ while IFS='|' read -r sha short date subject; do
   # LIKE prefix was LONGER than the real id and matched nothing: a genuine
   # `revise` misread as EVIDENCE GONE, silently excusing a false claim of review
   # — the exact dishonesty this report exists to surface.
-  corr=$(git show -s --format=%B "$sha" | sed -n 's/^[Cc]ouncil-[Rr]eviewed:[[:space:]]*//p' | head -1 | awk '{print $1}')
+  body=$(git show -s --format=%B "$sha")
+  corr=$(printf '%s' "$body" | sed -n 's/^[Cc]ouncil-[Rr]eviewed:[[:space:]]*//p'  | head -1 | awk '{print $1}')
+  subm=$(printf '%s' "$body" | sed -n 's/^[Cc]ouncil-[Ss]ubmitted:[[:space:]]*//p' | head -1 | awk '{print $1}')
+  # Council-Reviewed: wins when both are present — it is the explicit claim, and
+  # the claim is what MISMATCH exists to police. Falling back the other way would
+  # let a commit assert approval and then be graded on the weaker trailer.
+  claim='trailer'
+  if [ -z "$corr" ] && [ -n "$subm" ]; then corr="$subm"; claim='submitted'; fi
   line="$short  $date  $subject"
   if [ -z "$corr" ]; then
     unreviewed+=("$line")
   elif [ "${NO_DB:-0}" = "1" ]; then
-    unverified+=("$line  [trailer: $corr]")
+    unverified+=("$line  [${claim}: $corr]")
   else
     resolved=$(db_decision "$corr" || true)
     decision="${resolved%%|*}"; matched="${resolved#*|}"
     if [ "$decision" = "approved" ]; then
-      reviewed+=("$line  [${corr:0:8}, by ${matched}]")
+      reviewed+=("$line  [${corr:0:8}, by ${matched}, via ${claim}]")
+    elif [ "$claim" = "submitted" ]; then
+      # A Council-Submitted: commit asserts nothing, so a non-approved verdict is
+      # the honest current state, NOT a false claim. Keeping it out of MISMATCH is
+      # the whole reason the second trailer can be used before a verdict exists.
+      if [ -z "$resolved" ]; then
+        awaiting+=("$line  [submitted: $corr -> no report yet (queued, or evidence cleared)]")
+      else
+        awaiting+=("$line  [submitted: $corr -> $decision]")
+      fi
     elif [ -z "$resolved" ]; then
       # No report row AT ALL is not the same accusation as "reviewed and not
       # approved". Council reports are deletable, and a documented practice
@@ -132,14 +185,18 @@ REPORT=$(
   echo "Scope: commits touching ${SCOPE_PATHS[*]} (owner ruling 2026-07-17)."
   echo "In-scope commits found: ${count}. Advisory mode: this is visibility, not enforcement."
   echo ""
-  print_bucket "REVIEWED (trailer + approved council_report)" reviewed
+  print_bucket "REVIEWED (either trailer + approved council_report)" reviewed
   if [ "${NO_DB:-0}" = "1" ]; then
     print_bucket "TRAILER-UNVERIFIED (NO_DB=1 — verdicts not checked)" unverified
   else
-    print_bucket "MISMATCH (trailer + a report that did NOT approve)" mismatch
+    print_bucket "AWAITING (Council-Submitted + not yet approved — honest, NOT a false claim)" awaiting
+    print_bucket "MISMATCH (Council-Reviewed + a report that did NOT approve)" mismatch
     print_bucket "EVIDENCE GONE (trailer, but no report row — cleared/expired, NOT a false claim)" missing
   fi
-  print_bucket "UNREVIEWED (no Council-Reviewed trailer)" unreviewed
+  print_bucket "UNREVIEWED (neither Council-Reviewed nor Council-Submitted)" unreviewed
+  echo "Council-Submitted: exists since 2026-07-30; commits before it cannot be"
+  echo "resolved retrospectively, so a window spanning that date UNDERSTATES review"
+  echo "coverage. See HONEST LIMITS in this script's header."
 )
 
 printf '%s\n' "$REPORT"

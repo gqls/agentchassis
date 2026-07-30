@@ -79,6 +79,23 @@ coming lockstep change in its header.
    hunks in `sketch`, evidence quotes in `grounded_in`).
 2. `./097_TRIGGER_council_review_v1.sh submission.json` → save the printed
    `SUBMISSION_CORR`.
+2a. **Committing before the verdict? Use `Council-Submitted: <corr>` (added
+   2026-07-30).** Two live practices used to pull in opposite directions and a
+   thread could not satisfy both: owner feedback of **2026-07-20** says commit the
+   moment the work is coherent and never hold finished code for a verdict — a
+   thread that held the `bugs_open/011` fix across four council rounds had it swept
+   to production by the owner's own sweep commit with the verdict still REVISE. But
+   `Council-Reviewed:` can only be written on a commit made AFTER approval, and
+   forward-only forbids amending it in. So a thread that complied, submitted, and
+   was APPROVED still landed in `098`'s UNREVIEWED bucket permanently, indistinguishable
+   from one that never submitted (measured 2026-07-29: 8 REVIEWED / 40 UNREVIEWED
+   in a day, at least one of them approved).
+   **`Council-Submitted:` asserts nothing**, so it can never be a false claim, and
+   `098` resolves the correlation at REPORT time — the commit is credited
+   automatically once the verdict turns approved. **Never write `Council-Reviewed:`
+   on a verdict you have not read**: that is a MISMATCH, and surfacing it is what
+   the report is for. Both trailers on one commit → `Council-Reviewed:` wins, so
+   you cannot dodge the claim by adding the softer one.
 3. Verdicts: **APPROVED** → commit with trailer `Council-Reviewed: <corr>`.
    **REVISE** → objections + the reviewers' checks come back answered
    (doc_note + council_report); revise, resubmit with

@@ -90,6 +90,17 @@ per coherent task, not per iteration.
   payload, not by the printed id:
   `SELECT current_step, status FROM orchestration_states WHERE
    collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';`
+- **Committing before the verdict lands? Use `Council-Submitted: <corr>`** (added
+  2026-07-30, from `bugs_open/138`'s round). It asserts nothing, so it can never be
+  a false claim, and `098` resolves the correlation at **report** time — the commit
+  is credited automatically once the verdict turns approved, with no amend
+  (forward-only forbids one). This closes a real hole: the 2026-07-20 rule "commit
+  the moment it is coherent, never hold code for a verdict" and a trailer that can
+  only be written *after* approval were **mutually unsatisfiable**, so a thread that
+  did everything right still read as un-reviewed for ever. **Never write
+  `Council-Reviewed:` on a verdict you have not read** — that is a MISMATCH, which
+  is the coverage report's dishonesty surface. Both trailers on one commit →
+  `Council-Reviewed:` wins.
 - **Verdicts.** APPROVED → commit with a trailer line `Council-Reviewed: <id>`
   (that trailer is what makes the coverage report's commit↔verdict join exact).
   **Use `SUBMISSION_CORR`** — the correlation is the key the artifacts are
