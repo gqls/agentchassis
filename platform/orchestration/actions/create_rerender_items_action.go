@@ -134,9 +134,18 @@ func pageRerenderItemKey(pageName string, siteID uuid.UUID, keyReason string) st
 //
 // Returns true when a row was actually inserted (false = dedup-suppressed by
 // an open item with the same key, which for recurring emitters is normal).
+// rerenderItemExec is the slice of *sql.DB / *sql.Tx this INSERT needs, so the
+// one canonical implementation can also be called from inside a transaction
+// (verbatim adoption creates pages and queues their deploys atomically).
+// Widening the parameter is what keeps that caller from hand-rolling a second
+// copy of this row shape — the exact drift this function exists to prevent.
+type rerenderItemExec interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+}
+
 func insertPageRerenderItem(
 	ctx context.Context,
-	db *sql.DB,
+	db rerenderItemExec,
 	siteID uuid.UUID,
 	pageID uuid.UUID,
 	source string,

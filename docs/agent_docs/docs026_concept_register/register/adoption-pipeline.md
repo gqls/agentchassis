@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-36 concepts, consolidated from 106 raw extractions (the cluster input file contains
+37 concepts (ADO-037 added 2026-07-30, postdating the freeze), consolidated from 106 raw extractions (the cluster input file contains
 the entire adoption-pipeline block set duplicated exactly twice — 53 unique raw
 blocks appearing twice each — plus further cross-unit duplication of the same
 concepts under different titles) across units U01, U02, U04, U05, U09, U12, U13,
@@ -96,8 +96,20 @@ U14, U15, U16, U17a, U18, U20, U21, U24d, U24f.
 - **status-evidence:** "Implementation status (the catch). Only Phase 1 exists: an adoption-aware classifier prompt giving implicit `high` fidelity at the prompt level… today fidelity is coarse prompt behaviour, not the deployed-vs-planned model" (FOCUS_design_composition_flow, 2026-05-26); the unified trigger records `--fidelity` but nothing reads it.
 - **what:** Unifying idea: every input (bare domain, questionnaire, scraped live site) is the same thing at different fidelity, with adoption as the high-fidelity end of one pipeline. The planned dial (locked/absolute, high, medium, low; re-purposed as research-confidence for blank sites) would govern how much aspiration reaches the first build and how fast the improvement loop narrows the gap, flowing into a `build_policy`/`adoption_meta` spec aspect with per-item status. Only Phase 1 (implicit `high`) exists; Phases 2–4 (per-item spec status, explicit input, status-marked aspiration) are unbuilt.
 - **sources:** FOCUS_design_composition_flow_and_adoption_fidelity(1).md#4; FOCUS_adoption_fidelity_and_variants.md; idea.uk/RUNBOOK_idea_uk_chassis_site_and_vm_deploy(25).md
-- **relations:** site-spec-and-classifier's platform-level fidelity dial (SPEC-003, same concept from the doc-028 side); variant axis (ADO-005); timed locks as interim enforcement
+- **relations:** site-spec-and-classifier's platform-level fidelity dial (SPEC-003, same concept from the doc-028 side); variant axis (ADO-005); timed locks as interim enforcement; **ADO-037 (the `locked` leg's implementation)**
 - **verify-later:** classifier prompt for adoption-aware fidelity; any fidelity/build_policy aspect in prod
+
+> **UPDATED 2026-07-30 — the `locked` rung is now BUILT and is the dial's first real
+> consumer.** "The unified trigger records `--fidelity` but nothing reads it" was true
+> until this date (re-verified: `grep -rn fidelity --include='*.go' platform/ internal/
+> pkg/` returned 10 hits, every one unrelated). `ApplyAdoptionPlanAction` now reads
+> `input_data.fidelity` and, on `locked`, takes a byte-preserving path instead of the
+> recreate path — see ADO-037. The rest of the dial (high/medium/low as distinct
+> behaviours, per-item spec status, a `build_policy`/`adoption_meta` aspect) is still
+> unbuilt, so this entry stays **partial**; what changed is that the dial is no longer
+> inert. Motivating case: loancalculator.co.uk, a hand-built 27-page site with 12
+> inline-JS calculators, where the recreate path would have rewritten every
+> calculator and changed every URL.
 
 ### ADO-012 — Readopt-as-acceptance-test pattern
 - **status:** aspirational
@@ -298,3 +310,13 @@ U14, U15, U16, U17a, U18, U20, U21, U24d, U24f.
 - **sources:** ED/MASTER_autonomous_build_and_operate(4).md#8.1, #8.2, #8.5
 - **relations:** automation ratchet; self-development coding pipeline
 - **verify-later:** none
+
+### ADO-037 — Verbatim adoption (`fidelity=locked`) and the `deploy_mode` component key
+- **status:** deployed
+- **status-evidence:** `platform/orchestration/actions/adopt_verbatim.go` (new 2026-07-30) + the `fidelity == fidelityLocked` branch in `apply_adoption_plan_action.go` §3a + the bypass in `rerender_single_page_action.go` (`loadVerbatimPageHTML`). Unit-tested in `adopt_verbatim_test.go`, both guards mutation-verified (removing the multi-component refusal and breaking the root-path normalisation each fail the suite). **Built and merged; first live exercise is the loancalculator.co.uk adoption — until that run completes, "deployed" means the code ships, not that a site has been adopted through it.**
+- **what:** Adopting a site to KEEP it rather than to regenerate it. Submitting `--fidelity locked` diverts `apply_adoption_plan` away from the recreate path (which canonicalises every URL through `CanonicalisePage` into `/tools/<slug>/index.html` and marks every page `mode:"recreate"` for LLM rebuild) onto a path that: drives the page list from the crawl index rather than the LLM plan; stores each page's `pages.url` as the **crawled path, unchanged**; writes the crawled `rawHtml` **complete document** into one `page_components` row (slot `ported-page`, `build_status='approved'`); sets `pages.rebuild_policy='owned'` + `build_status='deployed'`; queues one assemble-mode `page_rerender` per page; and **skips the classifier handoff**, because that cascade exists to design a site and would restyle exactly what the caller asked to preserve. **The shared seam is `page_components.content_data.deploy_mode`** — a new reserved key on a contract every page component shares. `deploy_mode='verbatim'` on an `owned` page with exactly one component makes `rerender_single_page` ship `rendered_html` untouched, skipping assembly, the tool-doc strip, outbound link repair and CSS/JSON-LD injection. That bypass is what makes preservation real end-to-end and rebuild-safe: a later maintenance sweep re-deploys identical bytes instead of quietly restyling the site.
+- **landmine:** **`pages.url` of `"/"` is silently fatal.** `getPageInfo` derives the deploy filename as `strings.TrimPrefix(url, "/")`, so a homepage stored as `/` commits a file with an EMPTY name. `urlToDeployPath` normalises `/` and any directory URL to its `index.html`; the test asserts the empty-filename invariant directly, not just the expected string. Second landmine: **the crawl index keys the SAME `*crawlPageContent` under several aliases** (absolute URL, path-only, sourceURL), so deduplicating by URL string yields one page per alias — `crawlPathIndex` dedupes by **content pointer** and picks the alias deterministically (map order is random, so without a sort a re-run could change `pages.url`).
+- **consumers to tell:** anything reading `page_components.content_data` as a free-form bag now shares the namespace with a reserved `deploy_mode` key; `cmd/webdesignport` writes the same `ported-page` slot but stores a **fragment** and takes the NEWEST matching component row where this takes the OLDEST — a second active `ported-page` component would split the two porters, which is why `portedPageComponentID` returns a count and logs when it finds more than one.
+- **sources:** `platform/orchestration/actions/adopt_verbatim.go`; `apply_adoption_plan_action.go` §3a; `rerender_single_page_action.go` (`loadVerbatimPageHTML`); `docs024_key_docs_latest/loancalculator_couk/PLAN_2026-07-30_loancalculator_adoption.md` (gap inventory G1–G8)
+- **relations:** ADO-011 (this is the dial's `locked` rung, finally consumed); ADO-016 / DYN-002 (the interactive-fingerprint gap this sidesteps rather than closes — a preserved calculator needs no fingerprint); ADO-027 `tool-recreation-handler` (what locked fidelity deliberately does NOT invoke); `cmd/webdesignport` (the owned-page row shapes this reuses, fragment-vs-document being the difference); locks (`pageComponentAgentWritableSQL`, respected on re-adoption)
+- **verify-later:** the loancalculator.co.uk run's per-page sha256 gate (stored `rendered_html` vs the bytes the site serves) — the one unproven link is whether firecrawl's `rawHtml` is byte-verbatim; whether `redirects` ever gains a consumer so verbatim adoption can preserve moved URLs without hand-written meta-refresh stubs (G5)

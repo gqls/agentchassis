@@ -91,6 +91,40 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("failed to load page info: %w", err)
 	}
 
+	// ── Verbatim pages ship their stored bytes, unassembled ─────────────
+	//
+	// An owned page whose single component carries content_data.deploy_mode =
+	// 'verbatim' holds a COMPLETE document (its own <!DOCTYPE>, <head>, lang
+	// attribute and scripts) rather than a body fragment. Everything below —
+	// assembly of site chrome around the fragment, the tool-doc strip, the
+	// outbound link repair — assumes a fragment, and applying any of it to a
+	// whole document rewrites exactly what the caller asked to preserve.
+	//
+	// This is what makes fidelity=locked adoption meaningful end to end
+	// (see adopt_verbatim.go): the bytes crawled are the bytes deployed, and a
+	// later maintenance sweep re-deploying the page produces the same bytes
+	// again rather than quietly restyling a site nobody asked to change.
+	if verbatimHTML, ok := loadVerbatimPageHTML(ctx, params.DB, pageID, params.Logger); ok {
+		params.Logger.Info("RerenderSinglePageAction: verbatim page, shipping stored bytes unmodified",
+			zap.String("page_id", pageIDStr),
+			zap.String("page_name", pageInfo.Name),
+			zap.String("domain", pageInfo.Domain),
+			zap.String("filename", pageInfo.Filename),
+			zap.Int("html_length", len(verbatimHTML)),
+		)
+		return map[string]interface{}{
+			"success":     true,
+			"verbatim":    true,
+			"html":        verbatimHTML,
+			"files":       map[string]interface{}{pageInfo.Filename: verbatimHTML},
+			"domain":      pageInfo.Domain,
+			"filename":    pageInfo.Filename,
+			"page_id":     pageIDStr,
+			"page_name":   pageInfo.Name,
+			"deploy_mode": deployModeVerbatim,
+		}, nil
+	}
+
 	params.Logger.Info("RerenderSinglePageAction: Assembling page",
 		zap.String("page_id", pageIDStr),
 		zap.String("page_name", pageInfo.Name),
@@ -189,6 +223,62 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		"page_id":   pageIDStr,
 		"page_name": pageInfo.Name,
 	}, nil
+}
+
+// loadVerbatimPageHTML returns the stored document for a page that must ship
+// byte-for-byte, and whether this page is one.
+//
+// The conditions are deliberately narrow, because the cost of a false positive
+// is a page that silently stops being maintained by the platform:
+//   - pages.rebuild_policy = 'owned' (the page is not the pipeline's to rebuild)
+//   - the page has EXACTLY ONE component row
+//   - that row's content_data.deploy_mode = 'verbatim'
+//
+// The single-component condition is what keeps the contract honest. A verbatim
+// page holds one complete document; if a second component has been attached,
+// the page is no longer a single stored document and assembling it is the right
+// behaviour — but that is a meaningful change of state, so it is logged rather
+// than done quietly.
+func loadVerbatimPageHTML(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (string, bool) {
+	var (
+		componentRows int
+		verbatimRows  int
+		renderedHTML  sql.NullString
+	)
+	err := db.QueryRowContext(ctx, `
+		SELECT
+			COUNT(*),
+			COUNT(*) FILTER (WHERE pc.content_data->>'deploy_mode' = $2),
+			MAX(pc.rendered_html) FILTER (WHERE pc.content_data->>'deploy_mode' = $2)
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE pc.page_id = $1
+		  AND p.rebuild_policy = 'owned'
+	`, pageID, deployModeVerbatim).Scan(&componentRows, &verbatimRows, &renderedHTML)
+	if err != nil {
+		// Not fatal: fall through to normal assembly, which is the behaviour
+		// every page had before this path existed.
+		logger.Warn("loadVerbatimPageHTML: lookup failed, falling back to assembly",
+			zap.String("page_id", pageID.String()), zap.Error(err))
+		return "", false
+	}
+
+	if verbatimRows == 0 {
+		return "", false
+	}
+	if componentRows > 1 {
+		logger.Warn("loadVerbatimPageHTML: page marked verbatim but carries extra components — assembling instead, so the stored document is NOT what ships",
+			zap.String("page_id", pageID.String()),
+			zap.Int("component_rows", componentRows),
+			zap.Int("verbatim_rows", verbatimRows))
+		return "", false
+	}
+	if !renderedHTML.Valid || strings.TrimSpace(renderedHTML.String) == "" {
+		logger.Warn("loadVerbatimPageHTML: verbatim component has empty rendered_html — refusing to deploy an empty page",
+			zap.String("page_id", pageID.String()))
+		return "", false
+	}
+	return renderedHTML.String, true
 }
 
 // collectJSAssets queries content_components for js_content associated

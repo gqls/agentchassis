@@ -411,6 +411,47 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	// ── 3. Build crawl index and per-page feature map ───────────────────
 
 	crawlPages := buildCrawlPageIndex(params.CollectedData, params.DB, siteID, logger)
+
+	// ── 3a. fidelity=locked: preserve the site instead of recreating it ──
+	//
+	// doc 028's fidelity dial, finally consumed. Everything below this branch
+	// (sections 4-5) canonicalises page URLs into a new shape and queues LLM
+	// recreation of every page; for a site adopted to be KEPT — hand-built,
+	// already indexed, already working — both of those are damage. The locked
+	// path writes the crawled documents through verbatim under their own URLs.
+	//
+	// Specs written above still stand: they describe the site and nothing in
+	// them restyles it. The classifier handoff below is deliberately skipped —
+	// see applyVerbatimAdoption.
+	if fidelity := adoptionFidelity(params.CollectedData); fidelity == fidelityLocked {
+		vPages, vItems, vErr := applyVerbatimAdoption(ctx, tx, siteID, domain,
+			sourceDomain, crawlPages, batchID, logger)
+		if vErr != nil {
+			return nil, fmt.Errorf("verbatim adoption (fidelity=locked): %w", vErr)
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit: %w", err)
+		}
+		logger.Info("ApplyAdoptionPlanAction: Complete (fidelity=locked, verbatim)",
+			zap.String("domain", domain),
+			zap.Int("specs_written", specsWritten),
+			zap.Int("pages_created", vPages),
+			zap.Int("items_created", vItems),
+			zap.String("batch_id", batchID.String()),
+		)
+		return map[string]interface{}{
+			"applied":       true,
+			"domain":        domain,
+			"fidelity":      fidelityLocked,
+			"deploy_mode":   deployModeVerbatim,
+			"specs_written": specsWritten,
+			"pages_created": vPages,
+			"items_created": vItems,
+			"batch_id":      batchID.String(),
+			"research_id":   researchID.String(),
+		}, nil
+	}
+
 	pageFeatures := buildPageFeatureMap(plan)
 
 	// ── 4. Create page records ──────────────────────────────────────────

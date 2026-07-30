@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,673 concepts across 109 category register files (**counted 2026-07-30**, not
+1,676 concepts across 109 category register files (**counted 2026-07-30**, not
 accumulated: the running "+N more" chain below had drifted 13 behind the actual
 row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
 chain is kept only as a history of *why* entries postdate the freeze).
@@ -17,7 +17,9 @@ commit path so a new subsystem announces its own absence; and 2 more (TL-032/033
 2026-07-29 for the orphan element-reference gate and the acceptance-ladder eligibility
 defect that let 63 broken tools ship unwatched; and 1 more (ADP-017) added 2026-07-30
 for the shared reply-delivery policy `bugs_open/133` extracted from the one adapter
-path that had it
+path that had it; and 1 more (ADO-037) added 2026-07-30 for verbatim adoption —
+`fidelity=locked` plus the `deploy_mode` component key — which made doc 028's
+long-inert fidelity dial (ADO-011) read by something for the first time
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
@@ -982,6 +984,7 @@ an ID prefix, or a status word.
 | TRF-013 | intent_site_stats visit-count snapshot | partial | One-row-per-host cumulative /stats snapshot feeding the events-per-1k rate calculation | traffic-analytics.md |
 | MDL-036 | Text-provider wiring reality (two providers end-to-end) | deployed | Only Anthropic and Ollama actually work end-to-end for text | model-infrastructure.md |
 | ADO-011 | Adoption fidelity dial (locked/high/medium/low; phases 1-4) | partial | Only Phase 1 implicit-high exists; real per-item dial unbuilt | adoption-pipeline.md |
+| ADO-037 | Verbatim adoption (fidelity=locked) + deploy_mode component key | deployed | Preserves crawled URLs and bytes; skips recreate and the restyle cascade | adoption-pipeline.md |
 | SPEC-003 | Fidelity dial (locked/high/medium/low + no-adoption confidence mode) | partial | Only Phase 1 implicit-high fidelity exists at the platform level | site-spec-and-classifier.md |
 | NAV-001 | Nav agent family and the three-tier authority model | partial | Only Tier 1 (strategist, new-build) is fully implemented of the three tiers | navigation.md |
 | DEV-049 | Schema-before-SQL discipline | convention | Only a live \d schema dump gives real column names and persistence; code names tables, not columns. | development-guide.md |
@@ -1277,6 +1280,8 @@ an ID prefix, or a status word.
 | FIX-055 | Truncation-gate attribution: `gated_by_truncation` on every council report | built, not yet live | A revise now says whether a seat judged it or merely ran out of tokens; gate unchanged | fix-loop.md |
 | FIX-056 | `Council-Submitted:` trailer — review credit that survives committing before the verdict | deployed | Records the correlation at commit time; 098 resolves it later, so approval credits with no amend | fix-loop.md |
 | FIX-057 | Recoverable structural plan refusal (`repair_step` on `diagnose_persist_fix_plan`) | built, not yet live | A validator rule no longer discards a completed design; bounded repair loop, gate unchanged when unset | fix-loop.md |
+| FIX-058 | Council seat token-pressure instrument: pull report + CTE-only push alert | deployed | Measures HEADROOM, not truncations — the lagging count reads ~0 because the caps were raised, and a raise moves the cliff | fix-loop.md |
+| FIX-059 | Seat length budget applier (one block, snapshot-then-write, refuses hand-authored blocks) | built, not applied | Candidate 4's reorder was refuted by measurement; the length budget is the half the evidence credits | fix-loop.md |
 | SOC-013 | Vertical integration of Spark mechanics into domain sites | aspirational | Same mechanics re-flavoured per vertical (vet, finance, fashion, food) | social-media.md |
 | SQLC-001 | SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits) | convention | Same method as DBG-016, extracted independently under this proposed category | sql-change-management.md |
 | DBG-070 | gpu-provisioner output-shape flattening (output_fields plural vs singular) | deployed | Same output_field/output_fields bug class as DBG-050 on a different agent | debugging.md |
