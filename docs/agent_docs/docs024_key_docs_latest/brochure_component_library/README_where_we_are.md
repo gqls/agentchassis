@@ -1074,3 +1074,69 @@ logo assets for relojistas, idea.uk and leopardess, so that's wiring them
 in, not sourcing them first. Neither is built yet. You then asked for a
 summary of where things stand, which is its own new file:
 `SUMMARY_2026-07-30_the_panel_is_finished_and_two_new_fronts_open.md`.
+
+---
+
+**2026-07-30 (midday) — you asked where the research had gone, and it turned into a
+proposal for building things step by step.**
+
+You asked me to dig out three things: the research into tool provenance and the
+"doc traveller" idea, the deduplication work, and a proper history of how the
+carousel got to where it is — and then to put it all into a proposal you could pick
+up in a separate thread.
+
+The research all existed and none of it was lost. The tool provenance work is a
+whole family of documents under `travelling_docs/`, and the plain-English one you
+were probably remembering is `OVERVIEW_self_verifying_tools.md` — it describes
+exactly the idea you were reaching for: every tool carries its own living
+specification and change history in the database, and the platform can drive that
+tool in a real browser to check it still works. It was built in numbered stages,
+Stage 0 through Stage 6, and there is a tracker showing which stages went live and
+when. Alongside it there's a much newer report from yesterday
+(`webdesign_tools_repair/`) which re-checked all of that against the live system and
+found the chain is nearly complete — five small pieces of wiring missing, one of
+which got fixed while the report was being written. The deduplication work is filed
+as a proper platform bug, `bugs_open/151`, with the measurement, the root cause in
+the actual code, and three fixes ordered by which one makes the problem impossible
+rather than merely unlikely.
+
+The carousel history was worth writing out properly, because reading the five rounds
+back in order makes one thing obvious that wasn't obvious while living through it.
+Every round was careful. Hazards were named in advance and answered. A test harness
+ran before anything touched the database, and every check in it was proven capable of
+failing by deliberately breaking the thing it checked. Nothing was ever trusted from
+a "complete" status — it was always checked against the actual served page. And it
+still shipped a component whose JavaScript never ran at all, from the very first
+version, for four rounds, until you clicked it.
+
+That's the finding, and it's why the proposal takes the shape it does. The checks
+weren't weak. They were all sound about what they measured — they just all measured
+the page's code or forced it into a state directly, and not one of them ever fired a
+real click. What was missing wasn't rigour. It was a *stage*: "does this actually work
+when a person drives it" was never a named thing that had to pass before we called it
+done.
+
+So the proposal is to name the stages — there are eight, from "does this shape already
+exist" through to "does it still work after the next deploy" — give each one a single
+question and a single check that's capable of failing, and let each small part of a
+build carry its own travelling document the way tools already do. The encouraging part
+is how little of this would be new: the machinery that drives a real browser and
+asserts real interactions already exists, already works, and was proven end to end
+yesterday on a different tool. It has simply never been pointed at components. So the
+missing stage is mostly wiring, not construction.
+
+Two honest caveats, both written into the proposal rather than buried. The claim that
+stages would have caught the carousel bug is reasoning, not an experiment — though a
+fair one, since the bug was found the first time anyone ran that kind of check. And I
+have *not* verified that the existing travelling-docs database tables fit a component's
+needs without modification; that's one query and it should be the first thing the next
+thread runs, before designing anything on top of it.
+
+It's all in
+`docs024_key_docs_latest/staged_component_build/PROPOSAL_2026-07-30_step_by_step_build_with_stage_gates.md`,
+with a short kickoff note at `features_open/027` so a fresh thread can start from the
+right place. One thing I'd flag before that thread starts: there are already two
+adjacent items on the pile — `features_open/026`, about rendering a page and checking
+it before it ships, and `015`, about sites climbing a maturity ladder one rung at a
+time. All three are circling the same idea at different sizes, and it would be cheaper
+to decide that up front than to reconcile three half-built versions later.

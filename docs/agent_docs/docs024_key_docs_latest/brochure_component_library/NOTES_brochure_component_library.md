@@ -3211,3 +3211,67 @@ animation does not resolve reliably inside `--virtual-time-budget`'s virtual
 clock, so the screenshot still lands scrolled to the top of the page** —
 untried remaining option is forcing `prefers-reduced-motion` (disables the
 smooth-scroll CSS) before screenshotting.
+
+## 2026-07-30 (midday) — owner asked for the research paths + a carousel provenance; became a staged-build proposal
+
+Owner asked for (a) the path to the tool-provenance / docs-traveller / checking-as-we-go
+research, (b) the path to the dedup work, (c) a detailed step-by-step provenance of the
+carousel, all folded into a proposal doc he can take to another thread. He then added
+that he could not remember what the step-by-step build documentation was called.
+
+**All three existed; nothing was written from scratch except the proposal.**
+
+- **Tool provenance / doc traveller** = `docs024_key_docs_latest/travelling_docs/`.
+  The doc the owner was reaching for is **`OVERVIEW_self_verifying_tools.md`** (the
+  plain-language tour: travelling docs + the verification ladder, Tiers 0–4). The
+  *step-by-step build* record is **`RUNBOOK_travelling_docs(38).md` §0**, a Stage 0 →
+  Stage 6 rollout tracker with per-stage gates and live-dates. Also `PLAN_travelling_docs(7).md`,
+  `tools/tool_acceptance_runner/PLAN_tool_acceptance_runner.md`, `037_TOOL_DOCS_convention(1).md`.
+  **Landmine for anyone else looking:** that directory holds 39 numbered copies of each
+  travelling doc (`RUNBOOK_travelling_docs(1..39).md`) — the highest number is current;
+  a bare `RUNBOOK_travelling_docs.md` also exists and is NOT the latest.
+- **Current state of the same chain, re-measured against the live system 2026-07-29** =
+  `webdesign_tools_repair/REPORT_2026-07-29_concepts_for_a_working_tools_chain.md`
+  (three "working" bars, gaps G1–G5, and the `smart-contrast` Tier-4 pilot that PASSED
+  first complete run, correlation `c258967d` on v1.0.1206).
+- **Dedup work** = `bugs_open/151_HANDOFF_2026-07-29_section_writer_has_no_memory_of_facts_already_used.md`
+  + the two 07-29 NOTES entries above + the 016b §9 pattern. No separate summary needed.
+
+**Wrote:** `docs024_key_docs_latest/staged_component_build/PROPOSAL_2026-07-30_step_by_step_build_with_stage_gates.md`
+(Part 1 = the evidenced five-round carousel provenance; Part 2 = the staged-build design)
+and `features_open/027_FEATURE_staged_part_build_with_stage_gates.md` as the kickoff anchor.
+
+**The load-bearing finding, from reading the five rounds back in order.** Every round
+was careful — hazards named in advance, a harness run before any DB write, every check
+proven non-vacuous by mutation, verification always against the served artefact and never
+a `complete` status — and it still shipped a component whose JS never ran client-side at
+all, from Round 1, for four rounds, until the owner clicked it. **The checks were not
+weak; they were all sound about what they measured.** They measured static markup or
+forced `.open = true` on DOM nodes. None ever fired a real click. What was missing was
+not rigour but a **stage**. That is the entire argument of the proposal, and the eight
+proposed stages (S0 shape → S7 regress) are each derived from a point in Part 1 where
+something was either caught or missed, not imported from theory.
+
+**Best reuse finding, and it makes the proposal much cheaper than it looks:**
+`interaction` + `text_matches` evaluated by `browser-runner-adapter` already does what
+Round 5's hand-rolled real-click test did, and was proven end to end the previous day by
+the `smart-contrast` pilot (11/11 checks, real Chromium, desktop + mobile, asserting
+arithmetic against known answers, dispatched through the platform's own agent). **The
+missing stage is wiring, not construction** — the mechanism has simply never been pointed
+at components rather than tools.
+
+**Marked UNVERIFIED in the proposal rather than asserted:** whether `doc_plans` fits a
+component's needs without schema change. Nobody has read the table against a component's
+requirements; it is one query and it gates the whole design, so it is written as the next
+thread's first action. Also marked `[INFERRED]`: that stage gates *would* have caught
+Round 5 — reasoning, not an experiment, though the bug was found the first time anyone
+ran an S6-shaped check.
+
+**Checked for duplicate/adjacent features before filing 027** rather than filing blind:
+`features_open/026` (render the page before it ships — its Phase 3, browser-runner on the
+deploy path, is a sibling of S6), `015` (staged site maturity ladder — the same idea one
+altitude up, also REQUESTED and undesigned), `017` (component adoption). All three plus
+027 are circling one idea at different sizes; 027 says so explicitly and says the dispatch
+should be shared rather than built twice. `bugs_open/149` is cited in 027 as the
+cautionary evidence against proliferating checkers (22 discovery handler agents, only 2
+running `validate_page_content`, six registered checks in no agent and zero items ever).
