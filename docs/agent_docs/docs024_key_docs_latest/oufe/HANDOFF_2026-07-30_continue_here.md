@@ -1,5 +1,25 @@
 # HANDOFF — oufe lane + the checker-layer queue (written 2026-07-30, work done 2026-07-29)
 
+> **⚠ PARTIALLY SUPERSEDED 2026-07-30 (later the same day) — read this box before §3 or §7.**
+> Current read-out: **`SUMMARY_2026-07-30_oufe.md`**; running log: the `NOTES_oufe.md` tail.
+>
+> - **§7's recommendation is DONE.** Option (1), `149` C1+C3, plus (3) B4 — commit
+>   `f61dce806`, image `v1.0.1208` built and marker-verified, **not rolled**.
+> - **§3's "blocked on reading `144` first" is STALE.** 144 closed and live on
+>   v1.0.1203, and `e9de64d99` had already corrected the citation: the workflow
+>   validator checks SHAPE, never page CONTENT, so nested-step validation never had
+>   any bearing on the missing claims gate.
+> - **§3's C1 target is WRONG, and §3's C3 figures were false when written.**
+>   `page-content-writer` persists nothing (it is *called* by four of the six agents
+>   that do), so the gate went to the persistence seam instead; and
+>   `claims_unverified` was **not** zero — the detector had fired automatically
+>   2m28s before `149` was committed. Both corrections are in `bugs_open/149`'s
+>   banners, with the evidence.
+> - **§5's oufe site figures are still NOT re-verified** — that part of this file
+>   stands exactly as written, including its warning.
+> - **§6 (build the second tool) is untouched and is now the lane's top item**, with
+>   its blocker cleared for the second time.
+
 **Supersedes `HANDOFF_2026-07-28_continue_here.md` as the cold-start pointer for this
 lane.** That file is still worth reading for the pre-07-29 history; everything it says
 about "next steps" is superseded here.
