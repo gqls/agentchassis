@@ -320,3 +320,101 @@ silently create a useless key instead of erroring).
 permission classifier, so the change is prepared and reviewable but not live. The
 adoption run is held until it is applied: firing now would silently take the recreate
 path, which is the one outcome the owner explicitly ruled out.
+
+## 2026-07-30 late — the adoption RAN, the mechanism WORKED, and the SOURCE was wrong
+
+The run completed and every structural claim held. Then the fidelity gate failed
+27/27, which turned out to be the most valuable result of the day.
+
+### What worked, verified
+
+`fidelity=locked` reached the spawned agent (`locked`, confirmed live — migration
+274 does its job) and `apply_adoption_plan` took the verbatim branch:
+
+- **27 pages, every URL preserved EXACTLY** as its flat `.html` path
+  (`/tools/standard-calc.html`, not `/tools/standard-calc/index.html`). Under the
+  recreate path all 27 would have changed.
+- **`rebuild_policy='owned'`, `build_status='deployed'`** on all 27; page types
+  correctly derived (13 guide, 12 tool, 1 landing, 1 content); names mirror
+  `CanonicalisePage` prefixes.
+- **27 `page_rerender` items and ZERO `needs_content_page` / `needs_tool_recreation`.**
+  The 12 calculators were never handed to an LLM.
+- **27 `ported-page` components**, all `approved`, all
+  `deploy_mode=verbatim`, `generator=adoption-locked/1`, 10–16KB each (whole
+  documents, not fragments), exactly one component per page.
+
+### What was wrong: the crawl is not a byte source
+
+**`md5(rendered_html)` vs the served file: 0 of 27 matched.** Every stored page was
+LARGER by **8,900–9,060 bytes** — and a near-CONSTANT delta across 27 different pages
+is a signature, not noise. Diffing one page showed why: firecrawl's `rawHtml` is the
+**serialised post-JavaScript DOM**, not the origin's bytes. `nav.js` had already run,
+so ~9KB of generated nav sat inside `#nav-placeholder` with its `<style>` hoisted into
+`<head>`; every relative URL had been rewritten absolute; the dropdown toggles'
+`href="#"` had become `https://…/page.html#`, which **reloads the page on desktop
+click** where the original did nothing; `<meta charset>` had been swapped for
+`http-equiv`; whitespace collapsed; `&` → `&amp;`.
+
+So the mend's MECHANISM is right and its INPUT was wrong. `formats: ["rawHtml"]`
+sounds like it returns what the server sent. It does not. → **LANDMINES**, and
+**G10**.
+
+### The incident, and what caught it
+
+Three items drained before I cancelled the rest, deploying the mutated form to the
+live site: `car-finance-explained` 2,223→11,212, `debt-consolidation-explained`
+3,430→12,465, `debt-help-uk` 2,954→11,932 bytes. Restored from `b4302e22b`, verified
+byte-exact at the origin, all 27 URLs 200. Remaining 24 items cancelled with the
+reason recorded on the row.
+
+**The checksum gate is what caught this, and it is a MANUAL step, not code.** The
+render_guardian seat objected in round 1 that my claimed sha256 gate was
+*"aspirational, not built — only a sha256 field stored in content_data"*. **That
+objection was correct, and running the check by hand is the only reason three pages
+were damaged instead of twenty-seven.** It belongs in the pipeline.
+
+### A second landmine found during the recovery
+
+The 3-file restore deployed GREEN and printed only **2** `upload` lines.
+`b2 sync --delete --skip-newer` **silently skipped `debt-help-uk.html` because the
+bucket copy was newer** — written 15 seconds earlier by the very rerender I was
+undoing. A cache-buster proved the ORIGIN was stale, not the CDN, so waiting would
+never have fixed it. `gh run rerun` fixed it (fresh checkout ⇒ fresh mtimes ⇒
+upload). **The revert case is exactly when this fires, because what you are undoing
+is by definition the most recent write.** → LANDMINES.
+
+### Repair, and the M2 proof
+
+Loaded the **served bytes** from the deploy repo into all 27 components (base64 →
+`convert_from(decode(...))` to avoid escape-mangling; the lock predicate respected).
+Gate re-run: **27/27 byte-exact, and each component's recorded `sha256` independently
+matches the file's real sha256.** `content_data.source` now records that the crawl
+rawHtml was discarded and why.
+
+> **First attempt failed and rolled back cleanly:** `sha256(text::bytea)` is invalid
+> (`sha256` takes bytea; `decode(...,'base64')` already IS bytea). `ON ERROR STOP` +
+> an uncommitted `BEGIN` meant nothing was written — the mismatch report I ran
+> immediately after was measuring the UNCHANGED rows, which is what told me the
+> transaction had rolled back rather than half-applied.
+
+**Then the decisive end-to-end test of M2.** Raised one `page_rerender` for
+`/tools/settlement-calculator.html` (spec shape copied from a completed row of the
+same item_type, per the LANDMINES rule — `page_id` in the spec AND the column). It
+completed, git-adapter committed `765c0e0d2 Rerender: tools/settlement-calculator.html`,
+and **the diff across that commit is EMPTY**; the file is still 2,521 bytes. An owned
+verbatim page redeploys **byte-identical** content. That is the rebuild-safety
+property M2 exists to provide, demonstrated in production rather than argued.
+
+### Where this leaves `fidelity=locked`
+
+Sound, and **not yet safe to use on a site whose fidelity you have not checked by
+hand**, because its byte source is a browser-rendered DOM. Three ways to close it,
+for the owner to choose (G10 in the PLAN):
+1. **Adopt from files/repo** — the G1 gap I deferred as optional. It is now revealed
+   as the *natural* source, not a convenience: the deploy repo already holds exactly
+   the bytes being served.
+2. **A raw-fetch step for locked fidelity** — plain HTTP GET, no browser, instead of
+   firecrawl.
+3. **Build the checksum gate into the action** — compare stored bytes against a
+   direct fetch before queueing any deploy, and fail loud. This one is worth doing
+   whichever source wins, because it is the check that saved this run.
