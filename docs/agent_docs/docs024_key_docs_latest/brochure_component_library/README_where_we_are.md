@@ -1066,3 +1066,11 @@ noise from the artificial way I'm testing it locally rather than anything on
 the real page, and every specific thing I checked came back correct, but I
 haven't fully run that down, so I'm noting it rather than pretending it isn't
 there.
+
+**On the two ideas you floated**: the tools page should have real
+interactivity — a slider or two, or inputs to change what you're looking at
+— not just numbers sitting on the page. And you confirmed we already have
+logo assets for relojistas, idea.uk and leopardess, so that's wiring them
+in, not sourcing them first. Neither is built yet. You then asked for a
+summary of where things stand, which is its own new file:
+`SUMMARY_2026-07-30_the_panel_is_finished_and_two_new_fronts_open.md`.
