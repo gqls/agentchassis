@@ -153,7 +153,12 @@ UPDATE agent_definitions
          default_config,
          '{workflow,steps,check_plan_valid}',
          jsonb_build_object(
-           'action', 'conditional',
+           -- 'conditional_branch', NOT 'conditional'. The sibling check_* steps in
+           -- this agent all use 'conditional', but the registry marks it
+           -- Deprecated with DeprecatedBy 'conditional_branch' (registry.go:65-78);
+           -- both resolve to the same ConditionalBranchAction handler, so this is
+           -- identical in behaviour and does not add to the deprecation debt.
+           'action', 'conditional_branch',
            'description', 'Plan router: structurally valid → the reviewers; refused → repair_plan. '
                        || 'Oriented so an unresolvable field routes to repair, never to a council.',
            'config', jsonb_build_object(

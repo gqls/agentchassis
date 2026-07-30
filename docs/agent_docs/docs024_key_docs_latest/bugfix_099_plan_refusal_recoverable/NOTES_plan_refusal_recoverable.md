@@ -113,3 +113,95 @@ proved the precondition still held at that moment.
 until a roll, so `272` goes on after the image is pod-verified. Applied early it is
 inert-but-harmless (`check_plan_valid` is simply never reached, because the step
 still fails), but "harmless" is not "useful" and the ordering is the documented one.
+
+### Post-submission: the two residual risks I named, now MEASURED
+
+I listed both in the council submission as things a reviewer should check. Better to
+answer them myself than ask the council to — measured while the round ran.
+
+**Risk 3 — could `plan_persisted.plan_valid` resolve to something else?**
+`resolveFieldValue` has five fallback strategies including a recursive key search
+(`conditional_branch_action.go:397-412`), so a same-named key elsewhere could in
+principle be found. Nothing else uses the name:
+
+```bash
+grep -rn "plan_valid" platform/ internal/ pkg/ --include=*.go \
+  | grep -v diagnose_persist_fix_plan_action.go | grep -v diagnose_plan_refusal_test.go
+# (no output)
+```
+```sql
+SELECT type FROM agent_definitions WHERE default_config::text LIKE '%plan_valid%'
+  AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+-- (0 rows)
+```
+Clean **as of 2026-07-30**. This is a name-uniqueness claim, so it expires the moment
+someone else picks the name — it is not a structural guarantee.
+
+**Risk 2 — does any consumer key off `persisted`?** No. Every reference to a
+`plan_persisted` field, fleet-wide:
+
+```sql
+SELECT DISTINCT a.type || ' :: ' || m[1]
+  FROM agent_definitions a,
+       regexp_matches(a.default_config::text, 'plan_persisted\.[a-z_]+', 'g') AS m
+ WHERE a.deleted_at IS NULL AND COALESCE(a.is_snapshot,false)=false AND a.is_active
+ ORDER BY 1;
+-- council-gate     :: plan_persisted.plan_json
+-- council-gate     :: plan_persisted.summary
+-- feature-designer :: plan_persisted.plan_json
+-- fix-proposer     :: plan_persisted.plan_json
+```
+
+(Note the earlier attempt at this query failed with *"set-returning functions must
+appear at top level of FROM"* — `regexp_matches(...,'g')` returns a set, so it goes
+in `FROM` directly, not wrapped in `unnest()` in the select list.)
+
+**This is the strongest evidence for the design decision I nearly got wrong.** All
+three agents read `plan_persisted.plan_json`. Had the refusal returned the rejected
+plan under that key — which was my first cut — **all three would have read a rejected
+plan as a persisted one.** The rename to `rejected_plan_json` is now backed by a
+measurement rather than by my reasoning about `repropose`'s prompt.
+
+**One thing this surfaced that I had not considered:** `council-gate` also reads
+`plan_persisted.summary`, which the refusal path does **not** return. That costs
+nothing today because `council-gate` is not opted in and never takes the refusal
+path. But it is a live consideration for the open question "should the other two
+consumers be opted in" — opting in `council-gate` without adding `summary` to the
+refusal result would render that field empty rather than error. Recorded here so the
+next thread does not have to rediscover it.
+
+### Caught after committing: I copied a DEPRECATED action alias
+
+The `check_plan_valid` router was written with `"action": "conditional"`, copied from
+the sibling `check_revise` step in the same agent — the "match the surrounding code"
+instinct. The registry says otherwise:
+
+```go
+// registry.go:65-78
+"conditional_branch": {Handler: ConditionalBranchAction, Category: "core", ...},
+"conditional":        {Handler: ConditionalBranchAction, ..., Deprecated: true,
+                       DeprecatedBy: "conditional_branch"},
+```
+
+Same handler, so behaviour is identical and the copied version would have worked —
+which is exactly why nothing would ever have flagged it. Switched to
+`conditional_branch`. **Surrounding code is a good default and not evidence**: every
+existing `check_*` step in this agent uses the deprecated name, so consistency with
+them meant inheriting their debt. Re-dry-ran, still clean.
+
+Caught only because I went to confirm that a `conditional` step with no `next_step`
+really does route via `next_step_override` — which it does (`check_revise` has no
+`next_step` either, verified against the live row). Looking for one answer turned up
+a different one.
+
+### Roll state while waiting
+
+Live chassis is `v1.0.1208`; another session has `IMAGE_TAG` staged at `v1.0.1209`
+in the working tree but has not built it (no such local image). My commit
+`8eebba0cf` IS an ancestor of HEAD, so whoever builds next carries the Go half
+whether or not they know about it — the "your commit is a deploy" property.
+
+Incidental confirmation of `bugs_open/153` sitting in plain sight in `docker images`:
+`v1.0.1206` and `v1.0.1207` have the **same image id** (`64fe88a6a564`). A tag bump
+did not rebuild. This is why the post-roll check has to be a pod-grep with a positive
+control, not a version string.
