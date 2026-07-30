@@ -12199,3 +12199,36 @@ mirror image: **evidence of absence that had already expired.**
   had already typed the clean verdict once. The discipline that worked:
   **`grep -c` printing nothing is not a count of zero** — real grep always prints a
   number, so blank output is a tooling failure, never a result.
+
+## 2026-07-30 — bugfix_099 candidate 2 (recoverable plan refusal)
+
+- **I wrote a prompt template field that does not exist, and it would never have
+  errored.** The new `repair_plan` step's context section referenced
+  `{{.spec_row.body}}`. There is no `body` field on `spec_row` — the design step in
+  the same agent uses `{{.spec_row.work_item_id}}`, `{{.spec_row.summary}}` and
+  `{{.spec_row.spec_text}}`. **A wrong template path renders an empty string and
+  reports nothing**, so the repair step would have run, produced a plan with no spec
+  context, and looked entirely healthy. Caught only because I happened to check the
+  field name before applying the migration rather than after. The cheap check that
+  would have caught it, and now lives in the RUNBOOK:
+  `SELECT unnest(regexp_matches(prompt_template, '\{\{\.spec_row[^}]*\}\}', 'g'))`
+  over the agent row — read the paths a working step already uses instead of guessing
+  from the field's name. Same family as the `[VERIFIED]`-off-an-echo entries: the
+  failure mode is **an absence that renders as success**, not an error.
+- **I nearly implemented the bug file's own fix candidate verbatim, and it was
+  wrong.** `bugs_open/099` candidate 2 says to route the validation failure into the
+  existing `repropose` step, "which exists". It does exist — and its prompt is written
+  for a *council* revision ("A council reviewed your previous plan and asked for
+  revision"), rendering `{{.council_reviews.body}}` and two other review fields.
+  `persist_plan` runs **before any council**, so on the very path the fix serves those
+  render against nothing. I had already started wiring to it. **What caught it:**
+  reading the step's live `prompt_template` instead of trusting its name and the bug
+  file's say-so. The lesson is not "bug files can be wrong" — it is that a fix
+  candidate naming an existing mechanism is an **untested claim about that
+  mechanism**, and the check is one query against the live row.
+- **My first design gave a new artefact its own `kind`, which compiles and fails at
+  runtime.** `diagnosis_artifacts.kind` is CHECK-constrained to five values. `go
+  build` cannot see it, and neither can any test with a mocked DB — it would have
+  failed on the **failing branch**, which is the branch nobody exercises before
+  shipping. The check is `\d <table>` before choosing a column value, which this
+  repo's own conventions already say and I skipped on the way in.

@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,672 concepts across 109 category register files (**counted 2026-07-30**, not
+1,673 concepts across 109 category register files (**counted 2026-07-30**, not
 accumulated: the running "+N more" chain below had drifted 13 behind the actual
 row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
 chain is kept only as a history of *why* entries postdate the freeze).
@@ -1276,6 +1276,7 @@ an ID prefix, or a status word.
 | FIX-053 | Feedback close-out (Phase 3): all-time resolution recheck + auto-reescalation | deployed | Closes parked escalations whose pattern genuinely resolved; re-escalates if it returns | fix-loop.md |
 | FIX-055 | Truncation-gate attribution: `gated_by_truncation` on every council report | built, not yet live | A revise now says whether a seat judged it or merely ran out of tokens; gate unchanged | fix-loop.md |
 | FIX-056 | `Council-Submitted:` trailer — review credit that survives committing before the verdict | deployed | Records the correlation at commit time; 098 resolves it later, so approval credits with no amend | fix-loop.md |
+| FIX-057 | Recoverable structural plan refusal (`repair_step` on `diagnose_persist_fix_plan`) | built, not yet live | A validator rule no longer discards a completed design; bounded repair loop, gate unchanged when unset | fix-loop.md |
 | SOC-013 | Vertical integration of Spark mechanics into domain sites | aspirational | Same mechanics re-flavoured per vertical (vet, finance, fashion, food) | social-media.md |
 | SQLC-001 | SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits) | convention | Same method as DBG-016, extracted independently under this proposed category | sql-change-management.md |
 | DBG-070 | gpu-provisioner output-shape flattening (output_fields plural vs singular) | deployed | Same output_field/output_fields bug class as DBG-050 on a different agent | debugging.md |

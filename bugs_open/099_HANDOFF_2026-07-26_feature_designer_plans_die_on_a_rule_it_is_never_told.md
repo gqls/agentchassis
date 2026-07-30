@@ -242,3 +242,103 @@ A dashboard keyed on `error` reports this run as clean.
 - `bugs_closed/077` — same class, one level down; its capability gap is the work item above.
 - `016b` §9 — *"A 'did the fix work?' check must assert the HANDLER's remit…"* and
   *"A detector must PARTITION its population by the handler's remit…"*.
+
+---
+
+## CANDIDATE 2 BUILT — 2026-07-30
+
+Committed to HEAD; **Go, so inert until the next chassis roll.** Config half is
+`docs/agent_docs/sql_for_agents/272_feature_designer_plan_repair_loop.sql`,
+dry-run clean and deliberately **not applied until the image is pod-verified**
+(DB config is live immediately, Go is not).
+
+Workstream docs: `docs024_key_docs_latest/bugfix_099_plan_refusal_recoverable/`
+(PLAN, RUNBOOK, NOTES, README_where_we_are). Concept register: **FIX-057**.
+
+### What it does
+
+`diagnose_persist_fix_plan` gains two config keys, `repair_step` and
+`max_repair_attempts` (default 1). **With `repair_step` unset the action behaves
+exactly as before** — which is why the other two consumers of it
+(`council-gate → persist_submission`, `fix-proposer → persist_plan`) need no change
+and get no behaviour change.
+
+With `repair_step` set, a **structural** validation failure:
+
+1. persists the rejected plan verbatim + the exact problems as a durable artefact;
+2. returns a RESULT (not an error) carrying `plan_valid: false`,
+   `should_repair_plan: true`, `validation_problems_text`, `rejected_plan_json`;
+3. is routed by a `conditional` step back to a repair prompt, up to
+   `max_repair_attempts` times, then fails exactly as it does today.
+
+**The gate is not lowered.** An invalid plan is still never persisted as a
+`fix_plan` on either path — the original justification ("persisting a malformed plan
+would hand F1.1b garbage to turn into a branch") is preserved in full. The change is
+that *failing the step* and *not persisting* turned out to be two separate claims,
+and only the second was load-bearing.
+
+**Rule-agnostic, which is the point.** This file's own "Why this stays OPEN" section
+says candidate 1 "only lowers the rate for one rule; the validator has a dozen more".
+Candidate 2 needs no prompt edit for any of them, present or future.
+
+### CORRECTION to candidate 2 as written above
+
+> This file's candidate 2 says: *"Route the validation problem back into `repropose`
+> (which exists) with the problem text."* **That is not implementable as written, and
+> I started doing it before checking.** `persist_plan` runs **before any council**, so
+> on a first-pass refusal `repropose`'s live prompt_template renders
+> `{{.council_reviews.body}}`, `{{.check_results.results_text}}` and
+> `{{.code_lookup_results.results_text}}` against nothing, and it frames a structural
+> problem as a council objection ("A council reviewed your previous plan and asked
+> for revision"). The refusal path the fix exists to serve is exactly the path where
+> that prompt is malformed.
+>
+> Built a dedicated `repair_plan` step instead, whose prompt states plainly that the
+> plan was *not* reviewed and *not* rejected on its merits, gives the validator's
+> literal complaints, and asks for the same design with only those problems fixed.
+> **What caught it:** reading `repropose`'s live `prompt_template` before wiring to
+> it, rather than trusting the step's name. Whether the two loops should later
+> converge is left open in FIX-057.
+
+### Deliberately NOT done
+
+- **Truncated / invalid JSON and the byte cap stay terminal.** A cut completion is a
+  `max_tokens` fault, not a repairable plan (`bugs_open/012`, `138`). There is a test
+  asserting truncated JSON does not enter the repair loop even with `repair_step` set.
+- **`fix-proposer` is not opted in.** It has the same defect and the fix is one
+  migration, but it belongs to another lane; routing that from outside is the
+  collision this repo's rules warn about. Named in FIX-057's open question.
+- **`council-gate` is not opted in**, and that is a positive choice: it is the gate
+  this change is reviewed by.
+- **The validator is not relaxed.** This file forbids it and is right.
+
+### Two silent traps found building it (both now in `LANDMINES.md`)
+
+1. **`diagnosis_artifacts.kind` is CHECK-constrained** to
+   `bundle|iteration_note|fix_plan|council_report|escalation`. Giving the refusal
+   note its own kind compiles and fails at **runtime**, on the failing branch. It
+   reuses the allowed-but-unused `iteration_note` slot with
+   `metadata->>'note_kind' = 'plan_validation_refusal'` — so **any reader of
+   `iteration_note` must filter on that key.** No DDL on a shared table.
+2. **A NULL `orchestration_id` never satisfies `= $2`**, so the run-scoped refusal
+   count would return 0 for ever and 0 reads as "first attempt" — an unbounded loop
+   with no error. Guarded by refusing terminally when the run id is absent.
+   `diagnose_council_decide_action.go:514-517` has the same shape and no guard;
+   **[UNMEASURED]** whether its run id is ever empty, so that is recorded as a shape
+   to check, not filed as a defect.
+
+### How to verify (unchanged from this file's own section, which is right)
+
+Require **BOTH** a `fix_plan` artifact for the new correlation **AND** that the run
+does not end at `complete_refused`. A completing run is not evidence — the original
+failing run COMPLETED, at `complete_refused`, with `error` NULL. Commands in the
+workstream RUNBOOK §"Verify the fix on the failing branch".
+
+Read the refusals the loop recorded:
+
+```sql
+SELECT created_at, metadata->>'shape', metadata->>'problem_count', metadata->'problems'
+  FROM diagnosis_artifacts
+ WHERE kind='iteration_note' AND metadata->>'note_kind'='plan_validation_refusal'
+ ORDER BY created_at DESC;
+```

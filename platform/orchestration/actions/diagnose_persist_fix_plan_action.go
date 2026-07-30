@@ -10,9 +10,19 @@
 // whose only write surface is its own artifacts table cannot need one yet.
 //
 // Unlike the bundle write-through (observability, degrades on failure), a plan
-// that fails validation MUST fail the step: persisting a malformed plan would
-// hand F1.1b garbage to turn into a branch. The workflow routes the error to
-// its complete_error step (config-level error_step — 001 §16).
+// that fails validation is NEVER persisted: handing F1.1b garbage to turn into a
+// branch is the thing this gate exists to prevent. By default the step also FAILS,
+// and the workflow routes the error to its complete_error step (config-level
+// error_step — 001 §16).
+//
+// QUALIFIED 2026-07-30 (bugs_open/099 candidate 2): "never persisted" and "fails
+// the step" turned out to be two claims, and only the first is load-bearing. A
+// step that fails DISCARDS a completed design over a validator rule the producing
+// prompt was never told. So an agent may now name a `repair_step`, and a
+// STRUCTURAL refusal is handed back to it with the exact problems, for
+// `max_repair_attempts` rounds, before failing as before. The gate is not lowered:
+// nothing invalid is persisted as a fix_plan on either path. Truncated or invalid
+// JSON stays terminal — that is a max_tokens fault, not a repairable plan.
 //
 // staged-v1 (feature builder delta 1, owner-approved 2026-07-17): the same
 // action also validates STAGED plans — an ordered sequence of constrained edit
@@ -36,7 +46,8 @@ import (
 var DiagnosePersistFixPlanInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{"fix_correlation_id"},
-	Optional:    []string{"plan_field", "max_edits", "max_plan_bytes", "max_stages", "max_total_edits"},
+	Optional: []string{"plan_field", "max_edits", "max_plan_bytes", "max_stages", "max_total_edits",
+		"repair_step", "max_repair_attempts"},
 	Defaults: map[string]interface{}{
 		// execute_llm_prompt with output_format=json leaves the parsed object
 		// under <output_field>.result; the workflow sets output_field "proposal".
@@ -48,6 +59,13 @@ var DiagnosePersistFixPlanInputSpec = datahelpers.ActionInputSpec{
 		"max_plan_bytes":  32768,
 		"max_stages":      6,
 		"max_total_edits": 24,
+		// repair_step empty = the pre-2026-07-30 behaviour: a structural
+		// validation failure fails the step. Naming a step opts that agent into
+		// the bounded repair loop (bugs_open/099 candidate 2). There is nothing
+		// to route to without it, so "off" is the absence of a destination
+		// rather than a switch.
+		"repair_step":         "",
+		"max_repair_attempts": 1,
 	},
 }
 
@@ -150,7 +168,7 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 			MaxTotalEdits: datahelpers.GetIntField(params.StepConfig.Config, "max_total_edits", 24),
 		}
 		if problems := validateStagedPlan(plan, rawPresent(probe.Edits), caps); len(problems) > 0 {
-			return nil, fmt.Errorf("staged plan failed validation: %s", strings.Join(problems, "; "))
+			return planValidationRefusal(ctx, params, logger, corr, "staged plan", planJSON, problems)
 		}
 		stageCount = len(plan.Stages)
 		summary = plan.Summary
@@ -172,7 +190,7 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 			return nil, fmt.Errorf("plan does not match the fix-plan schema: %w", err)
 		}
 		if problems := validateFixPlan(plan, datahelpers.GetIntField(params.StepConfig.Config, "max_edits", 8)); len(problems) > 0 {
-			return nil, fmt.Errorf("plan failed validation: %s", strings.Join(problems, "; "))
+			return planValidationRefusal(ctx, params, logger, corr, "plan", planJSON, problems)
 		}
 		summary = plan.Summary
 		files = make([]string, 0, len(plan.Edits))
@@ -215,7 +233,13 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 		zap.Int("bytes", len(planJSON)))
 
 	result := map[string]interface{}{
-		"persisted":  true,
+		"persisted": true,
+		// plan_valid is what a repair router branches on. It is a POSITIVE field
+		// on purpose: a `plan_valid == true` condition that fails to resolve
+		// compares nil against "true" and is false, so a resolution fault routes
+		// to repair (visibly stalled) rather than on to the reviewers (a plan
+		// nothing validated reaching a council).
+		"plan_valid": true,
 		"edit_count": editCount,
 		"files":      files,
 		"summary":    summary,
@@ -230,6 +254,127 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 		result["plan_format"] = "staged-v1"
 	}
 	return result, nil
+}
+
+// planRefusalNoteKind discriminates a structural-refusal note from any other
+// iteration_note. The kind column carries a CHECK constraint
+// (bundle|iteration_note|fix_plan|council_report|escalation), so a refusal cannot
+// have a kind of its own without DDL on a shared table; it reuses the allowed
+// iteration_note slot and is identified by this metadata key instead.
+// ANY reader of iteration_note must filter on it.
+const planRefusalNoteKind = "plan_validation_refusal"
+
+// planValidationRefusal decides what a STRUCTURAL validation failure does.
+//
+// Default — no repair_step configured — it returns the error, failing the step so
+// the workflow's error_step routes to complete_refused. That is exactly the
+// behaviour every consumer had before 2026-07-30 and is unchanged for them.
+//
+// With repair_step set, the refusal becomes RECOVERABLE (bugs_open/099 candidate
+// 2). Today a completed, good design is DISCARDED by a validator rule the
+// producing prompt was never told, with orchestration_states.error NULL and the
+// reason only in collected_data->'__step_error'. Candidate 1 fixed that one rule
+// by stating it in the prompt; this closes the class instead, because it is
+// rule-agnostic — the validator has a dozen rules and gains more, and none of them
+// needs a prompt edit to become recoverable.
+//
+// A malformed plan is still NEVER persisted as a fix_plan: the recoverable path
+// routes the problems back to the producer, it does not lower the gate. The
+// original justification for failing hard ("persisting a malformed plan would hand
+// F1.1b garbage to turn into a branch") is preserved in full.
+func planValidationRefusal(
+	ctx context.Context, params ActionParams, logger *zap.Logger,
+	corr, shape string, planJSON []byte, problems []string,
+) (interface{}, error) {
+	problemsText := strings.Join(problems, "; ")
+	// The terminal outcome, and the fallback for every bookkeeping failure below:
+	// a refusal must never be swallowed by the machinery that records it.
+	validationErr := fmt.Errorf("%s failed validation: %s", shape, problemsText)
+
+	repairStep := strings.TrimSpace(datahelpers.GetStringField(params.StepConfig.Config, "repair_step", ""))
+	maxAttempts := datahelpers.GetIntField(params.StepConfig.Config, "max_repair_attempts", 1)
+	if repairStep == "" || maxAttempts < 1 {
+		return nil, validationErr
+	}
+
+	// Scoped by orchestration_id as well as correlation_id, for the reason
+	// diagnose_council_decide records at its own round counter: the correlation
+	// belongs to the DIAGNOSIS and accumulates across proposer re-runs, so
+	// counting on it alone starts a fresh run part-way through its budget.
+	//
+	// Without a run id there is no way to scope the count to THIS run, and an
+	// unscoped count cannot bound the loop at all — a NULL orchestration_id never
+	// satisfies `= $2`, so every attempt would read as the first and the repair
+	// loop would never terminate. Fail closed.
+	orchID := strings.TrimSpace(params.ExecutionContext.OrchestrationID)
+	if orchID == "" {
+		logger.Warn("diagnose_persist_fix_plan: no orchestration id, so a repair round cannot be bounded; refusing terminally",
+			zap.String("correlation_id", corr))
+		return nil, validationErr
+	}
+
+	// Record the refusal BEFORE deciding what to do with it, so that (a) the count
+	// below includes this one — the same "just written, so this reflects the
+	// current round" idiom as the council report — and (b) a discarded design is
+	// never invisible, which is half of what 099 is about. The body is the
+	// rejected plan verbatim, so a human can recover a design the loop gave up on.
+	meta, _ := json.Marshal(map[string]interface{}{
+		"note_kind":     planRefusalNoteKind,
+		"shape":         shape,
+		"problems":      problems,
+		"problem_count": len(problems),
+	})
+	if _, err := params.DB.ExecContext(ctx, `
+		INSERT INTO diagnosis_artifacts (
+			correlation_id, orchestration_id, iteration, kind, body,
+			metadata, source_agent, created_by
+		) VALUES ($1, $2, 0, 'iteration_note', $3, $4::jsonb, $5, 'diagnose_persist_fix_plan')
+	`, corr, orchID, string(planJSON), string(meta), nullIfEmpty(params.AgentType)); err != nil {
+		logger.Error("diagnose_persist_fix_plan: could not record the plan refusal; refusing terminally",
+			zap.String("correlation_id", corr), zap.Error(err))
+		return nil, validationErr
+	}
+
+	// Fail CLOSED on a count error, following diagnose_council_decide: a counting
+	// failure must not hand out extra LLM rounds.
+	attempt := 0
+	if err := params.DB.QueryRowContext(ctx, `
+		SELECT count(*) FROM diagnosis_artifacts
+		WHERE correlation_id = $1 AND orchestration_id = $2
+		  AND kind = 'iteration_note' AND metadata->>'note_kind' = $3
+	`, corr, orchID, planRefusalNoteKind).Scan(&attempt); err != nil {
+		logger.Warn("diagnose_persist_fix_plan: refusal count failed; refusing terminally",
+			zap.String("correlation_id", corr), zap.Error(err))
+		return nil, validationErr
+	}
+	if attempt > maxAttempts {
+		logger.Warn("diagnose_persist_fix_plan: repair attempts exhausted",
+			zap.String("correlation_id", corr),
+			zap.Int("attempts", attempt), zap.Int("cap", maxAttempts))
+		return nil, fmt.Errorf("%s failed validation after %d repair attempt(s) (cap %d): %s",
+			shape, attempt-1, maxAttempts, problemsText)
+	}
+
+	logger.Info("diagnose_persist_fix_plan: plan refused, routing to repair",
+		zap.String("correlation_id", corr),
+		zap.String("repair_step", repairStep),
+		zap.Int("attempt", attempt), zap.Int("cap", maxAttempts),
+		zap.Int("problems", len(problems)))
+
+	return map[string]interface{}{
+		"persisted":  false,
+		"plan_valid": false,
+		// What the repair router branches on.
+		"should_repair_plan":       true,
+		"repair_attempt":           attempt,
+		"validation_problems":      problems,
+		"validation_problems_text": problemsText,
+		// The rejected plan is deliberately NOT returned as plan_json. repropose's
+		// prompt renders {{.plan_persisted.plan_json}} as "Your previous plan", so
+		// reusing that key would let a REJECTED plan read downstream as a
+		// persisted one. A distinct key makes that confusion unrepresentable.
+		"rejected_plan_json": string(planJSON),
+	}, nil
 }
 
 // planBytes coerces the proposal to JSON bytes whichever shape it arrived in:
