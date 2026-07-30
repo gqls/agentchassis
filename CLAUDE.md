@@ -359,9 +359,14 @@ Rules that make them worth the effort:
   you read it *before* you have a symptom. The test for an entry is strict:
   **would a session touching this thing, with no symptom and no suspicion, get it
   wrong without the entry?** If it needs a symptom first it is 016b §9.
-  - **Grep it by footprint before touching something unfamiliar** —
-    `grep -n "<path-or-table>" …/LANDMINES.md`. It solves *authoring*, not
-    *delivery*: nothing tells you an entry applies to what you are about to do.
+  - **You get the path-shaped ones automatically**: a `SessionStart` hook
+    (`scripts/landmines-session-start.py`, wired in `.claude/settings.json`)
+    matches entries against the files already dirty in the tree. New sessions
+    only — a running one needs `/hooks` or a restart. **Still grep it yourself for
+    table, command and symbol footprints**, which cannot match a path:
+    `grep -n "<path-or-table>" …/LANDMINES.md`.
+  - **After you append, run `./scripts/landmines-sync.py --apply`** so the
+    `doc_notes` rows follow. `--check` exits 1 if they have drifted.
   - **Every entry carries a `footprint`** (the path/table/symbol it guards) so
     entries convert mechanically to `doc_notes` rows —
     `architecture_review/PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`, open
