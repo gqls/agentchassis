@@ -30,6 +30,13 @@
 -- threads and synced from LANDMINES.md by scripts/landmines-sync.py). Read the constraint
 -- you are replacing; the tables are deliberately not identical.
 --
+-- WHERE THE REASONING LIVES, so these two files cannot drift (council round 1, editquality).
+-- `doc_subjects_common.go`'s comment on validDocSubjectTypes is NORMATIVE for the design
+-- decisions — why 'component' is keyed by content_components.function, why the PLAN carries
+-- no site while the NOTES do, and why subject keys are immutable. This header deliberately
+-- does NOT restate any of it; if the two ever disagree, the Go comment wins. Round 2 of the
+-- council caught me claiming this line already existed when it did not — it exists now.
+--
 -- SCOPE — additive and inert. No existing row changes; no existing query changes meaning; a
 -- consumer filtering on subject_type cannot see the new value until something writes it.
 -- Under the owner ruling of 2026-07-29 §1 that makes this normal council-gate scope and NOT

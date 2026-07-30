@@ -122,24 +122,67 @@ say "(0 is expected pre-apply. The inertness claim in 273's header depends on th
 say " it is printed rather than asserted so the claim is checkable rather than believed.)"
 
 say ""
-say "=== 4. THE DEFINITIVE CHECK — behavioural, and it can only run AFTER 273 ======="
-say "Sections 1-3 are pre-flight. None of them proves the vocabulary WORKS; they only"
-say "prove it is not obviously impossible. The gate's own doctrine is to verify through"
-say "the caller's real path, so after applying 273 against a post-commit image, prove it"
-say "end to end by writing and reading one component doc:"
-say ""
-say "  -- write (should SUCCEED; before the image+migration it fails the CHECK or the Go gate)"
-say "  INSERT INTO doc_plans (subject_type, subject_key, body, source, created_by)"
-say "  VALUES ('component','teaser-reveal-panel','# PLAN probe','verify-273','staged_component_build');"
-say ""
-say "  -- read back through the ACTION, not the table: a load_doc_context step with"
-say "  -- subject_type='component' must return the body rather than"
-say "  -- 'unsupported subject_type \"component\"' from docSubjectGateReason."
-say ""
-say "  -- then clean up"
-say "  DELETE FROM doc_plans WHERE source='verify-273';"
-say ""
-say "Until that has been watched to pass, 'component' is a capability nobody has exercised."
+say "=== 4. THE DEFINITIVE CHECK — RUN, not printed ================================="
+# WHY THIS SECTION EXECUTES INSTEAD OF PRINTING INSTRUCTIONS. Council round 2 approved
+# this change with three advisory objections, and all three said the same thing
+# independently: build-dating is 'necessary, not sufficient' by my own admission, and the
+# sufficient probe was left as prose for a human to remember. bug_historian named the
+# shape exactly — "a gate whose only untested branch is the one that refuses was already
+# this exact workstream's own bug once (the grep -c / || echo 0 false-pass). Leaving the
+# sufficient probe optional reproduces the same shape one layer up." That is correct, so
+# the probe runs here, and its result decides this script's exit code.
+#
+# IT IS A RED/GREEN PAIR, WHICH IS THE POINT. The script reads the live constraint and
+# orients itself, so the SAME probe is meaningful before and after the migration:
+#   constraint narrow  -> the INSERT MUST be refused  (the red half, free, provable today)
+#   constraint widened -> the INSERT MUST succeed and read back (the green half)
+# A probe that can only ever pass is the thing this lane exists to refuse.
+PROBE_KEY='__verify273_probe__'
+psql_do() {
+  kubectl -n "$NS" exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A -v ON_ERROR_STOP=1 -c "$1" 2>&1
+}
+
+WIDENED=$(psql_do "SELECT pg_get_constraintdef(oid) LIKE '%component%'
+                     FROM pg_constraint
+                    WHERE conrelid='public.doc_plans'::regclass
+                      AND conname='doc_plans_subject_type_check';" | tr -d '[:space:]')
+
+# Clean any leftover from an interrupted run before probing, so a stale row cannot make
+# the insert fail for the wrong reason and read as a correct refusal.
+psql_do "DELETE FROM doc_plans WHERE subject_key='$PROBE_KEY';" >/dev/null 2>&1
+
+INS=$(psql_do "INSERT INTO doc_plans (subject_type, subject_key, body, source, created_by)
+               VALUES ('component','$PROBE_KEY','# probe','verify-273','staged_component_build');")
+
+if [ "$WIDENED" = "t" ]; then
+  # GREEN half: post-migration. The write must land and be readable.
+  if printf '%s' "$INS" | grep -qi 'ERROR'; then
+    bad "post-migration, but the probe INSERT was refused: $INS"
+  else
+    BODY=$(psql_do "SELECT body FROM doc_plans WHERE subject_key='$PROBE_KEY' AND subject_type='component';" | tr -d '[:space:]')
+    if [ "$BODY" = "#probe" ]; then
+      good "probe wrote AND read back a subject_type='component' PLAN — the vocabulary works"
+    else
+      bad "probe wrote but read back '$BODY' instead of the body — something else is wrong"
+    fi
+  fi
+  psql_do "DELETE FROM doc_plans WHERE subject_key='$PROBE_KEY';" >/dev/null 2>&1
+  say "note: the probe row is deleted. The REMAINING half of the definitive check cannot be"
+  say "      done from psql — read it back through load_doc_context and confirm"
+  say "      docSubjectGateReason no longer returns 'unsupported subject_type'. Until that"
+  say "      has been watched, the Go gate is verified only by build date."
+else
+  # RED half: pre-migration. The write MUST be refused, and by the CHECK specifically.
+  if printf '%s' "$INS" | grep -qi 'doc_plans_subject_type_check'; then
+    good "probe correctly REFUSED by doc_plans_subject_type_check — the red half of the pair passes, so this probe can distinguish states"
+  elif printf '%s' "$INS" | grep -qi 'ERROR'; then
+    bad "probe was refused, but NOT by the subject_type CHECK — read the error before trusting anything above: $INS"
+  else
+    bad "probe INSERT SUCCEEDED while the constraint still reads as narrow — the constraint is not what section 2 reported. STOP."
+    psql_do "DELETE FROM doc_plans WHERE subject_key='$PROBE_KEY';" >/dev/null 2>&1
+  fi
+fi
 say ""
 if [ "$FAIL" -ne 0 ]; then
   say "RESULT: DO NOT APPLY migration 273. Fix the above first."
