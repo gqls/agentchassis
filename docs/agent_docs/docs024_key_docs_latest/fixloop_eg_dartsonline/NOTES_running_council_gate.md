@@ -683,3 +683,43 @@ should not be read as 17% compliance** until this is resolved.
 > hoc — which is why `098`'s UNREVIEWED bucket mixes "never submitted" with
 > "approved, but committed first". That is worth a decision; blaming the 07-29
 > ruling for it was not.
+
+## 2026-07-30 — RESOLVED: `Council-Submitted:` (owner instructed; commit `fc5b790d3`, register FIX-056)
+
+The owner asked for this resolved and pre-authorised RFC 002's option D (ship
+behind a default-OFF switch) if I preferred it. **D was declined, and not out of
+deference — it is the wrong lever.** D holds a change out of *production* until
+review lands; this defect is about *recording* review status on a commit. Under D a
+commit made before the verdict still cannot be amended to carry the trailer, so
+`098` would keep conflating it with never-submitted — D pays the
+rotting-mechanism cost the owner correctly priced on 07-29 and fixes nothing here.
+
+**What shipped instead**, costing one line at commit time and no new machinery:
+`Council-Submitted: <corr>` asserts nothing, so it can never be a false claim, and
+`db_decision()` already resolves a correlation to its **latest** verdict at REPORT
+time — so a commit that records its correlation while the verdict is pending is
+credited automatically once approval lands. `AWAITING` keeps those out of MISMATCH;
+MISMATCH stays exactly what it was. Both trailers → `Council-Reviewed:` wins, so
+the claim cannot be dodged by adding the softer trailer.
+
+**Verified by inducing every branch** in a scratch repo (7 synthetic commits), not
+by running the happy path — including the regression case, `Council-Reviewed:` +
+`revise`, which must still read MISMATCH. It does. Live 2-day run: 14 REVIEWED, 0
+MISMATCH.
+
+**Two things left deliberately undone**, both recorded rather than guessed:
+- **`AWAITING` does not age.** A submission that never returns a verdict sits there
+  reading as in-progress, with no distinction between "queued 20 minutes" and
+  "abandoned three days ago". `created_at` makes it cheap; a threshold guessed today
+  is worse than one chosen after watching the bucket for a week.
+- **No retrospective resolution.** Commits before today cannot be credited —
+  forward-only. The script now says so in its own OUTPUT, not just its header, so
+  the historical ratio cannot be quoted as a compliance rate by accident.
+
+> **A repeat of my own, worth the line: I shipped this without its register entry,
+> for the SECOND time today** (FIX-055 the same way, `6dd5cbb3d`). Condition (2) of
+> the seam rule — register in the same commit that ships it — exists precisely
+> because later is how a seam becomes folklore, and I have now missed it twice in
+> one lane within four hours. Once is a slip; twice is my sequencing, so the check
+> belongs where the commit is composed: **name the register file in the pathspec
+> before writing the message**, not after the commit succeeds.

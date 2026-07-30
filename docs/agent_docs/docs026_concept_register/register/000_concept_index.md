@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,657 concepts across 107 category register files. 1,627 consolidated from
+1,658 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -1260,6 +1260,7 @@ an ID prefix, or a status word.
 | FIX-052 | Silent-check verifier (Phase 2): the class no work item ever records | deployed | Finds bugs nothing flags (darts nav-page signature), routes via triage router | fix-loop.md |
 | FIX-053 | Feedback close-out (Phase 3): all-time resolution recheck + auto-reescalation | deployed | Closes parked escalations whose pattern genuinely resolved; re-escalates if it returns | fix-loop.md |
 | FIX-055 | Truncation-gate attribution: `gated_by_truncation` on every council report | built, not yet live | A revise now says whether a seat judged it or merely ran out of tokens; gate unchanged | fix-loop.md |
+| FIX-056 | `Council-Submitted:` trailer — review credit that survives committing before the verdict | deployed | Records the correlation at commit time; 098 resolves it later, so approval credits with no amend | fix-loop.md |
 | SOC-013 | Vertical integration of Spark mechanics into domain sites | aspirational | Same mechanics re-flavoured per vertical (vet, finance, fashion, food) | social-media.md |
 | SQLC-001 | SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits) | convention | Same method as DBG-016, extracted independently under this proposed category | sql-change-management.md |
 | DBG-070 | gpu-provisioner output-shape flattening (output_fields plural vs singular) | deployed | Same output_field/output_fields bug class as DBG-050 on a different agent | debugging.md |
