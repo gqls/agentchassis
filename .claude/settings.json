@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/landmines-session-start.py\" 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Checking landmines for files in flight"
+          }
+        ]
+      }
+    ]
+  }
+}
