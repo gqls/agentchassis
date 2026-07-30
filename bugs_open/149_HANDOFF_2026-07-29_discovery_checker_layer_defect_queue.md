@@ -112,6 +112,38 @@ before "fixing" a check. That mistake is what produced `146`'s first, wrong writ
 
 ### C1. Copy written by discovery-triggered handlers is never claims-checked
 
+> **⚠ READ THIS BEFORE TREATING C1 AS CLOSED — the floor would NOT have caught the
+> witnessed case (checked 2026-07-30, by me, on my own change).**
+>
+> Another session contributed a WITNESSED instance of C1 the same day (`4494162af`):
+> `page-content-writer` wrote four false claims onto gamesdesign.co.uk's homepage via
+> `page-build-handler`, and they deployed. That path DOES go through
+> `save_page_sections`, so the floor now sits on it — which makes it tempting to read
+> the two entries together as "witnessed, then fixed". **They do not compose that way.**
+>
+> I ran the witnessed copy through the floor's own engine (`cmd/claimscan`, same
+> functions, gamesdesign's own register, `page_type=content` so prose numbers ARE
+> scanned): **0 findings.** Neither half fires.
+> - *"10,000 Monte Carlo trials per query"* — the number scan needs
+>   `businessClaimContextRe` to match the window (clients, customers, records, uptime,
+>   years of experience…). "Monte Carlo trials per query" is not that vocabulary, so the
+>   number is never scanned. That is **CLM-003's documented blind spot**, not a new one.
+> - *"built **by** a shipped live-service designer"* — a fabricated human credential
+>   matching no banned pattern. Nothing in the set is shaped like it.
+>
+> **So what C1's fix actually closes is the STRUCTURAL half: there was no gate at all on
+> four of the six persisting agents, and now there is one on all six.** What it does not
+> close is DETECTOR COVERAGE — and the witnessed case is a coverage failure, not a
+> placement failure. A floor can only enforce what the engine can recognise.
+>
+> **This is the more valuable finding of the two and it is not yet an item.** The
+> witnessed fabrication's shape is the dangerous one: the model took a true sentence,
+> made one grammatical substitution, then **invented corroborating specifics to justify
+> it** — so the falsehood arrives looking better-researched than the honest copy it
+> replaced. Nothing lexical catches that. Whoever picks this up: it belongs as a new
+> Group C item about the SET, not about the seam, and it should not be filed as "the
+> floor didn't work".
+
 > **✅ FIXED AND LIVE 2026-07-30 — commit `f61dce806`, chassis `v1.0.1211`,
 > pod-verified on both replicas** (see the status block at the top of this file for
 > the marker counts and the controls). Concept register **CLM-018**. Council
