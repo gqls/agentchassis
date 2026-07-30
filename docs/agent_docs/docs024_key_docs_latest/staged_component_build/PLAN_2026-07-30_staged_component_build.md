@@ -115,6 +115,14 @@ has to be reconstructed) gets a PLAN with a criteria fence and its NOTES backfil
 from `NOTES_brochure_component_library.md`. Gate: the fence exists, passes the ten-rule
 validator, and every criterion has been watched to pass by hand.
 
+**P1a — the three-way naming contract check. NEW, and it jumps the queue** (2026-07-30,
+on the first forward run's measured recommendation). Assert
+`doc_plans.subject_key == pages.name == content_components.function` for every subject
+that has a fence, and report the mismatches. **One query.** It is first because a
+mismatch makes a fired run *skip and read as clean* — so every other stage's verdict is
+untrustworthy until this passes, and it already has a known population of **6 of 22
+hosted tools**. It also needs nothing from the blocked migration.
+
 **P2 — make S6 real.** Dispatch a component's fence to `browser-runner-adapter` the
 way `tool-acceptance-agent` does for tools. This is the stage whose absence cost five
 rounds, and it is wiring rather than construction — the mechanism was proven end to
@@ -131,11 +139,27 @@ plausibly an RFC.
 
 Stated up front so it is falsifiable rather than defended later:
 
-- **If nothing fires the stages, the ladder is worthless.** This is the tools lane's
-  G5, and it is the most likely way this fails. Discovery passes are manual-fire and
-  the improvement loop is stopped by owner ruling. **A ladder with no trigger is a
-  mechanism rotting unexercised**, which is the cost the owner has already ruled
-  against paying. P2 must name who fires it.
+- ~~**If nothing fires the stages, the ladder is worthless.** This is the tools lane's
+  G5, and it is the most likely way this fails.~~
+  > **ANSWERED BY MEASUREMENT 2026-07-30, and the answer reframes the risk rather than
+  > clearing it** (`REPLY_2026-07-30_vendor_trust_checklist_build.md` Q3). Firing by hand
+  > is **cheap**: S6 end to end was **one script, 48 seconds** wall-clock, correlation
+  > `dc952633`. So the trigger was never the binding constraint. **Addressability is.**
+  >
+  > Three values must be equal or a fired run quietly does nothing —
+  > `doc_plans.subject_key == pages.name == content_components.function`. `load_docs`
+  > keys on `spec.function`; a mismatch yields an empty fence and `request_browser_run`
+  > **SKIPS with `needs_criteria`**: honest, but not a failure either, so **it reads as a
+  > clean run that asserted nothing.** Measured fleet-wide: **6 of 22 hosted tools cannot
+  > be acceptance-tested at all** until renamed, across five sites — with an honest
+  > denominator note that including the three non-tool riders would read 9 of 25 and
+  > "flatters the problem".
+  >
+  > Their conclusion, adopted: *"a ladder whose stages CAN be fired but silently resolve
+  > to nothing is worse than one nobody fires, because it produces green."* **So the
+  > highest-value single thing to build is not a trigger — it is the check that asserts
+  > the three-way naming contract.** One query, and it would have found six broken tools
+  > before anyone fired anything. It is now P1's first item.
 - **If gates proliferate into dead config, it is a net negative.** `bugs_open/149` is
   the measured precedent: 22 discovery handler agents, only 2 running
   `validate_page_content`, six registered checks in no agent and zero items ever.

@@ -579,7 +579,7 @@ and **one gate**, and the gate is a check that can go red.
 |---|---|---|---|
 | **S0 shape** | does this shape already exist? | a named `experience_pattern`, or a written justification for a new one | *(passed in Round 1 — this is the stage that worked)* |
 | **S1 contract** | is the contract sound, and are the hazards answered? | every field has `llm_guidance`; every named hazard has a concrete answer or an explicit accept; fence drafted | Round 1's four hazards; Round 4's ellipsis collision would have been a *known* collision |
-| **S2 template** | does it render, and are the checks real? | harness green **and ≥1 mutant red per assertion class** | the harness counting CSS as markup; the `strings.Index` panic |
+| **S2 template** | does it render, and are the checks real? | harness green **and ≥1 mutant red per assertion class**, where **a mutant counts only if the harness proves the artefact changed** (report mutants *applied*, not *attempted*) | the harness counting CSS as markup; the `strings.Index` panic; **a `sed` mutation that silently applied to nothing** |
 | **S3 register** | is it reachable? | present in `content_components`, returned by `load_component_library`; JS delivered by the route that page type actually uses (see correction) | the `js_content` publishes-but-inert trap |
 | **S4 place** | is the placement protected by the mechanism that governs THIS page type? | `site_plan_sections` for planned sections; **`pages.rebuild_policy='owned'` for owned tool pages** (see correction) | **the panel silently dropped by a `complete` re-render** |
 | **S5 serve** | does the visitor get it? | fetched page, `<style>` sliced away before counting; 0 unrendered `{{`; contrast measured in the state that needs a click | the local-copy probe that proved nothing |
@@ -593,6 +593,18 @@ has seen go red is not evidence — and G4 shows the platform has already shippe
 that passes on an empty result set. Every gate needs the anti-vacuous rule: report the
 count you measured, not the absence of failures. `probe_reveal_open_state.py` already
 does this and it should be the house style.
+
+> **And the mutation itself needs the same rule applied one level up — found by the
+> first forward run, 2026-07-30.** That lane's template harness asserted
+> `if mutated == tpl { ERROR: mutant did not change the template }`, but its *ad hoc*
+> fence mutations went through `sed`, and **one silently applied to nothing** because the
+> pattern spanned two lines and `sed` is line-based. **A mutation suite that mutates
+> nothing reports a full set of green checks.** They caught it only because the gate
+> prints the count it measured; the verdict line alone said SATISFIED and looked fine.
+> **So: a mutant counts only if the harness proves the artefact changed, and the gate
+> reports mutants APPLIED, not attempted.** This is the fifth instance in one day of the
+> single class this ladder exists to defeat — a check whose failing branch was never
+> exercised — and the first one found by somebody other than me.
 
 **A later stage may not be assumed from an earlier one.** Round 5 is the proof: S2–S5
 all genuinely passed while S6 had never once succeeded. This is the same argument as
