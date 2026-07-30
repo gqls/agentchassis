@@ -161,3 +161,25 @@ source document and the entry points at it.
   `webdesign_uk_build_service/PLAN` §7b
 - **added:** 2026-07-29, webdesign.uk lane — from documentation, not yet hit in
   production, because **nothing on the fleet runs Fable yet** (0 calls in 4 days)
+
+### `git checkout -- <path>` restores from the INDEX, not from HEAD
+
+- **footprint:** `git checkout --`, any staged file; test harnesses that mutate a
+  tracked file and restore it afterwards
+- **fires when:** you `git add` a file, then try to undo the change with
+  `git checkout -- <path>`. It reports success and restores **the staged
+  mutation**, not the committed content
+- **the tell:** none at the point of failure — the command is silent and exits 0.
+  It surfaces later as a *different* test giving the wrong answer, because the
+  file you believed was pristine is not. Hit directly 2026-07-29: a negative
+  control reported the guard "wrongly fired on an append" when what it had
+  actually seen was the un-restored deletion from the previous test
+- **the check:** `git checkout HEAD -- <path>` when you mean HEAD, and prove the
+  restore rather than assuming it: `git diff HEAD --stat -- <path>` should be
+  empty, or compare `git show HEAD:<path> | md5sum` against the file
+- **the wider point:** *a contaminated control does not announce itself — it
+  announces a bug in the thing you were testing.* Restore, then verify the
+  restore, then run the next control
+- **source:** hit directly while positive/negative-controlling the
+  `shared-ledger-not-appended` guard, 2026-07-29
+- **added:** 2026-07-29, webdesign.uk lane
