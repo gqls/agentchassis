@@ -24,10 +24,10 @@ import (
 	"net/smtp"
 	"os"
 	"strconv"
-	"unicode"
-	"unicode/utf8"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // pageHTML is the idea.uk landing page (the taster + request/subscribe forms),

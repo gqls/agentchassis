@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,676 concepts across 109 category register files (**counted 2026-07-30**, not
+1,677 concepts across 109 category register files (**counted 2026-07-30**, not
 accumulated: the running "+N more" chain below had drifted 13 behind the actual
 row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
 chain is kept only as a history of *why* entries postdate the freeze).
@@ -19,7 +19,9 @@ defect that let 63 broken tools ship unwatched; and 1 more (ADP-017) added 2026-
 for the shared reply-delivery policy `bugs_open/133` extracted from the one adapter
 path that had it; and 1 more (ADO-037) added 2026-07-30 for verbatim adoption —
 `fidelity=locked` plus the `deploy_mode` component key — which made doc 028's
-long-inert fidelity dial (ADO-011) read by something for the first time
+long-inert fidelity dial (ADO-011) read by something for the first time; and 1 more (STY-050) added 2026-07-30 for the per-site
+chrome-config seam that finally gave `bugs_open/018`'s schema-driven fill a real
+consumer
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
@@ -1557,6 +1559,7 @@ an ID prefix, or a status word.
 | BLD-014 | Selective rebuild via build_status | deployed | Two orthogonal page-state columns let rebuilds target only marked pages | build-pipeline.md |
 | STY-048 | page-rerender mode contract and site-uniformity reconcile pattern | deployed | Two page-rerender modes with different skip semantics; idempotent reconcile scripts | styling-render-pipeline.md |
 | STY-049 | missingkey=zero silent-empty-render root pattern + escalate-not-blank guard | partial | Root cause of the image-landing trap (now recovered separately); one call site guarded live, root template behaviour still generic/unpatched | styling-render-pipeline.md |
+| STY-050 | Per-site chrome config via a gated input_schema field (config.* -> site_specs) | deployed | Puts a per-site value into SHARED chrome without forking it; live on idea.uk (GTM), 8 co-tenant sites byte-identical | styling-render-pipeline.md |
 | RES-006 | Capability watchlist + real-world event watchlist (dual standing research workflows) | aspirational | Two proposed recurring workflows tracking AI capabilities and scheme/event windows | research-agents.md |
 | TL-016 | Composer selector invention & the delivered-reality principle (Option B) | deployed | Two recurring failure classes in machine-written acceptance criteria, and their durable remedies. (1) The... | tool-lifecycle.md |
 | DIAG-026 | Diagnose loop-back plumbing fault class (state threading + scope encoding) | deployed | Two silent producer/consumer field mismatches left guards and re-scope inert while the loop "worked" | diagnosis-loop.md |
