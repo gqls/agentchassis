@@ -472,3 +472,72 @@ the only waste available here.
 first question is whether the GATE is right — file against the gate, keep the subject as
 the reproducer, never tune the subject to a green."* I wrote the instance; that is the
 generalisation, and it belongs in the proposal rather than in a bug file.
+
+## 2026-07-30 (late) — round 2 APPROVED; the three advisory objections implemented, not accepted
+
+**APPROVED at 19:57:10 UTC**, 11 minutes after submission. `decided_by`: *"approved with
+3 advisory objection(s) — none high-severity"*. Trailer written on `596229633`:
+`Council-Reviewed: e5673868-7c5b-489c-931a-7ba59b959b91`. Earlier commits carry
+`Council-Submitted:` and the 098 report resolves those at report time — no amend, which
+forward-only forbids anyway.
+
+**Verified it was not a degraded round BEFORE believing it**, because an approval from a
+truncated council looks identical to a real one (`bugs_open/138`): `unreadable: null`,
+`gated_by_truncation: false`, and **14 seats reporting versus 12 in round 1 — more seats,
+not fewer.** `abstained` fell 5 → 3. That is the check to run on any approval, and reading
+`abstained` alone would not have answered it.
+
+**The flips:** `guardian` object → **approve, 0 objections**; `reuse_agent` object →
+**approve, 0 objections** (the evidence-based rule-out of `content_components.quality_*`
+and `site_work_items` was accepted); `prior_art_librarian` object → **approve** with 2
+advisory lows. `debug_historian`'s round-1 HIGH is discharged; it still objects, at medium.
+`editquality` went the other way, approve → object, on the new files.
+
+### The three remaining objections agreed with each other, and they were right
+
+All three — `editquality` medium, `bug_historian` medium, `debug_historian` medium —
+independently made one argument: **build-dating is "necessary, not sufficient" by my own
+admission, and I left the sufficient probe as prose for a human to remember.**
+`bug_historian` named the shape better than I could have:
+
+> *"A gate whose only untested branch is the one that refuses was already this exact
+> workstream's own bug once (the grep -c / || echo 0 false-pass). Leaving the sufficient
+> probe optional reproduces the same shape one layer up."*
+
+That is the fourth instance of one class in a day and the second time I have committed it
+*while writing the document that warns about it*. **Implemented rather than accepted:**
+section 4 of `VERIFY_273_before_apply.sh` now EXECUTES, as a **red/green pair** — the
+script reads the live constraint and orients itself, so the same probe is meaningful in
+both states. Constraint narrow ⇒ the INSERT must be refused **by the check by name**;
+constraint widened ⇒ it must succeed and read back. **That buys the red half today, for
+free**, and it ran: *"probe correctly REFUSED by `doc_plans_subject_type_check` — the red
+half of the pair passes, so this probe can distinguish states."* Residue checked, 0 rows.
+
+**`editquality` also caught a factual error and it is the sharpest kind.** My round-2
+rationale claimed the migration header *"now points at"* the Go comment, framed as
+discharging their round-1 objection. **It did not** — the header named the file but never
+said the Go comment is normative. Claiming an edit I had not made is precisely what that
+seat exists to catch, and it is logged. The line exists now and says which file wins.
+
+**One more self-inflicted misreading, recorded because it is the same family.** I read
+`EXIT: 0` from the gate and briefly took it for a bug where the RESULT line said *DO NOT
+APPLY*. It was my own pipe: `$?` after a pipeline is the **last** command's, so I was
+reading `sed`'s exit. Unpiped it exits 1 correctly. The check was fine; my reading of it
+was wrong — which is the day's whole theme, four times over.
+
+### State, for whoever picks this up
+
+- **APPROVED and committed. `subject_type='component'` is NOT LIVE.**
+- **Migration 273 is NOT APPLIED**, and `VERIFY_273_before_apply.sh` correctly refuses:
+  both chassis replicas were built **17:25 UTC**, before the Go half was committed at
+  **19:28 UTC**.
+- **No roll is needed from this lane.** `make build-*` builds from committed HEAD, so the
+  Go half ships on the next roll anyone does. Rolling the chassis deliberately is
+  fleet-affecting — it kills an in-flight council and imposes a ~300s dispatch blackout —
+  and at least two other lanes were mid-council today, so it is not this lane's call to
+  make unilaterally.
+- **After that roll:** run the gate (it must go green on section 1), apply 273, re-run the
+  gate (section 4 must flip to the green half), then do the half psql cannot do — read a
+  component PLAN back **through `load_doc_context`** and confirm `docSubjectGateReason` no
+  longer returns `unsupported subject_type`. Until that has been watched, the Go gate is
+  verified only by build date, which all three seats correctly called insufficient.
