@@ -1,10 +1,30 @@
 # 149 — the discovery checker layer: defect queue
 
-> **STATUS 2026-07-30 — 3 of 12 items done; the file STAYS OPEN.**
+> **STATUS 2026-07-30 — 3 of 12 items done and LIVE; the file STAYS OPEN.**
 > **C1 ✅ · B4 ✅ · C3 ✅ (corrected — it was not a defect)** — all in commit
-> `f61dce806`, image `v1.0.1208` built and marker-verified, **inert until the next
-> chassis roll**. Council `2d0dbc2e-e125-41f6-876d-0f8d6cf96688` (submitted;
-> verdict pending at time of writing). Concept register **CLM-018**.
+> `f61dce806`. **LIVE on chassis `v1.0.1211`**, carried into another session's roll
+> at 17:33 UTC and **pod-verified on BOTH replicas**: `CONTENT_CLAIMS_FLOOR_DETAIL`
+> 1, `claims floor blocked` 1, `silently omitted it` 1, `checks_unregistered` 1,
+> positive control `CONTENT_LINK_REPAIR_DETAIL` 1, negative control 0. Concept
+> register **CLM-018**.
+>
+> **Council `2d0dbc2e-e125-41f6-876d-0f8d6cf96688`: round 1 REVISE, round 2 open.**
+> 15 seats, **12 approve / 3 object**, 2 abstained, 0 unreadable, not truncated.
+> The gating objection (`prior_art_librarian`, high) and four of its five points
+> were **one objection**: load-bearing absence claims asserted as live measurements
+> with **no query attached** for the council to check. `debug_historian` raised the
+> same point independently on `checks_run`. **Nothing was refuted** — the counts all
+> stand — so round 2 answers it with the SQL and its verbatim output, and **the code
+> is unchanged**. Two of the council's own verification requests had themselves
+> failed with `column "agent_type" does not exist`, so the seats could not check for
+> themselves even having asked the right question.
+>
+> **One objection is deliberately NOT answered by resubmission.** The `guardian`
+> seat (medium) asks that the owners of the four newly-gated pipelines
+> (`pageflow-builder`, `page-rebuild`, `page-rerender`, `site-work-orchestrator`)
+> sign off on a save that can now refuse. That is a judgement about how a capability
+> reached production, not an evidence gap, and the estate's rule is that a scope
+> objection needs a human. **Owner: this is the decision that wants you.**
 >
 > **Still open: A1–A6, B1, B2, B3, C2.** Several need an owner ruling rather than
 > code (B1 is seat-or-delete; A4/A5 are shared-schema and shared-mechanism changes
@@ -63,9 +83,11 @@ before "fixing" a check. That mistake is what produced `146`'s first, wrong writ
 
 ### C1. Copy written by discovery-triggered handlers is never claims-checked
 
-> **✅ FIXED 2026-07-30 — committed `f61dce806`, INERT until the next chassis roll.**
-> Image `v1.0.1208` built from that HEAD and marker-verified. Concept register
-> **CLM-018**. Council `2d0dbc2e-e125-41f6-876d-0f8d6cf96688`.
+> **✅ FIXED AND LIVE 2026-07-30 — commit `f61dce806`, chassis `v1.0.1211`,
+> pod-verified on both replicas** (see the status block at the top of this file for
+> the marker counts and the controls). Concept register **CLM-018**. Council
+> `2d0dbc2e-e125-41f6-876d-0f8d6cf96688` — round 1 REVISE on evidence-attachment,
+> round 2 open, nothing refuted.
 > **The fix is NOT where this item said it was — read the correction below before
 > using anything in it.**
 >
@@ -371,8 +393,8 @@ two siblings ran to 07-25 (144 and 108 items). It carries `unverified_claims` an
 
 ### B4. An unregistered check name is a WARN and a `continue`
 
-> **✅ FIXED 2026-07-30 — committed `f61dce806`, INERT until the next chassis roll**
-> (image `v1.0.1208`, marker-verified). An unregistered name now **fails the step**,
+> **✅ FIXED AND LIVE 2026-07-30 — commit `f61dce806`, chassis `v1.0.1211`,
+> pod-verified on both replicas.** An unregistered name now **fails the step**,
 > naming the bad name and the registered set; an **erroring** check is reported
 > rather than fatal, because failing all thirty over one transient error would
 > discard twenty-nine checks' findings. `checks_run` reports what **actually ran**,

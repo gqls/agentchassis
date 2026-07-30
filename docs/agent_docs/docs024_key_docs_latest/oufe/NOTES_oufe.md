@@ -1733,3 +1733,44 @@ the seam-registration rule). Image `v1.0.1208` built from that HEAD and marker-v
 locally. Council submitted, `2d0dbc2e-e125-41f6-876d-0f8d6cf96688`. **Not rolled** —
 the council was mid-run and a roll kills an in-flight council. 149 stays OPEN: 3 items
 of 12, and several of the rest need an owner ruling rather than code.
+
+### Later the same day — it went live without me, and the council came back REVISE
+
+**The chassis rolled to `v1.0.1211` at 17:33 UTC and carried my commit.** Another
+session's roll; I had deliberately not deployed. Verified rather than assumed, on
+both replicas: `CONTENT_CLAIMS_FLOOR_DETAIL` 1, `claims floor blocked` 1,
+`silently omitted it` 1, `checks_unregistered` 1, positive control
+`CONTENT_LINK_REPAIR_DETAIL` 1, negative control 0. So the floor is enforcing in
+production now. This is the shared-HEAD property working exactly as documented —
+committing is shipping here, and "I'll hold the deploy" was never mine to hold.
+
+**Council round 1: REVISE. 15 seats, 12 approve / 3 object, 2 abstained, 0
+unreadable, not truncated.** The gating objection (`prior_art_librarian`, high) and
+four of its five points are **one objection wearing five hats**: every load-bearing
+absence claim was asserted as a live measurement with **no query attached** for the
+council to check. `debug_historian` reached the same conclusion independently about
+`checks_run`. Nothing was refuted — every count stands — so round 2 answers with the
+SQL and its verbatim output and **changes no code**. That is the estate's own rule
+(answer an evidence objection with a query, never with code) and it is the second
+time this lane has needed it.
+
+**The sharp bit: two of the council's own verification requests failed** with
+`column "agent_type" does not exist`. The seats asked exactly the right questions
+and their harness could not answer them, so "unverified" was partly the gate's own
+limitation — which is *more* reason to attach the queries, not less.
+
+**One objection I am deliberately NOT answering with a resubmission.** `guardian`
+(medium) wants the owners of the four newly-gated pipelines to sign off on a save
+that can now refuse. That is a judgement about how a capability reached production,
+not an evidence gap, and a scope objection needs a human. Flagged to the owner in
+149's status block and in `README_where_we_are`.
+
+**And a near-miss worth more than the verdict.** I first read the verdict with the
+query the runbook and the trigger script both print —
+`SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at
+DESC LIMIT 1`. That returns the most recent council note **fleet-wide**. I got a
+complete, well-formed REVISE about `internal/tools-api/clientip` and httpguard,
+belonging to another session entirely. The only thing that caught it was the plan
+summary describing someone else's change. **I was one step from revising my work
+against another thread's objections, and it would have felt like diligence.** Now in
+`LANDMINES.md`; key on your own correlation, always.
