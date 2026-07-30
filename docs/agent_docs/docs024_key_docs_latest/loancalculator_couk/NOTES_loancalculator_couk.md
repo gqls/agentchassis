@@ -257,3 +257,66 @@ though the join will miss.
 run, and this one has ~30 minutes to go. The code is committed (so any other
 session's roll ships it — both paths are opt-in and inert, so that is safe), but I
 will wait for the verdict before building, rather than destroying my own review.
+
+## 2026-07-30 evening — the gap that would have made the whole mend silently useless
+
+Two events, one of them a genuine find.
+
+**1. Another session's roll killed my council run.** Chassis pods restarted
+**17:33Z** onto `v1.0.1211`; my council orchestration
+(`b9a6ac6c-610a-42ab-8a25-36a636ba1756`) last advanced at **16:57Z** and sat at
+`EXECUTING_STEP / review_bug_historian` with **0 awaited requests** — the pod
+executing the step died and nothing resumes it. I had deliberately not rolled for
+exactly this reason; that protects the run from *me*, not from the fleet. Resubmitted
+with `RESUBMIT_CORR` so the trail accumulates under the same submission correlation
+(`f9eae63e-…`); the new run is `council-gate-orchestrate-0730-1930`.
+
+**Silver lining, and it needed checking rather than assuming:** v1.0.1211 was built
+*after* my commit, so my code is already live. Verified properly per the fleet
+practice — **four strings the change ADDED** (`adoption-locked/1`,
+`verbatim adoption found no crawled pages`,
+`verbatim page, shipping stored bytes unmodified`, `refusing to deploy an empty page`)
+each present, a **positive control** (`Built crawl page index`) present, and a
+**negative control** at 0 — on **both replicas**. So no roll of my own is needed.
+
+**2. THE REAL FIND — `--fidelity` never reaches the code that consumes it.**
+I was about to fire the adoption when I checked whether `input_data.fidelity`
+actually arrives at `apply_adoption_plan`. It does not.
+
+`site-adoption-orchestrator` does spawn→call→complete, handing work to the spawned
+`site-adoption-agent` through `call_agent`'s `input_mapping` — and **`input_mapping`
+is an ALLOW-LIST, not a passthrough.** From `input_contracts/input_mapping.go`:
+*"Key = destination field name (what child receives) / Value = source path in
+CollectedData"*. The live `call_adopter` mapping enumerates exactly four fields:
+`url?`, `domain?`, `target_url?`, `destination_domain?`. **`fidelity` is not one of
+them.** So it reaches the orchestrator and is dropped at the spawn; the agent that
+runs `apply_adoption_plan` never sees it, `adoptionFidelity` returns `""`, and the
+run takes the **recreate** path — rewriting all 12 calculators and changing all 28
+URLs — while reporting success.
+
+**Had I not checked, this is exactly the failure I have been writing landmines
+about all day.** Nothing errors. The flag is accepted by the script, recorded in the
+submission, visible in the orchestrator's `collected_data`, and absent one hop
+later. My Go code would have been correct, tested, mutation-verified, council-
+reviewed — and inert. The verification I had planned (per-page sha256) would have
+caught it eventually, but only *after* the site had been rebuilt.
+
+Why it was invisible before today: **the value was inert at BOTH ends**, so a
+missing hop between them changed nothing observable. `grep`ping for consumers found
+none, which is what made the dial look like a pure "no consumer" problem. It was two
+problems — no consumer *and* no plumbing — and fixing only the half you can see
+leaves a mend that cannot fire. **[LESSON] When you make an inert parameter live,
+trace its whole path from entry point to consumer, hop by hop. "Nothing reads it" and
+"nothing carries it" look identical from the consumer end.**
+
+Filed as **G9** and written as a migration rather than a hand-patch:
+`docs/agent_docs/sql_for_agents/274_adoption_forward_fidelity_to_spawned_agent.sql`
+(snapshot-first, asserts the snapshot holds the PRE-change mapping, asserts one live
+row changed and that the key landed at the intended path — `create_if_missing=true`
+is correct here because the key is new, which also means a mistyped path would
+silently create a useless key instead of erroring).
+
+**NOT YET APPLIED — blocked.** The direct `psql` write was refused by this session's
+permission classifier, so the change is prepared and reviewable but not live. The
+adoption run is held until it is applied: firing now would silently take the recreate
+path, which is the one outcome the owner explicitly ruled out.
