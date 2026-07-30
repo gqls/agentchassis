@@ -100,6 +100,28 @@ Fleet context: v1.0.1196 rolled 22:37Z 07-28. A `render-audit-adapter` pod
    `platform/httpguard` adopted into tools-api and its memory line says
    "message them first" — this workstream owns tools-api, so expect (or
    answer) that contact. Nothing owed yet.
+   > **NOTE ADDED 2026-07-30 by the consolidation thread (features_open/024) —
+   > appended, nothing above edited.** *"Nothing owed yet"* was written at 08:22
+   > on 07-29 and is now out of date: the contact arrived at 13:34 that day as
+   > `CONTRIB_2026-07-29_tools_api_client_identity_is_a_constant.md`, **in this
+   > directory**, and it is not a request — it is evidence plus a ready patch.
+   > **The finding is about YOUR service and does not depend on the consolidation
+   > programme at all:** `client_ip_hash` is `sha256("172.18.0.1")` (the docker
+   > bridge gateway) in **83 of 83 rows** since 07-25 — one distinct value, whole
+   > table. So the per-IP limiter is one global bucket shared by every visitor,
+   > and the stored identity column has never distinguished anybody. No attacker
+   > involved; measured, not inferred.
+   > The patch is three small edits following **your own `httperr` precedent** (a
+   > `clientip` package + two one-line call-site changes at
+   > `middleware/ratelimit.go:30` and `handlers/round.go:109`). It is yours to
+   > take, reject or rewrite — **we are deliberately not touching tools-api.** One
+   > thing in it is marked `[INFERRED]` and you are better placed than us to
+   > settle it: that `CF-Connecting-IP` reaches the app process. We measured it
+   > arriving at Caddy and measured Caddy forwarding it verbatim, but tools-api
+   > has no header-echo endpoint and we would not add one to your service.
+   > Acceptance check is in the CONTRIB: `count(DISTINCT client_ip_hash)` must
+   > exceed 1 across visits from two different networks — a presence check passes
+   > against the unfixed code, so do not use one.
 5. **083 (gauntlet-engine-503, BY SLUG)** posture unchanged: armed log, check
    on a TRIGGER not a date. Its only catch remains the 07-28 cap event.
    Candidate 4 (max_tokens) still awaits a real burst of successful traffic.

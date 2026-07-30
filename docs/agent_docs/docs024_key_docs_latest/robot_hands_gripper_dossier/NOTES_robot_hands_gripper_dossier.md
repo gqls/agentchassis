@@ -1112,3 +1112,133 @@ approved on their merits.
 **Three rows left in their table**, ids and times listed in 139. Not deleted:
 they are the gauntlet thread's data and the evidence, and tidying up after myself
 inside another lane's production table is not my call.
+
+---
+
+## 2026-07-29 afternoon — the design input became the fix, and it was approved first time
+
+The A3 design input recorded in the entry above is now shipped. `httpguard.ClientIP`
+takes a **required** `FrontEnd` argument naming which headers *this deployment's*
+proxy is known to **write** (as against merely forward). Three pre-declared:
+`Nginx()` — byte-identical behaviour to the old hard-coded rules, so
+`bugs_closed/090`'s regression test is untouched and still proven to fail on
+reintroduction — `CloudflareTunnel()` (`CF-Connecting-IP`), `Direct()` (trusts
+nothing). **Required, not defaulted**, deliberately: the defect was never the rules
+themselves, it was that a caller could inherit an assumption it had never stated.
+Commit `31c684124`, which carries the register entries PUB-002 + PUB-003 **in the
+same commit** — the condition the 07-28 owner ruling makes non-negotiable for a
+platform seam.
+
+**Council `49392838-5ada-4c8e-baeb-94b01e5855b4`, round 1: APPROVED** — *"approved
+with 1 advisory objection(s) — none high-severity"*. 9 seats fired, 8 abstained on
+relevance, none unreadable. The `architecture` seat answered the venue question the
+submission raised against itself, returning `ARCHITECTURE_SIGNAL: point_fix`:
+*"hardening a shared mechanism's own contract before its first real consumer, which
+is the cheapest point in its life to do it, not a shared-mechanism change smuggled in
+via a symptom fix."* Worth keeping as precedent — it is the **inverse** of
+`bugs_open/124`, and the discriminating test is whether any consumer's stated
+guarantee changes. Both mediums asked for confirmation rather than argument, so both
+were answered with evidence, not prose: `guardian` wanted the register entry
+*confirmed* to ship in the same commit (it did), `prior_art_librarian` wanted the
+load-bearing zero-importer claim re-grepped **after** the verdict rather than trusted
+from the submission (re-run; still zero).
+
+**The architecture seat's carried objection, discharged the same day** rather than
+left to become folklore. Its wording: *"Fine to ship, but the open question should not
+go stale - the next thing to land against this package should close it, not add a
+fourth FrontEnd."* The open question is the peer gate — trusting `CF-Connecting-IP`
+is trusting Cloudflare to be in front, and the gate is the only thing that makes the
+header revert to being ignored if the origin is ever reachable directly. It was
+implied, not stated. Now: `TestPeerGateBoundaryIsStatedNotAssumed` pins where the gate
+falls across ten realistic address forms, and `TestClientIPParsesTheRemoteAddrARealSocketProduces`
+drives a real `httptest` socket so the peer is parsed from what the **runtime** puts
+in `RemoteAddr` rather than a hand-typed string — the case where a bug would actually
+hide, since a leaked port or bracket fragments every limiter bucket per-connection.
+Commit `df7f918b8`.
+
+Measured while doing it, and it is a real deployment constraint rather than trivia:
+Go's `net.IP.IsPrivate` covers **RFC1918 and RFC4193 only**. A proxy behind CGNAT
+(`100.64.0.0/10`) or on a link-local address is **NOT** trusted and its headers are
+ignored. Fails in the safe direction — coarse key, not a spoofable one — but it
+decides where this package can be deployed, and it is now pinned by test instead of
+discovered in production.
+
+**What remains structurally unclosable locally, stated in PUB-002 rather than left
+implied:** a connection from a genuine *public* peer. Every address a dev machine can
+bind is loopback or RFC1918 and therefore lands on the trusted side of the gate by
+construction. Only a real direct-exposure deployment closes it. **Do not let a future
+thread "close" it with another unit test.**
+
+### MISSTEP — my first mutation proof was worthless and reported success
+
+I "verified" the two new tests could fail by mutating the peer gate with
+`sed -i 's|peer.IsLoopback() || peer.IsPrivate()|peer.IsLoopback()|'`. The `||` in
+the Go source **is the sed delimiter**, so sed printed `unknown option to 's'`, left
+the file untouched, and the suite then passed honestly — a green `ok` that I had
+briefly read as "the mutation did not break anything", which is the worst possible
+misreading available. Redone with a Python script that **asserts the anchor string
+was found** before substituting; both tests then FAILED on all four RFC1918/RFC4193
+rows as intended.
+
+**The transferable check:** a mutation test that passes is either evidence the guard
+is redundant or evidence the mutation never happened, and those look identical from
+the exit code. Make the mutator assert its own anchor, and read the mutated file
+before trusting the run. Same family as *"a quiet test passes when the RULE is gone,
+not when the guard works"*.
+
+---
+
+## 2026-07-30 — the patch was filed correctly and still did not arrive
+
+Checked what became of the adoption patch left in the gauntlet lane's directory on
+07-29 at 13:34 (`CONTRIB_2026-07-29_tools_api_client_identity_is_a_constant.md`,
+commit `171ff677c`). Nothing became of it, and the *reason* is worth more than the
+fact.
+
+Measured, 2026-07-30:
+
+| check | result |
+|---|---|
+| `grep -rn 'agentchassis/platform/httpguard' --include=*.go .` (excl. self) | NONE |
+| `grep -rn 'agentchassis/platform/mailer' --include=*.go .` (excl. self) | NONE |
+| `go test -count=1 ./platform/httpguard/ ./platform/mailer/` | `ok 0.003s` / `ok 0.002s` |
+| `ls internal/tools-api/` | `api config db handlers httperr middleware store` — no `clientip` |
+| last commit touching `internal/tools-api/` | `a9a1b3556`, 07-29 **09:34** — before the CONTRIB |
+| gauntlet commits after the CONTRIB landed | **six** (07-29 14:24 → 18:27), none touching that service or the CONTRIB |
+
+`-count=1` matters: without it both packages answer `(cached)`, which is not a run.
+
+**The decisive measurement.** Their live cold-start doc carries a "Consolidation ping"
+item ending *"Nothing owed yet."* I dated the line rather than reading it as current:
+
+```
+git log -S'Nothing owed yet' --format='%h %ad %s' --date=format:'%m-%d %H:%M' \
+  -- docs/…/gauntlet_dead_cta/HANDOFF_2026-07-29_continue_here.md
+# e304e3955 07-29 08:22 …
+```
+
+**Written 08:22 — five hours BEFORE the patch arrived — and unchanged through four
+later edits of that same file.** So their next cold-start reads "nothing owed" with a
+finished patch two files away. Not a judgement they made about the patch; a line they
+never had cause to revisit.
+
+**Landmine, and it is the LANDMINES/D10 authoring-vs-delivery gap on a new corpus:**
+**a CONTRIB in the right directory is AUTHORING, not DELIVERY.** Nothing tells a lane
+that a new file in its own directory applies to it. I filed the evidence exactly where
+the convention says to and it still did not reach anybody.
+
+**Also the general form of a check I keep needing:** *date a line in someone else's
+document before treating it as their current position.* `git log -S'<line>'` costs one
+command. Prose in a live doc carries no timestamp, and a stale line in a cold-start
+path is indistinguishable from a considered decision.
+
+**Acted on it, minimally and additively:** appended a dated note under their item 4 in
+`gauntlet_dead_cta/HANDOFF_2026-07-29_continue_here.md` — appended, **none of their
+words edited** — stating that the contact has arrived, that the finding is about their
+service and does not depend on this programme (83 of 83 rows, one distinct
+`client_ip_hash`, so the "per-IP" limiter is one global bucket), what the patch is, and
+which part is `[INFERRED]` and better settled by them (that `CF-Connecting-IP` reaches
+the app process — measured at Caddy, not at the app, and I would not add a header-echo
+endpoint to their service to find out). Did **not** apply it: `tools-api` is theirs,
+`bugs_open/083` (by slug) is open against it, and reaching in is what the
+contribute-don't-fix convention exists to prevent.

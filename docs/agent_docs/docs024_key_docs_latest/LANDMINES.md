@@ -68,20 +68,41 @@ LANDMINE lines in `MEMORY.md` (21.8KB against a 25,000-byte cap) and 22 more in
 | a durable defect in production | `/bugs_open/` |
 | a mechanism another workstream could call | the concept register |
 
-## What this file does NOT solve — read before relying on it
+## How a landmine reaches you — all three routes, live 2026-07-29
 
-**It solves authoring. It does not solve delivery.** Nothing tells you an entry
-here applies to what you are about to touch; you have to look. That is D10's open
-question (its §4d, *"delivery to a session — OPEN, and the weak link"*), and a
-standing discipline is explicitly the option that proposal recommends **against**
-relying on alone. So:
+D10(c)+(d) ruled: **all three**, because the proposal recommended against
+discipline standing alone and this is what stops it standing alone.
 
-- **Grep this file by footprint before you touch something unfamiliar.**
-  `grep -n "<path-or-table>" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`
-- **Do NOT drain `MEMORY.md`'s landmine lines into here.** D10 §5 names this as the
-  serious staging risk: moving them out before delivery exists removes protection
-  we have today for protection we might get. **Both run in parallel.** Duplication
-  is the correct state until D10 is decided.
+1. **Automatically, at session start.** `scripts/landmines-session-start.py`
+   (wired in `.claude/settings.json`) matches entries against the files already
+   dirty in the working tree and injects them. Path-shaped footprints only, capped
+   at 6, and it exits silently on any error — a startup hook that can break a
+   session would be worse than any landmine it reports. **New sessions only:** an
+   already-running session needs `/hooks` or a restart.
+2. **To council seats**, via the `doc_notes` rows the sync writes. *(D10(c) —
+   still to be wired into the schema hint; the rows exist and are queryable now.)*
+3. **By grep, deliberately** — still the route for table, command and symbol
+   footprints, which cannot match a file path:
+   `grep -n "<path-or-table>" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`
+
+**Do NOT drain `MEMORY.md`'s landmine lines into here.** Owner ruling, following
+D10 §5: moving them before delivery is proven removes protection we have today.
+**Both run in parallel** — duplication is correct, not untidiness.
+
+### Keeping the rows in step
+
+The markdown is authoritative; the rows are derived. After appending, run:
+
+```bash
+./scripts/landmines-sync.py            # dry run — what would change
+./scripts/landmines-sync.py --apply    # write
+./scripts/landmines-sync.py --check    # exit 1 if the DB has drifted
+```
+
+It owns only rows whose `source` starts `LANDMINES.md#` and replaces those; the
+7 landmine rows written by other threads before D10 was ruled are structurally out
+of its reach. **Consumers should filter on `categories ? 'landmine'`, not on
+`subject_type`** — the category spans both conventions.
 
 ## Entry format — and why it looks like this
 
@@ -348,3 +369,50 @@ source document and the entry points at it.
 - **source:** `queryresolve.go:292` comment ("Never `assets.url`"); confirmed while
   inspecting dartsonline's 33 assets 2026-07-29
 - **added:** 2026-07-30, dartsonline_traffic lane
+
+### A mutation that never happened is indistinguishable from a guard that works
+
+- **footprint:** `sed -i 's|…|…|'` against Go source; mutation testing / "prove
+  this test can fail" of any kind
+- **fires when:** you break a guard on purpose to show a new test would catch it —
+  and the guard's own source contains your sed delimiter. `s|peer.IsLoopback() ||
+  peer.IsPrivate()|…|` has **four** `|`, so sed parses garbage, prints
+  `unknown option to 's'`, and **leaves the file untouched**
+- **the tell:** there isn't one. `go test` then prints a perfectly honest `ok`,
+  and the reading available to you is *"the mutation did not break anything"* —
+  i.e. exactly the conclusion "this guard is redundant", drawn from a file that was
+  never mutated. The sed error scrolls past above the result you are actually
+  looking at
+- **the check:** make the mutator **assert its own anchor was found** before
+  substituting (a 5-line Python script beats `sed -i` for anything containing
+  operators), and **diff the file** before believing the run. Generally: a mutation
+  test that passes is either evidence of a redundant guard or evidence of a failed
+  mutation, and nothing in the exit code separates those two
+- **source:** `robot_hands_gripper_dossier/NOTES_…` 2026-07-29 afternoon, while
+  discharging a council objection on `platform/httpguard`. Same family as *"a quiet
+  test passes when the RULE is gone, not when the guard works"*
+- **added:** 2026-07-30, consolidation lane (`features_open/024`)
+
+### Prose in another lane's live HANDOFF carries no timestamp — date the line, don't read it
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/*/HANDOFF_*.md` belonging
+  to another thread; the CONTRIB-into-their-directory convention
+- **fires when:** you read another lane's cold-start doc to learn their current
+  position on something — or you file a CONTRIB into their directory and assume
+  landing it in the right place means it reached them
+- **the tell:** none, and this is the whole problem. A live doc's prose reads as
+  current and considered. Measured 2026-07-30: a gauntlet handoff item said *"the
+  consolidation people may be in touch — nothing owed yet"*, and
+  `git log -S` dated that line to **five hours before** the finished patch arrived
+  in that same directory; it then survived **four** later edits of the file
+  untouched. A stale line sitting in a cold-start path is indistinguishable from a
+  decision to decline
+- **the check:** `git log -S'<the exact line>' --date=format:'%m-%d %H:%M' -- <their
+  file>` before quoting it as their position — one command. And when you file into
+  another lane, **append a dated pointer where their next session actually reads**
+  (their cold-start doc, their words untouched), then record that you did. Filing in
+  the right directory is **authoring**; nothing in the system performs **delivery**
+  — the same gap D10 was opened for, on a different corpus
+- **source:** `consolidation/HANDOFF_2026-07-30_continue_here.md` §4; the patch is
+  `gauntlet_dead_cta/CONTRIB_2026-07-29_tools_api_client_identity_is_a_constant.md`
+- **added:** 2026-07-30, consolidation lane (`features_open/024`)

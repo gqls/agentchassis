@@ -393,3 +393,79 @@ package rather than in each place that uses it.
 Cost of finding all this: about half an hour, three test visits recorded in their
 table, and one throwaway copy of the routing program run on my own machine to
 watch what it does to a request. Nothing was changed on the live service.
+
+---
+
+**2026-07-29, later — the thing I flagged is fixed, and the reviewers passed it first
+time.**
+
+I said yesterday that the shared security code explains why it is safe by describing
+the plumbing on one of our two sites, and that anyone adopting it elsewhere would
+inherit the reassurance without the thing that makes it true. That is now fixed, and
+the fix is about honesty rather than cleverness: the code no longer guesses what is in
+front of it — it makes the caller say. There are three ready-made answers and
+deliberately no default, because a default that is right in one place and quietly
+wrong in another is the whole of the original problem. The old behaviour is one of the
+three answers, unchanged, so the fix we proved against a real production incident
+earlier this month is still proved.
+
+It went through the review council and was approved on the first round. It also
+settled a question I had raised against my own submission — whether tightening a
+shared mechanism needs the heavier architecture review — in favour of the normal route,
+on the grounds that hardening a shared thing's contract *before* anything uses it is
+the cheapest moment in its life to do it. Both reviewers who asked for something wanted
+confirmation rather than argument, so I gave them measurements instead of prose.
+
+One reviewer asked me not to let a loose end go stale, so I closed it the same day
+rather than writing it down as a future task. The safety of the new arrangement rests
+on a check about where a request came from, and that check's exact edge was implied
+rather than stated. It is now written into tests, including one driven through a real
+network connection rather than a typed-out address, and I deliberately broke the thing
+those tests guard to confirm they would actually notice. That turned up something worth
+knowing before this gets deployed anywhere new: a proxy sitting behind certain kinds of
+shared internet address is not trusted, and its answer gets ignored. It fails safely,
+but it limits where the code can go, and it is better pinned down now than discovered
+by someone in production.
+
+I should say that my first attempt at breaking those tests was worthless. The command I
+used to damage the code silently failed to change anything, then the tests passed, and
+for a moment I read that as "nothing broke". It is the most misleading possible result:
+a test that passes because the sabotage never happened looks exactly like a test that
+passes because the code is robust. I redid it with something that checks it actually
+made the change first.
+
+---
+
+**2026-07-30 — the work is done; the last step is a conversation I can't have on my
+own.**
+
+Everything on this piece of work that is mine to do is finished, committed and
+approved. What is left is that both remaining users of the shared code live inside one
+service that belongs to another thread. So on the 29th I wrote up the evidence and a
+ready-to-apply patch — following that service's own existing conventions rather than
+imposing ours — and put it in their directory, which is what our convention says to do.
+
+This morning I checked what happened to it. Nothing. They have been busy, six commits
+since, but none of them near that service. So I looked at why, and found something more
+useful than a reminder would have been: their own start-here document contains a line
+saying, roughly, "the consolidation people may be in touch, nothing owed yet." I
+checked when that line was written. Five hours *before* my patch arrived — and it has
+survived four later edits of the same file untouched. So the next person picking up that
+thread would read "nothing owed" with a finished patch sitting two files away.
+
+That is nobody's fault, and it is the useful finding of the day: putting a file in the
+right place is not the same as delivering it. Nothing in how we work tells a thread that
+a new document in its own directory is meant for it. I have added a dated note to their
+start-here document — added, with none of their words changed — saying the contact has
+arrived, what the finding is, and that it concerns their service whether or not they care
+about our shared code. Because it does: the visitor address that tool stores has been the
+same single value in all eighty-three records since it went live, so the limit they think
+is per-visitor is one shared bucket, and the identity they store has never told anyone
+apart. That is measured, not reasoned, and no attacker is involved.
+
+What I am not going to do is apply the patch myself. That service is theirs, they have an
+open bug against it, and reaching into someone else's code is exactly what our
+contribute-don't-fix rule exists to stop. So the choice is yours: leave it for them to
+pick up, or decide it has waited long enough and route it. It is a live defect in a public
+endpoint rather than a tidy-up, which is the only reason I am raising it rather than
+letting it sit.
