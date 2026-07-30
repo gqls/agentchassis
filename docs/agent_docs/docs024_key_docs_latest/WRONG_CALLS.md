@@ -12089,3 +12089,46 @@ obvious (FIX-056) and what a policy blame would never have produced.
 Family: [[narrow-filter-defines-the-conclusion]] (the conclusion was set by what I
 had in mind, not by what I measured); [[a-print-statement-is-not-a-config-row]]
 (citing a document's existence rather than its content).
+
+## 2026-07-30 — I ran `git stash` on a shared, concurrently-edited tree to answer a question a path-scoped build would have answered with zero risk (bugsearch 8)
+
+**The action.** Fixing `bugs_open/148`, I ran `go build ./...` to sanity-check my
+change and hit a pre-existing failure: `found packages main (accessdigest.go) and
+working_dir (env.go) in .../traffic_probe/deploy_setup/working_dir` — a package-name
+collision in a docs sandbox directory nothing to do with my change. To confirm it
+predated me rather than being something I'd caused, I ran `git stash`, re-ran the
+build, saw the identical failure, and `git stash pop`'d to restore the tree.
+
+**What was true.** `git stash` captures *every* uncommitted change in the tree, not
+just mine. At that moment several other sessions had real WIP sitting there —
+`platform/orchestration/actions/save_page_sections_action.go`,
+`discovery_checks.go`, and others, mid-edit on `bugs_open/149`. The pop restored
+everything correctly and no other session committed in the ~20 seconds the stash
+was live, so nothing was actually lost. But CLAUDE.md's entire premise for this
+repo is that the tree is shared, mutable state across sessions running right now —
+a stash is safe only as long as nobody else touches the tree or commits while it's
+off to the side, and I had no way to guarantee that held. I got away with it; that
+is not the same as it having been a safe thing to do.
+
+**What caught it.** Nothing did, at the time. I noticed the risk only while writing
+this entry up afterwards — the near-miss was invisible in the moment because
+nothing observable went wrong.
+
+**The cheap check that would have.** The failing path shares no directory with
+anything I touched (`cmd/config-key-audit/`, `scripts/`); reading the path, or
+`git log -1 -- <that path>`, would have shown it long predates my change without
+touching a single other file. More directly: `go build ./cmd/config-key-audit/...`
+— the only build that actually mattered for my change, and the one I ran anyway
+right after — made the whole-repo build irrelevant to check at all.
+
+**Why it earns an entry despite nothing breaking.** CLAUDE.md's own example of the
+damage class this file warns about (a `git add -A` sweeping another thread's WIP
+into an unrelated commit, `69d6f3ecc`) was "an unremarkable 16 files" — ordinary
+until it wasn't. A stash/pop round-trip on a tree with concurrent uncommitted work
+is the same shape of risk with a shorter fuse and no commit message to reveal it
+after the fact. The fix is procedural, not diagnostic: a whole-tree git operation
+is never the cheapest way to answer a question a path-scoped build or a targeted
+`git log` can answer instead — check that FIRST, not after reaching for the
+tree-wide tool.
+
+Family: committing-is-shipping-on-shared-head; shared-tree-wont-compile.

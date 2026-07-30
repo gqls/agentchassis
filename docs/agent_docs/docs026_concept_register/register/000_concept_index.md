@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,658 concepts across 107 category register files. 1,627 consolidated from
+1,659 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -62,6 +62,13 @@ everything — which means dropping a ratchet line obliges you to register the
 mechanisms, not merely one of them. Status tags were
 documentary signals from the source material unless independently verified (see
 below).
+
+**2026-07-30 addition:** 1 more (**WFA-004**) added closing `bugs_open/148` —
+an offline detector, `config-key-audit --unregistered-actions`, that replays
+the exact "unregistered action, no topic" rule the runtime validator enforces
+against every live agent definition, reusing WFA-003's `WalkSteps` traversal
+rather than writing a fourth hand-rolled walk. Measured against the live fleet
+(178 agents): exactly the 3 findings the bug documents.
 
 And 2 more (**PUB-002, PUB-003**) added 2026-07-29 by the consolidation
 programme, for the two shared packages it built on 07-28 — `platform/httpguard`
@@ -237,6 +244,7 @@ an ID prefix, or a status word.
 | WFA-001 | Workflow Builder & Validator (YAML DSL) | abandoned | A validation-first YAML-to-workflow-JSON authoring system; no later doc references it as ever used. | workflow-authoring.md |
 | WFA-002 | `$ctx.` execution-context parameter namespace for `query_database` | deployed | Any workflow's SQL can bind the identity of the run executing it ($ctx.correlation_id, …), so a claim step can record which run took a queued row. | workflow-authoring.md |
 | WFA-003 | Sub-workflow validation + one shared step traversal | built (inert until roll) | Steps nested in a loop's sub_workflow are validated at last (85 live steps, 18 agents); WalkSteps is exported so audits stop writing their own top-level-only walk. | workflow-authoring.md |
+| WFA-004 | Offline unregistered-action detector (`config-key-audit --unregistered-actions`) | deployed (standalone CLI tool) | Reports, before any message arrives, which live steps name an action that is neither locally registered nor topic-routed — closing `bugs_open/148`. Reuses WFA-003's `WalkSteps`. | workflow-authoring.md |
 | IMP-044 | Defect-cataloguing discipline (enumerate-before-fixing) | deployed | A working method for a real adoption-run defect sweep: group symptoms into lettered families by shared mechanism... | improvement-loop.md |
 | DBG-059 | orchestration_state_audit: temporary attachable trigger for state races | deployed | AFTER UPDATE trigger capturing every transition; explicitly removed after use | debugging.md |
 | SOC-002 | Spark — AI game-master social platform (core concept) | partial | AI as producer not performer; opinion-first provocation game; v1 live on vonc.com | social-media.md |
