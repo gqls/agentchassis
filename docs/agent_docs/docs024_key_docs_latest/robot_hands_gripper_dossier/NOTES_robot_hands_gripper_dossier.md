@@ -1286,3 +1286,61 @@ contribute-don't-fix convention exists to prevent.
 > the artefact is their transcript (`~/.claude/projects/<proj>/<id>.jsonl`; `customTitle`
 > sits on line 1), not the repo. Same family as *"your measurement answers the question you
 > ENCODED"*: I encoded "did they commit?" and read the answer as "did they engage?".
+
+---
+
+## 2026-07-30 evening — the owner read the fixture pages and found two rendering defects nothing here could see
+
+He looked at the served report and sent two screenshots. Both defects were real, both were
+in `platform/orchestration/actions/report_charts.go`, and **both had passed every check the
+pipeline has** — because an SVG `viewBox` **clips** rather than overflows, so neither
+presents as a broken layout. They present as corrupted *content*, which in a report whose
+header comment says *"every bar is drawn from a real figure the scoring action computed or a
+manufacturer published"* is the worst possible disguise: the natural diagnosis is a scoring
+bug.
+
+| defect | mechanism | what the page served |
+|---|---|---|
+| value label runs off the right edge | `plotW = width - labelW - 90.0` reserved a **fixed** 90 units; `"6.42× (Insufficient data)"` needs ~150 at font-size 11 | `6.42× (Insufficien` |
+| reference captions overprint | both captions drawn `text-anchor="middle"` on **one** baseline; 1.0× and 1.25× are 0.25 apart on a 3× axis ≈ 32 user units, captions ~110 and ~140 wide | `reqmiaegimealttufh1r.0ex/f)old (1.25×)` |
+
+Fixed by deriving both from content instead of constants: the gutter is sized from the widest
+label (plot shrinks, text is never lost), and captions are assigned to the first lane that
+clears the previous caption's right edge, the SVG growing one 12-unit lane per extra lane.
+Byte-stability is preserved — refs are still iterated in sorted key order, because an
+unstable chart would re-diff every committed report page.
+
+**Third defect, found while fixing the first two and worth more than either:** bars clipped
+at the 3× cap were drawn *identical lengths* while the figures printed beside them differed
+(6.42× and 7.60×). A chart whose doctrine is "no invented data" was drawing two different
+numbers as the same bar. Capped bars now end in a point. Commit `f8e7c31ce`; council
+submitted, corr `60d05267-a671-4b98-9b87-6a97e16d78a0`.
+
+**Verified by LOOKING, because that is how it was found.** Rendered the exact fixture shape
+through headless chromium and read the PNG. Two things to know before repeating it:
+chromium here is a **snap**, so it cannot write a screenshot into `/tmp/claude-*` (fails
+`No such file or directory`) or into any **dot-directory** under `$HOME` (fails
+`Permission denied`) — a plain `~/chartcheck/` works. Both failures look like "the tool
+isn't available" rather than "the path is refused".
+
+### MISSTEP — my first clipping test passed under mutation, and the reason is a new trap
+
+I reverted the gutter fix expecting the "nothing is clipped" assertion to fail. **It passed.**
+Not because the mutation failed to apply (that is yesterday's landmine, and the mutator now
+asserts its own anchor — it did apply) but because a **second guard absorbed it**: the
+`fitText` fallback silently truncated the label to fit. Nothing was clipped. Content was
+lost. The assertion was *true and useless*.
+
+**The fix is to assert the outcome the caller asked for, not the absence of the symptom** —
+the test now requires the emitted label to *equal* the requested label. Both traps are filed
+in `LANDMINES.md`; they are companions and it is worth knowing which is which:
+a mutation that never **applied**, versus a mutation that applied and was **compensated**.
+
+Left undone deliberately: candidates at `0.00×` render no visible bar at all (zero-width
+rect). It looks empty next to its own `0.00× (No match)` label, and a minimum bar width
+would misrepresent the magnitude — which is the one thing this chart exists not to do. The
+label carries the figure; the bar should not lie about it.
+
+**The two live fixture pages are unchanged by any of this** — they are stored artefacts, and
+`report-dispatch` / `report-request-pull` are both still disabled, so nothing regenerates
+unasked. The fix reaches the next report generated.
