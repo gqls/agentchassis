@@ -328,44 +328,14 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 
 	l.Info("In handleMessage in adapter.go just uploaded results - about to send success response")
 
-	// Truncate large content fields before sending through Kafka.
-	// Full content is already in S3 (via storage URIs).
-	// prepare_extraction_context only uses 8000 chars anyway.
-	const maxKafkaContentLen = 50000 // 50KB per field, well within Kafka limits
+	// Cap content-bearing fields for transport. The marker each cut carries can
+	// only claim a stored copy when the upload above actually recorded a URI for
+	// THAT field — see truncation.go. bugs_open/133: this used to claim
+	// "full version in S3" unconditionally, including on the four live steps
+	// that never upload anything.
 	if resultMap, ok := result.(map[string]interface{}); ok {
-		for _, field := range []string{"markdown_content", "html_content", "raw_html"} {
-			if content, ok := resultMap[field].(string); ok && len(content) > maxKafkaContentLen {
-				l.Info("Truncating large field for Kafka",
-					zap.String("field", field),
-					zap.Int("original_len", len(content)),
-					zap.Int("truncated_to", maxKafkaContentLen))
-				resultMap[field] = content[:maxKafkaContentLen] + "\n\n[Content truncated for Kafka transport - full version in S3]"
-			}
-		}
-		// Strip screenshot base64 entirely - URI is sufficient
-		if _, ok := resultMap["screenshot_base64"]; ok {
-			delete(resultMap, "screenshot_base64")
-		}
+		truncateResultForTransport(resultMap, storageInfoOf(resultMap), l)
 		result = resultMap
-	}
-
-	// Also handle multi-page results where each page has content
-	if resultMap, ok := result.(map[string]interface{}); ok {
-		if pages, ok := resultMap["pages"].([]interface{}); ok {
-			for _, page := range pages {
-				if pageMap, ok := page.(map[string]interface{}); ok {
-					for _, field := range []string{"content", "markdown_content", "html_content", "markdown", "rawHtml", "raw_html"} {
-						if content, ok := pageMap[field].(string); ok && len(content) > maxKafkaContentLen {
-							l.Info("Truncating large page field for Kafka",
-								zap.String("field", field),
-								zap.Int("original_len", len(content)),
-								zap.Int("truncated_to", maxKafkaContentLen))
-							pageMap[field] = content[:maxKafkaContentLen] + "\n\n[Content truncated for Kafka transport - full version in S3]"
-						}
-					}
-				}
-			}
-		}
 	}
 
 	// Send success response
@@ -434,16 +404,41 @@ func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID,
 		zap.String("reply_topic", replyTopic),
 		zap.String("status", "complete"))
 
-	if err := a.producer.ProduceWithValidation(
+	// bugs_open/133 defect B: this used to log the produce failure and return,
+	// so a reply the broker refused as too large was never delivered, never
+	// degraded and never reported — the caller waits on the reply topic, not on
+	// this pod's logs, and starved through the coordinator's whole retry budget.
+	// The policy is shared with the batch path (platform/kafka.DeliverReply);
+	// only the degraded form and the error envelope are ours.
+	outcome, derr := kafka.DeliverReply(
 		a.ctx,
+		a.producer,
+		a.logger,
 		replyTopic,
 		headers,
 		[]byte(correlationID),
 		responseBytes,
-	); err != nil {
-		a.logger.Error("Failed to produce response",
-			zap.Error(err),
+		func() ([]byte, error) {
+			resultMap, ok := result.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("scrape result is not a map, nothing to strip")
+			}
+			// Mutates the map the envelope already holds by reference, so
+			// re-marshalling the same envelope yields the degraded reply.
+			stripResultForRetry(resultMap, storageInfoOf(resultMap))
+			return json.Marshal(response)
+		},
+	)
+
+	if outcome == kafka.FailedUndeliverable {
+		// A response that cannot be delivered must become a deliverable error,
+		// never silence (016b §9, from bugs_closed/062).
+		a.logger.Error("Scrape response undeliverable — sending error response instead",
+			zap.Error(derr),
+			zap.String("request_id", requestID),
 			zap.String("topic", replyTopic))
+		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyTopic, clientID, stepName,
+			fmt.Sprintf("scrape succeeded but the response could not be delivered: %v", derr))
 	}
 }
 

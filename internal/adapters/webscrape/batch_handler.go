@@ -4,13 +4,11 @@ package webscrape
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	platformkafka "github.com/gqls/agentchassis/platform/kafka"
 	"go.uber.org/zap"
 )
 
@@ -278,29 +276,20 @@ func stripBatchResultsForRetry(results []map[string]interface{}) {
 	}
 }
 
-// isKafkaMessageTooLarge reports whether a produce error is the broker's
-// message-size refusal — the one produce failure that is deterministic
-// (resending the same bytes can never succeed), so it gets a degrade-and-
-// retry rather than being surfaced as-is.
+// isKafkaMessageTooLarge is now a thin alias for the shared predicate in
+// platform/kafka.
 //
-// Typed checks first (council fe468218, editquality): the producer wraps
-// with %w so errors.Is/As unwrap to kafka-go's MessageSizeTooLarge (broker
-// error code 10) or MessageTooLargeError (the writer's client-side
-// pre-send detection). The substring fallback stays because WriteMessages
-// can also surface the failure inside composite shapes (kafka.WriteErrors)
-// that the unwrap chain does not always reach.
+// It was this file's own unexported function until bugs_open/133, which found
+// that it was the ONLY code in the tree that knew an oversized reply is a
+// deterministic failure — one of nine reply-producing sites. Copying it to the
+// eighth site would have been two implementations of one rule, which is the
+// defect bugs_closed/144 was about, so the predicate and the degrade-resend
+// policy moved to platform/kafka and both webscrape paths call them.
+//
+// Kept as a name rather than inlined at the call site because the batch tests
+// assert the classification through it.
 func isKafkaMessageTooLarge(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, kafka.MessageSizeTooLarge) {
-		return true
-	}
-	var tooLarge kafka.MessageTooLargeError
-	if errors.As(err, &tooLarge) {
-		return true
-	}
-	return strings.Contains(err.Error(), "Message Size Too Large")
+	return platformkafka.IsMessageTooLarge(err)
 }
 
 // buildBatchSuccessEnvelope constructs the full response message (headers +
@@ -419,43 +408,30 @@ func (a *Adapter) sendBatchSuccessResponse(
 		zap.Int("response_bytes", len(responseBytes)),
 		zap.Int("result_count", len(result["results"].([]map[string]interface{}))))
 
-	err = a.producer.ProduceWithValidation(
+	// The degrade-resend-else-error policy lives in platform/kafka now and is
+	// shared with the single-URL path (bugs_open/133). This function keeps the
+	// two things that are genuinely batch-specific: how to shrink a batch
+	// result, and what a batch error response looks like.
+	outcome, err := platformkafka.DeliverReply(
 		a.ctx,
+		a.producer,
+		a.logger,
 		replyTopic,
 		headers,
 		[]byte(correlationID),
 		responseBytes,
+		func() ([]byte, error) {
+			results, _ := result["results"].([]map[string]interface{})
+			stripBatchResultsForRetry(results)
+			responseBody["results"] = results
+			return json.Marshal(response)
+		},
 	)
-	if err == nil {
+	if outcome != platformkafka.FailedUndeliverable {
+		// Delivered, degraded-and-delivered, or transient — in the transient
+		// case the coordinator's retry resends the request and the next attempt
+		// may deliver, which is the behaviour this path has always had.
 		return
-	}
-	if !isKafkaMessageTooLarge(err) {
-		// Transient produce failures (broker unreachable etc.) keep the old
-		// behaviour: the coordinator's retry resends the request and the
-		// next attempt may deliver.
-		a.logger.Error("Failed to produce batch response",
-			zap.Error(err),
-			zap.String("topic", replyTopic))
-		return
-	}
-
-	// Deterministic refusal: degrade hard and resend once.
-	results, _ := result["results"].([]map[string]interface{})
-	stripBatchResultsForRetry(results)
-	responseBody["results"] = results
-	strippedBytes, merr := json.Marshal(response)
-	if merr == nil {
-		a.logger.Warn("Batch response exceeded broker max message size — resending with stripped content",
-			zap.String("request_id", requestID),
-			zap.Int("original_bytes", len(responseBytes)),
-			zap.Int("stripped_bytes", len(strippedBytes)))
-		if perr := a.producer.ProduceWithValidation(
-			a.ctx, replyTopic, headers, []byte(correlationID), strippedBytes,
-		); perr == nil {
-			return
-		} else {
-			err = perr
-		}
 	}
 
 	// Even the stub would not fit (or re-marshal failed): the caller gets a
