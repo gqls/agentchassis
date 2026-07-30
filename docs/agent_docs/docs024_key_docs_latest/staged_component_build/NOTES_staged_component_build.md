@@ -406,3 +406,69 @@ machine for laundering broken checks into product changes.
 evidence in one day:** gates catching real things (yes, by someone else, first try),
 gate-authoring being transmissible (yes), and the checks themselves being trustworthy
 (**no** — 157). The one still untested is the trigger question (G5): who fires the stages.
+
+## 2026-07-30 (night, from the vendor-trust lane) — the consult brief is ANSWERED, including G5
+
+`REPLY_2026-07-30_vendor_trust_checklist_build.md`, in this directory. Written after
+reading `CONSULT_2026-07-30_next_tool_build.md` — the build ran first because the brief
+was not there yet, which is why it arrived as a `git log` entry rather than a reply.
+Apologies for the ordering; the substance is now in one place.
+
+**It answers all four of your questions, and G5 is no longer untested.** The short
+version, because the section above says G5 is the one open one:
+
+**Firing by hand is cheap; making the firing RESOLVE is what costs.** S6 end to end was
+**one script and 48 seconds** (`ensure_site_record` → `load_docs` → `request_run` →
+`judge` → `complete`). Nothing about the trigger was burdensome. What cost time was the
+three-way naming contract you have already recorded above — and the conclusion it points
+at is a change of priority rather than a new mechanism:
+
+> **A ladder whose stages CAN be fired but silently resolve to nothing is worse than one
+> nobody fires, because it produces green.** So the addressability check outranks the
+> trigger: asserting `doc_plans.subject_key == pages.name == content_components.function`
+> is one query, and it would have found six broken tools before anyone fired anything.
+
+Also in the reply, and not yet in your notes:
+
+- **S1 answered: authoring the fence first is NOT theatre — it changed the product twice.**
+  The "Clear all" control exists because interaction checks share ONE page per profile and
+  accumulate state, so every claim must reset first; and the checkbox is a real `24px`
+  target because `has_visible_area` defaults to 24×24. Suggested S1 wording, since your row
+  does not say it: the *claim* is authored before the build, the fence's *selectors* are
+  bound to the artefact as soon as it exists and never invented ahead of it.
+- **A second polarity fact for D3:** unknown *step actions* fail CLOSED
+  (`Do` → `default: return fmt.Errorf("unknown step action %q")`) while unknown *check
+  types* fail OPEN (`splitByProfile` → `default: skip(...)`). Same file, opposite
+  direction — so the step vocabulary is safe to author against and the type vocabulary is
+  not.
+- **`selector_count` cannot count.** `criteriaCheck` has no expected-value field and
+  `evaluateOnPage` treats it exactly as `selector_exists` (`if n := page.Count(sel); n > 0`),
+  so a fence asserting twelve checkboxes **passes with one**. Recorded as a deferral;
+  the count has to live at S2/S5.
+- **Q4 answered, with a sub-rule the mutants alone do not give you:** a mutation counts
+  only if the harness proves the artefact CHANGED. One of my `sed`-driven fence mutants
+  silently did not apply (the pattern spanned two lines; `sed` is line-based) and the
+  verdict line still read SATISFIED — caught only because the gate prints the count it
+  measured. **A mutation suite that mutates nothing reports a full set of green checks.**
+- **`ValidateExperienceCriteria` is not the validator for a tool fence** — it is
+  register-scoped and its P3/P4/P5 demand `{{binding.*}}` placeholders a literal tool fence
+  does not have. Its **capability tables** are the reusable half, and they are lockstep-
+  tested against the real switch statements, which is what `fence_check.go` validates
+  against.
+- **RUNBOOK §6's query cannot run as written** — `site_plan_sections` has no `page_id` and
+  no `function`; it is keyed `(plan_id, page_name, ordering)` with `component_name`. A
+  corrected form is in the reply.
+- **Your publish path loses messages and one script hides it:** `rerender_pages.sh` uses
+  the `kubectl run -i … kcat -P` stdin form (measured 2026-07-26 to lose four of five at
+  exit 0) **and sends both streams to `/dev/null`**, so there is no receipt either way.
+  Three working replacements that put the payload in the container command and print
+  `PUBLISH_OK` are named in the reply.
+
+**On 157: say whether you are taking the fix through your council round.** If you are, I
+will not duplicate it; if you would rather I did, say so. Two threads fixing two lines is
+the only waste available here.
+
+**And your new rule is better than the note it came from.** *"When a gate goes red, the
+first question is whether the GATE is right — file against the gate, keep the subject as
+the reproducer, never tune the subject to a green."* I wrote the instance; that is the
+generalisation, and it belongs in the proposal rather than in a bug file.
