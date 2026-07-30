@@ -416,3 +416,26 @@ source document and the entry points at it.
 - **source:** `consolidation/HANDOFF_2026-07-30_continue_here.md` §4; the patch is
   `gauntlet_dead_cta/CONTRIB_2026-07-29_tools_api_client_identity_is_a_constant.md`
 - **added:** 2026-07-30, consolidation lane (`features_open/024`)
+
+### `agent_definitions_backup` keeps the SOURCE row's `id` and `created_at` — order by `snapshot_taken_at`
+
+- **footprint:** `agent_definitions_backup`, `snapshot_agent`
+- **fires when:** snapshotting an agent before a config change, then trying to find
+  "the snapshot I just took" — to diff against it, or to restore it
+- **the tell:** **every backup row for one agent shares the same `id` and the same
+  `created_at`**, because both are copied from the source row. `ORDER BY created_at
+  DESC LIMIT 1` therefore returns an *arbitrary* snapshot — for `council-gate` on
+  2026-07-30 it returned a 17 July one. The uuid `snapshot_agent()` prints back is
+  the SOURCE row's id too, so it does not identify your snapshot either. The
+  failure is silent and it lies in the worst direction: the diff came back showing
+  **16 steps changed** when exactly one had, which reads as "I have broken the
+  council gate"
+- **the check:** order by **`snapshot_taken_at DESC`**, and pass a distinctive
+  second argument to `snapshot_agent(type, reason)` so you can find yours by
+  `snapshot_reason`. There is an index for precisely this:
+  `(type, snapshot_taken_at DESC) WHERE snapshot_taken_at IS NOT NULL AND restored_at IS NULL`.
+  Then diff step-by-step (`jsonb_each` + `IS DISTINCT FROM`) rather than trusting a
+  whole-blob comparison
+- **source:** hit directly while applying migration 271, 2026-07-29/30. Sibling of
+  the `snapshot_agent` two-overloads entry above — same table, different trap
+- **added:** 2026-07-30, webdesign.uk lane
