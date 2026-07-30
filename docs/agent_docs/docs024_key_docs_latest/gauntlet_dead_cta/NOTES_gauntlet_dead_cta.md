@@ -2413,3 +2413,14 @@ broken" are indistinguishable without that control.
 Also corrected a small doc defect in HANDOFF D: it gives the census script as
 `scripts/dedup_census.py`, which does not exist — it is in this lane's own
 `scripts/` dir (`f599ed87c`).
+
+**One more of my own, minor but the right family (same session).** My first
+completion-poller filtered `status IN ('completed','failed','error')` — lowercase.
+`orchestration_states.status` is **uppercase** (`COMPLETED` / `FAILED`, the only two
+values in 334 rows over three hours), so the predicate could never match: the loop
+ran until it was killed and emitted nothing. It cost nothing only because I had
+already confirmed that rerender directly. **A poll loop whose predicate cannot match
+is indistinguishable from work that has not finished yet** — same shape as the
+silent-zero traps in MEMORY. The fix is to assert the terminal set exists before
+waiting on it (`SELECT DISTINCT status`), or match case-insensitively. The second
+poller I wrote used `status='COMPLETED'` and behaved.
