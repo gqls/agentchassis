@@ -1,0 +1,440 @@
+<style>
+.tool-ai-vendor-trust-checklist-section {
+  --section-text: rgba(255,255,255,0.9);
+  --section-text-muted: rgba(255,255,255,0.7);
+  --section-heading: #ffffff;
+  --section-surface: rgba(255,255,255,0.05);
+  --section-border: rgba(255,255,255,0.2);
+  background: var(--color-primary, #1a1a2e);
+  color: var(--section-text);
+  padding: var(--spacing-section, 5rem 2rem);
+  font-family: inherit;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-container {
+  max-width: var(--container-max-width, 1200px);
+  margin: 0 auto;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid var(--section-border);
+  color: var(--section-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.35rem 1rem;
+  border-radius: 2rem;
+  margin-bottom: 1.25rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-headline {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 800;
+  color: var(--section-heading);
+  margin: 0 0 1rem;
+  line-height: 1.2;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-subheadline {
+  font-size: 1.1rem;
+  color: var(--section-text-muted);
+  max-width: 640px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-layout {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-list-card,
+.tool-ai-vendor-trust-checklist-section .vtc-results-card {
+  background: var(--section-surface);
+  border: 1px solid var(--section-border);
+  border-radius: var(--border-radius, 12px);
+  padding: 2rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-results-card {
+  position: sticky;
+  top: 2rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-panel-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--section-heading);
+  margin: 0 0 1.5rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-group {
+  margin-bottom: 2rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-group:last-of-type {
+  margin-bottom: 0.5rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-group-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-accent, #00e5a0);
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--section-border);
+}
+.tool-ai-vendor-trust-checklist-section .vtc-item {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 0.75rem;
+  row-gap: 0.4rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.tool-ai-vendor-trust-checklist-section .vtc-group .vtc-item:last-child {
+  border-bottom: none;
+}
+/* 24px, not a rem size: WCAG 2.2 asks for a 24x24 minimum target, the S6 gate
+   measures this box against that threshold, and a rem would silently shrink
+   below it on any site that sets a root font-size. */
+.tool-ai-vendor-trust-checklist-section .vtc-item input[type=checkbox] {
+  grid-column: 1;
+  grid-row: 1;
+  width: 24px;
+  height: 24px;
+  margin: 0 0 0;
+  accent-color: var(--color-accent, #00e5a0);
+  cursor: pointer;
+  flex: none;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-item > label {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--section-text);
+  cursor: pointer;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-why {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--section-text-muted);
+  margin: 0;
+  padding-left: 0.7rem;
+  border-left: 2px solid rgba(255,255,255,0.18);
+}
+.tool-ai-vendor-trust-checklist-section .vtc-item input[type=checkbox]:checked ~ .vtc-why {
+  display: none;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-item input[type=checkbox]:checked ~ label {
+  color: var(--section-heading);
+  font-weight: 600;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-na {
+  grid-column: 2;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-na input[type=checkbox] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--section-text-muted);
+  cursor: pointer;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-na label {
+  font-size: 0.78rem;
+  color: var(--section-text-muted);
+  cursor: pointer;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-item--na > label,
+.tool-ai-vendor-trust-checklist-section .vtc-item--na .vtc-why {
+  opacity: 0.45;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-score-block {
+  background: linear-gradient(135deg, rgba(0,229,160,0.12), rgba(108,99,255,0.12));
+  border: 1px solid rgba(0,229,160,0.3);
+  border-radius: var(--border-radius, 12px);
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-score {
+  font-size: 2.75rem;
+  font-weight: 800;
+  color: var(--color-accent, #00e5a0);
+  line-height: 1;
+  display: block;
+  margin-bottom: 0.4rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-score-label {
+  font-size: 0.8rem;
+  color: var(--section-text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-meter {
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 1.1rem 0 0;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-meter-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--color-accent, #00e5a0);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-verdict-box {
+  border: 1px solid var(--section-border);
+  border-left: 4px solid var(--section-text-muted);
+  border-radius: calc(var(--border-radius, 12px) - 4px);
+  background: rgba(255,255,255,0.04);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-verdict-box[data-tier=strong] {
+  border-left-color: var(--color-accent, #00e5a0);
+}
+.tool-ai-vendor-trust-checklist-section .vtc-verdict-box[data-tier=mid] {
+  border-left-color: #f6c445;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-verdict-box[data-tier=low] {
+  border-left-color: #ff7a6b;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-verdict {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--section-heading);
+  margin: 0 0 0.6rem;
+  line-height: 1.4;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-verdict-detail {
+  font-size: 0.88rem;
+  color: var(--section-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-gaps {
+  font-size: 0.85rem;
+  color: var(--section-text-muted);
+  line-height: 1.55;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255,255,255,0.04);
+  border-radius: calc(var(--border-radius, 12px) - 6px);
+}
+.tool-ai-vendor-trust-checklist-section .vtc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-cta-btn {
+  display: block;
+  width: 100%;
+  background: var(--color-primary, #6c63ff);
+  color: var(--color-primary-text, #ffffff);
+  border: none;
+  border-radius: var(--border-radius, 8px);
+  padding: 0.9rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.1s;
+  min-height: 44px;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-cta-btn:hover {
+  background: var(--color-primary-hover, #5a52e0);
+  transform: translateY(-1px);
+}
+.tool-ai-vendor-trust-checklist-section .vtc-cta-btn:focus-visible,
+.tool-ai-vendor-trust-checklist-section .vtc-reset:focus-visible,
+.tool-ai-vendor-trust-checklist-section input[type=checkbox]:focus-visible {
+  outline: 2px solid var(--color-accent, #00e5a0);
+  outline-offset: 2px;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-reset {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: var(--section-text-muted);
+  border: 1px solid var(--section-border);
+  border-radius: var(--border-radius, 8px);
+  padding: 0.7rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-reset:hover {
+  color: var(--section-heading);
+  border-color: var(--section-text-muted);
+}
+.tool-ai-vendor-trust-checklist-section .vtc-disclaimer {
+  font-size: 0.75rem;
+  color: var(--section-text-muted);
+  text-align: center;
+  margin-top: 2.5rem;
+  line-height: 1.6;
+  opacity: 0.75;
+  max-width: 780px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-source {
+  font-size: 0.78rem;
+  text-align: center;
+  margin-top: 1rem;
+}
+.tool-ai-vendor-trust-checklist-section .vtc-source a {
+  color: var(--color-accent, #00e5a0);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+@media (max-width: 900px) {
+  .tool-ai-vendor-trust-checklist-section .vtc-layout {
+    grid-template-columns: 1fr;
+  }
+  .tool-ai-vendor-trust-checklist-section .vtc-results-card {
+    position: static;
+  }
+  .tool-ai-vendor-trust-checklist-section .vtc-list-card,
+  .tool-ai-vendor-trust-checklist-section .vtc-results-card {
+    padding: 1.25rem;
+  }
+}
+</style>
+<section class="tool-ai-vendor-trust-checklist-section" data-component="tool-ai-vendor-trust-checklist" aria-label="{{.section_aria_label}}">
+  <div class="vtc-container">
+    <header class="vtc-header">
+      <div class="vtc-badge">{{.badge_label}}</div>
+      <h2 class="vtc-headline">{{.headline}}</h2>
+      <p class="vtc-subheadline">{{.subheadline}}</p>
+    </header>
+    <div class="vtc-layout">
+      <div class="vtc-list-card">
+        <h3 class="vtc-panel-title">{{.list_panel_title}}</h3>
+
+        <div class="vtc-group">
+          <h4 class="vtc-group-title">Certifications</h4>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c1" data-vtc-item="1">
+            <label for="vtc-c1">Publishes a current SOC 2 Type II attestation</label>
+            <p class="vtc-why">A Type II report covers a period of operation; a Type I describes intent at a moment. Ask for the report date, because an expired attestation tells you less than a recent one.</p>
+          </div>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c2" data-vtc-item="2">
+            <label for="vtc-c2">Holds ISO/IEC 42001 (AI management) or ISO 27001 (information security)</label>
+            <p class="vtc-why">ISO 27001 covers information security in general; ISO/IEC 42001 is specific to managing AI systems. Neither is a promise about outcomes, but their absence means no external body has examined the process.</p>
+          </div>
+          <div class="vtc-item" id="vtc-item-3">
+            <input type="checkbox" id="vtc-c3" data-vtc-item="3" data-vtc-optional="sector">
+            <label for="vtc-c3">Holds the sector certification your use case needs (HIPAA/BAA, PCI-DSS, FedRAMP, and similar)</label>
+            <p class="vtc-why">Sector rules bind you, not only your supplier. If your use case touches health, payment or public-sector data and the vendor cannot name the relevant certification, the compliance gap lands on you.</p>
+            <div class="vtc-na">
+              <input type="checkbox" id="vtc-na-sector">
+              <label for="vtc-na-sector">Not applicable to my use case</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="vtc-group">
+          <h4 class="vtc-group-title">Data handling</h4>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c4" data-vtc-item="4">
+            <label for="vtc-c4">Does not train on your data by default (opt-in, not opt-out)</label>
+            <p class="vtc-why">Opt-out training policies have repeatedly become a point of dispute after the fact. Opt-in is the safer default because it makes the quiet path the private one.</p>
+          </div>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c5" data-vtc-item="5">
+            <label for="vtc-c5">Offers zero data retention, or an equivalent, for sensitive workloads</label>
+            <p class="vtc-why">Zero data retention means the request is not stored once the response is returned. Without it, how long your data lives is a policy commitment rather than a technical property.</p>
+          </div>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c6" data-vtc-item="6">
+            <label for="vtc-c6">Publishes a sub-processor list or a data-flow diagram</label>
+            <p class="vtc-why">Your data reaches whoever your supplier's suppliers are. A published sub-processor list is what makes that chain checkable rather than assumed.</p>
+          </div>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c7" data-vtc-item="7">
+            <label for="vtc-c7">Publishes a process for deleting your data on request</label>
+            <p class="vtc-why">A deletion right you cannot exercise is not a deletion right. Ask what the process is, and how long it takes, before the day you need it.</p>
+          </div>
+        </div>
+
+        <div class="vtc-group">
+          <h4 class="vtc-group-title">Governance and oversight</h4>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c8" data-vtc-item="8">
+            <label for="vtc-c8">A human can review or override high-stakes automated decisions</label>
+            <p class="vtc-why">Automated decisions nobody can override tend to be discovered at the point they are already wrong. A named person in the loop is the cheapest correction mechanism there is.</p>
+          </div>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c9" data-vtc-item="9">
+            <label for="vtc-c9">Outputs are auditable, so you can see why it did what it did</label>
+            <p class="vtc-why">If you cannot reconstruct why a system reached an output, you cannot explain it to a customer, a regulator or a court.</p>
+          </div>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c10" data-vtc-item="10">
+            <label for="vtc-c10">Publishes an incident-notification commitment, with timescales</label>
+            <p class="vtc-why">The useful commitment names a timescale and says who gets told. "We will notify you" without either is not something you can plan around.</p>
+          </div>
+        </div>
+
+        <div class="vtc-group">
+          <h4 class="vtc-group-title">Transparency</h4>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c11" data-vtc-item="11">
+            <label for="vtc-c11">Discloses to the people affected when AI is being used on them</label>
+            <p class="vtc-why">Undisclosed use is what erodes trust fastest when it surfaces later. Disclosure costs very little and is increasingly expected as a matter of course.</p>
+          </div>
+          <div class="vtc-item">
+            <input type="checkbox" id="vtc-c12" data-vtc-item="12">
+            <label for="vtc-c12">Publishes the accuracy, bias or fairness testing it has done</label>
+            <p class="vtc-why">Published testing lets you judge where a system is weak. Its absence is not evidence of bias. It means nobody outside the vendor is in a position to tell.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="vtc-results-card">
+        <h3 class="vtc-panel-title">{{.results_panel_title}}</h3>
+        <div class="vtc-score-block">
+          <span class="vtc-score" id="vtc-score"><span id="vtc-score-count">0</span> / <span id="vtc-score-total">12</span></span>
+          <span class="vtc-score-label">{{.score_label}}</span>
+          <div class="vtc-meter"><div class="vtc-meter-fill" id="vtc-meter-fill"></div></div>
+        </div>
+        <div class="vtc-verdict-box" id="vtc-verdict-box" data-tier="low"
+             data-strong-label="Strong footing: the checkable evidence is there."
+             data-strong-detail="The published evidence covers most of what an outsider can check. That is a good starting position rather than a guarantee: certifications describe a process, not a promise."
+             data-mid-label="Reasonable, but ask about the gaps before you commit."
+             data-mid-detail="Enough is published to take the conversation seriously. Take the unticked items to the vendor as questions, and get the answers in writing."
+             data-low-label="Significant gaps: get answers on these before proceeding."
+             data-low-detail="Most of what should be checkable is not published. That is not proof of bad practice, but it does mean you would be taking the vendor's word for it.">
+          <p class="vtc-verdict" id="vtc-verdict">Significant gaps: get answers on these before proceeding.</p>
+          <p class="vtc-verdict-detail" id="vtc-verdict-detail">Most of what should be checkable is not published. That is not proof of bad practice, but it does mean you would be taking the vendor's word for it.</p>
+        </div>
+        <p class="vtc-gaps" id="vtc-gaps" aria-live="polite">12 unticked items to take to the vendor as questions.</p>
+        <div class="vtc-actions">
+          {{if .cta_url}}<a href="{{.cta_url}}" class="vtc-cta-btn">{{.cta_label}}</a>{{end}}
+          <button type="button" class="vtc-reset" id="vtc-reset">{{.reset_label}}</button>
+        </div>
+      </div>
+    </div>
+    <p class="vtc-disclaimer">{{.disclaimer_text}}</p>
+    <p class="vtc-source"><a href="/blog/can-you-trust-ai-with-your-data.html">{{.source_link_label}}</a></p>
+  </div>
+</section>
+<script src="/tools/assets/tool-ai-vendor-trust-checklist.js"></script>

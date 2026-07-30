@@ -1,0 +1,14 @@
+{
+  "section_aria_label": "AI vendor trust checklist",
+  "badge_label": "Vendor Checklist",
+  "headline": "What Can You Actually Verify About an AI Vendor?",
+  "subheadline": "Tick what the vendor publishes, rather than what they told you in a meeting. You will get a plain-English read on where they stand, and a list of questions worth asking before you commit.",
+  "list_panel_title": "What the vendor publishes",
+  "results_panel_title": "Where that leaves you",
+  "score_label": "Items you can verify",
+  "cta_url": "/contact.html",
+  "cta_label": "Talk to us about assessing a vendor",
+  "reset_label": "Clear all",
+  "disclaimer_text": "This is a conversation-starter, not a certification. None of it guarantees good outcomes on its own, because certifications describe a process rather than a promise. What it does is make the questions concrete: it is now realistic to ask any AI system touching your data for the equivalent list.",
+  "source_link_label": "Read the article this checklist comes from"
+}
