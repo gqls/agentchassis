@@ -152,14 +152,53 @@ decision every time it fires — and the PLANs written this week carry exactly
 the traps it would walk into (pasteboard genuinely defines `saveHistory`;
 vibe-equalizer's output must stay a TEXTAREA).
 
-**G2 — Tier 3, the only tier that reasons, never sees the claim.** tool-auditor
-reviews `html_template` against a generic six-category checklist [verified: no
-doc/criteria/claim term in the live prompt; model claude-sonnet-4-6]. Teaching
-it to load the PLAN and judge "does this code deliver what this tool
-promises?" converts the LLM audit from code review into claim assertion — the
-only tier that could have caught fluid-typography's "correct but demonstrates
-nothing" *before* a human did. Fix: one migration (a load step + a prompt
-paragraph). Consider Sonnet 5 while touching it.
+**G2 — nothing judges the claim. [REVISED 2026-07-30 after the owner's
+correction, which was right and changed the design.]**
+
+My first draft proposed teaching `tool-auditor` to load the PLAN and judge
+delivery against promise. The owner's objection: *"I think that probably has
+value — maybe for where and when it runs especially — and perhaps could be
+improved but not change its function? I think a judgement agent is a different
+thing and introduces more flexibility than a hard coded rule filter. Maybe we
+could do both but we shouldn't confuse validation with judgement."*
+
+That is a better decomposition and the report now follows it. Two separate
+things were collapsed in my draft:
+
+- **Validation** answers a closed question with a fixed rule: does this markup
+  label its inputs, are targets ≥44px, are there hardcoded hex values, does the
+  script reference an id that exists. The answer is the same every time it is
+  asked. `tool-auditor`'s six-category checklist IS this, and it is valuable
+  precisely *because* it is fixed — it is comparable across 63 tools and across
+  months. **Its function should not change.** What is worth improving is
+  **where and when it runs**: today it fires only after Tier 1 passes with no
+  blockers, on a 30-day cooldown, off a discovery pass nothing schedules. A
+  checklist that runs at birth, at repair, and after any markup edit is worth
+  far more than the same checklist made cleverer.
+- **Judgement** answers an open question where the answer depends on the case:
+  does *this* tool deliver what *this* PLAN promises? Is a fluid-typography
+  preview that is technically correct and inert at desktop widths acceptable?
+  That cannot be a rule, because the interesting part is the specific promise.
+
+So **G2 splits**:
+
+- **G2a — leave tool-auditor's function alone; fix its cadence.** Add it to
+  the birth path and the post-repair path, shorten or scope the cooldown. No
+  prompt surgery. Cheap, low-risk, and it makes an existing asset earn more.
+- **G2b — add a claim-judgement seat, separately.** Its input is the PLAN's
+  promise (and the promise ledger, if the experience loop has written one) plus
+  the delivered artefact; its output is a judgement with reasons, not a
+  pass/fail against a fixed list. The platform already has the shape for
+  this — the council seats are exactly judgement-not-validation, and
+  `diagnose_council_decide` already turns seat opinions into a decision
+  deterministically. A `review_claim_delivery` seat is a nearer neighbour to
+  what is wanted than a modified auditor.
+
+The distinction generalises past tools, which is why it is worth stating
+plainly: **G3 is validation** (a fence linter — fixed rules, same answer every
+time) and **G2b is judgement** (is this promise honoured). Conflating them
+would have produced an auditor that is worse at both: a checklist that drifts
+per tool, and a judgement constrained to six categories.
 
 **G3 — criteria fences are never linted.** 23 current fences fleet-wide
 [measured now — an earlier figure of 78 was a point-in-time RFC measure; never
@@ -181,6 +220,11 @@ experience register's `experienceVerdict` ("≥1 PASS and 0 FAIL, else
 changing the judge's verdict semantics changes what a shared mechanism
 GUARANTEES — under RFC_002's ratified rule that goes to the council gate, and
 plausibly an RFC. G1/G3 are additive and do not.
+
+**G2c — the criteria fence is authored AFTER the tool is built, from the
+finished HTML.** That ordering is why a tool can be born already broken: the
+criteria describe what was produced rather than what was required. §7c sets out
+the staged alternative — claim first, then build to it, verifying each stage.
 
 **G5 — enablement is where composed workflows die, and one loop is off ON
 PURPOSE.** The improvement-sweep schedule is disabled [verified:
@@ -305,6 +349,128 @@ to see. The bar-3 layer is not merely automatable; as of this run, it is
 automated. What remains is authoring: 50 tools still need a fence that states
 their claim, and the G1–G4 wiring so the loop reads, lints and reasons about
 those claims without a human in the middle.
+
+---
+
+## 7b. Check DEEPER — added 2026-07-30, after the owner broke this report twice more
+
+Between drafts the owner opened two tools this workstream had declared repaired
+and found both unusable. Neither was a near miss:
+
+- **micro-cms** — the starter copy (mine) said *"Click anywhere and start
+  typing. Everything on this page is editable."* Measured: the editable body
+  was 248px inside a 743px frame, so `elementFromPoint` returned HTML — not
+  BODY — for the bottom two thirds of the visible editor, and a query for
+  formatting buttons returned an **empty list**. designMode was on and
+  `execCommand('bold')` worked when called directly; there was simply no way
+  for a visitor to reach it.
+- **pasteboard, logic-architect, mind-map** — work areas measuring **1146x0**.
+  Present in the DOM, invisible. One cause for all three: each was ported from
+  a standalone page whose `body` was the flex container, so `flex: 1` had no
+  flex parent and the height collapsed — while that same `body` rule restyled
+  the host page (`display:flex`, `overflow:hidden` on the site's own body).
+
+**How they got past me, stated exactly, because the method is the finding:**
+I verified pasteboard by calling `addItem(src)` — an internal function. I
+verified logic-architect by calling `loadTemplate('code')`. Both returned the
+right answer, so both "passed". **A visitor cannot call a function.** Their
+entry points are a paste event and a click on a visible control, and the areas
+those act on had no height.
+
+### The two rules this produced
+
+1. **Verify through the visitor's gesture, never through the tool's internal
+   functions.** If the entry point is a paste, dispatch a paste. If the
+   vocabulary cannot express the gesture, that is a MISSING CHECK TYPE to
+   record as a deferral — not a licence to substitute a function call. (Both
+   repaired tools were then re-verified this way: a synthetic paste event
+   carrying a PNG produces a sticker and hides the empty state.)
+2. **A fence must assert the tool's TERMINAL value, not the first observable
+   state change.** "Status reads LIVE EDITING" is a waypoint; "text can be
+   edited and emphasised" is the point. My micro-cms fence asserted the
+   waypoint and passed while the tool was unusable.
+
+### What was built, so the rule is enforced and not merely written
+
+**TL-034 `has_visible_area`** — a Tier-4 check type measuring
+`getBoundingClientRect()` against a floor (default 24x24; per-check
+`min_width`/`min_height`). It fails on a collapsed box and on a missing
+element, and it is **Tier-4-only by necessity**: it measures rendered layout,
+which no static read of HTML can compute. A Tier-2 equivalent is not unbuilt,
+it is impossible — which is the sharpest available answer to "why does the
+ladder need a browser tier at all".
+
+**Measured before shipping:** exactly 3 pages fleet-wide carry page-scope CSS
+that escapes onto the host page — these three. That is a second, static defect
+class worth a check of its own (a `<style>` inside a section that targets
+`body`/`html`/`*` with layout properties is always wrong); it is named here and
+not yet built.
+
+**Where this lands in the chain:** it is a **validation** primitive (fixed
+rule, same answer every time), so it belongs beside G3 and not beside G2b. It
+does not judge whether a tool is good; it refuses to call an invisible element
+present.
+
+---
+
+## 7c. Building a tool in testable stages — the owner's recollection, and what I could find
+
+The owner: *"somewhere in the docs I have previously discussed not necessarily
+building a tool all at once but in testable stages, it may or not be in the
+concept register or maybe somewhere else, I can't find the discussion."*
+
+I could not find that specific discussion either, and I want to be straight
+about that rather than substitute the nearest thing and call it found. **A
+targeted search agent for it was cut off by a session limit before reporting**,
+so this section rests on what my own greps turned up. Two clear statements of
+the principle exist, both owner-authored in substance:
+
+- **`022_dynamic_applications.md` §5 "Incremental complexity"**, verbatim:
+  *"Start with the simplest version that works. A contact form starts as a
+  mailto: link. Then it becomes a Formspree integration. Then a Cloudflare
+  Worker that stores to D1. Then a full backend with CRM integration. **Each
+  step is a separate work item, not a big-bang rewrite.**"* — the principle
+  exactly, stated for capability tiers rather than for one tool's construction.
+- **`FOCUS_interactive_content_generation(4).md` §"Path C — work breakdown"**,
+  verbatim: *"The full Path C work is split into six incremental steps, each
+  independently verifiable. **After each step we pause and check the output
+  before moving on.**"* — the *method* the owner is describing, applied to
+  building the interactive-extraction pipeline. C1..C6 are even numbered and
+  status-tracked individually.
+
+Also adjacent: **DYN-006** (tool builder tiers: static / dynamic /
+application — a triage vocabulary for what an LLM may be asked to generate at
+all) and **AGOV-009** (*"thin vertical slice before the six-contract
+infrastructure"* — the same instinct at platform scale, and marked deployed).
+
+**Why it matters to this chain, concretely.** Today a tool is born in ONE LLM
+pass (`generate_tool_html`), and its PLAN and criteria fence are written
+*afterwards*, from the finished HTML. That ordering is what lets a tool be born
+already broken: the criteria describe what was produced rather than what was
+required. The staged alternative inverts it — **write the claim first, then
+build to it, verifying each stage before the next**:
+
+1. **Skeleton** — the markup contract only: every id and control the tool will
+   need, with a fence of `selector_exists` + `has_visible_area`. Verifiable
+   before a single line of logic exists, and it would have caught every one of
+   the fifteen defects repaired in this workstream, because every one of them
+   was missing or invisible markup.
+2. **One real behaviour** — the tool's single most important claim, as an
+   `interaction` check with a known answer (smart-contrast's `#767676 → 4.54`).
+   Verify. This is the stage that proves the thing works at all.
+3. **The rest of the behaviours**, one criterion at a time.
+4. **Polish** — mobile fit, console cleanliness, accessibility.
+
+Each stage is a work item with its own verdict, which is exactly the shape the
+existing machinery already has (`improve_tool` items, per-check verdicts,
+`max_fix_attempts`). **Nothing new is needed to run this except authoring the
+fence in stages rather than at the end.**
+
+**Open question for the owner**, and the reason this section says "what I could
+find": if the discussion you remember is a third document — particularly one
+that stages *a single tool's build* rather than a pipeline's — it will have
+detail these two lack, and it should supersede this section. I have not found
+it; the search is worth one more pass with fresh session budget.
 
 ---
 
