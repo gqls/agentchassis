@@ -399,3 +399,24 @@ something you expect to be there reads non-zero in the same command. Recipe in
 > measurement defect that grows with compliance, not an adoption gap. Contributed
 > to the council-gate lane's NOTES rather than filed as a competing bug; it is
 > their mechanism.
+>
+> **CORRECTED 2026-07-29 — I mis-attributed the cause, and the owner caught it.**
+> I wrote that the 07-29 ruling "makes commit-first the default". It does not: that
+> ruling answered whether a seam must ship behind a **default-OFF switch**, and
+> "review is after the fact" means after the change is **live**, not after the
+> commit. It constrains submission timing only ("before or alongside committing")
+> and never mentions the verdict. The commit-early norm is **owner feedback of
+> 2026-07-20**, nine days earlier, from a different incident. And "default" was
+> unmeasured: **3 of 3 sampled trailered commits that day were committed AFTER
+> approval** (2, 51 and 56 minutes after). What actually survives is a **tension
+> between two live practices**, not a consequence of either ruling.
+>
+> **RESOLVED 2026-07-30 (owner instructed): `Council-Submitted: <corr>`** —
+> commit `fc5b790d3`, register **FIX-056**. It asserts nothing, so it cannot be a
+> false claim, and `098` resolves the correlation at REPORT time, so a commit made
+> before the verdict is credited automatically once approval lands. The owner
+> pre-authorised RFC 002's option D (default-OFF switch) if I preferred it; **D was
+> declined as the wrong lever** — it holds a change out of *production*, whereas
+> this defect is about *recording* review status, and under D the trailer still
+> could not be amended in. `3a59b5012` itself stays UNREVIEWED: forward-only, and
+> the fix is deliberately not retrospective.

@@ -12039,3 +12039,53 @@ luck — the token expiring — not method.
    BEFORE sending it, not before acting on the reply.** Urgency is exactly the
    condition under which the checks get skipped, and it is also the condition under
    which being wrong costs the most, because someone else now acts on it.
+
+---
+
+## 2026-07-29 — "your 07-29 ruling makes commit-before-verdict the default" — a policy mis-attribution, caught by the owner
+
+**Thread** "bugsearch 5", reporting a finding from `bugs_open/138`'s council round.
+
+**The claim.** That the owner's 2026-07-29 ordering-exemption ruling had made
+committing before a council verdict the normal case, and that this was what caused
+`098`'s UNREVIEWED bucket to conflate "never submitted" with "approved, but
+committed first".
+
+**Why it was false, on three independent checks — none of which I ran before
+writing it.**
+1. **Wrong axis.** The ruling answered whether a seam must ship behind a
+   **default-OFF switch**. "Review here is after the fact" means after the change is
+   **live** — because HEAD is shared and any session's build ships your commit. It
+   constrains *submission* timing only ("submit to the gate before or alongside
+   committing") and is silent on the verdict.
+2. **Wrong source.** The commit-early norm is owner feedback of **2026-07-20**, nine
+   days earlier, from a different incident — a thread held the `bugs_open/011` fix
+   across four council rounds and the owner's own sweep took it to production on a
+   REVISE verdict. That feedback also already anticipated this state ("let the
+   trailer *or its deliberate absence* record the review status" + state the verdict
+   status in the message body), which I had not done.
+3. **"Default" was never measured.** 3 of 3 sampled trailered commits that day were
+   committed **after** approval — 2, 51 and 56 minutes after. Threads routinely
+   wait. I generalised from my own single case.
+
+**What caught it.** The owner asking me to revisit the claim — not new evidence.
+Everything needed to falsify it was already on disk and in my own memory files
+before I wrote it.
+
+**The cheap check that would have.** Two: **read the ruling's own text for what
+question it answers** before citing it as the cause of anything (the CLAUDE.md
+section names its trigger, RFC 002, and that RFC costs the options explicitly); and
+**never write "the default" from n=1** — `git log` + one DB query on the trailered
+commits was the whole distance, and it took two minutes when I finally did it.
+
+**The pattern, which is the transferable part.** A *mechanism* defect was real and
+verified (`3a59b5012` does sit in UNREVIEWED for ever). I then reached for the most
+recent salient *policy* as its cause, because I had been working inside that ruling
+all day. **A verified symptom lends its credibility to whatever explanation is
+adjacent in your context.** The correction did not weaken the finding — it sharpened
+it into two live practices that cannot both be satisfied, which is what made the fix
+obvious (FIX-056) and what a policy blame would never have produced.
+
+Family: [[narrow-filter-defines-the-conclusion]] (the conclusion was set by what I
+had in mind, not by what I measured); [[a-print-statement-is-not-a-config-row]]
+(citing a document's existence rather than its content).
