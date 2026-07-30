@@ -3275,3 +3275,63 @@ altitude up, also REQUESTED and undesigned), `017` (component adoption). All thr
 should be shared rather than built twice. `bugs_open/149` is cited in 027 as the
 cautionary evidence against proliferating checkers (22 discovery handler agents, only 2
 running `validate_page_content`, six registered checks in no agent and zero items ever).
+
+## 2026-07-30 (afternoon) — kubeconfig expired mid-task; portfolio logos wired in; handoff written
+
+Owner approved "go ahead" on both new fronts (logos, interactive tools page), added a
+step 5 (evaluate the framework's own tool-build pipeline for hand-building parity), then
+flagged context size and asked for a detailed handoff to a fresh thread.
+
+**Blocked immediately by an expired kubeconfig token** (the documented ~3-day expiry).
+Did what was possible without cluster access (confirmed the TL-001 tool-widget clobber
+guard is present in the current local Go source) and asked the owner to refresh rather
+than guess or fabricate. Refreshed within the same turn; verified with `kubectl get pods`
+before touching anything live.
+
+**Portfolio logos: done.** Checked for existing assets before assuming any were needed —
+`assets` table showed nothing under fundamentallyai's own site_id, but all three partner
+sites (relojistas.com, idea.uk, leopardessconsulting.co.uk) carry their own real,
+already-live logo assets at the stable `/assets/images/logo.{jpg,png}` path on their OWN
+domains. Verified all three 200 and **visually inspected each one** before writing alt
+text (an ornamental vintage-style monogram for idea.uk, a gold leopard head for
+leopardess, a wordmark with a gear-and-clock-hands icon for relojistas) — no alt text
+invented from the domain name alone.
+
+`portfolio-showcase` (1 distinct site, same low-risk profile as every other
+technically-shared component this session touched) gained an optional
+`logo_url`/`logo_alt` per project, rendered above the title in a **consistent white
+chip** — deliberate, not a fallback: the three logos have three different native
+backgrounds (cream, white, transparent), and a chip applied uniformly reads as one
+treatment rather than "two logos in boxes, one floating free." `object-fit: contain` at
+a fixed height handles the aspect-ratio spread (one wide wordmark, two near-square marks)
+without cropping.
+
+**Wrote to BOTH `site_specs.portfolio.projects` (the source of truth — the component's
+own `input_schema` declares this array's `source` as that path) AND the live
+`content_data`**, in one transaction, rather than only the live row — the same
+"don't drift from your own declared source" discipline as everywhere else this session.
+Archived the pre-edit `content_data` to `page_component_history` first
+(`operator_portfolio_logos_2026-07-30`).
+
+Verified by fetching the served page fresh (not trusting the rerender's `complete`
+status) and by an actual screenshot — a genuine visual check this time, not just a text
+census, since a mis-cropped or distorted logo is exactly the kind of defect a markup
+count cannot see. Getting the screenshot right took locating the section by its real
+pixel offset first (a naive fixed-height crop landed on the wrong section three times in
+a row, because the page's total height changes as images load) — same class of
+friction as yesterday's failed `file://` open-state screenshot, worked around this time
+by fetching the LIVE `https://` URL directly and cropping a generously tall capture
+rather than trying to script a scroll-to-element.
+
+**A parallel thread had, in the meantime, already answered step 5** — see the entry
+immediately above this one (`## 2026-07-30 (midday)`) and
+`features_open/027_FEATURE_staged_part_build_with_stage_gates.md`, which explicitly
+states the owner wants that work done in a separate thread — the same instruction just
+given to this one. Not re-derived; the handoff points to it instead.
+
+**Wrote `HANDOFF_2026-07-30_continue_here.md`** covering the whole session arc, the
+step-5 discovery, and the interactive-tools-page as the next thread's actual remaining
+build — including the one real lesson this session earned the hard way: build that
+tool's own render harness + mutants + a REAL CLICK test before calling any of it done,
+because a check that only reads markup or forces DOM state cannot tell you whether a
+button does anything.

@@ -1140,3 +1140,31 @@ adjacent items on the pile — `features_open/026`, about rendering a page and c
 it before it ships, and `015`, about sites climbing a maturity ladder one rung at a
 time. All three are circling the same idea at different sizes, and it would be cheaper
 to decide that up front than to reconcile three half-built versions later.
+
+**Back on this thread: you said go ahead, added a fifth step, and then asked for a
+handoff.** The fifth step was to work out how the framework itself could be improved so
+that hand-building something as involved as the carousel wouldn't need this much manual
+care every time. I went to start on that and found something worth telling you plainly:
+**another thread of yours had already done it**, in the time since your last message
+here — it read back this exact carousel's whole history as its evidence and wrote a
+proper proposal, sitting in `staged_component_build/`. I haven't repeated that work; I've
+pointed the handoff at it instead.
+
+Before I could touch anything else, the cluster access had expired again — I asked, you
+refreshed it, and I carried on.
+
+**The logos are done.** All three of your sites' real logos — relojistas, idea.uk,
+leopardess — are now sitting above their titles on the portfolio cards, each in a small
+white box so they all read as one consistent treatment rather than three different
+looks (they came from three different-shaped source images). I looked at each logo
+myself before writing its description for screen readers, rather than guessing from the
+domain name.
+
+The interactive tools page is genuinely not started — that's real, substantial work,
+and given you'd already flagged the conversation was getting long, I've put it into the
+handoff as the next thread's main job rather than rushing it here. The one thing I want
+whoever builds it to carry over from this session: test it by actually clicking it in a
+browser before calling it done. That's the lesson the carousel took five rounds to
+teach, and it would be a shame to pay for it twice.
+
+Handoff is written: `HANDOFF_2026-07-30_continue_here.md`, in this same folder.
