@@ -583,3 +583,45 @@ also why no natural run had ever tripped it. Scanner:
 > intrinsic overflow **on this very tool, twice**. If `e7ea0125` cycles without
 > fixing it, that is 010's guard (b) doing its job — expect an escalation to
 > `needs_human_review` at `fix_cycles_spent=2`, not silence.
+
+---
+
+## B check-side — the catch is now FIXED AND VERIFIED, 2026-07-30
+
+The page this check caught on 2026-07-29 (`tool-loot-table-balancer`, culprit
+`label (123px)`, on a page whose `scrollWidth - clientWidth` was 0) **has been
+repaired by the platform and the repair is verified on the deployed page.**
+
+The full chain, for the record, because no part of it had ever run end to end
+before:
+
+| step | when | evidence |
+|---|---|---|
+| Tier-4 check flags it | 07-29 12:30Z | `mobile-fit@mobile`, `pass: FALSE`, attributed culprit — the shape only the new clause produces |
+| item parks at `detected` | 07-29 12:30Z | `bugs_open/083` BY SLUG — the promoter is a step in a scheduled task disabled since 2026-05-02 |
+| promoter run by hand | 07-29 17:08Z | owner instruction; 67 items promoted in one statement |
+| `tool-improver` runs | 07-29 18:14:27→18:15:13Z | 46 seconds, COMPLETED |
+| component rewritten | 07-29 18:22:24Z | `123px` gone, `max-width: 100%` present |
+| page redeployed | 07-29 19:17:02Z | `pages.deployed_at`, `build_status='deployed'` |
+| **re-checked with the shipped clause** | **07-30 14:5xZ** | **`over=0`, CLEAN** |
+
+**The re-check was run with a positive control in the same batch**, because a
+clean result from a broken instrument looks exactly like a fix: two known-bad
+webdesign.co.uk pages (`blob-maker`, `css-variables`, from `bugs_open/146`)
+flagged in the same run at `over=33` and `over=95`. The clause was extracted from
+`run_checks_action.go` at runtime as before, so scan-vs-deployed drift remains
+impossible by construction.
+
+**A note on `bugs_closed/010`.** Its §514 says *"Do NOT use
+`tool-loot-table-balancer`: it passes Tier 4 now"*. On 07-29 I retired that line
+as evidence, because the pass came from a check that could not see this class of
+defect. **It is now true again, for a different and verified reason** — the page
+passes because it was fixed, and the pass is from a clause that demonstrably
+fires. Both statements were correct when written; what changed is what "passes"
+was worth. That is the whole content of the
+`a-pass-from-a-blind-check-outlives-the-blindness` pattern, and this is the same
+sentence on both sides of it.
+
+**Still open, and now reachable for the first time:** `bugs_open/154` — two of the
+four dispatched `improve_tool` items died at `tool-improver`'s first step. So
+010's convergence guard has still never been exercised.
