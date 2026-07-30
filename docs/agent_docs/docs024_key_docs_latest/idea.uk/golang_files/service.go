@@ -61,6 +61,17 @@ type Config struct {
 	StaleReviewDays  int
 	StalePaymentDays int
 	AllowedOrigins   []string
+	// GTMContainerID is the Google Tag Manager container (e.g. "GTM-PQ3WCTBD")
+	// injected into every HTML page this service serves. Empty disables it
+	// entirely — no script, no noscript, byte-identical output to before.
+	//
+	// This exists because idea.uk is TWO applications behind one domain: the
+	// chassis-built static site (tagged via the head/header chrome slots) and
+	// this binary, which serves 11 pages the static build never sees —
+	// including "Request received" and "Payment received", i.e. the only two
+	// pages that can evidence a conversion. Tagging the static site alone
+	// leaves the money path invisible to analytics.
+	GTMContainerID string
 }
 
 type App struct {
@@ -94,9 +105,16 @@ func NewApp(cfg Config, store *Store, p Provider) *App {
 	if slots == "" {
 		slots = "a limited number of"
 	}
+	// The landing page is currently shadowed by the chassis-built static site
+	// (nginx serves "/" from the VM sync, not from this binary), so these two
+	// placeholders are belt-and-braces: if the route ever falls back to the
+	// embedded page, it must not be the one untagged page on the domain.
+	gtmID := gtmSanitiseID(cfg.GTMContainerID)
 	rendered := strings.NewReplacer(
 		"CONTACT_EMAIL", contact,
 		"MONTH_SLOTS", slots,
+		"<!--GTM_HEAD-->", gtmHeadSnippet(gtmID),
+		"<!--GTM_BODY-->", gtmBodySnippet(gtmID),
 	).Replace(string(pageHTML))
 	return &App{
 		cfg:         cfg,
@@ -965,6 +983,69 @@ func (a *App) contactEmail() string {
 	return a.cfg.OperatorEmail
 }
 
+// gtmID returns the configured Google Tag Manager container, or "" if it is unset
+// or not a well-formed container id.
+//
+// The value is interpolated into a JavaScript string literal AND a URL query
+// parameter, so it is validated rather than escaped: a container id is
+// [A-Za-z0-9_-] only, and anything else is dropped. This is operator-supplied
+// config, not user input, so the realistic failure is a typo or a pasted quote —
+// but a value that reaches both a script body and an href is exactly the shape
+// that must never be taken on trust.
+func gtmSanitiseID(raw string) string {
+	id := strings.TrimSpace(raw)
+	if id == "" || len(id) > 32 {
+		return ""
+	}
+	for _, r := range id {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-', r == '_':
+		default:
+			return ""
+		}
+	}
+	return id
+}
+
+func (a *App) gtmID() string { return gtmSanitiseID(a.cfg.GTMContainerID) }
+
+// gtmHead is the Google Tag Manager <script>, placed as high in <head> as it can
+// go: immediately after <meta charset>. Charset stays first because the encoding
+// declaration must appear within the first 1024 bytes of the document; putting a
+// ~370-byte third-party snippet ahead of it makes a spec requirement depend on
+// someone else's payload size. Empty string when no container is configured.
+func (a *App) gtmHead() string { return gtmHeadSnippet(a.gtmID()) }
+
+func gtmHeadSnippet(id string) string {
+	if id == "" {
+		return ""
+	}
+	return `
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','` + id + `');</script>
+<!-- End Google Tag Manager -->
+`
+}
+
+// gtmBody is the GTM <noscript> iframe, which must be the first thing after the
+// opening <body> tag. Empty string when no container is configured.
+func (a *App) gtmBody() string { return gtmBodySnippet(a.gtmID()) }
+
+func gtmBodySnippet(id string) string {
+	if id == "" {
+		return ""
+	}
+	return `
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=` + id + `"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->`
+}
+
 // page wraps body HTML in a full, brand-styled document so the post-submit, order,
 // and policy pages look like idea.uk instead of bare unstyled text. Body is trusted
 // (we build it ourselves); any user input interpolated into it must be escaped
@@ -972,7 +1053,7 @@ func (a *App) contactEmail() string {
 func (a *App) page(title, body string) string {
 	contact := a.contactEmail()
 	return `<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">` + a.gtmHead() + `<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>` + html.EscapeString(title) + ` · idea.uk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
@@ -996,7 +1077,7 @@ a{color:var(--ink);text-decoration-color:var(--rust)}
 .accent{border-left:3px solid var(--rust);padding-left:20px;margin:24px 0}
 .back{display:inline-block;margin-top:20px;font-size:15px}
 .foot{margin-top:44px;padding-top:20px;border-top:1px solid var(--ink-mute);font-size:14px;color:var(--ink-mute)}
-</style></head><body>
+</style></head><body>` + a.gtmBody() + `
 <div class="bar"><span class="wordmark">idea<span class="dot">.</span>uk</span></div>
 <main>` + body + `
 <p class="foot">Questions? Email <a href="mailto:` + contact + `">` + contact + `</a> &nbsp;·&nbsp; <a href="/">idea.uk</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refund-policy">Refunds</a> &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; by <a href="https://leopardess.uk">leopardess.uk</a></p>

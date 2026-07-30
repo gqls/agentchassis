@@ -43,6 +43,7 @@ func loadConfig() Config {
 		StaleReviewDays:  staleReview,
 		StalePaymentDays: stalePayment,
 		AllowedOrigins:   origins,
+		GTMContainerID:   env("GTM_CONTAINER_ID", ""),
 	}
 }
 
