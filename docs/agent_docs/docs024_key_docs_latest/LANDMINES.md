@@ -132,7 +132,7 @@ source document and the entry points at it.
 
 ### The Bash tool's working directory persists between calls — a `cd` outlives the command that made it
 
-- **footprint:** the Bash tool itself; any later `git` pathspec
+- **footprint:** `Bash`, `git commit`
 - **fires when:** you `cd` into a subdirectory to run one convenient command, then
   later run `git commit <repo-relative-path>` in a *separate* call
 - **the tell:** `error: pathspec '<path>' did not match any file(s) known to git`
@@ -176,7 +176,7 @@ source document and the entry points at it.
 
 ### Switching a lane to `claude-fable-5` is not a config-only change
 
-- **footprint:** `agent_definitions.default_config`, the chassis LLM call layer
+- **footprint:** `agent_definitions.default_config`, `claude-fable-5`, `platform/aiservice`
 - **fires when:** pointing any agent at `claude-fable-5`. Note DB model config is
   **live on write** — there is no build step to slow a mistake down
 - **the tell:** `400 invalid_request_error` on a payload that is obviously valid.
@@ -195,8 +195,7 @@ source document and the entry points at it.
 
 ### `git checkout -- <path>` restores from the INDEX, not from HEAD
 
-- **footprint:** `git checkout --`, any staged file; test harnesses that mutate a
-  tracked file and restore it afterwards
+- **footprint:** `git checkout`, `git checkout HEAD --`
 - **fires when:** you `git add` a file, then try to undo the change with
   `git checkout -- <path>`. It reports success and restores **the staged
   mutation**, not the committed content
