@@ -413,17 +413,21 @@ present.
 
 ---
 
-## 7c. Building a tool in testable stages — the owner's recollection, and what I could find
+## 7c. Building a tool in testable stages — the maturity ladder, and the two features beside it
 
 The owner: *"somewhere in the docs I have previously discussed not necessarily
 building a tool all at once but in testable stages, it may or not be in the
 concept register or maybe somewhere else, I can't find the discussion."*
 
-I could not find that specific discussion either, and I want to be straight
-about that rather than substitute the nearest thing and call it found. **A
-targeted search agent for it was cut off by a session limit before reporting**,
-so this section rests on what my own greps turned up. Two clear statements of
-the principle exist, both owner-authored in substance:
+**The owner then named it: `features_open/015`, the site maturity ladder** —
+see the subsection below, which is now the authoritative answer. My greps had
+missed it because they searched `docs/` and it lives in `features_open/` at the
+repo root; a targeted search agent was also cut off by a session limit before
+reporting. Recording both, because the lookup failure is the reusable part:
+**`features_open/` is a first-class source and I did not read it.**
+
+Two further statements of the principle turned up on the way, and the owner asked
+for them kept — they are the same idea at pipeline and capability scale:
 
 - **`022_dynamic_applications.md` §5 "Incremental complexity"**, verbatim:
   *"Start with the simplest version that works. A contact form starts as a
@@ -466,11 +470,117 @@ existing machinery already has (`improve_tool` items, per-check verdicts,
 `max_fix_attempts`). **Nothing new is needed to run this except authoring the
 fence in stages rather than at the end.**
 
-**Open question for the owner**, and the reason this section says "what I could
-find": if the discussion you remember is a third document — particularly one
-that stages *a single tool's build* rather than a pipeline's — it will have
-detail these two lack, and it should supersede this section. I have not found
-it; the search is worth one more pass with fresh session budget.
+### FOUND — the owner named it: `features_open/015`, and two siblings
+
+> *"features_open/015 the maturity ladder and features_open/026 are relevant.
+> The maturity ladder was the stepwise development I was searching for."*
+
+My greps missed it because I searched `docs/` and the ladder lives in
+`features_open/` at the repo root. Recording that as the lookup lesson: **the
+feature queue is a first-class source and I did not read it.** Three entries
+matter here, and together they are a complete answer to the staging question at
+three different scales.
+
+**`015_FEATURE_staged_site_maturity_ladder.md`** (raised 2026-07-24, status
+REQUESTED — captured, not designed). The core insight, verbatim:
+
+> *"just asking a new domain to become as developed as idea.uk in one step is
+> too much."*
+
+So the fleet needs **named rungs** a site climbs in order, each *a coherent,
+shippable increment*, with **stepped reference examples** — a real site
+demonstrating each rung, which the next site follows rather than reinventing the
+whole journey. Its own framing of why this matters is the sentence to carry into
+tool building: it *"reframes the portfolio problem from 'make every site as good
+as idea.uk' (a cliff) into 'move every site up one rung at a time, against a
+worked example' (a staircase)."* It also asks for **progression criteria** —
+what makes a site done at rung N and ready for N+1, *"measurable, and ideally
+checkable the way discovery checks already work."*
+
+**That is the same shape as a criteria fence, one rung at a time.** The
+maturity ladder is the site-scale statement of the principle; §7c's four stages
+are its tool-scale instance; and the third entry is its component-scale one.
+
+**`027_FEATURE_staged_part_build_with_stage_gates.md`** (raised 2026-07-30 —
+today — from a different session, after a carousel took five rounds and the
+fifth found a bug present since the first). This is the most directly reusable
+of the three, and it arrives at **the same conclusion this workstream reached
+independently on the same day**:
+
+> *"The cause was not weak checks. Every check was sound about what it measured.
+> **They all measured static markup or forced DOM state; not one ever fired a
+> real click.** What was missing was not rigour — it was a stage."*
+
+Compare §7b: I verified pasteboard by calling `addItem()` and logic-architect by
+calling `loadTemplate()`. Two sessions, two lanes, one day, the same finding —
+which is about as strong as evidence for a rule gets. Its eight-stage ladder,
+each stage one question and one gate that can go red:
+
+| stage | the question | the gate |
+|---|---|---|
+| **S0 shape** | does this shape already exist? | a named `experience_pattern`, or a written justification for a new one |
+| **S1 contract** | is the contract sound, hazards answered? | every field has guidance; every hazard answered or explicitly accepted; fence drafted |
+| **S2 template** | does it render, and are the checks real? | harness green **and ≥1 mutant red per assertion class** |
+| **S3 register** | is it reachable? | in `content_components`, returned by the library loader; JS marker in the live bundle |
+| **S4 place** | is the placement durable? | in `site_plan_sections`, not only `page_components`; survives one re-render |
+| **S5 serve** | does the visitor get it? | fetched page, 0 unrendered `{{`, measured in the state that needs a click |
+| **S6 operate** | does it *work* when driven? | **real clicks in real Chromium on the live URL**, desktop + mobile |
+| **S7 regress** | does it still work? | S5 + S6 re-run after any roll, rebundle or rerender |
+
+Two things about that ladder are worth flagging for this report's purposes.
+First, **S2's gate is the one nothing in the tools chain has**: *≥1 mutant red
+per assertion class* — proving each check can fail before trusting it to pass.
+That is the discipline that would have caught nine of my own harness faults, and
+it belongs in G3 (validation) as a requirement on fences, not just on harnesses.
+Second, its own **key reuse finding is the smart-contrast pilot**: *"The missing
+stage is not new construction — it is pointing a proven mechanism at components
+instead of only tools."* The chain §2 describes is what 027 wants to borrow.
+
+**`026_FEATURE_render_the_page_and_check_it_before_it_ships.md`** (raised
+2026-07-27) is the other half, and it generalises past tools entirely:
+
+> *"The platform has about fifty discovery checks. They are good checks. **Not
+> one of them renders a page.**"*
+
+Three defect families are invisible to any input-reading check because they are
+properties of the **composition**: a slot the layout fills with a literal
+because the palette omits it; one token used in two roles; a component
+hard-coding an ink over a themed background. Measured cost on one site: **101
+WCAG-AA failures across five pages** — every card title, the whole chart
+section — while *every page's status said `deployed` and every check said
+nothing.*
+
+**This is the same defect shape as TL-034, one level up.** `has_visible_area`
+exists because a work area can be in the DOM and measure 1146×0; 026 exists
+because a colour can be valid in the palette and invisible on the page. Both are
+composition properties, both need a renderer, and both are invisible to
+everything that reads a source. **The general rule the three features and this
+workstream jointly establish: a property of the COMPOSITION can only be checked
+in the composition.** That is the strongest available argument for the browser
+tier, and it is now made independently by four lanes.
+
+### How this changes the recommended workflow
+
+§5's ordering stands, with one addition and one sharpening:
+
+- **New: adopt 027's stage ladder as the tool build ladder, rather than
+  inventing §7c's four stages.** 027 is designed, has a proposal document, and
+  its S0–S7 already name the traps this workstream hit — S4 is the clobber
+  hazard (TL-001), S7 is the "a roll reverted my DB-side repair" check I ran by
+  hand three times yesterday. §7c's four stages are a strict subset; treat them
+  as the tool-shaped reading of S1/S2/S6/S7 and defer to 027's numbering so the
+  two lanes do not fork a vocabulary.
+- **Sharpened: G3 gains 027's mutation requirement.** A fence should not be
+  trusted until each of its checks has been shown to go red against a
+  deliberately broken page. My own nine harness faults are the argument; 027's
+  S2 is the mechanism.
+- **Sequencing note:** 015 asks for its planning in a **separate thread** with
+  its own standing five under `site_maturity_ladder/`, and 027 likewise under
+  `staged_component_build/` (its PROPOSAL is already written). Neither should be
+  absorbed into this workstream — this report's job is to say how they connect
+  to the tools chain, which is: **015 is the rung vocabulary, 027 is the gate
+  mechanism, 026 is the missing instrument, and the chain in §2 is what they all
+  point at.**
 
 ---
 
