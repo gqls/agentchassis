@@ -27,14 +27,32 @@ import (
 // experience loop); +'action' (migration 184, shared fix-loop actions);
 // +'experience-pattern' (migration 218, experience register — one travelling
 // doc per register entry, keyed by the pattern name, carrying its direction,
-// provenance and council trail exactly as a tool's does).
+// provenance and council trail exactly as a tool's does);
+// +'component' (migration 273, staged component build — a section component
+// carries a PLAN with its criteria fence and NOTES with its per-site verdicts,
+// keyed by content_components.function).
+//
+// WHY 'component' IS KEYED BY function, AND WHY THE PLAN CARRIES NO SITE.
+// A component's TEMPLATE is fleet-shared — one content_components row serves
+// 11 sites for info-card-grid — so its contract is a fleet-wide fact and
+// doc_plans (which has no site_id) is the right home for it. Whether that
+// component actually works is a per-site, per-page question, and those
+// verdicts land in doc_notes, which does have site_id. PLAN = the shared
+// contract; NOTES = the per-site verdicts. Do not add a site_id to doc_plans
+// to "fix" this: the asymmetry is the design.
+//
+// SUBJECT KEYS ARE IMMUTABLE ONCE WRITTEN — supersede under a new key rather
+// than renaming. RekeyTravellingDocs is wired only to rename_tool_identity, so
+// a renamed component function would orphan its docs silently. This is not
+// hypothetical: bugs_open/136 is a half-landed *_domain -> *_pipeline rename.
 //
 // When adding a subject type, follow the full checklist in
 // docs/agent_docs/docs024_key_docs_latest/experience_register/design/subject_type_addition.md
 // — image BEFORE migration, or the widened CHECK just recreates 184's split.
 // TestValidDocSubjectTypes_LockstepWithMigrationCheck reads the newest
-// migration that sets the CHECK and fails on drift.
-var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action", "experience-pattern"}
+// migration that sets the CHECK and fails on drift, so this list and the
+// migration must land in the SAME commit.
+var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action", "experience-pattern", "component"}
 
 // isValidDocSubjectType reports membership in validDocSubjectTypes.
 func isValidDocSubjectType(subjectType string) bool {

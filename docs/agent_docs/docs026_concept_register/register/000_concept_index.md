@@ -914,6 +914,7 @@ an ID prefix, or a status word.
 | NAV-012 | Header nav from pages.in_header + nav-label hygiene | deployed | Nav membership is a data flag; label hygiene is a companion defect | navigation.md |
 | DES-055 | Three-per-row no-orphan grid rule as a content fix | convention | Neither a global `repeat(3,1fr)` nor a per-component `auto-fit,minmax()` avoids orphan/stretched last cards in... | design-composition.md |
 | DOC-066 | docs019 working/main snapshot bundle (duplicate early-draft staging copy) | superseded | Nested archive-of-archive with zero unique content vs live docs | documentation-system.md |
+| DOC-068 | `subject_type='component'`: travelling docs for a section component (the ladder's substrate) | submitted, NOT live | A component can carry a PLAN + criteria fence and per-site NOTES; PLAN is the fleet-wide contract, NOTES the per-site verdicts. LANDMINE: doc_notes also allows 'landmine' — re-adding its CHECK from doc_plans' array orphans 57 live rows | documentation-system.md |
 | DBG-051 | Assumed-status-values trap | deployed | Never assume a status column's vocabulary; always SELECT DISTINCT first | debugging.md |
 | MIGG-001 | Proposed migration runner/ledger for hand-applied agent-def changes | aspirational | Never built; only manual "2d state check" stands in; responds to DBG-010's incident | migration-governance.md |
 | OPP-002 | Operator discipline: verify-by-artifact, dated backups, kcat | deployed | Never trust a status; diff bytes, dated backups, kcat trigger convention | operator-practice.md |
