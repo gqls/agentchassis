@@ -308,3 +308,56 @@ argument for those controls than the reputational one they were filed under.
 
 No council run: the gate refuses docs client-side (`097_TRIGGER…:116`, scope is
 `platform/`, `internal/`, `pkg/`). P4/P5 are still the first submissions.
+
+---
+
+## 2026-07-29 (later) — two of three Fable-5 P0 checks closed; SSRF confirmed unbuilt
+
+### The call-layer grep, done rather than deferred
+
+Read `platform/aiservice/anthropic.go:89-113` directly rather than trusting the
+plan's own instruction to "grep for it later":
+
+- **`temperature` is already unconditionally dropped** — a standing guard,
+  predating this workstream, with its own comment: *"Claude Opus 4.7+ returns a
+  400 for any non-default temperature… the Anthropic client simply ignores it."*
+  Nothing to fix.
+- **`budget_tokens` → `thinking:{enabled,...}` only if `ai_service.budget_tokens`
+  is set** in the calling agent's config. No unconditional send.
+- `rag_actions.go`'s `top_k` is retrieval-k (an unrelated concept — read the call
+  site to be sure, since the string match alone would have been a false alarm).
+
+```sql
+SELECT type FROM agent_definitions
+ WHERE is_active AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false
+   AND default_config::text LIKE '%budget_tokens%';
+-- council-gate, fix-proposer only
+```
+
+Neither is a candidate for the build lane. **Consequence: a fresh agent pointed
+at `claude-fable-5`, with no `budget_tokens` in its own config, is safe at the
+code layer today.** Confirmed against the `claude-api` skill directly (not
+memory) the same session: omitting `thinking` or `{type:"adaptive"}` runs
+adaptive; `{type:"disabled"}` 400s (Fable-specific — Opus 4.8/4.7 accept
+`disabled`); `{enabled,budget_tokens}` 400s; non-default
+`temperature`/`top_p`/`top_k` all 400.
+
+### SSRF — read `platform/httpguard` in full; it does not cover this
+
+The plan's §8 risk 1 said "check whether `platform/httpguard` already does this
+before writing a second one." It does not, and its own package doc says so:
+*"the platform's ONE set of **inbound**-abuse primitives for public HTTP
+endpoints."* Grepped `IsPrivate`/`IsLoopback`/`169.254`/SSRF across
+`platform/httpguard/` and `internal/adapters/webscrape/` (the live scrape
+path a domain-intake flow would reuse): **zero hits either place.** This is a
+real, unbuilt gap, not a lookup miss — the first real code this workstream will
+need to write is an outbound-fetch guard, not a config change.
+
+Landmine appended (`platform/httpguard is INBOUND-abuse only`) because the
+package is genuinely well-built and the name invites exactly this assumption —
+reading it is satisfying, which is what makes the gap easy to miss.
+
+### Still open
+
+Org data-retention level (account/console setting, not in the tree) and one
+measured Fable-5 build cost from `llm_call_log`.

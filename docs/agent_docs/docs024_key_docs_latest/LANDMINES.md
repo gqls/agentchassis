@@ -589,3 +589,23 @@ source document and the entry points at it.
 - **the check:** assert the **outcome the caller asked for**, not the absence of the symptom — here, that the emitted label *equals* the requested label, rather than merely that it fits. If a mutation passes, look for the compensating path before concluding redundancy, and mutate **that** too
 - **source:** `robot_hands_gripper_dossier/NOTES_…` 2026-07-30. Companion to *"a mutation that never happened is indistinguishable from a guard that works"* above — that one is a mutation that did not apply, this one is a mutation that applied and was absorbed
 - **added:** 2026-07-30, robot_hands_gripper_dossier lane
+
+### `platform/httpguard` is INBOUND-abuse only — it has no SSRF/outbound-fetch guard
+
+- **footprint:** `platform/httpguard`, `internal/adapters/webscrape`
+- **fires when:** building any feature that fetches a user-supplied URL (domain
+  intake, scrape-on-demand, "check this site") and reaching for `httpguard`
+  because the name sounds general-purpose
+- **the tell:** nothing stops you reading the package and walking away satisfied
+  — it genuinely has rate limiting, a trustworthy client-IP resolver, and a
+  form honeypot/timing gate, all real and well-built. The gap is a *missing*
+  file, which greps for `IsPrivate`/`IsLoopback`/`169.254`/SSRF turn up empty
+  everywhere in the repo, not a bug in an existing one
+- **the check:** read the package doc comment at the top of `httpguard`'s
+  `clientip.go` — it says outright *"the platform's ONE set of INBOUND-abuse
+  primitives"*. Inbound (who is hitting us) and outbound (what we fetch on a
+  visitor's behalf) are different trust directions and this package is only
+  the first. `internal/adapters/webscrape/adapter.go` — the live scrape path —
+  has no SSRF check either
+- **source:** `webdesign_uk_build_service/PLAN` §8/§9, checked 2026-07-29
+- **added:** 2026-07-29, webdesign.uk lane

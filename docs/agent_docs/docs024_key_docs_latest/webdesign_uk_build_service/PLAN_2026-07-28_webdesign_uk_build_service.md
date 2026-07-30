@@ -534,15 +534,30 @@ come before any lane is pointed at Fable:
 
 1. **Verify org data retention ≥ 30 days.** Fable 5 is not available under zero
    data retention — a ZDR org gets `400 invalid_request_error` on **every**
-   request, with a payload that looks perfectly valid.
-2. **Grep the chassis LLM call layer for `temperature` / `top_p` / `top_k` /
-   `budget_tokens` / `thinking` config.** Fable rejects all of them with a 400,
-   and thinking is always on (an explicit `disabled` also 400s). **A model swap
-   is NOT a config-only change if the call layer passes these params** — and it
-   demonstrably sets params (all 16 council seats set `max_tokens=8000`). Also
-   check `max_tokens` headroom: thinking spend counts against it.
+   request, with a payload that looks perfectly valid. **Still open** — this is
+   an account/console setting, not something greppable from the tree.
+2. ~~Grep the chassis LLM call layer for temperature/top_p/top_k/budget_tokens/
+   thinking config.~~ **DONE 2026-07-29 — CLEAN.** Read `platform/aiservice/
+   anthropic.go:89-113`: `temperature` is **already unconditionally dropped** —
+   never sent to Anthropic at all (a standing guard, predating this plan, for
+   the same 400 on Opus 4.7+). `budget_tokens` → `thinking:{enabled,...}` is
+   sent **only if** `ai_service.budget_tokens` is set in an agent's config; no
+   `top_p`/`top_k` are sent by this client at all (the `top_k` hit in
+   `rag_actions.go` is retrieval-k, an unrelated concept, confirmed by reading
+   the call site). Checked which live agents set `budget_tokens`:
+   `SELECT type FROM agent_definitions WHERE default_config::text LIKE
+   '%budget_tokens%'` → **`council-gate`, `fix-proposer` only** — the D9/D10
+   mirror pair (§ landmines below), neither a candidate for this build lane.
+   **Consequence: pointing a fresh agent (no `budget_tokens` in its own config)
+   at `claude-fable-5` is safe at the code layer today** — nothing to change in
+   `anthropic.go`, and the omitted-`thinking` behaviour (adaptive, always on)
+   is exactly what Fable expects. Confirmed against the `claude-api` skill the
+   same day: omit or `{type:"adaptive"}` → runs; `{type:"disabled"}` → 400
+   (Fable-specific — Opus 4.8/4.7 accept `disabled`); `{enabled,budget_tokens}`
+   → 400; any non-default `temperature`/`top_p`/`top_k` → 400.
 3. **Measure one real Fable-5 build** end to end from `llm_call_log` — that
-   number, dated, is the pricing input §7 waits on.
+   number, dated, is the pricing input §7 waits on. Still open; (1) and (2) no
+   longer block it.
 
 Two more Fable properties the build lane must absorb: **minutes-long turns are
 normal** (timeouts and progress handling, not a hung-lane diagnosis), and
@@ -559,13 +574,22 @@ not a crash.
 
 Four, and only the last is exotic:
 
-1. **SSRF.** The product's core interaction is *"type a URL and we will fetch
-   it"*. Handed to a scraper or a headless browser unguarded, that fetches
-   `169.254.169.254`, `10.x`, `localhost`, and anything else. **Requires:**
-   scheme allow-list, public-IP-only resolution checked *after* DNS resolution,
-   redirect capping, response size cap. The consolidation programme has
-   `platform/httpguard` (item A3) — **check whether it already does this before
-   writing a second one.**
+1. **SSRF — checked 2026-07-29, and it is NOT covered.** The product's core
+   interaction is *"type a URL and we will fetch it"*. Read `platform/httpguard`
+   in full (its own package doc says so explicitly): it is *"the platform's ONE
+   set of **inbound**-abuse primitives for public HTTP endpoints — a trustworthy
+   client key, a banded per-IP limiter, and the honeypot/timing gate for
+   forms."* Nothing in it resolves a URL, checks the target IP, or guards an
+   *outbound* fetch. Confirmed by grep: no `IsPrivate`/`IsLoopback`/`169.254` /
+   SSRF pattern anywhere in `platform/httpguard/` or in the scraper
+   (`internal/adapters/webscrape/adapter.go` — the live outbound-fetch path a
+   domain-intake flow would reuse). **So this is a real, unbuilt gap** — not a
+   question of finding the existing guard, there isn't one. Requires: scheme
+   allow-list, public-IP-only resolution checked *after* DNS resolution (not
+   before — the classic TOCTOU miss), redirect capping, response size cap. Build
+   it as its own thing or add it to `httpguard` under a name that says outbound
+   (e.g. `httpguard/fetchguard.go`) — do not bolt it onto the inbound limiter,
+   which is a different trust direction entirely.
 2. **The spend faucet.** A public endpoint that makes model calls is free money
    spent by strangers. **Requires:** per-IP rate limit, per-day global ceiling,
    and a cheap-first ordering so the expensive step happens last. tools-api's
@@ -585,13 +609,16 @@ denominator — its 503 rate could not be honestly quoted at all.
 
 ## 9. Phasing — each phase independently useful, independently stoppable
 
-- **P0 — Decide and measure. No code.** Owner rules §11 (round two done
-  2026-07-29). Read `platform/httpguard` to see whether risk 1 is already solved
-  — **and note §5.1's landmine: httpguard does *not* solve the per-IP keying
-  problem, so check the two questions separately.** Then **§7b's three Fable-5
-  checks, in order** — data retention, then the call-layer param grep, then
-  measure one real Fable-5 build from `llm_call_log`. *Output: a cost, a price,
-  and a go/no-go on Fable.*
+- **P0 — Decide and measure.** Owner rules §11 (round two done 2026-07-29).
+  **Two of three Fable-5 checks now DONE** (§7b): the call-layer grep came back
+  clean (nothing to fix in `anthropic.go`; two unrelated agents carry
+  `budget_tokens`, neither this lane's), and `httpguard` is confirmed **not**
+  to cover risk 1 (SSRF — §8) — it is inbound-only by its own package doc, so
+  this is a real gap to build, not a question to resolve. Remaining before P1
+  ships: org data-retention check (account-level, not greppable), the SSRF
+  guard itself (first code in this workstream), and one real Fable-5 build
+  measured from `llm_call_log`. *Output: a cost, a price, an SSRF guard, and a
+  go/no-go on Fable.*
 - **P1 — The shopfront, with nothing behind it.** webdesign.uk on a VM: the
   minimal page, the **LLM chat**, the questionnaire, Stripe in **test mode**,
   orders stored on the box. Nothing builds. **This is the fake-door idea.uk
