@@ -128,3 +128,39 @@ with a different cause. Handoff D in the `gauntlet_dead_cta` directory has the
 evidence and the first query to run; whoever picks it up should establish why two
 rows exist before deleting either, since an insert-instead-of-upsert path would be
 platform-wide.
+
+> **RESOLVED 2026-07-30 → `bugs_open/156`.** Diagnosed and the site fixed. It is
+> **not** an insert-instead-of-upsert path: the save does DELETE-then-INSERT, and the
+> row **positions were 1..12 distinct and monotonic**, which refutes both a
+> concurrent-save race (two writers each number 1..6, giving two rows *per position*)
+> and a whole-loop re-run (which gives 1,2,3,4,5,6,1,2,3,4,5,6). It was one loop over
+> an input list that already held 12 entries. Fleet-wide it is **not** platform-wide
+> in the state it leaves behind: 17 duplicate `(page_id, slot_name)` groups exist and
+> **11 are legitimate** repeated slots with differing content, so ⚠ **a unique index
+> on `(page_id, slot_name)` would break 11 real pages.** The producer is
+> `[UNRECOVERABLE]` — past retention. 156 stays open as a detection gap.
+
+### vonc's instance of THIS bug: hand-fixed 2026-07-30, mechanism untouched
+
+Owner asked for the archetype copy to be rewritten, so vonc is now in the same state
+as fundamentallyai — **site fixed by hand, mechanism still open.** All 8 heroes and
+all 8 CTAs rewritten (`content_data` and `rendered_html` together), rerendered and
+verified live. On this bug's own census: worst cross-page pair **0.90 → 0.64**, pairs
+≥0.70 **→ 0**, hero pairs no longer appear at all, zero identical blocks.
+
+Two things from that rewrite worth keeping for whoever fixes the mechanism:
+
+- **There is a legitimate floor, so a gate built on this method must not target
+  zero.** The eight CTAs keep identical *button labels* on purpose — they must agree
+  with the URL they point at, and one consistent action label across sibling pages is
+  correct UX, not duplication. Measured on the worst remaining pair: **0.64 with the
+  labels included, 0.43 on prose alone.** `dedup_census.py`'s `SKIP_KEYS` drops
+  url/asset keys but **keeps** `*_cta`/`cta_*` label fields, so it scores that floor
+  as similarity. Either exclude label-ish keys or set the threshold above the floor.
+- **A rewrite is the moment unbacked claims get laundered.** The sentences being
+  replaced carried "best prediction accuracy on the platform", "highest remix rate in
+  the Arena", "dominates the Stage", "Thousands of takes already on record" — none
+  backed by vonc's 4 approved facts. They were dropped rather than reworded, because
+  rewording an unverifiable claim makes it the rewriter's own. **If this mechanism is
+  ever fixed by regenerating sibling-aware copy, the fix must not carry the existing
+  claims forward as context** — that would relaunder them at scale.
