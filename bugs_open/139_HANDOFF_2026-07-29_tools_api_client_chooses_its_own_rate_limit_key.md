@@ -302,3 +302,67 @@ not proof** — read the artefact.
 - `bugs_open/083` (slug `gauntlet_engine_503_discards_the_error`) — open against
   the same service; coordinate, and cite 083 **by slug**, the number is ambiguous.
 - Workstream: `docs/agent_docs/docs024_key_docs_latest/consolidation/`.
+
+---
+
+## Taken and FIXED by the gauntlet_dead_cta lane (tools-api's owner), 2026-07-30
+
+Owner instruction: take the client-identity fix before the distribution leg,
+"the identity column is what the experiment gets measured on."
+
+**Committed `33e18e73d`.** New `internal/tools-api/clientip` following this
+service's own `httperr` precedent, so "who is this visitor" is answered in one
+place, plus the two call sites it exists for (`middleware/ratelimit.go:30`,
+`handlers/round.go:109`). **Verified those two are the whole population** — no
+other `c.ClientIP()`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP` or
+`RemoteAddr` use remains in `internal/tools-api` outside comments.
+
+`httpguard.CloudflareTunnel()`, not `Nginx()`. **The trap in the CONTRIB is real
+and I confirmed it as a test**: temporarily substituting `Nginx()` makes
+`TestFrom_ReturnsCloudflareAddress` fail with `got="172.18.0.1"` — the exact
+constant the fix removes. A reviewer cannot see that swap by reading; it compiles
+and returns a plausible address. The test file exists to make it loud.
+
+Tests assert the mechanism **fires**, never that the forged value is absent — an
+absence test passes against the unfixed code, because the constant is also not the
+forged address. Five tests: CF address returned; X-Forwarded-For/X-Real-IP not
+trusted; public peer ignores headers (coarse, not spoofable); unparseable header
+falls back to peer; and two visitors produce two keys, the unit shadow of the
+`count(DISTINCT) > 1` acceptance check.
+
+**Island image built and verified, awaiting the owner's swap.**
+`aqls/tools-api:v1.0.1207`, id `bf4cef2f4a3d`, built 20:14:32 BST from a
+`git archive HEAD` extract (so it structurally cannot carry any session's WIP).
+Before/after with controls in both directions:
+
+| marker | v1.0.1198 (live) | v1.0.1207 (new) |
+|---|---|---|
+| `CF-Connecting-IP` | **0** | **1** |
+| `cloudflare-tunnel` | **0** | **1** |
+| `gin-gonic` (control, old build) | 1186 | — |
+| `ThisTokenExistsInNoBuild` (control, new build) | — | 0 |
+
+The old build's 1186 `gin-gonic` hits are what make its two zeros real absences
+rather than a broken `strings`. Distinct image id and a fresh `CreatedAt`, so this
+is a rebuild and not a retag.
+
+**Council:** submitted, `SUBMISSION_CORR e053fac4-eeaf-431e-aa88-817c4107476e`.
+Honest gap — the code was committed *before* submitting, so `33e18e73d` carries
+neither trailer and the 098 report will list it as un-reviewed; forward-only
+forbids an amend, so the correlation is recorded here instead of being faked onto
+a later commit.
+
+**Still owed, and NOT done:** the `[INFERRED]` item stays inferred. tools-api has
+no header-echo endpoint and I did not add one, so "CF-Connecting-IP reaches the app
+process" is still unproven — **the acceptance check is what settles it**, and it
+can only run after the swap, from two networks. Note the failure direction makes
+that safe to wait on: if the header never arrives, `ClientIP` skips it and returns
+the peer, i.e. today's constant. The change cannot be worse than the status quo,
+only inert.
+
+Also: consolidation's three manual-test probe rows are still in the store. Leaving
+them until the acceptance census is run — they are known-provenance rows and
+deleting them now would remove evidence from the very table being measured.
+
+**When it lands, `platform/httpguard`'s register entry PUB-002 stops being true** —
+it says "called by NOTHING", and this import is its first caller.
