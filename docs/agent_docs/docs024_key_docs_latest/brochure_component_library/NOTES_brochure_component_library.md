@@ -3178,6 +3178,23 @@ markup swept on all four (6 cards / 6 images / correct body-lead count per
 page, 0 dead links, 0 unrendered `{{`); contrast probe re-run, still
 **13.19:1**, 0 failures.
 
+**Checked whether this is a platform-wide gap before assuming it was just
+mine.** `site_components` (`slot_name='head'`) confirms the non-deferred
+`<script src=".../snippets.js">` placement is fleet-wide — **13 of 13 sites**
+with a head component carrying `snippets.js` have it with no `defer`. That
+sounds like a structural platform defect, but checking the actual
+`js_snippets` table narrows it a lot: **6 of 7 active snippets already guard
+on `document.readyState`/`DOMContentLoaded`** (`hero-card-carousel`,
+`lobby-grid-loader`, `provocation-card-loader`, `provocations-archive-loader`,
+`stat-band`, and now `teaser-reveal-panel`) — this is an established,
+widely-followed convention, not an unknown platform gap. The failure was
+**mine**: I didn't check that convention before writing this component's
+first version. The one other exception is `news-date-formatter` — unguarded,
+not investigated further this session (its DOM query may run against
+elements present at head-parse time, or it may have the same latent bug;
+flagging rather than chasing, given the fleet-wide pattern is otherwise
+sound).
+
 **A screenshot tool limitation, not a product one:** tried to get a visual
 open-state screenshot via a local `file://` copy with an injected script
 (the same pattern `probe_reveal_open_state.py` uses for `--dump-dom`) but
