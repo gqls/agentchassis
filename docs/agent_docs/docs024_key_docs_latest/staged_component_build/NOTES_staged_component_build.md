@@ -201,3 +201,129 @@ to do.
 does not compile at HEAD (`declared and not used`, line 504) — confirmed present in
 HEAD's own copy with no local modifications, so it is another lane's (reasoning_dataset).
 `platform/...`, `internal/...` and every other `cmd/` build clean.
+
+## 2026-07-30 (evening) — round 1 REVISE; every objection answered; round 2 submitted
+
+Verdict landed **~12 minutes** after submission, not the ~30 the runbook budgets.
+`decided_by`: *"gating objection from debug_historian"*. `unreadable: null` — so this was
+a real verdict, not a truncated harness (that is the field to read, not `abstained`).
+**7 approve / 5 object**, abstained 5.
+
+Approve: `editquality`, `tooling_provenance`, `diagnosis_guardian`, `render_guardian`,
+`constitution`, `mission`, **`architecture`** — the last with
+`ARCHITECTURE_SIGNAL: point_fix` and an explicit finding that **the RFC carve-out was
+invoked correctly**: *"this is a value addition to an existing enumerable vocabulary, not
+a new namespace, wire shape, or state machine… no consumer's guarantee changes, all filter
+explicitly."* That settles the scoping question the lane had been carrying.
+
+Object: `debug_historian` (gating, HIGH), `bug_historian`, `reuse_agent`, `guardian`,
+`prior_art_librarian`.
+
+**THE GATING OBJECTION WAS RIGHT AND I CONCEDED IT WHOLE.** It said risk #1 named the
+ordering hazard and then defused it with an **argument** — *"no producer exists yet, so an
+early apply is inert"* — where the discipline is **verify against the pod**, never an
+inertness argument and never image-tag trust. Its sharpest line: *"the fix should not
+repeat the pattern of trusting stated ordering over verified deployment state"* — on the
+second attempt at the split that produced `bugs_open/064`. A comment in a SQL header is
+not a gate.
+
+So there is now an executable one, `VERIFY_273_before_apply.sh`, and **it correctly
+refuses right now**: *"binary built 2026-07-30 17:25:05 UTC, BEFORE the Go half was
+committed (19:28:54 UTC) — this pod cannot carry 'component'"*, exit 1, both replicas.
+
+### The gate reported a FALSE PASS on its first run, and that is the entry worth reading
+
+First version printed **`Go half present (new=0 0, control=0 0)`** — a green verdict built
+out of four zeroes, on pods that plainly lacked the marker. Cause: **`grep -c` exits 1
+when the count is zero**, so my `|| echo 0` fallback printed a *second* zero, giving the
+two-line string `"0\n0"`. That is not equal to `"0"`, so `[ "$CTL" = "0" ]` was false, the
+refusing branch was skipped, and control fell through to the success branch.
+
+**A gate whose only untested branch is the one that refuses is not a gate.** This is the
+same shape as the hazard this lane filed hours earlier (an all-skipped check set reads as
+PASS) and the same shape as the carousel bug that started the lane. Third instance of one
+class in one day, in my own work each time. Rewritten to normalise to a single integer and
+**fail closed**; then re-run to *watch* it refuse.
+
+### All three of my markers were wrong, and measuring is what fixed it
+
+| marker | count | why |
+|---|---|---|
+| `component carries a PLAN…` | **0** | a Go **comment** — comments never reach a binary |
+| `is a split contract; move both together` | **0** | also a comment, so my **control** could never have passed either |
+| bare `component` | **761** | matches `content_components`, `component_level`, … |
+| `experience-pattern` | **1** | so slice literals **do** reach rodata |
+| `actionexperience-pattern` / `experience-patterncomponent` | **0** | literals are not laid out contiguously — do not rely on adjacency |
+
+**The conclusion is a fact about this change, not a preference: it adds no unique greppable
+string.** So the sound check is to **date the build** (`stat -c %Y` on the binary vs the
+commit's `%ct`), keeping the control grep only to prove the binary is readable at all. The
+script states that build-date is **necessary, not sufficient** — a same-tag rebuild from a
+stale checkout would also date late — and names the behavioural probe (write a component
+`doc_plans` row, read it back *through* `load_doc_context`) as the only definitive check.
+Note a control marker must be a **string literal**, never a comment; I got that wrong in
+the very act of applying the rule I had written down that morning.
+
+### The objections answered with a query rather than prose
+
+- **`RekeyTravellingDocs` has exactly one caller** — `rename_tool_identity_action.go:115`,
+  hardcoding `"tool"`. Absence claim confirmed systematically.
+- **Five Go readers of `doc_notes`**, four filtering `subject_type` explicitly
+  (`check_tool_acceptance.go:574`, `check_tool_acceptance_due.go:93`,
+  `load_doc_context_action.go:79`, `tool_acceptance_actions.go:837`); the fifth,
+  `digestGatherImmune`, narrowed by `categories`. Enumerated, not asserted.
+- **The migration-number objection was the seat misreading two consistent facts**, and the
+  query settles it: the lockstep regex matches `ADD CONSTRAINT
+  doc_plans_subject_type_check`, and **270 alters `doc_notes` only** — so 218 genuinely is
+  the newest migration recreating the `doc_plans` CHECK. 271 and 272 are claimed
+  (`272_feature_designer_plan_repair_loop.sql`), so 273 is right.
+
+### `reuse_agent` asked the best question of the round, and I had not done the check
+
+It asked whether two existing mechanisms already model per-site-per-component verdicts.
+Both exist; both ruled out **on evidence**:
+
+- **`content_components.quality_score` / `quality_issues` / `avg_quality_score`** — real
+  columns on the exact row being extended, **but the table has no site dimension.** One
+  fleet-shared row serves 11 sites, so it structurally cannot express *works on site A,
+  collapsed on site B*, which is the whole of what S4–S7 asks. It is a fleet quality
+  *score* (smallint 0–100), not a per-site verdict with evidence.
+- **`site_work_items`** (`site_id` + `component_id` + `result`) is a genuine candidate —
+  but it is the **request** mechanism, not the **record**: `idx_swi_dedup` is UNIQUE
+  `(site_id, item_key)` over the non-terminal statuses, so slots are reused and status is
+  mutable, whereas `append_doc_note` is *"one INSERT into doc_notes (no
+  read-modify-write)"* and `doc_notes` has no status column. **Decisive: the tool ladder
+  already made this exact choice in code** — `tool_acceptance_due` files the work item and
+  `check_tool_acceptance_due.go:90-97` reads the cooldown **from `doc_notes`**. Verdicts
+  live in notes; requests live in work items. Using work items for component verdicts
+  would *create* the two-ways drift the seat was warning about.
+
+### Deferrals converted into tracked work rather than defended
+
+`bug_historian` (medium) and `architecture` (low) both said the rename-orphan risk should
+be a ticket, not a comment — *"the only defence is a comment nobody is forced to read"*.
+Filed **`features_open/028`**, with the one-caller grep as its measurement, `bugs_open/136`
+as the live precedent, and candidate 2 (a detector for travelling docs whose `subject_key`
+resolves to nothing) flagged as worth building regardless, because **it is the only
+candidate that finds the orphans already created by past renames — a count nobody has ever
+measured, across all six subject types.**
+
+`guardian` (medium) was right that naming a consumer is not telling it. Stated plainly,
+for the record and in DOC-068: **`persist_diagnosis_note` will now accept
+`subject_type='component'` diagnosis notes**, as a consequence of single-sourcing, judged
+correct on the same argument `subject_type_addition.md` item 3 made for `action`, and
+independently approved by `diagnosis_guardian` on the grounds that persistence-never-fails
+and skip-never-guess are untouched.
+
+**Round 2 submitted** — trail stays `e5673868-7c5b-489c-931a-7ba59b959b91` (so the
+artefacts accumulate in one place), run correlation `82506f25`, orch `e2de1d7f`.
+Round-2 artefacts committed `d16447161`.
+
+### Also written this session
+
+`CONSULT_2026-07-30_next_tool_build.md` — the brief for the lane the owner asked to
+consult with us on its next tool build. It maps S0–S7 onto a tool, lists the five traps
+with the check for each, and asks four genuinely open questions. **It explicitly tells
+them to skip a stage that feels like ceremony and report that instead**, because the
+ladder has never been run *forwards* by anyone, including me, and compliance would teach
+us less than friction does.
