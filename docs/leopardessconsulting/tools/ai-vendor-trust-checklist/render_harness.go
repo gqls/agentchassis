@@ -22,8 +22,9 @@
 // mutant turns its own check red. Run --selftest, not just the baseline.
 //
 // Usage:
-//   go run render_harness.go template.html sample_data.json tool-ai-vendor-trust-checklist.js
-//   go run render_harness.go --selftest template.html sample_data.json tool-...js
+//
+//	go run render_harness.go template.html sample_data.json tool-ai-vendor-trust-checklist.js
+//	go run render_harness.go --selftest template.html sample_data.json tool-...js
 package main
 
 import (
