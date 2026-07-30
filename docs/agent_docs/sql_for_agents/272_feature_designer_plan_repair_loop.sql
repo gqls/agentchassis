@@ -70,10 +70,40 @@
 --
 -- ROLLBACK
 -- --------
---   Restore from the snapshot this file takes:
---     -- newest is_snapshot row created by
---     -- '272_feature_designer_plan_repair_loop.sql: pre-update'
---   Or, sufficient on its own, put persist_plan back on its old next_step:
+-- CORRECTED 2026-07-30 after the council's debug_historian seat objected that the
+-- backup discipline here was unconfirmed against a documented double-overload trap.
+-- It was right, and the first version of this block was WRONG. What was checked:
+--
+--   * snapshot_agent has TWO overloads — snapshot_agent(text) and
+--     snapshot_agent(text, text). This file calls the 2-arg form, which writes to
+--     **agent_definitions_backup**, NOT to an is_snapshot row in agent_definitions.
+--     The original instruction here said "the newest is_snapshot row", which would
+--     have sent a rollback looking in the wrong table entirely.
+--   * That backup copies id/created_at/updated_at VERBATIM from the source row, so
+--     ordering by created_at does NOT find the latest snapshot. Measured: all three
+--     feature-designer backups share source created_at 2026-07-17 18:06:05, so
+--     created_at is a three-way tie. Only **snapshot_taken_at** discriminates.
+--
+--   Working restore (verified to return the right row, 2026-07-30):
+--     SELECT snapshot_taken_at, snapshot_reason FROM agent_definitions_backup
+--      WHERE type = 'feature-designer' ORDER BY snapshot_taken_at DESC LIMIT 5;
+--
+--     UPDATE agent_definitions a
+--        SET default_config = b.default_config, updated_at = now()
+--       FROM (SELECT default_config FROM agent_definitions_backup
+--              WHERE type = 'feature-designer'
+--                AND snapshot_reason = '272_feature_designer_plan_repair_loop.sql: pre-update'
+--              ORDER BY snapshot_taken_at DESC LIMIT 1) b
+--      WHERE a.type = 'feature-designer' AND a.deleted_at IS NULL
+--        AND COALESCE(a.is_snapshot, false) = false;
+--
+--   NOTE for whoever maintains migration 222 (candidate 1 of the same bug): its
+--   rollback block carries the IDENTICAL wrong instruction ("the newest is_snapshot
+--   row"). Not edited here — it is another lane's applied migration — but the trap
+--   is recorded in LANDMINES.md so either file's reader is warned.
+--
+--   Or, sufficient on its own and needing no snapshot at all, put persist_plan back
+--   on its old next_step:
 --     UPDATE agent_definitions
 --        SET default_config = jsonb_set(default_config,
 --              '{workflow,steps,persist_plan,next_step}', '"review_editquality"')
@@ -280,6 +310,43 @@ BEGIN
     IF steps->'repair_plan'->>'next_step' IS DISTINCT FROM 'persist_plan' THEN
         RAISE EXCEPTION '272: repair_plan must return to persist_plan, got %',
             steps->'repair_plan'->>'next_step';
+    END IF;
+
+    -- ai_service completeness, asked for by the council's llm_reliability seat.
+    --
+    -- Its objection was that a ROOT ai_service block might shadow this step-level
+    -- one, citing MDL-039 ("a step-level block is completely dead when a root block
+    -- exists"). Measured, and it does not hold, for two independent reasons:
+    --   1. feature-designer has NO root ai_service block — its only root key is
+    --      'workflow'. There is nothing to shadow.
+    --   2. That behaviour was bugs_open/009 and is FIXED. resolveAIServiceConfig
+    --      (ai_actions.go:40-96) is now a per-key overlay, root -> step -> runtime,
+    --      "later wins PER KEY", and its own comment says it "replaces
+    --      first-found-wins, under which the ENTIRE step block was dead config
+    --      whenever a root block existed". So a step block now WINS per key.
+    -- MDL-039 describes pre-fix behaviour and should be re-dated.
+    --
+    -- The residual risk is therefore the opposite one — this step's block missing a
+    -- key that no root block supplies either, which under an overlay yields an
+    -- incomplete effective config. That is what this asserts, and it keeps holding
+    -- if someone later adds a root block.
+    IF NOT (steps->'repair_plan'->'config'->'ai_service' ?& array['provider','model','max_tokens','api_key_env_var'] ) THEN
+        RAISE EXCEPTION '272: repair_plan ai_service is incomplete — needs provider, model, max_tokens, api_key_env_var (got %)',
+            steps->'repair_plan'->'config'->'ai_service';
+    END IF;
+
+    -- max_tokens is sized to the DESIGN step's, deliberately: repair_plan emits a
+    -- plan of the same shape and size, on the same model, and design demonstrably
+    -- produces staged plans today. The llm_reliability seat also asked for a
+    -- 'thinking' key; there is none to set — 0 live steps fleet-wide carry
+    -- ai_service.thinking and execute_llm_prompt does not read that key (the
+    -- extended-thinking knob it reads is budget_tokens, ai_actions.go:359-360), so
+    -- setting it would be dead config of exactly the class bugs_open/134 is about.
+    IF (steps->'repair_plan'->'config'->'ai_service'->>'max_tokens')::int
+       IS DISTINCT FROM (steps->'design'->'config'->'ai_service'->>'max_tokens')::int THEN
+        RAISE WARNING '272: repair_plan max_tokens (%) differs from design (%) — intentional?',
+            steps->'repair_plan'->'config'->'ai_service'->>'max_tokens',
+            steps->'design'->'config'->'ai_service'->>'max_tokens';
     END IF;
 
     RAISE NOTICE '272: feature-designer plan repair loop wired — persist_plan -> check_plan_valid -> (review_editquality | repair_plan -> persist_plan), capped at 1 repair round';

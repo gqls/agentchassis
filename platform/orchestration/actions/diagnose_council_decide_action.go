@@ -510,13 +510,17 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 	// started this run at round 2 and exhausted it before any repropose). A
 	// count failure must not strand a decided council: fall back to round 1,
 	// which caps the loop at once more.
+	// countRunArtifacts (diagnose_artifact_count.go) is the shared counter for every
+	// bounded loop here — extracted 2026-07-30 so a scoping fix cannot reach one
+	// loop and miss another. Same SQL, same nullIfEmpty argument, same behaviour.
 	round := 1
-	if err := params.DB.QueryRowContext(ctx,
-		`SELECT count(*) FROM diagnosis_artifacts
-		 WHERE correlation_id = $1 AND kind = 'council_report' AND orchestration_id = $2`,
-		corr, nullIfEmpty(params.ExecutionContext.OrchestrationID)).Scan(&round); err != nil {
+	if n, err := countRunArtifacts(ctx, params.DB, corr,
+		nullIfEmpty(params.ExecutionContext.OrchestrationID),
+		"council_report", "", ""); err != nil {
 		logger.Warn("diagnose_council_decide: round count failed; treating as round 1", zap.Error(err))
 		round = 1
+	} else {
+		round = n
 	}
 
 	// F2.3 reframe-once bookkeeping: how many of THIS RUN's reports (the one
@@ -526,13 +530,13 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 	// escalation (a human sees the package), not another reframe.
 	rejectedCount := 0
 	if decision == "rejected" {
-		if err := params.DB.QueryRowContext(ctx,
-			`SELECT count(*) FROM diagnosis_artifacts
-			 WHERE correlation_id = $1 AND kind = 'council_report'
-			   AND orchestration_id = $2 AND metadata->>'decision' = 'rejected'`,
-			corr, nullIfEmpty(params.ExecutionContext.OrchestrationID)).Scan(&rejectedCount); err != nil {
+		if n, err := countRunArtifacts(ctx, params.DB, corr,
+			nullIfEmpty(params.ExecutionContext.OrchestrationID),
+			"council_report", "decision", "rejected"); err != nil {
 			logger.Warn("diagnose_council_decide: rejected count failed; treating reframe as spent", zap.Error(err))
 			rejectedCount = 2
+		} else {
+			rejectedCount = n
 		}
 	}
 

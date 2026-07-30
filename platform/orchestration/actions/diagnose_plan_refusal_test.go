@@ -110,6 +110,11 @@ func TestPlanRefusal_RoutesToRepairOnFirstFailure(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT count\\(\\*\\) FROM diagnosis_artifacts").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	// The operator-facing record. Added answering the council's bug_historian seat:
+	// recoverable is not the same as visible, and 099's original complaint was that
+	// the loss was SILENT.
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	res, err := planValidationRefusal(context.Background(), params, zap.NewNop(),
 		"corr-1", "staged plan", plan, []string{"stage 1 edit 2: appears in more than one edit of this stage"})
@@ -159,6 +164,10 @@ func TestPlanRefusal_ExhaustsAndGoesTerminal(t *testing.T) {
 	// Second refusal of this run: the count now exceeds the cap of 1.
 	mock.ExpectQuery("SELECT count\\(\\*\\) FROM diagnosis_artifacts").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
+	// Written on the TERMINAL outcome too, at severity error — so the row's absence
+	// means "no refusal happened", never "it happened and was repaired quietly".
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	res, err := planValidationRefusal(context.Background(), params, zap.NewNop(),
 		"corr-1", "staged plan", invalidStagedPlan(t), []string{"stage 1 edit 2: duplicate file"})
@@ -306,6 +315,7 @@ func TestPersistPlan_E2E_InvalidPlanRoutesToRepair(t *testing.T) {
 			m.ExpectExec("INSERT INTO diagnosis_artifacts").WillReturnResult(sqlmock.NewResult(1, 1))
 			m.ExpectQuery("SELECT count\\(\\*\\) FROM diagnosis_artifacts").
 				WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+			m.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(1, 1))
 		})
 	if err != nil {
 		t.Fatalf("want a recoverable refusal, got error: %v", err)
@@ -369,4 +379,62 @@ func TestPlanRefusal_ZeroAttemptCapIsTerminal(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("must not touch the DB when no repair round is allowed: %v", err)
 	}
+}
+
+// TestCountRunArtifacts_MetadataFilterIsOptional covers the one piece of branching
+// logic in the extracted counter: with metaKey empty the query must carry NO
+// metadata predicate (the council-decide round counter), and with it set the
+// predicate must be bound as parameters (the reframe counter and the repair
+// counter). A filter silently dropped would over-count and hand out extra rounds.
+func TestCountRunArtifacts_MetadataFilterIsOptional(t *testing.T) {
+	t.Run("no filter", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+		mock.ExpectQuery("SELECT count\\(\\*\\) FROM diagnosis_artifacts").
+			WithArgs("corr", "orch", "council_report").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
+
+		n, err := countRunArtifacts(context.Background(), db, "corr", "orch", "council_report", "", "")
+		if err != nil || n != 3 {
+			t.Fatalf("want 3, nil; got %d, %v", n, err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("three args only when unfiltered: %v", err)
+		}
+	})
+
+	t.Run("with filter", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+		mock.ExpectQuery("metadata->>").
+			WithArgs("corr", "orch", "iteration_note", "note_kind", planRefusalNoteKind).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+		n, err := countRunArtifacts(context.Background(), db, "corr", "orch",
+			"iteration_note", "note_kind", planRefusalNoteKind)
+		if err != nil || n != 1 {
+			t.Fatalf("want 1, nil; got %d, %v", n, err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("filter must be bound as params: %v", err)
+		}
+	})
+
+	t.Run("error propagates rather than returning a usable zero", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+		mock.ExpectQuery("SELECT count").WillReturnError(errors.New("gone"))
+		if _, err := countRunArtifacts(context.Background(), db, "c", "o", "k", "", ""); err == nil {
+			t.Fatal("a count failure must be an error — every caller here fails closed on it")
+		}
+	})
 }

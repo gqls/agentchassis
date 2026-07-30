@@ -264,6 +264,80 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 // ANY reader of iteration_note must filter on it.
 const planRefusalNoteKind = "plan_validation_refusal"
 
+// planRefusalErrorCode makes a refusal findable by someone who does NOT already
+// know to look in diagnosis_artifacts.metadata->>'note_kind'.
+//
+// Added 2026-07-30 answering the council's bug_historian seat, which was right that
+// the first cut made the failure recoverable without making it any more VISIBLE —
+// and bugs_open/099's original complaint was precisely that the loss was silent
+// (orchestration_states.error NULL, the reason only in __step_error, "a dashboard
+// keyed on error reports this run as clean"). agent_error_log is where this platform
+// already surfaces exactly this class, and it is queryable and alertable.
+//
+// DELIBERATELY distinct from every other code, for the reason recorded at
+// save_sections_claims_guard.go:97-103: the rows answer different questions, and a
+// shared code makes "which path caught this" unanswerable.
+//
+// Written on BOTH outcomes — the recoverable refusal and the exhausted terminal one
+// — with severity distinguishing them, so the row's absence means "no refusal
+// happened", never "it happened and was repaired quietly".
+const planRefusalErrorCode = "FIX_PLAN_VALIDATION_REFUSED"
+
+// recordPlanRefusal writes the operator-facing record of a refusal. Best-effort by
+// design, mirroring the claims floor and recordUnknownVerdict: a failure to record
+// must never change the refusal decision the caller has already made — so this
+// returns nothing and the caller does not branch on it.
+//
+// Actions write agent_error_log with a direct INSERT rather than through
+// orchestration.LogAgentError, which would be an import cycle (platform/
+// orchestration imports this package). Same column list as the claims floor's.
+func recordPlanRefusal(
+	ctx context.Context, params ActionParams, logger *zap.Logger,
+	corr, shape string, problems []string, attempt, maxAttempts int, exhausted bool,
+) {
+	outcome := "routed to repair"
+	severity := "warning"
+	if exhausted {
+		outcome = "terminal — repair budget spent"
+		severity = "error"
+	}
+
+	contextJSON, err := json.Marshal(map[string]interface{}{
+		"outcome":        outcome,
+		"correlation_id": corr,
+		"plan_shape":     shape,
+		"problems":       problems,
+		"problem_count":  len(problems),
+		"repair_attempt": attempt,
+		"max_attempts":   maxAttempts,
+		"exhausted":      exhausted,
+		"note_kind":      planRefusalNoteKind,
+		"rejected_plan":  "diagnosis_artifacts kind=iteration_note, metadata->>'note_kind'=" + planRefusalNoteKind,
+		"bug":            "bugs_open/099 candidate 2",
+	})
+	if err != nil {
+		logger.Warn("plan refusal: could not marshal finding context", zap.Error(err))
+		return
+	}
+
+	agentType := params.AgentType
+	if agentType == "" {
+		agentType = "unknown"
+	}
+
+	if _, err := params.DB.ExecContext(ctx, `
+		INSERT INTO agent_error_log
+		    (agent_type, step_name, action, error_message, error_code, severity, context)
+		VALUES ($1, $2, 'diagnose_persist_fix_plan', $3, $4, $5, $6::jsonb)`,
+		agentType, params.ExecutionContext.StepName,
+		fmt.Sprintf("Fix plan refused (%s): %d structural problem(s), attempt %d of %d — %s",
+			shape, len(problems), attempt, maxAttempts, outcome),
+		planRefusalErrorCode, severity, string(contextJSON),
+	); err != nil {
+		logger.Warn("plan refusal: failed to write finding record", zap.Error(err))
+	}
+}
+
 // planValidationRefusal decides what a STRUCTURAL validation failure does.
 //
 // Default — no repair_step configured — it returns the error, failing the step so
@@ -336,13 +410,12 @@ func planValidationRefusal(
 	}
 
 	// Fail CLOSED on a count error, following diagnose_council_decide: a counting
-	// failure must not hand out extra LLM rounds.
-	attempt := 0
-	if err := params.DB.QueryRowContext(ctx, `
-		SELECT count(*) FROM diagnosis_artifacts
-		WHERE correlation_id = $1 AND orchestration_id = $2
-		  AND kind = 'iteration_note' AND metadata->>'note_kind' = $3
-	`, corr, orchID, planRefusalNoteKind).Scan(&attempt); err != nil {
+	// failure must not hand out extra LLM rounds. countRunArtifacts is the shared
+	// counter all three bounded loops in this machinery use, so a fix to its
+	// scoping reaches this loop too.
+	attempt, err := countRunArtifacts(ctx, params.DB, corr, orchID,
+		"iteration_note", "note_kind", planRefusalNoteKind)
+	if err != nil {
 		logger.Warn("diagnose_persist_fix_plan: refusal count failed; refusing terminally",
 			zap.String("correlation_id", corr), zap.Error(err))
 		return nil, validationErr
@@ -351,6 +424,7 @@ func planValidationRefusal(
 		logger.Warn("diagnose_persist_fix_plan: repair attempts exhausted",
 			zap.String("correlation_id", corr),
 			zap.Int("attempts", attempt), zap.Int("cap", maxAttempts))
+		recordPlanRefusal(ctx, params, logger, corr, shape, problems, attempt, maxAttempts, true)
 		return nil, fmt.Errorf("%s failed validation after %d repair attempt(s) (cap %d): %s",
 			shape, attempt-1, maxAttempts, problemsText)
 	}
@@ -360,6 +434,7 @@ func planValidationRefusal(
 		zap.String("repair_step", repairStep),
 		zap.Int("attempt", attempt), zap.Int("cap", maxAttempts),
 		zap.Int("problems", len(problems)))
+	recordPlanRefusal(ctx, params, logger, corr, shape, problems, attempt, maxAttempts, false)
 
 	return map[string]interface{}{
 		"persisted":  false,

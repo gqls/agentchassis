@@ -205,3 +205,97 @@ Incidental confirmation of `bugs_open/153` sitting in plain sight in `docker ima
 `v1.0.1206` and `v1.0.1207` have the **same image id** (`64fe88a6a564`). A tag bump
 did not rebuild. This is why the post-roll check has to be a pod-grep with a positive
 control, not a version string.
+
+## 2026-07-30 — council round 1: REVISE, and it was worth the round
+
+Corr `f4a4628f-3b90-4054-a875-f2cf72b83e72`. **13 seats, 8 approve, 5 object,
+0 unreadable, `gated_by_truncation: false`** — so a genuine judgement, not a token
+overrun (FIX-055's flag earning its keep on its first look at my own submission).
+Gated by `llm_reliability`.
+
+**A trap I walked into reading the verdict, and caught by pattern-recognition rather
+than by care.** My first query rendered `o->>'detail'` for each objection and printed
+`(no objections)` for **all five** objecting seats — a clean, uniform, plausible
+answer. The field is `problem`, not `detail`. This is the *identical* trap already in
+`WRONG_CALLS.md` from 2026-07-29 (`ad791d6db`: "a wrong-depth JSON path returns a
+clean uniform answer for all 17 seats rather than erroring"). I recognised the shape
+only because a uniform "nothing here" across five independent seats is not what
+disagreement looks like. **A repeat of an already-logged trap is the argument for
+automating the check, not for trying harder** — logged again as a repeat.
+
+### What each objection was, and what I did
+
+**`llm_reliability` (HIGH, gating) — root `ai_service` shadows the step block.**
+Cited MDL-039: "a step-level block is completely dead when a root block exists".
+**REFUTED, twice over, by measurement:**
+- `feature-designer` has **no root `ai_service`** — its only root key is `workflow`.
+- That behaviour *was* `bugs_open/009` and is **fixed**. `resolveAIServiceConfig`
+  (`ai_actions.go:40-96`) is now a per-key overlay, root → step → runtime, "later
+  wins PER KEY", and its own comment says it "replaces first-found-wins, under which
+  the ENTIRE step block was dead config whenever a root block existed".
+
+So MDL-039 describes pre-fix behaviour. **But the seat's `missing` item was still
+right** — I had asserted nothing either way. Added a migration assertion that
+`repair_plan`'s `ai_service` carries all four keys, which stays useful under an
+overlay (the real residual is a key *nobody* supplies, not a shadowed one) and keeps
+holding if a root block is ever added.
+
+**`llm_reliability` (MEDIUM) — set a `thinking` key; adaptive thinking eats
+`max_tokens`.** The *concern* is real and live here. The *remedy* is not: **zero live
+steps fleet-wide set `ai_service.thinking`, and `execute_llm_prompt` does not read
+that key** — the extended-thinking knob it reads is `budget_tokens`
+(`ai_actions.go:359-360`). Setting `thinking` would be dead config, exactly
+`bugs_open/134`'s class. Answered on sizing instead: `repair_plan` uses the same
+model and the same `max_tokens` (32000) as `design`, which demonstrably produces
+staged plans today, and emits an artefact of the same shape — plus a migration
+WARNING if the two ever diverge.
+
+**`reuse_agent` (MEDIUM) — a second implementation of "bounded retry counted from
+`diagnosis_artifacts`".** **CONFIRMED, and acted on.** Measured: no shared helper
+existed — three hand-written copies of the query (two in
+`diagnose_council_decide_action.go`, mine about to be the third). Extracted
+`countRunArtifacts` (`diagnose_artifact_count.go`) and switched **all three** call
+sites to it. Pure refactor for council-decide: same SQL, same `nullIfEmpty` argument,
+same behaviour, its own tests unchanged and passing. The seat's stated risk was the
+right one — "if the council-decide counter's scoping is later fixed, this new copy
+will silently not get the fix" — and one function makes that impossible.
+
+**`debug_historian` (MEDIUM) — `snapshot_agent` double-overload trap.**
+**CONFIRMED, and my rollback block was WRONG.** The 2-arg form writes to
+`agent_definitions_backup`, **not** an `is_snapshot` row in `agent_definitions`; and
+that table copies `created_at` verbatim from the source, so "the newest snapshot"
+ordered by `created_at` is a **tie** — measured, all three `feature-designer` backups
+share source `created_at 2026-07-17 18:06:05`. Only `snapshot_taken_at` discriminates.
+Rewrote the block with restore SQL verified to return the right row. **Migration 222
+(candidate 1) carries the identical wrong instruction** — not edited, it is another
+lane's applied file, but the trap is now in `LANDMINES.md` so either file's reader is
+warned. This was the objection with real teeth: it would have bitten at the worst
+possible moment, mid-rollback.
+
+**`bug_historian` (MEDIUM) — `fix-proposer` left exposed.** Fair. Its `missing` named
+the actual gap: not that the sibling was left, but that *nothing would ever remind
+anyone*. Wrote `273_fix_proposer_plan_repair_loop.sql` — **dry-run clean, so proven
+applicable, and deliberately NOT applied**, because `fix-proposer` belongs to another
+lane and changing another lane's live agent from outside is the collision CLAUDE.md
+warns about. The work is one command away instead of forgotten. Recorded in the bug
+file too.
+
+**`bug_historian` (LOW) — recoverable is not visible.** Right, and this was the best
+observation of the round: 099's *original* complaint was that the loss was **silent**,
+and my first cut made it survivable without making it findable — you had to know to
+look at `metadata->>'note_kind'`. Added an `agent_error_log` row with a distinct code
+`FIX_PLAN_VALIDATION_REFUSED`, the surface this platform already uses for exactly
+this class. Written on **both** outcomes (routed-to-repair at `warning`, exhausted at
+`error`), so the row's absence means "no refusal happened", never "it happened
+quietly".
+
+**`guardian` (MEDIUM) — shared-code blast radius.** No change needed; the seat
+explicitly credited the mitigation and asked it be flagged as blast-radius rather
+than framed as consumer-local. It is right that the `repairStep == ""` check is now
+load-bearing for two agents' *unchanged* guarantee. Stated plainly in the resubmission
+and re-verified `iteration_note` still has no Go reader outside my file.
+
+**Round 1 cost me one resubmission and bought: a corrected rollback that would
+otherwise have failed silently, a deduplicated counter, an observability surface, and
+a sibling migration. Three of the five objections were things I could have measured
+and hadn't.**
