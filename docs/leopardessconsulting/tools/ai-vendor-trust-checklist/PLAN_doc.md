@@ -173,3 +173,91 @@ Every interaction asserts a TERMINAL value (the score, the denominator, or the v
 the visitor reads), never a waypoint such as "a class changed". A
 `no_horizontal_overflow` failure attributed OUTSIDE the tool container is site chrome
 and is not this tool's defect.
+
+---
+
+## ADDENDUM 2026-07-30 — what building it up the ladder actually found
+
+Appended, not edited in: the sections above are what was believed BEFORE the tool
+was placed and driven, and that ordering is the useful part.
+
+### S6 result: 18 pass, 3 fail, 0 unexpected skips
+
+Correlation `dc952633-4bc9-4395-a12f-4e13118f6540`, desktop + mobile, real clicks.
+All five behavioural claims passed on both profiles, and `no_console_errors`
+passed on both. The one skip was the deliberate profile-scoping of `mobile-fit`.
+
+**The three failures are `bugs_open/157`, a platform bug, NOT defects in this
+tool.** `has_visible_area` reports 0 for any axis whose rendered size is a whole
+number, because `VisibleArea` asserts `.(float64)` on a value that
+`playwright-go` returns as `int` when it is integral. `#vtc-c1` is exactly
+`24px x 24px`, so it measured `0x0`; `#vtc-verdict` measured `0x94` on mobile —
+only the integral axis read 0, which is the observation that identifies the bug.
+
+Screenshots of the live URL at 1366x1500 and 390x900 show the checkbox rendering
+as a normal ~24px control and the verdict box at full column width on both
+profiles, and the `interaction` checks in the same run successfully CLICKED
+`#vtc-c1` (Playwright enforces visibility before clicking).
+
+**DO NOT make the checkbox size fractional to turn the gate green.** The `24px`
+is deliberate (WCAG 2.2 target size, in pixels so a site root font-size cannot
+shrink it), and this page is currently the cleanest reproducer of 157.
+
+### S3 correction: the JS asset has a native mechanism, and it closes a defect class
+
+The handoff that scoped this tool prescribed committing the JS through the
+git-adapter by hand. That works and was done first, but it duplicates something
+the platform already does: `rerender_single_page_action.collectJSAssets` reads
+`content_components.js_content` and emits `tools/assets/{function}.js` as part of
+the page's own commit. So `js_content` is set on this component, and the asset
+path is **derived from `function`** rather than typed into the template.
+
+That matters beyond tidiness: it is why a `<script src>` mismatch — the live
+`llm-cost-calculator` defect — becomes structurally impossible here rather than
+merely checked for. Both copies were verified identical by md5 (file, DB row,
+served asset).
+
+### S4 correction: two mechanisms, and they are in tension
+
+The lane's S4 gate ("present in `site_plan_sections`, not only `page_components`")
+does not apply on this site: leopardess's `site_plans` row has **zero**
+`site_plan_sections` rows, and the mechanism actually protecting the other four
+tool pages is `pages.rebuild_policy='owned'` — a hard refusal in
+`save_page_sections_action.go`, not a resolution source.
+
+**And it blocks the initial render.** `page-rerender`'s `save_sections` step IS
+the generic section save that the ownership guard refuses, so the first attempt
+failed with *"page … is rebuild_policy=owned … Refusing to overwrite."* The order
+is forced: render with `generic`, then flip to `owned`. Verified as a red/green
+pair — with `owned` set, the same render refuses and the served page stays
+byte-identical (md5 `c44ee464c88172680248cadb6cc6c225` before and after).
+
+### The naming contract nothing states in one place
+
+Three values must be equal or the acceptance ladder quietly does nothing:
+
+    doc_plans.subject_key  ==  pages.name  ==  content_components.function
+                                            ==  tool-ai-vendor-trust-checklist
+
+`load_docs` keys on `input_data.spec.function`; a mismatch yields an empty fence
+and `request_browser_run` SKIPS with `needs_criteria` — honest, but it is not a
+failure either, so it reads as a clean run that asserted nothing. And
+`request_browser_run` resolves the URL with `name IN ($2, 'tool-' || $2)`, so a
+page named `function` MINUS the prefix matches neither. This page was renamed
+from `ai-vendor-trust-checklist` to `tool-ai-vendor-trust-checklist` for that
+reason; the URL is unaffected because the deployed filename derives from
+`pages.url`.
+
+Measured 2026-07-30: **6 of 22 hosted tools fleet-wide** are unresolvable this
+way, across finetuning.uk, fundamentallyai.com, gamesdesign.co.uk,
+leopardessconsulting.co.uk and vonc.com — including this site's own
+`ai-agent-roi-estimator` and `llm-cost-calculator`. They cannot be
+acceptance-tested at all until renamed.
+
+### One more deliberate decision
+
+`disclaimer_text` is `source:"static"` with the full text as its `fallback`, not
+`source:"llm"`. It is the paragraph that says the checklist is not a guarantee
+("a process, not a promise"). A regeneration that softened it would change what
+the tool claims, so it is deliberately outside the regenerable set. Same
+reasoning as the twelve items.
