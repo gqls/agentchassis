@@ -1,0 +1,830 @@
+<style>
+  .tool-container {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color: var(--color-text);
+    background: var(--color-background);
+  }
+
+  .tool-container h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: var(--color-text);
+    line-height: 1.2;
+  }
+
+  .tool-description {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    margin: 0 0 1.25rem;
+    line-height: 1.5;
+    max-width: 720px;
+  }
+
+  .rcs-provenance {
+    border-left: 3px solid var(--color-primary);
+    background: var(--color-surface);
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    margin: 0 0 2rem;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .rcs-provenance strong { color: var(--color-text); }
+
+  .rcs-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .rcs-panel {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 1.25rem;
+    background: var(--color-surface);
+  }
+
+  .rcs-panel + .rcs-panel { margin-top: 1.25rem; }
+
+  .rcs-panel-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin: 0 0 1rem;
+  }
+
+  .rcs-control { margin-bottom: 1.5rem; }
+  .rcs-control:last-child { margin-bottom: 0; }
+
+  .rcs-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 0.15rem;
+  }
+
+  .rcs-hint {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    line-height: 1.45;
+    margin-bottom: 0.6rem;
+  }
+
+  .rcs-control input[type="range"] {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--color-primary);
+    height: 1.6rem;
+  }
+
+  .rcs-readout {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-top: 0.2rem;
+    min-height: 1.3rem;
+  }
+
+  .rcs-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin-top: -0.1rem;
+  }
+
+  .rcs-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .rcs-preset {
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .rcs-preset:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+  .rcs-seats {
+    max-height: 21rem;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-background);
+  }
+
+  .rcs-seat {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    padding: 0.45rem 0.7rem;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.84rem;
+    cursor: pointer;
+  }
+
+  .rcs-seat:last-child { border-bottom: none; }
+  .rcs-seat:hover { background: var(--color-surface); }
+  .rcs-seat input { margin: 0; accent-color: var(--color-primary); flex: none; }
+  .rcs-seat-name { flex: 1 1 auto; color: var(--color-text); }
+
+  .rcs-seat-rate {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+
+  .rcs-thin {
+    flex: none;
+    font-size: 0.7rem;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    border-radius: 3px;
+    padding: 0 0.25rem;
+  }
+
+  .rcs-headline {
+    text-align: center;
+    padding: 0.5rem 0 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 1.25rem;
+  }
+
+  .rcs-headline-value {
+    font-size: 3.4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rcs-headline-label {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-top: 0.4rem;
+    line-height: 1.4;
+  }
+
+  .rcs-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .rcs-stat {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 0.7rem 0.8rem;
+    background: var(--color-background);
+  }
+
+  .rcs-stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .rcs-stat-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: 0.2rem;
+    line-height: 1.35;
+  }
+
+  .rcs-subhead {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0 0 0.15rem;
+  }
+
+  .rcs-subhint {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    margin: 0 0 0.7rem;
+    line-height: 1.45;
+  }
+
+  .rcs-blockers { margin-bottom: 1.5rem; }
+
+  .rcs-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.82rem;
+  }
+
+  .rcs-bar-name {
+    flex: 0 0 9.5rem;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rcs-bar-track {
+    flex: 1 1 auto;
+    height: 0.7rem;
+    background: var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .rcs-bar-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 2px;
+  }
+
+  .rcs-bar-val {
+    flex: 0 0 3rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+
+  .rcs-reality { margin-bottom: 1.25rem; }
+
+  .rcs-reality-track {
+    position: relative;
+    height: 2.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-background);
+    margin-bottom: 0.4rem;
+  }
+
+  .rcs-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-text-muted);
+  }
+
+  /* The three measured figures are listed BELOW the track, not printed on it. Absolutely
+     positioned labels at 2.6% and 100% overflow the track's own edges and collide with
+     each other at any narrow width -- visible on the first screenshot of this page. */
+  .rcs-legend {
+    list-style: none;
+    margin: 0.6rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .rcs-legend li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.76rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+  }
+
+  .rcs-legend-pct {
+    flex: 0 0 3.2rem;
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+  }
+
+  .rcs-you {
+    position: absolute;
+    top: -0.2rem;
+    bottom: -0.2rem;
+    width: 3px;
+    background: var(--color-primary);
+  }
+
+  .rcs-you-label {
+    position: absolute;
+    bottom: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    white-space: nowrap;
+    transform: translateX(-50%);
+    background: var(--color-background);
+    padding: 0 0.2rem;
+  }
+
+  .rcs-assumptions {
+    border-top: 1px solid var(--color-border);
+    padding-top: 1rem;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+  }
+
+  .rcs-assumptions p { margin: 0 0 0.6rem; }
+  .rcs-assumptions p:last-child { margin-bottom: 0; }
+  .rcs-assumptions .rcs-flag { color: var(--color-text); font-weight: 700; }
+
+  .rcs-empty {
+    padding: 1rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+
+  @media (max-width: 860px) {
+    .rcs-layout { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+    .rcs-headline-value { font-size: 2.8rem; }
+    .rcs-bar-name { flex: 0 0 7rem; }
+  }
+</style>
+
+<div class="tool-container" data-component="tool-review-council-simulator">
+  <h2>AI Review Council Simulator</h2>
+  <p class="tool-description">
+    Put a panel of AI reviewers in front of every change and some proportion of your work gets sent
+    back. This tool models how much. Choose which reviewers sit on the panel, how severe an objection
+    has to be before it blocks, and how many revision rounds you are willing to run, and it estimates
+    how often a sound change passes.
+  </p>
+
+  <div class="rcs-provenance">
+    <strong>The rates in this tool are real.</strong> Every reviewer below is a seat on the review
+    council we run against changes to our own platform, and its objection rate is measured from
+    <strong>362 completed council runs between 10 and 30 July 2026</strong>. Nothing here is
+    illustrative. Where a seat has sat on too few runs to be reliable it is marked, and the model's
+    assumptions are stated underneath the results rather than buried.
+  </div>
+
+  <div class="rcs-layout">
+
+    <div class="rcs-controls">
+      <div class="rcs-panel">
+        <p class="rcs-panel-title">How strict is the panel</p>
+
+        <div class="rcs-control">
+          <label class="rcs-label" for="rcs-threshold">Blocking threshold</label>
+          <span class="rcs-hint">
+            How severe an objection has to be before it sends the change back. This is the single
+            biggest lever, and we have measured it: raising our own threshold on 22 July 2026 moved
+            first-round approval from 3 per cent to 51 per cent. It starts where we actually run it.
+          </span>
+          <input type="range" id="rcs-threshold" min="0" max="2" step="1" value="2">
+          <div class="rcs-scale">
+            <span>Any objection</span>
+            <span>Medium and up</span>
+            <span>High only</span>
+          </div>
+          <div class="rcs-readout" id="rcs-threshold-out"></div>
+        </div>
+
+        <div class="rcs-control">
+          <label class="rcs-label" for="rcs-relevance">Reviewer relevance</label>
+          <span class="rcs-hint">
+            Not every seat has an opinion on every change. Ours abstain on roughly a third of runs
+            because the change does not touch the files they watch. Lower this to review more
+            narrowly.
+          </span>
+          <input type="range" id="rcs-relevance" min="10" max="100" step="5" value="70">
+          <div class="rcs-scale"><span>10%</span><span>100%</span></div>
+          <div class="rcs-readout" id="rcs-relevance-out"></div>
+        </div>
+
+        <div class="rcs-control">
+          <label class="rcs-label" for="rcs-rounds">Revision rounds</label>
+          <span class="rcs-hint">
+            How many times you are prepared to revise and resubmit before giving up.
+          </span>
+          <input type="range" id="rcs-rounds" min="1" max="6" step="1" value="2">
+          <div class="rcs-scale"><span>1</span><span>6</span></div>
+          <div class="rcs-readout" id="rcs-rounds-out"></div>
+        </div>
+      </div>
+
+      <div class="rcs-panel">
+        <p class="rcs-panel-title">Who sits on the panel</p>
+        <div class="rcs-presets">
+          <button type="button" class="rcs-preset" data-preset="typical">Our typical run</button>
+          <button type="button" class="rcs-preset" data-preset="minimal">Minimal pair</button>
+          <button type="button" class="rcs-preset" data-preset="all">Every seat</button>
+          <button type="button" class="rcs-preset" data-preset="none">Clear</button>
+        </div>
+        <div class="rcs-seats" id="rcs-seats"></div>
+        <div class="rcs-readout" id="rcs-seats-out"></div>
+      </div>
+    </div>
+
+    <div class="rcs-panel rcs-results" id="rcs-results">
+      <div class="rcs-headline">
+        <div class="rcs-headline-value" id="rcs-pass1">--</div>
+        <div class="rcs-headline-label" id="rcs-pass1-label">chance a sound change passes first time</div>
+      </div>
+
+      <div class="rcs-stats">
+        <div class="rcs-stat">
+          <div class="rcs-stat-value" id="rcs-passn">--</div>
+          <div class="rcs-stat-label" id="rcs-passn-label">passes within your rounds</div>
+        </div>
+        <div class="rcs-stat">
+          <div class="rcs-stat-value" id="rcs-rounds-needed">--</div>
+          <div class="rcs-stat-label">rounds to get through, on average</div>
+        </div>
+        <div class="rcs-stat">
+          <div class="rcs-stat-value" id="rcs-reviews">--</div>
+          <div class="rcs-stat-label">reviews spent per change, across those rounds</div>
+        </div>
+        <div class="rcs-stat">
+          <div class="rcs-stat-value" id="rcs-firing">--</div>
+          <div class="rcs-stat-label">seats expected to actually weigh in per round</div>
+        </div>
+      </div>
+
+      <div class="rcs-blockers">
+        <p class="rcs-subhead">Most likely to send it back</p>
+        <p class="rcs-subhint">
+          Each seat's chance of raising a blocking objection on a given round, at your threshold and
+          relevance.
+        </p>
+        <div id="rcs-blockers-list"></div>
+      </div>
+
+      <div class="rcs-reality">
+        <p class="rcs-subhead">Against what our own council actually did</p>
+        <p class="rcs-subhint">
+          Your configuration placed on the same axis as three measured figures from the 362 runs.
+        </p>
+        <div class="rcs-reality-track" id="rcs-reality-track"></div>
+        <div class="rcs-scale"><span>0% pass</span><span>100% pass</span></div>
+        <ul class="rcs-legend" id="rcs-reality-legend"></ul>
+      </div>
+
+      <div class="rcs-assumptions">
+        <p>
+          <span class="rcs-flag">Where this model is honest:</span> the per-seat objection rates,
+          the abstention rate, the severity mix and the three comparison figures are all counted
+          from the 362 runs, not estimated.
+        </p>
+        <p>
+          <span class="rcs-flag">Where it is not:</span> it treats seats as independent, which they
+          are not, since a badly shaped change tends to draw objections from several seats at once.
+          It also treats each round as a fresh roll of the dice, which understates a real council,
+          because a revision answers the objection it was actually given.
+        </p>
+        <p>
+          <span class="rcs-flag">Why our real number is lower:</span> on the settings we actually
+          run, this model reads about 70 per cent while our measured first-round approval is 51.
+          The gap is the phrase "a sound change". The model asks how often a panel objects to
+          nothing; reality also contains changes that deserved the objection they got. Read these
+          figures as the cost of the panel, not the quality of your work.
+        </p>
+        <p id="rcs-thin-note"></p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  /* === tool-doc ===
+  name: AI Review Council Simulator
+  function: tool-review-council-simulator
+  page: /tools/review-council-simulator.html
+  description: Models how often a change passes an AI reviewer panel, given which seats sit on it, how severe an objection must be to block, and how many revision rounds are run. Calibrated on 362 real council runs from the platform's own review gate (2026-07-10 to 2026-07-30).
+  behaviour: |
+    - Three sliders: blocking threshold (any / medium+ / high only), reviewer relevance (10-100%), revision rounds (1-6).
+    - A scrollable roster of 26 real council seats, each shown with its measured objection rate at the current threshold; four presets (typical / minimal pair / every seat / clear).
+    - Everything recomputes live on input; there is no calculate button, because sliders should respond as they move.
+    - Outputs: first-round pass probability, pass-within-N-rounds, mean rounds to pass, reviews spent, expected seats firing, a ranked blocker bar chart, and a reality band placing the user's configuration against three measured figures (2.6% pre-fix, 51.0% post-fix, 30.4% all-history).
+    - Seats with fewer than 20 recorded firings are flagged 'thin' in the roster and counted in a note under the results, because a 100% rate over 4 runs is not a rate.
+    - Zero seats selected shows an explicit empty state rather than a misleading 100%.
+  data provenance: |
+    All seat rates and comparison figures were measured on 2026-07-30 by aggregating
+    diagnosis_artifacts.kind='council_report' (362 rows, body::jsonb -> reviews[]).
+    They are a DATED SNAPSHOT baked in at build time. This page is static HTML with no
+    API to call at load, so the numbers do not refresh themselves. Re-measure and
+    re-render if quoting them after roughly a month; the RUNBOOK holds the queries.
+  === /tool-doc === */
+  (function () {
+    'use strict';
+
+    // Measured 2026-07-30 from 362 council_report artifacts (2026-07-10..2026-07-30).
+    // fired = times the seat reviewed; any/med/high = % of those runs in which it raised
+    // at least one objection of that severity or higher.
+    var SEATS = [
+      { id: 'guardian',             label: 'Guardian (stability)',   fired: 299, any: 89.3, med: 67.2, high: 11.4, typical: true },
+      { id: 'reuse_agent',          label: 'Reuse',                  fired: 280, any: 48.2, med: 27.1, high: 0.4,  typical: true },
+      { id: 'editquality',          label: 'Edit quality',           fired: 279, any: 82.4, med: 50.2, high: 11.8, typical: true, minimal: true },
+      { id: 'debug_historian',      label: 'Debug historian',        fired: 269, any: 54.6, med: 38.7, high: 5.6,  typical: true },
+      { id: 'mission',              label: 'Mission',                fired: 239, any: 0.0,  med: 0.0,  high: 0.0,  typical: true },
+      { id: 'constitution',         label: 'Constitution',           fired: 239, any: 6.7,  med: 3.3,  high: 0.4,  typical: true },
+      { id: 'prior_art_librarian',  label: 'Prior art librarian',    fired: 227, any: 70.5, med: 48.9, high: 5.3,  typical: true },
+      { id: 'bug_historian',        label: 'Bug historian',          fired: 194, any: 96.4, med: 87.6, high: 13.9, typical: true },
+      { id: 'guidelines',           label: 'Guidelines',             fired: 155, any: 10.3, med: 10.3, high: 3.9 },
+      { id: 'render_guardian',      label: 'Render guardian',        fired: 151, any: 13.2, med: 6.6,  high: 2.6 },
+      { id: 'diagnosis_guardian',   label: 'Diagnosis guardian',     fired: 141, any: 3.5,  med: 2.8,  high: 0.7 },
+      { id: 'tooling_provenance',   label: 'Tooling provenance',     fired: 124, any: 47.6, med: 25.8, high: 1.6 },
+      { id: 'improvement_guardian', label: 'Improvement guardian',   fired: 84,  any: 13.1, med: 7.1,  high: 1.2 },
+      { id: 'compliance',           label: 'Compliance',             fired: 77,  any: 16.9, med: 9.1,  high: 2.6 },
+      { id: 'llm_reliability',      label: 'Model reliability',      fired: 61,  any: 8.2,  med: 4.9,  high: 1.6 },
+      { id: 'honesty',              label: 'Honesty',                fired: 61,  any: 23.0, med: 18.0, high: 0.0 },
+      { id: 'feasibility',          label: 'Feasibility',            fired: 55,  any: 83.6, med: 81.8, high: 21.8 },
+      { id: 'journeys',             label: 'User journeys',          fired: 55,  any: 80.0, med: 72.7, high: 5.5 },
+      { id: 'mvp',                  label: 'MVP scope',              fired: 55,  any: 50.9, med: 41.8, high: 3.6 },
+      { id: 'adoption_guardian',    label: 'Adoption guardian',      fired: 39,  any: 0.0,  med: 0.0,  high: 0.0 },
+      { id: 'architecture',         label: 'Architecture',           fired: 31,  any: 71.0, med: 22.6, high: 0.0 },
+      { id: 'contracts',            label: 'Contracts',              fired: 21,  any: 100.0, med: 100.0, high: 85.7 },
+      { id: 'prior_art',            label: 'Prior art',              fired: 6,   any: 66.7, med: 66.7, high: 50.0 },
+      { id: 'observable_outcome',   label: 'Observable outcome',     fired: 6,   any: 0.0,  med: 0.0,  high: 0.0 },
+      { id: 'checkability',         label: 'Checkability',           fired: 5,   any: 100.0, med: 100.0, high: 60.0 },
+      { id: 'deferral_honesty',     label: 'Deferral honesty',       fired: 4,   any: 100.0, med: 100.0, high: 100.0 }
+    ];
+
+    var THIN_AT = 20; // below this many recorded firings, a rate is not a rate
+
+    // Measured comparison figures, same 362 runs.
+    var REALITY = [
+      { pct: 2.6,  label: 'us before 22 Jul (4 of 154)' },
+      { pct: 30.4, label: 'all 362 runs (110)' },
+      { pct: 51.0, label: 'us after 22 Jul (106 of 208)' }
+    ];
+
+    // Which of these we actually run is a measured fact, not a preference: of our 110
+    // approvals, 99 carried a medium-severity objection and passed anyway, and only one
+    // carried a high-severity one. All 15 rejections carried a high one. So high blocks
+    // and medium is advisory, which is the third position, not the second.
+    var THRESHOLDS = [
+      { key: 'any',  name: 'Any objection blocks',
+        note: 'Strictest. Every objection sends the change back, however minor. We have never run a panel this strict.' },
+      { key: 'med',  name: 'Medium and high block',
+        note: 'Stricter than we run. Medium-severity objections would block as well as high ones.' },
+      { key: 'high', name: 'Only high severity blocks',
+        note: 'What we actually run. 99 of our 110 approvals carried a medium objection and passed anyway; only one carried a high one.' }
+    ];
+
+    var el = {};
+    var enabled = {};
+
+    function pct(n, dp) {
+      return n.toFixed(dp === undefined ? 1 : dp) + '%';
+    }
+
+    // A rounded '0%' beside a visible bar reads as "never objects", which is a different
+    // claim from "objects rarely". Seats that genuinely never objected are filtered out
+    // before this is called, so anything reaching it is non-zero.
+    // Escaped, because this is built into innerHTML and a bare '<' before a digit is
+    // valid-by-accident rather than valid.
+    function pctFloor(n) {
+      return n > 0 && n < 1 ? '&lt;1%' : pct(n, 0);
+    }
+
+    function seatRate(seat, tKey) {
+      return seat[tKey] / 100;
+    }
+
+    function selectedSeats() {
+      return SEATS.filter(function (s) { return enabled[s.id]; });
+    }
+
+    function compute() {
+      var tIdx = parseInt(el.threshold.value, 10);
+      var tKey = THRESHOLDS[tIdx].key;
+      var relevance = parseInt(el.relevance.value, 10) / 100;
+      var rounds = parseInt(el.rounds.value, 10);
+      var seats = selectedSeats();
+
+      var blockers = seats.map(function (s) {
+        return { seat: s, pBlock: relevance * seatRate(s, tKey) };
+      });
+
+      var pPass1 = blockers.reduce(function (acc, b) { return acc * (1 - b.pBlock); }, 1);
+      var pPassN = 1 - Math.pow(1 - pPass1, rounds);
+      var meanRounds = pPass1 > 0 ? 1 / pPass1 : Infinity;
+      var firing = seats.length * relevance;
+
+      return {
+        tIdx: tIdx, tKey: tKey, relevance: relevance, rounds: rounds,
+        seats: seats, blockers: blockers,
+        pPass1: pPass1, pPassN: pPassN, meanRounds: meanRounds, firing: firing
+      };
+    }
+
+    function renderControls(r) {
+      var t = THRESHOLDS[r.tIdx];
+      el.thresholdOut.textContent = t.name;
+      el.thresholdOut.title = t.note;
+      el.relevanceOut.textContent = Math.round(r.relevance * 100) +
+        '% of seats have an opinion on a given change';
+      el.roundsOut.textContent = r.rounds === 1
+        ? 'one shot, no resubmission'
+        : 'up to ' + r.rounds + ' attempts';
+      el.seatsOut.textContent = r.seats.length === 1
+        ? '1 seat on the panel'
+        : r.seats.length + ' seats on the panel';
+    }
+
+    function renderSeatRates(tKey) {
+      SEATS.forEach(function (s) {
+        var node = document.getElementById('rcs-rate-' + s.id);
+        if (node) node.textContent = pctFloor(s[tKey]);
+      });
+    }
+
+    function renderResults(r) {
+      if (!r.seats.length) {
+        el.pass1.textContent = 'n/a';
+        el.pass1Label.textContent = 'no seats selected, so nothing is being reviewed';
+        el.passN.textContent = '--';
+        el.roundsNeeded.textContent = '--';
+        el.reviews.textContent = '--';
+        el.firing.textContent = '0';
+        el.blockersList.innerHTML =
+          '<div class="rcs-empty">Select at least one seat to see who would block you.</div>';
+      } else {
+        el.pass1.textContent = pct(r.pPass1 * 100);
+        el.pass1Label.textContent = 'chance a sound change passes first time';
+        el.passN.textContent = pct(r.pPassN * 100);
+        el.passNLabel.textContent = r.rounds === 1
+          ? 'passes within 1 round'
+          : 'passes within ' + r.rounds + ' rounds';
+        el.roundsNeeded.textContent = isFinite(r.meanRounds)
+          ? r.meanRounds.toFixed(1)
+          : 'never';
+        el.reviews.textContent = isFinite(r.meanRounds)
+          ? Math.round(r.meanRounds * r.firing).toString()
+          : '--';
+        el.firing.textContent = r.firing.toFixed(1);
+
+        var ranked = r.blockers.slice().sort(function (a, b) { return b.pBlock - a.pBlock; });
+        var max = ranked[0].pBlock;
+        if (max <= 0) {
+          el.blockersList.innerHTML =
+            '<div class="rcs-empty">At this threshold, none of the selected seats has ever ' +
+            'raised a blocking objection.</div>';
+        } else {
+          var rows = ranked.filter(function (b) { return b.pBlock > 0; }).slice(0, 8);
+          el.blockersList.innerHTML = rows.map(function (b) {
+            var w = Math.max(2, (b.pBlock / max) * 100);
+            return '<div class="rcs-bar-row">' +
+              '<span class="rcs-bar-name" title="' + b.seat.label + '">' + b.seat.label + '</span>' +
+              '<span class="rcs-bar-track"><span class="rcs-bar-fill" style="width:' +
+              w.toFixed(1) + '%"></span></span>' +
+              '<span class="rcs-bar-val">' + pctFloor(b.pBlock * 100) + '</span>' +
+              '</div>';
+          }).join('');
+        }
+      }
+      renderReality(r);
+      renderThinNote(r);
+    }
+
+    function renderReality(r) {
+      var html = REALITY.map(function (m) {
+        return '<span class="rcs-marker" style="left:' + m.pct + '%" title="' +
+          m.label + '"></span>';
+      }).join('');
+      if (r.seats.length) {
+        var p = r.pPass1 * 100;
+        // Clamp the label at both ends: translateX(-50%) at 2% or 99% hangs the text
+        // outside the track. Left-align near 0, right-align near 100, centre between.
+        var style, cls = 'rcs-you-label';
+        if (p < 14) style = 'left:2px;transform:none';
+        else if (p > 86) style = 'right:2px;left:auto;transform:none';
+        else style = 'left:' + p + '%';
+        html += '<span class="rcs-you" style="left:' + Math.min(p, 99.6) + '%"></span>' +
+          '<span class="' + cls + '" style="' + style + '">you: ' + pct(p, 0) + '</span>';
+      }
+      el.realityTrack.innerHTML = html;
+
+      el.realityLegend.innerHTML = REALITY.map(function (m) {
+        return '<li><span class="rcs-legend-pct">' + pct(m.pct, 1) + '</span>' +
+          '<span>' + m.label + '</span></li>';
+      }).join('');
+    }
+
+    function renderThinNote(r) {
+      var thin = r.seats.filter(function (s) { return s.fired < THIN_AT; });
+      if (!thin.length) {
+        el.thinNote.textContent = '';
+        return;
+      }
+      var names = thin.map(function (s) { return s.label; }).join(', ');
+      el.thinNote.innerHTML = '<span class="rcs-flag">Thin evidence in this panel:</span> ' +
+        names + '. Each has sat on fewer than ' + THIN_AT + ' runs, so its rate moves a lot ' +
+        'on one more objection. Deselect them to see how much of your answer they carry.';
+    }
+
+    function update() {
+      var r = compute();
+      renderControls(r);
+      renderSeatRates(r.tKey);
+      renderResults(r);
+    }
+
+    function applyPreset(name) {
+      SEATS.forEach(function (s) {
+        if (name === 'all') enabled[s.id] = true;
+        else if (name === 'none') enabled[s.id] = false;
+        else if (name === 'minimal') enabled[s.id] = !!s.minimal || s.id === 'guardian';
+        else enabled[s.id] = !!s.typical;
+        var cb = document.getElementById('rcs-cb-' + s.id);
+        if (cb) cb.checked = enabled[s.id];
+      });
+      update();
+    }
+
+    function buildRoster() {
+      el.seats.innerHTML = SEATS.map(function (s) {
+        var thin = s.fired < THIN_AT
+          ? '<span class="rcs-thin" title="only ' + s.fired + ' recorded runs">thin</span>'
+          : '';
+        return '<label class="rcs-seat" for="rcs-cb-' + s.id + '">' +
+          '<input type="checkbox" id="rcs-cb-' + s.id + '" data-seat="' + s.id + '">' +
+          '<span class="rcs-seat-name">' + s.label + '</span>' + thin +
+          '<span class="rcs-seat-rate" id="rcs-rate-' + s.id +
+          '" title="objection rate at the current threshold, over ' + s.fired +
+          ' runs">--</span>' +
+          '</label>';
+      }).join('');
+
+      el.seats.addEventListener('change', function (e) {
+        var id = e.target && e.target.getAttribute('data-seat');
+        if (!id) return;
+        enabled[id] = e.target.checked;
+        update();
+      });
+    }
+
+    function init() {
+      el.threshold = document.getElementById('rcs-threshold');
+      el.relevance = document.getElementById('rcs-relevance');
+      el.rounds = document.getElementById('rcs-rounds');
+      el.thresholdOut = document.getElementById('rcs-threshold-out');
+      el.relevanceOut = document.getElementById('rcs-relevance-out');
+      el.roundsOut = document.getElementById('rcs-rounds-out');
+      el.seats = document.getElementById('rcs-seats');
+      el.seatsOut = document.getElementById('rcs-seats-out');
+      el.pass1 = document.getElementById('rcs-pass1');
+      el.pass1Label = document.getElementById('rcs-pass1-label');
+      el.passN = document.getElementById('rcs-passn');
+      el.passNLabel = document.getElementById('rcs-passn-label');
+      el.roundsNeeded = document.getElementById('rcs-rounds-needed');
+      el.reviews = document.getElementById('rcs-reviews');
+      el.firing = document.getElementById('rcs-firing');
+      el.blockersList = document.getElementById('rcs-blockers-list');
+      el.realityTrack = document.getElementById('rcs-reality-track');
+      el.realityLegend = document.getElementById('rcs-reality-legend');
+      el.thinNote = document.getElementById('rcs-thin-note');
+
+      if (!el.threshold || !el.seats || !el.pass1) return;
+
+      buildRoster();
+
+      [el.threshold, el.relevance, el.rounds].forEach(function (input) {
+        input.addEventListener('input', update);
+        input.addEventListener('change', update);
+      });
+
+      Array.prototype.forEach.call(document.querySelectorAll('.rcs-preset'), function (btn) {
+        btn.addEventListener('click', function () {
+          applyPreset(btn.getAttribute('data-preset'));
+        });
+      });
+
+      applyPreset('typical');
+    }
+
+    // This script tag sits AFTER the markup it queries, so the DOM it needs already
+    // exists. The readyState guard is belt and braces for the case where this template
+    // is ever bundled into a head-loaded snippet file, which is exactly how the
+    // teaser-reveal-panel silently no-opped for five rounds.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+</script>

@@ -1168,3 +1168,67 @@ browser before calling it done. That's the lesson the carousel took five rounds 
 teach, and it would be a shame to pay for it twice.
 
 Handoff is written: `HANDOFF_2026-07-30_continue_here.md`, in this same folder.
+
+---
+
+## 2026-07-30, evening — the third tool is built, and it is about our own review council
+
+The thing you asked for that was still outstanding is done. There is a new page at
+`fundamentallyai.com/tools/review-council-simulator.html`, it has sliders, and every
+number in it is real.
+
+What it does: you choose which reviewers sit on the panel, how serious an objection has
+to be before it sends the change back, and how many times you are willing to revise.
+It tells you how often a sound change would get through first time, which reviewers are
+most likely to stop you, and what that costs you in review rounds. It is calibrated on
+362 actual council runs from our own platform between the 10th and the 30th of July,
+with the real objection rate of each of the 26 seats.
+
+I picked this subject rather than "pages and sites hosted" on purpose. We do host 442
+pages across 14 sites, and 110 of those pages are tools, which are perfectly good
+numbers. But nothing a visitor could slide would change them, so a page built on them
+would have been a dashboard to look at rather than a tool to use, and you were clear it
+should be a tool. The council numbers are different: the whole point of the thing is
+that the settings change the answer, and we have the data to say by how much.
+
+Three things happened while building it that are worth telling you about.
+
+**A number disagreed with itself, and that caught a false claim.** The tool first
+shipped with its middle setting labelled "medium and high objections block: this is what
+we run". With that setting it predicted that about 5% of sound changes would pass, while
+our real approval rate is 51%. That gap was too wide to be a modelling artefact, so I
+checked. Of our 110 approvals, 99 contained a medium-severity objection and sailed
+through anyway; only one contained a high-severity one, and every single rejection had a
+high one. So medium objections are advice, not a block, and the setting we actually run
+is the *loosest* of the three, not the middle. The label was wrong about our own system.
+It now says the right thing and starts in the right place.
+
+**The tool's own test lied to me first, in the most convincing way possible.** You will
+remember the carousel bug from earlier in the week, where the JavaScript never ran and
+five rounds of checking failed to notice because nothing ever clicked anything. So this
+time I wrote a test that drives the real controls in a real browser. Its first run said
+the new component was completely dead: no numbers, no reviewer list, no response to the
+sliders. That is exactly what the carousel bug looked like. The component was fine. The
+*test* was wrong: it was inspecting the page a fraction of a second too early, before
+the component had started up. If I had trusted it and "fixed" the component, I would
+have broken something that worked. I have written that trap down where the next person
+will hit it, and then I checked the test could still fail properly by deliberately
+breaking the component six different ways. It catches all six.
+
+**And then a screenshot found something no amount of testing had.** Forty-four automated
+checks were passing when I looked at the actual page and saw that the little chart
+comparing your settings against our real figures had its three labels overlapping each
+other and spilling out of its own box. The tests could not see it because they were
+checking what the page *said*, not where things *sat* — the same way you spotted the
+squashed labels on the gripper charts. Fixed, and there are now three checks guarding
+the positions so it cannot come back quietly.
+
+The one judgement call I want to flag: the tool's estimates are deliberately labelled as
+approximate on the page itself, including the two ways the model is wrong (it assumes
+reviewers act independently, which they do not, and it treats each revision as a fresh
+roll of the dice, which is harsher than reality). I would rather the page say that
+plainly than imply a precision we do not have. It also says that the figures are a dated
+snapshot from July, because the page is static and cannot go and re-count them itself.
+
+Still not started, and still a separate thread on your instruction: the staged
+step-by-step build system with stage gates. That proposal is written and waiting.

@@ -630,3 +630,84 @@ measures the CLOSED page — the same number, a different question. Use
 the DOM and reads computed colours. It prints the count of revealed bodies it
 measured, so a run that failed to open anything is distinguishable from a clean one.
 Note the site is behind Cloudflare: fetch with a browser `User-Agent` or get a 403.
+
+## The council numbers behind `tool-review-council-simulator` (added 2026-07-30)
+
+The tool's rates are a **dated snapshot baked into the template at build time** (static
+page, no API to call at load). Re-measure with these before quoting them anywhere, and
+re-render if they have moved. The source is `diagnosis_artifacts` where
+`kind='council_report'` — `body` is TEXT holding JSON, so cast it: `body::jsonb`.
+
+**Per-seat objection rate at each severity threshold** — this is the tool's engine:
+
+```sql
+WITH r AS (SELECT (body::jsonb) AS j FROM diagnosis_artifacts WHERE kind='council_report'),
+rev AS (SELECT rv->>'reviewer' AS seat, COALESCE(rv->'objections','[]'::jsonb) AS objs
+        FROM r, jsonb_array_elements(j->'reviews') rv),
+sev AS (SELECT seat,
+   EXISTS (SELECT 1 FROM jsonb_array_elements(objs) o WHERE o->>'severity'='high') AS hi,
+   EXISTS (SELECT 1 FROM jsonb_array_elements(objs) o WHERE o->>'severity' IN ('high','medium')) AS med,
+   jsonb_array_length(objs) > 0 AS any FROM rev)
+SELECT seat, count(*) AS fired,
+       round(100.0*count(*) FILTER (WHERE any)/count(*),1) AS pct_any,
+       round(100.0*count(*) FILTER (WHERE med)/count(*),1) AS pct_med_plus,
+       round(100.0*count(*) FILTER (WHERE hi)/count(*),1)  AS pct_high
+FROM sev GROUP BY seat ORDER BY fired DESC;
+```
+
+**Approval rate before/after the 2026-07-22 decision-rule fix** (`bugs_closed/057`):
+
+```sql
+WITH r AS (SELECT created_at, (body::jsonb)->>'decision' AS d
+             FROM diagnosis_artifacts WHERE kind='council_report')
+SELECT CASE WHEN created_at < '2026-07-22' THEN 'pre-fix' ELSE 'post-fix' END AS era,
+       count(*) AS runs, count(*) FILTER (WHERE d='approved') AS approved,
+       round(100.0*count(*) FILTER (WHERE d='approved')/count(*),1) AS pct
+FROM r GROUP BY 1;
+```
+
+**Does a medium objection block?** (it does not, and this is what fixed a false label):
+
+```sql
+WITH r AS (SELECT (body::jsonb) AS j FROM diagnosis_artifacts WHERE kind='council_report')
+SELECT j->>'decision' AS decision, count(*) AS runs,
+  count(*) FILTER (WHERE EXISTS (SELECT 1 FROM jsonb_array_elements(j->'reviews') rv,
+      jsonb_array_elements(COALESCE(rv->'objections','[]'::jsonb)) o
+      WHERE o->>'severity'='high')) AS with_high,
+  count(*) FILTER (WHERE EXISTS (SELECT 1 FROM jsonb_array_elements(j->'reviews') rv,
+      jsonb_array_elements(COALESCE(rv->'objections','[]'::jsonb)) o
+      WHERE o->>'severity'='medium')) AS with_medium
+FROM r GROUP BY 1;
+```
+
+Measured 2026-07-30: approved 110 runs, **99 with a medium objection, 1 with a high**;
+rejected 15, **all 15 with a high**. So high blocks, medium is advisory.
+
+### Gotchas that cost real time here
+
+- **Two different denominators, both real.** `doc_notes WHERE categories ? 'council-gate'`
+  returns **284** rows but 18 are threads' own notes rather than verdicts (verdict bodies
+  start `COUNCIL GATE — <VERDICT>`), so the verdict denominator is **266**, starting
+  07-17. `diagnosis_artifacts` has **362** reports starting 07-10, because they include
+  the fix-loop's own council runs. Per-seat data exists ONLY in the 362.
+- **`(round N)` in a verdict note is always 1.** All 266 say `(round 1)`. There is no
+  rounds-to-approval distribution in that field; do not model one.
+- **`pct_any` exceeds the seat's `verdict='object'` rate** (guardian: 89.3% vs 70.2%)
+  because a seat can attach advisory objections to an `approve`. Pick the one that
+  matches your question and say which.
+- **`diagnosis_artifacts` has `body` and `metadata`, NOT a `content` column.** `\d` it
+  first; `jsonb_object_keys(content)` fails.
+
+### Re-rendering this page after a template edit
+
+```bash
+python3 components/tool-review-council-simulator/install.py --emit   # first install only
+# template change thereafter: UPDATE content_components ... then queue a rerender with
+# reason='section_data_resolved' (see "Re-rendering a page so a template change reaches
+# the served HTML" above). Assemble-only will NOT pick up a template change.
+python3 scripts/probe_council_simulator.py --url https://fundamentallyai.com/tools/review-council-simulator.html
+```
+
+Measured 2026-07-30: two of three re-renders completed in **under 2 minutes**; the third
+sat `triaged` for over 11. Same route, same payload, 5x the latency. Budget the 10
+minutes the runbook says and do not re-dispatch on the strength of a slow one.

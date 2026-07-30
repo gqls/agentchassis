@@ -3413,3 +3413,150 @@ their reproduction of 027's S5 gate drops *"`<style>` sliced away before countin
 That trap was hit **twice** in this lane (a CSS rule's own selector counted as an
 element, over-counting by exactly one) and it is the kind of clause that only looks
 redundant until it bites.
+
+## 2026-07-30 (evening) — the third tool page: AI Review Council Simulator, built, S6-gated and live
+
+The owner's "not done" item from the morning handoff: an interactive tool page on real
+live platform numbers. Built as `tool-review-council-simulator`, live at
+`/tools/review-council-simulator.html`. Full intent and the do-not-undo list are in the
+tool's own travelling PLAN (`doc_plans`, `subject_type='tool'`,
+`subject_key='tool-review-council-simulator'`); this entry is the log.
+
+**Did the "look at how those are actually built first" step before designing.** The
+pattern: `page_type='tool'`, a 4-part stack (`hero-tool`, `tool-guide-intro`,
+`tool-<slug>` widget, `tool-cta`), and the widget is ONE self-contained
+`html_template` (~35KB) with `input_schema` NULL, `js_content` NULL,
+`template_variable_count` 0, `category=interactive`, `component_level=tool`. Its inline
+`<script>` sits AFTER its markup. Forked per site: four rows share
+`function='tool-llm-cost-calculator'`. Copied that shape. The two tool pages differ
+(one has 4 sections, one has 0 in `pages.sections` and renders anyway), so "the pattern"
+is really the fuller of the two.
+
+**Tool pages on this site are NOT in `site_plan_sections`.** Only the 7 plan-managed
+pages are. So the "placement lives in three places" landmine reduces to two here, and
+adding plan rows would be actively wrong: it invites the plan-driven rebuild to
+regenerate the copy with an LLM. Did not add them.
+
+### The measurement, and the two things it killed
+
+Measured everything fresh rather than reusing a figure. Source for the council numbers
+is `diagnosis_artifacts` where `kind='council_report'` — 362 rows, 2026-07-10 to
+2026-07-30, `body::jsonb->'reviews'` giving `reviewer` / `verdict` /
+`objections[].severity` per seat. Queries are now in the RUNBOOK.
+
+- **Killed: rounds-to-approval.** I intended to model the real distribution of how many
+  rounds a change takes. **All 266 council-gate verdict notes say `(round 1)`.** There
+  is no distribution in that source. Nothing was built on it. Had I not looked, this
+  page would have shipped a fabricated curve.
+- **Corrected: CLAUDE.md's "approval ran ~80%".** That is a two-day peak, not the
+  sustained rate. By day, post-fix is **51.0% (106/208)** from 07-22 against **2.6%
+  (4/154)** before; individual days do reach 62-73%. The tool quotes 51%, and the
+  pre/post pair became the most interesting thing on the page.
+- **Denominators, counted not assumed:** 284 `doc_notes` carry the `council-gate`
+  category but 18 are threads' own notes, not verdicts, so the verdict denominator is
+  **266**. Separately the 362 `council_report` rows start 07-10 while the gate's notes
+  start 07-17, because the reports also cover the fix-loop's own council runs. Two real
+  denominators for two different questions; per-seat data exists only in the 362.
+- **Site/page counts measured and deliberately NOT used as the engine:** 442 pages, 419
+  active, 383 deployed, 14 sites with pages, 110 of them tool pages. Fine as a stat
+  band, but nothing a visitor could slide changes them, and using them would have made
+  the passive dashboard the owner explicitly did not ask for. Recorded so the next
+  thread knows they were considered.
+
+### The label that was factually wrong about our own gate
+
+First build shipped a threshold slider whose middle position read *"Medium and high
+block — what we run"*. That is false. Checked it because the default configuration
+modelled 5% pass against our real 51%, and the gap was too big to be only the
+independence assumption:
+
+    approved runs: 110, of which 99 contained a MEDIUM objection and 1 a HIGH one
+    rejected runs:  15, all 15 contained a HIGH objection
+
+So **high blocks and medium is advisory** — what we run is the *third* position, not the
+second. Fixed the copy, moved the default to `value="2"`, and the model then reads ~70%
+against the real 51%, with the remaining gap explained on the page: the model asks how
+often a panel objects to *nothing*, and reality also contains changes that deserved the
+objection. This is the one correction that mattered, and the tell was a number that
+disagreed with itself, not a broken control.
+
+### S6 earned its place twice: once by failing wrongly, once by failing rightly
+
+`scripts/probe_council_simulator.py` drives the real controls in real Chromium and
+asserts the output CHANGED. Two findings worth the next thread's time:
+
+1. **Its first run reported 7 failures against a correct component.** Headline still
+   `--`, roster empty, sliders `null -> null`: the precise signature of the
+   teaser-reveal-panel silent no-op. The component was fine; the PROBE was wrong. It is
+   injected inline before `</body>`, so it ran during parsing, BEFORE the component's
+   own `DOMContentLoaded` init, and measured the pre-init page. **A thread that "fixed"
+   the component in response would have broken a working one.** Filed as a landmine.
+2. **Then mutation-proved it, because a check that has never failed is not evidence.**
+   Six mutants, all exit 1, each for its own reason: init never called; script moved
+   ahead of its markup with the guard removed (the exact item-8 bug class); slider
+   listeners removed; blocker chart unsorted; default threshold silently moved; and the
+   reality-band label unclamped. The clean template passes 44 checks, exit 0.
+
+### The defect only a screenshot found
+
+44 DOM assertions passed and the page still had a visible layout fault: the reality
+band's three measured labels were absolutely positioned at their own percentages with
+`translateX(-50%)`, so the 2.6% label hung outside the track's left edge and all three
+collided. **No DOM check I had written could see it** — same shape as the gripper chart
+defects the owner found by looking (`f8e7c31ce`). Moved the three figures to a legend
+below the track and clamped the "you" marker's label at both ends. Then added three
+containment checks at low/mid/high positions and mutation-proved them: the unclamped
+mutant fails at the low and high ends **and passes at mid**, which is why a
+centre-only check would have been useless.
+
+Also fixed a smaller honesty bug the screenshot surfaced: a rounded `0%` beside a
+visible bar reads as "never objects", which is a different claim from "objects rarely".
+Sub-1% non-zero values now print `<1%`, in the roster as well as the chart, and a probe
+check asserts no row reads a bare `0%`.
+
+### Install and verification
+
+One transaction across `content_components`, `pages`, `page_components` with a `DO`
+block raising on any wrong count before `COMMIT` (generated by
+`components/tool-review-council-simulator/install.py`, so a 28KB template is never
+hand-quoted into SQL). Verified the stored template **byte-identical** to the file by
+md5, not merely "long enough" — a length check passes on a truncated store.
+
+Rendered via a `page_rerender` work item with `reason='section_data_resolved'`;
+completed in **under 2 minutes** each time, not the ~10 the runbook budgets. Verified
+at the artefact, not the status: three sections rendered (3,956 / 28,724 / 6,974
+chars), live page HTTP 200, the real stats present in the hero, the component's script
+**inline at offset 31,569 after its markup at 28,777** (not extracted to
+`/assets/js/`), and finally the S6 probe green against the served URL.
+
+Note the `=== tool-doc ===` comment block is stripped from the served HTML by
+minification. It survives in `content_components.html_template`, in the repo file, and
+in `doc_plans`, which is where it is meant to be read.
+
+### Two things learned about the sibling page, not fixed here
+
+- **`hero-tool` and `tool-cta` render no buttons unless the `*_url` fields are set** —
+  the `*_label` fields alone are dead data, and the two components spell the key in
+  opposite orders (`cta_primary_url` vs `primary_cta_url`). The live
+  llm-cost-calculator page stores `"cta_primary_label": "Run the calculator"` and no
+  URL, and has **zero** CTA anchors. Filed as a landmine. Not fixed: not this build's
+  scope, and it is a content decision about what those buttons should say.
+- **I briefly talked myself OUT of that finding with a bad check.** `grep -c
+  'htl-cta-row'` returned 1 on the sibling and I read it as "the row renders". It was
+  matching the class *definition* inside the component's own inline `<style>`. Extracted
+  the element instead: 0 markup anchors on the sibling, 2 on the new page. **A grep for
+  a class name on a page that inlines its own CSS always returns at least one hit.**
+
+`spec.filename` on a `page_rerender` item does not determine the served path: history
+carries three mutually inconsistent filenames for the same sibling page, all runs
+`complete`, and the root-level paths those imply return 404 while the real `/tools/`
+paths return 200. The path comes from `pages.url`. [INFERRED from that evidence; the
+deploy action's code was not read.] Used the explicit full path anyway.
+
+**No council submission:** this is site content, docs and DB config. The gate's scope is
+`platform/`, `internal/`, `pkg/`, and it refuses docs and site content client-side.
+
+**No second SUMMARY today.** `SUMMARY_2026-07-30_the_panel_is_finished_and_two_new_fronts_open.md`
+was written this morning and already frames this build as the next front; a second file
+hours later is exactly the near-identical shelf the cadence rule warns about. The next
+summary should cover this tool and whatever step 5 becomes.
