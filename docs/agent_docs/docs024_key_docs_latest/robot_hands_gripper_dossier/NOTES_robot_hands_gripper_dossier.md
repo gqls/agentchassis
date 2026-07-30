@@ -1242,3 +1242,22 @@ the app process — measured at Caddy, not at the app, and I would not add a hea
 endpoint to their service to find out). Did **not** apply it: `tools-api` is theirs,
 `bugs_open/083` (by slug) is open against it, and reaching in is what the
 contribute-don't-fix convention exists to prevent.
+
+> **SHARPENED the same hour, and it corrects the paragraph above — "it did not arrive"
+> was too strong.** Running `./scripts/landmines-sync.py` (the obligation after any
+> append, now that D10 is ruled and `LANDMINES.md` is authoritative) listed an entry I
+> had not written: *"A 'per-IP' limiter behind Cloudflare is probably one global bucket
+> — and `httpguard` reads as the fix"*, footprinted on
+> **`internal/tools-api/middleware/ratelimit.go`** and **`platform/httpguard`**.
+> `git log -S'global bucket'` attributes it to **`11654d102`, 07-30 13:28** — the D10
+> lane, who read `bugs_open/139` and filed its substance themselves. With D10's
+> session-start hook matching entries against the dirty working tree, a gauntlet
+> session that opens that limiter file is now told automatically.
+>
+> **So the residue is narrower and more interesting than what I wrote:** the **warning**
+> was delivered (by a third lane, through a mechanism built that morning, better than my
+> appended note). The **patch** was not, and has no delivery path at all. **A landmine
+> can say the ground is mined; it cannot hand you the three edits.** If D10 is ever
+> extended, that is the gap to name — and note that my own check nearly missed this,
+> because I measured *uptake by the owning lane* and the pickup came from a lane I had
+> not thought to look at. `git log -S` over the corpus, not just over their directory.

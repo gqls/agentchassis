@@ -98,8 +98,17 @@ my patch arrived, and it has survived four later edits of the same file untouche
 the next person to pick up that thread would read "nothing owed" with a finished patch
 sitting two files away.
 
-That is not their failure and it is not mine. It is a gap we have hit before in a
-different form: **putting a file in the right place is authoring, not delivering.**
+One correction to that, which I found by checking rather than assuming, and it makes
+the point sharper rather than softer. A *third* thread had already read my bug file and
+written the finding into the fleet-wide traps list, tagged against the exact source file
+the fix touches — and that list now has a working delivery mechanism, so anyone who so
+much as opens that file gets told. So the **warning** did get delivered, better than by
+my note. What has no delivery path at all is the **patch**: a warning can tell you the
+ground is mined; it cannot hand you the three edits. That is the residue, and it is the
+version of this finding worth keeping.
+
+That aside, this is not their failure and it is not mine. It is a gap we have hit before
+in a different form: **putting a file in the right place is authoring, not delivering.**
 Nothing in our setup tells a thread that a new document in its own directory applies
 to it. I have appended a dated note to their start-here document — appended, with
 none of their words changed — saying the contact has arrived, what the finding is, and

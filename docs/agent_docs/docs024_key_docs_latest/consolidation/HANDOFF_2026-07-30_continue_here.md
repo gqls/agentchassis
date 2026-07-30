@@ -93,6 +93,22 @@ its lane applies to it. I filed the evidence correctly and it still did not arri
 > delivery half now has a mechanism. **It does not cover CONTRIBs or handoffs**, which
 > is where this lane's patch is stuck — but it is the precedent to argue from if
 > anyone wants to close that gap properly rather than by remembering to nudge.
+>
+> > **SHARPENED a few minutes after writing the above — I checked, and part of the
+> > finding HAS been delivered, by a third lane rather than by me.** The D10 lane's
+> > own commit `11654d102` (07-30 13:28) read `bugs_open/139` and filed the substance
+> > as a landmine of its own: *"A 'per-IP' limiter behind Cloudflare is probably one
+> > global bucket — and `httpguard` reads as the fix"*, footprinted on
+> > **`internal/tools-api/middleware/ratelimit.go`** and **`platform/httpguard`**.
+> > With D10's session-start hook matching entries against a dirty working tree, a
+> > gauntlet session that so much as opens that limiter file will now be told — which
+> > is real delivery, and better than the note I appended to their handoff.
+> >
+> > **So state the residue precisely, because the original wording overclaimed.** What
+> > got delivered is the **warning**. What still has no delivery path at all is the
+> > **patch** — a landmine can tell you the ground is mined; it cannot hand you the
+> > three edits that fix it. That distinction is the useful form of this lane's
+> > finding, and it is the thing to say if anyone proposes extending D10 to CONTRIBs.
 
 **What I did about it (2026-07-30, commit below):** appended a dated note under
 their item 4 in `gauntlet_dead_cta/HANDOFF_2026-07-29_continue_here.md` — appended,
