@@ -12,6 +12,8 @@ import (
 // configured selector counts, and a record of interaction steps. Selectors not
 // primed count as 0 (absent), matching real Locator.Count.
 type fakePage struct {
+	areas   map[string][2]float64
+	areaErr error
 	status         int
 	navErr         string
 	console        []string
@@ -36,6 +38,21 @@ func (f *fakePage) Count(sel string) int    { return f.counts[sel] }
 func (f *fakePage) HorizontalOverflow(container string) (bool, overflowInfo, error) {
 	f.containerAsked = container
 	return f.overflow, f.ovInfo, f.ovErr
+}
+
+// VisibleArea: the fake returns whatever the test canned for the selector.
+// Absent from the map means "no element matched", which the check treats as a
+// failure (post-settle in a real browser, a selector matching nothing means the
+// element is genuinely not there).
+func (f *fakePage) VisibleArea(sel string) (float64, float64, bool, error) {
+	if f.areaErr != nil {
+		return 0, 0, false, f.areaErr
+	}
+	wh, ok := f.areas[sel]
+	if !ok {
+		return 0, 0, false, nil
+	}
+	return wh[0], wh[1], true, nil
 }
 func (f *fakePage) Text(sel string) (string, error) { return f.texts[sel], nil }
 
@@ -519,5 +536,77 @@ func TestP1OverflowNoDrillDownWhenOffenderIsCause(t *testing.T) {
 	// A reason on the offender itself is still useful and should show.
 	if !strings.Contains(r.Detail, "min-width: 500px") {
 		t.Errorf("the offender's own reason should still surface: %q", r.Detail)
+	}
+}
+
+// has_visible_area exists because selector_exists cannot see the difference
+// between an element that is on the page and one that is on the page and
+// invisible. On 2026-07-30 three tools shipped with work areas measuring
+// 1146x0 — present, unusable — and selector_exists passed all three.
+func TestHasVisibleArea(t *testing.T) {
+	tests := []struct {
+		name      string
+		check     criteriaCheck
+		areas     map[string][2]float64
+		wantPass  bool
+		wantInMsg string
+	}{
+		{
+			name:     "a normal work area passes",
+			check:    criteriaCheck{ID: "work", Type: "has_visible_area", Selector: "#canvas"},
+			areas:    map[string][2]float64{"#canvas": {1003, 558}},
+			wantPass: true,
+		},
+		{
+			// The exact shape of the real defect.
+			name:      "a collapsed flex child fails even though it exists",
+			check:     criteriaCheck{ID: "work", Type: "has_visible_area", Selector: "#canvas"},
+			areas:     map[string][2]float64{"#canvas": {1146, 0}},
+			wantPass:  false,
+			wantInMsg: "too small to see or click",
+		},
+		{
+			name:      "a missing element fails rather than skipping",
+			check:     criteriaCheck{ID: "work", Type: "has_visible_area", Selector: "#gone"},
+			areas:     map[string][2]float64{},
+			wantPass:  false,
+			wantInMsg: "no element matches",
+		},
+		{
+			name:     "an explicit minimum is honoured",
+			check:    criteriaCheck{ID: "work", Type: "has_visible_area", Selector: "#c", MinHeight: 600},
+			areas:    map[string][2]float64{"#c": {1000, 558}},
+			wantPass: false,
+		},
+		{
+			// The default must catch collapse without policing design: a small
+			// but usable control passes.
+			name:     "a small but usable control passes the default floor",
+			check:    criteriaCheck{ID: "btn", Type: "has_visible_area", Selector: "#b"},
+			areas:    map[string][2]float64{"#b": {32, 32}},
+			wantPass: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fp := &fakePage{status: 200, areas: tc.areas}
+			doc := criteriaDoc{Checks: []criteriaCheck{tc.check}}
+			applicable, skipped := splitByProfile(doc, "desktop", "https://example.test/x")
+			if len(applicable) != 1 {
+				t.Fatalf("has_visible_area must be applicable at Tier 4, got %d applicable / %d skipped",
+					len(applicable), len(skipped))
+			}
+			got := evaluateOnPage(fp, doc, applicable, "desktop", "https://example.test/x")
+			if len(got) != 1 {
+				t.Fatalf("expected 1 result, got %d", len(got))
+			}
+			if got[0].Pass != tc.wantPass {
+				t.Fatalf("Pass = %v, want %v (detail: %s)", got[0].Pass, tc.wantPass, got[0].Detail)
+			}
+			if tc.wantInMsg != "" && !strings.Contains(got[0].Detail, tc.wantInMsg) {
+				t.Fatalf("detail %q does not contain %q", got[0].Detail, tc.wantInMsg)
+			}
+		})
 	}
 }

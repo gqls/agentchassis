@@ -64,6 +64,12 @@ var experienceCheckTiers = map[string]int{
 	"attribute_matches":      2,
 	"no_horizontal_overflow": 4,
 	"no_console_errors":      4,
+	// has_visible_area is Tier 4 ONLY, and necessarily so: it measures a
+	// rendered box, which no static read of HTML can do. Added 2026-07-30 after
+	// three tools shipped with work areas measuring 1146x0 — present in the DOM
+	// and invisible — while selector_exists passed all three at both tiers.
+	// A Tier-2 equivalent is not merely unbuilt, it is impossible.
+	"has_visible_area": 4,
 }
 
 // experienceCheckFields are the keys either checker reads off ANY check.
@@ -86,6 +92,11 @@ var experienceCheckFields = map[string]bool{
 var experienceCheckTypeFields = map[string]map[string]bool{
 	"attribute_absent":  {"attributes": true},
 	"attribute_matches": {"attribute": true, "matches": true, "not_matches": true},
+	// Both optional: omitted means the runner's 24x24 default, which is set to
+	// catch a COLLAPSED box rather than to police design. Declared here so P7
+	// refuses them on any other check type, where the runner would never read
+	// them and the author would be asserting less than they think.
+	"has_visible_area": {"min_width": true, "min_height": true},
 }
 
 // experienceStepActions are the interaction steps the browser runner performs.

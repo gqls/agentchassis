@@ -189,6 +189,7 @@ an ID prefix, or a status word.
 | TLIB-023 | intent-probe capture component | deployed | A NEW content-library section (built after a survey found nothing reusable among 83 existing sections) rendering... | tool-library.md |
 | DES-002 | Style collections (data bundle + design bridge ancestry) | deployed | A `style_collections` row bundles the components and tokens defining a site's visual identity:... | design-composition.md |
 | DES-050 | Library-row cleanup pattern for failed composition cascades | deployed | A bad composition cascade leaves one set of library rows... | design-composition.md |
+| TL-034 | `has_visible_area` — the Tier-4 check that separates "exists" from "usable" | built | Measures the rendered box; three tools served work areas of 1146x0 that selector_exists passed... | tool-lifecycle.md |
 | TL-032 | Orphan element-reference detection (`OrphanElementRefs` + check `orphan_element_refs`) | built | A static detector for a page whose own JavaScript addresses element ids the page never contains or creates, so... | tool-lifecycle.md |
 | TL-033 | Ported tools were invisible to the whole acceptance ladder (eligibility + subject-key widening) | deployed | Every tier opened with `cc.component_level='tool'`, so 63 ported tools in one shared 'section' row were never... | tool-lifecycle.md |
 | TL-013 | Tier-2 static acceptance checker + the anchor rule (discovery check `tool_acceptance`) | deployed | A browserless discovery check (sibling of tool_health): loads the current travelling PLAN's criteria fence,... | tool-lifecycle.md |

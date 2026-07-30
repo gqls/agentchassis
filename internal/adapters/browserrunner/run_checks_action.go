@@ -165,6 +165,10 @@ type criteriaCheck struct {
 	Steps     []criteriaStep `json:"steps"`
 	Expect    criteriaExpect `json:"expect"`
 	Container string         `json:"container"`
+	// has_visible_area only. Omitted means the 24x24 default, which is set to
+	// catch COLLAPSED rather than to police design.
+	MinWidth  float64 `json:"min_width"`
+	MinHeight float64 `json:"min_height"`
 }
 
 // defaultToolContainer matches the tool root under BOTH delivery conventions:
@@ -222,6 +226,11 @@ type browserPage interface {
 	// scrollable ancestor to reach it by (bugs_open/131 B). Names the widest
 	// offender and says whether it sits inside the given tool container.
 	HorizontalOverflow(container string) (bool, overflowInfo, error)
+	// VisibleArea returns the rendered width and height of the first match, and
+	// whether anything matched at all. Distinct from Count because an element
+	// can exist and render at zero size — the class that made three tools
+	// unusable on 2026-07-30 while selector_exists passed them.
+	VisibleArea(selector string) (width, height float64, found bool, err error)
 	Do(step criteriaStep) error // one interaction step
 	Text(selector string) (string, error)
 	// Screenshot captures the page as PNG bytes (P3 failure evidence).
@@ -388,7 +397,8 @@ func splitByProfile(crit criteriaDoc, profile, url string) ([]criteriaCheck, []C
 		}
 		switch ch.Type {
 		case "page_status_ok", "selector_exists", "selector_count",
-			"no_console_errors", "no_horizontal_overflow", "interaction":
+			"no_console_errors", "no_horizontal_overflow", "interaction",
+			"has_visible_area":
 			applicable = append(applicable, ch)
 		default:
 			skip(ch.ID, ch.Type+" not implemented")
@@ -434,6 +444,47 @@ func evaluateOnPage(page browserPage, doc criteriaDoc, checks []criteriaCheck, p
 				add(ch.ID, true, fmt.Sprintf("%d element(s) match %s in the live DOM", n, ch.Selector))
 			} else {
 				add(ch.ID, false, "no element matches "+ch.Selector+" in the live DOM after settle")
+			}
+		case "has_visible_area":
+			// WHY THIS IS NOT selector_exists. On 2026-07-30 the owner reported
+			// three tools as unusable — "I can't paste to or see any work area".
+			// Their work areas were PRESENT in the DOM and measured 1146x0: each
+			// was ported from a standalone page whose `body` was the flex
+			// container, so `flex: 1` had no flex parent and the height
+			// collapsed. selector_exists passed all three. So did a browser
+			// probe that drove the tools' internal functions. An element that
+			// exists and cannot be seen or clicked is the gap between "responds"
+			// and "works", and only a layout measurement closes it.
+			//
+			// Thresholds are deliberately generous — this is here to catch
+			// COLLAPSED, not to police design. Overridable per check via
+			// min_width / min_height.
+			minW, minH := 24.0, 24.0
+			if ch.MinWidth > 0 {
+				minW = ch.MinWidth
+			}
+			if ch.MinHeight > 0 {
+				minH = ch.MinHeight
+			}
+			w, h, found, err := page.VisibleArea(ch.Selector)
+			switch {
+			case err != nil:
+				add(ch.ID, false, "could not measure "+ch.Selector+": "+err.Error())
+			case !found:
+				// Deliberately a FAIL, not a skip: unlike the Tier-2 attribute
+				// checks (where zero matches is the normal client-side-render
+				// state), this check runs post-settle in a real browser, so a
+				// selector matching nothing here means the element genuinely is
+				// not on the page.
+				add(ch.ID, false, "no element matches "+ch.Selector+" in the live DOM after settle")
+			case w >= minW && h >= minH:
+				add(ch.ID, true, fmt.Sprintf("%s renders %.0fx%.0f on %s", ch.Selector, w, h, profile))
+			default:
+				add(ch.ID, false, fmt.Sprintf(
+					"%s renders %.0fx%.0f on %s — present in the DOM but too small to see or click"+
+						" (needs at least %.0fx%.0f). A collapsed flex/grid child is the usual cause:"+
+						" check that its parent establishes a height.",
+					ch.Selector, w, h, profile, minW, minH))
 			}
 		case "no_horizontal_overflow":
 			over, info, err := page.HorizontalOverflow(toolContainer(doc, ch))
@@ -643,6 +694,32 @@ func (c *chromiumPage) Count(selector string) int {
 // edits a tool that cannot possibly fix a template footer. Observed 2026-07-14:
 // vonc.com's div.footer-legal (506px at a 390px viewport) failed the quiz's
 // mobile-fit check, on every page of the site.
+// VisibleArea measures the first match's rendered box. getBoundingClientRect is
+// the right instrument rather than offsetWidth/offsetHeight: it accounts for
+// transforms and fractional layout, and it reports 0 for a collapsed flex child
+// — which is precisely what we are looking for. An element hidden outright
+// (display:none) also measures 0x0 and is reported the same way, deliberately:
+// from the visitor's side there is no difference.
+func (c *chromiumPage) VisibleArea(selector string) (float64, float64, bool, error) {
+	v, err := c.page.Evaluate(`(sel) => {
+		const el = document.querySelector(sel);
+		if (!el) return {found: false, w: 0, h: 0};
+		const r = el.getBoundingClientRect();
+		return {found: true, w: r.width, h: r.height};
+	}`, selector)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return 0, 0, false, fmt.Errorf("VisibleArea: unexpected result shape %T", v)
+	}
+	found, _ := m["found"].(bool)
+	w, _ := m["w"].(float64)
+	h, _ := m["h"].(float64)
+	return w, h, found, nil
+}
+
 func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo, error) {
 	v, err := c.page.Evaluate(`(containerSel) => {
 		const vw = document.documentElement.clientWidth;
