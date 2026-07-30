@@ -79,8 +79,14 @@ discipline standing alone and this is what stops it standing alone.
    at 6, and it exits silently on any error — a startup hook that can break a
    session would be worse than any landmine it reports. **New sessions only:** an
    already-running session needs `/hooks` or a restart.
-2. **To council seats**, via the `doc_notes` rows the sync writes. *(D10(c) —
-   still to be wired into the schema hint; the rows exist and are queryable now.)*
+2. **To every council seat**, in the `schema_hint` they already consume —
+   migration **271**, live 2026-07-30. The seats get `doc_notes`' columns plus a
+   compact index (one line per `subject_key`) and the query to pull a full body.
+   **Index, not bodies**, and it costs +5,558 bytes per seat prompt (measured):
+   fine at ~16 entries, **not fine at 100**, so relevance-gating is the next
+   increment — proven read-only (16 → 2 on a real submission) but unshipped
+   because `load_schema_hint` has no `error_step`. Full working in the migration
+   header.
 3. **By grep, deliberately** — still the route for table, command and symbol
    footprints, which cannot match a file path:
    `grep -n "<path-or-table>" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`
