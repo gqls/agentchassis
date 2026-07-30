@@ -92,10 +92,17 @@ Fleet context: v1.0.1196 rolled 22:37Z 07-28. A `render-audit-adapter` pod
    > the promotion half ~60:1 on a site unswept since May — 1 detected item
    > became 64 in three minutes, and the fixers are still working the queue
    > hours later, including LLM copy rewrites on live pages.
-3. **og:image** — vonc's gauntlet page emits a 404 social image (owned by the
+3. ~~**og:image** — vonc's gauntlet page emits a 404 social image (owned by the
    OTHER bug numbered 131, `…og_image_points_at_a_card…`, UNDIAGNOSED). When
    fixed, shared verdict cards and links get a face. Do not build a generator
-   here; contribute into that file if you touch it.
+   here; contribute into that file if you touch it.~~
+   **DONE — verified live 2026-07-30 14:5xZ (vonc6).** The other-131 fix reached
+   this page. The served gauntlet page emits
+   `og:image` **and** `twitter:image` = `https://vonc.com/assets/images/og-card.png`,
+   and that URL returns **HTTP 200, `image/png`, 170,691 bytes, 1200×630 exactly**
+   (ratio 1.905). Nothing owed here; **the distribution leg is no longer gated on
+   engineering.** Checked with `%{http_code}` on the asset itself, not on the page
+   that references it — a page with a broken card returns 200 all day.
 4. **Consolidation ping**: features_open/024 wants `platform/mailer` +
    `platform/httpguard` adopted into tools-api and its memory line says
    "message them first" — this workstream owns tools-api, so expect (or
