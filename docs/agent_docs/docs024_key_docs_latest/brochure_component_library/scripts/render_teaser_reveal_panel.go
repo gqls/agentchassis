@@ -136,8 +136,19 @@ func main() {
 	// markup — a literal one is exactly what the platform's no-ellipsis rule
 	// forbids (a truncation checker reads a trailing "..." as damage).
 	check("decorative ellipsis rule present in CSS", strings.Contains(html, `content: "\2026"`))
-	check("open-state hides the control (CSS rule present)", strings.Contains(html, ".trp__card[open] .trp__control"))
 	check("continuation still has no literal ellipsis character", !strings.Contains(markup, "…") && !strings.Contains(markup, "..."))
+
+	// Opening a card REPLACES the whole closed block (image survives; hook,
+	// continuation, control all disappear as one unit via their shared
+	// .trp__text parent) rather than appending body underneath a continuation
+	// that still shows its own cut-off line.
+	check("open-state hides the whole closed text block (CSS rule present)", strings.Contains(html, ".trp__card[open] .trp__text"))
+	// The replacement is ONE flowing paragraph: hook (bold lead) + continuation
+	// + body, concatenated with no line break at the point of the old cut —
+	// checked against the actual sample text, not just markers, so a mutant
+	// that drops a word or the join-space would be caught.
+	check("body paragraph reads as one continuous passage (hook+continuation+body joined)",
+		strings.Contains(markup, `<strong class="trp__body-lead">A short complete first sentence.</strong> An unfinished second one that is completed by the body text`))
 
 	if fail > 0 {
 		fmt.Printf("\n%d CHECK(S) FAILED\n", fail)

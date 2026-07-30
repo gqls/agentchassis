@@ -1034,3 +1034,35 @@ grow freely and have the arrows reposition themselves to match — more generous
 for long text, at the cost of the arrows shifting under your hand while you're
 mid-read. I went with the steadier option by default. Easy to switch if you'd
 rather have the other one after trying it.
+
+**Then you tried it and the arrows didn't scroll, and closing one card when
+you opened another didn't happen either.** You were right on both, and I want
+to be straight about why I didn't catch this earlier: every check I'd run on
+this panel up to that point either read the page's raw HTML or forced a card
+open directly in the page's memory — neither of those actually clicks
+anything, so neither could have noticed that clicking didn't work. Once I
+actually simulated a real click, the cause became clear straight away: the
+bit of code that makes the arrows and the open/close behaviour work loads in
+the page's `<head>`, before the part of the page it needs to look at even
+exists yet. It's been silently doing nothing since I first built it, and only
+the plain browser bit (the actual clicking-open of a card, which needs no
+code) was ever working. Fixed properly now, and I re-tested with a real
+simulated click rather than trusting the fix on paper — the arrow scrolls,
+and opening a second card now closes the first.
+
+**The "no new line after the cut-off, replace the whole block" request**: also
+done. Opening a card now removes the whole short preview — hook, cut-off
+sentence, and the "read the rest" prompt — in one go, and what appears in its
+place is one genuinely continuous paragraph, starting with the same opening
+line and flowing straight into the rest with no gap. And the padding
+mismatch you'd have felt even if you couldn't name it: the opened text had
+slightly less breathing room than the closed preview did, so opening a card
+made it look like the text had shifted closer to the edge. Both paddings now
+match.
+
+One thing I'm flagging rather than hiding: my own test picked up two vague,
+detail-free browser error messages while checking this. They look like
+noise from the artificial way I'm testing it locally rather than anything on
+the real page, and every specific thing I checked came back correct, but I
+haven't fully run that down, so I'm noting it rather than pretending it isn't
+there.

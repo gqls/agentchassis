@@ -1,4 +1,20 @@
-<style>
+\set ON_ERROR_STOP on
+-- Re-apply teaser-reveal-panel's template to the LIVE content_components row:
+-- fixes the padding mismatch between the closed hook and the opened body, and
+-- replaces the whole closed text block (hook+continuation+control) with ONE
+-- flowing paragraph (hook as bold lead + continuation + body, concatenated
+-- with no line break at the old cut point) when a card opens, instead of
+-- appending body below a continuation that still showed its own cut-off line.
+-- GENERATED from components/teaser-reveal-panel/template.html -- edit that
+-- file and regenerate, do not hand-edit this file. input_schema unchanged.
+BEGIN;
+
+DROP TABLE IF EXISTS bak_cc_teaser_reveal_panel_pre_textmerge_update;
+CREATE TABLE bak_cc_teaser_reveal_panel_pre_textmerge_update AS
+SELECT * FROM content_components WHERE function = 'teaser-reveal-panel';
+
+UPDATE content_components
+   SET html_template = $HTML$<style>
   /* Colour vocabulary verified against live css_themes before use (the
      --color-surface / --spacing-section class of error: those names are defined
      by NO active theme, so the fallback silently wins). Every var below was
@@ -143,3 +159,11 @@
     </div>
   </div>
 </section>
+$HTML$
+ WHERE function = 'teaser-reveal-panel';
+
+COMMIT;
+
+SELECT function, is_active, length(html_template) AS template_bytes,
+       html_template LIKE '%trp__body-lead%' AS has_merged_paragraph
+  FROM content_components WHERE function = 'teaser-reveal-panel';

@@ -3094,6 +3094,90 @@ full-strength) didn't regress contrast, and the now-hidden `.trp__control` is
 correctly excluded from the probe's own measured set rather than silently
 counted as a false pass.
 
+## 2026-07-30 — owner: arrows don't scroll, siblings don't close, text should merge with no line break
+
+Owner reported the carousel arrows did nothing, opening a second card left the
+first one open too, and asked for the text to replace the whole closed block
+as one continuous passage rather than appending body under a continuation
+that still showed its own cut-off line.
+
+**Found the actual cause before fixing anything, by simulating REAL clicks in
+a headless browser rather than trusting markup or DOM-state manipulation.**
+Every verification this component had ever passed — the render harness, the
+`probe_reveal_open_state.py` contrast checks, even this session's own earlier
+"verified live" claims about the deep-link and sibling-close — exercised
+either the STATIC markup or forced `.open = true` directly on DOM nodes.
+**None of them ever actually clicked anything**, so none of them could have
+caught a JS initialisation bug. Once I actually called `.click()` on the
+arrow and on card summaries: `track.scrollBy` was never invoked, and opening
+card 1 left card 0's `.open` still `true`.
+
+**Root cause: `<script src="/assets/js/snippets.js">` sits in `<head>`, plain,
+no `defer`.** It executes synchronously at that point in HTML parsing —
+BEFORE the panel markup later in `<body>` exists. `behaviour.js`'s very first
+line, `document.querySelectorAll('[data-component="teaser-reveal-panel"]')`,
+therefore found ZERO panels and the whole file's `if (!panels.length) return;`
+exited immediately. **This has been true since the very first version of this
+file, this session's first build included** — the deep-link and sibling-close
+logic have never actually run client-side on the live site; only the native
+`<details>` element (which needs no JS) and the CSS ever did anything.
+`hero-card-carousel`'s own snippet already guards against exactly this with a
+`document.readyState === 'loading'` → wait-for-`DOMContentLoaded` check — this
+file simply never had the equivalent, and nothing in this session's testing
+approach was capable of noticing, because nothing ever fired a real click.
+
+**Fixed**: wrapped the whole per-panel init in `initAll()`, gated on
+`document.readyState`, same shape as `hero-card-carousel`. Re-tested with the
+SAME real-click harness after the fix: `scrollByCalled: true`,
+`scrollLeftAfterClick: 272` (was `0`), opening card 1 correctly sets card 0's
+`.open` to `false` (was staying `true`). Both bugs, one cause.
+
+**Text-merge, implemented as literally "replace the whole block":** the
+closed state's `.trp__text` (hook + continuation + control) is not just
+recoloured or partially hidden — `.trp__card[open] .trp__text { display:
+none; }` removes it as one unit. What replaces it lives permanently in
+`.trp__body` (unaffected — still always in the DOM for the claims gate and
+crawlers), now `<strong class="trp__body-lead">{{hook}}</strong>
+{{continuation}} {{body}}` — hook, continuation and body concatenated with a
+literal space in the TEMPLATE, not appended as separate DOM blocks, so there
+is no line break at the point text used to be cut off; it reads as one
+paragraph because it *is* one `<p>`. Verified against real text, not just
+presence: the rendered `bodyFullText` for the sample item reads "Every
+substantial change is reviewed before it ships. Not by one model checking its
+own work, but by a group of more than a dozen independent reviewer seats..."
+— grammatically continuous, no seam.
+
+**Padding**: `.trp__body`'s horizontal padding was `--spacing-lg` while
+`.trp__text`'s was `--spacing-xl` — a real inconsistency, not a perception
+issue. The open paragraph sat closer to the card edge than the hook above it
+had. Both now `--spacing-xl`.
+
+Harness 23→24 checks (replaced the now-dead "open-state hides the control"
+check, since `.trp__control` no longer has its own rule — it's covered by the
+`.trp__text` parent hide — with a check for that parent rule, plus a new
+check that the merged paragraph reads as the actual expected joined text, not
+just that some CSS rule exists). Two new mutants (strip the parent-hide rule;
+drop the join-space between continuation and body) each caught by exactly the
+check they should fail.
+
+**One loose end, disclosed rather than hidden:** the real-click test reported
+2 generic `"Script error."` entries in `window.onerror` — content-free by
+design, since that's what a browser reports for an uncaught exception in a
+cross-origin script when the test document's origin (`file://`) differs from
+the script's (`https://`), regardless of which snippet threw or why. This is
+very likely an artefact of the `file://` + cross-origin test rig itself (the
+same rig that couldn't render images for a screenshot in yesterday's entry),
+not the live `https://` page, where document and script share an origin and
+real error detail would surface. Not chased further given every specific
+behaviour tested came back correct; flagged here rather than silently
+dropped, in case it recurs somewhere the sanitisation doesn't apply.
+
+**Verified live, all four pages**: real click simulation only run against
+index (the representative case, same shared component/JS across all four);
+markup swept on all four (6 cards / 6 images / correct body-lead count per
+page, 0 dead links, 0 unrendered `{{`); contrast probe re-run, still
+**13.19:1**, 0 failures.
+
 **A screenshot tool limitation, not a product one:** tried to get a visual
 open-state screenshot via a local `file://` copy with an injected script
 (the same pattern `probe_reveal_open_state.py` uses for `--dump-dom`) but

@@ -1,4 +1,20 @@
-/* teaser-reveal-panel — URL addressability + carousel navigation for the
+\set ON_ERROR_STOP on
+-- CRITICAL FIX: teaser-reveal-panel's snippets.js is included as a plain,
+-- non-deferred <script src> in <head> on every page (confirmed: script tag
+-- appears at byte offset ~8000, panel markup at ~34000, in the SAME
+-- document) -- so document.querySelectorAll for the panel, run at the top of
+-- this file with no readiness guard, has ALWAYS found zero panels and the
+-- whole file has quietly done nothing since the very first version. Neither
+-- the deep-link open, nor sibling-closing, nor (once added) the carousel
+-- arrows have EVER actually run client-side; every prior "verified" check
+-- exercised the native <details> element or the CSS directly, never a real
+-- click. hero-card-carousel's own snippet already guards against exactly
+-- this with a document.readyState check -- this file lacked it. Confirmed
+-- fixed by simulating real .click() calls in a headless browser before AND
+-- after this change (see NOTES).
+BEGIN;
+UPDATE js_snippets
+   SET js_content = $JS$/* teaser-reveal-panel — URL addressability + carousel navigation for the
  * teaser-detail-deeplink shape.
  *
  * PROGRESSIVE ENHANCEMENT, deliberately. The reveal itself is native
@@ -152,3 +168,9 @@
     initAll();
   }
 })();
+$JS$
+ WHERE name = 'teaser-reveal-panel';
+COMMIT;
+SELECT name, is_active, length(js_content) AS bytes,
+       js_content LIKE '%readyState%' AS has_readiness_guard
+  FROM js_snippets WHERE name = 'teaser-reveal-panel';
