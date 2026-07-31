@@ -490,6 +490,51 @@ route exists that was invisible when this section was written:
 > and (ii) is dead work. It 404s or errors ⇒ the mapping is gated somewhere and
 > (ii) stands.
 
+### 6a.i Bucket or box? For this product it is ALWAYS the bucket — by construction
+
+The owner's question (2026-07-31): *"where should ugg2.com point — to the s3
+bucket or a box? presumably either depending on what site is built?"* The instinct
+is right about the platform and wrong about **this** product, and the difference
+is settled in code rather than by preference.
+
+**The platform genuinely has two deploy targets** (§2's table): B2 behind the
+Worker for the 12 static sites, and a VM for `idea.uk` and `relojistas.com`
+(`sites.github_repo='vm-sites'`). So "it depends what was built" is a fair reading
+of the estate.
+
+**But the chassis cannot build the second kind.** A site that needs a box needs a
+backend, and:
+
+```go
+// component_library.go:1189-1191
+"#contact-form": true,
+"/contact":      true, // no such backend has ever existed in the chassis
+```
+
+`sanitiseFormAction` (`component_library.go:1193-1263`) rewrites any
+non-delivering `form_action` to a **`mailto:`** built from the site's real contact
+address, and refuses to invent one where none is configured — leaving it for the
+`contact_form_undeliverable` discovery check to raise for a human. **A
+chassis-built site is static by construction.** `idea.uk` and `relojistas.com` are
+on VMs because they ship their **own Go engine**, which is not something a
+customer buys.
+
+**⇒ `ugg2.com` points at the Worker→B2 path. There is no preview box, and §6(ii)
+is dead in full — not merely its certificate half (§6b).** This also removes the
+last reason P1's box would ever need to serve customer artefacts, which keeps §6c's
+separation clean.
+
+> **A product question falls out of this, and it belongs to the offer, not to
+> DNS.** The deliverable's contact form is a `mailto:` — it opens the *visitor's*
+> mail client rather than posting to a server. That is a defensible choice (the
+> comment above explains why a fabricated `info@` is worse), but a buyer paying
+> four figures may reasonably read "the contact form doesn't work" as a **defect**,
+> which under §7a we fix free, indefinitely. **State it in the offer** — what the
+> customer gets is a contact form that opens an email, and anything else is a paid
+> change. Unstated, this is the single most likely source of free-repair claims,
+> because it is the one limitation that is invisible in a screenshot and obvious
+> on the first click.
+
 ### 6b. The wildcard-certificate work is UNNECESSARY — the premise changed under it
 
 > **2026-07-31, after the owner proxied `ugg2.com`: §6(ii)'s hardest component is

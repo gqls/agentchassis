@@ -500,3 +500,45 @@ telling nginx how to read the real visitor address, or the rate limiting silentl
 becomes useless while still looking like it works; and blocking direct access to
 the machine's own address, or attackers simply walk around the protection. I'd
 move it — but on its own, not mixed into this.
+
+---
+
+**2026-07-31 (late, second) — bucket or box, and a product question hiding in it**
+
+You asked whether ugg2.com should point at the storage bucket or at a machine, and
+guessed it depends on what kind of site got built. That's a fair reading of your
+estate — you genuinely have both — but for what we're selling the answer collapses
+to one, and the code settles it rather than my preference.
+
+**Everything the system builds is static.** Where a page has a contact form, the
+builder rewrites it to open the visitor's email program rather than submit to a
+server, and there's a comment in that code saying plainly that no such backend has
+ever existed. The two sites of yours that live on machines — idea.uk and
+relojistas — are there because they carry their own custom software, which isn't
+something a customer buys.
+
+**So ugg2.com points at the bucket, and there is no preview machine at all.** That
+kills the last piece of the preview plan: no server to build, no certificates, no
+web server config, nothing to keep patched. It also keeps the shopfront machine
+cleanly separate, because it never has to serve customer sites.
+
+**But that turned up something you should decide on, and it's about the offer
+rather than the plumbing.** The contact form on a delivered site opens the
+visitor's email program. That's a deliberate and defensible choice — the
+alternative the code refuses to do is invent an address that nobody reads, which
+looks fixed while silently losing every message. Still: someone paying four
+figures may well click it, see their mail app open, and call that broken. Under
+the guarantee we've agreed, our defects are free forever — so if we haven't said
+what they're getting, that's an unlimited free-repair claim waiting.
+
+It needs one sentence in the offer: the contact form opens an email, and a form
+that posts to a server is a paid extra. I'd rather say it plainly up front than
+argue it after someone has paid. It's the only limitation that's invisible in a
+screenshot and obvious on the first click.
+
+**I've also written up the idea.uk situation as its own handoff** so whoever picks
+that box up gets the whole thing in one place: what I measured, what it means for
+the security section that's built on the wrong assumption, and the two sensible
+options with the traps in each. I changed only facts in their documents and left
+every decision alone — it isn't my lane, and pulling someone's security plan out
+of a live earning service from the outside isn't a correction, it's a decision.
