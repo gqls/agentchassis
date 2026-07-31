@@ -418,3 +418,94 @@ stop_reason: end_turn, stop_details: null
 Removed `/tmp/fable_probe.json`, `/tmp/fable_resp.json`, `/tmp/fable_headers.txt`
 from the pod after reading the response — a production pod's `/tmp` is not a
 scratch space to leave things in, even though it would clear on a restart.
+
+---
+
+## 2026-07-31 (later) — the SSRF guard: built, wired into a real live hole, submitted
+
+### Where the fetch actually happens
+
+Traced the webscrape adapter fully before writing anything. `a.httpClient` in
+`internal/adapters/webscrape/adapter.go` is shared between two very different
+uses:
+
+1. Calls to `api.firecrawl.dev` (the scraping provider's own fixed, trusted
+   API) — fine as-is, host never varies.
+2. `downloadImage`, called from two places (`adapter.go:596` for a
+   screenshot URL, `:679` for **image URLs taken from the `images` array
+   in the scraped page's own parsed content**) — the real SSRF surface,
+   because that page belongs to whatever domain a customer submitted.
+
+`browser-runner-adapter` was also checked (`run_checks_action.go:688`,
+`page.Goto`) — Playwright, a full headless browser navigating the URL
+directly. A Go `http.Transport` guard cannot see a browser's own DNS/connect
+calls at all, so this is explicitly a different, unaddressed problem — recorded
+in the bug file and the register entry rather than silently left implied-fixed.
+
+### Measured, not assumed, before filing or submitting
+
+- `grep -rliE "ssrf|169\.254|metadata"  bugs_open/ bugs_closed/` → nothing.
+  Not a duplicate.
+- Blast radius, for the council submission's `grounded_in` (per the owner
+  ruling: measure it yourself, don't ask the reviewer to):
+  ```sql
+  SELECT type FROM agent_definitions WHERE is_active AND deleted_at IS NULL
+   AND (default_config::text LIKE '%scrape_web%' OR LIKE '%batch_webscrape%');
+  -- 10 distinct types: grounded-explainer, vet-practice-verifier,
+  --   directory-researcher, research-agent, evidence-researcher, council-gate,
+  --   feature-designer, adoption-researcher, fix-proposer,
+  --   domain-research-classifier
+  ```
+  Also checked `orchestration_states` for the same string — 15 rows, but
+  spanning only 2026-07-30→31. **Did not cite this as the blast-radius
+  figure** — it's a retention-window artefact (the exact landmine already in
+  memory: "every history table is on a retention clock"), and the 10-agent
+  count is the durable, structural measure.
+
+### The package itself
+
+`platform/fetchguard`, deliberately a **sibling** to `httpguard`, not folded
+into it — `httpguard`'s own package doc scopes itself to "inbound-abuse
+primitives" explicitly, and adding an outbound guard to that package would
+make its own header wrong (the exact trap the earlier landmine entry
+describes, one level up). Core design: `Transport.DialContext` resolves the
+target itself and checks the *specific address about to be dialed* — not a
+pre-resolved hostname — closing the DNS-rebinding check-then-connect gap.
+Redirects re-dial through the same transport, so a redirect to a private
+target is caught automatically, with no separate redirect-target inspection
+to maintain.
+
+### The self-correction, caught by my own test before it shipped
+
+Wrote a comment claiming `ip.Unmap()` was "the exact bypass" needed to
+classify `::ffff:169.254.169.254` correctly. Wrote the test meant to *prove*
+that claim; it disproved it instead — `netip`'s classifiers already handle
+4-in-6 addresses with no unmap step. Fixed the comment to state the true,
+smaller reason (`Unmap()` only affects `ip.String()`'s readability in error
+messages), renamed the test accordingly, logged in `WRONG_CALLS.md`. The
+transferable point, recorded there: **a security-rationale comment with no
+prior art to contradict it has no external referee** — the only thing that
+catches it is writing the test that tries to *prove* the claim, not just
+tests the code that assumes it.
+
+### Test design bug caught the same way
+
+First draft of the redirect-cap test used a live `httptest.Server` (binds
+127.0.0.1) as the redirect target — which the private-IP check refuses on
+hop 1, before the redirect count could ever climb high enough to exercise
+`MaxRedirects`. The test would have "passed" while proving the wrong thing
+entirely. Fixed by unit-testing `checkRedirect` directly against fake
+requests (no network), plus a best-effort live version gated on the
+environment actually having a publicly-routable-shaped interface (it doesn't,
+in this sandbox — both interface-dependent tests skip here, honestly, rather
+than being deleted or faked).
+
+### Verification before commit
+
+- `go build`, `go vet`, `go test -race` on both touched packages — clean.
+- `git archive HEAD | tar -x` into a scratch dir, rebuilt and retested from
+  the **committed tree alone** (not the dirty working copy) — clean. Per the
+  shared-tree rule: a green local build is not a green HEAD.
+- Council submitted (`097_TRIGGER…`), corr `41bbaca4-25f1-45da-a2c1-28a246a5d07a`,
+  queue busy (5 in flight, no ETA printed). Committed immediately with
+  `Council-Submitted:` rather than holding the fix uncommitted for the verdict.

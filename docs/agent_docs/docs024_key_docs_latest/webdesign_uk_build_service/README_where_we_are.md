@@ -249,3 +249,47 @@ the plan with the check that actually detects it.
 
 **Still needing you:** the price (unblocked the moment we've measured a Fable
 build), and the short domain when you've picked it.
+
+---
+
+## 2026-07-31 — the SSRF gap you asked about is now a fix, and it turned out to be live already
+
+You asked me to write the SSRF code — server-side request forgery, the attack
+where a service fetches a URL on someone's behalf and gets pointed at your own
+internal network instead — and figure out how to make it reusable for other
+domains. Both done, and along the way it stopped being a hypothetical for a
+product we haven't built yet and became a fix to something already running.
+
+Tracing the actual scrape pipeline, I found the real exposure: when the
+platform scrapes a customer's page, it also pulls out the images that page
+mentions and downloads them, unchecked, from the pod itself. A page could name
+an image URL pointing at the cluster's own internal address book instead of a
+real picture, and the pod would dutifully fetch it. That's not specific to
+webdesign.uk — I measured it and ten different agent types across the fleet
+already use this scraping path, so it's been sitting there as a live gap the
+whole time, on ordinary site builds. I've filed it properly and fixed it in
+the same piece of work.
+
+The fix is a small, general-purpose package — a version of an HTTP client that
+checks where a URL actually leads before connecting, and re-checks on every
+redirect, so a URL that looks fine on the surface can't quietly send a fetch
+somewhere private partway through. It sits alongside the platform's existing
+"who's allowed to call us" guard, as the mirror of it — "what are we allowed
+to call on someone else's behalf." I've wired it into the one place that was
+genuinely exposed and left the rest of that file alone, and I've flagged one
+thing it does *not* cover — a headless browser that navigates to a page
+directly can't be protected the same way, and that's a separate piece of work
+for later, not something I've quietly assumed is fine.
+
+One small thing worth mentioning because it's exactly the kind of thing we
+care about getting right: I wrote a comment in the new code making a specific
+security claim, then wrote the test meant to prove it — and the test proved
+me wrong instead. A caught mistake, fixed before it ever shipped, which is
+the system working as intended rather than something to worry about.
+
+It's gone through the platform's own review process and is committed. With
+this done, the only thing left before this whole business idea is buildable
+is measuring one complete site build end to end, which needs the actual
+build-trigger machinery from a later phase — everything else this early
+checklist was meant to answer (cost, whether Fable-5 will even run for us,
+and now this) is in hand.
