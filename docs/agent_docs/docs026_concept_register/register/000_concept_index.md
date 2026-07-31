@@ -1,7 +1,10 @@
 # Concept Index — master register
 
-1,694 concepts across 110 category register files (**re-taken from the grep 2026-07-31
-after IMG-066 landed; the line said 1,693 and the grep said 1,693 before this row was
+1,695 concepts across 110 category register files (**re-taken from the grep 2026-07-31
+after LNK-026 landed; the line said 1,694 and the grep said 1,694 before this row was
+added, i.e. level — re-taken from the grep anyway, per this line's own rule, which is
+the only reason it has stayed level twice running.
+Earlier that day, re-taken after IMG-066 landed; the line said 1,693 and the grep said 1,693 before that row was
 added, i.e. level again — re-taken anyway, per this line's own rule. Earlier that day,
 re-taken after CLC-013 landed; the line said 1,692 and the grep said 1,692 before that row was
 added, i.e. it was level for once — re-taken anyway, per this line's own rule.
@@ -1656,7 +1659,8 @@ an ID prefix, or a status word.
 | ORG-001 | Organizational framework (roles, listeners, policy-as-filters) | abandoned | Whole-company modelling thought experiment: roles, listeners, policy filters | org-framework.md |
 | CTXK-011 | diagnose (cmd/diagnose): the CLI dev/test harness | deployed | Wires the scaffold to real gatherer/call-graph adapters with a stubbed (non-model) verdict step | contextkit-toolchain.md |
 | CGV-005 | Human direction channels and the pinned direction spec | partial | Work-item / direction-update / reference-suggestion channels; direction resets audit pass | content-governance.md |
-| LNK-017 | prepare_link_context available_pages gap on the work-item path | partial | Work-item rebuild path leaves the LLM's link-context constraint empty | link-management.md |
+| LNK-017 | prepare_link_context available_pages gap on the work-item path | built, not yet live | FIXED 2026-07-31 (bugs_open/092): the action now reads pages itself, under the deploy gate's own predicate; an empty list instructs "no internal links" instead of saying nothing | link-management.md |
+| LNK-026 | link_constraints.go, the dead second implementation (RETIRED) | deleted | 173-line near-duplicate of prepare_link_context with zero callers, deleted 2026-07-31; retires the "do NOT wire InjectLinkConstraints" landmine | link-management.md |
 | SYS-026 | site_work_items domain → pipeline column rename | deployed | Work-routing column renamed to eliminate collision with the site's own domain name | system-architecture.md |
 | DEV-079 | Data-path resolution problem (agent vs local action nesting) | superseded | Workflow config referenced CollectedData paths that didn't match where actions actually stored results. | development-guide.md |
 | DEV-028 | Deploy-ordering hard gate for coupled Go action + workflow-config changes | deployed | Workflow jsonb is live instantly; wiring to a not-yet-deployed action breaks every run of the agent. | development-guide.md |

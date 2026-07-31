@@ -14504,3 +14504,17 @@ looking wrong, which is luck, not method.
   would guess"* — so the tell was available without the council: **a neighbouring
   file had already declined to automate the same decision.**
 - **I measured a live outage's blast radius with a phrase the error does not contain, got 0 rows, and nearly concluded it was only my run.** The API cap message reads "You have reached your specified **API usage limits**"; I queried `collected_data->>'__step_error' ILIKE '%spending limit%'` and got **0 rows across 3 hours** while the fleet was actively being killed by it. Caught within one query — the zero was *too* clean given I was holding the failure in front of me — and re-run with `%usage limit%` it returned the real picture: first hit 18:58:41, my council round plus another session's a minute later. **The cheap check: copy the needle OUT of the error text you are holding, never from your paraphrase of it.** Fourth entry in the narrow-filter family today, and the most avoidable: I had the exact string on screen and typed a synonym.
+- **I wrote a mutation prediction into a test's doc comment and it was the opposite of the
+  truth — the only reason it is not still there is that I bothered to run it**
+  (`bugs_open/092`, `TestGateAndWriterShareOnePageEligibilityPredicate`, 2026-07-31). Having
+  factored a shared SQL predicate into a constant at the council's request, I documented the
+  new test as: *"MUTATION: inline the predicate back into either query and this fails on
+  that query's matcher."* It does not — I inlined it and the test **passed**, because the
+  matcher compares the constant's TEXT and an inlined copy of the same text still matches.
+  The test in fact pins **divergence** (verified separately: adding `'draft'` to the gate's
+  list does fail it), which is the property that matters, but that is not what I wrote. **The
+  cheap check is the obvious one and I nearly skipped it because the claim felt obvious: RUN
+  the mutation you are about to describe, especially in a comment, because a doc comment is
+  read by everyone afterwards as though it were verified.** Same family as "a claim about
+  behaviour is NOT the behaviour" — a mutation prediction is a claim about a check, and it
+  ages into folklore the moment it is committed unverified.

@@ -3,9 +3,21 @@
 **Filed:** 2026-07-26, while fixing `bugs_open/079` (the deploy gate detected dead in-body
 links and published them anyway).
 **Severity:** high. This is the *upstream cause* of the invented links 079 has to clean up.
-**Status:** OPEN — diagnosed with evidence, not fixed. Deliberately not folded into 079's
-commit: different mechanism, different file, different agent's path, and it changes
-content-generation behaviour fleet-wide, which nobody has measured.
+
+> **STATUS 2026-07-31 — FIXED IN CODE, COMMITTED (`2e1bfb39e`), NOT YET LIVE.**
+> Fix candidate 1 implemented, plus candidate 3 and both traps. Council submission
+> `4b8c5e21-011b-40f0-819a-3dfa4b4c7b1d` (`Council-Submitted:` trailer — verdict pending
+> at commit time). **This file stays OPEN until the chassis rolls and a fresh writer run
+> records `page_count > 0`**: the defect is reproducible until it ships, and a commit is
+> not a deploy. Workstream:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_092_writer_link_constraints/`.
+> What was verified before the fix (not assumed): the diagnosis below **still held on
+> 2026-07-31** — 26 of 26 runs at `page_count 0`, latest 15:36 UTC the same day, and
+> neither action file had moved since 2026-03-28.
+
+**Status (original):** OPEN — diagnosed with evidence, not fixed. Deliberately not folded
+into 079's commit: different mechanism, different file, different agent's path, and it
+changes content-generation behaviour fleet-wide, which nobody has measured.
 
 ## Symptom
 
@@ -195,6 +207,11 @@ was told what exists.
 
 ---
 
+> **NOTE ON THE PARAGRAPH BELOW, 2026-07-31:** the 07-28 correction stands and is the
+> reason this bug was worth fixing rather than deferring — there is no downstream
+> mitigation, so the writer's inventions reach live pages. The fix at the bottom of this
+> file is prevention, and it does not repair a single already-deployed page.
+
 > **CORRECTED 2026-07-28 (brochure_component_library thread):** the paragraph above —
 > *"invented links are being removed before they ship"* — is **false**. `079`'s repair
 > runs and its output is **discarded at persistence**: `save_page_sections` takes the
@@ -207,3 +224,197 @@ was told what exists.
 > `src` paths, which were never in the repair's remit) and they ship. The urgency
 > discount in the paragraph above is withdrawn; this bug is the upstream cause of live
 > 404s on deployed pages today, not of paragraphs that lose their links.
+
+---
+
+# THE FIX, 2026-07-31 — committed `2e1bfb39e`, inert until the next chassis roll
+
+Workstream: `docs/agent_docs/docs024_key_docs_latest/bugfix_092_writer_link_constraints/`.
+Council: `Council-Submitted: 4b8c5e21-011b-40f0-819a-3dfa4b4c7b1d`.
+
+## Re-verified before touching anything (the bug was still live)
+
+```
+runs | zero_pages |            latest
+  26 |         26 | 2026-07-31 15:36:26+00
+```
+
+and, from the other side — over **all** `page-content-writer` orchestrations, not only
+those that recorded a link context:
+
+```
+writer_runs | has_input_site_id | has_site_record | has_toplevel_site_id | has_db_sync
+         26 |                26 |               0 |                    0 |           0
+```
+
+That second query is the one that decided the fix. It says the configured field and all
+three fallbacks are unreachable **and** that `input_data.site_id` is the only identity the
+path carries — which the package's shared `extractSiteID` does not look at. Everything
+else followed from it.
+
+## What changed
+
+1. **The database is the source** (`loadLinkablePages`), under *exactly* the predicate
+   `validate_page_content.go:1252` `loadValidPagePaths` uses to decide what is a
+   `phantom_link`. The invariant that matters is **the writer's allow-list equals the
+   gate's accept-set**: any other source can disagree with the gate, and a writer flagged
+   for obeying its own instructions is the drift class this codebase keeps paying for.
+   `collected_data` remains the fallback, so a workflow that declares a list keeps it.
+
+2. **An empty list now says so.** `buildLinkConstraintText` returned `""`, and the
+   consuming template's `{{if}}` guard then dropped the entire "## Internal Linking"
+   section — so the writer with the *least* information was given the *least* instruction.
+   It now emits "do NOT create any internal links", which is true and safe in both states
+   that produce it.
+
+3. **The two causes of an empty list no longer look alike.** `degraded` is *"the list
+   could not be established"*, never *"the list is empty"*; a brand-new site with no pages
+   is a correct empty list. `db_consulted`, `source` and `reason` are in the output, and an
+   unreadable list writes a durable `agent_error_log` row, `error_code`
+   `LINK_CONTEXT_UNAVAILABLE`. Candidate 3 ("fail loudly") — a `logger.Warn` and an elided
+   prompt section is *why this ran at 100% for seven weeks*.
+
+4. **Trap 2 closed:** no URL is ever synthesised from a page name. A url-less page is
+   dropped and counted.
+
+5. **Trap 1 closed by deletion:** `link_constraints.go` is gone — 173 lines, 5 symbols,
+   **0 call sites** (grepped per symbol). It carried its own copy of the synthesis plus two
+   extra guesses (`/blog/`, `/tools/` prefixes). The standing landmine "do NOT wire
+   `InjectLinkConstraints`" is retired rather than restated. `page-content-writer`'s
+   `default_config` still carries a dead `link_constraints` block; it is now *provably*
+   unread, and is left alone deliberately (a config change with a separate risk profile).
+
+## Measured before submitting, not left for a reviewer
+
+| claim | measurement |
+|---|---|
+| one consumer | 1 `agent_definitions` row references `prepare_link_context` (`page-content-writer`) |
+| the fix reaches every run | 8 distinct writer runs in window, site id resolvable on all, **31** linkable pages each — `0 → 31` |
+| the predicate choice is safe | `pages.status` fleet-wide is **only** `active` (449) / `archived` (23), so the gate's predicate and `loadActivePagesForLinkContext`'s `status='active'` are the same set today |
+| the synthesis path was unreachable | `pages.url` is `NOT NULL` and **0 of 472** rows are empty |
+| the prompt cap is inert | largest site has **99** linkable pages, mean 30; cap is 200 |
+
+## How to verify it went live (do NOT verify from git or the tag)
+
+```sql
+-- 1. a fresh writer run now carries a real list
+SELECT created_at,
+       collected_data->'link_context'->>'page_count' AS pages,
+       collected_data->'link_context'->>'source'     AS source,
+       collected_data->'link_context'->>'degraded'   AS degraded,
+       length(collected_data->'link_context'->>'link_constraint_text') AS text_len
+FROM orchestration_states
+WHERE collected_data ? 'link_context'
+ORDER BY created_at DESC LIMIT 5;
+-- pre-fix: pages=0, text_len=0 on every row. Post-fix: pages>0, source='database'.
+
+-- 2. the loud arm, if anything cannot resolve
+SELECT occurred_at, severity, error_message, context
+FROM agent_error_log WHERE error_code='LINK_CONTEXT_UNAVAILABLE'
+ORDER BY occurred_at DESC LIMIT 10;
+```
+
+Pod-grep the running chassis for a string this change ADDED, plus a positive control in
+the same exec (a roll is not evidence your fix shipped — `bugs_open/153`):
+
+```
+kubectl exec -n ai-persona-system <pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "LINK_CONTEXT_UNAVAILABLE"; \
+   strings /app/agent-chassis | grep -c "PrepareLinkContextAction"'
+```
+
+The second is the control: it is present in every build, so `0 0` means the grep is wrong,
+while `0 N` means the image predates this commit.
+
+**Do not verify by reading the prompt template.** It is correct and always has been; the
+data it interpolates is what was missing.
+
+## What this fix does NOT do
+
+- It repairs **no already-deployed page**. This is a write-path fix; the existing 404s on
+  live sites are `bugs_open/071`'s and `097`'s.
+- It does not touch the three hardcoded `/contact.html` defaults in `component_library.go`
+  (`071`'s renderer-default class) — a different producer, downstream of the writer, which
+  a writer-side fix structurally cannot reach.
+- It does not address the fragment/anchor blind spot (`071`): nothing emits section `id`s.
+- **Residual found while fixing this, deliberately not widened into:**
+  `build_render_context`'s `sources` map takes `available_pages` from `db_sync.pages` too,
+  so `render_context.available_pages` is empty on the same 26 runs, for the same reason.
+  Nothing in Go and no live prompt reads it by that name, so it is inert rather than
+  harmful — recorded here so the next thread does not rediscover it as a second bug.
+
+---
+
+## Council verdict, 2026-07-31 — APPROVED at round 1, and what the objections were worth
+
+`4b8c5e21-011b-40f0-819a-3dfa4b4c7b1d` → **approved**, "6 advisory objection(s) — none
+high-severity", 6 seats abstained on relevance. Three mediums were worth acting on; the
+rest are recorded here because a verdict nobody reads is the same as no verdict.
+
+**Acted on in code** (`9a57d2395`):
+
+- **`reuse_agent`, medium — and it was right.** I named `loadValidPagePaths` as the reuse
+  target and then *copied its predicate*, with a comment as the only thing holding the two
+  in step: *"the precise failure mode the founding incident describes, just one layer more
+  sophisticated (documented duplication vs. blind duplication)"*. The predicate is now a
+  shared constant used by both queries, so divergence is unrepresentable rather than
+  discouraged. Not the whole query — the two callers need different projections (urls
+  indexed by normal form vs. title/description for the prompt), so factoring it would force
+  one shape on both. Pinned by `TestGateAndWriterShareOnePageEligibilityPredicate`.
+- **`debug_historian`, low.** Stated explicitly that `pages.status` is load-bearing (dispatch
+  and `validate_page_content` both branch on it), *unlike* the `sites.status` informational
+  column whose landmine warns that filtering on it silently blinds a query. The analogy is
+  inverted here, and it was being left to the reader.
+
+**Answered with a measurement instead of an edit:**
+
+- **`editquality`, medium** — the deletion of `link_constraints.go` rested on a code-search
+  absence claim *"that cannot be confirmed from SQL"*. It can, and now is: **no
+  `agent_definitions` row anywhere references `InjectLinkConstraints` or
+  `inject_link_constraints` in its config**, and `link_constraints` is not a registered
+  action name. The only surviving reference is the dead top-level config block on
+  `page-content-writer` (`{"enabled": true, "max_internal_links_per_section": 3}`), which is
+  data no code reads — now provably so.
+- **`guardian`, medium** — *"is `params.DB` a NEW field on `ActionParams`?"* No. It is
+  pre-existing plumbing (`types.go:54`); this lane never touched `types.go`. A fair question
+  to gate on, and the answer is one `git status` away.
+- **`guidelines`** — asked whether `page-content-writer` declares `input_contract` /
+  `output_contract`. **It does not, and neither does any other agent: 0 of 185 active
+  definitions declare either field.** So the DECLARED CONTRACTS guideline is *inert
+  fleet-wide*, which is what that seat itself suspected ("this reads as the GUIDELINE being
+  inert/stale here rather than the plan being wrong") — now measured rather than suspected.
+  Worth knowing for every future submission that draws this objection.
+
+### `bug_historian`, medium — the sibling audit it asked for, done
+
+> *"the plan's own rationale names a sibling silent-empty exposure on the same shared
+> mechanism and leaves it unaudited … should at minimum file a follow-up work item naming
+> which of the five callers can hit an unresolved site_id and silently no-op."*
+
+Audited. Of `extractSiteID`'s five callers, **three fail loudly** and are safe —
+`site_db_actions.go:229` and `:533` return `fmt.Errorf`, `get_pages_to_build_actions.go:38`
+likewise. **Two are exposed:**
+
+| caller | on unresolved `site_id` |
+|---|---|
+| `UpdateSiteTimestampsAction` (`site_db_actions.go:490`) | `logger.Warn` + `{"updated": false}` — a silent no-op |
+| `ExtractAndSyncLinksAction` (`site_db_actions.go:396`) | **no check at all**; returns `{"links_extracted": N, "persisted": false}` — a *success-shaped* result where the link registry is never written |
+
+The second is the worse shape: a caller reading `links_extracted: 12` has every reason to
+think the registry was populated.
+
+**And the fact that stops this becoming a claim:** `link_registry` holds **0 rows,
+all-history** (`count(*) = 0`, no `max(created_at)`). Both exposed actions run on exactly
+one agent, `multipage-website-builder` — and there are **0 `multipage-website-builder`
+orchestrations in the retained window**.
+
+> **[UNDETERMINED] — I cannot tell from a zero-run window whether the registry is empty
+> because this exposure fires, or because the agent simply never runs.** Those are the two
+> causes with opposite fixes, and asserting either would be exactly the error this bug is
+> made of. What is measured: the exposure exists in the code, and the table has never had a
+> row. What is not: which one explains the other.
+
+Not filed as a new bug: `bugs_open/165` already owns `link_registry` (`site_db_actions.go:1474`,
+the reconciliation delete) and is actively worked, so the measurement is contributed there
+rather than competed with. `LNK-001`'s standing `verify-later: link_registry population`
+is the register-side home for it.

@@ -123,3 +123,42 @@ and transfers directly.
   catch."*
 - The rule to reuse: `platform/orchestration/actions/prune_floor.go`, register
   **CTXA-025**, closed case `bugs_closed/135`.
+
+---
+
+## Contribution, 2026-07-31 (bugfix_092 lane) — `link_registry` has never held a row, so its delete floor is theoretical today
+
+Evidence only, no direction, and no competing fix — this file's lane owns the mechanism.
+Found while auditing `extractSiteID`'s callers for `bugs_open/092`, which took me through
+`site_db_actions.go` and its `link_registry` writer.
+
+```sql
+SELECT count(*) AS rows, count(DISTINCT source_site_id) AS sites, max(created_at) AS newest
+FROM link_registry;
+--  0 | 0 | (null)
+```
+
+**Zero rows, all-history** (the table has no retention job, so this is not a window
+artefact — `newest` is NULL because nothing was ever inserted).
+
+Bearing on your third site: the delete at `site_db_actions.go:1474` is the reconciliation
+half of `ExtractAndSyncLinksAction`, and its *insert* half has evidently never run to
+completion on any site. So for `link_registry` specifically, a completeness floor guards a
+corpus that does not yet exist — which may change how you rank it against
+`page_components` (your stated live one) without changing whether the floor is right.
+
+Two things I could NOT determine, marked so nobody inherits them as findings:
+
+1. **Why it is empty.** `ExtractAndSyncLinksAction` returns a *success-shaped*
+   `{"links_extracted": N, "persisted": false}` when `site_id` does not resolve — it takes
+   `extractSiteID`, never checks the result, and skips persistence at
+   `params.DB == nil || siteID == uuid.Nil`. That is a plausible cause. But the action runs
+   on exactly one agent (`multipage-website-builder`) and there are **0 of its
+   orchestrations in the retained window**, so "the exposure fires" and "the agent never
+   runs" are indistinguishable from here. **[UNDETERMINED]** — I did not resolve it and it
+   should not be quoted as though I had.
+2. Whether that matters to your floor at all, which is your call.
+
+Full audit of the five `extractSiteID` callers (three fail loudly, two do not) is in
+`bugs_open/092` under the council-verdict section, filed there because the council's
+`bug_historian` seat asked for it against 092's plan.
