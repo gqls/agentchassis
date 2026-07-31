@@ -650,3 +650,34 @@ The gate is **advisory** and cannot block; the commits carry `Council-Submitted`
 asserts nothing and resolves at report time. The remaining work that actually closes
 this bug is a roll and one more induced run, so that is the priority over a fourth
 round.
+
+### Owed: landmine verification, and a gap in CLAUDE.md's instruction
+
+`landmines-sync.py --apply` prints machine-parseable `NEEDS_VERIFICATION:<source>`
+lines for entries that are new or content-changed in that run, which
+`landmines-verify-dispatch.sh` (RFC_005 §3.2) consumes to fire the `landmine-verifier`
+agent once per entry. **CLAUDE.md names only `./scripts/landmines-sync.py --apply`**,
+which is the sync *without* the dispatch — so following CLAUDE.md to the letter
+delivers entries to `doc_notes` **unverified**. I followed the documented command, and
+compounded it by truncating the sync output with `tail -3`, which cut the
+`NEEDS_VERIFICATION` lines off the bottom on the first three runs. I only saw one
+because the fourth run's output was short enough.
+
+Because sync only reports what changed *in that run*, re-running it now reports zero —
+**the verification window for my earlier four entries has passed** and they would each
+need `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#<slug>'` fired by hand.
+
+**Owed, deliberately not done yet:** four verifier runs would be four in-flight agent
+runs, and I am currently *waiting for a roll window* precisely so as not to destroy
+someone else's in-flight run. Firing them now would either be killed by my own roll or
+delay it further. To be fired after the roll and the final induced run.
+
+The entries are not bare assertions in the meantime — each carries its measurement
+inline (the CHECK constraint text, the query output, the pod-grep counts, the
+`snapshot_taken_at` tie) — but "measured by me" is not the same as "independently
+verified", which is the whole point of the verifier.
+
+**Worth raising separately:** CLAUDE.md should name `landmines-verify-dispatch.sh` as
+the default, or say explicitly that the sync alone skips verification. Not edited here
+— CLAUDE.md is co-edited standing state and this lane has no mandate to change the
+fleet's instructions; recorded so a thread that does can act on it.
