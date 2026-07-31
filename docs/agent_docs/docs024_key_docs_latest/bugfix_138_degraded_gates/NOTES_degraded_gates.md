@@ -325,3 +325,61 @@ pre-cutover peaks to beat (guardian 99.2%, debug_historian 99.8%,
 improvement_guardian 96.6%). The architecture precedent says outputs should get
 *shorter*; if the peaks do not move, the block is being ignored and that is the finding,
 not a null result.
+
+### 2026-07-31 15:30 — owner raised feature-designer's caps, and the raise immediately exposed the argument it was made under
+
+Owner call: `review_architecture` / `review_editquality` / `review_guidelines`
+8000 → 16000 on **feature-designer**, matching the two councils the 07-29 ruling
+reached. Applied as `sql_for_agents/277_…sql` — snapshot first, guarded on the current
+value being 8000 (so idempotent and it cannot stomp a value someone else has set),
+`create_if_missing := false` so a wrong path is a silent no-op, and the RETURNING
+count as the check. 1 row, then all nine (3 seats × 3 councils) verified at 16000
+inside the same transaction.
+
+**Snapshot verified as a PRE-update copy**, per the landmine I wrote two hours ago:
+`agent_definitions_backup` shows `arch_cap_in_backup = 8000` while live reads 16000. A
+snapshot taken *after* a write differs in no other column, so this assertion is the
+only thing separating a rollback from a souvenir.
+
+Predicted and confirmed side effect: **102 now reports value drift on
+feature-designer** (3 seats at 16000, 3 at 8000) exactly as it already did for
+fix-proposer and council-gate. That is the deliberate kind, and saying so before
+running it is the difference between a prediction and an excuse. 099 unchanged —
+feature-designer is not in its mirror, which is the whole reason this gap existed.
+
+#### And then the re-run found the thing that matters more
+
+`review_editquality@16000` — the fix lane's, at the cap the 07-29 ruling gave it —
+**flags at peak 98.3% with all 52 calls attributable.** Checked directly rather than
+trusting the aggregate, because today has earned that caution:
+
+| when | output tokens | % of 16000 cap |
+|---|---|---|
+| 07-30 19:36 | 13,115 | 82.0 |
+| 07-30 19:48 | 13,592 | 85.0 |
+| **07-31 14:52** | **15,721** | **98.3** |
+| **07-31 15:30** | **15,525** | **97.0** |
+
+Not an outlier — a **rising trend**, with the last two inside an hour. Earlier today
+the same pair read peak 62.9% on 28 calls; 24 calls later it is at 98.3%.
+
+**This is the sharpest measurement this lane has produced, and it is of its own core
+claim.** The bug file has argued since 07-29 that "a cap raise MOVES the cliff, it does
+not close it", evidenced by `review_architecture` reintroducing truncation against a
+new cap within hours. That was one seat and could be dismissed as a longer prompt
+landing at the same time. This is the *other* raised seat, with no prompt change,
+growing into its doubled ceiling over three days on fully attributable evidence. **The
+07-28 raise bought review_editquality roughly three days.**
+
+Direct consequence for the change just applied: raising feature-designer to 16000 buys
+time, not immunity, and nobody should read it as closing anything. Added
+`review_editquality` on all three councils to the length-budget targets (10 now) —
+cutover `15:39:26`–`15:39:30` from `agent_definitions.updated_at`. 099 drift none,
+re-run idempotent.
+
+**What this does NOT establish.** Whether the length budget will hold editquality
+below its cap is unmeasured — only rounds spawned after 15:39:3x carry it, and the
+seat's trajectory is steeper than any other. If its next peaks stay near 98%, the
+budget is being ignored by the seat that most needs it, and the honest next step is a
+per-seat instruction rather than a third cap raise. Watch it with RUNBOOK §10's query,
+restricted to `step_name='review_editquality' AND max_tokens=16000`.
