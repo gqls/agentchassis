@@ -751,3 +751,11 @@ source document and the entry points at it.
 - **the fix that survives a theme change:** name the scale locally on the component root with a literal fallback to a variable the theme really defines — `--trp-card-x: var(--card-pad, 1.5rem)` — so a missing theme name degrades to the literal instead of to nothing
 - **source:** 2026-07-30, owner reported "no space between the edge of the card and the lines" on fundamentallyai.com; computed padding measured `0px 0px 0px 0px`. `brochure_component_library/NOTES` 2026-07-30 (evening, second entry)
 - **added:** 2026-07-30, brochure_component_library lane
+
+### `\set var `backtick`` in psql runs the command INSIDE THE POD, and the empty result still COMMITs
+- **footprint:** `kubectl exec -i postgres-clients-0 -- psql`, any `sql_for_agents/*.sql` using `\set tmpl \`cat …\``, `content_components.html_template`
+- **fires when:** you load a file into a column with psql's backtick interpolation while piping the script through `kubectl exec`. The documented house pattern for tool components (`oufe/PREPARED_tool_insert.sql`) uses exactly this form, and it works **only** when psql runs on a machine holding the repo
+- **the tell:** one line of `cat: <path>: No such file or directory` on stderr, then `BEGIN / INSERT 0 1 / … / COMMIT` — **every statement reports success** and the row is created with an **empty string, not NULL**, so a `IS NOT NULL` check passes too. `\set ON_ERROR_STOP on` does NOT help: a failing shell command is not a psql error. A tool component inserted this way is a live page bound to a zero-byte template
+- **the check:** build the statement locally (dollar-quoted literal via python) and pipe the finished SQL; then **assert `length(col)` against `wc -c` of the local file** rather than trusting the `INSERT 0 1`. Byte counts must match exactly
+- **source:** hit 2026-07-31 applying `sql_for_agents/275` (oufe tool 2); the corrected loading procedure is in that file's header
+- **added:** 2026-07-31, oufe lane

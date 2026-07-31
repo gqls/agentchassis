@@ -1,0 +1,486 @@
+<style>
+  .tool-container {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 2.5rem 1rem;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .tool-container h2 {
+    margin: 0 0 0.6rem 0;
+    font-size: 1.5rem;
+    color: var(--color-primary, #0f172a);
+  }
+
+  .ra-lede { margin: 0 0 1.2rem 0; }
+
+  /* ── condition-of-use gate ───────────────────────────────────────────── */
+  .ra-gate {
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--color-border, #d8dde5);
+    border-left: 3px solid var(--color-primary, #1e3a5f);
+    border-radius: 4px;
+    background: var(--color-surface-alt, rgba(30, 58, 95, 0.04));
+  }
+
+  .ra-gate h3 { margin: 0 0 0.6rem 0; font-size: 1rem; color: var(--color-primary, #0f172a); }
+  .ra-gate p { margin: 0 0 0.7rem 0; font-size: 0.9rem; line-height: 1.6; }
+
+  .ra-accept {
+    margin-top: 0.3rem;
+    padding: 0.6rem 1.2rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--color-surface, #fff);
+    background: var(--color-primary, #1e3a5f);
+    border: 1px solid var(--color-primary, #1e3a5f);
+    border-radius: 4px;
+  }
+  .ra-accept:hover { opacity: 0.9; }
+
+  .ra-illustrative {
+    margin: 1.1rem 0 1.3rem 0;
+    padding: 0.8rem 1rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    border-left: 3px solid var(--color-border, #d8dde5);
+    background: var(--color-surface-alt, rgba(15, 23, 42, 0.03));
+  }
+
+  /* ── layout ──────────────────────────────────────────────────────────── */
+  .ra-grid { display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); gap: 1.5rem; }
+  @media (max-width: 46rem) { .ra-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .ra-controls { min-width: 0; }
+  .ra-out { min-width: 0; }
+
+  .ra-field { margin-bottom: 0.9rem; }
+  .ra-field label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .ra-field .ra-hint { display: block; font-weight: 400; font-size: 0.78rem; opacity: 0.75; margin-top: 0.15rem; }
+
+  .ra-field input[type="number"] {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0.45rem 0.55rem;
+    font: inherit;
+    font-size: 0.92rem;
+    border: 1px solid var(--color-border, #d8dde5);
+    border-radius: 3px;
+    background: var(--color-surface, #fff);
+  }
+
+  .ra-field input[type="range"] { width: 100%; max-width: 100%; box-sizing: border-box; margin-top: 0.35rem; }
+
+  .ra-star {
+    padding: 0.9rem 1rem;
+    margin-bottom: 1.1rem;
+    border: 1px solid var(--color-primary, #1e3a5f);
+    border-radius: 4px;
+    background: var(--color-surface-alt, rgba(30, 58, 95, 0.05));
+  }
+  .ra-star label { font-size: 0.9rem; }
+
+  .ra-classrow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5.5rem 5rem;
+    gap: 0.5rem;
+    align-items: end;
+    margin-bottom: 0.7rem;
+  }
+  .ra-classrow .ra-cname { font-size: 0.85rem; font-weight: 700; }
+  .ra-classrow input { width: 100%; box-sizing: border-box; padding: 0.4rem 0.45rem; font: inherit; font-size: 0.88rem;
+    border: 1px solid var(--color-border, #d8dde5); border-radius: 3px; background: var(--color-surface, #fff); }
+  .ra-colhead { display: grid; grid-template-columns: minmax(0, 1fr) 5.5rem 5rem; gap: 0.5rem;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin-bottom: 0.3rem; }
+
+  /* ── results ─────────────────────────────────────────────────────────── */
+  .ra-verdict {
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.1rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-border, #d8dde5);
+    border-left: 4px solid var(--color-primary, #1e3a5f);
+    background: var(--color-surface-alt, rgba(30, 58, 95, 0.04));
+  }
+  .ra-verdict h3 { margin: 0 0 0.4rem 0; font-size: 1.05rem; color: var(--color-primary, #0f172a); }
+  .ra-verdict p { margin: 0.35rem 0 0 0; font-size: 0.9rem; }
+
+  .ra-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .ra-table th, .ra-table td { padding: 0.45rem 0.4rem; text-align: right; border-bottom: 1px solid var(--color-border, #e6e9ef); }
+  .ra-table th:first-child, .ra-table td:first-child { text-align: left; }
+  .ra-table th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.75; font-weight: 700; }
+  .ra-scroll { overflow-x: auto; margin-bottom: 1.1rem; }
+
+  .ra-tag { display: inline-block; padding: 0.08rem 0.4rem; border-radius: 3px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+  .ra-tag-veto { color: var(--color-surface, #fff); background: var(--color-primary, #1e3a5f); }
+  .ra-tag-none { border: 1px solid var(--color-border, #d8dde5); opacity: 0.8; }
+
+  .ra-cond { margin: 0 0 0.6rem 0; padding: 0.7rem 0.9rem; border-left: 3px solid var(--color-border, #d8dde5);
+    background: var(--color-surface-alt, rgba(15, 23, 42, 0.03)); font-size: 0.88rem; }
+  .ra-cond strong { display: block; margin-bottom: 0.2rem; }
+
+  .ra-note { font-size: 0.82rem; opacity: 0.85; margin: 0.9rem 0 0 0; }
+
+  .ra-disclaimer {
+    margin-top: 1.6rem;
+    padding: 1rem 1.1rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    border-left: 3px solid var(--color-primary, #1e3a5f);
+    background: var(--color-surface-alt, rgba(30, 58, 95, 0.04));
+  }
+  .ra-disclaimer h3 { margin: 0 0 0.5rem 0; font-size: 0.95rem; color: var(--color-primary, #0f172a); }
+  .ra-disclaimer p { margin: 0 0 0.6rem 0; }
+  .ra-disclaimer p:last-child { margin-bottom: 0; }
+
+  .ra-actions { margin-top: 0.6rem; }
+  .ra-reset {
+    padding: 0.45rem 0.9rem; font: inherit; font-size: 0.85rem; cursor: pointer;
+    color: var(--color-primary, #1e3a5f); background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #d8dde5); border-radius: 3px;
+  }
+</style>
+
+<div class="tool-container">
+  <h2>The relevant alternative: who still has a vote</h2>
+  <p class="ra-lede">
+    A restructuring plan can be imposed on a class that votes against it. Whether it can
+    depends almost entirely on one assumption: what the court thinks would happen if the
+    plan were refused. That assumption is called the relevant alternative. Move it, and
+    classes gain or lose their ability to block.
+  </p>
+
+  <div class="ra-gate" id="ra-gate">
+    <h3>Before you use this tool</h3>
+    <p>
+      <strong>This model can give you a wrong answer.</strong> It applies a simplified
+      reading of one statutory test to numbers you type in. A real cram down turns on
+      valuation evidence, how classes were composed, whether the court exercises its
+      discretion at all, and much else that this models in no way whatsoever.
+    </p>
+    <p>
+      Treat every result as <strong>a possibly inaccurate worked example</strong>, useful
+      for seeing how the mechanism behaves, and not as a view about any real company, any
+      real plan or any real decision. Please do not rely on it.
+    </p>
+    <button type="button" class="ra-accept" id="ra-accept">I understand this tool can be wrong</button>
+  </div>
+
+  <div class="ra-body" id="ra-body" hidden>
+
+    <p class="ra-illustrative">
+      <strong>Every figure below is an illustrative default, not any company's real
+      position.</strong> Change them to whatever you are working on. Everything is
+      calculated in your browser: nothing you type is transmitted anywhere, and nothing is
+      stored, including this acknowledgement, which is why you will see it again next time.
+    </p>
+
+    <div class="ra-grid">
+      <div class="ra-controls">
+
+        <div class="ra-star">
+          <div class="ra-field" style="margin-bottom:0;">
+            <label for="ra-alt">Relevant alternative value
+              <span class="ra-hint">What the business is worth if the plan is refused. This is the assumption doing the work.</span>
+            </label>
+            <input type="number" id="ra-alt" min="0" step="50" value="600">
+            <input type="range" id="ra-alt-slider" min="0" max="3000" step="25" value="600">
+          </div>
+        </div>
+
+        <div class="ra-field">
+          <label for="ra-plan">Value available under the plan
+            <span class="ra-hint">What the plan distributes if it is sanctioned.</span>
+          </label>
+          <input type="number" id="ra-plan" min="0" step="50" value="1400">
+          <input type="range" id="ra-plan-slider" min="0" max="3000" step="25" value="1400">
+        </div>
+
+        <div class="ra-colhead">
+          <span>Class, most senior first</span>
+          <span>Claim</span>
+          <span>Vote %</span>
+        </div>
+
+        <div class="ra-classrow">
+          <span class="ra-cname">Senior secured</span>
+          <input type="number" id="ra-claim-0" min="0" step="50" value="800">
+          <input type="number" id="ra-vote-0" min="0" max="100" step="1" value="95">
+        </div>
+        <div class="ra-classrow">
+          <span class="ra-cname">Senior unsecured</span>
+          <input type="number" id="ra-claim-1" min="0" step="50" value="500">
+          <input type="number" id="ra-vote-1" min="0" max="100" step="1" value="80">
+        </div>
+        <div class="ra-classrow">
+          <span class="ra-cname">Subordinated</span>
+          <input type="number" id="ra-claim-2" min="0" step="50" value="400">
+          <input type="number" id="ra-vote-2" min="0" max="100" step="1" value="10">
+        </div>
+        <div class="ra-classrow">
+          <span class="ra-cname">Shareholders</span>
+          <input type="number" id="ra-claim-3" min="0" step="50" value="0">
+          <input type="number" id="ra-vote-3" min="0" max="100" step="1" value="0">
+        </div>
+
+        <p class="ra-note">
+          Claims and values are in the same unit. Use millions, thousands or pounds, it
+          makes no difference to the arithmetic. Shareholders sit last and are shown with a
+          nil claim: they rank behind every creditor, so their interest is whatever is left.
+        </p>
+
+        <div class="ra-actions">
+          <button type="button" class="ra-reset" id="ra-reset">Reset to defaults</button>
+        </div>
+      </div>
+
+      <div class="ra-out">
+        <div class="ra-verdict" id="ra-verdict">
+          <h3 id="ra-verdict-head">Set a value to begin</h3>
+          <p id="ra-verdict-detail"></p>
+        </div>
+
+        <div class="ra-scroll">
+          <table class="ra-table">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>In the relevant alternative</th>
+                <th>Under the plan</th>
+                <th>Vote</th>
+                <th>Standing</th>
+              </tr>
+            </thead>
+            <tbody id="ra-rows"></tbody>
+          </table>
+        </div>
+
+        <div class="ra-cond" id="ra-cond-a">
+          <strong>Condition A</strong>
+          <span id="ra-cond-a-text"></span>
+        </div>
+        <div class="ra-cond" id="ra-cond-b">
+          <strong>Condition B</strong>
+          <span id="ra-cond-b-text"></span>
+        </div>
+
+        <p class="ra-note" id="ra-veto-note"></p>
+      </div>
+    </div>
+
+    <div class="ra-disclaimer">
+      <h3>What this does not model</h3>
+      <p>
+        It reads the two statutory conditions in a deliberately simple way. It treats a
+        class as no worse off whenever its recovery under the plan is at least its recovery
+        in the relevant alternative, measured only in money at a single point in time. The
+        real test has been argued over timing, risk, the form of the consideration, and
+        non-financial rights, and none of that appears here.
+      </p>
+      <p>
+        It also assumes the relevant alternative distributes value in the same strict order
+        of priority as the plan, that classes were properly constituted, and that everyone
+        entitled to vote did. It ignores security, guarantees, structural subordination,
+        intercompany claims and contingent liabilities entirely. The court also retains a
+        discretion it is not obliged to exercise, which no model can represent.
+      </p>
+      <p>
+        The 75% threshold and both conditions are quoted from Part 26A of the Companies Act
+        2006. The reading of them applied here is ours, and it is a simplification. It is
+        educational scenario modelling, not a valuation, not a forecast and not advice.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CLASS_NAMES = ['Senior secured', 'Senior unsecured', 'Subordinated', 'Shareholders'];
+  var THRESHOLD = 75; // s.901G(1) and Condition B, Companies Act 2006 Part 26A
+  var N = CLASS_NAMES.length;
+
+  var DEFAULTS = {
+    alt: 600,
+    plan: 1400,
+    claims: [800, 500, 400, 0],
+    votes: [95, 80, 10, 0]
+  };
+
+  function el(id) { return document.getElementById(id); }
+
+  function num(node, fallback) {
+    var v = parseFloat(node.value);
+    if (!isFinite(v) || v < 0) { return fallback; }
+    return v;
+  }
+
+  // Strict priority waterfall: each class is paid in full before the next
+  // receives anything. Returns recovery per class, in order.
+  function waterfall(value, claims) {
+    var remaining = value;
+    var out = [];
+    for (var i = 0; i < claims.length; i++) {
+      var paid = Math.min(claims[i], remaining);
+      out.push(paid);
+      remaining -= paid;
+    }
+    // Anything left over after every creditor claim belongs to shareholders,
+    // who sit last. Their claim input is nominal, so the residual is added here.
+    if (remaining > 0) { out[out.length - 1] += remaining; }
+    return out;
+  }
+
+  function money(v) {
+    return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  function pct(part, whole) {
+    if (whole <= 0) { return '–'; }
+    return Math.round((part / whole) * 100) + '%';
+  }
+
+  function recalc() {
+    var alt = num(el('ra-alt'), DEFAULTS.alt);
+    var plan = num(el('ra-plan'), DEFAULTS.plan);
+
+    var claims = [], votes = [];
+    for (var i = 0; i < N; i++) {
+      claims.push(num(el('ra-claim-' + i), DEFAULTS.claims[i]));
+      votes.push(num(el('ra-vote-' + i), DEFAULTS.votes[i]));
+    }
+
+    var altRec = waterfall(alt, claims);
+    var planRec = waterfall(plan, claims);
+
+    var rows = '';
+    var vetoCount = 0;
+    var dissentingWorseOff = [];
+    var conditionBClass = null;
+
+    for (var j = 0; j < N; j++) {
+      // "Genuine economic interest in the relevant alternative" is modelled as
+      // recovering something at all in that counterfactual. That is the
+      // simplification the disclaimer names.
+      var inTheMoney = altRec[j] > 0;
+      if (inTheMoney) { vetoCount++; }
+
+      var approved = votes[j] >= THRESHOLD;
+
+      // Condition A bites only on classes that DISSENT.
+      if (!approved && planRec[j] < altRec[j]) {
+        dissentingWorseOff.push(CLASS_NAMES[j]);
+      }
+
+      // Condition B needs one approving class that is in the money in the
+      // relevant alternative. First such class is enough.
+      if (approved && inTheMoney && conditionBClass === null) {
+        conditionBClass = CLASS_NAMES[j];
+      }
+
+      var standing = inTheMoney
+        ? '<span class="ra-tag ra-tag-veto">Has a say</span>'
+        : '<span class="ra-tag ra-tag-none">Out of the money</span>';
+
+      rows += '<tr>' +
+        '<td>' + CLASS_NAMES[j] + '</td>' +
+        '<td>' + money(altRec[j]) + ' <span style="opacity:.65">(' + pct(altRec[j], claims[j]) + ')</span></td>' +
+        '<td>' + money(planRec[j]) + ' <span style="opacity:.65">(' + pct(planRec[j], claims[j]) + ')</span></td>' +
+        '<td>' + votes[j] + '% ' + (approved ? 'for' : '<strong>against</strong>') + '</td>' +
+        '<td>' + standing + '</td>' +
+        '</tr>';
+    }
+
+    el('ra-rows').innerHTML = rows;
+
+    // ── Condition A ─────────────────────────────────────────────────────
+    var condA = dissentingWorseOff.length === 0;
+    el('ra-cond-a-text').innerHTML = condA
+      ? 'Satisfied on these figures. No dissenting class recovers less under the plan than it would in the relevant alternative.'
+      : 'Not satisfied. ' + dissentingWorseOff.join(' and ') +
+        (dissentingWorseOff.length > 1 ? ' recover' : ' recovers') +
+        ' less under the plan than in the relevant alternative, and ' +
+        (dissentingWorseOff.length > 1 ? 'they voted' : 'it voted') + ' against.';
+
+    // ── Condition B ─────────────────────────────────────────────────────
+    var condB = conditionBClass !== null;
+    el('ra-cond-b-text').innerHTML = condB
+      ? 'Satisfied. ' + conditionBClass + ' approved the plan and would receive something in the relevant alternative, so it has a genuine economic interest.'
+      : 'Not satisfied. No class that approved the plan would receive anything in the relevant alternative, so no approving class has a genuine economic interest.';
+
+    // ── Verdict ─────────────────────────────────────────────────────────
+    var anyDissent = false;
+    for (var k = 0; k < N; k++) { if (votes[k] < THRESHOLD) { anyDissent = true; } }
+
+    var head, detail;
+    if (!anyDissent) {
+      head = 'No cram down needed';
+      detail = 'Every class reached ' + THRESHOLD + '% in value, so there is no dissenting class and section 901G does not arise.';
+    } else if (condA && condB) {
+      head = 'Cram down available';
+      detail = 'Both conditions are met on these figures, so the court has the power to sanction the plan over the dissenting class. It is not obliged to.';
+    } else if (!condA && !condB) {
+      head = 'Cram down not available';
+      detail = 'Neither condition is met on these figures.';
+    } else {
+      head = 'Cram down not available';
+      detail = 'Only one of the two conditions is met, and section 901G requires both.';
+    }
+
+    el('ra-verdict-head').textContent = head;
+    el('ra-verdict-detail').textContent = detail;
+
+    // ── The teaching line ───────────────────────────────────────────────
+    el('ra-veto-note').innerHTML =
+      '<strong>' + vetoCount + ' of ' + N + ' classes would receive something in the relevant alternative.</strong> ' +
+      'Only those classes can satisfy Condition B. Lower the relevant alternative value and watch classes drop out: ' +
+      'a class that recovers nothing in the counterfactual has no genuine economic interest, so its approval cannot ' +
+      'support a cram down. The counterfactual, not the plan, decides who matters.';
+  }
+
+  // ── wiring ────────────────────────────────────────────────────────────
+  function pair(numId, sliderId) {
+    var n = el(numId), s = el(sliderId);
+    n.addEventListener('input', function () { s.value = n.value; recalc(); });
+    s.addEventListener('input', function () { n.value = s.value; recalc(); });
+  }
+
+  pair('ra-alt', 'ra-alt-slider');
+  pair('ra-plan', 'ra-plan-slider');
+
+  for (var i = 0; i < N; i++) {
+    el('ra-claim-' + i).addEventListener('input', recalc);
+    el('ra-vote-' + i).addEventListener('input', recalc);
+  }
+
+  // The gate is NOT persisted to storage, so the "nothing is stored" claim above
+  // stays literally true and each visit re-consents. The acceptance criteria
+  // click this first, which also means a broken gate fails the check rather than
+  // silently locking the tool. See bugs_open/126: the gate has its own acceptance
+  // check so a repair loop cannot "fix" the tool by deleting the disclaimer.
+  var gate = el('ra-gate'), body = el('ra-body'), accept = el('ra-accept');
+  accept.addEventListener('click', function () {
+    gate.hidden = true;
+    gate.style.display = 'none';
+    body.hidden = false;
+    recalc();
+  });
+
+  el('ra-reset').addEventListener('click', function () {
+    el('ra-alt').value = DEFAULTS.alt; el('ra-alt-slider').value = DEFAULTS.alt;
+    el('ra-plan').value = DEFAULTS.plan; el('ra-plan-slider').value = DEFAULTS.plan;
+    for (var m = 0; m < N; m++) {
+      el('ra-claim-' + m).value = DEFAULTS.claims[m];
+      el('ra-vote-' + m).value = DEFAULTS.votes[m];
+    }
+    recalc();
+  });
+
+  recalc();
+})();
+</script>
