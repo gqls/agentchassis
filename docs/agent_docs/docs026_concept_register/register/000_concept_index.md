@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,688 concepts across 109 category register files (**re-taken from the grep 2026-07-31
+1,689 concepts across 109 category register files (**re-taken from the grep 2026-07-31
 after CTXA-025 landed** — the line said 1,686 and the grep said 1,687 before this row was
 added, i.e. it had drifted 1 behind AGAIN, from another session's row, exactly as the
 history below predicts; not incremented from what was sitting here, per this
@@ -540,6 +540,7 @@ an ID prefix, or a status word.
 | CASE-018 | Reuse-not-rebuild site build-out with honest "simulation" labelling | aspirational | Deploy existing tool library, label deterministic widgets as simulations | site-case-studies.md |
 | PBP-024 | Deploy-observability bookkeeping gap | partial | Deploy path never writes deploy_commit/last_built_at, weakening change-detection evidence | page-build-pipeline.md |
 | PBP-025 | componentless_pages discovery check (repair half of PBP-023) | built, not enabled | Active+deployed page with sections but ZERO page_components serves chrome only and no check could see it | page-build-pipeline.md |
+| PBP-026 | sourceResolver identity fallback chain (spec-path miss → canonical sites row) | built, inert till roll | plan_sections could not read the sites row's identity columns, so an owner-supplied email was invisible to every component | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
 | STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |

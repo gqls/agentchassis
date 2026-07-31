@@ -83,16 +83,58 @@ func init() {
 
 // sourceResolver holds cached lookups for a single invocation
 type sourceResolver struct {
-	siteID       uuid.UUID
-	db           *sql.DB
-	logger       *zap.Logger
-	specs        map[string]map[string]interface{} // aspect → data
-	pages        map[string]string                 // page name → url
-	assets       map[string]string                 // asset type → url
-	pageName     string                            // page being planned; scopes per-page asset resolution (hero)
-	specsLoaded  bool
-	pagesLoaded  bool
-	assetsLoaded bool
+	siteID        uuid.UUID
+	db            *sql.DB
+	logger        *zap.Logger
+	specs         map[string]map[string]interface{} // aspect → data
+	pages         map[string]string                 // page name → url
+	assets        map[string]string                 // asset type → url
+	siteRow       map[string]string                 // sites-row identity column → value (see ensureSiteRow)
+	pageName      string                            // page being planned; scopes per-page asset resolution (hero)
+	specsLoaded   bool
+	pagesLoaded   bool
+	assetsLoaded  bool
+	siteRowLoaded bool
+}
+
+// identityContainerAspects lists the site_specs aspects whose writers group
+// fields inside a sub-object, so `<aspect>.<field>` must also be looked for at
+// `<aspect>.<container>.<field>`.
+//
+// `identity` is written by domain-research-classifier, which nests contact
+// details: {"contact": {"email":…, "phone":…, "address":…, "location":…}}.
+// Component input_schemas ask for the FLAT path (site_specs.identity.email), so
+// the two have never agreed. Enumerated rather than a blind deep search: a
+// search would make two same-named keys at different depths ambiguous, and the
+// site_assets branch below already establishes the enumerated-alias shape.
+var identityContainerAspects = map[string][]string{
+	"identity": {"contact"},
+}
+
+// siteRowIdentityColumns maps a site_specs.identity.<field> leaf onto the sites
+// row column holding the SAME fact.
+//
+// The sites row is the canonical identity store: loadSiteDataFull
+// (render_site_components_action.go:337) sources the full-writer render context
+// from exactly these columns, and buildRerenderBaseData was changed to prefer
+// sites.email over content_data for the same reason (bugs_open/006 §B —
+// "making both render paths agree"). plan_sections is the third path and the
+// only one that still cannot see them, so an owner-supplied email or phone is
+// invisible to every component that declares a site_specs.identity source.
+//
+// Keys are the spec-side leaf names components actually declare (both spellings
+// of address are accepted); values are column names. The set mirrors
+// loadSiteDataFull's SELECT, plus contact_address, which holds the fact
+// site_specs.identity.address asks for and which no render path reads today.
+var siteRowIdentityColumns = map[string]string{
+	"email":           "email",
+	"phone":           "phone",
+	"address":         "contact_address",
+	"contact_address": "contact_address",
+	"company_name":    "company_name",
+	"tagline":         "tagline",
+	"logo_text":       "logo_text",
+	"logo_url":        "logo_url",
 }
 
 // NOTE (signature change): newSourceResolver now takes pageName so site_assets
@@ -144,6 +186,47 @@ func (r *sourceResolver) ensureSpecs(ctx context.Context) {
 
 	r.logger.Info("plan_sections: loaded site_specs",
 		zap.Int("aspect_count", len(r.specs)))
+}
+
+// ensureSiteRow loads this site's identity columns from the sites row (once).
+//
+// Deliberately NOT COALESCEd across columns the way loadSiteDataFull is: that
+// function needs a non-empty value for a template, so it falls back
+// company_name → name → domain. Here an empty value must stay empty, because
+// the caller's decision is whether the field resolved AT ALL — substituting the
+// domain for a missing company_name would satisfy a `needs_human_review` field
+// with a value nobody supplied, which is the failure shape this repo calls a
+// defect. Missing stays missing; on_missing then governs.
+func (r *sourceResolver) ensureSiteRow(ctx context.Context) {
+	if r.siteRowLoaded {
+		return
+	}
+	r.siteRowLoaded = true
+	r.siteRow = make(map[string]string)
+
+	var email, phone, address, companyName, tagline, logoText, logoURL string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(email, ''), COALESCE(phone, ''), COALESCE(contact_address, ''),
+		       COALESCE(company_name, ''), COALESCE(tagline, ''),
+		       COALESCE(logo_text, ''), COALESCE(logo_url, '')
+		FROM sites WHERE id = $1
+	`, r.siteID).Scan(&email, &phone, &address, &companyName, &tagline, &logoText, &logoURL)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			r.logger.Warn("plan_sections: failed to load sites identity columns", zap.Error(err))
+		}
+		return
+	}
+
+	for col, val := range map[string]string{
+		"email": email, "phone": phone, "contact_address": address,
+		"company_name": companyName, "tagline": tagline,
+		"logo_text": logoText, "logo_url": logoURL,
+	} {
+		if val != "" {
+			r.siteRow[col] = val
+		}
+	}
 }
 
 // loadPages loads all active pages for URL resolution (once)
@@ -437,7 +520,14 @@ func (r *sourceResolver) resolve(ctx context.Context, source string) (interface{
 
 	case "site_specs":
 		r.ensureSpecs(ctx)
-		return r.resolveSpecPath(path)
+		if val, ok := r.resolveSpecPath(path); ok {
+			return val, true
+		}
+		// The literal spec path missed. Try the two aliases that name the SAME
+		// fact, in order of authority. Exact literal paths always win above, so
+		// no path that resolves today changes its value — this branch only adds
+		// resolution where the aspect held nothing.
+		return r.resolveSpecAlias(ctx, path)
 
 	case "site_assets":
 		r.ensureAssets(ctx)
@@ -510,6 +600,62 @@ func (r *sourceResolver) resolveSpecPath(path string) (interface{}, bool) {
 
 	// Navigate deeper: "identity.team" → specs["identity"]["team"]
 	return navigateMap(specData, parts[1])
+}
+
+// resolveSpecAlias is the fallback chain for a site_specs path that missed
+// literally. It resolves the same FACT from another store, never a different
+// fact, and is consulted only after the literal path has been tried.
+//
+// Two steps, in order of authority:
+//
+//  1. the writer's own nested shape — `identity.email` → `identity.contact.email`.
+//     Closes the contract mismatch in bugs_open/072: every component schema asks
+//     flat, the classifier only ever writes nested, so a site whose identity was
+//     never hand-patched cannot resolve a contact field at all.
+//  2. the sites row's identity columns — `identity.email` → `sites.email`. This
+//     is the canonical store (loadSiteDataFull reads it; buildRerenderBaseData
+//     was changed to prefer it, bugs_open/006 §B) and plan_sections was the one
+//     path that could not see it.
+//
+// Only two levels deep by design: an alias applies to `<aspect>.<leaf>`, so a
+// deeper path like `identity.team.members` is left alone. Firing is logged with
+// the path that won, because a silently-aliased resolve is indistinguishable
+// from a literal one in a build record otherwise.
+func (r *sourceResolver) resolveSpecAlias(ctx context.Context, path string) (interface{}, bool) {
+	parts := strings.Split(path, ".")
+	if len(parts) != 2 {
+		return nil, false
+	}
+	aspect, leaf := parts[0], parts[1]
+
+	// 1. The writer's nested container.
+	for _, container := range identityContainerAspects[aspect] {
+		if val, ok := r.resolveSpecPath(aspect + "." + container + "." + leaf); ok {
+			r.logger.Info("plan_sections: site_specs path resolved via the writer's nested shape",
+				zap.String("requested", "site_specs."+path),
+				zap.String("resolved_from", "site_specs."+aspect+"."+container+"."+leaf),
+				zap.String("page", r.pageName))
+			return val, true
+		}
+	}
+
+	// 2. The canonical sites row.
+	if aspect != "identity" {
+		return nil, false
+	}
+	col, mapped := siteRowIdentityColumns[leaf]
+	if !mapped {
+		return nil, false
+	}
+	r.ensureSiteRow(ctx)
+	if val, ok := r.siteRow[col]; ok {
+		r.logger.Info("plan_sections: site_specs path resolved from the canonical sites row",
+			zap.String("requested", "site_specs."+path),
+			zap.String("resolved_from", "sites."+col),
+			zap.String("page", r.pageName))
+		return val, true
+	}
+	return nil, false
 }
 
 // resolveConfigPath navigates site content_data config
