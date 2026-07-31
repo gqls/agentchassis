@@ -30,7 +30,15 @@ import (
 // provenance and council trail exactly as a tool's does);
 // +'component' (migration 273, staged component build — a section component
 // carries a PLAN with its criteria fence and NOTES with its per-site verdicts,
-// keyed by content_components.function).
+// keyed by content_components.function);
+// +'landmine' (migration 270, doc_notes ONLY — D10's LANDMINES.md sync. Found
+// missing here 2026-07-31 by landmine-verifier's first live run: the DB
+// accepted subject_type='landmine' on doc_notes for two days while this gate
+// rejected it, the exact split bugs_closed/064 exists to prevent. It slipped
+// past TestValidDocSubjectTypes_LockstepWithMigrationCheck because that test
+// only scans migrations recreating doc_plans_subject_type_check — 270 never
+// touches doc_plans (landmine rows never belong there), so the test had
+// nothing to catch. See the sibling test below, added for the same reason).
 //
 // WHY 'component' IS KEYED BY function, AND WHY THE PLAN CARRIES NO SITE.
 // A component's TEMPLATE is fleet-shared — one content_components row serves
@@ -52,7 +60,7 @@ import (
 // TestValidDocSubjectTypes_LockstepWithMigrationCheck reads the newest
 // migration that sets the CHECK and fails on drift, so this list and the
 // migration must land in the SAME commit.
-var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action", "experience-pattern", "component"}
+var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action", "experience-pattern", "component", "landmine"}
 
 // isValidDocSubjectType reports membership in validDocSubjectTypes.
 func isValidDocSubjectType(subjectType string) bool {
