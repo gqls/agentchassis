@@ -14771,3 +14771,48 @@ assertion in prose.
   lane NOTES), which is what makes it a pattern rather than bad luck — and note the
   first instance was an *unstaged* working-tree file, so the two failures have
   different mechanisms and the same outcome.
+
+- **My ownership check read "nobody is working this" out of my own broken regex.**
+  Picking the next bug, I swept the live `.jsonl` transcripts with
+  `grep -E "wcag\|contrast_ratio"` and friends. In ERE `\|` is a **literal pipe**,
+  so each of those patterns searched for one string containing a `|` character and
+  returned **0 files** — five candidate bugs read as untouched purely because of my
+  own spelling. Nothing in the output says "your pattern was odd"; a zero is a zero.
+  What caught it: every pattern containing `\|` returned 0 while every single-token
+  pattern returned 16–26 — a split too clean to be about the fleet. **The cheap
+  check: when a scan returns zero, re-run it with a term you KNOW is present.** A
+  scan whose null result is the thing you act on needs a positive control, exactly
+  like a pod-grep does. Fleet rule "a grep proves an absence only for the SPELLING
+  it searches", now hit in the tool that decides whether I collide with another
+  session — the most expensive possible place for a false negative.
+
+- **I mutation-checked a rule and the mutation did not fail, because my own test
+  case was pinned to the wrong clause.** The new SKU rule in `verify_report_prose`
+  is a conjunction: a tail segment must be digit-free AND ≥2 chars AND lower-case.
+  I "proved" the ≥2 clause with `2F-85-X` — whose upper-case `X` the *case* clause
+  already rejects. Deleting the length clause changed nothing and every test still
+  passed, so the clause was decorative and the doc comment beside it named a
+  counterexample that does not exercise it. Lower-casing the case to `2F-85-x` made
+  the mutation fail correctly. **The cheap check: for a conjunction, each clause
+  needs a counterexample the OTHER clauses do not already reject** — otherwise you
+  have tested the conjunction, not the clause, and can delete a guard believing it
+  is covered. **A mutation that fails to fail is the check working**, not a nuisance:
+  it is the only signal that distinguishes a load-bearing clause from a decorative one.
+- **I filtered a trigger's output through a grep, saw nothing, and would have recorded a
+  submission that never happened** (`bugs_closed/128` council resubmission, 2026-07-31).
+  A `cd` earlier in the same compound command made the trigger's relative path
+  (`./docs/agent_docs/…/097_TRIGGER…sh`) invalid, so the shell's "No such file or
+  directory" was the only output — and it matched none of my
+  `grep -iE "corr|submitted|refus|error"` alternatives, because *directory* contains no
+  *error*. **A grep over a command's output has two ways to print nothing: the command
+  said nothing interesting, or the command did not run.** They are indistinguishable at
+  the terminal and only one of them is fine.
+  - **What caught it:** querying `orchestration_states` for the correlation before
+    believing the submission had landed — the same "prove it at the artefact, not at the
+    status" reflex the fleet already applies to deploys. Zero new rows.
+  - **The cheap check, two of them:** never let a `cd` and a relative path share a
+    compound command (use an absolute path, which costs nothing); and for anything
+    fire-and-forget, **assert the effect, not the output** — for a Kafka publish that
+    means the row it should have created, because the publisher exits 0 either way. The
+    097 script's own header warns that a `kcat` race can "produce NOTHING and exit 0"; I
+    had read that and still trusted stdout.

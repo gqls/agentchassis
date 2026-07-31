@@ -253,3 +253,39 @@ RESUBMIT_CORR=99dca96a-413a-4bcb-b278-9577f920786d \
 submission was malformed. Read `collected_data->'__step_error'` before rewriting
 anything — a FAILED step shows as COMPLETED with `error` NULL (`bugs_open/099`), and the
 real message is in `__step_error`.
+
+## Council round 2 — APPROVED, and a silent publish failure on the way there
+
+The cap was raised, so the resubmission went in. **Three attempts, and the middle one is
+the lesson.**
+
+1. Round 2a (18:59Z): `complete_invalid`, which was the API usage cap, not my schema.
+2. An attempt after the cap lifted: **produced no run at all.** The trigger's output did
+   not match anything I grepped for, and I nearly moved on. `orchestration_states` showed
+   no new row for the correlation — the `cd` at the start of that compound command had
+   made `./docs/agent_docs/…/097_TRIGGER…sh` a path that did not exist. **Confirm a
+   submission landed by querying for the correlation, never by the trigger's stdout**,
+   especially when you filtered that stdout through a grep that could match nothing for
+   two different reasons.
+3. Round 2b: run `06573962`, **APPROVED** — 12 approve, 3 object, 3 abstained,
+   *"approved with 3 advisory objection(s) — none high-severity"*.
+
+`bug_historian` withdrew its round-1 gating objection explicitly. `guidelines` is worth
+quoting because it names the three traps this lane spent the day on: *"it does not read
+`assets.url` (presigned S3, expiring), it does not filter `site_components` on
+`build_status` (which is never 'deployed'), and it routes brand-head purposes around
+`DeployedWebPath`'s known underscore/hyphen drift rather than through it."*
+
+**The advisories were discharged, and one of them found something I had not checked.**
+`guardian` asked whether the new `site_components` scan shadows another check. I had not
+looked. The answer inverts the concern: **14 other discovery checks already scan
+`site_components`**, so this check was the outlier for *not* doing it, and its predicate
+is stricter than the fleet norm (the others filter `site_id` + `rendered_html IS NOT NULL`;
+this one also requires `locked_at IS NULL`). Worth recording that an *approval* surfaced a
+gap in my own evidence — the seat could not have known the answer either, which is why it
+asked rather than objected at high severity.
+
+`bug_historian`'s low objection was the sharpest of the three: the durable
+`DeployedWebPath` fix was *"deferred as 'its own item' rather than filed"*. Saying "its own
+item" and not creating one is how a deferral becomes a disappearance. **Filed as
+`bugs_open/168`.**
