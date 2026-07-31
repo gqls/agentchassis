@@ -14596,3 +14596,36 @@ the protection with it.
 defining conclusions — but the new part is that the bad number flowed into a
 DESIGN, not just a sentence. A wrong figure in prose gets corrected by the next
 reader; a wrong figure in a denominator ships.
+
+## 2026-07-31 — "add a `scheduled_tasks` row that rebuilds daily" — written into a cold-start handoff as the next step, and not executable at all
+
+**The claim.** `provocation_pipeline/HANDOFF_2026-07-31_continue_here.md` §7 step A
+told the next thread to add bridge content to a Python `SCHEDULE` and "add a
+`scheduled_tasks` row that rebuilds and republishes daily".
+
+**Why it was false.** A `scheduled_tasks` row dispatches to `target_agent_type`
+(NOT NULL). There is no provocation agent, no provocation action, and the schedule
+is a Python literal under `docs/` that the cluster cannot execute. The row would
+have had nothing to dispatch to. Daily rotation actually needs the pool in the DB,
+a new Go action, an agent definition, *then* the row.
+
+**What caught it.** Going to do the step. Not review, not a reader — execution.
+It sat in a committed cold-start doc for ~3 hours reading as an obvious next task.
+
+**The cheap check that would have.**
+`SELECT type FROM agent_definitions WHERE type ~* 'provoc';` → 0 rows. One query,
+and I ran it only when I went to execute rather than when I wrote the instruction.
+
+**The generalisable error: a named precedent is not a wired one.** I had correctly
+established that the news feed pipeline ends in `git_commit` and is proven live,
+and let that stand as evidence that *our* feed had a path to it. It showed only
+that a *different* feed does. Both halves of the step were independently true —
+the content is needed, the row is needed — and nothing connected them. Same shape
+as `a-helper-with-no-callers-is-not-a-refactor`: every component present, nothing
+calling anything.
+
+**Sharper form for next time:** when writing a next-step instruction that names a
+mechanism, check the mechanism's *entry point* exists, not that the mechanism does.
+For `scheduled_tasks` that is one query for the target agent. Writing an
+instruction is a durable claim; it deserves the check I would have given an
+assertion in prose.

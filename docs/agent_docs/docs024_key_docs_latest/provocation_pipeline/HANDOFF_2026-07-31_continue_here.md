@@ -67,6 +67,28 @@ Everything below reads like progress. That sentence is the job.
 > string I matched ("AI will never be funny on purpose") is also an ordinary
 > archive card in `arena.cards`, so its presence is not evidence either way.
 
+> **RESOLVED 2026-07-31 ~19:25Z — the transient state closed, as predicted, and
+> the `[UNVERIFIED]` above is now answered.** The gauntlet lane delivered the
+> renderers (`4f6af298e`). Re-measured by rendering `https://vonc.com/`:
+>
+> | | |
+> |---|---|
+> | served `snippets.js` | **25,532 bytes** (was 22,475), **11** refs to `seal`, **14** to `sample` |
+> | today's headline painted on home | **NO — 0 matches.** The leak is closed |
+> | today's body painted on home | **NO — 0 matches** |
+> | lobby card | "Sealed until you step in" |
+> | the `sample` block | **RENDERS** — `<span class="pc-eyebrow">A past provocation · 5 Jul</span>` |
+>
+> That eyebrow is the discriminator the earlier check lacked: an ordinary archive
+> card cannot produce it. **`[UNVERIFIED]` → verified, by finding a string only
+> the new renderer emits** rather than one both could.
+>
+> **The publish hazard in §3 is therefore CLEARED.** Feed and renderers now agree.
+> The lane also left an inbound note in `NOTES_provocation_pipeline.md`
+> (`eb700f293`) — read it; it documents the seal design and one trap for our
+> scheduled job (**a leak check must derive its probes from `today` at run time**;
+> theirs hardcoded the card text and began reporting the seal itself as a leak).
+
 ## 3. ⚠ READ BEFORE YOU TOUCH ANYTHING — the builder is CO-OWNED and dirty
 
 `builder/build_provocations.py` and `builder/verify_rotation.py` are edited by
@@ -87,7 +109,14 @@ Same file, two concerns.
 - Coordinate rather than compete:
   `gauntlet_dead_cta/HANDOFF_2026-07-31_continue_here.md` is their cold start.
 
-### ⚠ PUBLISHING IS NOW A HAZARD, not a one-liner
+### ⚠ PUBLISHING IS NOW A HAZARD, not a one-liner — **CLEARED ~19:25Z, kept for the reasoning**
+
+> **CLEARED 2026-07-31 ~19:25Z.** The gauntlet lane's renderers are live
+> (`4f6af298e`) and the served `snippets.js` now understands `seal`/`sample` — so
+> the specific incoherence below no longer exists. Evidence in §2's second
+> correction. **The rule outlived the hazard**: the builder is still co-owned, and
+> `publish_feed.sh` still publishes whatever the builder currently emits, so
+> "check what the tree contains before publishing" stands. Read on for why.
 
 `./publish_feed.sh` is one command and it publishes **whatever the builder
 currently emits** — which now includes the seal work. **The renderers for it are
@@ -160,15 +189,66 @@ emptying `today`.**
 
 ## 7. What to do next, in order
 
-**A. Make the claim true.** Add a bridge of hand-written provocations to
-`SCHEDULE` (author BOTH shapes — `headline`/`body` and `title`/`teaser`/
-`detail_body`; the eight historical entries lack the today-shape and fall back),
-then add a `scheduled_tasks` row that rebuilds and republishes daily. Reuse the
-news pipeline's shape — it ends in the `git_commit` action and is proven live.
-**Sequence with the gauntlet lane (§3).**
+**A. Make the claim true.**
+
+> **CORRECTED 2026-07-31 ~19:30Z — the original step A could not have worked, and
+> a thread following it would have found out only after writing the content.**
+> It read: *"Add a bridge of hand-written provocations to `SCHEDULE` … then add a
+> `scheduled_tasks` row that rebuilds and republishes daily."* Those are not two
+> halves of one task. **A `scheduled_tasks` row has nothing to dispatch to.**
+> Measured:
+>
+> - `SELECT type FROM agent_definitions WHERE type ~* 'provoc|gauntlet'` → **0 rows.**
+> - `grep -rn "build_provocations" --include=*.go --include=*.yaml --include=*.sql`
+>   outside `docs/` → **nothing.** The only cluster-side consumer of the feed is
+>   `round.go`, which *reads* it.
+> - The schedule lives in a **Python file under `docs/`**. Nothing in the cluster
+>   can execute it, and `make build-*` does not ship it.
+>
+> So adding entries to `SCHEDULE` changes **nothing about the live site** until a
+> human runs `publish_feed.sh` by hand — which is a person, not a mechanism, and
+> is the same failure the workstream exists to fix.
+
+**What daily rotation actually requires**, in dependency order:
+
+1. **The pool moves to the DB.** A Python literal is unreachable from the cluster.
+   (New table, or a `site_specs` aspect — undecided, see below.)
+2. **A Go action** that selects today by publish date, builds the feed, and
+   commits it. **Template: `directory_export_action.go:113`** — query DB → marshal
+   JSON → `sendExportFilesToGit(...)`. That sender (line 478) is **already shared
+   by two exporters**, so this is a third consumer of proven machinery, not new
+   plumbing. → **platform code, council gate.**
+3. **An agent definition**, one step + `complete_workflow` — copy
+   `directory-json-exporter`, which is exactly this shape.
+4. **A `scheduled_tasks` row** (`target_agent_type` = the new agent). Only now
+   does this row have a meaning.
+5. **Content** — the bridge entries. Cheapest, and *last*, because until 1–4 exist
+   it is unpublishable prose.
+
+⚠ **The Go action must carry the seal invariants across, not just the rotation
+ones.** The Python builder now enforces both (`check_seal()` refuses in both
+directions). A Go rebuild that ports only rotation **silently reopens the leak the
+gauntlet lane closed today.** Port `verify_rotation.py`'s invariants as Go tests;
+they are the specification, and they cost nothing to translate.
 
 Verification is `today.slug` changing across two days, **not** the page looking
 fine and **not** `generated_at`.
+
+### Why the cheap design is foreclosed — do not propose it again
+
+The obvious way to avoid all of the above: publish the **whole schedule** once and
+let both readers select by today's date. No job, no action, no table, and rotation
+becomes a property of the data that cannot silently stop.
+
+**It is ruled out by the seal.** Publishing N days ahead puts every future
+provocation in a world-readable file, and the owner's 2026-07-31 ruling is that
+today's is not readable until you step into the round. Tomorrow's certainly is not.
+Withholding the future entries collapses the design straight back into a daily
+republish.
+
+Worth recording because the two lanes' rulings interact: **the seal is what makes
+the daily job mandatory.** It is a real cost of that ruling, not an oversight in
+this plan.
 
 **B. The gate, then the generator.** In that order — the gate must exist and be
 calibrated before anything generated can publish, because there is no human

@@ -455,3 +455,71 @@ reporting a leak for finding the seal itself.
 
 Instrument, if useful: `gauntlet_dead_cta/scripts/provocation_leak_sweep.py`
 (renders every active page; exit 0 clean / 1 leak / 2 incomplete).
+
+---
+
+## 2026-07-31 (evening) — my own step A was not executable, and I only found out by pricing it
+
+Picked the lane back up and started on HANDOFF step A: *"add a bridge of
+hand-written provocations to `SCHEDULE`, then add a `scheduled_tasks` row that
+rebuilds and republishes daily."* I wrote that sentence this afternoon. **It
+cannot work**, and the reason is not subtle:
+
+```
+SELECT type FROM agent_definitions WHERE type ~* 'provoc|gauntlet'
+  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- 0 rows
+
+grep -rn "build_provocations" --include=*.go --include=*.yaml --include=*.sql . | grep -v '^./docs/'
+-- nothing
+```
+
+`scheduled_tasks.target_agent_type` is NOT NULL. **A row needs an agent to
+dispatch to, and there is none.** The schedule lives in a Python literal under
+`docs/`, which the cluster cannot execute and `make build-*` does not ship. So
+adding entries to `SCHEDULE` changes nothing live until a human runs
+`publish_feed.sh` — a person, not a mechanism, which is the exact failure this
+workstream exists to fix.
+
+**How the error was made, because that is the reusable part.** Both halves of
+step A were true individually — the entries *are* needed, and a `scheduled_tasks`
+row *is* needed. What I never checked was whether anything connects them. I had
+described the news pipeline correctly ("ends in `git_commit`, proven live") and
+let that stand as evidence that *our* feed had a path, when what it actually
+showed is that a *different* feed does. **A named precedent is not a wired one.**
+The cheap check was one query against `agent_definitions`, and I ran it only
+when I went to execute the step rather than when I wrote it.
+
+Same shape as `a-helper-with-no-callers-is-not-a-refactor` — every component
+present, nothing calling anything. Logged in `WRONG_CALLS.md`.
+
+### What it actually takes (measured, not assumed)
+
+Template found: `directory_export_action.go:113` `DirectoryExportJSONAction` —
+query DB → marshal JSON → `sendExportFilesToGit(ctx, params, "sites", domain,
+msg, files)`. That sender at line 478 is **already shared by the med and
+directory exporters**, so a provocation exporter is a third consumer of proven
+machinery. Its agent definition (`directory-json-exporter`) is two steps:
+`export_json` → `complete`. Dependency order is pool-in-DB → Go action (council
+gate) → agent def → scheduled row → content.
+
+⚠ **Port the seal invariants, not just the rotation ones.** `check_seal()` now
+refuses in both directions; a Go rebuild carrying only rotation reopens the leak
+the gauntlet lane closed today. `verify_rotation.py` is the specification.
+
+### The cheap design, and why the seal kills it
+
+Publish the whole schedule once; let `round.go` and `snippets.js` each select by
+today's date. No job, no action, no table — and rotation becomes a property of
+the data that *cannot silently stop*, which is strictly better than a cadenced
+job that can. I liked it a lot.
+
+**It is foreclosed by the seal ruling.** Any future entry in a world-readable
+file is tomorrow's provocation in the clear, and today's ruling is that even
+*today's* is not readable until you step in. Withholding future entries is a
+daily republish by another name.
+
+Recording it because the interaction is the finding: **the seal is what makes the
+daily job mandatory.** That is a real cost of the ruling, not an oversight here —
+and it is exactly the kind of cross-lane consequence that is invisible from
+inside either lane.
