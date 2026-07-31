@@ -37,6 +37,21 @@
 -- ══════════════════════════════════════════════════════════════════════════
 -- ORDER IS LOAD-BEARING. DO NOT APPLY THIS UNTIL THE IMAGE IS LIVE.
 -- ══════════════════════════════════════════════════════════════════════════
+-- WHICH IS WHY THE FILENAME ENDS `_HOLD`. `run-migrations.sh --apply` takes
+-- EVERY pending file in the directory, in order — so a banner asking a human not
+-- to apply this yet protects nothing against the next bulk run by another
+-- session, and there are ~8 unrecorded files in here right now. The runner's
+-- SIDECAR_RE ('_[A-Z][A-Z0-9_]*\.sql$') excludes it from applying while still
+-- LISTING it under "Sidecars (hand-run only)", so it is held back visibly rather
+-- than hidden.
+--
+-- TO APPLY, once the pod-grep below passes on every replica:
+--   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user \
+--     -d clients_db < docs/agent_docs/sql_for_agents/281_..._HOLD.sql
+--   ./scripts/migration/run-migrations.sh --record-only \
+--     281_improvement_loop_branches_on_site_state.sql --note "bugs_open/150, applied by hand after the image landed"
+-- (or `git mv` the `_HOLD` off and let the runner take it — either is fine, but
+--  the ledger is only written by --record-only, and recording stays a human act.)
 -- The key is emitted by the BINARY; this condition lives in the DB, which is
 -- live immediately. Applied against a chassis that predates the Go half,
 -- `triage_result.site_dispatchable` resolves to nil → compareValues(nil,"true")

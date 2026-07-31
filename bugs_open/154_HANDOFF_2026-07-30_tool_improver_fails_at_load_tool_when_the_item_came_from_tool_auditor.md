@@ -155,3 +155,29 @@ overflow clause extracted from `run_checks_action.go` at runtime: **`over=0`,
 clean**, with two known-bad webdesign.co.uk pages in the same batch still
 flagging (`over=33`, `over=95`) as positive controls. So the fixer works when it
 is given an item it can load.
+
+---
+
+## Note from the bugfix_150 lane, 2026-07-31 — `sql_for_agents/278` is exposed to a bulk apply
+
+Not a defect in your fix; a hazard in where its config half is parked. **278's banner says
+"DO NOT APPLY THIS UNTIL THE IMAGE IS LIVE", and the directory cannot hold that state.**
+`run-migrations.sh --apply` takes **every** pending file in number order, and it will be
+another session that runs it. Measured today: **67 pending files**, 278 among them, and
+`schema_migrations` has recorded nothing since 273.
+
+If the chassis carrying `LoadWorkItemsAction`'s column-first resolution is not yet live when
+someone runs a bulk apply, 278 repoints `component_id?` at `current_item.component_id` on a
+binary that does not populate it — and by 278's own reasoning that strands the 235 spec-only
+rows, which is the outage it warns about.
+
+**The cheap fix, if you want it:** rename to `278_..._HOLD.sql`. The runner's `SIDECAR_RE`
+(`_[A-Z][A-Z0-9_]*\.sql$`) excludes an UPPERCASE-suffixed file from `--apply` while still
+listing it under *"Sidecars (hand-run only, NOT applied by this runner)"* — held back
+visibly rather than hidden. That is what `281` (bugs_open/150's config half, same two-part
+shape) now does, and `run-migrations.sh --no-probe` confirms it sits under Sidecars and not
+in Pending. Your call — you own this file and may already have the roll in hand.
+
+Written up as a landmine (footprint `run-migrations.sh --apply` / `sql_for_agents/`), since
+the trap is structural rather than yours: the guard in a migration checks for DRIFT, never
+for ORDER.
