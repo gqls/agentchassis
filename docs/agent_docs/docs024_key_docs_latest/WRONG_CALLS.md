@@ -14290,3 +14290,89 @@ made the leftover `D` line look like somebody else's, every time.
   survive a row being inserted tomorrow.** Kept the structural reason (top-level exposure
   cannot reach any `spec.*` reader at all), threw the comforting measurement away, and
   pinned it with a test that fails if someone "tidies" the backfill back in.
+
+- **My live probe "found" a link repair that my own two-row fixture had invented.**
+  Measuring the fix against the real assembled `vonc.com/index`, I built the
+  `PageURLIndex` by hand with two URLs and reported **3** repairs — the two real
+  empty hrefs plus an unlink of `/provocations/index.html`. That third one exists
+  only because my index did not contain that page; against the real 18-row `pages`
+  set it resolves fine and the answer is **2**. It was one edit away from the bug
+  file and the council submission, where it would have read as a finding.
+  **Caught by** noticing the "repair" named a page I knew existed — not by any
+  check. The cheap check that would have prevented it: **build the fixture from the
+  same table production reads**, never by hand, when the fixture IS the denominator.
+  Same narrow-filter family as the entries above, and the fourth time this file has
+  recorded it: *the filter I chose from the question defined the answer.*
+
+- **I nearly attributed a masking effect to the mechanism that never looked at it.**
+  Having found two dead `href="#"` CTAs in a non-shell component on a page carrying
+  a shell, I started writing them up as suppressed by `RepairPageLinks`' page-wide
+  exemption. `RepairPageLinks` only touches `LinkScopePage` and `LinkScopeEmpty`;
+  `#` classifies as `LinkScopeAnchor` and that path had never looked at it. The
+  masking was real but belonged to a different consumer, and the consumer I named
+  reads one component at a time so was never masked at all. **Caught by** reading
+  `ClassifyLinkScope` before writing the claim rather than after. The cheap check:
+  **"X is masked" is not one fact** — each consumer masks a different CLASS, and the
+  class is decided by a function the symptom does not name. Read the classifier, not
+  the symptom.
+
+- **A SQL join on a key I had not checked was unique returned 16 sites' worth of rows.**
+  Listing the components on pages carrying a runtime-fill shell, I wrote
+  `WHERE page IN (SELECT page FROM ... WHERE is_shell)` — joining on `p.name`. Page
+  names are **not unique across sites**, so it returned 75 rows: every page called
+  `index` in the fleet. **Caught by** the result obviously spanning 16 domains — and
+  that is the uncomfortable part, because the data I wanted was still visible inside
+  the wrong answer. A *smaller* wrong answer would have looked right. The cheap
+  check: `\d <table>` for the key's uniqueness before joining on it, and prefer the
+  id column when one exists.
+
+**Tally note.** Three entries from one session, and all three are the same family
+the file keeps recording: **the shape of my measurement decided its result.** Only
+the second was caught by reading code; the other two were caught by a number
+looking wrong, which is luck, not method.
+
+## 2026-07-31 — bugfix_142 (undeployed_asset detector)
+
+- **I measured a handler's precondition with the wrong column and got a 4-of-15 answer
+  where the truth is 15 of 15.** Deciding whether emitting `needs_brand_head_assets`
+  would route to a handler that could actually act, I checked which sites have a logo
+  with `bool_or(a.purpose='logo' AND a.status='active')` — 4 of 15 — and briefly believed
+  most of the fleet was unserviceable, which would have argued for gating the finding and
+  silently dropping 11 sites. `derive_brand_head_assets` does not read `purpose`; it reads
+  **`asset_key`**: `WHERE a.site_id=$1 AND a.asset_key='logo' AND a.status='active'`. By
+  that column it is **15 of 15**. Two columns on one table, both plausibly named, that
+  disagree three-to-one. **The cheap check: when you write a query that claims to predict
+  what a consumer will do, open the consumer and copy its WHERE clause — do not
+  reconstruct it from the column name that sounds right.** Same family as reconstructing a
+  filename from `purpose` instead of reading the path the writer records, which is the bug
+  I was fixing at the time.
+- **I filed a 090 symptom with two mechanisms in it, against that trigger's own stated
+  rule, and the run came back UNVERIFIABLE.** The guidance says "one coherent bug per
+  run"; I put both the wrong-population defect and the wrong-evidence-table defect in one
+  symptom, and iterations 1–3 split attention between them and never narrowed. **The cheap
+  check: count the mechanisms in your symptom before firing — if it contains "separately"
+  or "and also", it is two runs.** Worth recording alongside a structural limit that is
+  nobody's mistake: a `needs_diagnosis` item anchors to `system.internal`, so the loop
+  gets a blank `site_id`/`domain` and cannot probe a real site — its own iteration-1 note
+  says *"the diagnosis target's site_id/domain are blank ('-')"*. For a bug whose decisive
+  evidence is an HTTP probe of a live site, the loop **cannot** reach the deciding fact,
+  and a thread should plan to supply it rather than expect a verdict.
+- **A NOT-CONFIRMED verdict was still worth its credits, and reading it as a refutation
+  would have been the real error.** The loop confirmed the static half independently
+  (*"the check's population is bounded to rows in `assets` and its deployed-test only ever
+  queries page_components — 0 rows there ever match a favicon path"*) and named the exact
+  residual doubt that mattered: it could not distinguish "false positive" from "genuinely
+  never deployed". **And one of its data requests returned the row that changed my
+  design** — an active `favicon` asset whose url was the unresolved literal
+  `/assets/images/input-data.asset-key.jpg`. My fix at that moment treated "a row exists"
+  as proof of deployment; that row is the counter-example, and I would not have gone
+  looking for it. **A stopped run is not an empty run — read its bundle, not just its
+  conclusion.**
+- **My first correct-looking tightening would have made the detector assert something
+  false.** Having found those rows, the causally sound fix is to require the row's `url`
+  to equal the published path — that is the pair `recordDerivedAsset` writes. It is also
+  wrong: gamesdesign.co.uk and robot-hands.com would then be told *"has never been
+  generated"* while serving both files **200**. **The cheap check: read the summary string
+  your finding will actually emit, as a sentence, against the site it will name.** The fix
+  is a third state — observed, unfiled — not a better predicate. A detector whose subject
+  is false positives must not buy its coverage with a false claim.

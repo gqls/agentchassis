@@ -8615,3 +8615,78 @@ run with a positive control in the same exec (`bugs_open/153`).
 Category tags: `duplicated-classifier-drift`, `correct-sibling-is-no-protection`,
 `sanitising-into-an-occupied-namespace`, `success-true-wrong-destination`,
 `grep-the-derivation-not-the-symptom`.
+
+### An exemption tested with `strings.Contains` over "whatever the caller passed" has no fixed blast radius — its scope is set by the caller's chunking, and every call site reads as correct (`bugs_open/137`, 2026-07-31)
+
+**The shape.** A guard excuses some markup from a check — "this section is filled
+in client-side, so its placeholder hrefs are the mechanism, not a defect" — and
+it is implemented as a whole-input substring test:
+
+```go
+if strings.Contains(html, "data-runtime-fill") { /* skip */ }
+```
+
+The line is **correct or catastrophic depending on what `html` is**, and nothing
+at the call site tells you which:
+
+| caller passes | what the line actually asks | verdict |
+|---|---|---|
+| one section | *is this section a shell?* | right — by accident of framing |
+| an assembled page | *does ANY section here hydrate?* | one shell excuses every neighbour |
+| a fetched page + chrome | wider still | worse |
+
+**Why it survives review.** Read at any single call site it is obviously right,
+because the reader supplies the section-shaped input in their head. The defect
+lives in the *relationship* between the predicate and eight callers, which is
+exactly what no single-file review sees. In this case one file had already
+noticed and worked around it **locally** — feeding the function one section at a
+time, with a comment explaining that this stops a shell's "statically-linked
+neighbours riding on its exemption". The right answer was known, written down,
+and unenforceable, so every other caller kept the bug.
+
+**The second-order symptom, and the one that gets filed.** Two mechanisms that
+consult the same exemption at different input granularities will **disagree about
+the same element**, and each will be individually defensible. `bugs_open/137` was
+filed as "two disagreeing judges" — the disagreement was real, and it was a
+symptom of the scope, not a dispute about the rule.
+
+**The check, when you meet a guard like this.** Grep the *marker*, not a helper
+name (an inlined predicate has no name to find), then **read each caller's input
+scope** — grep cannot answer that:
+
+```bash
+grep -rn 'Contains(.*"<your-marker>"' --include=*.go platform/ internal/ pkg/
+```
+A row loop over `pc.rendered_html` is section-scoped and fine. A fetched URL, an
+assembled page, or a `string_agg` of components is not. Mind that the same
+predicate often has a **SQL-side copy** (`... LIKE '%marker%'`) the Go grep
+cannot see.
+
+**The fix that closes the door** is to give the predicate its own scope, so the
+caller cannot set it: a shared element-scoped judgement (byte spans over the raw
+HTML for string callers, a `Closest("[marker]")` for DOM callers), derived from
+one marker constant. Chunking each caller's input is the same behaviour by
+convention, and a convention is something every future caller must rediscover.
+
+**Two traps in the fix itself.**
+
+1. **Keep the whole-input predicate and NAME it.** Some callers genuinely ask
+   "is this *section* a shell?" (emptiness checks, template-corruption checks).
+   Redirecting those at the element-scoped predicate silently changes a
+   different question's answer. Name the old one (`HasRuntimeFillMarker`) and pin
+   it with a test, so its use stays a choice rather than a coincidence.
+2. **Choose the degrade direction, and say so.** On markup the scanner cannot
+   parse (an unclosed marked element), span to **end of input** — reproducing
+   today's whole-input exemption. A fix for over-exemption that degrades to
+   *under*-exemption converts a parser limitation into a wave of false findings.
+
+**Testing it needs BOTH directions, or it proves nothing.** "The neighbour is now
+judged" passes equally against a change that simply **deleted** the exemption. Assert
+the neighbour is judged *and* that the shell's own contents are still excused —
+then prove both are load-bearing by mutating the predicate each way (whole-document
+span; empty span) and checking which tests fall over.
+
+Category tags: `scope-set-by-caller-chunking`, `correct-at-every-call-site`,
+`local-workaround-instead-of-fixing-the-predicate`,
+`two-judges-disagree-is-a-symptom-not-the-bug`, `name-the-old-predicate`,
+`degrade-wider-not-narrower`, `assert-both-directions-of-an-exemption`.

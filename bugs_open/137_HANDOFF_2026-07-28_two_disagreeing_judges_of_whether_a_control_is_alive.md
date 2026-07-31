@@ -9,7 +9,12 @@ deferring this to "the register" would leave the two unreconciled:
 > … the reconciliation of shell-dead-controls vs. the new attribute check belongs on someone's
 > roadmap now, not only 'in the register' later."*
 
-**Status:** OPEN, unowned. **Not a regression** — both mechanisms behave as designed. This is a
+**Status:** ~~OPEN, unowned~~ → **FIXED IN CODE 2026-07-31 (`9f0a8ec5b`), OPEN only until the next
+chassis roll.** Option 2 taken. Council correlation `4465f655-c6c6-49b4-a9b8-4ca7a5f647df`.
+Working docs: `docs024_key_docs_latest/bugfix_137_control_liveness/`. See the addendum at the
+bottom — including the part of the cause this file did not have.
+
+**Not a regression** — both mechanisms behave as designed. This is a
 contradiction that only became *visible* today, and it was invisible for a structural reason worth
 keeping: you cannot detect a disagreement between two rules when only one of them can speak.
 
@@ -114,3 +119,112 @@ the two judgements agree. There is a worked harness in
   "confirm, never refute" rule has one deliberate exception.
 - `bugs_closed/023` — CTA label/URL pairing unchecked; the same family (a control's promise not
   being tied to anything checkable) and the origin of the register's `no-inert-control` invariant.
+
+---
+
+## 2026-07-31 — FIXED via option 2. The disagreement was a SYMPTOM of the exemption's scope.
+
+Fix in `9f0a8ec5b`, inert until the roll. Working docs:
+`docs024_key_docs_latest/bugfix_137_control_liveness/` (the standing five).
+Council submitted before the commit, correlation `4465f655-c6c6-49b4-a9b8-4ca7a5f647df`.
+
+**Premise re-checked before touching anything**, and it had not gone stale —
+`curl https://vonc.com/provocations/index.html | grep 'href="#"'` still returns
+exactly one hit, the `data-archive-template` row.
+
+### What this file did not have, and it changes where the fix belongs
+
+This file locates the two judges inside `evaluateStaticCriteria`. Reading the
+code for the fix found the exemption they share is inlined **eight times** as
+`strings.Contains(html, "data-runtime-fill")` — and that its blast radius is set
+by **how finely each caller chunks its input**, not by the markup:
+
+| caller passes | the line actually asks | verdict |
+|---|---|---|
+| one section (`pc.rendered_html` in a row loop) | *is this section a shell?* | right, by accident of framing |
+| an assembled page (`repairOutboundPageLinks`, `validate_page_content`) | *does ANY section here hydrate?* | **one shell exempts every neighbour** |
+| a fetched served page + chrome (this file's own sweep) | wider still | **worse** |
+
+So the two judges disagreeing is the second-order symptom. **`save_sections_link_repair.go:67-71`
+had already worked this out** and fixed it at its own call site — *"a runtime-filled section still
+exempts itself while its statically-linked neighbours no longer ride on its exemption"* — which is
+the right answer applied by convention, leaving every other caller to rediscover it.
+
+### Measured on live artefacts, before submitting — not left for a reviewer
+
+| page (assembled from `page_components`) | bytes | old exemption | new exemption | newly visible |
+|---|---|---|---|---|
+| `vonc.com/index` | 48,956 | **100%** | 2 spans, 6,172 B (**12.6%**) | 2 dead controls ("Get Started", "Learn More") + 2 link repairs (48,956→48,866 B) |
+| `vonc.com/provocations-index` | 7,684 | **100%** | 1 span, 1,400 B (18.2%) | **0 and 0, byte-identical** — the element this bug is about |
+
+The two newly-repairable links are `gauntlet-cta`'s **"Enter the Gauntlet"** and **"Find Your
+Archetype"** — the very controls `check_dead_controls.go` names in its own header as the case that
+check was built for. They had moved from `href="#"` to `href=""`, which shifted them out of the
+sweep's class and into the repair path's, where the page-wide skip was hiding them.
+
+**Fleet-wide blast radius, stated plainly:** exactly **one** page across all deployed
+`page_components` has a non-shell component holding empty hrefs alongside a page-mate shell. And
+**zero** served *tool* pages currently carry either a shell or a no-op href, so this file's own
+sweep masks nothing **today** — it is the mechanism, and it was unguarded. The case for the fix is
+structural, not volumetric, and it is not dressed up as otherwise.
+
+### Which option, and what was deliberately NOT done
+
+**Option 2**, as this file recommended. Option 1 is refused by this file's own cost analysis
+(attribute assertion would inherit a page-wide exemption); element scope is what removes that
+objection and makes sharing honest. Option 3 is what the `reuse_agent` seat objected to.
+
+`datahelpers/runtime_fill.go` holds one marker constant with two representations: `RuntimeFillSpans`
+(byte ranges, so `RepairPageLinks` keeps its byte-identical-when-unchanged guarantee — a goquery
+round-trip would break that on every page) and `InRuntimeFillShell` (the DOM form).
+
+**The boundary is the design.** *"Is this CONTROL alive?"* becomes element-scoped. *"Is this SECTION
+a shell?"* stays whole-input and untouched (`check_empty_sections`, `check_component_standards`,
+`check_component_template_corrupted`, `sectionHasVisibleContent`) — `HasRuntimeFillMarker` **names**
+that predicate so its use is a choice, and a test pins it against a later tidy-up.
+
+### Answering this file's open question — and it is a SKIP, not a pass
+
+`[MY READING, UNRESOLVED]` above suspected the clause was **mis-tiered**: "the loader removed its
+href" is a claim about the post-hydration DOM. **That reading is adopted, and the file was right to
+distrust it on its own** — so it is implemented in the form that cannot launder a defect.
+`static_attribute_checks.go`'s **rule 2** already confines refutation to elements actually in the
+served HTML and cites this sweep as its precedent without applying it; an element inside a hydrating
+subtree is that same claim one step earlier.
+
+A shell-enclosed element therefore returns **SKIP** — never PASS. A skip can never satisfy
+`experienceVerdict`, so nothing vouches for markup that was not checked (rule 1's vacuity problem),
+and the detail discloses how many elements were set aside. The exemption is **per element**, so an
+anchor outside the shell in the same document is still refuted exactly as before. That is what keeps
+this a reconciliation rather than a blanket amnesty on any page containing a shell.
+
+### Verification owed at the next roll
+
+1. Pod-grep with a positive control **in the same exec** (`bugs_open/153`):
+   `strings /app/agent-chassis | grep -c RuntimeFillSpans` (0 before the roll) and
+   `... | grep -c DeadControlAnchors` (non-zero either way).
+2. **Induce the exempting branch**, not just the finding branch: a component whose root carries the
+   marker must still produce zero dead-control findings, or the exemption has been deleted rather
+   than narrowed. `TestShellDeadControlsExemptionIsPerAnchor`'s second case asserts this at unit
+   level; confirm it on a real check run.
+3. Re-run the `vonc.com/index` measurement above and record both numbers — the 2 dead controls and
+   the 2 repairs should now appear as real findings/repairs on a live pass.
+
+### One pinned expectation was INVERTED, and that is where the decision lives
+
+`TestEvaluateStaticCriteria_AttributeChecksFlowThrough` asserted **FAILED** for the shell-enclosed
+template row, its comment noting the sweep was suppressed on the same element — **this file's
+contradiction, encoded as an expectation.** It now asserts **SKIPPED**, with the date and reason
+written into the test. If the reconciliation is judged the wrong way round, change it there.
+
+Tests proven load-bearing by mutation in both directions: restoring the whole-document span fails 8
+tests; deleting the exemption fails 10, including the pre-existing
+`TestRepairPageLinks_RuntimeFillShellIsExempt`. A suite asserting only the first direction would
+pass against a change that simply removed the exemption.
+
+### Registered
+- `016b` §9 — *"An exemption tested with `strings.Contains` over whatever the caller passed has no
+  fixed blast radius"*.
+- Concept register **LNK-025** (`link-management.md`).
+- `LANDMINES.md` — the marker is tested against whatever you pass; and note the **SQL-side** copies
+  (`LIKE '%data-runtime-fill%'`) that a `--include=*.go` grep reports as absent.
