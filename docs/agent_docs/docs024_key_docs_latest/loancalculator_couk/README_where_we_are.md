@@ -327,3 +327,87 @@ stored), then the switch to editable mode, then letting the normal planning and 
 stages run. I have not started any of that, and I would rather not until you have had a
 chance to answer the question from my last note about whether you want the full version
 here or the cheaper freeze-the-calculators version the neighbouring project chose.
+
+---
+
+**2026-07-31 (evening) — answering your question, and finding that our tool tests prove almost nothing**
+
+You asked why the articles are editable. Three answers, and the third is the real one.
+
+**Nothing on the site is editable today.** Every one of the 27 pages is still in the
+"keep it exactly as it is" state. The 75%-editable figure I gave you describes what the
+splitting tool *would* produce if we ran it. It is not a description of the live site,
+and my earlier note could have been read that way.
+
+**Editability isn't a property of the page — it's a property of how the page is
+recorded.** A chunk of a page becomes editable when it is stored as its own piece,
+belonging to a page the framework is allowed to rebuild, unlocked, and listed in the
+plan so the writing and design stages can see it. Nothing about the HTML makes it
+editable or not.
+
+**And the honest answer: the articles are editable because they were what was left
+over.** The only instruction I had was that the site must start with working tools, and
+freezing the calculators byte-for-byte was the only way I could *guarantee* that. So I
+froze everything the calculator's code touches and set the rest free. The articles
+weren't chosen — they're the residue. That is a poor reason for a permanent boundary,
+which I think is what you were getting at.
+
+And the freeze has a cost I should have put in front of you: the frozen quarter is
+exactly the part that can never improve. It can't be restyled, can't be made to work
+properly on a phone, can't be fixed when its styling is missing — and it isn't
+registered as a tool the framework knows about, so no other page or site can ever reuse
+those calculators, and the tool-improvement machinery cannot see them. **So yes, you are
+right, and rewriting them is necessary rather than optional.** There are already 36
+proper tool components in the framework; these twelve should be joining them.
+
+**But before rewriting anything, I went looking for what would catch a mistake, and the
+answer was nothing.** This is the part I want you to know about.
+
+Rewriting a loan calculator means re-implementing arithmetic about people's money. We
+have two things that look like tool tests. One checks that the expected elements exist on
+the page. The other reports that a tool "responds" when you interact with it. Neither
+checks a single number.
+
+Worse, "responds" turns out to be close to meaningless. I built a page with one number
+box on it — no code at all, nothing that could possibly calculate anything — and our test
+scored it **RESPONDS**. The reason is that the test compares a snapshot of the page
+before and after, and the snapshot includes the box you just typed into. So typing
+always counts as the page responding. **Which means my own headline this morning — "12
+calculators working" — claimed more than I had measured, and I've corrected it.** What
+was actually established is that 12 pages are healthy and reactive; not that any of them
+computes correctly.
+
+**So I built the missing test.** It drives every calculator in a real browser with three
+sets of inputs, derived from each field's own starting values, and records every number
+the page produces. Any rewrite then has to reproduce those numbers exactly. I've
+captured this for all twelve, and checked it two ways:
+
+- **It's repeatable** — run it again against the untouched site and all twelve match
+  exactly. Without that it would be useless.
+- **It actually catches things** — which repeatability alone can't show. I took a copy of
+  the main loan calculator and made one small error in the interest maths. The page still
+  loads, still reacts, still shows believable money. The old test calls it fine. The new
+  one catches it in every case and prints the difference: £202.29 a month becomes
+  £205.74. That's £207 over the life of the loan, and until today nothing we had would
+  have noticed it.
+
+I found and fixed three faults in my own test while building it, and one is worth
+repeating because it was the same trap in a new coat: my first version read the page
+slightly too early, before the calculator's code had loaded, so it recorded **£0.00 as
+the correct answer for everything** — and reported success. A recorded set of answers
+like that would have certified a completely broken rewrite as perfect. It now refuses to
+save anything unless it can prove each calculator both reacts and produces different
+answers for different inputs.
+
+I've also written to the team building the combined loan-and-mortgage site, because
+they've just ported 24 calculators and their sign-off test is the "responds" one. Their
+own check that the calculator code is copied character-for-character is genuinely
+stronger than anything I had, and I told them so — but it can't catch a renamed input
+field or a changed starting value, and both would sail through every test they have.
+They can use the new one as-is.
+
+**Where that leaves the rewrite.** The safety net now exists, so the work can proceed:
+each calculator becomes a proper framework tool, reusable and improvable, with the
+requirement that it produces identical numbers to today's version. I have not started
+changing anything yet. The open question from my last note still stands and now matters
+more, because the rewrite is the bigger of the two roads — say the word and I'll begin.
