@@ -748,3 +748,84 @@ cost six wrong crops in one session. The four traps it encodes, all measured:
 Also retries the fetch with backoff: the origin self-throttles under a burst and answers
 with a connection reset or an EMPTY 200, and the second is worse because it looks like a
 page.
+
+## Proving a deploy on an image that has no `strings` (added 2026-07-31)
+
+CLAUDE.md's recipe is `strings /app/<binary> | grep -c "<symbol>"`. **The
+browser-runner-adapter image has no `strings` binary**, so that pipeline feeds grep
+nothing and prints a confident `0` — for your symbol *and* for anything else. Use
+`grep -ac` on the binary directly, and always in the same exec as a control:
+
+```bash
+kubectl exec -n ai-persona-system <pod> -- sh -c '
+  grep -c -a "capture_renders" /app/browser-runner-adapter   # the string your change ADDED
+  echo "--control--"
+  grep -c -a "criteria_json"   /app/browser-runner-adapter'  # a LONG string that predates it
+```
+
+Read it this way: **a positive is conclusive; a zero is only meaningful if the
+control is positive.** Go compiles short string literals to immediate comparisons
+that never reach rodata, so a zero can also mean "too short to be findable"
+(`LANDMINES.md`:503 measured this — `selector_count`, 14 bytes, returned 0 on a
+binary that fully supported it). Pick a long marker, or a whole sentence.
+
+## Mutation-proving a test on this shared tree (added 2026-07-31)
+
+Never run the loop in the working tree. Another session's half-finished edit to a
+*different file in the same package* will break the build mid-run, and **a build
+failure and a caught mutant both print `FAIL`** — so a `grep FAIL` summary scores
+the invalidated mutants as successes. Measured: four of six, 2026-07-31 evening.
+
+```bash
+SCRATCH=<your scratchpad>
+rm -rf $SCRATCH/headtree && mkdir -p $SCRATCH/headtree
+git archive HEAD | tar -x -C $SCRATCH/headtree          # untracked WIP CANNOT follow you here
+cp <your changed .go files> $SCRATCH/headtree/<same paths>
+cd $SCRATCH/headtree && go test ./<pkg>/ -count=1        # green baseline, then mutate HERE
+```
+
+Two rules inside the loop, both learned the hard way:
+
+- **Build before you test, and say so out loud.** A mutant that does not compile
+  proves nothing:
+  `go build ./<pkg>/ 2>&1 | head -3 | grep -q . && echo "!! DID NOT COMPILE"`
+- **Mutate with Python, not `sed -i`.** Anything containing `|` or `/` makes sed
+  parse garbage, print an error that scrolls past, and leave the file untouched —
+  which then reads as "the guard is redundant" (`LANDMINES.md`, *"a mutation that
+  never happened…"*). The working script is `scratchpad/mutate_renders.sh`.
+
+The export is worth doing anyway: it re-verifies your change against what HEAD will
+actually build, which a working-tree `go test` cannot tell you.
+
+## Turning `capture_renders` on, when the chassis carries it (added 2026-07-31)
+
+The order is load-bearing. **Image first, then the key** — DB config is live
+immediately and the Go half is not, so writing this before the roll gives you a step
+config that reads switched-on while the running binary drops the field.
+
+```bash
+# 1. Confirm the chassis carries the caller half (control in the same exec):
+kubectl exec -n ai-persona-system <agent-chassis-pod> -- sh -c '
+  grep -c -a "capture_renders" /app/agent-chassis
+  echo "--control--"; grep -c -a "judge_acceptance_results" /app/agent-chassis'
+
+# 2. Only then, the one key. tool-acceptance-agent is the ONLY live agent
+#    referencing request_browser_run; its steps are
+#    ensure_site_record -> load_docs -> request_run -> judge.
+UPDATE agent_definitions
+   SET default_config = jsonb_set(default_config,
+       '{workflow,steps,request_run,config,capture_renders}', 'true'::jsonb, true)
+ WHERE type='tool-acceptance-agent' AND is_active
+   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+
+# 3. Verify at the ARTEFACT, not the config: a passing acceptance run must leave a
+#    "Rendered:" line in its own doc_note. A note with no such line means the flag
+#    did not reach the adapter, or object storage is unconfigured.
+SELECT created_at, left(body, 400) FROM doc_notes
+ WHERE subject_type='tool' AND categories ? 'acceptance-run'
+ ORDER BY created_at DESC LIMIT 3;
+```
+
+**A render is not a verdict.** `Renders` is empty of `failing_checks` by
+construction and must never become signal — if something starts branching on a
+render's presence, the two-list design has been undone.

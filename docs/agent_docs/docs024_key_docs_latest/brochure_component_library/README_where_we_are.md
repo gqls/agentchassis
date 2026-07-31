@@ -1291,3 +1291,73 @@ re-ran the identical test with my change removed, got the same two failures, and
 confirmed on the real page that both behaviours work. The test was at fault, in the same
 way I recorded a trap for earlier the same day. Running the before-and-after comparison,
 rather than just the after, is what stopped me reporting a fault that did not exist.
+
+---
+
+## 2026-07-31, evening — the camera was switched on, and nothing could reach the switch
+
+Short session, one thing done properly.
+
+You'll remember this morning's answer about screenshots: the framework can
+photograph a page, but only after a check has already failed, so the defects that
+actually reach you — text against a card edge, links off the line, overlapping
+labels — happen on pages where everything passes and nothing ever gets
+photographed. I built the framework half of the fix this morning and it was
+approved. **It has now gone live on the cluster, and I checked that at the running
+binary rather than trusting the deploy.**
+
+Then the interesting part. Nothing was using it — which I expected — but the reason
+was not the one I expected. It wasn't that nobody had got round to switching it on.
+**There was no switch.** The code that asks the browser to run its checks built its
+request from a fixed list of six things, and the new option wasn't one of them; and
+the code that reads the reply only ever looked for the word "screenshots", so a
+photograph coming back would have been thrown away unread. The capability existed at
+one end of the pipe and there was no pipe.
+
+That distinction is worth a sentence because it nearly cost me the wrong fix. The
+obvious reading of "the feature is live and nothing uses it" is "go and turn it on",
+which is a one-line configuration change. I'd have made that change, it would have
+done nothing at all, and everything would still have looked correct — the setting
+would be there in the config, saying `true`, and no photograph would ever appear.
+Reading the calling code first is the only thing that separated those two stories.
+
+So: the wire is now connected, tested, committed, and submitted for review. **And I
+want to be plain that it is still not switched on.** The last step is a single
+setting, and it has to wait for the next deployment of the main service, because
+configuration changes take effect instantly while code changes don't — set it today
+and you'd have a config that reads "on" while the running program quietly ignores
+it. That is exactly the kind of thing that gets recorded as working and isn't, so
+I've written it down as a trap rather than risk it.
+
+**Two things went wrong, both of them mine, and both are the same shape as the ones
+I reported yesterday.**
+
+The first: I wrote a test asserting that the new photograph line must never call
+itself "evidence", because a photograph of a page that passed is not evidence of a
+failure. The test failed against correct code. The reason is almost funny — the
+storage location these images live in is called `acceptance-evidence`, so the word
+was in the file path, not in the sentence. My assertion was wrong, not the code. I
+tightened it to check the label rather than the whole line.
+
+The second is more useful. To prove a test is worth having, I deliberately break the
+code six different ways and check the test catches each one. Five of the six came
+back "caught". They hadn't been caught — the program had stopped compiling, because
+another session working on this same shared codebase saved a half-finished edit to a
+neighbouring file while my check was running. A broken build and a caught error
+print the same word on the screen. I'd built in a check that spotted it, but only
+just, so I've rerun the whole thing against a clean copy of the committed code where
+nobody else's work-in-progress can reach it — all six caught, properly this time —
+and written the trap down for everyone.
+
+That's three days running where the thing that nearly reported a false result was my
+own checking apparatus rather than the code. I don't think that's bad luck. It's what
+happens when you start testing things that were previously never tested at all, and
+it's the argument for the staged build system being a real piece of work rather than
+a convention.
+
+One small thing I noticed and did not act on: there are **four** tool pages on the
+site, not three. `/tools/decision-record/` is marked active in the database, has no
+content in it at all, and has been serving a "not found" page since 20 July. Nothing
+links to it, so nobody would have hit it, but it is sitting there marked as a live
+page. Same for a `/tools.html` index that doesn't exist. Both are tidy-ups, not
+faults — say the word and I'll clear them.

@@ -3729,3 +3729,125 @@ Nothing is lost and the content is committed, but my own commit message for TL-0
 "index row added" and the row is in someone else's commit. Forward-only, so this is the
 correction of record. Exactly the same-file passenger case CLAUDE.md says no hook can
 prevent.
+
+## 2026-07-31 (evening) — TL-035's camera was live and nothing could ask it to fire
+
+Picked the lane up cold from `HANDOFF_2026-07-30b`. First job was to find out what
+had actually changed since the morning's NOTES entry, and one thing had.
+
+### The adapter half is LIVE — and the standard verification recipe reports the opposite
+
+The morning entry records TL-035 as "inert until the next chassis roll". It rolled:
+`browser-runner-adapter-54bd4fd665-2snhz`, binary mtime 19:03, pods 10 minutes old
+when I looked at ~20:00.
+
+    grep -ac "capture_renders" /app/browser-runner-adapter   -> 1
+    grep -ac "criteria_json"   /app/browser-runner-adapter   -> 3     (control)
+
+**My first attempt used CLAUDE.md's recipe and returned 0 for BOTH** — the target
+and the control. That image has no `strings` binary, so `strings /app/x | grep -c`
+pipes nothing into grep and prints a confident `0`. Already recorded as
+`LANDMINES.md`:503, and the positive control is the only reason I read it as
+"wrong method" rather than "not deployed". A zero with no control is not a
+measurement.
+
+### The finding: live, and undriven — but not for the reason the register expected
+
+    SELECT count(*) FROM agent_definitions WHERE default_config::text LIKE '%capture_renders%';
+    -> 0
+
+TL-035's own `verify-later` bullet had asked "whether any caller sets the flag
+within a fortnight, because an opt-in nobody opts into is the failure mode this
+platform has been bitten by before". The honest answer turned out to be sharper
+than adoption: **no caller COULD set it.**
+
+- `RequestBrowserRunAction` built the adapter payload from a fixed six-key map
+  (`run_id`, `urls`, `profiles`, `criteria_json`, `function`, `site_id`). There was
+  no path from step config to `CaptureRenders` at all.
+- `extractRunResults` tried four envelope shapes for `screenshots` and **no other
+  key**, so a `renders` list arriving in the reply would have been parsed by
+  nothing and dropped before any note was written.
+
+So the memory-index shorthand "a silent mechanism is usually UNDRIVEN, not missing"
+was right about the symptom and would have sent me to write a config row. The
+mechanism was undriven because **the wire was never connected**, which no amount of
+config would have fixed. Reading the caller before writing the config is what
+separated those.
+
+### What was built (commit `9cc63c775`, council `2c895dd1`)
+
+Three edits in `platform/orchestration/actions/tool_acceptance_actions.go`:
+
+1. `capture_renders` read from step config, default false, passed through to the
+   adapter. Emitted **explicitly even when false** — an absent key and an explicit
+   `false` are identical to the adapter, but only the explicit form lets someone
+   reading a captured payload see what the setting was.
+2. `extractShotList(collected, field, key)` — the existing screenshot parser lifted
+   out and called twice. One parser, because two copies of it could only ever drift.
+3. `renderLine()`, deliberately **not** `evidenceLine()` with a different string.
+   "Evidence … at failure" is a claim about a failure; every render is a photograph
+   of a run that passed. The line says `Rendered:` and carries *"a render is a look,
+   not a verdict"* in the note body itself.
+
+**The non-obvious one: `renderLine` is on the FAILED note too.** It looks like a
+copy-paste slip. The adapter captures per (url, profile), so a two-profile run where
+desktop fails and mobile passes files a shot **and** a render — `Renders` is the
+per-run-that-passed list, not the pass list. Dropping it from the failure branch
+would discard exactly the side-by-side a human wants when one profile broke.
+
+### Two things the tests caught, both of them mine
+
+**My own assertion was wrong before the code was.** `TestRenderLineDurableURIOnly…`
+asserted the line does not contain "evidence" (case-insensitive) — and failed
+against a correct line, because the durable S3 key prefix is literally
+`acceptance-evidence/`. The substring matched the URI, not the prose. Tightened to
+match the *label* (`Rendered:` prefix, no `Evidence:`), which is what I actually
+meant. Recorded because it is the same shape as the two harness-lied incidents
+earlier this week: **the check reported a defect that was in the check.** Third time
+in three days on this lane.
+
+**And the mutation run was invalidated mid-flight by another session.** Six mutants,
+run in the working tree. M1 was caught correctly; M2–M6 all printed
+`FAIL … [build failed]` because another session saved a half-finished edit to
+`save_sections_prune_floor.go` — a *different file in the same package* — between
+mutant 1 and mutant 2. My file was untouched and correct throughout.
+
+The trap is that **a caught mutant and a broken build both print `FAIL`**. My
+harness happened to build-check first and printed `!! DID NOT COMPILE — this mutant
+proves nothing`; a plain `go test | grep FAIL` loop would have scored four
+invalidated mutants as four successes. Re-ran the whole proof against a
+`git archive HEAD` export with my two files copied in — an untracked or uncommitted
+file belonging to another session cannot follow you into `git archive HEAD`, so the
+only uncommitted code in the run is your own. **All six then compiled and all six
+were caught.** Filed as a new `LANDMINES.md` entry (verifier dispatched,
+`1c4e7c31`), third member of the family with the two existing mutation entries: that
+pair is *mutation did not apply* and *mutation absorbed*; this is **mutation
+applied, result unreadable**.
+
+### State, stated honestly
+
+The wire is connected and **still nothing sets the flag**. That last step is one DB
+key — `"capture_renders": true` on `tool-acceptance-agent`'s `request_run` step (the
+only live agent referencing `request_browser_run`) — and it is **ordered after the
+chassis roll**, because DB config is live immediately and Go is not. Setting it now
+would produce a step config that reads switched-on while the running binary silently
+drops the key. Registered as a landmine on TL-035.
+
+Also worth knowing, found while checking the loose ends and not acted on: the site
+has **four** `page_type='tool'` rows, not three. `/tools/decision-record/index.html`
+is `status='active'` with `deployed_at` NULL, **zero** `page_components`, created
+07-20 and untouched since 07-22 — it serves **404**. So does `/tools.html`. Neither
+is linked from any of the five pages I checked, so both are stale rows rather than
+live broken links, and `llm-cost-calculator`'s two dead CTA blocks (handoff loose
+end 1) are narrower than written: `model-approach-selector` has no `hero-tool` and
+no `tool-cta` at all, so there is nothing there to be dead.
+
+**One process slip, caught by `git status` and recorded because it is the same
+family as the landmine above:** I appended this entry with `cat >>` to
+`docs024_key_docs_latest/NOTES_brochure_component_library.md` — the lane directory
+missing from the path. A shell redirect to a non-existent path does not error; it
+**creates the file**, prints nothing, and exits 0, so the append "worked" and the
+entry was simply in the wrong place. Only the `??` in `git status` showed it. Moved
+into the real file and the stray deleted, no content lost. This is precisely why
+CLAUDE.md prefers the Write tool for anything you did not create — it refuses an
+unread file, and a redirect never refuses anything.
