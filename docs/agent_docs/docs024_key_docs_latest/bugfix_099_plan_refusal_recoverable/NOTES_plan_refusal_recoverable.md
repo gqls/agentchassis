@@ -681,3 +681,37 @@ verified", which is the whole point of the verifier.
 the default, or say explicitly that the sync alone skips verification. Not edited here
 — CLAUDE.md is co-edited standing state and this lane has no mandate to change the
 fleet's instructions; recorded so a thread that does can act on it.
+
+## 2026-07-31, 18:09 — CLOSED. The repair completed and a design was saved.
+
+`v1.0.1216` carried the widening (marker 2, untouched control 11, both replicas);
+`v1.0.1218` rolled mid-run and the run **survived** it — 32s stale, not the 420s frozen
+signature, so it was progressing on the new pods.
+
+Discharging run `53fff682` / orch `e79ee191`, `max_edits=1` armed:
+
+```
+18:08:26  iteration_note  ["stage s1: 2 edits exceeds the per-stage cap 1"]  + agent_error_log warning
+          trail: persist_plan → check_plan_valid → repair_plan
+18:09:31  fix_plan        3 stages / 3 edits          <-- REPAIRED PLAN PERSISTED
+after     review_editquality → review_bug_historian … (NOT complete_refused)
+```
+
+**The number that matters is `3 stages / 3 edits`.** The original was 2 stages with
+`s1` holding 2; the repair split that stage and kept **every** edit. That is the
+scope-preserving repair the prompt asks for, in 65 seconds — and the exact case that
+before this fix was deleted with `orchestration_states.error` NULL.
+
+All four conditions of the *corrected* verification held. Note the induced rule
+(`max_edits`, per-stage) is one **candidate 1 never taught**, which is the
+rule-agnostic claim actually under test.
+
+### MISSTEP at the very last step — a pathspec commit dropped half my `git mv`
+
+I committed the close naming only `bugs_closed/099…`. The ADD landed, the DELETE stayed
+staged, and HEAD briefly held **both** copies — so the "closed" bug was still sitting in
+`bugs_open/` for every other thread. The very property that makes pathspec commits safe
+on this tree (they ignore the index) is what drops the far side of a rename. Fixed in
+`423c745aa`. Two free signals I nearly walked past: the commit said "3 files changed"
+when I had passed 4 paths, and `git ls-tree HEAD bugs_open/` answers it in one line.
+Logged in `WRONG_CALLS.md`.

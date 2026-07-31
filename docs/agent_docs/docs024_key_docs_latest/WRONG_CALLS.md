@@ -14020,3 +14020,24 @@ down what it found is worth more than one that races to finish. Theirs was withd
 and it improved mine twice in one day — first the design (the derived-negation predicate,
 the lock-detail set, the LOCK-004 framing), then this. When you stand down from a
 collision, **the contribution is the deliverable.**
+- **A pathspec commit silently dropped half of my `git mv`, leaving the "closed" bug
+  still open.** Closing `bugs_open/099` I ran `git mv` then committed naming only
+  `bugs_closed/099…` in the pathspec. The ADD landed; the DELETE stayed staged. HEAD
+  then held **both** copies, so `bugs_open/099` was still there for every `ls` and
+  `grep` of that directory — i.e. the close would have read as not-done to every
+  other thread, while my own commit message said CLOSED. Caught by checking
+  `git ls-tree HEAD bugs_open/` rather than trusting the commit output, which cheerfully
+  said `create mode 100644 bugs_closed/099…` and nothing about the other side. **The
+  property that makes pathspec commits safe here — they take the paths you name and
+  ignore the index — is exactly what drops the far side of a rename.** The check:
+  after any `git mv`, name **both** paths in the commit, and verify with
+  `git ls-tree HEAD <olddir>/`. Also caught by the same commit reporting "3 files
+  changed" when I had passed 4 paths — a count mismatch against your own pathspec is a
+  free signal and I nearly skipped reading it.
+- **My verification grep for that same close returned 0 and I briefly believed the
+  index row was missing.** I searched 016b for a pattern with backticks placed exactly
+  as I *thought* I had written them; the row was there, spelled slightly differently.
+  Re-grepped on the stable part (`^| 099 |`) and it was fine. Textbook case of the
+  already-recorded rule that **a grep proves an absence only for the spelling it
+  searches** — and my second mistake of the day of trusting a hand-typed pattern over
+  an anchored one.
