@@ -165,3 +165,51 @@ serve the old footer until the **206 `page_rerender` items** now sitting at
 `triaged` drain — `bugs_open/117` is why (chrome is a stored artefact) and
 `bugs_open/149` owns the queue. `curl relojistas.com` still shows `Our Services` as
 of 19:26 UTC. Do not read "28/28 slots active" as "the fleet looks right".
+
+## 2026-07-31 (late) — 166's mechanism, found by hand and then closed
+
+Carrying on from the repoint. The two gates I hit by hand are the whole of 166, and
+neither is visible from reading the check:
+
+1. `rerender-pages` renders chrome only when `refresh_site_components: true` is in
+   `input_data` (a `check_refresh_components` conditional). The detector sets it, so
+   that half is correct by construction; a hand-run gets a silent skip with a
+   COMPLETED status.
+2. **Even with the gate open and the assignment already corrected, the slot is
+   skipped**, because the `!force` idempotence exit tests `rendered_html IS NOT NULL
+   AND != ''` — whether the slot holds bytes, never whether it holds the RIGHT
+   component's bytes.
+
+Fixed both directions (`39afbf697`, council `e242e9d3`): `repointIneligibleChromeSlot`
+moves a slot off an ineligible component onto the one `ResolveChromeComponent` names,
+and the exit gained `COALESCE(build_status,'') <> 'pending'`. The repoint runs ABOVE
+the exit — below it an unforced render returns early, and every scheduled chrome
+rebuild is unforced. A test asserts the ordering rather than a comment claiming it.
+
+Three refusals, each with its own test because each turns the repair into a different
+bug if dropped: repoint only when an eligible alternative exists (so `head`'s 13 slots
+are left alone rather than churned for a library gap no site can fix); write through
+`pageComponentAgentWritableSQL` and file **no** lock item on the zero-row path (the 069
+gate owns that decision); set `build_status='pending'` rather than clearing
+`rendered_html` (I blanked one by hand and had no copy — the slot must keep serving
+its old chrome until the new render succeeds).
+
+**Measured before submitting: net live change today is ZERO.** All 42 rows are
+`build_status='rendered'`, none pending-with-HTML; the only ineligible assignments
+left are the 13 `head` slots, where the repointer declines. It changes the *next*
+deactivation.
+
+### Missteps, both logged in WRONG_CALLS
+
+- **I registered the seam one commit late.** `render_site_components` now reassigns an
+  assigned-but-ineligible slot where before it only assigned an unassigned one — a
+  widening of what a shared action promises its callers — and CLAUDE.md requires the
+  register entry in the *same* commit. I had done exactly that for the 118 seam three
+  hours earlier and did not repeat it, because 166 felt like a bug fix rather than a
+  seam. The test is what the caller is promised, not how the work felt.
+- **I read a two-hour-old clock into a `now() - interval '40 minutes'` window** and
+  briefly believed the rerender queue had drained. A wider window returning fewer rows
+  than a narrower one run earlier is impossible unless the rows changed — that tell was
+  free and I walked past it. The truth: **11 of 206 complete, 195 still `triaged`**,
+  oldest stuck item fleet-wide from seven hours before. The chrome repoint will not
+  reach a served page until that queue moves, which is `bugs_open/149`'s lane.

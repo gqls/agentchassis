@@ -1,5 +1,27 @@
 # 166 — the `deactivated_component` repair re-renders the deactivated component, so the finding can never be satisfied
 
+> **STATUS 2026-07-31 (evening): FIXED IN CODE, committed `39afbf697`, council
+> submission `e242e9d3-1e5a-4b14-a16f-fbff9ca86d35`. OPEN until the next chassis
+> roll** — a fix that has not shipped leaves the defect reproducible.
+>
+> `repointIneligibleChromeSlot` moves a slot off an ineligible component onto the
+> one `ResolveChromeComponent` names (`bugs_closed/118` shipped that, so "which one
+> instead?" has exactly one answer), and the `!force` idempotence exit gained
+> `COALESCE(build_status,'') <> 'pending'` so the repoint reaches the page. The
+> repoint runs ABOVE the exit, because below it an unforced render returns early —
+> and every scheduled chrome rebuild is unforced. A test asserts that ordering.
+>
+> **Measured before submitting — net live change today is ZERO.** All 42
+> `site_components` rows are `build_status='rendered'` with none pending-with-HTML,
+> so the exit clause changes nothing; and the only ineligible assignments left are
+> the 13 `head` slots, for which no eligible alternative exists, so the repointer
+> declines on every one. What it changes is the **next** deactivation.
+>
+> **The standing fleet was already repaired by hand** on the owner's 2026-07-31
+> ruling — 21 assignments repointed, 28/28 header+footer slots now active — so
+> candidate 1 below is done for the current estate. This closes the *mechanism*.
+> Residual: `head` is unrepairable by any of it (candidate 3, a data call).
+
 **Filed:** 2026-07-31 by the `bugfix_118_chrome_selection` lane, while fixing the
 *cause* of the deactivated assignments. This is the *repair* half, and it is a
 separate defect: 118's fix stops new bad assignments, it does not clear the 27

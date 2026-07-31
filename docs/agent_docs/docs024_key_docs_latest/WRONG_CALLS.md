@@ -15057,3 +15057,34 @@ assertion in prose.
   measurement is the most durable kind of error, because every check you run on the
   conclusion passes.** Fifth measurement in three days to answer a different question from
   the one I meant to ask; the others were caught before they reached a file.
+
+## 2026-07-31 (late) — `bugfix_118`/166: I shipped a seam without registering it in the same commit, and I read a stale clock into a measurement
+
+- **I committed a change that widens what a shared action GUARANTEES without registering it in
+  the same commit** (`39afbf697`, `bugs_open/166`). CLAUDE.md's ordering-exemption condition (2)
+  is explicit and is the *whole* of what survived the 2026-07-29 ruling: the seam is registered
+  in the concept register **in the same commit that ships it**, "not later — later is how a seam
+  becomes folklore". `render_site_components` previously changed `component_id` only for an
+  UNASSIGNED slot; it now also reassigns an assigned-but-ineligible one, which is a widening of
+  the guarantee for every agent that calls it. I registered it one commit later, which is
+  better than never and is still a miss.
+  **The cheap check: before committing platform code, ask "does a caller of this get a
+  different promise now?" — and if yes, the register edit belongs in the SAME `git commit`
+  pathspec**, not on the follow-up docs pass. I had done this correctly for the 118 seam three
+  hours earlier and did not repeat it, because 166 felt like a bug fix rather than a seam. The
+  test is what the caller is promised, not how the work felt.
+- **I read "40 minutes" against a two-hour-old mental clock and briefly believed a queue had
+  drained.** Asked whether the 206 `page_rerender` items my chrome rebuilds created had moved,
+  I queried `created_at > now() - interval '40 minutes'` and got **zero rows** — and a wider
+  window returning FEWER rows than a narrower one earlier is arithmetically impossible unless
+  the rows changed. The real explanation was that ~2 hours had passed between the two queries,
+  so the window no longer contained them. The truth was worse than "drained": **11 of 206
+  complete, 195 still `triaged`**, with the oldest stuck item fleet-wide dating from seven
+  hours earlier.
+  **The cheap check: a relative time window is only meaningful against `now()` at the moment
+  you run it — `SELECT now()` alongside, or use absolute bounds.** And the structural tell was
+  free: when a WIDER filter returns FEWER rows than a narrower one you ran before, one of the
+  two measurements is not measuring what you think.
+- **`min(created_at)::time(0)` compares time-of-day, not timestamps.** My first version of that
+  query reported an "oldest" of 14:03 and a "newest" of 20:34 across rows spanning days, which
+  is meaningless and looks perfectly plausible. Cast to `::date` or leave it as a timestamp.
