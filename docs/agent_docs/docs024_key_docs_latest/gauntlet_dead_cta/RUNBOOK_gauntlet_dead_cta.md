@@ -492,7 +492,7 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 # expect: UPDATE 1 / DO / COMMIT / NOTICE delivered: <n> chars, md5 <x>
 
 # 2. Republish the asset (this is what emits js_content to /tools/assets/*.js):
-./scripts/rerender_gauntlet_vonc.sh     # PUBLISH_OK x2 is the known double-fire; both COMPLETE
+docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/rerender_gauntlet_vonc.sh   # CORRECTED 2026-07-31: this said ./scripts/, which does not exist. PUBLISH_OK x2 is the known double-fire; both COMPLETE
 
 # 3. Verify the SERVED asset, with controls and WITHOUT a cache-buster:
 curl -s -D - https://vonc.com/tools/assets/gauntlet-interface.js -o served.js | grep -i cf-cache-status
@@ -697,3 +697,130 @@ field before trusting a green run.**
 byte-identity census (§16) `11 / 0`; shipped-rule census, pre-fix, `1 group / 1
 deletion` (vonc.com/index.html, `lobby-grid@5`); shipped-rule census, post-fix
 (`43492ec94`), `0 / 0`.
+
+## 18. The round-record page — install, deliver, verify (2026-07-31)
+
+Component `gauntlet-round-record`, page `/tools/gauntlet/round.html`, page id
+`4629451e-e4f2-4fe2-b258-35107b5cb51e`. Sources in `round_record/`.
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/round_record
+
+python3 verify_round_record.py                       # static: the file
+python3 build_record_page_sql.py ../../../sql_for_agents/279_*.sql   # regenerate
+python3 deliver_record_component.py --write /path/deliver.sql        # guarded update
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < /path/deliver.sql
+../scripts/rerender_page_vonc.sh 4629451e-e4f2-4fe2-b258-35107b5cb51e
+python3 verify_round_record.py --url https://vonc.com/tools/gauntlet/round.html
+~/.venvs/vonc_pw/bin/python drive_round_record.py <a-published-slug>
+```
+
+- **Edit the component, never the generated SQL.** `279` is generated from
+  `round_record_component.html`; hand-editing it guarantees repo/DB drift.
+- **`279` is replay-safe and was proven so by replaying it** — the three
+  structural inserts return `INSERT 0 0`. `doc_plans` is the deliberate
+  exception (supersede-then-insert is how a plan is versioned).
+- **The DO block asserts the END STATE**, so it passes whether the run created
+  the rows or found them. That is the property you want from a migration you
+  cannot be sure has run.
+
+### Contrast is invisible to every static check
+
+The first live render put the visitor's own argument at `rgb(139,133,176)` on
+`#6d28d9` — **2.06:1**, against the 4.5:1 floor — because `.gr-text` set no
+colour and inherited one from the site chrome's paragraph rule. The markup was
+right, the text was all there, and every static check passed.
+
+`drive_round_record.py` now computes contrast in the browser (compositing alpha
+onto the nearest painted ancestor) and fails under 4.5:1. Run it after ANY
+colour change. On its first run it found seven ratios, six failing — including
+`--color-accent` `#fc5c7d` on `--color-primary` `#6d28d9` at **2.36:1**, which
+is a button colour being used as small text.
+
+### Read the palette from the BROWSER, not the stylesheet
+
+```bash
+# what the site ACTUALLY paints — fallbacks in var(--x, #fallback) are not it
+~/.venvs/vonc_pw/bin/python - <<'PY'
+from playwright.sync_api import sync_playwright
+with sync_playwright() as pw:
+    b = pw.chromium.launch(); p = b.new_page()
+    p.goto("https://vonc.com/tools/gauntlet/index.html", wait_until="networkidle")
+    print(p.evaluate("""() => { const c = getComputedStyle(document.documentElement);
+      return ['--color-primary','--color-primary-text','--color-accent','--color-background']
+        .map(n => n + ' ' + c.getPropertyValue(n).trim()); }"""))
+    b.close()
+PY
+```
+
+vonc.com is **`--color-primary #6d28d9`** (purple), `--color-accent #fc5c7d`
+(pink), `--color-primary-text #ffffff`. Grepping the CSS finds `#dc2626` and
+`#fbbf24` — those are FALLBACKS, they never apply, and a whole afternoon's
+"the card is off-brand" claim was built on them.
+
+## 19. Delivering publish-on-share, and checking a CANVAS (2026-07-31)
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/p4_sources
+python3 apply_publish_on_share.py gauntlet_js_2026-07-31_exchange_card.js \
+                                  gauntlet_js_2026-07-31b_publish_on_share.js
+python3 build_deliver_sql_publish.py /path/deliver.sql   # reads updated_at LIVE
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < /path/deliver.sql
+../scripts/rerender_gauntlet_vonc.sh
+~/.venvs/vonc_pw/bin/python drive_publish_on_share_2026-07-31.py
+```
+
+- **§15 line 495 named the wrong path.** It said `./scripts/rerender_gauntlet_vonc.sh`;
+  the script lives at
+  `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/`. Corrected
+  in §15 on 2026-07-31.
+- **There is no `node` on this box.** Use a browser as the parser — it is the
+  engine that matters anyway, and it takes seconds:
+  ```python
+  p.evaluate("(c) => { try { new Function(c); return 'OK' } catch (e) { return e.message } }", src)
+  ```
+  Run it against the BASELINE too (a control that must say OK) and against a
+  deliberately broken copy (which must not).
+- **Read the guard live; do not paste it.** `build_deliver_sql_publish.py` reads
+  `updated_at` at build time. A hardcoded one goes stale the moment anyone
+  touches the row and then fails closed, which is safe but reads as a mystery.
+- **Assert an UNTOUCHED control in the DO block**, not only added and removed
+  markers — this delivery asserts `vonc_gauntlet_ledger_v1` survives, so
+  "delivered the wrong file entirely" is caught.
+
+### Checking what a canvas actually drew
+
+Do not OCR the PNG and do not infer from pixel widths. Replace `fillText` before
+pressing the control and read back every string:
+
+```python
+page.evaluate("""() => { window.__drawn = [];
+  const f = CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.fillText = function (t) {
+    window.__drawn.push(String(t)); return f.apply(this, arguments); }; }""")
+# ... press the button ...
+drawn = page.evaluate("() => window.__drawn")
+```
+
+That is how the double-draw was found: the log held TWO address lines, because
+`shareVerdictCard` used `buildVerdictCard()` as its "is there a round?" test and
+so built and discarded a whole card. Assert `len(footer) == 1`.
+
+### Two 403s that look identical
+
+| what is missing | who refused | body |
+|---|---|---|
+| `Origin` header | our CORS middleware, on the island | `{"error":"origin not allowed"}` |
+| browser `User-Agent` | Cloudflare, before the island | `error code: 1010` |
+
+`curl` and `urllib` need BOTH to reach the API. Read the body before concluding
+the endpoint refused you — the second one never arrived there.
+
+### A republish serves a THIRD md5 mid-flight
+
+Polling the asset after `rerender_gauntlet_vonc.sh`, the served file went
+old md5 → **`980bb347…`** (neither old nor new) → new md5. A single mid-flight
+fetch therefore looks exactly like another session having written the row. Fetch
+three times and compare `wc -c` against the file before believing it.

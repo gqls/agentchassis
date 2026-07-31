@@ -3246,3 +3246,95 @@ live code to a scanner). Detail lives here instead.
 **Left open, unrelated and pre-existing:** `/blog/provocation.html` is `status='active'`
 in `pages` but 404s live, so every sweep reports 1 page UNSCORED (exit 2, deliberately
 not a pass). Not filed — it wants a check of whether the row or the file is wrong.
+
+---
+
+## 2026-07-31 (evening) — step 2 complete: the card links through to the record
+
+Owner approved the URL shape (`/tools/gauntlet/round.html?r=<slug>`), which was the
+last open decision. Both halves are now live and driven end to end.
+
+### What shipped
+
+- **The record page**, `/tools/gauntlet/round.html` — component
+  `gauntlet-round-record`, installed by `sql_for_agents/279`, page id
+  `4629451e-e4f2-4fe2-b258-35107b5cb51e`. Zero template variables and inline JS,
+  deliberately: with vars = 0 the same bytes go into `html_template` and
+  `page_components.rendered_html`, so §11's substitution trap cannot bite, and an
+  inline `<script>` needs no asset-publication step (`bugs_open/041`).
+- **Publish on share** — `js_content` only, md5 `aa27f2d0b14d8e90ef64c89521b3c917`,
+  40,650 chars. Button reads "Publish this round and save the card"; a consent note
+  above it names what becomes public.
+- Sources: `round_record/` (component, generator, verifier, driver) and
+  `p4_sources/apply_publish_on_share.py` + `drive_publish_on_share_2026-07-31.py`.
+
+### Evidence
+
+`drive_publish_on_share_2026-07-31.py` — 26 checks, all pass, one real round:
+slug `gzhhgjamdn`, publish 200, second press returns the SAME slug, the record page
+renders the position and defence byte-for-byte as typed.
+`drive_round_record.py` — 32 checks including the three refusals (no slug,
+malformed slug which never reaches the API, well-formed slug never published).
+
+**The card is inspected by monkey-patching `CanvasRenderingContext2D.fillText`
+and recording every string drawn.** That makes "the permalink is on the card" a
+substring test over what the renderer actually emitted. OCR was unavailable and a
+pixel-width proxy would pass for the wrong reasons.
+
+### Missteps, in the order I made them
+
+1. **I told the owner the share card was off-brand.** I said the site was red
+   `#dc2626` with an amber `#fbbf24` accent and the card's `#6d28d9` purple
+   clashed. Both halves wrong. Those literals are the FALLBACKS in
+   `var(--color-primary, #dc2626)` inside the gauntlet component's CSS; the value
+   that resolves is `#6d28d9` — exactly what the card draws. **Reading the
+   stylesheet could not have caught this**, because a fallback only applies when
+   the variable is unset. Computing it in the browser did, in one call. Logged in
+   `WRONG_CALLS.md`.
+2. **The first live render of the record page was unreadable** — the visitor's own
+   argument at `rgb(139,133,176)` on the purple, **2.06:1** against a 4.5:1 floor,
+   because `.gr-text` set no colour and inherited from the site chrome's paragraph
+   rule. Every static check passed: the markup was right and the text was all
+   there. A browser-measured contrast check found five more, including that the
+   site's own accent pink on its own primary purple is **2.36:1** — a button
+   colour, failing as small text. All seven now 4.93:1 to 7.1:1.
+3. **I filed a duplicate landmine.** Wrote up `wc -c` vs `length()` and then found
+   the loancalculator lane had filed it the same day, better (it notes the error
+   runs in BOTH directions, so a real corruption can be masked). Merged my new
+   facts into theirs and deleted mine. I had greped the runbooks and the SQL for
+   `wc -c`; I had not greped `LANDMINES.md`.
+4. **A guard that could never fire.** Adding replay-safety to 279 I put
+   `WHERE NOT EXISTS (... AND is_current)` on the `doc_plans` insert, directly
+   below the `UPDATE` that sets `is_current = false`. Always true, never fires,
+   and it reads as protection. Removed; the exception is now stated in prose.
+5. **My own splice script refused its own correct output.** It asserted "no raw
+   non-ASCII anywhere", but this file's convention — read, not assumed — is raw
+   characters in COMMENTS (31 em dashes) and `\uXXXX` escapes in STRING LITERALS.
+   The assertion now counts raw characters inside quoted spans only.
+6. **A wrong selector reported a working feature broken.**
+   `[data-gi-status], .gi-status` returns the FIRST match in document order, which
+   is the sealed-entry status — empty once a round is over.
+
+### Two findings worth carrying
+
+- **The card was being drawn TWICE on every press.** `shareVerdictCard` used
+  `buildVerdictCard()` as its "is there a round?" test, which builds and discards
+  a whole canvas. Invisible in the output; visible in the `fillText` log as two
+  address lines. Replaced with `roundIsComplete()`, a predicate over the same
+  three facts that draws nothing — 24 `fillText` calls down to 12.
+- **Two different 403s, distinguishable only by their body.** No `Origin` →
+  our CORS middleware, `{"error":"origin not allowed"}`. No browser `User-Agent`
+  → Cloudflare's browser-integrity check, `error code: 1010`, which never reaches
+  the island at all. A status-code check cannot tell them apart.
+
+### Still open
+
+- **The rate limit.** A six-request smoke burst hit 429 on the sixth: 1 rps,
+  burst 5, per caller, shared with the LLM endpoints. The right ceiling for a
+  public read is a different number from the one chosen for 8–18s LLM calls.
+  Not retuned — it wants real traffic first, and it is an owner call.
+- **Social previews.** The record page is client-rendered, so a crawler sees the
+  shell and every round previews identically. In practice the shared PNG is the
+  preview, so this may not matter; worth knowing before anyone reports it as a bug.
+- Three of our own harness rounds are published (`wjxnau3nx_`, `vevphzzdbw`,
+  `gzhhgjamdn`). All our own text, no stranger's writing. One `UPDATE` unpublishes.

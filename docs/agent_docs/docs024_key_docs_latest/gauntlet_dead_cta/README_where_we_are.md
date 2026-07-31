@@ -1349,3 +1349,59 @@ reporting a leak every time it found the fix. A detector aimed at where a proble
 used to live stops being a detector the moment you fix it. Both my checkers now look
 for today's actual words, taken fresh from the feed each run, so they cannot go quietly
 blind the next time the provocation changes.
+
+---
+
+**31 July 2026, evening — the card now links to the whole debate.**
+
+You picked the address shape this morning, and that was the last thing I needed.
+Both halves are live: a visitor who finishes a round and presses the button
+publishes it and gets a card with the address of the full debate printed on it.
+Anyone who follows that address reads the whole thing — the question, what the
+visitor argued, what Vonc came back with, the defence, and how it was judged.
+
+The button says what it does now. It reads "Publish this round and save the card",
+and above it there is a line explaining that publishing puts the round on a public
+page, naming exactly which parts, and saying that nobody is named and there is no
+account. You said the press is the consent, so the press had to be informed.
+
+One detail I want to flag because it is the kind of thing that goes wrong quietly.
+The label and the thing the button actually does are now written in the same place
+in the code, deliberately. The page and the script are cached separately by the
+CDN, so somebody can be holding yesterday's page with today's script. If the label
+had stayed in the page, that person would have seen "Save this verdict as a card"
+on a button that publishes — consent claimed by a sentence they never read. Written
+together, the two cannot drift apart.
+
+I also have to correct something I told you earlier today. I said the share card
+was off-brand — purple against a red site — and offered to change it. That was
+wrong. The site's colour IS that purple; what I had read was the fallback value in
+the stylesheet, the one that only applies if the real colour is missing, and it
+never is. The card has matched the site all along. I found out by asking the
+browser what colour it was actually painting, which took one command and which I
+should have done before saying anything.
+
+Asking the browser also caught a real problem. The first version of the record page
+put the visitor's own argument in a dim lavender on the purple — technically
+present, genuinely hard to read, and every check I had written passed it, because
+the words were all there and in the right places. Contrast is not something you can
+see by reading code. I now measure it in the browser and fail anything under the
+accessibility floor, which immediately found five more, including that the site's
+own pink is too faint for small text on the site's own purple. All fixed.
+
+Two things I have not done and would like your steer on.
+
+The first is a rate limit. The record service allows one request a second per
+visitor, shared with the debate engine. My own six-request test tripped it. That
+ceiling was chosen for calls that take eight to eighteen seconds and cost money;
+reading a page is neither. I have not changed it, because the sensible number
+depends on real traffic and it affects the debate engine too.
+
+The second is smaller. When someone shares the link itself rather than the picture,
+the preview that social sites generate will be generic — the page builds itself in
+the reader's browser, and the preview robots do not wait for that. In practice
+people will be sharing the picture, which is its own preview, so this may never
+matter. I mention it so it is not a surprise.
+
+Three rounds are published at the moment, all of them ours from testing. No
+stranger's writing is public. Say the word and they come down.

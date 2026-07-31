@@ -449,3 +449,63 @@ line of markup; not worth guessing now.
     captured PNG and pass (95/210 sampled rows marked, lowest 609). The hardened
     script has **not** been re-run end-to-end — that would drive another real
     round.
+
+### STEP 2 COMPLETE — 2026-07-31 evening
+
+**The URL decision is settled.** The owner approved
+`/tools/gauntlet/round.html?r=<slug>`, which is what the live `POST /publish`
+already returns as its `path`. `vonc.com/r/<slug>` was never available: the site
+serves exact `.html` paths with no directory index.
+
+Both halves are live and driven end to end.
+
+| piece | state | evidence |
+|---|---|---|
+| island endpoints (v1.0.1216) | LIVE | 409/404/400 refusals + gate proven in the negative direction |
+| record page `/tools/gauntlet/round.html` | LIVE | `drive_round_record.py`, 32 checks |
+| publish-on-share + permalink + consent | LIVE | `drive_publish_on_share_2026-07-31.py`, 26 checks |
+
+**Design decisions taken here, with their reasons:**
+
+1. **The consent note and the button label are written in the JS, beside the
+   handler — not in `html_template`.** The page and the asset are cached
+   separately, so a visitor can hold an old page with a new script. With the
+   label in markup, that visitor sees "Save this verdict as a card" on a button
+   that publishes: consent claimed by a sentence they were never shown. Written
+   beside the handler, label and behaviour cannot diverge. This also keeps the
+   delivery `js_content`-only, so §11's 27-placeholder trap stays shut.
+2. **Publish, then draw.** The reverse order would print an address on a card
+   before we knew the address existed, so a failed publish yields an image
+   pointing at a 404. On failure the card is still drawn and saved, without a
+   link, and the visitor is told which.
+3. **The record page renders `provocation.headline` and `body` only.** The same
+   jsonb also carries `stats` (an array of numbers), `primary_cta` and
+   `secondary_cta`. `stats` on a record page would be numbers the page did not
+   compute — the rail forbids it. Asserted mechanically by the verifier.
+4. **Everything on the page is written with `textContent`, no allowlist.** Two
+   fields are prose typed by a member of the public and served to every other
+   visitor. The rule is one line and greppable; the verifier asserts zero
+   occurrences of every markup-assigning property.
+5. **Zero template variables in the component.** That is what makes writing the
+   same bytes to `html_template` and `page_components.rendered_html` correct.
+
+> **CORRECTION 2026-07-31 — the share card was never off-brand.** An earlier
+> entry in this lane recorded vonc.com as red `#dc2626`/amber `#fbbf24` and the
+> card's `#6d28d9` purple as an inherited mismatch to be flagged to the owner.
+> Wrong: those literals are the FALLBACKS in `var(--color-primary, #dc2626)`,
+> and the resolved value is `#6d28d9`. Card and site have always matched. See
+> `WRONG_CALLS.md`; the check is `getComputedStyle`, not grep.
+
+**Two open items, both owner calls, neither blocking:**
+
+- **The rate limit** is 1 rps / burst 5 per caller, shared with the LLM
+  endpoints — a six-request smoke burst tripped it. The right ceiling for a
+  public read is not the ceiling chosen for 8–18 second paid calls. Not retuned:
+  it wants real traffic, and it affects the debate engine too.
+- **Social previews** of the record page are generic, because the page builds
+  itself in the reader's browser and preview crawlers do not wait. In practice
+  the shared PNG is the preview. Flagged so it is not discovered as a bug.
+
+**Housekeeping:** three of our own harness rounds are published
+(`wjxnau3nx_`, `vevphzzdbw`, `gzhhgjamdn`) — all our own text; one `UPDATE`
+takes them down.
