@@ -121,10 +121,10 @@ func (c *ComponentlessPagesCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 				zap.Int("found", len(pages)),
 				zap.Int("emitted", componentlessMaxPerPass))
 			result.Findings = append(result.Findings, map[string]interface{}{
-				"check":     c.Name(),
-				"skipped":   len(pages) - componentlessMaxPerPass,
-				"reason":    "per-pass cap; remainder emitted next pass",
-				"cap":       componentlessMaxPerPass,
+				"check":   c.Name(),
+				"skipped": len(pages) - componentlessMaxPerPass,
+				"reason":  "per-pass cap; remainder emitted next pass",
+				"cap":     componentlessMaxPerPass,
 			})
 			break
 		}
