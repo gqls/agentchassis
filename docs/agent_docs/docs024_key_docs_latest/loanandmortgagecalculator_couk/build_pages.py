@@ -10,15 +10,22 @@ Guide prose lives in guides_content.py — one entry per slug, body HTML only.
 Run: python3 build_pages.py
 """
 import html
+import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_site import (BASE, BRAND, DOMAIN, FOOTER, GUIDES, LOAN, MORTGAGE,
-                        OUT, head, nav, write)
+                        OUT, head, hub, nav, word, write)
 from guides_content import BODIES
 
 TODAY = "2026-07-31"
+
+# Every count quoted in copy is derived from the tables, never typed. See the note
+# on word() in build_site.py: this site shipped claiming 24 calculators when it had
+# 23, because dropping credit-roadmap never reached the prose.
+N_MORT, N_LOAN = len(MORTGAGE), len(LOAN)
+N_TOOLS = N_MORT + N_LOAN
 
 
 def page(title, desc, canonical, active, body, extra="", tight=False):
@@ -42,7 +49,7 @@ def tool_cards(tools, section):
 HOME_BODY = f"""<div class="hero">
 <p class="eyebrow">Loans and mortgages, in one place</p>
 <h1>Your borrowing does not come in separate boxes. Neither do these calculators.</h1>
-<p>24 free UK calculators for loans <em>and</em> mortgages &mdash; because a car
+<p>{N_TOOLS} free UK calculators for loans <em>and</em> mortgages &mdash; because a car
 loan changes what a mortgage lender will offer you, and a remortgage changes what
 your other debt really costs. No sign-up, no credit check, nothing sent anywhere.</p>
 </div>
@@ -61,13 +68,13 @@ lowers the monthly payment and raises the total cost, every single time.</p>
 <p>Repayments, affordability, Stamp Duty, overpayments, buy-to-let yields and the
 cost of the remortgage cliff.</p>
 {tool_cards(MORTGAGE[:6], "mortgages")}
-<p class="text-center mt-40"><a class="btn-primary" href="/mortgages/">All 12 mortgage calculators</a></p>
+<p class="text-center mt-40"><a class="btn-primary" href="{hub('mortgages')}">All {N_MORT} mortgage calculators</a></p>
 
 <h2>Loan and credit calculators</h2>
 <p>Personal loans, consolidation, car finance, early settlement, credit health and
 rate stress tests.</p>
 {tool_cards(LOAN[:6], "loans")}
-<p class="text-center mt-40"><a class="btn-primary" href="/loans/">All 12 loan calculators</a></p>
+<p class="text-center mt-40"><a class="btn-primary" href="{hub('loans')}">All {N_LOAN} loan calculators</a></p>
 
 <h2>Guides that join the two up</h2>
 <p>Every guide here is about the point where unsecured borrowing meets a mortgage
@@ -76,9 +83,9 @@ rate stress tests.</p>
 """ + "\n".join(
     f'<div class="card"><h3><a href="/guides/{s}.html">{html.escape(t)}</a></h3>'
     f'<p>{html.escape(d)}</p></div>' for s, t, d in GUIDES[:6]
-) + """
+) + f"""
 </div>
-<p class="text-center mt-40"><a class="btn-primary" href="/guides/">All guides</a></p>
+<p class="text-center mt-40"><a class="btn-primary" href="{hub('guides')}">All guides</a></p>
 """
 
 HOME_LD = f"""<script type="application/ld+json">
@@ -90,19 +97,20 @@ HOME_LD = f"""<script type="application/ld+json">
 
 write("index.html", page(
     "UK Loan and Mortgage Calculators",
-    "24 free UK calculators for loans and mortgages, plus guides on how your other "
-    "borrowing changes what a mortgage lender will offer. No sign-up, no credit check.",
+    f"{N_TOOLS} free UK calculators for loans and mortgages, plus guides on how your "
+    "other borrowing changes what a mortgage lender will offer. No sign-up, no "
+    "credit check.",
     f"{BASE}/", "", HOME_BODY, extra=HOME_LD))
 
 # ───────────────────────────── section hubs ──────────────────────────────────
 write("mortgages/index.html", page(
     "Mortgage Calculators",
-    "12 UK mortgage calculators: repayments and amortisation, affordability, Stamp "
-    "Duty, overpayments, rental yield, equity release, bridging and fee comparison.",
-    f"{BASE}/mortgages/", "mortgages",
+    f"{N_MORT} UK mortgage calculators: repayments and amortisation, affordability, "
+    "Stamp Duty, overpayments, rental yield, equity release, bridging and fees.",
+    f"{BASE}{hub('mortgages')}", "mortgages",
     f"""<p class="breadcrumb"><a href="/">Home</a><span>&rsaquo;</span>Mortgage tools</p>
 <h1>Mortgage calculators</h1>
-<p class="subtitle">Twelve calculators covering the whole life of a mortgage &mdash;
+<p class="subtitle">{word(N_MORT)} calculators covering the whole life of a mortgage &mdash;
 from what you could borrow, through what it costs, to what happens when the fixed
 period ends.</p>
 <div class="highlight-box">
@@ -116,12 +124,12 @@ the arithmetic</a>.</p>
 
 write("loans/index.html", page(
     "Loan and Credit Calculators",
-    "12 UK loan calculators: repayments, comparing offers, debt consolidation, PCP "
-    "vs HP car finance, early settlement, rate stress tests and credit health.",
-    f"{BASE}/loans/", "loans",
+    f"{N_LOAN} UK loan calculators: repayments, comparing offers, debt consolidation, "
+    "PCP vs HP car finance, early settlement, rate stress tests and credit health.",
+    f"{BASE}{hub('loans')}", "loans",
     f"""<p class="breadcrumb"><a href="/">Home</a><span>&rsaquo;</span>Loan tools</p>
 <h1>Loan and credit calculators</h1>
-<p class="subtitle">Twelve calculators for unsecured borrowing &mdash; what it
+<p class="subtitle">{word(N_LOAN)} calculators for unsecured borrowing &mdash; what it
 costs, how offers compare, and what clearing it early is worth.</p>
 <div class="fca-warning-box">
 <p class="mt-0"><strong>Borrowing costs money.</strong> Late or missed repayments
@@ -136,7 +144,7 @@ write("guides/index.html", page(
     "Guides: Where Loans and Mortgages Meet",
     "Guides on the point where unsecured borrowing meets a mortgage: borrowing "
     "power, consolidation, remortgaging with other debt, and total cost of credit.",
-    f"{BASE}/guides/", "guides",
+    f"{BASE}{hub('guides')}", "guides",
     """<p class="breadcrumb"><a href="/">Home</a><span>&rsaquo;</span>Guides</p>
 <h1>Guides</h1>
 <p class="subtitle">Most personal finance writing treats loans and mortgages as two
@@ -156,16 +164,24 @@ if missing:
     raise SystemExit("guides_content.py is missing bodies for: " + ", ".join(missing))
 
 for slug, title, desc in GUIDES:
-    ld = f"""<script type="application/ld+json">
-{{"@context":"https://schema.org","@type":"Article",
-"headline":{html.escape(repr(title).replace("'", '"'))},
-"description":"{html.escape(desc, quote=True)}",
-"mainEntityOfPage":"{BASE}/guides/{slug}.html",
-"publisher":{{"@type":"Organization","name":"{BRAND}"}},
-"dateModified":"{TODAY}"}}
-</script>
-"""
-    body = f"""<p class="breadcrumb"><a href="/">Home</a><span>&rsaquo;</span><a href="/guides/">Guides</a><span>&rsaquo;</span>{html.escape(title)}</p>
+    # JSON-LD inside a <script> is RAW TEXT, not markup: it must NOT be HTML-escaped.
+    # The first version built this by hand with html.escape(), whose default
+    # quote=True turned the quotes it had just inserted into &quot; — so all 13
+    # guides shipped structured data that no parser could read, and Google discards
+    # invalid JSON-LD silently. json.dumps() is the whole fix; write()'s property 4
+    # is what stops it coming back.
+    ld = ('<script type="application/ld+json">\n'
+          + json.dumps({
+              "@context": "https://schema.org",
+              "@type": "Article",
+              "headline": title,
+              "description": desc,
+              "mainEntityOfPage": f"{BASE}/guides/{slug}.html",
+              "publisher": {"@type": "Organization", "name": BRAND},
+              "dateModified": TODAY,
+          }, indent=None, ensure_ascii=False)
+          + "\n</script>\n")
+    body = f"""<p class="breadcrumb"><a href="/">Home</a><span>&rsaquo;</span><a href="{hub('guides')}">Guides</a><span>&rsaquo;</span>{html.escape(title)}</p>
 <div class="guide-header">
 <h1>{html.escape(title)}</h1>
 <p class="subtitle">{html.escape(desc)}</p>
@@ -233,17 +249,17 @@ write("404.html", page(
     "That page does not exist on loanandmortgagecalculator.co.uk. The calculators "
     "and guides are all linked from here.",
     f"{BASE}/404.html", "",
-    """<div class="hero">
+    f"""<div class="hero">
 <h1>That page isn't here</h1>
 <p>The link may be old, or slightly mistyped. Everything on the site is one click
 away below.</p>
 </div>
 <div class="tool-grid">
-<div class="card"><h3><a href="/mortgages/">Mortgage calculators</a></h3>
+<div class="card"><h3><a href="{hub('mortgages')}">Mortgage calculators</a></h3>
 <p>Repayments, affordability, Stamp Duty, overpayments, yields and more.</p></div>
-<div class="card"><h3><a href="/loans/">Loan calculators</a></h3>
+<div class="card"><h3><a href="{hub('loans')}">Loan calculators</a></h3>
 <p>Personal loans, consolidation, car finance, early settlement, stress tests.</p></div>
-<div class="card"><h3><a href="/guides/">Guides</a></h3>
+<div class="card"><h3><a href="{hub('guides')}">Guides</a></h3>
 <p>How your loans and your mortgage affect each other.</p></div>
 </div>"""))
 
@@ -258,7 +274,8 @@ Disallow: /404.html
 Sitemap: {BASE}/sitemap.xml
 """)
 
-urls = ([("/", "1.0"), ("/mortgages/", "0.9"), ("/loans/", "0.9"), ("/guides/", "0.9")]
+urls = ([("/", "1.0")]
+        + [(hub(s), "0.9") for s in ("mortgages", "loans", "guides")]
         + [(f"/mortgages/{s}.html", "0.8") for s, *_ in MORTGAGE]
         + [(f"/loans/{s}.html", "0.8") for s, *_ in LOAN]
         + [(f"/guides/{s}.html", "0.7") for s, _, _ in GUIDES]

@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""build_site.py — port 24 working calculators onto loanandmortgagecalculator.co.uk.
+"""build_site.py — port 23 working calculators onto loanandmortgagecalculator.co.uk.
 
-WHY A BUILDER AND NOT 24 HAND EDITS. The calculators do correct arithmetic and
+WHY A BUILDER AND NOT 23 HAND EDITS. The calculators do correct arithmetic and
 have been live for months. The one thing that must not happen is a subtle change
-to their logic, and the way that happens is a human editing 24 files and getting
-23 of them right. So the transformation is mechanical and its safety property is
+to their logic, and the way that happens is a human editing 23 files and getting
+22 of them right. So the transformation is mechanical and its safety property is
 ASSERTED, not inspected:
 
     every inline <script> block in the output is byte-identical to the source.
 
 If that assertion fails the build stops. Only <head>, the nav, the footer and
 internal link targets are rewritten — never the body's controls or its logic.
+
+Every file both builders emit goes through write(), which asserts three more
+properties — see its docstring. All four exist because each one has already
+caught a real defect on this site.
 
 Sources (both verified live, byte-for-byte, before porting):
     mortgage  ~/projects/domains/mortgagecalculator.co.uk/gemini/02/   (NOT the
@@ -22,6 +26,7 @@ Run:  python3 build_site.py            # build
       python3 build_site.py --check    # assert only, write nothing
 """
 import html
+import json
 import os
 import re
 import sys
@@ -198,6 +203,39 @@ MORT_SLUGS = {s for s, *_ in MORTGAGE}
 LOAN_SLUGS = {s for s, *_ in LOAN}
 
 
+# ── how a hub page is addressed ───────────────────────────────────────────────
+# An object store has no concept of a directory index. The Cloudflare worker maps
+# {hostname}{path} straight to a B2 object key and rewrites ONLY "/" -> "/index.html"
+# (scripts/cloudflare/worker.js:8-11,27), so "/loans/" asks B2 for an object literally
+# named "loans/" and gets a 404. Every internal reference must name the file.
+#
+# This bit for real: the first version of this site linked "/loans/", "/mortgages/"
+# and "/guides/" from all 42 pages, listed them in the sitemap, and pointed three
+# canonicals at them — all 404 live. It passed local verification because
+# `python3 -m http.server` DOES resolve directory indexes, i.e. it is a more
+# forgiving server than production. Never verify a link graph against it.
+# Standing fleet-wide fact: bugs_open/116, and bugs_open/132 for the 404 handling.
+#
+# One definition, so the shape can be changed in one place if the worker ever learns
+# directory indexes.
+def hub(section):
+    return f"/{section}/index.html"
+
+
+# Counts quoted in copy are DERIVED, never typed. The site shipped claiming "24 free
+# UK calculators" and "All 12 loan calculators" when it had 23 and 11 — dropping
+# credit-roadmap never propagated into the prose. A number a human retypes is a
+# number that goes stale silently.
+_WORDS = {1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 6: "Six", 7: "Seven",
+          8: "Eight", 9: "Nine", 10: "Ten", 11: "Eleven", 12: "Twelve",
+          13: "Thirteen", 14: "Fourteen", 15: "Fifteen", 16: "Sixteen",
+          17: "Seventeen", 18: "Eighteen", 19: "Nineteen", 20: "Twenty"}
+
+
+def word(n):
+    return _WORDS.get(n, str(n))
+
+
 # ── shared chrome ────────────────────────────────────────────────────────────
 def head(title, desc, canonical, extra=""):
     return f"""<!DOCTYPE html>
@@ -233,9 +271,9 @@ def nav(active=""):
 <div class="brand"><a href="/"><img src="/assets/img/logo.svg" alt="" width="34" height="34" aria-hidden="true">LoanAndMortgage<span class="brand-suffix">Calculator.co.uk</span></a></div>
 <button id="mobile-menu-btn" aria-expanded="false" aria-controls="nav-links-menu" aria-label="Open menu">&#9776;</button>
 <div class="nav-links" id="nav-links-menu">
-{link("/mortgages/", "Mortgage tools", "mortgages")}
-{link("/loans/", "Loan tools", "loans")}
-{link("/guides/", "Guides", "guides")}
+{link(hub("mortgages"), "Mortgage tools", "mortgages")}
+{link(hub("loans"), "Loan tools", "loans")}
+{link(hub("guides"), "Guides", "guides")}
 </div>
 </nav>
 </header>
@@ -250,7 +288,7 @@ FOOTER = f"""<footer>
 <li><a href="/mortgages/repayment.html">Repayment &amp; amortisation</a></li>
 <li><a href="/mortgages/affordability.html">Affordability</a></li>
 <li><a href="/mortgages/stamp-duty.html">Stamp Duty</a></li>
-<li><a href="/mortgages/">All mortgage tools</a></li>
+<li><a href="{hub('mortgages')}">All mortgage tools</a></li>
 </ul>
 </div>
 <div>
@@ -259,7 +297,7 @@ FOOTER = f"""<footer>
 <li><a href="/loans/standard-calc.html">Loan repayments</a></li>
 <li><a href="/loans/consolidation.html">Debt consolidation</a></li>
 <li><a href="/loans/car-finance-calculator.html">PCP vs HP</a></li>
-<li><a href="/loans/">All loan tools</a></li>
+<li><a href="{hub('loans')}">All loan tools</a></li>
 </ul>
 </div>
 <div>
@@ -268,7 +306,7 @@ FOOTER = f"""<footer>
 <li><a href="/guides/how-loans-affect-mortgage-affordability.html">Loans vs borrowing power</a></li>
 <li><a href="/guides/consolidating-debt-into-your-mortgage.html">Consolidating into a mortgage</a></li>
 <li><a href="/guides/when-repayments-are-a-struggle.html">If repayments are a struggle</a></li>
-<li><a href="/guides/">All guides</a></li>
+<li><a href="{hub('guides')}">All guides</a></li>
 </ul>
 </div>
 <div>
@@ -301,7 +339,7 @@ def rewrite_links(body, section):
     # loan tools: /tools/x.html -> /loans/x.html
     body = re.sub(r'href="/tools/([a-z0-9-]+)\.html"',
                   lambda m: f'href="/loans/{m.group(1)}.html"'
-                  if m.group(1) in LOAN_SLUGS else 'href="/loans/"', body)
+                  if m.group(1) in LOAN_SLUGS else f'href="{hub("loans")}"', body)
     # home
     body = re.sub(r'href="/?index\.html"', 'href="/"', body)
     # bare siblings, e.g. href="affordability.html" on a mortgage page
@@ -311,7 +349,7 @@ def rewrite_links(body, section):
             return f'href="/mortgages/{slug}.html"'
         if slug in LOAN_SLUGS:
             return f'href="/loans/{slug}.html"'
-        return f'href="/{section}/"'
+        return f'href="{hub(section)}"'
     body = re.sub(r'href="([a-z0-9-]+)\.html"', sibling, body)
     # assets that were relative on the mortgage side
     body = body.replace('src="images/', 'src="/assets/img/')
@@ -389,7 +427,41 @@ def port(src_path, section, slug, title, desc):
     return out
 
 
+DIR_REF = re.compile(r'(?:href|src)="(/[^"]*/|[a-z0-9][^":]*/)"')
+LD_JSON = re.compile(r'<script type="application/ld\+json">(.*?)</script>', re.S)
+
+
 def write(rel, content):
+    """Write one file, after asserting the properties that have actually bitten.
+
+    Both builders funnel through here, so an assertion added here covers the
+    whole site — the 23 ported calculators and the 19 authored pages alike.
+
+    Property 3 — NO REFERENCE NAMES A DIRECTORY. The worker cannot resolve a
+    directory index (see hub() above), so "/loans/" is a live 404. This shipped:
+    3 references × 42 pages, plus 3 sitemap entries and 3 self-404ing canonicals.
+
+    Property 4 — EVERY ld+json BLOCK PARSES. All 13 guides shipped with invalid
+    JSON, because the headline was built with html.escape(), which turned the
+    quotes it had just inserted into &quot;. The block was PRESENT on every page
+    and the pre-launch check asserted exactly that — presence, never validity.
+    Google discards invalid structured data silently, so nothing complained.
+    """
+    for m in DIR_REF.finditer(content):
+        raise SystemExit(
+            f'ABORT {rel}: reference "{m.group(1)}" names a directory, not a file.\n'
+            f"  An object store cannot resolve a directory index — this is a live 404.\n"
+            f"  Use hub('<section>') for a section index. See build_site.hub().")
+
+    for m in LD_JSON.finditer(content):
+        try:
+            json.loads(m.group(1))
+        except ValueError as e:
+            raise SystemExit(
+                f"ABORT {rel}: ld+json does not parse ({e}).\n"
+                f"  JSON-LD inside <script> is raw text — build it with json.dumps(),\n"
+                f"  never html.escape(), which escapes the quotes JSON needs.")
+
     path = os.path.join(OUT, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if not CHECK_ONLY:

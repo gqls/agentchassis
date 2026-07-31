@@ -523,9 +523,7 @@ precisely this, and it stores everything in your own browser.</li>
 
 <h2>The six-month plan</h2>
 
-<p>If you have half a year before you apply, this is the order that produces the most
-improvement. There is a
-<a href="/loans/credit-roadmap.html">month-by-month version as a tool</a>.</p>
+<p>If you have half a year before you apply, this is the order to work through.</p>
 
 <ol>
 <li><strong>Month one: get all three files.</strong> Experian, Equifax and TransUnion
