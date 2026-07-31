@@ -15398,3 +15398,70 @@ message containing an unescaped backtick.
   this but running the measurement I was about to cite in the commit message anyway; had I
   written the commit first I would have shipped it. Cut, and pinned with a control test that
   fails if a later session widens it back without re-running the count.
+
+- **I answered a council objection with a test, and the test could not fail.** On
+  `bugs_open/162` the guardian seat objected that my containment claim — only an opted-in
+  consumer can reach the new `agent_error_log` write — was asserted from line numbers rather
+  than tested, and asked for a test pinning it. I wrote one the obvious way: register no
+  sqlmock expectations, call the function, assert `mock.ExpectationsWereMet()`. Green. Then I
+  mutated the code (moved `recordPlanRefusal` above the opt-in check, the single edit that
+  would silently change a non-opted-in consumer's contract) and **it stayed green** — as did
+  the three pre-existing assertions in the same file that say "must not touch the DB". Four
+  guards, zero of them discriminating.
+  `ExpectationsWereMet` reports expectations **registered and not consumed**; with none
+  registered it is true by construction and never sees an *unexpected* call. The helper under
+  test was best-effort by design, so it swallowed the driver error too and left nothing for
+  the caller to see.
+  **The cheap check, and it is the whole lesson: mutate the code and watch the test fail.**
+  One minute. Without it I would have shipped precisely the reassurance the reviewer asked
+  for, with a test beside it certifying something it never checked — worse than no test,
+  because the next reader counts it as coverage. Fixed with an observed logger
+  (`dbTouchWatcher`); the same mutation now fails three tests, and I retrofitted the three
+  older guards rather than leave assertions I had just proved decorative. Related but not the
+  same as "a quiet-test passes when the RULE is gone": there the assertion was too weak, here
+  the assertion **API** reads like English and means something narrower.
+
+- **I read a timestamp as refuting my own causality, because the DB is UTC and my shell is
+  BST.** The council verdict row for my submission read `2026-07-31 21:51+00`; I had submitted
+  at 22:47 by the wall clock, so my first reading was "this verdict predates my submission —
+  it must be another lane's, mine has not landed". It was mine: `21:51+00` is `22:51` BST,
+  four minutes after. Caught before acting, but one step further and I would have resubmitted,
+  paying for a duplicate council round and reporting the first as lost.
+  **The check:** the `+00` is printed in every psql timestamp — read it, and compare like with
+  like (`date -u`, not `date`). Any reasoning of the form "this happened before the thing that
+  caused it" should trigger a timezone check before it triggers a theory.
+
+- **I was about to state how often bug 162 had actually bitten, from a table that keeps about
+  a day.** I ran a census of `fix-proposer` runs by step and status to size the impact. It
+  returned a handful of rows and would have supported a confident number in the bug file.
+  `orchestration_states` retention is roughly today. Worse, and the part I nearly missed: this
+  particular defect **destroys its own evidence** — a non-opted-in refusal writes no artefact,
+  no `agent_error_log` row, and leaves `orchestration_states.error` NULL, so there is no
+  population to count even *inside* retention. The absence I was about to measure was caused
+  by the bug.
+  **The check:** before quoting a count as impact, ask what would have had to be written for
+  the thing you are counting to appear — and check the retention window of the table you asked.
+  The honest answer here was `[UNMEASURED, AND UNMEASURABLE IN RETROSPECT]`, which is what went
+  in the file. Same family as the existing "an IMPACT claim needs the DEMAND table too".
+
+- **`count(col)` counted EMPTY STRINGS as present, so I read "every row has a handler" off a column
+  where 73% do not — and I had already stated it.** Answering a council objection about whether
+  `emitPruneRefusalWorkItem` writing no `handler_agent` was anomalous, I ran
+  `count(*) AS rows, count(handler_agent) AS with_handler` over `site_work_items WHERE
+  status='needs_human_review'`. It returned **363 | 363**, which I read as "all 363 carry a
+  handler_agent, so writing NULL is anomalous" — and said so. The very next query, a
+  `GROUP BY COALESCE(handler_agent,'(NULL)')`, returned **265 with none**, 88 `page-build-handler`,
+  9 `human-review`, 1 `page-rerender`. The column is `''`-defaulted, not NULL-defaulted, and
+  `count(col)` only skips NULLs — so an empty string counts as a value and the two readings differ
+  by 265 rows.
+  The conclusion inverted completely: writing no handler is the **majority** pattern for that
+  status, not an anomaly, and site A's live induced refusal row does exactly the same thing.
+  **The cheap check: never establish "how many have X" with `count(col)` — `GROUP BY` the column
+  and read the distribution.** It costs the same query and it cannot hide a sentinel. Any
+  `count(col)` that happens to equal `count(*)` deserves suspicion rather than relief: on a
+  NOT NULL DEFAULT '' column those two are equal by construction and the query can never say
+  anything else.
+  This is the SECOND counting mistake in this one task — the other read a two-sibling join's
+  cartesian product as a count. Both had the same shape: **a number that looked like an answer to
+  the question I asked, produced by a query that was answering a different one.** The tally is the
+  point; a `GROUP BY`-before-you-conclude check would have caught both.
