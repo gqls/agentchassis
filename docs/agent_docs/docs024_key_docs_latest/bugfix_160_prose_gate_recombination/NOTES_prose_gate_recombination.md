@@ -89,3 +89,62 @@ One consumer, so no other pipeline's guarantee changes. And the live damage, fir
 `summary_html names model-like token "IP54-or-better"` in `collected_data->'__step_error'`.
 
 Council submitted before committing: `SUBMISSION_CORR 926a7bea-ccb0-4e32-a410-e9e7cdbc3256`.
+
+## Council round 1 — REVISE, gating objection from compliance (HIGH). It was right.
+
+> `qualifierSegment` accepts ANY all-lowercase alphabetic segment length>=2 as a safe
+> 'English qualifier' with no closed vocabulary. This is **orthographic, not semantic**:
+> negation/inversion words like 'not','minus','under','unless','instead' pass the same test
+> as 'or'/'better'. A tail like `IP54-not-required` clears route 3 while asserting the
+> OPPOSITE of what buildFactBlock stated… the fabrication class this gate exists to stop,
+> just relocated from the model number to the qualifier.
+
+Nine of ten seats approved; compliance gated it. `editquality` (medium) found the same hole
+from the numeral end — `2F-eighty-five` is lower-case English too — and separately objected
+that my "three independently mutation-tested clauses" claim was overstated, because
+`r < 'a' || r > 'z'` implements the digit clause and the case clause as **one expression**, so
+one mutation flips both. Both accepted in full; the shape rule is deleted rather than patched.
+
+**My round-1 reasoning was defensible and still wrong, and it is worth being precise about
+why.** I rejected a closed vocabulary as "speculative machinery for a case nobody has
+observed". The seat's answer is that this is absence-of-evidence in a *claims* gate: I could
+not have observed the negation case, because the class did not exist until my own change
+created it. **A rule that admits by shape must be argued against the space of strings it
+admits, not against the strings that have turned up.**
+
+## Round 2, and the third mutation catch — the one that matters
+
+Vocabulary in, shape rule out, membership compared case-insensitively (which also retires the
+title-case residual: capitalisation was never what made a word safe).
+
+Then the mutations, and **two of them passed when they should have failed**:
+
+1. Admitting `not` to the vocabulary did not fail the test. My case was `IP54-not-required` —
+   `required` is not in the vocabulary either, so the token stayed rejected on a *different*
+   word. Fixed by using `IP54-not-rated`, the one-segment negation of the legitimate
+   `IP54-rated`, so exactly one word decides it.
+2. Even then, admitting `not` **still** passed. The reject fixture ran at `ipMin 0`, and
+   `buildFactBlock` (`score_grippers_action.go:737-739`) only writes `required protection IP%d`
+   when `IPMin > 0`. So `IP54` was never in the fact block, every `IP54-*` case was rejected
+   for an **untraceable head**, and the tail rule under test was never reached. The test was
+   green, the assertions named the right token and the right check, and it proved nothing.
+   Fixture is now `ipMin 54`.
+
+Final matrix, all re-run on the shipped code: vocabulary→shape rule fails all three semantic
+cases; admitting `not` fails `IP54-not-rated` **alone**; admitting `lower` fails
+`IP54-or-lower` **alone**; disabling route 3 fails the accept test. Each exclusion is pinned
+by one case.
+
+**The generalisation, which is the transferable part of this lane:** a negative test tells you
+the input was rejected, never *which rule rejected it*. Under a guard with several independent
+rejection paths, a case can be green for its whole life without ever reaching the rule it was
+written for. Mutating the rule is the only thing that distinguishes those two states — three
+times in this one lane, and the third was invisible to every other check I ran.
+
+## Environment note
+
+`landmines-sync.py --apply` reports `NEEDS_VERIFICATION` for the new entry. Not dispatched:
+`bugs_open/163` (filed today, unowned) records that the landmine-verifier cannot answer a
+path-bearing query and invents a stale-index cause for its own blindness, and this entry's
+footprint is a `.go` path. Verifying it would have produced a false negative against the
+corpus, so it is left for `163`'s fixing lane. Recorded rather than silently skipped.

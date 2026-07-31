@@ -52,3 +52,39 @@ image is rebuilt and rolled — the code is inert until then — so the bug stay
 grepped the running pod and re-run a report end to end.
 
 Nothing needed from you on this one.
+
+---
+
+**2026-07-31, later.** The reviewer council sent it back, and it was right to.
+
+My rule allowed a word to be attached to a real rating if it *looked* like an English word —
+lower case, at least two letters. The compliance reviewer pointed out that "not" looks exactly
+like "or". So a report could have said **"IP54-not-rated"** and sailed through a gate whose
+entire job is to stop a report claiming something the facts do not say. I had moved the
+problem rather than fixed it: instead of inventing a model number, the writer could now invert
+a specification. A second reviewer found the same hole from another side — "eighty-five" is
+also just a lower-case English word.
+
+I had considered a fixed list of permitted words earlier and talked myself out of it, on the
+grounds that no such failure had ever been seen. That reasoning was wrong in a way worth
+remembering: **the failure had never been seen because it was not possible until my change
+made it possible.** You cannot judge a rule by the examples that have already turned up when
+the rule is what decides which examples can turn up.
+
+So the fix now uses a fixed list. A word may be attached only if it is one of about thirty
+permitted ones — connectives that claim nothing ("or", "and"), or words that restate the
+requirement or ask for at least it ("rated", "compliant", "better", "minimum"). Nothing that
+negates, reverses or replaces, and no number-words. If a legitimate word is ever missing, the
+cost is one rejected report and a one-line addition; the cost of the alternative was a report
+that contradicts its own specification.
+
+**The uncomfortable part, and the reason I am writing it down.** I test these rules by
+deliberately breaking them and checking the right test fails. Three separate times today that
+check caught a test of mine that was passing for a reason I had not noticed — the last one
+being the worst: the whole set of negation tests never reached the rule they were written for,
+because the test data did not contain the rating in the first place, so every case was being
+refused earlier for a completely different reason. Green tests, right assertions, proving
+nothing. That is not a tooling problem, it is what a negative test is: it tells you the input
+was refused, never *which* rule refused it.
+
+Resubmitted, committed, image built and waiting. Still nothing needed from you.
