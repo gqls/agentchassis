@@ -25,6 +25,37 @@ On home the body renders in `<p class="pc-body">` at 669×230.
 page including the one that shows it. That is why this went unnoticed: every
 HTML-level check says the provocation is nowhere.
 
+> **CORRECTED 2026-07-31 — three corrections, all found by widening the sweep from
+> 3 pages to all 18. Evidence in `NOTES_gauntlet_dead_cta.md`, same date.**
+>
+> **(a) A THIRD page leaks, and the table above is a three-page sample.**
+> `/tools/arena/index.html` paints today's headline AND body in full, and then again
+> as the "TODAY" card of its own lobby grid. Swept every row of `pages.url`: 3 URLs
+> leak (`/`, `/index.html`, `/tools/arena/index.html`), 15 do not. The missed page is
+> the one whose stated purpose is choosing what to argue — so the fix surface is
+> **two components plus a shared JSON**, not one home-page block.
+>
+> **(b) "Both fetch `provocations.json`" is WRONG about the gauntlet page, and the
+> error runs the safe way.** The gauntlet page does not request that file at all
+> (verified by request interception) and today's text is **not in its DOM** at all,
+> hidden or otherwise — only `gi-sealed` is. **The seal is a data-level seal, not a
+> paint-level one**, i.e. stronger than this handoff credits it. Weigh that against
+> option 2 below: retiring the seal discards something real, not a facade.
+>
+> **(c) Option 3 is NOT blocked on HANDOFF B.** `archive.entries` already holds
+> **8 entries, 7 with a full `detail_body`** (5 Jul back to 29 Jun). A home page
+> featuring a finished provocation as its sample can ship today with a hand-picked
+> entry; B only makes it self-maintaining. "Blocked" and "not yet automatic" are
+> different, and the difference decides whether the owner can have option 3 now.
+>
+> **Why no checker caught it** (measured, since the handoff rightly asks): the text is
+> in neither place any checker reads. `content_data` for `index/provocation-card@2` is
+> pure site chrome (`_sources_merged: 3`); `rendered_html` is an empty shell under
+> `data-runtime-fill="true"`; and **0 of 80 files in `discovery_checks/` render
+> anything**. Not a misconfigured detector — a class none can see. The platform half
+> of that is contributed to the lane that already owns the gap:
+> `experience_register/CONTRIB_2026-07-31_a_second_tier4_case_the_home_page_leaks_a_sealed_promise.md`.
+
 ## Why it matters
 
 The sealed reveal is deliberate engineering (131-C, live: 22-check harness + 16
@@ -72,6 +103,29 @@ provocations"`, identical between them. That is a footer/nav string sitting insi
 a content component. It may be harmless render context or it may be an ingest
 artefact; **it is not part of this handoff's fix, but do not "tidy" it without
 understanding where it came from.**
+
+> **ANSWERED 2026-07-31, and it is NOT harmless — it has already nearly cost this
+> page a section.** Every component on `index` carries the site-wide context blob
+> merged into its `content_data` (`_sources_merged: 3`; `year`/`email`/`domain`/
+> `nav_items`/colours, with the content fields empty). So it is in all six slots, not
+> two — the coincidence that made it look like an ingest artefact was an artefact of
+> looking at only two slots. **Do not tidy it: it is what the renderer reads.**
+>
+> **But the reason to care is bigger than tidiness.** The `bugs_open/151`
+> duplicate-slot thread independently hit this same blob from the other direction and
+> found that, because these components' `content_data` is *only* boilerplate, the
+> boilerplate **is** the content as far as a text-identity comparison can tell. Their
+> shipped discriminator therefore matched `index/lobby-grid@5` against
+> `index/provocation-card@2` and **would have deleted `lobby-grid@5` from vonc's home
+> page** — one of the two slots leaking the provocation. Narrowed and fixed in
+> `43492ec94` (0 groups, 0 deletions on re-run); see their corrections in
+> `HANDOFF_2026-07-31_continue_here.md` §3.
+>
+> **Consequence for whoever fixes this leak:** the two slots you are about to edit are
+> the same two that a fleet-wide destructive check just had to be narrowed to avoid.
+> If your fix puts *real* distinct content into these `content_data` blobs, it makes
+> both pages safer against that class as a side effect. If it leaves them boilerplate,
+> the near-miss stays one narrowing away.
 
 ## Landmines
 

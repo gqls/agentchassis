@@ -1132,3 +1132,64 @@ cleaner result than I have.
 So step one is done and genuinely proven. Step two — the page that holds the whole
 round, and the button rewording that tells people sharing publishes it — is not
 started, and is ready whenever you want it.
+
+---
+
+2026-07-31. You spotted that the provocation is hidden on the Gauntlet page but
+sitting in plain sight on the home page. That is right, and it is worse than one
+page: the Arena page shows it too, headline and body in full, and then shows it a
+second time in its list underneath. So three addresses give away the thing the
+Gauntlet page spends its whole design concealing. Anyone arriving the normal way
+has read the argument before they reach the door that is supposed to be sealed.
+
+Two things I found while checking that are worth knowing, because they both cut
+the other way from what the earlier note said.
+
+The seal itself is better than we thought. The note I picked this up from said
+both pages fetch the provocation and the Gauntlet page merely hides it. Not so —
+the Gauntlet page never asks for it at all. The text is not hidden on that page,
+it genuinely is not there until you start a round. So the seal is real, and
+retiring it would be throwing away something that works rather than tidying away
+a pretence.
+
+And the option you might like most is available now, not blocked. One idea was
+that the home page could show a finished provocation as a sample — here is the
+kind of thing we do — while today's stays sealed. I had been told that needed
+another piece of work finished first. It does not: there are already eight past
+provocations stored, seven of them complete with their full text. We could put
+one on the home page today. What the other work would add is that it keeps
+itself up to date without anyone choosing.
+
+Why no automatic check caught this, since it is a fair question. Everything we
+have that inspects a site reads either the stored content or the page as it
+arrives from the server. This text is in neither. The page arrives empty and the
+provocation is written into it a moment later by the browser. So every check we
+own looks at the home page and truthfully reports that the provocation is not
+there. It is not a check that was switched off or badly written — it is a whole
+kind of problem none of them can see.
+
+You asked whether some agent should be responsible for decisions like this, and
+whether we need a new one for user experience. My answer is no new agent, and I
+went looking to be sure. There is already a system for exactly this: a register
+of promises a site makes, written down precisely enough to be tested, with a
+checker for them. It has been built over the past week. It cannot test a promise
+like this one for a single reason — it only checks pages as delivered, and never
+opens a browser. The people building it already know, have said so plainly in
+their own notes three times, and have named wiring up a browser as their next
+job. Separately, we already have an agent that does drive a browser over every
+page of a site. The two have never been connected. That is the whole gap: not a
+missing agent, one missing wire between two things we own.
+
+So I have written their lane a note putting this case on their pile as a second
+reason to do it, with the measurements and a working script that proves it. What
+I have not done is decide what the home page should say — that is a product
+question and it is yours. I put four options to you and I still need an answer,
+because three of them keep the home page's job of selling the thing and one
+throws the seal away.
+
+One caution I passed to them, which matters more than it sounds. If a broken
+promise like this ever becomes an automatic repair job, the cheapest fix a machine
+will find is to delete the offending block from the home page. That would "fix"
+the leak and gut the page that has to sell the site. We have been bitten by
+exactly this before, on the tool whose consent notice a repair loop wanted to
+delete. So a broken promise should always come to a human, never to a mender.

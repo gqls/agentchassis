@@ -2643,3 +2643,187 @@ lane's `drive_*.py` harnesses failed at import — restored at `~/.venvs/vonc_pw
 (now with Pillow). And the classifier blocked writing the driver on the first
 attempt; the right move was to stop and put it to the owner rather than rename the
 file, which would have been a workaround dressed as progress.
+
+---
+
+## 2026-07-31 — HANDOFF C measured, and it is bigger than one page
+
+Picked up `HANDOFF_2026-07-30_C`. Reproduced its finding, then widened the sweep,
+and three of its claims need correcting. Corrections are in the handoff itself; the
+evidence is here.
+
+**The leak reproduces exactly as C reported it.** Home paints today's headline and
+body (4,070 visible chars); gauntlet and provocations-index paint neither. Instrument
+`scripts/provocation_visibility.py`, unchanged.
+
+**C tested three pages. There are 18, and a THIRD one leaks.**
+`/tools/arena/index.html` paints today's headline AND body in full, then paints it a
+second time as the "TODAY" card of its own lobby grid. I swept all 18 active pages
+from `pages.url` — the sweep is `scratchpad/sweep.py`, worth committing if this
+recurs. **A three-page sample was the wrong denominator, and the page it missed is
+the one whose whole purpose is choosing what to argue.**
+
+> **CORRECTED — C's claim "Neither page contains the text in its served HTML — both
+> fetch `/data/provocations.json` client-side" is wrong about the gauntlet page, and
+> the error runs the *safe* way.** The gauntlet page does **not** request
+> `provocations.json` at all (verified by request interception: `provocations.json
+> requested: False`), and today's headline/body are **not in its DOM** hidden or
+> otherwise — only `gi-sealed` is. So the seal is a **data-level** seal, not a
+> paint-level one, and is stronger than its own handoff claimed. That matters for
+> the decision: retiring the seal would throw away something real.
+
+**Why nothing caught this, measured rather than assumed.** The leaked text is in
+neither of the two places every existing checker reads:
+- `page_components.content_data` for `index/provocation-card@2` is **pure site
+  chrome** — `year`, `email`, `domain`, `nav_items`, `_sources_merged: 3`. Zero
+  provocation content.
+- `page_components.rendered_html` is an **empty shell** — `<p class="pc-body"></p>`
+  under `data-runtime-fill="true"`.
+- The text is written by `snippets.js` (`provocation-card-loader`:
+  `body.textContent = t.body`) after load, from `/data/provocations.json`.
+- **0 of 80 files in `discovery_checks/` render anything** (`chromedp|playwright|
+  innerText` → zero hits; the two `headless` mentions are comments about other tiers).
+
+⇒ Every HTML-level and DB-level check correctly reports the provocation as absent on
+**every** page, including the ones showing it. This is not a misconfigured detector;
+it is a class no current detector can see.
+
+**That answers C's "note while you are in there" — and the answer is not "harmless".**
+The footer/nav string C found inside both components' `content_data` and flagged as
+possibly an ingest artefact is the site-wide context blob merged into every component
+(`_sources_merged: 3`) — in all six slots, not two, so the two-slot coincidence was an
+artefact of looking at two slots. Do not "tidy" it; the renderer reads it.
+
+> **CORRECTED within the hour, by another thread's measurement rather than mine.** I
+> first wrote "Harmless." It is not. The `bugs_open/151` duplicate-slot thread hit this
+> same blob from the other side and found that when a component's `content_data` holds
+> *only* boilerplate, the boilerplate **is** the content to any text-identity ruler. Its
+> discriminator matched `index/lobby-grid@5` against `index/provocation-card@2` and
+> **would have deleted `lobby-grid@5` from vonc's home page** — one of the two slots
+> leaking the provocation. Narrowed in `43492ec94` (0 groups / 0 deletions on re-run).
+> I had the same fact and drew the weaker conclusion from it, because I asked "is this
+> an ingest artefact?" and stopped at no, instead of "what else reads this field?".
+> `[[editing-one-file-is-not-knowing-the-package]]` applied to a column.
+
+> **CORRECTED — C says option 3 (show a past provocation) "is blocked on HANDOFF B".
+> It is not.** `archive.entries` already holds **8 entries, 7 with full `detail_body`**
+> (5 Jul back to 29 Jun). So a home page featuring a finished provocation as its
+> worked sample can ship today with a hand-picked entry. What B blocks is the
+> *self-maintaining* version — today's provocation rolling into the archive
+> automatically. "Blocked" and "not yet automatic" are different, and the difference
+> is whether the owner can have this option now.
+
+**My own missteps this session, both cheap and both avoidable by reading first.**
+- I built a fresh playwright venv in the scratchpad before finding that this lane
+  already maintains one at `~/.venvs/vonc_pw` **with Pillow**, recorded ~15 lines
+  above in this very file. Read the tail of your own lane's NOTES before installing
+  anything.
+- Chasing "has the render-audit agent ever run", I queried
+  `orchestration_states WHERE workflow_plan::text ILIKE '%request_render_audit%'` →
+  0 rows, and was about to write "built 07-29, never fired". A commit
+  (`fe54df3bf`) says the opposite: five runs, 8 pages clean. **The plan does not
+  inline action names, so my filter described a world where the audit cannot appear.**
+  A positive control (`ensure_site_record` → 10 rows) passed and reassured me about a
+  query that was still wrong for the thing I was asking. Match on
+  `collected_data->'site_record'->>'domain'` instead, as `oufe/RUNBOOK` already does.
+  `[[narrow-filter-defines-the-conclusion]]` with a control attached that did not help.
+
+**Where the platform answer went.** The owner asked which agent should own decisions
+like this. Short version: none should own the *decision*, and the *detection* gap is
+already named and owned by the `experience_register` lane — its §2.3 "wire bind +
+verify at Tier 4" is exactly this, `text_matches` already exists as a Tier-4 key and
+is implemented in the runner, `verify_site_experience` runs Tier 2 only, and
+`site_experiences` is 0 rows so nothing has ever been bound. Contributed as a second
+motivating case rather than a competing design:
+`experience_register/CONTRIB_2026-07-31_a_second_tier4_case_the_home_page_leaks_a_sealed_promise.md`.
+**No new UX agent** — that would be a fourth copy of a mechanism that exists.
+
+## 2026-07-31 ~11:45Z — the no-op claim was false, and the checker would have deleted a live section
+
+**Correcting the entry immediately above, written 90 minutes earlier.** It ends
+"enabling the check today files 0 items and deletes 0 rows … a much better statement of
+'inert'". That was **wrong**, and wrong in the family this lane has now logged four
+times in three days.
+
+### How it unravelled
+
+Went to build the round-2 submission. The handoff said round 1 "caught two REAL
+defects", both fixed. I opened the actual `council_report` instead of reusing that
+sentence, and it carries **seven objecting seats**, not two defects. `bug_historian`'s
+was HIGH and gating: *is the discriminator blind to non-text payload?*
+
+Read `NormaliseSectionText` to answer it. It walks **string values only** — numbers and
+booleans never reach the comparison — and drops strings under asset-like keys. So the
+shipped notion of "identical" is **strictly broader** than the `md5(content_data)` I had
+measured. My census could only undercount. It did.
+
+Re-measured properly: compiled the **shipped** function against all 1,023 live rows via
+a scratch module with a `replace` onto the repo. Pre-fix rule found **1 in-remit group
+fleet-wide** and it would have **deleted `lobby-grid@5` from vonc.com/index.html** —
+this lane's own home page.
+
+### What was actually in those rows, which is the finding
+
+Both blobs byte-identical, 1,093 bytes, and **not section content**: the site-wide
+context blob — `year`, `email`, `domain`, `nav_items`, `tone`, `_built_at`. Two
+*different* components (`provocation-card`, `lobby-grid`; different `component_id`)
+populated with the same boilerplate. `section_text.go`'s header claims its asset-key
+filter fixed exactly this class on vonc; it did not — it strips `url`/`id`/`class` but
+not `email`/`year`/`domain` or nav labels. On a boilerplate-only blob the boilerplate
+**is** the comparison. **A rule can be deterministic, unit-tested, and guarded against
+deleting everything, and still be reading the wrong field.**
+
+### Fix, and the near-miss inside the fix
+
+`43492ec94`: slot equality now **necessary** (not 156's rejected *sufficient* rule —
+opposite operation, strictly shrinks the set), and identity is the **canonical blob**,
+not the prose. Both halves take the key from `datahelpers.SectionIdentityKey`.
+Post-fix shipped-rule census over live data: **0 groups, 0 deletions.**
+
+**The near-miss:** `sec()` in the test file never set `Raw`. Once identity read `Raw`,
+every test section shared the key `slot+""` — so
+`TestFindIdenticalSamePage_IgnoresRepeatedSlotWithDifferentContent` would have started
+passing *for the opposite reason*. Only running the suite caught it. Two of the three
+new tests now assert their own **premise** first (that the blob clears the 80-char
+floor; that the normaliser really cannot separate the payloads) because both would
+otherwise pass vacuously. 13/13 green against a clean `git archive HEAD` — the working
+tree does not compile, from another session's WIP in `discovery_checks.go`.
+
+### Two objections answered by measurement, not argument
+
+- `debug_historian` (HIGH): `site_plan_sections` is the system of record, so a full
+  rebuild could undo the delete. **Measured: exactly one upstream duplicate exists
+  fleet-wide** — `webdesign.co.uk` / `index` / `info-card-grid`, 2 plan entries. That
+  page's downstream pair has *differing* content, so the plan deliberately repeats the
+  slot and it is not in-remit under either rule. The mechanism is real and currently
+  unexercised. Submitted as the top residual risk rather than closed — a pre-delete
+  guard on `site_plan_sections` is the structural close and I did not want to guess it.
+- `prior_art_librarian` (HIGH): why not `section-editor`? Read the live row: its steps
+  are `apply_edit` / `deploy_page` / `spawn_deployer` / `trigger_deploy` /
+  `load_edit_context` / … It edits a section's `content_data`. **No step deletes a
+  `page_components` row and none renumbers positions**, so it cannot do this and this
+  is not a rebuild of it.
+
+Round 2 submitted 11:40Z on the same correlation. Verdict not yet read.
+
+### The misstep in one line, for the tally
+
+**I compressed a council review into a sentence, then reasoned from the sentence** — and
+separately measured a code question with a hand-written SQL ruler. Both are the same
+error at different altitudes: substituting my summary of a thing for the thing. The
+transferable rule is narrower than "re-measure": when the claim is about what CODE will
+do, **execute the code** — a reimplementation is a second definition of "identical",
+which is precisely the drift the shared helper was created to prevent, so I rebuilt that
+drift in SQL in order to check it. Method: `RUNBOOK` §16b.
+
+### Also this session, and it CLOSED a gap rather than opening one
+
+The live share-card driver **ran and passed 11/11**. The `[INFERRED from code]` caveat
+in the entry above is now closed by observation, not reading: on a real round through
+the real page, the challenge element still held 451 chars and the defence textarea 198
+chars at the instant the share control fired; PNG exactly 1200×630, lower half not
+blank (lowest marked row 609), no page errors. `p4_sources/live_card_2026-07-31.png`.
+Two cosmetic observations, neither a defect and neither worth a fix on its own: a dead
+band between the answer and the verdict when the defence is short, and the engine
+returned "personalization" (US spelling) in outward-facing copy against the British
+English convention.
