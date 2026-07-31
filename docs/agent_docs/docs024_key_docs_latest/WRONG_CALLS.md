@@ -15088,3 +15088,27 @@ assertion in prose.
 - **`min(created_at)::time(0)` compares time-of-day, not timestamps.** My first version of that
   query reported an "oldest" of 14:03 and a "newest" of 20:34 across rows spanning days, which
   is meaningless and looks perfectly plausible. Cast to `::date` or leave it as a timestamp.
+- **I reserved migration number 279 from an `ls` I had taken forty minutes earlier, and by
+  the time I wrote the file two sessions had taken 279 AND 280.** Caught only because I
+  re-ran the listing in the same command that created the file; the migration shipped as
+  281. Nothing was lost, but a duplicate number in `sql_for_agents/` is not a merge conflict
+  — both files exist, both apply, and the second one to be applied silently wins whatever
+  order the runner walks them in. The same hour, the same class bit a second claim of mine:
+  the plan said vetcomparison.uk had **2** actionable work items and by the time I fired the
+  sweep it had **12**.
+  **The cheap check: take a number, a count, or a "next free" ANYTHING in the same command
+  that consumes it, never in the planning step before it.** `ls … | tail -1` costs nothing
+  and the tree moves in minutes, not hours — this is the session-start `git status` rule
+  from CLAUDE.md, one directory over, and it will keep arriving in new costumes.
+- **I treated `who-owns.py`'s verdict line as a signal when, on this tree, it is nearly a
+  constant.** Hunting for an unowned bug I ran it over seven candidates and got **OWNED or
+  recently active** for all seven — which is what it should say, since with ~30 concurrent
+  sessions almost every bug is *cited* somewhere recent, and the script says so honestly in
+  its own header ("it does not decide for you"). I nearly concluded the backlog was fully
+  owned.
+  **The cheap check: read the script's BODY, not its verdict — which workstream, how many
+  mentions, in which files — and then grep the live `.jsonl` transcripts for the bug's CODE
+  SYMBOLS rather than its number.** That is what actually separated the candidates: 071 was
+  disqualified by 71 hits on `validate_page_content` in another session's live transcript,
+  while 150's only hits were a session writing its 016b index row. A verdict that fires on
+  everything ranks nothing.

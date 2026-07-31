@@ -142,3 +142,117 @@ be exercised, so the site must genuinely have findings.
 — fires one sweep without enabling the disabled task. Read its header for the
 blast radius first: the discovery half outnumbered the promotion half ~60:1 on
 an unswept site.
+
+---
+
+## 2026-07-31 — OWNED and FIXED IN CODE (session "bugfix 27"). **Stays OPEN: committed, not live.**
+
+**State:** Go half committed `337fdd9af`; config half written as
+`docs/agent_docs/sql_for_agents/281_improvement_loop_branches_on_site_state.sql` and
+**deliberately NOT applied**; council submission `757cc7be-8551-4e43-9d1e-705b0977be1d`
+(trailer `Council-Submitted:`, verdict owed). Workstream:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_150_improvement_loop_false_clean/`.
+**Two steps are owed before this can close** — see § "What is owed" at the foot.
+
+### The `[INFERRED from a single run]` marker is DISCHARGED — second observation
+
+§ Confidence says "that this happens on **every** run" is inferred, because
+`orchestration_states` retention had cleared all history and orchestration `30692439` was
+the only row in existence. A control run fired on the **pre-fix** binary (v1.0.1218) before
+changing anything reproduces it on a different site, on a different day:
+
+**Orchestration `911ecdd8-140f-402f-99fd-aa89700afed2`, vetcomparison.uk, 2026-07-31 21:12Z.**
+The site started with **0** `detected` items; the discovery half created them during the run.
+
+```
+call_design_audit.response.triage_result = {"promoted": 24, "has_items": true}
+call_site_review.response.triage_result  = {"promoted":  3, "has_items": true}
+triage_result (the parent's own copy)    = {"promoted":  0, "has_items": false}
+current_step = complete_clean              status = COMPLETED
+```
+```sql
+-- promoted in the run's window
+SELECT count(*) FROM site_work_items
+WHERE site_id='72b9e3a6-872f-4528-a6d6-7f205ea60f4d' AND triaged_at > '2026-07-31 21:12:00+00';
+--  27
+-- closing rerenders the clean branch skipped
+SELECT count(*) FROM site_work_items
+WHERE site_id='72b9e3a6-872f-4528-a6d6-7f205ea60f4d'
+  AND item_key LIKE 'improvement_rerender%' AND created_at > '2026-07-31 21:12:00+00';
+--   0
+```
+
+**27 findings promoted, 0 closing rerenders, terminal message "No issues found — site is
+clean".** Two sightings, two sites, two days.
+
+### CORRECTION to § Confidence — the escape hatch opens and does NOT help
+
+That section names `site-review-agent.write_strategic_findings` as the one candidate step
+that could create `detected` items between the last child triage and the parent's, and notes
+it created none in the observed run. **In this run it did**: site-review promoted **3** items
+of its own. The parent still saw 0, because the child triages *after* it writes. So the hatch
+exists, fires, and changes nothing — the defect is more robust than this file allowed for,
+not less. Any future fix that relies on "sometimes the parent will have rows" is unsound.
+
+### What was built — and why it is NOT this file's candidate 1
+
+`triage_detected_items` now also returns the **site-scoped** answer beside its call-scoped
+one: `site_dispatchable` (bool) and `site_dispatchable_count` (int), counting
+`site_work_items` in a dispatchable status for the target pipeline — **whoever promoted them,
+in whatever order, including a fourth caller that does not exist yet.** Migration 281 points
+`check_has_findings` at it. Concept register **WDS-015**; six regression tests in
+`triage_detected_items_site_state_test.go`.
+
+**Candidate 1 ("one triage, one owner") was deliberately not taken.** It is ranked first
+here and it is the wrong first move: it needs an audit of every other parent of those two
+child agents, and it leaves the identical defect available to the next agent that gains a
+triage step. A site-scoped signal makes the ordering **irrelevant** rather than making one
+ordering **mandatory**. Both children keep their triage steps.
+
+**Candidate 2 ("branch on a `query_database` count") is what this implements — but in Go,
+not in config.** The count belongs in the action that already knows the site, so every
+present and future consumer gets it, instead of each caller remembering to add a step. It
+also keeps the predicate testable and greppable, which a SQL string in a config row is not.
+
+**`has_items` is deliberately UNCHANGED.** Measured before deciding: **four** live
+conditions read a `has_items`, across three actions — `build-dispatch-loop.check_has_items`
+(`pending.has_items`), `site-work-orchestrator.check_has_items` (`work_items.has_items`) and
+`.check_has_fix_items` (`fix_items.has_items`), plus this one. The other three read their own
+loader's output and are correct. Redefining the word here would repair one branch by making a
+shared convention mean two things.
+
+### SIBLING FINDING, recorded not fixed — a SECOND route to the same false "clean"
+
+`check_audit_pass_limit` sends a site straight to `complete_clean` when
+`get_audit_pass_count(site) >= 3`:
+
+```json
+{"condition": "pass_count_data.limit_reached == true",
+ "then_step": "notify_scheduler_clean",     // -> complete_clean, "No issues found — site is clean"
+ "else_step": "spawn_quality_discovery"}
+```
+
+So a capped site is told it is clean when what happened is **"we skipped auditing"** — and
+because that branch is upstream of `triage_findings`, its `detected` pile is never promoted
+at all, by anyone. **`[MEASURED 2026-07-31]` 0 of 25 sites have `get_audit_pass_count >= 3`**,
+so this is latent rather than live today. Not fixed here: it needs an honest terminal step
+(a distinct `complete_audit_limit` with its own message, so the outcome is queryable), which
+is a different change from this one and worth its own decision. **Anyone verifying 150 must
+pick a site with `passes < 3`, or the run short-circuits before the branch under test.**
+
+### What is owed before this closes
+
+1. **A chassis image carrying `337fdd9af`, rolled**, then the pod-grep on **every** replica
+   with its positive control (`site_dispatchable` ≥ 1 and
+   `TriageDetectedItemsAction: Starting` ≥ 1 in the same exec). A roll is not evidence —
+   `bugs_open/153`. This session deliberately did not roll (owner's call: rolling kills
+   other sessions' in-flight councils).
+2. **Then** apply migration 281 and re-fire the sweep. Expect `current_step = 'complete'`
+   with `triage_result.promoted = 0` and `site_dispatchable = true` in the same object —
+   that pair *is* the bug, routing the other way — plus an `improvement_rerender%` item
+   from the run.
+
+**Do not apply 281 before step 1.** On a binary without the key the condition resolves to
+nil → false → **every** run takes the clean branch, including the ones that promote, which
+is strictly worse than the bug. Pinned by `TestConditionOnAPreUpgradeBinaryDoesNotSilentlyInvert`
+as well as by the migration's own banner.
