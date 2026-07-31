@@ -140,3 +140,22 @@ write where the readers already look. Mine fixes every component at once and nee
 no data migration, but it costs something real — the address a component declares
 is no longer the whole truth about where its value came from. I've written that
 question into the register rather than burying it.
+
+---
+
+**2026-07-31 — correction to my own first entry above.**
+
+Where I wrote that the seventy-four dead data addresses were "filed on its own" —
+they are not, and shouldn't be. I went to file a new bug for them and did the
+check our own guidelines prescribe first: grep the closed bugs for the mechanism.
+It was already diagnosed on 19 July in `bugs_closed/018`, which calls those
+declarations "decorative — nothing resolves them", and which knew something my
+measurement couldn't have told me: the site-wide chrome (headers, footers) runs a
+different, thinner code path where the fallback machinery never runs at all.
+
+So my census adds scale to something already understood, which makes it a
+contribution rather than a discovery. It's recorded in the debugging guide and
+handed to the component-library lane, and it has not consumed a bug number. I've
+left the wrong sentence above standing rather than editing it away, because the
+useful part is that a four-second grep stopped me writing a confident new bug
+report about a twelve-day-old finding. Second time that check has paid for itself.
