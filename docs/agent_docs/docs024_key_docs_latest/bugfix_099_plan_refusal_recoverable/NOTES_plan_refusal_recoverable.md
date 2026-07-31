@@ -715,3 +715,55 @@ on this tree (they ignore the index) is what drops the far side of a rename. Fix
 `423c745aa`. Two free signals I nearly walked past: the commit said "3 files changed"
 when I had passed 4 paths, and `git ls-tree HEAD bugs_open/` answers it in one line.
 Logged in `WRONG_CALLS.md`.
+
+## 2026-07-31 — the four landmine verifier runs, and one of them refuted me
+
+Fired the owed verifications. Verdicts: **1 STALE, 3 NEEDS_HUMAN_REVIEW, 0 clean
+confirmations.**
+
+### The STALE one was RIGHT, and it caught a real error of mine
+
+`output_contract` entry — verdict `STALE`, citing `validateOutputContract` in
+`scripts/goscripts/workflow_validator/main.go` and `run/main.go` as consumers of the
+`OutputContract` struct, "contradicting the core claim that the field is decorative and
+unenforced".
+
+Checked directly, and **the citation is correct**: both files declare the struct and
+bind it to JSON (`:31`, `:39`). My claim of "zero consumers" came from
+`grep -rn OutputContract platform/ internal/ pkg/ cmd/ --include=*.go` — a scope that
+**omits `scripts/`**. The filter defined the answer, which is the exact family I had
+quoted at a council seat earlier the same day.
+
+**The underlying claim survived re-measurement and got stronger**, which is the part
+worth keeping: the function *named* `validateOutputContract` (`main.go:637`) **never
+reads the contract**. It walks the workflow for `complete_workflow` steps and checks
+their `config.output_fields` against fields other steps produce — a different thing
+wearing the contract's name. And `grep -rn workflow_validator makefile .githooks/
+.github/ scripts/*.sh` returns **nothing**: no target, hook or CI job invokes it. So
+the trap is now *double* — a field nothing enforces, guarded by a function whose name
+says it does. Entry corrected in place with what caught it; logged in `WRONG_CALLS.md`.
+
+**"Survived on re-measurement" is not "was right."**
+
+### The three NEEDS_HUMAN_REVIEW ones expose a real limit of the mechanism
+
+All three failed to confirm **for the same reason**: the code index is older than the
+code they describe.
+
+- pod-grep control: *"all code-index lookups returned 0 rows, but the index is 3 days
+  older than the entry's claimed date (2026-07-31 vs indexed commit 2026-07-28), so the
+  absence is non-diagnostic"*
+- NULL `orchestration_id`: *"the code index predates the entry's fix date… neither the
+  claimed guard nor the unguarded shape can be mechanically confirmed"*
+- `kind` CHECK constraint: core footprint confirmed, but **"the CHECK constraint itself
+  lives in DDL outside the code index"**
+
+So: **a landmine about code you have just changed cannot be mechanically verified until
+a reindex, and a landmine about a DB constraint cannot be verified at all** — the
+verifier reads a code index, and DDL is not in it. Both are honest non-answers rather
+than false confirmations, which is the right failure direction and worth noting in its
+favour: none of the three claimed a confirmation it could not support.
+
+Practical consequence: fire the verifier for entries about *existing* code straight
+away, but expect `NEEDS_HUMAN_REVIEW` for anything describing a change from the same
+day, and treat schema-constraint entries as human-verify-only.
