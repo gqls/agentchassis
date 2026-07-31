@@ -556,3 +556,31 @@ will see it.
 So of the two shared pieces, the guard is done and in use, and the email sender is still
 waiting — its only customer is the gripper form, which lands in the same service, so it
 inherits the same ownership question. Nothing needed from you on that today.
+
+---
+
+**2026-07-31, later still.** The cleanup is done, and I checked it properly rather than
+trusting the status.
+
+Removing a test page turned out to need two separate steps, not one, because of something
+we'd already learned the hard way on this same site: marking a page "archived" in our
+database does not take it off the internet. The actual page is a file, pushed by our build
+system to the storage that really serves it, and that file does not care what our database
+says about it. So I did both: removed the four test entries and the three page records from
+the database first, then removed the eight files themselves — the three report pages, their
+data sidecars, the failed one's status file, and one stray test file from the very first day
+that had never been on anybody's list.
+
+I did the database part myself. The file part needed a permission I don't have by default, so
+I handed you the exact commands rather than find a way round it, and you ran them.
+
+Then I checked, rather than assumed. All five of the removed pages now return "not found".
+The two ordinary pages I checked as a control — the homepage and one of the calculators — are
+still there and unaffected. The build system's own log confirms the redeploy that removes
+them actually ran and succeeded, not just that the commit was made.
+
+So that's fully closed. Nothing from this pilot is left live except the real thing: the
+scoring engine and page-builder, proven and ready for whenever the public half is built. The
+only two things still open are the ones from before — the shared email sender waiting for a
+customer, and which order you want the visitor-identity fix relative to the other team's work,
+which I gather is already settled since they took it and it's live.

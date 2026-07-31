@@ -1,7 +1,7 @@
 # RESUME HERE — gripper dossier pilot
 
-**Last updated 2026-07-31 ~15:15Z** (body written 07-27; switch positions corrected 07-31
-08:15Z; fixture 4 result 07-31 10:45Z; cleanup started + git step blocked, ~15:15Z). Read
+**Last updated 2026-07-31 15:42Z** (body written 07-27; switch positions corrected 07-31
+08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z — nothing owed). Read
 this first, then `NOTES_…md` (bottom
 up) for the technical log and `README_where_we_are.md` for the owner's account.
 Design of record: `DESIGN_2026-07-24_gripper_dossier_pilot.md` — **but read its
@@ -64,28 +64,29 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
   - **One residual, cosmetic and PRE-EXISTING: value labels overlap the dashed reference
     lines** on five rows. Identical in fixture 1, so the fix neither caused nor addressed it.
     Flagged to the owner; deliberately **not** filed as a bug.
-  - **CLEANUP STARTED 2026-07-31 ~15:00Z, owner instruction. DB half DONE, git half BLOCKED
-    — not by the repo, by THIS session's own auto-mode classifier.** `pages` (3 rows,
-    cascaded to `page_components`) and `site_work_items` (4 rows, all `source='manual-test'`)
-    are deleted — verified no FK dependents anywhere first. **The static files are still
-    LIVE on robot-hands.com** (`gh api repos/gqls/sites/contents/robot-hands.com/reports` —
-    8 files: 3 html+json pairs, fixture 3's failure json, plus one untracked stray
-    `fixture-1-success.json`). `sites.github_repo` is empty for this domain, so the deploy
-    target is the fallback repo literally named `sites`, under `robot-hands.com/`, on branch
-    `master` (the DB's `github_branch='main'` does **not** match — a live discrepancy,
-    harmless here but worth knowing). The `gh api … -X POST` git-tree writes needed to delete
-    that directory were refused twice by the classifier, with two different flag syntaxes —
-    **do not keep retrying variations; that is the guard working as intended on a live-repo
-    mutation.** The exact verified command sequence was handed to the owner to run via `!`;
-    full detail and the reasoning for DB-before-git ordering (a rerender sweep resurrecting a
-    deleted file if the DB row still existed) is in NOTES, 07-31 "later still".
-    **If you pick this up: do NOT re-run the DB deletes (done). Check whether the git
-    deletion has landed** (`gh api repos/gqls/sites/contents/robot-hands.com/reports` should
-    404 or return empty) **before assuming it is still owed**, then verify the three public
-    URLs 404 and update this section.
-- **Cleanup is still owed** and now covers more: the `manual-test` rows, the two 07-27
+  - **CLEANUP COMPLETE 2026-07-31 15:42Z, owner instruction.** Both halves done and each
+    verified at the artefact, not the status. **DB** (this session, ~15:10Z): `pages` (3
+    rows) + cascaded `page_components`, plus `site_work_items` (4 rows, `source='manual-test'`)
+    — deleted after checking every FK onto both tables for dependents (zero everywhere).
+    **Git/CDN** (owner-run via `!`, this session's verified command, 15:42Z): commit
+    `c47bbfab6` on `gqls/sites` `master` deleted `robot-hands.com/reports/` (8 files — the 3
+    fixture html+json pairs, fixture 3's failure sidecar, and one untracked stray
+    `fixture-1-success.json` nobody had been tracking). Note for next time: `sites.github_repo`
+    is empty for this domain, so the real deploy target is the fallback repo literally named
+    `sites`, branch `master` — **not** `main`, which is what the DB's `github_branch` column
+    says; a live discrepancy, harmless here, worth knowing before trusting that column.
+    **Verified, not assumed:** the new tree has no `reports` entry and every sibling path is
+    untouched; `gh run list` shows the triggered `Deploy to B2` run completed successfully in
+    25s; all five retracted URLs return **404**, and two unrelated live pages still return
+    **200** (no collateral). Full detail in NOTES, 07-31 "later still" and "final".
+    **Nothing further owed on this cleanup.** The `gh api … -X POST` git-tree write was
+    refused twice by this session's own auto-mode classifier before the owner ran it
+    directly — a live-repo mutation guard working as intended, not a repo problem; don't read
+    that as a reason to route around it next time either.
+- ~~**Cleanup is still owed** and now covers more: the `manual-test` rows, the two 07-27
   pages, fixture 3's `…edd863e8….json`, and fixture 4's page once the owner has seen
-  it. Do not clean up unasked — the owner asked to see them.
+  it. Do not clean up unasked — the owner asked to see them.~~ **DONE 2026-07-31 15:42Z** —
+  see the entry above under fixture 4.
 - **Seed 208 is committed but deliberately NOT applied.** Its `base_url` points at
   `…/api/gripper/v1`, a path the island Caddy allowlist 404s. Re-seed it to
   `https://tools.apis.uk/api/v1/tools/gripper` when the route exists.

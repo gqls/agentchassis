@@ -1701,3 +1701,33 @@ this is 098's exact gap, temporarily, on purpose, pending the owner's run.
 sweep commit elsewhere on the site; re-fetched rather than reused stale SHAs) is in the
 chat transcript and in `HANDOFF_RESUME_gripper_dossier.md`. **Do NOT re-run the DB deletes
 above if you pick this up — they are done.** Only the git step remains.
+
+---
+
+## 2026-07-31 (final) — cleanup COMPLETE. Owner ran the git step; verified end to end
+
+Owner pasted the exact handed-over command sequence via `!`. `gh api … -X PATCH` on
+`heads/master` succeeded: new commit `c47bbfab6dad7d7cc08d9cd743cb8136bb55e2b4`.
+
+**Verified at every layer, not just at the status:**
+- **Tree**: `robot-hands.com`'s subtree in the new commit has **no `reports` entry at all**
+  (`gh api …/git/trees/<sha> --jq '.tree[] | select(.path=="reports")'` → empty), and every
+  other entry (`404.html`, `index.html`, `tools/`, `blog/`, etc.) is present and untouched —
+  the surgical single-directory tree-delete worked exactly as built, no collateral.
+- **CI**: `gh run list --repo gqls/sites --branch master` shows the triggered `Deploy to B2`
+  run **completed, success, 25s** (`30644012972`, 15:42:16Z) — the push actually redeployed,
+  not just committed.
+- **The artefact, not the tag**: all five retracted URLs return **404** — the three fixture
+  pages, fixture 3's failure sidecar, and the untracked stray `fixture-1-success.json`. Two
+  unrelated live pages (`index.html`, `gripper-payload-calculator.html`) still return **200**,
+  confirming the deploy did not regress the rest of the site.
+
+**Cleanup is now fully done, both halves:**
+- DB: `pages` (3 rows) + `page_components` (cascaded) + `site_work_items` (4 rows,
+  `source='manual-test'`) — deleted 07-31 ~15:10Z, this session.
+- Git/CDN: `robot-hands.com/reports/` (8 files) — deleted 07-31 15:42Z, owner-run, this
+  session's verified command, this session's verification.
+
+Nothing further owed on this workstream's cleanup debt. The four things flagged in the
+2026-07-31 08:30Z handoff (`manual-test` work items, the two 07-27 pages, fixture 3's json,
+fixture 4's page) are all retracted.
