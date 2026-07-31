@@ -459,13 +459,30 @@ route exists that was invisible when this section was written:
 
 **Recommendation: (iii), superseding (ii) — subject to one 10-minute test.**
 
-> The strength of the evidence, stated honestly: the host-derived mapping is
-> proven for **one** host, and that host (`webdesign.uk`) has **no row in
-> `sites`** — which is the informative part, because it shows the Worker
-> constructs a key for an arbitrary hostname rather than consulting an
-> allow-list. That is strong, but it is a single sample and **the Worker's source
-> is not in this repo** (grepped: no match for `objectKey` or `B2 returned
-> error`). So it is `[INFERRED — one live sample, source unread]`, not measured.
+> The strength of the evidence, stated honestly — **and it splits into two claims
+> with very different support**:
+>
+> **(A) The key is `<host>/<path>`, verbatim. Well supported.** Two distinct
+> hosts, 2026-07-31: `webdesign.uk/` → `objectKey: "webdesign.uk/index.html"`, and
+> `webdesign.co.uk/no-such-page-xyz.html` →
+> `objectKey: "webdesign.co.uk/no-such-page-xyz.html"`. The path is passed through,
+> not just the host. The first of those has **no row in `sites`** — which is the
+> informative part, because it shows the Worker builds a key for an arbitrary
+> hostname rather than consulting an allow-list. **The Worker's source is not in
+> this repo** (grepped: no match for `objectKey` or `B2 returned error`), so this
+> is inference from behaviour rather than from code — but two hosts agreeing,
+> one of them unknown to the database, is a good deal more than a hunch.
+>
+> **(B) A WILDCARD host would route to that Worker. UNTESTED, and it is the load-
+> bearing half.** Both samples above have their *own* explicit DNS record and
+> Worker route. Nothing observed says a `*.ugg2.com` record would be matched by
+> the Worker's route pattern — that depends on Cloudflare-side configuration I
+> cannot see. Checked the same minute: **no zone on the account has a wildcard
+> record today** (`foo.webdesign.co.uk`, `foo.vonc.com` → empty), so there is no
+> existing precedent to point at. This would be the first.
+>
+> **So (A) is close to settled and (B) is open — do not read (A)'s strength as
+> licence to skip the test.**
 >
 > **The test that settles it**, before any of (iii) is designed in: add one
 > proxied record for `test.ugg2.com` into the Worker path, upload

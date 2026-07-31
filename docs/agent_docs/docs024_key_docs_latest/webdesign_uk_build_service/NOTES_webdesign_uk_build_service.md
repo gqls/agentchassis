@@ -696,3 +696,28 @@ blocked on the Fable-5 build measurement**, and saying it was smuggled cost-plus
 back into a decision that had explicitly rejected cost-plus. Recommendation
 £1,200; the measurement is still owed for margin and for P2's free-tier cap,
 where per-unit × volume *is* the whole story.
+
+### Second sample, same session — the inference splits in two
+
+```
+$ curl -sS https://webdesign.co.uk/no-such-page-xyz.html
+{"error":"B2 returned error","objectKey":"webdesign.co.uk/no-such-page-xyz.html", ...}
+$ dig +short A foo.webdesign.co.uk   -> (empty)
+$ dig +short A foo.vonc.com          -> (empty)
+```
+
+A different host, and the **path** passes through too — so the key is
+`<host>/<path>`, on two hosts, one of which the database has never heard of.
+
+**But running the second sample is what showed me I had been conflating two
+claims.** "The key is host-derived" (well supported now) is **not** "a wildcard
+host would reach the Worker" (untested, and the half route (iii) actually rests
+on). Both samples have their own explicit DNS record; nothing I can observe from
+outside says a `*.ugg2.com` record would match the Worker's route pattern, which
+is Cloudflare-side config I cannot read. And **no zone on the account has a
+wildcard record today**, so there is no precedent to reason from either.
+
+Recorded in PLAN §6a as (A) and (B) rather than one confidence level. **The
+strong half was making the weak half feel measured** — the trap in
+`two-blind-checks-agree-with-each-other`, except here the two checks agreed
+about a proposition neither of them tested.
