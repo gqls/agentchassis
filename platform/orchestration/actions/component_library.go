@@ -1748,15 +1748,26 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 		}
 	}
 
-	// Fallback: try by function name
+	// Fallback: try by function name. ResolveChromeComponent, not
+	// GetComponentByFunction — the latter has no component_level filter, so the
+	// site-header pool it selects from includes `site-header` itself, a
+	// component_level='section' page-section component (bugs_open/167).
 	if comp == nil {
-		comp, err = GetComponentByFunction(ctx, db, "site-header", logger)
-		if err != nil {
-			logger.Warn("No header component found, using fallback")
+		chromeComp, eligible, resolveErr := ResolveChromeComponent(ctx, db, ChromeSlotFunction("header"), logger)
+		if resolveErr != nil || !eligible {
+			// !eligible is a gate, not advice: the resolver ALWAYS answers, and its
+			// answer when nothing is eligible is the last-resort row — which for a
+			// chrome function is precisely the section component this bug is about.
+			// RenderFallbackHeader is at least a header.
+			logger.Warn("No eligible header component in the library, using fallback",
+				zap.String("function", ChromeSlotFunction("header")),
+				zap.Bool("eligible", eligible),
+				zap.Error(resolveErr))
 			header := RenderFallbackHeader(renderCtx)
 			return fmt.Sprintf("<!-- HEADER SOURCE: fallback -->\n%s", header), nil
 		}
-		source = "component-db:site-header"
+		comp = chromeComp
+		source = "component-db:" + comp.Name
 	}
 
 	// Render template
@@ -1800,13 +1811,22 @@ func RenderFooter(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 		}
 	}
 
+	// ResolveChromeComponent, not GetComponentByFunction — see RenderHeader above
+	// and bugs_open/167. `site-footer` the SECTION component sits in the same pool
+	// as `footer-theme-chrome` the chrome component, and only ORDER BY name
+	// currently separates them.
 	if comp == nil {
-		comp, err = GetComponentByFunction(ctx, db, "site-footer", logger)
-		if err != nil {
+		chromeComp, eligible, resolveErr := ResolveChromeComponent(ctx, db, ChromeSlotFunction("footer"), logger)
+		if resolveErr != nil || !eligible {
+			logger.Warn("No eligible footer component in the library, using fallback",
+				zap.String("function", ChromeSlotFunction("footer")),
+				zap.Bool("eligible", eligible),
+				zap.Error(resolveErr))
 			footer := RenderFallbackFooter(renderCtx)
 			return fmt.Sprintf("<!-- FOOTER SOURCE: fallback -->\n%s", footer), nil
 		}
-		source = "component-db:site-footer"
+		comp = chromeComp
+		source = "component-db:" + comp.Name
 	}
 
 	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
@@ -2060,10 +2080,22 @@ func RenderHead(ctx context.Context, db interface{}, siteID uuid.UUID, renderCtx
 		renderCtx.BackgroundColor = "#ffffff"
 	}
 
-	// Get head component â€” lookup by function name "head"
-	comp, err := GetComponentByFunction(ctx, db, "head", logger)
-	if err != nil {
-		logger.Warn("RenderHead: No head component found, using fallback")
+	// Get head component — chrome selection, so ResolveChromeComponent (bugs_open/167).
+	//
+	// This is the call site that makes the `eligible` check a GATE rather than a
+	// hint. Live 2026-07-31 the library has NO eligible head component (both
+	// candidates are is_active=false), and the resolver answers anyway — by design,
+	// so the gap can be reported rather than swallowed. Its answer is `Document
+	// Head`, an 8,523-char component_level='section' component. Using it because a
+	// row came back would render a page section as <head>, i.e. it would CREATE
+	// bugs_open/167 on the one slot that did not have it. Ineligible ⇒ fallback,
+	// which is byte-for-byte what runs today when the lookup finds nothing.
+	comp, eligible, resolveErr := ResolveChromeComponent(ctx, db, ChromeSlotFunction("head"), logger)
+	if resolveErr != nil || !eligible {
+		logger.Warn("RenderHead: no eligible head component in the library, using fallback",
+			zap.String("function", ChromeSlotFunction("head")),
+			zap.Bool("eligible", eligible),
+			zap.Error(resolveErr))
 		head := RenderFallbackHead(renderCtx)
 		return fmt.Sprintf("<!-- HEAD SOURCE: fallback -->\n%s", head), nil
 	}
