@@ -62,8 +62,8 @@ which is now guarded):
 | # | site | delete | stakes |
 |---|---|---|---|
 | A | `save_page_sections_action.go:532` | `DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` | **HIGH — real content, lost before. DONE: guarded, live on v1.0.1223, BOTH BRANCHES INDUCED 2026-07-31** |
-| B | `populate_nav_tables_action.go:147,150` | `DELETE FROM site_nav_items WHERE site_id = $1` then `site_nav_groups` | medium — regeneratable, but a partial nav is served |
-| C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable |
+| B | `populate_nav_tables_action.go:147,150` | `DELETE FROM site_nav_items WHERE site_id = $1` then `site_nav_groups` | medium — regeneratable, but a partial nav is served. **CODE DONE 2026-07-31 (`983e4b0a2`), NOT yet live, NOT yet induced** |
+| C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable. **CODE DONE 2026-07-31 (`983e4b0a2`), NOT yet live; cannot be induced — see below** |
 | — | `code_symbols_actions.go` | guarded 2026-07-31 (`bugs_closed/135`) | — |
 
 **A is the one that matters.** The seat's own lineage for it: 016b §9 cases 1 and
@@ -225,3 +225,126 @@ Two things I could NOT determine, marked so nobody inherits them as findings:
 Full audit of the five `extractSiteID` callers (three fail loudly, two do not) is in
 `bugs_open/092` under the council-verdict section, filed there because the council's
 `bug_historian` seat asked for it against 092's plan.
+
+---
+
+## Contribution, 2026-07-31 (separate lane) — sites B and C are CODED and committed; the per-nav-group cohort this file asked for is REFUTED
+
+Code only, in `983e4b0a2`. **This lane does not own 165** —
+`bugfix_165_reconciliation_deletes` does, and did site A including its live
+induction. This is a contribution into their case, not a competing fix, and the
+close is theirs to make. Council `c69e935a-7134-45c1-81c3-2f1da7831827`,
+committed with `Council-Submitted:` before the verdict landed.
+
+**Neither site is closed and neither is live.** The code is on the shared branch;
+it is inert until a chassis roll, and — exactly as A was held to — a roll proves
+nothing on its own, because both floors are inert on healthy input by design.
+What is still owed is in "What is still owed" at the bottom of this section.
+
+### The correction: this file's suggested cohort for B is wrong on the data
+
+> This file says: **"B — per nav group, plus distinct nav items."**
+
+The per-group half does not work, and the reason does not apply to site A.
+`classifyPagesForNav` **RE-HOMES pages between groups as a matter of course**, so
+group membership is a classifier OUTPUT rather than an independently-losable
+class. Measured 2026-07-31: robot-hands.com holds a `tools` nav group (created
+that day at 12:27; **no Go code writes that `group_key`** — `grep -rn
+site_nav_groups --include=*.go platform/ internal/ pkg/` returns only
+`populate_nav_tables_action.go` and `nav_tables.go`, so it arrived by hand SQL)
+containing `/tools/gripper-safety-factor-calculator`, and the **current
+classifier places that same page in `utility`**. A per-group cohort reads
+`tools` 0/1 = 0% and refuses that site's nav rebuild **for ever**.
+
+That is the third time in this case that the proposed partition was wrong and the
+measurement said so — A's per-`slot_name`, A's first plan denominator, and now B's
+per-group. The rule generalises; **the partition never does**.
+
+### What shipped instead
+
+**B — two cohorts, in genuinely different units:**
+
+- `pages seen` — pages the run LOADED vs pages that exist under the loader's own
+  predicate. This is the completeness signal proper ("did this run see the
+  corpus?" rather than "did this run write less?"), and it is the one that catches
+  the actual defect: `loadPagesForNav` logs a warning and **`continue`s past a row
+  it cannot scan** (`:258-261`), so a partial read is silent and success-shaped.
+  Measured with `navPageScopeSQL`, the **same constant the loader's `WHERE` clause
+  is now built from**, so the count and the load cannot drift apart.
+- `nav items` — rows to insert vs rows the DELETE removes (site-wide, the
+  delete's exact complement). Catches what the page cohort cannot: a classifier
+  collapse that loads every page and then places almost none of them, which is
+  precisely `bugs_open/149` A2's shape.
+
+**Measured false-positive rate: 0 of 16 sites.** The membership rule was replayed
+in SQL against production and the item count a rebuild would produce **equals** the
+stored count on every site with nav (finetuning.uk 25=25, ai-agent-orchestration
+24=24, gaswholesalers 23=23, leopardess 23=23, robot-hands 17=17, gamesdesign
+12=12, dartsonline 9=9, fundamentallyai 9=9, idea.uk 8=8, vonc 8=8, oufe 8=8,
+relojistas 7=7, webdesign 5=5, vetcomparison 4=4, and both loan-calculator sites
+1=1).
+
+**NO ratchet cohort for B, and the asymmetry is worth keeping.** Site A needed a
+plan cohort because `page_components` is **AUTHORED** — a truncating writer's short
+output becomes the stored baseline, so the row cohort reads 2/2 = 100% for ever.
+`site_nav_items` is **DERIVED** — recomputed from the page corpus on every rebuild
+— so a wrongly-truncated nav is repaired by the next healthy run instead of
+becoming the new baseline. **A derived table self-heals; an authored one
+ratchets.** That is the test for whether a future consumer needs a second cohort.
+
+**C — one cohort, and the partition DEFERRED on purpose, with the query to run
+written into the file header.** This file suggested "per link kind if there is one,
+plus distinct targets". There is no distribution to partition on:
+`link_registry` holds **zero rows all-history** (independently re-verified, and it
+matches the `bugfix_092` contribution above). Guessing a partition from the shape
+of the SQL is what this case's own PLAN decision 3 warns against, so C ships the
+single unpartitioned cohort — sound at any distribution — plus the measurement to
+take once the corpus exists.
+
+**C is inert BY CONSTRUCTION today** (`Stored=0` reads as fully confirmed, so
+every prune is allowed) and arms itself the moment the insert half starts working.
+That is the state nobody would remember to add a guard in, which is the argument
+for adding it now rather than the argument against.
+
+### Also done, because B and C would each have re-spelt it
+
+`pruneFloorDetail` and `emitPruneRefusalWorkItem` moved into `prune_floor.go`.
+Site A invented both inline; three spellings of one durable surface is the drift
+class this council reviews for. Both are **additive and inert** — reachable by
+nothing until a caller names them, no existing consumer's behaviour changes — so
+under the owner ruling of 2026-07-29 §1 this is normal gate scope, not
+architecture scope. `prune_floor.go`'s header no longer lists B and C as
+"candidates, deliberately NOT converted"; all four consumers are named.
+
+### Verification actually performed
+
+18 tests, and **four negative controls run rather than claimed** — the tests were
+each watched failing with the guard broken:
+
+| control | result |
+|---|---|
+| neuter the nav floor (no cohorts) | exactly the 4 refusal tests fail; **no allow test fails** |
+| add back a per-group cohort | `TestNavFloorAllowsAPageReHomedBetweenGroups` fails — it is what stops the refuted shape being re-added |
+| neuter the link floor | its refusal test fails |
+| drift `loadPagesForNav` off `navPageScopeSQL` | `TestLoadPagesForNavUsesTheSharedScopePredicate` fails |
+
+Full `actions` package suite passes against a clean `git archive HEAD` + these
+changes only (HEAD `b080cb4ae` at the time).
+
+### What is still owed, and by whom
+
+1. **The roll, then BOTH branches induced for B** — same bar as A: induce the
+   refusal (point the nav builder at a partial page list), watch it fire with its
+   numbers, confirm nothing was deleted, clear the induction, confirm a normal
+   rebuild still prunes. `RUNBOOK_prune_floor.md`'s live induction transfers.
+2. **C cannot be induced the same way** and this is stated rather than hidden:
+   with `link_registry` empty and `ExtractAndSyncLinksAction` having 0
+   orchestrations in the retained window, there is no live run to induce. Options
+   are (a) close C on the tests plus the roll and say so plainly, or (b) hold C
+   open until `bugs_open/092` makes the insert half run. **That is a judgement for
+   the owning lane, not for this contribution.**
+3. **Read the council verdict** on `c69e935a-7134-45c1-81c3-2f1da7831827` and act
+   on a REVISE/REJECTED — the code is already on the shared branch.
+4. **The guardian's open question from A applies to B and C too**: does a failed
+   step actually stop the consumers, or do they mark the orchestration complete? A
+   answered it empirically by inducing. B and C have not.
