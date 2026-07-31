@@ -1494,3 +1494,40 @@ screenshotted are gone on a page the pipeline produced by itself.
 **Note what the numbers say that the old chart could not:** `7.60×` and `6.42×` are both
 clipped to the cap, and the pointed tips now say so. Before, they were two identical bars with
 different numbers beside them.
+
+---
+
+## 2026-07-31 — the OWED council debt, discharged: the contracts-gap claim is CONFIRMED, and sharper than I stated it
+
+`prior_art` approved council `721ac4f7` (2026-07-28) but asked that this claim be
+**independently verified before anyone cites it as precedent** — *no mechanism declares
+action-to-action `collected_data` fields; `input_contract` only fires at the `call_agent`
+boundary; `output_contract` has zero readers.* I was the only reader. Measured now, and it
+holds — with three corrections that change what the precedent may be used to argue.
+
+| part of the claim | verdict | evidence |
+|---|---|---|
+| `input_contract` only fires at the `call_agent` boundary | **CONFIRMED** | the sole runtime read is `call_agent.go:988–1011`, and it is gated behind `ParseInputMapping(config)` — so it fires only when a step declares an input mapping |
+| `output_contract` has zero readers | **CONFIRMED at runtime, but the wording was too strong** | the `OutputContract` type at `input_contracts/input_mapping.go:52-53` has **no uses anywhere** in `platform/`, `internal/` or `cmd/` — it is a declared type with zero references. But there ARE readers: `validateOutputContract` in the offline `scripts/goscripts/workflow_validator` |
+| no mechanism declares action-to-action fields | **CONFIRMED, and stronger than claimed** | **0 of 184** active agents declare `input_contract` *or* `output_contract` (`default_config ? 'input_contract'`) |
+
+**The three sharpenings, which matter more than the confirmation:**
+
+1. **"Zero readers" is false as stated and true as meant.** Say *"no runtime reader"*. The
+   offline validator would catch output-contract violations — if anyone ran it.
+2. **And nobody does: the validator is wired into nothing.** No makefile target, no
+   `.githooks/` reference, no CI. It runs only when a human runs it by hand. It also exists as
+   **two near-identical copies** (`workflow_validator/main.go` and `workflow_validator/run/main.go`,
+   both carrying `validateOutputContract` at the same line number), which is its own
+   duplication smell and not something I chased.
+3. **The whole contracts layer is undeclared fleet-wide, not merely narrow.** `input_contract`
+   *works* — it validates, at one boundary — but with 0 of 184 agents declaring one, it
+   validates nothing in production today. **So this may be cited as "the mechanism exists and
+   is inert", and must NOT be cited as "contracts are enforced narrowly"** — there is no
+   narrow enforcement, there is none.
+
+Same family as [[zero-adoption-means-read-the-mechanism]]: ~0% adoption measured the
+*mechanism*, and reading the gate is what turned "contracts fire narrowly" into "contracts are
+declared by nobody and their only checker is unwired". **`prior_art` was right to refuse the
+claim as precedent on one reader** — the corrected version supports a different argument than
+the original did.

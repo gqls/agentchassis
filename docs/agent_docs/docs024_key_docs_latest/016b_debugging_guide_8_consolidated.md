@@ -4189,6 +4189,51 @@ something that should be unique" — had no detector of any kind.**
 Category tags: `ordinal-discriminates-between-causes`, `census-the-population-your-invariant-forbids`,
 `content-identity-not-key-repetition`, `narrow-to-a-layer-then-stop`.
 
+### A strictness gate's CLASSIFIER rejects a legitimate recombination, and fail-closed then destroys the artefact instead of degrading it (2026-07-31)
+
+**The pattern.** A guard exists to stop a generator inventing facts, so it is deliberately
+fail-closed: violation → no artefact at all. Its test is *"does this token appear verbatim in
+the allowed set?"* But the generator legitimately **recombines** allowed tokens into new
+surface forms, and a recombination is never verbatim. So the guard destroys correct output,
+and the failure is attributed to the pipeline rather than to the classifier.
+
+**Worked case (`bugs_open/160`).** `verify_report_prose` rejected a gripper dossier because
+`summary_html` contained `IP54-or-better`. `modelNumberRe` classifies any letter-digit
+adjacency followed by a hyphen as SKU-shaped; the fact block holds `IP54`, not the composed
+phrase; clearance is `strings.Contains(allowedText, tok)`. The step is fail-closed, so **no
+page was composed and the URL 404'd** — a whole report destroyed by a correct sentence.
+
+**Why it is hard to attribute, and this is the transferable part:**
+
+1. **It is INTERMITTENT, because the trigger is generated wording.** The *identical* input spec
+   passed the same gate four days earlier. So it presents as a flaky pipeline, not a rule —
+   and a retry "fixes" it, which is the worst possible signal because it teaches the operator
+   that nothing is wrong. (It did pass on retry here. The bug is still real.)
+2. **The error names the token but not the mechanism.** *"names model-like token X not in the
+   candidate set"* reads as *"the writer hallucinated"* — the exact opposite of what happened.
+3. **The whole class is wider than the instance.** The same regex matches every hyphenated
+   engineering notation the writer might paraphrase: IP ratings, ISO flange codes, thread
+   sizes. `9409-1-50-4-M6` survives only by appearing verbatim in the request; any paraphrase
+   of it would not.
+
+**The check.** When a fail-closed guard rejects something, first ask whether the rejected text
+is *derivable from* the allowed set rather than absent from it. Then verify a fix on **both**
+halves: the legitimate recombination must clear **and** a fabricated sibling must still be
+rejected. A fix asserted only on the first half is how a strictness guard gets quietly
+disarmed — and the prefix-matching "fix" that suggests itself first (allow the token if its
+prefix is allowed) clears exactly the invented-sibling SKU the guard exists to catch.
+
+**Do not relax the gate to a warning.** Fail-closed was the right call and was itself
+established by a council HIGH (2026-07-28, corr `721ac4f7`): the question *"does anything
+BLOCK a report the gate rejects"* was answered by reading `routeToErrorStepOrFail` —
+step-level `error_step`, then config-level, then `failWorkflow`, with no branch continuing to
+`next_step`. Degrading to a warning would reopen fabricated model numbers, which is the defect
+class the entire report pipeline exists to prevent.
+
+Category tags: `classifier-not-gate`, `recombination-is-not-fabrication`,
+`fail-closed-destroys-not-degrades`, `intermittent-because-generated`,
+`verify-both-halves-of-a-strictness-fix`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

@@ -108,15 +108,21 @@ sibling still rejected.
 
 ## 5. OWED, in the order they will bite
 
-1. **`016b` §9 entry for 160's pattern — genuinely owed and not done.** The transferable
-   shape is *"a strictness gate's classifier rejects a legitimate recombination, and
-   fail-closed then destroys the artefact rather than degrading it"*. The bug file and
-   `LANDMINES.md` hold the specifics; §9 is where the pattern belongs.
-2. **Council debt (consolidation):** `prior_art` approved an earlier round but asked that the
-   contracts-gap claim — *no mechanism declares action-to-action `collected_data` fields;
-   `input_contract` only fires at the `call_agent` boundary; `output_contract` has zero
-   readers* — be independently verified **before anyone cites it as precedent**. Still
-   single-sourced. Contained and worth doing properly.
+1. ~~**`016b` §9 entry for 160's pattern**~~ **DONE 07-31** — *"A strictness gate's CLASSIFIER
+   rejects a legitimate recombination, and fail-closed then destroys the artefact instead of
+   degrading it"*, filed in §9 with the both-halves verification rule and the note that
+   fail-closed itself was established by a council HIGH and must not be relaxed to a warning.
+2. ~~**Council debt (consolidation):** the contracts-gap claim, single-sourced~~
+   **DISCHARGED 07-31 — CONFIRMED, and it must be cited in its CORRECTED form.** Measured:
+   `input_contract`'s only runtime read is `call_agent.go:988–1011`, gated behind a step
+   declaring an input mapping; the `OutputContract` type has **zero references** in
+   `platform/`/`internal/`/`cmd/`; and **0 of 184** active agents declare either contract.
+   Three sharpenings that change what it may be used to argue: (a) say *"no **runtime**
+   reader"* — the offline `workflow_validator` does read `output_contract`; (b) that validator
+   is **wired into nothing** — no makefile target, no hook, no CI — and exists as two
+   near-identical copies; (c) therefore cite this as *"the mechanism exists and is inert"* and
+   **never** as *"contracts are enforced narrowly"*, because there is no narrow enforcement,
+   there is none. Full working in the gripper NOTES, 07-31.
 3. **`[UNMEASURED]`:** whether bare `.(string)` assertions on LLM-parsed maps recur elsewhere.
    The evidence originally offered for it was wrong (the file it cited retracts its own
    headline). **Count before claiming; do not file a bug on the hunch.**

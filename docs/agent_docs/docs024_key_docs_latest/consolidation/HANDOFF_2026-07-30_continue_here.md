@@ -262,12 +262,23 @@ key, not spoofable) but it is a real constraint on where the package can deploy.
 
 ## 6. Debts, in the order they will bite
 
-1. **OWED to the council, and it is the right ask.** `prior_art` approved the
-   gripper round but asked that the contracts-gap claim — *no mechanism declares
-   action-to-action `collected_data` fields; `input_contract` only fires at the
-   `call_agent` boundary; `output_contract` has zero readers* — be **independently
-   verified before anyone cites it as precedent.** I am still the only reader. Do
-   not cite it as settled; verifying it is a contained, useful task.
+1. ~~**OWED to the council, and it is the right ask.** `prior_art` asked that the
+   contracts-gap claim be **independently verified before anyone cites it as
+   precedent.** I am still the only reader.~~ **DISCHARGED 2026-07-31 — CONFIRMED,
+   but cite the CORRECTED form.** `input_contract`'s only runtime read is
+   `call_agent.go:988–1011`, gated behind a step declaring an input mapping. The
+   `OutputContract` type (`input_contracts/input_mapping.go:52-53`) has **zero
+   references** in `platform/`, `internal/` or `cmd/`. **0 of 184** active agents
+   declare either contract.
+   **What changed, and it changes what the claim can be used to argue:** say *"no
+   **runtime** reader"* rather than "zero readers" — the offline
+   `scripts/goscripts/workflow_validator` does read `output_contract`, in two
+   near-identical copies, and it is **wired into nothing** (no makefile target, no
+   `.githooks/` reference, no CI), so it runs only by hand. Net: **cite this as "the
+   mechanism exists and is inert", never as "contracts are enforced narrowly"** —
+   with nobody declaring one, there is no narrow enforcement to point at.
+   `prior_art` was right to refuse it as precedent on a single reader. Working:
+   gripper NOTES, 2026-07-31.
 2. **`[UNMEASURED]`** — whether bare `.(string)` assertions on LLM-parsed maps recur
    elsewhere unaudited (`bug_historian`'s surviving advisory). I showed its *premise*
    was wrong: `bugs_closed/076` is a truncation-tolerance mechanism, has **no**
