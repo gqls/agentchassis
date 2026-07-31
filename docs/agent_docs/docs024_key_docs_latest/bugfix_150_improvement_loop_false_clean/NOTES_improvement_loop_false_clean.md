@@ -94,3 +94,39 @@ deliberately NOT applied** — on a chassis predating the Go half the new field 
 nil and *every* run takes the clean branch, which is worse than the bug. The owner's call
 for this session was to commit and wait for another session's roll, so **150 stays open**:
 the bar is fixed AND live.
+
+## 2026-07-31 — the hazard I created, and caught by reading the runner
+
+I left migration 281 unapplied on purpose (the Go half has not shipped) and wrote a banner
+saying so. Then I read `scripts/migration/run-migrations.sh`: **`--apply` takes EVERY pending
+file in number order**, and it is another session that runs it. `schema_migrations` has
+recorded nothing since **273**; the runner lists **67 pending**. So "written but not applied"
+is not a state the directory can hold, and a banner addressed to a human who is not reading
+my file protects nothing.
+
+Renamed to `281_..._HOLD.sql`. The runner's `SIDECAR_RE` (`_[A-Z][A-Z0-9_]*\.sql$`) excludes
+an UPPERCASE-suffixed file from `--apply` while still **listing** it under *"Sidecars
+(hand-run only, NOT applied by this runner)"* — held back visibly rather than hidden.
+Verified: `--no-probe` shows 281 under Sidecars and not in the Pending 67.
+
+The general form is now a landmine: **a migration's guard checks for DRIFT, never for
+ORDER.** A `WHERE` clause that refuses a changed row still applies happily at the wrong
+moment, and the applying session sees an ordinary successful run.
+
+`sql_for_agents/278` — `bugs_open/154`'s config half, same two-part shape, same banner — is
+exposed identically and sits in the same pending 67. Told that lane in their bug file rather
+than renaming their file for them.
+
+## 2026-07-31 — my LANDMINES append was swept into another lane's commit
+
+Committed my rename with a pathspec naming LANDMINES.md and git reported only 2 files. The
+entry was already at HEAD: the bugs_sweep/111 lane's `f076f4bd1` ("close(111): footer Contact
+heading…", 22:28:32) had taken it — 33 LANDMINES lines and 55 WRONG_CALLS lines in a commit
+about a footer.
+
+Nothing was lost and forward-only holds, so this is recorded rather than repaired. It is the
+exact scenario CLAUDE.md describes: **a pathspec commit stops me sweeping up others' work; it
+cannot stop a session running `git add -A` from sweeping up mine.** The practical lesson for
+this lane's remaining work is the one already in that file — commit each coherent piece
+immediately and narrowly, and expect append-only fleet docs (`LANDMINES.md`, `WRONG_CALLS.md`)
+to be the most contended files in the tree, because every lane appends to them.
