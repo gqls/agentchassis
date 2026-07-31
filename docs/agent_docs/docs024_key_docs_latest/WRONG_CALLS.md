@@ -13522,3 +13522,35 @@ finished until something mechanical checks them.
   fired, because I was about to publish through a different path than the one they
   guard. **A guard only guards the door you walk through**, so "there are checks on
   this" is not a reason to skip your own.
+
+- **2026-07-31 — "no owner and a clean tree" is not "nobody is on it": I duplicated
+  another session's in-flight fix for `bugs_open/143` and had to throw mine away**
+  (session "bugfix 8"). I ran the prescribed checks and they all said unowned:
+  `scripts/who-owns.py 143` → "(none identified)"; `git log` on the bug file quiet
+  since 07-29; `git status` showed no working-tree edit to
+  `derive_card_asset_action.go`; the only lane citing 143 (session `693556a1`, on
+  bugs 152/155) had written into its own docs that 143 is "related, not duplicate".
+  **Every one of those readings was correct, and the bug was already being fixed.**
+  Session `759437b9-…` was ~20 minutes into the same bug with nothing on disk yet. We
+  each wrote a shared asset-lock helper into the same Go package **in the same
+  minute** — `asset_lock_guard.go` (theirs) and `asset_lock_helpers.go` (mine) — and
+  independently reached the same design, which is how little the duplication was worth.
+  **What caught it:** the Edit tool's "the file had been modified on disk since you
+  last read it" notice on my first write to `derive_card_asset_action.go`. Nothing
+  else would have — I would have committed a second helper over theirs.
+  **The cheap check that would have:** the ownership signals CLAUDE.md lists are all
+  *lagging* — commits, bug-file history, dirty files. None of them exists during the
+  interval between a session choosing a bug and its first Write, which for a
+  research-first session is the first 20+ minutes. The one leading signal available is
+  the other sessions' live transcripts, and it takes one command:
+  `grep -lE "bugs_open/143|derive_card_asset_action" ~/.claude/projects/*/[0-9a-f]*.jsonl`
+  — I ran exactly this at the start, saw hits, and **dismissed them as filename noise
+  from `ls bugs_open/` without checking**. The discriminating form is to grep for the
+  bug's *code symbols* rather than its number, since a filename appears in every
+  session that listed the directory: `grep -c "derive_card_asset_action.go"` would have
+  shown `759437b9` reading the file, not merely listing it.
+  **Generalisable:** on this tree, ownership checks answer "has anyone finished?", not
+  "is anyone working?" — and re-running them later does not help, because the answer
+  only changes at the other session's first commit. **Before a long research phase on a
+  bug, grep the live transcripts for the target's code symbols; and treat a
+  "modified on disk" notice as a collision to investigate, never as a merge to resolve.**
