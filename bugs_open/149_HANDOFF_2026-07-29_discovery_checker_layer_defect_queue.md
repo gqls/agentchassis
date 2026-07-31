@@ -581,6 +581,46 @@ correct by inheriting `true`.
 page in the chrome footer. Identical rows produce different live sites depending on
 which ran last. One of the two is wrong; decide which.
 
+> **⚠ NEW, 2026-07-31 21:15 — `buildServicesHTML` ALSO BUILDS ITS OWN LABELS, and it is
+> the one path the A6 authored-label fix does not reach. This is LIVE and VISIBLE.**
+>
+> A6's fix went live on `v1.0.1219` and is correct: **0 rows fleet-wide** in
+> `site_nav_items` now carry a category separator, and on ai-agent-orchestration.com the
+> defect row `Tools / AI Readiness Quiz` became `AI Readiness Quiz`. But the **stored
+> footer** still shows `Tools / Password Strength Physics`, because that column is not
+> built from the nav tables at all:
+>
+> ```go
+> // render_site_components_action.go:1086-1119
+> SELECT COALESCE(nav_label, title, name) as label ... LIMIT 6
+> label = strings.ReplaceAll(label, "-", " ")   // then title-case each word
+> ```
+>
+> It reads `pages.nav_label` **raw** and does no separator handling whatever — so it emits
+> the authored `Tools / X` verbatim into the footer. Measured in stored chrome:
+> **3 separator labels across 2 sites** — ai-agent-orchestration.com footer ×1,
+> fundamentallyai.com footer ×2 (re-rendered 19:19/19:20, i.e. post-fix). The served pages
+> still show them too.
+>
+> **Why the A6 audit missed it, which is the transferable part:** that audit enumerated
+> *label-simplification functions* — `navSimplifyLabel`, `navLabelForPage`,
+> `rerenderSimplifyNavLabel`, `datahelpers.SimplifyNavLabel` — and found four. This is a
+> **fifth path with no such function**: it builds labels inline, in a query, and nothing
+> in its name contains "NavLabel". **A grep proves an absence only for the spelling it
+> searches**, and "audit the siblings" is only as good as the shape you search for. Search
+> for the *table column* (`nav_label`) next time, not the function family.
+>
+> **Two ways to fix, and they are not the same size:**
+> 1. **Contained** — apply `navLabelDropCategoryPrefix` to this query's label. One line,
+>    fixes the 3 live labels, changes nothing else. Still platform code touching every
+>    site's footer render, so it wants its own council round.
+> 2. **Structural** — route the column through `GetNavItems` as this item already
+>    proposes, which deletes the duplicate query and the duplicate label logic together.
+>    Bigger blast radius (every site's "Our Services" column), own measurement, own round.
+>
+> The contained fix does not make the structural one unnecessary; it stops a visible wrong
+> label while the structural one is decided.
+
 ### A6. The two tool creators each do half the nav write
 
 > **✅ FIXED 2026-07-31 — commit `1884f1ee8`, chassis `v1.0.1215` — but NOT THE WAY

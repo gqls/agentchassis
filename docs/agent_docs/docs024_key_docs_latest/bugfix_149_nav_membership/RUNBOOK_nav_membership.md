@@ -413,7 +413,7 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 **Schema gotcha:** `site_components` has **`slot_name`**, not `component_type`, and the
 chrome slots are `header` / `footer` / `head`. `\d site_components` first.
 
-## R16 — the four label functions, only two of which are live
+## R16 — the FIVE label paths, only two of which are live, and the fifth has no function at all
 
 Before changing any label behaviour, know which of these you are in. `nav_tables.go:554`
 says `navSimplifyLabel` "consolidates" the other two — **that is the intent, not the
@@ -436,3 +436,27 @@ grep -n "rerenderGetHeaderNavFromDB\|rerenderGetFooterNavFromDB" platform/orches
 `name := strings.TrimPrefix(url, "/")` on the whole path — and repairing dead code costs a
 council round and teaches the next reader that it matters. Leave it, or delete it as a
 deliberate, separately-argued tidy-up.
+
+> **⚠ CORRECTED 2026-07-31 21:15 — THERE IS A FIFTH PATH AND THIS TABLE MISSED IT, because
+> the table is a list of FUNCTIONS and the fifth path has no function.**
+>
+> | path | file | status |
+> |---|---|---|
+> | `buildServicesHTML` | `render_site_components_action.go:1086` | **LIVE, and the A6 fix does NOT reach it** |
+>
+> It builds the footer's "Our Services" column from its own
+> `SELECT COALESCE(nav_label, title, name) ... LIMIT 6`, then does nothing but
+> `ReplaceAll(label,"-"," ")` and title-casing. So it emits an authored `Tools / X`
+> **verbatim** — measured in stored chrome after the fix shipped: 3 separator labels across
+> 2 sites (ai-agent-orchestration ×1, fundamentallyai ×2). Tracked in `bugs_open/149` A5.
+>
+> **The lesson, and it cost a live defect:** the audit that produced the table above
+> enumerated functions whose names contain `NavLabel`/`SimplifyLabel`. This path has no
+> such function — the label logic is inline in a query. **Grep the TABLE COLUMN, not the
+> function family:**
+>
+> ```bash
+> grep -rn "nav_label" platform/ internal/ --include=*.go | grep -v _test.go
+> ```
+>
+> That command finds all five. The function-name grep finds four and looks complete.
