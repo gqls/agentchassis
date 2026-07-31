@@ -388,3 +388,65 @@ assertion.
 **And the limitation to state out loud: `try_fence.go` proves a fence is CORRECT; it cannot
 prove it FITS.** It is an order of magnitude faster than the pod and does not model the
 deadline. **A fence is not proven until it has completed once in the cluster.**
+
+## 11. Rename a page so its tool becomes acceptance-testable — TWO rows, not one
+
+The Tier-4 lookup is `name IN (function, 'tool-' || function)`, scoped by `site_id` **and
+`status='active'`** (`tool_acceptance_actions.go:140-146`). A page named anything else makes
+`request_browser_run` hard-error with *"no deployed page URL"*.
+
+```sql
+BEGIN;
+-- Scope by ID, never by name: a concurrent rename must not be able to redirect this.
+UPDATE pages           SET name = '<function>', updated_at = now()
+ WHERE id = '<page id>' AND name = '<old name>';
+UPDATE site_plan_pages SET name = '<function>'
+ WHERE id = '<plan page id>' AND name = '<old name>';
+-- verify INSIDE the transaction (below), then COMMIT — or ROLLBACK for a dry run
+COMMIT;
+```
+
+**⚠ THE SECOND UPDATE IS THE ONE THAT IS EASY TO MISS AND EXPENSIVE TO OMIT.**
+`check_sectionless_pages` (`discovery_checks/check_sectionless_pages.go:118`) joins
+`site_plan_pages spp ON spp.name = p.name`. Renaming `pages.name` alone desynchronises that
+join and the page **silently leaves that detector's population** — no error, no report, and
+the page looks fine precisely because nothing is looking at it any more. Trading a naming
+defect for a lost detection is the worse deal.
+
+**Measure all of these first** (all were zero or accounted for on the arena rename, 07-31):
+
+```sql
+SELECT 'collision'      AS q, count(*) FROM pages p JOIN sites s ON s.id=p.site_id
+        WHERE s.domain='<domain>' AND p.name='<function>'
+UNION ALL SELECT 'sps rows on old page_name', count(*) FROM site_plan_sections WHERE page_name='<old name>'
+UNION ALL SELECT 'imagery on old name',       count(*) FROM site_plan_imagery  WHERE scope_ref='<old name>';
+-- and read these off the page: status must be 'active'; nav renders nav_label/title, NOT name;
+-- site_plan_pages carries its own slug+url, so `name` is not the served filename.
+```
+
+**Then prove it red and green at the code's own query, not a paraphrase:**
+
+```sql
+-- BEFORE this must return 0 rows; AFTER it must return the url
+SELECT COALESCE(url,'') FROM pages
+ WHERE site_id=(SELECT id FROM sites WHERE domain='<domain>') AND status='active'
+   AND name IN ('<function>'::text, 'tool-' || '<function>'::text)
+ ORDER BY (name='<function>'::text) DESC LIMIT 1;
+
+-- and the sectionless-check join must STILL match the page afterwards
+SELECT p.name FROM pages p
+  JOIN site_plans sp ON sp.site_id=p.site_id AND sp.is_current
+  JOIN site_plan_pages spp ON spp.plan_id=sp.id AND spp.name=p.name
+ WHERE p.site_id=(SELECT id FROM sites WHERE domain='<domain>')
+   AND (p.sections IS NULL OR p.sections='[]'::jsonb) AND COALESCE(p.status,'')<>'deleted';
+```
+
+**Finally, diff the served page — and take the baseline IMMEDIATELY BEFORE the change.**
+The arena page moved 31,431 → 32,553 bytes in two hours from its own lane's redeploy; a
+baseline taken earlier would have attributed 1,122 bytes to a rename that changed nothing.
+Worked example: `scripts/RENAME_arena_page_to_function.sql`.
+
+**Before firing an acceptance run at another lane's tool, read the judge.** On a failing
+verdict it inserts an `improve_tool` work item with `handler_agent='tool-improver'`
+(`tool_acceptance_actions.go:711`) — an automated fixer. If the page is `rebuild_policy='owned'`
+or the right remedy is a design decision, hand the dispatch to its owner instead of firing it.

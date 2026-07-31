@@ -230,3 +230,37 @@ distinct way a gate has misled us in two days: a gate must not be able to state 
 wider than its measurement. "No page under the names I tried" is not "no page"; "passes on my
 machine" is not "passes"; "a PLAN row exists" is not "a fence exists". All three were shipped
 by this lane, and all three were caught by running the thing rather than reading it.
+
+### P1a CLOSED, 2026-07-31 evening — and the naming check's value is now demonstrated, not argued
+
+`CHECK_naming_contract.sh` returns **PASS**: BROKEN A **0**, BROKEN B **0**, across 30
+canonical tool components (12 testable now / 10 authoring backlog / 8 neither; reconciled).
+That is the first pass since it was written, and it retires the item that "jumps the queue".
+
+The last case was the arena page rename, and it contributed two things beyond closing the item.
+
+**1. A rename's blast radius is every equality join on the renamed value, not just the
+consumers you can name.** `pages.name` had a second consumer keying on it:
+`check_sectionless_pages` joins `site_plan_pages spp ON spp.name = p.name`. Renaming
+`pages.name` alone would have silently removed the page from that detector's population — it
+qualified and was actively reported. **A stage gate that fixes addressability must not blind a
+different gate**, and nothing in the platform would have announced the trade. Both name-side
+rows moved together and the detector's own join was re-run afterwards. Landmine recorded.
+
+**2. The naming defect was MASKING a substantive one, which is the strongest evidence this
+feature has produced for its own ordering.** The instant the arena page became resolvable, its
+existing fence — generated 2026-07-14, never once executed — **failed honestly**: it asserts
+`interaction: fill #take-input` and the served page has no `id` attributes and no form control
+at all. The run had always died on page resolution before reaching that assertion.
+
+So the argument for P1a is no longer *"a mismatch makes a run skip and read clean"* as a
+prediction. It is measured: **of the two BROKEN cases, one (BROKEN B) was a tool asserting
+nothing, and the other (BROKEN A) was a tool whose contract and markup have disagreed for
+seventeen days with no way for anyone to find out.** Addressability is not hygiene before the
+real gates — it is the precondition that decides whether any gate's verdict means anything.
+
+The remedy for the arena is a design decision belonging to the `gauntlet_dead_cta` lane
+(CONTRIB filed in their directory, pointer appended to their cold-start §4). **Deliberately not
+fired from here**: a failing verdict files an `improve_tool` item routed to an automated
+`tool-improver` against an `owned` page, and letting a one-shot fixer choose between "the fence
+is stale" and "the tool is incomplete" is the wrong way to resolve it.

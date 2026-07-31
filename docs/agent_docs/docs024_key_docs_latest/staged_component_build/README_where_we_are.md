@@ -193,3 +193,49 @@ should move".
 
 Where that leaves things: the misleading-test problem is down to that one page-naming case, and
 it is understood rather than mysterious. Nothing else is outstanding on it.
+
+---
+
+**31 July 2026, evening — the check passes, and the rename found something**
+
+You asked for the safer of the two arena options and for the owning team to be told. Both done,
+and the check that started all of this now **passes for the first time**: no tool on the fleet
+claims a test it cannot actually run. Thirty tools, none misleading. Ten still have no written
+test at all, which is honest rather than misleading — nothing claims they were tested — so
+that is a backlog, not a fault.
+
+**The rename needed two changes, not one, and the second one is the interesting part.** I had
+called the page-rename the safer option, and it was, but I found on closer inspection that the
+page's name is also used to join it to the site's plan — and a different automated check
+relies on that join to notice pages that are in the plan with no content. Renaming only the
+page would have quietly dropped the arena page out of *that* check's view. Nothing would have
+warned anyone: the page would still serve, the nav would still read correctly, and it would
+have looked healthier only because nothing was examining it any more. **Trading one defect for
+a blind spot would have been a worse deal than leaving it alone.** So both records moved
+together, and I re-ran the other check afterwards to confirm the page is still in its sights.
+
+The visitor-facing page is provably untouched — identical to the byte, same checksum.
+
+**And the moment the page became testable, it failed — for a real reason nobody could have
+seen before.** The arena has had a written test since 14 July that had never once run. It
+tests that you can type into a box called `#take-input`. **That box does not exist on the
+page** — the page has no input fields at all, only the site's menu button. So the test could
+never have passed, and until today it never got far enough to say so.
+
+This is the best argument yet for why the naming work came first. It was never bookkeeping:
+the naming fault was *hiding* a disagreement between what a tool promises and what it actually
+is. Fixing the name did not create a problem, it stopped concealing one.
+
+**I did not decide which side is wrong, and I did not fire the test.** Either the test is out
+of date (the arena became a static display) or the tool is missing its input. That is a design
+question about someone else's tool, and firing the test would have filed a job for an automatic
+code-fixer aimed at a page marked as hand-owned — which is precisely the wrong way to settle a
+design question. I wrote it up for the team that owns it, with both readings, the exact command,
+and the measurements.
+
+**On telling them:** I put the write-up in their own folder *and* added a dated line into the
+document a fresh session of theirs reads first. Their document did not mention the arena at
+all, so without that line the write-up would have sat unread — this fleet has already learned
+that leaving a file in someone's directory is not the same as telling them.
+
+Nothing is now waiting on me for this piece of work.

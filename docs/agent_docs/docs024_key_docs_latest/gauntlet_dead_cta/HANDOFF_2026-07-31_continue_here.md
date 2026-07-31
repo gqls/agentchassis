@@ -325,6 +325,36 @@ correlation, so `098` credits it automatically **with no amend** — do not writ
    my 1,293-char figure came from a probe looking for *today's* headline, which
    correctly is not on that page.
 
+> **6. ADDED 2026-07-31 ~15:20Z by lane `staged_component_build` — a decision for you,
+> and a correction to something recorded fleet-wide about your tool.**
+> Full detail, with every measurement: **`CONTRIB_2026-07-31_arena_tool_is_now_acceptance_testable.md`**
+> in this directory. In short:
+>
+> - **Your arena page has never been acceptance-testable**, because the Tier-4 lookup is
+>   `name IN (function, 'tool-'||function)` and `pages.name='tool-arena'` matched neither
+>   `tool-arena-interface` nor `tool-tool-arena-interface`. Every run hard-errored on the
+>   page lookup before evaluating a criterion. **Fixed** — `pages.name` **and**
+>   `site_plan_pages.name` moved together (the second matters: `check_sectionless_pages`
+>   joins `spp.name = p.name`, so renaming only the page would have silently dropped it out
+>   of that detector, where it is currently reported as item `559cb636`). Served page is
+>   **byte-identical**, md5 unchanged, and your nav renders `nav_label`, not `name`.
+> - **`tool-arena-interface` was recorded fleet-wide as "an orphaned component with no page
+>   — decide whether it should exist". That was FALSE**, it came from my check guessing at
+>   names, and it is corrected in my lane and in `WRONG_CALLS.md`. Your tool is live and
+>   serving. Flagging it because a deletion argument was one step from being had.
+> - **THE DECISION: with the page now resolvable, your existing fence FAILS honestly.** The
+>   14 July generated fence — never executed until today — asserts
+>   `interaction: fill #take-input`, and **the served page has no `id` attributes and no form
+>   control** but the site menu button. Either the fence is stale (arena became a static
+>   provocation display) or the tool is missing its submission control. **I did not choose,
+>   and I did not fire the run** — a failing verdict files an `improve_tool` item routed to
+>   the automated `tool-improver` against an `owned` page, which is the wrong way to settle a
+>   design question about your tool. Command and both remedies are in the CONTRIB.
+>
+> Nothing waits on me. Two reusable instruments (offline fence trial + mutation prover,
+> register **TL-036**) are in the CONTRIB if you want them — one of them refuted a check I
+> had written to validate, on its first run.
+
 ## 5. Facts: the answer is "nothing to fix, and adding is a real choice"
 
 Owner ruled SQL-verifiable counts only. **vonc's existing four all verify exactly**

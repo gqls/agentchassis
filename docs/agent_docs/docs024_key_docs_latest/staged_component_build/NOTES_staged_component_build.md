@@ -1009,3 +1009,97 @@ should, it is serving — but "rename the page, or the component's function?"** 
 side is the safer one and matches the precedent; the function is the naming contract that
 `page_components.slot_name`, cross-links and `RekeyTravellingDocs` all key on
 (`features_open/028`).
+
+## 2026-07-31 (evening) — P1a is COMPLETE: `CHECK_naming_contract.sh` returns PASS for the first time
+
+Owner directed the safer of the two arena remedies and asked me to tell the owning lane.
+
+### The rename needed TWO rows, and the second one was nearly a silent loss of detection
+
+I had characterised "rename the page" as the safer option because `function` is the naming
+contract that `page_components.slot_name`, cross-links and `RekeyTravellingDocs` key on. That
+was right, but incomplete — **`pages.name` has a second consumer that keys on it by equality**:
+`check_sectionless_pages` (`discovery_checks/check_sectionless_pages.go:118`) joins
+`site_plan_pages spp ON spp.name = p.name`.
+
+So renaming `pages.name` **alone** would have desynchronised that join, and the arena page
+would have **silently left that detector's population** — it qualifies today (0 sections) and
+is currently reported by it (work item `559cb636`, `unresolved`, from 07-15). **Trading a
+naming defect for a lost detection would have been the worse deal, and nothing would have
+reported the trade.** Both name-side rows moved in one transaction, and I re-ran the
+detector's own join afterwards to confirm the page is still in it under the new name.
+
+**Measured before applying — every item, none inherited from the 07-31 precedent:**
+no collision on the target name (0); `site_plan_sections.page_name='tool-arena'` (0, so no
+sections to re-key); `site_plan_imagery` keys on `scope_ref`, not a page name (0);
+`page_components` keys on `page_id`; `pages.status` already `active`, which the lookup
+requires and which the earlier rename never had to check; `site_plan_pages` carries its own
+`slug`/`url`, so `name` is not the URL source; nav renders `nav_label='Arena'` /
+`title='The Arena'`, not `name`. Both UPDATEs scoped **by ID, never by name**, so a
+concurrent rename could not make them hit the wrong row.
+
+**Red then green, at the code's own query rather than a paraphrase of it.** The Tier-4 lookup
+run verbatim (`name IN ($2, 'tool-'||$2)`, `site_id`-scoped, `status='active'`) returned
+**0 rows before** and **`/tools/arena/index.html` after**. Served page **byte-for-byte
+identical**: md5 `4a2d2030e2f6d2630f6497f68705a067`, 32,553 bytes on both sides.
+
+**Queue checked first**, per the rule: no open work item on that page, and the only two vonc
+orchestrations in the last hour were the gauntlet lane's council runs, neither touching arena.
+
+> **A byte-comparison nearly became worthless without my noticing.** The page measured
+> **31,431 bytes** when I first fetched it (~12:50Z) and **32,553** when I took the
+> pre-change baseline (~15:00Z) — it had been rebuilt underneath me by its own lane's
+> 12:45 redeploy. Had I compared the *old* figure against the post-change fetch I would have
+> reported a 1,122-byte "change" caused by my rename, which caused none. **A baseline is only
+> a baseline if it was taken immediately before the change** — on this tree that window is
+> minutes, not hours.
+
+### And the naming fix immediately exposed a real defect it had been hiding
+
+With the page resolvable I ran the arena's **existing** fence — written by `tool-generator`
+on 2026-07-14 and **never once executed** — through `try_fence.go`. 5 checks, both profiles:
+`status`, `boots`, `console` and `mobile-fit` all pass; **`take-submit` FAILS on both**, with
+`timeout 30000ms exceeded waiting for locator('#take-input')`.
+
+**`#take-input` does not exist.** The served page has **no `id` attributes at all** and
+exactly one form control — the site chrome's `.mobile-menu-toggle`. So the fence's only
+behavioural assertion has never been satisfiable, and nobody could have known, because the
+run died on page resolution before reaching it.
+
+**This is the strongest available argument for P1a's priority.** The naming defect was not
+merely cosmetic bookkeeping: it was *masking* a substantive disagreement between a tool's
+published acceptance contract and its markup. Fixing the name did not create a defect, it
+stopped hiding one.
+
+**I did not choose between the two readings** (fence is stale vs tool is missing its
+control), and **I did not fire the cluster run.** On a failing verdict the judge inserts an
+`improve_tool` item routed to `handler_agent='tool-improver'`
+(`tool_acceptance_actions.go:711`) — an automated fixer, aimed at a page whose
+`rebuild_policy` is `owned`. Letting a one-shot fixer guess at a design question about
+another lane's tool is the wrong way to settle it. Checked the handler before firing, which
+is the point of that rule.
+
+### Communicated, and delivered where it will actually be read
+
+Owner of the arena identified by evidence, not assumption: the `gauntlet_dead_cta` / vonc6
+lane holds `p4_sources/backups/backup_arena_html_template_2026-07-27.html` and owns vonc's
+tool pages. Wrote `CONTRIB_2026-07-31_arena_tool_is_now_acceptance_testable.md` into **their**
+directory (their own `CONTRIB_` convention), **and appended a dated pointer as item 6 of
+their `HANDOFF_2026-07-31_continue_here.md` §4 NEXT ACTIONS, their words untouched** — because
+a doc dropped in a directory is not delivery, which this fleet has already measured
+(`a-quiet-git-log-is-not-silence`; the one time a pointer was appended into a cold-start doc,
+the owning thread read it and acted within the hour). Their cold-start had no mention of
+arena at all, so without the pointer the CONTRIB would have sat unread.
+
+The CONTRIB tells them three things: what I changed and why the second row mattered; that the
+fleet-wide "orphaned component, decide whether it should exist" record about their live tool
+was **false and is corrected**; and the fence/markup disagreement with both remedies, the
+exact dispatch command, and the 120s-deadline warning (two failing `fill` steps burn ~60s of
+it before anything else runs).
+
+### RESULT: PASS
+
+`CHECK_naming_contract.sh` — **BROKEN A: 0, BROKEN B: 0**, first PASS since it was written.
+30 canonical tool components: **12 testable now** (was 9 two days ago), 10 authoring backlog,
+8 neither; 12+10+8 = 30, reconciled. The 10 with no PLAN at all remain honest rather than
+misleading — nothing claims they were tested.

@@ -1,5 +1,11 @@
 # HANDOFF — staged_component_build, 2026-07-31 (afternoon)
 
+> ## ⛔ SUPERSEDED by `HANDOFF_2026-07-31b_continue_here.md` — start there instead
+> Written the same evening. **P1a is now CLOSED** (the naming check returns PASS) and the
+> "orphan" claim in §5 is refuted. Only **§3 of this file** — the component Go gate — is still
+> open, and 31b carries it forward in full. This file is kept for its evidence trail and for
+> the corrections below, which are the record of how the understanding moved.
+
 **Written because context ran long, at the owner's suggestion.** This is the cold-start
 doc for a fresh thread on this lane. Everything below is verified as of 2026-07-31 ~09:00
 UTC unless marked. **Re-run every figure** — three of them moved inside 24 hours while I
