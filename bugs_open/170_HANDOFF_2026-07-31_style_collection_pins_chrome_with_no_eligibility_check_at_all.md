@@ -88,6 +88,42 @@ says a fleet-visible change must not ride inside a fix measured to have no visib
 effect, and 167's fix was measured to have none. So this needs its own before/after
 and its own go.
 
+## The existing detector is BLIND to this — measured, and it is the main finding for the fix
+
+`deactivated_site_components` (`discovery_checks/check_integrity.go:158-211`) is the
+platform's detector for exactly this defect class, and it files `deactivated_component`
+work items. Its query, in full:
+
+```sql
+SELECT sc.slot_name, cc.name, cc.id::text
+FROM site_components sc
+JOIN content_components cc ON cc.id = sc.component_id
+WHERE sc.site_id = $1 AND cc.is_active = false
+```
+
+**It joins `site_components` only. It never looks at `style_collections`.** So the
+assignment class is detected and the pin class is invisible — which is why three
+deployed sites have been serving a deactivated header with no work item, no finding
+and no alert. The detector is not broken; its population is narrower than its name
+suggests.
+
+**This makes candidate 1b below the reuse-shaped fix**, and it is what the council's
+`reuse_agent` seat was pointing at (gating objection, round 2): the mechanism already
+exists, it just does not see this row.
+
+> **A per-render ERROR log was tried and REMOVED (2026-07-31, same lane).** Round 1's
+> gating objection was that this exposure shipped unguarded, so a `reportIneligibleChromePin`
+> diagnostic was added to `RenderHeader`/`RenderFooter`. Round 2 rejected it, and four seats
+> agreed on why: `reuse_agent` (high, gating) — a bespoke reporter invented without checking
+> the existing `deactivated_component` pipeline; `bug_historian` (medium) — a log is not a
+> durable or queryable surface, the `bugs_open/071`/`083` "detected then discarded" shape;
+> `guardian` (medium) — ERROR on every render of three sites for ever is alert noise for an
+> already-filed condition; `architecture` (medium) — the only gate on the path was a
+> DEBUG-swallowed diagnostic, and it added a *second* bespoke eligibility predicate.
+> **They were right on all four counts.** The render path cannot repair this, has no reader,
+> and fires unboundedly. The knowledge it carried is preserved here instead. The code
+> removal left a comment at the call site pointing to this file.
+
 ## Fix candidates
 
 1. **Validate the pin at render, fall back to the pool when it is ineligible.**
@@ -98,6 +134,31 @@ and its own go.
    and **wrong** for a pin, because pinning a site to its own fork is the intended
    use — so the pin predicate is `is_active AND component_level IN (…)`, *not* a
    copy of the pool predicate. That asymmetry is the whole subtlety here.
+1b. **Extend `deactivated_site_components` to cover pins — the reuse-shaped fix, and
+   the one to do FIRST.** A second query in the same check, `UNION`-ed or appended:
+   `sites → style_collections → content_components` on `header_component_id` and
+   `footer_component_id`, `WHERE is_active = false`. It reuses the existing check, the
+   existing `deactivated_component` item type, and the existing triage path, so it adds
+   **no new mechanism at all**, and — unlike a render-path log — it fires once per
+   discovery sweep and leaves a durable, queryable row. It is also **flag-only and
+   therefore safe**: it changes no markup, so it does not need the owner call that
+   candidates 1 and 2 do, and it makes the three sites visible while that call is pending.
+   **Three things to get right:**
+   - **`item_key` must differ** from the assignment item's — that is `deactivated_%s`
+     on `slot_name`, so a pin item for the same slot would collide and dedupe away.
+     Use something like `deactivated_pin_%s`.
+   - **Do NOT set `handler_agent: rerender-pages`** as the assignment items do. That
+     handler re-renders; it cannot repoint a `style_collections` row, so the item would
+     be unsatisfiable by construction and would age to `unresolved` — which is
+     `bugs_open/166` reproduced on a new item type. Flag-only, or a handler that can
+     actually write `style_collections`.
+   - `verifier_coverage_test.go` asserts `deactivated_component` items "all carry
+     `component_id`" — a pin item does carry one (the pinned component's), so that
+     contract holds, but check it still passes.
+   **Ownership note:** `discovery_checks/` is the checker-layer lane's subsystem
+   (`bugs_open/149`) and `verifier_coverage_test.go` was dirty in another session's tree
+   on 2026-07-31. Coordinate rather than landing it blind.
+
 2. **Repair the data**: repoint `professional-dark` (and any other collection
    pinning an inactive component) at an active one. Cheapest, visible-change
    equivalent to candidate 1 for today's rows, and leaves the code able to serve a
