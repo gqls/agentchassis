@@ -256,3 +256,47 @@ WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26' ORDER BY slot_name;
 would deploy every page with no head, no nav and no footer — `assemblePage` reads
 chrome from this table (`rerender_single_page_action.go:660`). Decomposition must
 populate it. Re-run this before any flip; a non-empty result is the precondition.
+
+## The tool-equivalence gate: does a rewrite still COMPUTE the same? (2026-07-31)
+
+`toolaudit.py` cannot answer this — `RESPONDS` is satisfiable by a page with an input
+and no logic at all (see LANDMINES). Use `toolgolden.py` for any rewrite, re-port or
+re-style of a calculator.
+
+```bash
+LANE=docs/agent_docs/docs024_key_docs_latest/loancalculator_couk
+URLS="https://loancalculator.co.uk/index.html $(for t in application-tracker \
+  car-finance-calculator compare-loans consolidation credit-health-check damage-checker \
+  interest-rate-stress-test loan-vs-savings overpayment-calculator settlement-calculator \
+  standard-calc; do echo https://loancalculator.co.uk/tools/$t.html; done)"
+
+# BEFORE any change — already captured as acceptance/GOLDEN_2026-07-31_tool_values.json
+python3 $LANE/toolgolden.py --out $LANE/acceptance/GOLDEN_<date>_tool_values.json $URLS
+
+# AFTER — exit 0 = every tool computes identically; exit 1 = divergence, with values
+python3 $LANE/toolgolden.py --compare $LANE/acceptance/GOLDEN_2026-07-31_tool_values.json $URLS
+```
+
+**PASS = `all 12 tools reproduce their golden values exactly`, exit 0.** A `NUMBER`
+divergence is an arithmetic regression; a `text/display` one is usually cosmetic but
+read it before waving it through.
+
+- **It refuses to write a golden file** when any tool is inert, input-independent, or
+  fails to capture. That is deliberate: such a file certifies nothing and would mark a
+  broken rewrite as correct. Fix the cause; do not record it.
+- **GOTCHA — `dom_shape` (e.g. `"2:13804"`) is part of the record.** It is
+  `script-count:serialised-DOM-length`. A capture taken mid-parse silently records
+  £0.00 for everything while reporting success — `settle()` guards it by requiring both
+  numbers to stop moving, and storing them makes a bad capture visible in every later
+  diff. If `dom_shape` differs between golden and a comparison run, distrust the whole
+  comparison before reading the values.
+- **GOTCHA — `vary=0` is CORRECT for `application-tracker`, `credit-health-check` and
+  `damage-checker`.** They have no numeric field to scale, so gate B is exempt by
+  construction. Do not "fix" it by inventing vectors for them.
+- **GOTCHA — modal dialogs BLOCK the renderer**, and CDP just times out with no
+  indication why (`application-tracker`'s remove button calls `confirm()`). The harness
+  stubs `confirm/alert/prompt` after settle. That is a stated behaviour change: a tool
+  gated on `confirm()` proceeds as if accepted, identically for every implementation.
+- **Run it from the repo root** — it resolves `toolprobe` relative to its own path.
+- Verify the gate still has teeth if you change it: break one constant
+  (`(APR/100)/12` → `/11` on `standard-calc`) against a local copy and confirm exit 1.

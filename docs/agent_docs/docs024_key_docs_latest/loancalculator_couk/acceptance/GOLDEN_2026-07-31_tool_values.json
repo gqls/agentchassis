@@ -1,0 +1,2778 @@
+{
+ "pages": {
+  "https://loancalculator.co.uk/index.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "3:13841",
+    "drove": [
+     "amount",
+     "interest",
+     "years"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amount": "20000",
+      "interest": "15.8",
+      "years": "10"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3332.54|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a339,904.80|inline",
+      "total-interest": "\u00a319,904.80|inline",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amount": "20000",
+      "interest": "15.8",
+      "years": "10"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3332.54|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a339,904.80|inline",
+      "total-interest": "\u00a319,904.80|inline",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "3:13841",
+    "drove": [
+     "amount",
+     "interest",
+     "years"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amount": "5000",
+      "interest": "3.95",
+      "years": "2.5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3175.31|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a35,259.30|inline",
+      "total-interest": "\u00a3259.30|inline",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amount": "5000",
+      "interest": "3.95",
+      "years": "2.5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3175.31|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a35,259.30|inline",
+      "total-interest": "\u00a3259.30|inline",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "3:13841",
+    "drove": [
+     "amount",
+     "interest",
+     "years"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/application-tracker.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "doc-address": "true",
+      "doc-bank": "true",
+      "doc-credit": "true",
+      "doc-id": "true",
+      "doc-income": "true",
+      "import-file": "",
+      "user-notes": "Probe"
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "Typing...|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "doc-address": "false",
+      "doc-bank": "false",
+      "doc-credit": "false",
+      "doc-id": "false",
+      "doc-income": "false",
+      "import-file": "",
+      "user-notes": ""
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "doc-address": "false",
+      "doc-bank": "false",
+      "doc-credit": "false",
+      "doc-id": "false",
+      "doc-income": "false",
+      "import-file": "",
+      "user-notes": ""
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "dom_shape": "3:15489",
+    "drove": [
+     "doc-id=ticked",
+     "doc-address=ticked",
+     "doc-income=ticked",
+     "doc-bank=ticked",
+     "doc-credit=ticked",
+     "user-notes=text"
+    ],
+    "pressed": "Clear All Progress",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "doc-address": "true",
+      "doc-bank": "true",
+      "doc-credit": "true",
+      "doc-id": "true",
+      "doc-income": "true",
+      "import-file": "",
+      "user-notes": "Probe"
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "Typing...|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "doc-address": "false",
+      "doc-bank": "false",
+      "doc-credit": "false",
+      "doc-id": "false",
+      "doc-income": "false",
+      "import-file": "",
+      "user-notes": ""
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "doc-address": "false",
+      "doc-bank": "false",
+      "doc-credit": "false",
+      "doc-id": "false",
+      "doc-income": "false",
+      "import-file": "",
+      "user-notes": ""
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "dom_shape": "3:15489",
+    "drove": [
+     "doc-id=ticked",
+     "doc-address=ticked",
+     "doc-income=ticked",
+     "doc-bank=ticked",
+     "doc-credit=ticked",
+     "user-notes=text"
+    ],
+    "pressed": "Clear All Progress",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "doc-address": "true",
+      "doc-bank": "true",
+      "doc-credit": "true",
+      "doc-id": "true",
+      "doc-income": "true",
+      "import-file": "",
+      "user-notes": "Probe"
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "Typing...|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "doc-address": "false",
+      "doc-bank": "false",
+      "doc-credit": "false",
+      "doc-id": "false",
+      "doc-income": "false",
+      "import-file": "",
+      "user-notes": ""
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "doc-address": "false",
+      "doc-bank": "false",
+      "doc-credit": "false",
+      "doc-id": "false",
+      "doc-income": "false",
+      "import-file": "",
+      "user-notes": ""
+     },
+     "ids": {
+      "checklist": "Proof of ID: Passport or Full UK Driving Licence. Proof of Address: Utility bill or Council Tax (last 3 months). Proof of Income: Last 3 payslips or P60. Bank Statements: Last 3 months showing rent/mo|block",
+      "doc-address": "|block",
+      "doc-bank": "|block",
+      "doc-credit": "|block",
+      "doc-id": "|block",
+      "doc-income": "|block",
+      "import-file": "|none",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "progress-fill": "|block",
+      "save-status": "|block",
+      "user-notes": "|inline-block"
+     }
+    },
+    "dom_shape": "3:15489",
+    "drove": [
+     "doc-id=ticked",
+     "doc-address=ticked",
+     "doc-income=ticked",
+     "doc-bank=ticked",
+     "doc-credit=ticked",
+     "user-notes=text"
+    ],
+    "pressed": "Clear All Progress",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/car-finance-calculator.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "balloon": "10000",
+      "car-apr": "8.9",
+      "car-term": "4",
+      "deposit": "5000",
+      "price": "25000"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3496.75|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a33844.08|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "balloon": "10000",
+      "car-apr": "8.9",
+      "car-term": "4",
+      "deposit": "5000",
+      "price": "25000"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3496.75|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a33844.08|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "balloon": "10000",
+      "car-apr": "8.9",
+      "car-term": "4",
+      "deposit": "5000",
+      "price": "25000"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3496.75|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a33844.08|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "dom_shape": "2:12518",
+    "drove": [
+     "price",
+     "deposit",
+     "car-apr",
+     "car-term",
+     "balloon"
+    ],
+    "pressed": "btn-hp",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "balloon": "20000",
+      "car-apr": "17.8",
+      "car-term": "8",
+      "deposit": "10000",
+      "price": "50000"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3784.09|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a335272.23|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "balloon": "20000",
+      "car-apr": "17.8",
+      "car-term": "8",
+      "deposit": "10000",
+      "price": "50000"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3784.09|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a335272.23|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "balloon": "10000",
+      "car-apr": "8.9",
+      "car-term": "4",
+      "deposit": "5000",
+      "price": "25000"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3496.75|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a33844.08|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "dom_shape": "2:12518",
+    "drove": [
+     "price",
+     "deposit",
+     "car-apr",
+     "car-term",
+     "balloon"
+    ],
+    "pressed": "btn-hp",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "balloon": "5000",
+      "car-apr": "4.45",
+      "car-term": "2",
+      "deposit": "2500",
+      "price": "12500"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3436.25|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a3470.12|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "balloon": "5000",
+      "car-apr": "4.45",
+      "car-term": "2",
+      "deposit": "2500",
+      "price": "12500"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3436.25|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a3470.12|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "balloon": "10000",
+      "car-apr": "8.9",
+      "car-term": "4",
+      "deposit": "5000",
+      "price": "25000"
+     },
+     "ids": {
+      "balloon": "|inline-block",
+      "balloon-box": "Estimated Final Balloon Payment (\u00a3) This is the 'Optional Final Payment' to own the car at the end of a PCP deal.|none",
+      "btn-hp": "Hire Purchase (HP)|block",
+      "btn-pcp": "PCP (with Balloon)|block",
+      "car-apr": "|inline-block",
+      "car-monthly": "\u00a3496.75|block",
+      "car-term": "|inline-block",
+      "car-total-int": "\u00a33844.08|block",
+      "deposit": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "price": "|inline-block"
+     }
+    },
+    "dom_shape": "2:12518",
+    "drove": [
+     "price",
+     "deposit",
+     "car-apr",
+     "car-term",
+     "balloon"
+    ],
+    "pressed": "btn-hp",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/compare-loans.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amt-a": "10000",
+      "amt-b": "10000",
+      "apr-a": "7.9",
+      "apr-b": "9.9",
+      "term-a": "5",
+      "term-b": "4"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3202.29 Total Interest \u00a32137.14|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3253.15 Total Interest \u00a32151.00|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a32137.14|block",
+      "res-i-b": "\u00a32151.00|block",
+      "res-m-a": "\u00a3202.29|block",
+      "res-m-b": "\u00a3253.15|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a313.86 in total interest with Option A.|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amt-a": "10000",
+      "amt-b": "10000",
+      "apr-a": "7.9",
+      "apr-b": "9.9",
+      "term-a": "5",
+      "term-b": "4"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3202.29 Total Interest \u00a32137.14|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3253.15 Total Interest \u00a32151.00|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a32137.14|block",
+      "res-i-b": "\u00a32151.00|block",
+      "res-m-a": "\u00a3202.29|block",
+      "res-m-b": "\u00a3253.15|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a313.86 in total interest with Option A.|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amt-a": "10000",
+      "amt-b": "10000",
+      "apr-a": "7.9",
+      "apr-b": "9.9",
+      "term-a": "5",
+      "term-b": "4"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3202.29 Total Interest \u00a32137.14|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3253.15 Total Interest \u00a32151.00|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a32137.14|block",
+      "res-i-b": "\u00a32151.00|block",
+      "res-m-a": "\u00a3202.29|block",
+      "res-m-b": "\u00a3253.15|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a313.86 in total interest with Option A.|block"
+     }
+    },
+    "dom_shape": "2:12616",
+    "drove": [
+     "amt-a",
+     "apr-a",
+     "term-a",
+     "amt-b",
+     "apr-b",
+     "term-b"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amt-a": "20000",
+      "amt-b": "20000",
+      "apr-a": "15.8",
+      "apr-b": "19.8",
+      "term-a": "10",
+      "term-b": "8"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3332.54 Total Interest \u00a319904.53|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3416.57 Total Interest \u00a319991.01|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a319904.53|block",
+      "res-i-b": "\u00a319991.01|block",
+      "res-m-a": "\u00a3332.54|block",
+      "res-m-b": "\u00a3416.57|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a386.48 in total interest with Option A.|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amt-a": "20000",
+      "amt-b": "20000",
+      "apr-a": "15.8",
+      "apr-b": "19.8",
+      "term-a": "10",
+      "term-b": "8"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3332.54 Total Interest \u00a319904.53|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3416.57 Total Interest \u00a319991.01|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a319904.53|block",
+      "res-i-b": "\u00a319991.01|block",
+      "res-m-a": "\u00a3332.54|block",
+      "res-m-b": "\u00a3416.57|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a386.48 in total interest with Option A.|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amt-a": "10000",
+      "amt-b": "10000",
+      "apr-a": "7.9",
+      "apr-b": "9.9",
+      "term-a": "5",
+      "term-b": "4"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3202.29 Total Interest \u00a32137.14|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3253.15 Total Interest \u00a32151.00|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a32137.14|block",
+      "res-i-b": "\u00a32151.00|block",
+      "res-m-a": "\u00a3202.29|block",
+      "res-m-b": "\u00a3253.15|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a313.86 in total interest with Option A.|block"
+     }
+    },
+    "dom_shape": "2:12616",
+    "drove": [
+     "amt-a",
+     "apr-a",
+     "term-a",
+     "amt-b",
+     "apr-b",
+     "term-b"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amt-a": "5000",
+      "amt-b": "5000",
+      "apr-a": "3.95",
+      "apr-b": "4.95",
+      "term-a": "2.5",
+      "term-b": "2"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3175.31 Total Interest \u00a3259.16|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3219.25 Total Interest \u00a3261.88|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a3259.16|block",
+      "res-i-b": "\u00a3261.88|block",
+      "res-m-a": "\u00a3175.31|block",
+      "res-m-b": "\u00a3219.25|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a32.72 in total interest with Option A.|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amt-a": "5000",
+      "amt-b": "5000",
+      "apr-a": "3.95",
+      "apr-b": "4.95",
+      "term-a": "2.5",
+      "term-b": "2"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3175.31 Total Interest \u00a3259.16|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3219.25 Total Interest \u00a3261.88|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a3259.16|block",
+      "res-i-b": "\u00a3261.88|block",
+      "res-m-a": "\u00a3175.31|block",
+      "res-m-b": "\u00a3219.25|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a32.72 in total interest with Option A.|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amt-a": "10000",
+      "amt-b": "10000",
+      "apr-a": "7.9",
+      "apr-b": "9.9",
+      "term-a": "5",
+      "term-b": "4"
+     },
+     "ids": {
+      "amt-a": "|inline-block",
+      "amt-b": "|inline-block",
+      "apr-a": "|inline-block",
+      "apr-b": "|inline-block",
+      "col-a": "Option A Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3202.29 Total Interest \u00a32137.14|block",
+      "col-b": "Option B Amount (\u00a3) APR (%) Term (Years) Monthly Payment \u00a3253.15 Total Interest \u00a32151.00|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "res-i-a": "\u00a32137.14|block",
+      "res-i-b": "\u00a32151.00|block",
+      "res-m-a": "\u00a3202.29|block",
+      "res-m-b": "\u00a3253.15|block",
+      "term-a": "|inline-block",
+      "term-b": "|inline-block",
+      "verdict": "Option A is Cheaper|block",
+      "verdict-detail": "You save \u00a313.86 in total interest with Option A.|block"
+     }
+    },
+    "dom_shape": "2:12616",
+    "drove": [
+     "amt-a",
+     "apr-a",
+     "term-a",
+     "amt-b",
+     "apr-b",
+     "term-b"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/consolidation.html": {
+   "defaults": {
+    "added": [
+     "+ Add Another Debt"
+    ],
+    "after_input": {
+     "controls": {
+      "input#0": "Probe",
+      "input#1": "1000",
+      "input#10": "1000",
+      "input#11": "1000",
+      "input#2": "1000",
+      "input#3": "1000",
+      "input#4": "Probe",
+      "input#5": "1000",
+      "input#6": "1000",
+      "input#7": "1000",
+      "input#8": "Probe",
+      "input#9": "1000",
+      "new-rate": "9.9",
+      "new-term": "5"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a33,000.00|inline",
+      "debt-list": "\u2715 \u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a3815.62|inline",
+      "new-monthly": "\u00a363.59|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a32,497,000.00|inline",
+      "verdict": "\u2705 Interest Saving: Consolidating will save you \u00a32,496,184.38 in total interest.|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "input#0": "Probe",
+      "input#1": "1000",
+      "input#2": "1000",
+      "input#3": "1000",
+      "input#4": "Probe",
+      "input#5": "1000",
+      "input#6": "1000",
+      "input#7": "1000",
+      "new-rate": "9.9",
+      "new-term": "5"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a32,000.00|inline",
+      "debt-list": "\u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a3543.74|inline",
+      "new-monthly": "\u00a342.40|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a31,664,666.67|inline",
+      "verdict": "\u2705 Interest Saving: Consolidating will save you \u00a31,664,122.92 in total interest.|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "input#0": "",
+      "input#1": "",
+      "input#10": "",
+      "input#11": "",
+      "input#2": "",
+      "input#3": "",
+      "input#4": "",
+      "input#5": "",
+      "input#6": "",
+      "input#7": "",
+      "input#8": "",
+      "input#9": "",
+      "new-rate": "9.9",
+      "new-term": "5"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a30.00|inline",
+      "debt-list": "\u2715 \u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a30.00|inline",
+      "new-monthly": "\u00a30.00|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a30.00|inline",
+      "verdict": "|block"
+     }
+    },
+    "dom_shape": "2:15492",
+    "drove": [
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "new-rate",
+     "new-term"
+    ],
+    "pressed": "\u2715",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [
+     "+ Add Another Debt"
+    ],
+    "after_input": {
+     "controls": {
+      "input#0": "Probe",
+      "input#1": "2000",
+      "input#10": "2000",
+      "input#11": "2000",
+      "input#2": "2000",
+      "input#3": "2000",
+      "input#4": "Probe",
+      "input#5": "2000",
+      "input#6": "2000",
+      "input#7": "2000",
+      "input#8": "Probe",
+      "input#9": "2000",
+      "new-rate": "19.8",
+      "new-term": "10"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a36,000.00|inline",
+      "debt-list": "\u2715 \u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a37,819.07|inline",
+      "new-monthly": "\u00a3115.16|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a3NaN|inline",
+      "verdict": "\u2705 Interest Saving: Consolidating will save you \u00a3NaN in total interest.|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "input#0": "Probe",
+      "input#1": "2000",
+      "input#2": "2000",
+      "input#3": "2000",
+      "input#4": "Probe",
+      "input#5": "2000",
+      "input#6": "2000",
+      "input#7": "2000",
+      "new-rate": "19.8",
+      "new-term": "10"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a34,000.00|inline",
+      "debt-list": "\u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a35,212.71|inline",
+      "new-monthly": "\u00a376.77|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a3NaN|inline",
+      "verdict": "\u2705 Interest Saving: Consolidating will save you \u00a3NaN in total interest.|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "input#0": "",
+      "input#1": "",
+      "input#10": "",
+      "input#11": "",
+      "input#2": "",
+      "input#3": "",
+      "input#4": "",
+      "input#5": "",
+      "input#6": "",
+      "input#7": "",
+      "input#8": "",
+      "input#9": "",
+      "new-rate": "9.9",
+      "new-term": "5"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a30.00|inline",
+      "debt-list": "\u2715 \u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a30.00|inline",
+      "new-monthly": "\u00a30.00|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a30.00|inline",
+      "verdict": "|block"
+     }
+    },
+    "dom_shape": "2:15492",
+    "drove": [
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "new-rate",
+     "new-term"
+    ],
+    "pressed": "\u2715",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [
+     "+ Add Another Debt"
+    ],
+    "after_input": {
+     "controls": {
+      "input#0": "Probe",
+      "input#1": "500",
+      "input#10": "500",
+      "input#11": "500",
+      "input#2": "500",
+      "input#3": "500",
+      "input#4": "Probe",
+      "input#5": "500",
+      "input#6": "500",
+      "input#7": "500",
+      "input#8": "Probe",
+      "input#9": "500",
+      "new-rate": "4.95",
+      "new-term": "2.5"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a31,500.00|inline",
+      "debt-list": "\u2715 \u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a397.81|inline",
+      "new-monthly": "\u00a353.26|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a3311,000.00|inline",
+      "verdict": "\u2705 Interest Saving: Consolidating will save you \u00a3310,902.19 in total interest.|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "input#0": "Probe",
+      "input#1": "500",
+      "input#2": "500",
+      "input#3": "500",
+      "input#4": "Probe",
+      "input#5": "500",
+      "input#6": "500",
+      "input#7": "500",
+      "new-rate": "4.95",
+      "new-term": "2.5"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a31,000.00|inline",
+      "debt-list": "\u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a365.21|inline",
+      "new-monthly": "\u00a335.51|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a3207,333.33|inline",
+      "verdict": "\u2705 Interest Saving: Consolidating will save you \u00a3207,268.12 in total interest.|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "input#0": "",
+      "input#1": "",
+      "input#10": "",
+      "input#11": "",
+      "input#2": "",
+      "input#3": "",
+      "input#4": "",
+      "input#5": "",
+      "input#6": "",
+      "input#7": "",
+      "input#8": "",
+      "input#9": "",
+      "new-rate": "9.9",
+      "new-term": "5"
+     },
+     "ids": {
+      "curr-total-bal": "\u00a30.00|inline",
+      "debt-list": "\u2715 \u2715|block",
+      "debt-manager": "1. Your Current Debts \u2715 \u2715 + Add Another Debt|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-int": "\u00a30.00|inline",
+      "new-monthly": "\u00a30.00|inline",
+      "new-rate": "|inline-block",
+      "new-term": "|inline-block",
+      "old-int": "\u00a30.00|inline",
+      "verdict": "|block"
+     }
+    },
+    "dom_shape": "2:15492",
+    "drove": [
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "?=text",
+     "?=nodefault",
+     "?=nodefault",
+     "?=nodefault",
+     "new-rate",
+     "new-term"
+    ],
+    "pressed": "\u2715",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/credit-health-check.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|block",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|none",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "after_press": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|none",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|block",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "before": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|block",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|none",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "dom_shape": "2:12143",
+    "drove": [],
+    "pressed": "Yes",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|block",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|none",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "after_press": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|none",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|block",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "before": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|block",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|none",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "dom_shape": "2:12143",
+    "drove": [],
+    "pressed": "Yes",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|block",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|none",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "after_press": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|none",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|block",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "before": {
+     "controls": {},
+     "ids": {
+      "meter-fill": "|block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "quiz-container": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure 2. How many missed payments have you had in the last 2 years? Zero One Two or more 3. What percentage of your credit card li|block",
+      "rating-desc": "|block",
+      "rating-text": "Calculating...|block",
+      "step-1": "1. Are you on the Electoral Roll at your current address? Yes No / Not Sure|block",
+      "step-2": "2. How many missed payments have you had in the last 2 years? Zero One Two or more|none",
+      "step-3": "3. What percentage of your credit card limits are you using? Under 30% (Low) 30% to 70% (Medium) Over 70% (High)|none",
+      "step-4": "4. How long have you lived at your current address? Over 3 Years 1 to 3 Years Less than a year|none",
+      "step-5": "Final Result Calculating... Start Over|none"
+     }
+    },
+    "dom_shape": "2:12143",
+    "drove": [],
+    "pressed": "Yes",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/damage-checker.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "dmg-1": "true",
+      "dmg-2": "true",
+      "dmg-3": "true",
+      "dmg-4": "true"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|block",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "dmg-1": "true",
+      "dmg-2": "true",
+      "dmg-3": "true",
+      "dmg-4": "true"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|block",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "dmg-1": "false",
+      "dmg-2": "false",
+      "dmg-3": "false",
+      "dmg-4": "false"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|none",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "dom_shape": "2:10255",
+    "drove": [
+     "dmg-1=ticked",
+     "dmg-2=ticked",
+     "dmg-3=ticked",
+     "dmg-4=ticked"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "dmg-1": "true",
+      "dmg-2": "true",
+      "dmg-3": "true",
+      "dmg-4": "true"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|block",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "dmg-1": "true",
+      "dmg-2": "true",
+      "dmg-3": "true",
+      "dmg-4": "true"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|block",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "dmg-1": "false",
+      "dmg-2": "false",
+      "dmg-3": "false",
+      "dmg-4": "false"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|none",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "dom_shape": "2:10255",
+    "drove": [
+     "dmg-1=ticked",
+     "dmg-2=ticked",
+     "dmg-3=ticked",
+     "dmg-4=ticked"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "dmg-1": "true",
+      "dmg-2": "true",
+      "dmg-3": "true",
+      "dmg-4": "true"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|block",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "dmg-1": "true",
+      "dmg-2": "true",
+      "dmg-3": "true",
+      "dmg-4": "true"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|block",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "dmg-1": "false",
+      "dmg-2": "false",
+      "dmg-3": "false",
+      "dmg-4": "false"
+     },
+     "ids": {
+      "damage-verdict": "Potential Charges Detected Lenders typically charge between \u00a350 - \u00a3150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.|none",
+      "dmg-1": "|inline-block",
+      "dmg-2": "|inline-block",
+      "dmg-3": "|inline-block",
+      "dmg-4": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block"
+     }
+    },
+    "dom_shape": "2:10255",
+    "drove": [
+     "dmg-1=ticked",
+     "dmg-2=ticked",
+     "dmg-3=ticked",
+     "dmg-4=ticked"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/interest-rate-stress-test.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "stress-apr": "8.5",
+      "stress-bal": "10000",
+      "stress-term": "3"
+     },
+     "ids": {
+      "curr-pay": "\u00a3315.68|block",
+      "extra-cost": "9.35|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3325.02|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "stress-apr": "8.5",
+      "stress-bal": "10000",
+      "stress-term": "3"
+     },
+     "ids": {
+      "curr-pay": "\u00a3315.68|block",
+      "extra-cost": "9.35|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3325.02|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "stress-apr": "8.5",
+      "stress-bal": "10000",
+      "stress-term": "3"
+     },
+     "ids": {
+      "curr-pay": "\u00a3315.68|block",
+      "extra-cost": "9.35|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3325.02|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "dom_shape": "2:10714",
+    "drove": [
+     "stress-bal",
+     "stress-apr",
+     "stress-term"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "stress-apr": "17",
+      "stress-bal": "20000",
+      "stress-term": "6"
+     },
+     "ids": {
+      "curr-pay": "\u00a3444.92|block",
+      "extra-cost": "22.61|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3467.53|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "stress-apr": "17",
+      "stress-bal": "20000",
+      "stress-term": "6"
+     },
+     "ids": {
+      "curr-pay": "\u00a3444.92|block",
+      "extra-cost": "22.61|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3467.53|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "stress-apr": "8.5",
+      "stress-bal": "10000",
+      "stress-term": "3"
+     },
+     "ids": {
+      "curr-pay": "\u00a3315.68|block",
+      "extra-cost": "9.35|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3325.02|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "dom_shape": "2:10714",
+    "drove": [
+     "stress-bal",
+     "stress-apr",
+     "stress-term"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "stress-apr": "4.25",
+      "stress-bal": "5000",
+      "stress-term": "1.5"
+     },
+     "ids": {
+      "curr-pay": "\u00a3287.22|block",
+      "extra-cost": "4.51|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3291.72|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "stress-apr": "4.25",
+      "stress-bal": "5000",
+      "stress-term": "1.5"
+     },
+     "ids": {
+      "curr-pay": "\u00a3287.22|block",
+      "extra-cost": "4.51|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3291.72|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "stress-apr": "8.5",
+      "stress-bal": "10000",
+      "stress-term": "3"
+     },
+     "ids": {
+      "curr-pay": "\u00a3315.68|block",
+      "extra-cost": "9.35|inline",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "new-pay": "\u00a3325.02|block",
+      "stress-apr": "|inline-block",
+      "stress-bal": "|inline-block",
+      "stress-term": "|inline-block"
+     }
+    },
+    "dom_shape": "2:10714",
+    "drove": [
+     "stress-bal",
+     "stress-apr",
+     "stress-term"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/loan-vs-savings.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "loan-rate": "7.5",
+      "save-rate": "5",
+      "spare-cash": "1000",
+      "tax-bracket": "0.4"
+     },
+     "ids": {
+      "loan-benefit": "\u00a375.00|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year. Put in Savings You earn a net \u00a330.00 in interest income per year.|grid",
+      "save-benefit": "\u00a330.00|block",
+      "save-panel": "Put in Savings You earn a net \u00a330.00 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "loan-rate": "7.5",
+      "save-rate": "5",
+      "spare-cash": "1000",
+      "tax-bracket": "0.4"
+     },
+     "ids": {
+      "loan-benefit": "\u00a375.00|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year. Put in Savings You earn a net \u00a330.00 in interest income per year.|grid",
+      "save-benefit": "\u00a330.00|block",
+      "save-panel": "Put in Savings You earn a net \u00a330.00 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "loan-rate": "7.5",
+      "save-rate": "5.0",
+      "spare-cash": "1000",
+      "tax-bracket": "0"
+     },
+     "ids": {
+      "loan-benefit": "\u00a375.00|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year. Put in Savings You earn a net \u00a350.00 in interest income per year.|grid",
+      "save-benefit": "\u00a350.00|block",
+      "save-panel": "Put in Savings You earn a net \u00a350.00 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "dom_shape": "2:12614",
+    "drove": [
+     "loan-rate",
+     "save-rate",
+     "spare-cash",
+     "tax-bracket=opt1"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "loan-rate": "15",
+      "save-rate": "10",
+      "spare-cash": "2000",
+      "tax-bracket": "0.4"
+     },
+     "ids": {
+      "loan-benefit": "\u00a3300.00|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a3300.00 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a3300.00 in interest saved per year. Put in Savings You earn a net \u00a3120.00 in interest income per year.|grid",
+      "save-benefit": "\u00a3120.00|block",
+      "save-panel": "Put in Savings You earn a net \u00a3120.00 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "loan-rate": "15",
+      "save-rate": "10",
+      "spare-cash": "2000",
+      "tax-bracket": "0.4"
+     },
+     "ids": {
+      "loan-benefit": "\u00a3300.00|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a3300.00 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a3300.00 in interest saved per year. Put in Savings You earn a net \u00a3120.00 in interest income per year.|grid",
+      "save-benefit": "\u00a3120.00|block",
+      "save-panel": "Put in Savings You earn a net \u00a3120.00 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "loan-rate": "7.5",
+      "save-rate": "5.0",
+      "spare-cash": "1000",
+      "tax-bracket": "0"
+     },
+     "ids": {
+      "loan-benefit": "\u00a375.00|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year. Put in Savings You earn a net \u00a350.00 in interest income per year.|grid",
+      "save-benefit": "\u00a350.00|block",
+      "save-panel": "Put in Savings You earn a net \u00a350.00 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "dom_shape": "2:12614",
+    "drove": [
+     "loan-rate",
+     "save-rate",
+     "spare-cash",
+     "tax-bracket=opt1"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "loan-rate": "3.75",
+      "save-rate": "2.5",
+      "spare-cash": "500",
+      "tax-bracket": "0.4"
+     },
+     "ids": {
+      "loan-benefit": "\u00a318.75|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a318.75 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a318.75 in interest saved per year. Put in Savings You earn a net \u00a37.50 in interest income per year.|grid",
+      "save-benefit": "\u00a37.50|block",
+      "save-panel": "Put in Savings You earn a net \u00a37.50 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "loan-rate": "3.75",
+      "save-rate": "2.5",
+      "spare-cash": "500",
+      "tax-bracket": "0.4"
+     },
+     "ids": {
+      "loan-benefit": "\u00a318.75|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a318.75 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a318.75 in interest saved per year. Put in Savings You earn a net \u00a37.50 in interest income per year.|grid",
+      "save-benefit": "\u00a37.50|block",
+      "save-panel": "Put in Savings You earn a net \u00a37.50 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "loan-rate": "7.5",
+      "save-rate": "5.0",
+      "spare-cash": "1000",
+      "tax-bracket": "0"
+     },
+     "ids": {
+      "loan-benefit": "\u00a375.00|block",
+      "loan-panel": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year.|block",
+      "loan-rate": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "results": "Pay Off Loan You \"earn\" a guaranteed \u00a375.00 in interest saved per year. Put in Savings You earn a net \u00a350.00 in interest income per year.|grid",
+      "save-benefit": "\u00a350.00|block",
+      "save-panel": "Put in Savings You earn a net \u00a350.00 in interest income per year.|block",
+      "save-rate": "|inline-block",
+      "spare-cash": "|inline-block",
+      "tax-bracket": "No (Basic Rate / No Tax) Yes (40% Tax on Savings)|inline-block"
+     }
+    },
+    "dom_shape": "2:12614",
+    "drove": [
+     "loan-rate",
+     "save-rate",
+     "spare-cash",
+     "tax-bracket=opt1"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/overpayment-calculator.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "bal": "15000",
+      "over": "50",
+      "rate": "6.5",
+      "term": "5"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a3448.024|block",
+      "term": "|inline-block",
+      "time-display": "10|inline"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "bal": "15000",
+      "over": "50",
+      "rate": "6.5",
+      "term": "5"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a3448.024|block",
+      "term": "|inline-block",
+      "time-display": "10|inline"
+     }
+    },
+    "before": {
+     "controls": {
+      "bal": "15000",
+      "over": "50",
+      "rate": "6.5",
+      "term": "5"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a3448.024|block",
+      "term": "|inline-block",
+      "time-display": "10|inline"
+     }
+    },
+    "dom_shape": "2:12995",
+    "drove": [
+     "bal",
+     "rate",
+     "term",
+     "over"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "bal": "30000",
+      "over": "100",
+      "rate": "13",
+      "term": "10"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a38,020.903|block",
+      "term": "|inline-block",
+      "time-display": "36|inline"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "bal": "30000",
+      "over": "100",
+      "rate": "13",
+      "term": "10"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a38,020.903|block",
+      "term": "|inline-block",
+      "time-display": "36|inline"
+     }
+    },
+    "before": {
+     "controls": {
+      "bal": "15000",
+      "over": "50",
+      "rate": "6.5",
+      "term": "5"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a3448.024|block",
+      "term": "|inline-block",
+      "time-display": "10|inline"
+     }
+    },
+    "dom_shape": "2:12995",
+    "drove": [
+     "bal",
+     "rate",
+     "term",
+     "over"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "bal": "7500",
+      "over": "25",
+      "rate": "3.25",
+      "term": "2.5"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a328.315|block",
+      "term": "|inline-block",
+      "time-display": "2|inline"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "bal": "7500",
+      "over": "25",
+      "rate": "3.25",
+      "term": "2.5"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a328.315|block",
+      "term": "|inline-block",
+      "time-display": "2|inline"
+     }
+    },
+    "before": {
+     "controls": {
+      "bal": "15000",
+      "over": "50",
+      "rate": "6.5",
+      "term": "5"
+     },
+     "ids": {
+      "bal": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "over": "|inline-block",
+      "rate": "|inline-block",
+      "save-display": "\u00a3448.024|block",
+      "term": "|inline-block",
+      "time-display": "10|inline"
+     }
+    },
+    "dom_shape": "2:12995",
+    "drove": [
+     "bal",
+     "rate",
+     "term",
+     "over"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/settlement-calculator.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "settle-apr": "9.9",
+      "settle-bal": "5000"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a378.66 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a35,078.66|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "settle-apr": "9.9",
+      "settle-bal": "5000"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a378.66 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a35,078.66|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "settle-apr": "9.9",
+      "settle-bal": "5000"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a378.66 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a35,078.66|block"
+     }
+    },
+    "dom_shape": "2:10638",
+    "drove": [
+     "settle-bal",
+     "settle-apr"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "settle-apr": "19.8",
+      "settle-bal": "10000"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a3314.63 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a310,314.63|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "settle-apr": "19.8",
+      "settle-bal": "10000"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a3314.63 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a310,314.63|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "settle-apr": "9.9",
+      "settle-bal": "5000"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a378.66 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a35,078.66|block"
+     }
+    },
+    "dom_shape": "2:10638",
+    "drove": [
+     "settle-bal",
+     "settle-apr"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "settle-apr": "4.95",
+      "settle-bal": "2500"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a319.66 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a32,519.66|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "settle-apr": "4.95",
+      "settle-bal": "2500"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a319.66 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a32,519.66|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "settle-apr": "9.9",
+      "settle-bal": "5000"
+     },
+     "ids": {
+      "mobile-menu-btn": "\u2630|none",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "settle-apr": "|inline-block",
+      "settle-bal": "|inline-block",
+      "settle-breakdown": "Includes approx. \u00a378.66 in \"58-day\" interest charges.|block",
+      "settle-result": "\u00a35,078.66|block"
+     }
+    },
+    "dom_shape": "2:10638",
+    "drove": [
+     "settle-bal",
+     "settle-apr"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  },
+  "https://loancalculator.co.uk/tools/standard-calc.html": {
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "2:13804",
+    "drove": [
+     "amount",
+     "interest",
+     "years"
+    ],
+    "pressed": "none",
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amount": "20000",
+      "interest": "15.8",
+      "years": "10"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3332.54|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a339,904.80|inline",
+      "total-interest": "\u00a319,904.80|inline",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amount": "20000",
+      "interest": "15.8",
+      "years": "10"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3332.54|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a339,904.80|inline",
+      "total-interest": "\u00a319,904.80|inline",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "2:13804",
+    "drove": [
+     "amount",
+     "interest",
+     "years"
+    ],
+    "pressed": "none",
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amount": "5000",
+      "interest": "3.95",
+      "years": "2.5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3175.31|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a35,259.30|inline",
+      "total-interest": "\u00a3259.30|inline",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amount": "5000",
+      "interest": "3.95",
+      "years": "2.5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3175.31|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a35,259.30|inline",
+      "total-interest": "\u00a3259.30|inline",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amount": "10000",
+      "interest": "7.9",
+      "years": "5"
+     },
+     "ids": {
+      "amount": "|inline-block",
+      "interest": "|inline-block",
+      "mobile-menu-btn": "\u2630|none",
+      "monthly-display": "\u00a3202.29|block",
+      "nav-links-menu": "Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike Stress Test Credit Health|flex",
+      "nav-placeholder": "LoanCalculator.co.uk \u2630 Tools \u25bc Standard Loan Calc Overpayment Impact Tool Consolidation Risk Checker Compare Multiple Loans PCP vs HP Car Finance Loan vs Savings Calc Settlement Estimator Rate Hike St|block",
+      "total-cost": "\u00a312,137.40|inline",
+      "total-interest": "\u00a32,137.40|inline",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "2:13804",
+    "drove": [
+     "amount",
+     "interest",
+     "years"
+    ],
+    "pressed": "none",
+    "scale": 0.5
+   }
+  }
+ },
+ "vectors": [
+  "defaults",
+  "double",
+  "half"
+ ]
+}

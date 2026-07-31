@@ -658,6 +658,7 @@ source document and the entry points at it.
 - **do NOT "fix" the page** by making the element's size fractional. That silences the gate and leaves the platform bug in place for everyone else
 - **source:** `bugs_open/157`, found 2026-07-30 building `tool-ai-vendor-trust-checklist` as the first end-to-end run of the S0-S7 ladder. Blast radius is exactly two lines — `grep -n '\.(float64)' internal/adapters/browserrunner/*.go` returns only those. Concept register `TL-034` says `has_visible_area` is **built**, which is true; this is why built and trustworthy are different rows
 - **added:** 2026-07-30, leopardess vendor-trust-checklist build (with staged_component_build)
+- > **CORRECTED 2026-07-31 (157 fix session) — FIXED AT HEAD (`71680ad513`), STILL LIVE IN THE POD.** `VisibleArea` now coerces via `evalNumber` (`float64 | int | int64 | int32 | json.Number`) and **errors** on an undecodable value instead of reporting 0, so the trap above is closed in git. **It is NOT closed in production:** a Go change is inert until a roll, and on 2026-07-31 15:26 UTC pod `browser-runner-adapter-78f467dbb7-52bx2` (`v1.0.1215`) returned the new marker `non-numeric w/h in result` → **0** with three positive controls → **1**. **So keep reading this entry as live until you have pod-grepped otherwise** — and note the check the sibling entry below gives you (`grep -n 'm["w"]'` over the repo) now answers "is it fixed in git", which is a DIFFERENT question from "is it fixed in the binary I am about to author a fence against"
 
 ### idea.uk's static `privacy/terms/refund-policy` pages 301 to a DIFFERENT application, so tagging the static site misses the conversion pages
 - **footprint:** `idea.uk`, `sites` row `1244516d-014d-421c-88c6-090bb1e9552a`, `docs024_key_docs_latest/idea.uk/golang_files/service.go` (`App.page`), `/etc/nginx` on 116.203.204.115, any fleet-wide sweep that asserts something about "every page" of a domain
@@ -1239,6 +1240,7 @@ source document and the entry points at it.
   check type by name before authoring against it, not just the binary
 - **source:** 2026-07-31, staged_component_build, omitting the type from a fence it belonged in
 - **added:** 2026-07-31, staged_component_build
+- > **CORRECTED 2026-07-31 (157 fix session) — THE CHECK ABOVE NOW GIVES THE WRONG ANSWER, and the way it is wrong is the durable lesson.** `m["w"]` no longer reads `.(float64)` (it goes through `evalNumber` as of `71680ad513`), so the stated check concludes "157 is closed" — while the running pod, measured the same afternoon, **still has the bug** (marker `non-numeric w/h in result` → 0 on `v1.0.1215`, three controls → 1). **A landmine check that reads the REPO answers "is it fixed in git", never "is it fixed in the binary my fence will run against"**, and for a Go change those two answers differ for as long as the roll takes. This entry's own headline — presence in the binary is necessary, not sufficient — has a mirror image: **absence from the repo is not evidence of presence in the binary.** So the corrected check is BOTH, in this order: grep `/bugs_open/` + `/bugs_closed/` for the check type by name, read the STATUS banner at the top of the bug file (157's names the commit and says plainly that it is not live), and only then pod-grep a long marker from the fix with a positive control in the same exec
 
 ### `page_components.content_data` often holds the SITE-WIDE BOILERPLATE, not section content — so any content-identity rule can collapse two unrelated components
 
@@ -1503,3 +1505,108 @@ source document and the entry points at it.
   is broken" — a false negative that would have invalidated a whole plan**
 - **source:** `webdesign_uk_build_service/PLAN_2026-07-31_p4_order_intake.md` §5
 - **added:** 2026-07-31, webdesign.uk lane
+### A chassis roll KILLS an in-flight council, and the tell is a step stuck on its OWN completed output
+
+- **footprint:** `orchestration_states`, `currently_executing`, `execution_path`,
+  `council-gate`, `council-gate-orchestrator`,
+  `fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh`, `make deploy-agent-chassis`,
+  any long multi-step orchestration on the shared chassis
+- **fires when:** you submit a council review (or any multi-minute orchestration) and
+  **another session rolls the chassis while it runs.** You cannot see their roll coming
+  and nothing warns you; on this tree that is a normal Tuesday
+- **the tell, and this is the part worth knowing:** the run does not error and does not
+  move. `status` stays `EXECUTING_STEP`, `error` is NULL, and **`currently_executing`
+  names a step whose output is ALREADY PRESENT in `collected_data`** — the step
+  finished, the response came back to a consumer that no longer exists, so nothing
+  advanced the state machine. `jsonb_array_length(execution_path)` reads **0** even
+  though a dozen steps' results are sitting in `collected_data`. Measured 2026-07-31:
+  council round 3 on corr `da3f2d9b` had 8 of 12 reviews landed plus 5 gates, last
+  `updated_at` **14:59:59**, both chassis pods `startTime` **15:00:20 / 15:00:42**
+- **why it is a landmine:** a stalled council is indistinguishable from a SLOW one, and
+  the two demand opposite actions. CLAUDE.md correctly warns that a missing
+  orchestration row is latency and that retrying costs a duplicate round — so the
+  default posture is to wait, and waiting on a roll-killed run waits for ever
+- **the check:** when a council has not advanced for longer than a whole prior round
+  took (rounds 1 and 2 on this trail: **11 and 13 minutes** end to end), compare
+  `updated_at` against pod age — `kubectl -n ai-persona-system get pods -l app=agent-chassis -o custom-columns='NAME:.metadata.name,START:.status.startTime'`.
+  A pod younger than the stall means the run is dead, not slow. **Resubmit on the same
+  trail** (`RESUBMIT_CORR=`), unchanged: this is an infra death, not a judgement, the
+  same class the runbook already records for `complete_invalid` with no
+  `council_report`. Wait out the ~300s post-restart window first, or the new spawn is
+  silently dropped too
+- **source:** 2026-07-31, gauntlet_dead_cta lane; killed run `45d143e0-8b4c-4f9e-90de-41d453db91d7`,
+  re-fired as `e4f81e61-83f3-4185-83f1-00b0c45dc4d6`
+- **added:** 2026-07-31, gauntlet_dead_cta lane
+
+### `orchestration_states` has NO `id` column — it is `orchestration_id`, and the wrong name reads as "the dispatch was dropped"
+
+- **footprint:** `orchestration_states`, any polling loop or watch script over it,
+  `psql -t -A ... 2>/dev/null`
+- **fires when:** you write the obvious `WHERE id = '<the id the trigger printed>'`.
+  The trigger prints `RUN_ORCH_ID=`, so `id` is the natural guess; the column is
+  `orchestration_id` (there is no `id` at all — also `correlation_id`,
+  `parent_orchestration_id`, `currently_executing`)
+- **the tell:** none, if you did what everyone does in a watch loop and sent stderr to
+  `/dev/null`. `psql` raises `ERROR: column "id" does not exist`, prints it to
+  **stderr**, exits, and your `$(...)` capture is an **empty string** — which prints as
+  a blank field and reads as *"no row exists"*
+- **why it is a landmine:** an empty result here has a specific, documented, and WRONG
+  meaning ready to hand. CLAUDE.md says "a missing orchestration row is almost always
+  latency, not a dropped dispatch — do not retry on that evidence." So a typo in a
+  column name is laundered into a confident diagnosis of queue latency. I read a blank
+  field as "no row" for **31 minutes** on 2026-07-31 while the run was in fact alive,
+  then dead, and the query had never once succeeded
+- **the check:** **never `2>/dev/null` a query whose emptiness you intend to interpret.**
+  Drop the redirect, or assert non-empty explicitly:
+  `if [ -z "$ST" ]; then echo "WARNING: no row -- query or dispatch problem"; fi`.
+  Run the SELECT once by hand before putting it in a loop, and `\d <table>` first —
+  schema first is in CLAUDE.md for exactly this
+- **source:** 2026-07-31, gauntlet_dead_cta lane, polling council round 3
+- **added:** 2026-07-31, gauntlet_dead_cta lane
+
+### `toolaudit.py`'s `RESPONDS` cannot distinguish a working calculator from a dead one
+
+- **footprint:** `docs024_key_docs_latest/webdesign_tools_repair/toolaudit.py` (the
+  `DRIVE_JS` `snap()`/`changed` pair); any `RESPONDS`/`DEAD` verdict quoted as evidence
+  that a tool WORKS; tool acceptance baselines and before/after tool comparisons
+- **fires when:** you read `RESPONDS` as "this tool computes correctly" — the natural
+  reading of the word, and the reading every baseline table invites
+- **the tell:** the reactivity test is `changed = snap() !== before`, and `snap()`
+  includes `'##' + all.map(e => e.value ?? '').join('|')` — **the value of every
+  control, including the one the driver has just assigned.** So for any tool driven by
+  typing (number, range, text, textarea, select) `changed` is true *by construction*,
+  whatever the page does. **Proven by construction 2026-07-31:** a page with one
+  `<input type=number>`, no script, no listener and nothing that could possibly
+  compute scores `RESPONDS`
+- **what it DOES certify, being fair to it:** no console errors, no failed
+  subresources, every id-reference resolving, a non-empty main region. Real signal —
+  just not arithmetic. The vacuity is confined to the reactivity component, and only
+  for typed controls: for checkbox/radio tools a click does not change `.value`, which
+  is exactly why `damage-checker` scored DEAD until the visibility fingerprint was
+  added
+- **why it is a landmine:** it fails in the flattering direction. A rewritten,
+  restyled or re-ported calculator that returns wrong money — or no money — passes,
+  and the verdict table reads all-green. A lane can carry "11/11 RESPONDS" into a
+  handoff as proof the tools survived a port when nothing about the numbers was
+  checked. Two lanes did quote it that way this week
+- **the check:** compare the fingerprint **before** driving with after, excluding
+  control values, and — for anything numeric — assert the output CHANGES when the
+  inputs change, then record the actual values.
+  `loancalculator_couk/toolgolden.py` does this (input vectors derived from each
+  field's own default ×1/×2/×0.5, fingerprint = every id-bearing element's text +
+  `display`) and refuses to write a golden file when a tool is inert, input-independent
+  or partially captured. `check_tool_acceptance.go` will not cover you either — it
+  validates that selectors EXIST and its header says static checks *"CONFIRM, never
+  refute"*
+- **source:** 2026-07-31, loancalculator_couk lane, building the equivalence gate for
+  a tool rewrite
+- **added:** 2026-07-31, loancalculator_couk lane
+
+### Neither a grep nor a build date can prove a doc `subject_type` reached the Go gate — and the failure string you would grep for belongs to the OTHER gate
+- **footprint:** `platform/orchestration/actions/doc_subjects_common.go`, `validDocSubjectTypes`, `docSubjectGateReason`, `docResolveSubject`, `platform/orchestration/actions/load_doc_context_action.go`, `platform/orchestration/actions/persist_diagnosis_note_action.go`, `doc_plans`, `doc_notes`, `experience_register/design/subject_type_addition.md`
+- **fires when:** you have moved both halves of the `subject_type` contract (the DB CHECKs and the Go list — see the sibling entry above) and now want to confirm the Go half is *actually in the running fleet*. Every obvious way to check is silently inconclusive, and the third one is worse than inconclusive.
+- **the tell:** none. All three wrong checks return a confident-looking answer. (1) **`psql` cannot reach the gate at all**: `load_doc_context` takes `subject_type` from **step config only** (`docResolveSubject`, `write_doc_plan_action.go:136-145`, reads `config`, never input data), so hand-writing a row proves the DB CHECK and nothing in Go — and it *feels* like an end-to-end test because the row is really there afterwards. (2) **`grep -ac` on the pod binary is meaningless either way**: the vocabulary entries are short literals (`'component'`, `'landmine'`) that Go compiles to immediate comparisons which never reach rodata, and words like `component` appear in the binary for a dozen unrelated reasons, so you get a nonzero count on a binary that does *not* support the type. (3) **A build date is necessary, not sufficient** — and it is what DOC-068 rested on for a day.
+- **the third trap, which costs a stall rather than a wrong answer:** there are **two Go gates over the one shared list, with different messages**, and it is easy to quote the wrong pair. `docResolveSubject` says `subject_type must be one of …, got "…"` and is what `write_doc_plan` / `append_doc_note` / **`load_doc_context`** hit. `docSubjectGateReason` (`doc_subjects_common.go:96`) says `unsupported subject_type "…" (valid: …)` and has **exactly one caller**, `persist_diagnosis_note_action.go:83`. Two of this lane's handoffs told the next session to expect the second message from a `load_doc_context` probe — a string that appears on neither a pass nor a fail of that route (`WRONG_CALLS.md`, 2026-07-31).
+- **the check:** **make the binary print its own vocabulary.** `docSubjectTypesQuoted()` joins the live slice **at runtime**, so a deliberately invalid `subject_type` returns the complete list as compiled into the running pod — the one thing a grep cannot get. Run `docs024_key_docs_latest/staged_component_build/scripts/PROBE_doc_subject_go_gate.sh <type> <key>`: two `load_doc_context` steps in one dispatch, the type under test then an invalid control that MUST error. Verified 2026-07-31 on v1.0.1215 (correlation `8f564028`), which printed `'tool', 'pipeline', 'experience', 'action', 'experience-pattern', 'component', 'landmine'`. **Do not skip the control** — without it a green run cannot be told apart from a probe that never ran, which is why the script names that outcome VOID rather than letting it read as a pass. No `agent_definitions` row is needed: the workflow travels inline in the message (`selectWorkflow` Priority 1, `platform/messaging/processor.go:922-928`), and the fallthrough is `generic`'s no-op `complete` step, so a misfire is inert *and* visible.
+- **source:** 2026-07-31, staged_component_build lane, closing `HANDOFF_2026-07-31b` §3 (DOC-068's Go half); the two-message confusion is logged in `WRONG_CALLS.md`
+- **added:** 2026-07-31, staged_component_build lane

@@ -875,3 +875,212 @@ sections and layout must come from the chrome that assembly wraps them in. Corre
 a site moving to assembled mode, but it is a real visual change and **not** a fidelity
 claim. It belongs in the owner read-out, and it is a second reason the site-level
 `head`/`header`/`footer` components have to exist before any flip.
+
+## 2026-07-31 (evening) — owner asks why only the ARTICLES are editable; and `RESPONDS` turns out to be vacuous
+
+Owner: *"if necessary please rewrite the tools so we are able to build on them in the
+future. Why are the articles editable?"*
+
+### The answer to the question, recorded because it is a design correction
+
+Three parts, in order of how much they matter.
+
+1. **Nothing on this site is editable today.** All 27 pages are `owned` + `verbatim`.
+   The "25% frozen / 75% editable" figure describes what the prover's split *would*
+   produce, not the live site. My previous read-out could be read as describing a
+   state that exists. It does not.
+2. **Editability is a property of the ROW, not the markup.** A block is editable when
+   it is a `page_components` row on a `generic` page, unlocked, and listed in
+   `pages.sections` so the planner and writer loops can target it. No property of the
+   HTML confers it.
+3. **The split was not a judgement — it was a residue.** The only constraint I was
+   given was "starts similarly enough with working tools", and byte-preservation was
+   the only way I could *guarantee* a calculator survived. So I froze everything the
+   script touches and freed the rest. **The articles are editable because they were
+   what was left over.** That is a weak basis for a permanent architectural boundary,
+   and the frozen 25% is precisely the part that can never improve: it cannot be
+   restyled, cannot be made responsive, cannot be fixed when its CSS classes are
+   missing (19 undefined today, incl. `.fca-style-warning`), is not a
+   `content_components` tool row so no other page or site can reuse it, and is
+   invisible to the tool-improvement loop.
+
+So: **rewriting the tools is necessary**, not optional, if the goal is to build on
+them. There are already **36 active `component_level='tool'` components fleet-wide**
+(35 with an `html_template`) — that is the machinery these calculators should be
+joining, not sitting beside as frozen blobs.
+
+### The blocker that has to be closed FIRST: nothing verifies that a tool COMPUTES
+
+Rewriting reimplements arithmetic about people's money. I went looking for what would
+catch an error and the answer is nothing:
+
+- **`check_tool_acceptance.go` (Tier 2)** validates that *selectors exist* — the
+  "anchor rule" — and its own header says static checks *"CONFIRM, never refute"*.
+- **`toolaudit.py`** reports `RESPONDS`: driving a control changed something.
+- **No numeric or golden-value tool test exists anywhere in `platform/`.**
+
+### [CORRECTION to my own baseline, PROVEN BY CONSTRUCTION] `RESPONDS` cannot tell a working calculator from a dead one
+
+`toolaudit.py`'s reactivity test is `changed = snap() !== before`, and `snap()`
+includes `'##' + all.map(e => e.value ?? '').join('|')` — **the value of every
+control, including the one the driver just assigned.** So for any tool driven by
+typing, `changed` is true *by construction*, whatever the page does or fails to do.
+
+I did not want to assert that from reading the code, so I built the decisive case: a
+page with **one number input, no script, no listener, nothing that can possibly
+compute**, served locally.
+
+```
+RESPONDS    http://127.0.0.1:8791/inert.html
+```
+
+**A page with no logic at all scores `RESPONDS`.**
+
+Being fair to the harness: `RESPONDS` also requires no console errors, no failed
+subresources, every reference resolving and a non-empty main region — all real signal,
+and my inert page passes those legitimately too. The vacuity is confined to the
+*reactivity* component, and only for text/number/range/select-driven tools — which is
+**11 of my 12**. For checkbox/radio tools it is not vacuous (a click does not change
+`.value`), which is exactly why `damage-checker` scored DEAD until the `vis`
+fingerprint was added.
+
+**So my own headline this morning — "12 RESPONDS, 12 calculators working" — overstated
+what was measured.** What the baseline actually establishes is that 12 pages are
+structurally healthy and reactive-by-that-definition. It does **not** establish that
+any of them computes correctly, and it would not have noticed a rewrite that returned
+wrong money. Corrected here rather than quietly; the baseline file stays, because
+verdict-to-verdict comparison is still a real regression signal.
+
+### What I built instead: `toolgolden.py` — capture the ANSWERS
+
+Drives each tool in a real browser with deterministic input vectors and records a full
+behavioural fingerprint (every id-bearing element's text + `display`, every control's
+value), so any rewrite can be required to reproduce it.
+
+- **Vectors are derived from each page's OWN default values** (×1, ×2, ×0.5), clamped
+  to each field's declared `min`/`max`/`step`. A positionally-fixed vector would put a
+  rate of 12345 into field 2 and drive the arithmetic into `NaN`, where every
+  implementation agrees and no real difference can surface. Scaling a field's own
+  default keeps every value inside its intended domain for any tool, with no per-tool
+  configuration.
+- **The fingerprint is every id-bearing element**, not "the output field". Guessing
+  which element holds the answer is what made `toolaudit` blind twice; these scripts
+  address their regions by id because that is how they are written.
+
+Verified against arithmetic I checked by hand — £10,000 at 7.9% APR over 5 years:
+
+| vector | monthly | total interest | total repayable |
+|---|---|---|---|
+| defaults (10000 / 7.9 / 5) | **£202.29** | £2,137.40 | £12,137.40 |
+| double (20000 / 15.8 / 10) | £332.54 | £19,904.80 | £39,904.80 |
+| half (5000 / 3.95 / 2.5) | £175.31 | £259.30 | £5,259.30 |
+
+The annuity formula gives 202.27 for the defaults (r=0.0065833, x=(1+r)^60≈1.48252),
+and 202.29 × 60 = 12,137.40 exactly. **The harness is capturing real, correct
+arithmetic, not just "something changed".**
+
+> **⚠ A bug in this harness that would have been catastrophic, and the guard now
+> written in.** My first version polled `document.readyState == 'complete'` and
+> captured immediately. On `standard-calc` that returned a **mid-parse DOM**: the
+> `.container` existed, so all three inputs were present and drivable, but the inline
+> `<script>` at line 77 had not yet been parsed — so `calculateLoan` was undefined and
+> **every vector recorded £0.00 while the capture reported success.** I spent a while
+> believing the live calculator was broken; it is not (2 scripts in DOM, zero console
+> errors, £202.29 → £404.57 on typing).
+>
+> **A golden file recorded from that state says every answer is £0.00 — and would then
+> certify a completely broken rewrite as byte-perfect.** The exact inversion of the
+> tool's purpose. Two guards now: `settle()` requires the script count *and* the
+> serialised DOM length to stop moving across consecutive reads, and `dom_shape`
+> (`"2:13804"`) is recorded in the golden file so a mid-parse capture is **visible in
+> every later diff** rather than inferred.
+>
+> And the structural guard, which is this morning's lesson applied prospectively:
+> **the harness REFUSES to write a golden file if any tool's output is identical
+> across every vector.** A file like that certifies nothing and would mark an inert
+> rewrite as correct — the same shape as "conservation proofs cannot fail on a no-op".
+> It also refuses on a partial capture, because missing pages read as "nothing to
+> check".
+
+> **Second misstep, same run:** the 12-page capture died on `application-tracker` with
+> `timeout waiting for Runtime.evaluate`. A modal dialog **blocks the renderer**, so
+> CDP simply times out with no indication of the cause — its remove button calls
+> `confirm()`. `window.confirm/alert/prompt` are now stubbed after settle. That is a
+> real behaviour change (a tool gated on `confirm()` proceeds as if accepted) and it is
+> stated in the file, because it applies identically to every implementation, which is
+> what a differential test needs.
+
+### The golden capture, and the two proofs that make it usable as a gate
+
+`acceptance/GOLDEN_2026-07-31_tool_values.json` — all **12** interactive pages.
+
+```
+                                    fields  react  vary
+index.html                              9      3     3
+tools/application-tracker.html         13      1     0
+tools/car-finance-calculator.html      13      2     2
+tools/compare-loans.html               17      7     7
+tools/consolidation.html               12      7     5
+tools/credit-health-check.html         12      2     0
+tools/damage-checker.html               8      1     0
+tools/interest-rate-stress-test.html    9      3     3
+tools/loan-vs-savings.html             12      5     5
+tools/overpayment-calculator.html      12      2     2
+tools/settlement-calculator.html        7      2     2
+tools/standard-calc.html                9      3     3
+```
+
+`react` = fields that change when the tool is driven (gate A). `vary` = fields that
+change when the input *values* change (gate B). **All 12 react; 9 vary.** The three
+with `vary=0` — `application-tracker`, `credit-health-check`, `damage-checker` — are
+exactly the three with no numeric field to scale (text, buttons, checkboxes), so gate B
+does not apply to them **by construction** and `scaled_numeric()` exempts them. They
+are still fully fingerprinted.
+
+Two iterations were needed to get here, and both were the gate doing its job:
+
+1. **First run refused**, flagging 4 tools. Three reported `controls driven: NONE` —
+   my driver handled `number`/`range` only, so a button wizard, a checkbox tool and a
+   text tracker were never driven at all. Extended to drive text, checkbox, radio and
+   select.
+2. **`consolidation` reacted but did not vary**, because it starts with **no debt rows**
+   — there is nothing to compute until one exists. Added a bounded `SETUP_JS` that
+   presses an add/new/+ button first. It now reads `react=7 vary=5`.
+
+> **The gate was also wrongly FRAMED at first, and this is the more interesting error.**
+> My only test was "outputs differ between the `defaults` and `double` vectors". For a
+> tool with no numeric inputs the two vectors are **identical by construction**, so that
+> test can never pass — it would have condemned three working tools for ever, the same
+> unpassable-gate shape as the "12 calculators" denominator this morning. Split into two
+> gates: **A** — does it react to being driven at all (compares a `before` snapshot,
+> excluding control values); **B** — does the output depend on the input values (numeric
+> tools only).
+
+#### Proof 1 — it is deterministic (round-trip)
+
+Re-ran `--compare` against the unchanged live site, an independent second capture:
+**all 12 tools reproduce their golden values exactly.** Without this the harness would
+be unusable as a gate regardless of anything else.
+
+#### Proof 2 — it has TEETH (negative control), which the round-trip cannot show
+
+A gate that always says MATCHES is worthless, and a round-trip alone cannot distinguish
+one. So: served a local copy, captured its golden, then made one subtle arithmetic
+change — the monthly-rate divisor, `(APR/100)/12` → `/11`. The page still loads, still
+responds, still displays plausible money.
+
+**Caught in every vector, flagged `NUMBER`, with exact values:**
+
+| vector | golden | broken |
+|---|---|---|
+| defaults | £202.29 | **£205.74** |
+| double | £332.54 | **£350.60** |
+| half | £175.31 | **£176.10** |
+
+Exit code **1** on divergence (verified without a pipeline swallowing it), so it is
+usable in automation.
+
+**And this is precisely the error nothing else would catch:** `toolaudit.py` scores the
+broken version `RESPONDS` (its selectors all exist and its inputs still accept typing),
+and `check_tool_acceptance.go` passes it (every anchor is present). A £3.45/month error
+— £207 over the life of the loan — was invisible to every gate the platform had.
