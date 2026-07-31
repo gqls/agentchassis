@@ -224,6 +224,37 @@ pass" — and ships without a council-gate wait).
   explicit go-ahead before `kubectl apply`, the same way the Part A chassis
   image roll was paused for one.
 
+**2026-07-31, later still — deployed, and CONFIRMED with a real run against
+production, not just the dry-run.** Owner approved via the same
+confirm-before-shared-infra pattern Part A used. `make
+deploy-bugs-open-staleness-sweep OVERLAY_PATH=production/uk_001` created the
+CronJob + its ConfigMap cleanly. Triggered one manual run
+(`make bugs-open-staleness-sweep-now`) rather than waiting for Sunday:
+
+- Pod `bugs-open-staleness-sweep-manual-20260731-201728-k4755` ran to
+  `Succeeded` in ~70s. Real GitHub API traffic this time, not the local-git
+  substitute the dry-run used: 65 files, 448 citations (fewer than the
+  dry-run's 501 — expected, since HEAD had moved between the two runs),
+  93 flagged (64 likely-stale, 29 ambiguous, 0 errors).
+- **Verified the write at the artefact, not the log line** — `INSERT 0 1` in
+  the pod's own stdout is not proof by this repo's own standard, so queried
+  `doc_notes` directly: one row,
+  `subject_type='pipeline'`, `subject_key='bugs-open-staleness'`,
+  `source='bugs-open-staleness-sweep'`, `body_len=17147`,
+  `categories=["bugs-open-staleness"]`, `created_at 2026-07-31 19:18:41 UTC`
+  — id `59e13f82-0d17-4c95-82a2-f95dd4734f3d`.
+
+**Part B (RFC_005 §3.3) is now fully done**: built, tested locally against
+real data (catching a real crash and a real design flaw before either
+reached production), live-verified against the real GitHub/Postgres
+endpoints pre-deploy, deployed to the cluster, and now proven with one real
+scheduled-shape run that wrote a real, queryable `doc_notes` row. It will
+next fire on its own schedule (Sunday 06:00 UTC) with no further action.
+**Both halves of RFC_005 (§3.2 landmine-verifier, §3.3 this sweep) are
+complete.** Only the operational cost flagged above — nobody yet owns
+updating `SWEEP_REF` when the working branch changes — is a real, open,
+unowned loose end, not a defect in what shipped.
+
 ---
 
 **Started 2026-07-31.** Implements the owner ruling on
