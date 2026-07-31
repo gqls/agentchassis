@@ -15314,3 +15314,25 @@ still repeated is evidence about *when* it fires — mine fired on a long messag
 where the backticks were deep in the third paragraph, not on a short one. If it
 appears again, the check worth automating is a `commit-msg` hook warning on a
 message containing an unescaped backtick.
+
+- **I named an anti-pattern in my own risk section, and then shipped exactly it.** Answering a
+  council gating objection on `bugs_open/167`, I added a per-render `logger.Error` for an
+  unguarded chrome path, and wrote in the submission's own risks: *"it is a REPORT with no
+  automated reader, which is the bugs_open/071 / bugs_open/083 shape the council has flagged
+  before and I am naming rather than hiding."* The next round rejected it, and **four seats
+  independently gave four different reasons** — no durable surface, alert noise on three sites
+  for ever, a bespoke reporter where a mechanism already existed, and a DEBUG-swallowed
+  diagnostic as the only gate. All four were right, and I had already half-seen it.
+  **Naming a known anti-pattern is not a mitigation for it.** Writing "I know this is the
+  071/083 shape" felt like candour and functioned as a permission slip: it let me ship the
+  thing while appearing to have considered it. Real consideration would have ended in a
+  different edit or no edit.
+  **The cheap check I skipped: `grep` for an existing handler/item_type before writing a new
+  reporter.** One look at `discovery_checks/check_integrity.go` showed
+  `deactivated_site_components` already detects this class and files
+  `deactivated_component` items — it just joins `site_components` only and is **blind to
+  style-collection pins**. That absence is a far better finding than the log ever was, and it
+  was one grep away, *before* the code.
+  **The other half: a gating objection asking for a guard is not satisfied by anything that
+  emits.** I reached for the nearest guard-shaped thing under review pressure. The test for a
+  guard is whether anything *reads* it and whether it can *act* — not whether it fires.

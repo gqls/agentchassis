@@ -270,3 +270,79 @@ scan losing the `component_library.go` exemption that makes it precise.
 
 Round 2 resubmitted on the same trail correlation (`RESUBMIT_CORR`), run
 `c018787b-9871-4cf2-a25f-88f53f927c6a`.
+
+## Council round 2 — REVISE again, and the right answer was to DELETE what I added
+
+Gated by `reuse_agent` (high). **Not one seat objected to edits 1–3 — the actual 167
+fix.** Every high/medium objection landed on **edit 4**, the pin diagnostic I added
+in round 1 to satisfy round 1's gating objection. Four seats, four angles, same
+conclusion:
+
+- `reuse_agent` (high, gating): a bespoke `zap.Logger` reporter invented without
+  checking the existing `deactivated_component` work-item pipeline.
+- `bug_historian` (medium): a log is not durable or queryable — the
+  `bugs_open/071`/`083` "detected then discarded" shape. **I named that anti-pattern
+  in my own risk section and shipped it anyway**, which is the part worth sitting with.
+- `guardian` (medium): ERROR on every render of three sites **indefinitely**, for a
+  condition already filed and deliberately unrepaired. Alert noise.
+- `architecture` (medium): the only gate on that path was a DEBUG-swallowed
+  diagnostic, and it introduced a **second bespoke eligibility predicate**.
+
+### Then I checked the prior art I should have checked before writing it
+
+```sql
+-- deactivated_site_components, discovery_checks/check_integrity.go:165-170
+FROM site_components sc
+JOIN content_components cc ON cc.id = sc.component_id
+WHERE sc.site_id = $1 AND cc.is_active = false
+```
+
+**It joins `site_components` only. It never looks at `style_collections`.** The
+detector for this exact class exists, fires, and is simply **blind to pins** — which
+is precisely why three deployed sites have had no work item and no finding for it.
+
+That is a much better finding than the log was, and it is now the headline of
+`bugs_open/170` with the extension written up as candidate 1b, including the three
+traps: the `item_key` would collide with `deactivated_%s`; `handler_agent:
+rerender-pages` must **not** be reused because it re-renders and cannot repoint a
+`style_collections` row, so the item would be unsatisfiable by construction —
+**`bugs_open/166` reproduced on a new item type**; and `verifier_coverage_test.go`'s
+"all carry `component_id`" contract needs re-running.
+
+I did not implement it: `discovery_checks/` is the checker-layer lane's subsystem
+(`bugs_open/149`) and `verifier_coverage_test.go` was **dirty in another session's
+tree** while I was reading it.
+
+**So edit 4 was removed rather than rate-limited** (rate-limiting answers only
+`guardian`, not the other three). Net −174/+72.
+
+### The lesson, and it is about round 1 as much as round 2
+
+Round 1's gating objection was "you are shipping with this exposure unguarded". I
+reached for the nearest thing that looked like a guard, and produced one that could
+not repair, had no reader, and would fire for ever. **A gating objection asking for a
+guard is not satisfied by anything that emits.** The seats that rejected it were the
+same body that demanded it — which is the system working, not contradicting itself.
+
+### Two more objections, answered rather than actioned
+
+`prior_art_librarian` (high) and `editquality` (medium): I cleared the round-1 cache
+question by measuring the **file** and never reading the same-day **CORRECTION**
+landmine. Read in full now. Its footprint is `site_components.build_status`,
+`renderAndStoreSiteComponent`'s `!force` exit, `rendered_html`, and the
+`refresh_site_components` conditional on `rerender-pages` — **every symbol in the
+stored-artefact path, none in `component_library.go`**. Its point 3 is that the
+`!force` exit tests whether a slot holds *bytes*, never whether it holds the *right
+component's* bytes. It is an account of why a corrected **assignment** does not reach
+the page, and this change touches no assignments. It sharpens the round-2 answer
+rather than revising it.
+
+`debug_historian` (medium): the `git archive HEAD` verification tree has a
+tmpfs-fill landmine — a full `/tmp` yields a *successful-looking* command. Checked
+this time before trusting the green: `df -h /tmp` → 16G total, **3.9G available**,
+immediately before the extraction. Its second point (no deploy-verification step) is
+correct and is recorded in the RUNBOOK and at the top of the closed bug file, not in
+the plan.
+
+Round 3 submitted on the same trail (`3a3d4378-ebd6-4b99-9055-f88d9c031dc1`) — a
+removal, leaving only the three edits that were never objected to.
