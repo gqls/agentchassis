@@ -218,10 +218,16 @@ session moves it again.
 >   `prior_art_librarian`'s HIGH objections. **Verdict not yet read** — expect ~30 min
 >   from 11:40Z; the queue was 7 deep. Read it with the query in §4.1 below before
 >   writing any `Council-Reviewed:` trailer anywhere.
-> - **The live share-card driver RAN and passed 11/11** — the `[INFERRED from code]`
->   gap at the bottom of NOTES is CLOSED and should be read as closed: the challenge
->   element (451 chars) and defence textarea (198 chars) are both still populated when
->   the button fires, observed on a real round through the real page. Card is
+> - **The live share-card driver RAN and passed 11/11**, on a real round through the
+>   real page: challenge element 451 chars, defence textarea 198 chars, both still
+>   populated when the button fires. **CREDIT WHERE DUE — another session drove it
+>   first** (`be019bd41`, 10:45Z, a 469-char challenge), so the
+>   `[INFERRED from code]` gap was already closed before my run. What my run adds is
+>   narrower: theirs printed `SKIP PIL unavailable` for the three IMAGE assertions and
+>   still ended `ALL LIVE CHECKS PASSED`; they hardened the script so a missing Pillow
+>   now FAILS, and recorded that the hardened script had **not** been re-run
+>   end-to-end. Mine was that run, and the image assertions **executed** — real
+>   numbers, not skips. Card is
 >   1200×630, lower half not blank, no page errors. PNG:
 >   `p4_sources/live_card_2026-07-31.png`. Two cosmetic observations, neither a
 >   defect: a dead band between answer and verdict when the defence is short, and the

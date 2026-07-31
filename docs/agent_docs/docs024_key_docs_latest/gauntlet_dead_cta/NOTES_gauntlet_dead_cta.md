@@ -2827,3 +2827,28 @@ Two cosmetic observations, neither a defect and neither worth a fix on its own: 
 band between the answer and the verdict when the defence is short, and the engine
 returned "personalization" (US spelling) in outward-facing copy against the British
 English convention.
+
+### Clarifying my own entry above — another thread drove the card FIRST, and what my run actually adds
+
+Checked `git log` on this file after committing and found `be019bd41` (10:45Z), fifteen
+minutes before my run: **another session had already driven the live card and closed the
+`[INFERRED from code]` gap.** So my entry above overstates my contribution — "closes the
+gap" was already true when I wrote it. Corrected here rather than above.
+
+What my run does add is narrower and worth having. Their commit records a real misstep:
+the driver printed **`SKIP PIL unavailable`** for the three image assertions and then
+`ALL LIVE CHECKS PASSED` — in the very script written to stop them trusting green. They
+hardened it (missing Pillow is now a FAILED check, `drive_exchange_card_2026-07-31.py:104-113`)
+and stated plainly that **the hardened script had NOT been re-run end-to-end.**
+
+My run at ~11:00Z was that end-to-end run, on the hardened script, and the three image
+assertions **executed rather than skipped** — they returned real measurements: exactly
+`(1200, 630)`, `88/210` sampled rows carrying marks, lowest marked row `609`. Eleven
+PASS, zero SKIP. So the quiet-test they caught is now proven closed by a run that could
+have failed on it.
+
+Two rounds were driven, not one: theirs a 469-char challenge, mine 451. Both real, both
+recorded. **The lesson is the one this lane keeps relearning from the other side:** I
+should have run `git log` on the file before writing the entry, not after committing it.
+The tree is shared and fifteen minutes is plenty — "a quiet `git log` is not silence"
+cuts both ways, and here the log was not even quiet.
