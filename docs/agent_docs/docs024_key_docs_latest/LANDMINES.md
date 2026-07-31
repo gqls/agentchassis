@@ -1445,3 +1445,12 @@ source document and the entry points at it.
   sides, is what made the arena rename's claim actually load-bearing.)
 - **source:** 2026-07-31, staged_component_build, arena page rename
 - **added:** 2026-07-31, staged_component_build
+
+### A form control does not inherit `color`, so `background: var(--color-surface)` alone paints UA-default dark text on a dark theme
+- **footprint:** any `<input>`/`<select>`/`<textarea>` in a tool component or generated CSS, `--color-surface`, `--color-text`
+- **fires when:** you style a control with a themed `background` and leave `color` unset, assuming it inherits from the page. It does not — the UA stylesheet supplies a near-black default
+- **the tell:** perfect in a light theme and **unreadable in a dark one**, which is the fleet default. On oufe (`--color-surface: #1B2A3B`, `--color-text: #E8E2D9`) the numbers rendered near-black on dark navy. Reported by a human looking at the live page on 2026-07-31
+- **the check:** **never set one of the pair without the other.** Grep your component for `background:` and assert a `color:` in the same rule. The existing sibling tool got this right (`tool-recovery-waterfall.html` sets `color: var(--color-text, #0f172a)` on its inputs) and the line was simply dropped when copying its conventions — so *copy the whole rule, not the shape of it*
+- **why no check caught it:** the tool's acceptance criteria are `selector_exists` / `no_console_errors` / `page_status_ok` / `no_horizontal_overflow` / interactions. **Not one of them can see contrast**, and the component renders, boots and computes correctly. Related: `bugs_open/122` (generated CSS fails WCAG on four live sites) and the standing rule that CSS cannot say what is PAINTED
+- **source:** hit 2026-07-31 on oufe tool 2 (`tool-relevant-alternative`); fixed in the template and redeployed
+- **added:** 2026-07-31, oufe lane
