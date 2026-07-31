@@ -991,6 +991,23 @@ source document and the entry points at it.
 - **source:** 2026-07-31, loancalculator_couk lane, re-verifying the 27/27 byte-exact
   claim before building the render_guardian's requested in-pipeline fidelity gate
 - **added:** 2026-07-31, loancalculator_couk lane
+- **the repo tells you to do the wrong thing** (added 2026-07-31, gauntlet_dead_cta
+  lane, hit independently — I filed a duplicate entry before finding this one, which
+  is itself the argument for grepping LANDMINES.md and not just the runbooks).
+  `sql_for_agents/275_oufe_tool_relevant_alternative.sql:29-30` instructs: *"ASSERT
+  THE LENGTH, do not assume it: compare `length(html_template)` to `wc -c` on the
+  local file. **They must match exactly.**"* For any component whose comment banner
+  carries an em dash or a box-drawing rule — which is every hand-written one here —
+  they cannot. Measured on `gauntlet-round-record`: `wc -c` **15,985**, `wc -m`
+  **15,758**, `length()` **15,758**. A 227-character phantom deficit reported by the
+  one check meant to catch truncation
+- **second valid pairing:** `wc -m` (characters) *does* equal `length()`, just as
+  `octet_length()` equals `wc -c`. Pair like with like or use md5; the failure is
+  only ever mixing the two units
+- **generators get this right for free:** Python `len(s)` on a `str` already agrees
+  with `length()`, and `hashlib.md5(s.encode())` already agrees with `md5()`. A
+  build script that asserts on those two cannot make this mistake — the trap is
+  specific to reaching for a shell `wc`
 
 ### A tool-audit verdict is only meaningful with the harness version that produced it
 
@@ -2081,3 +2098,41 @@ domain on the account**, naming the origin technology and the key convention.
 Bucket keys are not credentials, so it is a disclosure rather than a hole — but it
 is free to close with a holding-page object or a redirect rule, and worth doing
 before a customer-facing domain is the one printing it.
+
+### A mutant that BREAKS THE BUILD prints the same `FAIL` as a mutant that was caught
+
+- **footprint:** mutation testing / "prove this test can fail" against any package
+  other sessions also edit — `platform/orchestration/actions/`, `internal/adapters/…`,
+  anything with more than one thread in it; any loop that edits a file, runs
+  `go test`, restores, and reads the result
+- **fires when:** the package stops compiling **for a reason that is not your
+  mutation** — most often another session saving a half-finished edit to a
+  different file in the same package, which on this tree happens *between* two
+  iterations of the same loop
+- **the tell:** none in the place you are looking. A caught mutant prints
+  `FAIL <pkg> 0.05s`. A build break prints `FAIL <pkg> [build failed]`, and the
+  `--- FAIL: TestX` lines you were grepping for are simply **absent** — so a
+  `grep -E '^(--- FAIL|FAIL)'` summary shows `FAIL` for both and the mutant reads
+  as caught. Measured 2026-07-31: four of six mutants in one run were invalidated
+  this way by another session's edit to `save_sections_prune_floor.go`, while my
+  own file was untouched and correct
+- **the check:** two things, and the second is the one that actually saves you.
+  (1) Make the harness **build before it tests** and say so out loud —
+  `go build ./pkg/ || echo "!! DID NOT COMPILE — this mutant proves nothing"` —
+  because a mutant must compile before its result means anything.
+  (2) **Run the whole proof against a clean export, not the working tree:**
+  ```bash
+  git archive HEAD | tar -x -C "$SCRATCH/headtree"
+  cp <your changed files> "$SCRATCH/headtree/<same paths>"
+  cd "$SCRATCH/headtree" && go test ./<pkg>/ -count=1   # then mutate HERE
+  ```
+  An untracked or uncommitted file belonging to another session cannot follow you
+  into `git archive HEAD`, so the only uncommitted code in the run is your own —
+  which is the property a mutation proof needs and the shared tree cannot give you.
+  This also re-verifies your change against what HEAD will actually build.
+- **source:** `brochure_component_library/NOTES_…` 2026-07-31 evening, proving the
+  TL-035 caller half. Third member of the family with *"a mutation that never
+  happened is indistinguishable from a guard that works"* (mutation did not apply)
+  and *"a passing mutation test may mean a SECOND guard absorbed the mutation"*
+  (mutation applied, absorbed) — this one is **mutation applied, result unreadable**
+- **added:** 2026-07-31, brochure lane

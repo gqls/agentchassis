@@ -1,0 +1,444 @@
+<style>
+  /* ── The Gauntlet: public record of one round ────────────────────────────
+     Serves /tools/gauntlet/round.html?r=<slug>. One published round, fetched
+     client-side from the island API and rendered from that response alone.
+
+     DELIBERATELY ZERO template variables and js_content NULL. Two reasons:
+       1. With vars = 0, html_template and page_components.rendered_html are
+          byte-identical, so RUNBOOK §10's copy-both-columns path is safe and
+          §11's substitution trap cannot bite (27 vars on gauntlet-interface
+          shipped a live page showing a raw unsubstituted placeholder to the
+          owner on 2026-07-28).
+
+       2. Inline <script> means no /tools/assets/*.js publication step, so
+          there is no published-but-inert failure mode (bugs_open/041).
+
+     The placeholder syntax is not written anywhere in this file, not even
+     inside a comment. A comment does not protect it: the template parser reads
+     the whole string, and a malformed action in a comment fails the parse and
+     silently drops the renderer back to a regex engine (LANDMINES.md, footprint
+     component_library.go RenderTemplateReportingMissing).
+
+     PALETTE, MEASURED IN THE BROWSER (2026-07-31), not read off CSS source:
+       --color-primary       #6d28d9   (purple — the same value the share card
+                                        draws, so card and page match already)
+       --color-primary-text  #ffffff
+       --color-accent        #fc5c7d   (pink)
+
+     > CORRECTED 2026-07-31: an earlier draft of this header claimed the site
+     > was red #dc2626 with an amber #fbbf24 accent, and called the card's
+     > purple an off-brand mismatch. That was wrong in both halves. Those two
+     > literals are the FALLBACKS in `var(--color-primary, #dc2626)` inside the
+     > gauntlet component's CSS — the value that actually resolves is the
+     > purple above. Caught by computing the values on the live page; reading
+     > the stylesheet could never have caught it, because the fallback only
+     > applies when the variable is unset, and it is set.
+
+     EVERY text colour below is stated explicitly. Nothing inherits. The first
+     render of this page put the visitor's own argument at rgb(139,133,176) on
+     the purple — 2.06:1, well under the 4.5:1 floor — because `.gr-text` set
+     no colour and picked one up from the site chrome's paragraph rule. The
+     text a stranger typed is the whole point of the page, so it is the last
+     thing that may be left to inherit. drive_round_record.py measures the
+     contrast in the browser and fails under 4.5:1.
+     ──────────────────────────────────────────────────────────────────────── */
+  .gauntlet-record-section {
+    --gr-text: #ffffff;
+    --gr-muted: rgba(255, 255, 255, 0.86);
+    --gr-surface: rgba(255, 255, 255, 0.06);
+    --gr-border: rgba(255, 255, 255, 0.22);
+    --gr-accent: var(--color-accent, #fc5c7d);
+    /* The site accent (#fc5c7d) on the site primary (#6d28d9) measures 2.36:1
+       — it is a BUTTON colour and fails as small text. This pale tint of the
+       same hue measures 4.9:1, so the labels stay in the accent family and
+       stay readable. --gr-accent keeps its job as the CTA fill, where dark
+       text on it measures 5.8:1. */
+    --gr-accent-text: #ffc9d6;
+    background: var(--color-primary, #6d28d9);
+    color: var(--gr-text);
+    padding: 3rem 1rem 4rem;
+  }
+
+  .gauntlet-record-section .gr-wrap {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .gauntlet-record-section .gr-eyebrow {
+    font: 700 0.78rem/1.4 system-ui, sans-serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gr-accent-text);
+    margin: 0 0 0.75rem;
+  }
+
+  .gauntlet-record-section .gr-dates {
+    font: 400 0.85rem/1.5 system-ui, sans-serif;
+    color: var(--gr-muted);
+    margin: 0 0 2rem;
+  }
+
+  .gauntlet-record-section .gr-headline {
+    font: 800 clamp(1.6rem, 4.5vw, 2.35rem)/1.2 Georgia, serif;
+    margin: 0 0 1rem;
+    color: var(--gr-text);
+  }
+
+  .gauntlet-record-section .gr-body {
+    font: 400 1.02rem/1.65 Georgia, serif;
+    color: var(--gr-muted);
+    margin: 0 0 2.5rem;
+    white-space: pre-wrap;
+  }
+
+  .gauntlet-record-section .gr-move {
+    border-left: 3px solid var(--gr-border);
+    padding: 0 0 0 1.15rem;
+    margin: 0 0 2.1rem;
+  }
+
+  .gauntlet-record-section .gr-move.is-mine {
+    border-left-color: var(--gr-accent);
+  }
+
+  .gauntlet-record-section .gr-label {
+    font: 700 0.74rem/1.4 system-ui, sans-serif;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--gr-accent-text);
+    margin: 0 0 0.5rem;
+  }
+
+  .gauntlet-record-section .gr-move.is-theirs .gr-label {
+    color: var(--gr-muted);
+  }
+
+  /* The visitor's own prose and Vonc's replies. Explicit white, because this
+     is the argument the page exists to show. */
+  .gauntlet-record-section .gr-text {
+    font: 400 1.02rem/1.62 Georgia, serif;
+    color: var(--gr-text);
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .gauntlet-record-section .gr-ruling {
+    background: var(--gr-surface);
+    border: 1px solid var(--gr-border);
+    border-radius: 10px;
+    padding: 1.4rem 1.5rem;
+    margin: 2.6rem 0 0;
+  }
+
+  .gauntlet-record-section .gr-ruling-line {
+    font: 800 clamp(1.15rem, 3.2vw, 1.5rem)/1.3 system-ui, sans-serif;
+    color: var(--gr-text);
+    margin: 0 0 0.7rem;
+  }
+
+  .gauntlet-record-section .gr-ruling-why {
+    font: 400 0.98rem/1.6 Georgia, serif;
+    color: var(--gr-muted);
+    margin: 0;
+    white-space: pre-wrap;
+  }
+
+  .gauntlet-record-section .gr-foot {
+    margin: 3rem 0 0;
+    padding: 1.6rem 0 0;
+    border-top: 1px solid var(--gr-border);
+  }
+
+  .gauntlet-record-section .gr-foot p {
+    font: 400 0.9rem/1.6 system-ui, sans-serif;
+    color: var(--gr-muted);
+    margin: 0 0 1.2rem;
+  }
+
+  .gauntlet-record-section .gr-cta {
+    display: inline-block;
+    background: var(--gr-accent);
+    color: #1a1a1a;
+    font: 700 1rem/1 system-ui, sans-serif;
+    text-decoration: none;
+    padding: 0.9rem 1.5rem;
+    border-radius: 8px;
+  }
+
+  .gauntlet-record-section .gr-cta:hover,
+  .gauntlet-record-section .gr-cta:focus {
+    filter: brightness(1.08);
+  }
+
+  .gauntlet-record-section .gr-state {
+    background: var(--gr-surface);
+    border: 1px solid var(--gr-border);
+    border-radius: 10px;
+    padding: 1.8rem 1.6rem;
+  }
+
+  .gauntlet-record-section .gr-state h2 {
+    font: 800 1.35rem/1.3 system-ui, sans-serif;
+    color: var(--gr-text);
+    margin: 0 0 0.7rem;
+  }
+
+  .gauntlet-record-section .gr-state p {
+    font: 400 1rem/1.6 Georgia, serif;
+    color: var(--gr-muted);
+    margin: 0 0 1.3rem;
+  }
+
+  .gauntlet-record-section [hidden] {
+    display: none !important;
+  }
+</style>
+
+<section class="gauntlet-record-section" aria-label="A published Gauntlet round">
+  <div class="gr-wrap">
+
+    <p class="gr-eyebrow">The Gauntlet &middot; public record</p>
+
+    <!-- The state box carries every non-success outcome and is the ONLY thing
+         rendered until a real response arrives. It starts as "loading" rather
+         than as an error, because an error before the fetch has returned would
+         be a claim we have not earned. -->
+    <div class="gr-state" data-gr-state>
+      <h2 data-gr-state-head>Fetching this round&hellip;</h2>
+      <p data-gr-state-body>One moment.</p>
+      <a class="gr-cta" href="/tools/gauntlet/index.html" hidden data-gr-state-cta>Argue your own round</a>
+    </div>
+
+    <article hidden data-gr-round>
+      <p class="gr-dates" data-gr-dates></p>
+      <h1 class="gr-headline" data-gr-headline></h1>
+      <p class="gr-body" data-gr-provocation></p>
+
+      <div class="gr-move is-mine">
+        <p class="gr-label">The position filed</p>
+        <p class="gr-text" data-gr-position></p>
+      </div>
+
+      <div class="gr-move is-theirs">
+        <p class="gr-label">Vonc answered</p>
+        <p class="gr-text" data-gr-counter></p>
+      </div>
+
+      <div class="gr-move is-theirs">
+        <p class="gr-label">And challenged</p>
+        <p class="gr-text" data-gr-challenge></p>
+      </div>
+
+      <div class="gr-move is-mine">
+        <p class="gr-label">The defence</p>
+        <p class="gr-text" data-gr-defence></p>
+      </div>
+
+      <div class="gr-ruling">
+        <p class="gr-ruling-line" data-gr-verdict></p>
+        <p class="gr-ruling-why" data-gr-reasons></p>
+      </div>
+
+      <div class="gr-foot">
+        <p>
+          This is one round of The Gauntlet, published by the person who argued
+          it when they shared their card. Nobody is named and no account exists:
+          the record keeps the argument, not the arguer.
+        </p>
+        <a class="gr-cta" href="/tools/gauntlet/index.html">Argue your own round</a>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  (function () {
+    "use strict";
+
+    var API = "https://tools.apis.uk";
+
+    // Mirrors store.ValidSlug / SlugAlphabet / SlugLength in the island engine
+    // (internal/tools-api/store/rounds.go). Kept here so a malformed address
+    // never becomes a request, and so the page's own "no such record" copy is
+    // reached without a round trip. The server still validates: this is a
+    // courtesy, not the boundary.
+    var SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789_";
+    var SLUG_LENGTH = 10;
+
+    function validSlug(s) {
+      if (typeof s !== "string" || s.length !== SLUG_LENGTH) return false;
+      for (var i = 0; i < s.length; i++) {
+        if (SLUG_ALPHABET.indexOf(s.charAt(i)) === -1) return false;
+      }
+      return true;
+    }
+
+    var section = document.querySelector(".gauntlet-record-section");
+    if (!section) return;
+
+    var el = {
+      state: section.querySelector("[data-gr-state]"),
+      stateHead: section.querySelector("[data-gr-state-head]"),
+      stateBody: section.querySelector("[data-gr-state-body]"),
+      stateCta: section.querySelector("[data-gr-state-cta]"),
+      round: section.querySelector("[data-gr-round]"),
+      dates: section.querySelector("[data-gr-dates]"),
+      headline: section.querySelector("[data-gr-headline]"),
+      provocation: section.querySelector("[data-gr-provocation]"),
+      position: section.querySelector("[data-gr-position]"),
+      counter: section.querySelector("[data-gr-counter]"),
+      challenge: section.querySelector("[data-gr-challenge]"),
+      defence: section.querySelector("[data-gr-defence]"),
+      verdict: section.querySelector("[data-gr-verdict]"),
+      reasons: section.querySelector("[data-gr-reasons]")
+    };
+
+    // EVERY field on this page is written with textContent, with no exception
+    // and no allowlist. Two of them (position, defence) are prose typed by a
+    // member of the public and then served to every other visitor, so the page
+    // has exactly one rule about untrusted text, and the rule is auditable by
+    // grep: the markup-assigning DOM properties must not appear in this file at
+    // all. verify_round_record.py asserts a count of zero for each of them.
+    function put(node, value) {
+      if (node) node.textContent = value == null ? "" : String(value);
+    }
+
+    // The provocation's headline carries inline markup (<em>) because it is
+    // rendered as HTML on the arena page. Here it is stripped rather than
+    // allowed, so the record and the share card show the same string — the
+    // card does the same thing (buildVerdictCard in gauntlet-interface.js).
+    function plain(value) {
+      return value == null ? "" : String(value).replace(/<[^>]*>/g, "").trim();
+    }
+
+    function showState(head, body, offerCta) {
+      put(el.stateHead, head);
+      put(el.stateBody, body);
+      if (el.stateCta) el.stateCta.hidden = !offerCta;
+      if (el.state) el.state.hidden = false;
+      if (el.round) el.round.hidden = true;
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "";
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleDateString("en-GB", {
+        day: "numeric", month: "long", year: "numeric"
+      });
+    }
+
+    function render(r) {
+      var prov = r.provocation || {};
+      var counter = r.counter || {};
+      var verdict = r.verdict || {};
+
+      // Only headline and body are taken from the provocation. It also carries
+      // `stats` (an array), `primary_cta` and `secondary_cta` — marketing
+      // furniture for the arena page. `stats` in particular would put numbers
+      // on a record page, and a number this page did not compute is exactly
+      // what the honesty rail forbids.
+      put(el.headline, plain(prov.headline));
+      put(el.provocation, plain(prov.body));
+
+      put(el.position, r.position);
+      put(el.counter, counter.counter_position);
+      put(el.challenge, counter.challenge);
+      put(el.defence, r.defence);
+
+      var ruling = plain(verdict.verdict);
+      put(el.verdict, ruling ? "The judge ruled: " + ruling + "." : "The judge ruled.");
+      put(el.reasons, verdict.reasons);
+
+      var argued = fmtDate(r.argued_at);
+      var published = fmtDate(r.published_at);
+      var line = "";
+      if (argued) line = "Argued " + argued;
+      if (published && published !== argued) {
+        line = line ? line + " · published " + published : "Published " + published;
+      }
+      put(el.dates, line);
+
+      if (el.state) el.state.hidden = true;
+      if (el.round) el.round.hidden = false;
+    }
+
+    function slugFromLocation() {
+      var m = /[?&]r=([^&#]*)/.exec(window.location.search);
+      if (!m) return "";
+      try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+    }
+
+    var slug = slugFromLocation();
+
+    if (!slug) {
+      showState(
+        "This page shows one published round",
+        "It needs the address of a round to show. If you followed a link here, " +
+        "the address may have been cut short somewhere along the way.",
+        true
+      );
+      return;
+    }
+
+    if (!validSlug(slug)) {
+      showState(
+        "That is not a round address",
+        "The address in the link is not the right shape, so there is nothing to " +
+        "look up. Nothing was found or lost — the link is simply wrong.",
+        true
+      );
+      return;
+    }
+
+    fetch(API + "/api/v1/tools/gauntlet/round/" + encodeURIComponent(slug), {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    })
+      .then(function (res) {
+        if (res.status === 404) {
+          var e404 = new Error("not found");
+          e404.status = 404;
+          throw e404;
+        }
+        if (!res.ok) {
+          var err = new Error("HTTP " + res.status);
+          err.status = res.status;
+          throw err;
+        }
+        return res.json();
+      })
+      .then(render)
+      .catch(function (err) {
+        // 404 is returned for a round that was never published and for one that
+        // does not exist, identically and on purpose — the page cannot tell
+        // them apart, so it does not pretend to.
+        if (err && err.status === 404) {
+          showState(
+            "No public record at that address",
+            "Either nothing was ever published here, or whoever published it has " +
+            "since taken it down.",
+            true
+          );
+          return;
+        }
+        if (err && err.status === 429) {
+          showState(
+            "Too many requests just now",
+            "The record service is rate limited and has asked us to wait. Give it " +
+            "a minute and reload — the round is still there.",
+            false
+          );
+          return;
+        }
+        showState(
+          "Could not reach the record",
+          "The round may well exist; we could not fetch it just now. Reloading " +
+          "in a moment is worth a try.",
+          false
+        );
+      });
+  })();
+</script>

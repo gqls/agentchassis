@@ -26,8 +26,25 @@
 --   EOF
 --   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db < /tmp/fix.sql
 --
--- Then ASSERT THE LENGTH, do not assume it: compare `length(html_template)` to
--- `wc -c` on the local file. They must match exactly.
+-- Then ASSERT THE DELIVERY, do not assume it.
+--
+-- *** CORRECTED 2026-07-31 (gauntlet_dead_cta lane). This line used to read:
+-- *** "compare `length(html_template)` to `wc -c` on the local file. They must
+-- *** match exactly." THEY CANNOT, for any template whose comment banner holds
+-- *** an em dash or a box-drawing rule — which is every hand-written one here.
+-- *** `wc -c` counts BYTES; Postgres `length()` counts CHARACTERS. Measured on
+-- *** `gauntlet-round-record`: wc -c 15,985, wc -m 15,758, length() 15,758 — a
+-- *** 227-character phantom deficit, reported by the one check meant to catch
+-- *** truncation (bugs_open/012). Worse, it is wrong in BOTH directions: a real
+-- *** corruption can be offset against a multi-byte character and read as exact.
+--
+-- Compare md5, which is byte-exact on both sides and needs no reasoning about
+-- encoding:
+--   md5sum <local file> | cut -d' ' -f1
+--   SELECT md5(html_template) FROM content_components WHERE function='<fn>';
+-- If you want a length as well, pair like with like: `wc -m` matches `length()`,
+-- and `wc -c` matches `octet_length()`. See LANDMINES.md, "length() on stored
+-- HTML is CHARACTERS; a file's size is BYTES".
 --
 -- THE FOUR CONSTRAINTS THIS FILE HONOURS (all learned the hard way on tool 1)
 --   1. JS is INLINE in html_template and js_content stays NULL. The js_content
