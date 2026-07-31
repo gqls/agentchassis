@@ -197,19 +197,62 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	b.WriteString("## In-scope code\n\n")
 	total, truncated := 0, false
 	included := 0
+	// bugs_open/164. Both of this loop's discard paths used to leave the verdicter
+	// unable to tell "not in scope" from "asked for, found, and dropped". They are
+	// counted SEPARATELY and worded differently on purpose: a body that does not FIT
+	// is a coverage signal, a body that cannot be READ is a defect signal, and
+	// conflating them is the mistake bd003f67a corrected at the sibling cap in this
+	// same file ("a defect signal must not render as 'coverage was capped'").
+	var omitted []string    // did not fit under the cap — COVERAGE
+	var unreadable []string // could not be read at all  — DEFECT
 	for _, sym := range scope {
 		body, err := analysis.ReadSymbolBody(repoRoot, anaOut, sym) // slice the symbol's lines from the analyser spans
 		if err != nil {
+			// Since 2026-07-31 (bugs_closed/145) the analyser Output is the read
+			// BOUNDARY, so this path also fires for any scope entry the analyser
+			// never parsed — including every entry when analysis_field is
+			// misconfigured. The Warn names it in the log; the marker below names it
+			// where the body would have gone, because the log is not what the
+			// verdicter reads.
 			logger.Warn("diagnose_assemble_bundle: could not read body", zap.String("symbol", sym), zap.Error(err))
+			unreadable = append(unreadable, sym)
+			fmt.Fprintf(&b, "### %s\n\n_(body unavailable — could not be read from the analysed checkout: %v. This is a TOOLING failure, NOT evidence about the code: draw no conclusion from this symbol's absence.)_\n\n", sym, err)
 			continue
 		}
+		// A body that merely does not FIT must NOT end the loop. Scope is
+		// sort.Strings-SORTED upstream (pkg/diagnose/loop.go:390,:416), so the old
+		// `break` dropped an ALPHABETICAL tail rather than a least-relevant one —
+		// one oversized file under internal/ silently evicted everything under pkg/
+		// and platform/. Measured before the fix: 18 of 254 bundles all-history had
+		// the cap trip, worst case 14 of 18 symbols lost, and THREE bundles rendered
+		// this heading with nothing whatever beneath it because the first body alone
+		// exceeded the cap. Skip just this body and carry on: a later, smaller
+		// symbol still fits, and the marker lets the model re-ask for this one alone.
 		if total+len(body) > maxBodyChars {
 			truncated = true
-			break
+			omitted = append(omitted, sym)
+			fmt.Fprintf(&b, "### %s\n\n_(body omitted — %d chars, and %d of the %d-char body budget is already spent. It was found; it did not fit. Put THIS SYMBOL ALONE in next_scope to read it whole.)_\n\n",
+				sym, len(body), total, maxBodyChars)
+			continue
 		}
 		fmt.Fprintf(&b, "### %s\n```go\n%s\n```\n\n", sym, body)
 		total += len(body)
 		included++
+	}
+	// The coverage line the verdicter can actually read — :304 logs these numbers,
+	// and a log is not in the bundle. Written ONLY when something was in fact
+	// dropped, so a scope that renders whole produces a bundle byte-identical to
+	// before this fix (164's stated negative control: the change must not move every
+	// existing diagnosis's baseline).
+	if len(omitted) > 0 || len(unreadable) > 0 {
+		fmt.Fprintf(&b, "> **This section is INCOMPLETE.** %d of %d in-scope symbol(s) rendered with a body.", included, len(scope))
+		if len(omitted) > 0 {
+			fmt.Fprintf(&b, " %d did not fit under the %d-char cap (marked \"body omitted\" above) — re-request them singly in next_scope.", len(omitted), maxBodyChars)
+		}
+		if len(unreadable) > 0 {
+			fmt.Fprintf(&b, " %d could not be read (marked \"body unavailable\" above) — that is a tooling failure to report, not a finding.", len(unreadable))
+		}
+		b.WriteString(" Absence of a body here is never evidence that a symbol is irrelevant.\n\n")
 	}
 
 	// F0.4c: signatures of the OTHER symbols in each in-scope file. Retrieval is
@@ -303,6 +346,8 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	logger.Info("diagnose_assemble_bundle: composed",
 		zap.Int("symbols_in_scope", len(scope)),
 		zap.Int("symbols_included", included),
+		zap.Int("symbols_omitted_size", len(omitted)),
+		zap.Int("symbols_unreadable", len(unreadable)),
 		zap.Int("body_chars", total),
 		zap.Bool("truncated", truncated))
 
@@ -327,6 +372,8 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 			SiteID:          datahelpers.ExtractNestedFieldString(params.CollectedData, datahelpers.GetStringField(config, "site_id_field", "input_data.site_id")),
 			SymbolsInScope:  len(scope),
 			SymbolsIncluded: included,
+			SymbolsOmitted:  len(omitted),
+			Unreadable:      len(unreadable),
 			BodyChars:       total,
 			Truncated:       truncated,
 			RetentionDays:   datahelpers.GetIntField(config, "bundle_retention_days", 30),
@@ -350,9 +397,16 @@ type bundleArtifact struct {
 	SiteID          string // "" for an anchorless (code-only) diagnosis → NULL
 	SymbolsInScope  int
 	SymbolsIncluded int
-	BodyChars       int
-	Truncated       bool
-	RetentionDays   int // ≤0 keeps the bundle indefinitely
+	// SymbolsOmitted / Unreadable split what SymbolsInScope-minus-SymbolsIncluded
+	// used to hide (bugs_open/164). Measuring that bug needed the two apart and the
+	// artefact only carried `truncated`, so the rate was unqueryable per run and the
+	// filing had to leave it [UNMEASURED]; these keys make the next measurement a
+	// single query.
+	SymbolsOmitted int // found, did not fit under the cap
+	Unreadable     int // never read — analyser Output boundary or file read failure
+	BodyChars      int
+	Truncated      bool
+	RetentionDays  int // ≤0 keeps the bundle indefinitely
 }
 
 // assembleIteration derives the 1-based iteration number of the pass currently
@@ -391,10 +445,12 @@ func persistBundleArtifact(ctx context.Context, params ActionParams, a bundleArt
 	}
 
 	metadata, err := json.Marshal(map[string]interface{}{
-		"symbols_in_scope": a.SymbolsInScope,
-		"symbol_count":     a.SymbolsIncluded,
-		"body_chars":       a.BodyChars,
-		"truncated":        a.Truncated,
+		"symbols_in_scope":     a.SymbolsInScope,
+		"symbol_count":         a.SymbolsIncluded,
+		"symbols_omitted_size": a.SymbolsOmitted,
+		"symbols_unreadable":   a.Unreadable,
+		"body_chars":           a.BodyChars,
+		"truncated":            a.Truncated,
 	})
 	if err != nil {
 		logger.Warn("diagnose_assemble_bundle: metadata marshal failed, bundle not persisted (diagnosis continues)",

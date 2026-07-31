@@ -1,7 +1,22 @@
 # 164 — the diagnosis bundle's body cap `break`s instead of skipping, so one oversized symbol silently drops the whole rest of scope
 
-**Filed 2026-07-31 by the `bugfix_145` lane, AT THE COUNCIL'S EXPLICIT REQUEST.** OPEN,
-UNOWNED.
+**Filed 2026-07-31 by the `bugfix_145` lane, AT THE COUNCIL'S EXPLICIT REQUEST.**
+
+> **STATUS 2026-07-31 (evening) — FIX COMMITTED, NOT YET LIVE. Still OPEN, and it stays
+> open until a chassis image carrying it rolls** (a fix committed but inert leaves the
+> defect reproducible in production — that is the `/bugs_closed/` bar).
+> Owned by `docs024_key_docs_latest/bugfix_164_bundle_body_cap/`.
+> Council `SUBMISSION_CORR 75f3cd52-316c-4cb3-a55d-1b1c3f316214`.
+>
+> **The `[UNMEASURED]` marker below is RESOLVED, and the answer is that it has fired
+> repeatedly** — see "MEASURED, 2026-07-31" after the Measured section. The filing was
+> right to refuse to guess, and right to make measuring the first task.
+>
+> **Fix candidates 1 and 2 are built** (`continue` + inline per-symbol marker + a
+> conditional coverage line), **plus the sibling read-failure path in the same loop**,
+> which had the identical silence six lines up. Candidates 3 and 4 DECLINED with
+> reasons — candidate 3 would *reduce* coverage in the common case; see the lane's
+> `PLAN` §5. Verify with `VERIFY` at the bottom of this file after the next roll.
 
 I found this while fixing `bugs_open/145` in the same function, disclosed it in my
 submission's `risks` as "an adjacent pre-existing wart I am not fixing", and left it for a
@@ -95,6 +110,70 @@ SELECT date_trunc('day', created_at) AS d, count(*) AS bundles,
 `symbols_in_scope` vs `included` pair first; `:304` and `:328` log both, so the fields may
 already exist on the artefact.)
 
+## MEASURED, 2026-07-31 — the `[UNMEASURED]` marker above is RESOLVED
+
+> **CORRECTION to this file's own guidance:** the suggested `length(body) >= 59000` proxy is
+> wrong in **both** directions and should not be used. `body` is the WHOLE bundle (runtime
+> evidence + schema + signatures), so a fat untruncated bundle scores as truncated; and the
+> three *worst* real cases have `body_chars = 0`. `metadata->>'truncated'` is the real flag and
+> was on the artefact all along — the fields the filing guessed "may already exist" do exist.
+
+Live `clients_db`, all-history, reported as a **rate with its window** because
+`diagnosis_artifacts` is retention-clocked (`bundle_retention_days` default 30) and a bare
+`count(*)` is "still retained", never a census:
+
+```
+ bundles | truncated | pct |   first    |    last
+     254 |        18 | 7.1 | 2026-07-09 | 2026-07-31
+```
+
+Per-bundle damage (`symbols_in_scope` − `symbol_count`), worst first:
+
+| corr | iter | in_scope | included | dropped | body_chars |
+|---|---|---|---|---|---|
+| `c16ee494` | 5 | 18 | 4 | **14** | 57,395 |
+| `954d8da9` | 2 | 18 | 4 | **14** | 50,831 |
+| `2a656f25` | 2 | 18 | 5 | 13 | 56,330 |
+| `65103331` | 4 | 7 | **0** | 7 | **0** |
+| `f9bcee6f` | 4 | 7 | **0** | 7 | **0** |
+| `f9bcee6f` | 5 | 7 | **0** | 7 | **0** |
+
+**The three `included=0, body_chars=0` rows are the headline.** That combination can only mean
+the FIRST body alone exceeded the 60,000-char cap, so the loop broke before rendering anything.
+Note `f9bcee6f` hit it on iterations 4 **and** 5 — twice in one run, and the loop converged
+regardless. Read at the artefact rather than inferred from the counter:
+
+```sql
+SELECT substring(body from position('## In-scope code' in body) for 220) FROM diagnosis_artifacts
+ WHERE kind='bundle' AND (metadata->>'truncated')::bool AND (metadata->>'symbol_count')::int=0;
+```
+
+returns, for all three:
+
+```
+## In-scope code
+
+## Same-file signatures (siblings of the in-scope symbols — …)
+```
+
+A heading promising the in-scope code, then straight to the next section. **The verdicter was
+handed an empty evidence section with nothing saying why**, and could not distinguish "no code
+in scope" from "seven symbols dropped".
+
+### Blast radius, measured rather than left for a reviewer
+
+- **Three char-budget cap sites exist in the whole repo** and all three are in this one file:
+  `:208` (this bug), `:521`, `:605`. **The other two already write a marker before breaking.**
+  This loop was the sole deviation from a convention its own file established twice — so the
+  fix is a reuse of that convention, not a new mechanism, and needs no architecture seam.
+- **One live consumer**: `diagnose-agent` is the only active agent invoking the action; it reads
+  neither `bundle.truncated` nor `bundle.symbol_count`, and does not override `max_body_chars`
+  (so production runs the 60,000 default). Nothing in Go reads the flag either. The only
+  consumer of the change is the verdict LLM reading the bundle TEXT.
+- `bd003f67a` (2026-07-20) audited **this file for this shape** on a `bug_historian` objection,
+  found `workflowRefsFromRuntime`, and recorded "audited platform-wide by SHAPE rather than by
+  instance". **It did not examine this loop, 300 lines above, in the file it was editing.**
+
 ## Fix candidates, ordered by what makes the bad state unrepresentable
 
 1. **`continue`, not `break`, plus a per-symbol refusal line in the bundle.** Skip the body
@@ -136,3 +215,46 @@ Candidates 1 and 2 together are ~10 lines and testable without the cluster.
 - Family: `bugs_open/012` (an `output_tokens == max_tokens` truncation persisted as success)
   and MEMORY's *"a `complete` work item is not a repaired artefact"*. Every member of this
   family is a cap that reported success.
+
+## VERIFY after the next chassis roll (this is what closes the ticket)
+
+1. **Prove the binary carries it, not the tag** (`bugs_open/153`: a roll is not evidence, and
+   the image has no provenance). Grep a string the change ADDED plus a positive control in the
+   SAME exec, so a wrong-pod or wrong-path mistake cannot read as a pass:
+
+   ```bash
+   kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
+     'strings /app/agent-chassis | grep -c "body omitted"; strings /app/agent-chassis | grep -c "In-scope code"'
+   ```
+   Expect `≥1` and `≥1`. A `0` on the first with `≥1` on the second means the image predates
+   the commit. Do it on **both** replicas.
+
+2. **Induce the cap on a real run** — the mechanism must be seen to fire, since a green run
+   proves nothing here (every assertion below is vacuous when no body is oversized). Fire a
+   diagnosis whose `seed_scope` names a bare file path for a large analysed file (the bundle
+   advertises that form at `:597`, and the whole-file branch is unbounded), then:
+
+   ```sql
+   SELECT (metadata->>'symbol_count')::int      AS included,
+          (metadata->>'symbols_omitted_size')::int AS too_big,
+          (metadata->>'symbols_unreadable')::int   AS unreadable,
+          body LIKE '%body omitted%'          AS marker_present,
+          body LIKE '%This section is INCOMPLETE%' AS coverage_line
+     FROM diagnosis_artifacts WHERE kind='bundle' AND correlation_id='<corr>'
+    ORDER BY iteration;
+   ```
+   Required: `too_big ≥ 1`, `marker_present`/`coverage_line` **true**, and — the regression
+   assertion — a symbol sorting AFTER the oversized one still present with a body.
+
+3. **Negative control on the same roll**: a bundle that hit no cap must contain none of
+   `body omitted` / `body unavailable` / `This section is INCOMPLETE`. If a clean bundle carries
+   them, the conditional went unconditional and every diagnosis's baseline has moved.
+
+⚠ **`symbols_omitted_size` and `symbols_unreadable` are NULL on every bundle written before
+this ships** — older rows return NULL, not 0. `COALESCE` or filter on `created_at`, or a
+"drop to zero" will really be an absence of data.
+
+⚠ **Do not "fix" `TestBundleBodyCap_FittingScopeIsByteIdenticalToThePreFixFormat`**: it passes
+against the pre-fix code too. That is what makes it a control — it asserts the OLD bytes survive
+for a scope that fits. The other three tests are the ones that fail pre-fix (verified by
+reverting the action to HEAD and re-running).
