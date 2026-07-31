@@ -3,9 +3,50 @@
 Commands that were hard to get right, with the gotcha attached. Update HERE, not in
 scrollback.
 
-## 1. OWNER ACTION — the serving path (blocking, not scriptable here)
+## 0. THE ONE COMMAND — verify everything, against the live origin
 
-The domain is registered but **parked at its registrar**. Signature:
+```bash
+python3 docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/verify_site.py
+python3 .../verify_site.py --disk      # fast offline pre-flight before a push
+```
+
+Checks every internal reference, every sitemap URL, every canonical (resolves **and**
+self-names), every `ld+json` block parses, head essentials, no old-domain leakage, and
+all 52 files byte-identical live. **It defaults to `--live` on purpose.**
+
+**GOTCHA — never verify a link graph against `python3 -m http.server`.** It resolves
+directory indexes; the production worker cannot. That single asymmetry shipped 3 dead
+references on all 42 pages, 3 dead sitemap entries and 3 canonicals naming a 404. Worse,
+the first link checker was "fixed" to resolve `/loans/` → `loans/index.html`, i.e. taught
+the same forgiveness, which turned a true positive into silence. `--disk` mode therefore
+models the worker's **single** `/` → `/index.html` rewrite and refuses every other
+directory path, so both modes agree about what a valid reference is.
+
+**GOTCHA — `robots.txt` legitimately differs live** (198 B → 2,034 B). Cloudflare's
+zone-level *Managed robots.txt* prepends content-signal directives; the control domain
+does the same and our own rules survive at the tail. It is `verify_site.py`'s single
+sanctioned byte exemption. Do not "fix" it.
+
+## 1. The serving path (DONE 2026-07-31 — kept for the diagnostic)
+
+The zone and Workers Route are live. `worker-health` answers and all 52 files serve.
+Compare against a healthy zone **in the same breath**, or a misconfigured zone is
+indistinguishable from a slow network:
+
+```bash
+curl -sS https://loanandmortgagecalculator.co.uk/worker-health   # "Worker is running!"
+curl -sS https://mortgagecalculator.co.uk/worker-health           # control
+```
+
+Two fleet-wide gaps remain, both confirmed identical on the control domain, both
+owner-only (no Cloudflare credentials on this machine):
+
+- **"Always Use HTTPS" is off.** `http://` returns **200**, not a redirect, so the same
+  content is reachable under two schemes — at odds with the duplicate-content goal.
+- **`www` does not resolve at all.** No site in the fleet has it, so this is consistent
+  rather than broken, but it deserves a deliberate choice.
+
+Historical signature, when it was still parked at the registrar:
 
 ```bash
 dig +short loanandmortgagecalculator.co.uk A     # 76.223.54.146, 13.248.169.48 (AWS/registrar)
@@ -65,17 +106,34 @@ a second assertion for exactly this (see §3).
 comment in the LOAN table in `build_site.py`. It is 1,816 bytes with zero controls
 and zero script. If a future run "restores" it, read that comment first.
 
-## 3. The two build assertions, and proving they can fail
+## 3. The FOUR build assertions, and proving they can fail
 
-`build_site.py` refuses to write if either fails:
+> **CORRECTED 2026-07-31:** this section said "the two build assertions". There are now
+> four. Properties 1-2 live in `port()` and cover the ported calculators only; **3-4 live
+> in `write()`, the one function BOTH builders funnel through**, so they cover all 42
+> pages. Each of the four exists because it has already caught a real defect on this site.
+
+The build refuses to write if any fails:
 
 1. **every inline `<script>` block is byte-identical to the source** — the
    calculators' logic must not change;
 2. **every external script the source referenced is still referenced** — a
-   byte-identical script with a missing dependency is still a broken page.
+   byte-identical script with a missing dependency is still a broken page;
+3. **no emitted `href`/`src` names a directory** (anything ending `/` other than the site
+   root) — an object store cannot resolve a directory index, so such a reference is a
+   live 404;
+4. **every `ld+json` block parses** — all 13 guides once shipped structured data that no
+   parser could read, because `html.escape()` escaped the quotes JSON needs.
 
 Mutation-test them rather than trusting them (this is `features_open/027`'s S2 rule
-— at least one mutant red per assertion class):
+— at least one mutant red per assertion class). Measured 2026-07-31, all four red:
+
+| mutant | expected abort |
+|---|---|
+| `hub()` returns `/{section}/` | `reference "/mortgages/" names a directory` |
+| JSON-LD headline re-escaped | `ld+json does not parse` |
+| `parseFloat` → `parseFloatX` | `inline script blocks changed` |
+| drop every external `<script src>` | `dependency /assets/js/calculators.js lost` |
 
 ```bash
 SP=/tmp/…/scratchpad
@@ -85,27 +143,31 @@ python3 $SP/build_mutant.py --check ; echo "exit=$?"   # MUST be non-zero
 ```
 Measured 2026-07-31: `exit=1`, `ABORT mortgages/simple: inline script blocks changed`.
 
-## 4. Verifying the calculators in a real browser
+## 4. Verifying the calculators in a real browser — against the LIVE domain
 
-The site uses root-relative paths, so it needs a server rooted at the site dir —
-`file://` will not do.
+> **CORRECTED 2026-07-31:** this section used to run the audit against
+> `python3 -m http.server` on port 8765. **Do not.** The site is live, and the local
+> server resolves directory indexes that production cannot — the asymmetry that hid three
+> dead URLs for a day. Audit the live origin. (The local server remains fine for a
+> pre-DNS site, but then you must not conclude anything about the link graph from it.)
 
 ```bash
-cd ~/projects/sites/loanandmortgagecalculator.co.uk
-python3 -m http.server 8765 --bind 127.0.0.1 &
-curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8765/assets/css/style.css   # 200 = paths resolve
-
 cd docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair
-python3 toolaudit.py --json /tmp/…/audit.json \
+D=https://loanandmortgagecalculator.co.uk
+python3 toolaudit.py \
   $(for p in simple repayment affordability stamp-duty overpayment investor portfolio \
              equity-release bridging-loan fee-analyser rate-forecaster fact-finder; \
-     do echo http://127.0.0.1:8765/mortgages/$p.html; done) \
+     do echo $D/mortgages/$p.html; done) \
   $(for p in standard-calc compare-loans consolidation car-finance-calculator \
              credit-health-check damage-checker interest-rate-stress-test loan-vs-savings \
              overpayment-calculator settlement-calculator application-tracker; \
-     do echo http://127.0.0.1:8765/loans/$p.html; done)
+     do echo $D/loans/$p.html; done)
 ```
-Last result (2026-07-31): **RESPONDS=23**, i.e. all of them.
+Last result (2026-07-31, live, after the hub-URL and JSON-LD fixes): **RESPONDS=23**.
+
+**GOTCHA — a `HARNESS-ERROR` is not a site verdict.** One run returned
+`HARNESS-ERROR … [Errno 32] Broken pipe` on `mortgages/overpayment.html`; re-run alone it
+was `RESPONDS`. Across this site, **4 of 5** adverse verdicts have been the instrument.
 
 **GOTCHA — when this harness says a tool is DEAD, first ask whether it did the
 thing it claims to have done.** Three of the four non-passing verdicts on this
@@ -245,3 +307,123 @@ kubectl exec -n ai-persona-system $POD -- sh -c '
 **GOTCHA — `grep -c fidelity` proves nothing.** There were already ~10 unrelated
 `fidelity` hits in the tree before the mend (a vet-med parse guard, a gemini
 comment), so the word appears in a binary that lacks the feature entirely.
+
+## 9. The adoption byte gate — MANDATORY after adoption, and after every builder change
+
+```bash
+python3 gate_component_bytes.py            # report
+python3 gate_component_bytes.py --repair   # load repo bytes into the mismatches
+python3 gate_component_bytes.py            # re-run: the RE-RUN is the evidence
+```
+
+Measured 2026-07-31 on the real adoption: **41 of 41 components mismatched**, and the
+repair wrote 41 with 0 lock-suppressed. What firecrawl's `rawHtml` had actually done,
+diffed against the repo:
+
+- every relative `href`/`src` **absolutised** to `https://loanandmortgagecalculator.co.uk/…`
+- `<meta charset="UTF-8">` → `<meta http-equiv="Content-Type" …>`
+- `&#9776;` decoded to a literal `☰`
+- **the skip link became `https://…/loans/damage-checker.html#content`** instead of
+  `#content` — the first thing a keyboard user hits, turned into a full page reload.
+  That is an accessibility regression on all 41 pages, and it is the concrete reason
+  this gate is not pedantry.
+- `mortgages/repayment.html` came back **+11,432 bytes** — 8× every other page — because
+  its script builds a 24-row amortisation table on load and the crawl serialised the
+  result. Served has 2 `<tr>`; the post-JS DOM has 26.
+
+**GOTCHA — a 3-page sample is not the site.** An earlier note here concluded "no script
+injects DOM on load" from three pages with matching `<option>` counts. `repayment.html`
+falsifies it. Sample by mechanism (one page that BUILDS markup, one that fills a select,
+one static), not by convenience.
+
+**GOTCHA — `content_data.sha256` is NOT the gate.** It is computed over the stored
+`rawHTML`, so it is self-consistent by construction and says nothing about fidelity to
+the origin. The gate digests in Postgres with `sha256(convert_to(col,'UTF8'))` —
+`sha256(text::bytea)` is invalid SQL.
+
+**GOTCHA — TWO WRITERS, and this is the one that will bite later.** A `page_rerender` on
+an owned/verbatim page **commits to the shared sites repo** (`Rerender: <file>`, into
+`github.com/gqls/sites`) and thence to B2. So `build_site.py` → repo → Actions and
+`page_components` → rerender → Actions now write the same 41 files. They agree only
+while something keeps them in step. **After ANY builder change, re-run
+`gate_component_bytes.py --repair`**, or the DB still holds the old bytes and the next
+rerender silently reverts your change.
+
+## 10. Holding the rerender queue while you gate
+
+`adopt_verbatim` creates one `page_rerender` per page **inside the adoption transaction,
+already `status='triaged'`**, and `build-pipeline-trigger` is scheduled at
+`interval_seconds=120`. So the window between the items existing and mutated bytes
+deploying is under two minutes. **Hold first, then look.**
+
+```bash
+# flip them out of the dispatchable set the instant they appear (poll every 2s)
+UPDATE site_work_items SET status='deferred', updated_at=NOW()
+ WHERE site_id=(SELECT id FROM sites WHERE domain='loanandmortgagecalculator.co.uk')
+   AND item_type='page_rerender' AND status IN ('triaged','approved');
+```
+Measured: the poller caught **41 in one second**. Release with `status='triaged'` after
+the gate passes.
+
+`deferred` is deliberate: it is **not** in `workItemTerminalStatuses`, so the row still
+holds its `idx_swi_dedup` slot (nothing can create a duplicate behind it) and the release
+is a plain `UPDATE`.
+
+**GOTCHA — `sites.locked_at` does NOT hold dispatch, despite migration
+`213_dispatch_gate_matches_dispatcher.sql:106` containing `AND s.locked_at IS NULL`.**
+The **live** `build-pipeline-trigger` row has no such clause. Read the live
+`agent_definitions` row, not the migration — a migration file is no better evidence than
+a seed.
+
+**GOTCHA — the queue will not drain on your schedule.** The dispatcher takes
+`DISTINCT ON (site_id) … LIMIT 1` ordered by `site_id`, one site per invocation, and this
+site ranked **14 of 14** with pending work. A released item sat unpicked for 10+ minutes.
+To prove a single page, fire `page-rerender` directly instead of waiting:
+
+```bash
+kubectl -n kafka run -i --rm kcat-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -c 1 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests -H correlation_id=$(uuidgen) -H orchestration_id=$ORCH \
+  -H message_type=request -H client_id=demo_client -H action=orchestrate \
+  -H sender_agent_type=cli -H responses_topic=system.agent.generic.responses <<JSON
+{"action":"orchestrate","config":{"agent_type":"page-rerender"},"input_data":{"site_id":"$SITE_ID","domain":"loanandmortgagecalculator.co.uk","page_id":"$PAGE_ID"}}
+JSON
+```
+`kcat -P` exits 0 having sent nothing, so **verify by the orchestration row**, never the
+exit code. Acceptance test result 2026-07-31: `COMPLETED`, deployed 1 file, live sha256
+unchanged, and `git diff` against the platform's own commit was **empty** — the
+rebuild-safety property working.
+
+## 11. The divergence specs (D3/D6)
+
+```bash
+python3 set_divergence_specs.py            # dry run, shows the byte delta
+python3 set_divergence_specs.py --apply
+```
+
+**GOTCHA — the `audience` aspect is read by NOTHING.** It is the most widely-populated
+aspect in the database (29 of 33 sites) and no agent, prompt or Go path consumes it. An
+earlier version of this workstream's plan named it as one of three targets. Same for
+`editorial`, `voice`, `content_standards`, `terminology_and_positioning`.
+
+The three seams that do reach a prompt: `identity.target_audience`,
+`identity.key_differentiators`, and **`content_direction.formatted` — the only field of
+`content_direction` the writer reads.** New keys therefore go *inside*
+`content_direction`, never as new aspects.
+
+**GOTCHA — regenerate `formatted` or the edit is invisible.** A hand-written
+`content_direction` that omits it looks applied and changes nothing. The script ports
+`datahelpers.FormatContentDirection` and **gates the port**: it regenerates the current
+spec and aborts unless the result matches the stored `formatted` as a multiset of
+**lines** — not as a string, because Go map iteration is random so section order is
+arbitrary. Verified equal at 143 lines / 18,005 bytes, then +1,280 bytes after the write.
+
+**GOTCHA — `site_specs`' JSONB column is `data`, not `spec_data`** (`spec_data` is a
+workflow config key naming a path into `collected_data`). And `idx_site_specs_current` is
+`UNIQUE (site_id, aspect) WHERE is_current`, so the supersede must precede the insert.
+
+**No cross-site duplicate-content machinery exists in this platform.**
+`check_content_duplication` is single-site, `remove_duplicate_page_sections` is
+single-page, and `cross_site_contamination` detects another site's `company_name` in
+rendered HTML — not topical overlap. The spec is the whole mechanism; nothing will warn
+you if the two sites converge again.

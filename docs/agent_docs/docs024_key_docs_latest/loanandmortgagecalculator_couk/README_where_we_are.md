@@ -137,3 +137,117 @@ original did. Byte-identical code with its dependencies present is strong eviden
 but it is not the same thing as checking the output, and I would rather say so than
 let "verified" cover more than it earned. Per-calculator acceptance checks are the
 obvious next job and there is already a pattern in the repo for them.
+
+---
+
+**2026-07-31, evening. It is live — and going live found three things I had got wrong.**
+
+You put the domain into Cloudflare and pointed it at the storage, and the site came up
+straight away. I checked all fifty-two files by fetching them and comparing them
+byte-for-byte against what I had built: fifty-one identical. The fifty-second is the
+`robots.txt`, and that one is fine — Cloudflare adds its own block to the top of every
+site's robots file, and it does the same on your other domains. My own instructions are
+still there underneath.
+
+**Then I checked the live site properly, and it was not as clean as I told you it was.**
+Three things, all mine, and I would rather set them out plainly than have you find them.
+
+**One: the three main section links were broken on every single page.** The links to
+"Mortgage tools", "Loan tools" and "Guides" pointed at `/loans/` and so on, and every one
+of those returned a Not Found. Worse than that, those three addresses were also in the
+sitemap I hand to Google, and three pages told Google that their own official address was
+one of the broken ones.
+
+The reason is a genuine quirk of how your sites are hosted. There is no real web server —
+files are pulled straight out of storage by name. A normal web server, asked for
+`/loans/`, knows to look for `/loans/index.html`. Storage does not: it looks for a file
+literally called `loans/`, and there isn't one. Every site you own behaves this way; mine
+was the only one that actually *linked* like that.
+
+**And here is the part I am least pleased about.** My own link checker caught this. It
+told me `/loans/` was dead, along with about sixty other links that genuinely were fine.
+I fixed the false ones — and while I was at it I taught the checker to treat `/loans/` as
+meaning `/loans/index.html`, because that is what the test server on my machine does. So
+I took a true warning and taught the instrument to stop giving it. The site then passed
+every check I had, for a day, while being broken.
+
+The lesson I have written down for the whole fleet is short: **when a checker disagrees
+with the live site, change the checker to match the live site, never the other way round.**
+And I was right about fifty-seven of the sixty, which is exactly why I stopped looking.
+
+**Two: the structured data on all thirteen guides was invalid.** Every guide carries a
+small hidden block that tells Google what the page is — its title, description and date.
+Mine had one character wrong in how it was generated, which made all thirteen unreadable.
+Google throws away structured data it cannot parse without saying anything, so nothing
+complained; the guides were simply not eligible for the richer search results they should
+have been. Same underlying mistake as the first one: I had checked that the block was
+*there*, never that it was *valid*.
+
+**Three: the site claimed twenty-four calculators and has twenty-three.** When I dropped
+the one that turned out not to be a calculator, I never updated the wording. It also said
+"all 12 loan calculators" where there are eleven. Small, but it is a false statement on a
+finance site, which is the last place for one.
+
+**All three are fixed and live, and I fixed them so they cannot come back.** Rather than
+correcting thirteen separate places, there is now one definition of how a section link is
+written, and the counts are counted from the actual list of calculators instead of typed
+by hand. The build now refuses to produce a page that links to a folder, or that carries
+unreadable structured data — and I deliberately broke each of those four safety checks to
+confirm they actually stop the build. A check that has never once gone off is not a check.
+
+I also wrote a single verification command that tests the live site rather than my
+machine, and it caught a fourth mistake within a minute of existing.
+
+**The site is now in the framework.** All forty-one pages are registered, and every one is
+marked so that nothing can regenerate it — the calculators' arithmetic is untouchable by
+design. Nothing was handed to an AI to rewrite: I checked that explicitly, because that
+was the one outcome worth being paranoid about.
+
+**But the way the framework copies a site in is not safe, and I am glad I gated it.** To
+adopt a site, the platform crawls it — and what a crawler captures is the page *after* the
+browser has run all its code, not the file as it was written. All forty-one pages came
+back changed. Mostly cosmetic, but two matter: the "skip to content" link at the top of
+every page — the first thing a keyboard or screen-reader user hits — had been turned into
+a link that reloads the whole page instead of jumping down it. And the amortisation
+calculator came back eleven kilobytes bigger, because the crawler had captured the
+year-by-year table the page builds when you open it, and baked it in.
+
+So I held the platform's forty-one "publish this" jobs the moment they were created —
+under two minutes' notice, so it had to be automatic, not me watching — replaced all
+forty-one with the real files, and then let one through as a test. It republished the page
+with **no change at all**, which is exactly the property worth having: the framework can
+now rebuild the site without altering it.
+
+**A caution I want recorded for whoever touches this next.** There are now two things
+that can write those forty-one files: my build scripts, and the framework. They agree
+today because I just made them agree. If someone changes the build scripts and does not
+re-sync the framework's copy, the next framework rebuild will quietly undo their change.
+There is a one-command fix for that, and it is written down in the runbook.
+
+**And the divergence is now recorded as real settings, not a note.** This is the part you
+asked for — that the two sites evolve apart, managed by the framework rather than by
+someone remembering. The new site's positioning is written into the fields the content
+system actually reads when it writes a page: who this site is for (someone whose loan or
+car finance and their mortgage affect each other), what is in scope, and an explicit rule
+that when a subject could be written either as plain single-topic explanation or as a
+crossing-point question, it must always be the crossing-point version.
+
+**Two honest caveats on that.** First, I checked which settings are actually *read*, and
+the most obvious one is a dead end: the field literally named "audience" is filled in on
+twenty-nine of the thirty-three sites in your estate and **nothing anywhere reads it.** My
+own earlier plan had named it as one of three places to write this. That third of the work
+would have looked done and done nothing.
+
+Second, and more important for what you asked: **there is nothing in the platform that
+detects two of your sites drifting back together.** I looked. The duplicate-content
+checking that exists only ever compares a site against itself. So these settings are the
+entire mechanism — they steer new writing, but nothing will raise a hand if the two sites
+converge again. If you want that guard, it does not exist yet and would need building.
+
+**What is left.** The thirteen guides are registered but still frozen, so the framework
+cannot yet improve them — handing them over needs them broken into sections first, because
+of how the page assembler works, and that is a proper piece of work rather than a flag to
+flip. And two small things only you can do in Cloudflare: turn on "Always Use HTTPS" (the
+site currently answers on plain `http://` as well, which means the same pages exist at two
+addresses — the exact thing we are trying to avoid), and decide whether you want `www` to
+work, which it currently does not on any of your sites.

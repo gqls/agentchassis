@@ -14920,3 +14920,75 @@ assertion in prose.
   separates "my guard works" from "something else got there first", which is why the
   mutation is not a formality you add after the tests pass: it is the only evidence
   the tests are about what you think.
+
+- **I "fixed" my own link checker until it agreed with a broken site, and called the
+  true positives false.** Porting a site to loanandmortgagecalculator.co.uk, my link
+  checker reported 60 dead internal links. Most were genuinely false — it was not
+  resolving `href="/"` — so I fixed the resolution and recorded in NOTES that *all 60*
+  were instrument error. Three were not. `/mortgages/`, `/loans/` and `/guides/` are
+  live 404s, because an object store has no directory index and the worker rewrites only
+  `/`; my fix taught the checker to resolve `/loans/` → `loans/index.html`, which is
+  what `python3 -m http.server` does and what production does **not**. So the checker
+  and the local server were made to agree with each other and disagree with reality, and
+  the site shipped with 3 dead references on all 42 pages, 3 dead sitemap entries and 3
+  canonicals naming a URL that did not exist. **The cheap check: when a checker
+  disagrees with production, change the checker to match PRODUCTION, never the reverse —
+  and resolve the disputed reference against the live origin before deciding it was a
+  false positive.** The generalisable shape is nastier than a missed check: a
+  *correct* fix to a real false positive can extinguish a real true positive in the same
+  edit, and the passing run afterwards looks exactly like success. Related:
+  `narrowing-a-detector-can-make-it-inert`, and the reason a mixed batch is the dangerous
+  case — I was right about 57 of 60, and being mostly right is what made me stop looking.
+
+- **A three-page sample answered the question I encoded, and I stated its conclusion
+  about the whole site.** Deciding whether a locked adoption could safely store
+  firecrawl's post-JavaScript DOM, I measured three pages, found `<option>` counts
+  identical before and after JS, and wrote: "no script injects DOM on load, so a
+  stored-DOM round trip would not duplicate controls." True of those three. **False of
+  the site** — `mortgages/repayment.html` serves 2 `<tr>` and its post-JS DOM has 26,
+  because it generates a 24-row amortisation table on load. The adoption stored that
+  page **+11,432 bytes** larger than the origin, 8× every other page, and the number was
+  sitting in the gate output while my note still said no page injects DOM. **The cheap
+  check: pick the sample by the mechanism you are testing, not by convenience — one page
+  that BUILDS a table, one that fills a select, one that is static — and when a later
+  measurement produces an outlier 8× the others, re-read the earlier claim it
+  contradicts rather than only explaining the outlier.** I had marked the figures
+  `[UNVERIFIED]` as a lower bound, which was right and did not save me, because the
+  marker was on the byte counts and the unmarked sentence next to it was the inference.
+
+- **Backticks in `git commit -m` executed, again, with the landmine already in my
+  memory index.** Two `` `formatted` `` tokens were substituted out of a commit message,
+  leaving two sentences without their subject. This is recorded in
+  `shell-tool-traps-committing` and I read that index at session start. **The cheap
+  check: never put a commit message in `-m` when it contains backticks — write it to a
+  file and use `git commit -F <file>`, which cannot interpolate anything.** Worth a row
+  precisely because knowing a trap is not the same as having a habit that avoids it: the
+  fix is to change the command shape so the trap is unreachable, not to remember harder.
+
+- **I read a CSS FALLBACK as the site's palette and told the owner his share card was
+  off-brand.** I said vonc.com was red `#dc2626` with an amber `#fbbf24` accent, that
+  the card's `#6d28d9` purple clashed with it, and offered a one-line fix. Every part
+  was wrong: those two literals are the fallbacks in `var(--color-primary, #dc2626)`
+  inside the gauntlet component's stylesheet, and the value that actually resolves is
+  `#6d28d9` — precisely what the card draws. The card had matched the site all along.
+  What makes this worth a row is that **no amount of reading would have caught it**:
+  a fallback is only used when the variable is unset, so the source text is
+  *simultaneously* present and inoperative, and grep cannot tell the two apart. I found
+  out by accident, from a screenshot that looked wrong for a different reason.
+  **The cheap check: for any question of the form "what colour/size/font IS this", ask
+  the browser for the COMPUTED value — one `getComputedStyle` call — and never quote a
+  literal read out of a stylesheet.** The general shape: a declared default is not a
+  measurement, and a `var(x, fallback)` is a claim about the fallback's *availability*,
+  not its use. Same family as `[UNMEASURED]` — except here I did not even notice there
+  was something to measure.
+
+- **I filed a landmine that another lane had already filed the same day, better.** I
+  wrote up `wc -c` (bytes) versus Postgres `length()` (characters) as a phantom
+  truncation signal, synced it, and only then found `LANDMINES.md` already had the
+  entry — with the sharper half I had missed, that the error runs in BOTH directions,
+  so a real corruption can be masked by offsetting multi-byte characters. I had greped
+  the runbooks and the SQL files for `wc -c`; I had not greped the landmine file
+  itself. **The cheap check: "grep before you file" has to include the file you are
+  filing INTO.** Merged my new facts into theirs and deleted mine — a duplicate entry
+  is worse than none, because two entries on one trap make the corpus look larger and
+  read shallower.

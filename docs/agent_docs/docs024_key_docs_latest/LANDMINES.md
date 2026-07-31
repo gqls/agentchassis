@@ -2200,3 +2200,41 @@ before a customer-facing domain is the one printing it.
   faithful to the wrong original that pass their own review. Cost is one command:
   `diff <(curl -s https://<domain>/<path>) ~/projects/sites/<domain>/<path>` — or md5
   both — **before** reading a single file as source of truth.
+
+### A `/section/` URL 404s on every B2-hosted site, and a local server hides it
+- **footprint:** `~/projects/sites`, `scripts/cloudflare/worker.js`, `python3 -m http.server`
+- **the check:** the worker maps `{hostname}{path}` straight to a B2 object key and
+  rewrites **only** `/` → `/index.html` (`worker.js:8-11,27`). An object store has no
+  directory index, so `href="/loans/"` asks B2 for an object literally named `loans/`
+  and returns **404**. Confirmed live on every site in the fleet:
+  `loancalculator.co.uk/tools/`, `mortgagecalculator.co.uk/guides/`,
+  `webdesign.co.uk/tools/`, `loanandmortgagecalculator.co.uk/loans/`.
+  **`python3 -m http.server` DOES resolve directory indexes, so it is a MORE FORGIVING
+  server than production and will pass a site that is broken live.** Never verify a link
+  graph, a sitemap or a canonical against it. Resolve every reference against the live
+  origin:
+  `curl -sS -o /dev/null -w "%{http_code} $u\n" "https://<domain>$u"`.
+  This shipped on loanandmortgagecalculator.co.uk: 3 dead references × 42 pages, 3
+  sitemap entries, and **3 canonicals naming a URL that did not exist** — the worst
+  form, because a canonical in a sitemap tells Google the authoritative URL is a 404.
+  Related and separate: `bugs_open/116` (the same root property) and `bugs_open/132`
+  (the JSON error blob served instead of `404.html`).
+  **And beware the second-order trap that actually did the damage:** when a link checker
+  flags `/loans/`, the tempting "fix" is to teach the checker to resolve it to
+  `loans/index.html`. That converts a TRUE POSITIVE into permanent silence. If a checker
+  disagrees with production, change the checker to match production — never the reverse.
+
+### After a locked adoption, `page_components` and the deploy repo are TWO writers for the same file
+- **footprint:** `page_components`, `pages.rebuild_policy`, `~/projects/sites`, `deploy_page`
+- **the check:** a `page_rerender` on an `owned`/`verbatim` page renders the stored
+  `rendered_html` and **commits it to the shared sites repo** (`deploy_result.repo_url =
+  github.com/gqls/sites`, message `Rerender: <file>`), which then deploys to B2. So once
+  a repo-built site is adopted, the same bytes have two independent writers: your builder
+  → your commit → Actions, and `page_components` → rerender → git-adapter commit →
+  Actions. They agree only while something keeps them in step. **So: after ANY change to
+  a builder that emits an adopted page, re-run the byte gate with `--repair`** — otherwise
+  the DB still holds the old bytes and the next rerender silently reverts your change.
+  Gate: `docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/gate_component_bytes.py`.
+  Do **not** trust `content_data.sha256` as the fidelity check — it is computed over the
+  stored bytes, so it is self-consistent by construction and says nothing about whether
+  they match the origin.

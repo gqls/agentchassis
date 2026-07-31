@@ -187,3 +187,180 @@ present dependency is strong, but it is not the same as asserting equal output f
 equal input, and I have not done that. A per-tool acceptance check —
 `features_open/015`'s criteria-fence idea, one measurable claim per tool — is the
 right shape for it and is the obvious next piece of work.
+
+---
+
+## 2026-07-31 — session 2: the site went live, and three of my own defects came with it
+
+The owner added the Cloudflare zone and the Workers Route. Verified before doing
+anything else, comparing against a healthy zone **in the same breath** so a
+misconfigured zone could not be mistaken for a slow network:
+
+```
+https://loanandmortgagecalculator.co.uk/worker-health  ->  "Worker is running!"
+https://mortgagecalculator.co.uk/worker-health         ->  "Worker is running!"   (control)
+NS: betty/ivan.ns.cloudflare.com on both
+```
+
+Then all 52 files fetched and digested: **51 byte-identical to the repo.** The 52nd
+is `robots.txt` (198 B repo → 2,034 B live) and it is **not a defect**: Cloudflare's
+zone-level *Managed robots.txt* prepends content-signal directives. The control
+domain does the same, and my own rules and `Sitemap:` line survive at the tail.
+`verify_site.py` now carries that as its one sanctioned byte exemption, with the
+reason, so nobody re-investigates it.
+
+### Defect 1 — three hub URLs 404'd live, and my instruments had been taught not to see it
+
+`/mortgages/`, `/loans/` and `/guides/` all returned **HTTP 404**. The worker maps
+`{hostname}{path}` straight to a B2 object key and rewrites **only** `/` →
+`/index.html` (`scripts/cloudflare/worker.js:8-11,27`), so `/loans/` asks B2 for an
+object literally named `loans/`. Fleet-wide property (`bugs_open/116`), confirmed on
+`loancalculator.co.uk/tools/`, `mortgagecalculator.co.uk/guides/` and
+`webdesign.co.uk/tools/`. **Mine was the only site in the sites repo that LINKED to
+such a path** — 0 distinct directory-path hrefs on loancalculator.co.uk, 3 on mine.
+
+Measured blast radius: **42 of 42 pages** carried all three links, **4 of 49**
+distinct internal references 404'd, **3 of 41** sitemap URLs 404'd, and **3 pages'
+own canonicals** pointed at a 404. That last one is the worst of it — a canonical in
+the sitemap naming a URL that does not exist.
+
+**Two instrument faults, and the second is the one worth keeping.** First, I verified
+against `python3 -m http.server`, which **does** resolve directory indexes — a *more
+forgiving* server than production. Second, and worse: when my own link checker
+flagged `/loans/` as dead, I recorded it in this file as a false positive and "fixed"
+the checker to resolve `/loans/` → `loans/index.html`. **I taught the instrument the
+same forgiveness, converting a true positive into silence.** That is
+`narrowing-a-detector-can-make-it-inert`, self-inflicted, and the session-1 entry
+above ("My own link checker reported 60 dead links, all false") is **partly wrong** —
+of those 60, three were real.
+
+> **CORRECTED 2026-07-31:** the session-1 claim that all 60 link-checker hits were
+> false is false. The `/loans/`, `/mortgages/` and `/guides/` hits were **correct**,
+> and the "fix" to the checker is what hid them for a day. Caught by fetching every
+> reference from the live origin instead of resolving it locally.
+
+### Defect 2 — all 13 guides shipped JSON-LD that no parser could read
+
+`build_pages.py:161` built the headline as
+`html.escape(repr(title).replace("'", '"'))`. `html.escape` defaults to
+`quote=True`, so it escaped the quotes it had just inserted:
+
+```
+"headline":&quot;Loan and Mortgage Jargon, Translated&quot;,
+```
+
+**13 of the 14 `ld+json` blocks on the site failed `json.loads`.** Google discards
+invalid structured data silently, so nothing complained and all 13 guides lost
+rich-result eligibility.
+
+Same root cause as defect 1, stated plainly because it is the transferable part:
+**every pre-launch check asserted PRESENCE where it needed to assert VALIDITY.** The
+session-1 table above says "head essentials (title, canonical, og:url, skip link,
+footer) on every page — 43/43". That was true and it was worthless: the canonical was
+*present* on every page and *resolved* on 39 of 42.
+
+### Defect 3 — the copy claimed 24 calculators, and there are 23
+
+Three places said "24 free UK calculators"; two said "12 loan calculators" and one
+"Twelve calculators" for a section holding 11. Dropping `credit-roadmap` (correctly —
+it is 1,816 bytes with no controls) never propagated into the prose. A false number
+in copy is the `bugs_open/161` failure mode: the artefact asserts a fact and then
+vouches for it. Counts are now **derived** from the tool tables via `len()` and a
+`word()` helper, so prose cannot drift from reality again.
+
+### What actually fixed these, and how the guards were proven
+
+Structural, not per-file:
+
+- one `hub(section)` helper defines the hub URL shape for all 13 emission sites;
+- counts derived from `MORTGAGE` / `LOAN` / `GUIDES`, never typed;
+- **`write()` — the one function both builders funnel through — gained two
+  assertions**: no emitted `href`/`src` may name a directory, and every `ld+json`
+  block must parse. There are now four build properties, and **all four were
+  mutation-tested red** (`features_open/027` S2), including the two pre-existing ones
+  I had changed the builder around:
+
+| mutant | result |
+|---|---|
+| `hub()` returns `/{section}/` again | `ABORT … reference "/mortgages/" names a directory` |
+| JSON-LD headline re-escaped to `&quot;` | `ABORT … ld+json does not parse` |
+| `parseFloat` → `parseFloatX` in output | `ABORT … inline script blocks changed` |
+| every external `<script src>` dropped | `ABORT … dependency /assets/js/calculators.js lost` |
+
+`verify_site.py` is new and **defaults to `--live`**, because the local server is the
+instrument that hid defect 1. Its `--disk` mode models the worker's *single* `/` →
+`/index.html` rewrite and **deliberately refuses to resolve any other directory
+path**, so the two modes agree about what a valid reference is.
+
+It earned its place immediately: on its first run it caught **a fourth defect the
+build assertions could not see** — `href="{hub('guides')}"`, an unexpanded f-string
+placeholder, because that segment of `HOME_BODY` was a plain string not an f-string.
+Valid-looking markup, not a directory path, invisible to property 3.
+
+Then the red→green, which is better evidence than a synthetic mutant: 4 failures →
+fix → 0 failures. And the dead-reference check was separately proven on the
+motivating case by injecting `href="/loans/"` into a built page (`FAIL … 1 FAILURE`),
+then restored by rebuild and confirmed byte-identical with `cmp`.
+
+### Verified live after the fix
+
+| check | result |
+|---|---|
+| distinct internal references resolving live | **48 / 48** (was 45/49) |
+| sitemap URLs resolving live | **41 / 41** (was 38/41) |
+| canonicals that resolve AND self-name | **42 / 42** |
+| `ld+json` blocks that parse | **14 / 14** (was 1/14) |
+| files byte-identical live | **51** + 1 sanctioned (`robots.txt`) |
+| calculators RESPONDS in real chromium, live | **23 / 23** |
+| build assertions red on a mutant | **4 / 4** |
+
+One transient to record so it is not mistaken for a regression: the first live audit
+returned `HARNESS-ERROR … [Errno 32] Broken pipe` on `mortgages/overpayment.html`.
+Re-run alone: `RESPONDS`. **A harness error is not a site verdict** — the same lesson
+as session 1's three harness faults, now at 4 of 5 adverse verdicts on this site
+being the instrument.
+
+### Adoption: what the pipeline can and cannot do, read before running it
+
+`adopt_verbatim.go` has **exactly one** possible byte source — firecrawl's `rawHtml`
+(`apply_adoption_plan_action.go:873`, DB fallback `:912-940` reading `raw_html`). No
+local-file or repo path exists anywhere in the platform; the gap is inventoried as
+**G1**, and `diagnose_read_repo_files_action.go`'s token **cannot see `gqls/sites`**
+(404 while authenticated — a fine-grained PAT scoped to selected repos).
+
+So I measured my own exposure rather than inheriting the sibling lane's number:
+
+| page | served | post-JS DOM | `<option>` |
+|---|---|---|---|
+| `loans/credit-health-check` | 6,990 B | 6,983 B | 0 → 0 |
+| `loans/application-tracker` | 9,138 B | 9,148 B | 0 → 0 |
+| `mortgages/fact-finder` | 15,859 B | 15,954 B | **32 → 32** |
+
+Divergence is cosmetic in scale (−7/+10/+95 B), not the sibling's 8,900 B inflation,
+because this site has no `nav.js`. Identical `<option>` counts mean **no script
+injects DOM on load**, so a stored-DOM round trip would not duplicate controls. But
+**3 of 3 still differ**, so the byte gate fails everywhere and repair is mandatory.
+
+> **[UNVERIFIED]** that is *Chromium's* serialisation, not firecrawl's. firecrawl
+> additionally absolutises URLs, rewrites `<meta charset>` and escapes `&` — measured
+> by the sibling lane, not by me. Treat the figures as a **lower bound**.
+
+### Two things I checked that turned out NOT to be true
+
+- **`sites.locked_at` does not hold dispatch.** Migration
+  `213_dispatch_gate_matches_dispatcher.sql:106` contains
+  `AND s.locked_at IS NULL` in the dispatcher's selector, and I was about to use it as
+  a clean site-level hold. **The LIVE `build-pipeline-trigger` row has no such
+  clause.** Read the live `agent_definitions` row, not the migration — "the seed is
+  not the system", and a migration file is no better evidence than a seed.
+- **The race is real and tight.** `scheduled_tasks` shows `build-pipeline-trigger`
+  **enabled at `interval_seconds=120`**, last fired a minute before I looked. So the
+  window between `adopt_verbatim` creating `page_rerender` items (already
+  `status='triaged'`, inside the adoption transaction) and mutated bytes deploying is
+  **under two minutes** — not something to check by hand afterwards. Hold first,
+  then look.
+
+The hold is a poller that flips new `page_rerender` items to `deferred`, chosen
+because `deferred` is **not** in `workItemTerminalStatuses`, so the row still holds
+its `idx_swi_dedup` slot (no duplicate can appear behind it) and the release is a
+plain `UPDATE` back to `triaged`.
