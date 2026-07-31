@@ -1774,3 +1774,63 @@ belonging to another session entirely. The only thing that caught it was the pla
 summary describing someone else's change. **I was one step from revising my work
 against another thread's objections, and it would have felt like diligence.** Now in
 `LANDMINES.md`; key on your own correlation, always.
+
+## 2026-07-31 — the second tool is built and live
+
+`/tools/tool-relevant-alternative.html`, HTTP 200, gate + disclaimer + script served.
+Migration `sql_for_agents/275`, template in `oufe/tool/tool-relevant-alternative.html`.
+
+**What it does.** Two strict-priority waterfalls over one capital structure, one on the
+relevant-alternative value and one on the plan value, then s.901G Conditions A and B
+per class. The reader moves the counterfactual and watches vetoes appear and vanish.
+
+**The arc, computed before shipping rather than asserted** (defaults: plan 1400,
+claims 800/500/400/0, votes 95/80/10/0):
+
+| RA value | classes in the money | Cond A | Cond B | outcome |
+|---|---|---|---|---|
+| 0 | 0 | Y | **N** | not available — nobody is in the money, so no approving class can satisfy Condition B |
+| 600 | 1 | Y | Y | **available** — subordinated dissents but does better under the plan |
+| 1500 | 3 | **N** | Y | not available — subordinated is now in the money, recovers less under the plan, **has a veto** |
+
+Raising the counterfactual hands the subordinated class a blocking position. That is
+the whole tool, and it is the design the 07-30 handoff specified.
+
+**126 is heeded properly:** the gate has its OWN two acceptance checks (`gate-exists`,
+`gate-button-exists`), placed first. Deleting the disclaimer now fails acceptance
+instead of improving the score.
+
+**Scanned against oufe's register + the fleet-wide set before shipping: 0 findings.**
+It would not trip the claims floor built the day before.
+
+### Three missteps, all caught by checking rather than by luck
+
+1. **The migration number moved under me.** I wrote `274`; by the time I applied it,
+   another session had taken `274` twice. `ls` again immediately before writing, not
+   at the start.
+2. **`\set tmpl \`cat …\`` runs INSIDE THE POD.** This is the documented house pattern
+   from tool 1's file, and it only works when psql runs on a machine holding the repo.
+   Through `kubectl exec -i` the backticks execute in the pod, `cat` printed
+   "No such file or directory" to stderr, the variable resolved **empty**, and the
+   INSERT **still COMMITted** — `BEGIN / INSERT 0 1 / COMMIT`, every statement
+   successful, a live page bound to a **zero-byte** template. `ON_ERROR_STOP` does not
+   catch it: a failing shell command is not a psql error. Fixed by building the
+   statement locally with a dollar-quoted literal and then **asserting
+   `length(html_template)` against `wc -c`** — 19,849 both sides. Now in `LANDMINES.md`
+   and in 275's header.
+3. **My own footer verification said the honesty note was GONE.** `honesty_note = f`.
+   It was not gone: I had invented the LIKE patterns from memory (`'%can be wrong%'`)
+   instead of reading the artefact, and the real wording is *"We make mistakes, and
+   some of what is here is assembled with AI assistance that can invent convincing
+   detail."* **A verification pattern written from memory is a claim, not a check** —
+   and this one would have sent me hunting a fault that did not exist, on the one
+   artefact mig 268 exists to protect.
+
+### Remaining
+
+The footer now carries both tools in the Explore list, but **chrome is a stored
+artefact** (`bugs_open/117`): the 8 previously-deployed pages were assembled with the
+old footer and are being re-deployed individually to pick up the link. Until those
+finish, tool 2 is reachable by URL but not linked from the rest of the site — the
+exact orphan condition the 07-29 session spent an afternoon on, so **verify by
+`curl`ing a page and grepping for the link, not by the orchestration status.**
