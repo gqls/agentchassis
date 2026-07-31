@@ -2,23 +2,29 @@
 //
 // ReadSymbolBody is the single place a "path:Symbol" (or "path") scope entry is
 // turned into source text: by SLICING the analyser's already-recorded line span
-// out of the file on disk — never re-parsing. It is the slicer the bundle
-// assembler (cmd/bundle) and the chassis diagnose_assemble_bundle action both
-// use, so a symbol's body renders identically wherever it is gathered. The
-// chassis action's old readSymbolBody stub is replaced by a call to this (it
-// already has the analyser Output under repo_analysis; the stub did not).
+// out of the file on disk — never re-parsing.
 //
-// Convention — VERIFIED byte-for-byte against cmd/bundle's own output: the body
-// is the file lines [StartLine, EndLine] INCLUSIVE, 1-indexed, exactly as the
-// analyser records them. StartLine is the `func`/`type` keyword line (d.Pos()),
-// so the preceding doc comment is NOT included; EndLine is the closing brace
-// (d.End()). A scope entry with no ":Symbol" returns the whole file (matching
-// how cmd/bundle renders a whole-file scope, leading comments included).
+// CITATIONS CORRECTED 2026-07-31 (bugs_open/145): this header used to name
+// `cmd/bundle` three times as the other user and the byte-for-byte reference.
+// **There is no `cmd/bundle` in this repo, and never was.** The tool is
+// contextkit's `cmd/assembler`, which lives in ARCHIVED reference code under its
+// own go.mod (docs019_…/go_files/contextkit/) and is therefore not in this
+// module's build — `go list ./...` yields 0 contextkit packages. So the ONLY live
+// caller is the chassis's diagnose_assemble_bundle action (:201), whose old
+// inline readSymbolBody stub this replaced (the stub had no analyser Output; the
+// action has one under repo_analysis). The "collapse cmd/bundle's equivalent
+// inline onto this function" note that used to close this header was stale in the
+// other direction: that collapse HAPPENED and was proven byte-identical — see
+// concept register CTXK-002.
 //
-// Reuse note: this is intended as the ONE slicer. cmd/bundle currently has an
-// equivalent inline; collapse it onto this function (and confirm cmd/bundle's
-// symbol resolution matches spanOf for any method-name-collision edge cases)
-// once both are in the same tree.
+// Convention — VERIFIED byte-for-byte against cmd/assembler's own output: the
+// body is the file lines [StartLine, EndLine] INCLUSIVE, 1-indexed, exactly as
+// the analyser records them. StartLine is the `func`/`type` keyword line
+// (d.Pos()), so the preceding doc comment is NOT included; EndLine is the closing
+// brace (d.End()). A scope entry with no ":Symbol" returns the whole file
+// (matching how cmd/assembler renders a whole-file scope, leading comments
+// included) — but ONLY for a file the analyser parsed; see the boundary comment
+// on ReadSymbolBody itself.
 package analysis
 
 import (
@@ -47,20 +53,46 @@ func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
 		return "", fmt.Errorf("ReadSymbolBody: empty path in symbol %q", symbol)
 	}
 
+	// THE BOUNDARY (bugs_open/145). The analyser Output — not the disk — decides
+	// what this function will read, for BOTH branches, and it decides BEFORE the
+	// read. Until 2026-07-31 this check sat after os.ReadFile and after the
+	// whole-file return, so a scope entry naming any committed file (`.env`-shaped
+	// files, bugs_open/*.md, fixtures) got that whole file back, and the consumer
+	// rendered it to the verdicter inside a ```go fence labelled "In-scope code".
+	//
+	// Why Output membership and not an ".go" extension test: Output IS the
+	// analyser's inclusion rule (analyse.go:80-99 — Go, non-test, minus vendor/,
+	// testdata/, download-duplicates and excluded() paths), so an extension test
+	// would be a second, drifting copy of it that still admitted a vendored or
+	// excluded file. Nothing here to keep in step, and if the analyser ever learns
+	// another language this boundary widens with it, correctly.
+	//
+	// This is not a new invariant — it is the one the ORIGINAL caller had and the
+	// chassis port dropped: contextkit's cmd/assembler resolves `byPath[path]` and
+	// skips with "path not found in analysis" before it ever calls this function
+	// (docs019_…/go_files/contextkit/cmd/assembler/main.go:178-200). Enforcing it
+	// HERE is what stops the next producer losing it again — the whole-file branch
+	// is reachable by an LLM (the verdict's next_scope), and the bundle text at
+	// diagnose_assemble_bundle_action.go:597 explicitly invites bare file paths.
+	//
+	// Side effect worth knowing: path traversal is closed too. `../../etc/passwd`
+	// cannot be in Output, so filepath.Join can no longer be walked out of `root`.
+	fi := findFile(out, pathPart)
+	if fi == nil {
+		return "", fmt.Errorf("ReadSymbolBody: %q not in analysis (no FileInfo for that path) — bodies are read only for files the analyser parsed", pathPart)
+	}
+
 	abs := filepath.Join(root, filepath.FromSlash(pathPart))
 	src, err := os.ReadFile(abs)
 	if err != nil {
 		return "", fmt.Errorf("ReadSymbolBody: read %s: %w", abs, err)
 	}
 
-	// Whole-file scope entry.
+	// Whole-file scope entry — an ANALYSED source file, guaranteed by the check
+	// above. Kept deliberately: the bundle advertises it (see above), so removing
+	// the branch would break a documented next_scope capability.
 	if namePart == "" {
 		return string(src), nil
-	}
-
-	fi := findFile(out, pathPart)
-	if fi == nil {
-		return "", fmt.Errorf("ReadSymbolBody: %q not in analysis (no FileInfo for that path)", pathPart)
 	}
 
 	start, end, ok := spanOf(fi, namePart)

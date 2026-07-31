@@ -641,6 +641,17 @@ func scopeFromCodeResults(collected map[string]interface{}, field string) []stri
 // analysis.ReadSymbolBody slices from. The body-reading itself lives in the
 // shared analysis package, so cmd/assembler and this action slice IDENTICALLY
 // (verified byte-for-byte) rather than re-implementing the convention here.
+//
+// CORRECTED 2026-07-31 (bugs_open/145): `cmd/assembler` is NOT a sibling command
+// in this repo — it is contextkit reference code under its own go.mod
+// (docs019_…/go_files/contextkit/cmd/assembler), so this action is ReadSymbolBody's
+// only live caller. Reading that clause as "there is a second live caller here"
+// is what put a wrong blast radius into 145's first filing.
+//
+// This Output is now also the READ BOUNDARY, not just the span source: since
+// 2026-07-31 ReadSymbolBody refuses any scope path absent from it. So a
+// misconfigured `analysis_field` no longer merely loses spans — it correctly
+// refuses every body, and the per-symbol Warn below names each one.
 func decodeAnalysisOutput(raw interface{}) (analysis.Output, error) {
 	var out analysis.Output
 	if raw == nil {

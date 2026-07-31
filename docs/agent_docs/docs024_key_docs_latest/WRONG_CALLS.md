@@ -13571,3 +13571,90 @@ finished until something mechanical checks them.
   `snapshot_agent` is a symbol, so the hook was never going to surface it and it was
   mine to grep. Same "grep before you file" discipline the repo already applies to
   `/bugs_open/`; I applied it there and not here, on the same day.
+- **I disarmed the landmine-verifier dispatch by following CLAUDE.md literally, and it
+  reported success while firing nothing.** 2026-07-31, bugfix_145 lane. CLAUDE.md's
+  landmines rule says: *"After you append, run `./scripts/landmines-sync.py --apply`
+  so the `doc_notes` rows follow."* I did exactly that. It printed
+  `1 entry need verification: NEEDS_VERIFICATION:LANDMINES.md#readsymbolbody-…`, so
+  I then ran the wrapper that acts on that signal,
+  `./scripts/landmines-verify-dispatch.sh` — and it answered **"Nothing needs
+  verification (no new or changed entries this run)."** The wrapper re-runs
+  `--apply` and greps ITS OWN output for `NEEDS_VERIFICATION:` lines; my first
+  `--apply` had already written the row, so the second run saw no change and the
+  RFC_005 §3.2 verifier was never fired for the entry that most needed it — a brand
+  new one making strong claims. **The signal is consumed by the write, not stored.**
+  Nothing failed: exit 0, an encouraging "applied: 369 owned row(s) now present", and
+  a sentence that reads like reassurance rather than the absence of a check. Recovered
+  by firing `./scripts/trigger-landmine-verifier.sh '<source>'` directly (corr
+  `329710d1`), which needs the exact `doc_notes.source` slug —
+  `python3 -c "import sys;sys.path.insert(0,'scripts');import landmines_lib as L;print('LANDMINES.md#'+L.slugify(L.parse()[-1]['title']))"`.
+  **The cheap check:** when appending a landmine, run **`landmines-verify-dispatch.sh`
+  INSTEAD OF** `landmines-sync.py --apply` — its own header says so ("Run this instead
+  of landmines-sync.py --apply directly when you want new/changed entries verified"),
+  and CLAUDE.md names only the inner script, so following the standing doc is what
+  breaks it. **Generalisable, and the reason this is worth a row rather than a
+  shrug:** this is the *"your own action can silence your own detector"* family, with
+  a twist — the action that silenced it was the one the standing instruction told me
+  to take, and the wrapper's quiet output is indistinguishable from "there was nothing
+  to verify". A no-op that says "nothing needed doing" is the hardest kind to notice,
+  because it is also what a correct run looks like. **CLAUDE.md's landmines bullet
+  should name the wrapper; flagged rather than silently edited, since that file is
+  co-edited by every session.**
+
+## 2026-07-31 — I answered a council objection with a 7-day aggregate, and the lane had been dead for two hours
+
+**Lane:** `bugfix_149_nav_membership`. **Council `4486f1a9`, `bug_historian`, medium:**
+*"the fix's actual delivery mechanism — getting a tool page's nav link to ship — depends
+on a triage step this plan does not control and which is documented elsewhere as
+currently not advancing items. A work item that sits in 'triaged' with nothing promoting
+it is functionally the same silent non-delivery … just moved one hop downstream and given
+a status that looks like progress."*
+
+**What I wrote down** — in the code, in the RUNBOOK and in a commit message: *"MEASURED
+2026-07-31, and the answer inverts the worry: `nav_drift` all-history 17 raised / 17
+claimed / 17 complete; `build-pipeline-trigger` is ENABLED, last fired 09:18:21Z; the
+`pipeline='build'` lane claimed 1,580 of 1,664 items over 7 days, with claims on every
+one of those days."*
+
+**Every figure was true and the conclusion was false.** Claiming had stopped
+**fleet-wide at 13:21** — over two hours before I quoted those numbers. Nine items were
+stalled, the oldest raised at 13:56. I found out because I filed a real work item to
+prove the fix end-to-end and **watched it sit `triaged`, unclaimed, for fifteen
+minutes**.
+
+**Two distinct errors, and the second is the one worth keeping.**
+
+1. *The window could not see the question.* The objection was "will this item be
+   picked up?" — a question about **now**. A 7-day aggregate cannot answer it, and a
+   near-perfect 7-day rate is exactly what a lane that died two hours ago looks like.
+2. *I read a stamp as an activity.* `scheduled_tasks.last_triggered_at` /
+   `last_completed_at` advancing means the **scheduler fired**; it says nothing about
+   whether a dispatch-loop orchestration was ever created. **This exact trap is written
+   down in the notes of the lane I had deliberately avoided colliding with** —
+   *"Equal `last_triggered_at`/`last_completed_at` proves nothing — that is the normal
+   fire-and-forget stamp"* (`robot_hands_checker_gaps/NOTES_checker_gaps.md`). I read
+   that file at the start of the session, to find out what they owned, and then made the
+   mistake it warns about ninety minutes later.
+
+**What caught it.** Trying to demonstrate the fix rather than assert it. The pod grep
+proved the binary; only firing a real work item proved the route — and the route was
+shut.
+
+**The cheap checks.**
+- **Ask what the claim's TIME SCOPE is, and make it match the question.** "Is this lane
+  alive?" is answered by the newest claim (`SELECT max(claimed_at) …`), not by a rate.
+  One extra column would have caught this: `max(claimed_at)` was `13:21`.
+- **For a dispatch lane, the liveness tell is the LOOP's own terminal step, not the
+  scheduler's stamp** — here `complete_idle`, whose newest run was `13:18`.
+
+**Cost.** Nothing shipped wrong: the code is right and the claim was about the
+environment. But the paragraph had already gone into a commit message, the RUNBOOK and a
+source comment before I disproved it, and it is corrected in all three rather than
+deleted. The council seat was **more right than my rebuttal**, which is the useful
+outcome of the round.
+
+**Tally note.** This is the fourth entry in this file in one day whose shape is *my
+measurement answered a question I had not asked* — after the branch-order replica and the
+invented `sites.status` filter this morning. Those two were about the FILTER; this one is
+about the **WINDOW**. Together they say the same thing from three sides: **write down the
+question before the query, and check the query can express it.**
