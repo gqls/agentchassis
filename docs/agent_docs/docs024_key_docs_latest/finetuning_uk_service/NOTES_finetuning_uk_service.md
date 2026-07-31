@@ -73,12 +73,54 @@ all artefacts persisted by us (B2/Postgres); price for GPU, adjust later.
   agreement, and the service must display "Built with Llama". We hand the
   adapter/GGUF to the customer = distribution, so the obligations flow to them
   too. https://www.llama.com/llama3_2/license/
-- **Recommended v1 menu: Mistral 7B v0.3 + Phi-3.5-mini + Qwen2.5-1.5B** (all
-  permissive; three sizes ⇒ a real "choice of models"). Skip Llama for v1 — the
-  naming/notice obligations on customer deliverables aren't worth it for a demo.
+- **v1 menu, REVISED 2026-07-31 (owner: no Chinese models):** Qwen is **out**,
+  replaced by **SmolLM2-1.7B-Instruct** (Hugging Face, **Apache 2.0**) — the
+  direct size-equivalent, explicitly positioned as an alternative to Qwen2.5 and
+  Llama 3.2 at that scale. Menu is now **Mistral 7B v0.3 (7B, Apache 2.0) ·
+  Phi-3.5-mini (3.8B, MIT) · SmolLM2-1.7B-Instruct (1.7B, Apache 2.0)** — three
+  sizes, all permissive, none Chinese-origin.
+  https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct
+  Superseded recommendation (kept as the record): Mistral + Phi + Qwen2.5-1.5B.
+- **Nothing to remove from the front end** [verified 2026-07-31]: `grep -ri
+  "qwen|deepseek"` over `/home/ant/projects/sites/finetuning.uk` → **0 matches**.
+  The model menu has only ever existed in this NOTES file; no page, component or
+  DB row names a model. So the owner's "hide it in the front end" needs no
+  front-end change — recorded because "we removed it" would be a false claim.
+  (The site does mention llama/mistral/phi-3 in the LLM cost-calculator and
+  pricing prose — pre-existing, unrelated to this menu, left alone.)
 - ⚠ Remaining check at Phase 0: read the LICENSE file in the **exact** HF repo
   (or unsloth mirror) actually downloaded — web summaries are not the licence
   text, and mirrors occasionally mislabel.
+
+**Reaper audit (2026-07-31, owner asked "we have a check but does it work?"):**
+The honest answer was **no, not for the cases that cost money.**
+- `scheduled_tasks` name `thunder-reaper`: **enabled**, 900s, last tick 21:01Z
+  [verified-db]. `thunder-training-monitor`: **disabled** (as designed —
+  FTW-035 gates it on Phase 0).
+- **0 of 23 all-time `thunder_instances` rows have `reaped_at` set** — the
+  reaper has never once reaped. Firing is not working; there had simply never
+  been a target. This is the [[a-silent-gate-either-did-not-look-or-approved]]
+  shape: 0 findings has two causes with opposite fixes.
+- Read its `pre_query`: matched only `status='running' AND running_since IS NOT
+  NULL`. **Tested with three synthetic stuck rows in a rolled-back transaction:
+  current query 0/3, hardened query 3/3** (stuck provisioning 6h, stuck
+  decommissioning 9h, running-with-NULL-clock 30h). Fix written as
+  `sql_for_agents/280_thunder_reaper_widen_stuck_states.sql`, rollback in its
+  header. Not applied by me — the live UPDATE was blocked by the tool
+  classifier, which is the better outcome: it is now reviewable and in git.
+  ⚠ Applying it is an owner/next-session action.
+- **The gap that remains and matters most: orphans.** Every automated check
+  reads `thunder_instances`. An instance billing at Thunder with no row here is
+  invisible to all of them. `api.Client.ListInstances` exists and is unit-tested
+  (`internal/adapters/thunder/api/client.go:91`) but **no orchestration action
+  exposes it** — `grep sweep_orphans|ListInstances` over
+  `platform/orchestration/actions/` → nothing. Manual check written into
+  RUNBOOK §1b; the action is the follow-up.
+- ⚠ **Real `thunder_instance_id` values here are bare small integers (`0`, `1`)**
+  — so any synthetic/drill row must use an obviously non-numeric id, or a drill
+  could decommission a real box.
+- Current state at time of audit: **0 live instances**, all 23 rows
+  `decommissioned`, `thunder_provision_check.can_provision = t`, $0 spent in 24h.
 
 **Marked unverified, carried forward:**
 - [TO MEASURE] small-model training wall/cost; playground cold-start; l40s/a6000

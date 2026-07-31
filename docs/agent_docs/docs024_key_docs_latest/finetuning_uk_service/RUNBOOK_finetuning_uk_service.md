@@ -54,6 +54,63 @@ and refuses to start if empty.
    ⚠ Do this UPDATE only when Phase 0 is actually about to run — the gate also
    protects every other lane that might provision.
 
+## 1b. "AM I BEING BILLED RIGHT NOW?" — the check to run before bed
+
+**Our database is not the source of truth for your bill; Thunder is.** Every
+automated check we have reads `thunder_instances`. An instance Thunder is
+charging for that has no row in that table is invisible to all of them. So the
+authoritative check is the API, and it takes ten seconds:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=thunder-adapter \
+        -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- sh -c \
+  'wget -qO- --header "Authorization: Bearer $THUNDER_COMPUTE_API_KEY" \
+   https://api.thundercompute.com:8443/v1/instances/list'
+```
+`{}` (or an empty object) = nothing running = nothing billing. **Anything else,
+read the `status` of each entry.** (If the container has neither `wget` nor
+`curl`, run the same request from any pod that does — see §1 step 4.)
+
+Then compare against what we *think* is running:
+```sql
+SELECT thunder_instance_id, status, instance_type,
+       ROUND(EXTRACT(EPOCH FROM (NOW()-COALESCE(running_since,provisioned_at,created_at)))/3600.0,1) AS age_h
+FROM thunder_instances WHERE status <> 'decommissioned';
+```
+**A row in the API output with no matching row here is an orphan** — it will
+never be reaped automatically. Kill it by hand at the Thunder console, and file
+it, because it means a provision wrote to Thunder and failed to write to us.
+
+Emergency stop (halts all new provisioning immediately; DB config is live, no
+deploy needed):
+```sql
+UPDATE thunder_config SET is_paused = true, pause_reason = '<why>';
+-- undo: UPDATE thunder_config SET is_paused = false, pause_reason = NULL;
+```
+
+### What the automated reaper does and does not cover
+
+- **It is ENABLED and firing** every 900s (verified 2026-07-31, `scheduled_tasks`
+  name `thunder-reaper`, last tick 21:01Z). The training *monitor* is a separate
+  task and is deliberately **disabled** until Phase 0 proves durability.
+- **It has never actually reaped anything** — 0 of 23 all-time rows have
+  `reaped_at` set. Firing ≠ working; the ticks have simply never had a target.
+- Its original query missed three billing states (stuck `provisioning`, stuck
+  `decommissioning`, `running` with a NULL `running_since`) — **measured 0 of 3
+  on synthetic rows.** `sql_for_agents/280_thunder_reaper_widen_stuck_states.sql`
+  fixes that (3 of 3), with the rollback in its header.
+- **Still uncovered: orphans** (billing at Thunder, unknown to us). Needs an
+  action exposing `api.Client.ListInstances` — built and unit-tested in the Go
+  client, exposed by nothing. Until then, §1b above is the only net.
+- **Prove it can reap before trusting it** (drill, after the token is live):
+  insert one synthetic `running` row with an obviously bogus
+  `thunder_instance_id` (e.g. `T-DRILL-1`, never a bare small integer — real
+  Thunder ids here are `0` and `1`, so a bad guess could kill a real box),
+  `running_since` 30h ago; wait one tick; confirm the dispatch fired and the row
+  moved. Decommission is idempotent on a 404, so a bogus id is safe. Delete the
+  row afterwards.
+
 ## 2. Scripts bundle — the training deploy unit
 
 The on-VM scripts ship as `finetuning/scripts/bundle.tar.gz` in B2 bucket
