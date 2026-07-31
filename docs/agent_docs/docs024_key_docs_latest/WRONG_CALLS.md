@@ -12815,3 +12815,111 @@ a different question than the one it was read as* (share-card budget, P6, and th
 `12 calculators` denominator above). The recurring fix is to write down, next to the
 figure, the sentence it is evidence FOR — the mismatch is obvious once both are on the
 page, and nearly invisible while only the number is.
+
+---
+
+## 2026-07-31 — "enabling the duplication check would delete nothing": measured with a ruler the code does not use
+
+**The claim, and it was committed** (`786722206`, gauntlet_dead_cta handoff §3 + README):
+*"enabling the check today would file ZERO items and delete ZERO rows … verified to be
+a no-op against the current fleet."* I offered it as the strongest item for council
+round 2 and as fresh support for the owner's don't-enable-yet ruling.
+
+**It is false. The check would file one item and delete one live row** —
+`lobby-grid@5` on **vonc.com/index.html**, this lane's own home page.
+
+**What I did wrong.** I measured content identity as
+`count(DISTINCT md5(content_data::text))` — byte identity of the whole JSON blob. The
+shipped check does not use that ruler. It compares
+`datahelpers.NormaliseSectionText(content_data)` — prose only, with asset-like keys
+(`url|href|src|image|icon|slug|id|class|target|colour|color`), short strings,
+URL-ish values **and every non-string value** dropped. That population is strictly
+larger than byte-identity, so my census could only ever undercount, and it did:
+0 by my ruler, 1 by the code's.
+
+**What caught it:** reading the round-1 council report properly instead of trusting my
+own handoff's summary of it. The handoff said round 1 "caught two REAL defects" (both
+since fixed); the report actually carries **seven objecting seats**, and
+`bug_historian`'s HIGH objection — *is the discriminator blind to non-text payload?* —
+is the thread that unravels this. I had summarised a review into a sentence and then
+reasoned from the sentence.
+
+**The cheap check I skipped**, and it is the previous entry's own prescription: write
+next to the figure **the sentence it is evidence for**. Mine was evidence for "the
+handler deletes nothing", but the handler's definition of identical is
+`NormaliseSectionText`, not `md5`. Stating those two side by side makes the mismatch
+unmissable. Instead I wrote the number, then wrote the conclusion, and the gap between
+them was invisible because both were true of *something*.
+
+**The correct method, now in RUNBOOK §16b:** don't reimplement the rule in SQL — compile
+the **shipped function** against live data (`go run` a scratch module with a `replace`
+onto the repo). Same function the fleet runs, no drift surface. Under it:
+1,023 sections, 815 with ≥80 chars of normalised text, **1 in-remit group, 1 deletion**.
+
+**Why the false positive exists at all — the substantive finding.** Both rows'
+`content_data` is byte-identical, and is **not section content**: it is the site-wide
+context blob (`year`, `email`, `domain`, `nav_items`, `tone`, `_built_at`). Two
+*different* components (`provocation-card`, `lobby-grid`; different `component_id`s)
+were populated with the same boilerplate. The normaliser's asset-key filter — whose
+header comment credits it with fixing exactly this on vonc — strips `url`/`id`/`class`
+but not `email`, `year`, `domain` or nav `label`s, so the boilerplate still reaches the
+comparison, and here it is the *only* thing in it. Determinism does not save a rule
+whose inputs are the wrong field.
+
+**Tally note — this is the FOURTH entry in three days in one family** (share-card
+budget, P6 title shortfall, the `12 calculators` denominator, and now this), and the
+first where the mismatch was between *my* ruler and *the shipped code's*. The three
+earlier ones compared against a spec, a document or a memory. So the family's fix needs
+one more clause: when the claim is about what CODE will do, the ruler must be **the
+code**, executed — not a reimplementation of it in another language, however careful.
+A reimplementation is a second definition of "identical", which is the same drift bug
+`section_text.go`'s own header was written to prevent. I rebuilt the drift it removed,
+in SQL, to check it.
+
+---
+
+## 2026-07-31 — a measured SILENCE was read as a blind spot, when it was the gate agreeing with a false register
+
+**The claim, in `bugs_open/HANDOFF_2026-07-31_checker_layer_remaining_items.md` §1** (and
+carried from `bugs_open/149` C1's ⚠ banner and commit `4494162af`): the claims engine
+returned **0 findings** on a witnessed fabrication because `businessClaimContextRe`'s
+vocabulary does not cover technical prose — *"Monte Carlo trials per query" is not that
+vocabulary, so the number is never scanned at all."* The section was careful, ran the real
+engine over the real copy against the real register, and reported the 0 honestly. It then
+built three fix candidates on top of that explanation.
+
+**What was actually true.** The number *was* scanned. It was skipped because it is a
+**registered fact** — `gd-trials` in gamesdesign's `evidence_base`, `context_terms`
+including `"monte carlo"`, exact tolerance, `10000 == 10000`, so `numberSupported()`
+returns true. The 0 was the gate working. And the registered fact is itself false: neither
+drop-rate tool contains any randomness (`Math.random` count **0** in both). Full case:
+`bugs_open/161`.
+
+**Cost.** Two of the three fix candidates are inert against their own motivating case.
+Candidate 1 (widen the regex) would make the number *reach* the check that correctly skips
+it — zero effect, plus a known false-positive risk. Candidate 2 (build a structural rule
+instead of a lexical one) is inert for the same reason **and largely already exists** —
+`ScanStatClaims` has no lexical gate today. A thread starting at the top of that list, as
+the handoff advised, would have spent a council round on a no-op.
+
+**What caught it.** Asking *which fact matched* rather than accepting the verdict — one
+query, `SELECT jsonb_pretty(data->'facts') FROM site_specs WHERE aspect='evidence_base'
+AND is_current AND site_id=…`, printed next to the scan output. The register's own
+`writer_line` was almost verbatim the copy under investigation, which is unmissable when
+the two are side by side and invisible when only the 0 is on the page.
+
+**The cheap check, stated generally: a silent gate has at least two causes — it did not
+look, or it looked and approved.** Those are indistinguishable from the verdict alone and
+have opposite fixes (widen the gate vs. fix the authority). Before explaining a 0, print
+what the gate consulted. Corollary for this platform: **an evidence register is not
+neutral ground.** It is simultaneously the writer's instruction set (`writer_block`) and
+the gate's authority, so a wrong row causes a claim and then ratifies it — no gate
+downstream can ever object.
+
+**Tally note.** This is the fourth entry in three days turning on *a correct measurement
+read as evidence for the wrong sentence* (share-card budget, P6, the `12 calculators`
+denominator, and now this 0). The three earlier ones were all "the figure answered a
+different question"; this one is the same shape at one remove — **the figure was right, the
+causal story attached to it was invented.** The fix that keeps working is to write, beside
+the number, the sentence it is evidence FOR, and then ask what else would produce the same
+number.
