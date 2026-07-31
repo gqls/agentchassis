@@ -129,3 +129,45 @@ including waiting for the queue to be empty first if you'd prefer.
 
 I've also written a full handoff document, so if we pick this up in a fresh conversation
 nothing is lost.
+
+---
+
+## 2026-07-31 (afternoon) — it is all applied
+
+Both things you approved are done.
+
+**The paid tool is tagged.** I checked the order queue properly before restarting rather
+than trusting the count — the one "active" order was sitting waiting for payment, not
+mid-run, so a restart couldn't interrupt anything. Backed up the binary and the orders
+file, deployed, restarted. The order queue came back untouched and the payment provider
+is still the real Stripe one, which is the check that matters: if the restart had mangled
+the settings file, the service would quietly have fallen back to a fake payment provider
+and looked fine. **"Payment received" and "Request received" now carry the tag**, so
+Google can finally see a sale.
+
+**All fourteen domains are set up.** One container for the estate, as recommended, and I
+retired that old Google Analytics hook I found this morning so we're not running two
+systems that would double-count.
+
+**One honest thing about the rollout.** Re-tagging every page meant re-publishing 377
+pages, and each page publishes as its own commit, and each commit triggers its own deploy
+job. So I queued up about 230 deploy jobs on a machine that runs two at a time. They're
+all doing the same thing — each one republishes a whole site — so they're largely
+redundant. Nothing is broken and nothing is lost; they just have to work through the
+queue, roughly an hour and a half. **Nine of the fourteen domains were confirmed live
+when I checked; the other five were still sitting behind that queue serving Monday's
+files.** They'll come good on their own.
+
+I could have avoided that by publishing the pages first and then triggering one deploy at
+the end, and I've written that down so it isn't repeated. It also means other work of
+yours that deploys through the same machine will be slow for the next hour or so, which I
+should have thought about before firing it.
+
+If you want to check later, the quickest test is to load any of the sites and search the
+page source for "googletagmanager" — you should find it twice.
+
+**Still open, and it is the one I'd not leave too long:** there's no cookie consent banner
+on any of these sites, and now they're all running analytics. You decided to press on,
+which is fair, but it's worth picking up as its own piece of work.
+
+Everything is written up in a handoff so a fresh conversation can carry straight on.

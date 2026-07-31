@@ -93,9 +93,9 @@ the single most important finding in this workstream.
 | phase | scope | state |
 |---|---|---|
 | **A** | idea.uk static site (21 pages) | ✅ **DONE + LIVE 2026-07-30**, 19/19 fetchable URLs verified |
-| **B** | idea.uk tool binary (11 pages incl. conversions) | ✅ code written, builds, 5 new tests pass — ⏸ **NOT DEPLOYED, awaiting owner** (live payment service, 1 order active) |
-| **C** | remaining 13 domains | ⏸ **BLOCKED on two owner inputs** — see §5a. Not "repeat the recipe 13×" any more |
-| **D** | Google-side account structure | ⏸ owner decision — see §6 |
+| **B** | idea.uk tool binary (11 pages incl. conversions) | ✅ **DEPLOYED + LIVE 2026-07-31.** `/order/success`, `/order/cancel`, `/privacy`, `/terms`, `/refund-policy` all verified: script + noscript, noscript first after `<body>`. Service healthy, StripeProvider intact, order state preserved |
+| **C** | remaining 13 domains | ✅ **DB APPLIED 2026-07-31** (`sql/c1_gtm_fleet_rollout.sql`): 14/14 sites tagged in artefact + spec, 9/9 templates gated, **gtag seam retired**. Page re-assembly proven on vetcomparison.uk (6/6 live), rolling across the other 12 |
+| **D** | Google-side account structure | ✅ decided by owner 2026-07-31: **one container estate-wide** (`GTM-PQ3WCTBD`), retire `analytics_id`. Consent still open — see §7 |
 
 ## 5a. Phase C is blocked on two owner inputs, and one design decision (added 2026-07-31)
 

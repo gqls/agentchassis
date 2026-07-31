@@ -159,3 +159,115 @@ dormant mechanism that will look reasonable to the next session that finds it.
 **lowercase** `<meta charset="utf-8">`. The anchor is case-sensitive in `replace()`, so
 the idea.uk migration applied verbatim would update 0 rows on that site and report
 success. Guard on the anchor count, per site, as p4_34 does.
+
+---
+
+## 2026-07-31 (afternoon) — Phase B deployed, Phase C applied
+
+### Phase B — the payment box
+
+Owner authorised the deploy. `/capacity` had reported `{"active":1}` on three separate
+checks, so before restarting I read `orders.json` rather than trusting the count: the
+active order was **`ord_1785236456008987049`, status `awaiting_payment`** since 07-28 —
+a persisted state waiting on Stripe, **not** an engine run mid-flight. The rest were
+stale `requested` rows from 07-13 onward (the known spam class) and three `declined`.
+That distinction is what made the restart safe rather than merely survivable: the
+recover-interrupted path exists for the mid-run case, and this wasn't one.
+
+Sequence: backed up the binary (`idea.prev-2026-07-31-123615-pre-gtm`) **and**
+`orders.json`; built `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 -trimpath` (9,909,585 bytes
+vs the live 9,999,070 — same shape, stdlib-only module so no glibc coupling); appended
+`GTM_CONTAINER_ID=GTM-PQ3WCTBD` **on its own line**; restarted.
+
+Post-restart checks that actually prove something:
+- `systemctl is-active` → active
+- `/health` → `"provider":"*main.StripeProvider"` — **the useful one.** The service falls
+  back to `FakeProvider` if either Stripe var is missing, so this single field proves the
+  EnvironmentFile still parsed correctly after my append. A bare "it's running" would not
+  have caught a mangled env file.
+- `/capacity` → `{"active":1}` unchanged, so `orders.json` survived intact.
+
+All five tool-served HTML pages: `script=1 noscript=1 body_adjacent=yes`. And
+`curl -sL /privacy.html` — the 301 that started the whole investigation — now returns 2.
+
+### Phase C — DB applied fleet-wide
+
+`sql/c1_gtm_fleet_rollout.sql`, one transaction. Retired the gtag seam, added the gated
+GTM block + `gtm_container_id` descriptor to the 2 remaining head components and 5
+remaining header components, set `site_config` on the 13 other domains, patched 26
+artefacts. Post-conditions asserted and passed: **14/14** head artefacts tagged, **14/14**
+headers with the noscript FIRST, **14/14** specs, **9/9** templates gated, and
+`analytics_id` gone from every template and schema (0 matches).
+
+Three things the guards earned:
+
+- **`header-theme-chrome` has a NULL `input_schema`.** Its descriptor had to go at top
+  level, not under `fields` — with no `fields` key the gap-fill treats the whole object
+  as flat (`:604-607`). A blind `jsonb_set(…,'{fields,gtm_container_id}')` on NULL would
+  have produced a schema the resolver never reads.
+- **`webdesign.co.uk Document Head` needed the lowercase anchor**, exactly as predicted:
+  the uppercase UPDATE touched 12 rows, the lowercase one touched 1. Had I written only
+  the uppercase form it would have reported success and left that site untagged.
+- **`webdesign.co.uk Document Head` emits no `<head>` open tag at all** — it begins at
+  `<meta charset>`, so those 99 pages serve an *implicit* head. GTM lands correctly
+  inside it, so this is not a blocker, but it is a real pre-existing defect and is
+  deliberately **not** fixed here: it would touch every page of that site for a reason
+  unrelated to analytics.
+
+### Page re-assembly
+
+Proven on the smallest site first (vetcomparison.uk, 6 pages) before touching the other
+12 — 6/6 rendered with both tags, 6/6 live. One page read `gtm=0` on first check and was
+simply **fetched mid-deploy**: `last-modified` was 43 seconds *after* the `deployed_at`
+I had just read. Re-checked and it was fine. Worth remembering — an immediate live check
+after a deploy can catch the old bytes and look like a failure.
+
+> Incidental: `pages.deployed_at` is **not** reliably refreshed. `contact` still shows
+> 2026-07-18 yet serves the new chrome. Do not use `deployed_at` to decide what shipped;
+> use the artefact or the live page.
+
+### Page re-assembly fleet-wide — and the deploy-queue mistake I made
+
+Rolled smallest-first. **377/377 pages published (0 publish failures), 377/377
+orchestrations COMPLETED, 0 FAILED, 377/377 rendered artefacts carry both tags.**
+
+Then the live sweep came back **9/14 PASS** — and the 5 failures were not what they
+looked like.
+
+`ai-agent-orchestration.com`, `finetuning.uk`, `gamesdesign.co.uk`,
+`leopardessconsulting.co.uk`, `webdesign.co.uk` served untagged pages with
+**`last-modified: Mon, 27 Jul 2026`** — bytes four days old. The render was fine; the
+**deploy had not landed**. Textbook "COMPLETED is not proof": `deploy_page` even reported
+`"success": true` with a real commit to `github.com/gqls/sites` at 12:54:59Z. The commit
+was true. The *deploy* was not, yet.
+
+**The cause is mine.** These sites deploy by GitHub Actions ("Deploy to B2") on push, on a
+**self-hosted runner with ~2 concurrent slots**. One page-rerender = one commit = one
+workflow run. 377 pages therefore queued **~230 runs**. And they are all redundant: the
+workflow does `b2 sync --delete --skip-newer "$domain" "b2://portfolio-sites/$domain"` —
+a **whole-directory sync**, so the last run per domain would have deployed everything.
+
+Measured: 77 completed / 221 queued / 2 in progress, draining at roughly 2/min ⇒ **~100
+minutes**. Left to drain rather than cancelled: `--skip-newer` makes out-of-order syncs
+safe, and mass-cancelling runs on a repo other sessions also push to is a worse risk than
+waiting. But the backlog blocks *their* deploys too, which is the part that was
+inconsiderate rather than merely slow.
+
+**Do it differently next time.** For a chrome change affecting a whole site, the
+re-render fan-out should be decoupled from the deploy fan-out — either batch the commits
+(one commit per site, not per page) or let the pages render and then trigger **one**
+sync. The workflow even has the hook for it: `CHANGED` is derived from
+`git diff HEAD~1 HEAD | grep -E '^[^/]+\.[^/]+/'`, and **when it comes back empty the
+workflow syncs every domain**. So a single commit touching only a root-level file
+triggers one full-estate deploy. That is one run instead of 230.
+
+**Two deploy runs failed, and it is a race, not a defect.** Both died with
+`FileNotPresent … ERROR: Incomplete sync` while deleting an old version — two concurrent
+runners doing `b2 sync --delete` against the same bucket prefix, one removing a version
+the other had already removed. Self-healing here, because later queued runs re-sync the
+same domains. Worth knowing: **`b2 sync --delete` is not safe to run concurrently against
+one prefix**, and its failure mode is a red workflow rather than corrupted output.
+
+> Also confirmed the earlier live-check caveat is real and generalises: one vetcomparison
+> page read `gtm=0` because I fetched it 43 seconds *before* its `last-modified`. An
+> immediate post-deploy check can read the old bytes and look exactly like a failure.
