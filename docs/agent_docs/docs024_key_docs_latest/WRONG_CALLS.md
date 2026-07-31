@@ -12637,3 +12637,34 @@ whose framing rested on the page being broken. When the correction landed I
 updated the facts in my notes and **did not re-read the question built on them** —
 the superseded premise went out in the question. Re-read outward-facing artefacts
 after a correction, not just the notes where you recorded it.
+- **I named a column for what I wanted it to mean, and my detector then reported health it
+  had never measured — on the exact row I had just "fixed".** 2026-07-31,
+  `staged_component_build/CHECK_naming_contract.sh`. The check tested
+  `EXISTS (SELECT 1 FROM doc_plans WHERE subject_type='tool' AND subject_key=…)` and I named
+  the result **`has_fence`**. It proves a PLAN **row** exists and says nothing about whether
+  that PLAN contains a ```criteria fence — which is the thing an acceptance run actually
+  needs. `tool-review-council-simulator` has a PLAN and no fence. So when I renamed its page
+  to make it resolvable, the check promoted it from BROKEN to **"testable now"**, and it is
+  not testable: the run starts and then **SKIPS with `needs_criteria`**, which is the precise
+  silent class the check was written to find. **A detector that reports health it has not
+  measured is worse than no detector**, and this failed in the worst direction, on the one
+  row I had acted on, in the output I was about to quote as progress.
+  **What caught it:** not the check. I went to fire an acceptance run to prove the rename had
+  achieved something, read the PLAN to see what its fence asserted, and **there was no
+  fence**. The intent to verify the *outcome* rather than the *checker* is the only reason.
+  **The cheap check: grep your own predicate against the thing it claims to measure.** One
+  query — `count(*) FILTER (WHERE plan_row AND fence)` versus `FILTER (WHERE plan_row AND NOT
+  fence)` — returns 10 versus 1 and settles it in seconds. More generally: **a column name is
+  a claim, and an `EXISTS` on a parent row is not evidence about a child property.**
+  **Two further faults in the same file within the hour, same root — writing checks faster
+  than I was testing them.** (1) `kubectl exec -i` inside a `while read` loop ate the loop's
+  stdin, so the script listed one of two findings while the summary correctly said two;
+  under-reporting, caught only because the count is computed separately from the list.
+  (2) ```` '%```criteria%' ```` inline inside a double-quoted bash string is **command
+  substitution**, so the script would not parse — a landmine already recorded fleet-wide
+  (*"backticks in `-m` execute"*), hit **one edit after** writing a comment about a different
+  silent-failure trap in the same file. **Tally: eight instances of this one class in two
+  days, and the last three were all inside the detector built to catch the class.** The
+  transferable rule is not "be more careful" — it is **watch every branch of a new check
+  fail before quoting anything it says**, and that applies hardest to the checks you write to
+  police everyone else's.
