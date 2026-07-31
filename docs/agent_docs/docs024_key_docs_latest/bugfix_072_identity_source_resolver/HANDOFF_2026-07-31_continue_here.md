@@ -14,8 +14,8 @@ The work is **one step from done** and that step is blocked on someone else's ou
 so an owner-supplied email was invisible to every component declaring a
 `site_specs.identity` source. Fixed with a bounded literal→nested→sites-row fallback
 chain (**PBP-026**). Diagnosis loop **CONFIRMED** (`0f76987c`), council **APPROVED
-round 1** (`dd03a73b`), **LIVE and pod-verified on chassis `v1.0.1218`, both
-replicas**. The only thing left is the live acceptance test, which is queued and
+round 1** (`dd03a73b`), **LIVE and pod-verified on chassis `v1.0.1219`, both
+replicas** (re-verified after three further rolls). The only thing left is the live acceptance test, which is queued and
 **blocked behind the fleet-wide build-dispatch stall (`bugs_open/029`)**.
 
 ## The ONE thing to do next
@@ -124,3 +124,30 @@ wrong for the reason in correction 1 above — **use `vetcomparison.uk/contact`*
 page_id `347fc00c-1365-4751-993a-cf59624a419d`. The runbook's *method* (pod-grep with
 a positive control in the same exec, induce the failing case, then the negative
 control) is right; only the subject changed.
+
+---
+
+## ADDENDUM 19:25 UTC — re-verified on v1.0.1219, and the stall is confirmed roll-proof
+
+**The fleet rolled three more times while I was writing this** (replicasets 17:59:21,
+19:08:32, 19:08:59, 19:09:30; chassis v1.0.1216 → 1218 → **1219**). The pods I first
+verified no longer exist. **Re-verified on the current pods** `59cb674798-t7dgn` and
+`-z84n8`: all three change strings present on both, against **two** positive controls
+this time. **Re-run the pod-grep after every roll — on this tree "I verified it" has a
+shelf life of minutes.**
+
+**The dispatch stall is NOT cleared by a roll, and that is the useful finding.** The two
+hung `spawn_dispatch` orchestrations (`41752033…` 91 min, `6879d6d3…` 156 min) were still
+`EXECUTING_STEP` after all three rolls, because the state is a **DB row, not pod state**.
+Queue grew 72 → 73; last `pipeline='build'` completion still **15:44 UTC**.
+`build-pipeline-trigger` fired again at 19:14:45 and completed in 20s — the gate is
+healthy, the consumer is not.
+
+Contributed to `bugs_open/029` with the row ids, the roll timeline and one timing
+correlation (`41752033` was created **14 seconds** after a chassis restart, inside the
+documented ≤300s drop window; the other I did **not** match to a restart and did not
+claim). **I deliberately did not cancel either row** — they are 029's evidence.
+
+Corollary for whoever closes this bug: **"it started working after a roll" would not be
+evidence that anything was fixed**, since a roll demonstrably does not clear the
+saturated group.

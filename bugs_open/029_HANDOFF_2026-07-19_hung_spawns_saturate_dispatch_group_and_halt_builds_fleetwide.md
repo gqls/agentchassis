@@ -1010,3 +1010,52 @@ configmap, or a documented runbook step. Flagging only. Evidence and the wider
 measurement live in
 `docs024_key_docs_latest/fixloop_eg_dartsonline/HANDOFF_2026-07-28_council_parallelism_thread.md`.
 — council parallelism thread
+
+---
+
+## CONTRIBUTION 2026-07-31 19:20 UTC (bugfix_072 lane) — two hung rows survived THREE rolls, and the build queue has been dead 3.5 hours
+
+**Contributed, not fixed.** I hit this as a blocker while trying to run a live
+acceptance test for `bugs_open/072` and stopped rather than touch this lane. **I have
+deliberately NOT cancelled the two rows below** — they are your evidence, and
+"never cancel the failing row pre-diagnosis" applies.
+
+**State, measured 19:18 UTC:**
+
+| | |
+|---|---|
+| `site_work_items` `status='triaged' AND pipeline='build'` | **73**, across 6 sites (gamesdesign 35, gaswholesalers 31) |
+| last `pipeline='build'` item to reach `complete` | **15:44:31 UTC** — 3h34m earlier |
+| `build-pipeline-trigger` | **healthy**: enabled, 120s, fired 19:14:45 → completed 19:15:04 (381 COMPLETED all-time) |
+| `orchestration_states` `current_step='spawn_dispatch' AND status='EXECUTING_STEP'` | **2** |
+
+```
+41752033-3cd6-4a90-b62b-c7e08ef53799  corr e996c16a…  created 17:45:20  stuck 91 min
+6879d6d3-23ce-40b0-ab60-7ffbdced023d  corr 464b92f5…  created 16:40:34  stuck 156 min
+```
+
+**The datum I think is new: a roll is not a remedy.** The fleet rolled **three times**
+while these two sat there — replicasets created **17:59:21**, **19:08:32/19:08:59**,
+**19:09:30** (chassis went v1.0.1216 → 1218 → 1219). Both rows were still
+`EXECUTING_STEP` after all three. The poison is **DB state, not pod state**, so
+restarting the consumer cannot clear a saturated group — which also means "it
+recovered after a roll" is not evidence any fix worked.
+
+**One correlation worth checking against your §"image window" table:** `41752033` was
+created at **17:45:20**, and the v1.0.1216 pods started at **17:45:06** — **14 seconds
+after a chassis restart**, inside the documented ≤300s window where "the spawn is
+silently dropped". `6879d6d3` (16:40:34) I have **not** matched to a restart —
+[UNVERIFIED], I did not retrieve replicaset times that far back. So: one of two fits
+the restart-window story, and I am not claiming the other does.
+
+**Why you may want the trigger's health in your notes:** the gate is not the problem.
+`build-pipeline-trigger`'s `pre_query` is a bare `COUNT(*) … HAVING COUNT(*) > 0` over
+triaged/build items on unlocked sites — it passes, fires, and completes in ~20s every
+two minutes. Everything downstream of it has been idle for 3.5 hours. Anyone reading
+"the scheduler is running" as "dispatch is working" will look in the wrong place.
+
+**My blocked item, if it is useful as a canary:**
+`45f9b005-6a41-4128-8c5b-0236542f4658` — `needs_page`/`triaged`/`pipeline=build`,
+site unlocked, `attempt_count 0 < 3`, queued 18:09:32, never claimed. It rebuilds
+`vetcomparison.uk/contact`. Leave it; when the queue moves it doubles as the
+acceptance test for `bugs_open/072`.
