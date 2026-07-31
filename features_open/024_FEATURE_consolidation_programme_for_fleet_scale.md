@@ -60,9 +60,29 @@ bundled. Two items have a live consumer waiting; one is a recommended **won't-do
 > invisible — no verdict row reads exactly like "still queued". Fixed forward for
 > everyone: `097` now type-checks all three client-side (`be0f6aa16`), each check
 > verified to reject the exact shape that failed.
-> **Adoption is NOT done and is the next step**: wiring `httpguard` into
+> ~~**Adoption is NOT done and is the next step**: wiring `httpguard` into
 > `internal/tools-api/middleware/` touches the gauntlet workstream's service, which
-> has `bugs_open/083` open against it — coordinate first.
+> has `bugs_open/083` open against it — coordinate first.~~
+>
+> **A3 ADOPTED, LIVE AND PROVEN 2026-07-31 — for `ClientIP` only. A2 (`mailer`) is
+> still at zero importers.** The owner routed it to the gauntlet lane ahead of their
+> distribution work (*"the identity column is what the experiment gets measured on"*);
+> they wrote `internal/tools-api/clientip` (`33e18e73d`), deployed island
+> `v1.0.1207` at 08:37Z, and council `e053fac4` approved at round 2.
+> **`bugs_open/139` is CLOSED** → `/bugs_closed/139…`, by this lane, on its own
+> re-measurement rather than on their account.
+> **Coordination worked exactly as this file prescribed** — the patch went in as a
+> CONTRIB, the owning lane applied it, and nobody reached into `tools-api`. The one
+> thing that nearly defeated it was **delivery, not agreement**: their cold-start doc
+> said "nothing owed yet", dated five hours *before* the patch arrived.
+> **Three things not to overclaim.** (1) What is adopted is `ClientIP`;
+> `httpguard.Limiter` and `CheckIntake` have **zero** consumers and the divergent token
+> bucket is untouched — the adoption changed the limiter's *key*, not the limiter, so
+> `reuse_agent`'s decommissioning question is still open. (2) The proof is that the
+> stored hash was **predicted before the request was sent**, not that
+> `count(DISTINCT)` went 1 → 2 — all three post-fix rows are one machine, so that is a
+> **cutover** result, never a distribution one. (3) The peer-gate reversion is still
+> unclosable locally and **must not** be "closed" with another unit test.
 
 **Why now.** The owner asked for a consolidation plan towards thousands of domains
 after a near-miss: a design proposed a second public API on the island VM one day

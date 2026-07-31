@@ -13,6 +13,28 @@ below.
 
 ## 1. State in one line
 
+> ## ✅ RESOLVED 2026-07-31 — **the owner's decision came, the patch was taken, and it is LIVE. `httpguard`'s adoption question is CLOSED.**
+>
+> The branch that happened is the first one in §4b: the owner routed it to the gauntlet
+> lane ahead of their distribution leg, *"the identity column is what the experiment gets
+> measured on."* They took it the same evening (`33e18e73d`, 07-30 20:11), deployed the
+> island to `v1.0.1207` at 07-31 08:37Z, and proved it at the artefact. **`bugs_open/139`
+> → `/bugs_closed/139…`, closed by this lane 10:50Z on its own re-measurement.**
+>
+> **Both jobs §4b assigned to this lane are discharged.** The acceptance evidence has been
+> checked rather than accepted (it is stronger than the `count(DISTINCT) > 1` bar this lane
+> set — the stored hash was *predicted before the request was sent*), and PUB-002's
+> "called by NOTHING" is corrected. The `[INFERRED]` question — does `CF-Connecting-IP`
+> reach the app process — is **MEASURED: it does.**
+>
+> **What is left on this lane is `mailer` only**, and it is unchanged: zero importers, and
+> its one queued consumer is the gripper dossier's public half, which lands in the same
+> service and so inherits the same ownership question. Read §§3–4 below as being about
+> `mailer` now.
+>
+> Do not re-open the sequencing discussion, and do not re-notify anybody. The rest of §1
+> below is the 07-30 state and is kept as the record of how it got here.
+
 **Everything on this lane that is ours to do is done, committed and council-approved.
 Adoption is now in front of the OWNER, not in front of us and not in front of the
 other thread** — the gauntlet lane read our contribution on 07-30 and put it to him
@@ -60,6 +82,25 @@ go test -count=1 ./platform/httpguard/ ./platform/mailer/
 ```
 
 ## 3. What is NOT live, and why that is not a deploy problem
+
+> ## ✅ SUPERSEDED IN PART, 2026-07-31 — **`httpguard` IS ADOPTED, LIVE AND PROVEN. `mailer` is not.**
+>
+> Re-measured 10:45Z, and this section's headline is now half false:
+> `internal/tools-api/clientip/clientip.go:59` imports `platform/httpguard`
+> (`33e18e73d`, 07-30 20:11, by the gauntlet lane), live on island `v1.0.1207` from
+> 07-31 08:37Z. **`bugs_open/139` is CLOSED** on that — see `/bugs_closed/139…`, which
+> carries this lane's own independent re-measurement (98 rows, 2 distinct keys, the
+> cutover boundary exact to 98 seconds with zero rows straddling).
+>
+> **A3 is therefore DONE for one of the two named services, and `mailer` is untouched
+> at zero importers.** Read the paragraphs below as still true of `mailer` only.
+>
+> **Two things not to overclaim, both now written into PUB-002.** (1) What was adopted is
+> **`ClientIP`**; `httpguard.Limiter` and `CheckIntake` still have **zero** consumers and
+> the divergent token bucket is still there — the adoption changed the limiter's *key*,
+> not the limiter. So `reuse_agent`'s standing decommissioning question is still open.
+> (2) The proof is the **predicted hash**, not the distinct count. All three post-fix
+> rows are one machine, so "1 → 2" is a cutover result and not a distribution result.
 
 **Both packages still have ZERO importers. Re-measured 2026-07-30:**
 
@@ -126,13 +167,35 @@ because the mechanism is the transferable part.
 The decision is the owner's. Each branch has a different job for us, and in none of
 them do we touch `tools-api`:
 
-- **He tells the gauntlet thread to take the patch.** Our job is to be available for
+- **He tells the gauntlet thread to take the patch.** ← **THIS IS THE BRANCH THAT
+  HAPPENED. Both duties below are DISCHARGED as of 2026-07-31 10:50Z; nothing here is
+  outstanding.** Our job is to be available for
   the `[INFERRED]` question (does `CF-Connecting-IP` reach the app process) and to
   **check the acceptance evidence when they claim it** — `count(DISTINCT
   client_ip_hash) > 1` from two different networks, because a presence check passes
   against unfixed code. **The moment `internal/tools-api` imports `platform/httpguard`,
   A3 is genuinely done and PUB-002's `status:` line must change** — it currently reads
   *"called by NOTHING"* and that is the honest state only until then.
+  - **`[INFERRED]` → MEASURED: `CF-Connecting-IP` does reach the app process.** Settled by
+    the deploy, not by a header-echo endpoint nobody was willing to add to another team's
+    service.
+  - **Acceptance evidence checked, and the bar this lane set turned out to be the weaker
+    test.** `count(DISTINCT) > 1` is satisfied (98 rows, 2 keys), but the load-bearing
+    proof is that the stored hash `9e464fe9…` was **computed before the request was sent**
+    from the caller's own egress address — so the column changed *to the predicted value*,
+    which a distinct-count can never show. My own re-run adds the boundary: the constant
+    ends 07-30 15:26, the correct key starts 07-31 08:38:38, **98s after the swap, zero
+    rows straddling.** Worked in `/bugs_closed/139…`.
+  - **`count(DISTINCT) > 1` "from two different networks" was never satisfiable as
+    written, and it did not need to be.** All 3 post-fix rows are one machine. The
+    before-state being *itself* a constant is what makes one network sufficient — the 95
+    prior rows are the second population. **State it as a cutover result, never as a
+    distribution result.**
+  - **PUB-002 corrected** (by the gauntlet lane, verified by me). I then split one clause
+    of it that the adoption made ambiguous: `ClientIP` is adopted, but `Limiter` and
+    `CheckIntake` still have **zero** consumers and the divergent token bucket is still
+    in place — so **A3 is done for `ClientIP` only.** Do not cite the 07-31 proof as
+    evidence for the whole package.
 - **He defers it.** Nothing owed. Do **not** re-notify, do not re-file, do not raise it
   again unprompted — it has been put to him with a recommendation and repeating that is
   noise. Leave PUB-002 as-is.
@@ -291,9 +354,17 @@ key, not spoofable) but it is a real constraint on where the package can deploy.
    and lands on the trusted side by construction. Only a real direct-exposure
    deployment closes it. That is a deployment question, not a test one — **do not
    let a future thread "close" it with another unit test.**
-4. **Owed cleanup in someone else's table:** three `manual-test` probe rows I left
+4. ~~**Owed cleanup in someone else's table:** three `manual-test` probe rows I left
    in tools-api's store, listed **by id** in `bugs_open/139`. Remove them when the
-   gauntlet thread next touches that table, or ask them to.
+   gauntlet thread next touches that table, or ask them to.~~
+   **RETIRED 2026-07-31 as RETAINED, not as done — and this is a case where paying the
+   debt would have destroyed evidence.** Those three rows are part of the 95-row constant
+   block that makes the `1 → 2` cutover demonstrable, i.e. they are now the *before-state
+   of the measurement that closed 139*. The gauntlet lane spotted this and deliberately
+   left them, asking whether we still wanted them gone; the answer recorded in
+   `/bugs_closed/139…` is **no, they stay.** Anyone tidying `gauntlet_rounds` needs to
+   know that. **General form worth keeping: a cleanup debt can mature into evidence, so
+   re-read what a probe row is doing now before honouring a promise to delete it.**
 5. **Two live fixture pages on robot-hands.com** still await the owner's read;
    cleanup owed once seen. **They were scored by the PRE-fix code** — do not use
    them as a reference for current behaviour.

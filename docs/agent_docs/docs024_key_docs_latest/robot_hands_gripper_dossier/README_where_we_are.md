@@ -506,3 +506,53 @@ the tidy-up: there are now three test pages live on that site plus the test rows
 and you asked to see them before anything was cleared away — that is now everything on the
 list. The second is unchanged from yesterday: which order you want the shared limiter work
 done in relative to the other thread's distribution work.
+
+---
+
+**2026-07-31, same morning — and this one is good news I did not expect to be writing.**
+The shared-code question I put to you yesterday has resolved itself, properly.
+
+You routed it to the other thread ahead of their distribution work, on the grounds that the
+identity column is what the experiment gets measured on. They took it that evening, wrote it
+up as a small shared piece rather than a patch buried in a handler, deployed their side of
+the island this morning, and put it through review. It is live.
+
+What matters is how they proved it, because it is better than the test I had asked for. I had
+said: show me more than one distinct visitor key, because simply checking that the bad value
+has gone also passes on unfixed code. They did something stronger. Before sending a single
+request they worked out, independently, what the stored value *ought* to be if the fix
+worked — the visitor's real address as Cloudflare reports it, put through the same hashing
+the code uses. Then they sent a real request and the stored value was exactly that. So the
+column did not merely change; it changed to the number predicted in advance. A changed but
+unpredicted value would only have told us "not the old constant".
+
+I checked it myself rather than take their word for it, and it holds, with one detail they
+did not mention that I think seals it. The old constant appears on ninety-five records, the
+last of them yesterday afternoon. The correct key appears on three, the first of them
+ninety-eight seconds after they swapped the image. Not one record on either side of that
+moment carries the wrong key for its era. That is a clean cutover.
+
+One honest caution, which I have written into the file so nobody quotes it too enthusiastically
+later. All three of the new records are from one machine, so what is proven is that we now
+store the visitor's own address instead of a constant — not yet that two people arriving at
+once get told apart. Real traffic settles that and nothing here can. It is a cutover result,
+not a distribution result, and the difference will matter when you look at the experiment's
+numbers.
+
+I have closed that bug. They deliberately left the decision to me, since the file was mine,
+and the bar is met — fixed, live, and proven on the real thing rather than at the tag. I also
+found and fixed one small piece of dishonesty that had crept into our own records as a result
+of the good news: our register now said the shared guard "has its first real consumer", which
+is true, but the sentence underneath still implied the whole package was in use. Only one of
+its three parts is. The rate limiter itself is untouched — what changed is which visitor it
+counts you as, not how it counts. That is now written down precisely.
+
+The one thing I promised to clean up and am now deliberately *not* cleaning up: three test
+records I left in their table last week. They have become the evidence. They are part of the
+old block that makes the before-and-after visible, so deleting them would destroy the proof
+of the thing we just proved. They stay, and I have said so where someone tidying that table
+will see it.
+
+So of the two shared pieces, the guard is done and in use, and the email sender is still
+waiting — its only customer is the gripper form, which lands in the same service, so it
+inherits the same ownership question. Nothing needed from you on that today.

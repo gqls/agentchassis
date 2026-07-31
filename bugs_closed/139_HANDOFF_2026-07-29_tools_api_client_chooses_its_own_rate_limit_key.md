@@ -4,8 +4,12 @@
 while opening the `platform/httpguard` adoption conversation.
 **Class** ~~spoofable trust boundary~~ → **degenerate client identity** (see the
 correction immediately below).
-**Status** **OPEN, but for a different defect than the one this file was filed
-for.** The title's claim is **REFUTED by live measurement.**
+**Status** ~~**OPEN, but for a different defect than the one this file was filed
+for.**~~ → **CLOSED 2026-07-31** (fixed AND live: island `v1.0.1207`, 08:37Z;
+re-measured independently by this lane at 10:50Z — see the closing section at the
+bottom). The title's claim is **REFUTED by live measurement** and stays in the
+title deliberately, because the refutation is the more useful half of this file:
+the real defect was a **degenerate** identity, not a spoofable one.
 
 ---
 
@@ -436,3 +440,62 @@ by `TestFrom_IgnoresXForwardedFor`. Round 2 resubmitted on the same correlation
 with **no code change**, because the objection asked what the prior art said and
 the answer is evidence. `PUB-002`'s "called by NOTHING" is now corrected in the
 register.
+
+---
+
+## CLOSED 2026-07-31 10:50Z by the consolidation lane (this file's owner), on independent re-measurement
+
+**The call was left to this lane and this lane is making it: CLOSED.** The bar in
+CLAUDE.md is *fixed AND live*, and it is met — island `v1.0.1207` since 08:37Z, proven at
+the artefact rather than at the tag.
+
+**I did not close this on the account above; I re-ran the acceptance check myself**, because
+this file's whole history is a lesson in inherited claims (its own headline is REFUTED, and
+the section above corrects a check rather than a figure). Queried the island's own postgres
+directly — `gauntlet_rounds` is **not** in `clients_db`, so CLAUDE.md's psql one-liner
+answers `relation does not exist`, which reads exactly like "no visitor has ever played":
+
+```
+ rows | distinct_keys |            first             |             last
+------+---------------+------------------------------+------------------------------
+   98 |             2 | 2026-07-25 13:54:40+00       | 2026-07-31 09:46:43+00
+```
+
+**And the discriminating detail, which the 1 → 2 count alone does not give you — the
+boundary is exact, with zero rows straddling it:**
+
+| `client_ip_hash` | n | first | last |
+|---|---|---|---|
+| `245c0ffc0f6a0215471542b9add1fa53` (docker gateway constant) | 95 | 07-25 13:54 | **07-30 15:26** |
+| `9e464fe9fca925b099a25141f40afad5` (the predicted value) | 3 | **07-31 08:38:38** | 07-31 09:46 |
+
+The image swapped at **08:37Z**; the first correctly-keyed row is **98 seconds later**, and
+not one row on either side of the swap carries the wrong key for its era. Combined with the
+hash having been *predicted before the request was sent*, that is causation, not
+correlation.
+
+**Stating the residual honestly, because "2 distinct keys" is weaker than it sounds.** All
+3 post-fix rows share one key — they are one machine on one network. What is proven is that
+the stored key is now **the visitor's own address as Cloudflare reports it** rather than a
+constant; what is *not* proven by these rows is two simultaneous visitors keying apart, and
+no measurement here can be until real traffic arrives. That is fine, because the mechanism
+is proven by the predicted value, not by the cardinality. **Do not quote "1 → 2" as though
+it were a distribution result** — it is a cutover result.
+
+**Answering the question left for us: the three `manual-test` probe rows STAY.** They were
+listed as a cleanup debt of ours (`features_open/024` / consolidation §6). They are now
+load-bearing evidence — part of the 95-row constant block that makes the transition above
+demonstrable — so that debt is **deliberately retired as "retained", not left owed.** Anyone
+tidying `gauntlet_rounds` should know that deleting them destroys the before-state of this
+measurement.
+
+**What this does NOT close**, and it is written in PUB-002 rather than left implied: the
+peer-gate reversion still needs a connection from a genuine *public* peer, which no dev box
+can produce. It is a deployment question. It must not be "closed" with another unit test.
+
+**Credit where it belongs:** the fix, the deploy, the prediction and the council round
+(`e053fac4`, round 2 APPROVED, no code change) are the `gauntlet_dead_cta` lane's. They also
+chose `CloudflareTunnel()` over the `Nginx()` front end that reads like the obvious pick and
+would have resolved to **the same constant** — i.e. a fix that changes nothing measurable.
+That trap is the entire reason `ClientIP` takes a required `FrontEnd`, and it is the first
+time the seam has been load-bearing for a real caller.
