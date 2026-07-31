@@ -295,3 +295,54 @@ plus **four** SQL-side copies (`check_required_fields_missing`,
 section question. Round 1's "eight places" was wrong, and was challenged.
 
 Round 2 submitted under the same correlation.
+
+### Council round 2 — REVISE, and round 3 blocked on an API usage window (not on the plan)
+
+**Round 2** (nine approvals, three objections; `render_guardian`'s round-1
+objection was answered and it approved). Two HIGHs, both answered in code:
+
+1. **Three seats — `editquality`, `guardian`, `prior_art_librarian` — raised the
+   same thing**, and it was a repeat: two files were *claimed* as "migrated to
+   the named predicate" with no edit block showing it, which is the objection I
+   had conceded and fixed for `check_backend_entry_orphaned.go` **in the same
+   round**. Fixed by **removing the claim, not defending it**: both migrations
+   were behaviour-identical renames, so both are **reverted** and the sites are
+   named on the gate's allow-list with reasons. This change therefore touches
+   **no shared chrome code at all** (`guardian`'s other concern) — the safest
+   edit to code shared across many sites is none.
+2. **`bug_historian`: the gate walked Go only**, so the four SQL-side copies
+   could drift the same way. **Closed, not disclosed** — each is a SQL string
+   *embedded in Go source*, so the same walk gates them once the pattern knows
+   `LIKE '%data-runtime-fill%'`. And the question that seat asked is now answered
+   **by reading all four**: every one computes the flag **per row** over a single
+   `pc.rendered_html`/`cc.html_template`, and every one asks the *section*
+   question. **None judges control liveness**, so they were never siblings of
+   this bug — the round-2 submission's "disclosed gap" understated the truth.
+
+Both mediums answered with queries rather than argument:
+- **chrome exposure** (`guardian`): of **42** `site_components` rows, **0** carry
+  a runtime-fill shell and **0** carry a no-op href — narrowing the sweep
+  surfaces nothing in shared chrome, in either direction;
+- **precedent** (`prior_art_librarian`): **0** prior `council_report` rows mention
+  `RuntimeFillSpans`/`InRuntimeFillShell`/`HasRuntimeFillMarker`. Reports matching
+  the raw marker are all `render_guardian` boilerplate from unrelated reviews —
+  that seat's contract list names the marker, so a text match is a false positive.
+
+**Round 3 was submitted and died at `complete_invalid` — NOT a schema rejection.**
+`__step_error.failed_step` is `review_editquality`, i.e. the plan was valid and had
+already passed `persist_submission`; one seat's LLM call failed and its
+`error_step` routed the round to the terminal. The message is
+`"You have reached your specified API usage limits. You will regain access on
+2026-08-01 at 00:00 UTC."`, and **three orchestrations across two different seats
+hit it in the same few minutes**, so it is fleet-wide, not this submission.
+
+> **NEXT ACTION FOR WHOEVER PICKS THIS UP: after 2026-08-01 00:00 UTC, resubmit
+> `council_137_r3.json` UNCHANGED under `RESUBMIT_CORR=4465f655-c6c6-49b4-a9b8-4ca7a5f647df`.**
+> Do not edit the JSON — the fault is not in it, and editing would be chasing a
+> fault that is not there. The distinguishing query is in the RUNBOOK.
+
+**Status unchanged by any of this: the code is committed and correct; the bug stays
+OPEN because it is not live.** Pod-grep on both `v1.0.1218` replicas gives
+`RuntimeFillSpans` **0** against a positive control `DeadControlAnchors` **2** —
+the grep works and the fix is not in the running image. It moves to `bugs_closed/`
+after a roll that includes these commits, verified at the pod.
