@@ -15037,3 +15037,23 @@ assertion in prose.
   (3) **the correction was more confident than the thing it corrected**, which is the
   shape to distrust hardest in my own writing. It survived only because the item's
   continued silence stopped matching the story and I re-measured a third time.
+- **I built a truncation counter that could not count a truncation, and used its zero to
+  justify the design.** `bugs_open/138` FIX-058 shipped 2026-07-30 with
+  `count(*) FILTER (WHERE output_tokens >= max_tokens)`. A truncated call is recorded
+  `success=false` with **`output_tokens` NULL** and the cut only in `error_message`, so
+  that predicate can never match one: it reported **4** fleet-wide where the true count
+  was **94**. Six council seats read "0 truncations" while having truncated — one of them
+  **51 times**. The same implicit `output_tokens IS NOT NULL` also dropped those rows from
+  the p95 and peak, so the headroom figures were computed over the calls that did *not*
+  truncate — blindest on exactly the seats that truncate most. **What caught it:** chasing
+  an unrelated oddity (a 17.4% failure rate on one seat) and reading the actual
+  `error_message` values instead of the aggregate. Nothing about the original output looked
+  wrong. **The cheap check I already owned:** this bug's own memory entry names the correct
+  signal — `error_message ILIKE '%stop_reason=max_tokens%'` — and I wrote the instrument on
+  a different one. *Reading your own notes is a check.* **And the durable part is not the
+  SQL.** The script's header argued "counting truncations would report ~0 and never fire,
+  because the caps were raised", and used that to justify building the leading indicator.
+  The ~0 was real; the explanation was false. **A right conclusion resting on a wrong
+  measurement is the most durable kind of error, because every check you run on the
+  conclusion passes.** Fifth measurement in three days to answer a different question from
+  the one I meant to ask; the others were caught before they reached a file.
