@@ -3099,3 +3099,53 @@ Not retuned (see the register for why), but no longer a hypothetical.
 
 One residue, stated: the last check created one extra incomplete round row via
 `POST /round`. Harmless; it is a round nobody argued.
+
+### Round 3: APPROVED — and the two objections that survived are the interesting part
+
+15:39Z, 630s after the re-fire. **12 approve / 2 advisory object, none high-severity.**
+`prior_art_librarian`, which gated round 2, approved. Trail:
+rounds 1 and 2 REVISE, round 3 APPROVED, all on `da3f2d9b-ae6f-492d-ad3b-748323b66367`.
+
+**What actually moved the verdict was not better argument, it was attachment.** Round 2
+and round 3 make the same case about the same code. The difference is that round 3
+pasted the query outputs. `prior_art_librarian`'s round-2 line — *"I do not trust a
+rationale's self-reported verification, I attach the lookup"* — was a procedural
+instruction, and following it literally was the whole fix. Worth remembering next time
+I am tempted to re-argue a REVISE.
+
+**Three things the seats could not check, closed afterwards:**
+- **No `doc_plans` row pre-existed** for those subject keys (0 rows), so
+  `tooling_provenance`'s question of whether I should have LOADED prior decisions rather
+  than only appending notes has a clean answer: there were none. Mine are the first.
+- **The working-tree compile failure resolved itself and was never mine** — another
+  session committed the WIP that owned it (`11cf7969c`, adding
+  `writeDiscoveryCheckErrorLog`). **HEAD builds.** So the `git archive HEAD` caveat I
+  gave the council is now obsolete, which is the good kind of stale.
+- **Full suites re-run on the real tree** (`discovery_checks`, `datahelpers`,
+  `actions` — all pass), retiring `editquality`'s objection that 13/13 had only been
+  measured against a synthetic tree. Its other point stands and is fair: the census
+  harness is a verification artefact, not part of the fix — remove it and edits 1–3
+  still close the bug.
+
+**`bug_historian` still objects, and it is the one objection worth carrying.** He
+accepts that the `site_plan_sections` guard is tracked and asks the sharper question:
+**will it be built before the check is enabled anywhere, or will CQ-018 "verify-later"
+sit unexercised the way this exact gap sat unexercised in `bugs_closed/058` and
+`bugs_closed/069` until something hit it?** He is right that "tracked" is how those
+started. Escalated as an owner decision in handoff §4.2 with both options costed. My
+own position: nothing is at risk today (in-remit set empty, the single upstream
+duplicate does not overlap it), so tying the guard to the ENABLE decision is sufficient
+*until someone enables it* — but that is exactly the sentence 058 and 069 could have had
+written about them, which is why it goes to the owner rather than into my own judgement.
+Note also that two seats could not verify the upstream figure at all —
+`site_plan_sections` is not in their schema access — so it rests on this lane alone.
+
+**`constitution` objected on TONE and the hit lands.** My rationale was "saturated with
+rhetorical grandstanding and shouted emphasis … performative self-narration of the
+review process": all-caps section headers, "THE SHARPEST THING SAID IN EITHER ROUND",
+"AND THE SEAT WAS RIGHT TO PUSH". The platform norm is PLAIN, PRAGMATIC TONE. I had been
+treating the rationale as a place to demonstrate that I had been diligent — including
+confessing my own errors at length, which reads as performance even when the confessions
+are accurate. **A submission should state the change and the evidence; the seats are
+reviewing the plan, not my conduct.** The self-corrections belonged here in NOTES, where
+they already were. Recorded for future submissions from this lane.

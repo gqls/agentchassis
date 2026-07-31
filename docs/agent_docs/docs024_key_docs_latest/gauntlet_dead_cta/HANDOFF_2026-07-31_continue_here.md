@@ -303,6 +303,61 @@ round buys a trailer, not a safer mechanism. The check stays inert either way.
 ~~**Not fired without a decision.**~~ Fired on the owner's instruction; see above.
 Any further round uses `RESUBMIT_CORR=da3f2d9b-ae6f-492d-ad3b-748323b66367`.
 
+### 4.0b VERDICT: **APPROVED** (2026-07-31 15:39Z) — read this before doing anything else
+
+12 approve / 2 advisory object, **none high-severity**, and `prior_art_librarian` — the
+seat that gated round 2 — approved. `Council-Reviewed: da3f2d9b-ae6f-492d-ad3b-748323b66367`
+is on `<this commit>`; the earlier `Council-Submitted:` commits are credited
+automatically by `098` at report time, so **do not amend anything**.
+
+**Three things the seats could not check themselves, now closed:**
+- **No `doc_plans` row pre-existed** for `subject_type='action'`, keys
+  `remove_duplicate_page_sections` / `check_content_duplication` / `deduplicate-sections`
+  (0 rows). So there was no prior decision record to load — mine are the first.
+- **The working-tree compile failure is gone and was never mine.** Another session
+  committed the WIP that owned it (`11cf7969c`, which added
+  `writeDiscoveryCheckErrorLog`). **HEAD now builds**, so the `git archive HEAD`
+  caveat in the submission is obsolete.
+- **Full suites re-run on the REAL tree**, not a synthetic one: `discovery_checks`,
+  `datahelpers` and `actions` all pass. That retires `editquality`'s low objection.
+
+**THE ONE OBJECTION THAT SURVIVES AND IS NOT ADMINISTRATIVE** — `bug_historian`,
+medium, and he is asking the right question. Not *whether* the `site_plan_sections`
+pre-delete guard is tracked (it is, in `doc_notes` and CQ-018) but **whether it will
+actually be built before the check is enabled anywhere, or whether "verify-later" will
+sit unexercised the way this exact gap sat unexercised in `bugs_closed/058` and
+`bugs_closed/069` until something hit it.** That is a fair challenge to the whole
+deferral and it is an OWNER DECISION, recorded in §4.2 below. Do not let it quietly
+become "tracked, therefore handled".
+
+**`constitution` objected on TONE, and it is right.** My round-3 rationale was
+"saturated with rhetorical grandstanding and shouted emphasis … performative
+self-narration of the review process" — all-caps headers, "THE SHARPEST THING SAID".
+The platform norm is PLAIN, PRAGMATIC TONE. A submission is not the place to narrate
+one's own diligence; state the change and the evidence. Applies to future submissions
+from this lane.
+
+### 4.2 OWNER DECISION OWED — the `site_plan_sections` pre-delete guard
+
+`bug_historian` accepts the deferral is tracked and objects that tracked-and-unbuilt is
+how 058 and 069 happened. Two coherent answers:
+
+**(a) Build the guard before anyone enables the check.** The action consults
+`site_plan_sections` and refuses to delete where the PLAN itself specifies the
+repetition. Closes the class rather than tracking it; costs a coupling to a second
+table and a rule I have said I would rather measure than guess.
+**(b) Make it a hard precondition of enabling, not of the code.** The check is inert
+and enabling belongs to the `brochure_component_library` lane; attach the guard
+requirement to that decision (CONTRIB + `doc_notes` + this handoff) so it cannot be
+enabled without the question being answered.
+
+**Measured position today:** exactly one upstream duplicate exists fleet-wide
+(`webdesign.co.uk`/`index`/`info-card-grid`, 2 plan entries), it does NOT overlap any
+in-remit item, and the in-remit set is empty — so nothing is at risk right now, and (b)
+is sufficient *until someone enables the check*. Note two seats could not verify that
+figure at all (`site_plan_sections` is not in their schema access), so it rests on this
+lane's measurement — re-run it before relying on it.
+
 ### 4.1 Read the verdict
 
 ```sql
