@@ -150,7 +150,7 @@ func TestAgentGroupOrchestration(t *testing.T) {
 	producer := createTestProducer(t)
 	logger := zap.NewNop()
 
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	// Setup test groups
 	setupTestGroups(t, db)

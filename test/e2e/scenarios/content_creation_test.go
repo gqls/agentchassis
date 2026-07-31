@@ -23,7 +23,7 @@ func TestContentCreationPipeline(t *testing.T) {
 	db := setupTestDB(t)
 	producer := setupTestProducer(t)
 	logger := zap.NewNop()
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	// Test content creation pipeline using available actions
 	workflow := models.WorkflowPlan{
@@ -108,7 +108,7 @@ func TestContentCreationWithMultipleFormats(t *testing.T) {
 	db := setupTestDB(t)
 	producer := setupTestProducer(t)
 	logger := zap.NewNop()
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	formats := []string{"blog_post", "social_media", "email", "technical_doc"}
 
@@ -178,7 +178,7 @@ func executeAndWait(t *testing.T, workflow models.WorkflowPlan, correlationID st
 	db := setupTestDB(t)
 	producer := setupTestProducer(t)
 	logger := zap.NewNop()
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	headers := helpers.TestHeaders(correlationID)
 	initialData, _ := json.Marshal(map[string]interface{}{

@@ -28,7 +28,7 @@ func TestCompleteWorkflowWithSpawning(t *testing.T) {
 	producer := setupTestProducer(t)
 	logger := zap.NewNop()
 
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	tests := []struct {
 		name     string

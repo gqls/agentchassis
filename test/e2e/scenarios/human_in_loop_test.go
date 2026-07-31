@@ -10,6 +10,7 @@ import (
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/test/unit/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ func TestHumanInLoopWorkflow(t *testing.T) {
 	db := setupTestDB(t)
 	producer := setupTestProducer(t)
 	logger := zap.NewNop()
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	// Setup human tasks table
 	setupHumanTasksTable(t, db)
@@ -120,18 +121,24 @@ func TestHumanInLoopWorkflow(t *testing.T) {
 
 	responseData, _ := json.Marshal(humanResponse)
 
-	// Resume workflow with approval
-	err = coordinator.ResumeWorkflow(context.Background(), headers, responseData)
-
-	// Note: ResumeWorkflow might not be implemented exactly as expected
-	// You might need to handle the response through HandleResponse instead
-	if err != nil {
-		t.Logf("ResumeWorkflow not implemented as expected: %v", err)
-
-		// Alternative: Send response through HandleResponse
-		headers["causation_id"] = headers["request_id"]
-		err = coordinator.HandleResponse(context.Background(), headers, responseData)
-	}
+	// Resume the workflow with the approval, through HandleResponse.
+	//
+	// This used to call coordinator.ResumeWorkflow, which NO LONGER EXISTS: resume
+	// is now a COMMAND MESSAGE, not a method — `ResumeWorkflowTopic`
+	// ("system.commands.workflow.resume", coordinator.go:34), published by the
+	// admin handler `HandleResumeWorkflow` (internal/core-manager/admin). The test
+	// had not compiled since that change.
+	//
+	// Taking the HandleResponse path is not a guess about the author's intent —
+	// this block already carried it as its own stated fallback ("Alternative: Send
+	// response through HandleResponse"), with a comment predicting exactly this.
+	// The dead ResumeWorkflow arm is removed rather than left as an unreachable
+	// branch; re-expressing the test against the command topic is a separate
+	// decision for whoever owns this suite. (2026-07-31)
+	headers["causation_id"] = headers["request_id"]
+	var responseMsg types.ResponseMessage
+	require.NoError(t, json.Unmarshal(responseData, &responseMsg))
+	err = coordinator.HandleResponse(context.Background(), headers, responseMsg)
 
 	// Verify workflow continued
 	time.Sleep(100 * time.Millisecond)
@@ -151,7 +158,7 @@ func TestHumanInLoopTimeout(t *testing.T) {
 	db := setupTestDB(t)
 	producer := setupTestProducer(t)
 	logger := zap.NewNop()
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	// Workflow with very short timeout
 	workflow := models.WorkflowPlan{

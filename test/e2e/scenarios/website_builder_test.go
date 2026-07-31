@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/test/unit/helpers"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -153,7 +154,7 @@ func TestWebsiteBuilderWorkflow(t *testing.T) {
 		logger := zap.NewNop()
 
 		t.Log("Step 1.4: Creating saga coordinator...")
-		coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+		coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 		if coordinator == nil {
 			t.Fatal("Failed to create saga coordinator - coordinator is nil")
 			return
@@ -300,7 +301,14 @@ func TestWebsiteBuilderWorkflow(t *testing.T) {
 				}
 				responseHeaders["causation_id"] = awaitedStep
 
-				err = coordinator.HandleResponse(ctx, responseHeaders, responseData)
+				// HandleResponse takes the typed message, not raw bytes — unmarshal
+				// exactly as the real caller does (platform/messaging/processor.go:627).
+				var responseMsg types.ResponseMessage
+				if uerr := json.Unmarshal(responseData, &responseMsg); uerr != nil {
+					t.Errorf("Failed to unmarshal response for step %s: %v", awaitedStep, uerr)
+					continue
+				}
+				err = coordinator.HandleResponse(ctx, responseHeaders, responseMsg)
 				if err != nil {
 					t.Errorf("Failed to handle response for step %s: %v", awaitedStep, err)
 				}
@@ -336,7 +344,7 @@ func TestWebsiteBuilderWithErrors(t *testing.T) {
 
 		producer := setupTestProducer(t)
 		logger := zap.NewNop()
-		coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+		coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 		tests := []struct {
 			name          string

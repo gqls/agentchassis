@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/gqls/agentchassis/test/unit/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func TestMultiAgentWorkflow(t *testing.T) {
 	producer := createTestProducer(t)
 	logger := zap.NewNop()
 
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 	ctx := context.Background()
 
 	// Setup content team group
@@ -126,7 +127,11 @@ func TestMultiAgentWorkflow(t *testing.T) {
 			}
 			responseHeaders["causation_id"] = awaitedStep
 
-			err = coordinator.HandleResponse(ctx, responseHeaders, responseData)
+			// HandleResponse takes the typed message, not raw bytes — unmarshal
+			// exactly as the real caller does (platform/messaging/processor.go:627).
+			var responseMsg types.ResponseMessage
+			require.NoError(t, json.Unmarshal(responseData, &responseMsg))
+			err = coordinator.HandleResponse(ctx, responseHeaders, responseMsg)
 			assert.NoError(t, err)
 		}
 
@@ -151,7 +156,7 @@ func TestMultiAgentCoordination(t *testing.T) {
 	logger := zap.NewNop()
 	ctx := context.Background()
 
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	// Test agent coordination with dependencies
 	workflow := models.WorkflowPlan{
@@ -219,7 +224,7 @@ func TestMultiAgentFailureHandling(t *testing.T) {
 	logger := zap.NewNop()
 	ctx := context.Background()
 
-	coordinator := orchestration.NewSagaCoordinator(db, producer, logger)
+	coordinator := orchestration.NewSagaCoordinator(db, producer, nil, logger)
 
 	// Test workflow with potential failure points
 	workflow := models.WorkflowPlan{

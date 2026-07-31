@@ -100,6 +100,19 @@ func (m *MockProducer) Produce(ctx context.Context, topic string, headers map[st
 	return nil
 }
 
+// ProduceWithValidation on the mock records like Produce; there is no validator.
+// Matches the real KafkaProducer's own no-validator path (producer.go:113-116)
+// and the identical mock in platform/orchestration/orchestration_test.go, rather
+// than inventing a third behaviour for the same interface method.
+//
+// Its absence is why test/integration/agents had not compiled since
+// ProduceWithValidation was added to kafka.Producer — the mock is returned AS a
+// kafka.Producer there, so the package stopped building and its four test files
+// stopped running, silently (2026-07-31).
+func (m *MockProducer) ProduceWithValidation(ctx context.Context, topic string, headers map[string]string, key, value []byte) error {
+	return m.Produce(ctx, topic, headers, key, value)
+}
+
 func (m *MockProducer) Close() error {
 	return nil
 }
