@@ -288,3 +288,104 @@ changing it changes 135's message too, and making the clause caller-supplied is 
 signature change to a shared mechanism — exactly the class CLAUDE.md says to route
 on its own merits rather than ride along inside a bug fix. Filed as a follow-up in
 `bugs_open/165`.
+
+## 8. SITES B AND C — 2026-07-31, a contributing lane (not this lane's session)
+
+Written into your NOTES rather than a competing lane directory: you own 165 and
+did site A including its induction. Code is in `983e4b0a2`, council
+`c69e935a-7134-45c1-81c3-2f1da7831827` (submitted, verdict pending at time of
+writing). **Neither site is live and neither is induced.**
+
+### What I got wrong, in order, because that is the useful part
+
+**1. I read a cartesian product as a count, and nearly designed the cohorts on it.**
+Sizing nav per site I wrote `FROM sites s LEFT JOIN site_nav_groups g ON
+g.site_id=s.id LEFT JOIN site_nav_items i ON i.site_id=s.id … count(i.id)`. It
+returned leopardess 92, finetuning 75, ai-agent-orchestration 72 — against a
+whole-table total of **184 rows across 16 sites**. Every figure was items ×
+groups (leopardess: 4 groups × 23 items). Two child tables joined off one parent
+multiply each other and the output still looks exactly like a table of counts.
+Caught only because the per-site figures summed past a total I happened to have
+taken in the same batch. **An inflated denominator makes a completeness floor read
+as passing when it should refuse** — the one direction this guard must not be
+wrong in. Logged in `WRONG_CALLS.md`; the fix is a scalar subquery per child.
+
+**2. My first "second unit" for B was wrong, and the data said so twice.** I
+started from `pages WHERE (in_header OR in_footer)`, which matched stored nav
+items exactly on 14 of 16 sites — and I nearly took that as the denominator. The
+two misses were the loan-calculator sites (1 item, 0 flagged pages), and the
+reason is that **legal pages bypass the flag check entirely** in
+`classifyPagesForNav` (`if legalNames[nameLower] || isLegalPage(nameLower) {
+legal = append(...); continue }` runs *before* the `in_header`/`in_footer`
+branches). Replaying the full rule — `NOT system AND (legal OR in_header OR
+in_footer)` — matched **16 of 16**. A 14/16 match looked like a good enough
+signal and was a wrong rule.
+
+**3. I planned to narrow the DELETE, and the data stopped me.** Discovering that
+`site_nav_groups` holds a `tools` group no Go code writes, my first instinct was
+that the site-wide DELETE was over-broad and should be scoped to the three groups
+this action recreates. That is wrong: robot-hands' `tools` item is
+`/tools/gripper-safety-factor-calculator`, and `exp_utility` for that site is 9
+against 8 stored — the **current classifier already places that page in
+`utility`**, so preserving the `tools` group would render it in the nav twice.
+The unscoped DELETE is correct; it is a full rebuild. Cost me a design detour and
+is now a `LANDMINES.md` entry so the next person does not repeat it.
+
+### The measurement that decided B's cohorts
+
+The bug file asked for per-nav-group cohorts. Replaying the membership rule in
+SQL (see RUNBOOK R-B1) gives expected-vs-stored per group:
+
+```
+ robot-hands.com  | tools   |  0 |  1 | *** WOULD REFUSE ***
+ …all 37 other (site, group) pairs | ok
+```
+
+`classifyPagesForNav` **re-homes pages between groups** as a matter of course, so
+a per-group cohort scores a legitimate re-homing as a 100% loss of one class and
+would refuse robot-hands' nav rebuild **for ever**. Group membership is a
+classifier OUTPUT, not an independently-losable class.
+
+Note this is a **different** failure from A's per-`slot_name` refutation. A's
+cohorts were too SMALL (998 of 1,009 groups hold one row). B's partition KEY is
+not stable. Two distinct ways a partition can be wrong; both invisible without
+measuring.
+
+What shipped: `pages seen` (loaded vs existing under `navPageScopeSQL`, the
+loader's own predicate, now a shared constant so the two cannot drift) and `nav
+items` (to write vs the DELETE's exact complement). **Expected == stored on 16 of
+16 sites**, so every cohort reads 100% today and the measured false-positive rate
+is 0.
+
+### The generalisation, and why B has no ratchet cohort
+
+You needed a plan cohort for A because `page_components` is **AUTHORED** — a
+truncating writer's output becomes the stored baseline, so the row cohort reads
+2/2 = 100% for ever. `site_nav_items` is **DERIVED**, recomputed from the page
+corpus on every rebuild, so a wrongly-truncated nav is repaired by the next
+healthy run. **A derived table self-heals; an authored one ratchets.** That is the
+test for whether a future consumer needs a second unit at all, and it is now in
+CTXA-025.
+
+### C, and what it honestly cannot prove
+
+One cohort, partition deferred, with the query to run written into the file
+header. `link_registry` is **0 rows all-history** (re-verified independently —
+matches the `bugfix_092` contribution in the bug file). There is no distribution
+to partition on, and guessing one from the SQL's shape is what your own PLAN
+decision 3 warns against. Consequence to be honest about: **C's floor is inert by
+construction today** (`Stored=0` reads as fully confirmed) and **cannot be proven
+by live induction** while the table is empty and `ExtractAndSyncLinksAction` has
+0 orchestrations in the retained window. Whether that is closable on tests + roll
+is your call, not mine.
+
+### A correction to this lane's own note
+
+Your update block in `bugs_open/165` told the next converter that "`site_nav_items`
+carries the same lock columns" as `page_components`. **It does not** — the live
+schema is `id, site_id, group_id, parent_item_id, label, url, page_id, item_type,
+position, status, metadata, created_at, updated_at`, and a `%lock%`/`%owned%`/
+`%writable%` search across the three tables matches only `page_components`.
+Corrected in the bug file and in CTXA-025. Flagging *how* it happened rather than
+just that it did: it is the one claim in an otherwise thoroughly measured block
+that was an inherited plausibility rather than a schema read.
