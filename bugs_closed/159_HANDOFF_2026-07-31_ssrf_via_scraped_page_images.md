@@ -110,3 +110,30 @@ a same-tag-roll assumption.
 - Register `DBI-025` — the new `fetchguard` mechanism.
 - `LANDMINES.md` — *"platform/httpguard is INBOUND-abuse only"*, the entry
   recording the trap this bug walked into on the way to being found.
+
+---
+
+## CLOSED 2026-07-31 — fixed AND live, verified on all three pods
+
+`web-scrape-adapter` rolled to **v1.0.1215** (pods 15m old at time of check),
+carrying the fix. Verified the way §4 of this file specified — **grep for a
+string the change ADDED, with a positive control in the same exec**, because a
+roll is not by itself evidence a fix shipped (the image can predate the commit):
+
+```
+fetchguard marker (ADDED by the fix): 1     <- on all 3 pods
+positive control (pre-existing):      1     <- proves the grep works
+```
+
+Both markers present on **all three replicas**, not just one — `logs deploy/X`
+and single-pod checks read one pod of N, and a partial roll is exactly the state
+that looks green from one pod.
+
+Meets this repo's bar for closed: the defect is no longer reproducible in
+production, not merely fixed in the tree.
+
+**Still open, and deliberately not closed by this:** `browser-runner-adapter`'s
+Playwright `page.Goto` navigation is a different fetch surface — a Go
+`http.Transport` guard cannot see a browser's own DNS and connections. Named in
+§3 above and in register `DBI-025`'s verify-later so it is not mistaken for
+covered by this closure.
