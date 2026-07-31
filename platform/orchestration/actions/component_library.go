@@ -172,21 +172,178 @@ func queryRow(ctx context.Context, db interface{}, query string, args ...interfa
 // GetComponentByFunction retrieves a library/template component by its function name.
 // Excludes forks (forked_from IS NOT NULL) — forks share their parent's function
 // and should only be accessed by component_id through page_components.
+//
+// ORDER BY name is load-bearing, not tidiness: without it this is `LIMIT 1` over a
+// set that has TWO members for both `site-header` and `site-footer` (measured
+// 2026-07-31), so the answer was whatever the plan happened to return. Measured
+// before adding it — it returns the same row it returned unordered for both, so the
+// fleet's answer is unchanged and is now guaranteed rather than incidental.
+//
+// This is the SECTION-shaped lookup and it stays that way: it has no
+// component_level filter because its callers ask it for section functions
+// (`generic-text-block`, via GetComponentWithFallback). For SITE CHROME use
+// ResolveChromeComponent below — see the header there for why the two differ.
 func GetComponentByFunction(ctx context.Context, db interface{}, function string, logger *zap.Logger) (*Component, error) {
 	query := `
-		SELECT 
-			id, 
-			name, 
-			function, 
+		SELECT
+			id,
+			name,
+			function,
 			COALESCE(category, '') as category,
-			html_template, 
+			html_template,
 			input_schema,
 			COALESCE(is_dark_section, false) as is_dark_section
 		FROM content_components
 		WHERE function = $1 AND is_active = true AND forked_from IS NULL
+		ORDER BY name
 		LIMIT 1
 	`
 	return queryComponent(ctx, db, query, function, logger)
+}
+
+// ===========================================================================
+// SITE CHROME SELECTION — bugs_open/118
+// ===========================================================================
+//
+// "Which library component serves chrome function F?" was asked in three places
+// with three different predicates, and all three answers were wrong in a
+// different way (measured live 2026-07-31):
+//
+//   render_site_components  no predicate at all   -> footer-4-column      (is_active=false)
+//   link_site_components    is_active only        -> header-leopardess    (a client's FORK)
+//   GetComponentByFunction  is_active + no fork   -> site-header          (component_level='section')
+//
+// So the predicate lives here once and the callers use it. The section selector
+// (component_selector.go queryCandidates) has had the right shape all along —
+// active, unforked, level-filtered — and is the reason this one is written the
+// same way rather than invented.
+
+// chromeComponentLevels is the set of content_components.component_level values
+// that may serve as SITE CHROME. It is a whitelist and not `<> 'section'` on
+// purpose: 'section', 'tool' and 'element' are all page-body levels, and a new
+// body level added later must not silently become eligible chrome.
+//
+// The estate uses four levels for chrome because the vocabulary grew twice:
+// 'site' (the site-header/site-footer pool, 12 rows), and the singular 'header',
+// 'footer' and 'head' levels that predate it.
+const chromeComponentLevels = `'site', 'header', 'footer', 'head'`
+
+// chromeEligibleSQL is THE chrome-eligibility predicate. Every chrome selection
+// must be built from this string so a fourth hand-typed copy cannot drift back in
+// — chrome_selection_test.go scans the package and fails if one does.
+//
+// forked_from IS NULL matters as much as is_active here and is the half that was
+// missing everywhere: a fork carries its parent's `function`, so an ACTIVE fork of
+// one site's header is a candidate to become every other site's header. That is
+// not hypothetical — `header-leopardess` sorts first among active `site-header`
+// rows and is what link_site_components would have assigned.
+func chromeEligibleSQL(alias string) string {
+	return alias + "is_active AND " +
+		alias + "forked_from IS NULL AND " +
+		alias + "component_level IN (" + chromeComponentLevels + ")"
+}
+
+// ChromeSlotFunction maps a site_components.slot_name to the
+// content_components.function that serves it. One definition: the map used to be
+// inline in render_site_components while link_site_components hard-coded the two
+// function strings, which is how a slot can mean different things to two writers.
+// An unknown slot maps to itself, preserving the existing behaviour for callers
+// that pass a function name straight through.
+func ChromeSlotFunction(slot string) string {
+	switch slot {
+	case "header":
+		return "site-header"
+	case "footer":
+		return "site-footer"
+	case "head":
+		return "head"
+	default:
+		return slot
+	}
+}
+
+// ResolveChromeComponent returns the library component that should serve a chrome
+// function, and whether that component is actually ELIGIBLE chrome.
+//
+// eligible=false means the library holds no active, unforked, chrome-level row for
+// this function at all, and the returned component is a last-resort pick. Callers
+// must treat that as a defect to report, never as a default — it is how every site
+// in the fleet ended up assigned to a deactivated footer.
+//
+// It answers with the last-resort row rather than an error because refusing is not
+// free: `head` has NO eligible component today (both candidates are is_active=false)
+// and a site whose head slot goes unrendered also loses injectBrandHeadTags, i.e.
+// its favicon and og-card. Louder, not more broken.
+//
+// The `eligible` flag comes back from the same query that picks the row, so the
+// caller cannot be told the row is fine by one round trip and the truth by another.
+func ResolveChromeComponent(ctx context.Context, db interface{}, function string, logger *zap.Logger) (*Component, bool, error) {
+	eligible := chromeEligibleSQL("")
+	query := `
+		SELECT
+			id,
+			name,
+			function,
+			COALESCE(category, '') as category,
+			html_template,
+			input_schema,
+			COALESCE(is_dark_section, false) as is_dark_section,
+			(` + eligible + `) as chrome_eligible
+		FROM content_components
+		WHERE function = $1
+		ORDER BY (` + eligible + `) DESC, name
+		LIMIT 1
+	`
+
+	var comp Component
+	var schemaJSON []byte
+	var category sql.NullString
+	var isEligible bool
+
+	var err error
+	switch d := db.(type) {
+	case *sql.DB:
+		err = d.QueryRowContext(ctx, query, function).Scan(
+			&comp.ID, &comp.Name, &comp.Function, &category,
+			&comp.HTMLTemplate, &schemaJSON, &comp.IsDarkSection, &isEligible,
+		)
+	case *pgxpool.Pool:
+		err = d.QueryRow(ctx, query, function).Scan(
+			&comp.ID, &comp.Name, &comp.Function, &category,
+			&comp.HTMLTemplate, &schemaJSON, &comp.IsDarkSection, &isEligible,
+		)
+	default:
+		return nil, false, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, false, fmt.Errorf("no component serves chrome function %q", function)
+		}
+		return nil, false, fmt.Errorf("failed to resolve chrome component for %q: %w", function, err)
+	}
+
+	if category.Valid {
+		comp.Category = category.String
+	}
+	if len(schemaJSON) > 0 {
+		json.Unmarshal(schemaJSON, &comp.InputSchema)
+	}
+
+	if !isEligible && logger != nil {
+		// ERROR, not Warn: there is no legitimate steady state in which the
+		// library has nothing active to serve a chrome function, and the
+		// symptom of the version that logged nothing was a deactivated
+		// component rendering on every site for months.
+		logger.Error("site chrome: no eligible component for function — falling back to an ineligible row",
+			zap.String("function", function),
+			zap.String("using_component", comp.Name),
+			zap.String("component_id", comp.ID),
+			zap.String("required", "is_active AND forked_from IS NULL AND component_level IN ("+chromeComponentLevels+")"),
+		)
+	}
+
+	return &comp, isEligible, nil
 }
 
 // GetComponentByName retrieves a component by its name

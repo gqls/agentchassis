@@ -8,6 +8,11 @@
 // This action is idempotent — safe to run multiple times. It only updates rows
 // where component_id is NULL or differs from the style collection.
 //
+// Both of its by-function fallbacks resolve through ResolveChromeComponent
+// (component_library.go) so that this action, render_site_components and the
+// library lookup cannot disagree about which component serves a chrome slot —
+// bugs_open/118, where they disagreed three ways.
+//
 // Config:
 //   - site_id_field: path to site_id in collected_data (default: "site_record.site_id")
 //
@@ -87,32 +92,32 @@ func LinkSiteComponentsAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("failed to load style collection: %w", err)
 	}
 
-	// If style collection doesn't specify header/footer, try to find by function name
+	// If the style collection doesn't specify header/footer, resolve the library
+	// default through the ONE chrome predicate (bugs_open/118). These two lookups
+	// used to filter on `is_active` alone, which reads as careful and is not: a
+	// FORK carries its parent's `function`, so `header-leopardess` — one client's
+	// forked header — sorted first among active `site-header` rows and is what this
+	// would have linked into any other site whose style collection has no header.
+	//
+	// Unlike the render path, this one ASSIGNS without rendering, so an ineligible
+	// component here would be pinned in site_components and never noticed. It
+	// therefore links only what the library says is eligible chrome, and leaves the
+	// slot alone otherwise.
 	if !headerCompID.Valid {
-		var id string
-		err := params.DB.QueryRowContext(ctx, `
-			SELECT id::text FROM content_components
-			WHERE function = 'site-header' AND is_active = true
-			ORDER BY name LIMIT 1
-		`).Scan(&id)
-		if err == nil {
-			headerCompID = sql.NullString{String: id, Valid: true}
+		if comp, eligible, err := ResolveChromeComponent(ctx, params.DB, ChromeSlotFunction("header"), logger); err == nil && eligible {
+			headerCompID = sql.NullString{String: comp.ID, Valid: true}
 			logger.Info("Resolved header component by function lookup",
-				zap.String("component_id", id))
+				zap.String("component_id", comp.ID),
+				zap.String("component_name", comp.Name))
 		}
 	}
 
 	if !footerCompID.Valid {
-		var id string
-		err := params.DB.QueryRowContext(ctx, `
-			SELECT id::text FROM content_components
-			WHERE function = 'site-footer' AND is_active = true
-			ORDER BY name LIMIT 1
-		`).Scan(&id)
-		if err == nil {
-			footerCompID = sql.NullString{String: id, Valid: true}
+		if comp, eligible, err := ResolveChromeComponent(ctx, params.DB, ChromeSlotFunction("footer"), logger); err == nil && eligible {
+			footerCompID = sql.NullString{String: comp.ID, Valid: true}
 			logger.Info("Resolved footer component by function lookup",
-				zap.String("component_id", id))
+				zap.String("component_id", comp.ID),
+				zap.String("component_name", comp.Name))
 		}
 	}
 

@@ -278,28 +278,39 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	// Render each slot
 	rendered := make(map[string]bool)
 	lockedSlots := []string{}
+	ineligibleChrome := map[string]string{}
 	for _, slot := range slots {
-		success, locked := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, params.Logger)
+		success, locked, degraded := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, params.Logger)
 		rendered[slot] = success
 		if locked {
 			lockedSlots = append(lockedSlots, slot)
+		}
+		if degraded != "" {
+			ineligibleChrome[slot] = degraded
 		}
 	}
 
 	params.Logger.Info("RenderSiteComponentsAction: Complete",
 		zap.Any("rendered", rendered),
 		zap.Strings("locked_slots_preserved", lockedSlots),
+		zap.Any("ineligible_chrome", ineligibleChrome),
 	)
 
 	// locked_slots_preserved reports human locks that refused a re-render
 	// (bugs_open/069), mirroring save_page_sections' locked_sections_preserved.
 	// It is NOT a failure: each one has filed a lock_blocked_change item.
+	// ineligible_chrome names, per slot, a component this site fell back to
+	// because the library holds NO active, unforked, chrome-level component for
+	// that slot's function (bugs_open/118). It is a library defect, not a site
+	// one, and it is reported rather than hidden because the version that hid it
+	// left 11 of 14 sites rendering a deactivated footer for months.
 	return map[string]interface{}{
 		"success":                true,
 		"site_id":                siteIDStr,
 		"domain":                 siteData.Domain,
 		"rendered":               rendered,
 		"locked_slots_preserved": lockedSlots,
+		"ineligible_chrome":      ineligibleChrome,
 	}, nil
 }
 
@@ -478,7 +489,11 @@ func renderAndStoreSiteComponent(
 	renderCtx *RenderContext,
 	force bool,
 	logger *zap.Logger,
-) (bool, bool) {
+) (ok bool, locked bool, degraded string) {
+	// degraded names the component this slot fell back to when the library held
+	// no ELIGIBLE chrome for the slot's function (bugs_open/118). Empty on every
+	// healthy path, including the ones that do no work at all.
+
 	// Check if already rendered (unless force)
 	if !force {
 		var exists bool
@@ -493,7 +508,7 @@ func renderAndStoreSiteComponent(
 		if exists {
 			logger.Debug("Site component already rendered, skipping",
 				zap.String("slot", slot))
-			return true, false
+			return true, false, ""
 		}
 	}
 
@@ -521,7 +536,7 @@ func renderAndStoreSiteComponent(
 		// ok reports whether the slot still SERVES chrome, which is what the
 		// caller's map means. A lock over a populated slot is a success from
 		// the page's point of view; a lock over an empty one is not.
-		return lock.HasHTML, true
+		return lock.HasHTML, true, ""
 	}
 
 	// Get component template + its declared input_schema. The schema is what
@@ -539,28 +554,45 @@ func renderAndStoreSiteComponent(
 	`, siteID, slot).Scan(&componentID, &htmlTemplate, &inputSchemaRaw)
 
 	if err != nil {
-		// No component assigned, try to find default
-		slotToFunction := map[string]string{
-			"header": "site-header",
-			"footer": "site-footer",
-			"head":   "head",
-		}
-		funcName := slot
-		if mapped, ok := slotToFunction[slot]; ok {
-			funcName = mapped
-		}
-		err = db.QueryRowContext(ctx, `
-			SELECT id, html_template, COALESCE(input_schema, '{}'::jsonb)
-			FROM content_components
-			WHERE function = $1
-			ORDER BY name LIMIT 1
-		`, funcName).Scan(&componentID, &htmlTemplate, &inputSchemaRaw)
+		// No component assigned — resolve the library default through the ONE
+		// chrome predicate (bugs_open/118). What used to be here was a bare
+		// `WHERE function = $1 ORDER BY name LIMIT 1`: no is_active, no fork
+		// exclusion, no level filter. It is what assigned 11 of 14 sites a
+		// DEACTIVATED footer and then pinned the choice in site_components, where
+		// it has outlived every attempt to edit the active component instead.
+		funcName := ChromeSlotFunction(slot)
 
-		if err != nil {
+		comp, eligible, resolveErr := ResolveChromeComponent(ctx, db, funcName, logger)
+		if resolveErr != nil {
 			logger.Warn("No component found for slot",
 				zap.String("slot", slot),
-				zap.Error(err))
-			return false, false
+				zap.String("function", funcName),
+				zap.Error(resolveErr))
+			return false, false, ""
+		}
+
+		parsedID, parseErr := uuid.Parse(comp.ID)
+		if parseErr != nil {
+			logger.Warn("Resolved chrome component has an unparseable id",
+				zap.String("slot", slot),
+				zap.String("component_id", comp.ID),
+				zap.Error(parseErr))
+			return false, false, ""
+		}
+		componentID = parsedID
+		htmlTemplate = comp.HTMLTemplate
+		inputSchemaRaw = nil
+		if len(comp.InputSchema) > 0 {
+			if encoded, mErr := json.Marshal(comp.InputSchema); mErr == nil {
+				inputSchemaRaw = encoded
+			}
+		}
+
+		// ResolveChromeComponent has already logged the detail at ERROR. Naming
+		// it here too is what carries it out of the log and into the action's
+		// result, where an operator reading the orchestration reads it.
+		if !eligible {
+			degraded = comp.Name
 		}
 
 		// Insert the component assignment. The DO UPDATE arm repoints an
@@ -690,7 +722,7 @@ func renderAndStoreSiteComponent(
 	if renderedHTML == "" {
 		logger.Warn("Template rendered to empty string",
 			zap.String("slot", slot))
-		return false, false
+		return false, false, degraded
 	}
 
 	// Phase I1 (G8): inject favicon + Open Graph tags into <head>. Head
@@ -725,7 +757,7 @@ func renderAndStoreSiteComponent(
 		logger.Error("Failed to store rendered component",
 			zap.String("slot", slot),
 			zap.Error(err))
-		return false, false
+		return false, false, degraded
 	}
 
 	// Zero rows means the row is locked or gone. Before this gate the result
@@ -739,18 +771,18 @@ func renderAndStoreSiteComponent(
 				zap.String("slot", slot), zap.String("locked_by", lock.LockedBy))
 			emitChromeLockBlockedChangeItem(ctx, db, siteID, slot, lock,
 				"overwrite", "render_site_components", logger)
-			return lock.HasHTML, true
+			return lock.HasHTML, true, degraded
 		}
 		logger.Error("Failed to store rendered component: no row matched",
 			zap.String("slot", slot), zap.String("site_id", siteID.String()))
-		return false, false
+		return false, false, degraded
 	}
 
 	logger.Info("Site component rendered and stored",
 		zap.String("slot", slot),
 		zap.Int("html_length", len(renderedHTML)))
 
-	return true, false
+	return true, false, degraded
 }
 
 // emitChromeDeadControlItem files ONE work item when a site-chrome component
