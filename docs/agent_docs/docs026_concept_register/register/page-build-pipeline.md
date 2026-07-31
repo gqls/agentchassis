@@ -235,5 +235,16 @@
 - **scope, measured 2026-07-31 (live, real sites only — `pool-*.internal` excluded, 14 such rows):** `sites.email` populated on **12 of 15**; of the 8 sites where `contact-info` cannot render, `sites.email` covers **5** (oufe, robot-hands, vetcomparison, vonc, webdesign). The nested `identity.contact.email` is **empty on all 8**, which is why the two remedies filed in `bugs_open/072` fix 0 of 8. Three sites (gamesdesign, loancalculator, relojistas) have no contact fact in any store — a data gap, and relojistas is an owner ruling of *no contact route*, so it must continue to resolve nothing.
 - **OPEN REVIEW QUESTION (registered per the 2026-07-28/29 ordering-exemption ruling, condition 2):** is a resolver fallback the right layer, or should the *classifier* write the flat keys the schemas declare? The fallback is chosen because it fixes every component at once and needs no data migration, but it means the declared source path is no longer the whole truth about where a value came from — the log line is the only trace. A second question: `identity.address` → `sites.contact_address` is the one mapping that goes **beyond** `loadSiteDataFull`'s set (no render path reads that column today; populated on 1 site). Drop it if a reviewer disagrees.
 - **sources:** `platform/orchestration/actions/plan_sections_action.go` (`identityContainerAspects`, `siteRowIdentityColumns`, `ensureSiteRow`, `resolveSpecAlias`); `plan_sections_identity_alias_test.go`; `bugs_open/072`; `docs024_key_docs_latest/bugfix_072_identity_source_resolver/`
-- **relations:** `bugs_open/006` §B (the same class, fixed on the rerender path); `loadSiteDataFull` canonical identity columns; `site_assets` image-role alias (the enumerated-alias precedent in the same function); `on_missing` policy (`handleMissingField`, one shared implementation — `bugs_closed/044`); the 74-of-100 dead-aspect census filed separately
+- **relations:** `bugs_open/006` §B (the same class, fixed on the rerender path); `loadSiteDataFull` canonical identity columns; `site_assets` image-role alias (the enumerated-alias precedent in the same function); `on_missing` policy (`handleMissingField`, one shared implementation — `bugs_closed/044`); the 74-of-100 dead-aspect census
+  > **CORRECTED 2026-07-31, same day, by its author.** This line first said the
+  > dead-aspect census was "filed separately", as a new bug. **It was not, and
+  > must not be:** `bugs_closed/018` already diagnosed that mechanism —
+  > *"there is no `navigation` aspect in `site_specs` for any site … these
+  > `source:` declarations are decorative — nothing resolves them"* — and
+  > established that chrome components run a separate, thinner path where the
+  > fallback machinery never runs at all. The census adds fleet-wide **scale** to
+  > a known mechanism, so it is recorded as a `016b` §9 contribution, not a bug
+  > number. Caught by the prescribed `grep bugs_open/ bugs_closed/` before filing;
+  > logged in `WRONG_CALLS.md`. Forward-only forbids amending the commit that
+  > shipped the wrong wording, hence this note rather than an edit.
 - **verify-later:** chassis image carrying the string `resolved from the canonical sites row`; a live contact rebuild on vonc.com producing three components; the negative control on gamesdesign.co.uk still withholding

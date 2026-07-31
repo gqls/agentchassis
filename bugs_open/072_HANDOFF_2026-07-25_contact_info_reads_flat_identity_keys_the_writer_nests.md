@@ -224,3 +224,128 @@ that is still the verification step above, and it needs the contract fix first.
 > **Also unresolved and worth a look:** relojistas renders an empty anchor
 > *despite* a populated `sites.email`, so a third path feeds that render.
 > `[UNVERIFIED]` — nobody has traced it.
+
+---
+
+# RESOLVED 2026-07-31 — the root cause was not the path, and it was in this file all along
+
+**Fixed in `ef9e7e999`. Root cause CONFIRMED by the diagnosis loop, first
+iteration (corr `0f76987c-0fc8-48b9-9c12-c49379560f00`). Council gate submitted as
+`dd03a73b-eee1-4769-93ed-d8fe79154c19`.** Worked by the "bugfix 9" thread;
+workstream docs at `docs024_key_docs_latest/bugfix_072_identity_source_resolver/`.
+
+> **Number reminder:** this is the *contact-info / identity source* 072. The other
+> `072` is component-markup-without-CSS (`bugfix_072_component_css`), closed and
+> live on v1.0.1171. `scripts/who-owns.py 072` merges both cases' commits.
+
+## The diagnosis above is correct. Both of its remedies fix ZERO of the eight sites.
+
+Re-grounded against the live DB on 2026-07-31 (queries in the workstream RUNBOOK
+§1–§2). The population has moved again: **15 real sites**, not 13 or 14
+(`loancalculator.co.uk` is new and has **no `identity` aspect at all**), plus 14
+`pool-*.internal` rows that must be excluded from any `sites` census.
+
+| store | populated on |
+|---|---|
+| flat `identity.email` | **7** of 15 |
+| nested `identity.contact.email` | **6** of 15 |
+| **`sites.email` (column)** | **12** of 15 |
+
+**The nested `contact` sub-object exists on 14 of 15 sites, and its VALUES are
+null/empty on exactly the 8 sites that fail.** The 6 sites where the nested key
+holds anything are the same sites that already carry the flat key — the manual
+workaround wrote both.
+
+⇒ **Candidate 1 (repoint the schema at `identity.contact.*`) and candidate 2
+(a resolver nested-path fallback) each resolve on 0 of the 8 broken sites.**
+
+**The discriminator table in the original diagnosis is a correct measurement whose
+causal reading is inverted.** `contact-info` rendered on exactly the sites with a
+flat `email` — no exceptions either direction — because those are simply the sites
+that have contact data **at all**. `jsonb ? 'contact'` and "the classifier writes
+nested" are both *shape* checks; neither sees whether the shape holds a value. A
+nested object full of nulls is indistinguishable from a populated one to both.
+
+## The actual root cause — quoted from this file
+
+> *"The owner's phone `+44 (0) 7934 524 911` had been written only to
+> `sites.phone`, which **no component reads**."*
+
+That sentence, filed as a footnote to the data workaround, is the bug.
+`sourceResolver` (`plan_sections_action.go`) resolves `site_specs.*`,
+`site_assets.*`, `pages.*`, `config.*` and `query.*`. **No branch reads the `sites`
+row's own identity columns** — `email`, `phone`, `contact_address`,
+`company_name`, `tagline`, `logo_text`, `logo_url`. So an owner-supplied contact
+detail is invisible to every component declaring a `site_specs.identity` source,
+and `contact-info`'s `on_missing: needs_human_review` on `email` then withholds the
+whole section.
+
+**And this was the THIRD path to need the same fix — the other two were already
+fixed for exactly this reason:**
+
+| path | reads the columns? | how |
+|---|---|---|
+| full writer render | **yes** | `loadSiteDataFull`, `render_site_components_action.go:337` |
+| light section rerender | **yes** | `buildRerenderBaseData`, `rerender_page_sections_action.go:590` — *"We now prefer the column … making both render paths agree"* (`bugs_open/006` §B) |
+| **`plan_sections`** | **no** | ← this bug, missed both times |
+
+The diagnosis loop confirmed it independently, citing a live `vetcomparison` row
+with `sites.email` populated and every `site_specs.identity` value NULL, and
+tracing `needs_human_review` → `shouldDefer` → `item.Status = "deferred"`.
+
+## What was fixed
+
+A bounded fallback chain in the `site_specs` branch of `resolve`, consulted **only
+after the literal path misses**: (1) the writer's nested shape
+(`identity.<leaf>` → `identity.contact.<leaf>`), then (2) the canonical sites row
+(`identity.<leaf>` → `sites.<column>`). Enumerated, not a deep search — matching
+the `site_assets` image-role alias in the same function. Registered as **PBP-026**
+with its landmine and open review question, in the same commit as the seam.
+
+**Safety property, test-asserted:** the literal path is tried first and always
+wins, so **no path that resolves today changes its value**. `ensureSiteRow`
+deliberately does *not* `COALESCE` across columns the way `loadSiteDataFull` does —
+an empty value must stay empty, or the fallback satisfies a `needs_human_review`
+field with a value nobody supplied.
+
+**Outcome:** 5 of the 8 sites gain a resolvable contact email (oufe, robot-hands,
+vetcomparison, vonc, webdesign). **3 cannot and should not** — gamesdesign,
+loancalculator and relojistas have no contact fact in any store, and relojistas is
+an owner ruling of *no contact route at all*, so it must keep resolving nothing.
+`gamesdesign.co.uk` is the **negative control**: if it starts rendering a contact
+block after the roll, the fallback is fabricating and the change is wrong.
+
+## Corrections to the earlier updates in this file
+
+1. **Candidate 4 (backfill the eight sites' data into `site_specs`) is now the
+   wrong shape** — it duplicates a fact into a second store and guarantees drift.
+   The platform has already ruled which store is canonical; the resolver reads it.
+   What the 5 sites need is a **contact-page rebuild** after the roll, not a data
+   migration.
+2. **Candidate 3 ("make the drop loud") is ALREADY DONE and needs no work.**
+   `plan_sections` always emits `sections_deferred` and `sections_skipped`
+   (`:922-924`; empty-result path at `:695-697`) and `persistSectionSkips` writes
+   them durably. The 2026-07-25 observation that neither key was present is stale.
+3. The 2026-07-27 update's *"candidate 1 can be made unconditional rather than a
+   fallback"* is correct about the writer (all sites nest; there is no
+   flat-writing code path to preserve) and **irrelevant to the outcome**, because
+   the nested values are empty on the sites that matter.
+4. **The open `[UNVERIFIED]` question at the end of the previous section —
+   "relojistas renders an empty anchor *despite* a populated `sites.email`" — is
+   answered in part and its premise is now false:** `sites.email` for
+   `relojistas.com` is **empty** as of 2026-07-31 (`(none)`), so there is no
+   contradiction left to trace. Whether it was populated on 2026-07-27 and has
+   since been cleared, I have not established — `sites` keeps no history.
+   [UNMEASURED]
+
+## Still open after this fix (not blockers, deliberately out of scope)
+
+- **The data gap:** 3 sites have no contact detail anywhere. An owner matter, not
+  a code defect.
+- **`hours` resolves nowhere** and has no column. `skip_field` is correct.
+- **`identity.address` → `sites.contact_address`** is the one mapping that goes
+  beyond `loadSiteDataFull`'s set (no render path reads that column today;
+  populated on 1 site). Flagged to the council; drop it if a seat objects.
+- **The fix is inert until a chassis rebuild + roll.** Verification recipe —
+  pod-grep with a positive control, then induce the failing case, then the
+  negative control — in the workstream RUNBOOK §4.

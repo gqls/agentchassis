@@ -4247,6 +4247,78 @@ Category tags: `classifier-not-gate`, `recombination-is-not-fabrication`,
 `fail-closed-destroys-not-degrades`, `intermittent-because-generated`,
 `verify-both-halves-of-a-strictness-fix`.
 
+### A nested shape full of nulls passes every SHAPE check — and a perfect discriminator can still be a confound (2026-07-31)
+
+From `bugs_closed/072` (contact-info / identity source resolver). The filed
+diagnosis was well-evidenced, its measurement was correct, and its remedy would
+have fixed **0 of 8** affected sites. Worth reading as a reasoning failure, not a
+coding one.
+
+**The setup.** A component declared its data at a *flat* path
+(`site_specs.identity.email`); the writer that produces that aspect writes a
+*nested* one (`identity.contact.email`). The filer measured across the fleet and
+found the component rendered on **exactly** the sites carrying the flat key —
+no exceptions in either direction — and concluded the path mismatch was the cause.
+
+**Why that inference fails.** The nested sub-object existed on 14 of 15 sites, and
+its **values were null/empty on exactly the 8 that failed**. So the two candidate
+remedies (repoint the schema at the nested path; teach the resolver a nested
+fallback) both moved the reader from one empty shelf to another. The sites that
+rendered were simply the sites that had the fact **at all** — somebody had typed
+it in by hand.
+
+Three transferable rules:
+
+1. **`jsonb ? 'contact'` is a shape check, not a value check.** A nested object
+   full of nulls is indistinguishable from a populated one to every
+   key-existence test, and to "the writer writes this shape" reasoning. Before
+   concluding a path is the problem, resolve the *other* path on the *failing*
+   rows and confirm a value comes back. Replicate the resolver's own emptiness
+   rule while you do it — here `navigateMap` treats `""`, `[]` and nil as
+   not-found, so a SQL check that counts `"email": null` as present disagrees with
+   the code by ~60 paths fleet-wide.
+2. **A perfect discriminator is evidence of correlation with the same strength as
+   a weak one.** "No exceptions in either direction" feels like proof and is
+   compatible with a confound that determines both columns. The tell to look for:
+   is there a *third* store that would explain the split? Here there was — the
+   `sites` row's own identity columns, populated on 12 of 15 sites, which no
+   component could read. **The bug file contained that fact in a passing sentence
+   about a workaround and drew no conclusion from it.** When a filing mentions a
+   store in order to dismiss it, that is the sentence to re-measure.
+3. **When you find a path that cannot see a canonical store, grep for its
+   siblings before fixing only yours.** This was the *third* path to need the same
+   fix: `loadSiteDataFull` reads those columns, `buildRerenderBaseData` was
+   changed to prefer them (*"making both render paths agree"*, `bugs_open/006`
+   §B), and `plan_sections` was missed both times. Finding the precedent changed
+   the fix from "a new resolver fallback" (which the measurement had already shown
+   useless) into "bring the last path into line" — better founded, easier to
+   review, and it named the column set instead of inventing one.
+
+**The fix-side trap, which is the natural tidy-up.** The sibling path COALESCEs
+across columns (`company_name → name → domain`) because it needs a non-empty
+string for a template. Copying that into a *resolver* is wrong: the resolver's
+question is whether the field resolved **at all**, and substituting a domain for a
+missing company name satisfies an `on_missing: needs_human_review` field with a
+value nobody supplied — a silently suppressed HITL request that looks exactly like
+success. **Missing must stay missing.** Pin it with a negative-control test on a
+subject that has the fact in no store.
+
+**Related, and already known — check it before filing the general case.** The same
+session's fleet census found that of 100 distinct `site_specs.*` source paths
+declared by active components, **74 name an aspect that exists on no site**
+(`nav`, `navigation`, `blog`, `legal`, `pricing`, `contact`, `inventory`, …).
+That is *not* a new bug: `bugs_closed/018` already diagnosed it —
+*"there is no `navigation` aspect in `site_specs` for any site … these `source:`
+declarations are **decorative** — nothing resolves them"* — and established that
+chrome components run a separate, thinner path where **the fallback machinery
+never runs at all** (unlike page sections, which do apply static fallbacks). The
+census adds fleet-wide scale to a known mechanism; grepping `bugs_closed/` for it
+turned a would-be duplicate bug file into a contribution.
+
+Category tags: `shape-check-is-not-value-check`, `perfect-discriminator-confound`,
+`third-store`, `grep-for-siblings-before-fixing-yours`,
+`missing-must-stay-missing`, `decorative-source-declaration`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -8291,3 +8363,137 @@ just learned, the defect is not the line, it is that the knowledge was
 copy-pasteable at all; the fix is one named helper both call, so the *next*
 evaluator cannot repeat it. A local patch that leaves a correct duplicate standing
 has fixed an instance and preserved the class.
+
+### A guard on the ROW is not a guard on the ARTEFACT — and the write it suppresses returns success (`bugs_closed/143`, 2026-07-31)
+
+**Symptom.** None. That is the pattern. `derive_card_asset` re-crops a page's card
+image from its hero and reported `derived: true` on every run, including runs where
+the card's `assets` row was locked — an owner approval that is supposed to mean
+"automation must never replace this".
+
+**What was actually happening.** Two statements, 21 lines apart, in the wrong order:
+
+```go
+sendGitCommitRequest(ctx, params, domain, files, "content-card", logger)   // :163 — the FILE is replaced
+...
+INSERT INTO assets ... ON CONFLICT ... DO UPDATE SET ...
+WHERE assets.locked_at IS NULL                                            // :184 — the lock is consulted
+```
+
+The `WHERE` clause is a real guard and it works perfectly: it protects **the row**.
+By the time it runs, the approved artefact in the site repo is already gone. So the
+lock's effect was to preserve the record *describing* a file that no longer existed
+— the worst of both outcomes, and the one that looks most like everything is fine.
+
+**Why it survived undetected.** The upsert was `_, err = db.ExecContext(...)`. A
+`DO UPDATE ... WHERE` whose predicate fails produces **no error and no row**, so a
+lock-suppressed write is indistinguishable from a successful one *unless you read
+`RowsAffected`* — and the `sql.Result` was discarded. The guard fired, refused the
+write, and the caller was told it had worked. Two days latent, with nothing to
+notice.
+
+**The generalisable rule.** For any resource that exists in two places — a DB row
+and an artefact (a repo file, an S3 object, a rendered page) — **a predicate on the
+row is not a guard on the resource.** Order matters more than presence: check
+before the irreversible half, keep the predicate on the write as well (the check
+avoids the work, the `WHERE` clause is the enforcement against a lock taken in
+between), and **read the result of a conditional write** or you have built a guard
+whose refusals are invisible.
+
+**Three traps met while fixing it, each of which would have made the fix worse.**
+
+1. **The false sibling.** Four call sites reached the git-commit helper.
+   `deploy_image_asset` has no lock check anywhere and looks identical — and adding
+   one would have been a **regression**: it commits bytes the named row already
+   points at, so deploying a locked asset is *publication of the approved
+   artefact*, and guarding its `UPDATE assets SET url` would leave a locked row
+   pointing at an expiring presigned URL. The discriminator is not "does it commit
+   to a repo" but **"does it REGENERATE the artefact from a source and upsert the
+   row describing it"**. Ask what the guard would *do* to a locked row, not whether
+   a guard is *present*.
+2. **The tempting semantics change.** `assets` carries `lock_type` and
+   `lock_expires_at`, and the sibling component predicate
+   (`pageComponentAgentWritableSQL`) **is** expiry-aware. Centralising was the
+   obvious moment to unify them — and it would have **weakened three existing
+   guards**, because every asset call site tests bare `locked_at`. Measured: 5
+   locked asset rows fleet-wide, `lock_expires_at` NULL on all 5, so **the live
+   data cannot distinguish the two rules** and cannot be used to justify the
+   change. That makes it a change to what the mechanism *guarantees* — RFC
+   territory (owner ruling 2026-07-29 §1), and already owned by register LOCK-004.
+   **A centralisation is the wrong vehicle for a semantics change, precisely
+   because it is the moment the semantics are most visible.** Pin the current
+   answer with a test so a later change is a decision, not a side effect.
+3. **The lockstep test that would have passed vacuously.** The point of
+   centralising is the *next* producer, so the fix includes a source-level rule:
+   every file that commits an asset artefact must consult the shared guard. Two
+   ways that goes quietly inert — a rule tested only against a tree that already
+   satisfies it passes just as well once gutted, and a classifier that goes blind
+   (renamed helper) finds zero in-population files and reports "all guarded" over
+   an empty set. Both are closed by asserting the mechanism: the rule is a pure
+   function proven to FIRE on a synthetic unguarded producer, the classifier
+   `t.Fatal`s on an empty population, and the producer set is PINNED so a new file
+   forces a deliberate in/out classification with its reason recorded in code.
+
+**Where this came from, and it is the reusable part.** Nobody found this from a
+symptom. It was found because the council gate's `bug_historian` seat, reviewing
+the *sibling* fix, asked **"does any other action share this shape?"** — and the
+answer was yes, with the guard in the wrong place all along. When you fix an
+ordering defect, that question is worth asking of your own fix before a reviewer
+asks it of you; the answer is a grep, and here it was one file away.
+
+### The correct implementation already existed, eleven characters away in the name — a duplicated classifier does not fail loudly, it just routes half the traffic to the wrong copy (`bugs_open/125`, 2026-07-31)
+
+**Symptom.** `page-rebuild` deployed a page to `/x.html` when its canonical URL is
+`/tools/x.html`. Not a moved page — a **second, live, fetchable copy**, with no `pages`
+row, nothing linking to it, and no sweep that removes it. The real page was left
+untouched and still correct, so every check aimed at the intended page passed and the
+commit reported `success: true`.
+
+**Diagnose.** The instinct is to open the failing function and add the missing branch.
+Grepping the **derivation** rather than the symptom is what changes the fix:
+
+```bash
+grep -rn 'TrimPrefix(.*[Uu][Rr][Ll], "/")' platform/ internal/ --include=*.go
+```
+
+**Five** places turn a page into a deploy path. **Four already consult `pages.url` first
+and get it broadly right** — `datahelpers/file_extractor.go` `determineFilename` (whose
+comment literally reads *"Try url field first"*), and the three rerender loaders. The
+fifth, `determinePageFilename` in `git_deployer_actions.go`, consulted
+slug/name/page_name/filename/id and never `url` — and it is the one the three **build**
+agents reach. Two functions eleven characters apart in one repo, one right and one
+wrong, and proximity bought nothing.
+
+**Fix.** One definition (`datahelpers.PageFilePathFromURL` / `PageDeployFilename`) plus
+all five call sites, not a branch in the broken one. Same ruling as
+`duplicated-classifier-drift` above and the dedup-index↔Go-list lockstep: *the fix is
+one shared definition plus a lockstep test, not N careful edits.*
+
+**Three transferable rules.**
+
+1. **"There is a correct implementation of this nearby" is not a mitigation — it is an
+   aggravator.** It means the rule was known, written down in code, and still not
+   reached, so the next person who greps will find the *right* one, conclude the
+   platform handles it, and never look at the copy their pipeline actually calls.
+   **When you find one implementation of a rule, keep grepping until you have found
+   them all, and count them.** The count is the finding.
+2. **Sanitising an input into a namespace someone else occupies is worse than rejecting
+   it.** One live page's canonical URL is a fragment of another page
+   (`/tools.html#audience-check`); the obvious repair — strip the `#…` — yields
+   `/tools.html`, **which is a different page's URL**, so one page's rebuild would
+   overwrite another page's file. Making an input *valid* and making it *correct* are
+   different operations. Before writing a sanitiser, query what its output collides
+   with. (The prior investigation's written pre-work recommended stripping; it was the
+   one instruction in it that had not been checked against the data.)
+3. **A "does anything call this?" grep must never exclude a path.** Filtering the
+   definition's own file out of the *input* — rather than filtering the definition line
+   out of the *output* — turned a function with two live callers into "dead code" in my
+   notes for about a minute. Filter the output, not the input.
+
+**Verification note.** `determinePageFilename` is unexported and so is absent from the
+binary's strings; the discriminating pod-grep is the **log message the change added**,
+run with a positive control in the same exec (`bugs_open/153`).
+
+Category tags: `duplicated-classifier-drift`, `correct-sibling-is-no-protection`,
+`sanitising-into-an-occupied-namespace`, `success-true-wrong-destination`,
+`grep-the-derivation-not-the-symptom`.
