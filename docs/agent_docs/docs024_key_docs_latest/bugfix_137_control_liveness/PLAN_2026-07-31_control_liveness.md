@@ -53,6 +53,21 @@ class this council reviews for, and it is why the fix belongs in the predicate.
 
 ## The design, and the boundary that is the substance of it
 
+> **CORRECTED 2026-07-31 (council round 1) — the boundary below was drawn in the
+> wrong place, and the correction is the most useful thing in this document.**
+> It read "element scope for *is this control alive*, whole-input for *is this
+> section a shell*". That is necessary but not sufficient: it silently put
+> `RepairPageLinks` on the element-scoped side, and `RepairPageLinks` **acts** on
+> what it sees. **The real axis is JUDGE vs WRITER.** A judge that sees more
+> markup raises more findings, each escalated to a human — safe. A writer that
+> sees more markup rewrites more markup, and this writer's action is to strip the
+> `<a>` and keep the text, which is a landmine in its own right ("a dead internal
+> link is REPAIRED into orphaned prose"). For a writer the wide exemption
+> **under-repairs**, and under-repair is fail-safe: an unrepaired control stays
+> visible and stays flagged; a repaired one becomes prose nobody can find.
+> Caught by the council's `editquality` seat (gating HIGH) and `render_guardian`,
+> not by me. Full account in NOTES, misstep 4.
+
 **One marker, one meaning, two representations** (`datahelpers/runtime_fill.go`):
 
 - `RuntimeFillSpans(html)` → byte ranges of every marked element **including its
@@ -67,10 +82,18 @@ gets parsed and re-emitted.
 
 **The boundary between the two questions is the design decision:**
 
-| question | scope | callers |
-|---|---|---|
-| *is this **control** alive?* | **element** | `check_tool_acceptance` (the sweep), `check_dead_controls`, `check_phantom_internal_links`, `check_backend_entry_orphaned`, `RepairPageLinks`, the attribute checks |
-| *is this **section** a shell?* | **whole input, unchanged** | `check_empty_sections`, `check_component_standards`, `check_component_template_corrupted`, `sectionHasVisibleContent` |
+| role | question | scope | callers |
+|---|---|---|---|
+| **judge** | *is this control alive?* | **element** | `check_tool_acceptance` (the sweep), `check_dead_controls`, `check_phantom_internal_links`, `check_backend_entry_orphaned`, the attribute checks |
+| **writer** | *is this control alive?* | **whole input, by decision** | `RepairPageLinks` (unlinks), `render_site_components_action` (drops the control) |
+| — | *is this section a shell?* | **whole input, unchanged** | `check_empty_sections`, `check_component_standards`, `check_component_template_corrupted`, `sectionHasVisibleContent` |
+
+The middle row is the correction above. Both writers carry their reasoning in
+the code, plus **what would have to be decided first** to move them: whether
+unlinking is the right repair for a dead control at all — a question
+`check_dead_controls` has already answered for itself by routing to
+`needs_human_review` with no handler, "because picking a fixer automatically
+would guess".
 
 The second group asks a genuine whole-section question and is untouched.
 `HasRuntimeFillMarker` **names** that predicate so it is a choice rather than a
@@ -134,3 +157,21 @@ committed with `Council-Submitted:` per the 2026-07-30 rule. Not an ordering
 exemption claim: nothing here needed to ship ahead of review, and per the owner
 ruling of 2026-07-29 no thread can hold a change out of the fleet on this tree
 anyway — review here is after the fact by design.
+
+
+## What round 1 added: a gate, not a note
+
+`bug_historian` objected that naming the other consumers was "a documentation fix
+for a code-shape problem". Right — and it is this defect one level up: eight
+copies accumulated because a ninth cost nothing and told nobody.
+`TestNoRawRuntimeFillMarkerTestOutsideThisPackagesPredicate` reads the source
+tree and fails the build for any raw marker test outside `runtime_fill.go`. It
+does **not** judge which scope a site should use; it forces the choice through a
+named predicate so the intended scope is visible in review.
+
+**The gate's own first version was blind to a spelling** — it matched
+`Contains`/`HasPrefix`/`HasSuffix`/`Index` and missed
+``regexp.MustCompile(`(?i)data-runtime-fill`)``. That is the same defect it
+exists to prevent, inside the fix for that defect. Caught by re-deriving the
+call-site manifest from a literal grep rather than from the new test. NOTES,
+misstep 5.
