@@ -29,8 +29,21 @@ two of the named precedents are failures that already happened.
 > 2. **Exclude actively-locked rows from any plan-side denominator.** Counting a
 >    slot a lock makes unwritable refuses a *perfect* rebuild of the pages a human
 >    curated (`idea.uk/index.html`: 6 planned, 4 locked, so a flawless rebuild
->    scores 2/6). Applies to B as much as to A — `site_nav_items` carries the same
->    lock columns.
+>    scores 2/6). ~~Applies to B as much as to A — `site_nav_items` carries the same
+>    lock columns.~~
+>
+> > **CORRECTED 2026-07-31 by site B's converter — `site_nav_items` has NO lock
+> > columns, and site B does not inherit this at all.** The live schema for
+> > `site_nav_items` is exactly `id, site_id, group_id, parent_item_id, label, url,
+> > page_id, item_type, position, status, metadata, created_at, updated_at`, and a
+> > search for `%lock%`/`%owned%`/`%writable%` across `site_nav_items`,
+> > `site_nav_groups` and `page_components` matches **only** `page_components`
+> > (`lock_type`, `locked_at`, `locked_by`, `lock_expires_at`). Caught by reading
+> > `\d site_nav_items` while designing B's denominator. The same claim was in
+> > CTXA-025's register entry and is corrected there too. Worth noting how it got
+> > written: it is a plausible inheritance asserted about a sibling table, in an
+> > update block whose every *other* figure was measured — which is exactly the
+> > asymmetry CLAUDE.md's "mark the UNVERIFIED ones too" exists for.
 
 ## Why this exists as its own case
 

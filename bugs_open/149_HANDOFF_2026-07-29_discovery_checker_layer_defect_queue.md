@@ -894,3 +894,60 @@ detectable falsehoods were a mechanism name and a credential — the
 C1 fixed, run the gate against this exact stored copy** (recoverable from
 `page_component_history` for page `6e988cc4-4898-4021-aa5e-2ab0271f9b75`) and
 confirm it fires. A gate that passes this text is not a gate.
+
+---
+
+## Heads-up, 2026-07-31 (bugfix_165 sites B+C lane) — `populate_nav_tables_action.go` can now FAIL the step, and one of your invariants is what makes it safe
+
+Not a finding against this lane and not a request. Told rather than merely
+measured, per CLAUDE.md's owner ruling of 2026-07-29 §3: I changed a file this
+lane is live in, and the change alters what the action can do to a caller.
+
+**What changed** (`983e4b0a2`, `bugs_open/165` site B, council
+`c69e935a-7134-45c1-81c3-2f1da7831827` pending): `PopulateNavTablesAction` now
+carries a completeness floor before its `DELETE FROM site_nav_items WHERE site_id
+= $1`. **The guarantee that changed for you: the action can now return an error
+and rebuild nothing**, where previously it always proceeded. It refuses when the
+run saw too little of the page corpus to be replacing the stored nav — measured
+false-positive rate 0 of 16 sites today, resolvable via `prune_floor_ratio` on the
+step (0 disables), and every refusal writes a `needs_human_review` work item.
+
+The edit inside your file is 12 lines plus a `WHERE` clause; the guard itself
+lives in `nav_prune_floor.go`, deliberately, so the collision surface stays small.
+The tree was clean at your path when it was written and the diff was checked to
+contain only my edits.
+
+**Three things from your work that this leans on, so you know if you change them:**
+
+1. **A6's membership invariant is load-bearing for the floor.** "`pages.in_header`
+   / `in_footer` declares nav membership; a page's URL shape may decide WHERE it
+   appears, never WHETHER it appears" is what makes the nav item count a
+   *predictable* function of the page corpus — and that predictability is the
+   `nav items` cohort. Verified against production: the item count a rebuild would
+   produce equals the stored count on **all 16 sites** with nav. If that invariant
+   moves, re-measure the cohort.
+2. **`loadPagesForNav`'s scan-failure `continue` (:258-261) is the defect the
+   floor is aimed at** — it logs a warning and drops the row, so a partial page
+   read is silent and success-shaped. The floor now compares what was loaded
+   against what exists under `navPageScopeSQL`, a new shared constant that BOTH
+   the loader's `WHERE` clause and the floor's denominator are built from, pinned
+   by `TestLoadPagesForNavUsesTheSharedScopePredicate`. **If you change the
+   loader's status filter, change the constant** — the test will tell you.
+3. **Your A2 fix would have been partly visible to this floor.** The URL-prefix
+   rule that dropped every `/tools/` page out of nav is exactly the "classifier
+   collapse" the `nav items` cohort catches. Sizing it honestly: gamesdesign.co.uk
+   lost 4 of 12, i.e. 67%, which is **above** the 0.5 default and would NOT have
+   refused. So the floor is not a substitute for A2 and I am not claiming it
+   would have caught it — it catches the same *shape* at greater severity.
+
+**One thing you may care about independently** (recorded in `LANDMINES.md`, not
+acted on): `site_nav_groups` holds `group_key` values **no Go code writes** —
+`robot-hands.com` and `leopardessconsulting.co.uk` both carry a hand-created
+`tools` group. The action's `DELETE FROM site_nav_groups WHERE site_id = $1` is
+unscoped by group, so a rebuild destroys them and recreates only
+`primary`/`legal`/`utility`. Item **totals are unchanged** (the classifier re-homes
+the pages: robot-hands 17 = 17), which is why no total-comparing check has ever
+noticed. I deliberately did **not** narrow that DELETE — preserving the `tools`
+group would duplicate its page, since the current classifier already places it in
+`utility` — but it is your table and your call whether the hand-created groups
+should exist at all.
