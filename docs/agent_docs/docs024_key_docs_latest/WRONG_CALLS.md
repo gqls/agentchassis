@@ -13966,3 +13966,57 @@ missing before building it**, the same way you verify the bug is still valid.
   so the rule is simply **no backticks in commit messages, ever**; use plain words or
   quotes. For a long message, write it to a file and use `git commit -F <file>`, which
   cannot substitute anything.
+
+## 2026-07-31 — I shipped a centralisation helper that no writer called, in a file written to stop duplication
+
+**Thread:** bugfix 10 session, `bugs_closed/143` (asset lock before the git commit).
+
+**The claim I made, in code and in a council submission.** `asset_lock_guard.go`'s header
+says the pre-check "avoids the work" and **`assetAgentWritableSQL` is the enforcement** —
+the predicate on the write itself, which is what makes the decision race-free against a
+lock taken after the check. I wrote that sentence, shipped the helper, described it that
+way to twelve council reviewers, and got APPROVED at round 1.
+
+**Why it was false.** `grep -rn assetAgentWritableSQL` returned its own definition, its own
+negation (`assetLockedSQL`), and its own test. **No writer called it.** All three upserts
+still hand-typed the predicate — `derive_card_asset:222`, `recordDerivedAsset:323`,
+`StoreAssetAction` (`v3_site_actions.go:2642`). The centralisation was real on the READ
+side and cosmetic on the WRITE side, in a file whose entire stated purpose is that "the
+lock READ is derived from the write predicate rather than spelled out a second time, so
+the two can never drift apart".
+
+**What caught it — not me, and not the council.** The bugfix 8 session, which had
+collided with me on the same bug and stood down, left three candidates in the case file.
+Candidate 2 was *"two of the three call sites the bug names still hand-write the
+predicate, so centralisation is only one-third done unless they were swapped too"*, naming
+both files. I went to confirm my work and found the gap instead.
+
+Twelve council seats read the plan. Two of them (`reuse_agent`, `constitution`) discussed
+the centralisation boundary explicitly and approved it. **They could not have caught this**
+— the submission described the helper's purpose accurately and the sketch showed it being
+defined, not called. A plan is a description; only the tree says who calls what.
+
+**The cheap check, and it is one command.**
+`grep -rn <new helper> --include=*.go .` **after** writing it, and count callers that are
+not the definition, its own siblings, or its own test. **A helper with zero real callers is
+indistinguishable from a completed refactor**: it compiles, it is tested, the reviewer sees
+it, and every duplicate it was built to retire is still sitting in the tree. If the helper
+is the *point* of the change, its call sites are the deliverable, not the helper.
+
+**Cost.** Nothing shipped wrong — the substitution is byte-identical SQL, so the live
+binary's behaviour was already correct. What was wrong for ~40 minutes was the *record*: a
+council-approved claim that a predicate had been centralised when three copies remained,
+which is exactly the state a later reader would trust and not re-check.
+
+**Tally note.** This is the same family as three existing memory entries — "a doc comment
+enforces nothing", "writing a field is not reading it", "a dead config key looks exactly
+like a live one" — and it is now the version where **I wrote the doc comment myself, in
+the same commit, about my own helper.** The recurrence says the check belongs in the act
+of writing a helper, not in review: **the last step of extracting a shared function is
+grepping for its callers.**
+
+**And the transferable one about other threads.** A session that stands down and writes
+down what it found is worth more than one that races to finish. Theirs was withdrawn work
+and it improved mine twice in one day — first the design (the derived-negation predicate,
+the lock-detail set, the LOCK-004 framing), then this. When you stand down from a
+collision, **the contribution is the deliverable.**

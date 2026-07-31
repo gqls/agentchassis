@@ -85,3 +85,36 @@ inert until then — so I am holding the bug open until I can prove it from the
 running pod rather than from the code. I am deliberately not doing that rebuild
 while my own review is still in flight, because a deployment kills an in-flight
 review and we would pay for it twice.
+
+**2026-07-31, later — done and live.**
+
+The fix is running in production. I checked it the only way that actually proves
+anything: by reading the compiled binary inside both of the running containers and
+looking for a phrase this change introduced, alongside a second phrase that was
+already there to prove the check itself works. Both came back positive on both
+machines. I deliberately did not trust the version number — the version that got
+deployed already existed before I wrote any of this, so the number would have told
+me nothing.
+
+The review council approved it first time round, across twelve reviewers, with no
+serious objection. Three smaller points came back and I answered all three in code
+rather than in a reply: one about proving the lock check looks up exactly the same
+image the job writes (now pinned by a test, and I deliberately broke it first to
+confirm the test can fail), and two that were answered by going and measuring
+rather than arguing.
+
+**One thing I got wrong and want on the record.** I built a shared piece of code
+for the write side of this guard, wrote a comment calling it "the enforcement", and
+then never actually used it — all three places that do the writing still had their
+own hand-typed copy of the rule. It compiled, the tests passed, and it looked
+exactly like a job well done. The session that had been fixing the same bug and
+stood down had spotted it and written it in the bug file as something to check.
+That is the second time today their withdrawn work improved mine, and it is worth
+saying plainly: a session that gives up on a task and writes down what it found is
+more useful than one that races to finish. It is now fixed, with a test that fails
+if anyone hand-types that rule again.
+
+The bug is closed and filed away. Nothing is outstanding on it. The one open
+question — whether an approved image's lock should ever expire on its own — is
+recorded against the older project that owns that decision, along with the
+measurement showing our current data genuinely cannot answer it either way.

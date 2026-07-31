@@ -232,3 +232,70 @@ three branches, all three exercised against an isolated `GIT_INDEX_FILE` so the 
 index was never touched (`git status` after: 0 stray files). Verified the 098 claim in
 the script's own source before asserting it in the new nudge text, rather than
 repeating it from `CLAUDE.md`.
+
+## 2026-07-31 — closure: live, pod-verified, and the gap the OTHER session caught in MY fix
+
+**LIVE on `v1.0.1218`, both replicas**, grepped for a string this fix created plus a
+pre-existing positive control in the same exec:
+
+```
+agent-chassis-776f55c5f9-bjfhq  new143=1 sharedquery=1 control=3
+agent-chassis-776f55c5f9-g9vqc  new143=1 sharedquery=1 control=3
+```
+
+The tag was explicitly NOT trusted (`bugs_open/153`): `v1.0.1216` existed in the local
+image list BEFORE any of my commits, so a tag-based claim here would have been false in a
+way nothing would have contradicted. Only the pod-grep decides.
+
+**MISSTEP, and the most instructive one of the session — I shipped a centralisation that
+centralised nothing on the write side.** `asset_lock_guard.go`'s own header calls
+`assetAgentWritableSQL` "the enforcement": the pre-check avoids the work, the `WHERE`
+clause is what makes the decision race-free. I wrote that sentence, shipped the helper,
+and then left all three writers hand-typing the predicate:
+
+```
+derive_card_asset_action.go:222       WHERE assets.locked_at IS NULL
+derive_brand_head_assets_action.go:323  WHERE assets.locked_at IS NULL
+v3_site_actions.go:2642 (StoreAsset)  WHERE assets.locked_at IS NULL
+```
+
+`grep -rn assetAgentWritableSQL` returned **its own definition, its own negation, and its
+own test.** No caller. A helper no writer calls is indistinguishable from a
+centralisation — it compiles, it passes, and every duplicate it existed to retire is
+still sitting there. This is the same family as the memory entries "a doc comment
+enforces nothing" and "writing a field is not reading it", and I walked into it while
+writing a file whose entire purpose is to stop a predicate being duplicated.
+
+**What caught it: the OTHER session's contribution to the bug file**, not my own review.
+The bugfix 8 session stood down from the fix and left three candidates. Candidate 2 was
+"centralisation is only one-third done unless they were swapped too", naming
+`v3_site_actions.go:2642` and `recordDerivedAsset` exactly. I checked it expecting to
+confirm my work and found the gap. **A session that stands down and writes down what it
+found is worth more than one that finishes second** — this is the second time today their
+withdrawn work improved mine.
+
+Their other two candidates: (1) the `RowsAffected` suppression — already fixed, and they
+independently confirmed `0` is discriminating; (3) `ingest_staged_asset` is a fourth
+asset-lock site that does NOT have this bug (pre-check before the upload, `FOR UPDATE`
+re-check in-transaction) and leaving it *unmentioned* would make a later reader think the
+sweep was complete. Now recorded on LOCK-007's `verify-later`.
+
+Fixed in `3dba831cf`, with `TestNoWriterHandTypesTheAssetLockPredicate` so it stays fixed:
+scans the package outside comments and outside the guard file, `t.Fatal`s if it scanned
+nothing, and is paired with a synthetic-line test proving the scan sees an offender and
+correctly ignores the several doc comments that quote the predicate on purpose.
+
+**Honest caveat carried into the closure record:** `3dba831cf` landed after the
+`v1.0.1218` roll, so it is not in a running binary. It produces byte-identical SQL
+(`assetAgentWritableSQL("assets.")` returns exactly `assets.locked_at IS NULL`, pinned by
+test), so the defect 143 describes is fully closed by what IS live; that commit is
+maintainability and rides the next roll. Stated rather than glossed, because "fixed and
+live" is a claim about a specific binary.
+
+**Also swept:** my 016b §9 pattern append was committed by another session inside
+`f3222df8b` ("docs(072): the standing five, the 016b pattern, and three wrong calls").
+Nothing lost — the content is in HEAD, under their message. Exactly the scenario CLAUDE.md
+describes, and forward-only holds: no amend, no reset, just this note saying where it went.
+
+Bug moved `bugs_open/143` → `bugs_closed/143`. 016b §10 index row added. Register
+LOCK-007 moved built → deployed with the pod evidence inline.
