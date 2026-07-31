@@ -1,3 +1,5 @@
+> **SUPERSEDED THE SAME EVENING — this summary says "not live", and it went live at 19:09Z and was closed at 19:16Z.** It is kept unedited as the point-in-time record of what we believed at the milestone; the close, its induced-run evidence and the zero-blast-radius target choice are in `bugs_closed/092` and in `NOTES`/`README_where_we_are`. No second summary was written for a seven-minute delta.
+
 # Summary — the page writer and its link constraints (`bugs_open/092`), 2026-07-31
 
 ## What we're trying to do

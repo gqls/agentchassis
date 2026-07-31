@@ -219,3 +219,51 @@ HEAD** (`main.go:504`, three declared-and-not-used variables), unmodified in thi
 it is someone's committed breakage. It does **not** block the chassis: each service's
 dockerfile builds only its own `./cmd/<service>`, and `go build ./cmd/agent-chassis/`
 succeeds. `go build ./...` does not, which will mislead the next session that runs it.
+
+## 2026-07-31 19:09–19:16Z — LIVE on v1.0.1219, induced, CLOSED
+
+**Pod-grep, both replicas, both directions.** New strings present (`LINK_CONTEXT_UNAVAILABLE`,
+"There are NO pages available to link to"), **removed** strings absent (`## INTERNAL LINKS`
+from the deleted duplicate, `## Internal Links` from the old heading), control
+`PrepareLinkContextAction` = 8. The *removed* rows are the half a one-directional check
+misses: a new string proves the binary contains it, but only the absent old strings prove it
+is the NEW binary rather than one that merely happens to include the literal.
+
+**A gap I have to state rather than paper over:** the two commits (`2e1bfb39e` fix,
+`9a57d2395` review answer) are **indistinguishable by pod-grep**, because the second only
+extracts a shared constant that Go constant-folds into byte-identical SQL. There is no marker
+to look for and it would be dishonest to imply otherwise. Its guarantee is enforced by a test,
+not by the binary.
+
+**Induction, and why the target mattered more than the dispatch.** Writer runs are irregular
+(26 today, in morning bursts, then roughly hourly), so waiting was not a plan. I picked
+`loancalculator.co.uk/guide-can-i-overpay` specifically because it is `rebuild_policy='owned'`
+on an `active` (not `deployed`) site: `save_page_sections` refuses `owned` pages, so **the run
+could not write anything even if everything else went wrong**, while `prepare_link_context`
+runs long before that refusal. Confirmed after: handler `complete_error`, writer `complete`,
+and `pages.updated_at` for the target still 2026-07-30 22:10 — untouched.
+
+That is the inverse of the trap the 079 lane hit: they induced successfully and got a **null
+result** (`checked_links: 0` — the page had no anchors, so the repair had nothing to repair).
+My verification sits *upstream* of content generation — `link_context` is recorded before a
+single word is written — so the run's content outcome cannot make the evidence vacuous. Worth
+knowing when choosing an induction target: **ask where in the pipeline your evidence is
+recorded, and pick a target that guarantees you reach it, not one that guarantees success.**
+
+The row:
+
+```
+ pages | source   | db_consulted | degraded | text_len | reason
+    27 | database | true         | false    |     2739 | 27 linkable page(s) read from the pages table
+```
+
+against `0`/`null`/`0` on all 26 pre-fix runs, and **27 of 27** listed addresses match a
+stored `pages.url` exactly — so the synthesis path is not merely unreached, the output is
+provably the stored truth. `agent_error_log` has **0** `LINK_CONTEXT_UNAVAILABLE` rows, which
+is the correct result and also confirms the loud arm is not firing spuriously.
+
+Fixed AND live AND proven ⇒ moved to `bugs_closed/092`.
+
+**Residual, unchanged by any of this:** it repairs no already-deployed page (that is `071`
+and `097`), and the `extractSiteID` sibling exposure remains `[UNDETERMINED]` with the
+measurement contributed to `165`.

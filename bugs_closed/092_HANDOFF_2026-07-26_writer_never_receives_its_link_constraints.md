@@ -418,3 +418,90 @@ Not filed as a new bug: `bugs_open/165` already owns `link_registry` (`site_db_a
 the reconciliation delete) and is actively worked, so the measurement is contributed there
 rather than competed with. `LNK-001`'s standing `verify-later: link_registry population`
 is the register-side home for it.
+
+---
+
+# LIVE on v1.0.1219, 2026-07-31 19:09Z — proven at the pod, in both directions
+
+Chassis rolled to `v1.0.1219` (pods `agent-chassis-59cb674798-t7dgn` 19:09:31Z,
+`…-z84n8` 19:09:52Z). **A roll is not evidence your fix shipped** (`bugs_open/153`) — the
+image may predate the commit — so this is a string check on the running binary, on **both
+replicas**, with a positive control in the same exec and both directions tested:
+
+```
+                                    t7dgn   z84n8
+ADDED    LINK_CONTEXT_UNAVAILABLE     1       1     <- new error code
+ADDED    "There are NO pages ..."     1       1     <- the explicit empty-list instruction
+REMOVED  "## INTERNAL LINKS"          0       0     <- link_constraints.go, deleted
+REMOVED  "## Internal Links"          0       0     <- the old duplicate heading
+CONTROL  PrepareLinkContextAction     8       8     <- present in every build, incl. pre-fix
+```
+
+The control is what makes the zeros mean something: `0 0` across the board would say the
+grep is broken, and `0 N` would say the image predates the fix. `N N` with the removed
+strings at zero is the pass, and the **removed** rows are the half a one-directional check
+would miss — they prove this is the new binary rather than merely *a* binary containing the
+new string.
+
+> **Note on the two commits.** `2e1bfb39e` (the fix) and `9a57d2395` (the round-1 review
+> answer) cannot be distinguished by pod-grep, and that is not a gap: the second is a
+> refactor — extracting the shared `linkablePageStatusPredicate` — that Go **constant-folds
+> into byte-identical SQL**. It changes no runtime string and no runtime behaviour; its
+> value is that drift becomes unrepresentable, and that is enforced by a test, not by the
+> binary. Do not go looking for a marker that cannot exist.
+
+## CLOSED — the induced run, 2026-07-31 19:16Z
+
+Induced deliberately rather than waited for: writer runs are irregular (26 today, in bursts),
+and the queue would not reliably produce one. Dispatched `page-build-handler` directly by
+kcat (`corr dc7d9e77-ae07-4633-8eef-1fdd647b48b2`), **with the `PUBLISH_OK` receipt** — the
+`kubectl run -i | kcat -P` pattern silently produces nothing about four times in five, so a
+publish without a receipt is not a publish.
+
+**The target was chosen so the induction could not write anything.**
+`loancalculator.co.uk/guide-can-i-overpay` is `rebuild_policy='owned'`, on a site whose
+status is `active` not `deployed`, and the page is undeployed. `save_page_sections` refuses
+`owned` pages — a pre-existing guard, so *nothing this run produced could reach the page* —
+while `prepare_link_context` runs long before that refusal. Confirmed after the fact:
+
+```
+page-build-handler     complete_error   COMPLETED   <- refused at save, as intended
+page-content-writer    complete         COMPLETED   <- the writer ran in full
+internal-link-resolver complete         COMPLETED
+
+pages.updated_at for the target = 2026-07-30 22:10:19+00   -> NOT touched by the run
+```
+
+### The decisive row
+
+```
+        created_at         | pages |  source  | db_consulted | degraded | text_len |                  reason
+---------------------------+-------+----------+--------------+----------+----------+------------------------------------------
+ 2026-07-31 19:16:21.96+00 |    27 | database | true         | false    |     2739 | 27 linkable page(s) read from the pages table
+```
+
+Against **`0` / `null` / `0`** on all 26 pre-fix runs. `source: database` is the fix's own
+path saying so; `db_consulted: true` with `degraded: false` is the authority confirming it
+was actually read, not merely defaulted.
+
+### The list is real `pages.url`, not synthesised
+
+All **27 of 27** listed addresses match a stored `pages.url` for that site exactly
+(`position(p.url in <constraint text>) > 0` for every active page). The block now reaching
+the writer begins:
+
+```
+When creating internal links, ONLY link to these pages:
+
+- /guides/can-i-overpay.html (Can I Overpay My Loan? UK Rules & ERCs Explained)
+- /guides/car-finance-explained.html (PCP vs HP Car Finance | loancalculator.co.uk)
+- ...
+```
+
+— and note it starts at the instruction, not at a heading: the duplicate `## Internal Links`
+is gone, because the prompt template supplies `## Internal Linking` on the line above.
+
+`agent_error_log` holds **0** `LINK_CONTEXT_UNAVAILABLE` rows, which is the correct result —
+nothing degraded, and it confirms the loud arm is not firing spuriously.
+
+**Fixed AND live AND proven ⇒ `bugs_open/` → `bugs_closed/`.**

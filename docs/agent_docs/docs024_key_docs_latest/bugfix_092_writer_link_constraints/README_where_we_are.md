@@ -68,3 +68,30 @@ committed, and submitted to the review council. It is **not live** — Go change
 until someone builds and rolls a new chassis image, so the bug stays open until that happens
 and we can see a real run come back with a real page list. Nothing about this repairs the
 pages that are already out there with broken links; it stops new ones being made.
+
+## 2026-07-31, later the same evening — it's live, and it's closed
+
+The new chassis went out at ten past seven. First thing I did was check the fix was actually
+*in* it, because a deploy happening is not the same as your change being in it — the image
+can predate your commit and nothing about a running pod tells you otherwise. Checked both
+copies of the service, and checked in both directions: the new text is there, and the text I
+deleted is gone. Both agree.
+
+Then I needed to see it actually do the thing on a real run. Rather than wait — the writer
+runs at irregular intervals and I might have waited hours — I triggered one deliberately. The
+part I want to record is *what I triggered it on*, because that was the real decision. I
+picked a page that the system is guaranteed to refuse to save: it's marked as owned by
+another process, on a site that isn't published, and the page isn't live. So the writer would
+run in full, but nothing it produced could reach anything. Afterwards I confirmed the page
+was untouched — last modified yesterday evening, exactly as before.
+
+It worked. The writer was handed 27 real pages instead of nothing, every one of the 27
+addresses matching what's actually stored rather than a guess, and about 2,700 characters of
+"only link to these" where there had been an empty string on all 26 previous runs. No errors
+logged, which is the right answer — the warning channel we added only fires when something
+can't be looked up, and nothing couldn't.
+
+So the bug is closed and moved. Two honest caveats, both already flagged: this stops new bad
+links being written, it does not repair the ones already sitting on live sites, and there's a
+loose thread about a related helper that I measured but deliberately did not draw a
+conclusion from, because the evidence genuinely doesn't support one either way.
