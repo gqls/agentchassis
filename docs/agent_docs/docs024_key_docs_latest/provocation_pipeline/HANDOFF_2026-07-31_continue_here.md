@@ -29,23 +29,62 @@ Everything below reads like progress. That sentence is the job.
 | the site actually rotating | **NO** |
 | a `scheduled_tasks` row for provocations | **NONE** (still 0 rows) |
 | Grok generator / the gate | **NOT STARTED** |
-| Gauntlet lane's seal work | **committed `bb9719d3c` + UNCOMMITTED WIP in our builder**, renderers NOT delivered |
+| Gauntlet lane's seal work | **committed** (`bb9719d3c`, corrected by `f331dcf9d`); **feed published**; **renderers NOT live** |
 
-Live feed right now: `generated_at 2026-07-31T15:03:31Z`,
-`today.slug=nobody-wants-personalised-internet`, archive 8, **no `seal`, no
-`sample`** — i.e. the site is serving Phase 0, not the seal work.
+> **CORRECTED 2026-07-31 ~16:45Z, within minutes of writing the table above.**
+> Two rows were already stale by the time this file was committed, which is the
+> point of the warning in §3 rather than an exception to it.
+>
+> - The seal changes were **uncommitted WIP** when I measured at ~16:30 and were
+>   **committed as `f331dcf9d`** before my own commit landed. `git status` on the
+>   builder is now clean. *("Your session-start `git status` is a snapshot; it
+>   goes stale within minutes" — measured at eight.)*
+> - The seal feed **has since been published**: live `generated_at` is now
+>   `2026-07-31T15:27:46Z`, and the feed **does** carry `seal` and `sample`, with
+>   `arena.cards[0].title = "Sealed until you step in"`.
+>
+> **And the hazard in §3 has already materialised — it is the LIVE state.**
+> Measured by rendering `https://vonc.com/` at ~16:45Z:
+>
+> | | |
+> |---|---|
+> | today's headline painted on home | **YES — the HANDOFF C leak is still open** |
+> | today's body painted on home | **YES** |
+> | lobby card | says **"Sealed until you step in"** |
+>
+> So the home page currently prints today's provocation in full *and* announces
+> that it is sealed, on the same screen. Cause: the feed shipped ahead of the
+> renderers — the served `assets/js/snippets.js` is unchanged (22,475 bytes, zero
+> references to `sample` or `seal`) and still reads `today.headline`.
+>
+> **This is very likely TRANSIENT — the gauntlet lane is mid-delivery** (three
+> commits in the preceding hour) and the renderer step is the next one in their
+> own sequence. **Re-measure before acting on it; do not "fix" it and do not
+> re-notify them.** If it is still true after their delivery lands, that is a real
+> defect and belongs in their lane, not ours.
+>
+> `[UNVERIFIED]` — I did *not* establish whether the `sample` block renders. The
+> string I matched ("AI will never be funny on purpose") is also an ordinary
+> archive card in `arena.cards`, so its presence is not evidence either way.
 
 ## 3. ⚠ READ BEFORE YOU TOUCH ANYTHING — the builder is CO-OWNED and dirty
 
-`builder/build_provocations.py` and `builder/verify_rotation.py` have
-**uncommitted changes belonging to another session** (the gauntlet lane, doing
-the HANDOFF C seal). As of this writing they pass all rotation invariants.
+`builder/build_provocations.py` and `builder/verify_rotation.py` are edited by
+**two lanes**. Our lane owns **rotation**; the gauntlet lane owns **the seal**.
+Same file, two concerns.
 
-- **DO NOT `git add -A`, and do not commit those two files** unless you are that
-  session. Commit with an explicit pathspec that excludes them.
-- **DO NOT revert them.** They are a correction to a real near-miss (§4).
-- Our lane owns **rotation**; that lane owns **the seal**. Same file, two
-  concerns. Coordinate rather than compete —
+> **CORRECTED ~16:45Z:** an earlier draft of this section said those two files
+> held *uncommitted* changes. They did when measured; they were committed as
+> `f331dcf9d` minutes later and the tree is now clean. **The instruction below is
+> unchanged and still applies — assume that file is dirty with someone else's
+> work until you have just looked**, because on this tree it was true twice in
+> one afternoon.
+
+- **Re-run `git status` immediately before committing.** Never `git add -A`.
+  Commit with an explicit pathspec naming only the files your task touched.
+- **Do not revert seal-related changes.** They are a correction to a real
+  near-miss (§4) and they pass all our rotation invariants — verified.
+- Coordinate rather than compete:
   `gauntlet_dead_cta/HANDOFF_2026-07-31_continue_here.md` is their cold start.
 
 ### ⚠ PUBLISHING IS NOW A HAZARD, not a one-liner
