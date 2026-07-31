@@ -1260,3 +1260,38 @@ right size, nothing blank. That was the one gap I'd flagged as "I've read the co
 not watched it happen", and it's now watched. Two tiny cosmetic things I noticed and did
 not change: there's an empty band in the middle of the card when the answer is short, and
 the AI wrote "personalization" the American way on a public-facing card.
+
+## 31 July, mid-afternoon — the review was killed by someone else's deployment, and my own monitoring was broken in a way that looked normal
+
+The third review round went in at 14:49 and then sat there. Two things had gone wrong at
+once, and the second was hiding the first.
+
+**Someone else deployed while my review was running.** The reviewers run inside a service
+that another session restarted at 15:00, and my review's last activity was 14:59:59. It
+had got through eight of the twelve reviewers before being cut off. Nothing was lost
+permanently — I've simply run it again — but it's worth knowing that a long review is at
+the mercy of anyone else's deployment, and there's no warning either way.
+
+**The more embarrassing half is mine.** I had a little loop checking the review's progress
+every thirty seconds, and it had a typo in it: I asked the database for a column that
+doesn't exist. The database complained every single time, but I'd sent its complaints to
+the bin, so what I actually saw was a blank space where the progress should be. And a
+blank space there has an innocent explanation that's usually correct — the job hasn't
+appeared in the queue yet. So for half an hour I read "my question was nonsense" as "the
+job is still starting", and reported to you that it was running when it was already dead.
+
+What makes this worth telling you rather than quietly fixing: **a check that fails
+silently is worse than one that gives a wrong answer**, because a wrong answer looks
+wrong eventually. This one looked exactly like the normal, boring, expected state. The
+clue was sitting in my own output the whole time — the same loop was successfully asking
+the database a *second* question and getting a real answer back, so one question working
+and one silently failing, side by side, should have told me the problem was my question.
+I've written both lessons down where the next person will hit them.
+
+The one thing I'm glad about is that I didn't just resubmit the moment it looked stuck.
+Our own notes warn that a quiet review is usually just queuing and that resubmitting
+wastes a round, so I went and checked the service's restart time first. That's what
+turned "it's stuck" into "it was killed at 15:00" — a fact rather than a guess.
+
+Round three is running again now and progressing normally. I'll tell you the verdict when
+it lands.

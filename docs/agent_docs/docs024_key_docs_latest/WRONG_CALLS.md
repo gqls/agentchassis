@@ -13302,3 +13302,124 @@ to follow it one hop. A pass-through wrapper is a good place to stop reading and
   mis-attribution and the mixed-denominator entries above: **a true background fact
   lends its credibility to a specific claim that happens to fit it.** Forward-only, so
   the false sentence stays in history; withdrawn in `bcecb65e3` and here.
+- **I fixed a bug and thereby made a LANDMINE's own check assert the opposite of the
+  truth — and the check was mine to notice, not the next reader's.** `bugs_open/157`'s
+  sibling landmine (added the same morning, by another lane) told readers: *"`grep -n
+  'm["w"]' internal/adapters/browserrunner/run_checks_action.go` — if it still reads
+  `.(float64)`, 157 is open."* My fix removed that spelling. **From the moment I
+  committed, a session running the documented check would conclude 157 was closed while
+  the running pod still had the bug** — measured, same afternoon: marker `non-numeric
+  w/h in result` → 0 on `v1.0.1215` with three positive controls → 1. Nobody was misled,
+  because I went looking for entries footprinted on the function I had just changed
+  before I stopped work; had I not, the window would have stayed open for as long as the
+  roll took, and it would have misled in the *dangerous* direction (author a fence
+  against a check you believe is trustworthy). **What caught it:** treating "which docs
+  make a claim about the code I just changed?" as part of the fix rather than as
+  tidying-up — `grep -n '<function>' LANDMINES.md` before committing. **The transferable
+  part is not about this entry.** The fleet already knows *presence in the binary is not
+  sufficient* (that is the sibling entry's headline). The mirror image is the one that
+  bit here and is nowhere written down: **absence from the repo is not evidence of
+  presence in the binary.** For any Go change those two answers disagree for the whole
+  length of the roll, so **a landmine or bug-status check keyed on repo state has a
+  built-in lying window, and the author of the fix is the only person positioned to
+  close it.** Cheap check, now done both ways: when you fix something a landmine
+  guards, correct the entry in the same session, and prefer a check that reads the
+  *artefact* (pod-grep + control) over one that reads the source. Same family as the
+  `verify-agent-images` prints-all-green entry and every "prove it at the artefact"
+  lesson — but arriving from the opposite direction, because here it was my own fix
+  that invalidated the instrument.
+
+---
+
+## 2026-07-31 — I watched a blank field for 31 minutes and read it as "no row", when the query had never once run
+
+**The claim, made to myself and reported to the owner as "round 3 is running":** the
+council run was in flight and progressing. I had a polling loop printing
+`t=<n>s reports=2 step=` every 30 seconds, and I read the empty `step=` as *the
+orchestration row is not visible yet* — which is exactly what CLAUDE.md tells you to
+expect ("a missing orchestration row is almost always latency, not a dropped
+dispatch — do not retry on that evidence").
+
+**The query had an invalid column name.** `orchestration_states` has no `id` column;
+it is `orchestration_id`. `psql` raised `ERROR: column "id" does not exist` on every
+one of 63 iterations, wrote it to **stderr**, which my loop sent to `/dev/null`, and
+returned an empty string. **A broken query and a missing row are the same three
+characters of output.**
+
+**What it cost:** ~21 minutes of the 31 were spent watching a run that was already
+dead. The chassis had been rolled by another session at **15:00:20** and the council's
+last update was **14:59:59** — it was killed 11 minutes in, with 8 of 12 reviews
+already landed. Had the step field been working I would have seen
+`gate_adoption|EXECUTING_STEP|stalled=00:2x` and gone looking immediately.
+
+**What caught it:** noticing that `step=` had been blank *from the very first
+iteration*. A row that appears late explains a blank field at t=30s; it does not
+explain a blank field at t=30s **and** t=1890s while `reports=2` was being fetched
+successfully by an adjacent query against the same table in the same loop. **Two
+queries, one working and one silent, is the tell** — I had the control right there and
+did not read it as one for half an hour.
+
+**The cheap check I skipped, twice over:** (1) run the SELECT once by hand before
+putting it in a loop — CLAUDE.md's "schema first: `\d <table>` before writing SQL"
+would have cost five seconds; (2) **never `2>/dev/null` a query whose emptiness you
+intend to interpret.** If a blank result is going to become evidence, the redirect
+that hides why it is blank is the bug. An explicit
+`if [ -z "$ST" ]; then echo "WARNING: no row -- query or dispatch problem"; fi` states
+the ambiguity instead of resolving it in silence, and that is what the replacement
+loop now does.
+
+**Tally note — this is the same family as the three above and the fourth in four days,
+but with a new twist worth naming.** The earlier three were *a correct measurement
+answering a different question*. This one is **no measurement at all, wearing the
+uniform of a measurement** — and it was *more* convincing than a wrong number would
+have been, because the platform has a documented, frequently-true explanation for
+exactly that appearance. **A silent failure whose output resembles a known benign state
+is worse than a loud wrong answer.** Ask of any monitoring output: what would this look
+like if the check itself were broken? If the answer is "the same", the check is not one.
+
+---
+
+## 2026-07-31 — I told two handoffs' worth of readers to expect a failure message the route I recommended cannot produce
+
+**Lane:** `staged_component_build`. **The claim, carried forward verbatim through two
+handoffs** (`HANDOFF_2026-07-31_continue_here.md` §3 and `HANDOFF_2026-07-31b_continue_here.md`
+§3, both mine): the open next action was to prove the Go gate accepts
+`subject_type='component'`, and the instructions said —
+
+> **FAIL** = `unsupported subject_type "component"`, which would mean the build does not carry
+> the Go half despite its date.
+
+**Why it is wrong.** That wording belongs to `docSubjectGateReason`
+(`platform/orchestration/actions/doc_subjects_common.go:96`), which has exactly **one** caller,
+`persist_diagnosis_note_action.go:83`. The route the same section recommends — a
+`load_doc_context` step — goes through a *different* function over the *same* list,
+`docResolveSubject` (`write_doc_plan_action.go:143-145`), whose message is
+`subject_type must be one of …, got "…"`. Two gates, one shared vocabulary, **two different
+strings**. The goal sentence named the gate correctly and the expected-output sentence named the
+other one's message, in the same paragraph.
+
+**What it would have cost.** Not a wrong conclusion — a *stuck* one. A session grepping the step
+output for the predicted string finds nothing on a pass **and** nothing on a fail, and has to
+work out from scratch which of the two it is looking at. That is the worst kind of stall: the
+instructions look precise, so you distrust your run before you distrust the instructions.
+
+**What caught it:** reading `load_doc_context_action.go:56` through to
+`docResolveSubject` **before** writing the probe, because I wanted to know where the error text
+would surface in `collected_data`. Nothing else would have — the run PASSED, and on a pass the
+predicted string is absent for the innocent reason, so the probe itself could never have flagged
+it. **A wrong prediction about a failure mode is invisible to a successful test.**
+
+**The cheap check I skipped:** *read the function the recommended route actually calls, not the
+one whose name matches the concept.* One grep — `grep -rn "docSubjectGateReason" --include=*.go`
+— returns two hits (its definition and its single caller) and settles it in seconds. I had
+written both function names into the register entry the day before and still paired the wrong
+message with the route.
+
+**Tally note — this is the "conclusion wider than the measurement" family again, but pointed at
+a FAILURE mode rather than a result, and that is what made it durable.** The other entries in
+this file are claims about what *was* observed; this is a claim about what *would* be observed,
+and nothing exercises it until someone hits the bad path. Two handoffs and a register entry
+carried it because the happy path kept working. **A predicted error string is a claim like any
+other — mark it `[UNVERIFIED]` until something has actually failed that way, or produce it
+deliberately.** The probe now does exactly that: it runs a deliberately invalid subject type
+every time, so the failure message is observed on every run instead of predicted once.

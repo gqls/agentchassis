@@ -2983,3 +2983,61 @@ page needs no new machinery; and the pretty `vonc.com/r/<slug>` in my own mock
 **cannot be served** — the site serves only exact `.html` paths with no directory
 index, so the URL has to carry a query. I mocked a URL I had not checked, which is
 the landmine this lane already wrote down about inventing page paths.
+
+### Round 3 was killed by another session's chassis roll — and my own poll had been lying to me for 31 minutes
+
+Fired round 3 at 14:49 with all the round-2 lookups attached. Queue depth 0, so it
+started immediately. Then nothing, for half an hour.
+
+**Two separate failures, and the second one hid the first.**
+
+**(1) The run was killed by a chassis roll.** Both pods have `startTime`
+**15:00:20 / 15:00:42**; the council's last `updated_at` was **14:59:59**. Another
+session rolled the chassis 11 minutes into my run. It had already completed **8 of 12
+reviews** (bug_historian, editquality, prior_art, reuse_agent, tooling_provenance,
+guidelines, constitution, mission) plus five gates — all sitting in `collected_data`,
+all wasted.
+
+The diagnostic shape is worth keeping, because a dead council looks exactly like a slow
+one: `status` stays `EXECUTING_STEP`, `error` is NULL, and **`currently_executing` names
+a step whose output is ALREADY in `collected_data`** (`gate_adoption`). The step
+finished; the response came back to a consumer that no longer existed; nothing advanced
+the machine. `jsonb_array_length(execution_path)` reads **0** while a dozen steps'
+results are present. Landmine filed with that tell, plus the check: compare `updated_at`
+against pod `startTime` whenever a council has not moved for longer than a whole prior
+round took (rounds 1 and 2: **11 and 13 minutes** end to end).
+
+**(2) My polling loop had an invalid column name and I read its silence as data.**
+`orchestration_states` has no `id` column — it is `orchestration_id`. Every one of ~63
+iterations raised `ERROR: column "id" does not exist`, wrote it to stderr, and my
+`2>/dev/null` turned it into an empty string. So `step=` printed blank, and I read blank
+as *"the row is not visible yet"* — which is precisely what CLAUDE.md primes you to
+expect. **A broken query and a missing row produce identical output, and one of the two
+readings has a documented, usually-true explanation waiting for it.**
+
+The control was in my own loop the whole time: `reports=2` was being fetched
+successfully by an adjacent query against the same database in the same iteration. One
+query working and one silent, side by side, and I did not read the pair as a signal for
+half an hour. Also: the field was blank **from t=30s**, which late row visibility
+explains, but blank at t=1890s it does not.
+
+Both filed: a landmine on the missing `id` column (the "no X column" family already
+exists — `agent_definitions` has no `name`, it is `display_name`) and a `WRONG_CALLS`
+entry. The transferable rule is narrower than "check your SQL": **never `2>/dev/null` a
+query whose emptiness you intend to interpret.** If blankness is going to become
+evidence, the redirect that hides *why* it is blank is the defect. The replacement loop
+asserts it explicitly and prints pod `startTime` every iteration so a roll is visible
+without being looked for.
+
+**Re-fired unchanged** as `e4f81e61-83f3-4185-83f1-00b0c45dc4d6` after waiting out the
+~300s post-restart window (pods 26 min old). The plan is byte-identical to the killed
+run: this was an infra death, not a judgement, the same class the runbook already
+records for `complete_invalid` with no `council_report`, so changing the submission
+would have muddied the trail. Progressing normally at the time of writing
+(`review_editquality` → `review_constitution`, stall timer resetting per step).
+
+**One thing I did right and want to keep:** I did NOT resubmit on the first suspicion.
+CLAUDE.md warns that a missing row is usually latency and that retrying costs a
+duplicate round, so I went and got pod ages first. The rule held — the evidence just
+happened to point the other way this time, and it only pointed anywhere because I
+finally fixed the query rather than trusting it.
