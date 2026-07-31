@@ -130,3 +130,38 @@ cannot stop a session running `git add -A` from sweeping up mine.** The practica
 this lane's remaining work is the one already in that file — commit each coherent piece
 immediately and narrowly, and expect append-only fleet docs (`LANDMINES.md`, `WRONG_CALLS.md`)
 to be the most contended files in the tree, because every lane appends to them.
+
+## 2026-07-31 — the verdict, and the objection that would have been fatal
+
+**APPROVED**, `757cc7be`, 8 advisory objections, none high, 12 seats (4 abstained).
+
+The one worth recording is `editquality`'s: *"if `pipeline` differs per promoting agent, the
+count silently under-counts exactly the items the fix exists to catch."* That is not an
+opinion, it is a query, and if the answer had gone the other way the fix would have been
+wrong in the specific way that is hardest to see — a count that looks right and is low.
+**Checked: all three callers leave `target_pipeline` unset, so all three take the Go default
+`build`.** Corroborated independently by `TriageDetectedItemsInputSpec`'s own comment, which
+already recorded that `target_pipeline` is set by zero definitions fleet-wide. I had relied
+on that comment without re-deriving it; the seat was right to make me.
+
+Three more were checkable and all resolved in the change's favour: the jsonb path resolves
+at the asserted depth; `snapshot_agent`'s 2-arg overload writes a real retrievable row into
+`agent_definitions_backup`; and **0** live definitions declare `has_items` in an
+`output_contract`, so the DECLARED CONTRACTS objection exposes an unenforced convention
+rather than a defect in this plan — which is what that seat itself said it would mean.
+
+**The lesson I want to keep: four of eight objections were answerable by a query I could
+have run before submitting.** Each cost a round of council attention that a `SELECT` would
+have saved, and the submission's own `grounded_in` block is where they belonged. The gate is
+cheap-ish but it is not free, and "the reviewer can check that" is the thing CLAUDE.md
+already tells us not to do — *measure the blast-radius claim before you submit; do not ask
+the reviewer to.* I did that for the `has_items` consumer census and not for these four.
+
+Acted on rather than filed away: a lockstep drift alarm for the status literals
+(`guardian`), `bugs_open/171` for the second false-clean route and `RFC_006` for the class
+(`bug_historian` + `architecture`), and a LANDMINES entry for the shared step
+(`tooling_provenance`).
+
+**Second sweep of the day:** this LANDMINES append also reached HEAD inside another lane's
+commit (`4c6387139`, the 167 lane) before my own pathspec commit ran. Same as the earlier
+one — nothing lost, recorded rather than repaired.
