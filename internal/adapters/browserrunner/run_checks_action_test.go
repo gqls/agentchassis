@@ -631,14 +631,15 @@ func TestEvalNumberDecodesEveryShapePlaywrightReturns(t *testing.T) {
 		{name: "int — what playwright returns for a whole number", in: 24, want: 24, ok: true},
 		{name: "float64 — what it returns for a fractional number", in: 47.484375, want: 47.484375, ok: true},
 		{name: "a real zero decodes as zero, and says so", in: 0, want: 0, ok: true},
-		{name: "int64", in: int64(1146), want: 1146, ok: true},
-		{name: "int32", in: int32(390), want: 390, ok: true},
-		{name: "json.Number — the round-trip path", in: json.Number("24.5"), want: 24.5, ok: true},
 		// Not decodable: must report NOT ok so the caller can raise a
-		// measurement error instead of stating a layout verdict of 0.
-		{name: "a string is not a measurement", in: "24", want: 0, ok: false},
+		// measurement error instead of stating a layout verdict of 0. The set
+		// above is exactly what playwright-go's parseValue emits for a number;
+		// everything else is a changed payload shape and must be heard about.
+		{name: "a string is not a measurement — NOT ParseFloat'd, see the doc comment", in: "24", want: 0, ok: false},
 		{name: "nil — the key was absent", in: nil, want: 0, ok: false},
 		{name: "a bool is not a measurement", in: true, want: 0, ok: false},
+		{name: "int64 is not something parseValue emits", in: int64(1146), want: 0, ok: false},
+		{name: "json.Number is not something parseValue emits", in: json.Number("24.5"), want: 0, ok: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -648,6 +649,85 @@ func TestEvalNumberDecodesEveryShapePlaywrightReturns(t *testing.T) {
 			}
 			if got != tc.want {
 				t.Fatalf("evalNumber(%#v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// decodeArea against the exact maps playwright hands back. This test exists
+// because THREE council seats independently flagged the same gap in the first
+// draft of this fix (edit-quality medium, guardian low, architecture watch-item):
+// the fix's own risk note worried that the not-present shape `{found:false, w:0,
+// h:0}` must keep decoding cleanly rather than trip the new error path — and
+// nothing tested it. A self-identified risk with no test closing it is a gap.
+//
+// The stake is real: if found:false errored, a selector matching nothing would
+// flip from the deliberate "no element matches … after settle" FAIL to a
+// "could not measure" bookkeeping failure, silently changing what the check
+// reports for the commonest case after a genuine layout break.
+//
+// Note the literal 0s: JS `0` is integral, so playwright hands back int(0), which
+// is exactly the shape that used to decode as a false zero.
+func TestDecodeAreaHandlesEveryShapeTheEvalScriptReturns(t *testing.T) {
+	tests := []struct {
+		name      string
+		in        interface{}
+		wantW     float64
+		wantH     float64
+		wantFound bool
+		wantErr   bool
+	}{
+		{
+			name:  "not present — {found:false, w:0, h:0} must NOT error",
+			in:    map[string]interface{}{"found": false, "w": 0, "h": 0},
+			wantW: 0, wantH: 0, wantFound: false, wantErr: false,
+		},
+		{
+			name:  "a 24px checkbox — both axes integral, the 157 regression",
+			in:    map[string]interface{}{"found": true, "w": 24, "h": 24},
+			wantW: 24, wantH: 24, wantFound: true, wantErr: false,
+		},
+		{
+			name:  "one integral axis, one fractional (#vtc-verdict on mobile)",
+			in:    map[string]interface{}{"found": true, "w": 358, "h": 94.109375},
+			wantW: 358, wantH: 94.109375, wantFound: true, wantErr: false,
+		},
+		{
+			name:  "a genuinely collapsed flex child — found, and really 0 high",
+			in:    map[string]interface{}{"found": true, "w": 1146, "h": 0},
+			wantW: 1146, wantH: 0, wantFound: true, wantErr: false,
+		},
+		{
+			name:    "a non-numeric axis is a MEASUREMENT failure, not a zero",
+			in:      map[string]interface{}{"found": true, "w": "24", "h": 24},
+			wantErr: true,
+		},
+		{
+			name:    "a missing key is a measurement failure",
+			in:      map[string]interface{}{"found": true, "w": 24},
+			wantErr: true,
+		},
+		{
+			name:    "not a map at all",
+			in:      "unexpected",
+			wantErr: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			w, h, found, err := decodeArea(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected an error, got w=%v h=%v found=%v", w, h, found)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if w != tc.wantW || h != tc.wantH || found != tc.wantFound {
+				t.Fatalf("got w=%v h=%v found=%v, want w=%v h=%v found=%v",
+					w, h, found, tc.wantW, tc.wantH, tc.wantFound)
 			}
 		})
 	}

@@ -765,6 +765,17 @@ func (c *chromiumPage) VisibleArea(selector string) (float64, float64, bool, err
 	if err != nil {
 		return 0, 0, false, err
 	}
+	return decodeArea(v)
+}
+
+// decodeArea is the whole post-Evaluate half of VisibleArea, split out so it can
+// be tested against the shapes playwright ACTUALLY returns — including the
+// `{found:false, w:0, h:0}` not-present shape, which must decode cleanly rather
+// than trip the error path (a missing element is a normal FAIL, not a measurement
+// failure). It is separate from VisibleArea because VisibleArea needs a live
+// browser and this needs none, which is the whole reason bugs_open/157 shipped
+// untested: see evalNumber.
+func decodeArea(v interface{}) (float64, float64, bool, error) {
 	m, ok := v.(map[string]interface{})
 	if !ok {
 		return 0, 0, false, fmt.Errorf("VisibleArea: unexpected result shape %T", v)
@@ -795,19 +806,33 @@ func (c *chromiumPage) VisibleArea(selector string) (float64, float64, bool, err
 // The ok bool is load-bearing: a 0 meaning "not decoded" must never be
 // indistinguishable from a 0 meaning "this element really measured zero". A
 // bookkeeping failure must surface as an error, not as a layout verdict.
+//
+// TWO DELIBERATE NARROWNESSES, both from the council round on this fix
+// (07639093-3d76-40f4-953b-c3708dac6a1a, approved with these as advisory):
+//
+//  1. The accepted set is EXACTLY what playwright-go's parseValue can emit for a
+//     JS number — `float64` and `int`, nothing else. An earlier draft also took
+//     int64/int32/json.Number "defensively"; the edit-quality seat correctly
+//     called that dead code, and it is worse than dead: a speculative arm makes
+//     the contract untestable and quietly widens what counts as a measurement.
+//     If the library ever emits something else we get a loud "could not measure",
+//     which is the designed behaviour and strictly better than a silent 0.
+//
+//  2. This does NOT reuse platform/orchestration/datahelpers.ToFloat64, which has
+//     the identical signature and was found by the reuse seat's objection (a fair
+//     hit — it was not searched for first). The divergence is deliberate: that
+//     helper also accepts a `string` and ParseFloat's it. Here that is precisely
+//     wrong. Rejected fix candidate 2 in bugs_open/157 was "return the rect from
+//     JS as a string"; a decoder that silently parses strings would make that
+//     payload change work by accident and hide the very class of type problem this
+//     bug is about. A geometry measurement arriving as a string means the payload
+//     shape changed and we want to hear about it.
 func evalNumber(v interface{}) (float64, bool) {
 	switch n := v.(type) {
 	case float64:
 		return n, true
 	case int:
 		return float64(n), true
-	case int64:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case json.Number:
-		f, err := n.Float64()
-		return f, err == nil
 	}
 	return 0, false
 }
