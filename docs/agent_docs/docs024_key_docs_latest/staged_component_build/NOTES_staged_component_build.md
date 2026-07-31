@@ -606,3 +606,60 @@ with `mapfile`, plus a permanent self-check that shouts if listed ≠ counted. T
 six instances in two days of the one class the whole ladder exists to defeat, and it is the
 strongest argument for keeping the three gates we kept — and for not trusting the ones we
 cut to have been any better.
+
+## 2026-07-31 (later) — renamed our own tool page; the check went 2 → 1, and the denominator moved under me
+
+Acted on the check's first finding: `pages.name` `review-council-simulator` →
+**`tool-review-council-simulator`** on fundamentallyai.com (page `e4f422e7`), scoped by id.
+
+**Verified the "rename is safe" claim myself instead of inheriting it**, and it turned out
+to be stronger than safe. `create_tool_component_action.go:244-248` says the tool-birth path
+*"sanitiseFunction guarantees the `tool-` prefix, so the canonical name equals function and
+the acceptance coupling (`pages.name == content_components.function`) holds."* **So the
+rename RESTORES the platform's own invariant rather than working around a checker.** The
+page was simply born outside that canonicalisation. Independently,
+`create_tool_cross_link_items.go:444` records that cross-links resolve through
+`page_components` precisely because *"pages.name and pages.url both vary by build path, but
+the component's `function` is the naming contract"* — so cross-links do not key on the name
+and were never at risk.
+
+**Blast radius measured before touching it, not after:** `site_plan_imagery` rows keyed on
+the old name = **0**; the 3 `page_components` key on `page_id`, not name; no page already
+held the target name (no collision); and the served filename comes from `pages.url`, which
+was not changed. Two of the three contract values (`doc_plans.subject_key`,
+`content_components.function`) **already read `tool-review-council-simulator`** — only
+`pages.name` was the outlier, which is what made this a one-field repair.
+
+**Red/green, at the artefact:** live page **200 / 60,021 bytes before** and
+**200 / 60,021 bytes after** — byte-identical size, so the visitor-facing site is provably
+unaffected. That is the check I would have skipped if I had trusted the inherited claim.
+
+**The check went `FAIL 2` → `FAIL 1`.** The one remaining, `tool-arena-interface`, has no
+page under either name — an orphaned component, a different defect, and the script correctly
+says *do not rename it*.
+
+### The arithmetic did not add up, and that was the useful part
+
+After the rename the categories summed to **29** against a population I had recorded as
+**28**. I nearly reported "the rename fixed it" over a total that had silently moved. It
+had: another session created **`tool-relevant-alternative`** at 08:09 today, so the
+population grew 28 → 29 *while I was working*. Reconciled: `testable now` 8 → 10 is **+1
+from my rename and +1 from the new tool**, and BROKEN 2 → 1 is the rename.
+
+**And the new tool was born compliant** — fence present, page resolvable, no intervention.
+That is a real signal about where the defect lives: tools born through
+`create_tool_component_action`'s canonical path satisfy the contract by construction; the
+broken ones are older or ported, which is the same population `TL-033`/`bugs_open/084`
+already single out. **So the naming check is a backlog cleaner, not a permanent gate** —
+worth knowing before anyone proposes wiring it into the birth path, where it would be
+asserting something the code already guarantees.
+
+*Lesson, already in my own memory and hit anyway:* **the count MOVES on this tree —
+re-measure, never quote.** The only reason I caught it is that the script prints its
+denominator next to its breakdown, so the two could be checked against each other.
+
+**Observation, flagged not acted on:** that page is `rebuild_policy='generic'`, so nothing
+protects it from a rebuild clobbering the tool — the leopardess lane found `owned` is what
+protects their four tool pages. Flipping it is NOT a free improvement: their S4 correction
+showed `owned` *blocks* the generic save path, so the order matters and it needs its own
+red/green. Left for whoever picks up the S4 rewrite.
