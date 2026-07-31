@@ -14518,3 +14518,41 @@ looking wrong, which is luck, not method.
   read by everyone afterwards as though it were verified.** Same family as "a claim about
   behaviour is NOT the behaviour" — a mutation prediction is a claim about a check, and it
   ages into folklore the moment it is committed unverified.
+
+- **I conceded "a change described only in prose is not a reviewable edit", fixed it
+  for one file, and repeated it for two others in the same submission.** Round 1 of a
+  council review objected that a file I had genuinely changed was declared only inside
+  another edit's narrative. I accepted it and gave that file its own block — then, two
+  files later in the same document, asserted that two more files were "migrated" with
+  no block showing it. **Three seats caught it independently**, one naming it as the
+  defect I had just conceded. The cause was arithmetic: ten files against an eight-edit
+  cap, so I folded the two that felt least consequential — **and "least consequential"
+  is exactly the judgement the reviewer is entitled to make instead of the author.**
+  The cheap check: **when a declaration cap and a review rule fight, cut the CHANGE,
+  not the declaration.** Here that was strictly better — both migrations were
+  behaviour-identical renames, so reverting them removed the claim, removed all
+  contact with shared chrome code, and put the exceptions in one table instead of
+  scattering them.
+
+- **I listed four SQL-side copies of a predicate as a "disclosed gap" without reading
+  them, and the truth was better than my disclosure.** Enumerating call sites of an
+  exemption, I found four written as SQL `LIKE '%data-runtime-fill%'` rather than Go,
+  noted that my new gate could not see them, and shipped that as a known limitation. A
+  seat asked the obvious next question — are they the same defect or a different
+  question? **Reading all four took two minutes**: every one computes the flag per row
+  over a single component, and every one asks the section question, not the
+  control-liveness question. They were never siblings of the bug. **Disclosing a gap
+  is not the same as measuring it**, and an honest-sounding "I did not check this" can
+  understate your own work as easily as overstate it. The cheap check: before writing
+  "unremediated", read the thing — the enumeration already told you where it was.
+
+- **A corpus search for a marker returns every reviewer who was ASKED whether they
+  touched it.** Verifying a claim that no prior council round had reviewed this
+  mechanism, I searched past reports for the marker string and got ten hits, which
+  looked like a straightforward refutation. Every one was a different seat's boilerplate
+  from an unrelated review — "no `data-runtime-fill` filtering is affected" — because
+  that seat's contract list names the marker, so it appears in its output whether or not
+  the change touches it. **Caught by** searching instead for symbols that could only
+  exist if a real prior pass had happened (the new function names): zero. The cheap
+  check: **search for something only the thing you are looking for would produce**, not
+  for the topic's vocabulary.
