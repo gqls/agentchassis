@@ -4,6 +4,44 @@
 didn't change today and has never changed."* **Measured: he is right in
 substance, and the cause is that daily rotation was never built.**
 
+> **TAKEN 2026-07-31 — this handoff is being worked; do not start a second thread
+> on it.** Lane: `docs024_key_docs_latest/provocation_pipeline/`, cold-start =
+> `PLAN_2026-07-31_provocation_pipeline.md` (commit `60f56d76c`). Every fact above
+> re-verified and still true. Four things this thread found that change what the
+> next reader should believe:
+>
+> 1. **The SERVER reads the `today` key**, not just the browser —
+>    `internal/tools-api/handlers/round.go:44` (`FetchProvocation`, 5-minute
+>    cache, 503 if absent). So a client-side date selector over a pool — the
+>    cheapest design and the one this handoff's §"three shapes" does not warn
+>    against — would make the page display one provocation while the Gauntlet
+>    argues another. **Selection must happen at generation time.**
+> 2. **§"three shapes" mis-prices option 2.** The scheduled-publish plumbing
+>    already exists and is proven live at the artefact: `content-feed-refresh`
+>    (6-hourly) ends in the `git_commit` action, and three sites served
+>    `latest-news.json` stamped inside its 2026-07-30 13:53→14:02Z window. The
+>    `gh api --input -` sequence in §Landmines is the **hand** path; it should not
+>    be what we automate.
+> 3. **Prior art, half-built:** `docs/social001_vonc_tiktok_social/PLAN_spark_provocation_pipeline.md`
+>    (2026-06-25) designed this as a news-pipeline clone. Its Phases 1–2 shipped —
+>    that is where today's JSON and JS shells came from. Phases 3–4 never did.
+> 4. **CORRECTION — the archive page is NOT broken**, so §"The archive question"'s
+>    closing advice ("it may already be broken independently") should not be acted
+>    on. Rendered in headless chromium: all 8 entries paint, 7 openable and the
+>    8th deliberately not (no `detail_body`), empty state correctly hidden. The
+>    1,293-char figure was accurate but was produced by a probe looking for
+>    **today's** headline, which correctly is not on that page; a low count is not
+>    diagnostic of breakage. Full account in `WRONG_CALLS.md` 2026-07-31.
+>
+> **Owner decisions taken 2026-07-31:** archive rule settled — a provocation is
+> archived when the next one is published, never during its own day. Direction is
+> LLM generation behind a safety/quality gate. **Relevant to HANDOFF C:** that
+> archive rule also closes the third leak path immediate promotion would have
+> opened, and it unblocks C's option 3 (home shows yesterday's as the sample).
+> Also relevant to C — the paired-provocation shape the owner raised makes the
+> sealed reveal load-bearing rather than decorative, which argues **against** C's
+> option 2 (retire the seal). See PLAN §5.
+
 ## What is actually true (all measured 2026-07-30)
 
 - The served feed is a **static file**: `https://vonc.com/data/provocations.json`,
