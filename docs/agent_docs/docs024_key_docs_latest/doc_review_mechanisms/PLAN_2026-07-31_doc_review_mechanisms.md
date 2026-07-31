@@ -70,6 +70,63 @@ new/changed entries (currently manual per-entry); the shell/kubectl-shaped
 `the check` limitation (LLM-judgement fallback only); RFC_005 §3.3 (the
 weekly staleness sweep) is unstarted.
 
+**2026-07-31, later still — automatic dispatch wired. Part A complete.**
+
+Extended `scripts/landmines-sync.py`:
+- `existing_bodies()` — fetches the current `{source: body}` map via
+  `jsonb_object_agg`, NOT line-split `-t -A` text like the existing
+  `existing_sources()`. Bodies are genuine multi-line prose (confirmed live:
+  every entry's footprint line alone forces a newline), so the naive
+  approach would have silently truncated every multi-line body to its first
+  line — caught before shipping, not after.
+- `changed` detection — a body-hash-equivalent diff against `existing_bodies()`
+  for slugs already present, alongside the existing `new`/`gone` lists (which
+  only ever saw whether a slug existed, not whether its content had drifted
+  under an unchanged title).
+- `NEEDS_VERIFICATION:<source>` lines printed after `--apply`, one per new or
+  changed entry, machine-parseable by the dispatcher below.
+- A slug-collision warning — **found live, not by design**: the very first
+  test run flagged a genuine duplicate (`snapshot_agent` entry, identical
+  title at two line numbers), which `slugify()`'s title-only hashing
+  silently collapses to one dict key, permanently dropping whichever entry
+  loses. Wrote the check before realising it wasn't hypothetical; another
+  session fixed the actual duplicate concurrently mid-session (`bcecb65e3`)
+  while this check was being written. The detector stays as a permanent
+  safety net for the next occurrence, not a one-off cleanup.
+
+New scripts: `scripts/trigger-landmine-verifier.sh` (single-entry kafka
+trigger, promoted from the scratch version used for earlier manual tests)
+and `scripts/landmines-verify-dispatch.sh` (runs `landmines-sync.py --apply`,
+parses `NEEDS_VERIFICATION:`, dispatches one trigger per entry, 2s apart to
+avoid bursting `kubectl run` pods into the `kafka` namespace).
+
+**Live proof, unplanned and better than a synthetic test could have been:**
+mid-session, another thread appended a genuinely new entry to
+`LANDMINES.md` (`hasvisiblearea-reports-0-for-any-axis...`). Running
+`landmines-verify-dispatch.sh` caught it automatically via `new` detection,
+no manual identification, and dispatched a verifier
+(correlation `2ca82ffe-bd92-472b-958f-3391f7cbafa6`). Verdict:
+
+> **last verified (landmine-verifier): NEEDS_HUMAN_REVIEW.** Code index is
+> stale (d98010e8, 2026-07-28) relative to both the bug-fix commit
+> (71680ad513, 2026-07-30) and current HEAD; the file exists but no symbol
+> or content match for `VisibleArea` or `has_visible_area` was found, so it
+> is impossible to mechanically confirm whether the old trap code or the fix
+> is present.
+
+Exactly the calibrated behaviour the design asked for: it did NOT guess past
+what the lookup evidence showed, and said so plainly. Side-finding, out of
+scope here: the code-lookup index itself has a real freshness gap (three
+days stale relative to a landed fix) — worth someone's attention separately,
+not something this workstream should chase.
+
+**Part A (RFC_005 §3.2) is now fully done**: built, tested against a real
+entry, verified live on the deployed image, wired to dispatch automatically,
+and proven twice on genuinely live (not staged) data — once returning
+STILL_VALID with real citations, once correctly declining to guess and
+returning NEEDS_HUMAN_REVIEW. Only RFC_005 §3.3 (the weekly staleness sweep)
+remains unstarted.
+
 ---
 
 **Started 2026-07-31.** Implements the owner ruling on
