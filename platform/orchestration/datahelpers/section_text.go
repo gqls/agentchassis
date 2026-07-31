@@ -146,6 +146,16 @@ func NormaliseSectionText(rawJSON string) string {
 // rows differ in one stale asset URL is no longer in-remit. That is the intended
 // trade — if the images differ, the rows are not interchangeable, and a human
 // should decide which survives.
+//
+// SCOPE OF THIS CONTRACT — page_components ONLY (council round 2, architecture
+// seat). The canonical-form guarantee above is a property of
+// `page_components.content_data::text`. A third caller must NOT reuse this key
+// against `site_plan_sections` rows, or any other table, without first
+// establishing that ITS blob is canonical in the same sense; nothing in the
+// signature enforces that boundary. If you need plan-side identity, derive it
+// there and give it its own function rather than widening this one — the two
+// tables are not interchangeable (site_plan_sections is the system of record,
+// page_components is downstream of it).
 func SectionIdentityKey(slotName, canonicalBlob string) string {
 	// NUL cannot appear in either part, so the join is unambiguous — "a"+"bc"
 	// and "ab"+"c" must not collide into one identity.
