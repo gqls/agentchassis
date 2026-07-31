@@ -506,6 +506,52 @@ func TestRendersNeverEnterTheScreenshotList(t *testing.T) {
 	}
 }
 
+// Council objection 2c895dd1 (bug_historian, medium): the four-envelope fallback
+// FAILS OPEN on a shape it does not recognise, and for renders an empty list is
+// indistinguishable from "not requested". The answer is to tie the shot lists to
+// the envelope `results` was actually found in, so they cannot be read from a
+// different one.
+//
+// This reply carries BOTH: results and renders nested under response.data, and a
+// STALE top-level renders from a different shape. Path order alone would take the
+// nested one here anyway — so the test also runs the mirror case, where the stale
+// copy sits at the MORE specific path and results are flat. That is the case the
+// old independent-fallback order got wrong.
+func TestShotListsFollowTheEnvelopeResultsCameFrom(t *testing.T) {
+	nested := []interface{}{map[string]interface{}{"profile": "desktop", "uri": "s3://b/nested.png"}}
+	flat := []interface{}{map[string]interface{}{"profile": "desktop", "uri": "s3://b/flat.png"}}
+	results := []interface{}{
+		map[string]interface{}{"check_id": "boots", "profile": "desktop", "pass": true},
+	}
+
+	// results are FLAT; a stale renders list sits at the more specific path.
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{
+		"results": results,
+		"renders": flat,
+		"response": map[string]interface{}{
+			"data": map[string]interface{}{"renders": nested},
+		},
+	}}
+	v := extractRunResults(collected, "browser_run")
+	if len(v.Renders) != 1 {
+		t.Fatalf("expected 1 render, got %d", len(v.Renders))
+	}
+	if v.Renders[0].URI != "s3://b/flat.png" {
+		t.Errorf("renders must come from the envelope results came from (flat), got %q — a shot list read from a different envelope than its own results is the silent-drop shape this tying exists to prevent", v.Renders[0].URI)
+	}
+
+	// And the ordinary nested case still resolves nested.
+	collected2 := map[string]interface{}{"browser_run": map[string]interface{}{
+		"response": map[string]interface{}{
+			"data": map[string]interface{}{"results": results, "renders": nested},
+		},
+	}}
+	v2 := extractRunResults(collected2, "browser_run")
+	if len(v2.Renders) != 1 || v2.Renders[0].URI != "s3://b/nested.png" {
+		t.Errorf("nested results must still take nested renders: %+v", v2.Renders)
+	}
+}
+
 // Same rule as evidenceLine: a note body is loaded into LLM prompt contexts, so
 // only the durable s3:// uri may appear. And the line must not call a render
 // "evidence" — every render is a photograph of a run that PASSED.

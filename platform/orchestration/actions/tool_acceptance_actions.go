@@ -368,17 +368,9 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		return v
 	}
 
-	var raw interface{}
-	for _, p := range []string{
-		field + ".response.data.results",
-		field + ".response.results",
-		field + ".data.results",
-		field + ".results",
-	} {
-		if raw = datahelpers.ExtractNestedField(collected, p); raw != nil {
-			break
-		}
-	}
+	// Which envelope the reply arrived in is discovered ONCE, from results, and
+	// then reused for the shot lists — see envelopePaths.
+	raw, envIdx := extractAtFirstMatch(collected, envelopePaths(field, "results"))
 	items, _ := raw.([]interface{})
 	for _, it := range items {
 		m, ok := it.(map[string]interface{})
@@ -452,33 +444,64 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		}
 	}
 
-	v.Shots = extractShotList(collected, field, "screenshots")
+	v.Shots = extractShotList(collected, field, "screenshots", envIdx)
 	// Renders arrive in their OWN key and are parsed by the same code — the two
 	// lists differ in what they mean, never in their shape. Empty unless the
 	// request opted in, and empty on any adapter built before TL-035, so the
 	// absence of the key is indistinguishable from "not asked for", which is the
 	// correct reading either way.
-	v.Renders = extractShotList(collected, field, "renders")
+	v.Renders = extractShotList(collected, field, "renders", envIdx)
 	return v
 }
 
-// extractShotList parses one adapter screenshot list (screenshots | renders)
-// out of the reply, trying the same four envelope shapes the reply may take.
-// Shared rather than duplicated: a render and a failure shot are the same
-// ScreenshotRef on the wire, so a second copy of this parser could only ever
-// drift from the first.
-func extractShotList(collected map[string]interface{}, field, key string) []screenshotRef {
-	var raw interface{}
-	for _, p := range []string{
+// envelopePaths gives the reply shapes this codebase produces, most specific
+// first, for one key. ONE list, used for results and for both shot lists.
+//
+// It is a function rather than three literal copies because of a council
+// objection (submission 2c895dd1, bug_historian, medium) worth restating: a
+// reader that recognises four dialects and none other FAILS OPEN on the fifth —
+// it returns an empty list, which for renders is indistinguishable from "not
+// requested". Three separate copies of the list made that a matter of keeping
+// three things in step, which is the drift this platform keeps paying for.
+func envelopePaths(field, key string) []string {
+	return []string{
 		field + ".response.data." + key,
 		field + ".response." + key,
 		field + ".data." + key,
 		field + "." + key,
-	} {
-		if raw = datahelpers.ExtractNestedField(collected, p); raw != nil {
-			break
+	}
+}
+
+// extractAtFirstMatch returns the first non-nil value among paths, and WHICH
+// path matched (-1 if none did).
+func extractAtFirstMatch(collected map[string]interface{}, paths []string) (interface{}, int) {
+	for i, p := range paths {
+		if v := datahelpers.ExtractNestedField(collected, p); v != nil {
+			return v, i
 		}
 	}
+	return nil, -1
+}
+
+// extractShotList parses one adapter screenshot list (screenshots | renders)
+// out of the reply. Shared rather than duplicated: a render and a failure shot
+// are the same ScreenshotRef on the wire, so a second copy of this parser could
+// only ever drift from the first.
+//
+// envIdx is the envelope `results` was found in, and it is tried FIRST. That is
+// what answers the fail-open objection at its root rather than by logging: the
+// shot lists can no longer be read from a different envelope than the results
+// they belong to, so an adapter shape this function does not recognise cannot
+// silently drop renders WITHOUT ALSO hiding results — and empty results is a
+// hard error one caller up ("no results at %q"). A silent drop is therefore
+// unrepresentable rather than merely reported. The remaining paths are still
+// tried afterwards, so this can only ever find more than the old order did.
+func extractShotList(collected map[string]interface{}, field, key string, envIdx int) []screenshotRef {
+	paths := envelopePaths(field, key)
+	if envIdx >= 0 && envIdx < len(paths) {
+		paths = append([]string{paths[envIdx]}, paths...)
+	}
+	raw, _ := extractAtFirstMatch(collected, paths)
 	items, ok := raw.([]interface{})
 	if !ok {
 		return nil
