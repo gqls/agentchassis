@@ -164,3 +164,31 @@ Two things from that rewrite worth keeping for whoever fixes the mechanism:
   rewording an unverifiable claim makes it the rewriter's own. **If this mechanism is
   ever fixed by regenerating sibling-aware copy, the fix must not carry the existing
   claims forward as context** — that would relaunder them at scale.
+
+---
+
+## STATUS UPDATE 2026-07-31 (gauntlet_dead_cta lane) — candidate 3 is BUILT, APPROVED, guarded, and INERT
+
+Candidate 3 (the post-build census as a gate, with a deterministic repair) exists.
+Council-APPROVED round 3 on trail `da3f2d9b-ae6f-492d-ad3b-748323b66367` (12 approve /
+2 advisory), after rounds 1–2 caught real defects — including a measured false positive
+that narrowed the in-remit identity to **same page + same slot + byte-identical
+`content_data`** (two different vonc components share the byte-identical site-context
+boilerplate blob; the prose rule would have deleted a live home-page row).
+
+Same day, on the owner's decision, the repair gained a **plan guard** (commit
+`5c4dc317f`, council corr `6c5d1491-08dd-4e66-ab10-e82dab78dc82`): a duplicate group
+whose slot repetition the effective plan source (`site_plan_sections` →
+`site_specs.site_plan` aspect → `pages.sections`) itself specifies is skipped and
+reported, never filed and never deleted — closing the `bugs_closed/058`/`069` shape
+before the checker is ever enabled.
+
+**It is all INERT**: zero discovery agents name `content_duplication` (verified across
+all five workflow-bearing columns of `agent_definitions`). Enabling is the
+`brochure_component_library` lane's decision; their cold-start handoff carries an
+INCOMING section and `CONTRIB_2026-07-31_151_candidate_3_is_built.md` has the full
+account. **Candidate 1 (facts assigned at plan time) remains the structural fix and
+remains unbuilt** — the residue capability_gap items are the population it should
+clear when it lands. Full design rationale travels with the mechanism:
+`doc_notes` `subject_type='action'`, keys `remove_duplicate_page_sections` /
+`check_content_duplication`.
