@@ -481,15 +481,20 @@ func evaluateStaticCriteria(crit criteriaDoc, httpStatus int, html string) evalu
 	// deployed tool page is a failure, not a style choice. Runtime-fill
 	// shells are exempt (placeholder hrefs hydrate client-side); href="" is
 	// phantom_internal_links' class; handler-less <button> is Tier 4's claim.
-	if !strings.Contains(html, "data-runtime-fill") {
-		if dead := datahelpers.DeadControlAnchors(html); len(dead) > 0 {
-			sample := dead[0].Text
-			if sample == "" {
-				sample = dead[0].Href
-			}
-			ev.failed = append(ev.failed, checkOutcome{"shell-dead-controls",
-				fmt.Sprintf("%d no-op control(s) on deployed page (e.g. %q -> %s) — wire, build, or remove; never simulate", len(dead), sample, dead[0].Href)})
+	//
+	// The exemption is per ANCHOR, not per page (bugs_open/137). This sweep's
+	// input is the whole SERVED page — every section plus the site chrome — so a
+	// page-wide test meant one hydrating section switched the sweep off for
+	// everything on the page, and nothing recorded that it had. It now shares one
+	// element-scoped judgement with the attribute checks below, which is what
+	// makes the two agree on the element they used to disagree about.
+	if dead := datahelpers.DeadControlAnchorsOutsideRuntimeFill(html); len(dead) > 0 {
+		sample := dead[0].Text
+		if sample == "" {
+			sample = dead[0].Href
 		}
+		ev.failed = append(ev.failed, checkOutcome{"shell-dead-controls",
+			fmt.Sprintf("%d no-op control(s) on deployed page (e.g. %q -> %s) — wire, build, or remove; never simulate", len(dead), sample, dead[0].Href)})
 	}
 
 	return ev

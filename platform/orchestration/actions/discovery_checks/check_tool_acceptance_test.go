@@ -2,6 +2,7 @@ package discovery_checks
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/platform/content"
@@ -23,14 +24,14 @@ const samplePage = `<html><body>
 
 func TestSelectorAnchor(t *testing.T) {
 	cases := map[string]string{
-		"#tableWrap tr":      "#tableWrap",
-		"#xpTableBody tr":    "#xpTableBody",
-		".tool-container":    ".tool-container",
-		".a > li":            ".a",
-		"div.stat":           "div",
-		"  #spaced  ":        "#spaced",
-		"":                   "",
-		"[data-x='1']":       "",
+		"#tableWrap tr":   "#tableWrap",
+		"#xpTableBody tr": "#xpTableBody",
+		".tool-container": ".tool-container",
+		".a > li":         ".a",
+		"div.stat":        "div",
+		"  #spaced  ":     "#spaced",
+		"":                "",
+		"[data-x='1']":    "",
 	}
 	for sel, want := range cases {
 		if got := selectorAnchor(sel); got != want {
@@ -130,6 +131,46 @@ func TestEvaluateShellChecks(t *testing.T) {
 	if !found {
 		t.Error("'<no value>' residue should fail the shell check")
 	}
+}
+
+// TestShellDeadControlsExemptionIsPerAnchor pins bugs_open/137 at this sweep's
+// own altitude. Its input is the whole SERVED page — every section plus the site
+// chrome — so the page-wide test it used to apply meant one hydrating section
+// switched the sweep off for the entire page, silently.
+//
+// Both directions are asserted, because a change that simply DELETED the
+// exemption would pass the first case alone.
+func TestShellDeadControlsExemptionIsPerAnchor(t *testing.T) {
+	deadControls := func(ev evaluation) *checkOutcome {
+		for i := range ev.failed {
+			if ev.failed[i].id == "shell-dead-controls" {
+				return &ev.failed[i]
+			}
+		}
+		return nil
+	}
+
+	t.Run("a shell no longer suppresses the rest of the page", func(t *testing.T) {
+		page := `<section data-runtime-fill="true"><a href="#" hidden>template</a></section>` +
+			`<section class="cta"><a href="#">Enter the Gauntlet</a></section>`
+		got := deadControls(evaluateStaticCriteria(criteriaDoc{}, 200, page))
+		if got == nil {
+			t.Fatal("the neighbouring dead control was not reported — the page-wide exemption is still in force")
+		}
+		if !strings.Contains(got.detail, "Enter the Gauntlet") {
+			t.Errorf("wrong control reported: %s", got.detail)
+		}
+		if strings.Contains(got.detail, "template") {
+			t.Errorf("the shell's own placeholder was reported — the exemption is broken: %s", got.detail)
+		}
+	})
+
+	t.Run("a shell still exempts its own controls", func(t *testing.T) {
+		page := `<section data-runtime-fill="true"><a href="#" hidden>template</a></section>`
+		if got := deadControls(evaluateStaticCriteria(criteriaDoc{}, 200, page)); got != nil {
+			t.Fatalf("the exemption is gone; every hydrating shell now fails: %s", got.detail)
+		}
+	})
 }
 
 func TestEvaluatePageStatusFail(t *testing.T) {

@@ -58,7 +58,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -305,11 +304,12 @@ func findPhantomInternalLinks(dctx DiscoveryCheckContext) ([]phantomLinkFinding,
 // shell: a phantom target baked into the template is a genuine bug, not a
 // placeholder.
 func accumulateLinkIssues(counts map[plKey]int, targetIDs map[plKey]string, surface, pageName, pageID, slotName, html string, targets sitePageTargets) {
-	isRuntimeFill := strings.Contains(html, "data-runtime-fill")
-	for _, href := range datahelpers.ExtractHrefs(html) {
+	shells := datahelpers.RuntimeFillSpans(html)
+	for _, m := range datahelpers.HrefOffsets(html) {
+		href := m.Value
 		switch datahelpers.ClassifyLinkScope(href) {
 		case datahelpers.LinkScopeEmpty:
-			if isRuntimeFill {
+			if shells.Contains(m.Offset) {
 				continue // empty href is intended in a client-hydrated shell
 			}
 			counts[plKey{surface, pageName, pageID, slotName, href, "empty_internal_href"}]++

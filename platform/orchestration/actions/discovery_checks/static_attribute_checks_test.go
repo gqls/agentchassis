@@ -221,18 +221,92 @@ func TestEvaluateStaticCriteria_AttributeChecksFlowThrough(t *testing.T) {
 		{ID: "no_dead_row_hrefs", Type: "attribute_absent",
 			Selector: ".provocations-archive__item--inert", Attributes: []string{"href"}},
 	}}
-	// data-runtime-fill suppresses the built-in dead-control sweep, so the only
-	// outcomes here are the two attribute checks'.
+	// THIS EXPECTATION CHANGED ON 2026-07-31, and the change is bugs_open/137's
+	// whole subject. It used to assert FAILED here, alongside a comment noting
+	// that data-runtime-fill suppressed the built-in sweep on the same element —
+	// which is precisely the contradiction 137 was filed about: one evaluator, one
+	// element, two answers. Both mechanisms now consult one element-scoped
+	// judgement, so the template row inside the shell is SKIPPED by both.
+	//
+	// Skipped, not passed: a skip can never satisfy experienceVerdict, so nothing
+	// here vouches for markup that was not checked.
 	ev := evaluateStaticCriteria(doc, 200, `<div data-runtime-fill="true">`+voncTemplateRow+`</div>`)
-	if len(ev.failed) != 1 || ev.failed[0].id != "template_row_not_a_control" {
-		t.Errorf("want the served placeholder href failed, got failed=%v", ev.failed)
+	if len(ev.failed) != 0 {
+		t.Errorf("an element inside a hydrating shell must not be refuted statically, got failed=%v", ev.failed)
 	}
-	if len(ev.skipped) != 1 || ev.skipped[0].id != "no_dead_row_hrefs" {
-		t.Errorf("want the client-side-rendered rows skipped, got skipped=%v", ev.skipped)
+	if len(ev.skipped) != 2 {
+		t.Errorf("want both checks skipped (one shell-enclosed, one unmatched), got skipped=%v", ev.skipped)
 	}
 	if len(ev.passed) != 0 {
 		t.Errorf("nothing here should pass, got passed=%v", ev.passed)
 	}
+}
+
+// TestAttributeCheck_ShellExemptionIsPerElement is the other half of the
+// reconciliation, and the half that stops it becoming a blanket amnesty. The
+// same criteria document, the same page, one element inside the shell and one
+// outside it: the outside element is still refuted exactly as before.
+//
+// Without this, "reconcile the two judges" and "switch the attribute checks off
+// on any page containing a shell" are indistinguishable — and the second would
+// silently disarm every entry in the experience register.
+func TestAttributeCheck_ShellExemptionIsPerElement(t *testing.T) {
+	html := `<div data-runtime-fill="true">` +
+		`<a class="row" data-archive-template hidden href="#"></a>` +
+		`</div>` +
+		`<div class="static-list"><a class="row" href="#">Enter the Gauntlet</a></div>`
+
+	out := runAttr(t, html, criteriaCheck{
+		Type: "attribute_absent", Selector: ".row", Attributes: []string{"href"},
+	})
+	if out.verdict != attrFail {
+		t.Fatalf("the anchor OUTSIDE the shell must still fail, got %v: %s", out.verdict, out.detail)
+	}
+	// The count is the load-bearing part of the detail (this file's own rule):
+	// a reader must be able to see that one element was judged and one was not.
+	if !strings.Contains(out.detail, "1 of 1 element(s)") {
+		t.Errorf("detail must report what was actually asserted, got: %s", out.detail)
+	}
+	if !strings.Contains(out.detail, "set aside") {
+		t.Errorf("detail must disclose the exempted element rather than hide it, got: %s", out.detail)
+	}
+}
+
+// TestStaticSweepAndAttributeCheckAgreeOnTheSameElement is bugs_open/137 stated
+// as an executable assertion: the two mechanisms that judge control liveness
+// must not return opposite verdicts about one element. It runs the FULL
+// evaluator, so it exercises the built-in sweep and the attribute check together
+// — the disagreement was only ever visible when both ran on the same page.
+func TestStaticSweepAndAttributeCheckAgreeOnTheSameElement(t *testing.T) {
+	doc := criteriaDoc{Checks: []criteriaCheck{
+		{ID: "row_not_a_control", Type: "attribute_absent",
+			Selector: ".provocations-archive__item", Attributes: []string{"href"}},
+	}}
+
+	t.Run("inside a shell: neither refutes", func(t *testing.T) {
+		ev := evaluateStaticCriteria(doc, 200, `<div data-runtime-fill="true">`+voncTemplateRow+`</div>`)
+		for _, f := range ev.failed {
+			if f.id == "shell-dead-controls" || f.id == "row_not_a_control" {
+				t.Errorf("judge %q refutes what the other exempts — 137 is unfixed: %s", f.id, f.detail)
+			}
+		}
+	})
+
+	t.Run("outside a shell: both refute", func(t *testing.T) {
+		ev := evaluateStaticCriteria(doc, 200, voncTemplateRow)
+		var sweep, attr bool
+		for _, f := range ev.failed {
+			switch f.id {
+			case "shell-dead-controls":
+				sweep = true
+			case "row_not_a_control":
+				attr = true
+			}
+		}
+		if !sweep || !attr {
+			t.Errorf("both judges must still refute an unexempted dead control (sweep=%v attribute=%v): failed=%v", sweep, attr, ev.failed)
+		}
+	})
 }
 
 // TestEveryStaticCheckTypeIsClassified is the enforcement the council gate's

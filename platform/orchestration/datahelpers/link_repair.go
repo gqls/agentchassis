@@ -56,11 +56,11 @@ const (
 	LinkRepairUnlink  = "unlink"  // <a> dropped, inner content kept
 )
 
-// runtimeFillMarker exempts a shell whose hrefs are hydrated client-side. Its
-// placeholder/empty hrefs are the mechanism, not a defect — the same exemption
-// every other link check applies (check_phantom_internal_links, check_dead_controls,
-// render_site_components_action). Whole-document, matching those callers.
-const runtimeFillMarker = "data-runtime-fill"
+// The runtime-fill exemption lives in runtime_fill.go — one marker, one meaning,
+// applied at ELEMENT scope. This file used to hold a second private copy of the
+// constant and a whole-document test beside it; that pairing is what let the
+// exemption's blast radius follow the caller's chunking rather than the markup
+// (bugs_open/137).
 
 // LinkRepair records one change made to the markup, so the caller can persist a
 // durable account of what the gate did rather than only what it saw.
@@ -140,14 +140,19 @@ func RepairPageLinks(html string, index PageURLIndex) (string, []LinkRepair) {
 	if html == "" || len(index) == 0 {
 		return html, nil
 	}
-	if strings.Contains(html, runtimeFillMarker) {
-		return html, nil
-	}
-
 	matches := repairAnchorRe.FindAllStringSubmatchIndex(html, -1)
 	if len(matches) == 0 {
 		return html, nil
 	}
+
+	// Runtime-fill shells are exempt PER ANCHOR, not per document (bugs_open/137).
+	// The old whole-document skip returned the page untouched as soon as any
+	// section carried the marker, so a hydrating section suppressed the repair of
+	// its statically-linked neighbours: measured live on vonc.com/index, where
+	// lobby-grid's marker skipped gauntlet-cta's two empty hrefs. A section whose
+	// own root carries the marker still exempts everything inside it, so the
+	// per-section caller (save_sections_link_repair) is unaffected.
+	shells := RuntimeFillSpans(html)
 
 	var out strings.Builder
 	var repairs []LinkRepair
@@ -155,6 +160,9 @@ func RepairPageLinks(html string, index PageURLIndex) (string, []LinkRepair) {
 
 	for _, m := range matches {
 		fullStart, fullEnd := m[0], m[1]
+		if shells.Contains(fullStart) {
+			continue // this anchor hydrates client-side: its href is the mechanism
+		}
 		hrefStart, hrefEnd := m[2], m[3]
 		innerStart, innerEnd := m[4], m[5]
 		href := html[hrefStart:hrefEnd]

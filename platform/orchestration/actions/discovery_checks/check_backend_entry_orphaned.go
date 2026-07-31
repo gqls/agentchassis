@@ -137,10 +137,14 @@ func (c *BackendEntryOrphanedCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 		if err := rows.Scan(&pageName, &html); err != nil {
 			continue
 		}
-		if strings.Contains(html, "data-runtime-fill") {
-			continue // client-hydrated shell: placeholder hrefs are by design
-		}
-		for _, a := range datahelpers.ExtractAnchors(html) {
+		// Per-anchor exemption (bugs_open/137): a component holding a hydrating
+		// shell alongside static links still has those static links probed.
+		shells := datahelpers.RuntimeFillSpans(html)
+		for _, ref := range datahelpers.HrefOffsets(html) {
+			if shells.Contains(ref.Offset) {
+				continue // client-hydrated shell: placeholder hrefs are by design
+			}
+			a := datahelpers.Anchor{Href: ref.Value}
 			probePath, ok := handlerRouteCandidate(a.Href)
 			if !ok {
 				continue

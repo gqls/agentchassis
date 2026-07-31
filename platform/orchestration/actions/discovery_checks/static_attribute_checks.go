@@ -63,6 +63,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/andybalholm/cascadia"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // ── the confirm/refute classification ──────────────────────────────────────
@@ -162,14 +164,45 @@ func evaluateAttributeCheck(doc *goquery.Document, ch criteriaCheck) attributeOu
 		return attrSkipf("selector %q matched no elements in the served HTML — nothing was asserted (elements built client-side are Tier 4's claim, not a pass here)", ch.Selector)
 	}
 
+	// RULE 2, APPLIED TO THE SHELLS (bugs_open/137). Rule 2 above confines
+	// refutation to elements actually in the served HTML, on the ground that
+	// anything JS builds is invisible here and must be skipped rather than
+	// judged. An element inside a data-runtime-fill subtree is the same claim one
+	// step earlier: it is markup the loader is about to rewrite, so its
+	// pre-hydration attributes are Tier 4's to judge, not Tier 2's. The precedent
+	// this file already cites — the shell-dead-controls sweep — now consults the
+	// SAME element-scoped predicate, so the two mechanisms cannot disagree about
+	// whether a given control is alive.
+	//
+	// SKIP, NOT PASS, and that distinction is the whole point. A pass here would
+	// vouch for markup nobody checked, which is the vacuity this file exists to
+	// end; a skip can never satisfy experienceVerdict. And the exemption is per
+	// ELEMENT: every matched element outside a shell is still asserted on exactly
+	// as before, so an entry's assertions are not weakened page-wide the way a
+	// whole-page exemption would have weakened them.
+	asserted := nodes.FilterFunction(func(_ int, s *goquery.Selection) bool {
+		return !datahelpers.InRuntimeFillShell(s)
+	})
+	exempt := count - asserted.Length()
+	if asserted.Length() == 0 {
+		return attrSkipf("all %d element(s) matching %q are inside a %s shell — their pre-hydration attributes are Tier 4's claim, so nothing was asserted",
+			count, ch.Selector, datahelpers.RuntimeFillMarker)
+	}
+
+	var out attributeOutcome
 	switch ch.Type {
 	case "attribute_absent":
-		return evaluateAttributeAbsent(nodes, ch, count)
+		out = evaluateAttributeAbsent(asserted, ch, asserted.Length())
 	case "attribute_matches":
-		return evaluateAttributeMatches(nodes, ch, count)
+		out = evaluateAttributeMatches(asserted, ch, asserted.Length())
 	default:
 		return attrSkipf("%s is not an attribute check", ch.Type)
 	}
+	if exempt > 0 {
+		out.detail = fmt.Sprintf("%s [%d further element(s) set aside: inside a %s shell]",
+			out.detail, exempt, datahelpers.RuntimeFillMarker)
+	}
+	return out
 }
 
 // evaluateAttributeAbsent fails if ANY matched element carries ANY of the named

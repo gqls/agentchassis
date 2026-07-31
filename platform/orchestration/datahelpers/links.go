@@ -39,12 +39,32 @@ var hrefAttrRe = regexp.MustCompile(`href=["']([^"']*)["']`)
 // dedupe if they need to. Regex-based on purpose: the consumers here need only
 // the raw href, and this keeps the helper dependency-free (no goquery).
 func ExtractHrefs(html string) []string {
-	matches := hrefAttrRe.FindAllStringSubmatch(html, -1)
-	hrefs := make([]string, 0, len(matches))
-	for _, m := range matches {
-		hrefs = append(hrefs, m[1])
+	refs := HrefOffsets(html)
+	hrefs := make([]string, 0, len(refs))
+	for _, r := range refs {
+		hrefs = append(hrefs, r.Value)
 	}
 	return hrefs
+}
+
+// HrefRef is one href attribute plus the byte offset of the tag it was found in,
+// so a caller can ask whether THIS link lies inside a runtime-fill shell rather
+// than whether the document contains one anywhere (bugs_open/137). ExtractHrefs
+// is this function with the offsets dropped, so the two can never disagree about
+// which hrefs exist.
+type HrefRef struct {
+	Value  string
+	Offset int
+}
+
+// HrefOffsets returns every href value in document order with its byte offset.
+func HrefOffsets(html string) []HrefRef {
+	matches := hrefAttrRe.FindAllStringSubmatchIndex(html, -1)
+	refs := make([]HrefRef, 0, len(matches))
+	for _, m := range matches {
+		refs = append(refs, HrefRef{Value: html[m[2]:m[3]], Offset: m[0]})
+	}
+	return refs
 }
 
 // Anchor is one <a> element: its href and its visible text.
@@ -69,11 +89,18 @@ func ExtractAnchors(html string) []Anchor {
 	matches := anchorRe.FindAllStringSubmatch(html, -1)
 	anchors := make([]Anchor, 0, len(matches))
 	for _, m := range matches {
-		text := innerTagRe.ReplaceAllString(m[2], " ")
-		text = strings.TrimSpace(multiWSRe.ReplaceAllString(text, " "))
-		anchors = append(anchors, Anchor{Href: m[1], Text: text})
+		anchors = append(anchors, Anchor{Href: m[1], Text: normaliseAnchorText(m[2])})
 	}
 	return anchors
+}
+
+// normaliseAnchorText strips inner markup and collapses whitespace. Extracted so
+// the span-aware extractor in runtime_fill.go produces anchor text identical to
+// ExtractAnchors' — two copies of this would be two definitions of "what the
+// link says", and the misdirected-CTA check compares that text against a URL.
+func normaliseAnchorText(inner string) string {
+	text := innerTagRe.ReplaceAllString(inner, " ")
+	return strings.TrimSpace(multiWSRe.ReplaceAllString(text, " "))
 }
 
 // ClassifyLinkScope is the single definition of what an href "is". Order

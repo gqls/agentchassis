@@ -14,7 +14,9 @@
 //   - <button> with no handler is NOT judged statically (JS binds at runtime);
 //     the post-hydration equivalent lives in the Tier-4 browser tier.
 //   - Runtime-fill shells (data-runtime-fill) are exempt — their placeholder
-//     hrefs are hydrated client-side (provocation-card / lobby-grid).
+//     hrefs are hydrated client-side (provocation-card / lobby-grid). Exemption
+//     is per ANCHOR (datahelpers.RuntimeFillSpans), so a component holding a
+//     shell alongside static links still has those static links judged.
 //   - page_components only, NOT site_components: chrome nav toggles use
 //     href="#" + JS legitimately, and chrome has its own fixers. Content
 //     surfaces are where a dead CTA is a broken promise.
@@ -33,7 +35,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -86,10 +87,11 @@ func (c *DeadControlsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		if err := rows.Scan(&pageName, &pageID, &slot, &html); err != nil {
 			continue
 		}
-		if strings.Contains(html, "data-runtime-fill") {
-			continue // client-hydrated shell: placeholder hrefs are by design
-		}
-		for _, a := range datahelpers.DeadControlAnchors(html) {
+		// Exempt the anchors INSIDE a hydrating subtree, not every anchor in a
+		// component that happens to contain one (bugs_open/137). Where the marker
+		// is on the component's own root — the common case — this returns exactly
+		// what the old whole-component skip did.
+		for _, a := range datahelpers.DeadControlAnchorsOutsideRuntimeFill(html) {
 			text := a.Text
 			if len(text) > 80 {
 				text = text[:80]
