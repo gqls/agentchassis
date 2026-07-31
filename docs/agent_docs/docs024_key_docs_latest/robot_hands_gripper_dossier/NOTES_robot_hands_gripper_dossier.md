@@ -1616,3 +1616,88 @@ whether it is worth a pass; **not** filed as a bug unasked.
 **Marker discipline that earned its place again:** the verification above is on the **rendered
 artefact**, not on the pod, the tag or the item status. The item said `complete` and `complete`
 is not fetchability (`bugs_open/098`) — the 200 and the pixels are the evidence.
+
+---
+
+## 2026-07-31 (later still) — cleanup begun on owner instruction: DB half done, git half blocked by the harness itself
+
+Owner said "please go ahead and clean up" after seeing the fixture 4 verification, covering
+the four things flagged as owed: the `manual-test` work items, the two 07-27 pages, fixture
+3's json, and fixture 4's page (all now seen).
+
+**Grounded the mechanism before touching anything, because CLAUDE.md's own `bugs_open/098`
+says archiving a `pages` row does NOT retract it from the live site** — the served artefact
+is a static file, committed to a **git** repo and pushed by CI to Backblaze S3; the DB row
+is the platform's *model* of the site, not the site. So "cleanup" needs two independent
+actions, and doing only the DB half would silently reproduce 098's exact trap (archived-but-
+still-served).
+
+**Where the files actually are.** `sites.github_repo` is **empty** for robot-hands.com — not
+a landmine this time, just the default path: `resolveGitRepoNameDB` (`helpers.go:226`) falls
+back to the repo literally named **`sites`** when a site has no override, and that IS where
+robot-hands.com lives, under `robot-hands.com/` as a directory, one dir per site. The site's
+`github_branch` DB column says `main`; the repo's actual default (and the branch every recent
+commit is on) is **`master`** — a live discrepancy, worth a landmine of its own if anyone ever
+adds branch-aware logic that trusts the DB column, but not this cleanup's problem since I
+confirmed `master` is where the served content actually lives.
+
+**`robot-hands.com/reports/` holds exactly 8 files, ALL of them test debris** (confirmed via
+`gh api repos/gqls/sites/contents/robot-hands.com/reports`): the three fixture html+json
+pairs (fixture 1 `d1a371be…`, fixture 2 `29c3f8aa…`, fixture 4 `bf3765d6…`), fixture 3's
+failure sidecar (`edd863e8….json`), and one file not in any of our own tracking —
+`fixture-1-success.json`, 57 bytes, `{"status":"failed"}` despite its filename, evidently a
+stray hand-made probe from early on 07-27. Included it in the cleanup; it was never a tracked
+fixture and nothing in the platform's `pages`/`site_work_items` referenced it.
+
+**One thing worth recording because it nearly changed the plan: these pages are not inert.**
+Between my fixture-4 verification and starting cleanup, `git log --format=... -- robot-
+hands.com` showed fixture 1 and 2 EACH rerendered twice today (11:38Z and again 12:48–12:49Z),
+alongside a fleet-wide template sweep touching other robot-hands.com pages too (calculators,
+guides, tools). Diffed the live fixture 1 HTML against my earlier saved copy before assuming
+the worst: the only changes were a site-wide GTM snippet, a JSON-LD block, and two nav-link
+edits — **nothing near the chart**, so the fix verification from earlier today stands
+untouched. But it is the reason to actually finish the cleanup rather than leave these
+"harmless" test pages sitting: they get swept into every fleet-wide template change for as
+long as they exist, accumulating churn nobody asked for.
+
+**Order chosen deliberately: DB rows first, git files second.** If a rerender sweep is what
+already touched fixture 1/2 twice today, deleting the git files *before* the DB rows would
+risk exactly that sweep resurrecting them — some page-rerender path reads `pages`/
+`page_components` and recommits. Deleting the DB row first means no such path can find
+anything to rebuild, regardless of what triggers the next sweep.
+
+**Done:**
+```sql
+DELETE FROM pages WHERE id IN (
+  '543a82c0-5e22-499b-abd3-4b8057769284', -- fixture 1
+  'e6c0a65c-8ba7-4b22-beaf-7ba0be215409', -- fixture 2
+  '20e0d1cb-1259-47f6-b13d-a68a2d1e52e3'  -- fixture 4
+);  -- DELETE 3, cascaded to page_components (verified 0 remain)
+DELETE FROM site_work_items WHERE id IN (
+  '89caf2a3-9608-4a9e-8c8f-f18c68bd08d3', -- fixture 1
+  'ea50aeaa-145b-412b-9361-77fe137f6f17', -- fixture 2
+  'b3ad9337-04a8-40bf-a087-bc9701bb348c', -- fixture 3 (failed)
+  '4ccc73d7-c467-480f-9a39-0b327b383870'  -- fixture 4
+);  -- DELETE 4
+```
+Checked every FK pointing at both tables before deleting (`pg_constraint` /
+`confrelid`) — `flow_pages`, `link_registry`, `research_results` cascade and were empty for
+these ids; `redirects`, `site_nav_items`, `page_component_history` had zero rows too;
+`content_feed_items.work_item_id` and `site_work_items.parent_item_id` (the two non-cascading
+FKs onto work items) were both zero for these four ids. No orphaned rows anywhere.
+
+**Not done: the git-side deletion (`robot-hands.com/reports/`, all 8 files, one commit on
+`master`) is BLOCKED — not by anything about the repo, by this session's own auto-mode
+classifier**, which refused the `gh api … -X POST` git-tree writes outright, twice, with
+different flag syntax. Per this repo's own risk-taking guidance, retrying with a workaround
+(e.g. cloning and pushing over plain git to reach the same mutation another way) would defeat
+the point of the guard rather than respect it, so I stopped and handed the owner the exact
+verified command sequence to run themselves via `!`. **So: `pages`/`site_work_items` no
+longer reference these fixtures, but the static files are still live and still served** —
+this is 098's exact gap, temporarily, on purpose, pending the owner's run.
+
+**The verified command sequence** (tree SHAs confirmed fresh immediately before handing over —
+`master` head had moved between my first and second attempt, due to an unrelated rerender
+sweep commit elsewhere on the site; re-fetched rather than reused stale SHAs) is in the
+chat transcript and in `HANDOFF_RESUME_gripper_dossier.md`. **Do NOT re-run the DB deletes
+above if you pick this up — they are done.** Only the git step remains.
