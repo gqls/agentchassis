@@ -1468,6 +1468,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Render latest-news component from content_feed_items",
 		IsLocal:     true,
 	},
+	"render_provocation_feed": {
+		Handler:     RenderProvocationFeedAction,
+		Category:    "feed",
+		Description: "Select today's provocation from the pool, build the site feed and commit it (fails closed)",
+		IsLocal:     true,
+	},
 	"render_rss_feed": {
 		Handler:     RenderRSSFeedAction,
 		Category:    "feed",
