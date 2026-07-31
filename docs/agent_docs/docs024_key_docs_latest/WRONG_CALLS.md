@@ -15289,3 +15289,28 @@ assertion in prose.
   radius, and only the silent one is dangerous. **The durable check is therefore not "remember
   to use absolute paths" — it is "never let a command whose PASS is silence share a line with a
   `cd`."** A loud failure needs no discipline; it announces itself.
+
+## 2026-07-31 — backticks in `git commit -m` executed, and the commit message lost a word
+
+**The claim.** Nothing asserted — this is the other kind of wrong call: a known
+trap, documented in my own memory index under shell traps, walked into anyway.
+
+**What happened.** The message for `572ae8dc6` contained "reads the whole `today`
+object SERVER-SIDE". Bash ran `today` as a command inside the double-quoted `-m`,
+printed `today: command not found`, and committed "reads the whole  object".
+
+**What caught it.** The stray `command not found` line in the tool output, which
+is easy to skim past because the commit itself succeeded and printed its normal
+summary. Nothing about the commit looked wrong.
+
+**The cheap check that would have.** Single-quote the whole message. Backticks are
+inert inside `'...'`. There is no case where a commit message needs command
+substitution, so the double-quoted form has no upside at all.
+
+**Why it is worth a row despite being minor.** Forward-only means no amend, so a
+mangled message is permanent, and the tally is the point: this trap is already
+written down and already cost someone else a message. A rule that is known and
+still repeated is evidence about *when* it fires — mine fired on a long message
+where the backticks were deep in the third paragraph, not on a short one. If it
+appears again, the check worth automating is a `commit-msg` hook warning on a
+message containing an unescaped backtick.

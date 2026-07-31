@@ -523,3 +523,89 @@ Recording it because the interaction is the finding: **the seal is what makes th
 daily job mandatory.** That is a real cost of the ruling, not an oversight here —
 and it is exactly the kind of cross-lane consequence that is invisible from
 inside either lane.
+
+---
+
+## 2026-07-31 (late) — the mechanism, built: pool table, Go action, agent, schedule
+
+Built the four things the corrected step A named. State at the end of the session:
+
+| piece | state |
+|---|---|
+| `provocations` pool table + the 9 live entries | migration **282 applied + recorded** |
+| `render_provocation_feed` action + 14 tests | commit **572ae8dc6**, council `6612dc0b` |
+| `provocation-feed-publisher` agent + `provocation-feed-refresh` schedule | migration **283 applied + recorded**, row **DISABLED** |
+| the action in the running chassis | **NOT THERE** — 0 occurrences, control 3 |
+| the site rotating | **still no** |
+
+### Three design calls worth the words
+
+**The pool stores no `published` flag.** Whether a provocation has been published
+is a fact about its date and today's. Storing it would create a second source of
+truth for one fact, and the two can disagree — which is a whole bug class avoided
+by not having the column. `status` carries only the editorial state, which is not
+derivable from anything.
+
+**A duplicate publish date is refused by the DATABASE**, via a partial unique index
+over approved dated rows, not by a check in the action. Two entries on one day
+would make "the latest" ambiguous and hand the day's provocation to plan order.
+Ranked by what closes the door: an index makes the bad state unrepresentable; a
+validation makes it merely unlikely.
+
+**The action SKIPS the commit when only `generated_at` would change.** This was the
+most useful five minutes of the design. A daily job that always commits would
+advance the one field people use to judge freshness while the site repeated
+itself — the original bug wearing the fix as a disguise, and the exact landmine
+filed this morning. Skipping means the file's git history is an honest record of
+rotation, and a frozen timestamp on a no-rotation day becomes correct behaviour
+rather than a symptom to chase.
+
+### The verification that actually mattered
+
+Not the 14 invariant tests — those check the Go side obeys the rules. The risk
+here is different: this is a SECOND implementation of a feed that already has a
+proven one serving the site, and two implementations drift while each stays
+self-consistent.
+
+So: dump the 9 real rows out of the pool, build the feed in Go, build it in Python
+for the same date, compare. **Structurally identical.** Plus a companion test that
+perturbs an input and requires the same comparison to FAIL — because a parity test
+that cannot fail is just an expensive way to write `true`.
+
+Migration 282's own verify block did the same job earlier and cheaper: it asserted
+the DB selector picks `nobody-wants-personalised-internet`, which is the slug the
+live feed serves. The port agreed with production before a line of Go ran.
+
+### Missteps
+
+**Walked into a documented landmine: backticks in `git commit -m` EXECUTE.** The
+message for `572ae8dc6` said "reads the whole \`today\` object"; the shell ran
+`today`, printed `today: command not found`, and committed "reads the whole
+object". Forward-only means no amend, so the damage stands. It is in
+`MEMORY.md` under shell traps and I hit it anyway — knowing a trap and pausing at
+the moment you are stepping into it are different skills. Use single quotes for
+the whole message, which is what I did for the next commit.
+
+**Nearly reported a broken build as mine.** `go test` failed with five type errors
+— in `nav_prune_floor_test.go`, which I have never touched. It looked like my
+package-level additions had collided with something. They had not: another lane
+committed a test at 22:33 whose implementation half is still uncommitted in the
+shared tree. Checking `git status` on THEIR file (clean vs HEAD) and then testing
+against `git archive HEAD` separated the two cleanly — HEAD is green, the tree is
+not, and neither fact was about my code. Worth repeating: on this tree "the tests
+fail" is not evidence about your own change until you have asked which files are
+dirty and whose they are.
+
+### The ordering, and why I did not roll the fleet
+
+The action is inert until a chassis image carries it, so the scheduled row is
+seeded disabled and the migration is safe to apply at any time. I did **not**
+build and roll an image, for two reasons: a roll ships every other lane's
+committed HEAD, which is not mine to decide; and my own council review was in
+flight, which a roll would have killed. Any other session's roll will ship this
+action anyway — that is the standing property of the shared tree, not a
+workaround.
+
+The remaining gap to the claim being true is now **content, not machinery**: the
+newest pool entry is 26 Jul, so even with the job enabled the site would serve
+that same provocation. Rotation needs entries dated forward from today.

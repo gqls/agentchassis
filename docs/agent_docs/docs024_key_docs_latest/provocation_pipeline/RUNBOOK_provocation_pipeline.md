@@ -199,3 +199,120 @@ the headline and body; the archive still shows 8 entries with the empty state
 `hidden` and **zero** occurrences of today's slug or body; the gauntlet page still
 carries `gi-sealed` with **zero** occurrences of either. Verified all three
 2026-07-31 after the Phase 0 publish.
+
+---
+
+## The pool and the publisher (added 2026-07-31, migrations 282 + 283)
+
+### Where the schedule lives now
+
+The Python `SCHEDULE` literal is no longer the source of truth for anything
+deployable. The pool is `provocations` in `clients_db`.
+
+```sql
+-- what will be served today, and what the archive will hold
+SELECT slug, publish_on, status,
+       (headline <> '') AS has_today_shape, (detail_body <> '') AS has_case
+FROM provocations
+WHERE domain = 'vonc.com' AND status = 'approved' AND publish_on IS NOT NULL
+ORDER BY publish_on DESC;
+```
+
+Selection rule, mirrored exactly in Go and Python: **today = the latest approved
+row whose `publish_on` has arrived; archive = everything approved and strictly
+earlier.** Nothing marks a row as published — that is a fact about dates, and
+storing it would create a second copy that can disagree.
+
+### Adding a provocation
+
+```sql
+INSERT INTO provocations
+  (domain, slug, category, publish_on, status, title, teaser, headline, body, detail_body)
+VALUES ('vonc.com', 'some-slug', 'general', DATE '2026-08-03', 'approved',
+        'The archive title', 'One-line teaser.',
+        'The <em>today</em> headline.', 'The long-form today body.',
+        'The full case.' || E'\n\n' || 'Second paragraph.');
+```
+
+**GOTCHA — author BOTH shapes for anything new.** `title`/`teaser`/`detail_body`
+is the archive shape; `headline`/`body` is the today shape. The eight historical
+entries have only the first, so the action falls back (headline←title,
+body←detail_body←teaser). The fallback is deliberate for them and a silent
+downgrade for anything new.
+
+**GOTCHA — a duplicate `publish_on` is refused by the database**, not by the
+action: `idx_provocations_one_per_day` is a partial unique index over approved,
+dated rows. That is on purpose — an ambiguous "latest" would decide the day's
+provocation by plan order. If you get a unique violation, two rows want the same
+day and you must choose.
+
+### Enabling the schedule (NOT yet done — the image has to ship first)
+
+```bash
+# 1. Is the action actually in the running binary? A roll is NOT evidence.
+POD=$(kubectl get pods -n ai-persona-system -l app=agent-chassis \
+        -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n ai-persona-system "$POD" -- sh -c \
+  'echo -n "target: "; strings /app/agent-chassis | grep -c render_provocation_feed;
+   echo -n "control: "; strings /app/agent-chassis | grep -c render_news_section'
+```
+
+**GOTCHA — the positive control is not optional.** A bare `grep -c` returning 0
+cannot distinguish "not shipped" from "my grep is wrong". Measured 2026-07-31:
+target 0, control 3 — so the grep works and the answer is a real no.
+
+```sql
+-- 2. Only once target > 0:
+UPDATE scheduled_tasks SET enabled = true WHERE name = 'provocation-feed-refresh';
+```
+
+### Did it actually rotate?
+
+```bash
+curl -s https://vonc.com/data/provocations.json \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['today']['slug'], '|', d['generated_at'])"
+```
+
+**GOTCHA — compare `today.slug`, never `generated_at`.** Once anything rebuilds
+on a cadence the timestamp advances daily whether or not the provocation changed.
+The action deliberately SKIPS the commit when only the timestamp would move, so a
+static `generated_at` across days is now the CORRECT behaviour for a day with no
+rotation, not a symptom.
+
+### Regenerating the parity fixtures
+
+Both, together, or not at all:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc \
+  "SELECT json_agg(json_build_object('slug',slug,'publish_on',to_char(publish_on,'YYYY-MM-DD'),
+     'title',title,'teaser',teaser,'card_desc',COALESCE(card_desc,''),
+     'detail_body',COALESCE(detail_body,''),'headline',COALESCE(headline,''),
+     'body',COALESCE(body,'')) ORDER BY publish_on)
+   FROM provocations WHERE domain='vonc.com' AND status='approved' AND publish_on IS NOT NULL;" \
+  > platform/orchestration/actions/testdata/provocation_pool.json
+
+cd docs/agent_docs/docs024_key_docs_latest/provocation_pipeline/builder
+python3 build_provocations.py --date 2026-07-31 > /tmp/g.json
+# then set generated_at to the literal GOLDEN and save as testdata/provocation_feed_golden.json
+```
+
+**GOTCHA — never refresh the golden from the Go side.** It exists to catch the Go
+port drifting from the Python builder; regenerated from the code under test it can
+only ever agree with it, which is a green test that checks nothing.
+
+### Testing when the working tree will not compile
+
+Several sessions share this tree, and another lane's uncommitted WIP can break the
+package for everyone. Test against committed HEAD plus your own files:
+
+```bash
+SB=$(mktemp -d); git archive HEAD | tar -x -C "$SB"
+cp platform/orchestration/actions/provocation_feed*.go "$SB/platform/orchestration/actions/"
+mkdir -p "$SB/platform/orchestration/actions/testdata"
+cp platform/orchestration/actions/testdata/provocation_*.json "$SB/platform/orchestration/actions/testdata/"
+(cd "$SB" && go test ./platform/orchestration/actions/ -count=1)
+```
+
+This is also the honest check: `make build-*` builds from HEAD, so HEAD is what
+ships — not your tree.
