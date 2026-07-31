@@ -240,6 +240,90 @@ func truncationMarkerField(proseField, override string) string {
 // dashed tokens (ISO clause numbers) are left to the numeric gate.
 var modelNumberRe = regexp.MustCompile(`\b[A-Za-z0-9]*(?:[A-Za-z][0-9]|[0-9][A-Za-z])[A-Za-z0-9]*-[A-Za-z0-9-]+\b`)
 
+// skuTokenTraces reports whether a SKU-shaped token is vouched for by the
+// per-request facts. Three routes, narrowest first:
+//
+//  1. verbatim in the fact block / request context;
+//  2. overlapping a scored candidate or maker name;
+//  3. a traceable HEAD with an English QUALIFIER TAIL — bugs_open/160.
+//
+// Route 3 exists because the writer legitimately RECOMBINES an allowed token
+// into a phrase: "IP54-or-better" from the fact block's "IP54". A recombination
+// is never verbatim, so routes 1 and 2 both miss it, and the step is
+// fail-closed — the report is destroyed rather than degraded. The head must
+// still trace by route 1 or 2, and modelNumberRe puts the letter-digit
+// adjacency in the FIRST segment, so the code-bearing part of the token is
+// always inside the head: this relaxes which SUFFIXES are tolerated, never
+// whether the model number itself was published.
+func skuTokenTraces(tok, allowedText string, candidateNames []string) bool {
+	if strings.Contains(allowedText, tok) {
+		return true
+	}
+	for _, n := range candidateNames {
+		if strings.Contains(n, tok) || strings.Contains(tok, n) {
+			return true
+		}
+	}
+	segs := strings.Split(tok, "-")
+	for i := len(segs) - 1; i >= 1; i-- {
+		head := strings.Join(segs[:i], "-")
+		if !strings.Contains(allowedText, head) && !nameOverlaps(head, candidateNames) {
+			continue
+		}
+		if allQualifierSegments(segs[i:]) {
+			return true
+		}
+	}
+	return false
+}
+
+func nameOverlaps(s string, candidateNames []string) bool {
+	for _, n := range candidateNames {
+		if strings.Contains(n, s) || strings.Contains(s, n) {
+			return true
+		}
+	}
+	return false
+}
+
+func allQualifierSegments(segs []string) bool {
+	for _, s := range segs {
+		if !qualifierSegment(s) {
+			return false
+		}
+	}
+	return len(segs) > 0
+}
+
+// qualifierSegment reports whether a trailing hyphen segment is ordinary
+// English rather than more model number. Every clause is here because it
+// rejects a specific fabrication, and dropping any one of them clears an
+// invented sibling — which is the whole reason this gate exists:
+//
+//	no digit         "2F-140", "GEP5010IO-00-B" — a digit in the tail IS a variant number
+//	at least 2 chars "2F-85-x"                  — single letters are SKU suffix material
+//	lower-case       "2F-85-XL"                 — upper-case codes are SKU suffix material
+//
+// Two residuals, stated rather than absorbed. A title-cased qualifier
+// ("IP54-Rated" in a heading) is NOT cleared, and a lower-case invented suffix
+// ("2F-85-plus") IS. Both are answered by the same thing — a closed vocabulary
+// of qualifier words — which is not built here because no instance of either
+// has been observed, and the asymmetry favours strictness: an over-strict
+// rejection produces a retry whose different phrasing usually passes (016b
+// records this very report passing on retry), while an under-strict clearance
+// publishes a fabricated model number in a customer-facing report.
+func qualifierSegment(s string) bool {
+	if len(s) < 2 {
+		return false
+	}
+	for _, r := range s {
+		if r < 'a' || r > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
 // verifyReportProse is the pure core (unit-tested directly). contextValues
 // are request strings (mounting, geometry, budget) the prose may echo;
 // knownVendors is the vendor universe from loadKnownVendors.
@@ -312,19 +396,9 @@ func verifyReportProse(prose, scoring map[string]interface{}, contextValues, kno
 
 		// (2) SKU-shaped tokens must trace to the candidate set, the fact
 		// block, or the request context — never a sibling model invented by
-		// the writer.
+		// the writer. See skuTokenTraces for the three routes.
 		for _, tok := range modelNumberRe.FindAllString(text, -1) {
-			if strings.Contains(allowedText, tok) {
-				continue
-			}
-			known := false
-			for _, n := range candidateNames {
-				if strings.Contains(n, tok) || strings.Contains(tok, n) {
-					known = true
-					break
-				}
-			}
-			if !known {
+			if !skuTokenTraces(tok, allowedText, candidateNames) {
 				violations = append(violations, fmt.Sprintf("%s names model-like token %q not in the candidate set or fact block", key, tok))
 			}
 		}

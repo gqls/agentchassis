@@ -77,6 +77,59 @@ func TestProseGateRejectsInventedSKU(t *testing.T) {
 	}
 }
 
+// TestProseGateAcceptsRecombinedNotation is bugs_open/160. The writer composes
+// an allowed rating into an English phrase — "IP54-or-better" — which is never
+// verbatim in the fact block, so the SKU check called it an invented part
+// number and the fail-closed step destroyed the whole report (no page composed,
+// URL 404). The head must still trace; only the English tail is new.
+//
+// Note both assertions: the specific one names the check under test, because
+// the numeric gate would otherwise absorb a mutation of the SKU rule and this
+// test would keep passing for the wrong reason.
+func TestProseGateAcceptsRecombinedNotation(t *testing.T) {
+	scoring := realScoring(t, 2.5, 54) // fact block carries "required protection IP54"
+	for _, phrase := range []string{
+		"Any enclosure must be IP54-or-better for this cell.",
+		"An IP54-rated housing is the minimum here.",
+		"Specify an ISO 9409-1-50-4-M6-compatible flange.",
+		"A 2F-85-compatible bracket is available.",
+	} {
+		prose := proseWith(
+			noMatchSentence+" "+phrase,
+			"The Robotiq 2F-85 publishes 20 to 235 N of gripping force and 85 mm of travel.")
+		v := verifyReportProse(prose, scoring, []string{"ISO 9409-1-50-4-M6"}, seedVertexVendors)
+		if strings.Contains(strings.Join(v, "|"), "model-like token") {
+			t.Errorf("%q: legitimate recombination rejected as an invented model: %v", phrase, v)
+		}
+		if len(v) != 0 {
+			t.Errorf("%q: otherwise-clean prose rejected: %v", phrase, v)
+		}
+	}
+}
+
+// TestProseGateStillRejectsFabricatedSiblings is the other half of 160, and the
+// half a fix can quietly skip: every clause of the qualifier-tail rule exists to
+// reject one of these. A fix asserted only on the recombination above has
+// disarmed the guard rather than corrected it.
+func TestProseGateStillRejectsFabricatedSiblings(t *testing.T) {
+	scoring := realScoring(t, 2.5, 0)
+	for _, tc := range []struct{ token, sentence, clause string }{
+		{"2F-140", "Consider the Robotiq 2F-140 as an alternative.", "whole token untraceable"},
+		{"2F-85-XL", "The Robotiq 2F-85-XL offers more travel.", "upper-case tail is SKU material"},
+		// Lower-case deliberately: an upper-case single letter is already
+		// rejected by the case clause, so "2F-85-X" would pin nothing here.
+		{"2F-85-x", "The Robotiq 2F-85-x is the compact build.", "single-letter tail is SKU material"},
+		{"GEP5010IO-00-B", "The Zimmer Group GEP5010IO-00-B is the sealed variant.", "digit in the tail is a variant number"},
+	} {
+		prose := proseWith("The requirement is 200.0 N.", tc.sentence)
+		v := verifyReportProse(prose, scoring, nil, seedVertexVendors)
+		joined := strings.Join(v, "|")
+		if !strings.Contains(joined, "model-like token") || !strings.Contains(joined, tc.token) {
+			t.Errorf("fabricated sibling %q passed the SKU check (%s): %v", tc.token, tc.clause, v)
+		}
+	}
+}
+
 func TestProseGateNoMatchContract(t *testing.T) {
 	scoring := realScoring(t, 500, 67) // nothing fits
 	if scoring["match_count"].(int) != 0 {
