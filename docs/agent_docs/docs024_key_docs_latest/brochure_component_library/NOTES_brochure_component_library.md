@@ -3675,3 +3675,57 @@ puts it in front of a human (or a vision check) unless an assertion has already 
 and the defects that reach the owner are precisely the ones no assertion covers. That is
 S6/S7 territory in `staged_component_build/PROPOSAL_2026-07-30_...`, which is another
 thread's build by owner instruction — noted there rather than built here.
+
+## 2026-07-31 — closing the two gaps the owner asked about
+
+**Gap 1, the travelling docs.** The owner asked whether the carousel changes were in the
+component's travelling docs. **They were not** — no `doc_plans`/`doc_notes` rows (only the
+`experience-pattern` `teaser-detail-deeplink` the component implements, written before the
+change), and no file pair in the component dir. Fixed with
+`components/teaser-reveal-panel/PLAN_teaser-reveal-panel.md` and
+`NOTES_teaser-reveal-panel.md` per convention 037. Files, not DB rows, because
+`doc_plans_subject_type_check` still refuses `'component'` (verified: tool / pipeline /
+experience / action / experience-pattern only). Both say to port to the DB and leave a
+pointer when migration 273 lands — not to maintain two copies.
+
+Two findings handed to the `staged_component_build` lane rather than acted on: whether the
+running image carries 273's Go half is **[UNVERIFIED]** — the change added no distinctive
+string literal, so a pod-grep cannot settle it, and the adjacent-literal trick
+(`experience-patterncomponent`) returned 0, which proves nothing since Go does not
+guarantee adjacent storage; and **two different migrations share the number 273** in
+`sql_for_agents/` (`273_doc_subjects_component.sql`, `273_fix_proposer_plan_repair_loop.sql`),
+which matters for a runner that takes every pending file.
+
+**Gap 2, the looking gap — split in half, because only one half is a framework problem.**
+
+The framework half is TL-035: an opt-in `capture_renders` on `run_checks`, so a PASSING
+page can be photographed into a new `Renders` list. Council APPROVED round 1
+(`ab21beac`), 2 advisory objections, both answered with attached evidence in
+`EVIDENCE_2026-07-31_TL-035_capture_renders.md`. **Design decision worth remembering: the
+cheap-looking option needed the heavier process.** Making the existing `Screenshots` list
+unconditional would have changed what it MEANS for three consumers that attach it to
+failure work items (two unfiltered) — an RFC-scope guarantee change. A second field costs
+one struct member and changes nothing for anyone.
+
+The human half is `scripts/look.py`. Written because hand-rolling the screenshot cost
+**six wrong crops** in one session, and every one was a different trap: `/tmp` is
+unreadable to snap chromium; the document height **diverges** on a page with `vh`-sized
+sections (1000 → 2854 → 4152 → 6141 → 6453, never settling) so measuring one render and
+cropping another is guaranteed wrong; `--screenshot` ignores scroll so `scrollIntoView`
+moves the measurement and not the image; and a `file://` copy does not execute the page's
+cross-origin scripts while an `http://127.0.0.1` copy does.
+
+**That last one retro-explains yesterday's false regression report.** The harness that
+claimed my CSS had broken the carousel's arrows was serving over `file://`, so the site's
+own bundle never ran. Serving over loopback is the clean fix, and it is now the documented
+technique for any future interaction probe in this lane. The control run saved me
+yesterday; the mechanism is now understood rather than merely worked around.
+
+**One process incident, recorded because it is the documented hazard rather than a
+surprise:** my edits to `docs026_concept_register/register/000_concept_index.md` (the
+TL-035 row and a recount of the headline, which was already one behind) were swept into
+**another session's commit** `817818103` at 09:13 while they were in the working tree.
+Nothing is lost and the content is committed, but my own commit message for TL-035 says
+"index row added" and the row is in someone else's commit. Forward-only, so this is the
+correction of record. Exactly the same-file passenger case CLAUDE.md says no hook can
+prevent.
