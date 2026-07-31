@@ -12546,3 +12546,42 @@ live row is the fact), [[grep-the-config-key-before-calling-it-a-win]].
 
 Tally: "searched the docs and called it prior-art-checked" → 1. "Guessed a jsonb path and
 read NULL as absence" → 1 (and this one fails silently, unlike a bad column name).
+
+---
+
+## 2026-07-31 — a security comment I wrote said "the exact bypass this closes", and my own test proved it false before it shipped
+
+**The claim.** Writing `platform/fetchguard`'s dial-time IP check, I called `ip.Unmap()`
+before classifying each resolved address, and wrote: *"`::ffff:169.254.169.254` must be
+judged as the v4 address it wraps"* — with the surrounding prose calling it *"the exact
+bypass unmapping exists to close."* Confident, specific, and read like settled fact.
+
+**False.** `net/netip`'s `IsPrivate()`, `IsLinkLocalUnicast()`, `IsLoopback()` and the rest
+already resolve an IPv4-in-IPv6-mapped address correctly with **no** unmap step. Checked
+directly: `IsPubliclyRoutable(mapped) == IsPubliclyRoutable(mapped.Unmap())` for the
+metadata address and for a private one. `Unmap()` still does something real — it makes
+`ip.String()` print `"169.254.169.254"` instead of `"::ffff:169.254.169.254"` in an error
+message — just not the thing the comment claimed.
+
+**What caught it.** My own test, in the same sitting, before the code was committed —
+`TestIsPubliclyRoutable_IPv4MappedRequiresUnmap` was written to *prove* the claim and
+instead disproved it: both forms classified as blocked with or without unmapping, so the
+"unmap made no difference" assertion inside the test itself fired.
+
+**The cheap check that would have.** Exactly the one that caught it: write the comparison
+as a test before writing the comment as fact. The failure mode here isn't "didn't check" —
+I did write a test — it's that **the comment was drafted with the same confidence as the
+code**, and nothing distinguished "I verified this" from "this sounds right and matches how
+these bugs usually work" until the test ran.
+
+**The transferable bit.** A security-rationale comment is a *claim about behaviour*, the
+same family as this file's other entries (`a-doc-comment-is-not-an-enforcement-mechanism`,
+`a-print-statement-is-not-a-config-row`) — and it is dangerous in a **new** way here,
+because nobody else's finding could have caught it: there was no prior art to contradict,
+no existing bug to grep for, just an assertion about a standard-library function's exact
+semantics. The only check that works on a claim with no external referee is the one this
+package happened to already be writing anyway: **a test that tries to prove the claim,
+not just tests the code that assumes it.** Corrected in place in both the code comment and
+the test itself (renamed, since the old name asserted the disproved claim) rather than
+deleted — the corrected version explains what `Unmap()` is *actually* for, which is more
+useful than silence would have been.

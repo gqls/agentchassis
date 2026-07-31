@@ -625,22 +625,33 @@ end to end from `llm_call_log`.**
 
 Four, and only the last is exotic:
 
-1. **SSRF — checked 2026-07-29, and it is NOT covered.** The product's core
-   interaction is *"type a URL and we will fetch it"*. Read `platform/httpguard`
-   in full (its own package doc says so explicitly): it is *"the platform's ONE
-   set of **inbound**-abuse primitives for public HTTP endpoints — a trustworthy
-   client key, a banded per-IP limiter, and the honeypot/timing gate for
-   forms."* Nothing in it resolves a URL, checks the target IP, or guards an
-   *outbound* fetch. Confirmed by grep: no `IsPrivate`/`IsLoopback`/`169.254` /
-   SSRF pattern anywhere in `platform/httpguard/` or in the scraper
-   (`internal/adapters/webscrape/adapter.go` — the live outbound-fetch path a
-   domain-intake flow would reuse). **So this is a real, unbuilt gap** — not a
-   question of finding the existing guard, there isn't one. Requires: scheme
-   allow-list, public-IP-only resolution checked *after* DNS resolution (not
-   before — the classic TOCTOU miss), redirect capping, response size cap. Build
-   it as its own thing or add it to `httpguard` under a name that says outbound
-   (e.g. `httpguard/fetchguard.go`) — do not bolt it onto the inbound limiter,
-   which is a different trust direction entirely.
+1. ~~SSRF — checked 2026-07-29, and it is NOT covered.~~ **BUILT AND SHIPPED
+   2026-07-31 — `platform/fetchguard`** (register `DBI-025`, `bugs_open/159`).
+   A sibling package to `httpguard`, covering the mirror direction. Its
+   `NewClient(cfg)` returns an `*http.Client` whose `Transport.DialContext`
+   resolves the target itself and refuses to dial any address that is not
+   publicly routable — checked at the *specific resolved address* about to be
+   dialed, never a pre-resolved hostname, which is what closes the DNS-rebinding
+   TOCTOU gap a naive "check then connect" design leaves open. Redirects re-dial
+   through the same transport, so a redirect to a private target is caught by
+   the identical check automatically. `LimitedRead` caps response size and
+   reports truncation explicitly.
+   **Already wired into a live, in-production call site** —
+   `internal/adapters/webscrape/adapter.go`'s `downloadImage`, which turned out
+   to be a real, shipped SSRF hole: it fetches image URLs taken straight from a
+   *scraped page's own content*, attacker-influenced by construction, with no
+   checks at all. Filed as `bugs_open/159` because it was already live across
+   10 measured agent types, not something this product would have introduced.
+   **What this means for P1/P2:** the guard exists and is proven (own test
+   suite: refuses a real loopback listener, a redirect to one, and a literal
+   metadata-shaped IP; passes a real public-shaped target where the
+   environment allows testing it). Any new fetch this product adds — the
+   domain-intake teaser reading a customer's site, in particular — should
+   construct its client via `fetchguard.NewClient`, not a bare `&http.Client{}`.
+   **Explicitly NOT covered**: a headless browser navigating a URL (Playwright,
+   as `browser-runner-adapter` uses) is a different fetch surface this
+   Go-transport guard cannot see — flagged in the register entry, not silently
+   assumed handled.
 2. **The spend faucet.** A public endpoint that makes model calls is free money
    spent by strangers. **Requires:** per-IP rate limit, per-day global ceiling,
    and a cheap-first ordering so the expensive step happens last. tools-api's
@@ -660,16 +671,18 @@ denominator — its 503 rate could not be honestly quoted at all.
 
 ## 9. Phasing — each phase independently useful, independently stoppable
 
-- **P0 — Decide and measure.** Owner rules §11 (round two done 2026-07-29).
-  **Two of three Fable-5 checks now DONE** (§7b): the call-layer grep came back
-  clean (nothing to fix in `anthropic.go`; two unrelated agents carry
-  `budget_tokens`, neither this lane's), and `httpguard` is confirmed **not**
-  to cover risk 1 (SSRF — §8) — it is inbound-only by its own package doc, so
-  this is a real gap to build, not a question to resolve. Remaining before P1
-  ships: org data-retention check (account-level, not greppable), the SSRF
-  guard itself (first code in this workstream), and one real Fable-5 build
-  measured from `llm_call_log`. *Output: a cost, a price, an SSRF guard, and a
-  go/no-go on Fable.*
+- **P0 — DONE, except the full build measurement.** Owner rules §11 (round two
+  done 2026-07-29). **All three Fable-5 checks closed:** call-layer grep clean
+  (§7b), data retention verified via a live probe — `HTTP 200`, not the
+  retention 400 — and unit pricing confirmed live at $0.01479 for one short
+  call (§7c, explicitly marked a floor, not a build cost). **SSRF built and
+  shipped** — `platform/fetchguard` (§8 item 1), wired into a real production
+  hole it found along the way (`bugs_open/159`), submitted to council
+  (`Council-Submitted: 41bbaca4-25f1-45da-a2c1-28a246a5d07a`). Only remaining
+  P0 item: **one real build, wired through P4/P5, measured end to end** from
+  `llm_call_log` — not answerable until those phases exist. *Everything else
+  P0 was meant to produce — cost floor, retention, price direction, an SSRF
+  guard reusable fleet-wide — is in hand.*
 - **P1 — The shopfront, with nothing behind it.** webdesign.uk on a VM: the
   minimal page, the **LLM chat**, the questionnaire, Stripe in **test mode**,
   orders stored on the box. Nothing builds. **This is the fake-door idea.uk

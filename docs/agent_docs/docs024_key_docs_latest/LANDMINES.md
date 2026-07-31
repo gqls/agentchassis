@@ -592,6 +592,17 @@ source document and the entry points at it.
 
 ### `platform/httpguard` is INBOUND-abuse only — it has no SSRF/outbound-fetch guard
 
+> **CLOSED 2026-07-31 for the one call site that mattered most.**
+> `platform/fetchguard` (register `DBI-025`) is the outbound sibling this entry
+> called for; wired into `internal/adapters/webscrape/adapter.go`'s
+> `downloadImage`, which was a real, live SSRF hole (`bugs_open/159`) — image
+> URLs taken from scraped page content, fetched with no checks at all. **Still
+> open:** `browser-runner-adapter`'s Playwright `page.Goto` navigation is a
+> different fetch surface a Go `http.Transport` guard cannot see — not fixed,
+> flagged. Any *new* code fetching a URL the platform did not choose should
+> use `fetchguard.NewClient`, not reach for `httpguard` or a bare
+> `&http.Client{}`.
+
 - **footprint:** `platform/httpguard`, `internal/adapters/webscrape`
 - **fires when:** building any feature that fetches a user-supplied URL (domain
   intake, scrape-on-demand, "check this site") and reaching for `httpguard`
@@ -779,3 +790,28 @@ source document and the entry points at it.
 - **why it matters more than it looks:** the property it falsely reported missing was the one that `sql_for_agents/268` exists to protect, and the documented remedy for a missing footer note is a chrome regeneration — which would have *actually* deleted it. A false positive here routes you to a destructive fix
 - **source:** hit 2026-07-31 verifying the oufe tool-2 footer rollout
 - **added:** 2026-07-31, oufe lane
+
+### `net/netip`'s classifier methods already handle IPv4-in-IPv6 mapped addresses — don't assume `Unmap()` is required
+
+- **footprint:** `net/netip`, `netip.Addr.IsPrivate`, `IsLinkLocalUnicast`, `IsLoopback`
+- **fires when:** writing an IP-classification check (SSRF guard, allowlist,
+  anything judging whether an address is private/public) and reaching for
+  `.Unmap()` before calling a classifier method, on the assumption that a
+  4-in-6 address like `::ffff:169.254.169.254` needs unwrapping first to be
+  judged correctly
+- **the tell:** none, if you don't test it — it *reads* like the kind of thing
+  that would need explicit handling, and a comment asserting so sounds
+  authoritative. `IsPrivate()`, `IsLinkLocalUnicast()`, `IsLoopback()` etc. all
+  already resolve the wrapped v4 address correctly with **no** unmap step:
+  verified empirically, `IsPubliclyRoutable(mapped) == IsPubliclyRoutable(mapped.Unmap())`
+  for every case tried
+- **the check:** don't take a stdlib method's coverage on faith — write the
+  positive and negative case and run it, exactly as for any other security
+  claim. `Unmap()` still has a real, smaller use: `ip.String()` reads
+  `"169.254.169.254"` rather than `"::ffff:169.254.169.254"` in a log or error
+  message
+- **source:** hit directly writing `platform/fetchguard`, 2026-07-31 — an
+  earlier draft of that package's own code comment claimed unmapping was "the
+  exact bypass" this needed to close; a test proved that false before the
+  comment shipped. `WRONG_CALLS.md` carries the full account
+- **added:** 2026-07-31, webdesign.uk lane
