@@ -225,3 +225,56 @@ Fix committed (`4667db235`, `9bde2aa14`) and **not live**. Per CLAUDE.md's bar �
 until the image ships, and `a5d11c86` reproduced it **today**. What remains is
 the roll, the pod-grep on every replica, then `sql_for_agents/278`. In that
 order, for the reason written at the top of that file.
+
+## 2026-07-31, 19:40 — council APPROVED, and four objections that improved the migration
+
+`10be5ed9` → **APPROVED, 6 advisory objections, none high-severity**, round 1 of
+the valid submission (8 seats ran). Because the config half had **not been
+applied yet**, answering the objections cost nothing — which is an argument for
+submitting the DB half alongside the Go half rather than after it.
+
+**Two objections I could only answer by running a check, and both were right to ask:**
+
+- `editquality` (medium): *the jsonb_set path assumes a specific depth … same
+  shape as a known landmine.* It was **assumed**, not proven. Ran it read-only:
+  the path resolves to `current_item.spec.component_id` at exactly that depth.
+  Verified — and step 1 of the migration now re-asserts it **at apply time**,
+  because the row is shared and mutable and my comment is not evidence.
+- `tooling_provenance` (medium): *mutates `default_config` with a raw UPDATE; the
+  platform has `snapshot_agent()` for exactly this.* Checked — it exists, two
+  overloads. Now used. My first draft's "snapshot" was a `SELECT` whose output
+  lived in my scrollback, which is not a snapshot at all. Same reuse rule the
+  compiler enforced on `uuidPtrString` earlier, caught by a reviewer this time.
+
+**The objection that was sharper than my own answer would have been.**
+`bug_historian` (medium): the Go change exposes **three** columns, the migration
+rewires **one** mapping — so `entity_id`/`affected_url` sit in the "fixed the
+mechanism, forgot the sibling call site" position. I would have replied "zero
+rows carry them, so there is nothing to route". Measuring it properly gave a
+better and less comfortable answer:
+
+| | column set | who reads it |
+|---|---|---|
+| `entity_id` | 0 rows | 1 agent — `asset-deployer`, via `input_data.spec.entity_id` |
+| `affected_url` | 0 rows | nothing |
+
+`asset-deployer` reads the **spec passthrough**, not a dispatcher mapping — so
+the column-first coalesce **cannot reach it at all**, and `build-dispatch-loop`
+maps no `entity_id` in the first place. The first creator to write `entity_id`
+on the column hits this identical bug, and fixing it then takes **two** edits,
+not one. Nothing is broken today (no failing population), so pre-fixing it would
+be the same speculative widening I refused for `page_id` — but **my "close the
+door on the class" claim was too broad and is now narrowed in place** in both
+the register (WDS-014) and `LANDMINES.md`.
+
+**Recorded, not actioned:** `guardian` (medium) — edit 4 should have been
+`operation: config_change` naming the owning pipeline, not `add`; the file now
+states its surface explicitly. `architecture` (medium) — the three new top-level
+keys are a shared wire-shape change to `current_item`, and **no RFC describes
+that map as a contract**; the seat explicitly did not call for a block, and by
+the 2026-07-29 owner ruling an addition that is additive-and-inert (measured: 0
+agents referenced the new path) is not architecture-scope. Its real finding is
+the missing contract doc, which is now the register's open review question.
+
+**No resubmission**: APPROVED with nothing high-severity. The revisions above
+went into the un-applied migration and the two docs, not into a new round.

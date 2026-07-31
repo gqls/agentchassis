@@ -37,9 +37,25 @@ until the image rolls AND the config half is applied.** Workstream docs:
 > `a5d11c86` (column set, `spec={}`) **failed** at 13:21:26 today, one second
 > after the `load_tool` "resolved to nil" line; `265f0c41` (column NULL,
 > `spec.component_id` present) **complete**. All four symptom points `[explained]`.
-> Council `10be5ed9-3bd0-45ed-b6bb-4385a887967d` (round 1 was rejected at
+> **Council `10be5ed9-3bd0-45ed-b6bb-4385a887967d`: APPROVED**, 6 advisory
+> objections, none high-severity, 8 seats. (An earlier attempt was rejected at
 > `persist_submission` for a malformed edit path of mine, before any seat ran —
-> see `WRONG_CALLS.md`; resubmitted under the same correlation).
+> see `WRONG_CALLS.md`; resubmitted under the same correlation.) Four objections
+> landed on the **un-applied** migration and were answered into it: the jsonb
+> path is now asserted at apply time rather than assumed, `snapshot_agent()`
+> replaces a hand-rolled pre-image, and a mechanically-derived pre-flight count
+> runs immediately before the UPDATE.
+>
+> **One objection narrowed this bug's own claim, and it was right.** The Go half
+> exposes THREE columns; the migration rewires ONE mapping — so the class is
+> closed for `component_id` and **not** for `entity_id`/`affected_url`. Measured:
+> both have **0** rows with the column set; `affected_url` is read by nothing and
+> `entity_id` by exactly one agent (`asset-deployer`, via
+> `input_data.spec.entity_id` — the `spec` passthrough, **not** a dispatcher
+> mapping, so the coalesce cannot reach it). Nothing is broken through them
+> today, but the first creator to write `entity_id` on the column hits this
+> identical bug, and the fix then needs TWO edits (add an `entity_id?` mapping
+> **and** repoint `asset-deployer`). Recorded in `LANDMINES.md` + WDS-014.
 >
 > **REMAINING, and the ONLY reason this is still open — ordering is
 > load-bearing:** the coalesce is in the binary, the path that uses it is in the
