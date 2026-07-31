@@ -232,3 +232,24 @@ new cap — rather than merely having a higher ceiling). Deliberately NOT genera
 its "at most 3 objections" clause: budgeting coverage across every council would
 lose real objections invisibly. The shipped block budgets prose and says explicitly
 to cut words, never findings.
+
+### Coordination note — three of today's appends landed under another thread's message
+
+`LANDMINES.md`, `WRONG_CALLS.md` and the concept index's two new rows were committed
+by another session's `84a10e6aa` ("fix(pattern-check): the stdin-eater rule…", 14:08)
+between my writing them and my own commit. **Nothing is lost** — all three appends
+are in HEAD, verified by grepping HEAD's copy of each file — but they are attributed
+to a commit about a different subject, and `git log --oneline -- LANDMINES.md` will
+send a future reader to the wrong thread.
+
+Recorded because CLAUDE.md asks for it explicitly, and because it is another instance
+of the pattern it warns about: committing narrowly stops *me* sweeping *others'* work;
+it cannot stop a session running `git add -A` from sweeping mine. The three files
+involved are all **append-only shared registers**, which is the best possible case for
+this to happen to — concurrent appends merge, so the cost is attribution only. The
+same sweep across a source file would have taken a half-finished edit.
+
+The residual asymmetry worth knowing: my `fix-loop.md` register ENTRIES are in my
+commit `8387a9c44` while the matching `000_concept_index.md` ROWS are in theirs, so
+the register's two halves for FIX-058/059 are split across two commits by two threads.
+Both are present and consistent; only `git log` on either file misleads.
