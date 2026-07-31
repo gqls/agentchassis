@@ -393,6 +393,27 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		zap.String("url", pageURL),
 	)
 
+	// --- 4b. Ask for the nav rebuild the declaration needs (bugs_open/149 A6) ---
+	//
+	// This action records in_header/in_footer above and, until 2026-07-31, wrote
+	// nothing else: no nav row and no request, so a deployed tool waited for a
+	// discovery sweep to notice it was orphaned. Its sibling
+	// create_tool_component did the opposite — hand-wrote a nav row and left the
+	// flags to the schema default. Each did half the job, and neither made the
+	// link ship. Both now do the same whole thing: declare on the page row,
+	// request the rebuild. See nav_rebuild_request.go.
+	if inHeader || inFooter {
+		RequestNavRebuild(ctx, params.DB, NavRebuildRequest{
+			SiteID:      siteID,
+			PageID:      pageID,
+			PageName:    pageName,
+			PageURL:     pageURL,
+			InHeader:    inHeader,
+			InFooter:    inFooter,
+			RequestedBy: "tool-deployer",
+		}, logger)
+	}
+
 	// --- 5. Create page_component linking fork to page ---
 	// Position 2: the tool widget sits between intro content and CTA
 	var pcID uuid.UUID

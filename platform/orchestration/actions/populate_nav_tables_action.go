@@ -330,23 +330,57 @@ func classifyPagesForNav(pages []pageNavInfo, logger *zap.Logger) (primary, lega
 			continue
 		}
 
-		// Child pages (under /tools/, /blog/, /guides/ etc) are skipped entirely.
-		// They shouldn't appear in any nav — the parent listing page represents them.
-		// EXCEPTION: a section-index page (e.g. games-index at /games/index.html) is
-		// the section's PARENT, not one of its children. It sits under the section
-		// prefix but must stay in nav. Keyed on page_type, not URL, so tool/game/
-		// entity-page leaves under the same prefix are still correctly skipped.
-		if isChildPageURL(page.URL) && !isSectionIndexType(page.PageType) {
-			logger.Info("classifyPagesForNav: skipping child page",
-				zap.String("name", page.Name),
-				zap.String("url", page.URL))
-			continue
-		}
+		// A page can be barred from the PRIMARY nav two ways, and until
+		// 2026-07-31 the two were answering different questions:
+		//
+		//   - by page_type   (blog-post, tool, entity-page) — went to utility if
+		//     it had declared a nav flag, i.e. barred from the main menu but still
+		//     reachable from the footer;
+		//   - by URL shape   (/tools/, /blog/, /guides/ …) — `continue`d out
+		//     entirely, before either flag was read.
+		//
+		// The URL-shaped rule ran first, so it decided WHETHER a page appeared at
+		// all, which was never its job. Consequence, measured on 2026-07-31: a
+		// `nav_drift` work item for gamesdesign.co.uk naming four /tools/ pages
+		// completed on 07-29 and all four were still absent from site_nav_items two
+		// days later — while the same check, handler and action repaired
+		// robot-hands.com's /learning-center.html and /news.html, whose only
+		// difference is the URL prefix. nav-updater rebuilds nav then re-renders
+		// chrome, so it had everything it needed except a page to place. See
+		// bugs_open/149 A2 and LANDMINES.md "nav-updater DELETES every nav link
+		// whose URL sits under /tools/ …", found independently by the leopardess
+		// lane the day before.
+		//
+		// So the two notions are one notion — NEVER PRIMARY — and the flags decide
+		// presence for both. The invariant, pinned in nav_membership_test.go:
+		// pages.in_header/in_footer declares nav membership; a page's URL shape may
+		// decide WHERE it appears, never WHETHER it appears.
+		//
+		// EXCEPTION, unchanged: a section-index page (e.g. games-index at
+		// /games/index.html) is the section's PARENT, not one of its children. It
+		// sits under the section prefix but is primary-eligible. Keyed on page_type,
+		// not URL, so tool/blog-post/entity-page leaves under the same prefix are
+		// still correctly barred from primary.
+		neverPrimary := neverPrimaryTypes[page.PageType] ||
+			(isChildPageURL(page.URL) && !isSectionIndexType(page.PageType))
 
-		// Never-primary page types go straight to utility
-		if neverPrimaryTypes[page.PageType] {
-			if page.InFooter || page.InHeader {
+		if neverPrimary {
+			if page.InHeader || page.InFooter {
+				// Barred from the main menu, kept in the footer. Utility is where
+				// the platform already put never-primary types that declared a
+				// flag; child-path pages now land in the same place rather than
+				// being dropped.
 				utility = append(utility, page)
+			} else {
+				// No flag on either side: the page has declared no nav membership,
+				// so leaving it out is the honest answer, not a silent drop. This
+				// is the branch a tool page created with in_header=false takes, and
+				// it is why A3 (nothing keeps a parent listing in sync) is still
+				// open — a page in this branch is reachable only from its listing.
+				logger.Info("classifyPagesForNav: page declares no nav membership, omitted from nav",
+					zap.String("name", page.Name),
+					zap.String("url", page.URL),
+					zap.String("page_type", page.PageType))
 			}
 			continue
 		}

@@ -25,7 +25,6 @@ package actions
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -274,12 +273,25 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 			zap.String("published", toolMeta))
 	}
 
+	// in_header / in_footer are written EXPLICITLY (bugs_open/149 A4's recordable
+	// half). They used to be omitted, so both inherited the column default — which
+	// is TRUE for each — while this action had already computed inHeader/inFooter
+	// from its own step config and used them only to decide whether to touch nav.
+	// A step configured `in_footer: false` therefore produced a row saying
+	// `in_footer = true`: the writer discarded its own decision, and the flag
+	// recorded nothing.
+	//
+	// This is a prerequisite for the classifyPagesForNav fix in the same commit,
+	// not a tidy-up: that fix makes these flags load-bearing — they are what puts
+	// a /tools/ page into the footer nav — so an inherited default would now
+	// silently place pages the config asked to keep out.
 	_, err = params.DB.ExecContext(ctx, `
 		INSERT INTO pages (
 			id, site_id, name, url, title,
-			page_type, status, build_status, nav_order, meta_description
-		) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6)
-	`, pageID, siteID, pageName, pageURL, pageTitle, toolMeta)
+			page_type, status, build_status, nav_order, meta_description,
+			in_header, in_footer
+		) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6, $7, $8)
+	`, pageID, siteID, pageName, pageURL, pageTitle, toolMeta, inHeader, inFooter)
 	if err != nil {
 		// If page creation fails, clean up the component
 		params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
@@ -307,9 +319,25 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		return nil, fmt.Errorf("failed to link component to page: %w", err)
 	}
 
-	// --- Add to nav (if configured) ---
+	// --- Ask for the nav rebuild the declaration needs (bugs_open/149 A6) ---
+	//
+	// This replaced addToolToNav on 2026-07-31. That function hand-wrote a
+	// site_nav_items row into a bespoke `tools` group typed `primary`, i.e. the
+	// header — which the platform's own classifier bars for tool pages ("tier 4,
+	// never primary") and which the next populate_nav_tables run DELETED without
+	// replacing. Two writers of a derived table, one of which cannot express what
+	// the other writes. See nav_rebuild_request.go for the full argument, including
+	// why writing the row here would silence check_orphan_pages.
 	if inHeader || inFooter {
-		addToolToNav(ctx, params.DB, siteID, pageID, displayName, pageURL, navSection, inHeader, inFooter, logger)
+		RequestNavRebuild(ctx, params.DB, NavRebuildRequest{
+			SiteID:      siteID,
+			PageID:      pageID,
+			PageName:    pageName,
+			PageURL:     pageURL,
+			InHeader:    inHeader,
+			InFooter:    inFooter,
+			RequestedBy: "tool-generator",
+		}, logger)
 	}
 
 	// --- Create needs_content_page work item for tool page ---
@@ -457,54 +485,14 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	}, nil
 }
 
-// addToolToNav inserts the tool page into the site's navigation groups.
-// Best-effort — nav failures don't block tool creation.
-//
-// Schema:
-//
-//	site_nav_groups: id, site_id, group_key, group_label, group_type, position
-//	site_nav_items:  id, site_id, group_id, label, url, page_id, item_type, position, status
-func addToolToNav(ctx context.Context, db *sql.DB, siteID, pageID uuid.UUID,
-	label, url, navSection string, inHeader, inFooter bool, logger *zap.Logger) {
-
-	// Find or create the "Tools" nav group
-	// group_key = "tools", group_type = "primary" so it appears in the header
-	var groupID uuid.UUID
-	err := db.QueryRowContext(ctx, `
-		SELECT id FROM site_nav_groups
-		WHERE site_id = $1 AND group_key = 'tools'
-		LIMIT 1
-	`, siteID).Scan(&groupID)
-
-	if err != nil {
-		// Create the group using ON CONFLICT on (site_id, group_key)
-		err = db.QueryRowContext(ctx, `
-			INSERT INTO site_nav_groups (site_id, group_key, group_label, group_type, position)
-			VALUES ($1, 'tools', $2, 'primary', 100)
-			ON CONFLICT (site_id, group_key) DO UPDATE SET
-				group_label = EXCLUDED.group_label,
-				updated_at = NOW()
-			RETURNING id
-		`, siteID, navSection).Scan(&groupID)
-		if err != nil {
-			logger.Warn("Failed to create nav group for tools", zap.Error(err))
-			return
-		}
-	}
-
-	// Add nav item (skip if already exists for this page)
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO site_nav_items (site_id, group_id, label, url, page_id, item_type, position, status)
-		SELECT $1, $2, $3, $4, $5, 'page_link', 100, 'active'
-		WHERE NOT EXISTS (
-			SELECT 1 FROM site_nav_items
-			WHERE site_id = $1 AND group_id = $2 AND page_id = $5
-		)
-	`, siteID, groupID, label, url, pageID)
-	if err != nil {
-		logger.Warn("Failed to add tool to nav", zap.Error(err))
-	}
-}
+// addToolToNav was DELETED on 2026-07-31 (bugs_open/149 A6). It hand-wrote a
+// site_nav_items row into a `tools` group typed `primary` — the header — for a
+// page type the platform's own classifier bars from primary nav, and the next
+// populate_nav_tables run deleted the row without replacing it. Its replacement
+// is RequestNavRebuild (nav_rebuild_request.go): declare membership on the page
+// row, let the one derivation write the nav row, and re-render the chrome that
+// makes the link real. Do not reintroduce a second writer of site_nav_items —
+// that is the defect, not the fix.
 
 // sanitiseFunction ensures function name is valid kebab-case with tool- prefix
 func sanitiseFunction(function string) string {
