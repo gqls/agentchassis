@@ -489,3 +489,81 @@ image ≥ `6d3992213` is built and rolled; until then the six sites above are st
 painting a broken hero and `idea.uk` is still serving a 404 favicon and og-card on every
 page. Close it when the acceptance set at the end of the previous section passes against
 a rolled pod.
+
+---
+
+## CLOSED 2026-07-31 — LIVE on v1.0.1219, pod-verified on both replicas, and PROVEN against live sites
+
+### The image carries the fix, established with a negative control rather than a roll
+
+A roll is not evidence a fix shipped, so the grep asserts three things in one exec — a
+string the change ADDED, the string it REMOVED, and an untouched control:
+
+```
+                                              t7dgn   z84n8
+no active asset deploys to that path            2       2     ← added by this fix
+render with no image source                     1       1     ← added by this fix
+site_components scan failed                     1       1     ← the chrome surface
+Pages reference unknown image                   0       0     ← REMOVED: old code is gone
+Pages reference fallback                        1       1     ← control: sibling check intact
+```
+
+The zero is the load-bearing line: new code being present would not, on its own, rule out
+the old predicate still being there beside it.
+
+### Behaviour proven on live sites, not inferred from the binary
+
+Fired `design-discovery-agent` at `vonc.com` (`34c0ce39`) and `idea.uk` (`1f23e3e2`); both
+COMPLETED. Items filed:
+
+| site | item_key | severity | kind | surface | handler |
+|---|---|---|---|---|---|
+| idea.uk | `image_url_404:favicon.png` | high | unbacked_path | **chrome** | *(none)* |
+| idea.uk | `image_url_404:og-card.png` | high | unbacked_path | **chrome** | *(none)* |
+| idea.uk | `image_url_404:hero.jpg` | medium | unbacked_path | page | *(none)* |
+| vonc.com | `image_url_404:hero.jpg` | medium | unbacked_path | page | *(none)* |
+
+Against the acceptance set:
+
+1. **`vonc.com/assets/images/hero.jpg` — REPORTED.** This is the bug. It was masked by
+   vonc's own six `hero`-purpose assets and no sweep could surface it. ✓
+2. **`idea.uk` favicon.png + og-card.png — REPORTED, severity `high`, surface `chrome`.**
+   The surface that did not exist before; both 404 on every page of the site. ✓
+3. **Every item is flag-only** (`handler_agent` empty). The de-duplication invariant
+   against `check_placeholder_image_in_use` holds in production, not just in the test. ✓
+4. **Item keys carry the extension.** ✓
+5. **The negative half, which is the half that condemned the old check:** 19 rendered page
+   paths were scanned across the two sites and **2 were reported** — both genuine live
+   404s. The other 17 all serve 200 and the check was silent on every one. No `empty-src`
+   item on either site, correctly: the three live empty `<img>` tags are on
+   `ai-agent-orchestration.com` and `finetuning.uk`.
+
+### Status: FIXED, LIVE, PROVEN → `bugs_closed/`
+
+Commits `beff42809` (fix + 10 tests), `6d3992213` (the drift audit the council asked
+for), `b51e4879d` (docs). Live in `v1.0.1219`.
+
+**One thing is still owed and it is not a defect in the fix.** The council verdict of
+record is round 1's **REVISE**; round 2 answered both objections but could not sit,
+because the panel hit the API cap until 2026-08-01 00:00 UTC (`bugs_open/130`). Both
+commits carry `Council-Submitted:`, which asserts nothing, and `098` credits them
+automatically when a verdict lands. **Resubmit `submission_128_r2.json` with
+`RESUBMIT_CORR=99dca96a-413a-4bcb-b278-9577f920786d` after the cap lifts** — the lane's
+NOTES carries the command. Closing the bug on proven behaviour rather than holding it for
+a review that cannot run is the right way round; the review is owed on the *change*, and
+it is tracked.
+
+### Left deliberately for someone else
+
+- **Nine stale `detected` rows** under the old extension-less key: five `finetuning.uk`
+  `case-study-*` (still true 404s, will re-file under the new key), one
+  `fundamentallyai.com` `brand-illustration` and three `robot-hands.com`
+  `content-hero-tool-*` — **those four were the old predicate's false positives and can be
+  cancelled outright.** Not touched here: `bugs_open/083`'s lane is actively working the
+  `detected` population and cancelling rows underneath it would be rude and confusing.
+- **The `storage.DeployedWebPath` durable fix.** A *new* purpose containing an underscore,
+  stored with `asset_key == purpose`, would still be mis-rendered by the helper. The audit
+  proves that set is empty today over all 267 active rows; it cannot prove it for assets
+  that do not exist yet. That fix belongs in `platform/storage` with five other consumers
+  — architecture-scope, the shape `bugs_closed/124` was vetoed for — so it is named in the
+  round-2 submission's risks and in `LANDMINES.md`, not smuggled in here.
