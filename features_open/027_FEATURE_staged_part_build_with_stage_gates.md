@@ -3,6 +3,15 @@
 **Raised:** 2026-07-30, owner, to the `fundamentallyai.com 4` session
 (`brochure_component_library` lane), after the `teaser-reveal-panel` carousel took five
 rounds and the fifth found a bug present since the first.
+> **SCOPE CUT 2026-07-31 (owner ruling, PLAN D8): EIGHT GATES → THREE.** The eight-stage
+> ladder stays as a **checklist**, not machinery. Built machinery is limited to: the claim
+> written before the build; verification through the visitor's real gesture; and every
+> check proven able to fail (a mutant counts only if the artefact provably changed).
+> Decisive reason: **two of the eight gates were wrong on first contact with reality and
+> one would have BLOCKED a correct build** — see `SUMMARY_2026-07-31_we_cut_the_ladder_down.md`.
+> **First item is now `CHECK_naming_contract.sh`, not the substrate work** — it currently
+> FAILS with 2 tools carrying a fence that can never run, one of them ours.
+
 **Status:** **ADOPTED 2026-07-30 — OWNED by the `brochure_component_library` lane**
 (owner: *"This provenance and ladder project is now this lane's project"*). Designed,
 nothing built yet; the blocking unknown is resolved. ~~Owner wants the work done in a

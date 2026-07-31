@@ -43,6 +43,29 @@ in order, with commits. Part 2 is the proposal, and it is *derived* from Part 1 
 than imported from theory — every stage in the proposed ladder exists because Part 1
 shows a stage where something was either caught or missed.
 
+> ## ⚠ SUPERSEDED IN SCOPE 2026-07-31 — read this before building anything from Part 2
+>
+> **The owner cut the ladder from eight gates to three** (PLAN **D8**), and this document
+> was NOT rewritten, deliberately: what it argued and how that survived contact is the
+> useful record. Treat Part 2's eight stages as **a checklist to read and ignore where it
+> does not fit**, not a build spec.
+>
+> **Machinery is being built for three things only:** the claim written before the build;
+> verification through the visitor's real gesture; and every check proven able to fail
+> (including *a mutant counts only if the artefact provably changed*).
+>
+> **Why**, in one line each, all evidenced below or in the REPLY: the mutation harness cost
+> the first forward-run lane ~40 minutes and found nothing in their product · S0 was "a
+> five-minute grep that prevented nothing" · S7 cannot be completed while `bugs_open/157`
+> is open · and decisively, **two of these eight gates were wrong on first contact and S4
+> would have BLOCKED a correct build.** Eight gates is eight chances to be confidently
+> wrong at someone else's expense.
+>
+> **The current plan of record is the PLAN's D8 and phasing**, and the first item is not in
+> this document at all: the three-way naming-contract check (`CHECK_naming_contract.sh`),
+> because until it passes every other gate's green is untrustworthy.
+> Plain-prose account: `SUMMARY_2026-07-31_we_cut_the_ladder_down.md`.
+
 ---
 
 # PART 1 — the carousel, step by step, as it actually happened

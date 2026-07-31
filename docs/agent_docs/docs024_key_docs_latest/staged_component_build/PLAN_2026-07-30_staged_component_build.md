@@ -98,6 +98,30 @@ using a LONG marker.** Go compiles short string literals to immediate comparison
 never reach rodata, so `grep -ac "selector_count"` returns 0 on a binary that fully
 supports it. A negative from a short marker is worthless.
 
+**D8 — OWNER RULING 2026-07-31: THE LADDER IS CUT FROM EIGHT GATES TO THREE.**
+The owner asked whether the ladder was worth it. The honest answer was *yes, but much
+less of it than proposed*, and he accepted that. **S0–S7 remain as a written checklist a
+builder reads and ignores where it does not fit** — which is exactly what the leopardess
+lane did, correctly, twice. **Machinery gets built for three things only:**
+
+1. **the claim written before the build** (S1) — both lanes found this changes what gets
+   built, and it is the cheapest of the three;
+2. **verification through the visitor's real gesture** (S6) — the only stage that catches
+   a class nothing else does, and it costs 48 seconds to fire;
+3. **every check proven able to fail** (the S2 discipline, not the S2 harness) — including
+   the sub-rule that a mutant counts only if the artefact provably changed.
+
+*Reason, and it is evidence not taste:* the mutation harness cost the forward-run lane
+~40 minutes and **found nothing in their actual product**; S0 was "a five-minute grep that
+prevented nothing"; S7 cannot be completed while `bugs_open/157` is open. Decisive:
+**two of my eight gates were wrong on first contact with reality, and S4 would have
+BLOCKED a correct build.** Eight gates is eight chances to be confidently wrong at
+someone else's expense, and `bugs_open/149` is the measured precedent for checkers
+multiplying until 22 agents are configured and 2 run anything.
+
+*What this does NOT mean:* the discarded stages are not disproved, they are unfunded.
+Any of them may return **with evidence** — a case where its absence cost something real.
+
 ## Phasing
 
 **P0 — adoption and design (this session).** Standing five created; the blocking

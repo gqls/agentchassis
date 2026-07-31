@@ -541,3 +541,68 @@ was wrong — which is the day's whole theme, four times over.
   component PLAN back **through `load_doc_context`** and confirm `docSubjectGateReason` no
   longer returns `unsupported subject_type`. Until that has been watched, the Go gate is
   verified only by build date, which all three seats correctly called insufficient.
+
+## 2026-07-31 — the ladder is CUT to three gates (owner ruling), and the first one is built
+
+Owner asked whether the ladder was worth it. Answer given: **yes, but much less of it than
+I proposed** — accepted. Recorded as **PLAN D8**; the PROPOSAL carries a superseded-in-scope
+banner rather than a rewrite, because what it argued and how that survived contact is the
+record; `features_open/027` carries the same banner; plain-prose in
+`SUMMARY_2026-07-31_we_cut_the_ladder_down.md`.
+
+**Kept as machinery (3):** the claim written before the build; verification through the
+visitor's real gesture; every check proven able to fail (incl. *a mutant counts only if the
+artefact provably changed*). **Kept as checklist only (the rest).**
+
+**The reasoning, so it is not re-litigated from taste:** the mutation harness cost the
+forward-run lane ~40 minutes and **found nothing in their actual product** — they would
+keep it, but their stated reason was that authoring it *forced the cross-file check*, which
+is an argument for the discipline, not the machinery. S0 was "a five-minute grep that
+prevented nothing". S7 cannot be finished while `bugs_open/157` is open. **Decisive: two of
+my eight gates were wrong on first contact and S4 would have BLOCKED a correct build.**
+`bugs_open/149` is the measured precedent for what happens next if you keep adding gates.
+**The discarded stages are unfunded, not disproved** — any may return with evidence that
+its absence cost something.
+
+### Built the first surviving item: `CHECK_naming_contract.sh`
+
+It outranks even the substrate work, because a mismatch makes a fired run **skip and read
+as clean**, so every other gate's green is untrustworthy until it passes.
+
+**Measured on my OWN scoping rather than inheriting the other lane's figure**, and the
+script says so in its own output. 28 canonical tool components
+(`component_level='tool'`, `is_active`, `forked_from IS NULL`):
+
+| state | n |
+|---|---|
+| testable now (fence + resolvable page) | 8 |
+| authoring backlog (page fine, no fence) | 10 |
+| neither | 8 |
+| **BROKEN — fence exists, page unresolvable** | **2** |
+
+**My 2 is not the other lane's 6, and neither is wrong** — they counted *hosted tools per
+site*, I counted *tool components*. The script carries a denominator note saying exactly
+that, because this figure has now been quoted two ways inside 24 hours.
+
+**One of the two broken is ours.** `tool-review-council-simulator` has a fence; its page is
+`review-council-simulator` on fundamentallyai.com. The resolver is
+`name IN ($2, 'tool-' || $2)` (`tool_acceptance_actions.go:142`), so it looks for
+`tool-review-council-simulator` or `tool-tool-…` and matches neither — **it has never once
+been acceptance-testable.** Remedy printed by the script; the rename is safe because the
+deployed filename derives from `pages.url`. The other, `tool-arena-interface`, has **no
+page under either name** — an orphaned component, a different defect, and the script says
+do not rename it.
+
+### The check found a bug in ITSELF on its first run — sixth instance in two days
+
+It printed **`RESULT: FAIL — 2 tool(s)`** while listing only **one**. Cause:
+`kubectl exec -i` inside a `while read` loop **reads the loop's stdin**, swallowing the
+here-string, so the loop ended after one row. **Under-reporting is the worst direction for
+a detector — a shorter list looks like better news.**
+
+It was caught *only* because the summary count is computed separately from the list, i.e.
+this lane's own "print the count you measured" rule catching this lane's own bug. Fixed
+with `mapfile`, plus a permanent self-check that shouts if listed ≠ counted. That is now
+six instances in two days of the one class the whole ladder exists to defeat, and it is the
+strongest argument for keeping the three gates we kept — and for not trusting the ones we
+cut to have been any better.
