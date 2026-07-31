@@ -499,3 +499,16 @@ chose `CloudflareTunnel()` over the `Nginx()` front end that reads like the obvi
 would have resolved to **the same constant** — i.e. a fix that changes nothing measurable.
 That trap is the entire reason `ClientIP` takes a required `FrontEnd`, and it is the first
 time the seam has been load-bearing for a real caller.
+
+> **CORRECTION 2026-07-31, about the closing commit rather than about this bug.** The commit
+> that closed this file (`e726c2da6`) carries `Council-Reviewed: e053fac4…`, and **it should
+> not.** Two reasons: I had read that verdict only through the prose above when I wrote the
+> trailer (I read the row itself afterwards — round 1 `complete_revise` 07-30 19:12Z, round 2
+> `complete_approved` 07-31 08:15Z, so the *substance* was right by luck), and more
+> importantly that correlation is the **fixing lane's submission for their own Go change**,
+> not a review of my docs-only close. The trailer exists to make the commit↔verdict join
+> exact and this makes it wrong. Forward-only forbids an amend, so the trailer stands in
+> history and this note is the correction; logged in `WRONG_CALLS.md`.
+> **The reusable bit: closing another lane's fix leaves you with NO trailer available, and
+> that is the honest state — cite their correlation as attribution in the body, where it
+> asserts nothing.** The verdict itself is sound and is theirs.
