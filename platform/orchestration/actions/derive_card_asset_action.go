@@ -111,8 +111,15 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 	// ── The card's asset_key IS its artefact's identity: the repo path below and
 	// the provenance upsert both derive from it, so it is what the lock is read
 	// against. Computed here (not at the commit) because the lock decides
-	// whether any of the work that follows should happen at all. ──
-	cardKey := "card_" + strings.ReplaceAll(pageName, "-", "_")
+	// whether any of the work that follows should happen at all.
+	//
+	// Via contentCardKey, not inline, answering the council's edit-2 objection
+	// (corr b5ff41f1, editquality low): a lock pre-check that computes the key
+	// even slightly differently from the write would query the wrong row and
+	// block nothing, silently. One function, asserted in test to be the key both
+	// the guard and the repo path use, is what makes that divergence impossible
+	// rather than merely unlikely. ──
+	cardKey := contentCardKey(pageName)
 
 	// ── A locked row is an owner approval — honour it BEFORE the git commit
 	// (bugs_open/143). The upsert's own `WHERE assets.locked_at IS NULL` below
@@ -260,6 +267,17 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 		result["reason"] = "card artefact was committed, then the provenance write was blocked by a lock taken mid-derivation — the committed file and the assets row now disagree and need reconciling"
 	}
 	return result, nil
+}
+
+// contentCardKey is the asset_key convention for a page's derived card, and the
+// SINGLE definition of it. Three things must agree on this string — the lock
+// pre-check, the repo path (via storage.AssetKeyFilename) and the provenance
+// upsert's ON CONFLICT (site_id, asset_key) target — and if the guard's copy ever
+// drifts from the writers' it queries a row nobody writes and blocks nothing,
+// with no error and no tell. Live shape confirmed 2026-07-31: all 13 card rows
+// carry exactly this form.
+func contentCardKey(pageName string) string {
+	return "card_" + strings.ReplaceAll(pageName, "-", "_")
 }
 
 // findCardSourceHero locates the active hero asset a card derives from, in

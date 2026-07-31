@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
+	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
 )
 
@@ -136,7 +137,12 @@ func TestDeriveCardAssetLockedRefusesBeforeAnyWrite(t *testing.T) {
 	mock.ExpectQuery("FROM pages p JOIN sites s").
 		WillReturnRows(sqlmock.NewRows([]string{"name", "domain"}).
 			AddRow("about-us", "example.com"))
+	// WithArgs pins the KEY the guard asks about, not merely that it asked. A
+	// pre-check that computed the key differently from the writers would query a
+	// row nobody writes, find nothing, and wave the derivation through — silently.
+	// (Council corr b5ff41f1, editquality edit-2, low.)
 	mock.ExpectQuery("SELECT DISTINCT ON \\(asset_key\\)").
+		WithArgs(sqlmock.AnyArg(), `{"card_about_us"}`).
 		WillReturnRows(sqlmock.NewRows([]string{"asset_key", "locked_by", "lock_type", "locked_at"}).
 			AddRow("card_about_us", "admin", "permanent", time.Now()))
 
@@ -210,6 +216,34 @@ func TestDeriveCardAssetUnlockedProceedsPastTheGuard(t *testing.T) {
 	}
 	if reason, _ := m["reason"].(string); !strings.Contains(reason, "hero") {
 		t.Fatalf("expected to reach the hero lookup past the guard, got %#v", m)
+	}
+}
+
+// The guard, the repo path and the upsert target must be ONE string. This is the
+// structural half of the council's edit-2 objection: the WithArgs assertion above
+// proves the guard asks about the right key today, and this proves the key it asks
+// about is the same one the artefact is written under — so a future edit cannot
+// make the two drift without going red.
+func TestCardKeyIsSharedByTheGuardAndTheArtefactPath(t *testing.T) {
+	for _, page := range []string{"about-us", "tool-matchmatrix", "learning-center-post", "news"} {
+		key := contentCardKey(page)
+
+		// The repo path the commit writes, and the web path the row records, are
+		// both derived from this key — not from pageName, and not recomputed.
+		repoPath := storage.DefaultAssetBasePath + "/" + storage.AssetKeyFilename(key, ".jpg")
+		if !strings.Contains(repoPath, storage.AssetKeyFilename(key, ".jpg")) {
+			t.Fatalf("repo path %q is not derived from the guarded key %q", repoPath, key)
+		}
+		if web := storage.DeployedWebPath(key, "card"); web == "" {
+			t.Fatalf("web path for guarded key %q is empty — the row would record nothing", key)
+		}
+
+		// The live convention (all 13 card rows, 2026-07-31): card_<page> with
+		// hyphens as underscores. A change here is a change to which row the lock
+		// protects, so it must be deliberate.
+		if !strings.HasPrefix(key, "card_") || strings.Contains(key, "-") {
+			t.Errorf("contentCardKey(%q) = %q — breaks the live card_<page_with_underscores> convention", page, key)
+		}
 	}
 }
 
