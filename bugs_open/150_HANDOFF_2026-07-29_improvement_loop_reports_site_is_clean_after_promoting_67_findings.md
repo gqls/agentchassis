@@ -271,3 +271,56 @@ Commit `337fdd9af` is timestamped 22:20:56; `v1.0.1223` was built from an earlie
 control (`TriageDetectedItemsAction: Starting`) is 1 on both replicas, so the grep works and
 the binary is the one being read — the change is simply not in it. **Do not read a tag bump
 as this fix shipping; re-run the two-number grep in § "What is owed".**
+
+### Council verdict — **APPROVED**, `757cc7be-8551-4e43-9d1e-705b0977be1d`
+
+*"approved with 8 advisory objection(s) — none high-severity"*, 12 seats, 4 abstained.
+`architecture` recorded `ARCHITECTURE_SIGNAL: needs_rfc` while recommending the patch
+proceed. **Four objections were checkable claims rather than opinions. All four were
+checked, read-only, and all four resolve in the change's favour** — answered inline in
+migration 281's header so the answer sits where the next reader will be:
+
+| seat | objection | checked |
+|---|---|---|
+| `editquality` | if the three callers promote to **different pipelines**, the count under-counts exactly what the fix exists to catch | **all three leave `target_pipeline` UNSET** → all take the Go default `build`. Would have been fatal; it is not. Live again if a future caller ever sets it |
+| `editquality` | the jsonb path is asserted, not verified | `#>> '{workflow,steps,check_has_findings,config,condition}'` → `triage_result.has_items == true`. Resolves at exactly that depth |
+| `debug_historian` | `snapshot_agent` has two overloads writing to two tables — pin which | both exist; 281 calls the 2-arg form, which copies the live row into **`agent_definitions_backup`** with `snapshot_taken_at`/`snapshot_reason`. A real, retrievable backup |
+| `guidelines` | `site_dispatchable` needs an `output_contract` declaration | the seat named its own escape clause. **0** live definitions declare `has_items` either — an unenforced convention, not a plan defect. Recorded as the stale-rule finding it asked for |
+
+**Acted on, not merely noted:**
+
+- **`guardian` (low) — three independent copies of the dispatchable status list, nothing
+  enforcing lockstep.** Added `TestDispatchableStatusesStayInLockstepWithTheDispatcher`:
+  it reads `claim_work_item_action.go` and `load_work_item_actions.go` and fails if either
+  no longer carries a `status IN (…)` matching `workItemDispatchableStatuses`
+  (whitespace-insensitive). Deliberately a drift *alarm* rather than a shared constant —
+  making it shared means editing the fleet's dispatch query as a side effect of a bug fix
+  in another file, which is the trade being refused.
+- **`bug_historian` — the two named-but-unfixed exposures should be tickets, not
+  footnotes.** Both now are: `bugs_open/171` for the `check_audit_pass_limit` route, and
+  `architecture_review/RFC_006` for the class (opened at the `architecture` seat's explicit
+  recommendation).
+- **`tooling_provenance` — leave a `doc_notes` entry for the next person on this shared
+  step.** Added as a LANDMINES entry (footprint `triage_detect_items_action.go` + the three
+  agent rows), which `landmines-sync.py --apply` writes into `doc_notes`.
+- **`bug_historian`'s second "missing" — no audit of whether the other two callers branch
+  on `has_items` themselves.** It was done before the fix and not stated in the submission,
+  which is the fair criticism: **`design-audit-agent.triage` and `site-review-agent.triage`
+  both go straight to `complete`** — neither has a branch, so neither is exposed to the
+  pre-emption race today. The four live `has_items` conditions are all in other agents.
+- **`prior_art_librarian` — show the count helper is not duplicating an existing one.**
+  Checked: the only other `count(*) FROM site_work_items` in Go are per-component dedup
+  guards in `check_truncated_component.go` and `check_component_template_corrupted.go`
+  (`item_type` + `spec->>'component_id'` + non-terminal). Different question, different
+  scope. Worth noting they inline the terminal-status list as a literal instead of using
+  `workItemTerminalStatuses` — a pre-existing instance of the drift the `guardian` seat was
+  objecting about, not created here.
+
+**Left as disclosed trades, deliberately:** `guardian`'s "the count runs on two pipelines
+that get no benefit" (one indexed `count(*)` per triage invocation, on a step that runs a
+handful of times a day) and `improvement_guardian`'s "the closing rerender will now fire
+more often, including on sites whose items are permanently stuck" — which is the trade this
+fix exists to make, and is stated as risk 2 in the submission.
+
+The commits carry `Council-Submitted:` rather than `Council-Reviewed:`, which is correct and
+deliberate: they predate the verdict, and `098` resolves the correlation at report time.

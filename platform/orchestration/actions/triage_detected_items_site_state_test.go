@@ -21,6 +21,9 @@ package actions
 import (
 	"context"
 	"errors"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -160,7 +163,7 @@ func TestTriageFailsTowardNotCleanWhenTheCountErrors(t *testing.T) {
 }
 
 // TestImprovementLoopConditionReadsTheSiteScopedField pins the exact literal
-// that migration 279 writes into improvement-loop.check_has_findings against
+// that migration 281 writes into improvement-loop.check_has_findings against
 // the exact shape this action returns. Config lives in the database and code
 // lives in the image; nothing else makes them fail together when they drift.
 func TestImprovementLoopConditionReadsTheSiteScopedField(t *testing.T) {
@@ -213,7 +216,7 @@ func TestImprovementLoopConditionReadsTheSiteScopedField(t *testing.T) {
 }
 
 // TestConditionOnAPreUpgradeBinaryDoesNotSilentlyInvert is the ordering guard.
-// Migration 279 must not be applied before the image ships: on a binary with no
+// Migration 281 must not be applied before the image ships: on a binary with no
 // site_dispatchable key the field resolves to nil and the loop takes the clean
 // branch every time. Pinning it here makes the ordering rule a property of the
 // code rather than a sentence in a SQL header.
@@ -235,4 +238,56 @@ func TestConditionOnAPreUpgradeBinaryDoesNotSilentlyInvert(t *testing.T) {
 	// It is false, i.e. the loop would report clean on a site with work —
 	// which is exactly today's bug, and exactly why the migration carries an
 	// ORDER IS LOAD-BEARING banner and a pod-grep gate.
+}
+
+// TestDispatchableStatusesStayInLockstepWithTheDispatcher answers the council's
+// `guardian` seat (low): workItemDispatchableStatuses is a THIRD literal of a
+// status list that already exists in claim_work_item_action.go and
+// load_work_item_actions.go, and "the plan admits these must stay in lockstep
+// but there is no shared constant enforcing it".
+//
+// Making it a genuinely shared constant would mean editing the fleet's dispatch
+// query — the highest-blast-radius SQL in the platform — as a side effect of a
+// bug fix in a different file, which is the trade this test refuses. Instead it
+// is the alarm: if either sibling's status set changes, this fails and names the
+// file, in the same spirit as the workItemTerminalStatuses / idx_swi_dedup note
+// those constants already carry.
+func TestDispatchableStatusesStayInLockstepWithTheDispatcher(t *testing.T) {
+	// What the shared constant produces, normalised the way SQL would be read.
+	want := normaliseSQLStatusList(sqlInList(workItemDispatchableStatuses))
+
+	// `status IN ( … )` — whitespace-insensitive, so a reformat does not fail it.
+	inClause := regexp.MustCompile(`(?i)status\s+IN\s*\(([^)]*)\)`)
+
+	for _, sibling := range []string{
+		"claim_work_item_action.go", // the atomic claim's guard
+		"load_work_item_actions.go", // the dispatcher's selection query
+	} {
+		src, err := os.ReadFile(sibling)
+		if err != nil {
+			t.Fatalf("cannot read %s: %v", sibling, err)
+		}
+
+		var found bool
+		for _, m := range inClause.FindAllStringSubmatch(string(src), -1) {
+			if normaliseSQLStatusList(m[1]) == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("%s no longer contains a `status IN (%s)` clause.\n"+
+				"Either that file's dispatchable set changed and workItemDispatchableStatuses "+
+				"must follow it, or this constant changed and that file must. They are one "+
+				"contract: a drift here does not error at runtime, it silently changes what "+
+				"\"this site has work waiting\" means (bugs_open/150).", sibling, want)
+		}
+	}
+}
+
+// normaliseSQLStatusList reduces "'triaged', 'approved'" and "'triaged','approved'"
+// to one comparable form. Order is preserved deliberately — a reordering is a
+// change worth a human look, and the lists are two entries long.
+func normaliseSQLStatusList(s string) string {
+	return strings.Join(strings.Fields(strings.ReplaceAll(s, ",", " , ")), " ")
 }

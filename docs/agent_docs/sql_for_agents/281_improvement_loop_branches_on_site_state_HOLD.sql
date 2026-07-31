@@ -88,6 +88,62 @@
 --
 -- SURFACE: this is a CONFIG_CHANGE to the owning pipeline **improvement-loop**,
 -- delivered as a migration.
+--
+-- ── COUNCIL: APPROVED, correlation 757cc7be-8551-4e43-9d1e-705b0977be1d
+--    ("approved with 8 advisory objection(s) — none high-severity"). Four of the
+--    objections were checkable claims rather than opinions. Checked, all four,
+--    read-only against the live system 2026-07-31, and answered here rather than
+--    in a reply nobody will read — it cost nothing because this had not been
+--    applied yet. ──
+--
+-- [SEAT editquality, medium] "if `pipeline` differs per promoting agent, the count
+-- silently under-counts exactly the items the fix exists to catch." The sharpest
+-- objection of the round, and it would have been fatal. VERIFIED — all three
+-- callers leave `target_pipeline` UNSET, so all three take the Go default
+-- `"build"`:
+--     design-audit-agent / triage          -> (unset -> build)
+--     improvement-loop   / triage_findings -> (unset -> build)
+--     site-review-agent  / triage          -> (unset -> build)
+-- (Corroborated independently by `TriageDetectedItemsInputSpec`'s own comment:
+--  `target_pipeline` is set by ZERO definitions fleet-wide.) So every promoted
+-- row lands on `pipeline='build'` and the count sees all of them. **If a future
+-- caller ever sets `target_pipeline`, this objection becomes live again** — the
+-- count is per-pipeline by construction.
+--
+-- [SEAT editquality, medium] "the jsonb path is asserted, not verified against the
+-- live row; a wrong path makes the guarded UPDATE a silent no-op forever."
+-- VERIFIED read-only 2026-07-31:
+--     SELECT default_config #>> '{workflow,steps,check_has_findings,config,condition}' …
+--     -> 'triage_result.has_items == true'
+-- The path resolves at exactly this depth, and STEP 1 below re-asserts it at APPLY
+-- time on the same path rather than trusting this comment, because the row is
+-- shared and mutable.
+--
+-- [SEAT debug_historian, medium] "`snapshot_agent` has TWO overloads writing to TWO
+-- different tables; pin which one runs, or the backup may not be retrievable."
+-- VERIFIED: both overloads exist — `snapshot_agent(text) -> uuid` and
+-- `snapshot_agent(text, text) -> uuid`. **This file calls the 2-arg form**, whose
+-- body copies the live row into **`agent_definitions_backup`** with
+-- `snapshot_taken_at` / `snapshot_reason` ("a true point-in-time copy"). It does
+-- NOT write an `is_snapshot` row in `agent_definitions`. Retrieve with:
+--     SELECT snapshot_taken_at, snapshot_reason,
+--            default_config #>> '{workflow,steps,check_has_findings,config,condition}'
+--     FROM agent_definitions_backup WHERE type='improvement-loop'
+--     ORDER BY snapshot_taken_at DESC LIMIT 1;
+--
+-- [SEAT guidelines, medium] "site_dispatchable is read by a workflow step, so
+-- DECLARED CONTRACTS requires an output_contract declaration." The seat named its
+-- own escape clause: *"if has_items itself was never declared, treat this as
+-- exposing a stale convention rather than a plan defect."* MEASURED: **0** live
+-- agent definitions declare `has_items` in an `output_contract` — so the
+-- convention is unenforced for the existing key too. Recorded as the stale-rule
+-- finding the seat asked for, not silently ignored.
+--
+-- [SEAT editquality, medium] "no concrete trigger, gate or owner for when 281 gets
+-- applied." Answered structurally after submission: the filename now ends `_HOLD`
+-- so the runner cannot take it (see the block above), the two commands to apply it
+-- by hand are in this header, and `bugs_open/150` § "What is owed" carries both
+-- steps in order. The bug stays OPEN until they are done, which is the owner.
 
 BEGIN;
 
