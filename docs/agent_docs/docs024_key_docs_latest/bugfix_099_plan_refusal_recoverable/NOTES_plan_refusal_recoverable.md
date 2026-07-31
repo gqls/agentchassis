@@ -467,3 +467,86 @@ all edits kept, and `max_stages` 6 leaves room. That is the induction to use, an
 fires whenever any stage carries ≥2 edits (two of the last three plans did; this run's
 s1 had 2 edits across two DISTINCT files, so splitting cannot trip the
 one-edit-per-file rule either).
+
+## 2026-07-31 — THE REPAIR BRANCH FIRED LIVE, and then taught me something
+
+Run 3, corr `54e57db8`, orch `2a1a4e84`, with `max_edits=1` armed (`max_stages`
+restored to 6 first). Trail:
+
+```
+load_spec > check_spec_approved > load_schema_hint > design > persist_plan
+  > check_plan_valid > repair_plan
+```
+
+**Every stage of the mechanism worked, live:**
+
+- the refusal note was written, naming exactly the induced problem:
+  `["stage s1: 2 edits exceeds the per-stage cap 1"]`, `shape: staged plan`,
+  `problem_count: 1`;
+- its `body` holds the **full 10,488-byte, 2-stage design** — the plan that, before
+  this fix, would have been destroyed with no trace;
+- the operator record was written:
+  `Fix plan refused (staged plan): 1 structural problem(s), attempt 1 of 1 — routed to
+  repair`, severity `warning`, `repair_attempt 1`, `exhausted false`;
+- `check_plan_valid` evaluated false and routed to `repair_plan`.
+
+### …and then the run died anyway, for a reason I had ruled out of scope
+
+Final state `complete_refused`, **0 `fix_plan` artifacts**, and only **one** refusal
+note — so `persist_plan` was never reached a second time as a *structural* refusal.
+`error` was NULL, as this bug's own landmine says it would be. The reason was in
+`__step_error`:
+
+```
+step persist_plan failed: … plan does not match the staged-plan schema:
+json: cannot unmarshal array into Go struct field fixPlanEdit.stages.edits.file
+of type string
+```
+
+The repair **ran and produced a plan**. Told to split a 2-edit stage, the model
+emitted `"file": [...]` — an array where the schema wants a string. That hit the
+schema-mismatch branch, which I had deliberately made terminal.
+
+**So the loop preserved the design, recorded it, handed it back — and then lost the
+run anyway, having spent the repair budget.** The mechanism was right; my scope
+boundary was wrong.
+
+### The scope boundary was wrong, and the evidence is the first live round
+
+I had lumped *schema mismatch* in with *truncation*, on the reasoning that both are
+"malformed output". They are not the same failure:
+
+| | JSON valid? | cause | retry sane? |
+|---|---|---|---|
+| truncation (`!json.Valid`) | **no** | hit `max_tokens` mid-token | **no** — a token-budget fault; retrying is the `bugs_open/012`/`138` trap |
+| schema mismatch | **yes** | model used the wrong shape for a field | **yes** — mechanical, and the unmarshal error names the offending field |
+
+Widened accordingly: well-formed-but-wrong-shape now routes to repair with the
+unmarshal error as the problem text (so the prompt is told *which field*), while
+truncation stays terminal, unchanged. The two tests are deliberately a pair —
+`TruncatedJSONStaysTerminal` and `SchemaMismatchIsRepairable`, same action, same
+config, opposite directions — plus one asserting the widening is invisible when
+`repair_step` is unset.
+
+**This is the value of insisting on a live failing-branch test.** All 15 unit tests
+passed before this run; the boundary they encoded was my own assumption, so no test
+could have caught it. It took one real repair round to show that the single most
+likely repair failure was the one class I had excluded.
+
+### Also caught: the operator row had an empty `orchestration_id`
+
+The `agent_error_log` row wrote with `orchestration_id` blank — the correlation was in
+`context`, but the column every other query joins on was empty. Now populated.
+(Schema note for the runbook: that table's timestamp is **`occurred_at`**, not
+`created_at`; querying `created_at` errors rather than returning nothing, which is at
+least honest.)
+
+### Status
+
+The widening and the `orchestration_id` fix are **committed but NOT yet live** — Go,
+so inert until the next roll. The *core* of candidate 2 IS live and proven on
+`v1.0.1215`: a structural refusal now preserves the design, records it twice, and
+routes it to repair instead of discarding it silently. What has **not** yet been
+observed live is a repair round that *completes successfully*, and that is what the
+next roll plus one more induced run should show. **The bug does not close until then**
+— "the routing works" is not the same claim as "a design was saved".
