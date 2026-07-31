@@ -274,10 +274,19 @@ URLS="https://loancalculator.co.uk/index.html $(for t in application-tracker \
 python3 $LANE/toolgolden.py --out $LANE/acceptance/GOLDEN_<date>_tool_values.json $URLS
 
 # AFTER — exit 0 = every tool computes identically; exit 1 = divergence, with values
-python3 $LANE/toolgolden.py --compare $LANE/acceptance/GOLDEN_2026-07-31_tool_values.json $URLS
+python3 $LANE/toolgolden.py --compare $LANE/acceptance/GOLDEN_2026-07-31c_tool_values.json $URLS
 ```
 
-**PASS = `all 12 tools reproduce their golden values exactly`, exit 0.** A `NUMBER`
+**PASS = `all 12 tools reproduce their golden values exactly`, exit 0.**
+
+> **⚠ USE `GOLDEN_2026-07-31c`, not `GOLDEN_2026-07-31`.** The earlier file is superseded
+> and kept only as the record of what the earlier harness saw. It contains a
+> **destructively wrong** baseline for `application-tracker`: the press selector clicked
+> "Clear All Progress", wiping the state the driver had just set, so it recorded the
+> post-wipe state as the tool's behaviour. It also predates `localStorage` being cleared
+> between vectors, so that tool's vectors 2 and 3 started contaminated by vector 1.
+> Everything else in the two files is identical field-for-field (1,653 compared, 21
+> drifted, all of them that one tool). A `NUMBER`
 divergence is an arithmetic regression; a `text/display` one is usually cosmetic but
 read it before waving it through.
 
