@@ -14465,3 +14465,41 @@ looking wrong, which is luck, not method.
     mistakes. **A helper whose doc comment calls itself "the single source of truth" is
     the case where grepping matters most, not least** — that sentence is what makes you
     trust it instead of testing it, and it is why the 142 lane wrote the entry at all.
+
+- **The gate I wrote to prove completeness was blind to a spelling, and I was one
+  step from quoting its clean result as the proof.** A council seat asked for
+  enforcement rather than documentation — fair, since the bug I was fixing exists
+  because adding another copy of a predicate cost nothing and told nobody. I wrote
+  a source-lockstep test that fails the build for any raw
+  `strings.Contains(html, "data-runtime-fill")` outside the predicate's own file.
+  It matched `Contains`/`HasPrefix`/`HasSuffix`/`Index`, reported the tree clean,
+  and I began writing a call-site count derived from it — while
+  `rerender_single_page_action.go:43` tested the same marker through
+  ``regexp.MustCompile(`(?i)data-runtime-fill`)``, which it could not see.
+  **A gate that proves an absence only for the spellings it searches is the exact
+  defect it was written to prevent**, and I nearly shipped one inside the fix for
+  that defect. **Caught by** re-deriving the manifest with a literal grep instead
+  of trusting the tool I had just built. The cheap check, and it generalises:
+  **never let the thing you just built be the evidence for the claim you are about
+  to make about it** — verify a new detector's first result by the method it was
+  meant to replace. Related to the already-logged "a grep proves an absence only
+  for the spelling it searches", but one level worse: this was a *detector*, whose
+  whole purpose was to make the absence trustworthy.
+
+- **I widened a WRITER's blast radius on the strength of "one predicate", without
+  noticing that judges and writers have opposite safe directions.** Fixing an
+  over-broad exemption, I applied the narrower scope everywhere it appeared,
+  including `RepairPageLinks` — which does not report a dead link, it **rewrites
+  the page**, stripping the `<a>` and leaving the text. There is a landmine on
+  that exact function ("a dead internal link is REPAIRED into orphaned prose"),
+  and I had not read it. So my "fix" would have made a documented defect class
+  *more* common. **Caught by** the council's `editquality` seat as a gating HIGH,
+  not by me — and its precise complaint was that I had measured the blast radius
+  without ever asking whether the action being widened was correct. The cheap
+  check: **before narrowing a guard, ask whether the guarded code REPORTS or
+  ACTS.** For a reporter, a narrower guard only adds findings a human will triage;
+  for a writer it adds edits nobody asked for, and the safe direction reverses.
+  The answer was already in the codebase — the sibling check routes dead controls
+  to `needs_human_review` with no handler *"because picking a fixer automatically
+  would guess"* — so the tell was available without the council: **a neighbouring
+  file had already declined to automate the same decision.**
