@@ -518,15 +518,12 @@ func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, 
 		p.AreaID = &id
 	}
 
-	// Derive filename from URL
-	if p.URL == "/" || p.URL == "" || p.Name == "index" {
-		p.Filename = "index.html"
-	} else {
-		p.Filename = strings.TrimPrefix(p.URL, "/")
-		if !strings.HasSuffix(p.Filename, ".html") {
-			p.Filename = p.Filename + ".html"
-		}
-	}
+	// Derive filename from URL — shared with every other deploy-path derivation
+	// (bugs_open/125), so this copy and determinePageFilename cannot drift.
+	// Behaviour is unchanged for 471 of the 472 live urls; the exception is a
+	// fragment url, which this copy used to turn into a file literally named
+	// "tools.html#audience-check.html" and which now falls back to the name.
+	p.Filename = datahelpers.PageDeployFilename(p.URL, p.Name)
 
 	return &p, nil
 }

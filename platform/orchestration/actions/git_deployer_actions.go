@@ -417,23 +417,44 @@ func determinePageFilename(data map[string]interface{}, config map[string]interf
 	// Handle different page data formats
 	switch p := pageData.(type) {
 	case map[string]interface{}:
-		// Try common field names for page identifier
-		if slug, ok := p["slug"].(string); ok && slug != "" {
-			return ensureHTMLExtension(slug)
+		// The identifier-derived path, resolved first so a disagreement with
+		// the canonical url can be logged rather than silently resolved.
+		legacy := pageFilenameFromIdentifiers(p)
+
+		// Priority 3a: the page's canonical URL (bugs_open/125).
+		//
+		// `pages.url` is the authoritative path — nav, sitemap, link checks and
+		// every internal link resolve against it — and the page object supplied
+		// by get_pages_to_build carries it. It used to be absent from this chain
+		// entirely, so a page at /tools/x.html was published to /x.html: not a
+		// moved page but a SECOND, orphaned, fetchable copy of it, with nothing
+		// linking to it and no sweep that cleans it up. Measured 2026-07-31:
+		// 316 of 472 pages carrying a url (67%) disagree with the name-derived
+		// path. Shared with the four other deploy-path derivations via
+		// datahelpers so the classifier cannot drift again.
+		if rawURL, ok := p["url"].(string); ok && rawURL != "" {
+			if fromURL, usable := datahelpers.PageFilePathFromURL(rawURL); usable {
+				if legacy != "" && legacy != fromURL {
+					logger.Info("deploy path taken from the page's canonical url (bugs_open/125)",
+						zap.String("url", rawURL),
+						zap.String("file_path", fromURL),
+						zap.String("name_derived_path", legacy))
+				}
+				return fromURL
+			}
+			// A url that names no file of its own (a fragment into another
+			// page, a query string, an off-origin address). Falling back is
+			// correct — sanitising it would aim this commit at whichever page
+			// DOES own that path.
+			logger.Warn("page url cannot be used as a file path — falling back to the name-derived path",
+				zap.String("url", rawURL),
+				zap.String("name_derived_path", legacy))
 		}
-		if name, ok := p["name"].(string); ok && name != "" {
-			return ensureHTMLExtension(name)
+
+		if legacy != "" {
+			return legacy
 		}
-		if pageName, ok := p["page_name"].(string); ok && pageName != "" {
-			return ensureHTMLExtension(pageName)
-		}
-		if filename, ok := p["filename"].(string); ok && filename != "" {
-			return filename // already has extension
-		}
-		if id, ok := p["id"].(string); ok && id != "" {
-			return ensureHTMLExtension(id)
-		}
-		logger.Warn("page data found but no name/slug/id field",
+		logger.Warn("page data found but no url/name/slug/id field",
 			zap.Any("page_keys", datahelpers.GetMapKeys(p)))
 	case string:
 		return ensureHTMLExtension(p)
@@ -443,6 +464,34 @@ func determinePageFilename(data map[string]interface{}, config map[string]interf
 	}
 
 	return "index.html"
+}
+
+// pageFilenameFromIdentifiers derives a filename from a page object's IDENTITY
+// fields, in the historical priority order. Returns "" when the object carries
+// none of them.
+//
+// Split out of determinePageFilename so the canonical-url branch above can
+// compare against it and log the disagreement — the fallback order itself is
+// unchanged. Note this chain is name-shaped, so it goes through
+// ensureHTMLExtension (which REPLACES an existing extension); the url branch
+// deliberately does not, because a url's extension is authoritative.
+func pageFilenameFromIdentifiers(p map[string]interface{}) string {
+	if slug, ok := p["slug"].(string); ok && slug != "" {
+		return ensureHTMLExtension(slug)
+	}
+	if name, ok := p["name"].(string); ok && name != "" {
+		return ensureHTMLExtension(name)
+	}
+	if pageName, ok := p["page_name"].(string); ok && pageName != "" {
+		return ensureHTMLExtension(pageName)
+	}
+	if filename, ok := p["filename"].(string); ok && filename != "" {
+		return filename // already has extension
+	}
+	if id, ok := p["id"].(string); ok && id != "" {
+		return ensureHTMLExtension(id)
+	}
+	return ""
 }
 
 // ensureHTMLExtension ensures filename ends with .html

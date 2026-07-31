@@ -206,13 +206,15 @@ func determineFilename(data map[string]interface{}, pageFrom string, defaultName
 		return defaultName
 	}
 
-	// Try url field first (e.g., "/index.html" -> "index.html")
+	// Try url field first (e.g., "/index.html" -> "index.html"). Shared with
+	// every other deploy-path derivation (bugs_open/125) — this copy already
+	// preferred the url, but it would have turned a fragment url into a file
+	// literally named "tools.html#audience-check.html", and "/foo.php" into
+	// "foo.php.html".
 	if url, ok := pageMap["url"].(string); ok && url != "" {
-		filename := strings.TrimPrefix(url, "/")
-		if !strings.HasSuffix(filename, ".html") {
-			filename = filename + ".html"
+		if filename, usable := PageFilePathFromURL(url); usable {
+			return filename
 		}
-		return filepath.Clean(filename)
 	}
 
 	// Fallback to name field (e.g., "index" -> "index.html")

@@ -320,16 +320,8 @@ func rerenderLoadPages(ctx context.Context, db *sql.DB, siteID uuid.UUID, status
 			continue
 		}
 
-		// Determine filename from URL
-		p.Filename = p.URL
-		if p.Filename == "/" || p.Filename == "" {
-			p.Filename = "index.html"
-		} else {
-			p.Filename = strings.TrimPrefix(p.Filename, "/")
-			if !strings.HasSuffix(p.Filename, ".html") {
-				p.Filename = p.Filename + ".html"
-			}
-		}
+		// Determine filename from URL — one shared definition (bugs_open/125).
+		p.Filename = datahelpers.PageDeployFilename(p.URL, p.Name)
 
 		pages = append(pages, p)
 	}

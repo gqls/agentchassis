@@ -172,15 +172,8 @@ func queryPagesMetadata(ctx context.Context, db *sql.DB, siteID uuid.UUID, statu
 
 		p.URL = url
 
-		// Derive filename from URL
-		if url == "/" || url == "" || p.Name == "index" {
-			p.Filename = "index.html"
-		} else {
-			p.Filename = strings.TrimPrefix(url, "/")
-			if !strings.HasSuffix(p.Filename, ".html") {
-				p.Filename = p.Filename + ".html"
-			}
-		}
+		// Derive filename from URL — one shared definition (bugs_open/125).
+		p.Filename = datahelpers.PageDeployFilename(url, p.Name)
 
 		pages = append(pages, p)
 	}
