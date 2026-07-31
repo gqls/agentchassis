@@ -3,15 +3,30 @@
 **Filed** 2026-07-31 from the gripper dossier lane, after a fixture regeneration the owner
 had asked for produced **no page at all**.
 
-**Status: FIXED in code 2026-07-31 20:5x, OPEN until the roll is pod-verified.** The gate is
-behaving as designed; the *classifier inside it* is wrong. Nothing is mis-served — the failure
-is that a legitimate report is destroyed rather than published, silently as far as any
-dashboard is concerned.
+**Status: CLOSED 2026-07-31 ~21:10 — fixed, council-APPROVED (round 2), LIVE on chassis
+v1.0.1222 and pod-verified on both replicas.** The gate was behaving as designed; the
+*classifier inside it* was wrong. Nothing was mis-served — the failure was that a legitimate
+report was destroyed rather than published, silently as far as any dashboard is concerned.
 
-> **FIX RECORD — 2026-07-31, lane `bugfix_160_prose_gate_recombination`** (commit `c5286fee4`,
-> council `926a7bea-ccb0-4e32-a410-e9e7cdbc3256`). Fix candidate 1 taken, but **not as
-> written** — see "two corrections to this file" below. Bug stays OPEN until chassis
-> v1.0.1220 is rolled and pod-verified: the Go change is inert until then.
+> **FIX RECORD — lane `bugfix_160_prose_gate_recombination`.** Council
+> `926a7bea-ccb0-4e32-a410-e9e7cdbc3256`: REVISE at round 1 (compliance, HIGH), APPROVED at
+> round 2. Commits `c5286fee4` (fix + tests), `377c3cb19` (round-2 revision), `e9f3d9483`
+> (round-2 advisory + the real-run induction). Fix candidate 1 was taken but **not as
+> written**, and round 1's own answer was wrong too — see below.
+>
+> **Proven against the real incident, not only fixtures.** The destroyed run's actual
+> `report_prose` and `scoring` were pulled from `collected_data` and passed through the gate:
+> with route 3 disabled it reproduces `summary_html names model-like token "IP54-or-better"
+> not in the candidate set or fact block` — byte-identical to the live `__step_error` — and
+> with the fix in place it returns **0 violations**, the summary still containing the phrase.
+>
+> **A fresh end-to-end `report_request` was deliberately NOT fired**, and this is a judgement,
+> not an omission. It cannot demonstrate the fix: the trigger is the writer's phrasing, which
+> varies per run — this very spec passed the gate on 2026-07-27 — so a green run proves
+> nothing and a red one would be a different bug. It would also publish a live report page on
+> robot-hands.com that this session cannot remove (the gripper lane needed an owner-run
+> command to delete the last set). The real-prose induction above is strictly stronger
+> evidence for this defect than a fresh generation would be.
 
 ---
 
@@ -147,17 +162,38 @@ untouched.
 > **sub-token `M6-compatible`** — a fresh `\b` after each hyphen. Any counterexample used to
 > test this gate must therefore start with a mixed letter-digit segment, or it tests nothing.
 
-**Residuals, stated not absorbed** (both in the code comment): a title-cased qualifier
-(`IP54-Rated`) is still rejected, and a lower-case invented suffix (`2F-85-plus`) is cleared.
-Both are answered by a closed vocabulary of qualifier words, not built because no instance of
-either has been observed and the asymmetry favours strictness — an over-strict rejection
-produces a retry whose different phrasing usually passes, an under-strict clearance publishes a
-fabricated model number.
+> **CORRECTION 3 — the shape rule above was ROUND 1, and the council was right to refuse it.**
+> Admitting a tail segment because it is lower-case, digit-free and ≥2 characters is
+> **orthographic, not semantic**: `not`, `instead`, `unless` and `lower` pass exactly the test
+> that `or` and `better` do. `IP54-not-rated` would have cleared a gate whose whole purpose is
+> to stop a report asserting what the facts do not say — the fabrication merely relocated from
+> the model number to the qualifier (compliance seat, HIGH). `editquality` found the same hole
+> from the numeral side (`2F-eighty-five`). **What shipped is a closed vocabulary**, compared
+> case-insensitively, under three admission rules: connectives that assert nothing
+> (and/of/or/to), strengtheners that ask for at least the stated value
+> (above/better/greater/higher/min/minimum/over), and attributives that predicate the traced
+> code and add no fact (rated, compliant, compatible, class, threaded, mounted, …). No
+> negation, no inversion, no numeral word, and no word naming a family beyond the code
+> (`series`/`style`/`type` were admitted at round 2 and removed after the round-2 advisory —
+> `2F-85-series` asserts a product line that may not exist).
+>
+> My round-1 justification for *not* building the vocabulary — "no instance of either has been
+> observed" — was the error worth recording. The instance could not have been observed,
+> because the class did not exist until my own change created it. **A rule that admits by
+> shape has to be argued against the space of strings it admits, not against the strings that
+> have turned up.**
 
-**Verification done:** unit, both halves, asserting on the violation **text** (4 recombinations
-clear, 4 fabricated siblings still rejected); mutation-checked one clause at a time. **Still
-owed to close this bug:** the roll, a pod grep for `skuTokenTraces`, and one end-to-end
-`report_request` serving 200 with the rating still in the summary. Lane docs:
+**Residual, stated not absorbed:** a legitimate qualifier absent from the vocabulary is still
+rejected. The cost is one report, which the writer usually clears on retry with different
+phrasing, and adding a word is a one-line change plus a test — deliberately preferred to a
+rule that cannot tell a connective from a negation.
+
+**Verification done:** unit, both halves, asserting on the violation **text** (5 recombinations
+clear including title case, 8 fabrications still rejected — invented siblings, negation,
+inversion, numeral word, family name); every vocabulary exclusion individually mutation-pinned
+(admitting `not` fails `IP54-not-rated` alone, `lower` fails `IP54-or-lower` alone, `series`
+fails `2F-85-series` alone); the real destroyed run induced both ways; both pods grepped for
+`skuTokenTraces`/`qualifierWords` with a positive control in the same exec. Lane docs:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_160_prose_gate_recombination/`.
 
 ## Context, so nobody re-derives it
