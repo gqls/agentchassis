@@ -450,3 +450,53 @@ cache" do nothing at all. Relojistas *is* behind Cloudflare, so the two boxes
 aren't the same shape even though the docs treat them as one pattern. I've written
 it down where the next person to touch that box will see it, and left a dated
 correction in their runbook rather than rewriting someone else's file.
+
+---
+
+**2026-07-31 (late) — the A record you added, and what it's doing**
+
+You pointed both domains at `116.203.204.115` and took the Worker routes off.
+That address is idea.uk's live box, and it only knows how to serve one site — so
+right now **webdesign.uk, ugg2.com and idea.uk all serve the exact same page**,
+byte for byte. Anyone typing webdesign.uk gets idea.uk's shop.
+
+That's worth fixing today rather than tomorrow, because the shop *works*. The
+engine never checks which domain it was asked for, so someone could start buying
+an idea.uk report from webdesign.uk and get bounced to idea.uk halfway through
+paying. I haven't tested that end to end — doing so would create a real order and
+a real Stripe session — but the page is fully live and there's nothing in the code
+stopping it.
+
+**The fix takes three minutes and doesn't touch the live box.** In Cloudflare, add
+a redirect rule sending webdesign.uk to webdesign.co.uk — real content, no
+confusion, and you delete it when P1 launches. Make it a **temporary** redirect,
+not permanent; browsers cache permanent ones almost forever and you'd be fighting
+it later. For ugg2.com just delete the A record — it's a delivery address, not
+somewhere people should be typing yet.
+
+**One genuinely good thing came out of this.** Because ugg2.com now sits behind
+Cloudflare, the hardest piece of the preview plan has quietly disappeared.
+Cloudflare issues certificates for subdomains automatically, so the wildcard
+certificate, the challenge process, the API token and the renewal machinery I'd
+planned are all unnecessary. That work was in the plan because I copied the
+pattern from idea.uk — which *isn't* behind Cloudflare and therefore has to do all
+of it by hand. When the preview domain turned out to be a Cloudflare domain, the
+reason for that work went away and I hadn't noticed.
+
+**On putting webdesign.uk on idea.uk's box — I'd rather we didn't**, and one of
+the reasons is our own doing. The setup script we'd use to build the new box
+resets the firewall as part of taking a machine over; your own runbook already
+warns never to run it against the live idea.uk box. Beyond that, the shopfront is
+an open chat box that spends money on every visitor including hostile ones, and
+that shouldn't share a disk with your Stripe keys and your live order file. A
+separate machine is about £7 a month.
+
+**Separately, idea.uk itself needs a decision from you.** It isn't behind
+Cloudflare at all — its own runbook says it is, and plans security work on that
+belief. So either leave it direct, accept there's no firewall or bot protection in
+front of a live earning site, and delete that planned work; or move it behind
+Cloudflare and get all three. If you do move it, two things stop being optional:
+telling nginx how to read the real visitor address, or the rate limiting silently
+becomes useless while still looking like it works; and blocking direct access to
+the machine's own address, or attackers simply walk around the protection. I'd
+move it — but on its own, not mixed into this.

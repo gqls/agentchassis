@@ -721,3 +721,76 @@ Recorded in PLAN §6a as (A) and (B) rather than one confidence level. **The
 strong half was making the weak half feel measured** — the trap in
 `two-blind-checks-agree-with-each-other`, except here the two checks agreed
 about a proposition neither of them tested.
+
+---
+
+## 2026-07-31 (later still) — owner pointed both domains at idea.uk's live box
+
+Owner added `A 116.203.204.115` for **both** `webdesign.uk` and `ugg2.com` and
+removed the Worker routes. `116.203.204.115` is **idea.uk's live, earning VM**.
+
+### Measured immediately
+
+```
+$ for d in webdesign.uk ugg2.com idea.uk; do curl -sS https://$d | md5sum; done
+cf4c46c2b4e0...   cf4c46c2b4e0...   cf4c46c2b4e0...      # byte-identical
+$ curl -sS https://webdesign.uk | grep -o '<title>[^<]*</title>'
+<title>idea.uk — Where You Take an Idea Seriously</title>
+```
+
+Both new domains are **proxied** now (CF anycast A records, `server: cloudflare`),
+with the origin being idea.uk's box, which has one vhost — so every hostname gets
+idea.uk.
+
+**The app does not validate `Host`.** `grep -n 'r\.Host' main.go service.go
+billing.go` → **no match**; redirect targets come from the configured
+`PublicBaseURL`, not the request. So the page served on `webdesign.uk` is fully
+functional and **a real, payable order can be created from it**, with the customer
+bounced to idea.uk partway through checkout. **Not tested — firing it would create
+a live order and a real Stripe session.** Stated as reachable, not as exercised.
+
+### Origin probe — what the box actually does
+
+```
+$ curl -o /dev/null -D- -H 'Host: webdesign.uk' http://116.203.204.115/
+HTTP/1.1 301   Server: nginx/1.28.3 (Ubuntu)   Location: https://webdesign.uk/
+
+$ openssl s_client -connect 116.203.204.115:443 -servername webdesign.uk | openssl x509 -noout -subject -ext subjectAltName
+subject=CN=idea.uk
+X509v3 Subject Alternative Name: DNS:idea.uk          # idea.uk ONLY — not even www
+```
+
+So the origin presents a certificate that **does not match** `webdesign.uk`, and
+Cloudflare returns **200** regardless. **That proves the zone SSL mode is "Full",
+not "Full (strict)"** — the CF→origin leg is encrypted but unauthenticated. It is
+not a guess and it did not need dashboard access: strict mode would have failed
+the handshake. Fix when a real origin exists: a free **Cloudflare Origin CA cert**
+(15-year, wildcard, no renewal) + Full (strict).
+
+**Also noted:** idea.uk's nginx serves `Strict-Transport-Security: max-age=31536000;
+includeSubDomains` — which is now being served **for ugg2.com**, pinning every
+future `*.ugg2.com` preview to HTTPS-only for a year in any browser that visits it.
+Harmless (previews will be HTTPS) but it removes the click-through on a cert error.
+
+### The thing this changes in the PLAN
+
+**Being behind Cloudflare deletes §6(ii)'s hardest task.** Universal SSL covers a
+**proxied** `*.ugg2.com` at the edge, so the wildcard certificate, the DNS-01
+challenge, the scoped API token and the renewal timer are all unnecessary. That
+machinery was designed for a **direct-to-VM** world, which is the world idea.uk
+lives in — and I had carried it forward without noticing the premise had changed
+when the preview host turned out to be a Cloudflare zone. **A design decision
+inherits the assumptions of the estate it was copied from; re-check them when the
+estate changes.**
+
+### Recommendation recorded: do NOT host P1 on idea.uk's box
+
+Two reasons, the first of which is our own tooling:
+
+1. **`setup.sh` has box-takeover semantics (`ufw --force reset`)** and
+   `RUNBOOK_idea_uk_vm_site.md:16` already says *never point it at the live
+   idea.uk box*. Co-hosting puts P1's provisioning one careless run away from
+   resetting a live earning box's firewall.
+2. P1 is an **anonymous LLM chat** — a spend faucet taking hostile input — on the
+   same disk as `/etc/idea/idea.env` (Stripe keys) and `orders.json`. This is §4.2's
+   blast-radius argument, arriving earlier than P3 because the DNS made it concrete.

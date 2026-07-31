@@ -490,6 +490,53 @@ route exists that was invisible when this section was written:
 > and (ii) is dead work. It 404s or errors ⇒ the mapping is gated somewhere and
 > (ii) stands.
 
+### 6b. The wildcard-certificate work is UNNECESSARY — the premise changed under it
+
+> **2026-07-31, after the owner proxied `ugg2.com`: §6(ii)'s hardest component is
+> dead work, and route (iii) is no longer the only thing that kills it.**
+> Universal SSL covers a **proxied** `*.ugg2.com` at the Cloudflare edge, so the
+> **wildcard certificate, the DNS-01 challenge, the scoped Cloudflare API token
+> and the renewal timer are all unnecessary** — under route (ii) as well as (iii).
+> What remains of (ii) is just an nginx vhost.
+>
+> **Why it was in the plan at all, which is the transferable bit:** §6(ii) was
+> written by copying the estate's existing VM pattern, and that pattern is
+> `idea.uk`'s — a box **not behind Cloudflare** (Hetzner NS, direct A record,
+> measured 07-31). Its certificates therefore *must* come from certbot. The moment
+> the preview host turned out to be a Cloudflare zone, that requirement evaporated,
+> and I carried it forward anyway. **A design decision inherits the assumptions of
+> the estate it was copied from; re-check them when the estate changes.**
+>
+> What survives: the origin still needs *a* certificate for the Cloudflare→origin
+> leg. Use a free **Cloudflare Origin CA certificate** (15-year, wildcard, no
+> renewal) — not certbot. Measured the same day, the zones are on SSL mode
+> **"Full"**, not "Full (strict)": the origin presented an `idea.uk`-only cert
+> against SNI `webdesign.uk` and Cloudflare still returned 200. Strict would have
+> failed the handshake, so this is proven, not inferred from a dashboard.
+
+### 6c. Do NOT host P1 on idea.uk's box (2026-07-31)
+
+The owner pointed **both** `webdesign.uk` and `ugg2.com` at `116.203.204.115`,
+which is idea.uk's live earning VM. Interim state, recorded because it is live:
+all three domains served **byte-identical** idea.uk content, and the engine does
+**not** validate `Host` (`grep 'r\.Host'` → no match), so a real payable order was
+creatable from `webdesign.uk`. Fix is at the Cloudflare edge (a 302 Redirect Rule
+or removing the A record) — **not** on the box.
+
+**As a permanent arrangement it should be refused**, and this is §4.2's
+blast-radius argument arriving earlier than P3 because DNS made it concrete:
+
+1. **Our own tooling makes it unsafe.** `setup.sh` has box-takeover semantics
+   (`ufw --force reset`) and `RUNBOOK_idea_uk_vm_site.md:16` already says *never
+   point it at the live idea.uk box*. Co-hosting puts P1's provisioning one
+   careless run from resetting a live earning box's firewall.
+2. P1 is an **anonymous LLM chat** — a spend faucet taking hostile input — sharing
+   a disk with `/etc/idea/idea.env` (Stripe keys) and `orders.json`.
+
+**P1 gets its own box, reached by a `cloudflared` tunnel** (which writes its own
+DNS record, so the interim A record is then deleted, and `CF-Connecting-IP`
+becomes unforgeable rather than merely conventional — see §5.1's landmine).
+
 Two cautions that survive either way:
 
 - **A wildcard record must be PROXIED (orange)** or Universal SSL does not cover
