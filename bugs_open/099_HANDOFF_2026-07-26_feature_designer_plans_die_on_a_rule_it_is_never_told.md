@@ -342,3 +342,58 @@ SELECT created_at, metadata->>'shape', metadata->>'problem_count', metadata->'pr
  WHERE kind='iteration_note' AND metadata->>'note_kind'='plan_validation_refusal'
  ORDER BY created_at DESC;
 ```
+
+## COUNCIL ROUND 1 — REVISE, and three objections were right
+
+Corr `f4a4628f-3b90-4054-a875-f2cf72b83e72`. 13 seats, 8 approve, 5 object,
+`gated_by_truncation: false` (a genuine judgement, not a token overrun).
+
+**CONFIRMED and fixed:**
+
+- **`debug_historian`** — the rollback block in `272` was **wrong**. `snapshot_agent`
+  has two overloads; the 2-arg form writes to `agent_definitions_backup`, **not** an
+  `is_snapshot` row, and that table copies `created_at` verbatim from the source, so
+  "the newest snapshot" ordered by `created_at` is a tie (measured: all three
+  `feature-designer` backups share `2026-07-17 18:06:05`). Only `snapshot_taken_at`
+  discriminates. **Migration `222` — candidate 1 of this same bug — carries the
+  identical wrong instruction** and has not been edited (another lane's applied
+  file); the trap is in `LANDMINES.md`.
+- **`reuse_agent`** — the bounded-retry counter was a third hand-written copy.
+  Extracted `countRunArtifacts` (`diagnose_artifact_count.go`) and switched all three
+  call sites, `diagnose_council_decide`'s two included (pure refactor, its tests
+  unchanged and passing).
+- **`bug_historian`** — recoverable was not **visible**, and silence was this bug's
+  original complaint. Refusals now also write `agent_error_log` with
+  `error_code='FIX_PLAN_VALIDATION_REFUSED'`, on **both** outcomes, so the row's
+  absence means no refusal rather than a quiet one.
+- **`bug_historian`** — `fix-proposer` had no visible trigger to ever revisit.
+  `273_fix_proposer_plan_repair_loop.sql` is written and **dry-run clean**, so proven
+  applicable, and deliberately **NOT applied** — that agent belongs to another lane.
+
+**Refuted by measurement (checks added anyway):** a root `ai_service` cannot shadow
+the step block — `feature-designer` has none, *and* that behaviour was
+`bugs_open/009` and is fixed (`resolveAIServiceConfig` is a per-key overlay where the
+step wins; MDL-039 describes pre-fix behaviour). And an `ai_service.thinking` key
+would be dead config — 0 live steps set it and `execute_llm_prompt` reads
+`budget_tokens`.
+
+## ⚠ CORRECTION — this file's "How to verify a fix" CANNOT prove candidate 2
+
+The section above says to re-fire work item `7b89fb35` and require a `fix_plan`
+artifact plus no `complete_refused`. **That was written for candidate 1, and
+candidate 1 worked.** Its rule is still live in the design step:
+
+```sql
+SELECT (default_config->'workflow'->'steps'->'design'->'config'->>'prompt_template')
+       ILIKE '%ONE EDIT PER FILE PER STAGE%' FROM agent_definitions
+ WHERE type='feature-designer' AND deleted_at IS NULL
+   AND COALESCE(is_snapshot,false)=false;   -- t, checked 2026-07-30
+```
+
+So that run now takes the **success** path. It satisfies both stated conditions while
+the repair loop **never fires** — a false PASS, and exactly the "a PASS from a blind
+check" shape. Candidate 2 must be proved by **inducing** a refusal, deliberately via a
+*different* rule from the one candidate 1 taught, since being rule-agnostic is the
+whole claim. Procedure (arm `max_edits=1`, which is repairable without losing scope;
+require four conditions including that a refusal note exists and that the run reached
+`repair_plan`) is in the workstream RUNBOOK §"Verify the fix on the failing branch".
