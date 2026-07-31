@@ -13495,3 +13495,30 @@ off a tally in this file.
 That distinction is worth keeping visible: entries whose fix is "write it down" are
 finished when written, and entries whose fix is "remember it mid-keystroke" are not
 finished until something mechanical checks them.
+
+- **2026-07-31 — "the Gauntlet page doesn't fetch the feed, so nothing needs today's
+  provocation in it" (`gauntlet_dead_cta`, vonc seal).** I verified by request
+  interception that the sealed page never requests `/data/provocations.json` and that
+  today's text is not in its DOM — both true — and concluded I could enforce the seal
+  *structurally* by deleting `today.headline`/`today.body` from the feed. Committed it
+  (`bb9719d3c`) with a guard, induced-fault tests, and a confident commit message.
+  **The ENGINE reads that file server-side:** `round.go` `FetchProvocation()` fetches
+  it and `RoundHandler` persists the whole `today` object as the round's provocation.
+  Every round would have opened with a blank question — the feature the seal exists to
+  protect, destroyed by the change protecting it.
+  **What caught it:** comparing the file I was about to overwrite against what the site
+  actually serves, *before* publishing. They differed by two fields my generator could
+  not produce, which exposed a pipeline another session had shipped four minutes
+  earlier, whose docstring named `round.go`.
+  **The cheap check that would have:** `grep -rn "provocations.json" --include=*.go
+  internal/ platform/` — one command, and "which code reads this artefact?" is the
+  question, not "which page fetches it?". **A client-side absence is not an absence:
+  grep the SERVER for every consumer of any artefact you are about to change shape.**
+  Two aggravating factors worth carrying separately. (1) **I edited a generator that
+  had been superseded**, because the lane's own RUNBOOK documented it — accurate when
+  written, stale since; reading a runbook is not verifying a target. (2) **Three
+  independent guards existed that would each have refused this** — the owning lane's
+  publish preflight, their rotation verifier, and their builder's shape — and none
+  fired, because I was about to publish through a different path than the one they
+  guard. **A guard only guards the door you walk through**, so "there are checks on
+  this" is not a reason to skip your own.
