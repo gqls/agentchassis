@@ -303,3 +303,153 @@ applying: the only other consumer with articles (`robot-hands.com/learning-cente
 The Go half is untouched and still writes `""` — the template is now simply honest
 about it. **Real card thumbnails remain unbuilt** (per-card imagery, the leopardess
 lane's "Phase I3").
+
+---
+
+## FIXED 2026-07-31 — the predicate compares PATHS now, and the fix was a reuse rather than a new predicate
+
+Session `a4917c55` (lane `docs024_key_docs_latest/bugfix_128_image_url_404/`). Commit
+`beff42809`. Council `99dca96a-413a-4bcb-b278-9577f920786d`.
+
+### The whole thing re-measured live before touching anything
+
+Not argued from the 07-29 numbers — re-derived today, because a figure carried forward
+unchecked is how a stale premise becomes a bug. All **127** distinct `/assets/images/*`
+paths rendered by deployed unlocked page components across **13** live sites, each probed
+over HTTP as ground truth (four transient `000`s re-probed and confirmed 200; the
+webdesign hero re-probed twice with a cache-buster):
+
+| predicate | reports a WORKING image | reports a BROKEN one | SILENT on a broken one |
+|---|---|---|---|
+| purpose/prefix skip (as shipped) | **21** | 11 | **6** |
+| `storage.DeployedWebPath` (the fix) | **1** | **17** | **0** |
+
+The 07-29 diagnosis is **CONFIRMED in full**, including the six masked live 404s. Its
+count of "79 of 95 masked" is not directly comparable — today's population is 127 paths,
+because the fleet has moved — but the mechanism and its consequences reproduce exactly.
+
+### What the fix is
+
+`storage.DeployedWebPath(asset_key, purpose)` already existed as the platform's single
+source of truth for *"the web path a generated asset is committed to and served from"*.
+Five writers resolve through it (`plan_sections_action`, `render_site_components_action`,
+`emit_sprite_css_action`, `derive_card_asset_action`, `queryresolve`) and
+`deploy_image_asset_action` commits to exactly that path via the shared
+`storage.AssetKeyFilename`. The check now resolves through the same helper, which makes it
+**the exact inverse of the render-time resolver** — it cannot drift from the writers
+without the writers changing first. Still DB-only; the standing objection at
+`verifier_coverage_test.go:171` (no outbound HTTP on the completion path) is kept.
+
+### Why the 07-29 refutation of "compare paths" was right, and why this is not that
+
+That session measured a path predicate against `assets.url` / `filename` and refuted it —
+correctly. Those columns cannot answer the question: of 267 active asset rows measured
+today, `url` is a presigned S3 link on **152**, `filename` is empty on **191**,
+`storage_path` on **189**, and of the 115 whose `url` does look like a local path, **47
+are the unresolved template literal** `/assets/images/input-data.asset-key.jpg`. The
+served path is **derived, not stored**. That distinction is the whole fix, and it is now
+in `LANDMINES.md`.
+
+### Each defect, and what happened to it
+
+1. **Defect 1 (the name promises HTTP)** — resolved by making the check able to answer the
+   question rather than by renaming it. A finding now means "no active asset of this site
+   deploys to this path", which is the 404 claim. **The check is deliberately NOT renamed
+   to `image_asset_unregistered`** (candidate 1/2 of the two lists above): the name is
+   looked up in `agent_definitions.default_config` for `design-discovery-agent`, so
+   renaming the registered check disables it silently until a config migration lands. The
+   cheaper half of that candidate — honest wording — is done: summaries now read
+   *"Pages reference X but no active asset deploys to that path"*.
+2. **Defect 2 (the missed branch)** — this was the real defect and it is fixed. Note the
+   07-29 correction stands: the miss happened *before* the branch, at the purpose skip.
+3. **Defect 3 (chrome never scanned)** — fixed. `site_components` is scanned alongside
+   `page_components`. Measured on the chrome surface (38 paths, 13 sites): **+2 real
+   findings, 0 false positives** — `idea.uk`'s `/assets/images/favicon.png` and
+   `/assets/images/og-card.png`, both 404 **on every page of the site**, neither
+   reportable before. Chrome findings are severity `high`; page findings `medium`.
+4. **The leopardess contribution's fourth case (`src=""`)** — fixed, structurally, never
+   probed. Three are live right now (ai-agent-orchestration ×2, finetuning ×1). Emitted as
+   one item per site under the **existing** `image_url_404` item type, so nothing is added
+   to the shared work-item vocabulary; `spec.kind` (`unbacked_path` / `empty_src`) tells
+   the shapes apart.
+
+### The trap the masking test warned about, answered by deletion
+
+`check_image_url_404_masking_test.go` warned that unmasking would activate
+`knownPurposeMapping`'s routing to `image-build-handler`, *"a dormant fleet-wide
+auto-regeneration path"*. **That branch is gone, because it was a duplicate.**
+`check_placeholder_image_in_use` already owns exactly that repair: same two paths
+(`/assets/images/hero.jpg`, `/assets/images/logo.png`), same purposes, same
+`needs_hero_image`/`needs_logo` item types, same handler, same severity, same prompt
+recovery, same precondition — and **both checks are enabled on the same agent**. They
+differ only in `item_key`, so they would have filed two work items for one repair. Neither
+has ever fired: `placeholder_image_in_use:%` returns **0** rows fleet-wide and none of the
+13 `image_url_404:%` rows carries a routed type. So the fix **adds findings and no new
+autonomous repair** — every emission is flag-only.
+
+### One residual false positive, named rather than hidden
+
+`webdesign.co.uk/assets/images/hero.jpg` — 455KB, serves 200, backed by no asset row. A
+file committed by no pipeline is invisible to a DB-only check, and it is arguably a true
+finding of a different thing: an untracked file nothing maintains and any repo
+reconciliation would delete. **1 of 127.**
+
+### Stated cost of the dedup-key change
+
+The item key now carries the extension (`image_url_404:logo.png`, was
+`image_url_404:logo`), because `fundamentallyai.com` serves `logo.jpg` (200) and
+`logo.png` (404) — two files, one basename, opposite results — and `idx_swi_dedup` is
+UNIQUE on `(site_id, item_key)` for non-terminal statuses, so an extension-blind key
+silently drops the second finding (`bugs_open/091`'s failure mode). **Six existing
+`detected` rows keep the old key and will not dedup against the new ones.** They are
+already unclearable (flag-only, no handler, `bugs_open/083`). A sweep may cancel them:
+
+```
+finetuning.uk        image_url_404:case-study-facilities          (still a true 404)
+finetuning.uk        image_url_404:case-study-financial-data      (still a true 404)
+finetuning.uk        image_url_404:case-study-legal-rag           (still a true 404)
+finetuning.uk        image_url_404:case-study-logistics-strategy  (still a true 404)
+finetuning.uk        image_url_404:case-study-private-ai          (still a true 404)
+fundamentallyai.com  image_url_404:brand-illustration             (200 — the old check's false positive)
+```
+
+Three further `detected` rows on `robot-hands.com` (`image_url_404:content-hero-tool-*`)
+were the old predicate's **false positives** — all three serve 200 and the new predicate
+is silent on them. They can be cancelled outright.
+
+### What this check still does NOT answer, deliberately
+
+An asset row that exists but whose **file was never deployed**. `gaswholesalers.com`'s
+`/assets/images/logo.png` is the live case: healthy `logo` asset row, 404 on the wire, and
+this check is silent by design because the path resolves as far as the database is
+concerned. That is `check_undeployed_assets`' remit (`bugs_open/142`). Conflating the two
+is how one check ends up asserting the other's finding, so the division is written into
+both the check header and `LANDMINES.md`.
+
+### How to verify once a chassis image ≥ `beff42809` is rolled
+
+The 07-29 acceptance triple is restated because it had already gone stale once. Live and
+re-probed 2026-07-31:
+
+1. `vonc.com/assets/images/hero.jpg` — **404, was masked by the purpose skip** → must be
+   reported. (Same for dartsonline, gamesdesign, idea.uk, oufe, relojistas.)
+2. `finetuning.uk/assets/images/case-study-legal-rag.jpg` — **404, was already correctly
+   reported** → must stay reported. Regression guard.
+3. `fundamentallyai.com/assets/images/brand-illustration.jpg` — **200, unregistered** →
+   must NOT be reported at all now (the old check called it a 404).
+4. `idea.uk/assets/images/og-card.png` — **404, chrome-only** → must be reported, severity
+   `high`. This is the surface that did not exist before.
+5. `ai-agent-orchestration.com` — must carry one `image_url_404:empty-src` item counting
+   its two empty `<img src="">` tags.
+
+```sql
+-- after the roll, run a design discovery sweep and then:
+SELECT s.domain, w.item_key, w.severity, w.spec->>'kind', left(w.summary,80)
+  FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE w.item_type='image_url_404' AND w.created_at > '2026-07-31'
+ ORDER BY 1,2;
+```
+
+Expected shape fleet-wide, from today's measurement: **18 page findings + 2 chrome
+findings**, of which 17 + 2 are live 404s and one (webdesign's legacy hero) is the named
+false positive.
