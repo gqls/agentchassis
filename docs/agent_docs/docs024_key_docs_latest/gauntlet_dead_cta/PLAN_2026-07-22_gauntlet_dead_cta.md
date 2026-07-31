@@ -379,14 +379,48 @@ line of markup; not worth guessing now.
   visitor's defence and the ruling, auto-fitted (26px on the measured round).
   It carries **no per-round URL by design** — there is no page yet and a 404
   link is worse than none.
-- **Step 2 is not started.** Its shape, from reading the code: one read-only
-  `GET` endpoint (`store.GetRound` already exists and returns every field
-  needed), one static page fetching by id client-side exactly as the gauntlet
-  page does, a published flag set by the share press, and the card's link line.
+- ~~**Step 2 is not started.**~~ **Step 2 BACKEND IS BUILT (`28cf5ceb3`, PUB-004,
+  council `a24a754b`).** `POST /publish` + `GET /round/:slug` + `published_at` and
+  `public_slug` on `gauntlet_rounds`. Migration 276 **applied and ledgered on the
+  island**; all four SQL statements PREPAREd against the live schema; router
+  registration asserted by test (gin panics at *registration* on a route
+  conflict, which would be a service that will not boot, found only after a
+  swap); slug tests mutation-verified. Image **`v1.0.1216` built from committed
+  HEAD, shipped to the island and binary-verified** (4 new strings present, 2
+  positive controls present, negative control absent — the first grep returned
+  all zeros *including* the controls, because binary grep needs `-a`; the control
+  is the only reason that was caught).
   **Known limitation to state up front:** a client-fetched page cannot emit a
   per-round `og:image` (crawlers do not run JS), so a shared *link* previews
   with the site's generic card. This does not affect the actual plan, where the
   owner posts the PNG and it travels as an image.
+
+### Step 2 — what remains, in order
+
+1. **Swap the island to `v1.0.1216`.** One line in `/opt/island/docker-compose.yml`
+   (currently pins `v1.0.1207` at line 50) plus `docker compose up -d tools-api`.
+   The image is already loaded on the box and `1207` is still present, so rollback
+   is a tag change and a restart. **BLOCKED: the permission classifier refused the
+   compose edit** — a sensible place for a human check, so it needs the owner's go
+   rather than a workaround. Until then the endpoints exist in the binary and are
+   unreachable.
+2. **The record page.** A new page at `/tools/gauntlet/round.html` — `pages` +
+   `content_components` + `page_components` + `pages.sections`, following
+   `sql_for_agents/275_oufe_tool_relevant_alternative.sql`, which is a complete
+   worked template from the day before. **Its URL shape is a real decision** and
+   the pretty form in the mock is not available: the site serves only exact
+   `.html` paths with no directory index, so `vonc.com/r/<slug>` **cannot** be
+   served. The honest options are `/tools/gauntlet/round.html?r=<slug>` (sits with
+   the tool) or a shorter root-level `/round.html?r=<slug>`.
+3. **The JS**: publish-on-share, the permalink line on the card, and the button
+   rewording that announces publishing. Sequencing that matters — **the publish
+   call must succeed BEFORE the card is drawn with a permalink**, or a failed
+   publish yields a card carrying a URL that 404s. On failure: draw the card
+   without the link and say so. That keeps the rail (no control changes state
+   except as the consequence of a real API response).
+4. **Verify end-to-end** by driving a real round, pressing share, and fetching the
+   permalink — `p4_sources/drive_exchange_card_2026-07-31.py` is the harness to
+   extend, and `~/.venvs/vonc_pw` is the interpreter that has playwright.
 - ~~**Outstanding verification** on step 1: the card has not been pressed on the
   live page (the live driver was blocked by the permission classifier). The
   renderer is proven against a real round offline, and that the required DOM

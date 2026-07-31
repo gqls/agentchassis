@@ -525,7 +525,82 @@ md5sum served.js        # must equal the md5 the DO block printed
   file still contains the escape and **not** a raw character.
 - **Playwright was absent from every venv** while its browsers were still cached
   in `~/.cache/ms-playwright`, so the lane's `drive_*.py` harnesses all failed at
-  import. Restored at `~/.venvs/vonc_pw` (2026-07-31) — use that interpreter.
+  import. Restored at `~/.venvs/vonc_pw` (2026-07-31, with Pillow) — use that
+  interpreter.
+
+## 16. Applying an island migration, and PROVING the SQL before you ship the Go
+
+`go build` compiles a mistyped column name perfectly. The check that catches it
+is `PREPARE`, which plans a statement **without executing it**, so it costs
+nothing and touches no rows. Do this for every statement in the change, against
+the **live island schema**, before the image goes anywhere.
+
+```bash
+ISL=root@toolsapisuk.vs.mythic-beasts.com
+# apply — pipe the FILE into ssh's stdin so no shell touches the $$ dollar-quoting
+timeout 120 ssh $ISL "docker exec -i island-postgres-1 psql -U tools_api -d tools_api -v ON_ERROR_STOP=1" \
+  < docs/agent_docs/sql_for_agents/NNN_x.sql
+# ledger it (198's precedent; PK is filename, so ON CONFLICT DO NOTHING is safe)
+ssh $ISL "docker exec -i island-postgres-1 psql -U tools_api -d tools_api -c \
+  \"INSERT INTO island_migrations (filename, note) VALUES ('NNN_x','...') ON CONFLICT DO NOTHING;\""
+```
+
+- **The container is `island-postgres-1`** (not `island-tools-api-1`, which is the
+  engine). `docker ps --format '{{.Names}}'` if in doubt.
+- **Make the migration assert its own end state.** A `DO` block that skipped for
+  the wrong reason is indistinguishable from one that worked. 276 asserts both
+  columns and the index, and `RAISE WARNING`s if any row is already published —
+  the invariant a backfill would breach.
+- **Prove an index is real, not just present in `pg_indexes`.** An index created
+  on the wrong column passes a presence check. Force the violation inside a
+  transaction and roll back:
+  ```sql
+  BEGIN;
+    UPDATE t SET slug='aaaaaaaaaa' WHERE id=(SELECT id FROM t LIMIT 1);
+    DO $$ BEGIN
+      BEGIN
+        UPDATE t SET slug='aaaaaaaaaa' WHERE id=(SELECT id FROM t WHERE slug<>'aaaaaaaaaa' LIMIT 1);
+        RAISE EXCEPTION 'UNIQUE did NOT fire';
+      EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'fired as expected (23505)';
+      END;
+    END $$;
+  ROLLBACK;
+  SELECT count(*) FROM t WHERE published_at IS NOT NULL;   -- prove the rollback held
+  ```
+- **A uuid column rejects a bad string with `22P02`, not "no rows".** That is not
+  `pgx.ErrNoRows`, so a handler that only branches on ErrNoRows turns a bad
+  request into a 500. Parse the uuid in Go first (`uuid.Parse` — `google/uuid` is
+  already a dependency). `position`/`defend` still have this shape.
+
+## 17. Building and swapping the island engine — the tag trap and the grep trap
+
+```bash
+# the target comes from a PATTERN rule (makefile:149 build-%-ref), so there is NO
+# `build-tools-api` target to find by grep — do not conclude it is missing.
+make build-tools-api-ref IMAGE_TAG=v1.0.NNNN      # tag on the CLI; never edit the makefile
+```
+
+- **PICK A FREE TAG — the sequence is shared and the makefile's `IMAGE_TAG` is
+  usually another session's.** `docker images --format '{{.Tag}}' | grep -oE
+  '^v1\.0\.[0-9]+' | sed 's/v1.0.//' | sort -n | tail -1` and go above it.
+  `v1.0.1215` was already taken on 07-31 when the makefile said `1214`.
+- **Verify the BINARY before shipping, and `grep -a`.** Plain `grep -c` on a Go
+  binary reports **0 for everything, including strings that are certainly there** —
+  so a broken check and a broken build look identical:
+  ```bash
+  C=$(docker create aqls/tools-api:v1.0.NNNN); docker cp $C:/tools-api /tmp/b; docker rm $C
+  grep -a -c "<a string your change ADDED>"   /tmp/b   # expect >0
+  grep -a -c "provocation unavailable"        /tmp/b   # POSITIVE control, expect >0
+  grep -a -c "zzzz_not_a_real_symbol_zzzz"    /tmp/b   # negative control, expect 0
+  sha256sum /tmp/b                                     # compare to the RUNNING binary after the swap
+  ```
+- Ship + swap (see §13 for the full form): `docker save … | gzip | ssh $ISL 'gunzip | docker load'`,
+  then back up `/opt/island/docker-compose.yml` as `.bak-<oldtag>`, change the one
+  `image:` line, `docker compose up -d tools-api`.
+- **The compose edit may be refused by the permission classifier** (it was on
+  07-31). That is the deploy gate; take it to the owner rather than working
+  around it. Rollback stays cheap either way: the previous image remains on the
+  box and the `.bak-*` compose files are kept.
 
 ## 16. The duplication census — the fleet population the checker would act on (2026-07-31)
 

@@ -2900,3 +2900,86 @@ measurement is now a committed, re-runnable artefact —
 `scripts/dedup_census_shipped.{go,md}`, verified in both modes before committing
 (current: 1,023 sections / 815 eligible / 0 groups; `-legacy`: 1 group, 1 deletion, the
 vonc pair). **Round 3 not fired** — the decision and both arguments are in handoff §4.0.
+
+---
+
+## 2026-07-31 (afternoon) — step 2's backend: PUB-004, built and shipped-but-not-swapped
+
+`28cf5ceb3`. Two endpoints and two columns so a completed round can become a
+public record. Council `a24a754b-4834-4f78-9271-c76d052551ff` submitted before
+committing (`Council-Submitted:` trailer; still at `review_guardian` at 13:00Z).
+
+**What made this cheap: the round was already one row.** `store.Round` holds all
+six prose fields, so the "record" needed no joins, no reconstruction, and no new
+storage of content — only a flag and a handle. Reading the store before designing
+is also what produced the correction to handoff A's framing (exactly one exchange
+per round, so there is no "best exchange" to choose).
+
+Design decisions worth their reasons:
+
+- **`published_at` not `is_published`** — records *when*, which a boolean cannot,
+  and the read gates on `IS NOT NULL`.
+- **`public_slug` not the primary key** in the URL. Two reasons: a row's id should
+  not be its public handle, and a 36-character uuid does not fit legibly on a
+  1200×630 card whereas `?r=k7m2p9qx4t` does.
+- **Idempotent publish.** Pressing share twice must return the FIRST slug, because
+  the card the visitor already holds carries that URL. So the `UPDATE` fires only
+  `WHERE published_at IS NULL`, and a race re-reads the winner rather than erroring.
+- **409, not 404, for a round with no verdict.** A 404 for a round the visitor is
+  looking at on screen would be a lie.
+- **Unpublished and nonexistent answer identically (404).** Otherwise the endpoint
+  becomes a way to confirm a private round exists.
+- **`PublicRound` is its own type**, not `Round`, so adding a column to the table
+  cannot silently widen what is public.
+
+### Verification, and the two checks that caught something
+
+- **PREPARE, not `go build`.** All four statements planned against the live island
+  schema. `go build` compiles a mistyped column name perfectly; this is the check
+  that doesn't. Also forced `23505` inside a rolled-back transaction to prove the
+  UNIQUE index is real and **on the right column** — presence in `pg_indexes` does
+  not prove that — then asserted the rollback held (`published_after_test = 0`).
+- **A router test, because gin panics at REGISTRATION.** `GET /round/:slug` sits
+  beside `POST /round`; a conflict there is not a bad response, it is a process
+  that will not boot, discovered after an island swap. Asserted both exist exactly
+  once.
+- **Slug tests mutation-verified** — adding `0` to the alphabet turns them red.
+
+> **MISSTEP, caught by a control: my binary check was broken, not the build.**
+> After building `v1.0.1216` I grepped the extracted binary for four new strings
+> and got **0 for all of them — and 0 for the positive controls too**
+> (`provocation unavailable`, `CF-Connecting-IP`, which are certainly in there).
+> Plain `grep -c` on a Go binary reports nothing; it needs `-a`. With `-a`: 1, 6,
+> 1, 1 for the new strings, controls present, nonsense token 0. **Had I not
+> included a positive control I would have read "my change is not in the image"
+> and gone looking for a build problem that did not exist.** This is the fleet
+> landmine *"grep silent on non-UTF8"* arriving in a new costume, and the reason
+> the standing rule is to grep a string the change ADDED **plus a control in the
+> same command**.
+
+> **CORRECTION to my own figures from this morning.** I wrote "count(DISTINCT
+> client_ip_hash) = 1 across all 95 rows / no stranger has ever argued here". The
+> count was true when measured on 07-30 and **went stale within hours**: the vonc6
+> thread swapped the island to `v1.0.1207` at 08:37Z and the identity fix went
+> live, so it is now **98 rows, 53 complete, 2 distinct** — `245c0ffc…` on 95 rows
+> and `9e464fe9…` on 3 (their adoption proof plus my own live share-card drive).
+> The *substance* survives — both keys are ours, no stranger has argued — but the
+> figure did not, and I had already quoted it in a migration comment. Corrected
+> there before committing. Re-measure rather than quoting either number.
+
+### Where it stops, and why that is not a failure
+
+The image is built from committed HEAD, shipped to the island and binary-verified;
+the migration is applied and ledgered. **The swap itself was refused by the
+permission classifier** (the `docker-compose.yml` edit). That is the deploy gate
+and it is a reasonable place for one, so it goes to the owner rather than round it
+— the same call as this morning's blocked driver, which the owner then authorised.
+Rollback is cheap regardless: `1207` is still on the box and the `.bak-*` compose
+files are kept.
+
+Two things de-risked for whoever continues: `sql_for_agents/275_…` (the day before
+mine) is a **complete worked template for creating a page by SQL**, so the record
+page needs no new machinery; and the pretty `vonc.com/r/<slug>` in my own mock
+**cannot be served** — the site serves only exact `.html` paths with no directory
+index, so the URL has to carry a query. I mocked a URL I had not checked, which is
+the landmine this lane already wrote down about inventing page paths.
