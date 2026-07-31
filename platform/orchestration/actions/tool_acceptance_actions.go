@@ -165,6 +165,18 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
+	// capture_renders asks the adapter to photograph a run that PASSES, not only
+	// one that fails (TL-035). Opt-in per step, default false = the behaviour
+	// every existing config already has.
+	//
+	// It is here because the adapter half shipped switched off: the camera exists
+	// and nothing asks it to fire on a clean page, so the defect class that
+	// reaches a human — text flush against a border, links off their baseline,
+	// chart labels overprinting — still lands on a page where every check passes
+	// and therefore leaves no picture behind. A render is a look, never a verdict:
+	// it lands in a separate list the judge reads for the note only.
+	captureRenders := datahelpers.GetBoolField(config, "capture_renders", false)
+
 	newRequestID := uuid.NewString()
 
 	myResponsesTopic := params.ExecutionContext.ResponsesTopic
@@ -205,12 +217,13 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 			"action":         "run_checks",
 			"reply_to_topic": myResponsesTopic,
 			"data": map[string]interface{}{
-				"run_id":        params.ExecutionContext.OrchestrationID,
-				"urls":          []string{fullURL},
-				"profiles":      profiles,
-				"criteria_json": criteria,
-				"function":      function,
-				"site_id":       siteID,
+				"run_id":          params.ExecutionContext.OrchestrationID,
+				"urls":            []string{fullURL},
+				"profiles":        profiles,
+				"criteria_json":   criteria,
+				"function":        function,
+				"site_id":         siteID,
+				"capture_renders": captureRenders,
 			},
 		},
 	}
@@ -235,7 +248,8 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 		zap.String("request_id", newRequestID),
 		zap.String("url", fullURL),
 		zap.String("function", function),
-		zap.Strings("profiles", profiles))
+		zap.Strings("profiles", profiles),
+		zap.Bool("capture_renders", captureRenders))
 
 	if err := params.Producer.ProduceWithValidation(ctx, browserRunnerTopic, headers,
 		[]byte(params.ExecutionContext.CorrelationID), messageBytes); err != nil {
@@ -277,6 +291,16 @@ type acceptanceVerdict struct {
 	SkipList  []string
 	Chrome    []chromeFailure // failures the adapter attributed to SITE CHROME
 	Shots     []screenshotRef // P3 evidence: one full-page screenshot per failing (url, profile)
+	// Renders: one full-page screenshot per PASSING (url, profile), present only
+	// when the step set capture_renders (TL-035). Never evidence and never part
+	// of a verdict — a picture of a page that passed, so a human or a vision
+	// check can look at it without a failure having to justify the look.
+	//
+	// A run can produce BOTH lists: two profiles where desktop fails and mobile
+	// passes files the desktop shot under Shots and the mobile one here. So this
+	// is not "the pass list" — it is the per-run-that-passed list, which is why
+	// the failure path below reports it too rather than assuming it is empty.
+	Renders []screenshotRef
 	// Drill-down attribution for a tool-scoped overflow: the element that
 	// actually forces the width, and why (bugs_open/010). First non-empty seen —
 	// a run overflows once. Empty when the widest offender is itself the cause.
@@ -428,41 +452,60 @@ func extractRunResults(collected map[string]interface{}, field string) acceptanc
 		}
 	}
 
-	var rawShots interface{}
+	v.Shots = extractShotList(collected, field, "screenshots")
+	// Renders arrive in their OWN key and are parsed by the same code — the two
+	// lists differ in what they mean, never in their shape. Empty unless the
+	// request opted in, and empty on any adapter built before TL-035, so the
+	// absence of the key is indistinguishable from "not asked for", which is the
+	// correct reading either way.
+	v.Renders = extractShotList(collected, field, "renders")
+	return v
+}
+
+// extractShotList parses one adapter screenshot list (screenshots | renders)
+// out of the reply, trying the same four envelope shapes the reply may take.
+// Shared rather than duplicated: a render and a failure shot are the same
+// ScreenshotRef on the wire, so a second copy of this parser could only ever
+// drift from the first.
+func extractShotList(collected map[string]interface{}, field, key string) []screenshotRef {
+	var raw interface{}
 	for _, p := range []string{
-		field + ".response.data.screenshots",
-		field + ".response.screenshots",
-		field + ".data.screenshots",
-		field + ".screenshots",
+		field + ".response.data." + key,
+		field + ".response." + key,
+		field + ".data." + key,
+		field + "." + key,
 	} {
-		if rawShots = datahelpers.ExtractNestedField(collected, p); rawShots != nil {
+		if raw = datahelpers.ExtractNestedField(collected, p); raw != nil {
 			break
 		}
 	}
-	if shotItems, ok := rawShots.([]interface{}); ok {
-		for _, it := range shotItems {
-			m, ok := it.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			ref := screenshotRef{}
-			ref.Profile, _ = m["profile"].(string)
-			ref.URL, _ = m["url"].(string)
-			ref.URI, _ = m["uri"].(string)
-			ref.ViewURL, _ = m["view_url"].(string)
-			if fc, ok := m["failing_checks"].([]interface{}); ok {
-				for _, f := range fc {
-					if s, ok := f.(string); ok {
-						ref.Failing = append(ref.Failing, s)
-					}
+	items, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	var out []screenshotRef
+	for _, it := range items {
+		m, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		ref := screenshotRef{}
+		ref.Profile, _ = m["profile"].(string)
+		ref.URL, _ = m["url"].(string)
+		ref.URI, _ = m["uri"].(string)
+		ref.ViewURL, _ = m["view_url"].(string)
+		if fc, ok := m["failing_checks"].([]interface{}); ok {
+			for _, f := range fc {
+				if s, ok := f.(string); ok {
+					ref.Failing = append(ref.Failing, s)
 				}
 			}
-			if ref.URI != "" {
-				v.Shots = append(v.Shots, ref)
-			}
+		}
+		if ref.URI != "" {
+			out = append(out, ref)
 		}
 	}
-	return v
+	return out
 }
 
 // evidenceLine renders the P3 screenshots for a note body — durable URIs only,
@@ -481,6 +524,28 @@ func evidenceLine(shots []screenshotRef) string {
 		parts = append(parts, p)
 	}
 	return "\nEvidence: full-page screenshot(s) at failure: " + strings.Join(parts, "; ")
+}
+
+// renderLine renders the TL-035 renders for a note body. Deliberately NOT
+// evidenceLine with a different string: the word "Evidence" is a claim about a
+// failure, and every render here is a photograph of a run that passed. Durable
+// s3:// URIs only, for the same reason as evidenceLine — a note body is loaded
+// into LLM prompt contexts, where a presigned URL is hundreds of characters of
+// expiring signature that will be stale by the time anyone reads it.
+func renderLine(renders []screenshotRef) string {
+	if len(renders) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(renders))
+	for _, s := range renders {
+		p := s.URI
+		if s.Profile != "" {
+			p += " (" + s.Profile + ")"
+		}
+		parts = append(parts, p)
+	}
+	return "\nRendered: full-page screenshot(s) of the page as it passed: " + strings.Join(parts, "; ") +
+		"\nNote: a render is a look, not a verdict — nothing here asserts the page is free of defects no check covers."
 }
 
 // shotsForSpec renders screenshot refs for a work item's spec (uri + view_url).
@@ -545,16 +610,19 @@ func JudgeAcceptanceResultsAction(ctx context.Context, params ActionParams) (int
 			fix = fmt.Sprintf("%d responsive_fix item(s) raised for the site template (handler component-template-fixer); the tool itself needs no change", chromeRouted)
 		}
 		// Evidence exists on a pass ONLY when the page failed for site-chrome
-		// reasons — the screenshot shows the chrome defect, not the tool.
+		// reasons — the screenshot shows the chrome defect, not the tool. A
+		// RENDER, by contrast, is the ordinary case on a clean pass whenever the
+		// step opted in: it is what the page looked like when nothing failed, and
+		// it is the only artefact of this run a human can actually look at.
 		body := fmt.Sprintf(`## Tier-4 acceptance PASSED — %s
-Observed: all %d of the tool's own checks passed in headless Chromium%s (%d skipped: %s).%s
+Observed: all %d of the tool's own checks passed in headless Chromium%s (%d skipped: %s).%s%s
 Root cause: %s
 Fix: %s
 Verified: browser-runner-adapter run; checks (id@profile): %s
 Categories: acceptance-run`,
 			function, len(v.Passed), profilesPhrase(v.Profiles),
 			len(v.SkipList), strings.Join(orNone(v.SkipList), ", "),
-			evidenceLine(v.Shots),
+			evidenceLine(v.Shots), renderLine(v.Renders),
 			rootCause, fix,
 			strings.Join(v.Passed, ", "))
 		if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
@@ -773,14 +841,18 @@ Categories: acceptance-run`,
 	default:
 		fixLine = "none — no improve_tool item could be created (no active content_components row for this function, or the insert failed); route this manually"
 	}
+	// renderLine is here too, and it is not a copy-paste slip: a two-profile run
+	// where desktop fails and mobile passes files a shot AND a render, so a
+	// FAILED verdict can still carry a picture of the profile that was fine.
+	// Dropping it would lose exactly the comparison a human wants.
 	body := fmt.Sprintf(`## Tier-4 acceptance FAILED — %s
-Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s%s
+Observed: %d of %d evaluated checks failed in headless Chromium%s: %s%s%s%s
 Root cause: not diagnosed at this tier (behavioural run; the fixer loads PLAN+NOTES first)
 Fix: %s
 Verified: n/a — failing run recorded
 Categories: acceptance-fail`,
 		function, len(v.Failed), len(v.Results), profilesPhrase(v.Profiles), issue, chromeLine,
-		evidenceLine(v.Shots), fixLine)
+		evidenceLine(v.Shots), renderLine(v.Renders), fixLine)
 	if _, err := insertDocNote(ctx, params.DB, "tool", function, siteID, body,
 		`["acceptance-fail"]`, "tool-acceptance", sourceAgent, "", "tool-acceptance-agent"); err != nil {
 		logger.Warn("judge: acceptance-fail note insert failed", zap.Error(err))

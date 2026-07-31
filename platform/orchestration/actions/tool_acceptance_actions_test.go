@@ -1,8 +1,13 @@
 package actions
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
+	"go.uber.org/zap"
 )
 
 // The awaited-reply shapes vary across the codebase; extractRunResults must
@@ -363,5 +368,171 @@ func TestChromeFailureCarriesDrillDown(t *testing.T) {
 	}
 	if chromeForcedHint(chromeFailure{}) != "" {
 		t.Errorf("no drill-down → empty hint (no clutter)")
+	}
+}
+
+// ── TL-035: renders — a look that does not need a failure to justify it ──────
+
+// browserRunParams builds the minimum ActionParams for RequestBrowserRunAction
+// with NO database: url_field resolves the page from collected data, which is
+// what keeps the page lookup (and its uuid casts) out of a unit test.
+func browserRunParams(producer *capturingProducer, config map[string]interface{}) ActionParams {
+	config["url_field"] = "input_data.url"
+	return ActionParams{
+		Logger:     zap.NewNop(),
+		Producer:   producer,
+		StepConfig: models.Step{Config: config},
+		CollectedData: map[string]interface{}{
+			"input_data": map[string]interface{}{
+				"function": "tool-review-council-simulator",
+				"url":      "https://fundamentallyai.com/tools/review-council-simulator.html",
+			},
+			"doc_context": map[string]interface{}{
+				"criteria_json": `{"checks":[{"id":"boots","type":"exists","selector":".tool-container"}]}`,
+			},
+			"site_record": map[string]interface{}{
+				"site_id": "11111111-1111-1111-1111-111111111111",
+				"domain":  "fundamentallyai.com",
+			},
+		},
+		ExecutionContext: &types.ExecutionContext{
+			CorrelationID:   "corr-1",
+			OrchestrationID: "orch-1",
+			ClientID:        "client-1",
+			ResponsesTopic:  "system.agent.test.responses",
+			Sender:          types.AgentIdentity{AgentType: "tool-acceptance-agent"},
+		},
+	}
+}
+
+// The opt-in must actually reach the adapter, spelled the way the adapter's
+// json tag spells it. A config key the payload never carries is the exact shape
+// of a mechanism that is live, configured, and inert.
+func TestRequestBrowserRunPayloadCarriesCaptureRenders(t *testing.T) {
+	producer := &capturingProducer{}
+	params := browserRunParams(producer, map[string]interface{}{"capture_renders": true})
+
+	if _, err := RequestBrowserRunAction(context.Background(), params); err != nil {
+		t.Fatalf("RequestBrowserRunAction returned error: %v", err)
+	}
+	data := producedSearchData(t, producer)
+	if data["capture_renders"] != true {
+		t.Fatalf("payload capture_renders = %v, want true — the opt-in never reached the adapter, so a passing page is still never photographed", data["capture_renders"])
+	}
+}
+
+// Default OFF, and PRESENT: an absent key and an explicit false are the same to
+// the adapter, but only the explicit form makes the setting readable in a
+// captured payload when someone is asking why no render appeared.
+func TestRequestBrowserRunCaptureRendersDefaultsOff(t *testing.T) {
+	producer := &capturingProducer{}
+	params := browserRunParams(producer, map[string]interface{}{})
+
+	if _, err := RequestBrowserRunAction(context.Background(), params); err != nil {
+		t.Fatalf("RequestBrowserRunAction returned error: %v", err)
+	}
+	data := producedSearchData(t, producer)
+	v, present := data["capture_renders"]
+	if !present {
+		t.Fatal("capture_renders must be present in the payload even when off")
+	}
+	if v != false {
+		t.Fatalf("capture_renders = %v with no config — every existing step config must keep its exact prior behaviour", v)
+	}
+}
+
+// Renders arrive in their own key and must be found through the same envelope
+// fallbacks as everything else in the reply.
+func TestExtractRunResultsFindsRenders(t *testing.T) {
+	renders := []interface{}{
+		map[string]interface{}{
+			"profile": "desktop", "url": "https://x/t.html",
+			"uri":            "s3://bucket/acceptance-evidence/site/tool/run_desktop.png",
+			"view_url":       "https://signed.example/k?sig=abc",
+			"failing_checks": []interface{}{},
+		},
+	}
+	results := []interface{}{
+		map[string]interface{}{"check_id": "boots", "profile": "desktop", "pass": true, "detail": "ok"},
+	}
+	shapes := map[string]map[string]interface{}{
+		"response.data": {"browser_run": map[string]interface{}{
+			"response": map[string]interface{}{
+				"data": map[string]interface{}{"results": results, "renders": renders}}}},
+		"flattened": {"browser_run": map[string]interface{}{
+			"results": results, "renders": renders}},
+	}
+	for name, collected := range shapes {
+		v := extractRunResults(collected, "browser_run")
+		if len(v.Renders) != 1 {
+			t.Errorf("%s: expected 1 render ref, got %d", name, len(v.Renders))
+			continue
+		}
+		if v.Renders[0].Profile != "desktop" || v.Renders[0].URI == "" {
+			t.Errorf("%s: render ref lost fields: %+v", v.Renders[0], name)
+		}
+	}
+}
+
+// THE load-bearing property of the two-list design (see captureEvidence's own
+// comment): three consumers attach Screenshots to a work item BECAUSE something
+// failed, two of them unfiltered. A render leaking into Shots would put a
+// photograph of a perfectly good page into a failure ticket as its evidence.
+func TestRendersNeverEnterTheScreenshotList(t *testing.T) {
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{
+		"results": []interface{}{
+			map[string]interface{}{"check_id": "mobile-fit", "profile": "mobile", "pass": false, "detail": "overflow"},
+			map[string]interface{}{"check_id": "boots", "profile": "desktop", "pass": true, "detail": "ok"},
+		},
+		"screenshots": []interface{}{map[string]interface{}{
+			"profile": "mobile", "uri": "s3://b/fail_mobile.png",
+			"failing_checks": []interface{}{"mobile-fit@mobile"},
+		}},
+		"renders": []interface{}{map[string]interface{}{
+			"profile": "desktop", "uri": "s3://b/pass_desktop.png",
+		}},
+	}}
+	v := extractRunResults(collected, "browser_run")
+	if len(v.Shots) != 1 || v.Shots[0].URI != "s3://b/fail_mobile.png" {
+		t.Fatalf("Shots must hold the failing profile ONLY: %+v", v.Shots)
+	}
+	if len(v.Renders) != 1 || v.Renders[0].URI != "s3://b/pass_desktop.png" {
+		t.Fatalf("Renders must hold the passing profile ONLY: %+v", v.Renders)
+	}
+	// And the mixed run is the reason the FAILED note renders both lines.
+	body := evidenceLine(v.Shots) + renderLine(v.Renders)
+	if !strings.Contains(body, "fail_mobile.png") || !strings.Contains(body, "pass_desktop.png") {
+		t.Errorf("a mixed run must report both the failure shot and the passing render: %q", body)
+	}
+}
+
+// Same rule as evidenceLine: a note body is loaded into LLM prompt contexts, so
+// only the durable s3:// uri may appear. And the line must not call a render
+// "evidence" — every render is a photograph of a run that PASSED.
+func TestRenderLineDurableURIOnlyAndClaimsNothing(t *testing.T) {
+	renders := []screenshotRef{
+		{Profile: "desktop", URI: "s3://b/acceptance-evidence/s/t/r_desktop.png", ViewURL: "https://signed.example/k?sig=SECRETSIG"},
+	}
+	line := renderLine(renders)
+	if !strings.Contains(line, "s3://b/acceptance-evidence/s/t/r_desktop.png (desktop)") {
+		t.Errorf("render line must carry the durable uri + profile: %q", line)
+	}
+	if strings.Contains(line, "signed.example") || strings.Contains(line, "SECRETSIG") {
+		t.Errorf("presigned URLs must NEVER enter a note body: %q", line)
+	}
+	// Match the LABEL, not the whole line: the durable key prefix is literally
+	// "acceptance-evidence/", so a bare substring search for "evidence" matches
+	// the URI and fails a correct line. (It did, on this test's first run.)
+	if !strings.HasPrefix(strings.TrimPrefix(line, "\n"), "Rendered:") {
+		t.Errorf("the line must be labelled Rendered, not Evidence: %q", line)
+	}
+	if strings.Contains(line, "Evidence:") || strings.Contains(line, "at failure") {
+		t.Errorf("a render is not evidence of a failure and must not say it is: %q", line)
+	}
+	if !strings.Contains(line, "not a verdict") {
+		t.Errorf("the line must say plainly that a render decides nothing: %q", line)
+	}
+	if renderLine(nil) != "" {
+		t.Error("no renders → no line (the default-off case must add nothing to the note)")
 	}
 }
