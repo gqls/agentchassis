@@ -160,7 +160,17 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 			if !json.Valid(planJSON) {
 				return nil, fmt.Errorf("plan JSON is invalid — likely truncated at the propose step's max_tokens; raise it or shrink the plan: %w", err)
 			}
-			return nil, fmt.Errorf("plan does not match the staged-plan schema: %w", err)
+			// WIDENED 2026-07-31, on evidence from the first live repair round. A
+			// SCHEMA mismatch is not truncation and must not be lumped with it: the
+			// JSON is complete and well formed, the model simply used the wrong shape
+			// for a field. That is a formatting error, exactly as repairable as a
+			// structural one — arguably more so, since the fix is mechanical.
+			// The live case: the repair emitted `"file": [...]` (an array) where the
+			// schema wants a string, and under the old code that killed the run
+			// outright, having already spent the repair round.
+			// Truncation above stays terminal — it is a max_tokens fault.
+			return planValidationRefusal(ctx, params, logger, corr, "staged plan", planJSON,
+				[]string{"the plan JSON is well formed but does not match the staged-plan schema: " + err.Error()})
 		}
 		caps := stagedPlanCaps{
 			MaxStages:     datahelpers.GetIntField(params.StepConfig.Config, "max_stages", 6),
@@ -187,7 +197,10 @@ func DiagnosePersistFixPlanAction(ctx context.Context, params ActionParams) (int
 			if !json.Valid(planJSON) {
 				return nil, fmt.Errorf("plan JSON is invalid — likely truncated at the propose step's max_tokens; raise it or shrink the plan: %w", err)
 			}
-			return nil, fmt.Errorf("plan does not match the fix-plan schema: %w", err)
+			// Same widening as the staged path: well-formed JSON in the wrong shape is
+			// a repairable formatting error, not a truncation.
+			return planValidationRefusal(ctx, params, logger, corr, "plan", planJSON,
+				[]string{"the plan JSON is well formed but does not match the fix-plan schema: " + err.Error()})
 		}
 		if problems := validateFixPlan(plan, datahelpers.GetIntField(params.StepConfig.Config, "max_edits", 8)); len(problems) > 0 {
 			return planValidationRefusal(ctx, params, logger, corr, "plan", planJSON, problems)
@@ -325,14 +338,19 @@ func recordPlanRefusal(
 		agentType = "unknown"
 	}
 
+	// orchestration_id is a first-class column here, so a dashboard can join the
+	// refusal to its run without digging into context. The first live refusal wrote
+	// this row with it EMPTY (2026-07-31) — the correlation was in context but the
+	// column that every other query joins on was blank.
 	if _, err := params.DB.ExecContext(ctx, `
 		INSERT INTO agent_error_log
-		    (agent_type, step_name, action, error_message, error_code, severity, context)
-		VALUES ($1, $2, 'diagnose_persist_fix_plan', $3, $4, $5, $6::jsonb)`,
+		    (agent_type, step_name, action, error_message, error_code, severity, context, orchestration_id)
+		VALUES ($1, $2, 'diagnose_persist_fix_plan', $3, $4, $5, $6::jsonb, NULLIF($7,''))`,
 		agentType, params.ExecutionContext.StepName,
 		fmt.Sprintf("Fix plan refused (%s): %d structural problem(s), attempt %d of %d — %s",
 			shape, len(problems), attempt, maxAttempts, outcome),
 		planRefusalErrorCode, severity, string(contextJSON),
+		params.ExecutionContext.OrchestrationID,
 	); err != nil {
 		logger.Warn("plan refusal: failed to write finding record", zap.Error(err))
 	}

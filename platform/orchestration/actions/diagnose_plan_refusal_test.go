@@ -438,3 +438,60 @@ func TestCountRunArtifacts_MetadataFilterIsOptional(t *testing.T) {
 		}
 	})
 }
+
+// TestPersistPlan_E2E_SchemaMismatchIsRepairable: a plan whose JSON is WELL FORMED
+// but the wrong shape is a model formatting error, not a truncation, so it is
+// recoverable. Widened 2026-07-31 on live evidence: the first real repair round
+// emitted `"file": [...]` where the schema wants a string, and under the previous
+// code that killed the run outright — after the repair budget had already been spent.
+//
+// The pair with TruncatedJSONStaysTerminal is the point: same action, same config,
+// and the two must go opposite ways.
+func TestPersistPlan_E2E_SchemaMismatchIsRepairable(t *testing.T) {
+	// Exactly the live shape: edits[].file as an array instead of a string.
+	wrongShape := []byte(`{"plan_format":"staged-v1","summary":"s","grounded_in":["g"],
+	  "stages":[{"id":"s1","title":"t","goal":"g","edits":[
+	    {"file":["a/b.go","a/c.go"],"operation":"modify","rationale":"r","sketch":"k"}]}]}`)
+	if !json.Valid(wrongShape) {
+		t.Fatal("fixture must be VALID json — otherwise it tests the truncation path")
+	}
+
+	out, err := runPersistPlan(t, wrongShape,
+		map[string]interface{}{"repair_step": "repair_plan", "max_repair_attempts": 1},
+		func(m sqlmock.Sqlmock) {
+			m.ExpectExec("INSERT INTO diagnosis_artifacts").WillReturnResult(sqlmock.NewResult(1, 1))
+			m.ExpectQuery("SELECT count\\(\\*\\) FROM diagnosis_artifacts").
+				WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+			m.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(1, 1))
+		})
+	if err != nil {
+		t.Fatalf("a schema mismatch must be recoverable, got error: %v", err)
+	}
+	if out["should_repair_plan"] != true {
+		t.Errorf("want routing to repair, got %v", out["should_repair_plan"])
+	}
+	txt, _ := out["validation_problems_text"].(string)
+	if !strings.Contains(txt, "does not match the staged-plan schema") {
+		t.Errorf("the repair prompt must be told what the shape error was, got %q", txt)
+	}
+	// The model needs the field name to fix it.
+	if !strings.Contains(txt, "file") {
+		t.Errorf("the unmarshal error names the offending field; it must survive into the prompt, got %q", txt)
+	}
+}
+
+// TestPersistPlan_SchemaMismatchTerminalWithoutRepairStep: the widening must not
+// change anything for the two consumers that are not opted in.
+func TestPersistPlan_SchemaMismatchTerminalWithoutRepairStep(t *testing.T) {
+	wrongShape := []byte(`{"plan_format":"staged-v1","stages":[{"id":"s1","edits":[{"file":["a"]}]}]}`)
+	out, err := runPersistPlan(t, wrongShape, map[string]interface{}{}, nil)
+	if err == nil {
+		t.Fatal("want the step to fail with no repair_step")
+	}
+	if out != nil {
+		t.Fatalf("want no result, got %v", out)
+	}
+	if !strings.Contains(err.Error(), "does not match the staged-plan schema") {
+		t.Errorf("want the schema error, got %q", err)
+	}
+}
