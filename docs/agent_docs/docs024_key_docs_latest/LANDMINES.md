@@ -2419,3 +2419,44 @@ matters if that domain was chosen to host wildcard subdomains later.
 - **ordering, if you wire a condition to the new key:** it is emitted by the BINARY and read by config that is live IMMEDIATELY. On a chassis that predates the key it resolves to nil → false → the else branch, on **every** run. `sql_for_agents/281_..._HOLD.sql` is held back for exactly this reason
 - **source:** `bugs_open/150`, fixed in code 2026-07-31 (`337fdd9af`, council `757cc7be` APPROVED); register `WDS-015`; 016b §9 + its 2026-07-31 addendum
 - **added:** 2026-07-31, bugfix_150 lane
+
+### A Cloudflare-fronted site's `robots.txt` is REWRITTEN at the edge — `curl` gives you the origin file plus text that is not in it, with the `x-amz-*` headers still present to reassure you
+
+- **footprint:** `robots.txt` on any B2+Cloudflare domain (all 16 framework-managed domains), `~/projects/sites/<domain>/`, `b2 sync --delete`, any task that reconciles a local tree against what a site "actually serves"
+- **fires when:** you fill a gap in a local tree from the live site — the obvious move when a file is in the bucket but not in your checkout. On mortgagecalculator.co.uk the served file is **2,327 bytes**; the object in B2 is **491**. The difference is a `# BEGIN Cloudflare Managed content` … `# END Cloudflare Managed Content` block (Content-Signal directives, `Disallow` for GPTBot/ClaudeBot/CCBot/…) that **Cloudflare injects on the way out**
+- **the tell, and it points the WRONG WAY:** the response still carries `x-amz-id-2`, `x-amz-request-id`, `x-amz-version-id`, which is the usual proof that an object came from B2 rather than being synthesised by the edge. Those headers are honest about *where the object was fetched*; they say nothing about whether the body was rewritten in transit. **`cf-cache-status: DYNAMIC` is present too and also does not distinguish this**
+- **why a careful session still misses it:** the injected block is at the **TOP**, above the origin's own rules. A `curl … | tail -5` — a reasonable way to confirm a file is non-empty and looks right — lands entirely inside the origin's content and shows nothing unusual. That is exactly how it was mischaracterised as "a real origin file, not Cloudflare's Managed robots.txt block" in `mortgagecalculator_couk_adoption/HANDOFF_2026-07-31`
+- **the cost if you commit it:** the origin permanently carries a hardcoded copy of the managed block, which Cloudflare then injects **again** on every request — a duplicated directive set in the one file crawlers parse strictly. And it is invisible afterwards, because the served file still "looks like" the file you committed
+- **the check, whenever bytes are the deliverable:** take them from the origin store, never through the CDN — `b2 sync b2://portfolio-sites/<domain>/ ./bucket` (no `--delete` = download only), then `grep -c "Cloudflare Managed"` the downloaded copy, which must be **0**. The positive control that makes this specific rather than paranoid: on the same domain **28 of 28** non-robots files were sha256-identical live-vs-local, so the edge rewrites `robots.txt` and not HTML generally
+- **source:** 2026-07-31, mortgagecalculator.co.uk adoption lane — caught one command before the file was committed into the deploy repo. `mortgagecalculator_couk_adoption/NOTES` + `RUNBOOK` §2
+- **added:** 2026-07-31, mortgagecalculator adoption lane
+
+### `b2 sync --dryRun` is the v3 spelling and EXITS 2 on the v4 CLI — and the usual way of summarising its output turns that failure into "nothing will be deleted"
+
+- **footprint:** `b2 sync`, `b2` CLI ≥4 (this machine: 4.7.0 / b2sdk 2.12.0), `~/projects/sites/.github/workflows/deploy-to-b2.yml`, any pre-flight for a `--delete` sync
+- **fires when:** you simulate a destructive sync before running it — i.e. precisely the moment you are being careful. The flag is **`--dry-run`**, not `--dryRun`; the camelCase form exits **2** with a usage dump rather than an unrecognised-option error you would notice
+- **the tell is ABSENT BY CONSTRUCTION, and this is the real trap:** the idiom `b2 sync … | tee out.txt; grep -i '^delete' out.txt || echo "(none)"` prints
+
+  ```
+  === DELETIONS the sync would perform ===
+  (none)
+  === UPLOADS the sync would perform ===
+  (none)
+  ```
+
+  over the *usage dump*. **A failed dry run and a perfectly safe no-op produce identical output**, because `grep … || echo "(none)"` cannot distinguish "zero matches" from "the command never ran". You then push, having "verified" nothing
+- **the check:** print `${PIPESTATUS[0]}` in the same block and require **0** — a pipeline hides the exit status of everything but the last stage, so `$?` after a `| tee` is `tee`'s and is always 0. More generally: **any "no findings" print needs a positive control emitted by the same run**; for a subprocess the exit status is the cheapest one there is
+- **what a REAL dry run of this workflow looks like, so a correct result is not mistaken for a bad one:** for a domain already fully mirrored, expect **29 uploads + 35 deletes**, not silence. 30 deletes are `(old version)` B2 version-pruning each paired with a re-upload of byte-identical content; 5 are `.bzEmpty` folder placeholders. **The property to assert is not "no deletes" but "no live content file deleted without replacement"**: `comm -23 <(bucket listing) <(repo listing)` must be empty. Uploads happen even for identical bytes because `b2 sync` compares mtime and `--skip-newer` skips only when the **destination** is newer
+- **source:** 2026-07-31, mortgagecalculator.co.uk adoption lane — the false-clean run was the gate on a `--delete` sync against a live site. `mortgagecalculator_couk_adoption/NOTES` + `RUNBOOK` §1/§4
+- **added:** 2026-07-31, mortgagecalculator adoption lane
+
+### `--fidelity high` is not a milder `locked` — it is the ABSENCE of a setting, and it silently selects the full recreate path that renames every URL and has an LLM rewrite every page
+
+- **footprint:** `scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh`, `platform/orchestration/actions/apply_adoption_plan_action.go:426`, `platform/orchestration/actions/adopt_verbatim.go`, `input_data.fidelity`, `datahelpers.CanonicalisePage`, doc 028's "fidelity dial"
+- **fires when:** you adopt a site you intend to KEEP and reach for a middle setting, because doc 028 and the script's own `--fidelity <level>` usage line both present a five-position dial — `locked | high | medium | low | new`. **Only `locked` exists in code.** The comparison is a strict binary, `if fidelity := adoptionFidelity(...); fidelity == fidelityLocked`, and `082`'s NOTE says the rest are "recorded in `input_data` … but **modulating nothing**"
+- **the tell: none — and every observable says it worked.** `high` is accepted by the script, stored in `input_data`, echoed back by the orchestration row, and the run completes successfully. It behaves *identically to passing no fidelity at all*
+- **what it actually does:** `CanonicalisePage` synthesises a fresh URL for every page and discards the crawled one (`/repayment.html` → `/tools/repayment/index.html`), pages land `build_status='planned'` with `content_data.mode='recreate'`, and `page-build-handler` / `tool-recreation-handler` regenerate each page with an LLM — working hand-built tools included. Every indexed URL on the site changes
+- **the check, before submitting:** decide by the *behaviour* you want, not the word. Byte-and-URL preserving is `locked` and **nothing else**. Editability is not the reason to avoid `locked`: `rebuild_policy='owned'` is a **per-page** flag with real readers (`rerender_single_page_action.go:310`, `save_page_sections_action.go:149-156`, `reconcile_site_plan_action.go:233`), so a locked site can be opened to the pipeline one page at a time. After submitting, confirm the branch actually taken — `SELECT collected_data->'input_data'->>'fidelity' FROM orchestration_states WHERE owner_agent_type='site-adoption-agent' ORDER BY created_at DESC LIMIT 1;` — since `call_agent`'s `input_mapping` is an ALLOW-LIST and dropped `fidelity` entirely until migration 274
+- **the assertion that INVERTS between the two paths:** `HANDOFF_2026-07-31_adopt_mortgagecalculator.md` §5d says `needs_content_page` + `needs_tool_recreation` must be **0** and to stop if either appears. That is the **`locked`** assertion. Under `high` those work items are the *intended* output and their absence means the run did nothing — copy the check across and you halt a correct run at its first correct step
+- **source:** 2026-07-31, mortgagecalculator.co.uk adoption lane (owner decision D1 taken with the code quoted); `mortgagecalculator_couk_adoption/PLAN` D1 + `RUNBOOK` §6
+- **added:** 2026-07-31, mortgagecalculator adoption lane
