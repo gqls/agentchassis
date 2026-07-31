@@ -269,3 +269,102 @@ func TestFindIdenticalSamePage_StillFlagsTrueByteIdenticalDuplicate(t *testing.T
 		t.Fatalf("want 1 redundant row, got %d", got)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// plan guard: splitPlanSpecified (pure half — the DB walk is tested at the
+// action boundary in actions/remove_duplicate_page_sections_action_test.go)
+// ---------------------------------------------------------------------------
+
+// Plan specifies the slot twice -> the group is dropped and reported, filing
+// nothing. PREMISE GUARD first: the group must be genuinely in-remit without
+// the plan counts, else this test would pass against a broken detector too.
+func TestSplitPlanSpecified_DropsPlanSpecifiedSlot(t *testing.T) {
+	page := uuid.New()
+	sections := []siteSection{
+		sec(page, "index", "info-card-grid", 1, longA),
+		sec(page, "index", "info-card-grid", 2, longA),
+	}
+	groups := findIdenticalSamePage(sections)
+	if len(groups) != 1 {
+		t.Fatalf("premise broken: same-slot byte-identical pair must be in-remit before the plan is consulted; got %d", len(groups))
+	}
+
+	kept, skipped := splitPlanSpecified(groups[0], sections, map[string]int{"info-card-grid": 2})
+	if kept != nil {
+		t.Errorf("plan-specified repetition must not survive into in-remit; kept %v", kept)
+	}
+	if len(skipped) != 1 || skipped[0].Slot != "info-card-grid" ||
+		skipped[0].Planned != 2 || skipped[0].RowsNow != 2 || skipped[0].WouldRemove != 1 {
+		t.Errorf("skip must carry slot/planned/rows/removals for the report; got %+v", skipped)
+	}
+}
+
+// Plan specifies the slot once -> deleting down to one row satisfies it, the
+// group survives untouched. The guard narrows, it must not disable.
+func TestSplitPlanSpecified_PlanCountOnePassesThrough(t *testing.T) {
+	page := uuid.New()
+	sections := []siteSection{
+		sec(page, "index", "hero-about", 1, longA),
+		sec(page, "index", "hero-about", 2, longA),
+	}
+	groups := findIdenticalSamePage(sections)
+	if len(groups) != 1 {
+		t.Fatalf("premise broken: got %d groups", len(groups))
+	}
+
+	kept, skipped := splitPlanSpecified(groups[0], sections, map[string]int{"hero-about": 1})
+	if kept == nil || len(kept.Groups) != 1 {
+		t.Fatalf("plan-count 1 must not protect a duplicate; kept %v", kept)
+	}
+	if len(skipped) != 0 {
+		t.Errorf("nothing is plan-specified here; got %+v", skipped)
+	}
+}
+
+// No plan coverage at all (empty counts, source "") imposes no constraint.
+func TestSplitPlanSpecified_NoPlanCoverageImposesNothing(t *testing.T) {
+	page := uuid.New()
+	sections := []siteSection{
+		sec(page, "index", "cta", 1, longA),
+		sec(page, "index", "cta", 2, longA),
+	}
+	groups := findIdenticalSamePage(sections)
+	if len(groups) != 1 {
+		t.Fatalf("premise broken: got %d groups", len(groups))
+	}
+	kept, skipped := splitPlanSpecified(groups[0], sections, map[string]int{})
+	if kept == nil || len(skipped) != 0 {
+		t.Errorf("silent plan stores must not protect anything; kept=%v skipped=%+v", kept, skipped)
+	}
+}
+
+// One page, two duplicated slots, only one plan-protected -> the group is
+// SPLIT: the protected slot is reported, the other stays dispatchable, and
+// Keep is recomputed so it cannot point into the dropped slot.
+func TestSplitPlanSpecified_MixedPageSplitsNotDrops(t *testing.T) {
+	page := uuid.New()
+	sections := []siteSection{
+		sec(page, "index", "info-card-grid", 1, longA), // plan-specified x2
+		sec(page, "index", "info-card-grid", 2, longA),
+		sec(page, "index", "hero-about", 3, longB), // genuine duplicate
+		sec(page, "index", "hero-about", 4, longB),
+	}
+	groups := findIdenticalSamePage(sections)
+	if len(groups) != 1 || len(groups[0].Groups) != 2 {
+		t.Fatalf("premise broken: want 1 page / 2 duplicate groups, got %+v", groups)
+	}
+
+	kept, skipped := splitPlanSpecified(groups[0], sections, map[string]int{"info-card-grid": 2, "hero-about": 1})
+	if kept == nil || len(kept.Groups) != 1 {
+		t.Fatalf("the unprotected slot must stay dispatchable; kept %v", kept)
+	}
+	if kept.Groups[0][0].SlotName != "hero-about" {
+		t.Errorf("wrong slot survived: %s", kept.Groups[0][0].SlotName)
+	}
+	if kept.Keep.SlotName != "hero-about" {
+		t.Errorf("Keep must be recomputed off the surviving groups, not point into the dropped slot; got %s", kept.Keep.SlotName)
+	}
+	if len(skipped) != 1 || skipped[0].Slot != "info-card-grid" {
+		t.Errorf("the protected slot must be reported; got %+v", skipped)
+	}
+}

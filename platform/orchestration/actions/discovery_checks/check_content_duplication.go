@@ -120,6 +120,46 @@ func (c *ContentDuplicationCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 
 	result := &CheckResult{}
 
+	// ---- plan guard: drop groups whose repetition the plan itself specifies ----
+	// Same predicate the repair applies before its DELETE (datahelpers.
+	// PlanSpecifiedSectionCounts) — an item the repair would refuse is a stuck
+	// item, so it must never be filed. Fails closed: if a plan store is
+	// unreadable, the page's groups are dropped (reported, not filed) rather
+	// than dispatched at a repair that will error on the same read.
+	var planFiltered []identicalPageGroup
+	for _, grp := range inRemit {
+		planned, planSource, perr := datahelpers.PlanSpecifiedSectionCounts(
+			dctx.Ctx, dctx.DB, dctx.SiteID, grp.PageName)
+		if perr != nil {
+			dctx.Logger.Warn("content_duplication: plan stores unreadable, not filing for this page",
+				zap.String("page", grp.PageName), zap.Error(perr))
+			result.Findings = append(result.Findings, map[string]interface{}{
+				"check":     "content_duplication",
+				"shape":     "plan_stores_unreadable",
+				"page_name": grp.PageName,
+				"error":     perr.Error(),
+			})
+			continue
+		}
+		kept, skipped := splitPlanSpecified(grp, sections, planned)
+		for _, sk := range skipped {
+			result.Findings = append(result.Findings, map[string]interface{}{
+				"check":         "content_duplication",
+				"shape":         "plan_specified_repetition",
+				"page_name":     grp.PageName,
+				"slot_name":     sk.Slot,
+				"planned_count": sk.Planned,
+				"rows_now":      sk.RowsNow,
+				"would_remove":  sk.WouldRemove,
+				"plan_source":   planSource,
+			})
+		}
+		if kept != nil {
+			planFiltered = append(planFiltered, *kept)
+		}
+	}
+	inRemit = planFiltered
+
 	// ---- IN-REMIT: one dispatchable item per affected page ----
 	for _, grp := range inRemit {
 		redundant := grp.redundantComponentIDs()
@@ -274,6 +314,62 @@ func findIdenticalSamePage(sections []siteSection) []identicalPageGroup {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].PageName < out[j].PageName })
 	return out
+}
+
+// planSkippedSlot records one slot whose deletion was refused because the
+// effective plan source specifies the repetition.
+type planSkippedSlot struct {
+	Slot        string
+	Planned     int
+	RowsNow     int
+	WouldRemove int
+}
+
+// splitPlanSpecified drops from one page's in-remit group every duplicate
+// group whose deletion would leave its slot with fewer rows than the plan
+// specifies. Pure — counts come from the caller — so tests hit it directly.
+// Returns nil when no group survives. Per-SLOT accounting, never positional
+// (page_components.position does not track site_plan_sections.ordering).
+func splitPlanSpecified(grp identicalPageGroup, sections []siteSection, planned map[string]int) (*identicalPageGroup, []planSkippedSlot) {
+	rowsInSlot := map[string]int{}
+	for _, s := range sections {
+		if s.PageID == grp.PageID {
+			rowsInSlot[s.SlotName]++
+		}
+	}
+	removalsInSlot := map[string]int{}
+	for _, g := range grp.Groups {
+		removalsInSlot[g[0].SlotName] += len(g) - 1
+	}
+
+	protected := map[string]bool{}
+	var skipped []planSkippedSlot
+	for slot, removals := range removalsInSlot {
+		if want := planned[slot]; rowsInSlot[slot]-removals < want {
+			protected[slot] = true
+			skipped = append(skipped, planSkippedSlot{
+				Slot: slot, Planned: want,
+				RowsNow: rowsInSlot[slot], WouldRemove: removals,
+			})
+		}
+	}
+	if len(protected) == 0 {
+		return &grp, nil
+	}
+
+	var kept [][]siteSection
+	for _, g := range grp.Groups {
+		if !protected[g[0].SlotName] {
+			kept = append(kept, g)
+		}
+	}
+	if len(kept) == 0 {
+		return nil, skipped
+	}
+	out := grp
+	out.Groups = kept
+	out.Keep = kept[0][0]
+	return &out, skipped
 }
 
 // ---------------------------------------------------------------------------

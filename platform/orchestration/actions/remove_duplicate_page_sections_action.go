@@ -152,10 +152,61 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 		byText[k] = append(byText[k], s)
 	}
 
+	// --- plan guard (council trail da3f2d9b, bug_historian; owner decision
+	// 2026-07-31): page_components is downstream of the plan stores, so a slot
+	// whose repetition the EFFECTIVE plan source itself specifies must not be
+	// deleted below the specified count — a full rebuild would either resurrect
+	// the row (wasted delete) or, where the plan means the repetition, the
+	// delete is the loss. Same predicate as the detector, from datahelpers, so
+	// the two halves cannot disagree; FAILS CLOSED (an unreadable plan store
+	// aborts the action rather than proceeding as if unplanned). ---
+	var siteID uuid.UUID
+	var pageName string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT site_id, name FROM pages WHERE id = $1`, pageID,
+	).Scan(&siteID, &pageName); err != nil {
+		return nil, fmt.Errorf("plan guard: resolve page %s: %w", pageID, err)
+	}
+	planned, planSource, err := datahelpers.PlanSpecifiedSectionCounts(ctx, tx, siteID, pageName)
+	if err != nil {
+		return nil, fmt.Errorf("refusing to delete on page %s: %w", pageID, err)
+	}
+
+	// Per-SLOT accounting, never positional: total rows the slot has now, and
+	// how many the identical groups would remove from it.
+	rowsInSlot := map[string]int{}
+	for _, s := range sections {
+		rowsInSlot[s.Slot]++
+	}
+	removalsInSlot := map[string]int{}
+	for _, grp := range byText {
+		if len(grp) >= 2 {
+			removalsInSlot[grp[0].Slot] += len(grp) - 1
+		}
+	}
+	planProtected := map[string]bool{}
+	var planSkipped []map[string]interface{}
+	for slot, removals := range removalsInSlot {
+		if want := planned[slot]; rowsInSlot[slot]-removals < want {
+			planProtected[slot] = true
+			planSkipped = append(planSkipped, map[string]interface{}{
+				"slot_name":     slot,
+				"planned_count": want,
+				"rows_now":      rowsInSlot[slot],
+				"would_remove":  removals,
+				"plan_source":   planSource,
+			})
+			logger.Info("remove_duplicate_page_sections: slot repetition is plan-specified, skipping",
+				zap.String("page_id", pageID.String()), zap.String("slot", slot),
+				zap.Int("planned", want), zap.Int("rows_now", rowsInSlot[slot]),
+				zap.String("plan_source", planSource))
+		}
+	}
+
 	var remove []dupSectionRow
 	keptPerGroup := 0
 	for _, grp := range byText {
-		if len(grp) < 2 {
+		if len(grp) < 2 || planProtected[grp[0].Slot] {
 			continue
 		}
 		sort.Slice(grp, func(i, j int) bool { return grp[i].Position < grp[j].Position })
@@ -167,15 +218,21 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 		if err := tx.Commit(); err != nil {
 			return nil, fmt.Errorf("commit (no-op): %w", err)
 		}
+		detail := "no content-identical duplicate sections on this page"
+		if len(planSkipped) > 0 {
+			detail = "every content-identical duplicate on this page is plan-specified repetition — nothing deleted"
+		}
 		logger.Info("remove_duplicate_page_sections: nothing to remove",
-			zap.String("page_id", pageID.String()), zap.Int("sections", len(sections)))
+			zap.String("page_id", pageID.String()), zap.Int("sections", len(sections)),
+			zap.Int("plan_skipped_slots", len(planSkipped)))
 		return map[string]interface{}{
-			"page_id":          pageID.String(),
-			"sections_before":  len(sections),
-			"removed":          0,
-			"duplicate_groups": 0,
-			"changed":          false,
-			"detail":           "no content-identical duplicate sections on this page",
+			"page_id":                   pageID.String(),
+			"sections_before":           len(sections),
+			"removed":                   0,
+			"duplicate_groups":          0,
+			"changed":                   false,
+			"plan_specified_repetition": planSkipped,
+			"detail":                    detail,
 		}, nil
 	}
 
@@ -252,15 +309,16 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 		zap.Int("stale_ids_in_spec", len(staleFromSpec)))
 
 	return map[string]interface{}{
-		"page_id":            pageID.String(),
-		"sections_before":    len(sections),
-		"sections_after":     remaining,
-		"removed":            int(deleted),
-		"duplicate_groups":   keptPerGroup,
-		"removed_components": removedDetail,
-		"stale_spec_ids":     staleFromSpec,
-		"changed":            true,
-		"needs_rerender":     true,
+		"page_id":                   pageID.String(),
+		"sections_before":           len(sections),
+		"sections_after":            remaining,
+		"removed":                   int(deleted),
+		"duplicate_groups":          keptPerGroup,
+		"removed_components":        removedDetail,
+		"stale_spec_ids":            staleFromSpec,
+		"plan_specified_repetition": planSkipped,
+		"changed":                   true,
+		"needs_rerender":            true,
 	}, nil
 }
 
