@@ -2852,3 +2852,51 @@ recorded. **The lesson is the one this lane keeps relearning from the other side
 should have run `git log` on the file before writing the entry, not after committing it.
 The tree is shared and fifteen minutes is plenty — "a quiet `git log` is not silence"
 cuts both ways, and here the log was not even quiet.
+
+### Round 2 verdict: REVISE again — and it caught a SECOND incomplete population
+
+12:51Z, gated by `prior_art_librarian`. **8 of 12 seats approved** (round 1: 5 of 12),
+and the objections had moved almost entirely off the code and onto evidence provenance.
+The gating line is worth quoting because it is a stance rather than a finding: *"I do
+not trust a rationale's self-reported verification, I attach the lookup."*
+
+**The seat was right to push, and here is the proof.** My round-2 answer about
+`section-editor` said "its workflow steps are … no step deletes a row" — measured from
+`default_config->'workflow'->'steps'`. But `agent_definitions` has **five**
+workflow-bearing columns: `default_config`, `task_workflow`, `orchestrator_workflow`,
+`orchestration_workflow`, `capabilities`. I had checked one. Re-checked across all five:
+the claim **holds** (no delete/renumber anywhere, and the other three columns are NULL
+for that agent) — but it held by luck of which column I happened to query. **That is the
+same error as the md5-vs-prose ruler, one level up: I answered an absence claim without
+first establishing the population the absence is over.** Second instance today; the
+family in §6 of the handoff now has a seventh member.
+
+Measured, all attached in `9fec8ce01`: **0** live agents reference `content_duplication`
+in any of the five columns; exactly **1** names `remove_duplicate_page_sections`
+(`deduplicate-sections`); **0** `content_duplication` rows in `site_work_items`;
+`deduplicate-sections` active with both `page_id` and `item_key_suffix_field` correct.
+So inertness is now a measurement over a stated population.
+
+**`bug_historian`'s sentence is the one to keep:** *"Currently unexercised is not the
+same as closed."* He accepted the deferral of the `site_plan_sections` guard and
+objected to it being deferred **untracked** — "exactly 'fix the symptom, leave the
+mechanism exploitable elsewhere'" — naming two closed precedents of the same shape
+(`bugs_closed/058` rebuild path vs component locks, `bugs_closed/069` site_components vs
+chrome locks). Fair, and now tracked in `doc_notes` and CQ-018 verify-later.
+
+**`tooling_provenance` asked twice and I had substituted the wrong mechanism.** I
+offered the LANDMINES→`doc_notes` sync as the record; the seat's answer is that a
+landmine guards a trap being re-hit blind and **is not where a pipeline's decision
+rationale lives**. Correct. Two proper `doc_notes` rows now exist under
+`subject_type='action'` — chosen because it is in **both** enforcement points (DB CHECK
+*and* Go `validDocSubjectTypes`), so they are reachable through the doc actions rather
+than merely present in the table, which is the split contract `bugs_closed/064` exists
+to prevent.
+
+**`editquality`'s objection is the only one that cannot be answered by asserting
+harder:** the load-bearing figures are my own measurement, from a thread that logged a
+wrong-ruler miscount in the same round. There is no way to out-argue that. So the
+measurement is now a committed, re-runnable artefact —
+`scripts/dedup_census_shipped.{go,md}`, verified in both modes before committing
+(current: 1,023 sections / 815 eligible / 0 groups; `-legacy`: 1 group, 1 deletion, the
+vonc pair). **Round 3 not fired** — the decision and both arguments are in handoff §4.0.

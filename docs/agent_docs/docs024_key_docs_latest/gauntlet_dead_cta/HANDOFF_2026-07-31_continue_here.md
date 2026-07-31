@@ -223,12 +223,28 @@ session moves it again.
 > **UPDATED 2026-07-31 ~11:45Z. Actions 1 and 5's live-driver gap are DONE; action 2
 > is unchanged and now has more support, not less.**
 >
-> - **Round 2 IS SUBMITTED** on `da3f2d9b-ae6f-492d-ad3b-748323b66367` (same trail).
->   It carries the fix in `43492ec94`, the corrected population figure, the measured
->   false positive, and measured answers to `debug_historian`'s and
->   `prior_art_librarian`'s HIGH objections. **Verdict not yet read** — expect ~30 min
->   from 11:40Z; the queue was 7 deep. Read it with the query in §4.1 below before
->   writing any `Council-Reviewed:` trailer anywhere.
+> - **Round 2 VERDICT: REVISE** (12:51Z), gated by `prior_art_librarian`. **8 of 12
+>   seats approved** — up from round 1 — and almost nothing was about the code. The
+>   gating position is a stance, not a defect: *"I do not trust a rationale's
+>   self-reported verification, I attach the lookup."* Every objection is now
+>   answered with the lookup attached, in `9fec8ce01`. **Round 3 is assembled but NOT
+>   fired** — that is a live decision, see §4.0.
+>   - It also caught me in a **second incomplete population**: my round-2 answer on
+>     section-editor checked `default_config` only, and `agent_definitions` has **five**
+>     workflow-bearing columns (`task_workflow`, `orchestrator_workflow`,
+>     `orchestration_workflow`, `capabilities`). Re-checked across all five — the claim
+>     holds, but it held by luck of the query, which is the same shape as the
+>     wrong-ruler error above. **Diff the population before answering an absence
+>     objection.**
+>   - Inertness is now measured, not asserted: **0** live agents reference
+>     `content_duplication` in any column; exactly one names the action; **0**
+>     `content_duplication` work items exist.
+>   - `bug_historian`'s line is the one to carry: **"currently unexercised is not the
+>     same as closed."** The `site_plan_sections` guard is now tracked in `doc_notes`
+>     (`action`/`remove_duplicate_page_sections`) and CQ-018 verify-later, with the two
+>     precedents he named (`bugs_closed/058`, `bugs_closed/069`).
+>   - The measurement is now a **re-runnable artefact** rather than my word:
+>     `scripts/dedup_census_shipped.{go,md}`, `-legacy` reproduces the false positive.
 > - **The live share-card driver RAN and passed 11/11**, on a real round through the
 >   real page: challenge element 451 chars, defence textarea 198 chars, both still
 >   populated when the button fires. **CREDIT WHERE DUE — another session drove it
@@ -248,7 +264,24 @@ session moves it again.
 >   switch on an unreviewed destructive path costs, and it is the second time this
 >   week the "it's inert so it's safe" framing has been too comfortable.
 
-### 4.1 Read the round-2 verdict first
+### 4.0 THE OPEN DECISION — fire round 3, or stop here?
+
+Everything the seats asked for is done and committed (`9fec8ce01`). Round 3 would be
+a resubmit on the same trail with the lookups attached and no code change beyond the
+architecture seat's contract comment.
+
+**Argument for firing it:** 8 seats already approve; the gating objection is
+answerable by attachment, which is exactly what has been attached; approval makes
+`098` credit the existing `Council-Submitted:` trailers automatically.
+**Argument for stopping:** the code defect that mattered is FIXED and committed, and
+the standing rule is *one council run per coherent task, not per iteration*. A third
+round buys a trailer, not a safer mechanism. The check stays inert either way.
+
+**Not fired without a decision, because it spends real credits and the change is
+already safe.** If it is fired, use
+`RESUBMIT_CORR=da3f2d9b-ae6f-492d-ad3b-748323b66367`.
+
+### 4.1 Read the verdict
 
 ```sql
 SELECT created_at, metadata->>'decision'
