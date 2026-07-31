@@ -389,3 +389,57 @@ position, status, metadata, created_at, updated_at`, and a `%lock%`/`%owned%`/
 Corrected in the bug file and in CTXA-025. Flagging *how* it happened rather than
 just that it did: it is the one claim in an otherwise thoroughly measured block
 that was an inherited plausibility rather than a schema read.
+
+## 8. Another session finished B and C while I was proving A (2026-07-31 ~22:40)
+
+Picked the lane back up to find `983e4b0a2` — sites B and C converted by another
+session, who read site A's code and **generalised my private refusal emitter into
+a shared `emitPruneRefusalWorkItem` in `prune_floor.go`**, carrying the
+`recurrenceExpected` fix and reusing my `floorMockDB`/`expectRefusalItem` test
+helpers. That is the system working: they contributed into the case rather than
+competing, and said so in their commit.
+
+**First thing I did was check for a regression in the shared rule I depend on**,
+because they added 181 lines to `prune_floor.go` and my fix is live and induced.
+My whole suite passes at HEAD; `Reason()` is untouched. No regression.
+
+### What I did: retired my duplicate emitter (`21a3f24b1`)
+
+Two near-identical emitters in one package is the drift class the council reviews
+for, and `reuse_agent` flagged the risk on round `a54172b6` **before** the
+duplicate existed. Theirs is a faithful generalisation, so mine goes; the prose
+stays site-specific, which is the split their helper was shaped for.
+
+**The part that is not tidying:** `TestPageSectionRefusalSurvivesATwoStrikeHistory`
+now points at the SHARED function, so it guards all three call sites. Proven by
+dropping `recurrenceExpected` from the shared emitter in an isolated tree:
+
+```
+--- FAIL: TestPageSectionRefusalSurvivesATwoStrikeHistory
+     (their TestPruneRefusalWorkItemRoutesToHumanReview stayed GREEN)
+```
+
+That asymmetry is the whole point and is worth stating: **their routing test
+cannot pin the flag.** With `recurrenceExpected` set the two-strike COUNT is never
+issued, so a test that supplies no branding history passes whichever way the flag
+goes — the vacuous-mock landmine again, in a new place. Mine supplies the history
+that *would* brand the item and pins the INSERT's `status`. So the test had to
+MOVE, not be duplicated.
+
+### What I did NOT do, and why
+
+The misleading refusal sentence is now false for **three of four** consumers, not
+one — I verified each caller by reading it (`populate_nav_tables_action.go:149`,
+`site_db_actions.go:461`, both `return nil, err`), so the original reason for
+deferring it has evaporated. But `prune_floor.go` was live territory: that session
+committed it at 22:33 and was still writing at 22:41. A same-file collision is the
+one failure mode no hook catches — "whoever commits takes both edits". So the
+finding went into `bugs_open/165` with the table, the fix shape, and the warning
+not to delete the load-bearing half of the sentence.
+
+**The lesson worth keeping: an ownership check has a half-life of minutes here.**
+When I started this lane, B and C were unowned and `populate_nav_tables_action.go`
+was dirty for the 149 lane. Three hours later B and C were done by a third
+session, and the file I most wanted to edit had changed hands twice. Re-run the
+transcript grep immediately before the Write, not once at the start — I did, and
+it is the only reason this ended as a contribution rather than a collision.

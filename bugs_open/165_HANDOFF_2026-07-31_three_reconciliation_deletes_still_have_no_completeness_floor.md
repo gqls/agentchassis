@@ -174,6 +174,34 @@ None of that argues the work should not happen — only that it is its own work.
 > signature change to a shared mechanism and belongs on its own merits, not
 > riding inside a bug fix.
 
+> **RE-SCOPED 2026-07-31 ~22:45, after B and C landed — the sentence is now false
+> for THREE of the four consumers, not one.** Verified by reading each caller, not
+> by grep:
+>
+> | consumer | on refusal | is the sentence true? |
+> |---|---|---|
+> | `index_code_symbols` (135) | skips the prune, run continues | **yes** — a later healthy run does prune |
+> | `save_page_sections` (A) | `return nil, err` → step FAILED (induced live) | no |
+> | `populate_nav_tables` (B) | `enforceNavPruneFloor` errs → caller `return nil, err` (`populate_nav_tables_action.go:149-151`) | no |
+> | `sync_page_links` (C) | `enforceLinkRegistryFloor` errs → caller `return nil, err` (`site_db_actions.go:461-463`) | no |
+>
+> So the shared refusal now tells the majority of its callers' operators that the
+> situation self-heals when it does not. The originally-stated reason for deferring
+> ("it is one consumer out of two") no longer holds; what still holds is that the
+> clause lives in the shared `Reason()`, so the fix is a signature change touching
+> all four and wants its own council round.
+>
+> **Shape when someone takes it:** `Reason(op, subject, configKey)` gains a
+> caller-supplied "what happens next" clause — 135 keeps today's sentence, A/B/C
+> get "nothing was written and the existing <page|nav|link set> still stands; this
+> run will not retry it." Do NOT simply delete the sentence: "NOTHING was deleted"
+> is the load-bearing half and must survive.
+>
+> Not done in this session because `prune_floor.go` was another session's live
+> territory at the time (they committed it at 22:33 and were still writing at
+> 22:41), and a same-file collision on a shared tree is the one thing no hook can
+> catch.
+
 **How the guardian's question was answered, for whoever repeats it on B and C**
 (`guardian`, medium, round `a54172b6`): config alone cannot decide it —
 `page-build-handler` has `error_step: mark_item_failed`, `page-rerender` and
