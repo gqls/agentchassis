@@ -14744,3 +14744,30 @@ assertion in prose.
   If no plausible value flips it, it is not a blocker — it is a different question
   wearing the same words. (It is still owed: it gates *margin* tracking and P2's
   free-tier cap, where per-unit × volume is the whole story.)
+
+## 2026-07-31 — brochure lane
+
+- **I ran `git add` on a TRACKED file, and forty seconds later another session's
+  commit swept it.** `LANDMINES.md` was already tracked; I appended an entry and
+  reflexively staged it before committing a group of docs by pathspec. It never
+  reached my commit — the scope report said "3 files" where I had named four — and
+  it is at HEAD inside `5cadc9494`, a PUB-004 commit about a record page, along
+  with 2,002 insertions of somebody else's work. **Nothing was lost**, and
+  forward-only means nothing needs undoing; but my commit message describes a
+  landmine that is in someone else's commit, and the `098` join is now wrong for
+  both of us.
+  **The mistake is that the `add` was never needed.** CLAUDE.md says *"New files
+  must be `add`ed first"* — and I applied a rule about **untracked** files to a
+  **tracked** one. `git commit <path>` takes a tracked file straight from the
+  working tree and ignores the index entirely; that is the whole point of the
+  pathspec rule. So the `add` bought nothing and created the one thing the rule
+  exists to prevent: a window in which my work sat in the shared index where
+  another session's bare `git commit -m` would collect it.
+  **The cheap check: `git ls-files --error-unmatch <path>` before reaching for
+  `add` — if it is tracked, there is no `add` step, only the pathspec commit.**
+  And keep the window at zero: stage and commit in the *same* command, never as two
+  steps with thinking in between. Second instance on this lane today (the concept
+  register's index went the same way into `817818103` at 09:13, recorded in the
+  lane NOTES), which is what makes it a pattern rather than bad luck — and note the
+  first instance was an *unstaged* working-tree file, so the two failures have
+  different mechanisms and the same outcome.

@@ -3851,3 +3851,17 @@ entry was simply in the wrong place. Only the `??` in `git status` showed it. Mo
 into the real file and the stray deleted, no content lost. This is precisely why
 CLAUDE.md prefers the Write tool for anything you did not create — it refuses an
 unread file, and a redirect never refuses anything.
+
+**And it happened again, to this very entry's landmine — but by a different
+mechanism, which is the useful part.** The `LANDMINES.md` append above was swept
+into another session's commit `5cadc9494` (PUB-004, 20:40) while I was writing the
+docs commit; my own commit reported "3 files" where I had named four. Content is at
+HEAD and nothing is lost. **The cause was my own `git add` on a file that was
+already tracked** — I applied CLAUDE.md's "new files must be added first" rule to a
+tracked file, which bought nothing (`git commit <path>` reads the working tree and
+ignores the index) and opened a window where my work sat in the shared index for
+another session's bare commit to collect. This morning's incident was the opposite
+mechanism — an *unstaged* working-tree file taken by a same-file passenger — so the
+lane has now been bitten by both halves of the shared-tree hazard in one day.
+Logged in `WRONG_CALLS.md` with the check: `git ls-files --error-unmatch <path>`
+before reaching for `add`, and never leave a staged file uncommitted across a think.
