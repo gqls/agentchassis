@@ -625,6 +625,46 @@ that table). `create_tool_component` writes the nav item but never sets the flag
 Neither re-renders chrome. Fix at creation time — it makes the bad state
 unrepresentable, which is why `146` now ranks it above detection.
 
+### A7. A THIRD copy of the label rule still holds the pre-fix defect, one commented-out line from being live — **OPEN, tracked as debt at the council's request**
+
+**Raised 2026-07-31 by the council gate's `architecture` and `bug_historian` seats**
+(round 1 of `11c5c813-dfad-437e-b4a9-09c56475e8d2`), which is the right outcome: the
+submission declined to fix it in scope and justified that by reachability, and both
+seats said reachability is not a structural guarantee and a code comment is not
+tracking. So it is tracked here.
+
+`rerenderSimplifyNavLabel` (`platform/orchestration/actions/rerender_pages_actions.go:440`)
+still derives its name from **the whole path** — `strings.TrimPrefix(url, "/")`,
+`strings.TrimSuffix(name, ".html")` — which is verbatim the defect that put
+`Tools/Damage Formula Designer/Index` into gamesdesign's live footer and was fixed in
+`navSimplifyLabel` on 2026-07-31. It is currently unreachable:
+
+```bash
+git grep -n "rerenderGetHeaderNavFromDB\|rerenderGetFooterNavFromDB\|rerenderSimplifyNavLabel" HEAD -- '*.go' \
+  | grep -v "rerender_pages_actions.go\|nav_tables.go"      # -> no rows, at HEAD
+git show HEAD:platform/orchestration/actions/rerender_pages_actions.go | sed -n '168p'
+#   /*dbNav := rerenderGetHeaderNavFromDB(ctx, params.DB, siteID, 6, params.Logger)*/
+```
+
+**Why this is debt and not a bug:** nothing is wrong today. **Why it is not nothing:**
+uncommenting one line — a plausible future edit, since the code sits right there and
+reads as live — reinstates the exact defect on a path with no test and no warning. And
+`nav_tables.go:554` claims `navSimplifyLabel` "consolidates" this function, which is the
+intent and not the state, so a reader is actively told the duplicate is gone.
+
+**Fix candidates**, in order of what closes the door:
+1. **Delete `rerenderSimplifyNavLabel`, `rerenderGetHeaderNavFromDB`,
+   `rerenderGetFooterNavFromDB` and the commented-out call at line 168.** Makes the bad
+   state unrepresentable. Needs its own council round precisely *because* deleting
+   live-looking code is a judgement, not a tidy-up.
+2. Point the two dead getters at `navSimplifyLabel` and delete only the duplicate — keeps
+   the functions available if the path is ever revived, and removes the divergence.
+3. Correct `nav_tables.go:554`'s "consolidates" comment to say what is actually true.
+   Cheapest, closes no door — do it alongside 1 or 2, not instead.
+
+Landmine entry written (`LANDMINES.md`, "Four functions compute a nav label…") so the
+next reader is warned before they "fix" dead code on sight. RUNBOOK **R16** has the table.
+
 ---
 
 ## Group B — coverage: checks that never run

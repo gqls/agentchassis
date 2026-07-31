@@ -505,6 +505,13 @@ func navLabelForPage(page pageNavInfo) string {
 		if len(label) <= 30 {
 			return label
 		}
+		// Passing the STRIPPED label rather than page.NavLabel is provably a
+		// no-op here, and is spelled out because a reviewer rightly asked why
+		// the argument changed: navSimplifyLabel reads its label argument in
+		// exactly one place — the `len(label) <= 15` early return — and every
+		// other branch derives from the URL. This line is reachable only when
+		// len(label) > 30, so the argument cannot be read. It is passed
+		// stripped so the two stay consistent if that early return ever moves.
 		return navSimplifyLabel(label, page.URL)
 	}
 	return navSimplifyLabel(page.Title, page.URL)
