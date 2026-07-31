@@ -1,0 +1,145 @@
+{
+  "_note": "Two columns, hardcoded rather than ranged over: they are a fixed A/B comparison, not a list, and the verdict logic names them individually. Every runtime-chosen string is rendered into the markup copy bank, never into a JavaScript literal -- see the template comment for the calculator that was killed by exactly that.",
+  "fields": {
+    "option_a_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Option A",
+      "llm_guidance": "Heading of the first column. Keep it short -- it is a column header, and it appears again inside verdict_a, which must agree with it."
+    },
+    "option_b_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Option B",
+      "llm_guidance": "Heading of the second column. Must agree with verdict_b and saving_mid_b."
+    },
+    "amount_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Amount (£)",
+      "llm_guidance": "Shared by both columns -- one field, rendered twice, so the two sides cannot drift apart."
+    },
+    "apr_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "APR (%)",
+      "llm_guidance": "Shared by both columns."
+    },
+    "term_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Term (Years)",
+      "llm_guidance": "Shared by both columns. The unit is YEARS and the script multiplies by 12."
+    },
+    "monthly_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Monthly Payment",
+      "llm_guidance": "Label over each column's monthly figure. Note this is NOT what the verdict is decided on -- see interest_label."
+    },
+    "interest_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Interest",
+      "llm_guidance": "Label over each column's total interest. THIS is the figure the verdict compares. On the default inputs the cheaper loan has the HIGHER monthly payment, which is the confusion the tool exists to resolve, so do not reword this in a way that suggests the monthly figure decides it."
+    },
+    "amount_a_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "10000",
+      "llm_guidance": "Option A's amount. Part of the equivalence fingerprint -- the acceptance criteria scale every input and assert the resulting figures."
+    },
+    "apr_a_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "7.9",
+      "llm_guidance": "Option A's APR. Part of the equivalence fingerprint."
+    },
+    "term_a_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "5",
+      "llm_guidance": "Option A's term in years -- deliberately LONGER than B's with a lower rate, so the defaults demonstrate the tool's point rather than a trivial case. Part of the equivalence fingerprint."
+    },
+    "amount_b_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "10000",
+      "llm_guidance": "Option B's amount, equal to A's so the comparison isolates rate and term. Part of the equivalence fingerprint."
+    },
+    "apr_b_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "9.9",
+      "llm_guidance": "Option B's APR. Part of the equivalence fingerprint."
+    },
+    "term_b_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "4",
+      "llm_guidance": "Option B's term in years, shorter than A's. Part of the equivalence fingerprint."
+    },
+    "verdict_pending": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Checking...",
+      "llm_guidance": "What the verdict heading says before the first calculation. Briefly visible only -- the script runs on load -- but it is what a visitor sees if the script fails, so it must not read like a result."
+    },
+    "verdict_a": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Option A is Cheaper",
+      "llm_guidance": "Verdict heading when the first option costs less in total interest. Must name the same thing as option_a_heading. Cheaper over the LIFE of the loan, not per month."
+    },
+    "verdict_b": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Option B is Cheaper",
+      "llm_guidance": "Verdict heading when the second option costs less. Must name the same thing as option_b_heading."
+    },
+    "saving_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "You save ",
+      "llm_guidance": "Text before the saving figure. The trailing space is significant -- the currency symbol follows immediately."
+    },
+    "saving_mid_a": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " in total interest with Option A.",
+      "llm_guidance": "Text after the saving figure when A wins. Leading space significant. Keep 'in total interest': the figure is a lifetime difference, and without those words it reads as a monthly saving."
+    },
+    "saving_mid_b": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " in total interest with Option B.",
+      "llm_guidance": "Text after the saving figure when B wins. Leading space significant."
+    },
+    "currency_symbol": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£",
+      "llm_guidance": "Prefixed to every figure as a literal; formatting is toFixed(2), so there are no thousands separators. On a five-figure total interest this prints as £12137.14 with no comma -- inherited from the original and preserved, but worth fixing deliberately with a re-baseline."
+    }
+  }
+}

@@ -1,0 +1,159 @@
+<style>
+/* tool-early-settlement — SELF-CONTAINED by design.
+   Namespaced under .tool-early-settlement-section; every colour and radius reads a
+   theme variable with a literal fallback. The original leaned on the page for
+   .card, .input-grid, .results-box and .monthly-payment and carried two inline
+   style attributes (an accent border and a muted grey), both of which are now
+   theme variables so a host site can restyle the tool without editing it.
+   No `display` is set on #settle-result or #settle-breakdown: those are part of
+   the equivalence fingerprint. */
+.tool-early-settlement-section {
+  color: var(--color-text, #333);
+}
+.tool-early-settlement-section .es-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-early-settlement-section .es-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.tool-early-settlement-section label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.tool-early-settlement-section input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+.tool-early-settlement-section .es-result {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  background: var(--color-surface-alt, #f4f7fb);
+  border-left: 5px solid var(--color-accent-alt, #4c51bf);
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+.tool-early-settlement-section .es-result h3 { margin: 0; font-size: 1rem; }
+.tool-early-settlement-section .es-figure {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.5rem 0 0;
+}
+.tool-early-settlement-section .es-breakdown {
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #666666);
+  margin: 0.5rem 0 0;
+}
+@media (max-width: 560px) {
+  .tool-early-settlement-section .es-figure { font-size: 1.6rem; }
+}
+</style>
+
+<section class="tool-early-settlement-section">
+  <div class="es-card">
+    <div class="es-grid">
+      <div>
+        <label for="settle-bal">{{.balance_label}}</label>
+        <input type="number" id="settle-bal" value="{{.balance_default}}">
+      </div>
+      <div>
+        <label for="settle-apr">{{.apr_label}}</label>
+        <input type="number" id="settle-apr" value="{{.apr_default}}">
+      </div>
+    </div>
+    <div class="es-result">
+      <h3>{{.result_heading}}</h3>
+      <div class="es-figure" id="settle-result">{{.currency_symbol}}0.00</div>
+      <!-- The breakdown sentence lives HERE, in the markup, as ordinary text.
+           The script writes only the number, into the span. See the script's
+           comment: interpolating this copy into a JS string literal is what
+           broke the first version of this component, and a class rather than an
+           id is used on the span so the equivalence fingerprint (every
+           [id]-bearing element) is unchanged by the restructure. -->
+      <p class="es-breakdown" id="settle-breakdown">{{.breakdown_prefix}}{{.currency_symbol}}<span class="es-charge">0.00</span>{{.breakdown_suffix}}</p>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/settlement-calculator.html, 2026-07-31):
+   simple daily interest on the outstanding balance for a fixed number of days,
+   added to the balance. £5,000 at 9.9% must read £5,078.66 with £78.66 of
+   charges. It is not an annuity — early settlement under the Consumer Credit
+   (Early Settlement) Regulations 2004 is interest to the settlement date plus a
+   notice period, which is what the day count represents.
+
+   WHAT THE ORIGINAL HARDCODED AND THIS DOES NOT: the 58 days, the 365-day year
+   and the currency symbol are schema fields now. The 58 is the sum of two
+   statutory periods (a 28-day notice period plus 30 days) and a lender applying
+   a different notice period needs a different number; burying it in the script
+   made the tool UK-specific for no reason.
+
+   THE DAY COUNT IS A DEFAULT, NOT A GUARANTEE. The original called it the
+   "58-day rule" in the page copy, which reads as though every lender applies it.
+   Individual agreements vary. The copy field says "usually" for that reason and
+   should keep saying so.
+
+   FORMATTING PRESERVED PRECISELY, including an inconsistency worth knowing about:
+   the settlement figure uses toLocaleString with min AND max fraction digits of 2
+   (so "£5,078.66", grouped), while the breakdown uses toFixed(2) (ungrouped).
+   On a five-figure settlement the two lines therefore disagree about thousands
+   separators. Real, cosmetic, and NOT fixed here: changing it moves the golden.
+
+   ⚠ WHY THE BREAKDOWN COPY IS IN THE MARKUP AND NOT IN A VARIABLE HERE. The first
+   version of this component read the sentence's two halves into JS string
+   variables via ordinary template slots.
+   The fallback contains the phrase "58-day" IN DOUBLE QUOTES, and text/template
+   escapes nothing, so that rendered as
+       var BREAKDOWN_SUFFIX = " in "58-day" interest charges.";
+   — a syntax error that killed the entire script. The tool then displayed £0.00
+   for every input while still shipping a <script> block, still matching every
+   selector and still looking perfectly normal. tool_health passed it, Tier 2
+   passed it, and it was caught only by comparing the values it computed.
+   The rule that follows, and it applies to every tool: COPY GOES IN THE MARKUP,
+   the script writes only the number. render_tool.go now refuses a template that
+   interpolates a quote-bearing field inside a <script>. */
+(function () {
+  var SYM = "{{.currency_symbol}}";
+  var LOCALE = "{{.locale}}";
+  var DAYS = parseFloat("{{.settlement_days}}");
+  var YEAR_DAYS = parseFloat("{{.days_in_year}}");
+  var ids = ['settle-bal', 'settle-apr'];
+
+  function estSettle() {
+    var bal = Number(document.getElementById('settle-bal').value);
+    var apr = Number(document.getElementById('settle-apr').value) / 100;
+
+    if (bal > 0 && apr > 0) {
+      var dailyRate = apr / YEAR_DAYS;
+      var extraInterest = bal * dailyRate * DAYS;
+      var total = bal + extraInterest;
+
+      document.getElementById('settle-result').innerText =
+        SYM + total.toLocaleString(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      var charge = document.querySelector('.tool-early-settlement-section .es-charge');
+      if (charge) charge.textContent = extraInterest.toFixed(2);
+    }
+  }
+
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', estSettle);
+  });
+  estSettle();
+})();
+</script>

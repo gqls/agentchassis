@@ -1,0 +1,103 @@
+{
+  "_note": "max_months is exposed as a field rather than left as a literal so the safety cap is VISIBLE to anyone configuring the tool. It is a guard against a non-terminating loop, not a tuning knob -- see its guidance.",
+  "fields": {
+    "balance_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Current Loan Balance (£)",
+      "llm_guidance": "Label for the outstanding balance."
+    },
+    "rate_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Interest Rate (APR %)",
+      "llm_guidance": "Label for the annual rate."
+    },
+    "term_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Remaining Term (Years)",
+      "llm_guidance": "Label for the remaining term. The unit is YEARS and the script multiplies by 12."
+    },
+    "overpayment_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Monthly Overpayment (£)",
+      "llm_guidance": "Label for the extra amount paid each month. Say MONTHLY: the whole result changes if a reader supplies an annual or a one-off figure, and this is the field the tool exists for."
+    },
+    "balance_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "15000",
+      "llm_guidance": "Starting balance. Part of the equivalence fingerprint -- the acceptance criteria scale it and assert the resulting saving, so changing it re-baselines this tool's golden values."
+    },
+    "rate_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "6.5",
+      "llm_guidance": "Starting APR. Part of the equivalence fingerprint (see balance_default)."
+    },
+    "term_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "5",
+      "llm_guidance": "Starting term in years. Part of the equivalence fingerprint (see balance_default)."
+    },
+    "overpayment_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "50",
+      "llm_guidance": "Starting monthly overpayment. Deliberately modest -- the tool's point is that a small regular overpayment compounds, and a large default hides that. Part of the equivalence fingerprint."
+    },
+    "saving_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Interest Saved",
+      "llm_guidance": "Heading over the headline figure. It is INTEREST saved over the life of the loan, not a monthly saving and not a reduction in what is owed -- a heading that blurs that overstates the benefit."
+    },
+    "months_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "You will pay off your loan ",
+      "llm_guidance": "Text before the months-saved figure. The trailing space is significant."
+    },
+    "months_suffix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " months earlier.",
+      "llm_guidance": "Text after the months-saved figure. The leading space is significant. The unit is MONTHS; the number is not pluralised by the script, so a value of 1 reads '1 months earlier' -- a known wart, preserved from the original."
+    },
+    "currency_symbol": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£",
+      "llm_guidance": "Prefixed to the saving as a literal, not derived from the locale."
+    },
+    "locale": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "en-GB",
+      "llm_guidance": "BCP-47 locale for thousands separators and the decimal mark on the saving figure. NOTE the defect recorded in the template: the call omits maximumFractionDigits, so the default maximum of 3 applies and the tool prints three decimal places on a money figure (£448.024 on its own defaults). Preserved deliberately; fix it as its own change with a re-baselined golden."
+    },
+    "max_months": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "600",
+      "llm_guidance": "SAFETY CAP on the amortisation loop, not a tuning knob. Without it the loop never terminates when the overpayment is negative or the rate makes the balance grow, and the browser tab hangs. 600 months is 50 years, past any consumer loan. Do not lower it below the longest term the inputs allow, and never remove it."
+    }
+  }
+}

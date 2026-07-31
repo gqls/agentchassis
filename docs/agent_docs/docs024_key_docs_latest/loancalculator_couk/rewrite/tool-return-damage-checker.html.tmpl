@@ -1,0 +1,140 @@
+<style>
+/* tool-return-damage-checker — SELF-CONTAINED by design.
+   Namespaced under .tool-return-damage-checker-section. The original depended on
+   the page for .card, .checklist-item and .results-box, and carried the verdict
+   heading's colour as an inline hex.
+   THE ONE RULE THAT IS BEHAVIOUR, NOT DECORATION, is the verdict's initial
+   `display:none` — it is the whole of the tool's output. It stays inline on the
+   element rather than moving into this block, because the script toggles
+   `style.display` directly and a class-based rule would be overridden by the
+   inline value the script writes. Its display state is part of the equivalence
+   fingerprint: none on first paint, block once any box is ticked. */
+.tool-return-damage-checker-section {
+  color: var(--color-text, #333);
+}
+.tool-return-damage-checker-section .rdc-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-return-damage-checker-section h3 { margin: 0 0 0.5rem; font-size: 1.15rem; }
+/* ⚠ DELIBERATELY NOT `display: flex`, and this is the interesting line in the file.
+   The first version used flex with a gap, which is the obvious modern layout for
+   a checkbox beside a label. It FAILED the equivalence gate on all four boxes:
+   a flex container BLOCKIFIES its children, so each checkbox's computed
+   `display` went inline-block -> block. Nothing about the tool looked different
+   and nothing it computes changed — but computed display is part of the
+   fingerprint precisely because a tool that responds by revealing a region
+   changes nothing else, and the harness cannot know which display change is
+   cosmetic and which is the whole output.
+   So the row stays a block box with inline children, which preserves the
+   original's computed values exactly. If this ever moves to flex it must be a
+   deliberate change with a re-baselined golden, not a tidy-up. */
+.tool-return-damage-checker-section .rdc-item {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-border-subtle, #edf2f7);
+}
+.tool-return-damage-checker-section .rdc-item:last-of-type { border-bottom: 0; }
+/* 20px minimum: a checkbox is the only control here and a shrunken one is the
+   difference between a usable tool and an unusable one on a phone. */
+.tool-return-damage-checker-section .rdc-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0 0.65rem 0 0;
+  vertical-align: text-top;
+  cursor: pointer;
+}
+.tool-return-damage-checker-section .rdc-item label {
+  cursor: pointer;
+  line-height: 1.45;
+}
+.tool-return-damage-checker-section .rdc-verdict {
+  margin-top: 20px;
+  padding: 1.1rem 1.25rem;
+  background: var(--color-danger-bg, #fff5f5);
+  border-left: 4px solid var(--color-danger, #e53e3e);
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+.tool-return-damage-checker-section .rdc-verdict h4 {
+  margin: 0 0 0.5rem;
+  color: var(--color-danger, #e53e3e);
+}
+.tool-return-damage-checker-section .rdc-verdict p { margin: 0; line-height: 1.55; }
+</style>
+
+<section class="tool-return-damage-checker-section">
+  <div class="rdc-card">
+    <h3>{{.tool_heading}}</h3>
+    <p>{{.tool_intro}}</p>
+
+    <div class="rdc-item">
+      <input type="checkbox" id="dmg-1">
+      <label for="dmg-1">{{.check_1}}</label>
+    </div>
+    <div class="rdc-item">
+      <input type="checkbox" id="dmg-2">
+      <label for="dmg-2">{{.check_2}}</label>
+    </div>
+    <div class="rdc-item">
+      <input type="checkbox" id="dmg-3">
+      <label for="dmg-3">{{.check_3}}</label>
+    </div>
+    <div class="rdc-item">
+      <input type="checkbox" id="dmg-4">
+      <label for="dmg-4">{{.check_4}}</label>
+    </div>
+
+    <div id="damage-verdict" class="rdc-verdict" style="display:none;">
+      <h4>{{.verdict_heading}}</h4>
+      <p>{{.verdict_body}}</p>
+    </div>
+  </div>
+</section>
+
+<script>
+/* BEHAVIOUR PRESERVED from the hand-built original
+   (loancalculator.co.uk/tools/damage-checker.html, 2026-07-31): tick any box and
+   the verdict appears; untick them all and it goes away. There is no arithmetic
+   here at all, which is worth stating plainly — see the note at the bottom about
+   what can and cannot verify this tool.
+
+   ⚠ ONE REAL DEFECT FIXED, and it is the reason this rewrite is not a
+   transcription. The original counted
+       document.querySelectorAll('input[type="checkbox"]:checked')
+   with NO SCOPE — every checkbox on the entire page, including the site chrome
+   and any other component sharing the page. Today that is harmless because this
+   is the only tool on this page and nothing else has a checkbox. The moment a
+   second component is placed beside it, or a cookie-preferences box appears in
+   the footer, this tool starts announcing potential damage charges to someone
+   who ticked something else entirely. The query is now scoped to the tool's own
+   root. Equivalence is unaffected — with one component on the page the two
+   queries return the same set, which is exactly why the fix is safe to make
+   during a port rather than after.
+
+   Also: no globals and no inline onchange. */
+(function () {
+  var root = document.querySelector('.tool-return-damage-checker-section');
+  if (!root) return;
+  var verdict = root.querySelector('#damage-verdict');
+
+  function updateDamage() {
+    var checked = root.querySelectorAll('input[type="checkbox"]:checked').length;
+    verdict.style.display = checked > 0 ? 'block' : 'none';
+  }
+
+  root.addEventListener('change', function (ev) {
+    if (ev.target && ev.target.type === 'checkbox') updateDamage();
+  });
+  updateDamage();
+})();
+</script>
+
+<!-- HOW THIS TOOL SHOULD BE VERIFIED, because the obvious answer is wrong.
+     It has no numeric output, so `computed_values` does not apply to it and the
+     capture emitter correctly refuses it ("every moving output exceeded 120
+     chars" — the only thing that moves is a paragraph of prose). Its contract is
+     a visibility change, so its PLAN should carry an `interaction` check that
+     ticks dmg-1 and asserts #damage-verdict, plus a `has_visible_area` check on
+     the verdict. Do not manufacture a number for it so that a check type fits. -->

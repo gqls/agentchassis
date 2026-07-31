@@ -55,6 +55,7 @@
   background: var(--accent, #0056b3);
   transition: width 0.5s;
 }
+.tool-credit-health-check-section .chc-copy { display: none; }
 .tool-credit-health-check-section #rating-desc {
   line-height: 1.6;
   color: var(--color-text-muted, #64748b);
@@ -66,29 +67,29 @@
 
     <div id="step-1" class="chc-step chc-active">
       <h3>{{.q1_heading}}</h3>
-      <button type="button" data-chc-next="2" data-chc-points="20">Yes</button>
-      <button type="button" data-chc-next="2" data-chc-points="0">No / Not Sure</button>
+      <button type="button" id="chc-2-1" data-chc-next="2" data-chc-points="20">Yes</button>
+      <button type="button" id="chc-2-2" data-chc-next="2" data-chc-points="0">No / Not Sure</button>
     </div>
 
     <div id="step-2" class="chc-step">
       <h3>{{.q2_heading}}</h3>
-      <button type="button" data-chc-next="3" data-chc-points="30">Zero</button>
-      <button type="button" data-chc-next="3" data-chc-points="10">One</button>
-      <button type="button" data-chc-next="3" data-chc-points="-20">Two or more</button>
+      <button type="button" id="chc-3-1" data-chc-next="3" data-chc-points="30">Zero</button>
+      <button type="button" id="chc-3-2" data-chc-next="3" data-chc-points="10">One</button>
+      <button type="button" id="chc-3-3" data-chc-next="3" data-chc-points="-20">Two or more</button>
     </div>
 
     <div id="step-3" class="chc-step">
       <h3>{{.q3_heading}}</h3>
-      <button type="button" data-chc-next="4" data-chc-points="25">Under 30% (Low)</button>
-      <button type="button" data-chc-next="4" data-chc-points="10">30% to 70% (Medium)</button>
-      <button type="button" data-chc-next="4" data-chc-points="-10">Over 70% (High)</button>
+      <button type="button" id="chc-4-1" data-chc-next="4" data-chc-points="25">Under 30% (Low)</button>
+      <button type="button" id="chc-4-2" data-chc-next="4" data-chc-points="10">30% to 70% (Medium)</button>
+      <button type="button" id="chc-4-3" data-chc-next="4" data-chc-points="-10">Over 70% (High)</button>
     </div>
 
     <div id="step-4" class="chc-step">
       <h3>{{.q4_heading}}</h3>
-      <button type="button" data-chc-next="5" data-chc-points="15">Over 3 Years</button>
-      <button type="button" data-chc-next="5" data-chc-points="5">1 to 3 Years</button>
-      <button type="button" data-chc-next="5" data-chc-points="0">Less than a year</button>
+      <button type="button" id="chc-5-1" data-chc-next="5" data-chc-points="15">Over 3 Years</button>
+      <button type="button" id="chc-5-2" data-chc-next="5" data-chc-points="5">1 to 3 Years</button>
+      <button type="button" id="chc-5-3" data-chc-next="5" data-chc-points="0">Less than a year</button>
     </div>
 
     <div id="step-5" class="chc-step">
@@ -96,9 +97,24 @@
       <div class="chc-meter"><div id="meter-fill"></div></div>
       <h2 id="rating-text">{{.calculating_label}}</h2>
       <p id="rating-desc"></p>
-      <button type="button" data-chc-restart>{{.restart_label}}</button>
+      <button type="button" id="chc-restart" data-chc-restart>{{.restart_label}}</button>
     </div>
 
+  </div>
+  <!-- Copy bank: the three verdicts as markup text rather than JavaScript string
+       literals. Nothing here contains a quote TODAY, so it works either way — and
+       that is precisely why it was worth moving. The first editor to write
+       "You're in a strong position" would turn a working wizard into a blank page,
+       with every structural check still green. tool-early-settlement is the case
+       where that actually happened. Placed outside #quiz-container: hidden text
+       still counts toward an ancestor's textContent, which is fingerprinted. -->
+  <div class="chc-copy" aria-hidden="true">
+    <span data-copy="high-label">{{.band_high_label}}</span>
+    <span data-copy="high-desc">{{.band_high_desc}}</span>
+    <span data-copy="mid-label">{{.band_mid_label}}</span>
+    <span data-copy="mid-desc">{{.band_mid_desc}}</span>
+    <span data-copy="low-label">{{.band_low_label}}</span>
+    <span data-copy="low-desc">{{.band_low_desc}}</span>
   </div>
 </section>
 
@@ -127,6 +143,11 @@
       (fall back to any enabled button, excluding reset-ish labels), the golden was
       re-baselined, and only then was this written the right way round. */
 (function () {
+  var root = document.querySelector('.tool-credit-health-check-section');
+  function copy(key) {
+    var el = root && root.querySelector('[data-copy="' + key + '"]');
+    return el ? el.textContent : '';
+  }
   var totalScore = 0;
   var BAND_HIGH = {{.band_high_threshold}};
   var BAND_MID = {{.band_mid_threshold}};
@@ -140,17 +161,17 @@
     fill.style.width = percentage + '%';
 
     if (totalScore >= BAND_HIGH) {
-      text.innerText = "{{.band_high_label}}";
+      text.innerText = copy('high-label');
       text.style.color = "{{.band_high_colour}}";
-      desc.innerText = "{{.band_high_desc}}";
+      desc.innerText = copy('high-desc');
     } else if (totalScore >= BAND_MID) {
-      text.innerText = "{{.band_mid_label}}";
+      text.innerText = copy('mid-label');
       text.style.color = "{{.band_mid_colour}}";
-      desc.innerText = "{{.band_mid_desc}}";
+      desc.innerText = copy('mid-desc');
     } else {
-      text.innerText = "{{.band_low_label}}";
+      text.innerText = copy('low-label');
       text.style.color = "{{.band_low_colour}}";
-      desc.innerText = "{{.band_low_desc}}";
+      desc.innerText = copy('low-desc');
     }
   }
 

@@ -1,0 +1,164 @@
+<style>
+/* tool-overpayment-impact — SELF-CONTAINED by design.
+   Namespaced under .tool-overpayment-impact-section. The original depended on the
+   page for .card, .input-grid, .highlight-box and .big-save, and used
+   var(--success) with NO fallback on the overpayment field's label and border —
+   so on any site that does not define --success the one control the whole tool is
+   about lost its emphasis silently. Every var() here carries a literal fallback.
+   No `display` is set on #save-display or #time-display: fingerprint. */
+.tool-overpayment-impact-section {
+  color: var(--color-text, #333);
+}
+.tool-overpayment-impact-section .opi-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-overpayment-impact-section .opi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.tool-overpayment-impact-section label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.tool-overpayment-impact-section input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+/* The overpayment field is the tool's subject and is marked out as such. */
+.tool-overpayment-impact-section .opi-field-accent label { color: var(--color-success, #2f855a); }
+.tool-overpayment-impact-section .opi-field-accent input[type="number"] {
+  border-color: var(--color-success, #2f855a);
+}
+.tool-overpayment-impact-section .opi-highlight {
+  margin-top: 1.25rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: var(--color-success-bg, #f0fff4);
+  border: 1px solid var(--color-success, #2f855a);
+  border-radius: var(--border-radius, 0.5rem);
+}
+.tool-overpayment-impact-section .opi-highlight h3 { margin: 0; font-size: 1rem; }
+.tool-overpayment-impact-section .opi-saving {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0.5rem 0;
+  color: var(--color-success, #2f855a);
+}
+@media (max-width: 560px) {
+  .tool-overpayment-impact-section .opi-saving { font-size: 1.8rem; }
+}
+</style>
+
+<section class="tool-overpayment-impact-section">
+  <div class="opi-card">
+    <div class="opi-grid">
+      <div>
+        <label for="bal">{{.balance_label}}</label>
+        <input type="number" id="bal" value="{{.balance_default}}">
+      </div>
+      <div>
+        <label for="rate">{{.rate_label}}</label>
+        <input type="number" id="rate" value="{{.rate_default}}">
+      </div>
+      <div>
+        <label for="term">{{.term_label}}</label>
+        <input type="number" id="term" value="{{.term_default}}">
+      </div>
+      <div class="opi-field-accent">
+        <label for="over">{{.overpayment_label}}</label>
+        <input type="number" id="over" value="{{.overpayment_default}}">
+      </div>
+    </div>
+  </div>
+
+  <div class="opi-highlight">
+    <h3>{{.saving_heading}}</h3>
+    <div class="opi-saving" id="save-display">{{.currency_symbol}}0.00</div>
+    <p>{{.months_prefix}}<strong id="time-display">0</strong>{{.months_suffix}}</p>
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/overpayment-calculator.html, 2026-07-31).
+   The scheduled payment comes from the annuity formula; the saving is found by
+   AMORTISING MONTH BY MONTH at payment-plus-overpayment and comparing total
+   interest. £15,000 at 6.5% over 5 years with £50/month must read £448.024 saved
+   and 10 months earlier.
+
+   THE 600-MONTH LOOP CAP IS LOAD-BEARING, NOT A TIDY-UP TARGET. It is what stops
+   the browser hanging when the overpayment is negative or the rate makes the
+   balance grow — the loop would otherwise never terminate. 600 months is 50
+   years, comfortably past any consumer loan. Do not remove it, and do not lower
+   it without checking the longest term the inputs allow.
+
+   ⚠ A REAL FORMATTING DEFECT, PRESERVED DELIBERATELY AND FLAGGED FOR FIXING.
+   toLocaleString is called with minimumFractionDigits: 2 and NO
+   maximumFractionDigits. The default maximum is 3, so this prints "£448.024" —
+   three decimal places on a money figure — on the tool's own default inputs.
+   It is preserved because equivalence is the contract: the golden records
+   £448.024 and a rewrite that quietly printed £448.02 would be changing the
+   page's behaviour under cover of a port. Fix it as its own change, add
+   maximumFractionDigits: 2, and re-baseline the golden in the same commit so the
+   correction is visible in the record rather than absorbed into a rewrite. */
+(function () {
+  var SYM = "{{.currency_symbol}}";
+  var LOCALE = "{{.locale}}";
+  var MAX_MONTHS = parseInt("{{.max_months}}", 10);
+  var ids = ['bal', 'rate', 'term', 'over'];
+
+  function calc() {
+    var P = parseFloat(document.getElementById('bal').value);
+    var r = (parseFloat(document.getElementById('rate').value) / 100) / 12;
+    var n = parseFloat(document.getElementById('term').value) * 12;
+    var over = parseFloat(document.getElementById('over').value) || 0;
+
+    var M = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    var originalTotalInterest = (M * n) - P;
+
+    var balance = P;
+    var newTotalInterest = 0;
+    var months = 0;
+
+    while (balance > 0 && months < MAX_MONTHS) {
+      var interest = balance * r;
+      var principalRepayment = (M + over) - interest;
+
+      if (principalRepayment > balance) {
+        newTotalInterest += interest;
+        balance = 0;
+      } else {
+        newTotalInterest += interest;
+        balance -= principalRepayment;
+      }
+      months++;
+    }
+
+    var savedInterest = originalTotalInterest - newTotalInterest;
+    var savedMonths = n - months;
+
+    document.getElementById('save-display').innerText =
+      SYM + Math.max(0, savedInterest).toLocaleString(LOCALE, { minimumFractionDigits: 2 });
+    document.getElementById('time-display').innerText = Math.max(0, savedMonths);
+  }
+
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calc);
+  });
+  calc();
+})();
+</script>

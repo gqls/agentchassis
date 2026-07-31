@@ -1,0 +1,332 @@
+<style>
+/* tool-consolidation-risk — SELF-CONTAINED by design.
+   Namespaced under .tool-consolidation-risk-section. The original depended on the
+   page for .card, .card-red, .card-green, .debt-row, .comparison-grid,
+   .verdict-text and .fca-warning-box, and carried five inline style attributes.
+   .fca-warning-box is one of the classes measured as DEFINED NOWHERE on this
+   site (2026-07-31), so the disclaimer — the part a regulator would look at —
+   currently renders as unstyled body text. It is styled here by construction.
+   No `display` is set on any [id] element: those are the fingerprint. */
+.tool-consolidation-risk-section {
+  color: var(--color-text, #333);
+}
+.tool-consolidation-risk-section .cr-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.tool-consolidation-risk-section h3 { margin: 0 0 1rem; font-size: 1.15rem; }
+.tool-consolidation-risk-section h4 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+.tool-consolidation-risk-section .cr-debt-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.tool-consolidation-risk-section input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.95rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+.tool-consolidation-risk-section label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.tool-consolidation-risk-section .cr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.tool-consolidation-risk-section .cr-add,
+.tool-consolidation-risk-section .cr-remove {
+  cursor: pointer;
+  color: inherit;
+  background: var(--color-surface-alt, #f4f7fb);
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+.tool-consolidation-risk-section .cr-add { margin-top: 15px; font-size: 0.9rem; padding: 0.55rem 0.9rem; }
+/* 32px square: the remove control sits in a dense row of inputs and is the one
+   destructive control here, so it must be reliably hittable on a phone. */
+.tool-consolidation-risk-section .cr-remove {
+  width: 32px;
+  height: 32px;
+  line-height: 1;
+  font-size: 0.9rem;
+}
+.tool-consolidation-risk-section .cr-outcomes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.tool-consolidation-risk-section .cr-now,
+.tool-consolidation-risk-section .cr-after {
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1.25rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+}
+.tool-consolidation-risk-section .cr-now {
+  background: var(--color-danger-bg, #fff5f5);
+  border-left: 5px solid var(--color-danger, #e53e3e);
+}
+.tool-consolidation-risk-section .cr-after {
+  background: var(--color-success-bg, #f0fff4);
+  border-left: 5px solid var(--color-success, #2f855a);
+}
+.tool-consolidation-risk-section .cr-verdict {
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--border-radius-sm, 0.25rem);
+  font-weight: 600;
+  line-height: 1.45;
+}
+/* THE DISCLAIMER. Not decoration — it is the tool's consumer-protection surface,
+   and it must be legible on any host site, so it defines its own box rather than
+   inheriting one that may not exist. */
+.tool-consolidation-risk-section .cr-disclaimer {
+  border: 1px solid var(--color-border-strong, #bfc1c3);
+  background: var(--color-card-bg, #ffffff);
+  padding: 15px;
+  font-size: 0.85rem;
+  margin-top: 30px;
+  border-radius: var(--border-radius-sm, 0.25rem);
+  line-height: 1.55;
+}
+.tool-consolidation-risk-section .cr-copy { display: none; }
+@media (max-width: 640px) {
+  .tool-consolidation-risk-section .cr-debt-row { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<section class="tool-consolidation-risk-section">
+  <div class="cr-card" id="debt-manager">
+    <h3>{{.debts_heading}}</h3>
+    <div id="debt-list">
+      <div class="cr-debt-row">
+        <input type="text" id="debt-1-name" placeholder="{{.name_placeholder}}" class="d-name">
+        <input type="number" id="debt-1-bal" placeholder="{{.balance_placeholder}}" class="d-bal">
+        <input type="number" id="debt-1-rate" placeholder="{{.rate_placeholder}}" class="d-rate">
+        <input type="number" id="debt-1-months" placeholder="{{.months_placeholder}}" class="d-months">
+        <span></span>
+      </div>
+    </div>
+    <button type="button" class="cr-add" id="add-debt">{{.add_debt_label}}</button>
+  </div>
+
+  <div class="cr-card">
+    <h3>{{.proposal_heading}}</h3>
+    <div class="cr-grid">
+      <div>
+        <label for="new-rate">{{.new_rate_label}}</label>
+        <input type="number" id="new-rate" value="{{.new_rate_default}}">
+      </div>
+      <div>
+        <label for="new-term">{{.new_term_label}}</label>
+        <input type="number" id="new-term" value="{{.new_term_default}}">
+      </div>
+    </div>
+  </div>
+
+  <div class="cr-outcomes">
+    <div class="cr-now">
+      <h4>{{.current_heading}}</h4>
+      <p>{{.total_debt_label}} <strong id="curr-total-bal">{{.currency_symbol}}0.00</strong></p>
+      <p>{{.remaining_interest_label}} <strong id="old-int">{{.currency_symbol}}0.00</strong></p>
+    </div>
+    <div class="cr-after">
+      <h4>{{.consolidated_heading}}</h4>
+      <p>{{.new_monthly_label}} <strong id="new-monthly">{{.currency_symbol}}0.00</strong></p>
+      <p>{{.new_interest_label}} <strong id="new-int">{{.currency_symbol}}0.00</strong></p>
+      <div id="verdict" class="cr-verdict"></div>
+    </div>
+  </div>
+
+  <div class="cr-disclaimer">
+    <p><strong>{{.disclaimer_title}}</strong> {{.disclaimer_body}}</p>
+    <p><strong>{{.help_title}}</strong> {{.help_body_before}}<a href="{{.help_url}}" target="_blank" rel="noopener">{{.help_link_text}}</a>{{.help_body_after}}</p>
+  </div>
+
+  <!-- Copy bank: runtime-chosen strings as markup text, never as JS literals.
+       See tool-early-settlement for the calculator a quoted schema value killed.
+       Placed outside every [id]-bearing element so the fingerprint is unaffected. -->
+  <div class="cr-copy" aria-hidden="true">
+    <span data-copy="worse-prefix">{{.verdict_worse_prefix}}</span>
+    <span data-copy="worse-suffix">{{.verdict_worse_suffix}}</span>
+    <span data-copy="better-prefix">{{.verdict_better_prefix}}</span>
+    <span data-copy="better-suffix">{{.verdict_better_suffix}}</span>
+    <span data-copy="row-name">{{.added_row_name_placeholder}}</span>
+    <span data-copy="remove-label">{{.remove_label}}</span>
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/consolidation.html, 2026-07-31): each existing debt
+   is amortised separately to get the interest still to pay, those are summed, and
+   the consolidated loan is amortised once over the new term. The comparison is on
+   TOTAL INTEREST, which is the honest one — consolidation almost always lowers the
+   monthly payment, and a tool comparing monthly payments would recommend it
+   unconditionally. That is exactly the mis-selling risk the page warns about.
+
+   A DEBT WITH NO RATE OR NO TERM STILL COUNTS TOWARD THE BALANCE but contributes
+   no interest (`else if (p > 0)`). Preserved. It means a half-filled row quietly
+   makes consolidation look better than it is, because the new loan charges
+   interest on a balance whose existing interest was never counted. Recorded as a
+   defect for its own change; fixing it here would move the golden values.
+
+   ⚠ THIS TOOL COULD NOT BE COVERED BY THE PLATFORM'S NUMERIC CHECK AT ALL until
+   this rewrite, and that is why the ids below are new. The debt rows were
+   addressed purely by class, the add button and the remove buttons had no ids,
+   so `computed_values` criteria could not name a single control to drive — the
+   capture emitter refused the tool outright. Every control now has a stable id
+   (`debt-<n>-bal` and so on, `add-debt`, `debt-<n>-remove`). Adding an id
+   necessarily adds a fingerprint key, so this rewrite is verified under the
+   harness's allow_new_keys mode: every value the golden already recorded is
+   compared strictly and must be unchanged, and the new keys are listed. A
+   re-baseline is owed once this ships.
+
+   Also: no globals, no inline handlers, and the remove button no longer relies
+   on `this.parentElement`. */
+(function () {
+  var root = document.querySelector('.tool-consolidation-risk-section');
+  if (!root) return;
+  var LOCALE = "{{.locale}}";
+  var CURRENCY = "{{.currency_code}}";
+  var list = root.querySelector('#debt-list');
+  var rowSeq = 1;
+
+  function copy(key) {
+    var el = root.querySelector('[data-copy="' + key + '"]');
+    return el ? el.textContent : '';
+  }
+
+  function fmt() {
+    return new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY });
+  }
+
+  function addDebtRow() {
+    rowSeq++;
+    var div = document.createElement('div');
+    div.className = 'cr-debt-row';
+
+    var fields = [
+      { cls: 'd-name', type: 'text', ph: copy('row-name'), suffix: 'name' },
+      { cls: 'd-bal', type: 'number', ph: root.querySelector('#debt-1-bal').placeholder, suffix: 'bal' },
+      { cls: 'd-rate', type: 'number', ph: root.querySelector('#debt-1-rate').placeholder, suffix: 'rate' },
+      { cls: 'd-months', type: 'number', ph: root.querySelector('#debt-1-months').placeholder, suffix: 'months' }
+    ];
+    fields.forEach(function (f) {
+      var input = document.createElement('input');
+      input.type = f.type;
+      input.className = f.cls;
+      input.placeholder = f.ph;
+      input.id = 'debt-' + rowSeq + '-' + f.suffix;
+      div.appendChild(input);
+    });
+
+    var remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'cr-remove';
+    remove.id = 'debt-' + rowSeq + '-remove';
+    remove.setAttribute('data-cr-remove', '');
+    remove.setAttribute('aria-label', copy('remove-label'));
+    remove.textContent = "✕";
+    div.appendChild(remove);
+    // A trailing whitespace text node, and it is NOT an oversight. The original
+    // built each row with an innerHTML template literal whose newlines and
+    // indentation became text nodes, so two adjacent rows' remove buttons read as
+    // "✕ ✕" in textContent, not "✕✕". createElement produces no such node, and
+    // the equivalence gate caught the one-character difference. Matching it keeps
+    // this rewrite's claim clean — the ONLY fingerprint changes are the new ids —
+    // rather than mixing an invisible text change into a re-baseline.
+    div.appendChild(document.createTextNode('\n'));
+
+    list.appendChild(div);
+  }
+
+  function calcRisk() {
+    var bals = root.getElementsByClassName('d-bal');
+    var rates = root.getElementsByClassName('d-rate');
+    var months = root.getElementsByClassName('d-months');
+
+    var totalBal = 0;
+    var oldTotalInterest = 0;
+
+    for (var i = 0; i < bals.length; i++) {
+      var p = parseFloat(bals[i].value) || 0;
+      var r = (parseFloat(rates[i].value) || 0) / 100 / 12;
+      var n = parseFloat(months[i].value) || 0;
+
+      if (p > 0 && r > 0 && n > 0) {
+        totalBal += p;
+        var m = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+        oldTotalInterest += (m * n) - p;
+      } else if (p > 0) {
+        totalBal += p;
+      }
+    }
+
+    var newR = (parseFloat(document.getElementById('new-rate').value) || 0) / 100 / 12;
+    var newN = (parseFloat(document.getElementById('new-term').value) || 0) * 12;
+
+    var newMonthly = 0;
+    var newTotalInterest = 0;
+
+    if (totalBal > 0 && newR > 0 && newN > 0) {
+      newMonthly = (totalBal * newR * Math.pow(1 + newR, newN)) / (Math.pow(1 + newR, newN) - 1);
+      newTotalInterest = (newMonthly * newN) - totalBal;
+    }
+
+    var gbp = fmt();
+    document.getElementById('curr-total-bal').innerText = gbp.format(totalBal);
+    document.getElementById('old-int').innerText = gbp.format(oldTotalInterest);
+    document.getElementById('new-monthly').innerText = gbp.format(newMonthly);
+    document.getElementById('new-int').innerText = gbp.format(newTotalInterest);
+
+    var verdict = document.getElementById('verdict');
+    if (totalBal > 0 && newN > 0) {
+      if (newTotalInterest > oldTotalInterest) {
+        verdict.innerText = copy('worse-prefix')
+          + gbp.format(newTotalInterest - oldTotalInterest) + copy('worse-suffix');
+        verdict.style.backgroundColor = "{{.verdict_worse_bg}}";
+        verdict.style.color = "{{.verdict_worse_fg}}";
+      } else {
+        verdict.innerText = copy('better-prefix')
+          + gbp.format(oldTotalInterest - newTotalInterest) + copy('better-suffix');
+        verdict.style.backgroundColor = "{{.verdict_better_bg}}";
+        verdict.style.color = "{{.verdict_better_fg}}";
+      }
+    } else {
+      verdict.innerText = '';
+      verdict.style.backgroundColor = 'transparent';
+    }
+  }
+
+  root.addEventListener('click', function (ev) {
+    if (ev.target.closest('#add-debt')) {
+      addDebtRow();
+      return;
+    }
+    var rm = ev.target.closest('[data-cr-remove]');
+    if (rm && root.contains(rm)) {
+      rm.parentElement.remove();
+      calcRisk();
+    }
+  });
+  root.addEventListener('input', function (ev) {
+    if (ev.target && ev.target.tagName === 'INPUT') calcRisk();
+  });
+  calcRisk();
+})();
+</script>

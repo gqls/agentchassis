@@ -1,0 +1,204 @@
+<style>
+/* tool-compare-loan-offers — SELF-CONTAINED by design.
+   Namespaced under .tool-compare-loan-offers-section. The original depended on
+   the page for .comparison-wrapper, .loan-column, .stat-label, .stat-value,
+   .card and — critically — .winner, which is the tool's entire verdict. A site
+   whose stylesheet lacks .winner shows two identical columns with correct
+   numbers and no indication which one won.
+   No `display` is set on any [id] element: those are the fingerprint. */
+.tool-compare-loan-offers-section {
+  color: var(--color-text, #333);
+}
+.tool-compare-loan-offers-section .cl-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+.tool-compare-loan-offers-section .cl-column {
+  background: var(--color-card-bg, #ffffff);
+  border: 2px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1.25rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+.tool-compare-loan-offers-section .cl-column h3 { margin: 0 0 0.75rem; font-size: 1.1rem; }
+.tool-compare-loan-offers-section label {
+  display: block;
+  margin: 0.75rem 0 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.tool-compare-loan-offers-section input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+.tool-compare-loan-offers-section hr {
+  margin: 1.1rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border, #e2e8f0);
+}
+.tool-compare-loan-offers-section .cl-stat-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted, #64748b);
+}
+.tool-compare-loan-offers-section .cl-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 0.6rem;
+}
+.tool-compare-loan-offers-section .cl-column.winner {
+  border-color: var(--color-success, #2f855a);
+  background: var(--color-success-bg, #f0fff4);
+}
+.tool-compare-loan-offers-section .cl-verdict {
+  margin-top: 30px;
+  text-align: center;
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-compare-loan-offers-section .cl-verdict h2 { margin: 0 0 0.4rem; }
+.tool-compare-loan-offers-section .cl-verdict p { margin: 0; }
+/* The copy bank. Hidden from view and from the accessibility tree; the script
+   reads its text and writes it into the verdict. See the script comment. */
+.tool-compare-loan-offers-section .cl-copy { display: none; }
+</style>
+
+<section class="tool-compare-loan-offers-section">
+  <div class="cl-wrapper">
+    <div class="cl-column" id="col-a">
+      <h3>{{.option_a_heading}}</h3>
+      <label for="amt-a">{{.amount_label}}</label>
+      <input type="number" id="amt-a" value="{{.amount_a_default}}">
+      <label for="apr-a">{{.apr_label}}</label>
+      <input type="number" id="apr-a" value="{{.apr_a_default}}">
+      <label for="term-a">{{.term_label}}</label>
+      <input type="number" id="term-a" value="{{.term_a_default}}">
+      <hr>
+      <div class="cl-stat-label">{{.monthly_label}}</div>
+      <div class="cl-stat-value" id="res-m-a">{{.currency_symbol}}0.00</div>
+      <div class="cl-stat-label">{{.interest_label}}</div>
+      <div class="cl-stat-value" id="res-i-a">{{.currency_symbol}}0.00</div>
+    </div>
+
+    <div class="cl-column" id="col-b">
+      <h3>{{.option_b_heading}}</h3>
+      <label for="amt-b">{{.amount_label}}</label>
+      <input type="number" id="amt-b" value="{{.amount_b_default}}">
+      <label for="apr-b">{{.apr_label}}</label>
+      <input type="number" id="apr-b" value="{{.apr_b_default}}">
+      <label for="term-b">{{.term_label}}</label>
+      <input type="number" id="term-b" value="{{.term_b_default}}">
+      <hr>
+      <div class="cl-stat-label">{{.monthly_label}}</div>
+      <div class="cl-stat-value" id="res-m-b">{{.currency_symbol}}0.00</div>
+      <div class="cl-stat-label">{{.interest_label}}</div>
+      <div class="cl-stat-value" id="res-i-b">{{.currency_symbol}}0.00</div>
+    </div>
+  </div>
+
+  <div class="cl-verdict">
+    <h2 id="verdict">{{.verdict_pending}}</h2>
+    <p id="verdict-detail"></p>
+  </div>
+
+  <!-- THE COPY BANK. Every runtime-chosen string lives here as ordinary markup
+       text and is read by the script, rather than being interpolated into a
+       JavaScript string literal.
+       This is not stylistic. On tool-early-settlement a schema fallback
+       containing the phrase "58-day" in double quotes was rendered straight into
+       a JS string and produced a syntax error that killed the whole calculator
+       while it still passed every structural check. text/template escapes
+       nothing, so any editor typing an apostrophe into one of these verdicts
+       would have done the same here — and "Option A is Cheaper" is exactly the
+       sort of string someone rewords.
+       It sits OUTSIDE #col-a and #col-b deliberately: those ids' textContent is
+       part of the equivalence fingerprint, and hidden text still counts. -->
+  <div class="cl-copy" aria-hidden="true">
+    <span data-copy="verdict-a">{{.verdict_a}}</span>
+    <span data-copy="verdict-b">{{.verdict_b}}</span>
+    <span data-copy="saving-prefix">{{.saving_prefix}}</span>
+    <span data-copy="saving-mid-a">{{.saving_mid_a}}</span>
+    <span data-copy="saving-mid-b">{{.saving_mid_b}}</span>
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/compare-loans.html, 2026-07-31): the standard
+   annuity formula applied to each column, compared on TOTAL INTEREST rather than
+   on monthly payment. £10,000 at 7.9%/5y against £10,000 at 9.9%/4y must read
+   £202.29 / £2137.14 against £253.15 / £2151.00, with Option A cheaper by £13.86.
+
+   COMPARING ON TOTAL INTEREST IS THE WHOLE POINT and must not be "improved" into
+   a monthly-payment comparison. Option B here has the HIGHER monthly payment and
+   is still the closer call, because it runs a year less; a tool that ranked by
+   monthly payment would tell people the opposite of the truth about which loan
+   costs more, which is the specific confusion this page exists to correct.
+
+   Tie behaviour preserved: `a.totalInt < b.totalInt` is strict, so an exact tie
+   declares Option B the winner. Arbitrary, recorded, unchanged.
+
+   No globals, no inline oninput, and every runtime-chosen string comes from the
+   markup copy bank above rather than from a JS literal. */
+(function () {
+  var root = document.querySelector('.tool-compare-loan-offers-section');
+  if (!root) return;
+  var SYM = "{{.currency_symbol}}";
+  var ids = ['amt-a', 'apr-a', 'term-a', 'amt-b', 'apr-b', 'term-b'];
+
+  function copy(key) {
+    var el = root.querySelector('[data-copy="' + key + '"]');
+    return el ? el.textContent : '';
+  }
+
+  function calc(p, r, y) {
+    var monthlyRate = (r / 100) / 12;
+    var months = y * 12;
+    var x = Math.pow(1 + monthlyRate, months);
+    var m = (p * x * monthlyRate) / (x - 1);
+    return { monthly: m, totalInt: (m * months) - p };
+  }
+
+  function num(id) { return Number(document.getElementById(id).value); }
+
+  function compare() {
+    var a = calc(num('amt-a'), num('apr-a'), num('term-a'));
+    var b = calc(num('amt-b'), num('apr-b'), num('term-b'));
+
+    document.getElementById('res-m-a').innerText = SYM + a.monthly.toFixed(2);
+    document.getElementById('res-i-a').innerText = SYM + a.totalInt.toFixed(2);
+    document.getElementById('res-m-b').innerText = SYM + b.monthly.toFixed(2);
+    document.getElementById('res-i-b').innerText = SYM + b.totalInt.toFixed(2);
+
+    var colA = document.getElementById('col-a');
+    var colB = document.getElementById('col-b');
+    colA.classList.remove('winner');
+    colB.classList.remove('winner');
+
+    var aWins = a.totalInt < b.totalInt;
+    var saved = aWins ? (b.totalInt - a.totalInt) : (a.totalInt - b.totalInt);
+    (aWins ? colA : colB).classList.add('winner');
+
+    document.getElementById('verdict').innerText = copy(aWins ? 'verdict-a' : 'verdict-b');
+    document.getElementById('verdict-detail').innerText =
+      copy('saving-prefix') + SYM + saved.toFixed(2) + copy(aWins ? 'saving-mid-a' : 'saving-mid-b');
+  }
+
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', compare);
+  });
+  compare();
+})();
+</script>

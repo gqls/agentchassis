@@ -1,0 +1,187 @@
+{
+  "_note": "Each checklist row is a title/detail pair of fields rather than one string, because the title is rendered bold and the detail is not. Five rows, hardcoded: the count is fixed by the UK personal-loan document set, and the progress bar's denominator is simply how many checkboxes exist, so adding a sixth is a template edit and needs no code change.",
+  "fields": {
+    "documents_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Required Documents",
+      "llm_guidance": "Heading of the checklist card."
+    },
+    "doc_id_title": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Proof of ID:",
+      "llm_guidance": "Bold lead-in for the identity row. Keep the colon -- the detail follows inline."
+    },
+    "doc_id_detail": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Passport or Full UK Driving Licence.",
+      "llm_guidance": "What counts as proof of identity. FULL licence, not provisional -- lenders distinguish, and this is the kind of detail that wastes an applicant's week. UK-specific; a non-UK site must replace it."
+    },
+    "doc_address_title": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Proof of Address:",
+      "llm_guidance": "Bold lead-in for the address row."
+    },
+    "doc_address_detail": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Utility bill or Council Tax (last 3 months).",
+      "llm_guidance": "The recency window is the load-bearing part -- an old bill is the most common rejection on this item."
+    },
+    "doc_income_title": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Proof of Income:",
+      "llm_guidance": "Bold lead-in for the income row."
+    },
+    "doc_income_detail": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Last 3 payslips or P60.",
+      "llm_guidance": "P60 is a UK-specific document. Note this wording assumes employment; the self-employed need SA302s or accounts, which this list does not mention -- a real gap worth filling rather than a wording nit."
+    },
+    "doc_bank_title": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Bank Statements:",
+      "llm_guidance": "Bold lead-in for the statements row."
+    },
+    "doc_bank_detail": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Last 3 months showing rent/mortgage payments.",
+      "llm_guidance": "Says both the window and what the lender is looking for in it."
+    },
+    "doc_credit_title": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Credit Report:",
+      "llm_guidance": "Bold lead-in for the credit-report row."
+    },
+    "doc_credit_detail": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Checked for errors in the last 30 days.",
+      "llm_guidance": "The action is CHECKING FOR ERRORS, not obtaining a score. Statutory credit reports are free in the UK; do not reword this in a way that implies a paid product is needed."
+    },
+    "clear_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Clear All Progress",
+      "llm_guidance": "Label of the destructive reset. It is confirmed with a dialog before anything is deleted. Keep it explicit -- and note that the equivalence harness deliberately EXCLUDES buttons matching /clear|reset/ from its automated press, because an earlier golden was captured after this button had wiped the state it was meant to measure."
+    },
+    "notes_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Application Notes",
+      "llm_guidance": "Heading of the notes card."
+    },
+    "notes_intro": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Keep track of lender names, reference numbers, or follow-up dates here.",
+      "llm_guidance": "One line explaining what to write. Do not invite anything sensitive: this is stored unencrypted in localStorage (see the template's limitation note)."
+    },
+    "notes_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "e.g. Applied to NatWest on 15th March. Ref: NW-12345. They asked for an extra payslip...",
+      "llm_guidance": "Placeholder example. It names a real bank as an illustration only; a site that prefers not to should use a generic name. The reference number is obviously fictitious and should stay obviously fictitious."
+    },
+    "status_typing": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Typing...",
+      "llm_guidance": "Shown while the debounce is pending -- i.e. NOT YET SAVED. It must not read as a confirmation; that distinction is the whole point of having two states."
+    },
+    "status_saved": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "✓ Saved to browser memory",
+      "llm_guidance": "Shown once the notes are written to localStorage. 'To browser memory' is deliberate and accurate -- nothing is sent anywhere, and it will not follow the user to another device or survive clearing site data."
+    },
+    "confirm_clear": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Are you sure you want to clear your checklist and notes?",
+      "llm_guidance": "Text of the confirmation dialog before deletion. Name BOTH things that will be lost."
+    },
+    "download_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "💾 Download Backup",
+      "llm_guidance": "Label of the export button."
+    },
+    "restore_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "📂 Restore Backup",
+      "llm_guidance": "Label of the import button."
+    },
+    "restore_confirmation": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Backup Restored Successfully!",
+      "llm_guidance": "Shown after a SUCCESSFUL restore only. It must never appear on a failure -- see restore_failure."
+    },
+    "restore_failure": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "That file could not be read as a backup. Your saved notes and checklist have not been changed.",
+      "llm_guidance": "Shown when the chosen file is not valid JSON. Two jobs: say it failed, and say nothing was lost -- someone who has just tried to restore their notes needs to know their existing ones are intact. The original had no failure path at all and died silently, which reads as success."
+    },
+    "backup_filename_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "loancalculator-backup-",
+      "llm_guidance": "Start of the downloaded filename; the ISO date and .json are appended. Keep the trailing hyphen."
+    },
+    "storage_check_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "loan_check_",
+      "llm_guidance": "localStorage key prefix for the checkboxes, with the row's data-key appended. CHANGING THIS ORPHANS EVERY EXISTING USER'S SAVED PROGRESS -- their data stays in the browser under the old keys and the tool stops seeing it, with no error. Treat it as fixed unless you are deliberately migrating."
+    },
+    "storage_notes_key": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "loan_app_notes",
+      "llm_guidance": "localStorage key for the notes field. Changing it orphans existing notes (see storage_check_prefix)."
+    },
+    "save_delay_ms": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "1000",
+      "llm_guidance": "How long typing must pause before the notes are written. A second is short enough that a user who closes the tab mid-sentence loses at most a moment's typing, and long enough not to write on every keystroke. Raising it materially increases what a closed tab loses."
+    }
+  }
+}

@@ -1,0 +1,334 @@
+<style>
+/* tool-application-tracker — SELF-CONTAINED by design.
+   Namespaced under .tool-application-tracker-section. The original depended on
+   the page for .progress-bar, .tracker-container, .card, .checklist-item,
+   .checklist-item.completed and .notes-area, and carried six inline style
+   attributes including two bare hex colours.
+   .checklist-item.completed is BEHAVIOUR, not decoration: it is the only visual
+   confirmation that a ticked item was saved, and it is defined here so a host
+   stylesheet cannot lose it.
+   #progress-fill's WIDTH is the tool's headline output. It is not part of the
+   equivalence fingerprint (which records text and display, not geometry), so it
+   is deliberately also asserted in the tool's PLAN via has_visible_area rather
+   than being left to this rewrite's word. */
+.tool-application-tracker-section {
+  color: var(--color-text, #333);
+}
+.tool-application-tracker-section .at-progress {
+  height: 12px;
+  width: 100%;
+  background: var(--color-surface-alt, #e2e8f0);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+.tool-application-tracker-section #progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--color-success, #38a169);
+  transition: width 0.35s;
+}
+.tool-application-tracker-section .at-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+.tool-application-tracker-section .at-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-application-tracker-section h3 { margin: 0 0 1rem; font-size: 1.15rem; }
+/* ⚠ FLEX HERE, AND NOT FLEX ON tool-return-damage-checker — which looks like an
+   inconsistency and is not. A flex container BLOCKIFIES its children, so the row's
+   layout decides each checkbox's computed `display`, and computed display is part
+   of the equivalence fingerprint. These two tools' original stylesheets disagreed:
+   this page's .checklist-item IS flex (its checkboxes compute `block`), while
+   damage-checker's is not (its compute `inline-block`). Both rewrites were written
+   to the same house style first and BOTH failed the gate, in opposite directions.
+   There was no way to know from reading either page — the two look identical — and
+   nothing but a computed-style comparison would have surfaced it.
+   Do not harmonise these two files without re-baselining both. */
+.tool-application-tracker-section .at-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-border-subtle, #edf2f7);
+}
+.tool-application-tracker-section .at-item:last-of-type { border-bottom: 0; }
+.tool-application-tracker-section .at-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin: 0.1rem 0 0;
+  cursor: pointer;
+}
+.tool-application-tracker-section .at-item label { cursor: pointer; line-height: 1.45; }
+.tool-application-tracker-section .at-item.completed label {
+  color: var(--color-text-muted, #64748b);
+  text-decoration: line-through;
+}
+.tool-application-tracker-section .at-note {
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #64748b);
+}
+.tool-application-tracker-section textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 160px;
+  padding: 0.7rem;
+  font: inherit;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+.tool-application-tracker-section #save-status {
+  font-size: 0.8rem;
+  color: var(--color-success, #38a169);
+  margin-top: 5px;
+  min-height: 1.2em;
+}
+.tool-application-tracker-section .at-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.tool-application-tracker-section .at-actions button {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: var(--color-on-accent, #ffffff);
+  border: 0;
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-accent, #0056b3);
+}
+.tool-application-tracker-section .at-actions .at-secondary { background: var(--color-muted-strong, #718096); }
+.tool-application-tracker-section .at-clear {
+  margin-top: 20px;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  color: var(--color-on-danger, #ffffff);
+  background: var(--color-danger, #e53e3e);
+  border: 0;
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+</style>
+
+<section class="tool-application-tracker-section">
+  <div class="at-progress"><div id="progress-fill"></div></div>
+
+  <div class="at-layout">
+    <div class="at-card">
+      <h3>{{.documents_heading}}</h3>
+      <div id="checklist">
+        <div class="at-item">
+          <input type="checkbox" id="doc-id" data-key="id">
+          <label for="doc-id"><strong>{{.doc_id_title}}</strong> {{.doc_id_detail}}</label>
+        </div>
+        <div class="at-item">
+          <input type="checkbox" id="doc-address" data-key="address">
+          <label for="doc-address"><strong>{{.doc_address_title}}</strong> {{.doc_address_detail}}</label>
+        </div>
+        <div class="at-item">
+          <input type="checkbox" id="doc-income" data-key="income">
+          <label for="doc-income"><strong>{{.doc_income_title}}</strong> {{.doc_income_detail}}</label>
+        </div>
+        <div class="at-item">
+          <input type="checkbox" id="doc-bank" data-key="bank">
+          <label for="doc-bank"><strong>{{.doc_bank_title}}</strong> {{.doc_bank_detail}}</label>
+        </div>
+        <div class="at-item">
+          <input type="checkbox" id="doc-credit" data-key="credit">
+          <label for="doc-credit"><strong>{{.doc_credit_title}}</strong> {{.doc_credit_detail}}</label>
+        </div>
+      </div>
+      <button type="button" class="at-clear" id="clear-progress">{{.clear_label}}</button>
+    </div>
+
+    <div>
+      <div class="at-card">
+        <h3>{{.notes_heading}}</h3>
+        <p class="at-note">{{.notes_intro}}</p>
+        <textarea id="user-notes" placeholder="{{.notes_placeholder}}"></textarea>
+        <p id="save-status"></p>
+      </div>
+
+      <!-- The backup controls were OUTSIDE the page container in the original —
+           after the closing </div>, so they rendered full-bleed under the layout
+           rather than beside the notes they act on. Brought inside the component,
+           which is what a component means. -->
+      <div class="at-actions">
+        <button type="button" id="download-backup">{{.download_label}}</button>
+        <button type="button" class="at-secondary" id="restore-backup">{{.restore_label}}</button>
+        <input type="file" id="import-file" style="display:none" accept="application/json">
+      </div>
+    </div>
+  </div>
+
+  <div class="at-copy" hidden aria-hidden="true">
+    <span data-copy="typing">{{.status_typing}}</span>
+    <span data-copy="saved">{{.status_saved}}</span>
+    <span data-copy="confirm-clear">{{.confirm_clear}}</span>
+    <span data-copy="restored">{{.restore_confirmation}}</span>
+    <span data-copy="restore-failed">{{.restore_failure}}</span>
+    <span data-copy="backup-prefix">{{.backup_filename_prefix}}</span>
+  </div>
+</section>
+
+<script>
+/* BEHAVIOUR PRESERVED from the hand-built original
+   (loancalculator.co.uk/tools/application-tracker.html, 2026-07-31): five
+   checkboxes and a notes field persisted to localStorage, a progress bar driven
+   by how many are ticked, a debounced save indicator, and JSON backup/restore.
+   There is no arithmetic here beyond checked/total.
+
+   THREE REAL DEFECTS FIXED, all provably invisible in today's output:
+
+   1. localStorage.clear() WIPED THE WHOLE ORIGIN. The clear button called
+      `localStorage.clear()`, which deletes every key any script on this domain
+      has ever stored — not just this tool's. Today this is the only tool storing
+      anything, so it is survivable; the moment a second component persists
+      anything, one press of "Clear All Progress" silently destroys it too. Now it
+      removes only its own namespaced keys.
+
+   2. Every checkbox query was PAGE-WIDE (`document.querySelectorAll('input
+      [type=checkbox]')`), so any other checkbox on the page — a cookie banner, a
+      second tool — would have been persisted under this tool's keys and counted
+      in its progress bar. Scoped to the tool root.
+
+   3. window.onload and cb.onchange were PROPERTY ASSIGNMENTS, which silently
+      replace any handler another component registered the same way. Both are
+      addEventListener now. window.onload also meant the tool waited for every
+      image on the page before restoring state; it now restores as soon as the
+      component's own script runs.
+
+   All three are equivalence-preserving on this page and the gate confirms it.
+   Contrast the accessibility badge reverted from tool-loan-vs-savings: the line
+   is whether the change is OBSERVABLE, not whether it is worth making.
+
+   ⚠ INHERENT LIMITATION, unchanged and worth stating: "Securely tracked in your
+   browser" means the notes are in localStorage in plain text, readable by any
+   script on this origin and by anyone with the device. It is private in the sense
+   that nothing is sent to a server. Do not strengthen that copy. */
+(function () {
+  var root = document.querySelector('.tool-application-tracker-section');
+  if (!root) return;
+
+  var CHECK_PREFIX = "{{.storage_check_prefix}}";
+  var NOTES_KEY = "{{.storage_notes_key}}";
+  var SAVE_DELAY = parseInt("{{.save_delay_ms}}", 10);
+
+  var checkboxes = root.querySelectorAll('input[type="checkbox"]');
+  var notesArea = root.querySelector('#user-notes');
+  var status = root.querySelector('#save-status');
+  var fill = root.querySelector('#progress-fill');
+
+  function copy(key) {
+    var el = root.querySelector('[data-copy="' + key + '"]');
+    return el ? el.textContent : '';
+  }
+
+  function updateProgress() {
+    var total = checkboxes.length;
+    var checked = root.querySelectorAll('input[type="checkbox"]:checked').length;
+    fill.style.width = (total ? (checked / total) * 100 : 0) + '%';
+  }
+
+  function restore() {
+    Array.prototype.forEach.call(checkboxes, function (cb) {
+      if (localStorage.getItem(CHECK_PREFIX + cb.dataset.key) === 'true') {
+        cb.checked = true;
+        cb.parentElement.classList.add('completed');
+      }
+    });
+    var savedNotes = localStorage.getItem(NOTES_KEY);
+    if (savedNotes) notesArea.value = savedNotes;
+    updateProgress();
+  }
+
+  Array.prototype.forEach.call(checkboxes, function (cb) {
+    cb.addEventListener('change', function () {
+      localStorage.setItem(CHECK_PREFIX + cb.dataset.key, cb.checked);
+      cb.parentElement.classList.toggle('completed', cb.checked);
+      updateProgress();
+    });
+  });
+
+  var debounceTimer;
+  notesArea.addEventListener('input', function () {
+    status.innerText = copy('typing');
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () {
+      localStorage.setItem(NOTES_KEY, notesArea.value);
+      status.innerText = copy('saved');
+    }, SAVE_DELAY);
+  });
+
+  root.querySelector('#clear-progress').addEventListener('click', function () {
+    if (!confirm(copy('confirm-clear'))) return;
+    // Namespaced, not localStorage.clear() — see defect 1 above.
+    Array.prototype.forEach.call(checkboxes, function (cb) {
+      localStorage.removeItem(CHECK_PREFIX + cb.dataset.key);
+    });
+    localStorage.removeItem(NOTES_KEY);
+    location.reload();
+  });
+
+  root.querySelector('#download-backup').addEventListener('click', function () {
+    var data = { notes: localStorage.getItem(NOTES_KEY), checklist: {} };
+    Array.prototype.forEach.call(checkboxes, function (cb) {
+      data.checklist[cb.dataset.key] = localStorage.getItem(CHECK_PREFIX + cb.dataset.key);
+    });
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = copy('backup-prefix') + new Date().toISOString().split('T')[0] + '.json';
+    a.click();
+    // The original never revoked the object URL, leaking one per download.
+    URL.revokeObjectURL(url);
+  });
+
+  var fileInput = root.querySelector('#import-file');
+  root.querySelector('#restore-backup').addEventListener('click', function () {
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', function (event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var data;
+      try {
+        data = JSON.parse(e.target.result);
+      } catch (err) {
+        // The original passed the file straight to JSON.parse with no guard, so
+        // choosing the wrong file threw and the restore died silently with the
+        // user told nothing — they would reasonably assume it had worked.
+        // It must say it FAILED. An earlier draft of this handler reused the
+        // success message here, which would have been worse than the silence it
+        // replaced: a false confirmation that someone's saved notes were back.
+        alert(copy('restore-failed'));
+        return;
+      }
+      if (data.notes) localStorage.setItem(NOTES_KEY, data.notes);
+      for (var key in data.checklist) {
+        if (Object.prototype.hasOwnProperty.call(data.checklist, key)) {
+          localStorage.setItem(CHECK_PREFIX + key, data.checklist[key]);
+        }
+      }
+      alert(copy('restored'));
+      location.reload();
+    };
+    reader.readAsText(file);
+  });
+
+  restore();
+})();
+</script>

@@ -1,0 +1,190 @@
+<style>
+/* tool-loan-vs-savings — SELF-CONTAINED by design.
+   Namespaced under .tool-loan-vs-savings-section. The original depended on the
+   page for .card, .input-grid, .comparison-card, .result-panel, .monthly-payment
+   AND for the `.winner` highlight — which is the tool's entire answer. A site
+   whose stylesheet lacks .winner shows two identical panels and no verdict, while
+   every selector still matches and the numbers are still correct. That class is
+   defined here now, so the verdict cannot be lost by a stylesheet rewrite.
+   The select's four inline style declarations are CSS here instead.
+   No `display` is set on any [id] element: those are the fingerprint. */
+.tool-loan-vs-savings-section {
+  color: var(--color-text, #333);
+}
+.tool-loan-vs-savings-section .lvs-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-loan-vs-savings-section .lvs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.tool-loan-vs-savings-section label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.tool-loan-vs-savings-section input[type="number"],
+.tool-loan-vs-savings-section select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+.tool-loan-vs-savings-section .lvs-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.tool-loan-vs-savings-section .lvs-panel {
+  background: var(--color-card-bg, #ffffff);
+  border: 2px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1.25rem;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.tool-loan-vs-savings-section .lvs-panel h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.tool-loan-vs-savings-section .lvs-panel p { margin: 0.25rem 0; font-size: 0.95rem; }
+.tool-loan-vs-savings-section .lvs-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.35rem 0;
+}
+/* THE VERDICT — and an OPEN DEFECT, deliberately not fixed here.
+   The winning option is signalled by colour and border weight ALONE. That is
+   this tool's entire output, and it is invisible to a colour-blind reader; the
+   two panels are otherwise identical in structure. It wants a second,
+   non-colour signal.
+   A badge reading "Better option" was written, and REVERTED, because it changes
+   the panels' text content and therefore what the page says. The rule this
+   lane holds to is that a port proves equivalence and an improvement is its own
+   change with its own re-baselined golden — the same rule applied to the
+   three-decimal-place money bug in tool-overpayment-impact. Mixing the two
+   would mean neither could be reviewed on its merits.
+   Contrast the page-wide checkbox query fixed inside tool-return-damage-checker:
+   that fix provably cannot change the output, and the gate confirmed it did not.
+   THE LINE IS OBSERVABILITY, not severity. Queued, with the badge markup ready
+   in the lane NOTES. */
+.tool-loan-vs-savings-section .lvs-panel.winner {
+  border-color: var(--color-success, #2f855a);
+  background: var(--color-success-bg, #f0fff4);
+}
+@media (max-width: 560px) {
+  .tool-loan-vs-savings-section .lvs-amount { font-size: 1.6rem; }
+}
+</style>
+
+<section class="tool-loan-vs-savings-section">
+  <div class="lvs-card">
+    <div class="lvs-grid">
+      <div>
+        <label for="loan-rate">{{.loan_rate_label}}</label>
+        <input type="number" id="loan-rate" value="{{.loan_rate_default}}">
+      </div>
+      <div>
+        <label for="save-rate">{{.save_rate_label}}</label>
+        <input type="number" id="save-rate" value="{{.save_rate_default}}">
+      </div>
+      <div>
+        <label for="spare-cash">{{.spare_cash_label}}</label>
+        <input type="number" id="spare-cash" value="{{.spare_cash_default}}">
+      </div>
+      <div>
+        <label for="tax-bracket">{{.tax_label}}</label>
+        <select id="tax-bracket">
+          <option value="0">{{.tax_basic_option}}</option>
+          <option value="{{.higher_rate_fraction}}">{{.tax_higher_option}}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="lvs-panels" id="results">
+    <div id="loan-panel" class="lvs-panel">
+      <h3>{{.loan_panel_heading}}</h3>
+      <p>{{.loan_panel_lead}}</p>
+      <div class="lvs-amount" id="loan-benefit">{{.currency_symbol}}75.00</div>
+      <p>{{.loan_panel_trail}}</p>
+    </div>
+    <div id="save-panel" class="lvs-panel">
+      <h3>{{.save_panel_heading}}</h3>
+      <p>{{.save_panel_lead}}</p>
+      <div class="lvs-amount" id="save-benefit">{{.currency_symbol}}50.00</div>
+      <p>{{.save_panel_trail}}</p>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/loan-vs-savings.html, 2026-07-31): one year of
+   simple interest on the same sum at each rate, with the savings side reduced by
+   the taxpayer's marginal rate. £1,000 at 7.5% against 5.0% must read £75.00
+   versus £50.00.
+
+   THE COMPARISON IS DELIBERATELY SIMPLE AND SHOULD STAY SO. It is one year,
+   undiscounted, and it ignores the Personal Savings Allowance — which the page
+   copy explains, and which is why the tax control is a blunt two-option select
+   rather than a rate field. Making the arithmetic cleverer without changing the
+   copy would produce a tool that disagrees with its own explanation.
+
+   TWO deliberate changes, neither of which can move a number:
+   1. No globals and no inline oninput/onchange. `compare` was on window and bound
+      through four inline attributes.
+   2. The higher-rate fraction is a schema field rather than the literal 0.4
+      buried in an <option value>, so a change in the tax band is a config edit.
+      The winner test is unchanged, including its tie behaviour: on an exact tie
+      the SAVINGS panel wins, because the original's `if (loanSave > saveEarn)`
+      is a strict comparison and its else branch takes the tie. That is arguably
+      the wrong default for a debt-first tool, but it is the recorded behaviour
+      and changing it is a decision, not a port. */
+(function () {
+  var SYM = "{{.currency_symbol}}";
+  var root = document.querySelector('.tool-loan-vs-savings-section');
+  if (!root) return;
+  var ids = ['loan-rate', 'save-rate', 'spare-cash', 'tax-bracket'];
+
+  function compare() {
+    var loanRate = parseFloat(document.getElementById('loan-rate').value) / 100;
+    var saveRate = parseFloat(document.getElementById('save-rate').value) / 100;
+    var amount = parseFloat(document.getElementById('spare-cash').value);
+    var tax = parseFloat(document.getElementById('tax-bracket').value);
+
+    var netSaveRate = saveRate * (1 - tax);
+    var loanSave = amount * loanRate;
+    var saveEarn = amount * netSaveRate;
+
+    document.getElementById('loan-benefit').innerText = SYM + loanSave.toFixed(2);
+    document.getElementById('save-benefit').innerText = SYM + saveEarn.toFixed(2);
+
+    var loanPanel = document.getElementById('loan-panel');
+    var savePanel = document.getElementById('save-panel');
+    loanPanel.classList.remove('winner');
+    savePanel.classList.remove('winner');
+    if (loanSave > saveEarn) {
+      loanPanel.classList.add('winner');
+    } else {
+      savePanel.classList.add('winner');
+    }
+  }
+
+  ids.forEach(function (id) {
+    var el = document.getElementById(id);
+    el.addEventListener('input', compare);
+    el.addEventListener('change', compare);
+  });
+  compare();
+})();
+</script>

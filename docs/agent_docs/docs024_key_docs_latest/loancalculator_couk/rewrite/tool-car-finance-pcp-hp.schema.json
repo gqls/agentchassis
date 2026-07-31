@@ -1,0 +1,117 @@
+{
+  "_note": "The two mode buttons are hardcoded rather than ranged over: HP and PCP are not interchangeable list items, they select different arithmetic (PCP deducts the present value of a balloon payment, HP does not) and the balloon field's visibility is bound to which one is active. A generic loop would hide that coupling.",
+  "fields": {
+    "hp_button_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Hire Purchase (HP)",
+      "llm_guidance": "Label of the default mode. Spell out the term at least once -- HP and PCP are jargon and someone comparing car finance for the first time is exactly this tool's reader."
+    },
+    "pcp_button_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "PCP (with Balloon)",
+      "llm_guidance": "Label of the balloon mode. Naming the balloon here is what tells the reader why a fourth field appears when they press it."
+    },
+    "price_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Car Price (£)",
+      "llm_guidance": "Label for the full price BEFORE deposit. The deposit is a separate field and subtracting it here would double-count."
+    },
+    "deposit_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Deposit (£)",
+      "llm_guidance": "Label for the deposit."
+    },
+    "apr_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Interest Rate (APR %)",
+      "llm_guidance": "Label for the annual rate. NOTE the inherited limitation recorded in the template: a 0% APR deal computes nothing, and 0% is a real car finance product. Do not add copy inviting people to enter 0 until that is fixed."
+    },
+    "term_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Term (Years)",
+      "llm_guidance": "Label for the agreement length. The unit is YEARS and the script multiplies by 12."
+    },
+    "balloon_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Estimated Final Balloon Payment (£)",
+      "llm_guidance": "Label for the optional final payment, shown only in PCP mode. Keep ESTIMATED: on a real agreement this figure is the Guaranteed Minimum Future Value set by the lender, not something the buyer chooses."
+    },
+    "balloon_note": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "This is the 'Optional Final Payment' to own the car at the end of a PCP deal.",
+      "llm_guidance": "One line under the balloon field. It names the term as it appears on UK paperwork, which is the point -- a reader should be able to match this to their own agreement. This is markup text, so the quotes are safe here; the same string inside a JavaScript literal would break the tool (see tool-early-settlement)."
+    },
+    "price_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "25000",
+      "llm_guidance": "Starting car price. Part of the equivalence fingerprint -- the acceptance criteria scale every input and assert the resulting figures."
+    },
+    "deposit_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "5000",
+      "llm_guidance": "Starting deposit, a round 20% of the default price. Part of the equivalence fingerprint."
+    },
+    "apr_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "8.9",
+      "llm_guidance": "Starting APR. Part of the equivalence fingerprint."
+    },
+    "term_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "4",
+      "llm_guidance": "Starting term in years, the most common UK car finance length. Part of the equivalence fingerprint."
+    },
+    "balloon_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "10000",
+      "llm_guidance": "Starting balloon payment, used only in PCP mode. Part of the equivalence fingerprint even though it is hidden on first paint -- the harness drives it and switching modes exposes its effect."
+    },
+    "monthly_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Monthly Payment",
+      "llm_guidance": "Heading over the instalment. In PCP mode this figure EXCLUDES the balloon, which is the number people are shown in advertising and the reason PCP looks cheaper than it is."
+    },
+    "interest_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Interest Paid",
+      "llm_guidance": "Heading over the total cost above the car's price. Note the basis recorded in the template: it is measured against the CAR PRICE, including the deposit, not against the amount financed. If you reword this, do not imply it is the finance company's interest charge on the borrowed sum -- it is broader than that."
+    },
+    "currency_symbol": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£",
+      "llm_guidance": "Prefixed to both figures as a literal; formatting is toFixed(2), so there are no thousands separators."
+    }
+  }
+}

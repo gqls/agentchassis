@@ -1,0 +1,233 @@
+<style>
+/* tool-car-finance-pcp-hp — SELF-CONTAINED by design.
+   Namespaced under .tool-car-finance-pcp-hp-section. The original depended on
+   the page for .card, .finance-type-toggle, .type-btn, .type-btn.active,
+   .input-grid, .balloon-input, .balloon-input.show, .comparison-grid and
+   .monthly-payment — nine classes, two of which are BEHAVIOUR:
+
+     .balloon-input      { display: none; }   <- the balloon field is hidden in HP
+     .balloon-input.show { display: block; }  <- and revealed in PCP
+
+   Those two are reproduced here as .cf-balloon / .cf-balloon.cf-show. If they
+   are missing, the balloon field is visible in HP mode where it is ignored by
+   the arithmetic, so the tool shows a field that does nothing — the worst of the
+   three possible failures, because it looks like it works.
+   #balloon-box's computed display is part of the equivalence fingerprint: `none`
+   on first paint (HP is the default mode), `block` after switching to PCP. */
+.tool-car-finance-pcp-hp-section {
+  color: var(--color-text, #333);
+}
+.tool-car-finance-pcp-hp-section .cf-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-car-finance-pcp-hp-section .cf-toggle {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+.tool-car-finance-pcp-hp-section .cf-type-btn {
+  padding: 0.7rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+  background: var(--color-surface-alt, #f4f7fb);
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+/* The selected mode is signalled by fill AND weight, not by colour alone. */
+.tool-car-finance-pcp-hp-section .cf-type-btn.active {
+  color: var(--color-on-accent, #ffffff);
+  background: var(--color-accent-dark, #0056b3);
+  border-color: var(--color-accent-dark, #0056b3);
+}
+.tool-car-finance-pcp-hp-section .cf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.tool-car-finance-pcp-hp-section label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.tool-car-finance-pcp-hp-section input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+.tool-car-finance-pcp-hp-section .cf-balloon { display: none; }
+.tool-car-finance-pcp-hp-section .cf-balloon.cf-show {
+  display: block;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border, #e2e8f0);
+}
+.tool-car-finance-pcp-hp-section .cf-balloon-note {
+  font-size: 0.8rem;
+  margin-top: 5px;
+  color: var(--color-text-muted, #64748b);
+}
+.tool-car-finance-pcp-hp-section .cf-outcomes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.tool-car-finance-pcp-hp-section .cf-outcome {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1.25rem;
+}
+.tool-car-finance-pcp-hp-section .cf-outcome h3 { margin: 0; font-size: 1rem; }
+.tool-car-finance-pcp-hp-section .cf-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.5rem 0 0;
+}
+.tool-car-finance-pcp-hp-section .cf-amount-cost { color: var(--color-danger, #e53e3e); }
+@media (max-width: 560px) {
+  .tool-car-finance-pcp-hp-section .cf-amount { font-size: 1.6rem; }
+}
+</style>
+
+<section class="tool-car-finance-pcp-hp-section">
+  <div class="cf-card">
+    <div class="cf-toggle">
+      <button type="button" class="cf-type-btn active" id="btn-hp" data-cf-mode="HP">{{.hp_button_label}}</button>
+      <button type="button" class="cf-type-btn" id="btn-pcp" data-cf-mode="PCP">{{.pcp_button_label}}</button>
+    </div>
+
+    <div class="cf-grid">
+      <div>
+        <label for="price">{{.price_label}}</label>
+        <input type="number" id="price" value="{{.price_default}}">
+      </div>
+      <div>
+        <label for="deposit">{{.deposit_label}}</label>
+        <input type="number" id="deposit" value="{{.deposit_default}}">
+      </div>
+      <div>
+        <label for="car-apr">{{.apr_label}}</label>
+        <input type="number" id="car-apr" value="{{.apr_default}}">
+      </div>
+      <div>
+        <label for="car-term">{{.term_label}}</label>
+        <input type="number" id="car-term" value="{{.term_default}}">
+      </div>
+    </div>
+
+    <div id="balloon-box" class="cf-balloon">
+      <label for="balloon">{{.balloon_label}}</label>
+      <input type="number" id="balloon" value="{{.balloon_default}}">
+      <p class="cf-balloon-note">{{.balloon_note}}</p>
+    </div>
+  </div>
+
+  <div class="cf-outcomes">
+    <div class="cf-outcome">
+      <h3>{{.monthly_heading}}</h3>
+      <div class="cf-amount" id="car-monthly">{{.currency_symbol}}0.00</div>
+    </div>
+    <div class="cf-outcome">
+      <h3>{{.interest_heading}}</h3>
+      <div class="cf-amount cf-amount-cost" id="car-total-int">{{.currency_symbol}}0.00</div>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/car-finance-calculator.html, 2026-07-31).
+   The annuity formula in its BALLOON form — the present value of the final
+   payment is deducted before the monthly instalment is derived:
+
+       monthly = (principal*r - balloon*r*(1+r)^-n) / (1 - (1+r)^-n)
+
+   With balloon = 0 this reduces to the ordinary annuity, which is what makes one
+   formula serve both HP and PCP. That is the whole design and it should not be
+   split into two branches. £25,000 less a £5,000 deposit at 8.9% over 4 years in
+   HP must read £496.75 a month and £3844.08 of interest.
+
+   TOTAL INTEREST INCLUDES THE DEPOSIT IN ITS BASE, deliberately:
+       totalRepaid = monthly*n + balloon + deposit;  totalInt = totalRepaid - price
+   so it measures what the car costs above its price, not what the finance
+   agreement costs above the amount financed. Both are defensible; this is the
+   one the page's copy describes, and changing it silently would make the tool
+   disagree with the words around it.
+
+   THREE deliberate changes, none of which can move a number:
+   1. No globals. `mode` was a bare `let` at page scope and `setType` was on
+      window — two of these tools on one page would have shared one mode.
+   2. No inline onclick/oninput. The mode buttons carry data-cf-mode and one
+      delegated listener reads it.
+   3. Labels, defaults and the currency symbol come from the input_schema.
+
+   ⚠ AN INHERITED LIMITATION, PRESERVED AND WORTH KNOWING. The whole calculation
+   is wrapped in `if (apr > 0)`, so an interest-free deal — 0% APR, which is a
+   real and heavily advertised car finance product — computes NOTHING and the
+   tool silently keeps showing the previous figures. The formula genuinely
+   divides by zero there and needs a separate linear branch. Not fixed here
+   because it changes behaviour; filed as a defect for its own change. */
+(function () {
+  var root = document.querySelector('.tool-car-finance-pcp-hp-section');
+  if (!root) return;
+  var SYM = "{{.currency_symbol}}";
+  var mode = 'HP';
+  var ids = ['price', 'deposit', 'car-apr', 'car-term', 'balloon'];
+
+  function setType(t) {
+    mode = t;
+    document.getElementById('btn-hp').classList.toggle('active', t === 'HP');
+    document.getElementById('btn-pcp').classList.toggle('active', t === 'PCP');
+    document.getElementById('balloon-box').classList.toggle('cf-show', t === 'PCP');
+    calcCar();
+  }
+
+  function calcCar() {
+    var price = Number(document.getElementById('price').value);
+    var deposit = Number(document.getElementById('deposit').value);
+    var apr = Number(document.getElementById('car-apr').value) / 100 / 12;
+    var years = Number(document.getElementById('car-term').value);
+    var balloon = mode === 'PCP' ? Number(document.getElementById('balloon').value) : 0;
+
+    var principal = price - deposit;
+    var months = years * 12;
+
+    if (apr > 0) {
+      var r = apr;
+      var n = months;
+      var pow = Math.pow(1 + r, -n);
+      var monthly = (principal * r - balloon * r * pow) / (1 - pow);
+
+      var totalRepaid = (monthly * n) + balloon + deposit;
+      var totalInt = totalRepaid - price;
+
+      document.getElementById('car-monthly').innerText = SYM + monthly.toFixed(2);
+      document.getElementById('car-total-int').innerText = SYM + totalInt.toFixed(2);
+    }
+  }
+
+  root.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-cf-mode]');
+    if (btn && root.contains(btn)) setType(btn.getAttribute('data-cf-mode'));
+  });
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calcCar);
+  });
+  calcCar();
+})();
+</script>

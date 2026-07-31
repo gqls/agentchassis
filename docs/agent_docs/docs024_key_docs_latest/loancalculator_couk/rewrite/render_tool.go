@@ -90,6 +90,50 @@ func main() {
 		}
 	}
 
+	// COPY MUST NOT BE INTERPOLATED INTO JAVASCRIPT. Caught the hard way on
+	// tool-early-settlement, 2026-07-31: the schema fallback
+	//     " in \"58-day\" interest charges."
+	// was rendered into
+	//     var BREAKDOWN_SUFFIX = " in "58-day" interest charges.";
+	// which is a syntax error that kills the WHOLE script. The tool then showed
+	// £0.00 for every input while still containing a <script> block, still
+	// matching every selector, and still rendering perfectly. tool_health passes
+	// it (check 4 only asks whether a script tag exists), Tier 2 passes it
+	// (the anchors are all present), and only a check that reads the computed
+	// values catches it.
+	//
+	// text/template does no escaping whatsoever — that is what it is for — so
+	// there is no context-aware fix available here, and html/template is not what
+	// production uses. The rule is therefore structural and worth keeping:
+	// PUT COPY IN THE MARKUP AND LET JAVASCRIPT WRITE ONLY THE NUMBER. Text nodes
+	// have no quoting hazard, and it has the better side effect that a content
+	// agent can edit the wording without touching code.
+	//
+	// Conservative by design: it fires on any quote-bearing, backslash-bearing or
+	// multi-line value interpolated inside a <script>, not on an attempt to guess
+	// the surrounding quoting context. A false positive costs one markup move; a
+	// false negative costs a silently dead calculator.
+	var jsHazards []string
+	for _, region := range scriptRegions(string(raw)) {
+		for name, f := range sc.Fields {
+			if !strings.Contains(region, "{{."+name+"}}") &&
+				!strings.Contains(region, "{{ ."+name+" }}") {
+				continue
+			}
+			if bad := unsafeInJS(f.Fallback); bad != "" {
+				jsHazards = append(jsHazards, fmt.Sprintf(
+					"%s (value contains %s)", name, bad))
+			}
+		}
+	}
+	if len(jsHazards) > 0 {
+		fmt.Fprintf(os.Stderr,
+			"refusing to write: field(s) interpolated INSIDE a <script> carry characters that break a JS string literal: %s\n"+
+				"   Move the copy into the markup and have the script write only the computed value.\n",
+			strings.Join(jsHazards, ", "))
+		os.Exit(1)
+	}
+
 	// Every declared field should actually be used by the template; an unused one
 	// is either dead schema or a renamed slot the template no longer reads.
 	var unused []string
@@ -106,6 +150,53 @@ func main() {
 
 	must(os.WriteFile(outPath, []byte(html), 0o644))
 	fmt.Printf("rendered %d fields -> %s (%d bytes)\n", len(sc.Fields), outPath, len(html))
+}
+
+// scriptRegions returns the contents of every <script> block in the template.
+// Deliberately naive string scanning rather than a parser: the input is a
+// component template, not arbitrary HTML, and a parser that silently normalised
+// the markup would be reasoning about something other than what gets stored.
+func scriptRegions(tmpl string) []string {
+	var out []string
+	lower := strings.ToLower(tmpl)
+	for i := 0; ; {
+		open := strings.Index(lower[i:], "<script")
+		if open < 0 {
+			return out
+		}
+		open += i
+		gt := strings.Index(lower[open:], ">")
+		if gt < 0 {
+			return out
+		}
+		start := open + gt + 1
+		end := strings.Index(lower[start:], "</script>")
+		if end < 0 {
+			out = append(out, tmpl[start:])
+			return out
+		}
+		out = append(out, tmpl[start:start+end])
+		i = start + end
+	}
+}
+
+// unsafeInJS names the first character in v that cannot survive being pasted
+// into a JavaScript string literal, or "" when the value is safe.
+func unsafeInJS(v string) string {
+	for _, c := range []struct {
+		s, name string
+	}{
+		{`"`, `a double quote`},
+		{`'`, `an apostrophe or single quote`},
+		{`\`, `a backslash`},
+		{"\n", `a newline`},
+		{"`", `a backtick`},
+	} {
+		if strings.Contains(v, c.s) {
+			return c.name
+		}
+	}
+	return ""
 }
 
 func must(err error) {

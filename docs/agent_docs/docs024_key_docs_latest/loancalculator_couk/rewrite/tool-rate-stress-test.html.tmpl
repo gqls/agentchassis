@@ -1,0 +1,161 @@
+<style>
+/* tool-rate-stress-test — SELF-CONTAINED by design.
+   Namespaced under .tool-rate-stress-test-section; every colour and radius reads
+   a theme variable with a literal fallback, so the tool restyles into any host
+   site and still renders correctly where the host stylesheet knows nothing about
+   it. The original relied on the page for .comparison-grid, .card and
+   .monthly-payment and hardcoded three hex colours inline.
+   Deliberately sets no `display` on #curr-pay, #new-pay or #extra-cost: those are
+   part of the equivalence fingerprint and overriding them registers as a
+   behavioural change. */
+.tool-rate-stress-test-section {
+  color: var(--color-text, #333);
+}
+.tool-rate-stress-test-section .rst-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-rate-stress-test-section .rst-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.tool-rate-stress-test-section label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.tool-rate-stress-test-section input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  background: var(--color-input-bg, #ffffff);
+  color: inherit;
+}
+.tool-rate-stress-test-section .rst-outcomes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.tool-rate-stress-test-section .rst-outcome {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 1.25rem;
+}
+.tool-rate-stress-test-section .rst-now { border-top: 5px solid var(--color-muted, #cbd5e1); }
+/* The "rates rise" panel is deliberately the one alarming element. It keeps a
+   literal fallback for both the rule and the tint, because a site that defines
+   neither must still show the contrast the tool exists to communicate. */
+.tool-rate-stress-test-section .rst-stressed {
+  border-top: 5px solid var(--color-danger, #e53e3e);
+  background: var(--color-danger-bg, #fff5f5);
+}
+.tool-rate-stress-test-section .rst-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.5rem 0 0;
+}
+.tool-rate-stress-test-section .rst-delta {
+  color: var(--color-danger, #e53e3e);
+  font-weight: 700;
+  margin: 0.6rem 0 0;
+}
+.tool-rate-stress-test-section h4 { margin: 0; font-size: 1rem; }
+@media (max-width: 560px) {
+  .tool-rate-stress-test-section .rst-amount { font-size: 1.6rem; }
+}
+</style>
+
+<section class="tool-rate-stress-test-section">
+  <div class="rst-card">
+    <div class="rst-grid">
+      <div>
+        <label for="stress-bal">{{.balance_label}}</label>
+        <input type="number" id="stress-bal" value="{{.balance_default}}">
+      </div>
+      <div>
+        <label for="stress-apr">{{.apr_label}}</label>
+        <input type="number" id="stress-apr" value="{{.apr_default}}">
+      </div>
+      <div>
+        <label for="stress-term">{{.term_label}}</label>
+        <input type="number" id="stress-term" value="{{.term_default}}">
+      </div>
+    </div>
+  </div>
+
+  <div class="rst-outcomes">
+    <div class="rst-outcome rst-now">
+      <h4>{{.current_heading}}</h4>
+      <div class="rst-amount" id="curr-pay">{{.currency_symbol}}0.00</div>
+    </div>
+    <div class="rst-outcome rst-stressed">
+      <h4>{{.stressed_heading}}</h4>
+      <div class="rst-amount" id="new-pay">{{.currency_symbol}}0.00</div>
+      <p class="rst-delta">{{.delta_prefix}}{{.currency_symbol}}<span id="extra-cost">0</span>{{.delta_suffix}}</p>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/interest-rate-stress-test.html, 2026-07-31): the
+   standard annuity formula applied twice, once at the entered APR and once at
+   that APR plus the stress delta, with the difference reported per month.
+   £10,000 at 8.5% over 3 years must read £315.68 / £325.02 / 9.35.
+
+   TWO deliberate changes, neither of which can move a number:
+   1. No globals. The original put `stressTest` on window and bound it through
+      three inline `oninput` attributes; two of these tools on one page would
+      have overwritten each other. Everything is closed over, bound by listener.
+   2. The stress delta, the currency symbol and every label come from the
+      input_schema instead of being hardcoded, which is what lets another site
+      reuse this. The DEFAULT delta is 2 percentage points, exactly as before.
+
+   FORMATTING IS DELIBERATELY toFixed(2), NOT Intl.NumberFormat, and this matters:
+   the original prints "£1234.56" with no thousands separator, and switching to
+   Intl would silently produce "£1,234.56" — a real, visible change that the
+   equivalence gate would (correctly) fail. It is worth fixing, but as its own
+   change with its own re-baseline, not smuggled inside a port. */
+(function () {
+  var SYM = "{{.currency_symbol}}";
+  var STRESS = parseFloat("{{.stress_delta_points}}");
+  var ids = ['stress-bal', 'stress-apr', 'stress-term'];
+
+  function monthly(p, r, n) {
+    return (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  }
+
+  function stressTest() {
+    var P = Number(document.getElementById('stress-bal').value);
+    var apr = Number(document.getElementById('stress-apr').value);
+    var rCurrent = (apr / 100) / 12;
+    var rNew = ((apr + STRESS) / 100) / 12;
+    var n = Number(document.getElementById('stress-term').value) * 12;
+
+    if (P > 0 && n > 0) {
+      var currentM = monthly(P, rCurrent, n);
+      var newM = monthly(P, rNew, n);
+
+      document.getElementById('curr-pay').innerText = SYM + currentM.toFixed(2);
+      document.getElementById('new-pay').innerText = SYM + newM.toFixed(2);
+      document.getElementById('extra-cost').innerText = (newM - currentM).toFixed(2);
+    }
+  }
+
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', stressTest);
+  });
+  stressTest();
+})();
+</script>

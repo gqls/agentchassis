@@ -636,4 +636,9 @@ def main():
     print("\nall %d tools reproduce their golden values exactly" % len(urls))
 
 
-main()
+# Guarded so this file can be IMPORTED as well as run. verify_rewrite.py reuses
+# Runner/VECTORS/numeric_diff to check a rewrite against the golden before it is
+# anywhere near the cluster; an unguarded main() would fire on import and drive
+# twelve live pages as a side effect of the import statement.
+if __name__ == "__main__":
+    main()

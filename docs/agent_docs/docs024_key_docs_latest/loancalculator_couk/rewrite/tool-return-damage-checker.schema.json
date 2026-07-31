@@ -1,0 +1,61 @@
+{
+  "_note": "The four checks are separate fields rather than an array for the same reason as the wizard's questions: no tool template in the fleet uses {{range}} and introducing one is a shared-vocabulary change (owner ruling 2026-07-29). Unlike the wizard's options these carry no scores, so flattening them costs nothing but a fixed count of four -- which IS a real limitation: adding a fifth check needs a template edit, not a config edit.",
+  "fields": {
+    "tool_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Pre-Return Inspection Tool",
+      "llm_guidance": "Heading of the checklist card."
+    },
+    "tool_intro": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Check your car against these common UK finance return standards:",
+      "llm_guidance": "One line above the checklist. Say COMMON standards, not 'the' standards: the thresholds below are typical of BVRLA fair-wear-and-tear guidance, but the binding standard is whatever the individual finance agreement says."
+    },
+    "check_1": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Any scratches longer than a 2p coin? (25mm)",
+      "llm_guidance": "First inspection item. The coin comparison is doing real work -- it lets someone judge the threshold in a car park without a ruler -- and the millimetre figure is there for anyone who has one. Keep both. A non-UK site must replace the coin with a locally recognisable object of a stated size."
+    },
+    "check_2": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Any wheel scuffs longer than 5cm?",
+      "llm_guidance": "Second item. Kerbed alloys are among the most commonly charged-for return items."
+    },
+    "check_3": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Is the service book missing any stamps?",
+      "llm_guidance": "Third item. This is a documentation failure rather than physical damage, and it is deliberately in the list because it is the one people forget and it can cost more than a scratch."
+    },
+    "check_4": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Are there any chips in the windscreen?",
+      "llm_guidance": "Fourth item."
+    },
+    "verdict_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Potential Charges Detected",
+      "llm_guidance": "Heading of the box shown once anything is ticked. Keep POTENTIAL. The tool knows only what the visitor ticked; it cannot know what an inspector will charge for, and a heading stating charges as fact would be a claim the tool cannot support."
+    },
+    "verdict_body": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Lenders typically charge between £50 - £150 per panel for minor repairs. It is often cheaper to get a \"Smart Repair\" from a local specialist before handing the car back.",
+      "llm_guidance": "Body of the verdict box. TWO things to preserve. (1) The hedging -- 'typically' and 'often' -- because both figures are indicative ranges, not quotes. (2) The suggestion names a category of service, not a named supplier, which keeps it guidance rather than a recommendation. This is markup text, not a JavaScript string, so the quotes around Smart Repair are safe here; the same value inside a script would break the tool (see tool-early-settlement)."
+    }
+  }
+}

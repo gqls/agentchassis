@@ -1,0 +1,89 @@
+{
+  "_note": "Every field is source:static. Nothing here is prose an LLM should rewrite freely: the labels name regulated financial quantities, and the two numeric fields change what the tool COMPUTES. llm_guidance says so per field rather than relying on a blanket rule, because a writer agent reads the field it is editing and not the file.",
+  "fields": {
+    "balance_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Current Loan Balance (£)",
+      "llm_guidance": "Label for the outstanding balance input. Keep the currency symbol in the label -- the input itself is a bare number field with no adornment, so the label is the only place the unit is stated."
+    },
+    "apr_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Current APR (%)",
+      "llm_guidance": "Label for the current annual rate. Must say APR, not 'interest rate': APR is the legally defined figure a UK lender quotes and the one the arithmetic assumes."
+    },
+    "term_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Remaining Term (Years)",
+      "llm_guidance": "Label for the remaining term. The unit is YEARS and the script multiplies by 12; if you reword this to months the arithmetic becomes wrong by a factor of twelve and nothing will warn you."
+    },
+    "balance_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "10000",
+      "llm_guidance": "Starting balance. This is part of the equivalence fingerprint -- the acceptance criteria scale it x1, x2 and x0.5 and assert the resulting payments, so changing it re-baselines this tool's golden values."
+    },
+    "apr_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "8.5",
+      "llm_guidance": "Starting APR, chosen to sit near the UK personal-loan market average. Part of the equivalence fingerprint (see balance_default)."
+    },
+    "term_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "3",
+      "llm_guidance": "Starting term in years. Part of the equivalence fingerprint (see balance_default)."
+    },
+    "stress_delta_points": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "2",
+      "llm_guidance": "How many PERCENTAGE POINTS the stressed scenario adds to the entered APR -- 2 means 8.5% is tested at 10.5%, not at 8.67%. This is the whole premise of the tool and it changes every number it prints. Two points is a deliberately conservative shock relative to observed Bank of England base-rate moves; raising it makes the tool alarmist, lowering it makes it pointless."
+    },
+    "current_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Current Payment",
+      "llm_guidance": "Heading over the payment at today's rate."
+    },
+    "stressed_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "If Rates Rise by 2%",
+      "llm_guidance": "Heading over the stressed payment. MUST agree with stress_delta_points -- these are two separate fields saying the same thing and nothing enforces that they match, so change them together. If you make the delta configurable per site, this heading is the thing most likely to go stale and lie."
+    },
+    "delta_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Extra ",
+      "llm_guidance": "Text before the extra monthly cost. The trailing space is significant -- the currency symbol follows immediately."
+    },
+    "delta_suffix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " per month",
+      "llm_guidance": "Text after the extra monthly cost. The leading space is significant. Keep 'per month' explicit: the figure is a monthly delta and readers reliably assume annual if it is not stated."
+    },
+    "currency_symbol": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£",
+      "llm_guidance": "Prefixed to each figure as a literal. This tool formats with toFixed(2) rather than Intl.NumberFormat, so the symbol is NOT derived from a locale and a non-GBP site must set it here. Note the known limitation recorded in the template: toFixed prints no thousands separator."
+    }
+  }
+}

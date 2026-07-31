@@ -1,0 +1,82 @@
+{
+  "_note": "The breakdown sentence is split into a prefix and a suffix around the computed figure rather than being one string with a placeholder, because no tool template in the fleet does mid-string interpolation and introducing it would be a shared-vocabulary change (owner ruling 2026-07-29). The cost is that a translator cannot reorder the sentence. Recorded as a real limitation, not hidden.",
+  "fields": {
+    "balance_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Current Outstanding Balance (£)",
+      "llm_guidance": "Label for the balance input. Say OUTSTANDING: the figure wanted is what is left to pay, not the amount originally borrowed, and people supply the wrong one if the label is vague."
+    },
+    "apr_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Interest Rate (APR %)",
+      "llm_guidance": "Label for the annual rate."
+    },
+    "balance_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "5000",
+      "llm_guidance": "Starting balance. Part of the equivalence fingerprint -- the acceptance criteria scale it and assert the resulting settlement figures, so changing it re-baselines this tool's golden values."
+    },
+    "apr_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "9.9",
+      "llm_guidance": "Starting APR. Part of the equivalence fingerprint (see balance_default)."
+    },
+    "result_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Estimated Settlement Figure",
+      "llm_guidance": "Heading over the figure. Keep ESTIMATED. This is an indicative calculation from two inputs; the binding figure is the settlement quote the lender issues, and a heading that omits the hedge reads as though this tool produces one."
+    },
+    "settlement_days": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "58",
+      "llm_guidance": "Days of additional interest a lender may add. 58 is the UK convention -- a 28-day notice period plus 30 days, under the Consumer Credit (Early Settlement) Regulations 2004. It is a DEFAULT, not a universal rule: individual agreements differ, which is why the surrounding copy says 'usually'. A non-UK site must set this to whatever its own regime allows, and if there is no such regime the tool does not apply at all."
+    },
+    "days_in_year": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "365",
+      "llm_guidance": "Divisor turning the annual rate into a daily one. 365 matches the original. Some lenders use 360 for daily accrual; changing it moves every figure this tool prints, so change it only against a lender's stated basis, never for tidiness."
+    },
+    "breakdown_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Includes approx. ",
+      "llm_guidance": "Text before the interest charge in the breakdown line. The trailing space is significant -- the currency symbol follows immediately. Keep 'approx.': the figure is an estimate and the sentence is the only place that is said near the number."
+    },
+    "breakdown_suffix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " in \"58-day\" interest charges.",
+      "llm_guidance": "Text after the interest charge. The leading space is significant. If you change settlement_days, change this too -- they are two fields stating the same number and nothing enforces that they agree."
+    },
+    "currency_symbol": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£",
+      "llm_guidance": "Prefixed to both figures as a literal, not derived from the locale."
+    },
+    "locale": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "en-GB",
+      "llm_guidance": "BCP-47 locale used for thousands separators and decimal marks on the settlement figure ONLY. The breakdown line uses toFixed and ignores it, so the two lines can disagree about grouping on a five-figure balance -- a known cosmetic inconsistency, preserved deliberately from the original because fixing it moves the golden values."
+    }
+  }
+}

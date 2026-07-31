@@ -1,0 +1,264 @@
+{
+  "_note": "The verdict colours are interpolated into JS (verdict.style.backgroundColor) rather than being CSS classes, matching the original. They are hex literals and therefore safe under render_tool.go's JS-hazard rule, which refuses quote-bearing values inside a script. All verdict PROSE goes through the markup copy bank instead.",
+  "fields": {
+    "debts_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "1. Your Current Debts",
+      "llm_guidance": "Heading of the debt-entry card. Keep the number: the tool is a two-step sequence and the numbering is what tells a reader to fill this in first."
+    },
+    "proposal_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "2. Proposed Consolidation Loan",
+      "llm_guidance": "Heading of the new-loan card. Keep the number (see debts_heading)."
+    },
+    "name_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "e.g. Credit Card",
+      "llm_guidance": "Placeholder in the first row's name field. Purely a label for the user's own benefit -- the name is never read by the arithmetic."
+    },
+    "added_row_name_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "e.g. Store Card",
+      "llm_guidance": "Placeholder in rows added by the button. Deliberately DIFFERENT from name_placeholder, as in the original: two different examples suggest the tool takes several kinds of debt."
+    },
+    "balance_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Balance (£)",
+      "llm_guidance": "Placeholder for a debt's outstanding balance. These rows have placeholders instead of labels because the row is a compact grid; that is an accessibility compromise inherited from the original and worth revisiting."
+    },
+    "rate_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "APR (%)",
+      "llm_guidance": "Placeholder for a debt's rate."
+    },
+    "months_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Months Left",
+      "llm_guidance": "Placeholder for a debt's remaining term. The unit is MONTHS here, unlike the new loan's term which is in YEARS -- an inconsistency inherited from the original. Do not silently harmonise them: the script treats them differently and would be wrong by a factor of twelve."
+    },
+    "add_debt_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "+ Add Another Debt",
+      "llm_guidance": "Label of the add-row button."
+    },
+    "remove_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Remove debt",
+      "llm_guidance": "Accessible name of a row's remove button, whose visible content is a bare cross glyph. It is the tool's only destructive control, so the label must say what is removed."
+    },
+    "new_rate_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "New Loan APR (%)",
+      "llm_guidance": "Label for the proposed loan's rate."
+    },
+    "new_term_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "New Term (Years)",
+      "llm_guidance": "Label for the proposed loan's term. YEARS -- see months_placeholder."
+    },
+    "new_rate_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "9.9",
+      "llm_guidance": "Starting rate for the proposed loan. Part of the equivalence fingerprint."
+    },
+    "new_term_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "5",
+      "llm_guidance": "Starting term for the proposed loan. Deliberately long enough that consolidation can look cheaper monthly while costing more overall -- which is the risk the tool is named after. Part of the equivalence fingerprint."
+    },
+    "current_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Current Situation",
+      "llm_guidance": "Heading of the before panel."
+    },
+    "consolidated_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Consolidated Loan",
+      "llm_guidance": "Heading of the after panel."
+    },
+    "total_debt_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Debt to Clear:",
+      "llm_guidance": "Label before the summed balance. Keep the colon -- the figure follows inline."
+    },
+    "remaining_interest_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Remaining Interest:",
+      "llm_guidance": "Label before the interest still owed on existing debts. Note the recorded defect: a debt entered without a rate or term contributes to the balance but not to this figure."
+    },
+    "new_monthly_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "New Monthly Payment:",
+      "llm_guidance": "Label before the consolidated monthly figure. This is the number that almost always looks better and the one the verdict deliberately does NOT decide on."
+    },
+    "new_interest_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Interest Cost:",
+      "llm_guidance": "Label before the consolidated total interest. THIS is what the verdict compares."
+    },
+    "verdict_worse_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "⚠️ Term Extension Risk: Consolidating will cost you ",
+      "llm_guidance": "Shown when consolidating costs MORE in total interest. The warning sign and the phrase 'Term Extension Risk' are the tool's core message and should survive any rewording. Trailing space significant."
+    },
+    "verdict_worse_suffix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " MORE in total interest.",
+      "llm_guidance": "Completes the adverse verdict. Leading space significant. The emphasis on MORE is deliberate."
+    },
+    "verdict_better_prefix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "✅ Interest Saving: Consolidating will save you ",
+      "llm_guidance": "Shown when consolidating costs less. Trailing space significant. Do not make this more enthusiastic: the disclaimer below still applies and the arithmetic ignores exit fees."
+    },
+    "verdict_better_suffix": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " in total interest.",
+      "llm_guidance": "Completes the favourable verdict. Leading space significant."
+    },
+    "verdict_worse_bg": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#fed7d7",
+      "llm_guidance": "Background applied inline to the adverse verdict. A literal rather than a theme variable because it is set from JavaScript. Must keep a legible contrast ratio against verdict_worse_fg."
+    },
+    "verdict_worse_fg": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#9b2c2c",
+      "llm_guidance": "Text colour of the adverse verdict."
+    },
+    "verdict_better_bg": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#c6f6d5",
+      "llm_guidance": "Background of the favourable verdict."
+    },
+    "verdict_better_fg": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#22543d",
+      "llm_guidance": "Text colour of the favourable verdict."
+    },
+    "disclaimer_title": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Disclaimer:",
+      "llm_guidance": "Opening of the disclaimer paragraph."
+    },
+    "disclaimer_body": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "This tool is for illustrative purposes. Consolidating debt may extend the term of your repayments and increase the total amount payable. Always check for early exit fees (ERCs) on your current debts before consolidating.",
+      "llm_guidance": "DO NOT REWRITE FOR TONE. This is consumer-protection copy on a debt product. It states three things the arithmetic above cannot: that the output is illustrative, that consolidation can increase the total payable, and that exit fees exist and are not modelled here. Any rewording must keep all three."
+    },
+    "help_title": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Need Help?",
+      "llm_guidance": "Opening of the signposting paragraph."
+    },
+    "help_body_before": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "If you are consolidating because you cannot meet your current minimum payments, seek free, impartial advice from ",
+      "llm_guidance": "DO NOT SOFTEN. Someone consolidating because they cannot meet minimum payments is in difficulty, and this sentence routes them to free debt advice rather than to more credit. 'Free, impartial' is the important part. Trailing space significant."
+    },
+    "help_link_text": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "StepChange",
+      "llm_guidance": "Name of the debt charity linked to. Change this only together with help_url, and only to another free, impartial, non-commercial debt advice service."
+    },
+    "help_url": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "https://www.stepchange.org/",
+      "llm_guidance": "Destination of the help link. It MUST point to a free non-profit debt advice service -- never a commercial lead generator, an affiliate link or a lender. This is the one link on the page a person in financial difficulty is most likely to follow."
+    },
+    "help_body_after": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": " before taking out new credit.",
+      "llm_guidance": "Closes the signposting sentence. Leading space significant."
+    },
+    "currency_symbol": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£",
+      "llm_guidance": "Shown in the initial placeholder figures only. The computed figures are formatted by Intl.NumberFormat from locale and currency_code, so this must agree with currency_code or the tool changes symbol as soon as it calculates."
+    },
+    "locale": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "en-GB",
+      "llm_guidance": "BCP-47 locale for Intl.NumberFormat. Unlike most tools here this one uses proper currency formatting, so figures are grouped and symbol placement follows the locale."
+    },
+    "currency_code": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "GBP",
+      "llm_guidance": "ISO 4217 code for Intl.NumberFormat. Must agree with currency_symbol."
+    }
+  }
+}

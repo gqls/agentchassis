@@ -1,0 +1,124 @@
+{
+  "_note": "The two result panels are hardcoded rather than driven by an array because they are not a list -- they are two named alternatives with different wording, different semantics (interest AVOIDED versus interest EARNED) and a tax adjustment on only one of them. A {{range}} over two dissimilar things would obscure that, and would also be a shared-vocabulary addition (owner ruling 2026-07-29). A verdict_tag field was written and removed with its markup: see the template's CSS comment for why the accessibility fix is queued rather than folded into the port.",
+  "fields": {
+    "loan_rate_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Loan Interest Rate (APR %)",
+      "llm_guidance": "Label for the debt's rate. APR is the lender-quoted figure."
+    },
+    "save_rate_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Savings Interest Rate (AER %)",
+      "llm_guidance": "Label for the savings rate. AER, not APR -- they are different conventions and pairing them correctly is what makes the comparison honest. Do not 'tidy' this to match the loan label."
+    },
+    "spare_cash_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Amount of Spare Cash (£)",
+      "llm_guidance": "Label for the lump sum being compared. It is a one-off amount, not a monthly one."
+    },
+    "tax_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Are you a Higher Rate Taxpayer?",
+      "llm_guidance": "Label for the tax control. Kept as a yes/no question because the arithmetic is a blunt two-way split, not a marginal-rate model."
+    },
+    "tax_basic_option": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "No (Basic Rate / No Tax)",
+      "llm_guidance": "The zero-tax option. Its value attribute is 0 and is not configurable."
+    },
+    "tax_higher_option": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Yes (40% Tax on Savings)",
+      "llm_guidance": "The higher-rate option. MUST agree with higher_rate_fraction -- these are two fields stating the same percentage and nothing enforces that they match. If the band changes, change both."
+    },
+    "higher_rate_fraction": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "0.4",
+      "llm_guidance": "The higher-rate taxpayer's marginal rate as a FRACTION, not a percentage: 0.4 means 40%. It multiplies the savings return only; loan interest avoided is not taxed, which is the asymmetry the tool exists to show. Entering 40 here would wipe out the savings side entirely and the tool would still look like it was working."
+    },
+    "loan_rate_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "7.5",
+      "llm_guidance": "Starting loan rate. Part of the equivalence fingerprint -- the acceptance criteria scale it and assert the resulting figures."
+    },
+    "save_rate_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "5.0",
+      "llm_guidance": "Starting savings rate, deliberately BELOW the loan rate so the tool opens on its most common real answer. Part of the equivalence fingerprint."
+    },
+    "spare_cash_default": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "1000",
+      "llm_guidance": "Starting lump sum. A round £1,000 makes the two figures readable as percentages at a glance. Part of the equivalence fingerprint."
+    },
+    "loan_panel_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Pay Off Loan",
+      "llm_guidance": "Heading of the debt-repayment option."
+    },
+    "loan_panel_lead": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "You \"earn\" a guaranteed",
+      "llm_guidance": "Text above the figure. The scare quotes around 'earn' are deliberate and should stay: money not spent on interest is not income, and the quotes are what stop the sentence being a false claim. This is markup text, not a JavaScript string, so quotes here are safe."
+    },
+    "loan_panel_trail": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "in interest saved per year.",
+      "llm_guidance": "Text below the figure. Keep 'per year' -- the figure is one year of interest and reads as a total otherwise."
+    },
+    "save_panel_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Put in Savings",
+      "llm_guidance": "Heading of the savings option."
+    },
+    "save_panel_lead": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "You earn a net",
+      "llm_guidance": "Text above the figure. 'Net' matters: this side has had tax deducted and the other has not."
+    },
+    "save_panel_trail": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "in interest income per year.",
+      "llm_guidance": "Text below the figure. Keep 'per year'."
+    },
+    "currency_symbol": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£",
+      "llm_guidance": "Prefixed to both figures as a literal; formatting is toFixed(2), so there are no thousands separators and no locale is consulted."
+    }
+  }
+}
