@@ -493,6 +493,46 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	}, nil
 }
 
+// setRoutingField exposes one first-class routing column on the item map,
+// resolved COLUMN FIRST and falling back to the same key inside spec.
+//
+// The fallback is what makes a single dispatcher path correct for both
+// populations: input_mapping resolves exactly one source path per destination
+// and has no coalesce syntax, so without this the config would have to choose
+// which half of the fleet's work items it could route (bugs_open/154).
+//
+// A blank column with no spec key writes NOTHING — the key must stay absent
+// rather than become "", because the dispatch mapping marks these optional
+// ("component_id?") and an optional path that RESOLVES to empty is passed on
+// as an empty string, where a path that is MISSING is skipped. Handlers gate on
+// presence (create_rerender_items: `componentIDStr != ""`), so materialising ""
+// would turn "not supplied" into "supplied as empty" for every item that has
+// neither source.
+func setRoutingField(item map[string]interface{}, key, columnValue string, logger *zap.Logger) {
+	if columnValue != "" {
+		item[key] = columnValue
+		return
+	}
+	spec, ok := item["spec"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	// Only strings pass through: these are id/URL fields, and a non-string here
+	// means the spec is carrying something else under the same name.
+	if fromSpec, present := spec[key].(string); present && fromSpec != "" {
+		item[key] = fromSpec
+		return
+	}
+	// %T only — the TYPE, never the value. spec is caller-supplied and can carry
+	// site content, so the shape is what is diagnostic here and the content is
+	// what must not reach a log line.
+	if unusable, present := spec[key]; present {
+		logger.Warn("LoadWorkItemsAction: spec key is not a non-empty string — routing field left unset",
+			zap.String("key", key),
+			zap.String("spec_type", fmt.Sprintf("%T", unusable)))
+	}
+}
+
 // ============================================================================
 // ACTION: load_work_items
 // Used by: site-work-orchestrator (to get items to process)
@@ -540,43 +580,6 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 //     Named item_pipeline to avoid collision with site_record.pipeline
 //   - handler_agent (optional) — filter by handler agent type
 //   - max_items (optional, default 50)
-// setRoutingField exposes one first-class routing column on the item map,
-// resolved COLUMN FIRST and falling back to the same key inside spec.
-//
-// The fallback is what makes a single dispatcher path correct for both
-// populations: input_mapping resolves exactly one source path per destination
-// and has no coalesce syntax, so without this the config would have to choose
-// which half of the fleet's work items it could route (bugs_open/154).
-//
-// A blank column with no spec key writes NOTHING — the key must stay absent
-// rather than become "", because the dispatch mapping marks these optional
-// ("component_id?") and an optional path that RESOLVES to empty is passed on
-// as an empty string, where a path that is MISSING is skipped. Handlers gate on
-// presence (create_rerender_items: `componentIDStr != ""`), so materialising ""
-// would turn "not supplied" into "supplied as empty" for every item that has
-// neither source.
-func setRoutingField(item map[string]interface{}, key, columnValue string, logger *zap.Logger) {
-	if columnValue != "" {
-		item[key] = columnValue
-		return
-	}
-	spec, ok := item["spec"].(map[string]interface{})
-	if !ok {
-		return
-	}
-	// Only strings pass through: these are id/URL fields, and a non-string here
-	// means the spec is carrying something else under the same name.
-	if fromSpec, present := spec[key].(string); present && fromSpec != "" {
-		item[key] = fromSpec
-		return
-	}
-	if raw, present := spec[key]; present {
-		logger.Warn("LoadWorkItemsAction: spec key is not a non-empty string — routing field left unset",
-			zap.String("key", key),
-			zap.String("spec_type", fmt.Sprintf("%T", raw)))
-	}
-}
-
 func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger
 	logger.Info("LoadWorkItemsAction: Starting")
