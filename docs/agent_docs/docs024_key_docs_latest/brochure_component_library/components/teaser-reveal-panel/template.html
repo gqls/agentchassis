@@ -1,24 +1,53 @@
 <style>
   /* Colour vocabulary verified against live css_themes before use (the
      --color-surface / --spacing-section class of error: those names are defined
-     by NO active theme, so the fallback silently wins). Every var below was
-     confirmed present in an active theme on 2026-07-29. */
-  .trp { background: var(--color-background); color: var(--color-text); padding: var(--spacing-xl) 0; }
-  .trp__inner { max-width: 1200px; margin: 0 auto; padding: 0 var(--spacing-lg); position: relative; }
+     by NO active theme, so the fallback silently wins).
+     > CORRECTED 2026-07-30: the line that used to sit here said "Every var below
+     > was confirmed present in an active theme on 2026-07-29". That was true of
+     > the COLOURS and false of the SPACING. The theme defines no --spacing-*
+     > family at all -- the live stylesheet has exactly one, --spacing-section --
+     > so --spacing-xl / --spacing-lg / --spacing-md resolved to an invalid value
+     > and CSS dropped the whole declaration. There is no "silent fallback" for a
+     > var() with no fallback given: eight declarations here computed to ZERO.
+     > .trp__text measured padding: 0px 0px 0px 0px in Chromium, which is why the
+     > hook sat 1px from the card border (that 1px was the border). Fixed by
+     > naming the scale LOCALLY below, each with a literal fallback, so a theme
+     > that lacks the name degrades to the literal instead of to nothing. */
+  .trp {
+    /* Component-scoped spacing scale. Fallbacks are the load-bearing part. */
+    --trp-section-y: var(--section-pad-y, 4rem);
+    --trp-edge:      var(--container-pad-x, 1.5rem);
+    --trp-card-x:    var(--card-pad, 1.5rem);
+    --trp-card-y:    1.35rem;
+    --trp-track-gap: 1.25rem;
+    background: var(--color-background); color: var(--color-text);
+    padding: var(--trp-section-y) 0;
+  }
+  .trp__inner { max-width: 1200px; margin: 0 auto; padding: 0 var(--trp-edge); position: relative; }
   .trp__eyebrow { color: var(--color-accent); text-transform: uppercase; letter-spacing: .08em;
                   font-size: .78rem; font-weight: 700; margin: 0 0 .5rem; }
-  .trp__title { color: var(--color-text); font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0 0 var(--spacing-lg); }
+  .trp__title { color: var(--color-text); font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0 0 1.5rem; }
 
   /* Viewport wraps the track + the overlaid arrows. A carousel, not a wrapping
      grid, at every width: grid-auto-flow stays "column" always. Only the
      column width changes at wider viewports, so more cards sit in one row --
      this is what "always one row, never two" means structurally. */
   .trp__viewport { position: relative; }
+  /* align-items: STRETCH, not start. With `start`, every card was its own
+     content height, so a card whose continuation ran to one line instead of two
+     finished 26px shorter than its neighbours and its "Read the rest" sat 26px
+     higher than theirs (measured: card 5 at y=1891 against y=1917 for cards
+     0-4, heights 278 vs 304). Stretching makes every card in the row the height
+     of the tallest, which is also what keeps the coloured text panels a uniform
+     size; the card is then a flex column and the control is pushed to its
+     bottom edge with margin-top:auto, so the links share one baseline whatever
+     the text above them does. */
   .trp__track { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(min(20rem, 82vw), 1fr);
-                gap: var(--spacing-lg); align-items: start; overflow-x: auto; scroll-snap-type: x mandatory;
-                padding-bottom: var(--spacing-md); margin: 0; list-style: none;
+                gap: var(--trp-track-gap); align-items: stretch; overflow-x: auto;
+                scroll-snap-type: x mandatory;
+                padding-bottom: .75rem; margin: 0; list-style: none;
                 scrollbar-width: thin; scroll-behavior: smooth; }
-  .trp__slot { scroll-snap-align: start; min-width: 0; }
+  .trp__slot { scroll-snap-align: start; min-width: 0; display: flex; }
   @media (min-width: 60rem) {
     .trp__track { grid-auto-columns: minmax(17rem, 1fr); }
   }
@@ -44,12 +73,16 @@
   /* Card. box-sizing + min-width:0 travel with any max-width in a grid track.
      overflow:hidden so an edge-to-edge media image respects the rounded corners. */
   .trp__card { box-sizing: border-box; min-width: 0; background: var(--color-card-bg);
-               border: 1px solid var(--color-border); border-radius: var(--border-radius);
-               box-shadow: var(--shadow); overflow: hidden; }
+               border: 1px solid var(--color-border); border-radius: var(--border-radius, .375rem);
+               box-shadow: var(--shadow, 0 4px 6px rgba(0,0,0,.07)); overflow: hidden;
+               flex: 1 1 auto; display: flex; flex-direction: column; }
+  /* flex: none, or the flex column shrinks the image away from its aspect-ratio. */
   .trp__media { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
-                background: var(--color-background); }
-  .trp__text { display: block; padding: var(--spacing-xl) var(--spacing-lg); }
-  .trp__summary { list-style: none; cursor: pointer; display: block; }
+                background: var(--color-background); flex: none; }
+  .trp__text { display: flex; flex-direction: column; flex: 1 1 auto;
+               padding: var(--trp-card-y) var(--trp-card-x); }
+  .trp__summary { list-style: none; cursor: pointer; display: flex; flex-direction: column;
+                  flex: 1 1 auto; }
   .trp__summary::-webkit-details-marker { display: none; }
   .trp__card--static { cursor: default; }
   .trp__hook { display: block; color: var(--color-text); font-weight: 700;
@@ -65,7 +98,13 @@
   .trp__continuation { display: block; color: var(--color-text-muted); margin-top: .6rem; line-height: 1.6; }
   .trp__continuation::after { content: "\2026"; margin-left: .15em; }
 
-  .trp__control { display: inline-flex; align-items: center; gap: .4rem; margin-top: .9rem;
+  /* margin-top:auto pins this to the bottom of the flex column, so every card's
+     link shares one baseline. align-self:start keeps the inline-flex box its own
+     content width inside a column flex parent (stretch would widen the hit area
+     across the whole card). font-size is unchanged at .93rem -- the links must
+     stay the same size as each other, and as they were. */
+  .trp__control { display: inline-flex; align-items: center; gap: .4rem;
+                  margin-top: auto; padding-top: .9rem; align-self: start;
                   color: var(--color-accent); font-weight: 600; font-size: .93rem; }
   .trp__control::after { content: "\2193"; }
   .trp__summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
@@ -93,7 +132,7 @@
      Horizontal padding matches .trp__text's exactly, so the paragraph that
      replaces the closed block sits the same distance from the card edge the
      hook did -- no inset mismatch between the two states. */
-  .trp__body { padding: 0 var(--spacing-xl) var(--spacing-xl); margin-top: -.3rem;
+  .trp__body { padding: var(--trp-card-y) var(--trp-card-x); margin-top: 0;
                color: var(--color-text); line-height: 1.6; max-height: 12rem;
                overflow-y: auto; overscroll-behavior: contain; }
   .trp__body p { margin: 0; }

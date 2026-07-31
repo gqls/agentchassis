@@ -1232,3 +1232,62 @@ snapshot from July, because the page is static and cannot go and re-count them i
 
 Still not started, and still a separate thread on your instruction: the staged
 step-by-step build system with stage gates. That proposal is written and waiting.
+
+---
+
+## 2026-07-31, just after midnight — the carousel cards, and an honest answer about screenshots
+
+Both things you asked for are done and live on all four pages that use the carousel
+(home, capabilities, review council, fine-tuning).
+
+**The padding was not too small. It was zero.** That is worth explaining because it was
+not a matter of taste. The card CSS asked for its spacing using names like
+`--spacing-large`, the way most design systems do. Our theme does not define those names.
+It defines colours, corner radii, shadows and a couple of specific paddings, but no
+general spacing scale at all. When CSS asks for a name that does not exist and no
+fallback was given, the browser does not pick something sensible — it throws the whole
+instruction away. So `padding: <two names that do not exist>` became `padding: nothing`,
+and the text sat one pixel from the card border, that one pixel being the border itself.
+Eight separate instructions in that component were dead the same way, including the
+padding on an opened card, the gap between cards, and the space under the section
+heading. I measured it in a browser rather than reading the file, because the file looks
+completely correct — it says `padding` right there.
+
+Fixed by giving the component its own spacing names with real values behind them, so if
+the theme ever changes, the worst case is it falls back to a sensible number rather than
+to nothing. I have written this one down as a trap for other sessions, with a one-line
+check, because any component built the same way has the same silent hole.
+
+**"Read the rest" now sits on one line across all the cards.** The cause was that each
+card was sizing itself to its own text, so a card whose summary ran to one line instead
+of two finished 26 pixels shorter and pulled its link up with it. The cards now all take
+the height of the tallest in the row, which is also what makes the blue panels match, and
+the link is pinned to the bottom of each card so they share a baseline whatever the text
+above does. The link is the same size and colour as before. A small bonus: the component's
+own notes claimed the row height never changes when you open a card, which was not
+actually true before this change and is now.
+
+**Your screenshot question, answered properly: the capture is in the framework, but the
+flow I used is not, and that difference is the interesting bit.** The framework can take
+a full-page screenshot, store it, and hand back a link — but it only does so *when a
+check has already failed*. It exists to explain a failure. It has no "render this and let
+a human look at it" path.
+
+Which is exactly why it could not have caught either of these two problems, or the
+overlapping labels on the simulator earlier. On all three, every automated check passed.
+There was no check that said "text should not touch the card edge" or "these links should
+line up", so nothing failed, so nothing would have been captured. Both were found by
+somebody looking at the page — you in this case, me in the other.
+
+So the gap is not that we cannot screenshot. It is that nothing puts a rendered page in
+front of a pair of eyes unless something has already gone wrong by a measure we thought
+to write down in advance. That is precisely what the staged-build proposal's later stages
+are for, and it is a separate thread on your instruction, so I have recorded the finding
+there rather than started building it.
+
+One process note, because it nearly cost you a wrong answer: my own test reported that my
+change had broken the carousel's arrows and its open-and-close behaviour. It had not. I
+re-ran the identical test with my change removed, got the same two failures, and then
+confirmed on the real page that both behaviours work. The test was at fault, in the same
+way I recorded a trap for earlier the same day. Running the before-and-after comparison,
+rather than just the after, is what stopped me reporting a fault that did not exist.

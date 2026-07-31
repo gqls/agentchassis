@@ -3579,3 +3579,99 @@ deploy action's code was not read.] Used the explicit full path anyway.
 was written this morning and already frames this build as the next front; a second file
 hours later is exactly the near-identical shelf the cadence rule warns about. The next
 summary should cover this tool and whatever step 5 becomes.
+
+## 2026-07-30 (late evening) — owner: carousel text touches the card edge, and "Read the rest" is off the line
+
+Two owner requests on `teaser-reveal-panel`, both traced to ONE root cause plus one
+layout choice. Also answered his question about whether the screenshot flow is in the
+framework (short answer: the capture is, the flow I used is not — see the end).
+
+### The padding was not "too small". It was ZERO, and eight declarations were dead
+
+**The theme defines no `--spacing-*` scale.** Measured against the live stylesheet:
+`--spacing-section` is the only one that exists. The component's style block used
+`--spacing-xl`, `--spacing-lg` and `--spacing-md` in **eight** declarations, none with a
+fallback. An undefined `var()` with no fallback does **not** degrade to the property's
+initial value — it makes the declaration *invalid at computed-value time*, so the browser
+throws the whole thing away. Measured in Chromium:
+
+    .trp__text  padding: 0px 0px 0px 0px      (declared: var(--spacing-xl) var(--spacing-lg))
+    .trp        padding: 0px 0px
+    .trp__inner padding-left: 0px
+    .trp__track column-gap: normal            (i.e. 0 — the cards were touching)
+
+So the hook text sat 1px from the card border, and **that 1px was the border**. The
+open-state `.trp__body` was equally dead, so an opened card had no padding either — the
+owner had not seen that yet.
+
+**The irony worth recording:** this style block opened with a comment stating that every
+variable had been *confirmed present in an active theme on 2026-07-29*. That was true of
+the colours and never checked for the spacing. **A partial audit reads exactly like a
+complete one**, which is why the corrected comment now names what was and was not
+checked. Filed as a landmine with a one-command `comm -23` audit that diffs a template's
+var names against the theme's.
+
+Fixed by naming the scale **locally** on `.trp` with literal fallbacks
+(`--trp-card-x: var(--card-pad, 1.5rem)`), so a theme that lacks a name degrades to the
+literal rather than to nothing. Computed after: `21.6px 24px 21.6px 24px`.
+
+### "Read the rest" on one line: `align-items: start` was the cause
+
+The track was `align-items: start`, so each card was its own content height. The last
+card's continuation ran to one line instead of two, making it **278px against 304px**,
+and its control sat **26px higher** (y=1891 vs y=1917). Changed to `align-items: stretch`
++ card as a flex column + `.trp__control { margin-top: auto }`. Measured after: all six
+cards **397px, control top 2079, 23px from the card bottom** — one shared baseline.
+Font size unchanged at 14.88px, as asked ("keeping the blue the same size" = the coloured
+panels now match, since stretch equalises them).
+
+**A bonus the fix produced, which the component had claimed but not delivered:** the style
+block asserts the track height "never jumps" on open, because the body is height-capped.
+With `align-items: start` it *did* jump — measured 320 → 357 on open. With stretch it is
+425 → 425. The documented invariant is now true.
+
+### The control run is what stopped me reporting a regression
+
+My verification harness (live page + candidate stylesheet appended + real clicks) reported
+**2 failures: sibling-close not closing, and the next arrow not scrolling.** Those are the
+exact two bugs this component was famous for, so it read as "your CSS broke the JS".
+
+**It had not.** Running the identical probe with the stylesheet NOT injected — the control
+— produced the *same two failures* plus four more that my CSS fixes. So the two were
+harness artifacts, not mine. Confirmed positively on the real page with no injection at
+all, using the component's own deep-link, which only works if its JS runs:
+
+    ?open=vector-search   -> 1 open <details>, key="vector-search"
+    ?open=review-council  -> 1 open <details>, key="review-council"
+    (no param)            -> 0 open
+
+Cause of the artifact: **a cross-origin `https://` `<script>` does not execute on a
+`file://` page in this sandbox.** The tag is present, the track is scrollable
+(scrollWidth 1732 > clientWidth 1152), and `scrollLeft` never moves — which is
+indistinguishable from broken behaviour. Inlining the fetched bundle did not fix it
+either. This is the landmine I filed **earlier the same day** about probes reporting the
+bug they exist to catch, hit again in a new form within hours. **Always run the control.**
+
+### Answering the owner's question: is the screenshot flow in the framework?
+
+**The capture is; the flow I used is not, and the difference is the whole point.**
+
+- In the framework: `internal/adapters/browserrunner/screenshots.go` + `run_checks_action.go`
+  take a full-page screenshot, upload it to S3 via the imagegenerator's client, and return
+  a durable `s3://` uri plus a 7-day presigned view URL. Upload failure degrades to a log
+  line and never affects the verdict. Concept register TL-013/014/015/017.
+- **But it is failure-only.** `captureFailureEvidence` returns early on
+  `if len(failing) == 0` — no failing check, no screenshot. It exists to *explain a
+  failure*, not to show you a page. `render_audit_action.go` does not screenshot at all
+  (it only mentions screenshots in comments).
+- **Which is exactly why it could not have caught either of these defects.** Every check
+  on these pages passed; there was no assertion about padding or baseline alignment to
+  fail. The framework would have captured nothing. What found them was the owner looking,
+  and what found the council simulator's overlapping labels was me looking — both manual
+  `chromium --headless --screenshot` runs.
+
+So the gap is not "we cannot take screenshots". It is that **nothing renders a page and
+puts it in front of a human (or a vision check) unless an assertion has already failed**,
+and the defects that reach the owner are precisely the ones no assertion covers. That is
+S6/S7 territory in `staged_component_build/PROPOSAL_2026-07-30_...`, which is another
+thread's build by owner instruction — noted there rather than built here.
