@@ -7,10 +7,64 @@ from most sites' contact pages and nothing reports it.
 **Status:** ~~OPEN — diagnosed with a fleet-wide discriminator, data worked around
 on one site, contract not fixed.~~
 
-> ## FIXED AND APPROVED 2026-07-31 — OPEN ONLY UNTIL THE NEXT CHASSIS ROLL
+> ## FIXED, APPROVED, AND **LIVE ON v1.0.1218** — open only for its live acceptance test, which is BLOCKED ON `bugs_open/029`
 >
-> **Do not re-diagnose this. Do not start a competing fix.** The cause is settled
-> and the code is committed; the single remaining step is mechanical.
+> **Do not re-diagnose this. Do not start a competing fix.** The cause is settled,
+> the code is committed, and it is **in the running binary on both replicas**.
+>
+> **Pod-verified 2026-07-31 18:0x UTC on `v1.0.1218`** (pods `776f55c5f9-bjfhq`,
+> `776f55c5f9-g9vqc`, started 17:59 UTC — after both commits at 16:06 and 16:19
+> UTC). All four of the change's strings present on **both** replicas
+> (`resolved from the canonical sites row`, `nested shape`,
+> `source_aliases_used`, `COALESCE(contact_address`), against the positive
+> control `plan_sections: loaded site_specs`.
+>
+> ### ⚠ CORRECTION TO THIS FILE'S OWN "buys 5 sites" CLAIM — it buys ONE PAGE
+>
+> Measured 2026-07-31 after the roll. Only **8 pages fleet-wide** name
+> `contact-info` in `pages.sections` at all, and **7 already render 3-of-3**.
+> **Exactly one page is in the broken state:**
+>
+> | page | planned | built | `sites.email` | spec email |
+> |---|---|---|---|---|
+> | **vetcomparison.uk / contact** | 3 | **2** | `vetcomparison@contactforsales.com` | **(none)** |
+>
+> The other four sites I claimed would gain a block (oufe, robot-hands, vonc,
+> webdesign) **do not have `contact-info` in their page plans** — vonc's contact
+> page plans only `["hero-contact","contact-form"]`. The resolver fix is still
+> correct and fleet-wide, but "5 sites gain a contact block" conflated *"the
+> resolver can now find an email"* with *"a page asked for one"*. **Adding
+> `contact-info` to those plans is a separate, editorial change and is NOT part
+> of this bug.**
+>
+> Independent corroboration on the one real page: a `needs_section_data` work
+> item, `section_data_contact_contact-info_72b9e3a6…`, has sat at
+> `needs_human_review` since **2026-07-17** — raised by exactly the
+> `on_missing: needs_human_review` withholding this bug describes.
+>
+> ### What remains, and why it is not moving
+>
+> The live acceptance test is **queued and correctly formed** — work item
+> `45f9b005-6a41-4128-8c5b-0236542f4658`, `needs_page` / `triaged` / `pipeline=build`
+> / `handler_agent=page-build-handler`, site unlocked, `attempt_count 0 < 3`.
+>
+> **It is blocked by a fleet-wide build-dispatch stall, not by anything here.**
+> `build-dispatch-loop` last completed a work item at **15:44 UTC**; since then
+> **72 items sit at `triaged` with `handled_by` NULL** across 6 sites
+> (gamesdesign 35, gaswholesalers 31). `build-pipeline-trigger` is enabled and
+> firing on schedule (last 18:15) — its `pre_query` gate passes, the consumer is
+> what has stopped. That is **`bugs_open/029`** (hung spawns saturate the dispatch
+> group and halt builds fleetwide), already owned: another lane committed
+> *"dispatch still the blocker"* (`475d55c0b`) and *"a dispatch stall handed to
+> its owner"* (`a8c21d233`) the same afternoon. **Do not fix it from here.**
+>
+> **To close this bug:** when the build queue moves, that work item rebuilds
+> `vetcomparison.uk/contact`. Expect **3 components** with the email present in
+> `contact-info`, and the 2026-07-17 `needs_section_data` item auto-closed by
+> `closeResolvedDataRequest`. **Negative control, on the same page:** `phone`,
+> `address` and `hours` exist in NO store for this site and must stay **absent**
+> from the rendered block — if any appears, the fallback is fabricating and the
+> fix is wrong. Then move this file to `bugs_closed/`.
 >
 > - **Root cause was NOT the flat/nested path mismatch.** Both remedies in the
 >   "Fix candidates" section below fix **0 of the 8 affected sites** — the nested

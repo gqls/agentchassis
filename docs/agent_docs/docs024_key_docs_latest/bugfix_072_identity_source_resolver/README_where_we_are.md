@@ -159,3 +159,59 @@ handed to the component-library lane, and it has not consumed a bug number. I've
 left the wrong sentence above standing rather than editing it away, because the
 useful part is that a four-second grep stopped me writing a confident new bug
 report about a twelve-day-old finding. Second time that check has paid for itself.
+
+---
+
+**2026-07-31, evening — it's live, and I got a number wrong.**
+
+The new chassis went out and the fix is in it. I checked the actual running
+binaries on both copies of the service, not the version number, and all four
+markers of my change are there. So the machinery is live.
+
+Then I went to run the acceptance test, and two things happened.
+
+**First, I found I'd overstated what this buys you, and I want to correct it
+plainly.** I said it would give five sites a contact block. It gives **one page** a
+contact block. The five sites are the ones where the contact email exists but the
+system couldn't see it — that part was right. What I never checked was whether those
+sites' contact pages actually *ask* for a contact block. Four of them don't.
+vonc.com's contact page is built from a plan listing two sections, and a contact
+block isn't one of them, so no amount of fixing the lookup was ever going to make
+one appear there.
+
+Across the whole estate only eight pages ask for that block, and seven of them
+already work. The one genuinely broken page is vetcomparison.uk's contact page — and
+that is exactly the site our diagnosis service picked out on its own this afternoon.
+
+The mistake is a tidy one: I measured who *has* the data and called it who *shows*
+it. Those are two different lists and I only looked at one, then repeated the number
+in five documents before checking it. What caught it was my own instructions — I'd
+written "rebuild vonc.com's contact page and expect three sections", and when I went
+to do that, vonc wasn't asking for three. The fix itself is unaffected and still
+works estate-wide; it also still means a brand new site gets this right by default,
+which was always the real point. Only my headline number was wrong.
+
+**Second, I can't finish the test today, for a reason that isn't this bug.** The
+queue that turns "rebuild this page" requests into actual builds stopped moving at
+16:44 our time. Seventy-two requests are sitting in it untouched, from six different
+sites — mine is one of them. The scheduler that pokes it is running fine every two
+minutes; it's the thing on the other end that has stopped. That's a known problem
+someone else is already on — another session logged "dispatch still the blocker" this
+afternoon — so I've left my request sitting in the queue where it will run when they
+fix it, and I haven't gone poking at their work.
+
+One nice thing did come out of checking that queue: there's been a flag raised
+against vetcomparison's contact page since **17 July**, naming the page and the
+missing block, sitting unread. The original bug report says nothing flagged this.
+Something did, a fortnight ago.
+
+**So where that leaves the ticket.** Still open, and now genuinely one step from
+closed. The banner on it says the cause is settled, the code is live, and the single
+remaining action is to watch one queued job run and check the result. I've written a
+handoff with the exact queries so whoever picks it up — including me in a fresh
+session — doesn't have to reconstruct any of this.
+
+The check that matters most when it does run isn't that the block appears. It's that
+the phone number, address and opening hours **stay missing**, because vetcomparison
+genuinely has none of those recorded anywhere. If those show up, the system has
+invented them, and I'd rather find that out on a test page than on a live one.

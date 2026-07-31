@@ -14133,3 +14133,46 @@ at 67 seconds rather than several hours.
 question I had not asked* (after the 530-was-my-own-test-fixture claim and the
 paths-are-the-stronger-signal ranking). All three shared one shape: **I trusted a
 number without asking what question its query could actually express.**
+
+---
+
+## 2026-07-31 (evening) — `bugfix_072`: I measured the store and called it the impact
+
+**The claim:** "this fix buys 5 sites a contact block" (oufe, robot-hands,
+vetcomparison, vonc, webdesign). It went into the bug file, the summary, the owner
+log, the concept register and MEMORY before it was checked.
+
+**The truth:** it repairs **one page**. Only 8 pages fleet-wide name `contact-info`
+in `pages.sections`, and 7 of them already render 3-of-3. Exactly one is in the
+broken state — `vetcomparison.uk/contact`. `vonc.com/contact` plans only
+`["hero-contact","contact-form"]`; no resolver change could ever have given it a
+contact block.
+
+**How I made it:** I derived the affected set from the **store** — which sites have
+an email the resolver couldn't reach — and never intersected it with the **demand**
+— which pages actually request the component. Both halves are required for an
+impact claim and I measured one, then repeated the number in five documents.
+
+**What caught it:** my own verification recipe. The runbook told the next person to
+"rebuild vonc.com's contact page and expect three components"; when I ran it, vonc's
+page plan had no `contact-info` in it at all. **A verification step that names the
+wrong subject is the tell that the claim behind it was never tested** — I wrote the
+recipe from the same unchecked list.
+
+**The cheap check:** `WHERE p.sections::text LIKE '%<component>%'` — one query,
+answers "who actually asks for this", and it is the denominator of any impact claim
+about a component.
+
+**Generalisable:** "N sites have the data" and "N sites will show the block" are
+different populations joined by a demand table nobody looked at. Same family as the
+`pool-%` denominator slip earlier the same day, and the deeper lesson is identical:
+**a population is defined by the question, and an impact question has two
+populations.** The fix itself was unaffected — it is fleet-wide and correct, and it
+makes a *new* site work by default. Only the number was inflated, in five places,
+which is how an inflated number survives.
+
+**Also, smaller, same session:** a pod-grep control returned **0** and I briefly
+read it as a missing feature. I had retyped the control string from memory —
+`site_assets path resolved via the image-role alias` — and the literal is
+`…via image-role alias`, no "the". **A 0 from a control has two causes with opposite
+meanings; copy control strings from the source rather than retyping them.**
