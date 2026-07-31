@@ -192,3 +192,81 @@ this one and no previous thread saw the other thirteen.
   reads**; the key actually read is `target_pipeline`, set by zero definitions
   fleet-wide. Invisible only because every caller wants `"build"` and that is the
   default — the half-landed rename recorded as `bugs_open/136`.
+
+## 2026-07-31 — the framework repaired defect 2, and then stopped one step short
+
+Owner authorised promoting robot-hands' whole detected backlog. Promoted **90 of
+94** rows detected → triaged (mirroring `TriageDetectedItemsAction`), deliberately
+**excluding the 4 with an empty `handler_agent`** (3 `image_url_404`, 1
+`capability_gap`): an item no handler can clear gets claimed, fails twice and is
+relabelled "[unresolved after 2 attempts]", which asserts a handler FAILED when
+none could ever have succeeded — the `bugs_open/077` class `remit.go` guards.
+`handler_agent=''` is the canonical "no handler" since migration 217.
+
+**It worked, up to the last step.** `asset-deployer` derived the card:
+`card_tool_matchmatrix`, purpose `card`, entity-linked, `origin_asset_id` set (so
+lineage is right), and the file is **live: HTTP 200, 46,149 bytes** at
+`/assets/images/card-tool-matchmatrix.jpg`. Work item `complete`,
+`attempt_count=0`.
+
+**And the card still does not appear on the page.** `/index.html` was re-rendered
+and deployed at **12:48:31**, an hour and a half AFTER the asset landed at
+**10:54:42**, and `tool-list`'s `items[0].image` is still `""`, with zero
+occurrences of `card-tool-matchmatrix.jpg` in the served HTML.
+
+The reason is a distinction PBP-022 already draws and I had to rediscover: the
+re-render that ran was a **light/assemble** one, which re-renders from EXISTING
+`content_data`. The `items[]` array is **query-backed**
+(`source: query.pages_where_type:tool`) and query sources are resolved by
+`plan_sections` — i.e. **only a FULL rebuild re-derives it.** The resolver logic
+itself is correct and would produce the right path: `pageImageJoins` joins
+`assets` on `entity_type='page' AND entity_id=p.id AND purpose='card' AND
+status='active'` (which the new asset satisfies) and `webPath()` prefers the card
+key, returning `storage.DeployedWebPath(...)` — never `assets.url`, because that
+holds an expiring presigned URL.
+
+So this is **"a complete work item is not a repaired artefact"** with an extra
+turn: the item was honestly complete, the asset genuinely landed and genuinely
+deployed, and the *visible defect the owner reported is still there*. Verified at
+four layers, which is what separated them: item status → asset row → live file →
+served HTML. Only the fourth disagreed.
+
+> **[UNRESOLVED, flagged not smoothed]** my promotion `UPDATE` reported **90**
+> rows; **93** now carry that identical `triaged_at`. Not reconciled.
+
+**The rebuild carries a known risk on THIS page.** A full rebuild regenerates
+copy, and `robot-hands/index` is the recorded site of a live 043 recurrence — a
+routine re-render re-invented "2,400+" four days after it had been corrected.
+Migration 201 and the `evidence_base` writer_blocks exist to mitigate exactly
+that, and they are live, but the honest position is that rebuilding this page is
+not free of fabrication risk and its stat blocks need re-checking afterwards.
+Not fired unilaterally for that reason.
+
+## Corrections to my own earlier claims in this file
+
+- **"ZERO at `triaged`" became my own footprint.** Another session read 119
+  `triaged` rows as evidence that something now drives `triage_detected_items`.
+  It was me. Re-measured: **every** `triaged` row fleet-wide is robot-hands, and
+  `min(triaged_at) = max(triaged_at)` to the microsecond — one statement, one
+  transaction. A running loop would leave a spread across sites and times.
+  **`min=max` on a timestamp is the cheap discriminator between a batch write and
+  a live process**, and I have corrected the memory note that had it wrong.
+- **I planned to fork the `features` component and should not have.**
+  `hero-card-carousel` (`82274d36`, `hero-carousel`, render_mode `agent`) already
+  exists with exactly the needed shape — `cards[]` of image/image_alt/title/
+  teaser/link_url/link_label, an `autoplay` default of false, a pause button and
+  hover/focus pause, and llm_guidance grounded in the ~89% first-slide figure. It
+  has **0 instances**: built, never exercised. "Reuse existing machinery before
+  building new" would have caught this before I read the `features` template.
+- **I nearly generated three carousel images straight into `bugs_open/155`.**
+  LANDMINES.md already carries it: `resolveStorageURIFromAsset` Priority 1
+  resolves the source by `sites.content_data->>'{purpose}_uri'` — keyed on
+  **purpose only, never asset_id** — so N assets sharing one purpose all deploy
+  as the SAME file, every one reporting `success:true` (proven live: 6
+  byte-identical deploys, sha256 `e647f9fb…`). Three carousel images share a
+  purpose by construction. **The landmine's instruction: pass `spec.s3_uri`
+  explicitly as `s3://bucket/key` derived from that asset's own `storage_path`
+  — NOT its `url` (`bugs_open/152`: already overwritten post-deploy) — then
+  `sha256sum` the files and confirm they differ, and actually LOOK at one.**
+  I found this via another session's SQL rather than by grepping LANDMINES first,
+  which is the check I should have run before planning any image work.
