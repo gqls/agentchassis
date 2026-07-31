@@ -136,11 +136,33 @@ NOT TRACKED, NEVER STATE: MatchMatrix query/usage counts, visitor numbers, custo
            "source":{"attested_by":"gamesdesign 043 wave-1 audit 2026-07-24: 11 client-side tools live, counted from the pages register"},
            "verified_at":"2026-07-24",
            "writer_line":"{value} interactive design tools live, all client-side and free"},
-          {"id":"gd-trials","claim":"Monte Carlo trials per query","value":10000,"kind":"metric",
-           "tolerance":"exact","context_terms":["trial","monte carlo","simulation"],
-           "source":{"artifact":"the figure is hard-coded in the shipped drop-rate tool JavaScript"},
-           "verified_at":"2026-07-24",
-           "writer_line":"{value} Monte Carlo trials per query in the drop-rate tools"},
+          -- CORRECTED 2026-07-31 (bugs_open/161). This fact was FALSE AS SEEDED, and
+          -- because the register is both the writer whitelist and the gate authority it
+          -- caused the claim and then vouched for it — 10 live components asserted it
+          -- and cmd/claimscan reported 0 findings, correctly.
+          --
+          -- It read: claim "Monte Carlo trials per query", context_terms
+          -- ["trial","monte carlo","simulation"], source.artifact "the figure is
+          -- hard-coded in the shipped drop-rate tool JavaScript", writer_line
+          -- "{value} Monte Carlo trials per query in the drop-rate tools".
+          --
+          -- NEITHER drop-rate tool performs Monte Carlo simulation, and neither
+          -- contains ANY randomness: Math.random count is 0 in both. The tuner is
+          -- closed-form Math.pow(1-p,k) plus a CDF array ("Cumulative distribution
+          -- modelled via geometric distribution with optional hard pity cap", its own
+          -- doc comment); the simulator computes exact binomial probability. The only
+          -- real 10000 is `return Math.min(val, 10000)`, an INPUT CLAMP on attempts.
+          -- The simulator component was last written 2026-06-05 — seven weeks before
+          -- this seed — so it was false on arrival, not stale since.
+          --
+          -- "trial" is deliberately NOT kept in context_terms: it would leave
+          -- "10,000 Monte Carlo trials" inside a matching window, so the engine would
+          -- go on treating the false sentence as supported, which is the whole defect.
+          {"id":"gd-trials","claim":"maximum attempts modelled per query","value":10000,"kind":"metric",
+           "tolerance":"exact","context_terms":["attempt","modelled","max"],
+           "source":{"artifact":"return Math.min(val, 10000) — the input clamp on attempts in tool-drop-rate-simulator; the tuner's CDF is built to the same bound. NOT a trial count: neither tool samples (Math.random count 0 in both, 2026-07-31)"},
+           "verified_at":"2026-07-31",
+           "writer_line":"{value} maximum attempts modelled per query in the drop-rate tools, using exact probability rather than sampling"},
           {"id":"gd-tuner-inputs","claim":"configurable inputs in the drop-rate tuner","value":4,"kind":"count",
            "tolerance":"exact","context_terms":["input","parameter","tuner"],
            "source":{"artifact":"drop-rate tuner UI: drop chance, kills per hour, pity timer, target hours"},

@@ -14,6 +14,27 @@
 --     simulator/tuner (and lanchester, xp-curve, bayesian tools) run 10000
 --     iterations per query in their shipped JS. TRUE; kept; '+' dropped (it is
 --     exactly 10,000).
+--
+--     >>> CORRECTED 2026-07-31 — bugs_open/161. THIS VERDICT WAS WRONG, on both
+--     counts, and it is the most instructive line in this file: three of the four
+--     stats here were caught as fabricated or reframed, and the one marked TRUE is
+--     the one that was subtly false — the NUMBER was real and the NOUN was not.
+--       (a) "Monte Carlo" is false. Neither tool samples anything: Math.random
+--           count is 0 in both. The tuner is closed-form Math.pow(1-p,k) plus a
+--           CDF ("Cumulative distribution modelled via geometric distribution with
+--           optional hard pity cap", its own doc comment); the simulator computes
+--           exact binomial probability. A Monte Carlo method IS random sampling, so
+--           with no randomness there are no trials to count.
+--       (b) "run 10000 iterations per query" is ALSO false. There is no fixed
+--           10,000 iteration count anywhere. The tuner's CDF is sized
+--           `maxKills = Math.max(1, kph * hours)` — from the USER's inputs. The
+--           only real 10000 is `return Math.min(val, 10000)` in the simulator: an
+--           input CLAMP, i.e. the MAXIMUM attempts it will model.
+--     The trace stopped at finding the digits and took the technique word from the
+--     copy it was auditing. Because the register is also the writer whitelist, that
+--     one row then instructed writers to repeat it and vouched for it when they
+--     did: 10 components published it and cmd/claimscan reported 0 findings,
+--     correctly. Corrected wording: "maximum attempts modelled per query".
 --   stat4 "Economy Model Types 6" — "faucet-and-sink economy archetypes
 --     available in the balance tools": no economy presets exist in any tool.
 --     FABRICATED.
@@ -44,10 +65,15 @@ UPDATE page_components pc
      'stat2_value', '4',
      'stat2_suffix', '',
      'stat2_description', 'The independently configurable parameters in the drop-rate tuner: drop chance, kills per hour, pity timer and target hours. Enough to model a pity system honestly, few enough to reason about.',
-     'stat3_label', 'Monte Carlo Trials',
+     -- CORRECTED 2026-07-31 (bugs_open/161): was 'Monte Carlo Trials' / 'The number of
+     -- simulated runs the drop-rate tools execute per query to produce statistically
+     -- stable results'. The tools run NO simulated runs — see the corrected trace note
+     -- at the head of this file. Matches the live homepage, which another session
+     -- repaired to "Max Attempts Modelled" on 2026-07-30.
+     'stat3_label', 'Max Attempts Modelled',
      'stat3_value', '10,000',
      'stat3_suffix', '',
-     'stat3_description', 'The number of simulated runs the drop-rate tools execute per query to produce statistically stable results — the figure is in the shipped code, not a brochure.',
+     'stat3_description', 'The largest attempt count the drop-rate tools will model in one query. They compute exact probability — a closed-form binomial/geometric distribution — rather than sampling, so the figure is a bound in the shipped code, not a number of simulated runs.',
      'stat4_label', 'Guides & Articles Published',
      'stat4_value', (SELECT count(*)::text FROM pages
                      WHERE site_id = :'site' AND page_type IN ('blog-post','guide')

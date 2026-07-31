@@ -45,7 +45,7 @@ NOT TRACKED, NEVER STATE: takes filed, positions filed, players scored, gauntlet
 ('e33263f4-74f8-494f-b191-546845dbbddf', 'evidence_base', jsonb_build_object('writer_block',
 $gd$NUMBERS (state only these, with their listed meaning; as of 2026-07-24):
 - 11 interactive design tools live, all client-side and free
-- 10,000 Monte Carlo trials per query in the drop-rate tools (the figure is in the shipped tool code)
+- 10,000 maximum attempts modelled per query in the drop-rate tools (the tools compute EXACT probability — closed-form binomial/geometric — they do NOT run Monte Carlo trials or any random sampling; CORRECTED 2026-07-31, bugs_open/161)
 - 4 configurable inputs in the drop-rate tuner: drop chance, kills per hour, pity timer, target hours
 - 10 guides & articles live (5 blog posts + 5 guides)
 NOT TRACKED / DOES NOT EXIST, NEVER STATE: user counts, accuracy-gap percentages, PRD figures (no tool on this site implements PRD), economy model/archetype counts, pity parameters other than the four listed.$gd$),
