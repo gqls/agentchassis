@@ -183,7 +183,18 @@ None of that argues the work should not happen — only that it is its own work.
 > | `index_code_symbols` (135) | skips the prune, run continues | **yes** — a later healthy run does prune |
 > | `save_page_sections` (A) | `return nil, err` → step FAILED (induced live) | no |
 > | `populate_nav_tables` (B) | `enforceNavPruneFloor` errs → caller `return nil, err` (`populate_nav_tables_action.go:149-151`) | no |
-> | `sync_page_links` (C) | `enforceLinkRegistryFloor` errs → caller `return nil, err` (`site_db_actions.go:461-463`) | no |
+> | `sync_page_links` (C) | `enforceLinkRegistryFloor` errs → caller `return nil, err` (`site_db_actions.go:461-463`) | no — **but see the caveat, C is changing** |
+>
+> ⚠ **THE C ROW IS ALREADY STALE — RE-CHECK IT BEFORE RELYING ON IT.** Verified
+> against committed `983e4b0a2`. Minutes later (22:50, working tree, **uncommitted**)
+> another session was mid-refactor of exactly this: `enforceLinkRegistryFloor` now
+> returns `(map[string]interface{}, bool)` rather than an `error`, and
+> `site_db_actions.go:461` had not yet caught up (the package did not compile). If
+> that lands, C becomes skip-the-prune-and-continue like 135 — which would make the
+> shared sentence **TRUE** for C and the count "2 of 4", not 3. The finding itself
+> is unaffected: A and B are false either way. Recorded rather than quietly
+> corrected because a table that was right when written and wrong when read is how
+> a confident claim propagates.
 >
 > So the shared refusal now tells the majority of its callers' operators that the
 > situation self-heals when it does not. The originally-stated reason for deferring
