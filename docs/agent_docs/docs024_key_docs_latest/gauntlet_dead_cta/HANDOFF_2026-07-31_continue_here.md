@@ -161,9 +161,90 @@ consequences, both load-bearing:
 at 10:20Z. It was a different number 24 hours earlier, and one hand-fix by any
 session moves it again.
 
+> **CORRECTED 2026-07-31 ~11:30Z — the paragraph above is RIGHT and the conclusion
+> I drew from it was WRONG. "Enabling the check today files ZERO items and deletes
+> ZERO rows" was FALSE when I wrote it.** The census measured content identity as
+> `count(DISTINCT md5(content_data::text))` — byte identity of the whole blob. **The
+> shipped check does not use that ruler.** It compares
+> `datahelpers.NormaliseSectionText(content_data)`: prose only, with asset-like keys,
+> short strings, URL-ish values **and every non-string value** discarded. That
+> population is strictly larger than byte identity, so my census could only ever
+> undercount — and it did.
+>
+> Measured with the shipped function compiled against all 1,023 live rows, the rule
+> as it then stood found **one in-remit group and would have deleted one live row**:
+> `lobby-grid@5` on **vonc.com/index.html** — this lane's own home page.
+>
+> **What caught it:** reading the round-1 council report itself instead of trusting
+> §3's summary of it. §3 said round 1 "caught two REAL defects" (both since fixed).
+> The report actually carries **seven objecting seats**, and `bug_historian`'s HIGH
+> gating objection — *is the discriminator blind to non-text payload?* — is the
+> thread that unravels the whole claim. **I had compressed a review into a sentence
+> and then reasoned from the sentence.** Do not do that; the report is in
+> `diagnosis_artifacts` under the correlation and it is worth the read.
+>
+> **Why the false positive existed:** both rows' `content_data` is byte-identical and
+> is **not section content** — it is the site-wide context blob (`year`, `email`,
+> `domain`, `nav_items`, `tone`, `_built_at`). Two *different* components (different
+> `component_id`) populated with the same boilerplate. The normaliser's asset-key
+> filter strips `url`/`id`/`class` but not `email`/`year`/`domain` or nav labels, so
+> on a boilerplate-only blob the boilerplate **is** the comparison. Determinism does
+> not rescue a rule whose input is the wrong field.
+>
+> **FIXED** in `43492ec94`, two narrowings that both strictly shrink the in-remit
+> set: slot equality is now **necessary** (not the slot-keyed rule 156 rejected —
+> that rejected slot as *sufficient*), and identity is the **canonical blob**, not
+> the normalised prose. Shipped rule re-run over live data after the fix: **0 groups,
+> 0 deletions.** So the sentence is true now — *because of the fix*, not because it
+> was true when I said it. Logged in `WRONG_CALLS.md` (4th entry in three days in one
+> family; it rode into another session's commit `cadd12be9` as a same-file
+> passenger, which is expected and loses nothing).
+>
+> **The transferable rule, and it is narrower than "re-measure":** when the claim is
+> about what CODE will do, the ruler must be **the code, executed** — not a
+> reimplementation of it in SQL or Python, however careful. A reimplementation is a
+> second definition of "identical", which is the exact drift
+> `section_text.go`'s header was written to prevent. I rebuilt that drift in SQL in
+> order to check it. Method now in **RUNBOOK §16b**.
+
 ## 4. NEXT ACTIONS, in order
 
-1. **Resubmit the checker, round 2** with `RESUBMIT_CORR=da3f2d9b-ae6f-492d-ad3b-748323b66367`.
+> **UPDATED 2026-07-31 ~11:45Z. Actions 1 and 5's live-driver gap are DONE; action 2
+> is unchanged and now has more support, not less.**
+>
+> - **Round 2 IS SUBMITTED** on `da3f2d9b-ae6f-492d-ad3b-748323b66367` (same trail).
+>   It carries the fix in `43492ec94`, the corrected population figure, the measured
+>   false positive, and measured answers to `debug_historian`'s and
+>   `prior_art_librarian`'s HIGH objections. **Verdict not yet read** — expect ~30 min
+>   from 11:40Z; the queue was 7 deep. Read it with the query in §4.1 below before
+>   writing any `Council-Reviewed:` trailer anywhere.
+> - **The live share-card driver RAN and passed 11/11** — the `[INFERRED from code]`
+>   gap at the bottom of NOTES is CLOSED and should be read as closed: the challenge
+>   element (451 chars) and defence textarea (198 chars) are both still populated when
+>   the button fires, observed on a real round through the real page. Card is
+>   1200×630, lower half not blank, no page errors. PNG:
+>   `p4_sources/live_card_2026-07-31.png`. Two cosmetic observations, neither a
+>   defect: a dead band between answer and verdict when the defence is short, and the
+>   engine returned "personalization" (US spelling) on outward-facing copy.
+> - **Action 2 (do NOT enable) STANDS, and the reason is now stronger.** Before the
+>   fix, enabling would have deleted a live row from vonc's home page. That is what a
+>   switch on an unreviewed destructive path costs, and it is the second time this
+>   week the "it's inert so it's safe" framing has been too comfortable.
+
+### 4.1 Read the round-2 verdict first
+
+```sql
+SELECT created_at, metadata->>'decision'
+FROM diagnosis_artifacts
+WHERE correlation_id='da3f2d9b-ae6f-492d-ad3b-748323b66367' AND kind='council_report'
+ORDER BY created_at;
+```
+Two `council_report` rows means round 2 landed; the later row is the one to read. If
+it is APPROVED, the commit `43492ec94` already carries `Council-Submitted:` with this
+correlation, so `098` credits it automatically **with no amend** — do not write a
+`Council-Reviewed:` trailer onto a later unrelated commit to "fix" it.
+
+1. ~~**Resubmit the checker, round 2**~~ **DONE 11:40Z** — was: resubmit with `RESUBMIT_CORR=da3f2d9b-ae6f-492d-ad3b-748323b66367`.
    Content: the two seed fixes (done, live), the corrected population figure
    (**re-run §16 first — it was 11/0 at 10:20Z**, guard-not-backlog), the
    NULL-group no-op proof from §3 (the strongest single item in the submission: the

@@ -1164,3 +1164,101 @@ source document and the entry points at it.
   symbol was stronger evidence than the present number
 - **source:** 2026-07-31, bugfix lane, `bugs_open/161`
 - **added:** 2026-07-31, bugfix lane
+
+### `selector_count` does not assert a count — it is `selector_exists` with a friendlier detail line
+
+- **footprint:** any criteria fence in `doc_plans.body`; `internal/adapters/browserrunner/run_checks_action.go`
+- **fires when:** you author a fence and want to assert "there are 26 seats" / "there are 3 sliders"
+- **the tell:** the detail line reads `26 element(s) match .rcs-seat in the live DOM` — which
+  looks exactly like a count assertion and is not one. `run_checks_action.go:497` handles
+  `selector_exists` and `selector_count` in **the same case arm** and passes on `n > 0`;
+  `criteriaCheck` has **no expected-count field** at all. So a page that renders **1** of an
+  expected 26 passes, and prints a number next to the pass that a reader will take for the check
+- **why it is a landmine:** it fails in the direction of agreeing with you, and the evidence it
+  prints is the thing that makes it convincing
+- **the check:** assert counts through text the tool itself renders — `interaction` with
+  `expect.text_matches: "^26 seats on the panel$"`. Bonus: that also proves the tool can *state*
+  what it did, which a DOM count never does
+- **source:** 2026-07-31, staged_component_build, authoring `tool-review-council-simulator`'s fence
+- **added:** 2026-07-31, staged_component_build
+
+### Prose naming the criteria fence in backticks silently hijacks fence extraction
+
+- **footprint:** `doc_plans.body` for any subject; `platform/orchestration/actions/load_doc_context_action.go:143`;
+  `platform/orchestration/actions/discovery_checks/check_tool_acceptance.go:552`
+- **fires when:** you write or edit a PLAN that both *discusses* its acceptance criteria and
+  *contains* them — i.e. any PLAN written carefully
+- **the tell:** none at write time, and the failure surfaces as an unparseable-JSON error from
+  `run_checks` that names neither your prose nor your fence. Both extractors are
+  `strings.Index(body, "```criteria")` -> read to the next triple-backtick. They take the
+  **FIRST** occurrence. A sentence like *"this PLAN previously had no ```criteria fence"* placed
+  above the real fence therefore becomes the fence, and its "JSON" is a paragraph of English
+- **why it is a landmine:** the PLAN is more correct-looking for having explained itself, and the
+  document renders perfectly in every markdown viewer
+- **the check:** the marker must appear **exactly once** in the body —
+  `(length(body) - length(replace(body, '```criteria',''))) / length('```criteria')` must be 1 —
+  and extract it the way the Go does, then `json.loads` the result, before you write the row.
+  In prose, name it in plain words
+- **source:** 2026-07-31, staged_component_build, writing the fence into `tool-review-council-simulator`'s PLAN
+- **added:** 2026-07-31, staged_component_build
+
+### `has_visible_area` is now LIVE in the running binary — and that makes it more dangerous, not less
+
+- **footprint:** `has_visible_area` in any criteria fence; `/app/browser-runner-adapter`;
+  `internal/adapters/browserrunner/run_checks_action.go:773-774`
+- **fires when:** you author a gate against the newest and most useful check type, having
+  correctly verified it is in the running pod
+- **the tell:** the 07-30 note that this type was "committed but not rolled" is **out of date** —
+  verified 2026-07-31 on `browser-runner-adapter` built 08:53:36 UTC, both long markers present
+  with three positive controls. So the D7 check now says GO. **But `bugs_open/157` is unfixed at
+  HEAD:** the decode comma-ok asserts `float64` while playwright-go returns `int` for a whole
+  number, so **any axis whose rendered size is an integer measures 0** and the check reports
+  "present in the DOM but too small to see or click". Deliberately-sized controls — 24px
+  checkboxes, icon buttons, avatars — are precisely what lands on an integer
+- **why it is a landmine:** D7 ("prove the type is in the running binary") passes, so the usual
+  guard waves it through. Presence in the binary is necessary, not sufficient — the second
+  question is whether the type is *correct*, and only a `/bugs_open/` grep answers that
+- **the check:** `grep -n 'm\["w"\]' internal/adapters/browserrunner/run_checks_action.go` — if
+  it still reads `.(float64)`, 157 is open. Then grep `/bugs_open/` and `/bugs_closed/` for the
+  check type by name before authoring against it, not just the binary
+- **source:** 2026-07-31, staged_component_build, omitting the type from a fence it belonged in
+- **added:** 2026-07-31, staged_component_build
+
+### `page_components.content_data` often holds the SITE-WIDE BOILERPLATE, not section content — so any content-identity rule can collapse two unrelated components
+
+- **footprint:** `page_components.content_data`,
+  `platform/orchestration/datahelpers/section_text.go`
+  (`NormaliseSectionText`, `SectionIdentityKey`),
+  `platform/orchestration/actions/discovery_checks/check_content_duplication.go`,
+  `platform/orchestration/actions/remove_duplicate_page_sections_action.go`,
+  any new comparison, dedupe, similarity or diff over section content
+- **fires when:** you compare two `content_data` blobs to decide whether two sections
+  "say the same thing" — for a dedupe, a drift check, a similarity screen, a cache key
+- **the tell:** none. The blobs are byte-identical, so every safety property built on
+  "identical means interchangeable" reports green, and a deterministic no-LLM repair
+  looks like the *safest* possible design
+- **what is actually in there:** on `vonc.com/index.html` (measured 2026-07-31) the
+  `provocation-card` and `lobby-grid` rows — **different components, different
+  `component_id`** — both carry the identical site-context blob and nothing else:
+  `{"tone":"","year":"2026","email":"vonc@contactforsales.com","domain":"vonc.com",`
+  `"industry":"","_built_at":"2026-07-25T09:30:41Z","nav_items":[{"label":"Home",...}]}`.
+  1,093 bytes each, no section content at all
+- **why it is a landmine:** the pre-fix in-remit rule (same page + identical normalised
+  text) found **exactly one group fleet-wide and it was this one**, and would have
+  DELETED a live section from a home page. A rule can be deterministic, well tested,
+  refuse-to-delete-everything guarded, and still be reading the wrong field.
+  `section_text.go`'s own header credits its asset-key filter with having fixed this
+  ("two unrelated sections matched at 1.00 similarity purely on captured footer/nav
+  text") — it did not: the filter strips `url|href|src|image|icon|slug|id|class|target|colour|color`
+  but **not** `email`, `year`, `domain`, `tone` or nav `label`s
+- **the check:** require **slot equality as a NECESSARY condition** and compare the
+  **canonical blob**, not the normalised prose (`SectionIdentityKey` does both). Note
+  slot equality as *sufficient* is the separate, opposite error that breaks 10 real
+  pages — see the `(page_id, slot_name)` unique-index entry above. And before believing
+  any figure about what such a rule will do, **compile the shipped function against
+  live data** (`gauntlet_dead_cta/RUNBOOK` §16b) — a SQL reimplementation of the rule
+  is a second definition of "identical", which is the drift the shared helper exists
+  to prevent
+- **source:** 2026-07-31, gauntlet_dead_cta lane; fix `43492ec94`, council round 2 on
+  corr `da3f2d9b-ae6f-492d-ad3b-748323b66367`; `WRONG_CALLS.md` same date
+- **added:** 2026-07-31, gauntlet_dead_cta lane

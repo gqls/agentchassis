@@ -1193,3 +1193,70 @@ will find is to delete the offending block from the home page. That would "fix"
 the leak and gut the page that has to sell the site. We have been bitten by
 exactly this before, on the tool whose consent notice a repair loop wanted to
 delete. So a broken promise should always come to a human, never to a mender.
+
+## 31 July, midday — I was wrong this morning, and finding out cost nothing because I hadn't switched it on
+
+I have to correct what I told you two hours ago. I said that if we turned the duplicate
+checker on today it would find nothing and delete nothing, and I offered that as the
+reassuring part. **It was false.** Turned on this morning, it would have deleted a real
+section from vonc's own home page.
+
+Here is how I found out, because the how matters more than the what. I went to write the
+submission for the second review round, and the handoff I'd inherited said the first
+round "caught two real defects", both since fixed. Instead of reusing that sentence I
+opened the actual review. **Seven of the reviewers had objected, not two.** One of them —
+graded high, and the one that blocked the round — asked a question I had not thought
+about: does your rule for "these two sections are the same" actually look at everything
+that makes them different?
+
+It does not. The comparison reads the *words* in a section and deliberately throws away
+numbers, true/false flags, image references and ids. So two sections could differ in a
+price, a limit or a picture and my rule would call them identical. That was the
+reviewer's point, and it was right.
+
+Then I checked what my "it would delete nothing" measurement had actually measured, and
+it had answered a different question from the one I'd asked it. I'd counted sections
+whose stored data was *identical to the last byte*. The real code compares the *words
+only*, which lumps together strictly more things. So my number was guaranteed to be too
+low. I re-did it properly — by running the actual shipped code over all 1,023 sections on
+every site rather than rewriting the rule in database language — and it found one case.
+Deleting a live section from vonc.com's home page.
+
+**The reason it would have done that is the interesting bit.** The two sections it thought
+were duplicates are genuinely different components. But neither of them has any section
+content stored at all — both just carry the site's general information: the year, the
+contact email, the domain, the navigation menu. So they *are* identical, because they're
+both empty in the same way. My rule read that as "one of these is redundant". A rule can
+be completely predictable, well tested, and carefully stopped from deleting everything,
+and still be looking at the wrong thing entirely.
+
+It's fixed, in two ways that both make the rule *stricter*, so neither can cause a
+deletion the old one wouldn't have: two sections now have to be in the same slot on the
+page, and their stored data has to match exactly rather than just in its wording. After
+the fix, run over every live section again: nothing found, nothing deleted. So the
+sentence I told you this morning is true now — but because I fixed it, not because it was
+true when I said it.
+
+Two things I want to say plainly about this. First, the thing that saved us is that
+**the check was never switched on**, which is the decision you and I left in place
+yesterday for a completely different reason. Second, the thing that caught it was
+**reading the reviewers' actual words instead of my own summary of them** — and I'd
+written that summary myself, which is what makes it worth admitting rather than filing
+away.
+
+The second review round went in at 11:40 and I'm waiting on the verdict; it usually takes
+about half an hour. It now carries the fix, the corrected numbers, and proper answers to
+two more of the reviewers' harder questions — including one where a reviewer worried that
+deleting sections might get undone by the next site rebuild. I measured that: there's
+exactly one place in the whole estate where the site plan deliberately lists the same
+component twice, on webdesign.co.uk, and it isn't one of the cases this would touch. I've
+told the reviewers it's a real concern that hasn't bitten us yet, rather than pretending
+it's solved.
+
+And the good news, separately: **I ran the share-button test you approved and it passed
+completely.** A real round, a real AI challenge and verdict, pressing the actual button
+on the actual page, and the picture that came out is correct — both halves filled in, the
+right size, nothing blank. That was the one gap I'd flagged as "I've read the code but
+not watched it happen", and it's now watched. Two tiny cosmetic things I noticed and did
+not change: there's an empty band in the middle of the card when the answer is short, and
+the AI wrote "personalization" the American way on a public-facing card.

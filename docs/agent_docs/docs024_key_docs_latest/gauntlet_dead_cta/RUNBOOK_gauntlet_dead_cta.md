@@ -564,3 +564,61 @@ classes that as content-identical and it is the one group in the fleet whose
 misclassification would DELETE a live row. Hence the `non_null_rows = rows_in_group`
 conjunct above. Both halves of the checker already exclude it for an independent
 reason — see the handoff §3.
+
+## 16b. Measuring what a Go rule WILL DO — compile the shipped function (2026-07-31)
+
+§16 above answers "how many duplicate groups are there **by byte identity**". That is
+**not** the question "what will the checker do", and reading one as the other is how I
+told this lane the check was a verified no-op three hours before proving it would
+delete a live section (`WRONG_CALLS.md`, and the CORRECTED block in
+`HANDOFF_2026-07-31` §3).
+
+**The rule: when the claim is about what code will do, execute the code.** A
+reimplementation in SQL or Python is a second definition of the thing, which is the
+exact drift `datahelpers/section_text.go` exists to prevent — so reimplementing it to
+*check* it rebuilds the bug you are checking for.
+
+**How, without adding files to the shared tree.** A scratch module outside the repo,
+with a `replace` onto it, so you compile the real function:
+
+```bash
+SP=<scratchpad>; mkdir -p $SP/census
+cat > $SP/census/go.mod <<'MOD'
+module census
+go 1.21
+require github.com/gqls/agentchassis v0.0.0
+replace github.com/gqls/agentchassis => /home/ant/projects/agentchassis
+MOD
+# main.go: import the real package, read the dump on stdin, apply the REAL rule
+#   if len(datahelpers.NormaliseSectionText(r.Raw)) < 80 { continue }   // the floor
+#   k := r.PageID + "\x01" + datahelpers.SectionIdentityKey(r.Slot, r.Raw)
+cd $SP/census && go mod tidy && go run . < $SP/pc_dump.jsonl
+```
+
+Feed it a dump built with `json_build_object(...)::text` one row per line (see §16 for
+the query shape; include `content_data::text` verbatim as `raw`).
+
+**GOTCHA — the working tree may not compile, and it will not be your fault.** On
+2026-07-31 `platform/orchestration/actions/discovery_checks.go` was mid-edit by another
+session (`undefined: writeDiscoveryCheckErrorLog`), so `go build ./platform/...` failed
+on a file this lane never touched. Verify your own change against a clean HEAD plus
+only your files:
+
+```bash
+rm -rf $SP/headtree && mkdir -p $SP/headtree && git archive HEAD | tar -x -C $SP/headtree
+cp <your changed files> $SP/headtree/<matching paths>
+cd $SP/headtree && go build ./platform/... && go test ./platform/orchestration/actions/discovery_checks/ -v
+```
+
+**GOTCHA — a test helper that does not set every field the rule reads inverts the
+suite silently.** `sec()` in `check_content_duplication_test.go` built sections without
+`Raw`. Once identity became `slot + Raw`, every section shared the identity `slot+""`,
+so the test asserting *"a repeated slot with different content must NOT be flagged"*
+would have started passing for the opposite reason. It was caught only by running the
+suite. **After changing what a rule reads, grep the test constructors for the new
+field before trusting a green run.**
+
+**Both figures, so the difference is on the page rather than in someone's head:**
+byte-identity census (§16) `11 / 0`; shipped-rule census, pre-fix, `1 group / 1
+deletion` (vonc.com/index.html, `lobby-grid@5`); shipped-rule census, post-fix
+(`43492ec94`), `0 / 0`.
