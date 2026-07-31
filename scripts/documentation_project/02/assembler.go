@@ -1,3 +1,10 @@
+//go:build ignore
+
+// NOT PART OF THIS MODULE'S BUILD — standalone tool; shares a directory with analyser.go, which redeclares funcDef/typeDef.
+// Two programs in one directory cannot both be compiled as a package, so this
+// tag excludes it from `go build ./...`. It is still runnable directly:
+//   go run scripts/documentation_project/02/assembler.go
+// Tag added 2026-07-31; no behaviour changed.
 // Command assembler builds one paste-ready bundle for a single task.
 //
 // It consumes the analyser's JSON (the repo's structural summary), the repo

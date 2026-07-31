@@ -1,3 +1,10 @@
+//go:build ignore
+
+// NOT PART OF THIS MODULE'S BUILD — standalone tool; goliteralstringremoval.go in the same directory also declares func main.
+// Two programs in one directory cannot both be compiled as a package, so this
+// tag excludes it from `go build ./...`. It is still runnable directly:
+//   go run scripts/goscripts/log-string-removal/gologstringremoval.go
+// Tag added 2026-07-31; no behaviour changed.
 package main
 
 import (

@@ -501,7 +501,30 @@ func buildCouncil(rows []inRow, plans map[string][]inRow, steps []inRow, labels 
 		sort.SliceStable(plans[traj], func(i, j int) bool { return plans[traj][i].CreatedAt < plans[traj][j].CreatedAt })
 	}
 
-	planJoined, planMissing, provJoined := map[string]int{}, 0, 0
+	// THE PLAN/PROVENANCE JOIN IS NOT IMPLEMENTED — scaffolding only, and this
+	// comment is where its counters used to be.
+	//
+	// b82b3d8b4 ("v1.0.1188 prior to merge in main") added the whole frame for
+	// joining plan text onto council records — the `PlanSource` field and its
+	// doc comment, the "plan"/"subplan" branch in readInput, the `plans` map and
+	// its sort above — plus three counters, `planJoined, planMissing,
+	// provJoined`. It did not add the join itself, so the counters were declared
+	// and never used and the package HAS NOT COMPILED SINCE 2026-07-28. Removing
+	// the three declarations is the whole of the fix (2026-07-31); nothing else
+	// referenced them, verified by grep.
+	//
+	// WHAT IS STILL MISSING, so whoever resumes does not have to re-derive it:
+	// `PlanSource` is never SET and `plans` is never READ. The intent, from the
+	// field's own doc comment, is that each record records where its plan text
+	// was recovered from — "fix_plan" (the loop's own artifact) or
+	// "submission_payload" (a 097 submission's orchestration row, recoverable
+	// only inside the ~24h prune window) — with rows that recover neither
+	// flagged plan_missing. The counters were to tally those outcomes by source.
+	// The join key is the decision that was never made and is NOT guessed here:
+	// `plans` is keyed by TrajectoryID while a council round is identified by
+	// `roundKey` (ReportID|RunID|CreatedAt), and which plan row belongs to which
+	// round — newest at or before the report, as the `calls` join above does, or
+	// something else — is the author's call, not this fix's.
 	out := make([]Record, 0, len(rows))
 	for _, c := range rows {
 		t := rounds[roundKey(c)]

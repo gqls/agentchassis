@@ -1,3 +1,10 @@
+//go:build ignore
+
+// NOT PART OF THIS MODULE'S BUILD — standalone tool; 01simple-debug.go in the same directory also declares func main.
+// Two programs in one directory cannot both be compiled as a package, so this
+// tag excludes it from `go build ./...`. It is still runnable directly:
+//   go run test/cmd/harness/unused/simple/debug.go
+// Tag added 2026-07-31; no behaviour changed.
 // test/cmd/harness/debug.go
 package main
 
