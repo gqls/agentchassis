@@ -56,6 +56,14 @@ sql = """-- ====================================================================
 --      vonc has no tools index and nothing enumerates page_type='tool', so
 --      nothing else will surface it (checked 2026-07-31).
 --
+-- REPLAY-SAFE, precisely: the three STRUCTURAL inserts (component, page, binding)
+-- each carry WHERE NOT EXISTS, so re-running this file cannot raise the raw 23505
+-- that reads as broken SQL and blocked the migration runner for three days
+-- (bugs_open/007 Class C) — `--apply` takes EVERY pending file. The doc_plans
+-- insert is the deliberate exception, noted at the statement itself. The DO block
+-- below asserts the END STATE either way, which is the claim that matters: it
+-- passes whether this run created the rows or found them already there.
+--
 -- js_content stays NULL and the JS is inline in html_template. The js_content
 -- lane publishes /tools/assets/<function>.js but injects no <script> tag, which
 -- is the published-but-inert class (bugs_open/041); gauntlet-interface only
@@ -73,7 +81,7 @@ INSERT INTO content_components (
   input_schema, is_active, suitable_page_types, template_variable_count,
   created_from
 )
-VALUES (
+SELECT
   '{NAME}',
   '{FN}',
   'The Gauntlet: public record of one round',
@@ -88,6 +96,8 @@ VALUES (
   '["tool"]'::jsonb,
   0,
   'manual'
+WHERE NOT EXISTS (
+  SELECT 1 FROM content_components WHERE function = '{FN}'
 );
 
 -- 2. the page ----------------------------------------------------------------
@@ -95,7 +105,7 @@ INSERT INTO pages (
   site_id, name, url, title, page_type, status, build_status,
   nav_label, nav_order, in_header, in_footer, rebuild_policy, meta_description
 )
-VALUES (
+SELECT
   '{SITE}',
   '{FN}',
   '{URL}',
@@ -109,6 +119,8 @@ VALUES (
   false,
   'owned',
   'One published round of The Gauntlet: the provocation, the position argued against it, the challenge that came back, the defence, and the ruling.'
+WHERE NOT EXISTS (
+  SELECT 1 FROM pages WHERE site_id = '{SITE}' AND name = '{FN}'
 );
 
 -- 3. bind component to page --------------------------------------------------
@@ -125,12 +137,19 @@ CROSS JOIN content_components c
 WHERE p.site_id = '{SITE}'
   AND p.name = '{FN}'
   AND c.function = '{FN}'
-  AND c.name = '{NAME}';
+  AND c.name = '{NAME}'
+  AND NOT EXISTS (
+    SELECT 1 FROM page_components pc2 WHERE pc2.page_id = p.id AND pc2.slot_name = '{FN}'
+  );
 
 -- 4. travelling PLAN with acceptance criteria --------------------------------
 UPDATE doc_plans SET is_current = false, superseded_at = now()
 WHERE subject_type = 'tool' AND subject_key = '{FN}' AND is_current;
 
+-- doc_plans is DELIBERATELY not guarded: supersede-then-insert is how a plan is
+-- versioned here (275's convention), so a replay correctly records a new current
+-- plan rather than silently keeping a stale one. It is the one statement in this
+-- file that is not a no-op on replay, and that is the intended behaviour.
 INSERT INTO doc_plans (subject_type, subject_key, body, source, created_by, is_current, pinned)
 VALUES (
   'tool', '{FN}',
