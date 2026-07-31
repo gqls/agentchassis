@@ -415,3 +415,55 @@ slow progress until you look at the clock.
 Re-fired both: designer `c5219a69` (orch `46ecdb25`), council on the same trail corr
 `f4a4628f` (run orch `5d635e84`). DB config survived the roll, as expected — the
 armed cap and migration 272 were both still in place, so only the runs were lost.
+
+### The re-run PROVED the router live — on the valid branch
+
+Trail for `46ecdb25` / corr `c5219a69`:
+
+```
+load_spec > check_spec_approved > load_schema_hint > design > persist_plan
+  > check_plan_valid > review_editquality > review_bug_historian > …
+```
+
+`check_plan_valid` — the step migration 272 created — **fired, evaluated
+`plan_persisted.plan_valid == true`, and routed on to `review_editquality`.** So the
+new step graph is live and the happy path is intact: the router resolves the field,
+the conditional_branch action works, and nothing regressed. That is worth having, but
+it is not the failing branch.
+
+**The induced refusal did not trip**, because the designer produced a **2**-stage plan
+this time where the earlier one had 3 (`stage_count: 2, edit_count: 3`), and my cap was
+`max_stages=2`. LLM output shape is not stable between runs — which is itself the
+answer to why "re-fire and see" is a poor verification strategy for this bug.
+
+### A real finding about my own repair design: cap violations are not repairable
+
+Reading the validator's exact messages before arming a tighter cap, they split into two
+classes:
+
+| rule | message | repairable without losing scope? |
+|---|---|---|
+| duplicate file in a stage, modify-before-add, create-then-delete, forward `depends_on`, empty goal, bad stage id, contradictory `artifact_role`, missing checklist entry | states the structural defect | **yes** — rearrange |
+| `max_edits` (per stage) | `"stage N: X edits exceeds the per-stage cap Y"` | **yes** — split into more stages |
+| `max_stages` | `"N stages exceeds cap M — a build this broad needs splitting into more than one feature"` | **no** — it explicitly asks for less scope |
+| `max_total_edits` | `"N edits in total exceeds cap M — a build this broad needs splitting"` | **no** — same |
+
+My repair prompt says *"Do not drop scope"*. Against the bottom two rows that is a
+**contradiction**: the validator asks for a smaller plan and the repair prompt forbids
+one. Such a refusal will burn its one repair round and then go terminal.
+
+**That is not a correctness bug** — the loop is bounded, and it ends exactly where it
+ends today, so the worst case is one extra LLM call before the same terminal outcome
+the platform already had. And arguably a plan that is genuinely too big *should* reach
+a human rather than be silently shrunk by a model. But it means the repair loop helps
+the **structural** class and not the **size** class, which is a narrower claim than
+"any validator rule becomes recoverable". Recorded here, in the bug file, and as
+FIX-057's open question rather than quietly left as an unstated limit.
+
+Consequence for the live test: `max_stages=1` would fire deterministically but proves
+only the loop and its bound, never a successful repair. `max_edits=1` is the cap whose
+message the designer can actually satisfy — split one 2-edit stage into two stages,
+all edits kept, and `max_stages` 6 leaves room. That is the induction to use, and it
+fires whenever any stage carries ≥2 edits (two of the last three plans did; this run's
+s1 had 2 edits across two DISTINCT files, so splitting cannot trip the
+one-edit-per-file rule either).

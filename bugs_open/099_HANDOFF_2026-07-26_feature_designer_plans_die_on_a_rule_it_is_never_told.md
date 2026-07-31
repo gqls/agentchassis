@@ -397,3 +397,33 @@ check" shape. Candidate 2 must be proved by **inducing** a refusal, deliberately
 whole claim. Procedure (arm `max_edits=1`, which is repairable without losing scope;
 require four conditions including that a refusal note exists and that the run reached
 `repair_plan`) is in the workstream RUNBOOK §"Verify the fix on the failing branch".
+
+## CORRECTION 2026-07-31 — "any validator rule becomes recoverable" was TOO STRONG
+
+The candidate-2 write-up above says the fix is rule-agnostic and that "a designer that
+hits any *other* validator rule" is covered. Reading the validator's own messages
+before running a live induction, that is not quite true, and the overstatement is
+mine:
+
+| class | rules | repairable without losing scope? |
+|---|---|---|
+| **structural** | duplicate file in a stage, modify-before-add, create-then-delete, forward `depends_on`, empty goal, bad stage id, contradictory `artifact_role`, missing checklist entry, and the **per-stage** `max_edits` cap | **yes** — rearrange or split stages |
+| **size caps** | `max_stages` — *"a build this broad needs splitting into more than one feature"*; `max_total_edits` — *"a build this broad needs splitting"* | **no** — they ask for less scope |
+
+The repair prompt says *"do not drop scope"*, so against the size caps it is a
+contradiction: the refusal burns its one repair round and goes terminal.
+
+**This is not a correctness bug.** The loop is bounded, so the worst case is one extra
+LLM call before the same terminal outcome the platform already had — and a plan that is
+genuinely too big arguably *should* reach a human rather than be silently shrunk by a
+model. But the accurate claim is **"the structural class becomes recoverable"**, not
+"every rule does". Recorded as FIX-057's open question: whether the repair step should
+detect a size-cap problem and escalate explicitly rather than attempt a repair it is
+forbidden to make.
+
+**What caught it:** reading each validator message before choosing which cap to arm for
+the live test, instead of assuming any cap would do. The first cap I picked
+(`max_edits=1`) turned out not to fire on this work item's plan at all; the second
+(`max_stages=2`) fired on one run's plan shape and not the next one's. LLM plan shape
+is not stable between runs, which is on its own a reason "re-fire and see whether it
+passes" is a poor verification strategy for this bug.
