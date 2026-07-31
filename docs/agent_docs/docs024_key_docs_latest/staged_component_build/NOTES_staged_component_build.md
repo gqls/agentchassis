@@ -770,3 +770,31 @@ once at the top; `</dev/null` on it because it runs inside a `while read` loop t
 The rule that keeps earning its place: **a check must not be able to say `ok` about
 something it did not measure.** Printing the number is not enough if the code path that
 prints it can also print `?`.
+
+## 2026-07-31 (afternoon) — fresh build re-checked; handoff written
+
+Owner: a fresh chassis build has been deployed. Re-ran the gate against it rather than
+assuming: pods **`5c847465c4-*`, binary built 2026-07-31 08:49:09 UTC** — after the Go
+half's commit (07-30 19:28 UTC), control marker present on both. So the third consecutive
+roll has carried the change and **I have still never rolled anything**.
+
+**The Go half remains the one unverified claim, and I established exactly why it needs a
+dispatch rather than a query.** `load_doc_context` takes `subject_type` from **step
+config**, not input data (`load_doc_context_action.go:37-43`; resolved by
+`docResolveSubject(config, …)`), so `psql` structurally cannot reach
+`docSubjectGateReason`. Measured: **exactly ONE active agent has a `load_doc_context`
+step** — `tool-acceptance-agent`, configured for `subject_type='tool'`. So the check needs
+a scratch agent seeded with `subject_type: component`, which is config-only and live
+immediately but is still surgery on shared state. `doc_plans` holds **0** component rows,
+so nothing has yet passed through that gate for this type.
+
+**Chose to hand that off rather than half-do it**, on the owner's own prompt about token
+load. Wrote `HANDOFF_2026-07-31_continue_here.md`: read-order, live/not-live state, the
+next action with the exact SQL and the reason a query cannot substitute, the four open
+items in order, six "do NOT" items (don't rebuild the eight stages, don't take 157, don't
+`--apply` the migration runner, don't renumber the duplicate 273, don't roll, don't adopt
+015), and the six landmines that cost real time.
+
+**Re-stated in the handoff because they moved under me:** fence count 23→25, landmine
+corpus 57→190, tool components 28→29 — all inside 24 hours. The handoff tells the next
+thread to re-run every figure rather than quote one.
