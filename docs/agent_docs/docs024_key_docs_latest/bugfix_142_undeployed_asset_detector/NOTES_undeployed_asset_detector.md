@@ -289,3 +289,90 @@ is a same-file collision. Nothing about this fix is urgent enough to spend eithe
 **What the next roll owes:** RUNBOOK §R9 on every replica, then move the file to
 `bugs_closed/`. No live firing is available to verify with — the check is reachable
 only via `design-discovery-agent` ← `improvement-sweep`, disabled since 2026-05-02.
+
+## 12. CLOSED — and the verification arrived on its own, which is worth recording
+
+`v1.0.1219` rolled at 19:09Z (another session's build; my commits were in it).
+Pod-grepped both replicas: all four new markers 1/1, both positive controls
+intact. That alone only proves the binary carries the code — §11's whole point.
+
+**Then the platform verified the behaviour for me.** A fleet discovery sweep ran
+across 9 sites at 19:17–19:21Z. I did not fire it; every row carries
+`created_by='generic'`, the chassis worker. I had been about to insert a one-shot
+`scheduled_tasks` row to force exactly this (the `oneshot-design-discovery-rh-20260730`
+pattern), and checking the baseline first is what showed it had already happened —
+**the cheap check that saved a production config write was "look before you
+write"**, which is the same move that caught the `input-data.asset-key` row in §5.
+
+Both mechanisms proved, on the shipped binary:
+
+- **Absence is visible.** idea.uk raised **2 × `needs_brand_head_assets`**
+  (`…:favicon`, `…:og_card`) carrying this fix's summary wording verbatim. It is
+  the only site that raised any, and it is one of the two serving 404. This site
+  had produced **zero** findings in the detector's entire history.
+- **The false positives are gone.** Eight of the nine swept sites hold active
+  favicon + og_card rows — 16 permanent false positives under the old predicate.
+  **16 would have fired; 0 did.**
+
+That second number is the one I would quote, because it is a *counterfactual
+measured on the same population in the same run*, not a before/after across two
+different days — the failure mode §2 records, where the bug file's own figures had
+drifted under it.
+
+**Not exercised live, and I am not claiming otherwise:** the provenance-observation
+branch (gamesdesign, robot-hands) and the second GAP site (webdesign.co.uk) were
+not among the nine. The observation branch files nothing by construction, so there
+is no row to look for even when it does run; both are covered by mutation-verified
+unit tests only.
+
+Moved to `bugs_closed/`.
+
+## 13. MISSTEP — I wrote "16 false positives avoided" and the denominator was wrong
+
+§12 above (and, for about ten minutes, the bug file, the README and concept
+register IMG-066) said the live sweep proved **16 would have fired, 0 did**,
+across **9 swept sites**.
+
+**Nine sites got work items in that window. Only TWO ran this check.** The other
+seven were served by `nav-updater`, `internal-link-resolver`, `page-build-handler`
+and others, which never run `check_undeployed_assets` at all. I had counted
+"sites with any work item in the window" as "sites that ran the check" — and the
+first number was sitting right there in a query I had already run, which is what
+made it feel safe.
+
+The true, and still sufficient, result — from the two `design-discovery-agent`
+orchestrations (`eafe7955` vonc.com 19:17:48Z, `3c0a2499` idea.uk 19:18:04Z):
+
+| site | active brand-head rows | pre-fix | actual |
+|---|---|---|---|
+| **vonc.com** | 2 (favicon + og_card, both serving **200**) | **2 false positives** | **0 items raised, of any purpose** |
+| **idea.uk** | 0 (serves **404**) | 0 (structurally invisible) | **2 × `needs_brand_head_assets`**, correct keys and wording |
+
+So: **2 avoided on 1 site**, not 16 on 8. Both branches are still proven live —
+the proof is just n=1 per branch, and it must not be quoted as a fleet figure.
+
+*What caught it:* asking **which agent owned the orchestrations** before trusting
+a count I had already written down. The cheap check is to join the counterfactual
+to the runs of the check itself, never to "activity in the time window" —
+a window is not a population. This is the wrong-denominator trap already logged
+several times in `WRONG_CALLS.md`; knowing it by name did not stop me typing it.
+
+**Second retraction in the same breath.** From "the check ran and no scheduled
+task is enabled" I inferred *"`design-discovery-agent` evidently has a driver
+that is not `improvement-sweep`"* — and briefly wrote that into IMG-066 as a
+correction to the fleet's standing claim. **It does not follow.** Every
+`scheduled_tasks` row targeting a discovery or improvement agent is
+`enabled=false`, and orchestration naming does **not** discriminate: I checked
+`build-pipeline-trigger`, which genuinely IS a scheduled task, and it uses the
+identical `<agent>-orchestrate-MMDD-HHMM` form. All-history for
+`design-discovery-agent` is **three** runs ever retained — robot-hands 07-30
+(matching the disabled one-shot's `last_triggered_at` to the second) and today's
+two. The overwhelmingly likely trigger is **another session firing by hand**,
+which is exactly what the fleet's standing note says happens.
+
+Marked `[UNVERIFIED]` rather than resolved, because resolving it needs the
+dispatching session's transcript and it changes nothing about this fix. What it
+would have changed, had it gone unretracted, is `bugs_open/083`'s and `093`'s
+central premise — on the strength of someone else's write, read as a mechanism.
+That is [[your-action-moves-you-to-the-back-of-the-selector]] one step removed:
+not my write becoming my evidence, but another thread's.

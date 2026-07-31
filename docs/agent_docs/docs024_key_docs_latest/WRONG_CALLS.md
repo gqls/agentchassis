@@ -14629,3 +14629,34 @@ mechanism, check the mechanism's *entry point* exists, not that the mechanism do
 For `scheduled_tasks` that is one query for the target agent. Writing an
 instruction is a durable claim; it deserves the check I would have given an
 assertion in prose.
+
+## 2026-07-31 (later) — bugfix_142, at the closing verification
+
+- **I proved a fix with a counterfactual computed over the wrong population, and the
+  right population was one join away.** The live sweep after the roll gave me
+  "9 sites got work items in this window", so I wrote **"16 pre-fix false positives
+  would have fired, 0 did"** into the bug file, the workstream README, NOTES and the
+  concept register. **Only TWO of those nine ran the check** — the other seven were
+  served by `nav-updater`, `internal-link-resolver`, `page-build-handler` and others
+  that never call `check_undeployed_assets`. The true figure is **2 avoided on 1
+  site**. The fix is still proven live on both branches; the headline was 8× too big.
+  **The cheap check: join your counterfactual to the RUNS OF THE MECHANISM
+  (`orchestration_states WHERE owner_agent_type = <the agent that owns the check>`),
+  never to activity in a time window — a window is not a population.** What made it
+  feel safe was that the 9 came from a query I had already run and already trusted
+  for a different question. Knowing this trap by name did not stop me typing it.
+- **From "it ran, and nothing is scheduled" I inferred "so it must now have a
+  cadence", and briefly wrote that into the concept register as a correction to two
+  other bugs' central premise.** It does not follow. Every `scheduled_tasks` row
+  targeting a discovery or improvement agent is still `enabled=false`, and I had
+  taken the orchestration NAME as evidence of a hand-firing and then, when that felt
+  thin, as evidence of a scheduler. **Orchestration naming discriminates neither:**
+  `build-pipeline-trigger`, a genuinely scheduled task, uses the identical
+  `<agent>-orchestrate-MMDD-HHMM` form. **The cheap check: before concluding a dormant
+  mechanism has woken up, ask who moved it** — here, all-history for the agent is
+  three runs ever, two of them today, and the overwhelmingly likely trigger is another
+  session firing by hand, which is what the fleet's standing note already predicts.
+  This is `your-action-moves-you-to-the-back-of-the-selector` one step removed: not my
+  own write becoming my evidence, but **another thread's write** becoming it. Retracted
+  and marked `[UNVERIFIED]` rather than resolved, because resolving it needs the
+  dispatching session's transcript and it changes nothing about the fix.

@@ -81,3 +81,47 @@ against exactly that.
 
 It's with the review council now. Once that's back and the next chassis image
 rolls, I'll verify it on the running pods and close the ticket.
+
+---
+
+**2026-07-31, later the same evening.**
+
+Closed it. A new chassis image (v1.0.1219) went out — someone else's build, but my
+commits were in it — and I checked the running pods for strings my change adds,
+with a couple of known-good strings alongside as a control. All present, on both.
+
+Then something better happened. I was about to hand-fire the checker at one site to
+prove it actually *does* the right thing rather than merely *contains* the right
+code — and when I looked at the site first, the work was already done. The platform
+had run a routine sweep across nine sites eight minutes after the new image
+started, and the results are exactly what we predicted:
+
+- **idea.uk** — one of the two sites with no social card at all — raised two
+  findings, one for the favicon and one for the card. It is the only site that
+  raised any. Before this change that site had never produced a single finding in
+  the detector's whole history.
+- **vonc.com raised none.** It has a working favicon and card. Under the old code
+  it would have been flagged as broken twice over. Zero were raised.
+
+**A correction, before this went any further.** I first wrote that as "sixteen
+wrong alarms avoided across eight sites", and it was wrong. Nine sites got work
+items in that few minutes, but only **two** of them actually ran this particular
+check — the rest were being worked on by entirely different parts of the system.
+I'd counted "sites that were busy" as "sites that ran my check". The honest number
+is **two wrong alarms avoided, on one site**. Both halves of the fix are still
+proven working in production; the proof is just narrower than I first said, and I'd
+rather you had the smaller true number than the larger comfortable one.
+
+I also briefly concluded, from the fact that this ran while every scheduled job for
+it is switched off, that the checker layer must have quietly started running on a
+timer again — which would have been significant news, because two other open bugs
+rest on it *not* running. That was a leap and I've retracted it. Almost certainly
+another session simply fired it by hand, which is exactly what we'd expect.
+
+Two smaller paths in the change weren't covered by that sweep, because the sites
+that would trigger them weren't in it. They're covered by tests, and I've said so
+plainly in the ticket rather than letting "verified" stand for more than it does.
+
+The ticket is closed and moved. The findings it now produces still land in a queue
+nothing drains — that's the separate bug 083, awaiting your decision — so the
+detector is now right, and still unread until that's resolved.
