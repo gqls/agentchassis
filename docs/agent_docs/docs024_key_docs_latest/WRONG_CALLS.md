@@ -14672,3 +14672,27 @@ assertion in prose.
   `git ls-tree -r HEAD --name-only | grep <file>` rather than `ls`.** The pathspec
   discipline that keeps other sessions' work out of your commit is the same discipline
   that silently drops half of your own move.
+
+## 2026-07-31 (evening) — `bugfix_118`: I cleared a live artefact to unblock a render, without saving it
+
+- **I set a live site's stored footer `rendered_html` to NULL and had no copy of it.**
+  Repointing leopardessconsulting.co.uk's footer to the active component was not enough to
+  make it render: `renderAndStoreSiteComponent`'s `!force` idempotence exit tests
+  `rendered_html IS NOT NULL AND != ''`, **not whether the component changed**, so a
+  repointed slot still reads as "already rendered". I NULLed the column to get past it. It
+  worked, and the artefact regenerated from the template a minute later — but my backup
+  table (`site_components_repoint_backup_20260731`) had captured `component_id` only,
+  because I built it to make the *repoint* reversible and then reached for a *different*
+  destructive operation the backup did not cover.
+  **The cheap check: a backup is scoped to the operation you designed it for. Before any
+  second destructive step, ask what THIS one destroys and whether the existing backup holds
+  it** — the answer took one `\d` and I did not ask. Nothing outward-facing was at risk
+  (deployed pages serve their own HTML; the stored artefact only feeds future re-renders),
+  which is luck about this particular column, not method.
+- **And the finding underneath it is worth more than the misstep:** the repair path for a
+  deactivated chrome component cannot work even once the assignment is corrected, because of
+  that same `!force` exit. `bugs_open/166` narrowed accordingly — the fix is one key
+  (`force_rerender: true`) on the detector's spec. I found it by dispatching the handler at a
+  real site and watching it report **COMPLETED while changing nothing**, which is the only
+  reason it is not still theoretical. **Reading a handler tells you what it would do; running
+  it tells you what its gates let it do.**

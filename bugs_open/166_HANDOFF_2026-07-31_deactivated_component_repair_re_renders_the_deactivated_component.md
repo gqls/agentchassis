@@ -9,6 +9,35 @@ existing ones and it does not make these items closable.
 detector that files an item its handler structurally cannot satisfy is worse
 than no detector, because the queue then reads as "known, being handled" for ever.
 
+> ## NARROWED 2026-07-31 (same day), after repointing the fleet by hand
+>
+> The owner's call was to repoint all 21 deactivated header/footer assignments, and
+> doing it exposed **two further gates**, both of which had to be cleared by hand.
+> Neither was visible from reading the check; both were found by dispatching
+> `rerender-pages` at a real site and watching it report COMPLETED while changing
+> nothing. **This is the more precise statement of the defect:**
+>
+> 1. **`rerender-pages` renders chrome only when `refresh_site_components` is true
+>    in `input_data`** — there is a `check_refresh_components` conditional gating the
+>    step. The detector DOES set it in its `SpecJSON`, so this half is correct by
+>    construction and is not the bug. But dispatch the handler without that key —
+>    as any hand-run or any other caller would — and the run completes having
+>    skipped chrome entirely, silently.
+> 2. **Even with the gate open and the assignment CORRECTED, the slot is skipped**,
+>    because `renderAndStoreSiteComponent`'s `!force` idempotence exit tests
+>    `rendered_html IS NOT NULL AND != ''` — not whether the component changed. A
+>    repointed slot still holds its old HTML, so it looks "already rendered". I had
+>    to NULL the stored artefact before the render would run.
+>
+> ⇒ **The repair needs `force_rerender: true`, and the detector does not set it.**
+> That is a one-key fix on the check's `SpecJSON` and it is now the cheapest
+> candidate. Without it, even the repoint this bug asks for does not reach the page.
+>
+> **Fix candidate 1 is DONE for the current fleet** (21 rows repointed, chrome
+> re-rendered on 11 sites, 28/28 header+footer slots now active — see
+> `bugs_closed/118`). What remains OPEN is the *mechanism*: the next deactivation
+> puts the fleet straight back, and the routed repair still cannot clear it.
+
 ## The defect
 
 `check_integrity.go:163` (`DeactivatedSiteComponentsCheck`) correctly finds every

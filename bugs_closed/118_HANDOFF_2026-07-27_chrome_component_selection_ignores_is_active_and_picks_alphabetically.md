@@ -5,7 +5,39 @@ edit to the active footer component changed nothing on any page.
 **Severity:** medium-high. It is fleet-wide, it silently overrides every deactivation of a
 chrome component, and it makes editing the *active* chrome component a no-op — so the
 natural repair for any chrome defect fails in a way that looks like the repair was wrong.
-**Status:** **FIXED IN CODE 2026-07-31, OPEN ONLY UNTIL THE CHASSIS ROLLS.** Commits
+**Status:** **CLOSED 2026-07-31 — FIXED, LIVE AND POD-VERIFIED on `v1.0.1219`, AND the fleet
+repaired.** Commits `b052249d8` + `a77034379` + `db0de5656`, council **APPROVED at round 1**
+(`5bc232d6-590a-4476-a6b1-4fb6f61751c6`, 5 advisory objections, 3 answered in code), concept
+register **CLC-013**, workstream
+`docs/agent_docs/docs024_key_docs_latest/bugfix_118_chrome_selection/`.
+
+**Live proof, at the artefact and not at the tag** (both replicas of `v1.0.1219`, positive
+control in the same exec): `no eligible component for function` = 1,
+`component_level IN ('site','header','footer','head')` = 1, `ineligible_chrome` = 1, control
+`RenderSiteComponentsAction` = 6.
+
+**Fleet repaired on the owner's call (2026-07-31, "repoint all eleven now"):** 21 assignments
+repointed under the `069` lock predicate — **11 footers** `footer-4-column` →
+`footer-theme-chrome`, **10 headers** `header-bold-gradient`/`header-professional-dark` →
+`header-theme-chrome`; `leopardessconsulting.co.uk` keeps its own active fork by
+`component_id`, which is exactly what a fork is for. Chrome re-rendered on all 11 sites.
+**Result: 28 of 28 header/footer slots across all 14 sites now render from an ACTIVE
+component; zero deactivated header/footer assignments remain.** Backup of the prior mapping:
+`site_components_repoint_backup_20260731`.
+
+**Verified at the artefact on the motivating site:** relojistas' stored footer now emits
+`<h4>Explore</h4>` (the documented tell of `footer-theme-chrome`) where it emitted
+`<h4>Our Services</h4>` (`footer-4-column`) for the previous eleven days — and the Contact
+column is correctly ABSENT, i.e. `bugs_open/111`'s gate finally working on the component that
+actually renders, which is the change whose silent failure filed this bug.
+
+**Two residuals, both filed, neither hidden:** `head` still has NO eligible component
+fleet-wide (13 assignments, both candidates `is_active=false`) — a library gap, not a
+selection bug; and **206 `page_rerender` items are queued at `triaged`** — the stored chrome
+is correct on every site but the DEPLOYED pages serve the old footer until those drain
+(`bugs_open/117`: chrome is a stored artefact; the queue is `bugs_open/149`'s lane).
+
+~~**FIXED IN CODE 2026-07-31, OPEN ONLY UNTIL THE CHASSIS ROLLS.**~~ Commits
 `b052249d8` + `a77034379`, council submission `5bc232d6-590a-4476-a6b1-4fb6f61751c6`,
 concept register **CLC-013**, workstream
 `docs/agent_docs/docs024_key_docs_latest/bugfix_118_chrome_selection/`.

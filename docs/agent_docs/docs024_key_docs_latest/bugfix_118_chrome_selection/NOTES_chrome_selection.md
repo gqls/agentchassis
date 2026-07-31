@@ -111,3 +111,57 @@ clauses and watching them go red.
 
 **Inert until a chassis image rolls.** The bug stays OPEN until then; a fix
 committed but not live leaves the defect reproducible, which is the standing bar.
+
+## 2026-07-31 (later) — it went live mid-session, and the owner said repoint everything
+
+The chassis rolled to **v1.0.1219** while I was mid-repoint discussion. Verified at
+the pod on **both replicas**, never at the tag: the three strings this change added
+are present (`no eligible component for function`, the level whitelist, the
+`ineligible_chrome` key) with `RenderSiteComponentsAction` = 6 as a positive
+control in the same exec. My commits (18:36/18:38/18:46 UTC) predate the pod start
+(19:09 UTC) — but that ordering is not evidence, which is exactly why the grep
+exists (`bugs_open/153`).
+
+Owner ruled: **repoint all eleven now.** Done — 21 assignments in one guarded
+UPDATE (11 footers + 10 headers; `head` cannot move, no eligible component exists),
+the WHERE carrying `pageComponentAgentWritableSQL`'s predicate verbatim so a locked
+slot would have been skipped. None were locked. Prior mapping saved to
+`site_components_repoint_backup_20260731`. Then chrome re-rendered on all 11.
+
+**Result: 28 of 28 header/footer slots across 14 sites now render from an ACTIVE
+component.** relojistas' stored footer emits `<h4>Explore</h4>` where it emitted
+`<h4>Our Services</h4>`, and its Contact column is correctly absent — `bugs_open/111`'s
+gate working at last on the component that actually renders, which is the change
+whose silent failure filed 118 in the first place.
+
+### Two gates the repoint exposed, which sharpen 166 considerably
+
+Neither was visible from reading the check. Both were found by dispatching the
+handler at a real site and watching it report COMPLETED while changing nothing.
+
+1. `rerender-pages` renders chrome only when `refresh_site_components` is true in
+   `input_data` — there is a `check_refresh_components` conditional in front of the
+   step. The detector sets it, so that half is right; any other caller gets a
+   silent skip.
+2. **Even with the gate open and the assignment already corrected, the slot is
+   still skipped**, because the `!force` idempotence exit tests `rendered_html IS
+   NOT NULL AND != ''` — not whether the component changed. A repointed slot holds
+   its old HTML, so it reads as "already rendered". ⇒ **the repair needs
+   `force_rerender: true` and the detector does not set it**, which is now 166's
+   cheapest fix candidate.
+
+### Misstep
+
+I NULLed leopardess' stored footer to get past gate 2 **without saving its
+contents first** — my backup table captured `component_id` only. The artefact is
+regenerable from the template (and it did regenerate), and deployed pages serve
+their own HTML so nothing outward-facing was at risk, but for a few minutes the
+site had no stored footer and I had no copy. Logged in `WRONG_CALLS.md`.
+
+### What is NOT done, and it is the honest half
+
+**Stored chrome is correct on every site; the DEPLOYED pages are not.** They still
+serve the old footer until the **206 `page_rerender` items** now sitting at
+`triaged` drain — `bugs_open/117` is why (chrome is a stored artefact) and
+`bugs_open/149` owns the queue. `curl relojistas.com` still shows `Our Services` as
+of 19:26 UTC. Do not read "28/28 slots active" as "the fleet looks right".
