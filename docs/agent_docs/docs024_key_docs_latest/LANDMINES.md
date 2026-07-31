@@ -815,3 +815,52 @@ source document and the entry points at it.
   exact bypass" this needed to close; a test proved that false before the
   comment shipped. `WRONG_CALLS.md` carries the full account
 - **added:** 2026-07-31, webdesign.uk lane
+
+### `provocations.json` hardcodes its own `generated_at` — the freshness check reads a literal
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/p4_sources/build_provocations.py`,
+  `https://vonc.com/data/provocations.json`, the field `generated_at`
+- **fires when:** verifying that vonc's daily provocation feed is fresh, or that
+  a regeneration actually regenerated anything. The natural check is
+  `curl -s .../provocations.json | jq .generated_at` — and a handoff in the
+  gauntlet lane recommends exactly that as its verification step 3
+- **the tell:** none from outside. `generated_at` is a **Python string literal**
+  (`"2026-07-26T00:00:00Z"`, `build_provocations.py:226`), not a computed value.
+  Re-run the builder today, tomorrow or next year and it emits that same
+  timestamp. **A file regenerated one minute ago and a file untouched for a month
+  are byte-identical in the field you are using to tell them apart** — the check
+  reports the stale one as fresh, for ever, and it looks like it passed
+- **the check:** date the feed from git, not from its own payload —
+  `gh api "repos/gqls/sites/commits?path=vonc.com/data/provocations.json"` — until
+  the field is made real. More generally: **before trusting any `generated_at` /
+  `updated_at` / `last_run` field, grep the producer for the literal.** A
+  self-reported timestamp is only evidence if something computes it
+- **source:** found 2026-07-31 picking up `gauntlet_dead_cta/HANDOFF_2026-07-30_B`,
+  whose own verification step this defeats. Fixing it is Phase 0 item 1 of
+  `provocation_pipeline/PLAN_2026-07-31_provocation_pipeline.md`
+- **added:** 2026-07-31, provocation_pipeline lane
+
+### vonc's provocation feed is read by the SERVER too — a client-side selector desyncs the game from the page
+
+- **footprint:** `internal/tools-api/handlers/round.go` (`FetchProvocation`,
+  `provocTTL`), `vonc.com/data/provocations.json`, the `today` key
+- **fires when:** adding rotation, A/B variants, personalisation or any
+  date-based selection to the provocation feed. Both vonc pages fetch this file
+  **client-side**, so every visible sign says it is a browser-only asset, and the
+  cheapest design — ship a pool in the JSON, pick by date in JS — looks obviously
+  correct
+- **the tell:** none at build time and none in the browser. `round.go:44`
+  independently fetches the same URL server-side, requires the single `today`
+  key, and caches it per-domain for 5 minutes. So a client-side selector makes
+  the page display provocation N while the Gauntlet engine argues provocation M.
+  **It only misfires on days when the selector's answer differs from `today`** —
+  so it will pass every test written on the day you build it, and the bug reads
+  as "the AI is answering the wrong question", pointing at the engine rather than
+  at the feed
+- **the check:** before treating any `/data/*.json` on a site as browser-only,
+  `grep -rn "<filename>" --include="*.go"`. If a Go service reads it, the file is
+  a **contract between two consumers**, and whatever chooses must run at
+  generation time and write the choice into the key the server reads
+- **source:** found 2026-07-31 planning provocation rotation; I had already
+  half-committed to the client-side design before grepping for consumers
+- **added:** 2026-07-31, provocation_pipeline lane

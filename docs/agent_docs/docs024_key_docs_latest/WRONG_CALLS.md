@@ -12585,3 +12585,55 @@ not just tests the code that assumes it.** Corrected in place in both the code c
 the test itself (renamed, since the old name asserted the disproved claim) rather than
 deleted — the corrected version explains what `Unmap()` is *actually* for, which is more
 useful than silence would have been.
+
+---
+
+## 2026-07-31 — a working page read as broken, because the number was right and the inference from it was not
+
+**The claim.** `gauntlet_dead_cta/HANDOFF_2026-07-30_B` told the next thread that
+vonc's `/provocations/index.html` "paints neither today's provocation nor,
+apparently, much else (1,293 chars of visible text)", and to "check what that page
+is actually showing before designing the archive; it may already be broken
+independently." I picked that handoff up and set out to confirm it.
+
+**False.** The page works. All 8 archive entries paint with date, title and
+teaser; 7 are openable and the 8th is deliberately non-openable because no case
+was written for it (the builder's documented behaviour). The empty state is
+correctly hidden. 1,293 characters is simply what 8 short entries plus chrome
+measures.
+
+**What caught it.** Rendering the page and printing 600 characters of DOM context
+around each match, rather than reading a count. Note the sequence, because the
+first two things I found were also wrong: `grep -c` said the empty-state string
+`"Nothing filed yet"` was present (it is — inside `hidden=""`), and that
+`"Nobody actually"` was present, which I read as today's headline leaking onto the
+archive page. It was the **29 Jun entry**, *"Nobody actually reads terms of
+service"*; today's headline is *"Nobody actually wants a personalised internet"*.
+A 15-character substring matched two different provocations. I then suspected a
+visible blank row, which turned out to be a correctly hidden
+`data-archive-template`. **Three false positives in one file before the real
+answer, all from the same habit of trusting a match without reading it.**
+
+**The cheap check that would have.** Print the context around a match before
+drawing any conclusion from its presence or its count. Two lines of Python.
+
+**The transferable bit, which is the reason this is worth a row.** The original
+measurement was **not wrong** — 1,293 chars is accurate, and today's provocation
+genuinely is not on that page. The probe was built to answer *"does today's
+headline leak here?"*, and its correct answer was "no". The error was reusing that
+run's incidental by-product — a character count — as evidence for a different
+question, *"is this page working?"*, which it was never designed to answer and for
+which a low number is not diagnostic. This is the family already in memory as
+[[check-answers-the-question-you-encoded]] and
+[[narrow-filter-defines-the-conclusion]], with a twist worth naming: here there
+was **no faulty filter to notice**. The instrument was sound and the number was
+true, so nothing looked suspicious. **A measurement's validity does not travel
+with the number to the next question you ask of it** — and a hedge ("apparently")
+does not stop a downstream thread acting on it, because the next reader inherits
+the claim and not the doubt.
+
+**Second, smaller, mine alone.** I had drafted a decision question for the owner
+whose framing rested on the page being broken. When the correction landed I
+updated the facts in my notes and **did not re-read the question built on them** —
+the superseded premise went out in the question. Re-read outward-facing artefacts
+after a correction, not just the notes where you recorded it.
