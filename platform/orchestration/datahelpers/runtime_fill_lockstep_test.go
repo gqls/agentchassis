@@ -32,12 +32,39 @@ import (
 	"testing"
 )
 
-// rawMarkerTest matches a marker test written as a bare string comparison —
-// the shape that has no scope in its name.
-var rawMarkerTest = regexp.MustCompile(`(?i)(strings\.)?(Contains|HasPrefix|HasSuffix|Index)\s*\([^)]*"data-runtime-fill"`)
+// rawMarkerTest matches a marker test written as a bare string comparison OR as
+// a compiled regexp — the shapes that carry no scope in their name.
+//
+// THE REGEXP ALTERNATIVE IS NOT DECORATION, and finding out it was missing is
+// worth more than the gate itself. The first version of this test matched only
+// Contains/HasPrefix/HasSuffix/Index, reported the tree clean, and I was one
+// step from submitting a count of call sites derived from it — while
+// rerender_single_page_action.go was testing the same marker through
+// `regexp.MustCompile("(?i)data-runtime-fill")`. A gate that proves an absence
+// only for the spellings it happens to search is this bug's own defect one level
+// up. The manifest was therefore re-derived by grepping the LITERAL across the
+// repo, not by trusting this pattern.
+var rawMarkerTest = regexp.MustCompile(
+	`(?i)((strings\.)?(Contains|HasPrefix|HasSuffix|Index)\s*\([^)]*"data-runtime-fill"` +
+		"|regexp\\.MustCompile\\s*\\(\\s*[`\"][^`\"]*data-runtime-fill)")
 
 // thisFileOwnsTheMarker is where the raw literal is allowed to live.
 const thisFileOwnsTheMarker = "runtime_fill.go"
+
+// allowedRawMarkerSites are the sites deliberately left raw, each with the
+// reason it cannot simply be renamed. An entry here is a decision on the record
+// — which is the point. An allow-list with no escape hatch just pressures the
+// next author into weakening the pattern instead.
+var allowedRawMarkerSites = map[string]string{
+	// sectionHasVisibleContent asks the SECTION question ("keep this section in
+	// the assembled page?"), so whole-input is already the right scope. It stays
+	// a regexp rather than becoming HasRuntimeFillMarker because its (?i) makes
+	// it the ONLY case-insensitive marker test in the tree: swapping it for the
+	// case-sensitive predicate would be a silent behaviour change to the page
+	// assembler, smuggled in under a scope fix. Recorded as a divergence to
+	// decide on its own (bugs_open/137, council round 2).
+	"rerender_single_page_action.go": "section question; the tree's only (?i) test — see bugs_open/137",
+}
 
 func TestNoRawRuntimeFillMarkerTestOutsideThisPackagesPredicate(t *testing.T) {
 	// Walk the two platform trees that hold every consumer. Repo-relative from
@@ -63,7 +90,11 @@ func TestNoRawRuntimeFillMarkerTestOutsideThisPackagesPredicate(t *testing.T) {
 				return nil
 			}
 			seen[abs] = true
-			if filepath.Base(path) == thisFileOwnsTheMarker || strings.HasSuffix(path, "_test.go") {
+			base := filepath.Base(path)
+			if base == thisFileOwnsTheMarker || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			if _, allowed := allowedRawMarkerSites[base]; allowed {
 				return nil
 			}
 			src, rerr := os.ReadFile(path)
