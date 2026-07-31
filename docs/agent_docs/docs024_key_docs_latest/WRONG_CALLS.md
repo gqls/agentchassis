@@ -13945,3 +13945,24 @@ missing before building it**, the same way you verify the bug is still valid.
   *excluding the file the function is defined in* (I was trying to filter out the
   definition line) and concluded it was dead code. It has two live callers. **Filter a
   grep's OUTPUT, never its INPUT, when the question is "does anything call this?"**
+
+- **2026-07-31 — a backtick in a `git commit -m` executed, and ate a word out of the
+  closing commit message for `bugs_open/125`** (session "bugfix 8"). I wrote
+  ``starts from `pages` rows`` inside a double-quoted `-m`; bash ran `pages` as a command
+  (`/bin/bash: line 46: pages: command not found`) and substituted its empty output, so
+  commit `1fd2d0d15` permanently reads *"starts from\n rows"*. Forward-only forbids an
+  amend, so it stays.
+  **What caught it:** the `command not found` line in the tool output — visible only
+  because I read the output rather than just checking the exit code. The commit itself
+  succeeded, so exit status said nothing.
+  **The aggravating part, and the reason this is worth a row rather than a shrug:** this
+  exact trap is **already in my auto-loaded memory index**
+  (`shell-tool-traps-committing.md`, "backticks in `-m` execute") and it is in CLAUDE.md's
+  own landmine family. I had read it this session. Knowing a landmine and *not having a
+  mechanical habit* are different states — I got it right in nine earlier commits by
+  accident of phrasing, not by design.
+  **The cheap check that would have:** never use backticks in a `-m` string. Markdown
+  backticks are worthless in a commit message anyway — `git log` renders them literally —
+  so the rule is simply **no backticks in commit messages, ever**; use plain words or
+  quotes. For a long message, write it to a file and use `git commit -F <file>`, which
+  cannot substitute anything.
