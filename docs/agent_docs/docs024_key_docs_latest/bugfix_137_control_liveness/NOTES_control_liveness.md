@@ -353,3 +353,71 @@ Checked before writing it down, which is the only reason this is a note rather
 than a false accusation in `WRONG_CALLS.md`. Incidentally it also dates the
 staleness of my own bug-selection scan: **118 was on my "zero engagement" list at
 18:20 and had a committed fix by 19:36.**
+
+---
+
+## Council round 4 — APPROVED, and the advisories were worth more than the verdict
+
+9 approve / 5 advisory, none high-severity. **Three of the five advisories were
+worth acting on, and one of them caught a false claim**, so an approval is not a
+signal to stop reading:
+
+- **`architecture`'s RFC-threshold note was claimed and not written.** I wrote
+  *"Agreed and written into `runtime_fill.go`"* in the round-4 rationale and had
+  not written it. The seat compared my sketch against my prose and said so. Now
+  written. Logged in `WRONG_CALLS.md` — this is the "a claim about behaviour is
+  NOT the behaviour" family aimed at a *reviewer*, which is worse than aiming it
+  at a doc, because a submission is evidence.
+- **`reuse_agent` asked whether the PARSING mechanism duplicated something**, as
+  opposed to the enforcement mechanism it had already made me move. It had not
+  occurred to me. Checked: no quote-aware tag-boundary scanner exists in the tree
+  (`links.go` and `link_repair.go` both use bare regexes a `>` inside an attribute
+  value would defeat). The answer belonged in the file, not in my head.
+- **`bug_historian` cited a landmine where an all-skipped fence PASSES**, which
+  would make the FAIL→SKIP decision unsafe. I had *asserted* `experienceVerdict`
+  requires a PASS without reading it. It does —
+  `verify_site_experience_action.go:381-390`, `len(Passed)==0` → `inconclusive`,
+  never `verified`. The claim survived, but on a reading I only did because
+  someone asked.
+
+The `strip_comments` landmine's four controls were run on the new lint check:
+(a) a genuine raw site fires, (b) an allow-listed one does not, (c) a file whose
+*comment* mentions the marker does not, (d) the motivating files are clean. Safe
+because this check searches the stripped text for the **offence** — the direction
+that landmine says is suppress-only.
+
+## Post-roll verification — LIVE on v1.0.1223, and BOTH branches induced
+
+| symbol | k7wnd | nd4cw | on v1.0.1218 |
+|---|---|---|---|
+| `RuntimeFillSpans` | 2 | 2 | 0 |
+| `DeadControlAnchorsOutsideRuntimeFill` | 2 | 2 | 0 |
+| `HasRuntimeFillMarker` | 1 | 1 | 0 |
+| `DeadControlAnchors` (**control**) | 4 | 4 | 2 |
+
+**The timestamps lie and the grep does not.** Two of my commits postdate the
+20:20 build (`5ade3b827` 20:30, `700fcb750` 20:44), which looks like a partial
+deploy. Neither is behavioural — the first touched `scripts/pattern-check.py` and
+deleted a `_test.go`, neither compiled into the chassis; the second added
+comments, verified by diffing it. **I checked that empirically rather than
+reasoning from the clock**, which is the whole point of the pod-grep rule.
+
+| live artefact | old | new | dead controls |
+|---|---|---|---|
+| `vonc.com/index` (assembled, 48,956 B) | 100% exempt | 12.6% | **2** — "Get Started", "Learn More" |
+| `provocations-archive-list` (a shell, 7,684 B) | 100% exempt | 18.2% | **0** |
+
+**The second row is the load-bearing one.** The first is satisfied equally by a
+change that *deleted* the exemption; only the second distinguishes "narrowed"
+from "removed". That asymmetry is the same one the mutation tests were built
+around, and it is why the bug file demanded both.
+
+*Stated rather than glossed:* both rows were computed by running the deployed
+predicate from source, not from inside the pod — the discovery checks only run
+when an agent runs them. The pod-grep establishes the code is in the binary, the
+predicate is pure, and the source differs from the built commit only by comments.
+That is the strongest check available short of waiting for a scheduled run.
+
+**CLOSED** — moved to `bugs_closed/`, both paths named on the commit per the
+`git mv` landmine, and verified at HEAD with `git ls-tree` (exactly one file)
+rather than at the tree, where a half-committed move looks perfect.
