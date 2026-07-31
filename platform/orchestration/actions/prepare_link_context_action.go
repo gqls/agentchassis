@@ -32,6 +32,27 @@ const (
 // empty list and a logger.Warn nobody reads. bugs_open/092.
 const linkContextUnavailableCode = "LINK_CONTEXT_UNAVAILABLE"
 
+// linkablePageStatusPredicate is the ONE definition of "a page that may be
+// linked to", shared by the two functions that must never disagree about it:
+//
+//	loadValidPagePaths (validate_page_content.go) — decides what the deploy gate
+//	    calls a phantom_link;
+//	loadLinkablePages (below)                     — decides what the writer is
+//	    told it may link to.
+//
+// If those two sets diverge, a writer that obeys its instructions has its links
+// flagged by the gate, or worse, links the gate would have caught. A comment
+// asking two copies to stay in step is not a mechanism — this constant is, and
+// it exists because the council's reuse seat objected to the copy (round 1,
+// `4b8c5e21-011b-40f0-819a-3dfa4b4c7b1d`) and was right to.
+//
+// It is a predicate FRAGMENT rather than a shared query because the two callers
+// genuinely need different projections: the gate wants urls only, indexed by
+// normal form; the writer needs title and description for the prompt. Factoring
+// the whole query would force one shape on both. Safe to concatenate: it is a
+// compile-time constant with no caller input in it.
+const linkablePageStatusPredicate = `status NOT IN ('deleted', 'archived')`
+
 // maxLinkablePagesInPrompt bounds how many pages may be listed in one prompt.
 // Inert today — the largest site in the fleet has 99 linkable pages (measured
 // 2026-07-31, mean 30) — and present so a news or tool site that grows into the
@@ -292,13 +313,19 @@ func resolveLinkContextSiteID(params ActionParams) string {
 // loadLinkablePages returns the pages this site's writer may link to, newest
 // truth from the pages table.
 //
-// The predicate is COPIED FROM loadValidPagePaths (validate_page_content.go) on
-// purpose, and the two must stay identical: that function decides what the
-// deploy gate calls a phantom_link, so any divergence produces links the writer
-// was told to emit and the gate then flags. Measured 2026-07-31, the fleet has
-// exactly two page statuses — active (449) and archived (23) — so this predicate
-// and loadActivePagesForLinkContext's status='active' are the same set today;
-// this one is used because it is the gate's.
+// The predicate is the SHARED linkablePageStatusPredicate, the same constant
+// loadValidPagePaths (validate_page_content.go) uses to decide what the deploy
+// gate calls a phantom_link — so divergence is not merely discouraged, it is
+// unrepresentable. Measured 2026-07-31, the fleet has exactly two page statuses
+// — active (449) and archived (23) — so this and loadActivePagesForLinkContext's
+// status='active' are the same set today; the gate's is the one that is shared,
+// because agreeing with the gate is the property that matters, not strictness.
+//
+// Note this is pages.status, which IS load-bearing (dispatch and
+// validate_page_content both branch on it) — not the sites.status informational
+// column whose landmine warns that filtering on it silently blinds a query. The
+// analogy is inverted here; stated rather than assumed, per the debug_historian
+// seat's round-1 objection.
 //
 // Returns (pages, omittedByCap, error). An error means the list is NOT
 // trustworthy and the caller must treat the context as unavailable rather than
@@ -317,7 +344,7 @@ func loadLinkablePages(ctx context.Context, db *sql.DB, siteID uuid.UUID, limit 
 		       COALESCE(meta_description, '') AS description
 		FROM pages
 		WHERE site_id = $1
-		  AND status NOT IN ('deleted', 'archived')
+		  AND `+linkablePageStatusPredicate+`
 		  AND COALESCE(url, '') <> ''
 		ORDER BY COALESCE(nav_order, 100) ASC, name ASC
 		LIMIT $2

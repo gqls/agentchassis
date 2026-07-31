@@ -1252,8 +1252,7 @@ func checkTextLength(html string) []ValidationIssue {
 func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) (datahelpers.PageURLIndex, bool) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT url FROM pages
-		WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
-	`, siteID)
+		WHERE site_id = $1 AND `+linkablePageStatusPredicate, siteID)
 	if err != nil {
 		logger.Warn("Failed to load pages for validation — link check and repair SKIPPED",
 			zap.Error(err))

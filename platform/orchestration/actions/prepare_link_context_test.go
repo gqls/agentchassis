@@ -433,7 +433,68 @@ func TestPrepareLinkContextFallsBackToCollectedDataWithoutADatabase(t *testing.T
 }
 
 // ---------------------------------------------------------------------------
-// 6. The explicit opt-out still says nothing, which is the one correct silence
+// 6. The writer's allow-list and the gate's accept-set are ONE predicate
+// ---------------------------------------------------------------------------
+
+// The council's reuse seat objected (round 1) that copying the gate's predicate
+// with a comment asking the two to stay in step is the founding drift shape —
+// two copies of one SQL clause, diverging later. It was right. The predicate is
+// now a shared constant, and this test is what makes that a mechanism rather
+// than a second comment: it drives BOTH functions and requires the constant's
+// text to appear in each query.
+//
+// MUTATION-CHECKED 2026-07-31, and the first claim I wrote here was WRONG, so
+// read what this does and does not catch:
+//
+//	CAUGHT — divergence. Changing either query's predicate (tried: adding
+//	  'draft' to the gate's list) fails this test. That is the property that
+//	  matters: the writer's allow-list and the gate's accept-set must be one set.
+//	NOT CAUGHT — re-inlining the identical literal in place of the constant.
+//	  I predicted this would fail and it passed, because the matcher compares
+//	  TEXT and the inlined text still agrees. On reflection that is correct
+//	  behaviour, not a hole: two copies that say the same thing have not drifted.
+//	  The constant is what makes drift unlikely; this test is what makes it loud.
+func TestGateAndWriterShareOnePageEligibilityPredicate(t *testing.T) {
+	if !strings.Contains(linkablePageStatusPredicate, "status NOT IN") {
+		t.Fatalf("the shared predicate no longer looks like a status filter: %q", linkablePageStatusPredicate)
+	}
+
+	// The gate's side.
+	gateDB, gateMock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer gateDB.Close()
+	gateMock.ExpectQuery(regexp.QuoteMeta(linkablePageStatusPredicate)).
+		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("/index.html"))
+
+	if _, ok := loadValidPagePaths(context.Background(), gateDB, uuid.New(), zap.NewNop()); !ok {
+		t.Error("loadValidPagePaths reported an untrustworthy set on a clean load")
+	}
+	if err := gateMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the deploy gate's query does not carry the shared predicate: %v", err)
+	}
+
+	// The writer's side.
+	writerDB, writerMock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer writerDB.Close()
+	writerMock.ExpectQuery(regexp.QuoteMeta(linkablePageStatusPredicate)).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "url", "title", "description"}).
+			AddRow("index", "/index.html", "Home", ""))
+
+	if _, _, err := loadLinkablePages(context.Background(), writerDB, uuid.New(), 10, zap.NewNop()); err != nil {
+		t.Errorf("loadLinkablePages: %v", err)
+	}
+	if err := writerMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the writer's query does not carry the shared predicate: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 7. The explicit opt-out still says nothing, which is the one correct silence
 // ---------------------------------------------------------------------------
 
 func TestPrepareLinkContextDisabledEmitsNothing(t *testing.T) {
