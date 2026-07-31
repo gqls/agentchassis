@@ -27,6 +27,19 @@ say()  { printf '%s\n' "$*"; }
 bad()  { printf 'FAIL: %s\n' "$*"; FAIL=1; }
 good() { printf 'ok:   %s\n' "$*"; }
 
+# psql helper, defined HERE (before section 2) rather than mid-file.
+# ⚠ WHY: I first wrote section 2's landmine count using a helper named `q` that is defined
+# in a DIFFERENT script in this directory, and `psql_do` below was defined AFTER the point
+# of use. The result printed "ok: corpus intact at ? rows" — a GREEN line wrapped around a
+# measurement that had failed with `q: command not found` on stderr. Ninth instance in two
+# days of the one class this lane exists to defeat, and this one I introduced while fixing
+# a different staleness in the same file. `</dev/null` on the call matters too: it is used
+# inside a `while read` loop, and `kubectl exec -i` will otherwise eat the loop's stdin.
+psql_do() {
+  kubectl -n "$NS" exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A -v ON_ERROR_STOP=1 -c "$1" 2>&1 </dev/null
+}
+
 say "=== 1. Is the Go half in the RUNNING chassis? ==================================="
 # WHY THIS IS A BUILD-DATE CHECK AND NOT A STRING GREP. All three obvious markers were
 # tried against the live binary on 2026-07-30 and every one of them FAILED as a marker:
@@ -105,7 +118,13 @@ SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
  ORDER BY conname;" 2>/dev/null | while IFS='|' read -r name def; do
   [ -z "$name" ] && continue
   case "$name:$def" in
-    doc_notes_subject_type_check:*landmine*) good "$name still allows 'landmine' (the 57-row corpus is safe)";;
+    doc_notes_subject_type_check:*landmine*)
+      LM=$(psql_do "SELECT count(*) FROM doc_notes WHERE categories ? 'landmine';" | tr -dc '0-9')
+      if [ -n "$LM" ]; then
+        good "$name still allows 'landmine' — corpus intact at $LM rows (LIVE count: read 57 on 07-30, 190 on 07-31 — never hardcode it)"
+      else
+        bad "$name allows 'landmine' BUT the corpus count could not be measured — do not read this as intact"
+      fi;;
     doc_notes_subject_type_check:*)          bad  "$name does NOT allow 'landmine' — 273 will refuse, and it is right to; apply 270 first";;
   esac
   case "$def" in
@@ -138,11 +157,6 @@ say "=== 4. THE DEFINITIVE CHECK — RUN, not printed ==========================
 #   constraint widened -> the INSERT MUST succeed and read back (the green half)
 # A probe that can only ever pass is the thing this lane exists to refuse.
 PROBE_KEY='__verify273_probe__'
-psql_do() {
-  kubectl -n "$NS" exec -i postgres-clients-0 -- \
-    psql -U clients_user -d clients_db -t -A -v ON_ERROR_STOP=1 -c "$1" 2>&1
-}
-
 WIDENED=$(psql_do "SELECT pg_get_constraintdef(oid) LIKE '%component%'
                      FROM pg_constraint
                     WHERE conrelid='public.doc_plans'::regclass
@@ -188,7 +202,16 @@ if [ "$FAIL" -ne 0 ]; then
   say "RESULT: DO NOT APPLY migration 273. Fix the above first."
   exit 1
 fi
-say "RESULT: pre-flight clear — safe to apply migration 273, then do section 4."
-say "After applying, re-run this script: section 2 should then report 'component' on BOTH"
-say "constraints, and 'landmine' still present on doc_notes."
+if [ "$WIDENED" = "t" ]; then
+  say "RESULT: 273 is ALREADY APPLIED and the DB half is PROVEN — the probe in section 4"
+  say "wrote and read back a subject_type='component' PLAN."
+  say "STILL UNVERIFIED, and it is the only half left: the GO gate. Read a component PLAN"
+  say "back through load_doc_context and confirm docSubjectGateReason no longer returns"
+  say "'unsupported subject_type'. Until then the Go half rests on build date alone, which"
+  say "section 1 says is necessary and not sufficient."
+else
+  say "RESULT: pre-flight clear — safe to apply migration 273, then re-run this script:"
+  say "section 2 should report 'component' on BOTH constraints with 'landmine' still on"
+  say "doc_notes, and section 4's probe should flip from refusing to writing."
+fi
 exit 0

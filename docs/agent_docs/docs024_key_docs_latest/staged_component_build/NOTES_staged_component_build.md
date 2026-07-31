@@ -707,3 +707,66 @@ red/green. Left for whoever picks up the S4 rewrite.
 > all in the detector I built to catch the class. That is not an argument that the discipline
 > is working; it is an argument that **nothing here should be trusted until it has been
 > watched to fail**, including — especially — the things I write to do the watching.
+
+## 2026-07-31 (afternoon) — MIGRATION 273 APPLIED. `subject_type='component'` is LIVE on the DB half
+
+**The prediction held: it shipped on someone else's roll.** New chassis pods
+(`59d6ddc8bb-*`) built **07-31 07:58:44 UTC**, after the Go half's commit at 07-30 19:28 —
+another session rolled v1.0.1207 and carried my change with it. I never rolled anything,
+which was the whole point of not doing so unilaterally.
+
+**Applied by hand, deliberately, following migration 270's precedent.** The runner has no
+single-file apply, and its `--apply` takes **every** pending file — the dry run showed
+several that are not mine and are not safe: `265_asset_ingest_staging` already applied,
+`266_asset_deployer_ingest_mode` probe-inconclusive ("the chain has changed since this
+migration was written"), `269_orphan_element_refs…` probe-inconclusive, `274` contains its
+own ROLLBACK, `275_oufe_tool_relevant_alternative` **has a syntax error**. So:
+`psql -f` the one file, then `--record-only` with a note saying why.
+
+**Its own dry-run probe passed first** (*"ran to its own COMMIT without error (everything
+rolled back)"*), then the real apply: `DO / ALTER ×4 / COMMIT`.
+
+**Verified, at the artefact rather than the status:**
+- both CHECKs now allow `component`; **`doc_notes` kept `landmine`** — the thing the
+  migration's guard existed to protect;
+- **the landmine corpus is intact at 190 rows.** Note it read **57** yesterday. The figure
+  moved 3.3× in a day, which is exactly why the migration guards on the *value* being
+  present rather than on a count;
+- **the gate's probe flipped from its red half to its green half**: yesterday *"correctly
+  REFUSED by doc_plans_subject_type_check"*, today *"wrote AND read back a
+  subject_type='component' PLAN — the vocabulary works"*. **That is the red/green pair the
+  council asked for, completed across the two states.**
+
+**A duplicate migration number exists and I am leaving it alone.** Another session created
+`273_fix_proposer_plan_repair_loop.sql` after I took 273. Checked rather than assumed: it
+does **not** touch `doc_plans_subject_type_check` (0 matches), so the lockstep test still
+resolves to mine and **passes**. Renumbering another thread's committed file is not mine to
+do; the ledger keys on filename, so both record cleanly.
+
+**STILL UNVERIFIED, and the script now says so in its RESULT rather than declaring
+success: the GO half.** The probe writes through `psql`, which bypasses
+`docSubjectGateReason` entirely. Build date says the binary *can* carry the vocabulary;
+nothing yet proves it *does*. The definitive check is to read a component PLAN back through
+`load_doc_context`. **Until that is watched, "component travelling docs work" is a claim
+about the database only.**
+
+### Ninth instance, and I introduced it while fixing a staleness in the same file
+
+Two stale things in my own gate output needed fixing: a **hardcoded "57-row corpus"** (the
+lane's own rule — never hardcode a count) and a RESULT line still telling the reader to
+apply an already-applied migration. Fixing the first, I called a helper named `q` that is
+defined in **a different script in the same directory**, and the script's own `psql_do` was
+defined *below* the point of use. Result:
+
+> `ok:   doc_notes_subject_type_check still allows 'landmine' — corpus intact at ? rows`
+
+**A green `ok:` line wrapped around a measurement that had failed** with
+`q: command not found` on stderr. Ninth instance in two days, and the second one I have
+introduced *inside the detector built to catch the class*. Fixed three ways: helper defined
+once at the top; `</dev/null` on it because it runs inside a `while read` loop that
+`kubectl exec -i` would otherwise starve; and **a failed count now reports `bad`, not `ok`**
+— "allows landmine BUT the corpus count could not be measured — do not read this as intact".
+
+The rule that keeps earning its place: **a check must not be able to say `ok` about
+something it did not measure.** Printing the number is not enough if the code path that
+prints it can also print `?`.
