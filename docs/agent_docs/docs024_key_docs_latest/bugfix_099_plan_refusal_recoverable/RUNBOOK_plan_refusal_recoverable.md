@@ -146,6 +146,81 @@ by hand. **The `note_kind` filter is not optional** — see `LANDMINES.md`.
 
 ## Verify the fix on the failing branch (the only test that counts)
 
+> **CORRECTION 2026-07-30 — 099's stated verification CANNOT prove candidate 2, and
+> would return a false PASS.** The bug file says to re-fire work item
+> `7b89fb35-f42c-45d1-b64d-214aff56d918` and require a `fix_plan` artifact plus no
+> `complete_refused`. That procedure was written for **candidate 1**, and candidate 1
+> **worked** — the file records the re-fired run clearing `persist_plan` and writing
+> an artifact, and the rule is still live in the design step today (path-qualified
+> check below returns `t`). So that run now takes the **success** path: it satisfies
+> both pass conditions while the repair loop **never fires**. Green, and blind.
+>
+> ```sql
+> SELECT (default_config->'workflow'->'steps'->'design'->'config'->>'prompt_template')
+>        ILIKE '%ONE EDIT PER FILE PER STAGE%' AS rule_in_design_step
+>   FROM agent_definitions WHERE type='feature-designer'
+>    AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+> -- t  (checked 2026-07-30)
+> ```
+>
+> Candidate 2 must be proved by **inducing** a refusal, and deliberately by a
+> DIFFERENT rule from the one candidate 1 taught — being rule-agnostic is the whole
+> claim.
+
+### Induce a repairable refusal (the discriminating test)
+
+Set the per-stage edit cap to 1, so any natural multi-edit stage trips it. This is
+repairable **without losing scope** — the designer moves edits into further stages,
+which is exactly what the repair prompt tells it to do, and `max_stages` (6) leaves
+room.
+
+```sql
+-- ARM (remember to disarm; take a snapshot first if you are nervous)
+UPDATE agent_definitions
+   SET default_config = jsonb_set(default_config,
+         '{workflow,steps,persist_plan,config,max_edits}', '1'),
+       updated_at = now()
+ WHERE type='feature-designer' AND deleted_at IS NULL
+   AND COALESCE(is_snapshot,false)=false;
+```
+
+Fire the designer, then require **ALL FOUR** — the first two are 099's, the last two
+are what make it discriminating:
+
+3. a refusal note EXISTS, i.e. the mechanism actually **fired**:
+
+```sql
+SELECT created_at, metadata->>'problem_count', metadata->'problems'
+  FROM diagnosis_artifacts
+ WHERE kind='iteration_note' AND metadata->>'note_kind'='plan_validation_refusal'
+   AND correlation_id='<FEATURE_CORR>';
+-- expect >=1 row naming the per-stage cap
+```
+
+4. and the run reached `repair_plan` — the whole point:
+
+```sql
+SELECT jsonb_object_keys(collected_data) FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id'='<FEATURE_CORR>';
+-- expect the step trail to include repair_plan
+```
+
+```sql
+-- DISARM (back to the default)
+UPDATE agent_definitions
+   SET default_config = jsonb_set(default_config,
+         '{workflow,steps,persist_plan,config,max_edits}', '8'),
+       updated_at = now()
+ WHERE type='feature-designer' AND deleted_at IS NULL
+   AND COALESCE(is_snapshot,false)=false;
+```
+
+**Gotcha:** `max_edits` is the PER-STAGE cap on the staged path and the whole-plan cap
+on the legacy single-plan path (D3) — the same knob means two things. 8 is the
+default in both the action and the input spec, so restore to 8, not to absent.
+
+### The original criteria (necessary, not sufficient)
+
 Per 099's own "how to verify", require **BOTH**:
 
 ```bash

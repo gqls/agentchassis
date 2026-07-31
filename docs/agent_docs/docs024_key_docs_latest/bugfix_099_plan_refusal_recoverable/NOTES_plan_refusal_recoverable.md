@@ -299,3 +299,20 @@ and re-verified `iteration_note` still has no Go reader outside my file.
 otherwise have failed silently, a deduplicated counter, an observability surface, and
 a sibling migration. Three of the five objections were things I could have measured
 and hadn't.**
+
+### My WRONG_CALLS append was swept into another lane's commit
+
+Committed my round-1 record with three pathspecs; only two files changed. The
+`WRONG_CALLS.md` entry was already in HEAD — carried in by `15c6cf317`
+("prove(S6 in the cluster)"), an unrelated lane's commit, between my append and my
+commit.
+
+This is the hazard CLAUDE.md states outright: *"Committing per task stops YOU
+sweeping up OTHERS' WIP; it cannot stop a session that still runs `git add -A` from
+sweeping up YOURS."* Nothing is lost and forward-only still holds, so there is
+nothing to do about it — recorded because the documented risk actually firing is
+worth a data point, and because anyone auditing who wrote that entry will find the
+wrong session on the commit.
+
+Not logged in `WRONG_CALLS.md` itself: I did not make an error, and that file is for
+claims of mine that turned out false.
