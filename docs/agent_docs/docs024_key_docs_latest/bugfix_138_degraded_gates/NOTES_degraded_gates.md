@@ -505,3 +505,47 @@ GROUP BY 1 ORDER BY 1;
 ```
 Cutover for the fleet-wide batch: **2026-07-31 18:16:46–18:16:53**
 (`agent_definitions.updated_at`). Compare rounds spawned either side, by SPAWN time.
+
+### 2026-07-31 ~19:15 — first read on the fleet-wide rollout. The feared trade did NOT happen.
+
+Another chassis build (replicaset `59cb674798`, pods 19:09). **FIX-055 survived it too** —
+markers present on both, control non-zero in the same exec. Second consecutive build
+checked; this is cheap and it is the only thing that would catch a rebuild from an older
+ref silently removing a live fix.
+
+**The `true` branch has still never fired: 0 all-time.** 138 stays open on that alone.
+
+9 council rounds have run since the 18:16:53 cutover, so the watch I set is answerable.
+Split by **round spawn time**, all rounds in the last 4 days:
+
+| | rounds | reviews | mean objections/review | reviews raising ≥1 | degraded |
+|---|---|---|---|---|---|
+| BEFORE rollout | 30 | 331 | 0.82 | 156 (47.1%) | 3 |
+| AFTER rollout | 9 | 107 | **1.04** | 57 (53.3%) | 0 |
+
+| | calls | mean tokens | p95 % of cap | peak % of cap | truncated |
+|---|---|---|---|---|---|
+| BEFORE rollout | 349 | 3,854 | 76.4% | 99.8% | 0 |
+| AFTER rollout | 113 | **3,307** | **61.9%** | 72.8% | 0 |
+
+**So: replies got ~14% shorter and objections went UP.** That is precisely what the block
+asks for — "cut words, never findings" — and it is the opposite of the failure I named
+when rolling it out. The coverage risk has not appeared in the first 9 rounds.
+
+**Three things I am NOT claiming, and one of them I nearly did.**
+
+1. **The peak drop 99.8% → 72.8% is NOT evidence.** A maximum grows with the sample, and
+   the BEFORE arm has 349 calls against 113. That comparison is worthless in this
+   direction and I have now documented the same error twice today in other contexts.
+   **The defensible statistics are the mean (3,854 → 3,307) and the p95 (76.4% → 61.9%)**,
+   neither of which is an extreme-value statistic.
+2. **Objections rising is not evidence the budget improves reviews.** Objection counts
+   depend mostly on what was submitted, and 9 rounds cannot control for submission
+   quality. The honest reading is narrow and still worth having: *the collapse in coverage
+   I flagged as this rollout's characteristic risk has not occurred*, and the direction is
+   mildly reassuring. That is a refuted worry, not a demonstrated benefit.
+3. **`degraded` 3 → 0 is not significant.** The base rate is ~0.9% of reviews, so ~1 is
+   expected in 107. Zero is consistent with no change at all.
+
+**Re-check in a few days** when the AFTER arm is comparable in size — the mean and p95 are
+the columns to read, and the objection rate is the column that must not fall.
