@@ -109,44 +109,49 @@ func measureLinkRegistryCompleteness(ctx context.Context, db *sql.DB, pageID uui
 }
 
 // enforceLinkRegistryFloor is the guard, called immediately before syncLinksToDB.
-// It returns the numbers for the action's result and a bool saying whether the
-// sync may proceed. A refused sync is SKIPPED, not failed.
+// It returns the numbers for the action's result on a pass, and an error on a
+// refusal — at which point the caller must return without deleting or inserting.
 //
 // FAILS CLOSED on an unmeasurable floor, for the same reason as its siblings: the
 // measurement is the only thing standing between a half-blind extractor and an
 // emptied registry, so when it cannot be taken the destructive half must not run.
-// "Fails closed" here means the SYNC is skipped, not that the action errors.
 //
-// WHY THIS ONE SKIPS WHERE SITES A AND B FAIL THE STEP — and this is the
-// COUNCIL'S CORRECTION, not the original design (corr
-// c69e935a-7134-45c1-81c3-2f1da7831827, guardian seat, round 1: "link_registry
-// sync is currently inert … the failure mode only activates later, unobserved").
-// Measured while answering it:
+// THE CONTRACT IS AN ERROR, IDENTICAL TO SITES A AND B, and getting here took two
+// council rounds on corr c69e935a-7134-45c1-81c3-2f1da7831827. Round 2 made this
+// one return (detail, bool) and SKIP the sync instead, because measurement showed
+// its only live caller is nested — multipage-website-builder, at
+// workflow.steps.generate_pages_loop.config.substeps.extract_links — and that loop
+// sets no continue_on_error and the substep no error_step, so by coordinator.go's
+// routing (shouldContinueLoopOnError false, routeToErrorStepOrFail falling through
+// to failWorkflow) an error fails the WHOLE site build over one page's links.
 //
-//   - This action is reachable from exactly ONE live agent, and it is NESTED:
-//     multipage-website-builder, at
-//     workflow.steps.generate_pages_loop.config.substeps.extract_links.
-//   - That loop sets NO continue_on_error, and the substep sets no error_step.
-//     So by coordinator.go's own routing (shouldContinueLoopOnError -> false,
-//     routeToErrorStepOrFail -> failWorkflow) an error here does not fail one
-//     page — it FAILS THE WHOLE SITE BUILD, mid-loop.
+// FOUR SEATS RULED THAT REASONING BACKWARDS AND THEY WERE RIGHT. The rationale
+// named the real cause — the loop has no per-substep error routing — and then
+// stepped around it instead of repairing it (constitution, HIGH). It also turned a
+// refusal into a success-shaped return whose only signal is a queue
+// (bug_historian, HIGH), invented a second failure semantics for one caller of a
+// shared mechanism (architecture, and bug_historian's 093 parallel), and swapped a
+// compiler-enforced error for a bool any future caller can ignore.
 //
-// Killing a site build because one page's link extraction came back short is
-// wildly out of proportion to the stakes: link_registry is regeneratable, it
-// feeds no rendered output, and skipping the sync leaves the stored links exactly
-// as they were. That is 135's shape, not site A's — the delete and the insert are
-// both skipped together, so nothing is written alongside anything, and a later
-// healthy run re-syncs the page. The refusal is SELF-HEALING here.
+// So the contract is uniform again, and the real gap is filed at its own layer as
+// bugs_open/173 (loop substeps cannot carry error routing at substep granularity;
+// continue_on_error is all-or-nothing per loop). Deferring it here rather than
+// setting continue_on_error on that loop is deliberate: that flag would change
+// failure semantics for EVERY substep in the page-generation loop, turning a page
+// that genuinely failed to build into a silently skipped one — the same silent-drop
+// class, moved rather than removed. It is a workflow-owner's decision, not a rider
+// on a bug fix.
 //
-// It is still not invisible, which is the 034/076 requirement: the result carries
-// completeness_status = "refused" beside the numbers, and a needs_human_review
-// work item is written. A refusal nobody can see would be the real defect; a
-// refusal that does not take a site build down with it is not.
+// The disproportion is real but it is NOT introduced here: that loop already fails
+// the whole build on any substep error, and this adds one more possible error to a
+// loop that has many. With link_registry empty fleet-wide the floor is inert, so
+// nothing is live today either way — which is what makes deferring honest rather
+// than negligent.
 //
 // The surrounding action's OTHER success-shaped failure paths are bugs_open/092's
 // business and are left exactly as they were.
 func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID,
-	pageName string, linksToWrite int) (map[string]interface{}, bool) {
+	pageName string, linksToWrite int) (map[string]interface{}, error) {
 
 	floor, fromConfig := pruneFloorFromConfig(params.StepConfig.Config, linkRegistryFloorKey, defaultPruneFloorRatio)
 	subject := fmt.Sprintf("page %q", pageName)
@@ -156,11 +161,7 @@ func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, 
 		reason := fmt.Sprintf("extract_and_sync_links: REFUSED for %s — the completeness floor could not be measured (%v), so no link row was deleted or written", subject, err)
 		params.Logger.Error(reason)
 		_ = emitLinkRegistryRefusal(ctx, params.DB, siteID, pageID, pageName, subject, reason, params.Logger)
-		return map[string]interface{}{
-			"completeness_status": pruneStatusRefused,
-			"completeness_reason": reason,
-			"links_to_write":      linksToWrite,
-		}, false
+		return nil, fmt.Errorf("%s", reason)
 	}
 
 	verdict := evaluatePruneFloor(floor, m.Cohorts)
@@ -185,13 +186,13 @@ func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, 
 			zap.Int("links_to_write", m.LinksToWrite),
 			zap.Int("links_stored", m.LinksStored))
 		_ = emitLinkRegistryRefusal(ctx, params.DB, siteID, pageID, pageName, subject, reason, params.Logger)
-		return detail, false
+		return nil, fmt.Errorf("%s", reason)
 	case verdict.Disabled:
 		params.Logger.Warn(reason, zap.String("page_name", pageName))
 	default:
 		params.Logger.Info(reason, zap.String("page_name", pageName))
 	}
-	return detail, true
+	return detail, nil
 }
 
 // emitLinkRegistryRefusal records the refusal where a human will see it, via the

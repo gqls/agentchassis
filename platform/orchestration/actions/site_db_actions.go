@@ -459,25 +459,16 @@ func ExtractAndSyncLinksAction(ctx context.Context, params ActionParams) (interf
 	// with no error, so this asks — before anything is destroyed — whether this
 	// run saw enough of the page to be reconciling against it.
 	//
-	// A refusal SKIPS the sync rather than failing the action, and that is
-	// deliberate (council c69e935a, guardian seat). This step is nested inside
-	// multipage-website-builder's generate_pages_loop, which sets no
-	// continue_on_error, so an error here would fail the WHOLE site build over one
-	// page's links. Skipping leaves the stored links untouched and a later healthy
-	// run re-syncs them — 135's self-healing shape. The refusal is still visible:
-	// completeness_status travels in the result and a work item is written.
-	floorDetail, maySync := enforceLinkRegistryFloor(ctx, params, siteID, pageID, pageName, len(links))
-	if !maySync {
-		result := map[string]interface{}{
-			"links_extracted": len(links),
-			"links":           links,
-			"persisted":       false,
-			"page_id":         pageID.String(),
-		}
-		for k, v := range floorDetail {
-			result[k] = v
-		}
-		return result, nil
+	// A refusal ERRORS, the same contract as sites A and B. It is nested in
+	// multipage-website-builder's generate_pages_loop, which carries no
+	// continue_on_error, so this does fail the whole site build — a real
+	// disproportion, filed at its own layer as bugs_open/173 rather than worked
+	// around here by making the action never error (council c69e935a round 2, four
+	// seats). That loop already fails the build on any substep error; this adds one
+	// more, and the floor is inert while link_registry is empty.
+	floorDetail, err := enforceLinkRegistryFloor(ctx, params, siteID, pageID, pageName, len(links))
+	if err != nil {
+		return nil, err
 	}
 
 	// Sync links to database
