@@ -138,3 +138,102 @@ the human-approval recommendation above; what the audience actually is, because
 "relevant to our audience" can't be checked until that sentence exists; and
 whether you want the paired provocation prototyped quickly to feel the shape, or
 specified properly first.
+
+---
+
+**2026-07-31 (later) — Grok, categories, and a paired-mode prototype you can click**
+
+Three answers from you, and I've built the thing you asked for.
+
+**Grok.** You were right on every point — we already query it and the key is
+already wired. Better than that: the call we use goes to xAI's newer endpoint with
+both a web search *and* an X search tool switched on, which is exactly the
+Twitter-readership signal you were describing. So the "where do topics come from"
+half of this is largely plumbing we already own. That's now twice in one day this
+workstream has costed something as new work and found it already built.
+
+One distinction I'd hold onto, because it's where this could go wrong. Grok tells
+us **what is being argued about**, not what the provocation should be. Turning a
+live topic into a good provocation — flat, two-sided, in our voice — is a separate
+step, and your slop-and-danger filter has to run on **that output**, not on the
+topic. The reason matters: X's most-discussed thing on any given day is quite
+often a pile-on or a hoax. "It's trending" tells us about volume and nothing else,
+so it can't be allowed to stand in for "it's worth arguing".
+
+**Categories.** Agreed, and I'd go further — put the category field in now, while
+there's only one. Two reasons. A category isn't really a label, it's a bundle of
+settings: politics and pets can't share a safety threshold or an audience, so if
+the filter is built assuming one global setting, adding the second category means
+rewriting it rather than adding a row. And there's a collision worth knowing about
+early: the game engine currently reads exactly one "today's provocation" per site.
+Several categories running at once can't be expressed that way at all, so it needs
+either a file per category or a change to that shape — and the Gauntlet has to
+change at the same time, or the page and the engine will disagree about what's
+being argued. That's the other team's code, so it's a conversation before it's a
+task. I only spotted it because I'd written the constraint down this morning.
+
+**The narrow first audience.** My suggestion: people who argue online for fun in
+places that are already busy — the r/changemyview and Hacker News and tech-Twitter
+axis. Three reasons. The share card the other team shipped this morning is
+*native* to those places: "here's what I argued and here's how the AI ruled" is a
+post format those venues already reward, whereas in a sports or politics feed the
+same card reads as bait. It's also the easiest possible first job for the filter,
+which matters because we're calibrating it — starting on political opinion would
+mean tuning our hardest category with an untested filter, and we've just watched
+what an untested filter costs on another site. And it quietly carries the paired
+mode's buyers with it, because tech team leads are in that audience.
+
+The honest weakness: that audience is small and sceptical, and it isn't where
+"hugely popular" lives. Think of it as the calibration audience, not the
+destination. The route to popular runs through your categories; the argument for
+this one first is only that it's the place where being wrong is cheap.
+
+**The paired prototype is built and you can play with it.**
+
+```
+cd docs/agent_docs/docs024_key_docs_latest/provocation_pipeline/prototype
+go run .        # then open http://localhost:8099
+```
+
+Make a session, then open each person's link in a separate private window and play
+all three parts. Nothing is saved — stop it and it's gone, which is deliberate.
+
+Four decisions I had to take to make it work, all of them arguable and all worth
+your view:
+
+*Nobody can read a position before the reveal — including you, the organiser.*
+That was the most tempting thing to allow and I think it would wreck the product:
+a facilitator who's read the answers can't run the session straight, and people
+who suspect you have will hedge. You get who has answered so you know who to
+chase, and nothing else.
+
+*Stay silent and you don't get to read the room.* If the deadline passes and Carol
+never answered, Carol doesn't see anyone's positions. Without that rule the best
+strategy under a deadline is to say nothing and wait — which is the exact
+behaviour the whole sealed idea exists to stop.
+
+*Once you commit you can't change it.* Genuinely arguable — a sealed auction lets
+you revise, since nobody can see it anyway. I went the other way because "until
+they've all committed" needs committing to be a state you can't back out of.
+
+*Everyone opens at the same instant.* If it opened person by person, whoever
+looked last would have read everyone else's answer before writing their own.
+
+You get your three timing choices — wait for everyone, open at a quorum of N, or
+open at a deadline — plus a force-reveal button for the person who's never going
+to reply.
+
+**Something I got wrong, and how it was caught.** I wrote fourteen tests designed
+to break the seal, and they all passed. Then I deliberately broke the code three
+different ways to check the tests would actually notice. Two were caught
+immediately. The third wasn't: my test for "everyone opens at the same instant"
+was checking all three people at the same moment on the clock, so it couldn't tell
+a genuine simultaneous reveal from one that just stamped the current time whenever
+you looked. It was green against a broken implementation. Fixed by checking the
+three people at different times, and I re-broke the code to confirm it now fails.
+
+**What I'd still like from you:** whether you accept the human-approval
+recommendation from earlier today, which matters more now that the source is an
+adversarial one; and your read on those four paired-mode decisions, particularly
+the organiser not being able to see positions, since that's the one a customer
+will ask you to change.

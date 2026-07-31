@@ -353,3 +353,149 @@ copyright and **incomplete about the other half**, so recording it now:
 appears here only as a *reader* whose contract we must not break. **Paired mode
 would change it**, so that must be agreed with that lane, not implemented past
 them.
+
+---
+
+## 9. OWNER DIRECTION 2026-07-31 (second round)
+
+Four things, all answering §7's open questions or adding to them.
+
+### 9.1 Grok is the topic source — and it is already wired [VERIFIED]
+
+*Owner: "ask a different AI — maybe Grok for interesting current topical questions
+as it has access to twitter and readership stats, we have an api key for it as we
+already query Grok for news."*
+
+Correct on every count, and cheaper than it sounds:
+
+- `platform/orchestration/actions/feed_actions.go:733` — `resolveLLMNewsProvider`
+  already supports `xai` / `grok`, reading `XAI_API_KEY` then falling back to
+  `GROK_API_KEY`.
+- It targets the **xAI Responses API** (`https://api.x.ai/v1/responses`) with the
+  **`web_search` AND `x_search` tools** — that is precisely the X readership signal
+  the owner is describing. Documented recommended model: `grok-4-1-fast`.
+- `platform/agentenv/provider_keys.go:53` carries `GROK_API_KEY` into agent
+  environments, so an agent can reach it without new plumbing.
+
+⇒ **Phase 3's sourcing half is mostly reuse**, the same way Phase 1's publishing
+half turned out to be (§1a(ii)). This is now the second time this workstream has
+found the expensive-looking piece already built. *Check before costing.*
+
+**But keep the roles straight, because this is where it could go wrong:**
+
+> **Grok supplies TOPICS — what is being argued about right now, and how loudly.
+> It does not supply provocations.** Turning a live topic into a provocation
+> (a flat, two-sided, non-tribal claim in our house voice) is a separate step, and
+> the gate sits after *that*, not after Grok.
+>
+> **And the gate must judge the OUTPUT, never the topic.** X is an adversarial
+> content source — the most-discussed thing on any given day is frequently a
+> pile-on, a hoax, or someone's harassment campaign. "It is trending" is evidence
+> of volume and nothing else. The owner's "filter it against slop and danger" is
+> exactly right and it belongs at the end of the chain, applied to the finished
+> provocation, where the claims-rail split of §4 Phase 2 also applies.
+
+### 9.2 Categories — make it a field NOW, while it is free
+
+*Owner: "I want it to be hugely popular so I think we will need to have different
+categories sooner rather than later, ranging from current political opinions to
+pets etc each with a different target audience."*
+
+Agreed, and the recommendation is to **add `category` as a first-class field from
+day one even while only one category exists.** It is nearly free now and expensive
+to retrofit, for two reasons that are not obvious:
+
+1. **A category is not a tag — it carries its own gate configuration.** "Current
+   political opinions" and "pets" cannot share a safety threshold, an audience
+   definition, or a two-sidedness standard. If the gate is built assuming one
+   global config, per-category thresholds mean rewriting it. If `category` is
+   present from the start, the gate reads its config *from* the category and the
+   politics one is a row, not a refactor.
+2. **⚠ Categories BREAK the current server contract, and this is the §1a(i)
+   landmine biting a second time.** `round.go` fetches the feed and requires a
+   single top-level `today` key — one provocation per domain, full stop. Several
+   simultaneous category dailies cannot be expressed in that shape. So per-category
+   rotation needs *either* one feed file per category *or* a shape change to
+   `today`, **and in both cases `tools-api` must change in step** so the Gauntlet
+   knows which category's provocation a round is arguing. That is the
+   gauntlet_dead_cta lane's code (§8). **Do not design multi-category rotation
+   without agreeing this with them first** — it is not a vonc-side-only change,
+   and discovering it late means a live mismatch between the page and the engine.
+
+### 9.3 The first audience — recommendation
+
+*Owner: "For now keep it narrow to an audience that would be likely to repost
+their results on busy sites on topics that would encourage them to do that — we
+could think about this."*
+
+This finally answers §7 question 3, which the gate's criterion (c) could not be
+written without. My recommendation, for the first and only category:
+
+> **People who argue online recreationally in venues that are already busy** —
+> concretely, the `r/changemyview` / Hacker News / tech-X axis. Topics: work,
+> technology, AI, attention, institutions. The nine provocations we already have
+> sit squarely in this space, which is a useful sign rather than a coincidence.
+
+Why this one rather than something with more reach:
+
+- **The share artefact already exists and is native to these venues.** The
+  gauntlet lane shipped the exchange card on 2026-07-31 — challenge, defence and
+  ruling on one image. "I argued this and here is what the AI ruled" is a
+  *post format* that r/changemyview and HN already reward. In a sports or politics
+  venue the same card reads as bait.
+- **It is the safest possible calibration set for the gate.** These topics are
+  contestable without being tribal, so the slop-and-danger filter gets its easiest
+  job while we are still learning what it should reject. Starting on political
+  opinion would mean tuning the hardest category with an untested gate — and
+  `bugs_open/149` C1 is what an untested gate costs.
+- **It carries paired mode's buyers with it.** Tech team leads are in this
+  audience. The people most likely to repost a verdict are also the people most
+  likely to run a paired provocation with their team (§5.5).
+
+**The honest weakness:** this audience is small and sceptical, and "hugely popular"
+is not where it leads on its own. It is a *calibration* audience — the one where
+the gate can be proven cheaply — not the destination. The path to popular runs
+through the categories in 9.2, and the argument for doing this one first is that
+it is the only one where being wrong is cheap.
+
+### 9.4 Paired mode — prototyped
+
+*Owner: "Please prototype the paired mode."* **Done:**
+`prototype/` (nested Go module, in-memory, no LLM), with its own README.
+
+- the seal is enforced by the **type system**, not by a check: a pre-reveal
+  response is a `SealedView` whose only description of a peer is
+  `{Name, Committed}`, so a handler cannot leak a position by forgetting a
+  condition
+- three reveal rules — all-committed, quorum, deadline — plus an organiser
+  force-reveal, which is the owner's "choices given to the person setting it up"
+- **the organiser cannot read positions either**, and **non-responders do not
+  receive the reveal** (stay silent under a deadline and you do not get to read
+  the room — otherwise silence is the optimal play, which is the seal's own
+  failure mode re-entering by the back door)
+- 14 tests written to *break* the seal, **mutation-tested**: two mutations were
+  caught, and a third — stamping the reveal time per read rather than per
+  session — **was not**, because the atomicity test held the clock constant across
+  all three readers. Fixed, and re-verified that the mutation now fails. Recorded
+  because it is the exact "a quiet test passes when the rule is gone" trap
+- driven end to end against the running server: with two of three committed,
+  the third participant's page and the organiser's page each contain **zero**
+  occurrences of either position; after the third commits, all three pages show
+  all three
+
+**What it deliberately fakes, so nobody mistakes it for a design:** nothing is
+persisted; a token in a URL is the only access control (unguessable ≠
+authenticated); there is no AI verdict; no email, no CSRF, no audit log. Full list
+in `prototype/README.md`.
+
+### 9.5 Consequent changes to §7's open questions
+
+- §7.3 (*what is the audience?*) — **answered**, 9.3, pending owner confirmation.
+- §7.2 (*where does the pool live?*) — **now leans strongly to a table.** Categories
+  (9.2) plus a human approval queue (§4) plus Grok-sourced drafts (9.1) are three
+  independent reasons the Python-literal pool stops being adequate. Recommend
+  starting with the table rather than migrating to it.
+- §7.4 (*prototype or spec first?*) — **answered by the owner: prototype.** Done.
+- §7.1 (*human approval or automated gate only?*) — **still open**, and 9.1 raises
+  the stakes: an adversarial upstream source makes an unreviewed publish path
+  riskier than it was when the pool was hand-written.

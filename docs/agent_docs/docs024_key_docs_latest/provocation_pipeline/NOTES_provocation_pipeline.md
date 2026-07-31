@@ -143,3 +143,90 @@ objecting. `bugs_closed/043` is the earlier instance of the class.
 - That paired-provocation engagement data would make criteria (b)/(c) measurable.
   Plausible and it is the owner's own reasoning, but nothing has been built to
   check it.
+
+---
+
+## 2026-07-31 — session 1 continued: Grok, categories, and the paired prototype
+
+### Grok integration verified before repeating the owner's claim [VERIFIED]
+
+Owner said we already query Grok for news and have a key. True:
+`platform/orchestration/actions/feed_actions.go:733` (`resolveLLMNewsProvider`)
+handles `xai`/`grok`, reads `XAI_API_KEY` then `GROK_API_KEY`, and targets
+`https://api.x.ai/v1/responses` — the **Responses API with `web_search` and
+`x_search` tools**, doc-recommended model `grok-4-1-fast`.
+`platform/agentenv/provider_keys.go:53` carries the key into agent environments.
+
+So Phase 3's *sourcing* half is largely reuse. **That is the second time this
+workstream has costed something as "build" and found it built** (the first was the
+scheduled publish path). Noting the pattern rather than the instance: on this
+platform, check before costing.
+
+### The categories/`round.go` interaction — found by re-reading my own landmine
+
+Owner wants categories "sooner rather than later". Went to write that up as a
+straightforward data-model note and realised it collides with the constraint I
+filed as a landmine this morning: **`round.go` requires exactly one top-level
+`today` key per domain.** Several simultaneous category dailies cannot be
+expressed in that shape at all — it needs either one file per category or a
+change to `today`, and `tools-api` must move in step or the page and the engine
+disagree about what is being argued.
+
+Worth recording *how* I caught it: not by analysis, but because I had written the
+landmine down four hours earlier and it was still in working memory when I touched
+an adjacent design. The same constraint would have been invisible to a thread that
+picked up "add categories" cold. That is the argument for `LANDMINES.md` in one
+example.
+
+### MISSTEP 3 — my atomicity test was green against a broken implementation
+
+Wrote the paired prototype with the seal enforced structurally (two view types,
+`SealedView` has nowhere to hold a peer's position), plus 14 tests written to break
+it. All green, `go vet` clean.
+
+Then mutation-tested, per the standing rule that a passing test may be passing
+because the rule is absent. Three mutations:
+
+| mutation | caught |
+|---|---|
+| `SealedPeer` gains a `Position` field, populated | yes — 3 tests |
+| non-responders receive the reveal | yes — 2 tests |
+| `RevealedAt` stamped per read instead of per session | **NO** |
+
+The third is the interesting one. `TestRevealIsAtomic` read all three
+participants' views at the **same** `now`, so a per-read timestamp and a
+session-wide one produce byte-identical output. **The test could not distinguish
+the property it was named after.** It asserted the three stamps equalled *each
+other* — which is trivially true when you hand all three the same clock.
+
+Fixed by reading at three *different* times and asserting each stamp equals the
+moment the last participant committed. Re-ran the mutation: now fails on all three
+readers, with the message printing both the observed stamp and what a per-read
+stamp would have returned.
+
+**The cheap check that would have caught it at writing time:** ask of every
+assertion "what input variation is this test's subject supposed to be invariant
+*to*?" — and then vary it. An atomicity test that holds the clock constant is
+testing nothing about time. Same family as
+[[check-answers-the-question-you-encoded]]: the test answered the question I
+encoded (are these three values equal) rather than the one I meant (did the reveal
+happen once).
+
+### Verified the prototype at the artefact, not the build
+
+`go build` and `go test` prove nothing about the running thing. Drove the HTTP
+flow with curl against the live server:
+
+- 3-person session, Alice and Bob commit
+- Carol's page: **0** occurrences of either position, and correctly "2 of 3 committed"
+- organiser's page: **0** occurrences of either position
+- Carol commits → all three pages show all three positions
+
+### [UNMEASURED] carried forward
+
+- The audience recommendation (r/changemyview / HN / tech-X) is reasoned from the
+  shape of the existing 9 provocations and from where the exchange card would read
+  as native. **No measurement of any kind.** It is a hypothesis about reposting
+  behaviour and should be labelled as such until something is actually posted.
+- "Grok supplies topics, not provocations" is a design position, not a finding —
+  no Grok call has been made from this workstream yet.
