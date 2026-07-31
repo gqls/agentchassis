@@ -549,3 +549,59 @@ when rolling it out. The coverage risk has not appeared in the first 9 rounds.
 
 **Re-check in a few days** when the AFTER arm is comparable in size — the mean and p95 are
 the columns to read, and the objection rate is the column that must not fall.
+
+### 2026-07-31 ~20:00 — I shipped a truncation counter that could never count a truncation
+
+Went looking at failed council calls and found `review_editquality` failing 17.4% of the
+time (67 of 386), still failing today. Chased it, and the answer was about **my own
+instrument**, not the seat.
+
+**A truncated call is recorded `success=false`, `output_tokens = NULL`, with the cut
+stated in `error_message`.** So the obvious truncation count —
+`count(*) FILTER (WHERE output_tokens >= max_tokens)`, which is what FIX-058 shipped
+with yesterday — **can never match a single one**. Measured: 94 truncations in the
+window, of which my filter caught **4**. All 94 have NULL `output_tokens`; the 4 were
+successful calls that happened to land exactly on the cap.
+
+**The undercount was the smaller half.** The same `output_tokens IS NOT NULL` filter also
+dropped those rows from the HEADROOM statistics — so p95 and peak were computed over the
+calls that did **not** truncate, systematically removing the most extreme calls from
+exactly the seats that truncate most. The instrument was blindest where it mattered.
+
+Corrected picture after the fix (truncations from `error_message`; a truncated call
+scores `frac = 1.0`, because it did reach its cap):
+
+| seat@cap | reported before | actual |
+|---|---|---|
+| `review_editquality@8000` | 1 | **51** |
+| `review_prior_art@8000` | 0 | **7** |
+| `review_guidelines@8000` | 1 | 8 |
+| `review_guardian@8000` | 0 | **2** |
+| `review_bug_historian@8000` | 0 | 1 |
+| `review_tooling_provenance@8000` | 0 | 1 |
+
+Six seats the report was rating `ok` or `near-miss` had actually truncated.
+
+**And it made a correct conclusion rest on a false measurement, which is the part worth
+keeping.** The script's own header argued: *"counting truncations would report ~0 today
+and never fire, because candidate 3 raised the caps"* — and used that to justify building
+the headroom indicator. The ~0 was real. **The explanation was false**: truncations read
+~0 because the query could not see them, not because they had stopped. The decision to
+build a leading indicator was still right, and I reached it through a broken measurement
+that happened to point the same way. Nothing about that looks wrong from the inside,
+which is why it is the most durable kind of error. Header corrected in place.
+
+**Does this invalidate the 07-31 headline (editquality 98.3% → 55.0%)? No — checked, not
+assumed.** That comparison is at cap **16000**, and editquality has **zero** truncations
+at 16000; every one of its 51 is at the old 8000 cap. So no rows were silently excluded
+from either arm. Had there been any, they would have been in the BEFORE arm, which would
+make the improvement larger, not smaller.
+
+Fixed in both halves — the report and the scheduled task's `pre_query` — and the task was
+re-seeded from the file so the file and the live row are identical by construction.
+
+**The check that would have caught it on day one:** `bugfix-138`'s own memory entry
+already named the right signal —
+`llm_call_log.error_message ILIKE '%stop_reason=max_tokens%'`. I had written it down and
+then built the instrument on a different, weaker one. **Reading your own notes is a
+check, and I did not run it.**

@@ -54,18 +54,25 @@ WITH live AS (
   SELECT seat, cap, string_agg(DISTINCT council, ',') AS councils
   FROM live GROUP BY 1, 2
 ), calls AS (
+  -- A truncated call has output_tokens NULL and states the cut in error_message, so
+  -- 'output_tokens >= max_tokens' can never match one. Shipped that way 2026-07-30 and
+  -- it undercounted 94 truncations to 4, while also dropping the most extreme calls
+  -- from the headroom stats. A truncated call scores frac = 1.0: it reached its cap.
   SELECT step_name AS seat, max_tokens AS cap, agent_type,
-         output_tokens::numeric / max_tokens AS frac
+         (error_message ILIKE '%stop_reason=max_tokens%') AS was_truncated,
+         COALESCE(output_tokens::numeric / max_tokens,
+                  CASE WHEN error_message ILIKE '%stop_reason=max_tokens%' THEN 1.0 END) AS frac
   FROM llm_call_log
   WHERE created_at > now() - interval '14 days'
     AND step_name LIKE 'review_%'
-    AND max_tokens > 0 AND output_tokens IS NOT NULL
+    AND max_tokens > 0
+    AND (output_tokens IS NOT NULL OR error_message ILIKE '%stop_reason=max_tokens%')
 ), agg AS (
   SELECT p.seat, p.cap, p.councils,
          count(c.frac) AS n,
          round(100*(percentile_cont(0.95) WITHIN GROUP (ORDER BY c.frac))::numeric, 1) AS p95,
          round(100*max(c.frac), 1) AS peak,
-         count(*) FILTER (WHERE c.frac >= 1) AS trunc,
+         count(*) FILTER (WHERE c.was_truncated) AS trunc,
          count(c.frac) FILTER (WHERE c.agent_type = ANY(string_to_array(p.councils, ','))) AS n_holder
   FROM pairs p
   LEFT JOIN calls c ON c.seat = p.seat AND c.cap = p.cap
