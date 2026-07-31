@@ -310,3 +310,34 @@ was wrong in between. Third `WRONG_CALLS.md` row of the session, all three the s
 - `bugs_open/164` — the bundle's `break`-not-`continue` cap, at the council's request.
 - 3 × `WRONG_CALLS.md` rows; 2 × new 016b §9 patterns; 1 × `LANDMINES.md` entry;
   CTXK-002 updated with the seam, its landmine and two verify-laters answered.
+
+---
+
+## 2026-07-31, close — LIVE and verified, on someone else's roll
+
+The owner mentioned a fresh chassis was building. It landed as **`v1.0.1217`**, pods
+`867fc4f77c-9pcww` / `-wd2cg` started `16:39:59Z` / `16:40:20Z` — after the fix commit at
+`16:05:27Z`. Grepped **both** replicas with three probes in one exec:
+
+| probe | both pods |
+|---|---|
+| `bodies are read only for files the analyser parsed` (**added by this fix**) | **1** |
+| `not in analysis (no FileInfo for that path)` (pre-existing half of the same message — POSITIVE control) | **1** |
+| `ReadWholeFileUnbounded_145_shouldnotexist` (never written — NEGATIVE control) | **0** |
+
+`1/1/0` on both. The negative control is the one people skip: without it, a grep that matched
+everything would read as a pass. Bug moved to `bugs_closed/145`.
+
+**Worth recording about the roll, because it inverted my own plan.** I had decided *not* to
+build — another session had `IMAGE_TAG` bumped uncommitted mid-build and two council review
+steps from another round were `EXECUTING`, and a roll kills an in-flight council. I put the
+choice to the owner, who said leave it for the next build. That was the right call and it cost
+nothing: because `make build-*` builds from **committed HEAD**, the next build by anyone
+carried the fix with zero coordination. **The shared-HEAD property that makes uncommitted work
+unsafe is the same property that makes a committed fix ship for free.** Commit narrowly and
+promptly and you do not need to own the deploy.
+
+One asymmetry to keep in mind for next time: this only worked because I had committed *before*
+their build ran. Had I held the code back for the council verdict — which the 2026-07-29 owner
+ruling explicitly says not to do — the roll would have gone out without it and 145 would still
+be open.
