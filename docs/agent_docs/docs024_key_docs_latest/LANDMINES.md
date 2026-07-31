@@ -1094,3 +1094,73 @@ source document and the entry points at it.
 - **source:** 2026-07-31, loancalculator_couk lane, exporting stored components to
   prove the decomposition rule offline
 - **added:** 2026-07-31, loancalculator_couk lane
+
+### A registered fact makes a GREEN claims gate meaningless as evidence of truth — the register is the authority, so it disarms every gate at once
+
+- **footprint:** `site_specs` where `aspect='evidence_base'`, `facts[]`,
+  `writer_block`; `platform/orchestration/datahelpers/claims.go` `numberSupported`;
+  `claims_stats.go` `ScanStatClaims`; `save_sections_claims_guard.go`;
+  `cmd/claimscan`; `docs/agent_docs/sql_for_agents/218_evidence_facts_for_043_sites.sql`
+- **fires when:** you read "the claims scan returned 0 findings" as "the copy is
+  true", or you conclude from a silent scan that the scan has a blind spot
+- **the tell:** there is none. A number that is registered and a number that is
+  unscannable both produce **exactly** silence, and the register is consulted by
+  every consumer of `numberSupported` — the prose scan, the stat-field audit, and
+  the persistence floor — so one wrong row disarms all three simultaneously
+- **why it is a landmine:** the register is also the **writer whitelist**
+  (`writer_block`, composed from `facts[].writer_line`, injected into the
+  page-content-writer prompt under "NUMBERS (state only these…)"). So a false fact
+  is *self-ratifying*: the platform instructs the writer to state it, then vouches
+  for it. `bugs_open/161` is the live case — gamesdesign.co.uk asserts "10,000
+  Monte Carlo trials per query" attributed to shipped tool JavaScript that contains
+  **no randomness of any kind**, and every gate passes it, correctly
+- **the check:** never stop at the verdict — ask **which fact matched**. Print the
+  register alongside the scan (`SELECT jsonb_pretty(data->'facts') FROM site_specs
+  WHERE aspect='evidence_base' AND is_current AND site_id=…`) and read the
+  `context_terms`/`claim` wording against the artefact it cites. `refresh_evidence_base`
+  re-checks a value only when `source` carries a `query`/`sql`; a
+  `source.attested_by` or `source.artifact` fact is **never** machine-verified,
+  and no mechanism anywhere checks a fact's *wording* against its artefact
+- **source:** 2026-07-31, working the checker-layer handoff §1 — the section had
+  read the same silence as a `businessClaimContextRe` vocabulary gap
+- **added:** 2026-07-31, bugfix lane
+
+### `page_component_history.source` does NOT give you the provenance `page_components` lacks
+
+- **footprint:** `page_component_history.source`, `page_components` (no provenance
+  column), `ApplySectionEditAction`, `save_page_sections`
+- **fires when:** you need to know *which action or agent* wrote a component —
+  e.g. bounding `ApplySectionEditAction`'s surface — spot the `source` column in
+  the history table, and take it for the answer
+- **the tell:** it looks like a provenance column and is populated on every row.
+  It is a **write-mode** label, not a writer: `save_page_sections_overwrite` on
+  **12,386 of 12,416 rows** fleet-wide, every pipeline emitting the same literal.
+  The remaining 30 are hand-typed operator strings
+  (`operator_copy_anchors_2026-07-29`), which is what makes the column look
+  discriminating
+- **the check:** `SELECT source, count(*) FROM page_component_history GROUP BY 1
+  ORDER BY 2 DESC;` — if one value is ~99.8% of rows it is a mode, not a source.
+  So the standing claim that `ApplySectionEditAction` cannot be bounded from
+  `page_components` **stands**, and history does not rescue it
+- **source:** 2026-07-31, bugfix lane, while bounding `bugs_open/161`'s witnessed case
+- **added:** 2026-07-31, bugfix lane
+
+### Grepping shipped tool code for a figure like `10000` matches `100000` — and confirms the fact you were testing
+
+- **footprint:** any `command grep` for a bare number in `page_components.rendered_html`,
+  tool JS, or an evidence-register verification ("the figure is hard-coded in the code")
+- **fires when:** you verify a registered numeric fact by checking the number appears
+  in the artefact its source cites
+- **the tell:** none from a count. `grep -c 10000` returns 1 and you conclude the
+  figure is present. In `bugs_open/161` **both** apparent hits were something else:
+  a `if (pity <= 0 || pity > 100000)` bound in one tool and a
+  `return Math.min(val, 10000)` **input clamp** in the other — the clamp is a real
+  10000 but means "maximum attempts", not the "trials per query" the register claimed
+- **why it is a landmine:** it fails in the direction of **agreeing with you**. A bare
+  count would have ratified a false fact, and the fact was the thing under test
+- **the check:** print the match in context (`grep -o -E '.{0,60}10,?000.{0,60}'`) and
+  read what the number *does*. Also grep the mechanism, not just the magnitude — a
+  "Monte Carlo trials" claim needs `Math.random` (count was **0**), so the absent
+  symbol was stronger evidence than the present number
+- **source:** 2026-07-31, bugfix lane, `bugs_open/161`
+- **added:** 2026-07-31, bugfix lane

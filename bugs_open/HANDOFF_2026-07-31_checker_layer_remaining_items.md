@@ -34,6 +34,47 @@ refusing behaviour 2026-07-30.
 **Status: OPEN, unowned, not yet a numbered item. This is the most valuable thing in
 this file and it is the one I would start with.**
 
+> **CORRECTED 2026-07-31 — worked, and this section's diagnosis is WRONG in a way that
+> makes two of its three candidates inert. Now filed as `bugs_open/161`; read that first.**
+>
+> The gate did not miss "10,000 Monte Carlo trials per query" because
+> `businessClaimContextRe`'s vocabulary is too narrow. **It missed it because that figure
+> is a REGISTERED FACT** — `gd-trials` in gamesdesign's `evidence_base`, seeded 2026-07-24
+> by `bugs_closed/043`'s own remediation, value 10000, `context_terms` including
+> `"monte carlo"`. `numberSupported()` matches it on exact tolerance and skips it. **So the
+> 0 findings this section measured were CORRECT** — and the same one row disarms the prose
+> scan, `ScanStatClaims` and the 149 C1 persistence floor simultaneously, because all three
+> call that one function.
+>
+> Worse, the fact is **false**: neither drop-rate tool performs any random sampling
+> (`Math.random` count **0** in both; the tuner is a closed-form `Math.pow(1-p,k)`, the
+> simulator says "binomial" and clamps input with `Math.min(val,10000)`). And the register
+> is *also* the writer whitelist — `writer_block`, headed "NUMBERS (state only these…)",
+> injected into the page-content-writer prompt. **The model did not invent that specific;
+> the platform handed it over as verified truth.** The commit message on `4494162af`
+> ("invented supporting specifics … a Monte Carlo trial count") is wrong on that point.
+>
+> Therefore, against this section's own motivating case:
+> - **Candidate 1 (widen `businessClaimContextRe`) is INERT** — the number would then reach
+>   `numberSupported` and be correctly skipped. Zero effect, plus the false-positive risk
+>   `claims.go:612-617` already records. **Do not spend a council round on it.**
+> - **Candidate 2 (a structural rule rather than a lexical one) is INERT and largely
+>   already built** — `ScanStatClaims` has **no lexical gate today**; it is already purely
+>   structural. It also calls `numberSupported`, so the same row disarms it. On the sharper
+>   sub-question this section rightly asked — *did the stat audit run, and if it stayed
+>   silent that is more serious* — the answer is it would have stayed silent **and been
+>   right to**, for this claim.
+> - **Candidate 3 (claim-vs-source diff) survives**, but only for the credential half below.
+>
+> **What stands, unchanged:** the second bullet — "built **by** a shipped live-service
+> designer" is a fabricated *human credential*, non-numeric, matching no banned pattern
+> (gamesdesign has **0** `banned_claims`). That is a genuine recognition gap and is not
+> what 161 is about. The mechanism-shaped paragraph below also stands and is the best thing
+> in this section.
+>
+> Filed through the 2026-07-31 owner ruling's diagnosis loop: intake
+> `93cc6cef-39c6-42b0-9861-ab80a235740e`, run `08ff91c4-dfa7-4226-a039-e80a08e44cc1`.
+
 ### What happened
 
 A claims FLOOR now runs at the page-section persistence seam
@@ -153,6 +194,15 @@ sites persist LLM-authored page prose with no claims check by any route:
 The first two are together under 1% of the 949-component surface, so they are cheap
 and low-risk. **`ApplySectionEditAction` is the real one** and it belongs to
 `bugs_open/136`'s territory — check ownership before starting.
+
+> **CHECKED 2026-07-31 — the "cannot be bounded" claim STANDS, and `page_component_history`
+> does not rescue it.** That table has a `source` column which looks exactly like the
+> provenance `page_components` lacks. It is a **write-mode** label, not a writer:
+> `save_page_sections_overwrite` on **12,386 of 12,416 rows** fleet-wide, every pipeline
+> emitting the same literal; the other 30 are hand-typed operator strings, which is what
+> makes the column look discriminating. `SELECT source, count(*) FROM
+> page_component_history GROUP BY 1 ORDER BY 2 DESC;` — recorded so nobody re-runs it
+> hopefully. Now in `LANDMINES.md`.
 
 **`create_report_page` is gated on a question, not on code:** `report-builder` is the
 **only** live agent that sets `check_claims: false` on `validate_page_content`. That
