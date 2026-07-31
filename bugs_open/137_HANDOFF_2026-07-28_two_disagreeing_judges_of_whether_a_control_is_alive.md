@@ -228,3 +228,70 @@ pass against a change that simply removed the exemption.
 - Concept register **LNK-025** (`link-management.md`).
 - `LANDMINES.md` — the marker is tested against whatever you pass; and note the **SQL-side** copies
   (`LIKE '%data-runtime-fill%'`) that a `--include=*.go` grep reports as absent.
+
+### Council round 1 — REVISE, and it changed the fix in a way worth reading
+
+Gated by `editquality` (`abstained: 5`, `unreadable: null`, so not `bugs_open/138`'s
+truncation mode). Approved by `reuse_agent`, `diagnosis_guardian`,
+`improvement_guardian`, `constitution`, `mission` and `architecture` (point_fix — it
+judged this below the RFC bar on its own trigger test: no schema, no wire shape, no
+dedupe key, two subpackages).
+
+**The correction that matters, and it narrows this file's own option 2.**
+Round 1 applied element scope to *everything*, including `RepairPageLinks`.
+`editquality` objected that this function's "repair" for a dead anchor is to strip
+the `<a>` and keep the text — the landmine *"A dead internal link is REPAIRED into
+orphaned prose, so the defect you are shown is 'text that should be a link', not a
+404"* — so narrowing the exemption **widens a documented defect class**, and the
+plan had measured blast radius without ever asking whether unlinking is the right
+repair at all. `render_guardian` reached the same place independently.
+
+> **The axis is not "control vs section". It is JUDGE vs WRITER.**
+> Narrowing a **judge** can only surface more findings, each escalated to a human.
+> Narrowing a **writer** makes it act on markup it previously left alone.
+
+The platform had already ruled on the underlying question one file away:
+`check_dead_controls` routes a dead control to `needs_human_review` with **no
+handler**, because choosing between wire-it / build-it / remove-it *"would guess"*.
+Unlinking is that guess. So:
+
+| | scope | why |
+|---|---|---|
+| the five **judges** | element | narrowing only adds findings |
+| `RepairPageLinks`, `render_site_components_action` (**writers**) | whole input, by decision | a wide exemption UNDER-repairs, and under-repair is fail-safe: unrepaired stays visible and flagged, repaired becomes prose nobody can find |
+
+Both writers now carry that reasoning **and what must be decided first** to move
+them. Pinned by `TestRepairPageLinksKeepsWholeInputScopeDeliberately`.
+**Round 1's "2 link repairs on vonc.com/index" result is WITHDRAWN** — this change
+no longer does that. The 2 dead controls still surface, to the judges.
+
+**The completeness objection was also right.** `render_site_components_action.go`
+is named as a peer caller by the very comment this change deletes, and round 1
+neither fixed it nor excused it — the §9 "one call site gets the rigorous fix, the
+sibling stays heuristic" shape, self-identified by my own evidence. It is a writer,
+so it keeps whole-input scope with the reason written beside it.
+
+**A gate, not a note.** `bug_historian` asked for enforcement rather than
+documentation, which is this defect one level up: eight copies accumulated because
+a ninth cost nothing and told nobody. `TestNoRawRuntimeFillMarkerTestOutside
+ThisPackagesPredicate` reads the source tree and fails the build for any raw marker
+test outside `runtime_fill.go`. It does not judge which scope a site should use — it
+forces the choice through a **named** predicate so the intent is visible in review.
+
+> ⚠ **The gate's first version was blind to a spelling, and I nearly quoted it as
+> proof of completeness.** It matched `Contains`/`HasPrefix`/`HasSuffix`/`Index`
+> and missed ``regexp.MustCompile(`(?i)data-runtime-fill`)`` in
+> `rerender_single_page_action.go`. Caught by re-deriving the manifest from a
+> literal grep instead of trusting the new test. That site stays raw on the
+> allow-list **with its reason**: it asks the section question, and its `(?i)`
+> makes it the tree's **only case-insensitive** marker test, so converting it
+> would be a silent behaviour change to the page assembler.
+
+**Verified call-site manifest** (literal grep, not the gate): Go predicate-form
+**nine** — 5 element-scoped, 3 whole-input by stated decision, 1 raw-by-allow-list;
+plus **four** SQL-side copies (`check_required_fields_missing`,
+`check_component_standards`, `check_component_template_corrupted`, and
+`check_empty_sections`' own query) that `--include=*.go` cannot see, all asking the
+section question. Round 1's "eight places" was wrong, and was challenged.
+
+Round 2 submitted under the same correlation.
