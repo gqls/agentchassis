@@ -555,13 +555,28 @@ func siteHasAnyNavItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, logge
 // datahelpers.SimplifyNavLabel into one function.
 // Only applied in the pages-table fallback path; nav table entries
 // are expected to have clean labels set by PopulateNavTablesAction.
+// A NOTE ON THE URL FALLBACK, added 2026-07-31 after it shipped a mangled label
+// to a live footer. Every branch below reads a name derived from the URL, and
+// until 2026-07-31 that name was the WHOLE PATH — fine, because only flat pages
+// ever reached here (`/about.html` → "about"). The nav-membership fix
+// (bugs_open/149 A2) routes CHILD pages into nav for the first time, so this
+// function now receives paths with slashes in them, and the default branch
+// title-cased the lot: `/tools/damage-formula-designer/index.html` came out as
+// **"Tools/Damage Formula Designer/Index"**, and that is what appeared in
+// gamesdesign.co.uk's footer. Six labels, observed on the first post-roll
+// rebuild.
+//
+// A label containing a slash is never right, so the derivation takes the page's
+// own segment: the last non-empty path segment, ignoring a trailing `index`.
+// Found by reading the rendered nav rows after the rebuild rather than by
+// reasoning about the change — the defect is not visible in the diff at all,
+// because nothing in the fix touched this function.
 func navSimplifyLabel(label, url string) string {
 	if len(label) <= 15 {
 		return label
 	}
 
-	name := strings.TrimPrefix(url, "/")
-	name = strings.TrimSuffix(name, ".html")
+	name := navLabelSegmentFromURL(url)
 	nameLower := strings.ToLower(name)
 
 	switch {
@@ -586,4 +601,49 @@ func navSimplifyLabel(label, url string) string {
 	default:
 		return strings.Title(strings.ReplaceAll(name, "-", " "))
 	}
+}
+
+// navLabelSegmentFromURL reduces a page URL to the one segment that names the
+// page: the last non-empty path segment, ignoring a trailing `index`.
+//
+// Both live tool-page URL conventions must give the same answer, because a nav
+// label should not reveal which one a site happens to use:
+//
+//	/tools/tool-drop-rate-tuner.html          → "drop-rate-tuner"
+//	/tools/damage-formula-designer/index.html → "damage-formula-designer"
+//	/about.html                               → "about"        (unchanged)
+//	/                                         → ""             (caller keeps its label)
+//
+// The `tool-` prefix is stripped for the same reason the slash is: it is an
+// internal identity convention (`sanitiseFunction` FORCES it onto every tool
+// component name, and `CanonicalisePage` then carries it into `pages.name`),
+// and the newer `/tools/<slug>/index.html` convention already omits it. Leaving
+// it in produced "Tool Drop Rate Tuner" beside "Spawn Rate Balancer" in the same
+// footer column — the same page kind labelled two ways, decided by which URL
+// shape its site was built with. The site's own titles agree: "Drop Rate Tuner |
+// Tools".
+func navLabelSegmentFromURL(url string) string {
+	name := strings.TrimSuffix(strings.TrimPrefix(url, "/"), ".html")
+
+	var segments []string
+	for _, seg := range strings.Split(name, "/") {
+		if seg = strings.TrimSpace(seg); seg != "" {
+			segments = append(segments, seg)
+		}
+	}
+	if len(segments) == 0 {
+		return ""
+	}
+
+	// A trailing `index` yields the PARENT segment, which is what actually names
+	// the page under the directory-style convention — but only when there is a
+	// parent. `/index.html` is the site root and its own name: skipping `index`
+	// unconditionally returned "" and cost the homepage its "Home" label, which
+	// the control test caught before this shipped.
+	last := len(segments) - 1
+	if last > 0 && strings.EqualFold(segments[last], "index") {
+		last--
+	}
+
+	return strings.TrimPrefix(segments[last], "tool-")
 }

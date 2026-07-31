@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -191,5 +192,72 @@ func TestOrdinaryPagesAreUnaffected(t *testing.T) {
 	if navContains(primary, "404") || navContains(utility, "404") || navContains(legal, "404") {
 		t.Fatalf("system page 404 reached nav: primary=%v utility=%v legal=%v",
 			navNames(primary), navNames(utility), navNames(legal))
+	}
+}
+
+// TestNavLabelNeverContainsAPathSegment is the regression test for a defect the
+// nav-membership fix INTRODUCED and post-roll verification caught: routing child
+// pages into nav for the first time sent path-shaped URLs into navSimplifyLabel,
+// whose fallback title-cased the whole path. Six labels like
+// "Tools/Damage Formula Designer/Index" reached gamesdesign.co.uk's footer on the
+// first rebuild after the roll.
+//
+// Every case below is a real fleet URL, and the expectations are what the pages'
+// own titles say they should be ("Drop Rate Tuner | Tools", "Damage Formula
+// Designer | Tools").
+func TestNavLabelNeverContainsAPathSegment(t *testing.T) {
+	cases := []struct {
+		url   string
+		label string // the oversized label that forces the URL fallback
+		want  string
+	}{
+		// The two live tool-page URL conventions must agree — a label must not
+		// reveal which shape a site was built with.
+		{"/tools/tool-drop-rate-tuner.html", "Drop Rate Tuner | Tools", "Drop Rate Tuner"},
+		{"/tools/damage-formula-designer/index.html", "Damage Formula Designer | Tools", "Damage Formula Designer"},
+		{"/tools/spawn-rate-balancer/index.html", "Spawn Rate Balancer | Tools", "Spawn Rate Balancer"},
+		{"/tools/bayesian-ranking.html", "Tools / Bayesian Ranking Calculator", "Bayesian Ranking"},
+		{"/tools/tool-xp-curve-designer.html", "XP Curve Designer | Tools", "Xp Curve Designer"},
+		// Other child prefixes, same shape.
+		{"/guides/guide-independent-strategy.html", "An Independent Strategy For Practices", "Guide Independent Strategy"},
+		{"/blog/some-long-post-title.html", "Some Extremely Long Blog Post Title Here", "Some Long Post Title"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.url, func(t *testing.T) {
+			got := navSimplifyLabel(tc.label, tc.url)
+			if strings.Contains(got, "/") {
+				t.Fatalf("navSimplifyLabel(%q, %q) = %q — a nav label must never contain a path separator; this is the defect that reached gamesdesign's live footer",
+					tc.label, tc.url, got)
+			}
+			if got != tc.want {
+				t.Fatalf("navSimplifyLabel(%q, %q) = %q, want %q", tc.label, tc.url, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestNavLabelFlatPagesUnchanged is the control: the branches that already worked
+// must give the same answers. navSimplifyLabel's prefix switch is what produces
+// "About"/"Services"/"Blog", and the fix changed what it matches against.
+func TestNavLabelFlatPagesUnchanged(t *testing.T) {
+	cases := []struct{ url, label, want string }{
+		{"/about-our-practice.html", "About Our Veterinary Practice", "About"},
+		{"/services-overview.html", "Services And What They Cost", "Services"},
+		{"/contact-us.html", "Contact Us Today For A Quote", "Contact"},
+		{"/privacy-policy.html", "Privacy Policy And Cookie Notice", "Privacy"},
+		{"/case-studies.html", "Case Studies From Our Work", "Work"},
+		{"/index.html", "A Very Long Homepage Title Indeed", "Home"},
+		// Short labels are returned untouched, whatever the URL.
+		{"/tools/tool-arena.html", "Arena", "Arena"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.url, func(t *testing.T) {
+			if got := navSimplifyLabel(tc.label, tc.url); got != tc.want {
+				t.Fatalf("navSimplifyLabel(%q, %q) = %q, want %q — the label fix changed a branch it should not have",
+					tc.label, tc.url, got, tc.want)
+			}
+		})
 	}
 }
