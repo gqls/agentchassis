@@ -72,6 +72,27 @@ Rationale is in `SUMMARY_2026-07-31`; the short version is that a similarity sco
 says nothing about meaning, and `bugs_open/149` C1 is the witnessed cost of letting
 an LLM rewrite copy unguarded.
 
+#### Why the line sits exactly there — read this before "improving" the check
+
+The remit boundary is not a limitation of the implementation. It is the whole design,
+and it is drawn at **the only place where a repair is provably safe**: two rows on one
+page whose normalised text is byte-identical. There, "which one do I keep?" has a
+correct answer that needs no judgement — keep the earliest, because the duplicate adds
+nothing a reader could want. Every widening below removes that property, so each one
+is refused **on the same ground**, not on three different grounds:
+
+| the tempting widening | why it is refused |
+|---|---|
+| "0.92 similar is obviously the same — dedupe it too" | Now something must decide which of two *different* texts survives, and that is an editorial judgement. `bugs_open/149` C1 is what that costs when an LLM makes it unguarded. A threshold does not make the judgement safe, it hides who is making it. |
+| "the same fact on two pages is duplication — dedupe across pages" | Two pages restating one fact is usually **correct** — a landing page and a case study *should* both cite the headline number. Cross-page identity is a content-strategy question, and it has no page-local answer at all. |
+| "a unique index on `(page_id, slot_name)` would prevent all of this" | Measured: it **breaks 11 legitimate pages**. 10 of the current 11 groups are real repeated slots with genuinely differing content (§3 re-measurement). The schema cannot express the rule because the rule is about *content*, not *shape*. |
+| "the residue item has no handler — wire one up" | The missing handler **is the finding.** `do_not_auto_rewrite: true` is a deliberate statement that this class needs a human, recorded as one `capability_gap` so it is visible rather than silently unhandled. Giving it a handler converts an honest gap into an unsupervised rewriter. |
+
+**The test for any future change: does it preserve "the repair needs no judgement"?**
+If a human would have to decide which text survives, it is residue, and residue gets a
+`capability_gap` — never a handler. Widening this check is an **owner decision**
+(2026-07-31), not a refinement a thread makes while passing through.
+
 **Roll verified.** Chassis `v1.0.1214`, both replicas:
 `remove_duplicate_page_sections` **4**, `content_duplication` **6**, nonsense
 control **0**. So the action is in the running binary and the chain is complete.
@@ -103,11 +124,51 @@ against recurrence, not a backlog-clearer. Say that plainly in round 2 rather th
 requoting the old figure — and re-measure before quoting anything, because that is
 the third stale-figure correction in this lane this week.
 
+### Re-measured 2026-07-31 ~10:20Z — confirmed, and it now has a stronger proof
+
+Independently re-derived from the schema rather than by re-running the reviewer's
+SQL (agreement between two runs of the same query proves nothing about the query).
+**`total_groups 11 / content_identical 0 / legitimately_repeated 10 /
+has_null_content 1`.** The query is now in `RUNBOOK` §16 — it was missing, which is
+how the figure went stale unnoticed in the first place.
+
+**The 11th group is the interesting one, and it is the landmine shape:**
+`finetuning.uk /our-position-on-ai.html`, slot `generic-text-block`, 2 rows, both
+with `content_data IS NULL` ⇒ `count(DISTINCT md5(...)) = 0`. A naive identity test
+reads 0 distinct values as "all the same" and this is **the one group in the fleet
+where a false positive would delete a live row.**
+
+**Both halves already exclude it, for a reason independent of NULL-handling:**
+`COALESCE(content_data::text,'{}')` → `NormaliseSectionText` → empty string → caught
+by the `len(s.Text) < 80` floor, applied identically in
+`check_content_duplication.go:238` (detect) and
+`remove_duplicate_page_sections_action.go:144` (repair). Same threshold, same shared
+normaliser, both halves.
+
+⇒ **So, precisely: enabling the check today would file ZERO items and delete ZERO
+rows.** That is the sharpest available statement of "built but inert" — not merely
+"not switched on", but *verified to be a no-op against the current fleet*. Two
+consequences, both load-bearing:
+- It **strengthens** the case for round 2: the design's safety is no longer an
+  argument, it is a measurement over the real population including its one
+  adversarial case.
+- It **weakens** any argument for enabling it in a hurry. There is no backlog to
+  clear, so the only thing the switch buys today is recurrence protection — which is
+  worth having, and is worth having *after* the owning lane answers, not before.
+  Nothing degrades while it waits.
+
+⚠ **Do not carry the `11 / 0` figure forward without re-running §16.** It was true
+at 10:20Z. It was a different number 24 hours earlier, and one hand-fix by any
+session moves it again.
+
 ## 4. NEXT ACTIONS, in order
 
 1. **Resubmit the checker, round 2** with `RESUBMIT_CORR=da3f2d9b-ae6f-492d-ad3b-748323b66367`.
    Content: the two seed fixes (done, live), the corrected population figure
-   (11/0, guard-not-backlog), and a note that the sketch now shows the enqueue the
+   (**re-run §16 first — it was 11/0 at 10:20Z**, guard-not-backlog), the
+   NULL-group no-op proof from §3 (the strongest single item in the submission: the
+   one fleet group that could trigger a wrongful delete is excluded by both halves at
+   the same threshold), and a note that the sketch now shows the enqueue the
    rationale promised. Working file:
    `<scratchpad>/council_dedup.json` is gone with the session — rebuild from the
    commit message of `feat(151 cand 3)`, which carries the full reasoning.

@@ -1047,3 +1047,49 @@ There's also a smaller thing worth knowing for next time: the rounds table isn't
 the main database at all, it's on the island. The standard database command in our
 notes replies "no such table", which reads exactly like nobody has ever played the
 game. I've written that down where the next person will hit it.
+
+## 31 July, later morning — I went back and checked the number, and found the row that would have been deleted by mistake
+
+Picking this up fresh, I checked the handoff was actually committed rather than just
+written, and it was, along with the note offering the duplication checker to the other
+team. Nothing is sitting half-done.
+
+Then I re-checked the one number in it I'd warned my own successor about. When the
+reviewer told me my population figure was out of date, I'd taken their word for it. So
+I measured it again properly — writing the query from scratch rather than re-running
+theirs, because two runs of the same query will always agree with each other and that
+tells you nothing. They were right. There are eleven pages in the whole estate with
+repeated sections, and **none** of them are the kind this checker repairs. Ten are
+pages that legitimately use the same slot more than once with different words in it.
+
+The eleventh is the one I want to flag, because it is the reason I'm glad I looked.
+It's a page on finetuning.uk where two sections exist but both have *no content at
+all* — the content field is empty. If you ask the database "how many different texts
+are in this group?" the answer comes back **zero**, and it is very easy to read zero as
+"they're all the same" when it actually means "there's nothing to compare". My first
+attempt at the query very nearly made exactly that mistake. If I'd trusted it, I'd have
+reported twelve pages needing repair — on the very week whose next step is switching on
+something that deletes rows.
+
+So I went and checked whether the code I've already written makes the same mistake. It
+doesn't: an empty section is too short to be considered, and both halves of the
+mechanism apply that same rule. Which gives me something better than "it's built but
+switched off". It's now measured: **if we turned it on this morning, it would find
+nothing and delete nothing.**
+
+That cuts both ways, and I think the second way matters more. It makes the case to the
+reviewers much stronger, because the safety of the thing is no longer me arguing — it's
+a measurement across every real page including the one nasty case. But it also removes
+any reason to rush the switch. There's no backlog waiting to be cleared. The only thing
+turning it on buys us today is protection against the problem coming *back* — worth
+having, and nothing gets worse while it waits for the other team to answer. So my
+ruling from earlier stands, and it's now better supported than when I made it.
+
+I've also written the counting query into the runbook, which it wasn't in before. That
+absence is the real reason the figure went stale without anyone noticing: a number
+nobody can quickly re-check is a number that just gets repeated.
+
+The one thing I'd still like a decision on is unchanged from yesterday — the script
+that presses the real share button on the real page and photographs the result. And
+separately, the checker is ready for its second review round whenever you want me to
+spend the credits.

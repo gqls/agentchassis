@@ -2539,3 +2539,54 @@ the permission classifier and has not been run.** Playwright was missing from ev
 venv though its browsers are still cached; I restored it in `~/.venvs/vonc_pw`, so
 the lane's existing `drive_*.py` harnesses work again. Awaiting the owner's call on
 running it — it costs three real LLM calls and creates one real round row.
+
+## 2026-07-31 ~10:20Z — re-measuring the duplication population, and the group I nearly missed
+
+Picked the lane back up on a cleared context, with the handoff already written and
+committed (`4ffaa0301`). Verified before trusting it: handoff committed, CONTRIB to
+`brochure_component_library` committed (`2b6a4e3d5`), lane directory clean. Nothing
+half-applied — the handoff's §0 claim holds.
+
+Then re-ran the one figure the handoff itself flags as stale-prone. **I did not re-run
+the reviewer's SQL.** Two runs of the same query agree with each other by
+construction; that is not corroboration
+(`re-running-a-query-is-not-re-measuring`). Re-derived it from `\d page_components`:
+
+`total_groups 11 / content_identical 0 / legitimately_repeated 10 / has_null_content 1`
+
+Reproduces `bug_historian`'s `11 / 0` exactly. The reviewer was right and my
+submission's `17 / 11 / 6` is dead. Query is now in `RUNBOOK` §16 — **it was never
+written down**, which is the actual mechanism by which the figure went stale
+unnoticed. A number nobody can cheaply re-derive is a number that will be requoted.
+
+### The near-miss worth recording
+
+My first census only asked `count(DISTINCT md5(content_data::text)) = 1`. That reports
+**12** content-identical groups, not 0 — because one group
+(`finetuning.uk /our-position-on-ai.html`, `generic-text-block`, 2 rows) has
+`content_data IS NULL` on both rows, so `count(DISTINCT ...)` is **0**, and `0 = 1` is
+false but `<= 1` — which is what I nearly typed — is true. `distinct_content = 0`
+means *unknown*, not *identical*. The memory entry for `bugs_open/156` says exactly
+this and I still had to walk into it before it registered; the entry is right and I
+should have read it first, not after.
+
+That group is the single place in the fleet where a false positive deletes a live row.
+So I went and checked whether the shipped code makes the mistake I nearly made in the
+query. **It does not**, and for a reason independent of NULL-handling:
+`COALESCE(content_data::text,'{}')` → `NormaliseSectionText` → empty string → excluded
+by `len(s.Text) < 80`, the same floor in both halves
+(`check_content_duplication.go:238`, `remove_duplicate_page_sections_action.go:144`).
+
+⇒ Enabling the check today files **0** items and deletes **0** rows. That is a much
+better statement of "inert" than "not switched on", and it is the strongest item
+available for council round 2: the safety of the design is now a measurement over the
+real population *including its one adversarial case*, not an argument.
+
+Note what the shape of this is: **my query was wrong in the same direction the code
+was right.** Had I trusted my own first census I would have reported 12 groups needing
+repair, on a lane whose next step is a switch that starts deleting rows. Sixth entry
+this week in one family — comparing against a ruler I invented rather than the one the
+data declares (handoff §6).
+
+Did NOT do, deliberately: enable the check, fire round 2. Round 2 is unblocked and is
+the next action; the switch waits on `brochure_component_library`.

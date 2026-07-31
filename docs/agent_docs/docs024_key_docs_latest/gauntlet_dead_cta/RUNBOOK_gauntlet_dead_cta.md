@@ -526,3 +526,41 @@ md5sum served.js        # must equal the md5 the DO block printed
 - **Playwright was absent from every venv** while its browsers were still cached
   in `~/.cache/ms-playwright`, so the lane's `drive_*.py` harnesses all failed at
   import. Restored at `~/.venvs/vonc_pw` (2026-07-31) — use that interpreter.
+
+## 16. The duplication census — the fleet population the checker would act on (2026-07-31)
+
+This query was NOT in this runbook when the council reviewer re-measured my
+submission's population figure and found it stale. It belongs here, because the
+figure it produces goes out of date within hours — any session hand-fixing a page
+changes it.
+
+```sql
+WITH grp AS (
+  SELECT page_id, slot_name,
+         count(*)                                AS rows_in_group,
+         count(content_data)                     AS non_null_rows,
+         count(DISTINCT md5(content_data::text)) AS distinct_content
+  FROM page_components
+  WHERE slot_name IS NOT NULL AND page_id IS NOT NULL
+  GROUP BY page_id, slot_name
+  HAVING count(*) > 1
+)
+SELECT count(*) AS total_groups,
+       count(*) FILTER (WHERE distinct_content = 1 AND non_null_rows = rows_in_group) AS content_identical,
+       count(*) FILTER (WHERE distinct_content > 1)                                   AS legitimately_repeated,
+       count(*) FILTER (WHERE non_null_rows < rows_in_group)                          AS has_null_content
+FROM grp;
+```
+
+**Result 2026-07-31 ~10:20Z: `11 / 0 / 10 / 1`.** Independently reproduces
+`bug_historian`'s `total_groups: 11, content_identical: 0` — re-derived from the
+schema, NOT by re-running their SQL, which is the only way the agreement means
+anything.
+
+**GOTCHA — `distinct_content = 0` means NULL, not agreement.** One group
+(`finetuning.uk /our-position-on-ai.html`, `generic-text-block`, 2 rows) has
+`content_data IS NULL` on both rows. A naive `HAVING count(DISTINCT ...) = 1`
+classes that as content-identical and it is the one group in the fleet whose
+misclassification would DELETE a live row. Hence the `non_null_rows = rows_in_group`
+conjunct above. Both halves of the checker already exclude it for an independent
+reason — see the handoff §3.
