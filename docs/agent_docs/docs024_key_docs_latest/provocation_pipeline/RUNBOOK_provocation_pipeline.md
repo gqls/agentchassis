@@ -316,3 +316,32 @@ cp platform/orchestration/actions/testdata/provocation_*.json "$SB/platform/orch
 
 This is also the honest check: `make build-*` builds from HEAD, so HEAD is what
 ships — not your tree.
+
+### Did the publisher actually run? (the monitorable, added after council round 2)
+
+The action updates `last_completed_at` **only** when it publishes or deliberately
+skips an unchanged feed. Every refusal path — empty pool, failed seal or engine
+invariant, unreadable served feed, shrinking archive — returns an error and leaves
+it alone. So staleness is the signal:
+
+```sql
+SELECT name, enabled, last_triggered_at, last_completed_at,
+       (last_triggered_at > last_completed_at) AS last_run_did_not_complete,
+       now() - last_completed_at AS since_success
+FROM scheduled_tasks WHERE name = 'provocation-feed-refresh';
+```
+
+**GOTCHA — a healthy day looks identical to a broken one in `generated_at`, but
+NOT here.** On a day with no rotation the action skips the commit, which still
+counts as success and still moves `last_completed_at`. So `since_success` growing
+beyond the 6h interval means the action is *failing*, not merely quiet. Nothing
+alerts on this yet — a council reviewer flagged exactly that gap.
+
+To see why it refused, read the orchestration rather than guessing:
+
+```sql
+SELECT current_step, status, error, updated_at
+FROM orchestration_states
+WHERE current_step = 'publish_feed'
+ORDER BY updated_at DESC LIMIT 5;
+```

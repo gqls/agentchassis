@@ -689,3 +689,85 @@ Filed as a landmine (with the sync applied, so it is in `doc_notes` — which al
 answers `tooling_provenance` properly) and in `WRONG_CALLS.md`. **The rule I want
 to keep: an absence claim is a claim about a search, so state the search's scope.**
 Writing "not present under `builder/`" would have shown me the error as I typed it.
+
+---
+
+## 2026-08-01 — council round 2: APPROVED, and what the six advisory objections were worth
+
+**Verdict:** `approved` — 13 reviewers, 4 abstained, "approved with 6 advisory
+objection(s) — none high-severity". Correlation
+`6612dc0b-8e03-4039-a8c8-fe4fabaaddeb`. The round 1 gating objection (nothing
+invokes the action) is answered by migration 283.
+
+Advisory does not mean ignorable, so each was checked rather than filed. Two were
+already answered by machinery I had not looked for, one was a false positive, and
+three are genuine limitations now recorded as such.
+
+### Answered by existing machinery — I should have checked before flagging a risk
+
+**guardian (medium): a third concurrent writer into the same git repo, with no
+serialisation described.** Fair on the submission, wrong about the platform. The
+git adapter runs **2 replicas** and three exporters now write the same `sites`
+repo, so the concern is real in principle — but `CommitToRepo`
+(`internal/adapters/git/github_client.go`) already carries a **ref-race retry**
+from `bugs_open/120` (owner ruling 2026-07-28), with **4 tests** pinning its
+subtleties: the base head is re-read *inside* the retry loop (retrying on a stale
+head loops on the same non-fast-forward for ever), and blobs are created *outside*
+it because they are content-addressed. So a third writer is safe by an existing,
+tested mechanism. **I had listed no concurrency risk at all — not because I had
+checked, but because I had not thought of it.** The reviewer thought of it; the
+platform had already solved it.
+
+**tooling_provenance (medium): still no `doc_notes` entry.** True at submission
+time and false by the time the verdict landed — the landmine went in and
+`landmines-sync.py --apply` put it in `doc_notes` (verified by selecting the row).
+This one is my own fault twice over: I told the council the file did not exist.
+
+### A false positive, checked rather than assumed
+
+**debug_historian (medium): the file matches the `sql_for_agents/*.sql` landmine
+about a trailing `ROLLBACK` protecting nothing unless `BEGIN` is live.** That
+landmine's own test is "if the first non-comment statement is not `BEGIN;`, there
+is no transaction". Both migrations:
+
+```
+282: first non-comment = BEGIN;   last = COMMIT;   stray ROLLBACK/ABORT = 0
+283: first non-comment = BEGIN;   last = COMMIT;   stray ROLLBACK/ABORT = 0
+```
+
+The objection fired on the **path pattern**, not the contents. Worth recording
+because the reviewer was right to look — the pattern is a real trap, and the cost
+of the check was one command.
+
+### Genuine limitations, conceded
+
+- **editquality (medium): the Python "demotion" is a docstring, not a functional
+  change** — no enforcement that both sides move together. Correct, and I said as
+  much in the risks. Documentation is not a mechanism. The honest position is that
+  the drift risk is *managed by discipline*, which is weaker than the parity test
+  makes it look, and the parity test only pins today's fixtures.
+- **guidelines (medium): WRAPPER-ORCHESTRATOR and DECLARED CONTRACTS** —
+  `processing_mode: task` doing an outbound fetch and a git commit inline, and no
+  `input_contract` declaring `domain`/`repo_name`/`data_path`/`filename`. Measured
+  before answering: **none of `directory-json-exporter`, `med-json-exporter` or
+  `content-feed-orchestrator` declares an `input_contract`**, and both proven
+  exporters use `processing_mode: task` doing exactly this work inline. So this is
+  a fleet-wide convention gap, not a defect introduced here — and unilaterally
+  diverging would make this the odd one out. Recorded, not "fixed".
+- **bug_historian (medium): does a refusal surface, or is it a swallowed
+  orchestration error?** Partially answered by the design: the action updates
+  `scheduled_tasks.last_completed_at` **only on the success paths** (published or
+  skipped-as-unchanged), so a refusal leaves it stale and staleness is the
+  monitorable signal. That is a check nobody is running yet. Added to the RUNBOOK.
+- **bug_historian (low) + editquality (low):** `allow_unverified_publish` can
+  reopen the hole if set casually, and the row is `enabled=false` so the action is
+  operationally still uninvoked. Both true, both deliberate, both documented.
+
+### The pattern across both rounds
+
+Round 1's gating objection and round 2's guardian objection are the same shape:
+**a reviewer asking what happens at the seam between my change and the rest of the
+platform** — what invokes it, what else writes where it writes. Both times I had
+reasoned carefully about the inside of the action and not at all about its edges.
+The parity test, the seal checks and the fail-closed guards are all *interior*
+work. Nothing I wrote unprompted looked outward.
