@@ -1458,3 +1458,39 @@ also that fixture 1 carries an `item_key`.
 
 Re-armed with `handler_agent='report-builder'` (verified `is_active`), `attempt_count` back to
 0, error/claim cleared.
+
+**Second attempt: rejected by the honesty gate — and the gate was right to.**
+`verify_prose` failed with *"summary_html names model-like token \"IP54-or-better\" not in
+the candidate set or fact block"*. `modelNumberRe` classifies the phrase as SKU-shaped, and
+the clearance test is verbatim containment in the fact block, which carries `IP54` and not the
+writer's composed phrase. The step is **fail-closed**, so no page was composed at all — the
+URL 404'd. **Filed as `bugs_open/160`** with four ordered fix candidates; the gate itself must
+stay strict, the *classifier inside it* is what cannot tell a fabricated sibling SKU from a
+recombined fact. Worst property: **intermittent**, because the trigger is the writer's
+phrasing — the identical spec passed this same gate on 07-27.
+
+**Third attempt (max_attempts raised to 2): COMPLETE at 08:25:01Z, 175s.** Justification for
+retrying rather than fixing first: the same spec had passed on 07-27, so the violation was
+known to be phrasing-dependent rather than a deterministic block.
+
+### The chart fix, verified on the SERVED artefact
+
+`https://robot-hands.com/reports/bf3765d6-befe-43a8-b1cd-ca5c210f39e9.html` — **HTTP 200,
+43,546 bytes.** Checks run against the page's own inline SVG, pulled with curl, not against a
+local re-render:
+
+| check | result |
+|---|---|
+| value labels emitted | 10, longest `6.42× (Insufficient data)` |
+| labels truncated (ending `…`) | **NONE** — the gutter fitted them |
+| reference captions | `requirement (1.0×)` at y=364, `marginal threshold (1.25×)` at y=376 |
+| captions on distinct baselines | **true** (the lane stacking fired) |
+| capped-bar tips | **2** — the 6.42× and 7.60× bars, the two over the 3× cap |
+
+Then rendered and **looked at** it (`~/chartcheck/fixture4_chart.png`): labels whole,
+captions legible on two lines, capped bars visibly pointed. Both defects the owner
+screenshotted are gone on a page the pipeline produced by itself.
+
+**Note what the numbers say that the old chart could not:** `7.60×` and `6.42×` are both
+clipped to the cap, and the pointed tips now say so. Before, they were two identical bars with
+different numbers beside them.
