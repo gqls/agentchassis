@@ -1,7 +1,9 @@
 # Concept Index — master register
 
-1,686 concepts across 109 category register files (**re-taken from the grep 2026-07-31
-after DES-081 landed** — not incremented from the 1,685 that was sitting here, per this
+1,688 concepts across 109 category register files (**re-taken from the grep 2026-07-31
+after CTXA-025 landed** — the line said 1,686 and the grep said 1,687 before this row was
+added, i.e. it had drifted 1 behind AGAIN, from another session's row, exactly as the
+history below predicts; not incremented from what was sitting here, per this
 line's own rule; the
 headline had already drifted 1 behind again by that evening, before PBP-025 was
 added — and it moved again minutes later when TL-036 landed, and again when DOC-070
@@ -1756,6 +1758,7 @@ an ID prefix, or a status word.
 | NEWS-013 | Two distinct news components as a multi-view pattern | deployed | latest-news and news-listing are separate components, template for future filtered views | news-feed-pipeline.md |
 | CTS-002 | Component input-schema source vocabulary (Tier A-D + renderer, proposed E) | partial | llm/static/site-data/query source tiers for component fields; feed.* Tier E undecided | contracts-and-standards.md |
 | LOCK-004 | Timed lock-expiry project and lock-model coherence plan | partial | lock_type/lock_expires_at added via migration 115 (schema only); Go predicate sweep pending | locks.md |
+| LOCK-007 | Shared asset-lock guard — one predicate for every writer that replaces a site asset | built | lockedAssetKeys/assetAgentWritableSQL; guarding the provenance upsert is NOT guarding the artefact (bugs_open/143) | locks.md |
 | LOCK-001 | Pattern A (locked_at/locked_by) canonical; Pattern B (pinned) dead | deployed | locked_at/locked_by is the uniform lock mechanism; pinned boolean never wired | locks.md |
 | CTXK-012 | internal/diagnose scaffold package (file-level map) | deployed | loop.go/step.go/advance.go/callgraph.go/verdict_wire.go/sqlguard.go implementing the tested loop scaffold | contextkit-toolchain.md |
 | ATN-001 | Agent hierarchy tree navigation (ltree paths + subtree summaries + live viewer) | aspirational | ltree tree_path + subtree summaries + REST/WebSocket viewer for massive trees | agent-tree-navigation.md |
@@ -1862,6 +1865,7 @@ an ID prefix, or a status word.
 | CLM-013 | Series facts: many dated observations, each independently sourced | deployed | Every observation carries its OWN source, never inherited; a rule enforced only in a validator is not enforced | claims-verification.md |
 | LNK-023 | repairOutboundPageLinks: shared rerender-path link repair | deployed | The build gate's dead-link repair applied where rerendered HTML leaves for deploy, both paths, origin-stamped log | link-management.md |
 | CTXA-024 | GitHubSource.CommitInfo: commit identity + committer date | deployed | Resolves short sha to full + committer date so index freshness keys on the commit, never the row clock | context-assembly.md |
+| CTXA-025 | Guarded reconciliation prune: a floor on "delete everything this run did not re-write" | built, INERT until roll | The rule is pure counts, no SQL, so the three other live call sites of the same destructive shape can reuse it; per-class COHORTS because a 95% whole-corpus ratio hides a wiped class; resolvable floor (prune_floor_ratio, 0 disables) because a guard with no exit gets deleted. LANDMINE: a green run proves NOTHING — the floor is inert on a healthy repo by design | context-assembly.md |
 | CLM-015 | The fleet-wide banned-claim set: ten patterns no site may assert about itself | LIVE v1.0.1196, council-APPROVED | Nil-safe, so an unarmed site is protected; NOT unioned at parse time because EvidenceBase is marshalled back to site_specs. UPDATED 07-29: the negation-prone pattern is now ARMED behind CLM-017's guard, and this entry's '0 findings' headline was an ARTEFACT of its absence — armed, the set finds 2 live overclaims (bugs_open/147) | claims-verification.md |
 | CLM-014 | cmd/claimscan: run the live gate's own engine over exported page HTML, offline | deployed | The only way to test a candidate pattern set against copy other than the site it was written for; a session nearly rebuilt it. Prints BANNED/NUMBER, never the string "banned_claim" | claims-verification.md |
 | CLM-016 | ClaimSurface: the page's structural type gates the prose number heuristic | committed, INERT until roll | 124 live findings -> 63, suppressing 61 measured false positives and nothing else; ONLY the heuristic is gated (banned claims and stat fields still scan every page type); zero value = UNKNOWN = scanned | claims-verification.md |

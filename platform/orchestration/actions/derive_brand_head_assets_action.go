@@ -118,7 +118,7 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 	if err != nil {
 		return nil, fmt.Errorf("check locked brand-head assets: %w", err)
 	}
-	if lockedKeys["favicon"] && lockedKeys["og_card"] {
+	if lockedKeys.Locked("favicon") && lockedKeys.Locked("og_card") {
 		logger.Info("derive_brand_head_assets: both artefacts locked — nothing to derive",
 			zap.String("domain", domain))
 		return map[string]interface{}{
@@ -154,7 +154,7 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 
 	// ── Derive favicon (square) and OG card (logo on brand background) ──
 	files := map[string]interface{}{}
-	if !lockedKeys["favicon"] {
+	if !lockedKeys.Locked("favicon") {
 		faviconPNG, err := encodePNG(composeFavicon(logoImg))
 		if err != nil {
 			return nil, fmt.Errorf("encode favicon: %w", err)
@@ -163,7 +163,7 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 			"content": base64.StdEncoding.EncodeToString(faviconPNG), "encoding": "base64",
 		}
 	}
-	if !lockedKeys["og_card"] {
+	if !lockedKeys.Locked("og_card") {
 		ogPNG, err := composeOGCard(logoImg, bgColour)
 		if err != nil {
 			return nil, fmt.Errorf("compose og card: %w", err)
@@ -177,10 +177,10 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 	}
 
 	// ── Provenance rows (best-effort; derivation, origin = the logo) ──
-	if !lockedKeys["favicon"] {
+	if !lockedKeys.Locked("favicon") {
 		recordDerivedAsset(ctx, params.DB, siteID, "favicon", "/assets/images/favicon.png", logger)
 	}
-	if !lockedKeys["og_card"] {
+	if !lockedKeys.Locked("og_card") {
 		recordDerivedAsset(ctx, params.DB, siteID, "og_card", "/assets/images/og-card.png", logger)
 	}
 
@@ -194,12 +194,12 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 	// skipped_locked names the ones the lock excluded.
 	result := map[string]interface{}{"derived": true}
 	skipped := []string{}
-	if lockedKeys["favicon"] {
+	if lockedKeys.Locked("favicon") {
 		skipped = append(skipped, "favicon")
 	} else {
 		result["favicon_url"] = "/assets/images/favicon.png"
 	}
-	if lockedKeys["og_card"] {
+	if lockedKeys.Locked("og_card") {
 		skipped = append(skipped, "og_card")
 	} else {
 		result["og_image_url"] = "/assets/images/og-card.png"
@@ -225,32 +225,19 @@ func composeFavicon(logo image.Image) image.Image {
 	return canvas
 }
 
-// lockedBrandHeadKeys reports which of the site's brand-head asset keys
-// (favicon, og_card) have ANY locked row. Deliberately no status filter:
-// assets.status is unconstrained text (no CHECK; live vocabulary already
-// holds active/superseded/retired), so conditioning a safety guard on it
-// would silently fail open the day a locked row carries a status nobody
-// enumerated. A lock on any row of the key fails CLOSED — the artefact is
-// skipped, visibly, via skipped_locked / the both-locked refusal.
-func lockedBrandHeadKeys(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]bool, error) {
-	rows, err := db.QueryContext(ctx, `
-		SELECT DISTINCT asset_key FROM assets
-		 WHERE site_id = $1 AND asset_key IN ('favicon','og_card')
-		   AND locked_at IS NOT NULL
-	`, siteID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	locked := make(map[string]bool, 2)
-	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err != nil {
-			return nil, err
-		}
-		locked[key] = true
-	}
-	return locked, rows.Err()
+// brandHeadAssetKeys are the two artefacts this action derives. Named so the
+// lock check and the files/result blocks above cannot drift apart.
+var brandHeadAssetKeys = []string{"favicon", "og_card"}
+
+// lockedBrandHeadKeys reports which of the site's brand-head asset keys have
+// ANY locked row. The predicate itself lives in asset_lock_guard.go
+// (bugs_open/143) — this was one of several hand-written copies of the same
+// "is this asset_key locked" query, and a duplicated safety predicate drifts
+// silently (016b §9). Semantics are unchanged by the move: no status filter, no
+// expiry test, a lock on any row of the key fails CLOSED and the artefact is
+// skipped visibly via skipped_locked / the both-locked refusal.
+func lockedBrandHeadKeys(ctx context.Context, db *sql.DB, siteID uuid.UUID) (assetLockSet, error) {
+	return lockedAssetKeys(ctx, db, siteID, brandHeadAssetKeys...)
 }
 
 // composeOGCard draws the logo centred on a solid brand-colour 1200×630 card.

@@ -108,6 +108,38 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 		domain = domainDB
 	}
 
+	// ── The card's asset_key IS its artefact's identity: the repo path below and
+	// the provenance upsert both derive from it, so it is what the lock is read
+	// against. Computed here (not at the commit) because the lock decides
+	// whether any of the work that follows should happen at all. ──
+	cardKey := "card_" + strings.ReplaceAll(pageName, "-", "_")
+
+	// ── A locked row is an owner approval — honour it BEFORE the git commit
+	// (bugs_open/143). The upsert's own `WHERE assets.locked_at IS NULL` below
+	// protects only the provenance row; by the time it runs the card file in the
+	// site repo has already been replaced, so the approved row would survive and
+	// its artefact would not. Checked here, before storage is even required, so
+	// a locked card costs nothing and refuses visibly. Shared guard — see
+	// asset_lock_guard.go for why there is no status filter and no expiry test.
+	// An error is fail-closed: we do not overwrite an approval on a DB blip. ──
+	locks, err := lockedAssetKeys(ctx, params.DB, siteID, cardKey)
+	if err != nil {
+		return nil, fmt.Errorf("check card asset lock (%s): %w", cardKey, err)
+	}
+	if locks.Locked(cardKey) {
+		logger.Info("derive_card_asset: card asset is locked — refusing to overwrite",
+			zap.String("domain", domain),
+			zap.String("page", pageName),
+			zap.String("lock", locks.Describe(cardKey)))
+		return map[string]interface{}{
+			"derived":   false,
+			"locked":    true,
+			"asset_key": cardKey,
+			"reason": fmt.Sprintf("card asset is locked (%s) — approved assets are never overwritten; clear the lock deliberately first, then re-derive",
+				locks.Describe(cardKey)),
+		}, nil
+	}
+
 	// ── Find the source hero: page-scope plan hero, else the site-scope brand
 	// hero. The plan row's key IS the asset_key convention (Lane A). ──
 	sourceAssetID, sourceURL, sourceKey, err := findCardSourceHero(ctx, params.DB, siteID, pageName)
@@ -152,8 +184,7 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 	}
 	cardBytes := buf.Bytes()
 
-	// ── Commit to the site repo ──
-	cardKey := "card_" + strings.ReplaceAll(pageName, "-", "_")
+	// ── Commit to the site repo (cardKey resolved and lock-checked above) ──
 	repoPath := storage.DefaultAssetBasePath + "/" + storage.AssetKeyFilename(cardKey, ".jpg")
 	files := map[string]interface{}{
 		repoPath: map[string]interface{}{
@@ -169,7 +200,7 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 	// is NOT best-effort: the entity link is what the query resolvers read, so
 	// a card that committed but never linked would stay invisible forever. ──
 	dims, _ := json.Marshal(map[string]int{"width": int(w), "height": int(h)})
-	_, err = params.DB.ExecContext(ctx, `
+	res, err := params.DB.ExecContext(ctx, `
 		INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url,
 		                    origin_type, origin_model, origin_asset_id,
 		                    entity_type, entity_id, mime_type, file_size, dimensions, created_at)
@@ -188,14 +219,33 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 		return nil, fmt.Errorf("card asset upsert: %w", err)
 	}
 
+	// The upsert's WHERE assets.locked_at IS NULL can suppress the DO UPDATE
+	// silently — no error, no row. Before bugs_open/143 this result was
+	// discarded, so a lock-suppressed provenance write was reported as a clean
+	// success. It can now only happen in the TOCTOU window (a lock taken after
+	// the pre-check above and before this statement), and that must be loud: the
+	// artefact HAS been replaced, so the state is genuinely inconsistent and a
+	// human has to reconcile it. Reported at the call boundary, not just logged.
+	provenanceRecorded := true
+	if res != nil {
+		if affected, aerr := res.RowsAffected(); aerr == nil && affected == 0 {
+			provenanceRecorded = false
+			logger.Error("derive_card_asset: provenance write SUPPRESSED by the asset lock after the pre-check passed — the card artefact was already committed and now disagrees with its row",
+				zap.String("domain", domain),
+				zap.String("page", pageName),
+				zap.String("card_key", cardKey))
+		}
+	}
+
 	logger.Info("derive_card_asset: committed entity card",
 		zap.String("domain", domain),
 		zap.String("page", pageName),
 		zap.String("card_key", cardKey),
 		zap.String("source_key", sourceKey),
+		zap.Bool("provenance_recorded", provenanceRecorded),
 		zap.Int("bytes", len(cardBytes)))
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"derived":         true,
 		"card_url":        webPath,
 		"asset_key":       cardKey,
@@ -203,7 +253,13 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 		"entity_id":       entityID.String(),
 		"source_asset_id": sourceAssetID,
 		"file_size":       len(cardBytes),
-	}, nil
+	}
+	if !provenanceRecorded {
+		result["provenance_recorded"] = false
+		result["locked"] = true
+		result["reason"] = "card artefact was committed, then the provenance write was blocked by a lock taken mid-derivation — the committed file and the assets row now disagree and need reconciling"
+	}
+	return result, nil
 }
 
 // findCardSourceHero locates the active hero asset a card derives from, in

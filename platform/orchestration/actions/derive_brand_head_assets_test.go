@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
@@ -70,6 +71,12 @@ func TestComposeFaviconPreservesAspect(t *testing.T) {
 // approval and the derivation must skip that artefact BEFORE the git commit.
 // Deliberately no status filter — assets.status is unconstrained text, so a
 // locked row must fail closed whatever status it carries.
+//
+// The predicate itself moved to asset_lock_guard.go (bugs_open/143), so the SQL
+// asserted here is the shared query's, and the no-status-filter / no-expiry
+// guarantees are pinned directly in asset_lock_guard_test.go. What THIS test
+// still owns is that brand-head asks about both of its own artefacts and reads
+// the answer per key.
 func TestLockedBrandHeadKeys(t *testing.T) {
 	ctx := context.Background()
 	siteID := uuid.New()
@@ -91,22 +98,22 @@ func TestLockedBrandHeadKeys(t *testing.T) {
 				t.Fatalf("sqlmock: %v", err)
 			}
 			defer db.Close()
-			r := sqlmock.NewRows([]string{"asset_key"})
+			r := sqlmock.NewRows([]string{"asset_key", "locked_by", "lock_type", "locked_at"})
 			for _, k := range c.rows {
-				r.AddRow(k)
+				r.AddRow(k, "admin", "permanent", time.Now())
 			}
-			mock.ExpectQuery("SELECT DISTINCT asset_key FROM assets").WillReturnRows(r)
+			mock.ExpectQuery(`SELECT DISTINCT ON \(asset_key\)`).WillReturnRows(r)
 
 			got, err := lockedBrandHeadKeys(ctx, db, siteID)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if len(got) != len(c.want) {
-				t.Fatalf("got %v, want %v", got, c.want)
+				t.Fatalf("got %v, want %v", got.Keys(), c.want)
 			}
 			for k := range c.want {
-				if !got[k] {
-					t.Errorf("missing locked key %q in %v", k, got)
+				if !got.Locked(k) {
+					t.Errorf("missing locked key %q in %v", k, got.Keys())
 				}
 			}
 		})
@@ -130,8 +137,10 @@ func TestDeriveBrandHeadBothLockedRefuses(t *testing.T) {
 			AddRow("https://s3.example.com/bucket/images/logo.png", "example.com"))
 	mock.ExpectQuery("color_palette").WillReturnRows(
 		sqlmock.NewRows([]string{"color_palette"}).AddRow(`{"background":"#ffffff"}`))
-	mock.ExpectQuery("SELECT DISTINCT asset_key FROM assets").WillReturnRows(
-		sqlmock.NewRows([]string{"asset_key"}).AddRow("favicon").AddRow("og_card"))
+	mock.ExpectQuery(`SELECT DISTINCT ON \(asset_key\)`).WillReturnRows(
+		sqlmock.NewRows([]string{"asset_key", "locked_by", "lock_type", "locked_at"}).
+			AddRow("favicon", "admin", "permanent", time.Now()).
+			AddRow("og_card", "admin", "permanent", time.Now()))
 
 	out, err := DeriveBrandHeadAssetsAction(context.Background(), ActionParams{
 		DB:               db,
