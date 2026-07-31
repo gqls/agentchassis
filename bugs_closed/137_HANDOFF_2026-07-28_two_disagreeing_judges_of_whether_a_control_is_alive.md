@@ -9,10 +9,17 @@ deferring this to "the register" would leave the two unreconciled:
 > … the reconciliation of shell-dead-controls vs. the new attribute check belongs on someone's
 > roadmap now, not only 'in the register' later."*
 
-**Status:** ~~OPEN, unowned~~ → **FIXED + council-APPROVED 2026-07-31 (round 4, 9 approve / 5
-advisory, none high). OPEN only because it is not LIVE yet** — pod-grep on both `v1.0.1218`
+**Status:** ~~OPEN, unowned~~ → **CLOSED 2026-07-31: FIXED, council-APPROVED (round 4, 9 approve /
+5 advisory, none high) and LIVE + pod-verified on v1.0.1223, both replicas.**
+
+<details><summary>superseded status line</summary>
+
+**FIXED + council-APPROVED, OPEN only because it is not LIVE yet** — pod-grep on both `v1.0.1218`
 replicas gives `RuntimeFillSpans` **0** against positive control `DeadControlAnchors` **2**.
 Moves to `bugs_closed/` after a roll carrying these commits, verified at the pod.
+
+</details>
+
 Option 2 taken. Council correlation `4465f655-c6c6-49b4-a9b8-4ca7a5f647df` (`Council-Reviewed:`).
 Working docs: `docs024_key_docs_latest/bugfix_137_control_liveness/`. See the addendum at the
 bottom — including the part of the cause this file did not have.
@@ -404,3 +411,59 @@ reading them):
    root carries the marker must still yield zero dead-control findings, or the
    exemption was deleted rather than narrowed.
 4. Re-run the `vonc.com/index` measurement and record both numbers.
+
+---
+
+## 2026-07-31 (late) — CLOSED. Live on v1.0.1223 and verified at the artefact, both branches.
+
+**1. Pod-grep, both replicas, every symbol in ONE exec with a positive control**
+(`bugs_open/153`: a roll is not evidence, and the image may predate your commit):
+
+| symbol | `…-k7wnd` | `…-nd4cw` | was on v1.0.1218 |
+|---|---|---|---|
+| `RuntimeFillSpans` (added) | **2** | **2** | 0 |
+| `DeadControlAnchorsOutsideRuntimeFill` (added) | **2** | **2** | 0 |
+| `HasRuntimeFillMarker` (added) | **1** | **1** | 0 |
+| `DeadControlAnchors` (**positive control**) | 4 | 4 | 2 |
+
+The control stays non-zero, which is what makes the first three numbers readable —
+`DeadControlAnchors` is **not** renamed by this change, so it could not have been
+invalidated by the diff (the `debug_historian` advisory).
+
+**Two commits postdate the 20:20 build and neither is behavioural**: `5ade3b827`
+touched `scripts/pattern-check.py` and deleted a `_test.go` (neither is compiled
+into the chassis), and `700fcb750` added comments only — verified by diffing it.
+Every behavioural commit precedes the build, and the pod-grep confirms it
+independently rather than by timestamp arithmetic.
+
+**2. BOTH BRANCHES INDUCED on live markup** — the verification this file demanded,
+and the second row is the one that matters:
+
+| live artefact | bytes | old exemption | new exemption | dead controls |
+|---|---|---|---|---|
+| `vonc.com/index` (assembled) | 48,956 | **100%** | 2 spans, 6,172 B (**12.6%**) | **2** — "Get Started", "Learn More" |
+| `provocations-archive-list` (a shell) | 7,684 | **100%** | 1 span, 1,400 B (18.2%) | **0** |
+
+The first row proves the narrowing works. **The second proves the exemption was
+narrowed and not DELETED** — a change that simply removed it would report the
+archive template's `href="#"` here. Both were required precisely because either
+one alone is satisfied by the opposite bug.
+
+*Caveat, stated rather than glossed:* the two rows were computed by running the
+deployed predicate from source, not from inside the pod — the discovery checks
+only execute when an agent runs them. The pod-grep establishes the code is in the
+binary; the predicate is pure; and the source for those files differs from the
+built commit only by comments. That is the strongest available check short of
+waiting for a scheduled discovery run.
+
+**3. The reconciliation holds.** On the element this bug was filed about, both
+judges now exempt it — `shell-dead-controls` finds nothing, and `attribute_absent`
+returns SKIP with its reason and the set-aside count rather than PASS. One
+evaluator, one element, one answer.
+
+**What shipped beyond the fix:** `LNK-025` in the concept register, the `016b` §9
+pattern (an exemption tested against "whatever the caller passed" has no fixed
+blast radius — plus its counterweight, that narrowing such a guard is safe for
+code that *reports* and unsafe for code that *acts*), a corrected `LANDMINES.md`
+entry, and `check_runtime_fill_marker` in `scripts/pattern-check.py` so a tenth
+copy cannot appear unnamed.
