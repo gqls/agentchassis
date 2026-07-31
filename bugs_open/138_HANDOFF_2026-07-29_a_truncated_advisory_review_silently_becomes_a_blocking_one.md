@@ -561,10 +561,20 @@ explicitly to cut words, never findings. Classifier self-tested on all four bran
 including its refusal to overwrite a hand-authored block.
 
 > **NOT YET APPLIED — the live config write is pending permission.** The script is
-> written, dry-run clean against all five targets, and its classifier verified against
-> real seats; `--apply` was refused by this session's permission classifier. So as of
-> this entry the length budget exists in git and **not** in the fleet. One command:
+> written, dry-run clean against every target, and its classifier verified against real
+> seats; `--apply` was refused by this session's permission classifier. So as of this
+> entry the length budget exists in git and **not** in the fleet. One command:
 > `./scripts/apply-seat-length-budget.py --apply`.
+
+**2026-07-31 — the alert found a 7th target overnight, on the threshold that nearly
+did not get built.** `review_debug_historian@8000`: **peak 99.8% of cap at a p95 of
+62.2%** — 283 calls, 128 attributable, one review within ~16 tokens of being cut off on
+a seat whose typical output uses under two-thirds of its budget. A p95-only rule would
+have rated it 62.2% and never spoken. Added to the script's targets (7 now: `guardian`
+×3 councils, `improvement_guardian` ×2, `debug_historian` ×2) — the first target this
+lane did not pick by hand. Both halves of the task's design are also now proven in
+production: 4+ runs, **2 notes, 2 distinct flag sets** — the identical set wrote nothing
+at 21:21 and 03:21, the changed set spoke at 09:21.
 
 **Still open after today:** candidate 3's residue on feature-designer (an owner call,
 above), and the `true`-branch live proof for candidate 1. Candidates 2 and 4 are
