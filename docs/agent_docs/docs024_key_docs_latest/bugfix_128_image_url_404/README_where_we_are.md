@@ -70,3 +70,35 @@ council. It does nothing at all until the next chassis image is built and rolled
 that is normal here, and the bug stays open until then, because until it ships the
 six broken images are still broken. When it does ship, there is a short list of
 specific pictures on specific sites to check, in the bug file.
+
+---
+
+## 2026-07-31, later the same evening — it shipped, and it works
+
+A fresh chassis went out (v1.0.1219) carrying the fix, so I was able to finish this
+properly rather than leaving it committed-but-dormant.
+
+I checked the running pods rather than trusting the version number, and checked it the
+careful way: not just "is the new code in there" but "is the old code *gone*". The old
+wording the check used to print returns zero hits on both replicas, which is the answer
+that actually settles it — new code can sit alongside old code quite happily.
+
+Then I ran the real thing on two live sites. vonc.com's broken hero image — the one its
+own images were hiding, the exact case this bug is about — was reported. idea.uk's broken
+favicon and broken social-sharing card were reported for the first time ever, marked as
+high priority because they are on every page of that site. And the part I care about just
+as much: of the nineteen image references those two sites carry, seventeen are fine and
+the check said nothing about any of them. The old version would have shouted about
+several.
+
+The bug is closed and filed away.
+
+Two honest loose ends. The reviewer council sent the change back once with a fair
+question, I answered it, and then the council could not sit again because it hit its
+spending cap for the day — so on paper the last verdict is still "revise". I have marked
+the commits as *submitted for review* rather than *reviewed*, because that distinction is
+the only thing keeping the review record worth anything, and the resubmission is written
+down as owed after midnight. And there are nine stale entries in a queue left over from
+the old check, four of which are its own false alarms; I have left them alone because
+another thread is working in that queue right now and yanking rows out from under someone
+is how you create a confusing hour for both of you.
