@@ -12759,3 +12759,59 @@ the mechanism rather than the symptom:
 acting on a description of it*. The recurring cheap check is not a new tool — it is
 running the one-line query against the live system **before** repeating a figure, and
 marking it `[UNMEASURED]` when you don't.
+
+---
+
+## 2026-07-31 — a green test suite that proved safety and never asked whether the work had a point
+
+**Lane:** loancalculator_couk. Building the rule that splits 27 adopted pages into
+editable sections plus preserved calculator widgets, I wrote four proofs and ran them
+over every real page:
+
+- P1 every inline `<script>` survives byte-exact
+- P2 every page-local `<style>` survives byte-exact
+- P3 no top-level block is lost
+- P4 no id an inline script addresses is left outside the tool component
+
+**All four passed on all 27 pages. The rule was useless.** It put **98% of the visible
+text on interactive pages inside the frozen tool component — 100% on eleven of
+twelve** — so the site would have been exactly as unable to evolve as before, which is
+the one thing the owner asked to change.
+
+**What was wrong:** every proof I had written measured *"nothing broke"*. Not one
+measured *"anything became editable"*. Those are different axes, and a clean run on
+the first says nothing whatever about the second. Worse, the clean run is actively
+misleading: it produces a defensible-looking record — four named properties, 27 pages,
+zero failures — for a change that does not do its job.
+
+**What caught it:** printing the prose/tool character split per page because the table
+looked odd (eleven pages showing zero prose blocks), not because any check complained.
+I nearly did not look; the suite was green.
+
+**The cheap check I skipped:** a proof of the **purpose**, stated as a number, written
+at the same time as the safety proofs. Added as **P5 — share of interactive-page text
+left editable**, with a threshold. It failed immediately, then drove two rule
+revisions to 25% frozen (`standard-calc` 90% → 5%).
+
+**The transferable shape, and it is not specific to HTML.** For any transformation —
+migration, refactor, extraction, decomposition — the natural proofs are conservation
+proofs, because those are the ones whose failure is a bug you can be blamed for.
+**Conservation proofs cannot fail on a no-op.** A rule that changes nothing passes
+every one of them. So: **for each transformation, write at least one proof that the
+IDENTITY transform would fail.** If every proof you have would pass on a no-op, you
+have tested your safety and not your work.
+
+**A second instance the same afternoon, same family, opposite direction:** my P6
+("no visible text lost") failed on exactly 5 pages by 45–60 characters each — which
+reads unmistakably as real content loss, and sent me looking for dropped text nodes.
+It was comparing body-derived output against **whole-document** text, so the shortfall
+was each page's `<title>`, which is not lost at all. The figure was correct; the
+question it encoded was not the question I was asking it. (It had already earned its
+place by catching a genuine bug first: descent iterated element children only, so
+loose text between two elements was silently dropped.)
+
+**Tally note:** three entries in two days now turn on *a correct measurement answering
+a different question than the one it was read as* (share-card budget, P6, and the
+`12 calculators` denominator above). The recurring fix is to write down, next to the
+figure, the sentence it is evidence FOR — the mismatch is obvious once both are on the
+page, and nearly invisible while only the number is.

@@ -1044,3 +1044,53 @@ source document and the entry points at it.
 - **source:** 2026-07-31, loancalculator_couk lane, costing the "adopt from our own
   files" step before building it
 - **added:** 2026-07-31, loancalculator_couk lane
+
+### The `http_request` action is a STUB — it returns a hardcoded mock and never makes a request
+
+- **footprint:** `http_request`, `HTTPRequestAction`, `platform/orchestration/actions/generic_actions.go`
+- **fires when:** you need an orchestration step to call an external HTTP
+  endpoint, grep the action registry, and find `http_request` already there —
+  registered, categorised `external`, described as *"Make an HTTP request to an
+  external endpoint"*
+- **the tell:** there is none at dispatch time. The registry entry is real and
+  reads exactly like a working action. The handler
+  (`generic_actions.go:130-155`) ignores everything but `url`/`method`,
+  **makes no network call at all**, and returns a literal
+  `{"status": 200, "body": {"success": true, "data": "mock response"}}` — with
+  a comment saying *"In a real implementation, make actual HTTP request / For
+  now, return mock response"*. A step using it therefore **succeeds every
+  time**, and a workflow reading `.status == 200` sees the happy path forever
+- **the check:** read the handler before trusting any registry entry —
+  `grep -A20 "func HTTPRequestAction" platform/orchestration/actions/generic_actions.go`.
+  More generally on this platform: **a registry entry is a declaration, not an
+  implementation.** Confirmed 2026-07-31 that **0 live agent definitions
+  reference it**, so nothing is currently being fooled — which is also why this
+  is a landmine and not a filed bug
+- **why it matters now:** `webdesign_uk_build_service` P4 (the outbound
+  order-pull) is precisely the shape of work that would reach for this first.
+  A P4 built on it would report healthy runs while collecting nothing, forever
+- **source:** found 2026-07-31 while grounding P4's plan, `webdesign_uk_build_service`
+- **added:** 2026-07-31, webdesign.uk lane
+
+### `encode(bytea,'base64')` in psql WRAPS at 76 chars — a per-line parser reads a stub and reports success
+
+- **footprint:** `psql -t -A -c "SELECT encode(...,'base64')"`; any export of
+  `rendered_html`, `html_template`, `content_data` or a bytea column out of
+  `postgres-clients-0` for offline work
+- **fires when:** you dump a column wider than 57 bytes and parse the output
+  line-by-line (`for line in f`, `while read`, `cut -d'|'`, `awk -F'|'`)
+- **the tell:** **every** decoded row is exactly **57 bytes** — 76 base64
+  characters is 57 bytes of payload — and the row count is right. No error, exit 0,
+  the expected number of files written. I exported 27 adopted pages this way and got
+  27 plausible-looking files
+- **why it is a landmine:** the failure is uniform, so nothing looks anomalous
+  relative to anything else, and the next step (parse the HTML) fails in a way that
+  reads as *"the pages are empty"* — a conclusion about the DATA. A whole
+  decomposition was one step from being built on 57-byte fragments
+- **the check:** `translate(encode(...), E'\n', '')` in the SQL, and then **verify
+  each decoded row against a known-good copy** (`md5` against the deploy-repo file).
+  The md5 comparison is the only reason this was caught; a size sanity check
+  (`> 1000 bytes`) would also have done it. Do not trust the row count — it is right
+- **source:** 2026-07-31, loancalculator_couk lane, exporting stored components to
+  prove the decomposition rule offline
+- **added:** 2026-07-31, loancalculator_couk lane
