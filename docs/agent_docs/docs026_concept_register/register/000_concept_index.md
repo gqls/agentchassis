@@ -1,6 +1,15 @@
 # Concept Index — master register
 
-1,696 concepts across 110 category register files (**re-taken from the grep 2026-07-31
+1,696 concepts across 110 category register files (**ADO-038 added 2026-07-31 and the
+count left ALONE, deliberately: I could not reproduce 1,696 with any grep, so raising it
+to 1,697 would assert a number I cannot derive.** What I measured, both stated so the
+next thread can pick whichever is the intended one: **1,691 index table rows**
+(`grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`) and **1,727 `^### ` headings across the
+category files**, over **109** category files, not 110. Neither is 1,696, and this
+line's own rule — re-take from the grep — cannot be followed without knowing which grep.
+`102_CHECK_register_coverage.py` does not produce the figure either. **Whoever knows the
+intended measure: write the command into this line, not just the number.** Previously:
+re-taken from the grep 2026-07-31
 after TL-038 landed; the line said 1,695 and the grep said 1,695 before this row was
 added, i.e. level — re-taken from the grep anyway, per this line's own rule, which is
 the only reason it has stayed level three times running.
@@ -1028,7 +1037,8 @@ an ID prefix, or a status word.
 | TRF-013 | intent_site_stats visit-count snapshot | partial | One-row-per-host cumulative /stats snapshot feeding the events-per-1k rate calculation | traffic-analytics.md |
 | MDL-036 | Text-provider wiring reality (two providers end-to-end) | deployed | Only Anthropic and Ollama actually work end-to-end for text | model-infrastructure.md |
 | ADO-011 | Adoption fidelity dial (locked/high/medium/low; phases 1-4) | partial | Only Phase 1 implicit-high exists; real per-item dial unbuilt | adoption-pipeline.md |
-| ADO-037 | Verbatim adoption (fidelity=locked) + deploy_mode component key | deployed | Preserves crawled URLs and bytes; skips recreate and the restyle cascade | adoption-pipeline.md |
+| ADO-037 | Verbatim adoption (fidelity=locked) + deploy_mode component key | deployed | Preserves crawled URLs; skips recreate and the restyle cascade. NOT the served bytes — see ADO-038 | adoption-pipeline.md |
+| ADO-038 | Adoption byte gate: prove/repair an adopted component against the deploy repo | deployed | rawHtml is the post-JS DOM, so a locked adoption stores mutated bytes; 0/27 and 0/41 matched | adoption-pipeline.md |
 | SPEC-003 | Fidelity dial (locked/high/medium/low + no-adoption confidence mode) | partial | Only Phase 1 implicit-high fidelity exists at the platform level | site-spec-and-classifier.md |
 | NAV-001 | Nav agent family and the three-tier authority model | partial | Only Tier 1 (strategist, new-build) is fully implemented of the three tiers | navigation.md |
 | DEV-049 | Schema-before-SQL discipline | convention | Only a live \d schema dump gives real column names and persistence; code names tables, not columns. | development-guide.md |
