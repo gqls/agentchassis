@@ -189,3 +189,70 @@ ORDER BY snapshot_taken_at DESC LIMIT 1;                    -- must show 30, not
 `agent_definitions`. Check the wrong table and a good snapshot looks like a no-op.
 **GOTCHA (LANDMINES.md):** `jsonb_set(..., create_if_missing := false)` on a wrong
 path is a **silent no-op**, not an error — assert `UPDATE 1` and re-read the value.
+
+## The acceptance gate: does every calculator still compute? (2026-07-31)
+
+The bar is *"starts similarly enough with working tools"*. This is how it is measured
+— in a real browser, not by inspection.
+
+```bash
+SP=<scratchpad>
+# 1. PIN THE HARNESS — both files. It lives in another lane and is edited daily.
+cp docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair/toolaudit.py  $SP/toolaudit_pinned.py
+cp docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair/toolprobe.py  $SP/toolprobe.py
+sha256sum $SP/toolaudit_pinned.py   # baseline of 2026-07-31 used e7607680…
+
+# 2. Run it from the pinned directory (11 interactive tools + credit-roadmap)
+cd $SP && python3 toolaudit_pinned.py --json $SP/after.json \
+  $(for t in application-tracker car-finance-calculator compare-loans consolidation \
+             credit-health-check credit-roadmap damage-checker interest-rate-stress-test \
+             loan-vs-savings overpayment-calculator settlement-calculator standard-calc; do
+      echo https://loancalculator.co.uk/tools/$t.html; done)
+```
+
+**PASS = `RESPONDS=11  NO-CONTROL=1`.** Compare against
+`acceptance/BASELINE_2026-07-31_calculators.json` per URL, not just on the totals —
+a swap (one tool dies, another revives) preserves the count.
+
+- **GOTCHA — pin BOTH files.** `toolaudit.py` does `from toolprobe import CDP,
+  start_chrome`, so a lone copy dies on `ModuleNotFoundError: toolprobe`.
+- **GOTCHA — the harness version is part of the result.** HEAD (`f38f5bf7f`,
+  `1ea6740b…`) scores **`damage-checker` and `credit-health-check` DEAD when they are
+  working**: a checkbox-only tool cannot be driven by assigning `.value` (a tick is a
+  `click()`), and a wizard that reveals `<div id="step-N">` by moving a class is
+  invisible to `innerHTML` diffing. The 2026-07-31 baseline used the *working-tree*
+  fix; the delta is saved as `acceptance/harness_wip_vs_f38f5bf7f.diff`. **Re-pin the
+  same harness before comparing, or the comparison measures the harness.**
+- **NOT a collision risk:** the port and profile dir are randomised per run
+  (`--remote-debugging-port=<rand>`), so a concurrent audit in another lane is fine.
+- `--all` is useless here: `tool_urls()` builds from `DOMAIN =
+  "https://webdesign.co.uk"`. Pass explicit URLs.
+- `NO-CONTROL` on `credit-roadmap.html` is **correct, not a failure** — it is a static
+  prose page under `/tools/` with no controls at all (see NOTES 2026-07-31).
+
+## Comparing stored bytes against a file — the operator that matters
+
+```sql
+-- RIGHT: bytes, and an exact identity
+SELECT octet_length(rendered_html), md5(rendered_html) FROM page_components …;
+```
+```bash
+wc -c < file.html ; md5sum < file.html      -- compare against these
+```
+
+**GOTCHA:** `length(text)` counts **characters**, `octet_length(text)` counts
+**bytes**. `standard-calc` is 5,730 characters and 5,734 bytes — four `£` signs, each
+2 bytes in UTF-8. A gate written with `length()` reports a mismatch on a byte-exact
+page, and can offset a real difference against a multi-byte character. Use `md5`/
+`sha256`, or `octet_length`.
+
+## Is there site-level chrome yet? (the generic-flip precondition)
+
+```sql
+SELECT slot_name, octet_length(rendered_html) FROM site_components
+WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26' ORDER BY slot_name;
+```
+**0 rows as of 2026-07-31.** While this returns nothing, `rebuild_policy='generic'`
+would deploy every page with no head, no nav and no footer — `assemblePage` reads
+chrome from this table (`rerender_single_page_action.go:660`). Decomposition must
+populate it. Re-run this before any flip; a non-empty result is the precondition.

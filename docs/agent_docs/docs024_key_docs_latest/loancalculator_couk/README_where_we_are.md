@@ -182,3 +182,67 @@ it has skipped the design stage so that is never invisible. Two objections are
 genuinely for you rather than me: whether skipping the design cascade for preserved
 sites is acceptable (our own documentation says that stage always runs), and whether
 this needs a formal architecture review. I have not overridden either.
+
+---
+
+**2026-07-31 — a "before" photograph, and one thing we all had wrong**
+
+The site is fine. All 27 pages still load, the stored copy still matches what visitors
+see exactly, and the framework changes from yesterday are genuinely running on the
+live machines (I checked by looking inside the running program for the new code, not
+by trusting the version number).
+
+Before changing anything I took a proper "before" photograph of the calculators, in a
+real browser, driving each one the way a visitor would. I needed this because the test
+you set is that the site must start off *"similarly enough with working tools"* — and
+the word doing the work there is *still*. Without a before, "still works" is not
+something anyone can check. **Eleven calculators work.**
+
+Which brings me to the thing we had wrong. Every note in this project, including my
+own, has said this site has twelve calculators. **It has eleven.** The page called
+"credit roadmap" is not a calculator at all — it is a page of writing that happens to
+live in the tools folder. There is nothing on it to click or type into. I found this
+two separate ways and they agree, so I am confident.
+
+It matters more than a miscount looks. If we test "every calculator still works" over
+twelve, that test can never pass, because one of the twelve cannot compute and never
+could — and a test that always fails gets ignored, which is worse than not having one.
+Over eleven it is a real gate. The roadmap page simply becomes an ordinary page the
+system is free to improve, which is what it always should have been.
+
+**The next step is bigger than I told you, for a specific and slightly embarrassing
+reason.** I said the obstacle to making the site fully editable was that the framework
+would wrap a whole page inside another whole page. That is true but it was only half
+of it. The other half is that when we adopted the site in "keep it exactly as it is"
+mode, we never stored the *furniture* — the top navigation, the page header, the
+footer. Nothing needed it, because that mode ships the whole page untouched. So if I
+simply flipped the switch to "editable" today, every page would come out not just
+malformed but stripped: no navigation, no header, nothing. I found this by reading how
+the assembly step actually fetches the furniture before I wrote anything, rather than
+by breaking the site and then wondering why.
+
+So the job includes rebuilding the site's shared furniture as proper framework pieces,
+not just chopping each page into parts. That is more work, and it is the right work —
+it is exactly what makes this site the same kind of thing as the others.
+
+**Two things will visibly change, and I want you to hear them from me first.** Once
+pages are assembled rather than copied, every page gains a footer (there is currently
+no footer anywhere on the site) and gains a proper mobile setting. That second one is
+a genuine repair: four pages — the legal page and three guides — are missing the
+instruction that tells a phone to render at phone width, so today they display at
+desktop width on a phone. Going editable fixes that on every page at once. The prose
+may also get rewritten over time, which you have already said is fine.
+
+**A fork in the road, and it is yours.** A neighbouring project started this morning
+is building a combined loan-and-mortgage site, and it copies this site's files. It is
+being careful and has explicitly kept out of this site's own adoption, so nothing is
+treading on anything. But for the same problem it chose a **different answer**: freeze
+the calculator pages permanently and let only the guides evolve. That is much less
+work than what I am doing and it is a perfectly reasonable trade.
+
+The reason I have not switched to it is that it would leave eleven of this site's
+twenty-seven pages frozen for ever, and your instruction for this site was that it be
+*completely* editable. So I am proceeding with the fuller version — preserving each
+calculator's working parts exactly while letting everything around them be rewritten.
+If you would rather have the cheap version here too, now is the moment to say, because
+it is a much shorter road and I would stop building the longer one.

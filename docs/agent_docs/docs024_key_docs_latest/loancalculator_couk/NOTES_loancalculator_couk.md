@@ -418,3 +418,165 @@ for the owner to choose (G10 in the PLAN):
 3. **Build the checksum gate into the action** — compare stored bytes against a
    direct fetch before queueing any deploy, and fail loud. This one is worth doing
    whichever source wins, because it is the check that saved this run.
+
+## 2026-07-31 — the acceptance baseline, and three premises of this lane corrected
+
+Opening session of the decomposition build (`fidelity=high`). Before writing any
+code I re-verified the handoff and then measured the site itself. The measurements
+moved three things the handoff asserted.
+
+### The handoff re-verified (all held)
+
+- **27/27 URLs serve 200** (sitemap loop, §2 of the handoff).
+- **27 pages, all `owned`/`deployed`**; zero `site_components`; one `ported-page`
+  component per page.
+- **M1/M2 code is in the running pod**, grepped on `adoption-locked/1` (1) and
+  `page_id absent, resolved from` (1), with a **positive control**
+  (`rerender_single_page` = 2) and a **negative control** (`xyzzy_not_a_symbol` = 0)
+  in the same exec. `IMAGE_TAG` is now `v1.0.1214` — another session bumped it past
+  the `v1.0.1213` the handoff names; my strings are still present.
+
+### [CORRECTED 2026-07-31] This site has ELEVEN calculators, not twelve
+
+Every prior doc in this lane says "12 inline-JS calculators". It is 11.
+`tools/credit-roadmap.html` is a **static prose page that lives under `/tools/`** —
+1,816 bytes, **zero** `<input>`/`<button>`/`<select>`/`onclick`/`addEventListener`,
+and its only `<script>` is the shared `nav.js`.
+
+Two independent methods agree, which is why I am confident enough to correct the
+premise rather than flag it:
+- **static**: the greps above, over all 28 files;
+- **runtime**: the real-browser audit scores it `NO-CONTROL — nothing a visitor can
+  touch`, while the other 11 score `RESPONDS`.
+
+Why it matters: the acceptance bar is *"every calculator still computes"*. Measured
+over 12, it can never pass — one of them cannot compute and never could. Measured
+over 11 it is a real gate. `credit-roadmap` should be decomposed as **ordinary
+editable prose**, which is what it already is.
+
+### The acceptance baseline — captured, because it expires
+
+`acceptance/BASELINE_2026-07-31_calculators.json`: **11 RESPONDS + 1 NO-CONTROL.**
+
+This had to be taken *now*: the bar says every calculator *still* computes, and
+"still" is unmeasurable without a before. Once decomposition starts, the pre-state
+is gone.
+
+Harness: `webdesign_tools_repair/toolaudit.py`, **sha256 `e7607680…`** — which is the
+**working-tree copy, NOT HEAD** (HEAD is `1ea6740b…` at `f38f5bf7f`). I pinned a copy
+into my scratchpad and ran from that, and saved the delta as
+`acceptance/harness_wip_vs_f38f5bf7f.diff`, because:
+
+- another session is **editing that file while I read it** (33 uncommitted lines) and
+  was running it against my tools at 09:50, and
+- **its uncommitted fixes were written against MY site's tools.** The diff's own
+  comments name them: `damage-checker` scored DEAD because its only controls are
+  checkboxes (setting `.value` on a checkbox is a no-op — a tick is a `click()`), and
+  `credit-health-check` is a wizard that responds by moving a class so a different
+  `<div id="step-N">` becomes visible, which `innerHTML` diffing cannot see.
+
+So **HEAD's harness would have scored two of my working calculators DEAD.** A
+baseline is only comparable against the same harness — re-pin from the diff (or the
+commit, once that lane lands it) before re-running. Ports are randomised
+(`--remote-debugging-port=9754`, `--user-data-dir=/tmp/toolaudit-<rand>`), so
+concurrent audits do not collide.
+
+> **Misstep, 30 seconds:** the pinned copy died on `ModuleNotFoundError: toolprobe`.
+> The harness imports a sibling module from its own directory, so pinning it means
+> pinning **both** files. `toolprobe.py` is clean at HEAD (`d36f020f…`).
+
+### [CORRECTED 2026-07-31] The generic-flip blocker is BIGGER than "nested `<html>`"
+
+PLAN §"The blocker" says feeding a whole document to `assemblePage` yields nested
+`<html>`. True, but incomplete, and the missing half is worse.
+
+```sql
+SELECT slot_name, length(rendered_html) FROM site_components
+WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26';   -- (0 rows)
+```
+
+**Zero `site_components`.** `assemblePage` resolves `head`/`header`/`footer` from
+that table (`rerender_single_page_action.go:660`). Verbatim adoption never created
+any, because it skips assembly entirely. So flipping `rebuild_policy='generic'`
+today would ship every page **nested AND with no head, no nav and no footer** —
+`buildDefaultHead` would substitute a generic head and the nav would simply be gone.
+Decomposition must therefore **create the site-level chrome**, not only split the
+bodies. That is a whole extra output of step 2, previously unstated.
+
+### What the pages actually look like (this is a clean decomposition case)
+
+Anatomy, uniform across 27 pages: `<head>` · `<div id="nav-placeholder"></div>` ·
+body content · optional inline `<script>` · `<script src="/assets/js/nav.js">`.
+
+- **`nav-placeholder` + `nav.js` on 27/27** — chrome is uniform, so ONE site-level
+  `header` works.
+- **`<footer>`: 0 of 28 files. `<main>`: 0 of 28.** There is no footer to extract;
+  assembly will *add* both. That is new content on every page — acceptable under
+  "evolve like the others", but it is a fidelity change and belongs in the owner's
+  read-out, not buried here.
+- **Head is effectively uniform**: by element inventory, 23 pages are
+  `charset+viewport+stylesheet`, 4 are `charset+stylesheet`, 1 is the redirect stub.
+  The 11 distinct title-normalised hashes are whitespace/title noise. `assemblePage`
+  already injects per-page `<title>` and meta description from the `pages` row, so a
+  single site-level `head` is sufficient.
+- **A live defect that going generic FIXES**: `legal.html`,
+  `guides/car-finance-explained.html`, `guides/secured-vs-unsecured.html`,
+  `guides/uk-lending-landscape.html` have **no `<meta name="viewport">`** and so
+  render at desktop width on a phone today. A shared head repairs all four.
+- The tool itself is a contiguous `.card` (input-grid + results-box) plus a trailing
+  inline `<script>` — genuinely separable from the sibling prose `<section>`.
+
+### ⚠ `application-tracker.html` has TWO inline scripts, and uses localStorage
+
+`<script>` at 75–128 and again at 135–169, plus `nav.js`; 9 `localStorage`
+references. **An extractor that assumes one inline script per tool silently drops the
+second and the tool half-works** — precisely the failure class this lane exists to
+prevent. Preserve **all** inline scripts **and their order**.
+
+### LANDMINE for the fidelity gate: `length()` is CHARACTERS, `octet_length()` is BYTES
+
+The stored `standard-calc` component reports `length()` = **5,730** while the file is
+**5,734 bytes**. That looks like a 4-byte fidelity failure and is not: the page
+contains **four `£` signs**, each 2 bytes in UTF-8. `octet_length()` = 5,734 and
+`md5(rendered_html)` = `14643b1f76ba4ee333d39a2ecfdf4352` = `md5sum` of the file.
+
+So the handoff's "27/27 byte-exact" **holds, independently re-verified**. But the
+gate the render_guardian seat asked for is about to be written into the pipeline, and
+a gate built on `length()` would report a mismatch on a perfectly faithful page —
+and, worse, could offset a real difference against a `£`. **Compare `md5`/`sha256`,
+or `octet_length`. Never `length`.**
+
+### Machinery that already exists — do not build it (step 4)
+
+Both `site_components` and `page_components` carry `locked_at`, `locked_by`,
+`lock_type` (CHECK: `permanent`|`timed`|`review`) and `lock_expires_at`, and
+`site_components` has a partial index `idx_site_components_timed_lock` on
+`lock_expires_at WHERE lock_type='timed'`. The **timed adoption lock is a config
+choice, not a build.** `site_components` is also `UNIQUE (site_id, slot_name)`, so
+chrome upserts cleanly.
+
+The existing `ported-page` rows point at a **fleet-shared** `content_components` row
+named *"Ported Page (webdesign.co.uk)"*, `component_level='section'`. Shared across
+sites — the loanandmortgage lane independently recorded "reuse it, never seed a
+second".
+
+### A live adjacent lane, and it picked a DIFFERENT design
+
+`docs024_key_docs_latest/loanandmortgagecalculator_couk/` — **untracked, created
+today 09:19–09:42, active while I worked.** `git log` on it is empty; it is invisible
+to every check that reads commits. Found only by listing the parent directory.
+
+It builds `loanandmortgagecalculator.co.uk` (12 mortgage + 12 loan calculators) and
+**copies my site's files**. It explicitly scopes out *"the loancalculator lane's own
+adoption"* and states *"another lane owns this site — I copy its files, I do not
+touch its directory"*, so there is **no collision**. It also independently confirmed
+G10 and concluded "the deploy repo is the byte source, not the crawl", which is this
+lane's step 1.
+
+**But its Phase E chose a per-page split**: calculators → `owned` + verbatim with a
+sha256 gate; guides → framework-managed. That is *not* what this lane is building,
+and the difference is a genuine design question for the owner — see
+`README_where_we_are`. Their split is far cheaper and freezes the tools for ever;
+ours decomposes so a tool page's prose can evolve around a preserved widget. The
+owner's word for this site was **"completely editable"**, which their split does not
+deliver for 11 of 27 pages.

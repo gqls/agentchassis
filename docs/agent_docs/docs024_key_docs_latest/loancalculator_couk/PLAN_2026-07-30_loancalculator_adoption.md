@@ -162,6 +162,29 @@ turn a working site into malformed pages on the next rerender. The current state
 (owned/verbatim, 27/27 byte-exact, zero queued items) is SAFE and is the right place
 to wait.
 
+> **CORRECTED 2026-07-31 — the blocker is bigger than nesting, and the missing half
+> is worse.** Measured: `SELECT slot_name FROM site_components WHERE site_id=
+> '0162cde4-…'` returns **0 rows**. `assemblePage` resolves `head`/`header`/`footer`
+> from that table (`rerender_single_page_action.go:660`), and verbatim adoption never
+> wrote any because it skips assembly. So a `generic` flip today ships every page
+> **nested AND with no head, no nav and no footer** — not merely malformed markup but
+> the loss of all chrome. **Decomposition must therefore also CREATE the site-level
+> chrome**, which was not previously stated as an output of step 2. Caught by reading
+> `getSiteComponents` before writing the extractor, not by a symptom.
+>
+> **CORRECTED 2026-07-31 — this site has ELEVEN calculators, not twelve.** Every doc
+> in this lane said 12. `tools/credit-roadmap.html` is a static prose page under
+> `/tools/`: zero inputs/buttons/listeners, no inline script. Confirmed two ways —
+> static grep over all 28 files, and the real-browser audit scoring it `NO-CONTROL`
+> while the other 11 score `RESPONDS`. This matters because the acceptance bar
+> ("every calculator still computes") is **unpassable when measured over 12** and a
+> real gate over 11. `credit-roadmap` decomposes as ordinary editable prose.
+>
+> **ADDED 2026-07-31 — `application-tracker.html` has TWO inline scripts** (lines
+> 75–128 and 135–169) plus 9 `localStorage` references. An extractor assuming one
+> inline script per tool drops the second and the tool half-works. Preserve all
+> inline scripts and their order.
+
 ### The design: map onto doc 028's existing dial rather than invent a mode
 
 - **`fidelity=locked`** — frozen for ever. BUILT (ADO-037). Stays, and is the right

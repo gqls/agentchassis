@@ -1,0 +1,62 @@
+diff --git a/docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair/toolaudit.py b/docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair/toolaudit.py
+index 05df1cabb..b8e2140bb 100644
+--- a/docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair/toolaudit.py
++++ b/docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair/toolaudit.py
+@@ -387,17 +387,42 @@ DRIVE_JS = r"""
+   const all = __q('input, select, textarea, button, [contenteditable]');
+   const usable = all.filter(e => !e.disabled && !NOOP.test(label(e)));
+   const snap = () => {
+-    const outs = __q('pre, code, canvas, output, [id*=output], [id*=result], [id*=preview], .preview, #canvas');
++    // `verdict` and `panel` added, and getComputedStyle(o).display with them:
++    // a whole class of tool responds by REVEALING a region that starts hidden,
++    // and reading only innerHTML cannot see that — the markup was always there.
++    // damage-checker's #damage-verdict goes display:none -> block and its
++    // innerHTML never changes, so it was invisible to this function and the
++    // tool scored DEAD. Widening can only add signal, so a page that responded
++    // still responds; it can promote a DEAD to RESPONDS, which is the point.
++    const outs = __q('pre, code, canvas, output, [id*=output], [id*=result], [id*=preview], [id*=verdict], [id*=panel], .preview, #canvas');
++    // Third component: which ID-ADDRESSED REGIONS ARE VISIBLE. The selector
++    // list above is a guess about where a tool writes its answer, and guessing
++    // is what made this function blind twice. credit-health-check is a five-step
++    // wizard that responds by moving a class so a different <div id="step-N">
++    // becomes visible; none of its ids match any pattern in that list, so
++    // advancing the wizard was indistinguishable from a dead tool.
++    // Keyed on [id] rather than * because these scripts address their regions
++    // by id — it is how they are written — and * would fingerprint every text
++    // node's wrapper for no extra signal.
++    const vis = __q('[id]').map(e => e.id + (getComputedStyle(e).display === 'none' ? '0' : '1')).join(',');
+     return outs.map(o => o.tagName === 'CANVAS' ? (()=>{try{return o.toDataURL().length}catch(e){return 'x'}})()
+-                                                : (o.innerHTML||'') + '|' + (o.value||'')).join('~~') +
+-           '##' + all.map(e => e.value ?? '').join('|');
++                                                : getComputedStyle(o).display + '|' + (o.innerHTML||'') + '|' + (o.value||'')).join('~~') +
++           '##' + all.map(e => e.value ?? '').join('|') + '@@' + vis;
+   };
+   // Preference order, tried IN TURN — a comma selector returns document order,
+   // which is how three working tools were once scored dead.
+   const pick = sel => usable.find(e => e.matches(sel));
++  // Checkbox and radio come LAST, because a tool with a number field should be
++  // driven by the number field. But they must be in the list at all: a tool
++  // whose only controls are checkboxes was unreachable, so `target` came back
++  // null, the button fallback found no buttons, and the verdict was DEAD.
++  // damage-checker on loancalculator.co.uk was scored DEAD that way and is
++  // perfectly correct — clicking a checkbox takes its verdict box from
++  // display:none to display:block, which is exactly what it promises.
+   const target = pick('input[type=range]') || pick('input[type=number]') ||
+                  pick('input[type=text]') || pick('textarea') || pick('select') ||
+-                 pick('input[type=color]') || pick('[contenteditable]');
++                 pick('input[type=color]') || pick('[contenteditable]') ||
++                 pick('input[type=checkbox]') || pick('input[type=radio]');
+   const before = snap();
+   let drove = null;
+   if (target) {
+@@ -419,6 +444,10 @@ DRIVE_JS = r"""
+       target.value = '<p>probe</p>';
+     } else if (target.isContentEditable) {
+       target.innerText = 'Probe text';
++    } else if (t === 'checkbox' || t === 'radio') {
++      // A tick is a click, not an assignment. Setting .value on a checkbox is a
++      // no-op, so the old code "drove" it and correctly observed nothing.
++      target.click();
+     } else {
+       target.value = 'probe';
+     }
