@@ -3,6 +3,48 @@
 **Written 2026-07-31 (end of the opening session). This is the cold-start doc for
 this lane — read it before anything else, then `NOTES` tail and `PLAN` §REVISED.**
 
+> ## ⚠ CORRECTIONS from the second session (2026-07-31, later) — read these first
+>
+> Everything in §2 and §3 below was **re-verified and holds** (27/27 serve 200; 27
+> pages `owned`/`deployed`; stored bytes byte-exact — md5 both sides; M1/M2 live in
+> the pod, checked with a positive *and* a negative control). Nothing was written to
+> the site or its DB rows this session. Five things below are now **wrong or
+> superseded**:
+>
+> 1. **"12 inline-JS calculators" (§1) — the count is right and the membership is
+>    wrong.** `tools/credit-roadmap.html` is static prose in the tools folder (zero
+>    controls, no inline script) and **`index.html` has a working hero calculator**
+>    that no earlier doc counted. So: **12 interactive pages = 11 under `/tools/` +
+>    the homepage.** Any acceptance gate over "the 12 tool pages" is unpassable.
+> 2. **§4.1 (file source via git-adapter) is OWNER-BLOCKED and off the critical
+>    path.** git-adapter is **write-only**; the read machinery is
+>    `diagnose_read_repo_files_action.go`; and the read token **cannot see
+>    `gqls/sites`** — 404 *while authenticated*, because it is a fine-grained PAT
+>    scoped to selected repos. Needs GitHub admin. **But step 2 never needed it**: the
+>    faithful bytes are already in `page_components.rendered_html`. Decompose from
+>    there; the file source's value is *the next* site.
+> 3. **§4's blocker is understated.** `site_components` is **empty (0 rows)** and
+>    `assemblePage` reads chrome from it, so a `generic` flip ships every page with
+>    **no head, no nav and no footer** — not just nested `<html>`. Creating the
+>    site-level chrome is an output of step 2.
+> 4. **§4.2 must preserve page-local `<style>`, not only inline `<script>`.** 8 pages
+>    carry one, **7 of them calculators**; on `credit-health-check` two of those rules
+>    are what show one wizard step at a time. Drop them and the tool computes
+>    perfectly and displays wrongly. Also: the homepage tool needs an **external**
+>    `<script src>` dep, so inline scripts alone are insufficient.
+> 5. **§6/§5's "a roll kills an in-flight council" did not hold here.** The `revise`
+>    verdict landed at 2026-07-30 19:43Z, ~2h *after* the v1.0.1211 roll.
+>
+> **New in the lane:** `decompose_prover.py` (the splitting rule, proved over all 27
+> pages offline — 25% of interactive-page text frozen, all proofs pass) and
+> `acceptance/` (the before-photograph: **12 RESPONDS + 1 NO-CONTROL**, harness pinned
+> by sha256 — re-pin the same harness or the comparison measures the harness).
+> **Read the `NOTES` 2026-07-31 entries before the build order below.**
+>
+> **An owner question is open** (see `README_where_we_are` tail): full decomposition,
+> or the cheaper freeze-the-calculators split the `loanandmortgagecalculator` lane
+> chose. Do not start the DB-changing steps until it is answered.
+
 ---
 
 ## 1. What this lane is, in one paragraph
