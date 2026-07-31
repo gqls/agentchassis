@@ -567,3 +567,65 @@ it is tracked.
   that do not exist yet. That fix belongs in `platform/storage` with five other consumers
   — architecture-scope, the shape `bugs_closed/124` was vetoed for — so it is named in the
   round-2 submission's risks and in `LANDMINES.md`, not smuggled in here.
+
+---
+
+## Council: APPROVED at round 2 (2026-08-01, once the API cap lifted) — and the advisories discharged
+
+`SUBMISSION_CORR=99dca96a-413a-4bcb-b278-9577f920786d`, run `06573962`. **12 approve,
+3 object, 3 abstained. `decided_by: approved with 3 advisory objection(s) — none
+high-severity`.** The round-1 gating objection from `bug_historian` was withdrawn in its
+own words: *"This round is a direct, evidenced answer to my own prior gating objection…
+correctly declining architecture-scope creep, citing bugs_closed/124's precedent against
+exactly that."*
+
+An approval is not a reason to stop reading. Three seats asked for things that were cheap
+and checkable, so they were checked rather than banked:
+
+**`prior_art_librarian` + `editquality` (medium ×2): "load-bearing absence claims asserted
+by the author, not independently verified here."** Correct — a seat cannot run SQL. Re-run
+2026-08-01, output verbatim:
+
+```
+ placeholder_items_all_history      0     <- the duplicate branch's sibling has NEVER fired
+ image_url_404 | 17                       <- every row; zero needs_hero_image, zero needs_logo
+ orchestrations_with_deploy_path    0     <- the override that could produce a third spelling
+ landmine_rows 6 | distinct_bodies  1     <- ONE entry, footprint-expanded; not three
+```
+
+(17, not the 13 quoted earlier: the four this fix filed during acceptance are included.)
+
+**`guardian` (medium, edit 4): "confirm no other discovery check already scans
+`site_components` under a different lock/status contract this edit could shadow or
+double-count against."** Not checked before submission; checked now, and the answer
+inverts the concern. **Fourteen other discovery checks already scan `site_components`** —
+`check_dead_controls`, `check_phantom_internal_links`, `check_voice_tells`,
+`check_broken_nav_links`, `check_undeployed_assets`, `check_integrity` and eight more. This
+check was the **outlier for not scanning it**, which is the defect. And its predicate is
+*stricter* than the fleet norm, not looser: the others filter only
+`site_id` + `rendered_html IS NOT NULL`, while this one also requires `locked_at IS NULL`.
+Double-counting is not possible across checks — each owns its own `item_type` and its own
+`item_key` namespace, so an `image_url_404` finding cannot collide with a `dead_control`.
+
+**`guardian` + `editquality` (low, edit 5): "does the item_key format change interact with
+two-strike / `recurrenceExpected` semantics?"** `load_work_item_actions.go:1164` gates the
+two-strike rule on `item.itemKey != "" && !item.recurrenceExpected`, counting prior rows
+at `complete`/`failed` in 7 days and rewriting the summary to *"[unresolved after N
+attempts]"*. These items carry **no handler agent**, so they cannot be claimed, cannot be
+dispatched and cannot reach a terminal status by any handler run — the counter cannot be
+incremented by the platform's own machinery. The key change resets it for the affected
+keys, which can only make a **false** "[unresolved after N attempts]" label *less* likely.
+Benign in the one direction it can move.
+
+**`bug_historian` (low, edit 1): "the durable fix is deferred as 'its own item' rather
+than filed."** Fair, and the failure mode it names is real — saying "its own item" and not
+creating one is how a deferral disappears. **Filed as `bugs_open/168`**, with the measured
+empty risk set, four fix candidates ordered by what closes the door, and the scope warning
+that it is a six-consumer shared helper and therefore architecture-scope.
+
+**`guardian` (low, process):** noted for the record that the change was already live under
+the after-the-fact review ruling, and that *"a veto here can only produce a forward-only
+follow-up, not a rollback"*. Stated in the submission for exactly that reason.
+
+**Commits are credited by `Council-Submitted:` automatically at `098` report time; this
+one carries `Council-Reviewed:` because the approved verdict has now been read.**
