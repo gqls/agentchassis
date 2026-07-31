@@ -474,6 +474,10 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		// drifts (016b §9).
 		codeScope := loadCodeIndexScope(ctx, params.DB, "")
 		cb.WriteString(codeScope.bodyCoverageNote())
+		// Same reason, same helper: once the write side may RETAIN rows rather than
+		// prune them (bugs_open/135), "the index is at commit X" stops being the
+		// whole truth and the verdicter has to be told. Silent when it is one commit.
+		cb.WriteString(codeScope.mixedCommitNote())
 		for i, c := range codeChecks {
 			fmt.Fprintf(&cb, "\n[code_request %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
 			if err := answerCodeCheck(ctx, params.DB, c, "", codeRowCap, codeExcerpt, codeScope, &cb); err != nil {

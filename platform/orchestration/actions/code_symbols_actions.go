@@ -313,15 +313,63 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 
 	// Prune symbols absent from this commit. Only safe when a commit_sha is
 	// known; a working-tree index (no commit) retains stale rows and logs.
+	//
+	// GUARDED since bugs_open/135. The delete below removes everything THIS run
+	// did not re-write, which is right when the run saw the whole repo and
+	// destroys the index when it did not — and a run that saw a fraction of the
+	// repo does not fail: a truncated tarball fetch, a moved directory, a
+	// permissions change on the extracted tree or an analyser that returned a
+	// short Output all produce a small-but-nonzero result with no error. So the
+	// prune now has to earn the right to run, by showing that this run
+	// re-confirmed at least prune_floor_ratio of what is stored, per symbol kind
+	// AND across the repo's file set. See prune_floor.go for the rule and why the
+	// floor is resolvable rather than absolute.
 	pruned := 0
+	pruneStatus := "skipped_no_commit"
+	var pruneReason string
+	var pruneDetail []map[string]interface{}
+	floor, floorFromConfig := pruneFloorFromConfig(config, "prune_floor_ratio", defaultPruneFloorRatio)
+
 	if commitSHA != "" {
-		res, pErr := params.DB.ExecContext(ctx,
-			`DELETE FROM code_symbols WHERE repo = $1 AND commit_sha IS DISTINCT FROM $2`, repo, commitSHA)
-		if pErr != nil {
-			logger.Warn("index_code_symbols: prune failed", zap.Error(pErr))
+		cohorts, cErr := codeSymbolPruneCohorts(ctx, params.DB, repo, commitSHA)
+		if cErr != nil {
+			// FAIL CLOSED. The measurement is the only thing standing between a
+			// partial run and a deleted index; when it cannot be taken, the
+			// destructive half must not proceed. Retaining stale rows costs a
+			// later prune, which the next healthy run performs anyway.
+			pruneStatus = "refused_unmeasurable"
+			pruneReason = fmt.Sprintf("index_code_symbols: prune REFUSED for %s at %s — the floor could not be measured (%v), so nothing was deleted", repo, shortSHA(commitSHA), cErr)
+			logger.Error(pruneReason)
+			recordPruneRefusal(ctx, params.DB, logger, repo, pruneReason)
 		} else {
-			n, _ := res.RowsAffected()
-			pruned = int(n)
+			verdict := evaluatePruneFloor(floor, cohorts)
+			pruneReason = verdict.Reason("index_code_symbols: prune", fmt.Sprintf("%s at %s", repo, shortSHA(commitSHA)), "prune_floor_ratio")
+			pruneDetail = verdict.Detail()
+			switch {
+			case !verdict.Allowed:
+				pruneStatus = "refused_floor"
+				logger.Error(pruneReason)
+				recordPruneRefusal(ctx, params.DB, logger, repo, pruneReason)
+			default:
+				res, pErr := params.DB.ExecContext(ctx,
+					`DELETE FROM code_symbols WHERE repo = $1 AND commit_sha IS DISTINCT FROM $2`, repo, commitSHA)
+				if pErr != nil {
+					pruneStatus = "failed"
+					logger.Warn("index_code_symbols: prune failed", zap.Error(pErr))
+				} else {
+					n, _ := res.RowsAffected()
+					pruned = int(n)
+					pruneStatus = "pruned"
+					if verdict.Disabled {
+						pruneStatus = "pruned_floor_disabled"
+						logger.Warn(pruneReason, zap.Int("pruned", pruned))
+					}
+				}
+			}
+			if verdict.Clamped {
+				logger.Warn("index_code_symbols: prune_floor_ratio out of range — clamped",
+					zap.Float64("configured", verdict.Asked), zap.Float64("applied", verdict.Floor))
+			}
 		}
 	} else {
 		logger.Warn("index_code_symbols: no commit_sha — skipping prune (stale symbols retained)",
@@ -330,9 +378,12 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 
 	logger.Info("index_code_symbols: complete",
 		zap.String("repo", repo), zap.String("commit_sha", commitSHA),
+		zap.Int("files_analysed", out.FileCount),
 		zap.Int("symbols", len(rows)), zap.Int("upserted", upserted),
 		zap.Int("embedded", embedded), zap.Int("embeddings_failed", embeddingsFailed),
-		zap.Int("with_body", withBody), zap.Int("pruned", pruned))
+		zap.Int("with_body", withBody), zap.Int("pruned", pruned),
+		zap.String("prune_status", pruneStatus),
+		zap.Float64("prune_floor_ratio", floor))
 
 	return map[string]interface{}{
 		"indexed":           true,
@@ -346,8 +397,132 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 		// and sliced nothing is legible from the orchestration record alone,
 		// without anyone thinking to query the column.
 		"with_body": withBody,
-		"pruned":    pruned,
+		// files_analysed is the run's INPUT size, reported beside pruned so a
+		// disproportionate delete is legible in the result itself. bugs_open/135
+		// candidate (3): a run that deleted 4,000 rows because it only saw 900
+		// files used to report `pruned: 4000` and `indexed: true` — the number
+		// that should be the alarm, presented as output.
+		"files_analysed": out.FileCount,
+		"pruned":         pruned,
+		// prune_status is one of: pruned · pruned_floor_disabled · refused_floor ·
+		// refused_unmeasurable · failed · skipped_no_commit. A bare `pruned: 0` is
+		// ambiguous between "nothing to delete" and "we refused to delete", and
+		// those want opposite responses.
+		"prune_status":            pruneStatus,
+		"prune_floor_ratio":       floor,
+		"prune_floor_from_config": floorFromConfig,
+		"prune_reason":            pruneReason,
+		"prune_cohorts":           pruneDetail,
 	}, nil
+}
+
+// codeSymbolPruneCohorts measures what this run re-confirmed against what is
+// stored, in the two units that fail independently.
+//
+//   - one cohort per symbol KIND — because a whole-repo row ratio can sit at 95%
+//     while one kind is wiped entirely, and the total hides it. This is also what
+//     protects a kind this code has never heard of: a Go-only run cannot delete
+//     the markdown rows a future indexer writes, because their cohort will read
+//     0% confirmed and refuse.
+//   - one cohort in DISTINCT PATHS — the whole-repo signal. Rows measure how much
+//     this run WROTE; paths measure how much of the repo it SAW, which is the
+//     property that actually fails when a tarball arrives truncated.
+//
+// Both halves use `commit_sha IS NOT DISTINCT FROM $2`, the exact complement of
+// the DELETE's own `IS DISTINCT FROM $2`. Written that way on purpose: any other
+// spelling (=, COALESCE, a NULL-safe rewrite) is a second predicate that can drift
+// from the one being guarded, and then the guard measures a population that is not
+// the one at risk.
+func codeSymbolPruneCohorts(ctx context.Context, db *sql.DB, repo, commitSHA string) ([]pruneCohort, error) {
+	if db == nil {
+		return nil, fmt.Errorf("no DB handle")
+	}
+	rows, err := db.QueryContext(ctx, `
+		SELECT COALESCE(kind,'(none)') AS kind,
+		       count(*) FILTER (WHERE commit_sha IS NOT DISTINCT FROM $2) AS confirmed,
+		       count(*)                                                   AS stored
+		FROM code_symbols
+		WHERE repo = $1
+		GROUP BY 1`, repo, commitSHA)
+	if err != nil {
+		return nil, fmt.Errorf("kind cohorts: %w", err)
+	}
+	defer rows.Close()
+
+	var cohorts []pruneCohort
+	for rows.Next() {
+		var kind string
+		var confirmed, stored int
+		if err := rows.Scan(&kind, &confirmed, &stored); err != nil {
+			return nil, fmt.Errorf("kind cohorts scan: %w", err)
+		}
+		cohorts = append(cohorts, pruneCohort{Label: "kind=" + kind, Confirmed: confirmed, Stored: stored})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("kind cohorts iterate: %w", err)
+	}
+
+	var pathsConfirmed, pathsStored int
+	if err := db.QueryRowContext(ctx, `
+		SELECT count(DISTINCT path) FILTER (WHERE commit_sha IS NOT DISTINCT FROM $2),
+		       count(DISTINCT path)
+		FROM code_symbols
+		WHERE repo = $1`, repo, commitSHA).Scan(&pathsConfirmed, &pathsStored); err != nil {
+		return nil, fmt.Errorf("path cohort: %w", err)
+	}
+	cohorts = append(cohorts, pruneCohort{Label: "distinct paths", Confirmed: pathsConfirmed, Stored: pathsStored})
+
+	return cohorts, nil
+}
+
+// recordPruneRefusal is the DURABLE surface for a refusal (bugs_open/135
+// candidate 2). A refusal that lives only in logger.Error is the 034/076 shape —
+// and orchestration_states retains ~2 days, so the evidence of a bad run ages out
+// before anyone correlates it with a suddenly-thin index.
+//
+// doc_notes, not site_work_items: this indexer is repo-wide with no site, and
+// site_work_items.site_id / handler_agent / pipeline are all NOT NULL (the failed
+// attempt inside the originating plan). subject_type='action' +
+// subject_key='index_code_symbols' is where this subsystem's trail already lives.
+//
+// THERE IS NO AUTOMATED CONSUMER of these rows. Nothing triages them and nothing
+// alerts on them; they are a record for whoever asks, not a lifecycle. Said
+// plainly because implying a triage that does not exist is how a finding gets
+// filed and forgotten twice.
+//
+// Suppressed to at most one row per repo per 24h: a persistent cause (a repo that
+// genuinely halved) would otherwise append one row per cadence run for ever, and
+// the log keeps the per-occurrence record. Never fatal — failing to write the note
+// must not fail an indexing run that otherwise succeeded.
+func recordPruneRefusal(ctx context.Context, db *sql.DB, logger *zap.Logger, repo, body string) {
+	if db == nil {
+		return
+	}
+	source := "index_code_symbols:" + repo
+	var recent bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM doc_notes
+			WHERE subject_type = 'action' AND subject_key = 'index_code_symbols'
+			  AND source = $1 AND categories ? 'prune-refused'
+			  AND created_at > now() - interval '24 hours')`, source).Scan(&recent); err != nil {
+		logger.Warn("index_code_symbols: could not check for a recent prune-refusal note — writing one anyway",
+			zap.Error(err))
+	} else if recent {
+		logger.Info("index_code_symbols: prune refusal already noted for this repo within 24h — log only",
+			zap.String("repo", repo))
+		return
+	}
+
+	id, err := insertDocNote(ctx, db, "action", "index_code_symbols", "",
+		body, `["code-index","prune-refused","bugs_open-135"]`,
+		source, "index_code_symbols", "", "index_code_symbols")
+	if err != nil {
+		logger.Error("index_code_symbols: prune refusal could NOT be recorded durably — the only surviving record is this log line",
+			zap.String("repo", repo), zap.Error(err))
+		return
+	}
+	logger.Info("index_code_symbols: prune refusal recorded", zap.String("note_id", id))
 }
 
 // ============================================================================

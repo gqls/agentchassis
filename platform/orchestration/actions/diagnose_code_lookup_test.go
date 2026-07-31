@@ -331,3 +331,26 @@ func TestBodyCoverageNote(t *testing.T) {
 		t.Fatalf("partial coverage should report the percentage: %q", got)
 	}
 }
+
+// bugs_open/135's read-side half. The freshness banner reads ONE row (the newest
+// by updated_at) and names its commit, so a part-stale index — the state a refused
+// or skipped prune deliberately leaves behind — announces a single commit it does
+// not entirely describe. This note is the only thing that contradicts it, so its
+// silence in the healthy case matters as much as its noise in the mixed one.
+func TestMixedCommitNote(t *testing.T) {
+	if got := (codeIndexScope{total: 4992, withBody: 4992, commits: 1}).mixedCommitNote(); got != "" {
+		t.Errorf("a single-commit index must produce NO note (a banner that always fires stops being read): %q", got)
+	}
+	if got := (codeIndexScope{total: 4992, withBody: 4992, commits: 0}).mixedCommitNote(); got != "" {
+		t.Errorf("an empty index has no commit spread to report: %q", got)
+	}
+	if got := (codeIndexScope{err: fmt.Errorf("connection refused"), commits: 3}).mixedCommitNote(); got != "" {
+		t.Errorf("a failed scope read already says UNKNOWN via bodyCoverageNote; do not assert a spread we did not measure: %q", got)
+	}
+	mixed := (codeIndexScope{total: 4992, withBody: 4992, commits: 2}).mixedCommitNote()
+	for _, want := range []string{"NOT AT ONE COMMIT", "4992", "2 different indexed commits", "REFUSED", "index_code_symbols"} {
+		if !strings.Contains(mixed, want) {
+			t.Errorf("the mixed-commit note is missing %q; got:\n%s", want, mixed)
+		}
+	}
+}

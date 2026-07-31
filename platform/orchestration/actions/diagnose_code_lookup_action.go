@@ -195,6 +195,7 @@ func refOfClause(ref string) string {
 type codeIndexScope struct {
 	total    int   // rows in scope (after the repo filter)
 	withBody int   // of those, rows whose source body is indexed
+	commits  int   // distinct commit_sha values across those rows (NULL counts as one)
 	err      error // the scope read itself failed — then we know nothing
 }
 
@@ -206,8 +207,8 @@ type codeIndexScope struct {
 func loadCodeIndexScope(ctx context.Context, db *sql.DB, repoFilter string) codeIndexScope {
 	var s codeIndexScope
 	s.err = db.QueryRowContext(ctx, `
-		SELECT count(*), count(body) FROM code_symbols
-		WHERE ($1 = '' OR repo = $1)`, repoFilter).Scan(&s.total, &s.withBody)
+		SELECT count(*), count(body), count(DISTINCT COALESCE(commit_sha,'')) FROM code_symbols
+		WHERE ($1 = '' OR repo = $1)`, repoFilter).Scan(&s.total, &s.withBody, &s.commits)
 	return s
 }
 
@@ -233,6 +234,34 @@ func (s codeIndexScope) bodyCoverageNote() string {
 	default:
 		return fmt.Sprintf("(index scope: %d symbols, source bodies indexed for all of them)\n", s.total)
 	}
+}
+
+// mixedCommitNote states that the corpus in scope does not all describe ONE
+// commit, which the freshness banner above it cannot say: that banner reads the
+// most recently written row (ORDER BY updated_at DESC LIMIT 1), so it reports the
+// newest commit even when part of the index is older.
+//
+// It exists because the write side may now legitimately RETAIN rows instead of
+// pruning them (bugs_open/135: a prune whose floor was not met is refused, so the
+// rows this run did not confirm stay). Retention is the right call — deleting them
+// is the catastrophe the guard exists to prevent — but a retained row is stale by
+// construction, and an index that is silently part-stale while announcing one
+// commit is the same lie bugs_closed/108 was filed about, one layer along. The
+// pre-existing "no commit_sha, prune skipped" branch produces the same state, so
+// this note describes a condition that was already reachable, not only the new one.
+//
+// Empty (no note) in the healthy single-commit case: a banner that always says
+// something stops being read.
+func (s codeIndexScope) mixedCommitNote() string {
+	if s.err != nil || s.commits <= 1 {
+		return ""
+	}
+	return fmt.Sprintf("!! INDEX NOT AT ONE COMMIT: the %d symbols in scope span %d different indexed commits, "+
+		"so the freshness line above describes the NEWEST of them, not all of them — some rows describe older code. "+
+		"Usual cause: an indexing run whose prune was REFUSED (its floor was not met) or skipped, which retains the rows it "+
+		"could not confirm. Check `SELECT commit_sha, count(*) FROM code_symbols GROUP BY 1` and the doc_notes trail under "+
+		"subject_key='index_code_symbols'. Treat a match on an older row as possibly-superseded, and an empty answer as UNKNOWN. !!\n",
+		s.total, s.commits)
 }
 
 // emptyAnswer renders a zero-row result as an ANSWER rather than as silence.
@@ -356,6 +385,10 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 	// whether a `content` check could have matched at all.
 	scope := loadCodeIndexScope(ctx, params.DB, repoFilter)
 	b.WriteString(scope.bodyCoverageNote())
+	// And whether it is all ONE commit: the freshness line above names the newest
+	// indexed commit, which is not the whole story once a prune has been refused
+	// or skipped and part of the corpus is older (bugs_open/135). Silent when it is.
+	b.WriteString(scope.mixedCommitNote())
 	run := 0
 	for i, c := range checks {
 		fmt.Fprintf(&b, "\n[code_check %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
