@@ -16,6 +16,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -498,8 +499,20 @@ func insertNavItem(ctx context.Context, tx *sql.Tx, siteID, groupID uuid.UUID, p
 func navLabelForPage(page pageNavInfo) string {
 	// Prefer explicit nav_label from the page — the planner set this
 	// intentionally short for nav display.
-	if page.NavLabel != "" {
-		label := navLabelDropCategoryPrefix(page.NavLabel)
+	// The strip is applied to the AUTHORED label only, and deliberately NOT to
+	// the title. `pages.nav_label` is a nav-display field where `Category / Page`
+	// is a convention; a title is prose, where a slash can be part of a word.
+	// The fleet has exactly one title containing a slash and it is the proof:
+	// webdesign.co.uk's `A/B Test Calculator | webdesign.co.uk` would become
+	// "B Test Calculator". (Measured 2026-07-31. It is currently unflagged, and
+	// at 37 chars it would derive from the URL anyway — so this would have been
+	// a latent mangling, not a live one, which is the kind that ships.)
+	//
+	// This leaves one acknowledged hole, with no live instance: navSimplifyLabel
+	// hands a label back verbatim when it is ≤15 chars, so a SHORT slash-bearing
+	// TITLE would still reach a nav row. 0 such rows exist (measured, same day);
+	// tracked in bugs_open/149 A7 rather than fixed by mangling prose.
+	if label := navLabelDropCategoryPrefix(page.NavLabel); label != "" {
 		// Trust nav_label if it's a reasonable nav length.
 		// Only simplify if the planner set something unreasonably long.
 		if len(label) <= 30 {
@@ -514,6 +527,8 @@ func navLabelForPage(page pageNavInfo) string {
 		// stripped so the two stay consistent if that early return ever moves.
 		return navSimplifyLabel(label, page.URL)
 	}
+	// Reached when there is no authored label, OR when the authored label was
+	// nothing but separators and whitespace ("/", " / ") and so names no page.
 	return navSimplifyLabel(page.Title, page.URL)
 }
 
@@ -543,15 +558,44 @@ func navLabelForPage(page pageNavInfo) string {
 // Order matters: this runs BEFORE the length test, so a long authored label
 // still falls through to navSimplifyLabel and cannot smuggle a 39-character
 // footer item past the guard by shedding its prefix.
+//
+// IT RETURNS THE LAST NON-EMPTY SEGMENT, NOT THE TEXT AFTER THE LAST SEPARATOR,
+// and the difference is the whole guarantee. The first version took
+// `label[LastIndex("/")+1:]` and returned the ORIGINAL label when that tail was
+// empty — so `"Tools / "` came back with its slash intact, and at ≤30 chars was
+// then trusted verbatim. A reviewer caught it: that restores the invariant for
+// the common case and calls it a guarantee.
+//
+// ONLY A WHITESPACE-DELIMITED SLASH IS A SEPARATOR, and that is not fussiness.
+// The first version split on any "/", which turns the perfectly good label
+// `A/B Test Calculator` into `B Test Calculator`. That is not hypothetical:
+// webdesign.co.uk has a page named `tool-ab-test-calculator` titled
+// `A/B Test Calculator | webdesign.co.uk` (measured 2026-07-31 — the one title
+// in the fleet containing a slash). It carries no authored nav_label today, so
+// the mangling would have been latent rather than live, which is the kind that
+// ships. A category prefix is written `Tools / X` — all 8 live slash-bearing
+// nav_labels use that form; an intra-word slash is part of the name.
+//
+// An empty return means the label was nothing but separators and whitespace, so
+// it names no page; navLabelForPage treats that as "no authored label" and uses
+// the title instead. Returning the original would have been the bug again.
+// navCategorySeparator matches a "/" acting as a CATEGORY SEPARATOR — one with
+// whitespace beside it, or one at the very start or end of the label. It
+// deliberately does NOT match an intra-word slash such as the "A/B" in
+// "A/B Test Calculator". See navLabelDropCategoryPrefix.
+var navCategorySeparator = regexp.MustCompile(`\s+/\s*|\s*/\s+|^\s*/|/\s*$`)
+
 func navLabelDropCategoryPrefix(label string) string {
-	idx := strings.LastIndex(label, "/")
-	if idx < 0 {
+	if !strings.Contains(label, "/") {
 		return label
 	}
-	if tail := strings.TrimSpace(label[idx+1:]); tail != "" {
-		return tail
+	parts := navCategorySeparator.Split(label, -1)
+	for i := len(parts) - 1; i >= 0; i-- {
+		if seg := strings.TrimSpace(parts[i]); seg != "" {
+			return seg
+		}
 	}
-	return label
+	return ""
 }
 
 // buildNavStructureFromClassified creates a NavigationStructure from primary pages.

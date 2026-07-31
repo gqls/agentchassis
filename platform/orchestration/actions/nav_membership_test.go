@@ -302,6 +302,29 @@ func TestAuthoredNavLabelNeverKeepsItsCategoryPrefix(t *testing.T) {
 		{"about", "About", "/about.html", "About Our Practice", "About"},
 		{"who-we-serve", "Who We Serve", "/who-we-serve.html", "Who We Serve | Gas Wholesalers", "Who We Serve"},
 		{"services", "Services And Everything They Cover", "/services.html", "Services", "Services"},
+		// DEGENERATE SEPARATORS — the branch a reviewer found unexercised in
+		// round 2, where the first version returned the ORIGINAL label (slash
+		// intact) because the text after the last "/" was empty, and ≤30 chars
+		// then trusted it verbatim. No such row exists in the fleet; that is why
+		// it has to be structural rather than a patch on the case that did.
+		{"trailing-sep", "Tools / ", "/tools/tool-arena.html", "Arena Interface", "Tools"},
+		{"trailing-sep-nospace", "Tools/", "/tools/tool-arena.html", "Arena Interface", "Tools"},
+		{"leading-sep", "/ Arena", "/tools/tool-arena.html", "Arena Interface", "Arena"},
+		// Nothing but separators names no page, so the authored label is
+		// abandoned and the TITLE is used — not the separators, and not "".
+		{"only-seps", "/", "/tools/tool-arena.html", "Arena", "Arena"},
+		{"only-seps-spaced", " / / ", "/tools/tool-arena.html", "Arena", "Arena"},
+		// AN INTRA-WORD SLASH IS PART OF THE NAME, NOT A CATEGORY PREFIX. This is
+		// the case that made the rule whitespace-delimited: splitting on any "/"
+		// turns a perfectly good label into "B Test Calculator". webdesign.co.uk
+		// really does have `tool-ab-test-calculator`, titled "A/B Test Calculator
+		// | webdesign.co.uk" — the one fleet title containing a slash
+		// (measured 2026-07-31). It has no authored nav_label today, so the
+		// mangling would have been latent rather than live.
+		{"ab-test", "A/B Test Calculator", "/tools/tool-ab-test-calculator.html", "A/B Test Calculator | webdesign.co.uk", "A/B Test Calculator"},
+		// …and the two together: a real category prefix in front of a name that
+		// contains its own slash. The prefix goes, the name survives intact.
+		{"ab-test-prefixed", "Tools / A/B Test Calculator", "/tools/tool-ab-test-calculator.html", "A/B Test Calculator | webdesign.co.uk", "A/B Test Calculator"},
 	}
 
 	for _, tc := range cases {
@@ -312,8 +335,13 @@ func TestAuthoredNavLabelNeverKeepsItsCategoryPrefix(t *testing.T) {
 				URL:      tc.url,
 				NavLabel: tc.navLabel,
 			})
-			if strings.Contains(got, "/") {
-				t.Fatalf("navLabelForPage(nav_label=%q) = %q — a nav label must never contain a path separator, on the AUTHORED path as well as the derived one; ai-agent-orchestration.com served exactly this",
+			// The assertion is "no CATEGORY SEPARATOR survives", not "no slash
+			// survives". The stronger form is wrong: it would condemn
+			// "A/B Test Calculator", where the slash is part of the name. What
+			// must never survive is a whitespace-delimited separator — the
+			// "Tools / …" shape ai-agent-orchestration.com was serving.
+			if navCategorySeparator.MatchString(got) {
+				t.Fatalf("navLabelForPage(nav_label=%q) = %q — a nav label must never keep a category separator, on the AUTHORED path as well as the derived one; ai-agent-orchestration.com served exactly this",
 					tc.navLabel, got)
 			}
 			if got != tc.want {
