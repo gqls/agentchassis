@@ -303,3 +303,62 @@ FROM t ORDER BY 1,2;
 > length-budget script inserts against it. Note the nested keys come out inline
 > (`objections,edit,problem,severity`) — that is a feature: it shows the order INSIDE
 > an objection, which is where the severity-loss theory lived until it was refuted.
+
+## 10. Apply the length budget, and verify it the way that can actually fail
+
+```bash
+./scripts/apply-seat-length-budget.py            # dry run — lists targets + the block
+./scripts/apply-seat-length-budget.py --apply    # snapshot each agent type, then write
+./scripts/apply-seat-length-budget.py --verify   # live state only
+```
+
+> **The row count IS the check, not decoration.** The update uses
+> `jsonb_set(..., create_if_missing := false)`, so a wrong path is a **silent no-op**
+> rather than an error. The script asserts exactly one row per target and stops
+> otherwise. Applied 2026-07-31: 7 of 7 at one row each.
+>
+> **Prove idempotency, because a re-run is how this gets used.** A second `--apply`
+> must report "nothing to do" — the block is delimited by a start phrase plus
+> `— end length budget —`, and a hand-authored block (which `review_architecture` has)
+> lacks the sentinel and is deliberately **refused**, not overwritten. Both branches
+> were exercised against real live seats before the first write.
+>
+> **Where snapshots actually go — the obvious check says they did not happen.**
+> `snapshot_agent()` copies the live row into **`agent_definitions_backup`**, stamping
+> `snapshot_taken_at`/`snapshot_reason`. It does NOT create an `is_snapshot` row in
+> `agent_definitions`, even though every live-config query in this repo filters
+> `COALESCE(is_snapshot,false)=false` and so implies it would. `created_at` is copied
+> verbatim from the source, so ordering backups by `created_at` finds nothing recent
+> either. And a snapshot is only a rollback if it predates the write — assert that:
+>
+> ```sql
+> SELECT type, snapshot_taken_at, snapshot_reason,
+>        (default_config #>> '{workflow,steps,review_guardian,config,prompt_template}'
+>         LIKE '%end length budget%') AS has_change   -- MUST be false on the backup
+> FROM agent_definitions_backup
+> WHERE snapshot_taken_at > now() - interval '30 minutes' ORDER BY snapshot_taken_at;
+> ```
+>
+> **Cutover time — take it from the row, never from your shell history.** Measured
+> 2026-07-31: feature-designer `15:12:49`, fix-proposer `15:12:55`, council-gate
+> `15:12:58` (`agent_definitions.updated_at`). An orchestration keeps the workflow
+> definition it loaded **at spawn**, so a round already in flight carries the OLD
+> prompt and is baseline, not signal. `scripts/council-adoption-report.sh` was wrong
+> by 45 minutes once for exactly this reason and reclassified five pre-change rounds
+> as evidence.
+>
+> **Then measure whether it did anything**, on rounds spawned after the cutover only:
+>
+> ```sql
+> SELECT step_name, count(*), max(output_tokens),
+>        round((100.0*max(output_tokens)/max(max_tokens))::numeric,1) AS peak_pct_cap
+> FROM llm_call_log
+> WHERE step_name IN ('review_guardian','review_improvement_guardian','review_debug_historian')
+>   AND created_at > '2026-07-31 15:13:00+00'
+> GROUP BY 1 ORDER BY 1;
+> ```
+>
+> Pre-cutover peaks to beat: guardian **99.2%**, debug_historian **99.8%**,
+> improvement_guardian **96.6%** (all of an 8000 cap). The architecture seat's
+> precedent says to expect outputs to get *shorter*, not merely to stay under — if the
+> peaks do not move, the block is being ignored and that is the finding.

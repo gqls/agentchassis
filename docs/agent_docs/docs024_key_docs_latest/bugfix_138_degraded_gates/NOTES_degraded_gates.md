@@ -286,3 +286,42 @@ both of yesterday's errors were reasoning answering.
 Added `review_debug_historian` to the length-budget script's targets on fix-proposer +
 council-gate, which exercises the claim that adding a target is one line — the first
 target this lane did not choose by hand.
+
+### 2026-07-31 15:12 — the length budget is APPLIED, and one scare was my own check
+
+7 of 7 targets written, one row each (the row count is the only check available —
+`jsonb_set(create_if_missing := false)` makes a wrong path a silent no-op). All 7 now
+read `APPLIED`; a second `--apply` reports "nothing to do", so idempotency is proven
+rather than claimed. 099 roster dry-run: **drift (none)** — the mirrored pair stayed
+identical, which is the thing that would have broken if I had targeted one council of
+the pair. 102 parity lint reports 3 findings, all pre-existing `max_tokens` value drift
+from the deliberate 16000 raises; nothing about prompts, nothing new.
+
+Placeholders survived: 3 per fix-lane template, 4 on feature-designer, unchanged; the
+block sits immediately before `## Output` with the JSON schema line intact after it.
+Guardian went 6,174 → 7,205 chars (+1,031, the block).
+
+**The scare.** I checked the snapshots with
+`SELECT count(*) FROM agent_definitions WHERE is_snapshot AND created_at > now() - interval '20 minutes'`
+and got **0**, having just watched the script print three successful snapshots. My
+query was wrong, not the script: `snapshot_agent()` copies into
+`agent_definitions_backup` and stamps `snapshot_taken_at`, and it copies `created_at`
+verbatim from the source row so a recency filter on that column finds nothing either.
+The real check shows all three, and — the part that actually matters — `has_block =
+false` on each, proving they are **pre**-update copies and therefore a real rollback. A
+snapshot taken after the write would look identical in every column except that one.
+
+Worth its own landmine (added, footprint `snapshot_agent`) because every live-config
+query in this repo filters `COALESCE(is_snapshot,false)=false`, which strongly implies
+snapshot rows sit in `agent_definitions`. Two conventions coexist, and the wrong check
+returns 0 rather than an error — a thread that stopped there would have concluded it had
+no rollback.
+
+**What is NOT yet verified, and cannot be today:** whether the block changes behaviour.
+DB config is live immediately, but only rounds **spawned after 15:12:5x** carry it, and
+none has run yet. Cutover times taken from `agent_definitions.updated_at`, not from
+scrollback — RUNBOOK §10 has them and the post-cutover measurement query, with the
+pre-cutover peaks to beat (guardian 99.2%, debug_historian 99.8%,
+improvement_guardian 96.6%). The architecture precedent says outputs should get
+*shorter*; if the peaks do not move, the block is being ignored and that is the finding,
+not a null result.
