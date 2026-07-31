@@ -15275,3 +15275,17 @@ assertion in prose.
   The cheap check: **`date` costs nothing; a remembered clock is a stale variable
   like any other.** The failure mode is specific to long sessions — my sense of
   the time was anchored to when I last saw a timestamp, hours earlier.
+  **RECURRED 40 MINUTES LATER, in the same session, after I had written the entry above.**
+  I ran `cd <memory dir> && awk … MEMORY.md; git commit docs/… -m "…"` — the `awk` half was
+  the point, the `cd` succeeded, and the **`git commit` then ran from the memory directory**,
+  where the repo-relative pathspec matched nothing: `error: pathspec '...016b_...md' did not
+  match any file(s) known to git`. Loud, harmless, instantly obvious — and the same root cause
+  as the entry above, which I had written myself, minutes earlier, with the remedy "use
+  absolute paths so `cd` is not in the chain at all". **Writing the lesson down did not make me
+  apply it**, because the shell's working directory is invisible state that persists between
+  tool calls and nothing in the command I typed showed it. The distinction that matters: this
+  recurrence failed LOUDLY (wrong cwd → no matching pathspec), whereas the original failed
+  SILENTLY (wrong cwd → skipped check → clean-looking output). Same trap, opposite blast
+  radius, and only the silent one is dangerous. **The durable check is therefore not "remember
+  to use absolute paths" — it is "never let a command whose PASS is silence share a line with a
+  `cd`."** A loud failure needs no discipline; it announces itself.
