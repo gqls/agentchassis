@@ -114,8 +114,16 @@ SELECT pre_query FROM scheduled_tasks WHERE name='council-seat-token-pressure'; 
   `n_holder ≤ 5`: inferences from a sibling council at the same cap, not measurements of
   the holder.
 
-## Five traps this lane paid for. Read these before measuring anything here.
+## Six traps this lane paid for. Read these before measuring anything here.
 
+0. **A TRUNCATED call has `output_tokens = NULL`** — the cut is stated only in
+   `error_message`. So `output_tokens >= max_tokens` can never count one (it found **4**
+   fleet-wide where the truth was **94**), and the implicit `output_tokens IS NOT NULL`
+   in any aggregate drops those rows from your p95/mean/max — blindest on exactly the
+   agents that truncate most. Count from `error_message ILIKE '%stop_reason=max_tokens%'`
+   and score a truncated call as 1.0 of cap. **This one was a defect in this lane's own
+   instrument, shipped 07-30 and fixed 07-31.** `NOT success` is not a truncation filter
+   either — it also covers API 400s, context-cancelled and dial timeouts.
 1. **`llm_call_log.agent_type` was relabelled 2026-07-26** — 1,836 rows say `generic`,
    and **`fix-proposer` has never appeared at all**. A 14-day per-agent figure is
    computed from four days. Key on `step_name`. (LANDMINES, footprint `llm_call_log`.)
@@ -136,10 +144,13 @@ SELECT pre_query FROM scheduled_tasks WHERE name='council-seat-token-pressure'; 
 
 ## What I got wrong, since it is the cheapest thing to inherit
 
-Three checks in one day answered a different question from the one I meant to ask: a
+**Five** checks answered a different question from the one I meant to ask: a
 mixed-denominator ratio that made a working cap raise look useless; the wrong JSON depth;
-and a retyped grep pattern that missed a backtick, made a present landmine read as
-absent, and led me to commit a duplicate plus a false claim (withdrawn in `bcecb65e3`).
+a retyped grep pattern that missed a backtick, made a present landmine read as absent, and
+led me to commit a duplicate plus a false claim (withdrawn in `bcecb65e3`); a `max()` with
+no `FILTER` that nearly had me declare a live incident; and — the expensive one — a
+truncation counter that could not match a truncation, which I then used its own zero to
+justify. Four were caught before they reached anything; the third and the fifth were not.
 
 The pattern is not carelessness. **Each wrong answer fitted something I already had good
 reason to believe** — the file really was being swept by other sessions; a cap raise
