@@ -1610,3 +1610,56 @@ source document and the entry points at it.
 - **the check:** **make the binary print its own vocabulary.** `docSubjectTypesQuoted()` joins the live slice **at runtime**, so a deliberately invalid `subject_type` returns the complete list as compiled into the running pod — the one thing a grep cannot get. Run `docs024_key_docs_latest/staged_component_build/scripts/PROBE_doc_subject_go_gate.sh <type> <key>`: two `load_doc_context` steps in one dispatch, the type under test then an invalid control that MUST error. Verified 2026-07-31 on v1.0.1215 (correlation `8f564028`), which printed `'tool', 'pipeline', 'experience', 'action', 'experience-pattern', 'component', 'landmine'`. **Do not skip the control** — without it a green run cannot be told apart from a probe that never ran, which is why the script names that outcome VOID rather than letting it read as a pass. No `agent_definitions` row is needed: the workflow travels inline in the message (`selectWorkflow` Priority 1, `platform/messaging/processor.go:922-928`), and the fallthrough is `generic`'s no-op `complete` step, so a misfire is inert *and* visible.
 - **source:** 2026-07-31, staged_component_build lane, closing `HANDOFF_2026-07-31b` §3 (DOC-068's Go half); the two-message confusion is logged in `WRONG_CALLS.md`
 - **added:** 2026-07-31, staged_component_build lane
+
+### Correcting a false register fact does NOT arm detection against the copy it already caused — and arming BEFORE repairing the copy strands the pages
+
+- **footprint:** `site_specs` `aspect='evidence_base'`, `facts[]`, `banned_claims[]`;
+  `datahelpers/claims.go` `editorialPageTypes` / `ProseNumbersAreClaims` /
+  `ScanBannedClaims`; `save_sections_claims_guard.go`
+- **fires when:** you find a false registered fact, correct it, and reasonably assume the
+  gates will now catch the published copy that fact was licensing
+- **the tell:** none — the scan stays silent and silence looks like success. Measured on
+  `bugs_open/161`: **0 findings before the register fix and 0 after**, with 10 live false
+  components sitting there the whole time. `ScanUnregisteredNumbers` is skipped entirely on
+  `editorialPageTypes` (**guide, blog-post, news-index, tool, game** — five of the fleet's
+  commonest types), and marketing-shaped prose lives on those types constantly
+- **the check:** correcting the fact stops the writer being INSTRUCTED and stops the engine
+  VOUCHING; only a **`banned_claims` pattern** detects what is already published, because
+  `claims.go` states that `ScanBannedClaims` "runs on every surface". **And the order is
+  load-bearing: repair the copy FIRST, then arm.** A banned claim is BLOCKER severity, so
+  arming it while the false copy is still stored makes every affected page refuse to save —
+  the falsehood stays published *and* becomes unfixable through the normal path. Put a guard
+  in the arming SQL that counts still-offending components and refuses on non-zero
+- **also:** make the pattern require the NUMBER (or the attribution), not the bare phrase.
+  `/Monte Carlo/` would have blocked the honest guide that *teaches* the technique;
+  `10[,.]?000\s*Monte\s*Carlo` caught 10/10 false components with 0 false positives. Dry-run
+  with `cmd/claimscan` over the whole corpus before arming, and check what it SPARES
+- **source:** 2026-07-31, bugfix lane, fixing `bugs_open/161`
+- **added:** 2026-07-31, bugfix lane
+
+### A data repair RACES the sweep that publishes it — and the DB is not the website
+
+- **footprint:** `page_components.content_data` / `rendered_html`, `pages.deployed_at`,
+  `pages.build_status`, `site_work_items` `item_type='page_rerender'`
+- **fires when:** you repair stored copy with SQL and treat the committed transaction as the
+  fix being live
+- **the tell:** `pages.deployed_at` is OLDER than your `page_components.updated_at`. On
+  `bugs_open/161` the repair landed 15:28 and the 6 pages had last deployed 12:51 — the
+  served HTML still asserted the falsehood while every DB check said clean
+- **two traps, not one:**
+  1. **`build_status='needs_rebuild'` is a DEAD queue** — 44 pages, oldest stuck since
+     **2026-04-23**. Setting it strands your repair indefinitely. Measure the age of the
+     oldest stuck row before trusting any status-flag route.
+  2. **A concurrent sweep can publish your half-finished repair.** `rerender-pages` queued a
+     full-site rerender at 15:28:33, *inside* the 15:28:04–15:28:34 window in which I was
+     rewriting 10 components. Finishing seconds later would have deployed the FALSE copy and
+     recorded a successful rerender. On a shared estate a data repair is not atomic with
+     respect to the publishers
+- **the check:** after repairing, assert `deployed_at > <your repair time>` and then read the
+  **served URL**, not `rendered_html`. If you must force it, fire `page-rerender` with a
+  `reason` **not** in (`image_landed`, `section_data_resolved`, `cta_links_stale`) — those
+  route to `rerender_sections` (regenerate), anything else routes to `render_page`
+  ("assemble stored HTML"), which republishes bytes you have already fixed and cannot
+  regress an interactive tool
+- **source:** 2026-07-31, bugfix lane, `bugs_open/161` step 2
+- **added:** 2026-07-31, bugfix lane
