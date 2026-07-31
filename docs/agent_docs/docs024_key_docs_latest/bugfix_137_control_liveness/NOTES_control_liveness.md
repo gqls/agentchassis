@@ -259,3 +259,97 @@ hrefs; and the provocations page still serves exactly 1. Pod-grep marker stated
 and already run against both v1.0.1218 replicas: `RuntimeFillSpans` **0**,
 positive control `DeadControlAnchors` **2** — confirming the fix is **not live**
 and that the grep works.
+
+---
+
+## Council round 2 — REVISE again, and the gating objection was a REPEAT of one I had just conceded
+
+`abstained: 4`, `unreadable: null`. Nine approvals (`reuse_agent`,
+`tooling_provenance`, `diagnosis_guardian`, `improvement_guardian`,
+**`render_guardian`** — its round-1 objection answered, `debug_historian`,
+`constitution`, `mission`, `architecture`). Three seats objected.
+
+### MISSTEP 6 — I fixed "asserted in prose" for one file and repeated it two files later, in the same submission
+
+`editquality`, `guardian` and `prior_art_librarian` **all three** raised it:
+`render_site_components_action.go` and `check_empty_sections.go` were claimed as
+"migrated to the named whole-input predicate" with no edit block showing it.
+`guardian` named the sting exactly — this is *"the exact defect the author
+already conceded and fixed for `check_backend_entry_orphaned.go` this same
+round"*.
+
+That is worse than the original instance, because I had just been taught it. The
+cause was arithmetic: ten production files against an 8-edit cap, so I folded the
+two that felt least consequential — and "least consequential" is precisely the
+judgement a reviewer is entitled to make rather than the author.
+
+**The fix was to remove the claim, not to defend it.** Both migrations were
+cosmetic — behaviour-identical renames — so both are **reverted**, and the two
+sites are named on the gate's allow-list with their reasons instead. Three things
+improved at once:
+
+1. there is no longer a claim for a seat to verify;
+2. the change now touches **no shared chrome code at all**, which was
+   `guardian`'s other worry — the safest edit to code shared across many sites is
+   none;
+3. the complete set of deliberate exceptions sits in **one table** rather than
+   scattered across call sites, which reads better than the renames did.
+
+Eight production files, eight blocks, nothing folded. **When the edit cap and the
+review rule fight, cut the change — not the declaration.**
+
+### HIGH 2 — the gate could not see the SQL copies
+
+`bug_historian`: the gate walked Go only, so a SQL-side copy could drift the same
+way. **Closed rather than disclosed** — every one of those copies is a SQL string
+*embedded in Go source*, so the same walk sees them once the pattern knows
+`LIKE '%data-runtime-fill%'`. Proven by removing the allow-list entries and
+watching it name all four with file and line.
+
+**And the question that seat actually asked — are they judges or section
+questions? — is answered by READING all four**, which I had not done when I first
+listed them:
+
+| file | scope | question |
+|---|---|---|
+| `check_required_fields_missing:62` | per row | is this component a shell, so missing fields are by design? |
+| `check_component_standards:519` | per row | is this template a shell, so `<no value>` is the mechanism? |
+| `check_component_template_corrupted:62` | per row | is this template a shell, so build-time emptiness is intended? |
+| `check_empty_sections:142` | per row | is this section a shell, so empty by design? |
+
+**None judges control liveness.** They are the whole-input question at its correct
+granularity — not heuristic siblings of this bug. Round 2's submission had listed
+them as a disclosed gap; that was weaker than the truth.
+
+### The two mediums, both answered with a query rather than an argument
+
+- **`guardian`**: the tool-acceptance sweep reads the whole served page *including
+  chrome*, and chrome is shared across sites — measured only against vonc.
+  **Measured fleet-wide now: of 42 `site_components` rows, 0 carry a runtime-fill
+  shell and 0 carry a no-op href.** Nothing newly surfaces in shared chrome, in
+  either direction.
+- **`prior_art_librarian`**: "this is the first council pass" was *my own account*,
+  and should be checked. **Checked: 0 `council_report` rows mention
+  `RuntimeFillSpans`/`InRuntimeFillShell`/`HasRuntimeFillMarker`.** Reports whose
+  text contains the raw marker do exist and are **all** `render_guardian`
+  boilerplate from other sessions' unrelated reviews ("no `data-runtime-fill`
+  filtering is affected") — that seat's contract list names the marker, so a text
+  match is a false positive. Worth recording as its own small trap: **searching a
+  corpus for a marker finds every reviewer who was asked whether they touched it.**
+
+### A suspicion I checked and was WRONG about — worth recording because I nearly filed it
+
+Reverting my rename, `render_site_components_action.go` showed unfamiliar code
+(`ineligibleChrome`, a new `degraded` return). My first reading was that my own
+r1 pathspec commit had swept another session's uncommitted work — the same-file
+passenger CLAUDE.md warns cannot be prevented.
+
+**It had not.** `git show 7ffcd37e0 --stat` on that file is 8 insertions and 1
+deletion — my nine lines. The unfamiliar code arrived in `b052249d8`
+("fix(118): one chrome-eligibility predicate"), another session's **committed**
+work, landed at 19:36, eight minutes before mine at 19:44.
+
+Checked before writing it down, which is the only reason this is a note rather
+than a false accusation in `WRONG_CALLS.md`. Incidentally it also dates the
+staleness of my own bug-selection scan: **118 was on my "zero engagement" list at
+18:20 and had a committed fix by 19:36.**
