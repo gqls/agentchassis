@@ -1344,3 +1344,117 @@ label carries the figure; the bar should not lie about it.
 **The two live fixture pages are unchanged by any of this** — they are stored artefacts, and
 `report-dispatch` / `report-request-pull` are both still disabled, so nothing regenerates
 unasked. The fix reaches the next report generated.
+
+> **SUPERSEDED within hours, deliberately, on owner instruction:** dispatch was enabled
+> 2026-07-30 22:13Z and FIXTURE 4 queued 07-31 08:15Z. See the entries below.
+
+---
+
+## 2026-07-30 22:13Z — `report-dispatch` ENABLED on owner instruction, and it is correctly self-gating
+
+`UPDATE scheduled_tasks SET enabled = true WHERE name='report-dispatch'` (only that one;
+`report-request-pull` left off — enable order is dispatch first). Fired at 22:14:04 and
+22:16:04, changed nothing, cost nothing.
+
+**Why an idle ON is free, which I got wrong first:** the scheduler evaluates the task's
+`pre_query` and, finding no rows, logs
+`"Pre-query found no rows — task ran with nothing to do"` and **publishes no message at
+all**. The query ends `HAVING count(*) > 0` precisely so that zero work returns zero rows.
+
+> **WRONG CALL, logged in `WRONG_CALLS.md`.** I told the owner that `pre_query` "counts
+> every `report_request` with no status filter" and would "read 3 queued forever" — offered
+> as a platform defect. **False.** It filters on `status='awaiting_report'`, guards
+> `attempt_count < max_attempts`, includes a stuck-claim reaper clause, and ends with that
+> `HAVING`. I had displayed the column as `left(pre_query,120)` for table width and then
+> reasoned about the truncation; the clause that refutes the whole claim sits at ~char 250.
+> **If you truncate a field for display you may quote what you SAW, not what it MEANS.**
+> Caught by the scheduler log contradicting my own prediction — I predicted "fires and
+> claims nothing", it did not fire a message at all, and chasing *why not* is what made me
+> fetch the full query.
+
+Plumbing proven rather than assumed: `system.agent.scheduled.requests` appears in the
+**live** deployment's `EXTRA_REQUEST_TOPICS` (not just the repo overlay), and a sibling
+scheduled task (`endpoint-health-checker`) flowed over the same topic at 22:18:07 and
+processed successfully — an untouched peer in the same window is the cheapest proof the
+path works.
+
+---
+
+## 2026-07-31 08:07Z — the chart fix is LIVE, and the council approved it
+
+**Chassis `v1.0.1213`**, both pods, started 08:07Z (a roll the owner ran, not me).
+Pod-grepped both replicas:
+
+| marker | count |
+|---|---|
+| `estTextWidth` (a symbol the fix ADDED) | 1 |
+| `Capacity headroom against your requirement` (positive control) | 1 |
+| `nonexistent_marker_xyz` (negative control) | 0 |
+
+**Marker-choice note worth keeping:** my second candidate marker, the comment *"a clipped bar
+must not read"*, greps **0** in the binary — comments do not survive compilation. A **symbol
+name** does. Picking a comment as your deploy marker manufactures a false negative and would
+have read exactly like "the fix did not ship".
+
+**Council `60d05267-a671-4b98-9b87-6a97e16d78a0`: APPROVED round 1**, *"approved with 2
+advisory objection(s) — none high-severity"*, 9 seats abstained on relevance, `architecture`
+returned `point_fix` (*"architecture-scope only if a second caller appears; it doesn't yet"*).
+All four checkable items discharged the same morning:
+
+- `prior_art` (low) — *single-caller claim, method not shown, and the code index may lag
+  HEAD*: re-grepped at HEAD, not via the index. `renderBarChartSVG` has **exactly one**
+  caller (`report_charts.go:239`, inside `renderHeadroomChart`).
+- `architecture` (missing) — *are there other SVG generators needing the same logic?*
+  `git grep -l '<svg viewBox' -- '*.go'` returns **report_charts.go and nothing else.** The
+  pattern is contained, measured rather than asserted, so lifting it into a shared helper
+  now would be speculative — as the seat itself said.
+- `debug_historian` (missing) — *how will you verify at the POD, not the tag?* The table
+  above, both replicas, added-symbol plus two controls.
+- `debug_historian` (missing) — *the "mutation-verified" claim is the exact shape of the
+  mutation landmine; show it ran.* It is in the entry above: three mutants, each paired with
+  its test, and the run that mattered is the one that came back **PASS (BAD)** and forced the
+  test to be strengthened. A mutation harness whose output is all-green proves nothing.
+
+**`prior_art`'s medium objection was PRESCIENT, and I am the one who falsified it.** It
+flagged that my risks section asserted *"report-dispatch is currently disabled, so nothing
+regenerates unasked"* — a **live-state** claim with no check behind it, load-bearing for the
+whole containment argument, and vulnerable to *"another lane re-enabling it"*. True when
+submitted at 19:30Z; false by 22:13Z, enabled **by me**, on owner instruction, two hours
+later. **A live-state claim in a submission is perishable, and the seat that says so is not
+being pedantic.** Date such claims, or express them as a condition the reader can re-check.
+
+**`bug_historian`'s medium objection is the one that needed an action, not an argument:** the
+generator was fixed while two known-corrupted pages stayed served, with nothing queued to
+force regeneration — the shape of `bugs_closed/046`. **Answered by FIXTURE 4** (below), which
+is also what the owner asked for independently.
+
+---
+
+## 2026-07-31 08:15Z — FIXTURE 4: regenerating the worst case, and the column I did not look at
+
+Queued `4ccc73d7-c467-480f-9a39-0b327b383870`, `request_id`
+`bf3765d6-befe-43a8-b1cd-ca5c210f39e9`, `source='manual-test'`,
+`item_key='manual-test-fixture-4'`. It re-runs **fixture 1's exact spec** — 2.5 kg steel,
+a=12, S=2, IP54 — so the before/after is a comparison of the same inputs rather than of two
+different reports. That spec is the one that produced the 6.42× and 7.60× capped bars with
+`Insufficient data` verdicts, i.e. **the exact case that clipped**.
+
+**It failed on the first attempt and the cause is a landmine now filed.** `claim_item` picked
+it up correctly within 50s, then `spawn_handler` died:
+
+```
+failed to execute action spawn_agent: configuration extraction failed in spawn actions:
+agent_type is required (provide 'agent_type' or 'agent_type_field')
+```
+
+That message names neither the row nor the column, and reads as a defect in the agent's
+config. The config is fine — `agent_type_field: "claimed.handler_agent"` resolves against the
+**claimed row**, and my hand-built row had `handler_agent` empty. I had copied fixture 1's
+shape from a `SELECT` of the columns I *thought* mattered, so the row was missing precisely
+what I never looked at. **The check that found it in one query** (now in `LANDMINES.md`):
+diff your row against a working one over **all** columns via `to_jsonb(w)` +
+`jsonb_object_keys`, rather than reading the error. It named `handler_agent` immediately, and
+also that fixture 1 carries an `item_key`.
+
+Re-armed with `handler_agent='report-builder'` (verified `is_active`), `attempt_count` back to
+0, error/claim cleared.

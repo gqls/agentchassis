@@ -759,3 +759,14 @@ source document and the entry points at it.
 - **the check:** build the statement locally (dollar-quoted literal via python) and pipe the finished SQL; then **assert `length(col)` against `wc -c` of the local file** rather than trusting the `INSERT 0 1`. Byte counts must match exactly
 - **source:** hit 2026-07-31 applying `sql_for_agents/275` (oufe tool 2); the corrected loading procedure is in that file's header
 - **added:** 2026-07-31, oufe lane
+
+### A hand-made `report_request` needs `handler_agent` on the ROW — the loop reads the handler from a COLUMN, not from its own config
+
+- **footprint:** `site_work_items.handler_agent`, `report-dispatch-loop` (step `spawn_handler`), any `spawn_agent` step configured with `agent_type_field`
+- **fires when:** you insert a work item by hand to exercise a pipeline — regenerating a fixture, reproducing a bug — and copy an existing row's shape by `SELECT`ing the columns you thought mattered
+- **the tell:** the loop claims your item **correctly** (so the queue looks healthy), then dies at `spawn_handler` with `agent_type is required (provide 'agent_type' or 'agent_type_field')`. That message names **neither the column nor the row**, so it reads as a defect in the agent's own configuration — and the configuration is fine: `agent_type_field: "claimed.handler_agent"` resolves against the **claimed row**, so an empty column surfaces as "missing config"
+- **the check:** diff your row against one that worked over **every** column, not the ones you happened to select —
+  `WITH a AS (SELECT to_jsonb(w) j FROM site_work_items w WHERE id='<worked>'), b AS (SELECT to_jsonb(w) j FROM site_work_items w WHERE id='<yours>') SELECT k, a.j->>k, b.j->>k FROM a, b, jsonb_object_keys(a.j) k WHERE a.j->>k IS DISTINCT FROM b.j->>k;`
+  One query named `handler_agent`. **Reach for that diff before reading the error message** — a row you built from a partial `SELECT` is missing exactly what you did not look at
+- **source:** FIXTURE 4 regeneration, 2026-07-31. Same family as the existing entry for a hand-made `page_rerender` needing `page_id` in the spec **and** the column
+- **added:** 2026-07-31, robot_hands_gripper_dossier lane

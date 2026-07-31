@@ -23,14 +23,34 @@ half is not built and its design was rewritten on 07-26.
 
 Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
 
-## Current switch positions — everything is OFF
+## Current switch positions — ~~everything is OFF~~ **DISPATCH IS ON since 2026-07-30 22:13Z**
 
-- `report-dispatch` **disabled**, `report-request-pull` **disabled**. Nothing runs
-  until someone enables them. Enable order is `report-dispatch` first, always.
-- Three `source='manual-test'` work items remain (fixtures 1–3), plus **two live
-  report pages left up for owner inspection**. **Cleanup is owed** once the owner
-  has read them (DESIGN §6 / §8.9): delete the `manual-test` rows and the two
-  pages. Do not clean up unasked — the owner asked to see them.
+> **UPDATED 2026-07-31 08:15Z — this section said "everything is OFF" and that is no
+> longer true.** The owner read the two fixture pages, found two rendering defects in
+> the headroom chart, and instructed: enable dispatch and regenerate. Both happened.
+> The strikethrough below is kept because "nothing runs until someone enables them" is
+> still the right mental model for `report-request-pull`.
+
+- ~~`report-dispatch` **disabled**~~ → **`report-dispatch` is ENABLED** (owner
+  instruction 2026-07-30). 90s interval, target `report-dispatch-loop`, topic
+  `system.agent.scheduled.requests` — confirmed consumed via the LIVE deployment's
+  `EXTRA_REQUEST_TOPICS`, and proven end-to-end by a sibling scheduled task on the same
+  topic in the same window. **`report-request-pull` remains disabled.** Enable order is
+  `report-dispatch` first, always.
+  - **It is correctly self-gating, so an idle ON is free.** Its `pre_query` ends
+    `HAVING count(*) > 0`, so with nothing at `awaiting_report` the scheduler logs
+    *"Pre-query found no rows — task ran with nothing to do"* and **publishes no
+    message at all**. Do not "fix" that query — and do **not** read it through
+    `left(pre_query,120)`, which cuts the `HAVING` off and makes it look unfiltered
+    (that misreading is logged in `WRONG_CALLS.md`, 2026-07-30).
+- Three ~~`source='manual-test'` work items~~ → **four**: fixtures 1–3 (terminal since
+  07-27) plus **FIXTURE 4**, `4ccc73d7-c467-480f-9a39-0b327b383870`, queued
+  2026-07-31 08:15Z. It re-runs **fixture 1's exact inputs** under a new
+  `request_id` so the chart fix is directly comparable — expected page
+  `/reports/bf3765d6-befe-43a8-b1cd-ca5c210f39e9.html`.
+- **Cleanup is still owed** and now covers more: the `manual-test` rows, the two 07-27
+  pages, fixture 3's `…edd863e8….json`, and fixture 4's page once the owner has seen
+  it. Do not clean up unasked — the owner asked to see them.
 - **Seed 208 is committed but deliberately NOT applied.** Its `base_url` points at
   `…/api/gripper/v1`, a path the island Caddy allowlist 404s. Re-seed it to
   `https://tools.apis.uk/api/v1/tools/gripper` when the route exists.
