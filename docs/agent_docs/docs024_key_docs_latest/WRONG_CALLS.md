@@ -14176,3 +14176,40 @@ read it as a missing feature. I had retyped the control string from memory —
 `site_assets path resolved via the image-role alias` — and the literal is
 `…via image-role alias`, no "the". **A 0 from a control has two causes with opposite
 meanings; copy control strings from the source rather than retyping them.**
+
+---
+
+## 2026-07-31 — I "closed" a bug and "renumbered" a collision, and shipped both as copies
+
+**Thread:** bugfix 11 session. Full prospective check now in `LANDMINES.md`
+("`git mv` + a pathspec commit silently ships a COPY").
+
+**The claim.** Two commit messages of mine said a case had been moved
+`bugs_open → bugs_closed`, and that a duplicate-numbered file had been renumbered
+`162 → 165`. Neither was true in HEAD. `git mv` stages a delete **and** an add; my
+pathspec commits named only the new path, so HEAD carried `bugs_open/135` beside
+`bugs_closed/135`, and my duplicate `bugs_open/162` beside the other session's real
+`162` — the renumber delivered into HEAD the exact collision it existed to remove.
+
+**What caught it.** Reading `git status --porcelain` after the *handoff* commit,
+several commits later, for an unrelated reason. Nothing else would have: the working
+tree was correct, `ls` agreed, and both commits printed exactly the new file I
+expected. The staged `D` lines were sitting in the same list as another session's
+staged deletion, which I had correctly been leaving alone all session — so the
+signal was there and was camouflaged by a habit that is otherwise right.
+
+**The cheap check.** Name **both** paths on a move commit, and verify at HEAD rather
+than on disk: `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep
+<number>` must return one line. Do **not** fix it with `git add -A` — that sweeps
+other sessions' staged work into your commit, which is the damage the pathspec rule
+prevents.
+
+**Cost.** One extra commit; nothing was lost and nothing had to be unpicked, because
+forward-only handles it. But between the close and the catch, HEAD said a fixed,
+live, verified bug was still open — which is the single fact closing it was meant to
+establish.
+
+**Tally note.** Fourth entry from this session, and the first that is *not* the
+"measurement answered a question I did not ask" family. This one is: **a safety rule
+can hide the failure of the operation it is protecting.** The pathspec discipline
+made the leftover `D` line look like somebody else's, every time.
