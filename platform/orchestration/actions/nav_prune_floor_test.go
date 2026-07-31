@@ -247,10 +247,10 @@ func TestLinkRegistryFloorAllowsAHealthyResync(t *testing.T) {
 	db, mock := floorMockDB(t)
 	expectLinkMeasurement(mock, 24)
 
-	detail, err := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
+	detail, maySync := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
 		uuid.New(), uuid.New(), "services", 23)
-	if err != nil {
-		t.Fatalf("a healthy resync was refused: %v", err)
+	if !maySync {
+		t.Fatalf("a healthy resync was refused: %v", detail["completeness_reason"])
 	}
 	if detail["links_stored"] != 24 || detail["links_to_write"] != 23 {
 		t.Fatalf("the floor did not publish its denominator: %+v", detail)
@@ -262,13 +262,21 @@ func TestLinkRegistryFloorRefusesATruncatedExtraction(t *testing.T) {
 	expectLinkMeasurement(mock, 40)
 	expectRefusalItem(mock)
 
-	_, err := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
+	detail, maySync := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
 		uuid.New(), uuid.New(), "services", 3)
-	if err == nil {
+	if maySync {
 		t.Fatal("a 3-of-40 extraction was allowed to replace the page's links")
 	}
-	if !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), linkRegistryFloorKey) {
-		t.Fatalf("refusal is not actionable: %v", err)
+	// The refusal SKIPS the sync rather than failing the action (the step is nested
+	// in a loop with no continue_on_error, so an error would kill the whole site
+	// build). It must therefore still be VISIBLE in the result, or it is the
+	// success-shaped-failure the 034/076 shape warns about.
+	if detail["completeness_status"] != pruneStatusRefused {
+		t.Fatalf("a refusal must be reported in the result, got %+v", detail)
+	}
+	reason, _ := detail["completeness_reason"].(string)
+	if !strings.Contains(reason, "links") || !strings.Contains(reason, linkRegistryFloorKey) {
+		t.Fatalf("refusal is not actionable: %v", reason)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("the refusal did not reach site_work_items: %v", err)
@@ -284,9 +292,9 @@ func TestLinkRegistryFloorAllowsTheFirstSyncIntoAnEmptyTable(t *testing.T) {
 	db, mock := floorMockDB(t)
 	expectLinkMeasurement(mock, 0)
 
-	if _, err := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
-		uuid.New(), uuid.New(), "services", 12); err != nil {
-		t.Fatalf("the first ever link sync was refused: %v", err)
+	if _, maySync := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
+		uuid.New(), uuid.New(), "services", 12); !maySync {
+		t.Fatal("the first ever link sync was refused")
 	}
 }
 
@@ -296,9 +304,13 @@ func TestLinkRegistryFloorFailsClosedWhenItCannotMeasure(t *testing.T) {
 		WillReturnError(errors.New("connection reset"))
 	expectRefusalItem(mock)
 
-	if _, err := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
-		uuid.New(), uuid.New(), "services", 12); err == nil {
+	detail, maySync := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
+		uuid.New(), uuid.New(), "services", 12)
+	if maySync {
 		t.Fatal("an unmeasurable floor allowed the resync")
+	}
+	if detail["completeness_status"] != pruneStatusRefused {
+		t.Fatalf("an unmeasurable floor must report itself, got %+v", detail)
 	}
 }
 

@@ -109,21 +109,44 @@ func measureLinkRegistryCompleteness(ctx context.Context, db *sql.DB, pageID uui
 }
 
 // enforceLinkRegistryFloor is the guard, called immediately before syncLinksToDB.
-// It returns the numbers for the action's result on a pass, and an error on a
-// refusal — at which point the caller must return without deleting or inserting.
+// It returns the numbers for the action's result and a bool saying whether the
+// sync may proceed. A refused sync is SKIPPED, not failed.
 //
 // FAILS CLOSED on an unmeasurable floor, for the same reason as its siblings: the
 // measurement is the only thing standing between a half-blind extractor and an
 // emptied registry, so when it cannot be taken the destructive half must not run.
+// "Fails closed" here means the SYNC is skipped, not that the action errors.
 //
-// It returns an ERROR rather than this action's usual success-shaped
-// {"persisted": false}. That shape is deliberate here and deliberately different:
-// a refusal reported as success is the "no error anywhere means no error surface"
-// failure (034/076), and reproducing it would make this guard invisible to the
-// pipeline. The surrounding action's other success-shaped failure paths are
-// bugs_open/092's business and are left exactly as they were.
+// WHY THIS ONE SKIPS WHERE SITES A AND B FAIL THE STEP — and this is the
+// COUNCIL'S CORRECTION, not the original design (corr
+// c69e935a-7134-45c1-81c3-2f1da7831827, guardian seat, round 1: "link_registry
+// sync is currently inert … the failure mode only activates later, unobserved").
+// Measured while answering it:
+//
+//   - This action is reachable from exactly ONE live agent, and it is NESTED:
+//     multipage-website-builder, at
+//     workflow.steps.generate_pages_loop.config.substeps.extract_links.
+//   - That loop sets NO continue_on_error, and the substep sets no error_step.
+//     So by coordinator.go's own routing (shouldContinueLoopOnError -> false,
+//     routeToErrorStepOrFail -> failWorkflow) an error here does not fail one
+//     page — it FAILS THE WHOLE SITE BUILD, mid-loop.
+//
+// Killing a site build because one page's link extraction came back short is
+// wildly out of proportion to the stakes: link_registry is regeneratable, it
+// feeds no rendered output, and skipping the sync leaves the stored links exactly
+// as they were. That is 135's shape, not site A's — the delete and the insert are
+// both skipped together, so nothing is written alongside anything, and a later
+// healthy run re-syncs the page. The refusal is SELF-HEALING here.
+//
+// It is still not invisible, which is the 034/076 requirement: the result carries
+// completeness_status = "refused" beside the numbers, and a needs_human_review
+// work item is written. A refusal nobody can see would be the real defect; a
+// refusal that does not take a site build down with it is not.
+//
+// The surrounding action's OTHER success-shaped failure paths are bugs_open/092's
+// business and are left exactly as they were.
 func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID,
-	pageName string, linksToWrite int) (map[string]interface{}, error) {
+	pageName string, linksToWrite int) (map[string]interface{}, bool) {
 
 	floor, fromConfig := pruneFloorFromConfig(params.StepConfig.Config, linkRegistryFloorKey, defaultPruneFloorRatio)
 	subject := fmt.Sprintf("page %q", pageName)
@@ -133,7 +156,11 @@ func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, 
 		reason := fmt.Sprintf("extract_and_sync_links: REFUSED for %s — the completeness floor could not be measured (%v), so no link row was deleted or written", subject, err)
 		params.Logger.Error(reason)
 		_ = emitLinkRegistryRefusal(ctx, params.DB, siteID, pageID, pageName, subject, reason, params.Logger)
-		return nil, fmt.Errorf("%s", reason)
+		return map[string]interface{}{
+			"completeness_status": pruneStatusRefused,
+			"completeness_reason": reason,
+			"links_to_write":      linksToWrite,
+		}, false
 	}
 
 	verdict := evaluatePruneFloor(floor, m.Cohorts)
@@ -158,13 +185,13 @@ func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, 
 			zap.Int("links_to_write", m.LinksToWrite),
 			zap.Int("links_stored", m.LinksStored))
 		_ = emitLinkRegistryRefusal(ctx, params.DB, siteID, pageID, pageName, subject, reason, params.Logger)
-		return nil, fmt.Errorf("%s", reason)
+		return detail, false
 	case verdict.Disabled:
 		params.Logger.Warn(reason, zap.String("page_name", pageName))
 	default:
 		params.Logger.Info(reason, zap.String("page_name", pageName))
 	}
-	return detail, nil
+	return detail, true
 }
 
 // emitLinkRegistryRefusal records the refusal where a human will see it, via the

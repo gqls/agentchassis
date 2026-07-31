@@ -55,14 +55,44 @@
 // own output, which is the property that makes site A's `pages.sections` cohort
 // worth having.
 //
-// NO RATCHET HERE, unlike site A, and the asymmetry is worth stating because it
-// is why this file has two cohorts and not three. page_components is AUTHORED —
-// a truncating writer's short output becomes the stored baseline, so the row
-// cohort reads 2/2 = 100% for ever and only an independent plan unit breaks it.
-// site_nav_items is DERIVED — it is recomputed from the page corpus on every
-// rebuild, so a wrongly-truncated nav is repaired by the next healthy run rather
-// than becoming the new baseline. A derived table self-heals; an authored one
-// ratchets.
+// NO RATCHET HERE, unlike site A, and the asymmetry is why this file has two
+// cohorts and not three.
+//
+// CLARIFIED after a council objection (corr c69e935a, editquality seat, round 1)
+// which was fair: the `nav items` cohort below IS a
+// what-I-will-write vs what-is-stored comparison, i.e. the same SHAPE as site A's
+// row cohort, so "no ratchet" needs more than an assertion. The distinction is
+// not the shape of the comparison — it is whether the NUMERATOR has any memory of
+// the previous damage:
+//
+//   - page_components (AUTHORED). The numerator is an LLM writer's output. After a
+//     truncation cuts a page from 12 rows to 2, the NEXT run's writer is handed the
+//     same truncated context and also returns about 2, so the cohort reads 2/2 =
+//     100% and the damage IS the new baseline. Only a denominator from a different
+//     source (pages.sections) can still see 12. Hence site A's plan cohort.
+//   - site_nav_items (DERIVED). The numerator is recomputed from the page corpus by
+//     deterministic Go on every rebuild. After a truncation cuts nav from 17 items
+//     to 6, the next healthy run classifies the full page list and projects 17
+//     again — against 6 stored. The ratio is 17/6 > 1, which passes, and the nav is
+//     REPAIRED. The low stored value cannot suppress its own detection, because
+//     nothing derives the numerator from it.
+//
+// So a derived table self-heals and an authored one ratchets, and the test for a
+// future consumer is: does this run's numerator come from the same place the
+// damage was written to? If yes, add a cohort in a different unit.
+//
+// The honest limit of this, also from that round (debug_historian, HIGH): a floor
+// of this shape guards against NEW loss, and cannot detect loss that already
+// happened and stabilised. If a historic defect removed a class of nav link and
+// both the classifier and the stored rows now agree it is absent, both sides of
+// every cohort here omit it equally and all cohorts read 100%. That is a real
+// blind spot and it is NOT what this file claims to fix — the fleet-wide replay
+// showing expected == stored on 16 of 16 sites demonstrates internal consistency
+// with the CURRENT classifier, not that the nav is correct. Detecting historic
+// absence is a different mechanism (a nav-drift CHECK against declared
+// membership, which is bugs_open/149's territory), and the landmine on this file
+// — nav links under /tools//blog//guides deleted with none put back — is an
+// instance of exactly that other shape, not of this one.
 //
 // MEASURED FALSE-POSITIVE RATE: 0 of 16 sites. On 2026-07-31 the membership rule
 // was replayed in SQL against production and the item count a rebuild would
