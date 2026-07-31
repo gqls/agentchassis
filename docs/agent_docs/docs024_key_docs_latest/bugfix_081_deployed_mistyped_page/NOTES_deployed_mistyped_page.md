@@ -112,3 +112,31 @@ matters.
 - The two live mistyped pages are **not** repaired. That needs an owner call and
   this fix deliberately does not make it — it makes the platform ask instead of
   loop.
+
+## 2026-07-31 — the landmine verifier was NOT fired, and the reason is measurable
+
+`landmines-sync.py --apply` synced the corpus (616 owned rows) and printed
+`NEEDS_VERIFICATION` for the new entry, per RFC_005 §3.2. **I did not dispatch
+`scripts/landmines-verify-dispatch.sh`, deliberately.**
+
+`bugs_open/163` (OPEN, unowned) records that the verifier's symbol lookup returns
+0 rows for entries whose symbols post-date the code index, and then reports
+`NEEDS_HUMAN_REVIEW` blaming index staleness. Every symbol in my entry —
+`refuseDeployedPageTypeConflict`, the new `applyNewPage` branch,
+`mistyped_deployed_page` — was written **today**, and the index it would query is
+at 2026-07-28. So the verdict is knowable in advance: a false negative, costing a
+run and adding a `NEEDS_HUMAN_REVIEW` note that says nothing about whether the
+entry is true.
+
+**Stated rather than skipped silently**, because "the verifier was not run" and
+"the verifier passed" must not look the same in this file. What the entry rests on
+instead: the code is in this commit and readable; the `NOT NULL DEFAULT ''::text`
+claim about `handler_agent` came from `\d site_work_items` on the live DB; and the
+dedup-slot behaviour is `WII-005`, not my inference. Re-verify when 163 closes.
+
+## 2026-07-31 — council verdict
+
+Submitted `ccd4384c-aff9-45ed-80b2-01c3ced573bb` before committing, and committed
+with `Council-Submitted:` rather than holding the code — the tree is shared, so
+holding buys nothing and the 2026-07-29 owner ruling retires the ordering
+exemption that used to justify it. Verdict recorded below when read.

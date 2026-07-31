@@ -2023,7 +2023,7 @@ duplicate rows. Join `sites`, or key on `pages.id`.
 
 ---
 
-## idea.uk is NOT behind Cloudflare — its own runbook says it is, and builds a security plan on that
+### idea.uk is NOT behind Cloudflare — its own runbook says it is, and builds a security plan on that
 
 **footprint:** `docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/RUNBOOK_idea_uk_vm_site.md` · `idea.uk` · `116.203.204.115` · `set_real_ip_from` · `CF-Connecting-IP`
 
@@ -2064,7 +2064,7 @@ sharing an ingress: measured the same minute, `idea.uk` had none and
 
 ---
 
-## The domain→B2 object-key mapping is in a Cloudflare Worker that is NOT in this repo — grep finds nothing and it looks like config
+### The domain→B2 object-key mapping is in a Cloudflare Worker that is NOT in this repo — grep finds nothing and it looks like config
 
 **footprint:** `sites.domain` · `sites.github_repo` · B2 static deploy path · `webdesign.co.uk`
 
@@ -2471,3 +2471,156 @@ matters if that domain was chosen to host wildcard subdomains later.
 - **do NOT use `length(body) >= 59000` as a truncation proxy** (164's own filing suggested it): `body` is the WHOLE bundle including runtime evidence and schema, so a fat untruncated bundle scores as truncated — and the three *worst* real cases have `body_chars = 0`, so it misses them entirely. Wrong in both directions
 - **source:** 2026-07-31, `bugfix_164` lane. `bugs_open/164` § MEASURED + § VERIFY, `bugfix_164_bundle_body_cap/RUNBOOK`. Council `75f3cd52` APPROVED; the NULL-vs-0 hazard was raised as a `bug_historian` advisory and this entry is where it was discharged
 - **added:** 2026-07-31, bugfix_164 lane
+
+### Cloudflare refuses in front of the island, and its refusals are indistinguishable from ours by status code
+
+- **footprint:** `tools.apis.uk`, `internal/tools-api/middleware/ratelimit.go`,
+  `internal/tools-api/middleware/cors.go`, `/opt/island/docker-compose.yml`,
+  any curl/urllib check against a Cloudflare-fronted origin
+- **fires when:** you verify an endpoint's behaviour from a script, or measure a
+  rate limit, or conclude "my CORS/limit config did not take effect". No symptom
+  beforehand — the status code is exactly the one your own code would return.
+- **the tell:** the BODY, and the `server:` header. Ours are JSON from
+  `httperr.JSONError` (`{"error":"..."}`, `content-type: application/json`).
+  Cloudflare's are `text/plain`, carry `server: cloudflare` and a `cf-ray`, and
+  say `error code: NNNN`:
+
+  | you see | who refused | body | what it means |
+  |---|---|---|---|
+  | **403** | our CORS middleware | `{"error":"origin not allowed"}` | no `Origin` header sent |
+  | **403** | **Cloudflare** | `error code: 1010` | browser-integrity check — python-urllib's default User-Agent is rejected. **Never reached the island.** |
+  | **429** | our limiter | `{"error":"rate limit exceeded"}` | past `RATE_LIMIT_BURST` |
+  | **429** | **Cloudflare** | `error code: 1015`, `retry-after: 9` | ~10 rapid requests from one IP. **Never reached the island.** |
+
+- **why it is a landmine:** it fails in the direction that reads as *"my change
+  did not ship"*, and it fabricates evidence about our own configuration. Hit
+  three times in one session on 2026-07-31: a 403 that looked like our CORS
+  refusing a driver; a 429 measured as "our ceiling is burst 5" that was partly
+  Cloudflare's; and a 20-request burst that returned exactly **10** successes
+  against a limiter configured for **20** — the app was right and the check was
+  measuring the wrong thing.
+- **the check:** to measure OUR behaviour, take Cloudflare out of the path and
+  hit the container directly. This is the only way to see the app's real ceiling:
+  ```bash
+  ssh root@toolsapisuk.vs.mythic-beasts.com "docker exec island-tools-api-1 sh -c '
+    for i in \$(seq 1 25); do wget -q -O /dev/null -S \
+      --header=\"Origin: https://vonc.com\" \
+      http://127.0.0.1:8080/api/v1/tools/gauntlet/round/<slug> 2>&1 \
+      | grep -o \"HTTP/1.1 [0-9]*\" | tail -1; done' " | sort | uniq -c
+  # 20 x 200 then 429 == RATE_LIMIT_BURST=20 exactly. Over the internet the same
+  # test returns 10 x 200 because Cloudflare bites first.
+  ```
+  From outside, always send **both** `Origin` and a browser `User-Agent`, and
+  **read the body before believing the status**.
+- **the consequence worth knowing:** for internet traffic the binding rate limit
+  is **Cloudflare's ~10 rapid requests**, not `RATE_LIMIT_*`. Raising the app's
+  ceiling above that changes nothing a visitor can observe — it is defence in
+  depth, not the effective ceiling. Do not "fix" a 1015 by raising `RATE_LIMIT_BURST`.
+- **added:** 2026-07-31, gauntlet_dead_cta lane, retuning the limit after the
+  record page went live.
+
+### `mock.ExpectationsWereMet()` is NOT "no database call happened" — with no expectations registered it is trivially TRUE, so an assertion written that way passes while the code writes to the DB
+
+- **footprint:** `sqlmock.New`, `mock.ExpectationsWereMet()`, `github.com/DATA-DOG/go-sqlmock`, any `*_test.go` asserting a NEGATIVE ("must not touch the DB", "never writes", "no side effect") — 33 files in this tree call it; `platform/orchestration/actions/diagnose_plan_refusal_test.go` (`dbTouchWatcher`)
+- **why it is a landmine:** the API reads like English and means something narrower.
+  `ExpectationsWereMet` reports expectations that were **registered and not consumed**.
+  Register none and it is satisfied by definition — it never sees an *unexpected* call.
+  So the idiom "register nothing, then assert ExpectationsWereMet" is a guard that
+  cannot fail, sitting in the file looking exactly like coverage, and it is counted as
+  coverage by the next reader. It fires with no symptom: the test is green, the comment
+  above it states the contract in strong terms, and nothing is checking it.
+- **measured, not reasoned (2026-07-31, bugs_open/162):** four assertions in
+  `diagnose_plan_refusal_test.go` said "must not touch the DB". `recordPlanRefusal` was
+  moved above the opt-in check — the one edit that would silently change a
+  non-opted-in consumer's contract — and **all four still passed**. One of them had been
+  written ten minutes earlier, by this lane, in direct answer to a council objection
+  asking for exactly that guarantee to be pinned by a test.
+- **the check:** never assert a negative through the mock's own bookkeeping. Observe the
+  call instead. Where the code logs on DB failure, an observed logger is enough, and
+  sqlmock with no expectations makes every call fail, so every attempt logs:
+  ```go
+  core, logs := observer.New(zapcore.DebugLevel)
+  // ... call the function with zap.New(core) ...
+  // then assert no entry matches the messages the DB paths emit on failure
+  ```
+  See `dbTouchWatcher` in `diagnose_plan_refusal_test.go` for the worked version.
+  **And whichever way you write it, mutate the code and watch the test fail.** That is
+  the only thing that distinguishes a guard from a decoration, it costs about a minute,
+  and it is what caught this.
+- **scope, honestly:** none of the 33 files is *wholly* inert (each registers
+  expectations somewhere), so the failure is per-TEST, not per-file. 4 found, 4 fixed,
+  all in one file. The other 32 files are **[UNMEASURED]** — a per-test audit is a
+  reasonable sweep for someone, and the grep to start from is
+  `grep -rn -B15 "ExpectationsWereMet" --include=*_test.go | grep -iE "must not|never|no db"`.
+- **added:** 2026-07-31, bugfix_162 lane.
+
+### An empty `agent_error_log` for `FIX_PLAN_VALIDATION_REFUSED` does NOT mean no fix plan was refused — two of the five terminal exits write nothing, deliberately
+
+- **footprint:** `agent_error_log` where `error_code='FIX_PLAN_VALIDATION_REFUSED'`, `platform/orchestration/actions/diagnose_persist_fix_plan_action.go` (`planValidationRefusal`, `recordPlanRefusal`, `planRefusalErrorCode`), `diagnosis_artifacts` `kind='iteration_note'` + `metadata->>'note_kind'='plan_validation_refusal'`, the `diagnose_persist_fix_plan` action in `agent_definitions`
+- **why it is a landmine:** the action's own comment used to say the row's absence meant
+  "no refusal happened", so the misreading was *documented*. It is false for the exits
+  that write nothing: a consumer with **no `repair_step`** (opt-in is the whole design of
+  `bugs_open/099` candidate 2 — `council-gate` is deliberately out) refuses and leaves no
+  row, no artefact, and `orchestration_states.error` **NULL**. The only trace is
+  `collected_data->>'__step_error'`. So the query comes back clean and the run reads
+  clean, which is precisely the silent-loss complaint 099 was filed about.
+- **the check:** before reading an empty result as an absence, get the population —
+  which consumers can even reach the recording path:
+  ```sql
+  SELECT a.type, s.key, s.value->'config'->>'repair_step' AS repair_step
+    FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+   WHERE a.deleted_at IS NULL AND COALESCE(a.is_snapshot,false)=false
+     AND s.value->>'action' = 'diagnose_persist_fix_plan';
+  ```
+  A NULL `repair_step` means that consumer's refusals are invisible to your query by
+  design. 2026-07-31: 4 consumers — `feature-designer` and `fix-proposer` opted in,
+  `council-gate` deliberately out, `council-gate-036scratch` `is_active=false`.
+- **also:** the table's timestamp column is **`occurred_at`**, not `created_at`. The
+  wrong name errors loudly here, but the same guess against a table carrying both is how
+  a window silently slips.
+- **added:** 2026-07-31, bugfix_162 lane (comment corrected in the same commit, `417d6fd87`).
+
+### `mistyped_deployed_page` is a DECISION, not a job — it has no handler by design, and it deliberately occupies a dedup slot for ever
+
+- **footprint:** `mistyped_deployed_page`, `site_work_items.status='needs_human_review'`,
+  `platform/orchestration/actions/apply_gap_plan_action.go`
+  (`applyNewPage`, `refuseDeployedPageTypeConflict`), the `apply_gap_plan` action's
+  `applied` / `page_created` result fields, any drain over the human-review queue
+  (`bugs_open/033`)
+- **the trap:** every other `site_work_items` row names a `handler_agent` that can
+  resolve it. This one **cannot be resolved by any agent**, and that is the fix, not
+  an omission. `bugs_closed/081` established that no predicate distinguishes a real
+  news listing from a catalog index that embeds one — on robot-hands.com both carry
+  `sections=["news-listing"]` byte-identically and a third page of that shape is
+  archived — so the platform refuses to guess and asks a person. A queue drain that
+  assumes "needs_human_review + no handler ⇒ misfiled, route it somewhere" will
+  route this to an LLM, which will guess, and a wrong guess **re-types a live page
+  and breaks it**. `handler_agent` is `NOT NULL DEFAULT ''::text`, so it reads as
+  empty string, not NULL — a `handler_agent IS NULL` filter will not even find it.
+- **the check:** before draining or re-routing a `needs_human_review` row, read
+  `spec->>'bug'`. This type carries `bugs_open/081` there, plus `existing_type`,
+  `wanted_type` and a ready `resolution` UPDATE. The only correct actions are: a
+  human runs that UPDATE, or the item is closed as "this page should not hold that
+  role". **Do not hand it to a model.**
+  ```sql
+  SELECT s.domain, swi.status, swi.spec->>'page_name', swi.spec->>'existing_type',
+         swi.spec->>'wanted_type', swi.spec->>'resolution'
+  FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+  WHERE swi.item_type='mistyped_deployed_page';
+  ```
+- **the second half, and it is deliberate:** the row holds a **non-terminal** dedup
+  slot (`idx_swi_dedup`, WII-005), keyed per `(site, page, wanted_type)`. So for as
+  long as the decision is outstanding the originating check **cannot** file a
+  duplicate — which is the point, and also means the queue depth will not fall on
+  its own. It is not a leak. Its sibling `missing_news_page` item is set to
+  **`blocked`, not `complete`**, for the same reason: `complete` over an untouched
+  defect is what let this loop run from 2026-05-01 to 2026-07-31 unnoticed.
+- **and the caller-visible change:** `apply_gap_plan` now returns `applied:false`
+  with `reason:"deployed_page_type_conflict"` where it previously returned
+  `applied:true`. Checked before shipping: no active `agent_definition` branches on
+  that field — **re-check before writing a `conditional` step that does**, because
+  a plan that legitimately refused now looks like a plan that failed. Use the new
+  `page_created` field to tell a created page from a refreshed one.
+- **added:** 2026-07-31, bugfix_081 lane. Committed but **NOT LIVE** — inert until
+  the next chassis roll, so the type does not exist in production yet and a query
+  for it returns zero rows today. That zero is not evidence of anything.
