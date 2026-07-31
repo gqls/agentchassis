@@ -6650,7 +6650,7 @@ with a `blog-listing` component last written 2026-07-03, linking to a post that 
 **404**.
 
 The general shape is worth more than the instance. Every repair and derivation path in the
-fleet excludes some population **on purpose** — `bugs_open/081` is the same discovery at a
+fleet excludes some population **on purpose** — `bugs_closed/081` is the same discovery at a
 different layer (015's retype arm deliberately skips `build_status='deployed'`, so a
 mistyped-and-deployed page matches no arm). Each exclusion is defensible alone. Nothing
 owns their **intersection**, and that set is invisible to every checker precisely because
@@ -9225,3 +9225,92 @@ all three passes were hunting); *"a grep proves an absence only for the SPELLING
 it searches"*; *"one call site of a shared judgement gets the rigorous fix; the
 sibling stays heuristic"* (`021`, `bugs_open/165`) — that entry is about siblings
 left knowingly, this one is about siblings a competent audit reported as checked.
+
+### An `ON CONFLICT DO UPDATE` that names SOME columns turns a CREATE into a silent PARTIAL update — and the columns it omits are the ones that make the loop run forever (`bugs_closed/081`, 2026-07-31)
+
+**Shape.** A function named, documented and registered as a *creation* arm ends in
+an upsert:
+
+```sql
+INSERT INTO pages (site_id, name, url, title, page_type, ...) VALUES (...)
+ON CONFLICT (site_id, name) DO UPDATE SET
+    title = EXCLUDED.title,
+    sections = EXCLUDED.sections,
+    updated_at = NOW()
+RETURNING id
+```
+
+`page_type` is in the INSERT and **not** in the `DO UPDATE`. Nothing errors,
+nothing logs, and `RETURNING id` hands back a page id either way — so the caller,
+the result map and every dashboard read exactly as they do on the happy path.
+
+**Why it is worse than "an update we did not intend".** The row is left in a
+state neither party asked for: **the new content under the old identity.** The
+plan's title and sections are applied; the plan's *role* is not. So:
+
+- the live artefact is overwritten by content written for a different job;
+- the property the whole operation existed to change is the one left alone, so
+  the detector that raised the work fires again next sweep, and the next, and
+  the next. Measured here: **three months** of re-raising on one site, one work
+  item exhausted to `unresolved` and a second still `detected`.
+
+Both halves come from the same omission, which is why "just add the column" is
+so tempting and so often wrong (see below).
+
+**Why the omitted column is predictably the important one.** The `DO UPDATE` list
+gets written for the *refresh* case the author had in mind — the payload fields.
+Identity and routing columns (`page_type`, `url`, ownership, status) feel like
+they belong to the row's creation, so they are left out. But those are exactly
+the columns a *repair* has to change. The upsert therefore handles the case its
+author imagined and silently no-ops the case that actually needed it.
+
+**The checks, in order of what they cost:**
+
+1. **`ON CONFLICT ... DO UPDATE SET` on a create path is a smell, not a
+   convenience.** Diff the column list against the INSERT's. Every column in the
+   INSERT and not in the SET is a field that silently keeps its old value — write
+   down, for each one, what happens if it disagrees. That is a two-minute audit
+   and it is the whole of this entry.
+2. **Ask whether the conflict branch is the same OPERATION.** If updating an
+   existing row would be a different act from creating one — different authority,
+   different blast radius, a different person's decision — then the upsert is
+   hiding a branch, not saving one. Split it: `DO NOTHING ... RETURNING id`,
+   detect `sql.ErrNoRows`, **read the conflicting row**, and decide explicitly.
+   The old code never looked at what it was about to overwrite; that is the
+   defect, and the read is the fix.
+3. **Report which branch ran.** `applied: true` could not distinguish a created
+   page from an overwritten one. Same family as `bugs_open/091`'s `item_created`
+   (an `ON CONFLICT DO NOTHING` whose caller reported "no error" as "a record
+   exists"): **a statement about the absence of an error is not a statement about
+   what happened.** Return `page_created`/`item_created` from `RowsAffected` or
+   from the branch actually taken.
+
+**And the trap in the obvious fix.** "Add the missing column to the SET" makes
+the loop converge, and hands a *generic* arm the authority to mutate that column
+on any row it collides with. Here the column was `page_type` — the routing key —
+so the fix would have let any gap plan silently re-type any live page it happened
+to name. The safe shape is the opposite direction: **remove authority the arm
+should not have had.** Refuse the conflict, leave the row untouched, and file the
+decision for whoever legitimately owns it. That converges too (the item stops
+re-raising because it is `blocked`, not because it was guessed at) and it cannot
+break a working artefact.
+
+**Scope the refusal on a measurement, not on symmetry.** The instinct is to guard
+every conflict. Here the fleet query said all 5 affected rows were `deployed` and
+0 were `planned`/`needs_rebuild`, so the guard covers deployed rows only and a
+never-shipped page keeps the old refresh behaviour exactly — a narrower change
+with a test pinning the boundary. **A guard justified by a count needs that count
+in a comment and a control test**, or the next session widens it back for free.
+
+**Verify BOTH branches.** A test that only proves the refusal fires is satisfied
+by deleting the guard and refusing everything. Pair every refusal case with a
+control that must still take the old path, and assert the mutation genuinely
+still happens there.
+
+**Related:** §9 *"a `complete` work item is not a repaired artefact"* (the item
+here is `blocked` for exactly that reason); `bugs_open/091` (the reporting half,
+same file, one arm over); `bugs_closed/015` (the sibling repair path, whose
+deliberate `build_status <> 'deployed'` exclusion is what left this population
+with no owner in the first place — **two guards can each be individually correct
+and leave an unowned intersection between them**, which is also `bugs_open/098`'s
+shape).

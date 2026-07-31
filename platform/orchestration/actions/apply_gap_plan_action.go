@@ -25,6 +25,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -418,22 +419,76 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 		}, nil
 	}
 
-	// Create the page record
+	// Create the page record.
+	//
+	// bugs_open/081. This was a blind upsert —
+	//     ON CONFLICT (site_id, name) DO UPDATE SET title, sections, updated_at
+	// — which silently turned a CREATE arm into a PARTIAL update: it overwrote
+	// the conflicting row's title and sections while leaving page_type, url and
+	// nav at their old values. On a DEPLOYED page that is two defects at once.
+	// The live page's content is replaced by a plan written for a role it does
+	// not hold; and the mistype the plan existed to repair survives, so the
+	// check that asked for the page fires again on the next sweep. Measured
+	// looping since 2026-05-01 on ai-agent-orchestration.com — three months,
+	// one item that ran out of attempts and one still sitting in 'detected'.
+	//
+	// So the arm now only ever CREATES, and a name already held by a DEPLOYED
+	// page of a DIFFERENT type is refused rather than mutated. Re-typing a live
+	// page changes what it serves the moment it happens, and 081 measured that
+	// no predicate distinguishes a real news listing from a catalog index that
+	// embeds one — robot-hands.com carries both, byte-identical at
+	// sections=["news-listing"]. That choice belongs to a human, so this fails
+	// closed: refuse, block the originating item with a message that names the
+	// conflict, and file it for review.
+	//
+	// SCOPE IS DELIBERATELY THE DEPLOYED CASE ONLY. Measured 2026-07-31 against
+	// the live DB: all 5 mistyped pages fleet-wide are `deployed` — 0 `planned`,
+	// 0 `needs_rebuild` — so extending the re-type to never-shipped rows would
+	// repair nothing that exists while handing a generic arm broad mutation
+	// authority for free. That widening is 081's fix candidate 1, and it is
+	// declined here on the measurement rather than on taste.
 	var pageID uuid.UUID
+	pageCreated := true
 	err := db.QueryRowContext(ctx, `
 		INSERT INTO pages (site_id, name, url, title, page_type, build_status,
 		                   sections, nav_label, in_header, in_footer)
 		VALUES ($1, $2, $3, $4, $5, 'planned', $6::jsonb, $7, $8, $9)
-		ON CONFLICT (site_id, name) DO UPDATE SET
-			title = EXCLUDED.title,
-			sections = EXCLUDED.sections,
-			updated_at = NOW()
+		ON CONFLICT (site_id, name) DO NOTHING
 		RETURNING id
 	`, siteID, pageName, url, title, pageType,
 		string(sectionsJSON), navLabel, inHeader, inFooter,
 	).Scan(&pageID)
 
-	if err != nil {
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		// The name is taken. Read what is actually there BEFORE touching it —
+		// the old code never looked, which is why it could overwrite a live page.
+		pageCreated = false
+		var existingType, existingBuild string
+		if qerr := db.QueryRowContext(ctx, `
+			SELECT id, COALESCE(page_type, ''), COALESCE(build_status, '')
+			FROM pages WHERE site_id = $1 AND name = $2
+		`, siteID, pageName).Scan(&pageID, &existingType, &existingBuild); qerr != nil {
+			return nil, fmt.Errorf("resolve conflicting page %q: %w", pageName, qerr)
+		}
+
+		if existingBuild == "deployed" && existingType != pageType {
+			return refuseDeployedPageTypeConflict(ctx, db, siteID, domain, pageName,
+				pageID, existingType, pageType, originalItemID, logger)
+		}
+
+		// Either the page has never shipped, or it already holds the type the
+		// plan asked for. Refreshing the plan's own fields is then coherent —
+		// the plan is for this page's actual role — and is what this arm has
+		// always done. page_type is deliberately NOT updated here; see above.
+		if _, uerr := db.ExecContext(ctx, `
+			UPDATE pages SET title = $3, sections = $4::jsonb, updated_at = NOW()
+			WHERE site_id = $1 AND name = $2
+		`, siteID, pageName, title, string(sectionsJSON)); uerr != nil {
+			return nil, fmt.Errorf("refresh existing page %q: %w", pageName, uerr)
+		}
+
+	case err != nil:
 		return nil, fmt.Errorf("create page: %w", err)
 	}
 
@@ -477,17 +532,116 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	// Mark original as complete
 	markOriginalComplete(ctx, db, originalItemID)
 
-	logger.Info("ApplyGapPlanAction: new_page created",
+	logger.Info("ApplyGapPlanAction: new_page applied",
 		zap.String("page_name", pageName),
 		zap.String("page_id", pageID.String()),
+		zap.Bool("page_created", pageCreated),
 		zap.Bool("item_created", itemCreated))
 
 	return map[string]interface{}{
-		"applied":      true,
+		"applied":   true,
+		"approach":  "new_page",
+		"page_name": pageName,
+		"page_id":   pageID.String(),
+		// bugs_open/081, same shape as 091's `item_created`: the arm is named
+		// for creation and reached the conflict branch silently, so "applied"
+		// could not tell a new page from an overwritten one. Say which.
+		"page_created": pageCreated,
+		"item_created": itemCreated,
+	}, nil
+}
+
+// refuseDeployedPageTypeConflict handles the bugs_open/081 case: a gap plan
+// asked for a page under a name a DEPLOYED page already holds under a different
+// page_type.
+//
+// It mutates nothing. Re-typing a live page changes what it serves immediately
+// (render_news_section starts emitting data/news-archive.json for it, and the
+// check that raised the gap stops firing), and 081 established that the choice
+// of WHICH page holds a role cannot be made from the data: on robot-hands.com
+// the real news listing and the gripper-catalog index are byte-identical at
+// sections=["news-listing"], and a third page matching the same shape is
+// archived. Guessing wrong breaks a working page, which is worse than the loop.
+//
+// The originating item is BLOCKED rather than completed — mirroring the growth
+// budget branch above, and for the same reason: 'complete' on an item whose
+// defect is untouched is the false-green this estate keeps relearning. Blocked
+// stops the silent re-fire while leaving the item recoverable once a human has
+// re-typed the page.
+func refuseDeployedPageTypeConflict(
+	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain, pageName string,
+	pageID uuid.UUID, existingType, wantType string,
+	originalItemID *uuid.UUID, logger *zap.Logger,
+) (interface{}, error) {
+	reason := fmt.Sprintf(
+		"page %q is deployed as page_type=%q; the plan wants %q. Re-typing a live page changes what it serves, so it is not done automatically (bugs_open/081)",
+		pageName, existingType, wantType)
+
+	spec, _ := json.Marshal(map[string]interface{}{
+		"page_name":     pageName,
+		"existing_type": existingType,
+		"wanted_type":   wantType,
+		"domain":        domain,
+		"source":        "content-gap-planner",
+		"bug":           "bugs_open/081",
+		"resolution":    fmt.Sprintf("If this page should hold the %q role: UPDATE pages SET page_type='%s' WHERE id='%s'. If it should not, the site needs a different page for that role.", wantType, wantType, pageID),
+	})
+
+	summary := fmt.Sprintf("Deployed page %q occupies the %q role under page_type=%q — needs a human decision",
+		pageName, wantType, existingType)
+
+	// Keyed per (site, page, wanted type) so a check that re-fires while the
+	// decision is outstanding dedups onto the open item rather than filing a
+	// second one — the dedup contract in load_work_item_actions.go.
+	itemKey := fmt.Sprintf("mistyped_deployed_page_%s_%s_%s", siteID, pageName, wantType)
+
+	itemRes, ierr := db.ExecContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			spec, page_id, priority, status, created_by, item_key, parent_item_id
+		) VALUES ($1, 'content-gap-planner', 'build', 'mistyped_deployed_page', 'medium', $2,
+		          $3::jsonb, $4, 40, 'needs_human_review', 'content-gap-planner', $5, $6)
+		ON CONFLICT DO NOTHING
+	`, siteID, summary, string(spec), pageID, itemKey, originalItemID)
+
+	// bugs_open/091's rule, applied at birth rather than retrofitted: this is an
+	// ON CONFLICT DO NOTHING, so it writes nothing when the decision is already
+	// outstanding. RowsAffected is the only thing that knows, and reporting "no
+	// error" as "a record exists" is how the platform lost findings before.
+	itemCreated := false
+	if ierr != nil {
+		// Failing to file the review item must not also lose the refusal — the
+		// block below is what stops the loop, and it is the more important half.
+		logger.Warn("bugs_open/081: could not file mistyped_deployed_page item",
+			zap.String("page_name", pageName), zap.Error(ierr))
+	} else {
+		itemCreated = execWroteARow(itemRes)
+	}
+
+	if originalItemID != nil {
+		db.ExecContext(ctx, `
+			UPDATE site_work_items
+			SET status = 'blocked', error = $2, updated_at = NOW()
+			WHERE id = $1
+		`, *originalItemID, reason)
+	}
+
+	logger.Warn("ApplyGapPlanAction: new_page refused — deployed page holds this name under a different type",
+		zap.String("domain", domain),
+		zap.String("page_name", pageName),
+		zap.String("existing_page_type", existingType),
+		zap.String("wanted_page_type", wantType),
+		zap.String("page_id", pageID.String()))
+
+	return map[string]interface{}{
+		"applied":      false,
 		"approach":     "new_page",
 		"page_name":    pageName,
 		"page_id":      pageID.String(),
+		"page_created": false,
 		"item_created": itemCreated,
+		"reason":       "deployed_page_type_conflict",
+		"detail":       reason,
 	}, nil
 }
 

@@ -193,3 +193,128 @@ alone will not make it correct.
   this file is where that hand-off actually lands.
 - `bugs_open/080` — the other 015 offshoot: `new_page` bypasses `CanonicalisePage`,
   which is what makes the "different name → duplicate row" outcome above possible.
+
+---
+
+# CLOSED 2026-07-31 — fixed and committed, **NOT LIVE**
+
+> **READ THIS BEFORE CITING THIS FILE AS FIXED.** Go is inert until the chassis
+> image is rebuilt and rolled. The fix is committed so the **next** build carries
+> it; nothing about production has changed yet. The standing bar in CLAUDE.md is
+> *fixed AND live*, and this file is being moved to `bugs_closed/` at the owner's
+> instruction with that gap stated rather than papered over — the same treatment
+> as `bugs_closed/167` (`306130ba3`).
+>
+> **The live verification is scripted and OWED**:
+> `docs024_key_docs_latest/bugfix_081_deployed_mistyped_page/RUNBOOK_deployed_mistyped_page.md`
+> § "OWED — verify live after the next chassis roll". Both branches, with the
+> `title`/`sections` snapshot taken BEFORE the induction — otherwise "unchanged"
+> and "changed back" are indistinguishable.
+>
+> **Council:** `Council-Submitted: ccd4384c-aff9-45ed-80b2-01c3ced573bb` (running
+> at commit time; no verdict read, so no `Council-Reviewed:` trailer — writing one
+> unread is the `098` MISMATCH surface).
+
+## Re-validated before any code was written, at BOTH halves
+
+Not taken from this file — it was five days old on a tree ~30 sessions are
+editing.
+
+- **Code, unchanged at HEAD 2026-07-31.** The upsert still carried
+  `DO UPDATE SET title, sections, updated_at` with no `page_type`;
+  `findStrandedNavPages` still carried `COALESCE(build_status,'') <> 'deployed'`.
+- **Data, still live.** Both mistyped deployed rows exactly as filed. The
+  `missing_news_page` item of 2026-05-01 is still `unresolved`; a second raised
+  2026-07-24 is still `detected`. The loop this file describes has run for three
+  months and was still running.
+
+> **CORRECTION to § FINDING 2026-07-27 — the discriminator is WORSE than this
+> file measured, not better.** That section reports **four** rows matching
+> `sections @> ["news-listing"] AND page_type <> 'news-index'`, one of them a
+> false positive. Re-run 2026-07-31 it returns **five**, and the fifth is
+> `robot-hands.com/learning-center-index` — `status='archived'`, and the same
+> page `bugs_open/098` is about. So two of five are false positives, not one of
+> four, and the archived one would have been offered to the planner as a re-type
+> candidate had candidate 2 been built. **The conclusion "candidate 2 is blocked"
+> holds and is strengthened.** Nothing else in that section needed correcting.
+
+## What was done — neither candidate 1 nor candidate 2
+
+`applyNewPage` now only ever **creates**. The upsert is
+`ON CONFLICT (site_id, name) DO NOTHING ... RETURNING id`; on `sql.ErrNoRows` the
+arm **reads the row it collided with** — which the old code never did, and is the
+whole defect — and then branches:
+
+| collision | behaviour |
+|---|---|
+| `build_status='deployed'` AND `page_type` differs | **mutates nothing.** Files `mistyped_deployed_page` at `needs_human_review` (spec carries `existing_type`, `wanted_type` and the exact remediation SQL), sets the originating item `blocked` with a message naming the conflict, returns `applied:false, reason:"deployed_page_type_conflict"` |
+| deployed, `page_type` already agrees | refresh `title`/`sections` as before — the plan is for this page's actual role |
+| not deployed | refresh as before, byte-for-byte unchanged |
+| no collision | create, as before |
+
+**Why this is available when candidate 2 is not.** Candidate 2 needs a predicate
+that says *which* page should hold a role, and this file proved none exists. The
+refusal needs no such predicate, because **the planner has already named the
+page**: we never have to work out which page is the news listing, only to notice
+that the name is taken by a page holding a different role. That asymmetry is the
+whole reason this was buildable today.
+
+**Why not candidate 1** (add `page_type` to the `DO UPDATE`). It converges and
+hands a *generic* arm authority to re-type any live row it collides with — the
+widening this file's own candidate list flags. The fix goes the other way: it
+**removes** authority the arm should never have had. The loop still stops, but
+because the item is `blocked` rather than because anything was guessed at.
+
+**`blocked`, deliberately not `complete`.** An item stamped complete over an
+untouched defect is the false green that let this run three months (016b §9,
+"a `complete` work item is not a repaired artefact").
+
+## Scope was set by a measurement
+
+```sql
+SELECT COALESCE(build_status,'(null)'),
+       count(*) FILTER (WHERE sections @> '["news-listing"]'::jsonb
+                          AND page_type <> 'news-index')
+FROM pages GROUP BY 1;
+--  deployed 5 · needs_rebuild 0 · planned 0
+```
+
+**Every mistyped page fleet-wide is deployed.** A draft of this fix also re-typed
+never-shipped rows; that half was cut on this count — it would have repaired
+nothing extant while widening a generic arm's authority. Pinned by
+`TestApplyNewPage_UndeployedTypeConflictStillRefreshes`, which fails if a later
+session widens it back without re-running the query.
+
+## Files
+
+- `platform/orchestration/actions/apply_gap_plan_action.go` — the branch, and
+  `refuseDeployedPageTypeConflict`. Result now reports `page_created` so a caller
+  can tell a created page from a refreshed one (`bugs_open/091`'s treatment, one
+  field over).
+- `platform/orchestration/actions/apply_gap_plan_deployed_conflict_test.go` —
+  **1 firing branch + 3 controls.** The pairing is deliberate: a test that only
+  proves the refusal fires is satisfied by deleting the guard and refusing
+  everything. The refusal test's load-bearing assertion is
+  `ExpectationsWereMet()` — an unexpected `UPDATE pages` fails it, so "nothing was
+  mutated" is checked, not asserted.
+- `platform/orchestration/actions/discovery_checks/verifier_coverage_test.go` —
+  `mistyped_deployed_page` classified on the way IN. Produced outside that
+  package, so neither the sensor (scans that package's source) nor the ratchet
+  (a DB snapshot) could have seen it.
+- Concept register `WII-008`; 016b §9 (the `ON CONFLICT DO UPDATE` pattern);
+  `WRONG_CALLS.md` (three); workstream docs under
+  `docs024_key_docs_latest/bugfix_081_deployed_mistyped_page/`.
+
+## Still owed, and NOT done here
+
+1. **The live verification** above. Until it runs this is committed, not proven.
+2. **The two live mistyped pages are untouched.** Re-typing them changes what
+   they serve immediately and **needs an owner call**, exactly as this file's
+   § "Immediate, contained option" says. The fix makes the platform *ask* instead
+   of loop; it does not answer for the owner. `idea.uk` additionally will not be
+   correct from a re-type alone (`bugs_closed/026` Defect B part 1).
+3. **`bugs_open/080`'s residual is still blocked** on the same missing signal —
+   this fix does not create it, and deliberately does not pretend to.
+4. **No verifier** for `mistyped_deployed_page`. One is writable
+   (`pages.page_type = spec.wanted_type`); recorded as `catMechanical` rather
+   than written, so it is a decision on the record.

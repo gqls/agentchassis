@@ -15354,3 +15354,47 @@ message containing an unescaped backtick.
   evidence-objection pattern already recorded in council practice, arriving from
   the other direction: previously I under-measured; here I measured and did not
   attach.
+
+- **I used an ownership check that reads COMMITS as though it read SESSIONS, and picked three
+  bugs in a row that another session was actively fixing.** Choosing a bug off `bugs_open/`
+  on 2026-07-31, I ran `scripts/who-owns.py` on each candidate and treated its verdict as the
+  answer. With ~55 sessions live it returns "OWNED or recently active" for nearly anything —
+  any commit touching the file inside 14 days trips it — so it flagged two genuinely unowned
+  bugs (`097`, `158`, both "likely OWNING workstream: (none identified)") and was *quiet*
+  about the ones being worked right then. `155` and `162` both say "OPEN, unowned" in their
+  own text; `155` had a session at **57 hits on `resolveStorageURIFromAsset`** and `162` one
+  at **86 hits on `repair_step`**, at that moment.
+  **The tool is not wrong — its own output says `[ACTIVE, N commits/14d]`, i.e. a statement
+  about history.** The fleet index already records this (`who-owns is blind to uncommitted
+  sessions`); I read the entry and then used the tool as a filter anyway, which is the part
+  worth logging.
+  **The cheap check I skipped, and it is one command:**
+  `grep -c '<the function you are about to edit>' ~/.claude/projects/*/*.jsonl`. Grep the live
+  transcripts for the **code symbols**, not the bug number — a session fixing your file may
+  never type the number. That is what caught all three, each time *after* I had chosen.
+
+- **I then measured ownership by counting bug FILENAMES in transcripts, and every bug scored
+  the same because I was counting `ls`.** Second attempt at the same question: count how often
+  each candidate's `NNN_HANDOFF_...md` filename appears across live transcripts. Every one of
+  22 candidates came back between 52 and 92 "mentions" — a spread far too narrow to be real
+  for bugs I already knew differed hugely in activity. They were directory listings: every
+  session runs `ls bugs_open/`, and a listing names all 60 files equally.
+  **A measurement can be perfectly executed and answer a different question.** The count was
+  correct; "how often is this filename emitted" is just not "who is working this". The fix was
+  to count `bugs_open/NNN`-shaped *references* instead — engagement, not enumeration — which
+  separated the field immediately (081 at **0**, 149 at **1382**).
+  **The check that would have caught it in seconds:** look at the spread before trusting the
+  ranking. A metric where every subject scores within 2x of every other, on a population you
+  know is skewed, is measuring the floor rather than the signal.
+
+- **I drafted a second half to a fix on "it also closes the door for X", and X was empty.**
+  Fixing `bugs_open/081`, I had written `page_type = EXCLUDED.page_type` into the conflict
+  branch for never-shipped pages as well as the deployed ones — reasoning that it converges
+  that population too, for free. Then I ran the count: all 5 mistyped pages fleet-wide are
+  `deployed`, **0 `planned`, 0 `needs_rebuild`**. The extra half would have repaired nothing
+  that exists while handing a generic arm broad authority to re-type any row it collided
+  with — the exact widening the bug file warns about, bought for zero.
+  **"It also handles X" is worth a query before it is worth a line of code.** Nothing caught
+  this but running the measurement I was about to cite in the commit message anyway; had I
+  written the commit first I would have shipped it. Cut, and pinned with a control test that
+  fails if a later session widens it back without re-running the count.

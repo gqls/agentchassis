@@ -243,6 +243,18 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"broken_nav_links":                 {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
 	"backend_unreachable":              {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
 
+	// Produced OUTSIDE this package, by applyNewPage in apply_gap_plan_action.go
+	// (bugs_open/081, 2026-07-31), so neither half of this guard can see it yet:
+	// the SENSOR only scans discovery_checks source, and the RATCHET below is a
+	// snapshot of item types already in the DB. Classified on the way IN rather
+	// than waiting for the first row — which is the whole point of the 07-20
+	// correction in this file's header.
+	//
+	// A verifier IS writable here (pages.page_type = the requested type once a
+	// human has ruled), so this is mechanical rather than judgement: it is the
+	// DECISION that needs a person, not the check that it was carried out.
+	"mistyped_deployed_page": {catMechanical, "pages.page_type = spec.wanted_type for spec.page_name; produced by applyNewPage when a deployed page holds a planned name under a different type (bugs_open/081); never observed live"},
+
 	// ---- creation: "make X exist" ----
 	"needs_page":          {catCreation, "page existence; 49 of 365 carry page_id"},
 	"needs_content_page":  {catCreation, "page existence; 13 of 196 carry page_id"},
