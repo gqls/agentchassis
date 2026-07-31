@@ -1,0 +1,80 @@
+# NOTES — portfolio positioning
+
+Append-only, newest at the bottom. Evidence, commands, what the system said, and every
+misstep. The missteps are the point.
+
+---
+
+## 2026-07-31 — session 1: the framework, the register, and the check
+
+### Ground measured before any design
+
+- Owner supplied ~154 domains (82 finance listed singly + an insurance block compressed
+  with `/ .uk / rates` shorthand, expanded to 72; `mortgagerepaymentsinsurance.*` appears
+  in both lists → **152 distinct**).
+- Clustered: **42 propositions**. Audit: every domain assigned exactly once, none
+  invented, none double-counted (the assignment script asserts all three).
+- Live DB: only `loancalculator.co.uk` and `loanandmortgagecalculator.co.uk` have `sites`
+  rows; only those + `mortgagecalculator.co.uk` are in the deploy repo. **~150 greenfield.**
+- **31 of 82** finance domains sit in propositions with **no differentiating axis in the
+  name** (12 savings-rate variants, 8 loan generics, 6 rate-comparison, tool twins) — the
+  number that shaped the whole framework: differentiation must be *assigned and recorded*,
+  because for a third of the portfolio the name gives none.
+
+### Owner decisions (P1–P4)
+
+Thick sites (a correction — an earlier answer said thin; the correction supersedes),
+roughly one per proposition, insurance included now, differentiation recorded from the
+start. The deliverables: `PLAN_2026-07-31_differentiation_axes.md` (the axis catalogue,
+three tiers, enforcement design), `REGISTER_positioning.md` (42 entries + machine-readable
+claims table), `check_register.py` (the overlap guard the platform lacks),
+`PORTFOLIO_domains.txt` (the canonical list).
+
+### The checker caught ME twice, same day as the lesson was written
+
+1. **First run: 71 violations, most false.** The prose register used shorthand
+   (`rate(s).co.uk/.uk`, "+" lists) my parser could not read, so 68 domains looked
+   unclaimed and one "domain" was the literal string `co.uk`. The tempting fix was to make
+   the parser cleverer — the same shape as this morning's
+   `fixing-a-checker-to-agree-with-a-broken-site`, from the other side. The right fix was
+   to make the ARTEFACT checkable: a ```claims``` block, one entry per line, full
+   spellings, which the checker parses *instead of* the prose. Prose for humans, claims
+   for machines, and the two are cross-checked (every claims id must have a prose entry
+   and vice versa).
+2. **Then it caught a real one**: B9 (banking equipment) had no neighbours line — I had
+   treated "different market" as an excuse not to say where its ground ends. Fixed in the
+   register, not the checker.
+3. **And my mutation test lied to me for one message**: `python3 … | tail -3; echo $?`
+   reads **tail's** exit code, so the mutant printed FAIL and "exit=0" in the same breath.
+   Re-ran with the pipe removed: exit=1. The fleet already has this class written down
+   (`a-quiet-test-passes-when-the-rule-is-gone` is the cousin); the local lesson is that
+   **a mutation test is itself a measurement and can be mis-instrumented** — read
+   `PIPESTATUS[0]` or don't pipe.
+
+### Verified state at end of session
+
+| check | result |
+|---|---|
+| portfolio list vs claims table | **152 = 152**, 0 unclaimed, 0 extra |
+| claims ids vs prose entries | **42 = 42** both directions |
+| double-claims | 0 |
+| entries with no neighbours/HOLD | 0 |
+| coordinate collisions (family × audience × mode) | 0 across 26 claimed coordinates |
+| checker mutation-tested (double-claim injected) | **exit=1, names both entries** |
+
+### Open items this session deliberately did NOT decide
+
+- ~40 ⚑OWNER twin-pair decisions (301 vs accepted duplicate) — rolled up at the end of the
+  register; default recommendation is 301 to the built sibling.
+- Build order across the 42 propositions — commercial data the owner holds.
+- Whether `saving-rate.co.uk` takes the B6 "your saving rate" sense or joins B1's twins.
+- `loancash.co.uk`: recommended **not building** (payday-adjacent name; the audience it
+  attracts is the one FCA rules protect hardest) — owner has not yet ruled.
+
+### [UNVERIFIED] / assumptions to keep honest
+
+- Proposition clusters were assigned by reading the names, not by search-volume or SERP
+  data. Where the owner has keyword data, it may re-rank *build order* but should rarely
+  move a domain between propositions.
+- The claim that "preparing" and "owning" journey stages are underserved is editorial
+  judgement, not measured against competitors.
