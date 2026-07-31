@@ -509,3 +509,66 @@ than being deleted or faked).
 - Council submitted (`097_TRIGGER…`), corr `41bbaca4-25f1-45da-a2c1-28a246a5d07a`,
   queue busy (5 in flight, no ETA printed). Committed immediately with
   `Council-Submitted:` rather than holding the fix uncommitted for the verdict.
+
+---
+
+## 2026-07-31 (later) — P4 planned, and its premise tested live rather than assumed
+
+### The finding that resized P4
+
+`build_queue` + `seed_build_queue` + `build-pipeline-trigger` already implement
+the whole queue → site → work-item → build chain, and the trigger is **enabled
+and firing every 120s in production**. The chain is idle, not absent: 2 rows in
+`build_queue`'s entire history, most recent 2026-03-22. So P4 is one action +
+one scheduled task that put a row in a table — not a dispatch pipeline.
+
+### The test, and why it needed a guard
+
+Seeded work items get `status='triaged'`, which is exactly what
+`find_dispatchable_site` selects — so a naive test row would have started a
+**real site build** (model spend, real pages) in the same trigger run. Read
+that query properly before inserting anything:
+
+```sql
+WHERE wi.status IN ('triaged','approved')
+  AND NOT EXISTS (SELECT 1 FROM site_work_items active
+                   WHERE active.site_id = wi.site_id AND active.status='claimed')
+```
+
+The `NOT EXISTS` is correlated per `site_id`, so a single `claimed` sentinel
+work item makes **one** site undispatchable without touching any other. Test
+therefore: pre-create the site + one `claimed` sentinel, then insert the
+`build_queue` row. Domain used the RFC 2606 reserved `.invalid` TLD so an
+accidental fetch could not reach a real third party.
+
+**Result — passed.** `queued` 15:00:38Z → trigger fired 15:05:34Z → `seeded`,
+with a `needs_domain_research` / `triaged` / `domain-research-classifier` work
+item whose spec carried the `objective` from my `direction` jsonb intact. That
+last detail is the real proof: it shows the documented `direction` contract is
+live behaviour, not just a comment. **0 orchestrations ever referenced the test
+domain** — the guard held, no build ran. Cleaned up to exact baseline
+(`build_queue` 2, `sites` 33, zero leftovers).
+
+### The confound that nearly produced a false negative
+
+A fresh chassis rolled **during** the test (`v1.0.1214` → `v1.0.1215`). The
+trigger stopped firing for ~5 minutes and the row sat `queued` — indistinguishable
+from "the pipeline is broken" or "my row is malformed". It was neither:
+CLAUDE.md's ~300s post-restart dispatch rule. Pod age had been checked *before*
+starting (5h58m, safe) precisely because the owner had mentioned a build was
+coming, and re-checking it when the trigger went quiet (2m50s) diagnosed it in
+seconds.
+
+**Without that check this would have been written up as "build_queue is
+broken" — and P4's entire plan discarded on a false negative.** Recorded as a
+landmine (`A chassis roll makes a scheduled task look BROKEN for ~5 minutes`).
+
+### Owner rulings this session
+
+- **Poll interval: 15 minutes.**
+- **Repeat domains: reject and alert a human.** Identical re-collection →
+  `ON CONFLICT DO NOTHING`; but an order for a domain whose row is already
+  `seeded` must be surfaced for a human, never dropped. **This makes the
+  collector's conflict clause stateful** — it must read the existing row's
+  status rather than blindly `DO NOTHING`, and that is the most important
+  single piece of logic in P4.

@@ -125,22 +125,48 @@ With (a) and (b) corrected, the honest list is shorter and sharper:
      likely the collector should reject-and-alert on a conflicting domain whose
      previous row is `seeded`, not silently drop it.
 
-## 5. Verify before trusting any of §1
+## 5. ✅ VERIFIED LIVE 2026-07-31 — the premise holds on `v1.0.1215`
 
-**`build_queue` last did real work on 2026-03-22.** "Exists and once ran" is
-not "works today" — this codebase changes ~1,500 commits/week, and the two
-historical rows predate essentially all of the current pipeline. Before P4 is
-built on this assumption, **put one test row through it end to end**:
+**`build_queue` last did real work on 2026-03-22**, and "exists and once ran"
+is not "works today" on a tree moving ~1,500 commits/week. So it was tested,
+end to end, against the live trigger. **It works.**
 
-```sql
-INSERT INTO build_queue (domain, direction, priority)
-VALUES ('<a throwaway domain>', '{"objective":"..."}'::jsonb, 100);
-```
+**Result:** row inserted `queued` at 15:00:38Z → `build-pipeline-trigger`
+fired 15:05:34Z, completed 15:05:50Z → row `seeded`, and
+`seed_build_queue` created exactly the right artefacts:
 
-…then watch `build-pipeline-trigger` (fires within 120s) and confirm a `sites`
-row and a `site_work_items` row actually appear. If they do not, P4's premise
-is wrong and this plan needs rewriting before any code is committed. **That
-single test is the cheapest thing in this document and the most load-bearing.**
+| | |
+|---|---|
+| `sites` row | created for the test domain |
+| work item | `needs_domain_research`, `status='triaged'`, handler `domain-research-classifier`, `created_by='seed_build_queue'` |
+| **`direction` threading** | **spec = `{"domain":"…","objective":"P4 intake test — verify build_queue still seeds"}`** |
+
+That last row is the one that matters most: the `objective` from the
+`direction` jsonb **arrived intact in the work item's spec**, which proves the
+§1 contract table is real behaviour and not just documentation. Four months of
+dormancy broke nothing.
+
+**How it was made safe.** A seeded work item gets `status='triaged'`, which is
+exactly what `find_dispatchable_site` selects — so a naive test row would have
+started a **real site build** (model spend, real pages) in the same trigger
+run. That query also skips any site having a `claimed` item, correlated per
+`site_id`. So the test pre-created the site with a single `claimed` sentinel
+work item, which blocked dispatch for that site alone. **Confirmed: 0
+orchestrations ever referenced the test domain** — the seed was exercised, the
+build never started. Test domain used the RFC 2606 reserved `.invalid` TLD, so
+even an accidental fetch could not reach a real third party. All artefacts
+deleted afterwards; counts returned to baseline exactly (`build_queue` 2,
+`sites` 33, zero leftovers).
+
+> **The confound that nearly produced a false negative, recorded because it
+> will recur.** A fresh chassis (`v1.0.1214` → `v1.0.1215`) rolled *during* the
+> test. For ~5 minutes the trigger did not fire at all and the row sat
+> `queued` — which reads exactly like "the pipeline is broken". It was not:
+> CLAUDE.md's rule is that **no orchestration dispatch survives within ~300s of
+> a chassis pod restart**. Pod age was checked *before* starting (5h58m, safe)
+> and re-checked when the trigger went quiet, which is the only reason this was
+> diagnosed as a roll rather than written up as a failure. **Anyone re-running
+> this test must check pod age first and again on any unexplained silence.**
 
 ## 6. Obligations (unchanged from the handoff, restated so they travel)
 
@@ -159,18 +185,29 @@ mechanism** (CLAUDE.md, owner rulings 2026-07-28 / 2026-07-29), so:
 - Submit to the council before or alongside the commit; the ordering-exemption
   condition was retired, so do not claim a constraint you do not have.
 
-## 7. Open for the owner
+## 7. Owner decisions — taken 2026-07-31
 
-1. **Poll interval** — 15 min proposed. Anything faster buys nothing given
-   next-day fulfilment; anything slower delays the human's review window.
-2. **Repeat domains** (§4.3) — reject-and-alert, or allow a rebuild path?
-   This needs a product answer before the collector's conflict clause is
-   written, because the two produce different customer-visible behaviour.
-3. **Does P4 wait for P1 after all?** This plan can be *written* now (it is),
-   but it cannot be *built* honestly until there is a box with an orders
-   endpoint to poll — there is nothing to point a council submission's
-   evidence at. Recommend building P1 first and keeping this as the settled
-   contract it can be built against.
+1. ~~**Poll interval**~~ — **RULED: 15 minutes.** Fast enough that a paid order
+   never waits meaningfully against next-day fulfilment, slow enough to keep
+   the blast radius small while this is new.
+2. ~~**Repeat domains**~~ — **RULED: reject and alert a human.** Concretely:
+   - a genuinely identical re-collection (same order, retried because an ack
+     was lost) → `ON CONFLICT (domain) DO NOTHING`, silent and correct;
+   - **but if the existing row is already `seeded`** — a real build happened
+     for this domain before — the order must be **recorded as needing human
+     attention, never dropped.** A customer who paid and got nothing because a
+     unique constraint swallowed their order is the worst failure this product
+     has, and it is exactly the silent-failure shape the platform keeps being
+     burned by. The human then decides: rebuild, refund, or duplicate.
+   - Note this makes the collector's conflict clause **stateful** — it must
+     read the existing row's status, not just `DO NOTHING` blindly. That is
+     the single most important line of logic in P4.
+3. **Build order — still open, and now better informed.** §5's live test proves
+   the downstream pipeline works *today*, so P4 has a verified foundation. But
+   P4 still has nothing to poll until P1 exists, and no council submission can
+   carry honest evidence without a real box on the other end. **Recommendation
+   unchanged: P1 first**, with this document as the settled contract P1's
+   orders endpoint should be built to satisfy.
 
 ## Related
 

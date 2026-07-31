@@ -1469,3 +1469,37 @@ source document and the entry points at it.
 - **why no check caught it:** the tool's acceptance criteria are `selector_exists` / `no_console_errors` / `page_status_ok` / `no_horizontal_overflow` / interactions. **Not one of them can see contrast**, and the component renders, boots and computes correctly. Related: `bugs_open/122` (generated CSS fails WCAG on four live sites) and the standing rule that CSS cannot say what is PAINTED
 - **source:** hit 2026-07-31 on oufe tool 2 (`tool-relevant-alternative`); fixed in the template and redeployed
 - **added:** 2026-07-31, oufe lane
+
+### `snapshot_agent()` writes to `agent_definitions_backup`, NOT an `is_snapshot` row in `agent_definitions` — so the obvious "did my snapshot happen?" check says no
+- **footprint:** `snapshot_agent(text[,text])`, `agent_definitions_backup`, `agent_definitions.is_snapshot`, `snapshot_taken_at`, `snapshot_reason`, `099_SYNC_gate_roster.py`, `102_LINT_council_seat_parity.py`, `scripts/apply-seat-length-budget.py`
+- **fires when:** you take a snapshot before patching a live agent definition (the practice every config-writing script here follows) and then check that it worked
+- **the tell:** none, and it points the wrong way. Every query in this repo that reads live agent config filters `COALESCE(is_snapshot,false)=false`, which strongly implies snapshot rows sit in `agent_definitions` alongside the live ones. **They do not.** `snapshot_agent()` copies the live row into the separate `agent_definitions_backup` table, stamping `snapshot_taken_at` and `snapshot_reason`; `created_at`/`updated_at` are copied **verbatim from the source row**, so ordering backups by `created_at` also finds nothing recent. `SELECT count(*) FROM agent_definitions WHERE is_snapshot AND created_at > now() - interval '20 minutes'` returns **0** immediately after three successful snapshots. Two conventions coexist (the `is_snapshot` column exists and is filtered for), which is exactly why the wrong one looks right
+- **the check:** `SELECT type, snapshot_taken_at, snapshot_reason FROM agent_definitions_backup WHERE snapshot_taken_at > now() - interval '30 minutes';` — and **prove it is a PRE-update copy, not a post-update one**, by asserting the backup does NOT contain your change: `… (default_config #>> '{workflow,steps,<step>,config,prompt_template}' LIKE '%<your marker>%') AS has_change` must be **false** on the backup and true on the live row. A snapshot taken after the write is not a rollback
+- **source:** hit while verifying `bugs_open/138` candidate 4's rollback safety, 2026-07-31. The alarm was a wrong check, not a broken snapshot — but a thread that stopped at the wrong check would have concluded it had no rollback and either taken a redundant snapshot or abandoned the write
+- **added:** 2026-07-31, bugfix_138 lane
+
+### A chassis roll makes a scheduled task look BROKEN for ~5 minutes — check pod age before diagnosing
+
+- **footprint:** `scheduled_tasks`, `build-pipeline-trigger`, `last_triggered_at`, `agent-chassis`
+- **fires when:** you insert work for a scheduled task and watch for it to be
+  picked up — a queue row, a work item, a dispatch — and nothing happens
+- **the tell:** `last_triggered_at` simply stops advancing. There is no error,
+  no failed row, no log line saying why. A 120s-interval task sitting still for
+  5 minutes reads exactly like "this pipeline is dead" or "my row is malformed",
+  and both are far more interesting hypotheses than the true one
+- **the check:** `kubectl -n ai-persona-system get pods -l app=agent-chassis`
+  and look at **AGE**. Anything under ~5 minutes means a roll just landed, and
+  CLAUDE.md's rule applies: **no orchestration dispatch survives within ~300s of
+  a chassis pod (re)start — the spawn is silently dropped.** Wait it out and
+  re-check before concluding anything about the thing you were testing. Compare
+  the deployment's image tag too: a changed tag confirms a roll rather than a
+  crash-restart
+- **worked example:** 2026-07-31, testing whether `build_queue` still seeds
+  after four months dormant. Pod age was checked FIRST (5h58m — safe) and the
+  test began; a roll to `v1.0.1215` landed mid-test and the trigger went quiet
+  for ~5 min with the row stuck `queued`. Re-checking pod age (2m50s) diagnosed
+  it in seconds. Waited out the window; the trigger fired and the test passed.
+  **Without the pod-age check this would have been written up as "build_queue
+  is broken" — a false negative that would have invalidated a whole plan**
+- **source:** `webdesign_uk_build_service/PLAN_2026-07-31_p4_order_intake.md` §5
+- **added:** 2026-07-31, webdesign.uk lane
