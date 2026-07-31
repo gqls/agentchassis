@@ -1877,6 +1877,8 @@ source document and the entry points at it.
 
 ### `data-runtime-fill` is tested against WHATEVER YOU PASS — hand it a whole page and you switch the check off for every section on it
 
+- **footprint:** `data-runtime-fill`, `platform/orchestration/datahelpers/runtime_fill.go`, `platform/orchestration/datahelpers/link_repair.go`, `platform/orchestration/actions/render_site_components_action.go`, `platform/orchestration/actions/rerender_single_page_action.go`, `page_components.rendered_html`, `scripts/pattern-check.py`
+- *(footprint line added 2026-08-01 by the gauntlet_dead_cta lane: the custom label below does not match `FIELD_RE`'s `[a-z ]+`, so this entry had NEVER synced to `doc_notes` and its SessionStart hook never fired. The author's full list is preserved verbatim underneath.)*
 - **footprint — SITES THAT TEST THE MARKER** (verified 2026-07-31 with the gate's own regex over the whole tree; **7** of them, all allow-listed in `scripts/pattern-check.py`): `data-runtime-fill`, `platform/orchestration/datahelpers/runtime_fill.go` (`RuntimeFillSpans`, `HasRuntimeFillMarker`, `InRuntimeFillShell`, `DeadControlAnchorsOutsideRuntimeFill` — the owner), `datahelpers/link_repair.go` (`RepairPageLinks`), `discovery_checks/check_tool_acceptance.go`, `check_dead_controls.go`, `check_phantom_internal_links.go`, `check_backend_entry_orphaned.go`, `check_empty_sections.go`, `static_attribute_checks.go`, `check_required_fields_missing.go`, `check_component_standards.go`, `check_component_template_corrupted.go`, `actions/render_site_components_action.go`, `actions/rerender_single_page_action.go`, `page_components.rendered_html`
 - **NOT footprint — files that only CALL a tester** (`rerender_link_repair.go`, `validate_page_content.go`, `save_sections_link_repair.go`): they contain **zero** marker tests; `RepairPageLinks` owns the test on their behalf. ⚠ **an earlier version of this entry listed them in the footprint and a council reviewer read that as an uncovered call site** — a footprint that mixes testers with callers manufactures exactly the false positive it exists to prevent. If you are hunting instances, grep the marker, not this list
 - **fires when:** you call any link/control check, or `RepairPageLinks`, with **more than one section** of HTML — an assembled page, a `string_agg` of components, or a fetched URL. Until 2026-07-31 the exemption was `strings.Contains(html, "data-runtime-fill")` at eight sites, so **one hydrating section anywhere in the input exempted every unrelated section**. Measured on assembled `vonc.com/index`: the whole-input test excuses **100%** of 48,956 bytes where the element-scoped one excuses **12.6%**.
@@ -1988,7 +1990,7 @@ source document and the entry points at it.
 
 ### A completeness floor on `page_components` must exclude LOCKED slots from its target, or it refuses perfect rebuilds
 
-**footprint:** `platform/orchestration/actions/save_sections_prune_floor.go` · `pages.sections` · `page_components.locked_at`
+- **footprint:** `platform/orchestration/actions/save_sections_prune_floor.go`, `pages.sections`, `page_components.locked_at`
 
 A guard that asks "did this rebuild produce enough?" needs a target to compare
 against, and `pages.sections` (the planned composition) is the obvious one — it is
@@ -2025,7 +2027,7 @@ duplicate rows. Join `sites`, or key on `pages.id`.
 
 ### idea.uk is NOT behind Cloudflare — its own runbook says it is, and builds a security plan on that
 
-**footprint:** `docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/RUNBOOK_idea_uk_vm_site.md` · `idea.uk` · `116.203.204.115` · `set_real_ip_from` · `CF-Connecting-IP`
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/RUNBOOK_idea_uk_vm_site.md`, `idea.uk`, `116.203.204.115`, `set_real_ip_from`, `CF-Connecting-IP`
 
 `RUNBOOK_idea_uk_vm_site.md:12` states `FRONT nginx + Let's Encrypt, DNS
 (Cloudflare) → the VM`, and its §4a opens *"idea.uk is behind Cloudflare"* under
@@ -2066,7 +2068,7 @@ sharing an ingress: measured the same minute, `idea.uk` had none and
 
 ### The domain→B2 object-key mapping is in a Cloudflare Worker that is NOT in this repo — grep finds nothing and it looks like config
 
-**footprint:** `sites.domain` · `sites.github_repo` · B2 static deploy path · `webdesign.co.uk`
+- **footprint:** `sites.domain`, `sites.github_repo`, B2 static deploy path, `webdesign.co.uk`
 
 Ask "how does a domain become a file in the bucket?" and every instinct points at
 the repo or the DB: `sites.deploy_config`, `resolveGitRepoNameDB`, the GitHub
@@ -2354,7 +2356,7 @@ before a customer-facing domain is the one printing it.
 
 ## Pointing a new domain at an existing single-vhost box silently serves the OLD site under the NEW name — and idea.uk's engine will take money on it
 
-**footprint:** `116.203.204.115` · `idea.uk` · `docs024_key_docs_latest/idea.uk/golang_files/service.go` · `setup.sh` · nginx `default_server`
+- **footprint:** `116.203.204.115`, `idea.uk`, `docs024_key_docs_latest/idea.uk/golang_files/service.go`, `setup.sh`, nginx `default_server`
 
 Adding an A record for a new domain that points at a box already serving another
 site does **not** produce a 404, a holding page, or any other signal that the new
