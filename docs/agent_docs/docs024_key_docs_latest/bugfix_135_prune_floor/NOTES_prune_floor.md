@@ -123,3 +123,113 @@ been seen to fire in production**, because Go is inert until an image rolls. Unt
 the induction in the RUNBOOK has run, the honest state is "shipped, unproven in
 situ" — the case file is explicit that a green healthy run proves only inertness,
 and CTXA-025's status line says the same. Updated below when it has run.
+
+## (8) 2026-07-31 — the SQL, PREPAREd against the live schema before it shipped
+
+`go build` cannot parse SQL, so all three new statements were PREPAREd and
+EXECUTEd against `clients_db` (not asserted from a read):
+
+| statement | at the current commit | at a bogus commit_sha |
+|---|---|---|
+| kind cohorts | func 3048/3048, method 1025/1025, struct 857/857, interface 33/33, alias 29/29 | 0 of each |
+| path cohort | 592 / 592 | 0 / 592 |
+| doc_notes suppression probe | `f` (no recent refusal note) | — |
+
+The bogus-commit column is the useful one: it is exactly what a total-loss run
+measures, and every cohort reads 0%, which is what the floor refuses on. So the
+measurement half is proven against real data *before* the roll — what is still
+unproven is the wiring that acts on it.
+
+**A figure, and a CORRECTION to what I first wrote about it.** Distinct paths are
+**592** today.
+
+> **CORRECTED, same session, before anyone else read it:** I first wrote here — and,
+> worse, in the round-2 council submission's `grounded_in` — that 592 "corrects a
+> figure carried in an older register entry: … not 530." **That is wrong twice
+> over.** 530 appears nowhere in the register: it is a number *I* invented as a
+> test fixture in `prune_floor_test.go`, and I then read my own fixture back as
+> though it were a live measurement. The register's actual figure is CTXA-011's
+> evidence line, `"4,155 symbols; 499 distinct paths"`, from a reindex months ago —
+> which 592 does supersede, but that is a stale-evidence line doing its job, not a
+> figure anyone carried forward wrongly.
+>
+> **What caught it:** writing "corrected in CTXA-025's text" and then going to make
+> that edit — CTXA-025 states no path count at all, so there was nothing to correct,
+> which is when the claim fell apart. The cheap check is the one I skipped:
+> `grep` for the number you say you are correcting **before** saying so. The
+> submission is already in flight and cannot be amended (forward-only), so if a
+> seat objects to that line it will be objecting to a real error of mine, and the
+> answer is this paragraph.
+
+The live figure matters for one reason only: the path cohort is now the largest
+denominator in the guard (592 paths vs 33 for the smallest kind), so it is the
+cohort *least* likely to trip on ordinary churn and the most trustworthy signal
+that a run genuinely did not see the repo.
+
+## (9) 2026-07-31 16:11 — council round 1: REVISE, gating objection from `reuse_agent` (HIGH)
+
+13 reviewers, 4 abstained, 0 unreadable. `editquality` **approved** with two low
+objections. The gating one is worth quoting because it is right:
+
+> "Landmine entries for both `diagnose_code_lookup` and `index_code_symbols`
+> reference a prior fix dated 2026-07-27 … specifically about the reader side of
+> this exact mechanism. The plan's grounded_in … never names migration 243 or
+> council 18fe4035, and gives no indication anyone checked whether the
+> freshness/staleness problem this edit solves (mixedCommitNote) was already
+> addressed, partially addressed, or explicitly deferred by that prior council
+> decision."
+
+**It is a fair hit.** I had read that code — `bodyCoverageNote` is right above the
+function I extended — and I still submitted without showing the check. The seat
+could not tell the difference between "checked and complementary" and "never
+looked", and its founding incident is precisely a reinvented mechanism.
+
+**Checked properly, four ways, and the answer is COMPLEMENTARY:**
+
+1. **What 18fe4035 actually did on the reader side**, from its own trail note
+   (`doc_notes`, `subject_key='diagnose_code_lookup'`, 07-27 "later the same
+   day"): body-OR-declaration content search, `[body]`/`[decl]` marking, excerpt
+   around the match, empty-result-as-an-answer, and the degrade-window note. **The
+   note never mentions commit identity or staleness.** Its own list of what it left
+   owed is explicit (council-gate has no code_lookup step; markdown unreachable
+   pending the `kind` CHECK relaxation) and a mixed-commit index is not on it.
+2. **The freshness half is a different lineage** — `bugs_open/059` + 108 defect A,
+   commit `87d0bcf97`, migration 250 — and is structurally *single-row*
+   (`ORDER BY updated_at DESC LIMIT 1`). A one-row read cannot express "and 400
+   other rows describe an older commit". Different question, not a second opinion.
+3. **Nothing in the tree measures commit spread.** `grep -rn 'DISTINCT
+   commit_sha\|DISTINCT COALESCE(commit_sha' --include=*.go platform/ internal/
+   pkg/` → exactly one line, and it is mine.
+4. **Never considered, so neither addressed nor deferred.** `grep -rni
+   'spans.*commit|multiple commit|mixed commit|two commit_sha'` over
+   `architecture_review/`, migrations 243/244 and `bugs_closed/108` → zero hits.
+
+And the point that actually favours the plan, from the same note the seat says I
+ignored: *"codeIndexScope … is used by BOTH lanes … One judgement, not a sibling
+copy that drifts (016b §9)."* My change extends **that** helper and wires **both**
+lanes in one commit. The reuse discipline was there; the *evidence* was not.
+
+**Round 2 changes no code.** An evidence objection is answered with evidence;
+churning the fix to look responsive would be the wrong move and would invalidate
+the tests. Resubmitted on the same correlation with the four checks above in
+`grounded_in`, plus the prior-art search for the prune rule itself (which I *had*
+run — `grep -rn 'prune_floor|floor_ratio|reconcil'` and the `DELETE FROM` census —
+and also failed to show), plus explicit answers to editquality's two lows
+(fail-closed on a transient measurement error is deliberate because the cost is
+asymmetric; the 24h note window is deliberately not a knob).
+
+**The transferable lesson, and it is not about this bug:** I ran the right
+searches and reported the conclusions instead of the searches. A reviewer cannot
+audit a conclusion. *Put the grep in the submission, not the answer to the grep.*
+
+## (10) 2026-07-31 — routing note: no 016b §9 entry, deliberately
+
+CLAUDE.md's own routing says §9 is for "how the SYSTEM fails (you have a
+symptom)", and LANDMINES.md is for "what will mislead you when you TOUCH
+something (no symptom yet)". `135` is explicitly a latent defect with **no
+symptom** — nothing has failed — so the prospective check belongs in LANDMINES.md
+(appended, and synced into `doc_notes` with `landmines-sync.py --apply`), and the
+callable mechanism in the register (CTXA-025). Writing a §9 entry as well would
+put a symptom-shaped account of something that has never happened into the file
+sessions read *after* they have a symptom. Recorded because "add the pattern to
+016b §9" is the reflex, and here the reflex is wrong.

@@ -106,3 +106,95 @@ inert.
 - The design refinements in candidates 1–2 are what six council rounds produced
   before the scope was split; they are recorded here so the next thread starts
   from the end of that argument rather than the beginning.
+
+---
+
+## FIXED 2026-07-31 — the prune now has to earn the right to run
+
+**Taken by:** the "bugfix 11" session. Workstream:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_135_prune_floor/` (standing five).
+**Commit:** `10524a03c`. **Register:** CTXA-025. **Council:**
+`14239fa4-552f-4821-abaf-ea15ccee4ea5`.
+
+### Still valid when taken, re-grounded 2026-07-31
+
+The unconditional DELETE was unchanged, guarded by nothing but `if commitSHA != ""`.
+Live index: one repo, **4,992 rows, five kinds, all at one commit** (func 3048,
+method 1025, struct 857, interface 33, alias 29; **592 distinct paths**) — healthy,
+so a floor could be armed at no cost. Note `kind` is under a CHECK of eight Go
+kinds, so markdown rows cannot exist yet.
+
+### What was built (candidates 1–3, plus 4's intent by another route)
+
+**Candidate 1 — the floor, per cohort.** `platform/orchestration/actions/prune_floor.go`
+holds the rule as pure functions of counts: no SQL, no knowledge of any table.
+Cohorts are **per symbol kind** *and* **distinct paths** — the second in a
+different unit on purpose, because rows measure what a run WROTE and paths measure
+what it SAW, which is the property that fails on a truncated tarball. That is
+candidate 4's "whole-repo signal" using data already in the table, rather than the
+analyser's `file_count`, which has nowhere to be stored for comparison.
+Resolvable: `prune_floor_ratio` step config, default 0.5, **0 disables**, `>1`
+clamps (an unsatisfiable floor refuses for ever while looking like a working
+guard), a cohort exactly AT the floor passes, `stored=0` never refuses, and an
+unparseable config value falls back to the DEFAULT — never to 0.
+
+*Detection is per cohort; the refusal is all-or-nothing.* A refused prune is
+**self-healing** — the delete is defined against the current commit, not against
+this run, so the next healthy run removes what a refusal retained. The cost of
+refusing too much is one cycle of staleness; of deleting too much, the index.
+
+**Fails CLOSED** when the cohorts cannot be measured (`refused_unmeasurable`).
+
+**Candidate 2 — the durable surface.** `recordPruneRefusal` writes `doc_notes`
+(`subject_type='action'`, `subject_key='index_code_symbols'`, category
+`prune-refused`), reusing the existing `insertDocNote` rather than adding an INSERT
+path. Suppressed to one row per repo per 24h; never fatal. **There is still no
+automated consumer** — it is a record for whoever asks, and the code comment says
+so rather than implying a triage lifecycle.
+
+**Candidate 3 — `pruned` is no longer a bare success counter.** The result now
+carries `prune_status` (`pruned` · `pruned_floor_disabled` · `refused_floor` ·
+`refused_unmeasurable` · `failed` · `skipped_no_commit`), `files_analysed` (the
+run's INPUT size, beside the delete count), `prune_floor_ratio`,
+`prune_floor_from_config`, `prune_reason`, `prune_cohorts`.
+
+### One thing this case file did not ask for, and needed
+
+A refused prune **retains stale rows by design**, and the read side's freshness
+banner reads ONE row (`ORDER BY updated_at DESC LIMIT 1`) and names *its* commit —
+so a part-stale index would have been announced as being at the new one. That is
+108's lie one layer along, and 108's fix made the wording *more* confident. So
+`codeIndexScope` gained a distinct-commit count (riding the COUNT query it already
+runs) and `mixedCommitNote()`, wired into **both** readers. Checked against council
+18fe4035 / migration 243 before adding it: that reader-side fix was about symbol
+BODIES, the freshness half came from 059/108-A (`87d0bcf97`), and **nothing in the
+tree measured commit spread** — the only `DISTINCT commit_sha` in the repo is the
+new one. The state was already reachable via the pre-existing "no commit_sha →
+prune skipped" branch, so this closes a pre-existing gap the fix would have made
+more likely.
+
+### The three siblings — NOT converted, deliberately
+
+`populate_nav_tables_action.go:147` (whole-site `site_nav_items`/`site_nav_groups`),
+`site_db_actions.go:1474` (`link_registry` per page),
+`save_page_sections_action.go:532` (agent-writable `page_components` per page). All
+three delete-what-they-did-not-see with no completeness check; one of them is the
+016b `game-pathfinding` precedent. **The rule is reusable, the cohorts are not** —
+each site must choose classes it can lose independently plus one signal in a
+different unit. Two are another lane's live territory this week. Named in
+`prune_floor.go`'s header and in CTXA-025's open-review-question.
+
+### Verification — the failing branch was SEEN, not assumed
+
+Per this file's own instruction ("a green run over a healthy repo proves only that
+the guard is inert"):
+
+1. **Rule:** 11 unit tests, every branch — refusal text and its remedy, the wiped-kind
+   case that a whole-corpus ratio would hide (asserts its own 99% premise first),
+   the inclusive boundary, disabled/negative/clamped, `stored=0`, config parsing
+   including a garbage value falling back to the default.
+2. **SQL:** all three statements PREPAREd + EXECUTEd against the live schema. At the
+   current commit every cohort reads `confirmed == stored`; against a bogus
+   `commit_sha` every cohort reads 0 — which is what a total-loss run measures.
+3. **Image:** `v1.0.1217` pod-grepped with a positive control in the same exec.
+4. **Induced refusal live:** see the workstream RUNBOOK for the exact SQL.
