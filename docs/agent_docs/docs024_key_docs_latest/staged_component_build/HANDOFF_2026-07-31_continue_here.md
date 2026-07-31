@@ -5,6 +5,38 @@ doc for a fresh thread on this lane. Everything below is verified as of 2026-07-
 UTC unless marked. **Re-run every figure** — three of them moved inside 24 hours while I
 was working (fence count 23→25, landmine corpus 57→190, tool components 28→29).
 
+> ## ⚠ CORRECTIONS, 2026-07-31 afternoon — read these BEFORE §4 and §5
+>
+> The next thread picked this up and two items below are now wrong. Both are corrected in
+> place in `NOTES` (entries of 2026-07-31 afternoon) and in `features_open/027`.
+>
+> 1. **§4 item 1 is DONE.** `tool-review-council-simulator` has an **18-check fence live in
+>    `doc_plans`** (row `ec711f24`), and the cluster acceptance run is **GREEN**:
+>    correlation `cf6b6e34`, `complete` in **18s, 22 passed / 0 failed / 14 intentional
+>    profile-gated skips**. `CHECK_naming_contract.sh` now reports **BROKEN B: 0**.
+>    The instruments that made it possible are new and reusable — `scripts/try_fence.go` and
+>    `scripts/prove_fence_can_fail.go` (register **TL-036**), plus RUNBOOK §8–§10.
+>    **The first dispatch FAILED on the 120-second `runDeadline`** with an error that names
+>    the browser and reads as infrastructure; size a fence for the pod, ~3-5s per evaluation
+>    there against ~0.3s locally. **An offline harness proves a fence CORRECT, never that it
+>    FITS.**
+>
+> 2. **§4 item 1's second finding and §5's "orphan" claim are REFUTED.**
+>    `tool-arena-interface` is **NOT an orphan**. It is **live, deployed and serving** on
+>    vonc.com under a page named `tool-arena` (`/tools/arena/index.html`,
+>    `build_status=deployed`), and its markup is present in the served page. My own check
+>    caused the error: it concluded *"no page at all"* from *"no page under the two names I
+>    guessed"*, and its URL guess assumed a `<name>.html` convention vonc.com does not use.
+>    **So the question is NOT "should this component exist" — it plainly should — but "which
+>    of the two names should move".** The check now asks placement via `page_components`
+>    before concluding absence, and prints the remedy. The rename itself is **still not
+>    done and still needs a decision**: it is another site's live page, and the 07-31
+>    precedent requires measuring blast radius first.
+>
+> §3 (the **component** Go gate, `subject_type='component'`) is **UNCHANGED and still the
+> open item** — `doc_plans` holds 0 component rows and `docSubjectGateReason` has never been
+> observed accepting the type. Everything in §3 still applies as written.
+
 ---
 
 ## 1. Read these, in this order, and do not re-derive them
