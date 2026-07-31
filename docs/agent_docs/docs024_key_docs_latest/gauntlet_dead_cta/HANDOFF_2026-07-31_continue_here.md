@@ -337,7 +337,18 @@ The platform norm is PLAIN, PRAGMATIC TONE. A submission is not the place to nar
 one's own diligence; state the change and the evidence. Applies to future submissions
 from this lane.
 
-### 4.2 OWNER DECISION OWED — the `site_plan_sections` pre-delete guard
+### 4.2 ~~OWNER DECISION OWED~~ DECIDED 2026-07-31: the guard is BUILT (option beyond both listed)
+
+**Owner chose to build it now** — stronger than option (a), which tied building to the
+enable decision. Shipped in `5c4dc317f`, council corr `6c5d1491-08dd-4e66-ab10-e82dab78dc82`
+(verdict pending at the time of writing): `datahelpers.PlanSpecifiedSectionCounts`
+walks the build's three-store priority (table → aspect → `pages.sections`; a
+table-only guard covers only 310/1,026 slot-named rows), both halves consult it,
+skips are reported with the source named, unreadable stores fail closed. Fleet
+effect today: zero (in-remit = 0 over 1,071 sections). The stale text below is kept
+for the reasoning record.
+
+#### The original decision text (superseded)
 
 `bug_historian` accepts the deferral is tracked and objects that tracked-and-unbuilt is
 how 058 and 069 happened. Two coherent answers:

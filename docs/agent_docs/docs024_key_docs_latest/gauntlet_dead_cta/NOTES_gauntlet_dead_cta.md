@@ -3338,3 +3338,59 @@ pixel-width proxy would pass for the wrong reasons.
   preview, so this may not matter; worth knowing before anyone reports it as a bug.
 - Three of our own harness rounds are published (`wjxnau3nx_`, `vevphzzdbw`,
   `gzhhgjamdn`). All our own text, no stranger's writing. One `UPDATE` unpublishes.
+
+## 2026-07-31 evening — the plan guard is built; two owner decisions executed
+
+Owner decided both open questions: deliver the CONTRIB into the brochure lane's
+cold-start handoff (done, `ac5c05d7d` — their handoff had gained a THIRD lane's INCOMING
+section while I was researching, which both proves the convention and proves the
+re-check-before-append habit), and **build** the `site_plan_sections` guard rather than
+gate it (done, `5c4dc317f`, council corr `6c5d1491`).
+
+### Design facts the guard rests on, all measured before writing code
+
+- **The system of record is a three-store priority, not a table.** The build resolves
+  sections as `site_plan_sections` (is_current) → `site_specs.site_plan` aspect →
+  `pages.sections` (`load_page_sections_from_spec_action.go:5-16`). Measured: only
+  **310 of 1,026** slot-named `page_components` rows resolve to a current-plan table
+  entry — the table-only guard bug_historian's wording implied would be blind on most
+  of the fleet. The guard walks all three.
+- **Counts, never positions.** `position` does not track `ordering` (webdesign: plan
+  0..3, components 1..4 — a positional join matched one of the two `info-card-grid`
+  entries). The rule is per-(page, component): rows-after-delete must not fall below
+  the effective source's count.
+- **`sps.page_name` → `pages.name` resolves 337/337**, so the name join is total today.
+- **Fail closed, with one stated fail-open edge**: unreadable store ⇒ abort (repair) or
+  report-not-file (detector); but slot/component name aliasing makes the guard silently
+  impose nothing for a renamed component — stated in the submission's risks,
+  `section_source_drift` is the existing check for that divergence.
+
+### Shape: one predicate, two call sites, again
+
+`datahelpers.PlanSpecifiedSectionCounts` + pure `splitPlanSpecified` in the detector.
+Detector filters BEFORE filing (an item the repair refuses is a stuck item, so the
+stuck state is unrepresentable); repair re-applies before its DELETE. Mixed pages are
+SPLIT, with `Keep` recomputed off the surviving groups — the first draft of the test
+caught that `Keep` could otherwise point into the dropped slot.
+
+Nine tests. The five sqlmock ones assert **effects, never call-absence** (per the
+landmine this session's SessionStart hook surfaced): skip tests register no DELETE, so
+attempting one fails the mock; the positive effect is the `plan_specified_repetition`
+entry. Test 1 failed first run on a nil `ExecutionContext` — production always sets
+the pointer, the params helper didn't; fixed in the helper, not the action.
+
+### Verification, and the same working-tree trap as this morning
+
+Clean `git archive HEAD` + my five files: build and all three suites pass. The working
+tree itself cannot compile the actions tests — **another session is mid-edit on
+`link_registry_prune_floor.go`** (uncommitted, +39/−12, a signature change a committed
+test file uses). Checked HEAD compiles its own tests cleanly BEFORE assuming the break
+was mine; second instance today of the same shared-tree pattern, this time recognised
+in minutes rather than diagnosed at length.
+
+Fleet effect: **zero** — in-remit re-measured at 0 over **1,071** sections (fleet grew
+from 1,023 this morning; other lanes building). The guard closes the class before the
+checker is ever enabled.
+
+Submission tone: plain, checked mechanically (no shouted-caps runs) before firing —
+the constitution seat's round-3 objection, applied. Verdict pending on `6c5d1491`.

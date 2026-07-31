@@ -1405,3 +1405,36 @@ matter. I mention it so it is not a surprise.
 
 Three rounds are published at the moment, all of them ours from testing. No
 stranger's writing is public. Say the word and they come down.
+
+## 31 July, evening — both of your decisions are done: the other team now knows, and the safety catch is built
+
+You made two calls this afternoon and both are in.
+
+**The other team can now find the checker.** Their pick-up document — the first thing a
+new session on their lane reads — has a dated section pointing at everything: what was
+built, that it passed review, that the switch is theirs, and that the first site it runs
+against starts deleting rows. While I was preparing that, a third team independently
+added their own such section to the same file, which tells me this really is how teams
+here hand things to each other, and that leaving my note as a loose file in their folder
+was every bit as invisible as I feared.
+
+**The safety catch is built and tested.** This was the reviewer's worry that survived
+approval: the cleanup deletes from a downstream copy, but the *plan* is what a full
+rebuild works from — so deleting something the plan still lists is at best wasted and at
+worst destroys a repetition the plan intends. There is a real page like that today:
+webdesign.co.uk's front page legitimately uses the same block twice, and its plan says
+so. The catch reads the plan the same way the builder does — including the two older
+storage formats most sites still use, which turned out to matter: the obvious
+version of this catch would have covered fewer than a third of the pages. Now, anything
+the plan specifies is simply skipped and reported instead of deleted, on both the
+detecting and the deleting side, so the two can never disagree. If the plan can't be
+read at all, the cleanup refuses to run rather than guessing.
+
+Nine automated tests cover it, including the awkward middle cases — a page where one
+repeated block is plan-sanctioned and another is a genuine accident is handled by fixing
+the accident and leaving the sanctioned one alone. Measured against everything live
+right now, it changes nothing: there is currently nothing to delete anywhere, which is
+exactly when you want a safety catch installed.
+
+It has gone to the reviewers as its own submission — written plainly this time, after
+their fair jab about my last one reading like a performance. I'll pass on the verdict.
