@@ -18,7 +18,37 @@ cadence, so tomorrow serves exactly what today serves.
 
 Everything below reads like progress. That sentence is the job.
 
-## 2. State, measured 2026-07-31 ~16:30Z
+## 1b. LATEST STATE — 2026-07-31 ~22:15Z. Read this before the table below.
+
+The mechanism the rest of this document says is missing **now exists**. What is
+still missing is content and one image roll.
+
+| piece | state |
+|---|---|
+| `provocations` pool table + the 9 live entries | **LIVE** — migration 282, applied + recorded |
+| `render_provocation_feed` action, 14 tests | **COMMITTED** `572ae8dc6`; council `6612dc0b` |
+| parity with the Python builder, from the 9 real rows | **PROVEN IDENTICAL** (+ a test proving the comparison can fail) |
+| `provocation-feed-publisher` agent + `provocation-feed-refresh` schedule | **SEEDED** — migration 283, row deliberately `enabled=false` |
+| the action in the running chassis | **NOT THERE** — `grep -c render_provocation_feed` = **0**, control `render_news_section` = 3 |
+| **the site rotating** | **STILL NO** |
+
+**Two things stand between here and the claim being true, in this order:**
+
+1. **A chassis image carrying the action.** Not built here on purpose: a roll ships
+   every other lane's committed HEAD, which is not one thread's call, and it would
+   have killed the in-flight council run. Any other session's roll ships it anyway.
+   Then verify ON THE POD (RUNBOOK, with the positive control) and flip
+   `enabled = true`.
+2. **Provocations dated forward from today.** The newest pool entry is 26 Jul, so
+   even with the job running the site serves that same provocation. **This is now
+   the whole remaining gap, and it is content, not machinery.**
+
+Read `SUMMARY_2026-07-31b_provocation_pipeline.md` for the prose version, and
+NOTES for the three design calls (no stored `published` flag; duplicate dates
+refused by an index, not a check; the commit is SKIPPED when only `generated_at`
+would move).
+
+## 2. State, measured 2026-07-31 ~16:30Z — SUPERSEDED by §1b, kept for the trail
 
 | thing | state |
 |---|---|
@@ -208,6 +238,10 @@ emptying `today`.**
 > So adding entries to `SCHEDULE` changes **nothing about the live site** until a
 > human runs `publish_feed.sh` by hand — which is a person, not a mechanism, and
 > is the same failure the workstream exists to fix.
+
+> **BUILT 2026-07-31 ~22:15Z — steps 1–4 below are DONE.** See §1b. What remains
+> of step A is the image roll, the `enabled = true` flip, and step 5: content.
+> The list is kept because the dependency order is the reusable part.
 
 **What daily rotation actually requires**, in dependency order:
 

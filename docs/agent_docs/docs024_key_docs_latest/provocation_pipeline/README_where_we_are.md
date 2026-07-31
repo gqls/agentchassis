@@ -423,3 +423,54 @@ version again in three weeks and has to rediscover why it doesn't fly.
 
 The headline hasn't moved, though, and I don't want it buried under all that:
 **the site still doesn't rotate, and the promise on the front page is still false.**
+
+---
+
+## Late evening — the machinery is built
+
+Went and built the thing I said this afternoon was needed. It is done, it is
+tested, and the site still doesn't rotate — for two reasons that are both worth
+understanding, because neither is a bug.
+
+**What now exists.** The nine provocations live in the database instead of in a
+script. There's a piece of code in the platform that picks today's one by date,
+builds the whole file, checks it, and commits it to the site's repository. There's
+an agent that runs it and a schedule that will call it every six hours. All of it
+is committed and the database parts are applied.
+
+**Why the site still doesn't rotate.** Two things, in order.
+
+First, code changes here don't take effect until a new image is built and rolled
+out to the cluster, and I deliberately didn't do that. Rolling ships every other
+team's committed work at the same time, which isn't one thread's call to make, and
+it would have killed the code review I had running. Someone else's roll will carry
+it along shortly — that's how this place works. Until then I've left the schedule
+switched **off**, so it can't fire at a system that doesn't yet know the command.
+
+Second, and this is the one that matters: **the newest provocation in the pool is
+still 26 July.** Even with everything switched on, the machine would correctly
+pick that same one every day, because it's the latest one there is. So the
+remaining gap is no longer machinery. It's writing provocations.
+
+**The check I'm most pleased with.** There were already rules for this feed, proven
+in the Python script. Writing a second implementation in Go is exactly how two
+versions of one thing quietly drift apart, each looking fine on its own. So I took
+the nine real provocations, built the file both ways, and compared them —
+identical. Then I wrote a second test that deliberately breaks one input and
+insists the comparison notices, because a comparison that can't fail isn't a check
+at all.
+
+**One decision worth flagging, because it looks wrong and isn't.** The job will
+*not* commit anything on a day when nothing has changed. It would have been easier
+to republish daily regardless, but that would tick the file's "last generated"
+timestamp forward every single day while the site repeated itself — which is
+precisely the disguise the original bug was wearing. Now a stale timestamp on a
+quiet day is the honest answer rather than a symptom to chase.
+
+**Two mistakes.** I put backticks around a word in a commit message, which makes
+the shell try to run it as a command; the message is permanently missing a word and
+the rules here forbid going back to fix it. It's a trap I had written down for
+myself and stepped in anyway. And for a few minutes I thought I'd broken the test
+suite, when in fact another team had committed a test file whose other half is
+still half-finished in the shared workspace — worth knowing that around here "the
+tests are failing" isn't automatically about you.
