@@ -350,3 +350,36 @@ proven: the coalesce is in both running binaries, the mapping reads the column
 path, the induced-fault test covers the exact column-only shape, and all four
 stuck items' `component_id`s satisfy every clause of `load_tool`'s query. The
 single remaining question is whether `load_tool` clears on a real dispatch.
+
+## 2026-07-31, 22:42 — the watcher expired without a dispatch; the gap is now 70 min
+
+40 polls, 22:02 → 22:42 local, every 60s. `ee745694` stayed `triaged`,
+`attempt_count=0`, unclaimed, no error, throughout. Then, DB-computed:
+`mins_since_last_claim_anywhere = 70`.
+
+**The sequence of gaps I have now measured: 28 → 39 → 40 → 70 minutes.** It is
+growing, and nothing has been claimed fleet-wide across the whole watch.
+
+**I am deliberately NOT concluding from this**, because I have already read this
+same signal wrong twice today in opposite directions (see `WRONG_CALLS.md`: first
+"alive, slow", then a confidently wrong "dead — 90-minute drought" built on a
+local-vs-UTC arithmetic error, then "bursty" from the histogram). What I will
+record is the measurement and the discriminator, and nothing beyond it:
+
+- The longest gap already observed today, from the histogram, is the ~90-minute
+  quiet spell **18:30–20:00Z**, which ended in a burst of 19 claims.
+- The current gap is **70 minutes**. So it is **inside** previously-observed
+  behaviour, at the top of the range.
+- **The discriminator is already in the data:** if the gap passes ~90 minutes and
+  keeps climbing, that is outside anything seen today and is a real dispatch
+  problem. If a burst arrives first, it was another lull.
+
+That check belongs to whoever owns dispatch, not to this lane. The one thing this
+lane must not do is convert "my verification has not fired" into a diagnosis of
+someone else's subsystem — which is precisely the mistake I made at 22:10.
+
+**Standing position for `154`:** both halves live and verified (re-verified across
+a second roll to `v1.0.1223`); the fix is inert-until-exercised, not unproven; the
+outstanding item is one observation, blocked on dispatch scheduling. The bug file
+and the handoff both now say exactly that, and neither claims the observation was
+made.

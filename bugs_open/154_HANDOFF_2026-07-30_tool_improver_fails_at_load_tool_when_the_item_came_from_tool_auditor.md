@@ -1,9 +1,28 @@
 # 154 — `tool-improver` dies at its first step on items raised by `tool-auditor`: `input_data.component_id resolved to nil`
 
 **Filed:** 2026-07-30.
-**Status: FIXED IN CODE + REGISTERED, 2026-07-31 (session "bugfix 19"). OPEN only
-until the image rolls AND the config half is applied.** Workstream docs:
-`docs/agent_docs/docs024_key_docs_latest/bugfix_154_work_item_routing_columns/`.
+**Status: FIXED, REVIEWED and LIVE — BOTH halves — 2026-07-31 (session "bugfix 19").
+OPEN on ONE unwitnessed step: no dispatch has been observed clearing `load_tool`.**
+Workstream docs + cold-start:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_154_work_item_routing_columns/`
+(start at `HANDOFF_2026-07-31_continue_here.md`).
+
+> **Both halves are live.** Go: pod-grepped `new=1 ctrl=1` on both replicas of
+> `v1.0.1219` **and** re-verified after a further roll to `v1.0.1223`. Config:
+> `sql_for_agents/278` applied — pre-flight count 1, `snapshot_agent` →
+> `099b51e0-…`, `UPDATE 1`, mapping verified reading `current_item.component_id`.
+>
+> **Why it is still open.** Test item `ee745694` (`tool-bayesian-ranking`,
+> gamesdesign.co.uk) was reset to `triaged`/attempt 0 on the owner's explicit
+> go-ahead and has **not been picked up in ~50 minutes of watching**. Fleet
+> dispatch has claimed nothing anywhere for **70 minutes** (DB-computed) — a gap
+> comparable to the ~90-minute quiet spell already observed earlier the same day,
+> so **not yet outside known behaviour**, but at the top of it.
+> **This is a statement about dispatch, not about this fix**: the change is in
+> `LoadWorkItemsAction`, which runs *after* a site is selected and cannot prevent
+> a selection. **Do not re-diagnose it from this file** — I read the same
+> measurement wrong twice (see `WRONG_CALLS.md`), and the discriminator is simply
+> whether the gap passes ~90 min and keeps climbing.
 
 > **THE `[INFERRED]` BLOCK BELOW WAS RIGHT ABOUT THE SPLIT AND WRONG ABOUT WHERE
 > THE DEFECT LIVES.** It guessed the other creators "carry enough in
