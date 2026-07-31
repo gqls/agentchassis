@@ -161,7 +161,7 @@ type RunChecksResult struct {
 	// FailingChecks is empty on every entry, by construction. Never load-bearing:
 	// a render is something to look at, not something to decide by.
 	Renders []ScreenshotRef `json:"renders,omitempty"`
-	Summary     struct {
+	Summary struct {
 		Passed  int `json:"passed"`
 		Failed  int `json:"failed"`
 		Skipped int `json:"skipped"`
