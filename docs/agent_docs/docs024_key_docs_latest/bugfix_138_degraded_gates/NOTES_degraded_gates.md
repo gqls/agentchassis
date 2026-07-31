@@ -383,3 +383,57 @@ seat's trajectory is steeper than any other. If its next peaks stay near 98%, th
 budget is being ignored by the seat that most needs it, and the honest next step is a
 per-seat instruction rather than a third cap raise. Watch it with RUNBOOK §10's query,
 restricted to `step_name='review_editquality' AND max_tokens=16000`.
+
+### 2026-07-31 ~18:00 — THE LENGTH BUDGET WORKS, measured on the seat that most needed it
+
+A fresh chassis build deployed (replicaset `6fd67d6649`, pods started 17:45). Two things
+became checkable.
+
+**1. FIX-055 survived the rebuild.** Both new pods: `gating TRUNCATED objection from` 1,
+`gated_by_truncation` 1, controls `all reviewers approve` 1 and `gating objection from` 1
+— all in the same exec. This is the `bugs_open/153` check ("a roll is not evidence your
+fix shipped; the image may predate your commit") run in the *other* direction: not "did
+it arrive" but "did it survive". A new build from an older ref would have silently
+removed a fix that was live an hour earlier, and nothing else would have told us.
+
+**2. The behaviour change is verified — and my first attempt to measure it repeated the
+exact mistake this RUNBOOK warns about.** I filtered `llm_call_log.created_at >
+15:13:00`, which is the wrong clock: **an orchestration keeps the workflow definition it
+loaded at SPAWN**, so a call made after the cutover can belong to a round spawned before
+it and carrying the old prompt. It also silently mixed `review_editquality`, whose own
+cutover was 15:39:30, into a filter built for the 15:12 batch. RUNBOOK §10 says both of
+these in writing, and `council-adoption-report.sh` was once 45 minutes wrong the same
+way. **Third time today that a check answered a different question from the one I
+meant.**
+
+Redone against `orchestration_states.created_at` — the round's spawn time — per seat,
+against that seat's own cutover:
+
+| `review_editquality` @16000 | calls | peak | peak % of cap | mean |
+|---|---|---|---|---|
+| rounds spawned **BEFORE** the block | 10 | 15,721 | **98.3%** | 9,848 |
+| rounds spawned **AFTER** the block | 8 | 8,793 | **55.0%** | 6,569 |
+
+**Peak 98.3% → 55.0%. Mean down 33%.** Both arms are the same afternoon at the same cap
+on the same seat, so this is not a time confound and not a cap effect — the only
+difference is the length budget. And the direction survives the obvious objection about
+small samples: a maximum grows with n, and the arm with MORE calls (10, before) is the
+one with the higher peak, so fewer samples cannot explain the drop.
+
+This is the architecture-seat result reproduced on a second seat, and this time cleanly:
+there, the cap raise and the length budget shipped together and could not be separated.
+Here the cap did not move — editquality was already at 16000 — so **the budget alone
+took it from the edge of truncation to just over half its ceiling.**
+
+**What this does NOT show.** The other three seats (`guardian`,
+`improvement_guardian`, `debug_historian`) have **zero** pre-cutover calls in this
+window, so they have no control arm and I am not claiming an improvement for them.
+Their post-cutover peaks (77.6%, 37.5%, 70.8%) sit well below their 14-day historical
+peaks (99.2%, 96.6%, 99.8%) — but **a max over 14 calls is not comparable to a max over
+278**, because a maximum grows with the sample. That comparison is exactly the shape of
+error I have made twice today, so it is written here as a non-finding rather than a
+result. They need their own before/after arms, which will accumulate.
+
+Also unexplained and left alone: 3 `review_editquality` calls at cap 8000 after 15:29
+with NULL `output_tokens` (failed calls), belonging to rounds spawned before
+feature-designer's raise. [UNMEASURED] — noted rather than chased.
