@@ -1,0 +1,131 @@
+{
+  "_scope_note": "The five questions' OPTION LABELS and their POINT VALUES are deliberately left as template literals rather than fields. They are a coupled scoring model -- an option's wording and its score must change together -- and flattening 11 labels plus 11 integers into 22 unrelated text fields would be unreadable and easy to desynchronise. The right structure is a `questions` array, but NO tool template in the fleet uses {{range}} and every input_schema field type is \"text\" (measured 2026-07-31, 60 tool components), so introducing an array would be an addition to a shared vocabulary. Per the owner ruling of 2026-07-29 that belongs in its own review, not smuggled inside a tool rewrite. Recorded as the next step for this component.",
+  "fields": {
+    "q1_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "1. Are you on the Electoral Roll at your current address?",
+      "llm_guidance": "Question 1. Keep the leading number -- the steps are numbered in the copy, not by CSS. Electoral-roll registration is a UK-specific creditworthiness signal; a non-UK site should replace this question and its scoring together."
+    },
+    "q2_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "2. How many missed payments have you had in the last 2 years?",
+      "llm_guidance": "Question 2. The two-year window matches how long most UK defaults stay materially visible; changing the window means changing the option scores too."
+    },
+    "q3_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "3. What percentage of your credit card limits are you using?",
+      "llm_guidance": "Question 3, credit utilisation. The option bands (under 30 / 30-70 / over 70) are in the template and must stay consistent with this wording."
+    },
+    "q4_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "4. How long have you lived at your current address?",
+      "llm_guidance": "Question 4, address stability."
+    },
+    "final_heading": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Final Result",
+      "llm_guidance": "Heading of the result step."
+    },
+    "calculating_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Calculating...",
+      "llm_guidance": "Placeholder in the rating slot before a score exists. It is briefly visible, and it is part of the equivalence fingerprint -- changing it re-baselines this tool's golden values."
+    },
+    "restart_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Start Over",
+      "llm_guidance": "Label of the reload button on the result step."
+    },
+    "band_high_threshold": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "70",
+      "llm_guidance": "Total score at or above which the best band shows. Must exceed band_mid_threshold or the middle band becomes unreachable -- there is no validation for that, so check it when you change either."
+    },
+    "band_mid_threshold": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "40",
+      "llm_guidance": "Total score at or above which the middle band shows. Below it, the lowest band shows."
+    },
+    "band_high_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Excellent Prospect",
+      "llm_guidance": "Verdict for the top band."
+    },
+    "band_high_colour": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#2f855a",
+      "llm_guidance": "CSS colour applied inline to the verdict text. A literal rather than a theme variable because it is set from JavaScript, where var() would need a computed lookup; keep it legible against the site's card background."
+    },
+    "band_high_desc": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Lenders likely see you as a low-risk borrower. You are in a strong position to negotiate for the lowest APRs.",
+      "llm_guidance": "Explanation for the top band. HEDGED LANGUAGE IS DELIBERATE ('likely see you as') -- this is an indicative self-assessment, not a credit score, and must never be worded as a lending decision or a promise of a rate. Keep it non-committal if you reword it."
+    },
+    "band_mid_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Fair / Good",
+      "llm_guidance": "Verdict for the middle band."
+    },
+    "band_mid_colour": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#2b6cb0",
+      "llm_guidance": "CSS colour for the middle verdict (see band_high_colour)."
+    },
+    "band_mid_desc": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "You have a solid foundation, but small improvements (like staying at your address longer or reducing card balances) could unlock better rates.",
+      "llm_guidance": "Explanation for the middle band. Keep the hedging (see band_high_desc)."
+    },
+    "band_low_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Work in Progress",
+      "llm_guidance": "Verdict for the lowest band. Deliberately not pejorative -- it describes a trajectory, not a person."
+    },
+    "band_low_colour": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#e53e3e",
+      "llm_guidance": "CSS colour for the lowest verdict (see band_high_colour)."
+    },
+    "band_low_desc": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "You may find it harder to get standard loans. Consider a credit-builder card and ensure you are on the Electoral Roll to improve your score.",
+      "llm_guidance": "Explanation for the lowest band. It names a concrete next step rather than only a problem, which is the point of the band. Suggesting a product category (credit-builder card) is guidance, not a recommendation of a specific product -- keep it generic so it stays outside regulated advice."
+    }
+  }
+}

@@ -1084,3 +1084,90 @@ usable in automation.
 broken version `RESPONDS` (its selectors all exist and its inputs still accept typing),
 and `check_tool_acceptance.go` passes it (every anchor is present). A £3.45/month error
 — £207 over the life of the loan — was invisible to every gate the platform had.
+
+## 2026-07-31 (late) — two tools rewritten as platform-native components, both PROVEN numerically identical
+
+Owner authorised the rewrite. Method, and it is the same for all 12:
+
+1. Extract the widget into an `html_template` with `{{.field}}` slots + an
+   `input_schema` of `static`/`llm` fields with fallbacks — the fleet convention,
+   read off `tool-mortgage-overpayment` rather than invented.
+2. Render offline with **`render_tool.go`**, which uses **Go `text/template`** (the
+   real engine) with `missingkey=error`, and refuses to write output containing
+   `<no value>` or a residual `{{`. A Python `str.replace` prover would leave a
+   mistyped slot unreplaced and look fine — and `<no value>` in a stored template is
+   the TL-030 corruption class, so the mistake must be caught offline.
+3. Splice the rendered component into a **copy of the real page**, so only the widget
+   differs, and run `toolgolden.py --compare` against `GOLDEN_2026-07-31`.
+
+| # | tool | fields | result |
+|---|---|---|---|
+| 1 | `tool-loan-repayment` (standard-calc) | 15 | **MATCHES** — all 3 vectors, 9 id-fields |
+| 2 | `tool-credit-health-check` | 18 | **MATCHES** — `react=2`, `vary=0` (correct) |
+
+Tool 2 was chosen deliberately as the **structurally hardest** case, to test whether
+the method generalises past a three-input calculator: a five-step wizard, no numeric
+inputs at all, inline `onclick` handlers needing a global, and **page-local `<style>`
+whose two rules are the entire one-step-at-a-time behaviour**. It does generalise.
+
+### What the rewrite actually buys, per tool
+
+- **Self-contained namespaced CSS with theme variables + literal fallbacks.** This
+  **fixes a live defect by construction**: `.fca-style-warning`, `.market-context-box`
+  and `.status-badge` are used by these pages and defined **nowhere** (19 such
+  classes), so the FCA risk warning renders as unstyled body text today. It also fixes
+  `#meter-fill { background: var(--accent) }` — **no fallback**, so on any site not
+  defining `--accent` the meter is invisible and the tool looks like it failed.
+- **Regulatory copy is `source: 'static'` with DO-NOT-REWRITE guidance.** Freezing the
+  whole tool protected the FCA warning for the wrong reason; this protects it for the
+  right one — a content loop can rewrite the prose around it and cannot touch it. Same
+  for the hedged verdict wording ("lenders *likely* see you as…"), which must never
+  become a lending decision.
+- **Dated factual claims parameterised.** `3.75% Base Rate` and `7.9% market average`
+  were hardcoded in markup and script. Now one static field each, per site.
+- **`en-GB`/`GBP` parameterised**, which is what lets another site reuse the tool at
+  all. The numeric result is independent of both — and the differential test is what
+  establishes that rather than my assurance.
+- **One namespaced global instead of two bare ones.** The wizard put `nextStep`,
+  `showResult` and a mutable `totalScore` straight onto `window`; two tools on one page
+  would silently overwrite each other's scoring.
+
+### A scope decision I did NOT take, and why
+
+The wizard's **11 option labels and their 11 point values stay as template literals.**
+Flattening them into 22 unrelated text fields would be unreadable and trivial to
+desynchronise (a reworded option whose score no longer matches). The right structure is
+a `questions` array — but **no tool template in the fleet uses `{{range}}`, and every
+`input_schema` field type is `"text"`** (measured: 60 tool components). Introducing an
+array is therefore an **addition to a shared vocabulary**, which by the owner ruling of
+2026-07-29 belongs in its own review rather than smuggled inside a tool rewrite —
+precisely the `bugs_closed/124` precedent. Recorded as this component's next step.
+
+### ⚠ A limitation in MY OWN harness that must be fixed before this pattern spreads
+
+`toolgolden.py`'s `PRESS_JS` clicks *"the first button carrying an `onclick`
+attribute"*. So I **kept the inline `onclick` attributes** on the wizard's buttons,
+even though delegated listeners would be cleaner, because a modernised tool with no
+`onclick` attribute is **undrivable by the gate and would read as broken while working
+perfectly.** That is the gate dictating the code's style, which is backwards. Fix the
+selector (click any enabled button) before rewriting the remaining tools, and
+re-baseline. Not worked around silently.
+
+> **Missteps — the backtick trap fired TWICE more, and an identifier check three
+> times.** (1) `git commit -m` with `` `display` `` in backticks: bash executed it and
+> the committed message of `13e6e2e52` reads "does NOT set  on the fingerprint
+> elements". Forward-only forbids the amend; logged in `WRONG_CALLS.md` as the first
+> recorded case of an **already-documented** landmine firing. (2) The same trap inside
+> an **unquoted heredoc** (`<<EOF` expands backticks too) — fixed with `<<'PYEOF'` and
+> `os.environ`.
+> (3) Three splice attempts failed on assertions keyed on the identifier `nextStep`,
+> because **my own component's comment explains that it replaced `nextStep`** — so the
+> word legitimately survives, and an identifier-shaped check cannot tell code from a
+> comment about that code. The assertion that works targets the **binding**
+> (`onclick="nextStep`) and the original's unique line (`let totalScore`). Ordering
+> matters too: strip the original's parts *before* splicing the component, or the
+> removal regex matches the replacement.
+>
+> Each of these cost a cycle and none was dangerous, but the shape is worth keeping:
+> **a check written in terms of a name will match the name wherever it appears,
+> including in the sentence explaining that the name is gone.**

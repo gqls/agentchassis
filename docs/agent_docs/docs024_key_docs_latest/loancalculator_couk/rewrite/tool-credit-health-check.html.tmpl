@@ -1,0 +1,167 @@
+<style>
+/* tool-credit-health-check — SELF-CONTAINED by design.
+   These two rules are LOAD-BEARING, not cosmetic: they are the whole of the
+   wizard's one-step-at-a-time behaviour. Without them all five steps render at
+   once and the tool computes every score correctly while looking broken — the
+   hardest kind of regression to attribute, and exactly the state another lane
+   reported as live on 2026-07-31 (it was not; the original page carries these
+   rules in its own <head>, which their stylesheet-only check could not see).
+   They live in the component now, so no host-stylesheet rewrite can remove them.
+   `display` here is part of the equivalence fingerprint: step-1 must be block and
+   steps 2-5 none on first paint, and pressing the first answer must take step-1
+   to none and step-2 to block. Verified against GOLDEN_2026-07-31. */
+.tool-credit-health-check-section .chc-step { display: none; }
+.tool-credit-health-check-section .chc-step.chc-active { display: block; }
+
+.tool-credit-health-check-section .chc-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-credit-health-check-section .chc-step h3 {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+.tool-credit-health-check-section .chc-step button {
+  display: inline-block;
+  margin: 0 0.5rem 0.5rem 0;
+  padding: 0.6rem 1.1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  border: 1px solid var(--color-accent-dark, #0056b3);
+  background: var(--color-accent-dark, #0056b3);
+  color: var(--color-on-accent, #ffffff);
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+.tool-credit-health-check-section .chc-step button:hover {
+  filter: brightness(1.08);
+}
+/* The original wrote `background: var(--accent)` with NO fallback, so on any site
+   that does not define --accent the meter fill is transparent and the tool looks
+   like it failed to compute. Every var() here carries a literal fallback. */
+.tool-credit-health-check-section .chc-meter {
+  height: 20px;
+  background: var(--color-surface-alt, #e2e8f0);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+.tool-credit-health-check-section #meter-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #0056b3);
+  transition: width 0.5s;
+}
+.tool-credit-health-check-section #rating-desc {
+  line-height: 1.6;
+  color: var(--color-text-muted, #64748b);
+}
+</style>
+
+<section class="tool-credit-health-check-section">
+  <div class="chc-card" id="quiz-container">
+
+    <div id="step-1" class="chc-step chc-active">
+      <h3>{{.q1_heading}}</h3>
+      <button onclick="chcWizard.next(2, 20)">Yes</button>
+      <button onclick="chcWizard.next(2, 0)">No / Not Sure</button>
+    </div>
+
+    <div id="step-2" class="chc-step">
+      <h3>{{.q2_heading}}</h3>
+      <button onclick="chcWizard.next(3, 30)">Zero</button>
+      <button onclick="chcWizard.next(3, 10)">One</button>
+      <button onclick="chcWizard.next(3, -20)">Two or more</button>
+    </div>
+
+    <div id="step-3" class="chc-step">
+      <h3>{{.q3_heading}}</h3>
+      <button onclick="chcWizard.next(4, 25)">Under 30% (Low)</button>
+      <button onclick="chcWizard.next(4, 10)">30% to 70% (Medium)</button>
+      <button onclick="chcWizard.next(4, -10)">Over 70% (High)</button>
+    </div>
+
+    <div id="step-4" class="chc-step">
+      <h3>{{.q4_heading}}</h3>
+      <button onclick="chcWizard.next(5, 15)">Over 3 Years</button>
+      <button onclick="chcWizard.next(5, 5)">1 to 3 Years</button>
+      <button onclick="chcWizard.next(5, 0)">Less than a year</button>
+    </div>
+
+    <div id="step-5" class="chc-step">
+      <h3>{{.final_heading}}</h3>
+      <div class="chc-meter"><div id="meter-fill"></div></div>
+      <h2 id="rating-text">{{.calculating_label}}</h2>
+      <p id="rating-desc"></p>
+      <button onclick="location.reload()">{{.restart_label}}</button>
+    </div>
+
+  </div>
+</section>
+
+<script>
+/* SCORING PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/credit-health-check.html, 2026-07-31): the running
+   total, the 10..95 clamp on the meter, and the two band thresholds. Equivalence
+   is proven against GOLDEN_2026-07-31, which captures the wizard advancing one
+   step (step-1 block->none, step-2 none->block).
+
+   TWO deliberate changes, neither of which can alter a score:
+
+   1. ONE NAMESPACED GLOBAL instead of two bare ones. The original put `nextStep`,
+      `showResult` and a mutable `totalScore` straight onto window, so two tools on
+      one page would silently overwrite each other's scoring. Now a single
+      `chcWizard` object with the state closed over.
+
+   2. The inline onclick attributes are KEPT, deliberately, though delegated
+      listeners would be cleaner. The acceptance harness drives a wizard by
+      clicking "the first button carrying an onclick attribute"; a modernised tool
+      with no onclick attribute is undrivable BY THE GATE and would read as broken
+      while working perfectly. Recorded as a harness limitation to fix before this
+      pattern is applied more widely — not worked around silently here. */
+window.chcWizard = (function () {
+  var totalScore = 0;
+  var BAND_HIGH = {{.band_high_threshold}};
+  var BAND_MID = {{.band_mid_threshold}};
+
+  function showResult() {
+    var fill = document.getElementById('meter-fill');
+    var text = document.getElementById('rating-text');
+    var desc = document.getElementById('rating-desc');
+
+    var percentage = Math.max(10, Math.min(95, totalScore));
+    fill.style.width = percentage + '%';
+
+    if (totalScore >= BAND_HIGH) {
+      text.innerText = "{{.band_high_label}}";
+      text.style.color = "{{.band_high_colour}}";
+      desc.innerText = "{{.band_high_desc}}";
+    } else if (totalScore >= BAND_MID) {
+      text.innerText = "{{.band_mid_label}}";
+      text.style.color = "{{.band_mid_colour}}";
+      desc.innerText = "{{.band_mid_desc}}";
+    } else {
+      text.innerText = "{{.band_low_label}}";
+      text.style.color = "{{.band_low_colour}}";
+      desc.innerText = "{{.band_low_desc}}";
+    }
+  }
+
+  function next(step, points) {
+    totalScore += points;
+    var steps = document.querySelectorAll('.tool-credit-health-check-section .chc-step');
+    for (var i = 0; i < steps.length; i++) {
+      steps[i].classList.remove('chc-active');
+    }
+    document.getElementById('step-' + step).classList.add('chc-active');
+    if (step === 5) {
+      showResult();
+    }
+  }
+
+  return { next: next };
+})();
+</script>
