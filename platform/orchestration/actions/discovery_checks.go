@@ -10,6 +10,7 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -253,6 +254,23 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("failed to commit work items: %w", err)
 	}
 
+	// A check that ERRORED is now recorded durably, not just in the step output
+	// (bugs_open/149 B4 follow-up; council 2d0dbc2e, bug_historian edit 3).
+	//
+	// WHY THIS IS NEEDED AT ALL, since the failure is already in checks_failed:
+	// pod logs roll and `collected_data` is pruned at ~24h, so "which check
+	// silently stopped working, and when" was unanswerable a day later. That is
+	// the estate's "a pod log line is not a record" rule (bugs_open/071 gap 3),
+	// which the claims floor in the same commit honours with
+	// CONTENT_CLAIMS_FLOOR_DETAIL and this path did not. The asymmetry inside one
+	// commit was the defect, not the missing feature.
+	//
+	// AFTER the commit deliberately: the work items are the run's real output and
+	// must not be rolled back because a diagnostic write failed. Correspondingly
+	// this is best-effort — see writeDiscoveryCheckErrorLog.
+	writeDiscoveryCheckErrorLog(ctx, params, siteID, siteDomain, agentType,
+		checkPipeline, batchID, failedChecks, logger)
+
 	logger.Info("RunDiscoveryChecksAction: Complete",
 		zap.Int("findings", len(allFindings)),
 		zap.Int("items_inserted", inserted),
@@ -280,4 +298,88 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		"items_skipped":       skipped,
 		"batch_id":            batchID.String(),
 	}, nil
+}
+
+// discoveryCheckErrorCode is DELIBERATELY distinct from every other code in
+// agent_error_log, for the reason recorded at validate_page_content.go:619-624 and
+// repeated in save_sections_claims_guard.go:97-103: the rows answer different
+// questions, and a shared code makes "which path caught this" unanswerable — the
+// drift bugs_open/097 exists to keep answerable. Checked against the live table
+// 2026-07-31: 16 distinct codes in use, none of them this one.
+const discoveryCheckErrorCode = "DISCOVERY_CHECK_ERROR"
+
+// writeDiscoveryCheckErrorLog records one row per check that returned an error.
+//
+// ONE ROW PER CHECK, not one row per run. The question this exists to answer is
+// "which check stopped working, and when" — a batch-level row would force every
+// reader to parse a list back out of `context` to answer it, and would collapse
+// two checks failing for different reasons into one indistinguishable event.
+//
+// SEVERITY IS `warning`, NOT `error`. A check erroring does not mean the site has
+// a defect, and it does not fail the step: the run continues and its other checks
+// still report. Grading this `error` would put a harness fault in the same bucket
+// as a real content finding, which is the confusion validate_page_content_stats.go
+// states as a rule — "severity `error` must never mean 'we could not check this'".
+// That rule cuts both ways, and this is its other edge.
+//
+// BEST-EFFORT BY CONSTRUCTION: every failure path warns and returns. A diagnostic
+// write must never be able to fail a run whose actual work — the work items — has
+// already been committed.
+func writeDiscoveryCheckErrorLog(
+	ctx context.Context,
+	params ActionParams,
+	siteID uuid.UUID,
+	domain, agentType, checkPipeline string,
+	batchID uuid.UUID,
+	failedChecks []map[string]string,
+	logger *zap.Logger,
+) {
+	if params.DB == nil || len(failedChecks) == 0 {
+		return
+	}
+
+	// agent_type is NOT NULL on this table. The caller already defaults it to
+	// "discovery-agent", but this function is called from tests and future callers
+	// too, so it does not rely on that.
+	if agentType == "" {
+		agentType = "unknown"
+	}
+
+	stepName := "run_discovery_checks"
+	if params.ExecutionContext != nil && params.ExecutionContext.StepName != "" {
+		stepName = params.ExecutionContext.StepName
+	}
+
+	for _, fc := range failedChecks {
+		checkName := fc["check"]
+		checkErr := fc["error"]
+
+		errCtx, err := json.Marshal(map[string]string{
+			"check":          checkName,
+			"check_error":    checkErr,
+			"check_pipeline": checkPipeline,
+			"batch_id":       batchID.String(),
+		})
+		if err != nil {
+			logger.Warn("RunDiscoveryChecksAction: failed to marshal check error context",
+				zap.String("check", checkName), zap.Error(err))
+			continue
+		}
+
+		if _, err := params.DB.ExecContext(ctx, `
+			INSERT INTO agent_error_log
+			    (site_id, domain, agent_type, step_name, action,
+			     error_message, error_code, severity, context)
+			VALUES ($1, NULLIF($2, ''), $3, $4, 'run_discovery_checks',
+			        $5, $6, 'warning', $7::jsonb)`,
+			siteID, domain, agentType, stepName,
+			fmt.Sprintf("Discovery check %q errored and was skipped — the site was NOT checked for this class: %s",
+				checkName, checkErr),
+			discoveryCheckErrorCode,
+			string(errCtx),
+		); err != nil {
+			logger.Warn("RunDiscoveryChecksAction: failed to write discovery check error record",
+				zap.String("check", checkName), zap.Error(err))
+		}
+	}
 }
