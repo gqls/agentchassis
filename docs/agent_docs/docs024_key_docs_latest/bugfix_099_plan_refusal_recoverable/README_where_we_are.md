@@ -110,3 +110,64 @@ image before the config change means anything, and that ordering is deliberate.
 Next: put it through the review council, build and roll the image, apply the config,
 and then prove it on the **failing** case rather than a happy one. A green run proves
 nothing here; the whole bug lives on the branch where the plan is bad.
+
+---
+
+## 2026-07-31, afternoon — it works, and the run that failed was the useful one
+
+It's live. Not because I rolled anything — I deliberately didn't, because a rebuild
+kills any review that's mid-flight and I had one running — but because my change was
+already committed, and this repo builds from whatever is committed. So somebody else's
+rebuild carried it out to the fleet without either of us doing anything. I checked it
+had really landed by looking inside the running program on both machines rather than
+trusting the version number, and it had.
+
+Then I broke a plan on purpose to watch the new machinery catch it. It did, exactly as
+designed: the broken plan was refused, the full design — about ten thousand characters
+of it — was written down where a person can read it back, an operator-visible record
+was filed, and the run was handed to the new repair step. Before today all of that
+would have been a silent deletion.
+
+And then the run died anyway, which is the most useful thing that happened.
+
+The repair produced a corrected plan and got one field's *shape* wrong — it wrote a
+list where a piece of text was expected. I had decided earlier that this kind of
+mistake should be fatal, lumping it in with "the model ran out of room and stopped
+mid-sentence". Those are not the same thing at all. One is a half-finished answer that
+it would be daft to retry; the other is a complete answer in the wrong format, which
+is about the most mechanically fixable error there is. So the loop saved the design,
+recorded it, handed it back — and then threw the run away for a reason it should have
+been able to fix.
+
+That boundary was my own assumption, which is exactly why none of my fifteen tests
+could have caught it. A test only checks the line you drew. It took one real run
+against the real system to show that the single most likely repair failure was the one
+case I'd ruled out. It's fixed now, and waiting on the next rebuild.
+
+Something I want to flag, because it's a pattern rather than an incident: **three
+separate times today a check would have told me everything was fine for a reason that
+had nothing to do with what I was checking.** The bug report's own instructions for
+verifying a fix would have passed without the new code running at all. The first
+setting I chose to trigger the test turned out not to trigger anything, and I only
+found that by going and reading what the system actually produces instead of assuming.
+And the string I used to prove the deployment had landed came back zero — not because
+the deployment failed, but because my own edit had removed that exact string. I'd have
+gone hunting a build problem that didn't exist if I hadn't checked a second string at
+the same time.
+
+None of those were caught by being careful. They were caught by measuring the specific
+thing rather than the thing next to it, which is slower and is the only method that
+works.
+
+One more, on how this place runs: I had two jobs going and another session rebuilt the
+fleet underneath them. Both died instantly, and neither reported an error — they just
+sat there looking busy with a timestamp that had stopped moving. I'd deliberately
+avoided rebuilding, to protect exactly those jobs, and it made no difference, because
+the rebuild that kills your work doesn't have to be yours. There's nothing to fix
+there, it's just how a shared machine works, but it's worth knowing before you plan
+around a long-running job.
+
+I'm not closing the bug yet. The mechanism is live and I've watched every part of it
+work. But I haven't yet seen a repair go all the way through and save a design in
+production, and "the plumbing works" isn't the same claim as "it saved something".
+That needs the next rebuild and one more deliberate break.
