@@ -78,6 +78,12 @@ TARGETS = [
      "peak 96.6% of 8000 over 89 calls (34 attributable)"),
     ("council-gate",     "review_improvement_guardian",
      "same seat, mirrored roster"),
+    ("fix-proposer",     "review_debug_historian",
+     "ADDED 2026-07-31 by the alert, not by hand: peak 99.8% of 8000 over 283 calls "
+     "(128 attributable) at a p95 of only 62.2% — a long thin tail, and the case the "
+     "near-miss threshold exists for. A p95 rule would never have seen it"),
+    ("council-gate",     "review_debug_historian",
+     "same seat, mirrored roster"),
 ]
 
 # The block. One copy, here. Inserted immediately before the "## Output" heading,

@@ -253,3 +253,36 @@ The residual asymmetry worth knowing: my `fix-loop.md` register ENTRIES are in m
 commit `8387a9c44` while the matching `000_concept_index.md` ROWS are in theirs, so
 the register's two halves for FIX-058/059 are split across two commits by two threads.
 Both are present and consistent; only `git log` on either file misleads.
+
+### 2026-07-31 — the alert paid for itself in 18 hours, and it paid on the threshold I nearly didn't build
+
+Four ticks after being switched on, the task had written **2 notes, 2 distinct flag
+sets** — so both halves of the design are now proven in production rather than argued:
+the identical set at 21:21 and 03:21 wrote **nothing** (dedup by digest holds across
+ticks), and the changed set at 09:21 spoke (an event, not a heartbeat).
+
+**What changed is the interesting part.** A new seat crossed:
+
+```
+N  review_debug_historian@8000 — n=283 (holder 128), p95 62.2%, peak 99.8%, truncated 0
+```
+
+**Peak 99.8% of cap at a p95 of 62.2%.** A review came within ~16 tokens of being cut
+off, on a seat whose typical output uses under two-thirds of its budget — 128 of those
+calls attributable, so this is measurement and not inference. A p95-only rule would
+have rated it 62.2% and said nothing, for ever.
+
+That is the threshold split earning itself on live data less than a day after I
+hesitated over whether two named thresholds were over-engineering. The reasoning I
+wrote at the time — *truncation is a tail event, so the maximum is the primary signal
+and the body of the distribution is a different question* — turns out to be the whole
+value of the instrument. **Worth noting against my own habits: this is the opposite of
+the day's two missteps.** Those were places where reasoning ran ahead of measurement;
+this was a place where reasoning about the SHAPE of a risk (tail, not body) correctly
+told me which measurement to take. The distinction is not "trust reasoning less" — it
+is that reasoning is for choosing the question and measurement is for answering it, and
+both of yesterday's errors were reasoning answering.
+
+Added `review_debug_historian` to the length-budget script's targets on fix-proposer +
+council-gate, which exercises the claim that adding a target is one line — the first
+target this lane did not choose by hand.
