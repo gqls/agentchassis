@@ -5,6 +5,18 @@ newly-generated icon assets to dartsonline.com.
 **Severity:** High. Silent data corruption — `success:true`, no error anywhere, wrong
 image served with a green light.
 **Status:** OPEN, unowned.
+**Diagnosis-loop verification (2026-07-31):** run via `090_TRIGGER_needs_diagnosis_v1.sh`
+(`RUN_CORRELATION_ID=0dd9aee4-2982-4b36-9857-0b037c40851e`, item_key
+`needs_diagnosis:deploy-image-asset-purpose-not-assetid`) — **CONFIRMED**, iteration 1.
+The loop independently re-read `resolveStorageURIFromAsset` and `StoreAssetAction` and
+cited the same lines this file does (`uriKey := purpose + "_uri"`; the
+`content_data->>$2 ... WHERE a.id = $1` query; `updateContentDataField(purpose+"_uri", ...)`).
+**Caveat, stated rather than glossed over:** its "state" evidence tier cites this
+session's own retry work-item summaries (e.g. "bypasses purpose-keyed shared-lookup
+bug") — text written by the same investigation, not independently discovered. The
+code re-read is the genuinely independent part; the state evidence is corroboration,
+not a blind replication. Filed per RFC_005 §3.1 (apply the existing diagnosis-loop
+discipline to a durable, cross-cutting claim before treating it as settled).
 
 ---
 
