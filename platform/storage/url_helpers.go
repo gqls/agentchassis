@@ -200,8 +200,9 @@ var ImagePurposes = map[string]struct {
 	// Brand head assets derived from the logo (Phase I1): favicon is a small
 	// square PNG; og_card is the 1200×630 social card. The derivation action
 	// (derive_brand_head_assets) writes fixed filenames favicon.png /
-	// og-card.png directly, so these entries exist for GetImageConfig
-	// completeness and any future re-optimisation pass.
+	// og-card.png directly — see BrandHeadAssetPaths below, which is the one
+	// declaration of those filenames — so these entries exist for
+	// GetImageConfig completeness and any future re-optimisation pass.
 	"favicon": {64, 64, 90, "png"},
 	"og_card": {1200, 630, 85, "png"},
 	// Sprite sheet (Phase I2): fixed 768×768 so a 3×3 grid gives known
@@ -221,6 +222,44 @@ var ImagePurposes = map[string]struct {
 	// no encoder in the codebase.)
 	"card":    {800, 450, 78, "jpg"},
 	"default": {1200, 800, 85, "jpg"},
+}
+
+// BrandHeadAssetPaths maps each brand-head asset purpose to the site-relative
+// path the artefact is published at.
+//
+// WHY THIS EXISTS (bugs_open/142). These two artefacts are unlike every other
+// image the platform generates: they are referenced from the site HEAD, which
+// `injectBrandHeadTags` writes into `site_components`, and NEVER from a page
+// component. Anything asking "is this site's og card deployed?" therefore has
+// to know the exact published filename, and the filename is not derivable from
+// the purpose — `og_card` publishes as `og-card.png`, with a hyphen. Before
+// this map, that pair of strings was spelled as a literal in four places in
+// derive_brand_head_assets_action.go and twice more in injectBrandHeadTags, and
+// the undeployed-asset discovery check reconstructed a THIRD spelling from the
+// purpose and got it wrong. Two hand-maintained copies of one string that must
+// stay identical is the drift class this repo keeps paying for.
+//
+// The deriver still spells its own literals; TestBrandHeadAssetPathsMatchTheDeriver
+// (discovery_checks package) scans that file and fails the build if it publishes
+// a brand-head path this map does not carry. Adopting the map inside the deriver
+// is left to that file's owning lane — it was being actively edited for
+// bugs_open/143 when this went in, and two sessions in one file is the one
+// collision no hook can prevent.
+//
+// Keys are `assets.purpose` values; values are site-relative, leading slash
+// included, exactly as they appear in the rendered head.
+var BrandHeadAssetPaths = map[string]string{
+	"favicon": "/" + DefaultAssetBasePath + "/favicon.png",
+	"og_card": "/" + DefaultAssetBasePath + "/og-card.png",
+}
+
+// IsBrandHeadPurpose reports whether an asset purpose is a brand-head artefact —
+// i.e. one whose deployed reference lives in the site head rather than in any
+// page component. Callers reasoning about "is this deployed?" must branch on
+// this: the evidence lives in a different table for these two.
+func IsBrandHeadPurpose(purpose string) bool {
+	_, ok := BrandHeadAssetPaths[purpose]
+	return ok
 }
 
 // GetImageConfig returns the configuration for an image purpose
