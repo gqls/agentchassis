@@ -14992,3 +14992,24 @@ assertion in prose.
   filing INTO.** Merged my new facts into theirs and deleted mine — a duplicate entry
   is worse than none, because two entries on one trap make the corpus look larger and
   read shallower.
+- **I called a dispatch lane "alive, slow" from the gap since ONE reading, wrote it
+  into a handoff, and re-measuring inverted it — the lane had been dead the whole
+  time.** 2026-07-31, verifying `bugs_open/154`. My item sat at `triaged`; I checked
+  liveness, saw `build-dispatch-loop` had last claimed **28 minutes ago**, and
+  concluded the lane was working through a backlog and my item was waiting its turn.
+  I wrote that into `NOTES` and a cold-start `HANDOFF`. Twenty minutes later, asking
+  a *different* question — "which sites has it claimed recently?" — returned two
+  sites and a **last claim of 20:33Z, ~90 minutes earlier**, with
+  `build-pipeline-trigger` firing every 120s and completing, zero stuck claims
+  fleet-wide, and the target site unlocked with 36 eligible items. Not a backlog: a
+  **fleet-wide claim drought**. **The cheap check: read the ABSOLUTE last-claim
+  timestamp, not the gap since whenever you happened to look** — "28 minutes ago"
+  and "dead since 20:33" are the same measurement, and only one of them is a
+  duration you can reason about. A gap is anchored to *now*, so it silently
+  redefines itself every time you re-read it, and 28 minutes reads as a lull while
+  90 reads as an outage. Compounding it: I had read the *same day's* entry above
+  about `GROUP BY claimed_by`, applied that lesson correctly, and still got the
+  answer wrong — because I fixed the **population** of the query and left the
+  **time anchor** unexamined. Fixing one axis of a measurement does not make the
+  others sound. Caught only because the item's continued silence stopped matching
+  my story and I went looking for a second explanation.

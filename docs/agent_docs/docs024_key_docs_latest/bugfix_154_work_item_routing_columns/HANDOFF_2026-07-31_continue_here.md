@@ -7,8 +7,14 @@ Cold-start doc: read this first, then `NOTES_…` for the evidence trail.
 
 **Both halves of the fix are LIVE and verified. `154` is ONE observation away
 from closing** — a single dispatched `tool-auditor` item clearing `load_tool`.
-It is queued and correctly ranked; it is waiting on the dispatch loop's
-site selection, which is arbitrary and slow, not on anything broken.
+The item is reset, queued and correctly ranked (2 of 36, inside the loop's window).
+
+**That observation is BLOCKED, and not by anything in this bug:** nothing has been
+claimed anywhere on the fleet for ~90 minutes, while `build-pipeline-trigger`
+fires every 120s and completes and no site is blocked. Almost certainly
+`bugs_open/029`, which a session is already working. See "Why it has not fired"
+below before drawing any conclusion from the item still sitting at `triaged` —
+it is evidence about dispatch, not about this fix.
 
 ## What the bug was (30 seconds)
 
@@ -67,18 +73,53 @@ Pre-state for change-detection on the component the fixer will rewrite:
 `c345a76a` `tool-bayesian-ranking`, `md5=5de92eba982c30315b3886096b52dd87`,
 9158 bytes, `updated_at=2026-07-29 18:48:23Z`.
 
-### Why it has not fired yet — checked, and it is NOT the fix
+### Why it has not fired — it is NOT this fix, and NOT ordinary slowness
+
+> **CORRECTED 22:10, same session.** I first wrote that the dispatch lane was
+> "alive, slow" and the item was waiting its turn. **That reading was already
+> stale as I wrote it, and re-measuring inverted it.** The 28-minute gap I cited
+> was not a lull — it was the *start* of a stall that is still going.
 
 | check | result |
 |---|---|
-| dispatch lane alive? | `build-dispatch-loop` last claimed 28 min before the check — alive, slow |
+| item reachable? | **rank 2 of 36** dispatchable, inside the loop's `max_items: 5` — fine |
 | site blocked? | `gamesdesign.co.uk` unlocked, `deployed`, **0** `claimed` items ⇒ not the `NOT EXISTS` whole-site blocker |
-| item reachable? | **rank 2 of 36** dispatchable, inside the loop's `max_items: 5` |
+| stuck claims anywhere? | **0 rows fleet-wide** — no site is excluded by a stale claim |
+| `build-pipeline-trigger` alive? | **enabled, fired 1 min ago, completed** — every 120s, healthy |
+| anything claimed recently? | **NOTHING fleet-wide for ~90 min.** Last: `dartsonline.com` ×9 at 20:33Z, `finetuning.uk` ×1 at 20:04Z, then silence |
 
-It is waiting on `find_dispatchable_site` choosing this site — one site per tick,
-effectively arbitrary (WDS-002). **Use `GROUP BY claimed_by`** when checking
-dispatch liveness; a bare `max(claimed_at)` reports another lane's diagnosis run
-and reads as healthy (see `WRONG_CALLS.md`, same day).
+**The trigger fires on schedule and completes, no site is blocked, work is queued
+and eligible — and nothing is being claimed anywhere.** That is a dispatch defect
+and it is **not** in `154`'s scope: my change is in `LoadWorkItemsAction`, which
+runs *after* a site is selected and cannot stop a selection happening. It cannot
+produce a fleet-wide claim drought, and the drought **pre-dates the config apply**
+(last claim 20:33Z, migration applied ~21:45Z).
+
+**Do NOT diagnose it here — it is very likely `bugs_open/029`
+(`hung_spawns_saturate_dispatch_group_and_halt_builds_fleetwide`), that shape
+exactly, and a session is already on dispatch** (untracked in the tree as I write:
+`bugfix_029_dispatch_gate/PLAN_2026-07-26_dispatch_gate.md`,
+`sql_for_agents/213_dispatch_gate_matches_dispatcher.sql`,
+`214_build_dispatch_watchdog.sql`). Hand them the measurement above; do not
+compete with a second diagnosis.
+
+**Consequence for `154`:** the last verification step is blocked on a **separate,
+already-owned** bug, not on anything unresolved here. The item stays queued and
+correctly ranked and should go on its own once dispatch recovers. Two ways to
+finish:
+
+1. **Wait** — re-run the status query above once claims are moving again.
+2. **Judge it sufficient without the live dispatch.** Defensible on what is
+   already collected (coalesce in both binaries, mapping reads the column path,
+   induced-fault test over the exact column-only shape, all four items' ids
+   satisfying every clause of `load_tool`'s query) — but if you take this route,
+   **say in the close that no live dispatch was observed.** An unwitnessed step
+   recorded as witnessed is precisely what these bug files exist to prevent.
+
+**Use `GROUP BY claimed_by`** for dispatch liveness — a bare `max(claimed_at)`
+reports another lane's diagnosis run and reads healthy (`WRONG_CALLS.md`, same
+day) — and read the *absolute last claim time*, not the gap since one arbitrary
+reading, which is the error corrected above.
 
 ## Then close it
 
