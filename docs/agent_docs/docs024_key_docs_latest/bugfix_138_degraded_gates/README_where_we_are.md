@@ -76,3 +76,65 @@ query was looking in the wrong place in the config and was quietly answering a
 different question. Three of them had been raised already. Nothing was lost, but
 it is a good example of the way a bad check does not fail — it just tells you
 something plausible.
+
+---
+
+**2026-07-30 — the other two fixes, and one of them turned out not to be needed.**
+
+Yesterday's fix is live. The binary in both chassis pods now carries the new
+wording, and two council rounds have actually run through it — one of them a real
+"revise" that correctly named the seat with the genuine objection rather than a
+truncated one. So the thing we were worried about — a round blocked by a seat that
+merely ran out of room, looking exactly like a round blocked by a considered
+objection — now says which it was, in production. The one part still unproven is the
+message you see when it IS a truncation, because no round since the roll has had
+one. That is a good problem.
+
+**Candidate 2 was "alert on the rate", and the interesting part was working out
+which rate.** The obvious one — count the truncations — would have sat at zero for
+ever and told us nothing, because we'd already raised the token limit on every seat
+that had been getting cut off. But raising a limit doesn't remove the cliff, it moves
+it: this same bug caught the architecture seat truncating against its *new*, doubled
+limit within hours, purely because someone gave it a longer brief. So the measurement
+is now how CLOSE each seat is getting to its limit, which warns before the damage
+instead of counting it afterwards.
+
+There are two halves. One is a report anybody can run. The other runs itself every
+six hours, costs nothing (no AI involved — it's a single database query), and leaves
+a note only when something changes. It fired within a minute of being switched on and
+found five seats worth looking at. It is deliberately not a heartbeat: if the same
+five seats stay flagged it stays quiet, and only speaks again when the list changes.
+An alert that repeats itself every six hours gets ignored within a day.
+
+**The most useful thing it found was a gap nobody was checking.** Three of the seats
+run with the old, lower limit on one of the three councils that use them — including
+the very seat whose truncation started all this. The sync tool we have only mirrors
+two of the councils; the parity checker deliberately doesn't compare across councils,
+because councils are legitimately allowed to differ. So a fix the owner explicitly
+ruled on reached two places out of three and nothing noticed. I have not changed
+those limits: whether to raise them is the same judgement call the owner already
+made once, and on that council's own evidence the trigger hasn't been met. Flagged,
+written down, left for a decision.
+
+**Candidate 4 was mostly wrong, and finding that out was cheap.** The idea was
+sensible: truncation eats the end of a response, so put the important fields at the
+start. I checked all 51 reviewer templates and measured what actually gets lost. The
+important fields are already at the start — that's why the recovery works at all. The
+one field I was sure would be a problem (the severity grade, written last inside each
+objection, where losing it silently escalates the objection) has **never once** been
+lost: 0 out of 2,713. And moving the reasoning to the front would have made things
+worse, because it would push the objections themselves off the end — and those carry
+both what blocks the round and what the author needs to fix it.
+
+What did survive scrutiny is the *other* half of the earlier fix: telling the
+reviewer to be brief, and why. On the one seat where we tried it, the responses got
+shorter rather than just having more room. I've built that as a small script rather
+than five hand edits, aimed at the seats the new report says are actually under
+pressure. **It is written and tested but not yet switched on** — the command that
+writes to the live configuration was refused by this session's permission check, so
+that is the one thing I need from you: a yes to running it.
+
+Worth saying plainly: two of today's four hours went on measurements I got wrong
+first. I wrote a warning about a specific trap into my own query and then read the
+next result straight through it, because the wrong answer happened to make a better
+story than the right one. Both are written up where the next person will hit them.

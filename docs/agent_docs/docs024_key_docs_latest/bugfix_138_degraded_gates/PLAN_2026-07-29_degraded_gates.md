@@ -94,3 +94,69 @@ new information they have never had.
 It does not stop rounds being wasted. A truncated seat still forces a revise, by
 design. It makes the waste countable and correctly attributed, which is the
 precondition for phases 2–4 and for ever knowing whether they worked.
+
+---
+
+## Phase 2 and phase 4, decided 2026-07-30 (and phase 4 largely un-built, on purpose)
+
+### Phase 2 — the alert. The design decision was WHICH rate, not how to schedule it.
+
+> **CORRECTION to this plan's own framing.** The section above says
+> `gated_by_truncation` is "inert until someone writes the phase-2 alert", implying
+> the alert would be built on it. **It is not, and could not be usefully.** The flag
+> counts truncation gates *after* they happen, and phase 3 (the cap raises) had
+> already driven that count to ~0 on every seat that had ever produced one. An alert
+> on it would have been silent by construction — the kind of mechanism the owner
+> priced correctly on 2026-07-29 as rotting unexercised. The flag still earns its
+> place: it makes an individual round *legible*, which is what phase 1 was for, and
+> section 3 of the report reads it. It is just not the alerting signal.
+
+Built on **headroom** instead — `output_tokens` as a fraction of the seat's current
+cap — because it warns *before* the damage rather than counting it after. Two named
+thresholds, both anchored on the live distribution rather than chosen:
+
+- **near-miss**, peak ≥ 95% of cap: truncation is a tail event, so the maximum is the
+  primary signal.
+- **pressure**, p95 ≥ 85% of cap: the body of the distribution near the ceiling.
+
+Keeping them separate was load-bearing, not cosmetic — under a p95-only rule the two
+flagged pairs had 4 attributable calls each while `review_guardian` (278 calls, 118
+attributable, peak 99.2%) read "ok".
+
+Two halves, sharing no threshold: a pull report, and a **CTE-only scheduled task**
+(`fire_message=false`, so the `pre_query` *is* the work — no message, no
+orchestration, no LLM, no credits). Deduplicated by an md5 of the flagged set in
+`subject_key`, so it is an **event, not a heartbeat**: a persisting condition speaks
+once, an escalation speaks again. A six-hourly identical note is ignored within a day.
+
+**Deliberately left undone:** the near-miss margin is a flat 5% of cap, which is 400
+tokens at 8000 and 800 at 16000 — probably wrong, since the risk is closer to
+absolute than proportional. Every 16000-cap seat currently sits below 63%, so the
+question has no live consequence and a rule chosen now would be a guess. Revisit when
+a 16000-cap seat first crosses.
+
+### Phase 4 — mostly REFUTED by measurement, which is the cheapest outcome available
+
+Filed as "emit the load-bearing field FIRST in every seat's output schema". Surveyed
+all 51 live templates and measured what truncation destroys. Three of the four
+expected findings do not hold: the head is already correct in 51 of 51; **0 of 2,713**
+stored objections lack a severity, so the severity-last theory never fires; moving
+`notes` forward would push `objections` — 80% truncation-survival, carrying both the
+gate's severities and the proposer's revision content — into the tail instead. The
+guardian-veto risk is real and has **0 instances in 15 vetoes**.
+
+The severity one is worth keeping in view: every step of that argument is true and the
+rate is zero. **A mechanism that is real at every step can still never fire.** Reasoning
+would have shipped a fix for it; one count did not.
+
+So the reorder is a per-seat judgement about a seat's own remit — which is exactly what
+`review_architecture` already is — and NOT a fleet rule. What generalises is the length
+budget, built as `scripts/apply-seat-length-budget.py`: one copy of the block,
+idempotent, refuses to overwrite a hand-authored one, snapshot-then-write, scoped to the
+seats the phase-2 report flags with attributable evidence. It follows the owner's own
+criterion for the sibling change (act where it is measured, not everywhere it is
+imaginable) with the leading indicator substituted for the lagging one.
+
+**Not applied.** The live config write was refused by the session's permission
+classifier, so the block is in git and not in the fleet. That is a permission gate, not
+a design doubt — recorded here so the gap cannot be mistaken for a completed phase.

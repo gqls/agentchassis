@@ -138,3 +138,97 @@ because the whole value of that condition is that it stops a seam becoming
 folklore, and a seam registered ten minutes late by the same thread is the *near*
 miss, not the safe case — the thread that forgets is usually the one that has
 moved on.
+
+---
+
+## 2026-07-30 — candidates 2 and 4. Two measurements went wrong before they went right.
+
+### Candidate 1 is now LIVE and verified at the pod, which was owed from yesterday
+
+Both replicas of `agent-chassis-785d5499c6` (yesterday's pre-roll pod was
+`agent-chassis-6fd7d88c4d-f6pgj`, a different replicaset, so this was a real roll):
+
+| marker | pre-roll 07-29 | now |
+|---|---|---|
+| `gated_by_truncation` | 0 | **1** |
+| `gating TRUNCATED objection from` | 0 | **1** |
+| `all reviewers approve` | 1 | 1 — control |
+| `gating objection from` | 1 | 1 — control |
+
+Both controls non-zero **in the same exec**, which is what makes the two zeros→ones
+readable at all (this change deletes no string, so there is no delete-marker).
+
+And it has RUN, not merely shipped: two reports now carry the field, both `false`,
+one of them `gating objection from prior_art_librarian` at 14:50 today — a genuine
+merits gate, so the *preference* rule (name the merits seat, not the truncated one)
+is exercised live and not only in the unit tests. **What is still unproven live is
+the `true` branch**: no post-roll round has had a truncated gating seat. Unit-tested
+(7 cases), and the persistence path is proven by the two `false` rows, so what
+remains unproven is the wording. Catch it when it happens rather than inducing it:
+
+```sql
+SELECT created_at, body::jsonb->>'decided_by' FROM diagnosis_artifacts
+WHERE kind='council_report' AND metadata->>'gated_by_truncation'='true'
+ORDER BY created_at DESC LIMIT 5;
+```
+
+### MISSTEP 1 — I flagged a trap in a comment and then walked into it 30 seconds later
+
+Measuring headroom as `output_tokens/max_tokens`, I noted in my own working query
+that `max(max_tokens)` is the *highest* cap in the window and that caps had been
+raised mid-window. Then I read the very next result as
+"`council-gate/review_editquality` is at p95 **95.1% of a 16000 cap** — the raise
+created NO headroom, the seat just wrote longer!" and started drafting that as a
+finding, because it was a dramatic result that fitted the story.
+
+It was an artefact of exactly the trap I had just written down. The p95 was computed
+over rows at BOTH caps; the 8000-cap rows sat at ~95% of *8000*, and the displayed
+denominator was 16000. The 16000-cap rows peak at **62.9%**. The raise worked.
+
+The fix is to filter to the seat's CURRENT live cap, which is what the shipped
+report does. The lesson is not about SQL: **naming a trap is not avoiding it**, and
+a result that flatters the narrative you are already holding is the one to re-derive
+first. Logged in `WRONG_CALLS.md`.
+
+### MISSTEP 2 — the wrong-depth JSON path, again, one field over
+
+Yesterday's runbook §4 warns that the cap is at `config.ai_service.max_tokens`, not
+`config.max_tokens`. So today I read prompts from `config.ai_service.prompt_template`
+— and got `prompt_template IS NULL` for **all 51 live seats**, a beautifully uniform
+answer that reads as "these seats have no prompts". `prompt_template` is a SIBLING of
+`ai_service`, at `config.prompt_template`. The cap is nested; the prompt is not.
+
+Same silent-zero family as yesterday, and the near-repeat is the point: knowing the
+*rule* ("watch the depth") did not help, because the rule does not say WHICH keys are
+nested. Runbook §4 now names both paths together, which is the only form of that
+warning that would have stopped me.
+
+### Candidate 4: the premise is right, the fleet-wide prescription was already met
+
+Filed as "emit the load-bearing field FIRST in every seat's output schema". I
+surveyed all 51 live templates and measured what truncation actually destroys, and
+three parts of the expected answer are **refuted**:
+
+| claim | measurement | verdict |
+|---|---|---|
+| the head is wrong | `reviewer`,`verdict` are first in **51 of 51** | already right |
+| `severity` last inside an objection loses grades | **0 of 2,713** stored objections ungraded | REFUTED |
+| `notes` should move to the head fleet-wide | notes survives 2/30 truncations (6.7%) vs 3,067/3,076 (99.7%) — but objections survive **80%** of truncations and carry both the severities the gate reads and the content the proposer revises against | would make it WORSE |
+| guardian's veto needs its contained alternative saved | **15 vetoes all-history, 0 degraded, 0 empty notes** | no observed instances |
+
+The severity one is the one I would have got wrong by reasoning: `severity` really is
+last inside each objection, a cut inside the long `problem` text really would lose
+it, and an ungraded objection really does gate. It just never happens — the repair
+keeps a whole objection or drops it. **A mechanism that is real at every step can
+still have a zero rate, and only the count tells you.**
+
+So there is no ordering that saves everything. The current order already sacrifices
+the cheapest field, and `review_architecture` is the exception *because its own remit*
+puts the mandated signal in notes — a seat-by-seat judgement, not a rule.
+
+What generalises is the OTHER half of the architecture fix: the **length budget**,
+the half the evidence credits (outputs got shorter — peak 4,443 tokens, 28% of the
+new cap — rather than merely having a higher ceiling). Deliberately NOT generalising
+its "at most 3 objections" clause: budgeting coverage across every council would
+lose real objections invisibly. The shipped block budgets prose and says explicitly
+to cut words, never findings.

@@ -115,11 +115,21 @@ WHERE a.type IN ('fix-proposer','council-gate')
 GROUP BY s.key ORDER BY 2 DESC NULLS LAST, 1;
 ```
 
-> **GOTCHA — it is `config.ai_service.max_tokens`, NOT `config.max_tokens`.**
-> Querying the wrong depth does not error: it returns a confident `(unset→default)`
-> for **every** seat, which reads exactly like "nobody has ever right-sized these"
-> and is completely false. I nearly recorded editquality as unfixed on that output.
-> A wrong-depth JSON path is a silent-zero trap, same family as
+> **GOTCHA — the two keys you need are at DIFFERENT depths, and neither wrong path
+> errors.** Learn them as a pair or you will get one of them wrong:
+>
+> | what | path |
+> |---|---|
+> | token cap | `config` → **`ai_service`** → `max_tokens` |
+> | prompt | `config` → `prompt_template` (a SIBLING of `ai_service`, not inside it) |
+>
+> Querying either at the wrong depth returns a confident uniform answer for **every**
+> seat instead of failing: `(unset→default)` for the cap, which reads as "nobody has
+> ever right-sized these", and `NULL` for the prompt, which reads as "these 51 seats
+> have no prompts". I nearly recorded editquality as unfixed on the first (2026-07-29)
+> and did briefly believe the second (2026-07-30) — **the second happened while
+> knowing about the first**, because "watch the depth" does not tell you which keys
+> are nested. That is why the table above gives both. Silent-zero family, same as
 > `[[a-count-you-kept-is-not-a-census]]`.
 
 ## 5. Build & test when the working tree is broken by another session
@@ -186,3 +196,110 @@ echo "gating objection from : $(strings /app/agent-chassis | grep -c "gating obj
 > **And a green round proves nothing about the failing branch.** To prove the
 > TRUNCATED wording, induce it: drop a scratch seat's `config.ai_service.max_tokens`
 > to ~500 and run one round.
+
+## 7. HEADROOM — the leading indicator, and the two ways to compute it wrongly
+
+Truncation counts are the lagging indicator and they read ~0 once the caps have been
+raised. What predicts the next truncation is how close a seat's output already gets
+to its cap. Both traps below produce plausible numbers, not errors.
+
+```sql
+WITH live AS (
+  SELECT a.type AS council, s.key AS seat,
+         (s.value->'config'->'ai_service'->>'max_tokens')::int AS cap
+  FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+  WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+    AND s.key LIKE 'review_%'
+    AND (s.value->'config'->'ai_service'->>'max_tokens') IS NOT NULL
+), pairs AS (
+  SELECT seat, cap, string_agg(DISTINCT council, ',') AS councils FROM live GROUP BY 1,2
+), calls AS (
+  SELECT step_name AS seat, max_tokens AS cap, agent_type,
+         output_tokens::numeric / max_tokens AS frac
+  FROM llm_call_log
+  WHERE created_at > now() - interval '14 days' AND step_name LIKE 'review_%'
+    AND max_tokens > 0 AND output_tokens IS NOT NULL
+)
+SELECT p.seat, p.cap, count(c.frac) AS n,
+       count(c.frac) FILTER (WHERE c.agent_type = ANY(string_to_array(p.councils,','))) AS n_holder,
+       round(100*(percentile_cont(0.95) WITHIN GROUP (ORDER BY c.frac))::numeric,1) AS p95_pct,
+       round(100*max(c.frac),1) AS peak_pct,
+       count(*) FILTER (WHERE c.frac >= 1) AS truncated
+FROM pairs p LEFT JOIN calls c ON c.seat = p.seat AND c.cap = p.cap
+GROUP BY 1,2 ORDER BY peak_pct DESC NULLS LAST;
+```
+
+> **GOTCHA — THE DENOMINATOR CHANGES INSIDE THE WINDOW, and mixing caps invents a
+> finding.** `llm_call_log.max_tokens` is per call. editquality went 8000→16000 on
+> 07-28, guidelines and prior_art on 07-29. Compute the ratio PER ROW and join on
+> `c.cap = p.cap` so only calls at the seat's *current* cap count. Take the p95 of a
+> mixed population and you get "editquality is at 95% of a 16000 cap" — an artefact
+> of 8000-cap rows, when the 16000 rows peak at 62.9%. I drafted that as a headline
+> finding ("the raise created no headroom!") minutes after writing this warning in my
+> own query. See `WRONG_CALLS.md`, 2026-07-30.
+>
+> **GOTCHA — `agent_type` CANNOT tell you which council made the call.** Every review
+> call before 2026-07-26 14:54 logged `agent_type='generic'`; from 15:03 the same
+> calls log `council-gate`; `fix-proposer` has **never** appeared. So a per-council
+> split silently cuts its own history at that relabelling, and `WHERE
+> agent_type='council-gate'` discards 1,798 rows. Key on **(seat, cap)** — the unit
+> the risk belongs to — and use `n_holder` to say how much of the population is
+> actually attributable to a council still holding that cap. It is exact for
+> feature-designer and the experience councils, a LOWER BOUND for the fix lane.
+>
+> **Why peak AND p95.** Truncation is a tail event, so the maximum is the primary
+> signal: `review_guardian` sits at p95 81.8% (unremarkable) with a peak of 99.2%
+> over 278 calls — one review that came within 64 tokens of being cut. A p95-only
+> rule rates it "ok" and flags two pairs whose evidence is 4 calls each.
+
+## 8. The two live instruments (candidate 2, 2026-07-30)
+
+```bash
+# pull: the full table, any time, with its own honest limits in the header
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/104_REPORT_seat_token_pressure_v1.sh [days]
+```
+
+```sql
+-- push: the CTE-only scheduled task (no LLM, no message, no credits) and its notes
+SELECT name, interval_seconds, enabled, fire_message, last_triggered_at
+FROM scheduled_tasks WHERE name='council-seat-token-pressure';
+
+SELECT created_at, subject_key, body FROM doc_notes
+WHERE categories ? 'seat-token-pressure' ORDER BY created_at DESC LIMIT 5;
+```
+
+> **The task is an EVENT, not a heartbeat.** `subject_key` holds an md5 of the flagged
+> set, and the insert is skipped if a note with that key already exists (30-day
+> look-back). A persisting condition is announced once; a new seat crossing, or one
+> escalating near-miss→truncated, changes the digest and speaks again. Before trusting
+> a quiet week, check `last_triggered_at` is recent — silence from a task that stopped
+> running looks exactly like silence from a healthy fleet.
+>
+> **The thresholds live in the task's `pre_query` and NOWHERE else.** The report
+> prints numbers and points at it. Two copies of a threshold is the drift class 099
+> and 102 exist to fight.
+>
+> **Prove the no-op branch, not just the firing branch.** Substituting impossible
+> thresholds into the pre_query must return **zero rows** — that is the path the
+> scheduler takes 23 hours out of 24, and an aggregate over an empty set still returns
+> one row, so the `n_flagged > 0` guard is doing real work.
+
+## 9. Reading a seat's output-schema field order (candidate 4's survey)
+
+```sql
+WITH t AS (
+  SELECT a.type AS council, s.key AS seat, s.value->'config'->>'prompt_template' AS p
+  FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+  WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+    AND s.key LIKE 'review_%'
+)
+SELECT council, seat, array_to_string(ARRAY(
+         SELECT m[1] FROM regexp_matches(substring(p from position('## Output' in p)),
+                                         '"([a-z_]+)"\s*:', 'g') AS m), ',') AS key_order
+FROM t ORDER BY 1,2;
+```
+
+> `## Output` is the only anchor present in all 51 templates, which is why the
+> length-budget script inserts against it. Note the nested keys come out inline
+> (`objections,edit,problem,severity`) — that is a feature: it shows the order INSIDE
+> an objection, which is where the severity-loss theory lived until it was refuted.

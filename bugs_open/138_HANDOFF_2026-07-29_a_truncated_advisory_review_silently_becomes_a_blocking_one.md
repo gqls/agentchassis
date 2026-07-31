@@ -420,3 +420,153 @@ something you expect to be there reads non-zero in the same command. Recipe in
 > this defect is about *recording* review status, and under D the trailer still
 > could not be amended in. `3a59b5012` itself stays UNREVIEWED: forward-only, and
 > the fix is deliberately not retrospective.
+
+---
+
+## 2026-07-30 — CANDIDATE 1 IS LIVE AND VERIFIED. CANDIDATE 2 IS DONE. CANDIDATE 4 IS MOSTLY REFUTED.
+
+### Candidate 1: shipped, rolled, and running
+
+Verified at the pod on **both** replicas of `agent-chassis-785d5499c6` (yesterday's
+pre-roll pod was `agent-chassis-6fd7d88c4d-f6pgj` — a different replicaset, so this
+was a real roll, not a same-tag restart):
+
+| marker | pre-roll 07-29 | now |
+|---|---|---|
+| `gated_by_truncation` | 0 | **1** |
+| `gating TRUNCATED objection from` | 0 | **1** |
+| `all reviewers approve` | 1 | 1 — **positive control** |
+| `gating objection from` | 1 | 1 — **positive control** |
+
+Both controls read non-zero in the same exec, which is what makes the two 0→1s
+mean anything: this change deletes no string, so there is no delete-marker.
+
+It has also **run**, which the pod-grep cannot show: two `council_report` rows now
+carry the field, both `false`, and one is `gating objection from
+prior_art_librarian` (07-30 14:50) — a genuine merits gate, so the preference rule
+(name the merits seat, never the truncated one) is exercised in production and not
+only in the unit tests.
+
+**Still unproven live: the `true` branch.** No post-roll round has yet had a
+truncated gating seat. Unit-tested across 7 cases and the persistence path is proven
+by the two `false` rows, so what is unproven is the wording, not the plumbing. Watch
+for it rather than inducing an artificial round:
+
+```sql
+SELECT created_at, body::jsonb->>'decided_by' FROM diagnosis_artifacts
+WHERE kind='council_report' AND metadata->>'gated_by_truncation'='true'
+ORDER BY created_at DESC LIMIT 5;
+```
+
+### Candidate 2 — DONE. And the lagging indicator would never have fired.
+
+Two instruments, one pull and one push, both live:
+
+* **`104_REPORT_seat_token_pressure_v1.sh`** (fixloop dir) — the table, on demand.
+* **`scheduled_tasks` row `council-seat-token-pressure`** — CTE-only
+  (`fire_message=false`, so the `pre_query` IS the work: no Kafka message, no
+  orchestration, no LLM, no credits), every 6h, writing **one** `doc_notes` row when
+  the flagged set changes. Fired within a minute of being seeded and wrote its first
+  note (`categories ? 'seat-token-pressure'`).
+
+**The design point.** Counting truncations — the obvious reading of "alert on the
+rate" — would report ~0 for ever, because candidate 3 raised the cap on every seat
+that had actually truncated. That is not a closed door: a cap raise MOVES the cliff,
+which this very bug proved when `review_architecture` reintroduced truncation
+against its new 16000 cap within hours of being re-seated with a longer prompt. So
+the headline is **headroom** — `output_tokens` as a fraction of the seat's *current*
+cap — with two separately-named thresholds because they mean different things:
+
+* **near-miss**, peak ≥ 95% of cap. Truncation is a tail event, so the maximum is
+  the primary signal. Anchored on the live distribution: the two populations that
+  have truncated peak at 100% by construction, and the next peaks down are 99.2,
+  98.8, 96.6, 94.1 — the cut sits in that gap.
+* **pressure**, p95 ≥ 85% of cap. The body of the distribution near the ceiling.
+  The two truncating populations sit at p95 96.1 and 85.7; nothing below 85 has ever
+  truncated.
+
+Splitting them was not tidiness. Under a p95-only rule the two flagged rows had
+**4 attributable calls each**, while `review_guardian` — **278 calls, 118 of them
+attributable, peak 99.2% of an 8000 cap** — read "ok". A single blended threshold
+hid the row with the real evidence behind two rows built on inference.
+
+**What it flags today (2026-07-30, 14-day window):**
+
+| | seat@cap | n | n_holder | p95 | peak | trunc | cap held by |
+|---|---|---|---|---|---|---|---|
+| T | review_editquality@8000 | 227 | 4 | 96.1% | 100% | 1 | feature-designer |
+| T | review_guidelines@8000 | 142 | 4 | 85.7% | 100% | 1 | feature-designer |
+| N | review_guardian@8000 | 278 | **118** | 81.8% | **99.2%** | 0 | council-gate, feature-designer, fix-proposer |
+| N | review_prior_art@8000 | 223 | 5 | 88.3% | 98.8% | 0 | experience-approval-council |
+| N | review_improvement_guardian@8000 | 89 | 34 | 80.3% | 96.6% | 0 | council-gate, fix-proposer |
+
+**A NEW MEASUREMENT LIMIT, and it matters for every figure in this file.**
+`llm_call_log.agent_type` **cannot** tell you which council made a review call.
+Every review logged `generic` before 2026-07-26 14:54; from 15:03 the same calls log
+`council-gate`; **`fix-proposer` has never appeared at all.** So `WHERE
+agent_type='council-gate'` silently discards 1,798 rows of the same population. The
+report keys on **(seat, cap)** and reports `n_holder` — the calls labelled with a
+council that still holds that cap — which is exact for feature-designer and the
+experience councils and a lower bound for the fix lane. **Three of the five flags
+above have n_holder ≤ 5: they are inferences from a sibling council at the same cap,
+not measurements of the holder.** Stated in the report, in the note, and here.
+
+**And the flags line up with a roster gap nothing was checking.** All three
+`FLAG truncated`/low-`n_holder` rows are the LOW side of a cross-council cap
+divergence: `review_architecture`, `review_editquality` and `review_guidelines` run
+at 16000 on fix-proposer and council-gate and at **8000 on feature-designer**.
+`099_SYNC_gate_roster.py` mirrors fix-proposer→council-gate **only**; the other four
+councils are synced by nothing, and `102_LINT_council_seat_parity.py` compares each
+seat against its own council's family and deliberately declines cross-council
+comparison (councils legitimately differ). So candidate 3's owner-ruled cap raises
+reached two councils of the three holding those seats, and **the gap was invisible to
+both existing checks.** Whether to raise feature-designer's caps is an owner call
+under the same criterion the owner already used ("raise the ones that actually
+truncate") — and note feature-designer's OWN calls have never truncated (n=4 per
+seat), so on its own evidence the criterion is not met. Flagged, not actioned.
+
+### Candidate 4 — the premise holds, the fleet-wide prescription was already satisfied, and three parts are REFUTED
+
+Surveyed all **51** live `review_*` templates across 6 councils and measured what
+truncation actually destroys:
+
+| the expected finding | the measurement | verdict |
+|---|---|---|
+| the head is wrong | `reviewer`,`verdict` first in **51 of 51** — which is *why* salvage works at all | already right |
+| `severity` is last inside each objection, so a cut mid-`problem` loses the grade, and an ungraded objection GATES | **0 of 2,713** stored objections (degraded or not) lack a severity — the repair keeps a whole objection or drops it | **REFUTED** |
+| move `notes` to the head fleet-wide | notes survives 2/30 truncated reviews (6.7%) vs 3,067/3,076 complete (99.7%) — but `objections` survives **80%** and carries both the severities the gate reads and the content the proposer revises against | **would make it WORSE** |
+| guardian's veto must keep its contained alternative (its prompt mandates it in `notes`) | **15 vetoes all-history: 0 degraded, 0 with empty notes** | real risk, zero instances |
+
+The severity one is the trap. Every step of the reasoning is true — severity *is*
+last, `problem` *is* long free text, an ungraded objection *does* gate — and the rate
+is zero. **A mechanism that is real at every step can still never fire, and only the
+count tells you.**
+
+So there is no field order that saves everything: the current one already sacrifices
+the cheapest field, and `review_architecture` is the exception *because its own remit*
+puts the mandated ARCHITECTURE_SIGNAL in `notes` — which is what made that seat
+unmeasurable when it truncated. That is a seat-by-seat judgement about remit, not a
+rule about schemas.
+
+**What does generalise is the other half of the architecture fix — the LENGTH
+BUDGET**, and it is the half the evidence credits: after it the seat's outputs got
+*shorter* (peak 4,443 tokens, 28% of the new cap), rather than merely having a higher
+ceiling. Built as `scripts/apply-seat-length-budget.py` — one copy of the block,
+idempotent, marker-delimited, snapshot-then-write, targeting the seats the report
+flags with attributable evidence (`review_guardian` ×3 councils,
+`review_improvement_guardian` ×2). Deliberately **not** generalising the architecture
+block's "at most 3 objections" clause: budgeting *coverage* across every council
+would lose real objections invisibly, so the shipped block budgets prose and says
+explicitly to cut words, never findings. Classifier self-tested on all four branches
+including its refusal to overwrite a hand-authored block.
+
+> **NOT YET APPLIED — the live config write is pending permission.** The script is
+> written, dry-run clean against all five targets, and its classifier verified against
+> real seats; `--apply` was refused by this session's permission classifier. So as of
+> this entry the length budget exists in git and **not** in the fleet. One command:
+> `./scripts/apply-seat-length-budget.py --apply`.
+
+**Still open after today:** candidate 3's residue on feature-designer (an owner call,
+above), and the `true`-branch live proof for candidate 1. Candidates 2 and 4 are
+answered — 4 partly by refutation, which is a real answer and cheaper than the fix it
+replaced.
