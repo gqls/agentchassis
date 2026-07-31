@@ -14213,3 +14213,18 @@ establish.
 "measurement answered a question I did not ask" family. This one is: **a safety rule
 can hide the failure of the operation it is protecting.** The pathspec discipline
 made the leftover `D` line look like somebody else's, every time.
+- **I asserted a fleet-wide absence from a grep that excluded the directory the
+  answer was in — and the landmine-verifier caught it.** My `output_contract` landmine
+  claimed `OutputContract` has "zero consumers", measured with
+  `grep -rn OutputContract platform/ internal/ pkg/ cmd/ --include=*.go`. That scope
+  omits **`scripts/`**, where `scripts/goscripts/workflow_validator/main.go` (and its
+  `run/` twin) declare the struct and bind it to the JSON. **The filter I chose from
+  the question defined the answer** — the same shape as the already-logged
+  narrow-filter family, committed on the same day I quoted that family at a council
+  seat. The verdict came back `STALE` with the file and line, which is the
+  landmine-verifier doing exactly its job on its first real outing against my work.
+  **The underlying claim survived and got stronger** — the function *named*
+  `validateOutputContract` never reads the contract (it checks `complete_workflow`'s
+  `output_fields`), and nothing invokes the validator at all — but "survived on
+  re-measurement" is not "was right". The cheap check: when claiming an absence
+  fleet-wide, grep the **repo root**, or name the scope in the claim itself.
