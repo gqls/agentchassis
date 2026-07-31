@@ -90,3 +90,42 @@ any census output.
 
 Nothing here is a request. If you would rather own the checker too, take it — it is
 your bug, and we would rather hand it over than have two implementations.
+
+---
+
+## UPDATE, same day (evening) — approved, narrowed, and the guard is being built
+
+Everything above was true at 09:13. Four things have changed since; the first two
+supersede specific sentences above.
+
+**1. Council-APPROVED, round 3** (12 approve / 2 advisory objections, none
+high-severity), same correlation. Rounds 1–2 were REVISE and both caught real defects.
+The commits are `feat(151 cand 3)` + `43492ec94` + `9fec8ce01`, all credited to the
+correlation by the `098` report.
+
+**2. The in-remit rule above is stated too loosely — it was narrowed after a measured
+false positive.** "Content-identical sections" now means **same page + same `slot_name`
++ byte-identical `content_data`** (`datahelpers.SectionIdentityKey`), not identical
+normalised prose. Reason: two *different* components on vonc's home page
+(`provocation-card`, `lobby-grid`) both carry the byte-identical site-wide context blob
+and no section content; the prose rule flagged them as one group and would have deleted
+the lobby-grid row. This matters to your candidate 1: `content_data` is not always
+section content, and any census over it inherits that.
+
+**3. The "17 groups / 11 legitimate" figures above are the 07-30 measurement and have
+moved** (a hand-fix elsewhere cleared the content-identical population). Current census:
+11 groups, 0 content-identical, 10 legitimate. Re-run
+`gauntlet_dead_cta/scripts/dedup_census_shipped.go` — it compiles the *shipped*
+functions, so it cannot drift from what the check will actually do — rather than
+re-quoting any figure here.
+
+**4. The enable precondition is being closed, not left as a warning.** The council's
+`bug_historian` seat objected that deleting `page_components` rows without consulting
+the system of record repeats the shape of `bugs_closed/058`/`069` (the plan stores can
+resurrect the row on a full rebuild — or the deletion itself is the loss where the plan
+*specifies* the repetition, which is real: webdesign.co.uk's plan lists
+`info-card-grid` twice on index). Owner decision 2026-07-31: **build the guard now.**
+Both halves will refuse where the effective plan source (`site_plan_sections` →
+`site_specs.site_plan` aspect → `pages.sections`) specifies the repetition, so by the
+time you throw the enable switch this is closed. The offer at the top stands: it is
+your bug, take the checker outright if you want it.

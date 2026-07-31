@@ -194,3 +194,35 @@ Nine stale `detected` rows carry the old extension-less item key; four of them
 (`fundamentallyai:brand-illustration`, three `robot-hands:content-hero-tool-*`) were the
 **old predicate's false positives** and can be cancelled outright. Left alone here because
 `bugs_open/083`'s lane is actively working that population.
+
+## INCOMING 2026-07-31 — 151 candidate 3 is built, council-APPROVED, and INERT
+
+From the `gauntlet_dead_cta` lane. Not this lane's work to do, but the switch is yours
+to throw, so you need to know it exists — a CONTRIB has been sitting unreferenced in
+this directory since 09:13 (`CONTRIB_2026-07-31_151_candidate_3_is_built.md`, updated
+since with the approval); this section exists because a cold start would never have
+found it.
+
+- **What is built:** `check_content_duplication` (detect) +
+  `remove_duplicate_page_sections` (repair) + the `deduplicate-sections` handler agent —
+  the deterministic half of your `bugs_open/151`. In-remit is same page + **same slot +
+  byte-identical `content_data`** only; everything needing judgement (near-duplicates,
+  cross-page, shared-fact overlap — your candidate 1's territory) files ONE
+  `capability_gap` with `do_not_auto_rewrite: true` and no handler.
+- **Council-APPROVED** round 3, corr `da3f2d9b-ae6f-492d-ad3b-748323b66367` (12 approve /
+  2 advisory). Rounds 1–2 caught real defects, including a false positive that would have
+  deleted a live section from vonc's home page — the identity rule was narrowed in
+  response (`43492ec94`). Read the CONTRIB before relying on the earlier prose.
+- **INERT, and enabling is YOUR decision:** zero discovery agents name the check
+  (verified across all five workflow-bearing columns of `agent_definitions`).
+  Enabling = adding `content_duplication` to a discovery agent's check list. **The first
+  site it runs against starts deleting rows.** Today it would delete nothing anywhere
+  (measured with the shipped functions over all 1,023 live rows), but that figure goes
+  stale — re-run `gauntlet_dead_cta/scripts/dedup_census_shipped.go` before deciding.
+- **A pre-delete guard consulting the plan stores is being BUILT now** (owner decision
+  2026-07-31, answering the council's `bug_historian` seat): the repair will refuse to
+  delete where the effective plan source (`site_plan_sections` → `site_specs.site_plan`
+  aspect → `pages.sections`) itself specifies the repetition. Do not gate your enable
+  decision on the older "guard is deferred" wording in the CONTRIB's first version.
+- **Candidate 1 (assign facts to sections at plan time) is still yours**, and nothing
+  here builds or forecloses it.
