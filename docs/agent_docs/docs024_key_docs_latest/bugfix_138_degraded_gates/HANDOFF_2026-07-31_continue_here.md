@@ -22,7 +22,7 @@ the fix is to give the seat room, and the invitation is to sack it.**
 | 1 — say WHY a round gated | **LIVE, pod-verified twice** (including surviving a fresh build) | FIX-055, commit `3a59b5012` |
 | 2 — alert on the rate | **DONE, running, self-sourcing targets** | FIX-058, `104_REPORT_*` + `104_TASK_*` |
 | 3 — right-size caps | **DONE** — owner closed the last divergence 07-31 | `sql_for_agents/277` |
-| 4 — schema order / length | **reorder REFUTED; length budget applied to 10 seats and VERIFIED** | FIX-059, `scripts/apply-seat-length-budget.py` |
+| 4 — schema order / length | **reorder REFUTED as a rule; budget on 48 of 51 seats, VERIFIED to work; notes-first where a remit needs it** | FIX-059 `apply-seat-length-budget.py`, FIX-060 `reorder-seat-notes-first.py` |
 
 **The bug stays OPEN** for one reason only: candidate 1's `true` branch has never fired
 in production. No post-roll round has been gated *by a truncation*, so the TRUNCATED
