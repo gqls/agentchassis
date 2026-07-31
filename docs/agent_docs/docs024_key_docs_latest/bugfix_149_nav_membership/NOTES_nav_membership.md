@@ -199,3 +199,42 @@ That second one has a corollary I should have seen sooner: **another session rol
 the image I had built and pushed**, so my change went live at 15:00 without my doing
 anything — which is exactly what CLAUDE.md says happens on this tree, and it is why
 "hold the deploy pending review" is not available here.
+
+## 2026-07-31 (evening) — all three fixes verified on v1.0.1218, and a near-miss about somebody else's closed bugs
+
+**Verified live on `v1.0.1218`, both replicas, 18:07 UTC** — A2's marker 1, A6's marker 1,
+`navLabelSegmentFromURL` 2, the removed string **0**, positive control 1. So the label fix
+(`c053bb31f`) is now live too, shipped by another session's roll rather than mine, which
+is the third time today that has happened and is simply how this tree works.
+
+**Dispatch is still down.** Newest claim anywhere `15:52:35` (136 min before the check),
+gamesdesign still holding 34 `page_rerender` items at `triaged`, served footer unchanged.
+Note the newest claim moved from 13:21 (afternoon reading) to 15:52 — so the lane
+recovered briefly and stopped again, which is worth knowing for whoever diagnoses it and
+is more useful than "it is dead".
+
+**The near-miss, and it is the day's fourth instance of one shape.** At ~17:46 I found the
+pods running **`v1.0.1216`** — nine minutes after another session committed
+`close(145): LIVE and pod-verified on both replicas of v1.0.1217`. `git merge-base
+--is-ancestor` settled that 1216 genuinely predates their fixes by **65 commits**, so on
+that evidence two just-closed bugs had been rolled backwards into being inert again, and
+I started drafting correction banners for their `bugs_closed/` files.
+
+Then I checked the replicasets before writing: **`v1.0.1218` had been rolling since
+17:58**, and by 18:07 both pods were on it. The 1216 window was **thirteen minutes** and
+had already closed. Nothing was wrong; my alarm was an artefact of when I happened to
+look.
+
+Two things I want to keep from that:
+
+- **A cluster snapshot can go stale inside a single investigation on this tree.** I had
+  measured carefully (ancestry, not a needle) and would still have filed a false
+  correction against another lane's closed work, because the *measurement* was right and
+  the *world* moved. Re-read pod state immediately before asserting anything about it —
+  not at the start of the reasoning that leads to the assertion.
+- **My first needle for that check was from a `_test.go` file**, which is never compiled
+  into the binary, so its `grep -c` = 0 meant nothing at all. I caught it because a zero
+  from an unvalidated needle is now the thing I distrust most (three entries in
+  `WRONG_CALLS.md` today), and switching to `git merge-base --is-ancestor` answered the
+  question without a binary marker. **Ancestry beats a string grep for "is this commit in
+  that image", and it cannot be fooled by a comment or a test file.**
