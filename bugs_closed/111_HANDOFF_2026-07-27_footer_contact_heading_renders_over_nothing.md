@@ -1,5 +1,84 @@
 # 111 — the footer's "Contact" heading is ungated while its contents are gated
 
+> # CLOSED 2026-07-31 — fixed on every render surface AND verified at the served bytes fleet-wide
+>
+> The close condition this file set on 2026-07-28 was: *"Close when a regenerated
+> footer on either site renders without the bare heading."* **Both named sites now
+> do.** The delivery blocker was not fixed here — it was cleared by `bugs_closed/118`
+> repointing the fleet's chrome and re-rendering it on 2026-07-31 (19:18–19:24 UTC),
+> which is why this case sat OPEN for three days with correct code. That sequence is
+> the pattern already recorded at `016b` §9 (2026-07-29): *"A fix that ships in the
+> BINARY does not reach an artefact that was generated once."*
+>
+> **1. All three render surfaces carry the gate** (read live, not from a seed):
+>
+> | surface | gate | evidence |
+> |---|---|---|
+> | `footer-theme-chrome` (DB) — serves 12 of 14 chrome rows | `{{if or .email .phone}}` | read from `content_components.html_template`, 2026-07-31 |
+> | `footer-4-column` (DB) | gated 2026-07-27 | now serves **no** site — 118 repointed all 12 to `footer-theme-chrome` |
+> | `RenderFallbackFooter` (Go) | `if ctx.Email != ""` | `d4731109d`, **pod-verified live on `v1.0.1223`, both replicas** (below) |
+>
+> The DB gate is `or .email .phone`, not `.email` alone — so a phone-only site keeps
+> its phone. No live site is phone-only today, but the container and its contents no
+> longer disagree about what "has contact details" means.
+>
+> **2. Pod verification of the Go half.** The tag alone proves nothing
+> (`bugs_open/153`), and the marker string here is present in BOTH the old and new
+> binaries — so the discriminator is *where* it sits. In `v1.0.1223` the multi-line
+> footer template reads:
+>
+> ```
+>     <div class="footer-container">
+>         <div class="footer-brand"><h3>%s</h3><p>%s</p></div>
+>         <div class="footer-links"><h4>Links</h4><ul>%s</ul></div>
+>         %s                      <-- gated contactHTML; was the contact div inline
+>     </div>
+> ```
+>
+> `<div class="footer-contact">…` now exists only as a **standalone** constant
+> (`fmt.Sprintf` target), packed among unrelated strings. `footer-brand` /
+> `footer-links` in the same output are the positive controls.
+>
+> **3. Fleet-wide at the served bytes** — all 16 live-page domains fetched
+> 2026-07-31, `.footer-contact` extracted and tag-stripped, decoding Cloudflare's
+> `data-cfemail` rewrite (the trap this file's methodology note paid for):
+>
+> | rendered outcome | sites |
+> |---|---|
+> | populated Contact block | 10 |
+> | no Contact block at all (no contact data → gate correctly closed) | 6 |
+> | **heading over nothing** | **0** |
+>
+> The two instances this case was filed on — `gamesdesign.co.uk` (genuinely no
+> `sites.email`) and `relojistas.com` (owner's no-contact-route ruling) — render no
+> contact block on their homepages **and on deeper pages** (`/about/index.html`,
+> `/tools/index.html`, `/historia.html`, `/guias/index.html`). The residual
+> `footer-contact` hits on gamesdesign are 4 CSS rules; its two `>Contact<` hits are
+> nav links to `/contact/index.html`, not the heading.
+>
+> **4. The defect CLASS, measured — no other component has this shape.** All 208
+> component templates (159 active) were analysed by stripping every
+> `{{if|range|with}}…{{end}}` region and asking whether any container's
+> unconditional residue is a **literal** heading alone. Result: **15 containers, 0 of
+> them chrome.** All 15 are tool components (`chart-wrap`, `breakeven-section`,
+> `results-summary`, Meme Studio, Bayesian Ranking) whose bodies are filled by
+> JavaScript at runtime — legitimate, and invisible to a template-only reading.
+>
+> **5. Why no new detector was built.** A check over all components would file those
+> 15 as defects on day one. `component_write_guard.go`'s header states the governing
+> principle from its own calibration — two candidate checks were dropped there for
+> misfiring on legitimate rewrites — *"A guard that refuses good work gets switched
+> off, and then it protects nothing."* With **zero** true positives available to
+> calibrate against, a detector here would be an unexercised mechanism, and scoping it
+> narrowly enough to dodge the 15 is the inert-rule trap (`016b` §9, 2026-07-29).
+> The residual risk — the DB gate is config and no test covers it — is recorded as a
+> LANDMINE against `footer-theme-chrome` instead, which is prospective and costs nothing.
+>
+> **Not fixed here, and deliberately:** the footer's hardcoded English on every site
+> whatever its language (`Quick Links`, `Explore`, `Contact`, `All rights reserved`).
+> There is still no per-site language seam; see the "Related" section below. That is a
+> design question, not this case.
+
 > ## STATUS 2026-07-28 (bugs-sweep thread) — candidate 1 now complete across ALL render surfaces; residual is delivery, not code
 >
 > - **DB components**: `footer-theme-chrome` AND `footer-4-column` were both gated on

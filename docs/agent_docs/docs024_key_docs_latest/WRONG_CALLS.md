@@ -15112,3 +15112,58 @@ assertion in prose.
   disqualified by 71 hits on `validate_page_content` in another session's live transcript,
   while 150's only hits were a session writing its 016b index row. A verdict that fires on
   everything ranks nothing.
+
+## 2026-07-31 — closing `bugs_open/111` (footer contact heading)
+
+- **I compared `is_active::text` against `'t'` and my analysis reported 0 of 208 components
+  active.** I was measuring how widely bug 111's defect shape appears across the component
+  library, and the run printed `components with a template: 208 (active: 0)` — then listed 69
+  findings, every one labelled inactive. Had I believed it I would have closed 111 reporting
+  that the defect class was already extinct, when in fact 159 components are active and 13 of
+  the findings were on live ones. Caught only because **zero active components is impossible on
+  a fleet serving 16 live sites** — the absurdity, not the method, is what flagged it.
+  **The cheap check: `psql` prints `t`/`f` in its ALIGNED table output but `bool::text` casts to
+  `true`/`false`, so a comparison copied from what you saw on screen silently never matches.**
+  Drop the cast, or accept both spellings. The general form is worth more than the SQL detail:
+  **assert one invariant you already know about your parse — here "some components are active" —
+  before you trust anything the parse tells you.** A field that silently parses to a constant
+  looks exactly like a real finding about the world.
+
+- **I pod-grepped for a string that WAS in the binary, got 0, and briefly concluded neither the
+  old nor the new code had shipped.** Verifying `d4731109d`'s gate on `v1.0.1223` I ran
+  `strings /app/agent-chassis | grep -cx '<div class="footer-contact">…'` for the new form and
+  `grep -cE '^[[:space:]]+<div class="footer-contact">…'` for the old — **both returned 0**,
+  while the positive control `footer-brand` returned 2. That result is self-contradictory: the
+  footer must render *somehow*, so one of the two forms had to be present.
+  **The cause: the Go linker packs string constants into one contiguous rodata blob, and
+  `strings` emits runs of printable bytes — so unrelated constants share a line.** My marker was
+  genuinely there, sitting between `check adoption_plan config path` and `NormalizeSectionNames:
+  …`. Any line-anchored pattern (`grep -x`, `^`, `$`) tests where the *blob* happens to break,
+  not where your literal starts.
+  **The cheap check: pod-grep with plain substring matching (`grep -c`), never `-x` or `^`/`$`.**
+  If you need to know *where* a constant sits — which is the real question when the same literal
+  exists in both the old and new builds — print context (`grep -A 6 "<a neighbouring literal>"`)
+  and read the structure. That is what settled it here: the multi-line footer template showed
+  `%s` on the line the contact div used to occupy, which no amount of counting could have shown.
+  Sibling of the two pod-grep entries already in `LANDMINES.md` (non-ASCII splitting; a control
+  invalidated by your own diff) but a distinct mechanism, so it is filed there as its own entry.
+
+- **I read "formatting is clean" off a `gofmt` that never ran, and the transcript looked green.**
+  Verifying the 167 fix I ran, as one line:
+  `cd platform/orchestration/actions && gofmt -l <two files>; echo "--- gofmt done ---"; go test ...`
+  The `cd` **failed** — the shell was already in that directory from an earlier call, so the
+  relative path did not resolve — and `&&` therefore skipped `gofmt` **entirely**. But the `;`
+  let the rest run, and what came back was:
+  `--- gofmt done (empty=clean) ---` / `ok  github.com/gqls/agentchassis/platform/...`
+  **An empty `gofmt -l` result and a `gofmt` that was never executed are the same zero bytes**,
+  and I had written the "(empty=clean)" gloss into the echo myself, so my own label vouched for
+  a command that had not run. It only surfaced because the *next* command failed loudly on the
+  same stale cwd — i.e. by luck, on an unrelated symptom. Had the tree been formatted badly,
+  the pre-commit hook would have caught it; that is not the point. The point is I would have
+  told the owner "gofmt clean" with evidence that was structurally incapable of saying otherwise.
+  **The cheap check: a tool whose PASS is silence must never sit behind a `&&` you are not
+  also asserting on.** Use absolute paths so `cd` is not in the chain at all, and put the check
+  in the command whose failure you cannot miss. The general form — and this is the third entry
+  in this file with the same skeleton — **a check that produces no output on success cannot be
+  distinguished from a check that did not happen, so the thing you must verify is that it RAN,
+  not that it was quiet.**

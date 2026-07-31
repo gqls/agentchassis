@@ -316,3 +316,31 @@ Registered LNK-023 + CTXA-024 per the new CLAUDE.md concept-register rule. Also:
 tree switched to `087_towards_multiple_domains` mid-session (086 merged to main) —
 both fixes reachable; and the shared rerender repair is already firing for OTHER
 threads' pages (`about` ×3, `report` 6 rewritten) within two hours of deploying.
+
+## 2026-07-31 (separate lane) — 111 CLOSED, and it closed without a code change
+
+This lane left `bugs_open/111` at "candidate 1 complete across all render surfaces;
+residual is delivery, not code" on 07-28. That read was **exactly right**, and the
+delivery half was cleared three days later by someone else: `bugs_closed/118`
+repointed the fleet's chrome and re-rendered it on 07-31 19:18–19:24 UTC. Verified
+today at the served bytes across all 16 live-page domains — 10 render a populated
+Contact block, 6 render none, **0 render a heading over nothing**. Both originally
+named instances (`gamesdesign.co.uk`, `relojistas.com`) are clean on their homepages
+and on deeper pages. The Go half (`d4731109d`) is pod-verified live on `v1.0.1223`,
+both replicas.
+
+Two things worth carrying forward from the close:
+
+- **The defect CLASS was measured, not assumed.** All 208 component templates were
+  analysed by stripping every `{{if|range|with}}…{{end}}` region and asking whether a
+  container's unconditional residue is a *literal* heading alone. 15 hits, **none of
+  them chrome** — all tool components (`chart-wrap`, `breakeven-section`,
+  `results-summary`) whose bodies JavaScript fills at runtime. A detector over the
+  component library would therefore have filed 15 false positives and 0 true ones on
+  day one, which is why none was built; `component_write_guard.go`'s own calibration
+  header states the principle ("a guard that refuses good work gets switched off").
+  The protection is a LANDMINE entry against `footer-theme-chrome` instead.
+- **A dormant lane's honest "this is now delivery, not code" is a real handoff.** 111
+  needed no further diagnosis — it needed someone to notice its blocker had been
+  removed by an unrelated fix. Worth re-reading OPEN bugs whose status says "waiting on
+  X" whenever X closes.
