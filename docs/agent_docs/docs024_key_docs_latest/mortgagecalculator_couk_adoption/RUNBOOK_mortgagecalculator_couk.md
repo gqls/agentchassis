@@ -137,3 +137,52 @@ SELECT default_config->'workflow'->'steps'->'call_adopter'->'config'->'input_map
 `needs_content_page` + `needs_tool_recreation` must be **zero**. That is the
 `locked` assertion. On the recreate path those items are the *expected* output —
 their absence would mean the run did nothing. Do not copy that check across.
+
+## §7 Positioning specs — two refinements to what the handoff says
+
+Both verified in code today, before relying on them.
+
+**`audience` is not consumed, but it is not un-referenced.** Handoff §6 says the
+aspect "is read by NOTHING". Practically true — no agent, prompt or pipeline path
+reads its data. But `grep` finds exactly one hit and it is not a contradiction:
+
+```go
+// internal/core-manager/admin/spec_admin_handlers.go:226
+if aspect == "identity" || aspect == "tone" || aspect == "audience" {
+    scopeQuery += " AND COALESCE(p.page_type, '') NOT IN ('blog-post')"
+}
+```
+
+That uses the aspect **name** to decide which pages an admin operation covers. It
+never reads the spec body. Expect this hit; it does not mean the aspect is live.
+
+**`content_direction.formatted` regenerates ITSELF — but only on the action path.**
+Handoff §6.2 warns that a hand-written spec which does not regenerate `formatted`
+is invisible. True, and worth being precise about *when*:
+
+```go
+// platform/orchestration/actions/site_spec_actions.go:211-217
+// This runs for every content_direction write — classifier, adoption, HITL.
+if aspect == "content_direction" {
+    formatted := datahelpers.FormatContentDirection(specMap)
+    if formatted != "" { specMap["formatted"] = formatted }
+}
+```
+
+It runs **before the transaction**, unconditionally, for any write that goes through
+`site_spec_actions`. So:
+
+- writing the spec **through the platform's own action** → `formatted` is correct by
+  construction, and the handoff's trap cannot fire;
+- writing it with **raw SQL** (which is what the sibling's `set_divergence_specs.py`
+  does) → `formatted` is whatever you put there, and a spec that looks applied
+  changes nothing.
+
+**Prefer the action path.** If raw SQL is unavoidable, reproduce
+`datahelpers.FormatContentDirection` exactly and gate it as handoff §6.3 describes —
+compare as a **multiset of lines**, not as a string, because Go map iteration order
+is random so the stored section order is arbitrary.
+
+Schema reminders that cost time otherwise: the JSONB column is **`data`**, not
+`spec_data`; `idx_site_specs_current` is `UNIQUE (site_id, aspect) WHERE is_current`,
+so the supersede must precede the insert.
