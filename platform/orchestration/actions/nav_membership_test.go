@@ -310,6 +310,16 @@ func TestAuthoredNavLabelNeverKeepsItsCategoryPrefix(t *testing.T) {
 		{"trailing-sep", "Tools / ", "/tools/tool-arena.html", "Arena Interface", "Tools"},
 		{"trailing-sep-nospace", "Tools/", "/tools/tool-arena.html", "Arena Interface", "Tools"},
 		{"leading-sep", "/ Arena", "/tools/tool-arena.html", "Arena Interface", "Arena"},
+		// ASYMMETRIC SEPARATORS — whitespace on ONE side is enough, and that is
+		// deliberate: "Tools/ X" and "X /Tools" are the same authoring slip as
+		// "Tools / X", and the thing that must stay untouched is the intra-word
+		// slash with whitespace on NEITHER side ("A/B"). The round-4 verdict
+		// approved with a low objection that the rationale said
+		// "whitespace-delimited", which reads as both-sides, and that no case
+		// pinned the asymmetric form. It does now — the behaviour was right and
+		// only the test matrix had the gap.
+		{"asym-space-after", "Tools/ Arena", "/tools/tool-arena.html", "Arena Interface", "Arena"},
+		{"asym-space-before", "Tools /Arena", "/tools/tool-arena.html", "Arena Interface", "Arena"},
 		// Nothing but separators names no page, so the authored label is
 		// abandoned and the TITLE is used — not the separators, and not "".
 		{"only-seps", "/", "/tools/tool-arena.html", "Arena", "Arena"},
