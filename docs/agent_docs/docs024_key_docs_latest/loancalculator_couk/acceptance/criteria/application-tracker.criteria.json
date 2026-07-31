@@ -1,0 +1,106 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#save-status": "Typing..."
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#doc-id"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-address"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-income"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-bank"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-credit"
+        },
+        {
+          "action": "fill",
+          "selector": "#user-notes",
+          "value": "Probe"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#save-status": "Typing..."
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#doc-id"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-address"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-income"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-bank"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-credit"
+        },
+        {
+          "action": "fill",
+          "selector": "#user-notes",
+          "value": "Probe"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#save-status": "Typing..."
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#doc-id"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-address"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-income"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-bank"
+        },
+        {
+          "action": "click",
+          "selector": "#doc-credit"
+        },
+        {
+          "action": "fill",
+          "selector": "#user-notes",
+          "value": "Probe"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

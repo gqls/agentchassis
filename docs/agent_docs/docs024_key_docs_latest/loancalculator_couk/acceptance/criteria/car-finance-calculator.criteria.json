@@ -1,0 +1,121 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#car-monthly": "£496.75",
+        "#car-total-int": "£3844.08"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "25000"
+        },
+        {
+          "action": "fill",
+          "selector": "#deposit",
+          "value": "5000"
+        },
+        {
+          "action": "fill",
+          "selector": "#car-apr",
+          "value": "8.9"
+        },
+        {
+          "action": "fill",
+          "selector": "#car-term",
+          "value": "4"
+        },
+        {
+          "action": "fill",
+          "selector": "#balloon",
+          "value": "10000"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-hp"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#car-monthly": "£784.09",
+        "#car-total-int": "£35272.23"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "50000"
+        },
+        {
+          "action": "fill",
+          "selector": "#deposit",
+          "value": "10000"
+        },
+        {
+          "action": "fill",
+          "selector": "#car-apr",
+          "value": "17.8"
+        },
+        {
+          "action": "fill",
+          "selector": "#car-term",
+          "value": "8"
+        },
+        {
+          "action": "fill",
+          "selector": "#balloon",
+          "value": "20000"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-hp"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#car-monthly": "£436.25",
+        "#car-total-int": "£470.12"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "12500"
+        },
+        {
+          "action": "fill",
+          "selector": "#deposit",
+          "value": "2500"
+        },
+        {
+          "action": "fill",
+          "selector": "#car-apr",
+          "value": "4.45"
+        },
+        {
+          "action": "fill",
+          "selector": "#car-term",
+          "value": "2"
+        },
+        {
+          "action": "fill",
+          "selector": "#balloon",
+          "value": "5000"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-hp"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

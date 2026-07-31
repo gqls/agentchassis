@@ -70,6 +70,22 @@ var experienceCheckTiers = map[string]int{
 	// and invisible — while selector_exists passed all three at both tiers.
 	// A Tier-2 equivalent is not merely unbuilt, it is impossible.
 	"has_visible_area": 4,
+	// computed_values is Tier 4 ONLY, and that is a JUDGEMENT, not a gap.
+	// Tier 2 could confirm the anchors of its steps and its expect_values keys,
+	// exactly as it does for `interaction` — the code would be four lines. It is
+	// deliberately not there.
+	//
+	// The reason is what this check is FOR. It exists because a calculator can
+	// pass every other rung while computing nothing (2026-07-31: a page with one
+	// input, one output and no script scored RESPONDS). Giving it a Tier-2 form
+	// that passes on anchor presence would mint precisely that failure again, one
+	// rung higher and under a name that reads like arithmetic was checked. A
+	// green "computed_values" must mean the numbers were compared, and a static
+	// reader cannot compare them.
+	//
+	// So a template using it is counted executable at Tier 4 and is honestly
+	// reported as not-run when only Tier 2 has run.
+	"computed_values": 4,
 }
 
 // experienceCheckFields are the keys either checker reads off ANY check.
@@ -97,6 +113,14 @@ var experienceCheckTypeFields = map[string]map[string]bool{
 	// refuses them on any other check type, where the runner would never read
 	// them and the author would be asserting less than they think.
 	"has_visible_area": {"min_width": true, "min_height": true},
+	// computed_values carries its assertion here rather than in `expect`:
+	// `expect` is one selector plus one regexp, and this check asserts an exact
+	// string for each of many elements at once. Reusing `expect` would have
+	// meant either one check per output (forty checks for one calculator, all
+	// re-driving the same inputs) or widening a field two other check types
+	// already read — the drift class this table exists to catch.
+	// `steps` needs no entry: it is in experienceCheckFields, read off any check.
+	"computed_values": {"expect_values": true},
 }
 
 // experienceStepActions are the interaction steps the browser runner performs.

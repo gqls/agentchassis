@@ -35,9 +35,19 @@ TWO PHASES PER VECTOR, because most of these tools are paste-then-press:
 Both are recorded. `display` is captured alongside text because a tool that
 responds by revealing a hidden region changes nothing else.
 
+HANDING THE CHECK TO THE PLATFORM. A harness only I run is worth one rewrite.
+`--emit-criteria <dir>` converts a capture into `computed_values` checks — the
+Tier-4 check type added for this — which go in the tool's PLAN criteria fence and
+are then executed by the browser runner on the normal acceptance schedule,
+unprompted, for ever. This file stays the CAPTURE side (it needs no platform
+deploy to iterate on); the platform owns ENFORCEMENT. Emission runs only after
+the inert/partial gates below have passed, because criteria emitted from a broken
+tool would pin the broken answer into the acceptance record and defend it.
+
 Usage:
   python3 toolgolden.py --out golden.json  <url> [<url> ...]
   python3 toolgolden.py --compare golden.json <url> [<url> ...]
+  python3 toolgolden.py --emit-criteria <dir> <url> [<url> ...]
 
 Exit 1 on any numeric/textual divergence in --compare mode.
 """
@@ -87,7 +97,9 @@ SETUP_JS = r"""
     .filter(e => !e.disabled && /add|new|\+|another|create/i.test(
       (e.textContent || e.value || '') + ' ' + (e.id || '')));
   add.slice(0, 1).forEach(b => { b.click(); b.click(); });
-  return JSON.stringify(add.slice(0, 1).map(b => b.id || (b.textContent || '').trim().slice(0, 24)));
+  return JSON.stringify(add.slice(0, 1).map(b => ({
+    label: b.id || (b.textContent || '').trim().slice(0, 24),
+    sel: b.id ? '#' + b.id : null})));
 })()
 """
 
@@ -99,11 +111,34 @@ SETUP_JS = r"""
 # tools. Non-numeric controls are set to a FIXED deterministic value rather than
 # a scaled one, because scaling a text field or a checkbox is meaningless; that
 # is why the between-vector test only applies to tools with numeric inputs.
+#
+# WHAT `fired` RECORDS, and why it is a list of objects rather than of strings.
+# It used to record display strings like "#rate=ticked", which was enough to
+# print a summary line and to tell scaled fields from the rest. It is not enough
+# to REPLAY the drive, and replaying it is now the point: --emit-criteria turns a
+# capture into `computed_values` checks that the platform's own Tier-4 runner
+# executes, and a step there needs a CSS selector, an action from the runner's
+# vocabulary (fill/click/select) and the literal value. Recording the plan the
+# drive actually followed is strictly better than reconstructing it afterwards
+# from the resulting control fingerprint, where a checkbox reading "true" is
+# indistinguishable from a text field someone typed "true" into.
+#
+# `sel` is null for a control with no id. Such a control can be driven here (we
+# hold the element) but CANNOT be named in criteria, so emission refuses the tool
+# rather than emitting steps that drive less than the golden was captured with.
+# Behaviour is unchanged from the string version — same elements, same values,
+# same order — so an existing golden still compares equal; only the report is
+# richer. Verified by re-running --compare against GOLDEN_2026-07-31c after the
+# change (12/12 MATCHES).
 DRIVE_JS = r"""
 (scale) => {
   const fired = [];
   const fire = e => ['input', 'change'].forEach(
       ev => e.dispatchEvent(new Event(ev, {bubbles: true})));
+  const rec = (e, kind, action, value) => fired.push({
+    k: (e.id || e.name || '?') + (kind ? '=' + kind : ''),
+    sel: e.id ? '#' + e.id : null,
+    action: action, value: value, kind: kind || 'number'});
   document.querySelectorAll('input,select,textarea').forEach(e => {
     if (e.disabled) return;
     const t = (e.type || e.tagName).toLowerCase();
@@ -111,8 +146,9 @@ DRIVE_JS = r"""
       const base = parseFloat(e.getAttribute('value'));
       if (!isFinite(base)) {
         // No default to scale: use a fixed value so the field is still driven.
-        e.value = String(Math.round(1000 * scale)); fire(e);
-        fired.push((e.id || e.name || '?') + '=nodefault'); return;
+        const v = String(Math.round(1000 * scale));
+        e.value = v; fire(e);
+        rec(e, 'nodefault', 'fill', v); return;
       }
       let v = base * scale;
       // Respect the field's own declared domain; a value outside it is what the
@@ -123,17 +159,18 @@ DRIVE_JS = r"""
       const st = parseFloat(e.step);
       v = (isFinite(st) && st >= 1) ? Math.round(v) : Math.round(v * 100) / 100;
       e.value = String(v); fire(e);
-      fired.push(e.id || e.name || '?');
+      rec(e, '', 'fill', String(v));
     } else if (t === 'checkbox' || t === 'radio') {
-      if (!e.checked) { e.click(); fired.push((e.id || e.name || '?') + '=ticked'); }
+      if (!e.checked) { e.click(); rec(e, 'ticked', 'click', ''); }
     } else if (t === 'select' || t === 'select-one') {
       if (e.options && e.options.length > 1) {
         e.selectedIndex = 1; fire(e);
-        fired.push((e.id || e.name || '?') + '=opt1');
+        // The runner's `select` step selects BY VALUE, so record the option's
+        // value, not the index the harness used to reach it.
+        rec(e, 'opt1', 'select', String(e.options[1].value));
       }
     } else if (t === 'text' || t === 'textarea' || t === 'tel' || t === 'search') {
-      if (!e.value) { e.value = 'Probe'; fire(e);
-        fired.push((e.id || e.name || '?') + '=text'); }
+      if (!e.value) { e.value = 'Probe'; fire(e); rec(e, 'text', 'fill', 'Probe'); }
     }
   });
   return JSON.stringify(fired);
@@ -172,9 +209,14 @@ PRESS_JS = r"""
     .filter(e => !e.closest('nav,header,[id*=nav],[class*=nav],[id*=menu],[class*=menu]'))
     .filter(e => !RESET.test((e.textContent || e.value || '') + ' ' + (e.id || '')));
   const b = all.find(e => e.getAttribute('onclick') || e.onclick) || all[0];
-  if (!b) return 'none';
+  if (!b) return JSON.stringify({label: 'none', sel: null});
   b.click();
-  return b.id || (b.textContent || b.value || '').trim().slice(0, 40) || 'button';
+  // The SELECTOR is reported alongside the label because --emit-criteria has to
+  // replay this press as a criteria step and a button's visible text is not a
+  // selector. A press we cannot name is not a press we can hand to the platform.
+  return JSON.stringify({
+    label: b.id || (b.textContent || b.value || '').trim().slice(0, 40) || 'button',
+    sel: b.id ? '#' + b.id : null});
 })()
 """
 
@@ -282,7 +324,7 @@ class Runner:
                 "dom_shape": shape,
                 "added": json.loads(added) if added else [],
                 "drove": json.loads(drove) if drove else [],
-                "pressed": pressed,
+                "pressed": json.loads(pressed) if pressed else {"label": "none", "sel": None},
                 "before": json.loads(z) if z else {},
                 "after_input": json.loads(a) if a else {},
                 "after_press": json.loads(b) if b else {},
@@ -343,8 +385,12 @@ def moved_between_vectors(page):
 
 def scaled_numeric(page):
     """Fields driven by SCALING a numeric default — the ones gate B applies to."""
-    return [d for d in page["defaults"]["drove"]
-            if not any(d.endswith(s) for s in ("=ticked", "=opt1", "=text", "=nodefault"))]
+    return [d for d in page["defaults"]["drove"] if d.get("kind") == "number"]
+
+
+def drove_labels(page, vec="defaults"):
+    """Human-readable names of the controls driven, for the summary line."""
+    return [d.get("k", "?") for d in page[vec]["drove"]]
 
 
 def numeric_diff(a, b):
@@ -361,15 +407,116 @@ def numeric_diff(a, b):
     return out
 
 
+# ── emission: capture → criteria the PLATFORM runs ─────────────────────────
+#
+# Everything above this line is a lane-local harness: it proves a rewrite did not
+# move the numbers, on my machine, when I remember to run it. That is worth
+# exactly one rewrite. The check only becomes part of the tools workflow when the
+# platform runs it unprompted, which means expressing it in the platform's own
+# acceptance vocabulary — a `computed_values` check in the tool's PLAN criteria
+# fence, executed by the Tier-4 browser runner on the normal acceptance schedule
+# (internal/adapters/browserrunner/run_checks_action.go).
+#
+# So this converts a capture into checks. Two rules govern what it will emit, and
+# both exist to stop the emitted criteria asserting MORE than the capture proved:
+#
+#  1. REFUSE rather than approximate. A control or a pressed button with no id
+#     cannot be named in a selector. Emitting steps that skip it would produce
+#     criteria that drive the tool differently from the way the golden was
+#     captured, so the expected values would be wrong — and wrong expectations
+#     that fail look exactly like a broken tool. The tool is skipped, loudly.
+#
+#  2. ASSERT THE OUTPUTS, NOT THE PAGE. The fingerprint covers every [id]
+#     element, which on these pages includes article wrappers whose textContent
+#     is thousands of characters of prose. Asserting those would make every
+#     copy edit a failed calculator. Only ids that MOVED under driving are
+#     emitted: those are the computed outputs, identified by measurement rather
+#     than by naming convention.
+MAX_ASSERTED_TEXT = 120
+
+
+def emit_criteria(url, page):
+    """Build a criteria doc for one captured tool, or (None, reason)."""
+    checks, unnameable = [], []
+
+    for d in page["defaults"]["drove"]:
+        if not d.get("sel"):
+            unnameable.append("input control %r has no id" % d.get("k", "?"))
+    for item in page["defaults"].get("added", []):
+        if not item.get("sel"):
+            unnameable.append("setup button %r has no id" % item.get("label", "?"))
+    press = page["defaults"].get("pressed") or {}
+    if press.get("label") not in (None, "none") and not press.get("sel"):
+        unnameable.append("pressed button %r has no id" % press.get("label"))
+    if unnameable:
+        return None, "; ".join(unnameable)
+
+    # The ids worth asserting: those that moved under driving, in any vector.
+    moving = reacted(page) | moved_between_vectors(page)
+    if not moving:
+        return None, "no output moved under driving — nothing to assert"
+
+    for vec, _ in VECTORS:
+        v = page[vec]
+        steps = []
+        for item in v.get("added", []):
+            # SETUP_JS clicks twice; the criteria must too or the row count
+            # differs and so do the totals.
+            steps += [{"action": "click", "selector": item["sel"]}] * 2
+        for d in v["drove"]:
+            step = {"action": d["action"], "selector": d["sel"]}
+            if d["action"] != "click":
+                step["value"] = d["value"]
+            steps.append(step)
+
+        phase = "after_input"
+        if press.get("sel"):
+            steps.append({"action": "click", "selector": press["sel"]})
+            phase = "after_press"
+
+        expect, oversize = {}, 0
+        for eid, composite in sorted(v[phase].get("ids", {}).items()):
+            if eid not in moving:
+                continue
+            text = composite.rsplit("|", 1)[0] if "|" in composite else composite
+            # Split off the trailing display (and canvas marker) the fingerprint
+            # appends; the platform compares textContent alone.
+            if composite.endswith("|canvas"):
+                text = composite.rsplit("|", 2)[0]
+            if len(text) > MAX_ASSERTED_TEXT:
+                oversize += 1
+                continue
+            expect["#" + eid] = text
+        if not expect:
+            continue
+        checks.append({
+            "id": "computes-%s" % vec,
+            "type": "computed_values",
+            "steps": steps,
+            "expect_values": expect,
+        })
+
+    if not checks:
+        return None, "every moving output exceeded %d chars — none safe to assert" % MAX_ASSERTED_TEXT
+    return {"checks": checks}, None
+
+
+def slug_for(url):
+    tail = url.rstrip("/").rsplit("/", 1)[-1] or "index"
+    return re.sub(r"[^a-z0-9-]+", "-", tail.replace(".html", "").lower()).strip("-")
+
+
 def main():
     args = sys.argv[1:]
-    out_path = cmp_path = None
+    out_path = cmp_path = crit_dir = None
     if "--out" in args:
         i = args.index("--out"); out_path = args[i + 1]; del args[i:i + 2]
     if "--compare" in args:
         i = args.index("--compare"); cmp_path = args[i + 1]; del args[i:i + 2]
+    if "--emit-criteria" in args:
+        i = args.index("--emit-criteria"); crit_dir = args[i + 1]; del args[i:i + 2]
     urls = args
-    if not urls or (not out_path and not cmp_path):
+    if not urls or not (out_path or cmp_path or crit_dir):
         print(__doc__); sys.exit(2)
 
     r = Runner()
@@ -391,7 +538,7 @@ def main():
             react = reacted(got[u])
             moved = moved_between_vectors(got[u])
             numeric = scaled_numeric(got[u])
-            drove = got[u]["defaults"]["drove"]
+            drove = drove_labels(got[u])
             flag = ""
             if not react:
                 inert.append((u, drove, "does not react to being driven at all"))
@@ -425,6 +572,36 @@ def main():
               "A golden file recorded from this state certifies nothing and would mark\n"
               "a completely broken rewrite as correct. Fix the cause, do not record it.")
         sys.exit(1)
+
+    if crit_dir:
+        # Emission runs AFTER the inert/partial gates above, deliberately: those
+        # gates are what stop a golden being recorded from a broken tool, and
+        # criteria emitted from a broken tool would pin the broken answer into
+        # the platform's own acceptance record, where it would then be defended.
+        os.makedirs(crit_dir, exist_ok=True)
+        wrote = skipped = 0
+        for u in urls:
+            doc, why = emit_criteria(u, got[u])
+            if doc is None:
+                skipped += 1
+                print("SKIP    %-46s %s" % (u.replace("https://", "")[:46], why))
+                continue
+            path = os.path.join(crit_dir, slug_for(u) + ".criteria.json")
+            with open(path, "w") as fh:
+                json.dump(doc, fh, indent=2, sort_keys=True, ensure_ascii=False)
+                fh.write("\n")
+            wrote += 1
+            asserted = sum(len(c["expect_values"]) for c in doc["checks"])
+            print("emitted %-46s %d checks, %d assertions -> %s"
+                  % (u.replace("https://", "")[:46], len(doc["checks"]), asserted, path))
+        print("\n%d tool(s) emitted, %d skipped" % (wrote, skipped))
+        if skipped:
+            # Not an error: a skipped tool is honestly reported as uncovered.
+            # It IS a defect to leave unfixed, because an uncovered tool looks
+            # identical to a covered one in the acceptance record.
+            print("A skipped tool has NO numeric coverage. The usual cause is a control\n"
+                  "with no id — give it one in the rewrite and re-emit.")
+        return
 
     if out_path:
         json.dump({"vectors": [v[0] for v in VECTORS], "pages": got},

@@ -21,6 +21,11 @@
 //                            expect selector exists / its text matches (P2 —
 //                            the tier that asserts a tool actually WORKS, not
 //                            just that it boots)
+//   computed_values        — drive the tool with fixed inputs, then assert the
+//                            EXACT text of every named output. The only check
+//                            in the ladder that judges what a calculator
+//                            COMPUTES rather than what it contains (see
+//                            runComputedValues for why the others cannot)
 //
 // Profiles (P1): "desktop" 1366×900; "mobile" a 390×844 touch viewport. A check
 // with no `profiles` runs on every requested profile; a check pinned to
@@ -40,6 +45,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -192,6 +198,11 @@ type criteriaCheck struct {
 	// catch COLLAPSED rather than to police design.
 	MinWidth  float64 `json:"min_width"`
 	MinHeight float64 `json:"min_height"`
+	// computed_values only: selector → the EXACT text that selector must read
+	// after `steps` have run. A map rather than a list because the assertion is
+	// per-element and order-free; the runner sorts the keys so a failure message
+	// naming three of forty mismatches names the same three every run.
+	ExpectValues map[string]string `json:"expect_values"`
 }
 
 // defaultToolContainer matches the tool root under BOTH delivery conventions:
@@ -453,7 +464,7 @@ func splitByProfile(crit criteriaDoc, profile, url string) ([]criteriaCheck, []C
 		switch ch.Type {
 		case "page_status_ok", "selector_exists", "selector_count",
 			"no_console_errors", "no_horizontal_overflow", "interaction",
-			"has_visible_area":
+			"has_visible_area", "computed_values":
 			applicable = append(applicable, ch)
 		default:
 			skip(ch.ID, ch.Type+" not implemented")
@@ -591,6 +602,9 @@ func evaluateOnPage(page browserPage, doc criteriaDoc, checks []criteriaCheck, p
 		case "interaction":
 			pass, detail := runInteraction(page, ch)
 			add(ch.ID, pass, detail)
+		case "computed_values":
+			pass, detail := runComputedValues(page, ch)
+			add(ch.ID, pass, detail)
 		}
 	}
 
@@ -645,6 +659,120 @@ func runInteraction(page browserPage, ch criteriaCheck) (bool, string) {
 	}
 	return true, "interaction produced the expected result (" + ch.Expect.Selector + ")"
 }
+
+// runComputedValues drives the tool with a fixed set of inputs and then asserts
+// the EXACT text of every element the check names.
+//
+// WHY THIS TYPE EXISTS, when `interaction` already fills inputs and clicks.
+// Every other rung of the ladder judges what a page CONTAINS; none judges what
+// it COMPUTES, and for a calculator those are different claims:
+//
+//	tool_health      — has a <script> block                       (it has code)
+//	selector_exists  — #monthlyPayment is in the DOM              (it has a slot)
+//	has_visible_area — #monthlyPayment renders 210x24             (you can see it)
+//	interaction      — after filling, #monthlyPayment matches /£/ (it printed money)
+//	computed_values  — after filling, #monthlyPayment reads exactly "£303.44"
+//
+// The gap was measured, not assumed. On 2026-07-31 a page carrying one number
+// input, one output element and NO SCRIPT AT ALL was constructed and scored
+// RESPONDS on the existing tooling: every rung above passes an inert calculator,
+// because none of them knows what the answer should be. `interaction`'s
+// text_matches is the closest, and a regexp loose enough to be worth authoring
+// by hand (/£[\d,]+\.\d\d/) is satisfied by any number whatsoever — including
+// the £0.00 an unwired tool prints. So a wrong divisor, a dropped rate
+// conversion or a formula silently rewritten by tool-improver all ship green.
+//
+// The values are not authored by hand and are not judged for correctness here.
+// They are CAPTURED from the tool while it is known good (toolgolden.py --emit
+// -criteria) and then defended: this check's claim is "the arithmetic has not
+// moved since it was captured", which is exactly the claim a rewrite needs and
+// none of the rungs above can make. It follows that a golden captured from an
+// already-wrong tool pins the wrong answer — the capture script therefore
+// refuses to emit for a tool whose outputs do not react to its inputs, and the
+// capture is only as good as the state it was taken in.
+//
+// FAILING IS THE POINT, so every arm below fails rather than skips:
+//   - a missing input control means the tool no longer accepts what it was
+//     captured with;
+//   - a missing output element means it no longer reports what it reported;
+//   - a changed value means the arithmetic moved.
+//
+// That is safe here in a way it would not be at Tier 2: this runs post-settle in
+// a real browser, so "no element matches" means the element genuinely is not
+// there, not merely that a static reader could not see it built.
+func runComputedValues(page browserPage, ch criteriaCheck) (bool, string) {
+	if len(ch.ExpectValues) == 0 {
+		// A check asserting nothing must never report a pass — that is the
+		// vacuity this whole type was written to remove, and it would be
+		// perverse to reintroduce it here.
+		return false, "computed_values names no expect_values — it would assert nothing and pass on any page"
+	}
+
+	for i, st := range ch.Steps {
+		if err := page.Do(st); err != nil {
+			return false, fmt.Sprintf(
+				"input step %d (%s %s) failed: %s — the tool no longer accepts the input its values were captured with, so the comparison cannot be made",
+				i+1, st.Action, st.Selector, err.Error())
+		}
+	}
+
+	// Sorted so a bounded failure message names the same mismatches every run;
+	// an unstable sample reads as flapping when the defect is constant.
+	selectors := make([]string, 0, len(ch.ExpectValues))
+	for sel := range ch.ExpectValues {
+		selectors = append(selectors, sel)
+	}
+	sort.Strings(selectors)
+
+	var problems []string
+	matched := 0
+	for _, sel := range selectors {
+		want := ch.ExpectValues[sel]
+		if page.Count(sel) == 0 {
+			problems = append(problems, sel+" is absent from the live DOM after settle (it reported a value when the golden was captured)")
+			continue
+		}
+		got, err := page.Text(sel)
+		if err != nil {
+			problems = append(problems, sel+" could not be read: "+err.Error())
+			continue
+		}
+		if normaliseComputedText(got) != normaliseComputedText(want) {
+			problems = append(problems, fmt.Sprintf("%s reads %q, expected %q",
+				sel, collapseSpace(got), collapseSpace(want)))
+			continue
+		}
+		matched++
+	}
+
+	if len(problems) == 0 {
+		return true, fmt.Sprintf("all %d computed value(s) match the captured golden", matched)
+	}
+
+	// Bounded: a tool whose script failed to run reports every output wrong, and
+	// forty near-identical clauses bury the one that identifies the cause.
+	const maxShown = 3
+	shown := problems
+	suffix := ""
+	if len(shown) > maxShown {
+		shown = shown[:maxShown]
+		suffix = fmt.Sprintf(" (+%d more)", len(problems)-maxShown)
+	}
+	return false, fmt.Sprintf("%d of %d computed value(s) diverge from the captured golden: %s%s",
+		len(problems), len(ch.ExpectValues), strings.Join(shown, "; "), suffix)
+}
+
+// normaliseComputedText is the ONLY latitude the comparison allows: leading and
+// trailing whitespace, and runs of internal whitespace, which HTML authoring
+// changes freely and which no visitor can see.
+//
+// Everything else is compared verbatim, deliberately. It is tempting to strip
+// currency symbols or parse the number out and compare numerically, and that
+// would be a worse check: "£303.44" becoming "303.44" is a real defect on a
+// money page, and so is "£303.44" becoming "£303.4400000000001".
+func normaliseComputedText(s string) string { return collapseSpace(s) }
+
+func collapseSpace(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 func contains(ss []string, want string) bool {
 	for _, s := range ss {

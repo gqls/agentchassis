@@ -1,9 +1,11 @@
 # Concept Index — master register
 
-1,695 concepts across 110 category register files (**re-taken from the grep 2026-07-31
-after LNK-026 landed; the line said 1,694 and the grep said 1,694 before this row was
+1,696 concepts across 110 category register files (**re-taken from the grep 2026-07-31
+after TL-038 landed; the line said 1,695 and the grep said 1,695 before this row was
 added, i.e. level — re-taken from the grep anyway, per this line's own rule, which is
-the only reason it has stayed level twice running.
+the only reason it has stayed level three times running.
+Earlier that day, re-taken after LNK-026 landed; the line said 1,694 and the grep said 1,694 before that row was
+added, i.e. level — re-taken from the grep anyway, per this line's own rule.
 Earlier that day, re-taken after IMG-066 landed; the line said 1,693 and the grep said 1,693 before that row was
 added, i.e. level again — re-taken anyway, per this line's own rule. Earlier that day,
 re-taken after CLC-013 landed; the line said 1,692 and the grep said 1,692 before that row was
@@ -1522,6 +1524,7 @@ an ID prefix, or a status word.
 | TLIB-009 | Tag-based deterministic tool-to-site matching (matchToolToSite) — superseded | superseded | The original tool-suggestion mechanism was a deterministic Go function comparing a library tool's semantic_tags... | tool-library.md |
 | DES-043 | Palette/typography resolution cascade + the dead-slot bug and fingerprint-fallback hardening | partial | The palette source cascade is design_reference → mission → `design_intent.palette.reference_values` → layout... | design-composition.md |
 | TL-017 | Acceptance criteria live in the tool's PLAN (fenced ```criteria JSON block) | deployed | The per-tool definition of *working*. Candidates judged on key/lifecycle/owner and rejected: site_specs (right... | tool-lifecycle.md |
+| TL-038 | `computed_values` criteria check type + the emitter that authors it from a working tool | built | The only rung of the acceptance ladder that judges what a calculator COMPUTES rather than what it contains: `steps` drive, `expect_values` assert the exact... | tool-lifecycle.md |
 | IMP-039 | Unified build & maintenance work items (site_work_items) | deployed | The pivotal unification: every piece of work — building a page, fixing stale content, adding a tool, publishing... | improvement-loop.md |
 | TLIB-012 | JS tools documentation and provenance gap | aspirational | The platform's JS tools have no prose docs and no code-symbol provenance; the only documentation is origin... | tool-library.md |
 | DES-001 | Three-layer design system (content_components / css_themes / style_collections) | deployed | The platform's design system has always had three independently-varying layers: Layer 1 self-contained HTML... | design-composition.md |

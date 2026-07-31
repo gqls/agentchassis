@@ -1,0 +1,64 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#settle-breakdown": "Includes approx. £78.66 in \"58-day\" interest charges.",
+        "#settle-result": "£5,078.66"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#settle-bal",
+          "value": "5000"
+        },
+        {
+          "action": "fill",
+          "selector": "#settle-apr",
+          "value": "9.9"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#settle-breakdown": "Includes approx. £314.63 in \"58-day\" interest charges.",
+        "#settle-result": "£10,314.63"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#settle-bal",
+          "value": "10000"
+        },
+        {
+          "action": "fill",
+          "selector": "#settle-apr",
+          "value": "19.8"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#settle-breakdown": "Includes approx. £19.66 in \"58-day\" interest charges.",
+        "#settle-result": "£2,519.66"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#settle-bal",
+          "value": "2500"
+        },
+        {
+          "action": "fill",
+          "selector": "#settle-apr",
+          "value": "4.95"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}
