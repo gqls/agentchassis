@@ -308,16 +308,26 @@ func allQualifierSegments(segs []string) bool {
 // to the qualifier. The edit-quality seat named the same hole from the other
 // end: spelled-out numerals ("2F-eighty-five") are lower-case English too.
 //
-// Two admission rules, and everything absent is absent on purpose:
+// THREE admission rules, and the list below contains nothing else. (Round 2's
+// rationale claimed two, and the edit-quality seat correctly objected that the
+// list exceeded its own taxonomy — a vocabulary whose stated rule does not
+// describe its contents cannot be reviewed, and the words that did not fit were
+// the ones worth re-examining.)
 //
-//   - CONNECTIVES that assert nothing on their own: or, and, of, to.
-//   - RESTATEMENTS of the stated value: a word that says "meets what the fact
-//     block already says" (rated, compliant, compatible, class) or "at least as
-//     much as it says" (better, above, minimum) — never less, never other.
+//   - CONNECTIVES, which assert nothing on their own: and, of, or, to.
+//   - STRENGTHENERS, which ask for at least the stated value and never less:
+//     above, better, greater, higher, min, minimum, over.
+//   - ATTRIBUTIVES, which predicate the traced code of the subject and add no
+//     fact to it — "IP54-rated" says only what "IP54" already said: capable,
+//     class, compatible, compliant, equivalent, flange, flanged, grade, mount,
+//     mounted, rated, ready, size, sized, threaded.
 //
 // So there is no "not", "non", "without", "unless", "instead", "under", "below",
-// "less", "lower", and no numeral word. Each of those would let the prose invert
-// or replace a published figure while still tracing to it.
+// "less", "lower", and no numeral word: each would let the prose invert or
+// replace a published figure while still tracing to it. "series", "style" and
+// "type" were admitted in round 2 and are removed here — they name a family or
+// a category BEYOND the traced code ("2F-85-series" asserts a product line that
+// may not exist), which is the attributive rule's whole exclusion.
 //
 // Extending this list is a one-line change plus a test. Prefer that to widening
 // the rule: the cost of a missing word is one rejected report, which the writer
@@ -332,8 +342,7 @@ var qualifierWords = map[string]bool{
 	"capable": true, "class": true, "compatible": true, "compliant": true,
 	"equivalent": true, "flange": true, "flanged": true, "grade": true,
 	"mount": true, "mounted": true, "rated": true, "ready": true,
-	"series": true, "size": true, "sized": true, "style": true,
-	"threaded": true, "type": true,
+	"size": true, "sized": true, "threaded": true,
 }
 
 // qualifierSegment reports whether a trailing hyphen segment is an admitted

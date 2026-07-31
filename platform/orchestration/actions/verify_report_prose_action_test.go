@@ -137,6 +137,9 @@ func TestProseGateStillRejectsFabricatedSiblings(t *testing.T) {
 		{"IP54-not-rated", "An enclosure is IP54-not-rated for this cell.", "negation inverts the stated requirement"},
 		{"IP54-or-lower", "Specify IP54-or-lower protection.", "inverts a minimum into a maximum"},
 		{"2F-eighty-five", "The Robotiq 2F-eighty-five is an option.", "spelled-out numeral is not a qualifier"},
+		// Answering the round-2 advisory: a word that names a family or category
+		// beyond the traced code asserts something the fact block does not.
+		{"2F-85-series", "The Robotiq 2F-85-series covers this range.", "names a product line that may not exist"},
 	} {
 		prose := proseWith("The requirement is 200.0 N.", tc.sentence)
 		v := verifyReportProse(prose, scoring, nil, seedVertexVendors)
