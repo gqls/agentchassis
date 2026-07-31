@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -325,7 +326,7 @@ func TestChromeLookupScanFiresOnASyntheticLine(t *testing.T) {
 // the three refusals in repointIneligibleChromeSlot, each of which turns the
 // repair into a different bug if it is dropped.
 
-func chromeAssignmentCols() []string { return []string{"id", "name", "chrome_eligible"} }
+func chromeAssignmentCols() []string { return []string{"id", "name", "retired"} }
 
 // An ELIGIBLE assignment must cost exactly one query and no write. Without this,
 // a repointer that fired on every render would rewrite every slot in the fleet
@@ -339,15 +340,15 @@ func TestRepointLeavesAnEligibleAssignmentAlone(t *testing.T) {
 
 	mock.ExpectQuery("FROM site_components sc").
 		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
-			AddRow("11111111-1111-1111-1111-111111111111", "footer-theme-chrome", true))
+			AddRow("11111111-1111-1111-1111-111111111111", "footer-theme-chrome", false)) // retired=false
 
-	if got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop()); got != "" {
-		t.Errorf("an eligible assignment must not be repointed, got from=%q", got)
+	if got := mustRepointFrom(t, db, "footer"); got != "" {
+		t.Errorf("a component still in service must not be repointed, got from=%q", got)
 	}
 	// sqlmock fails the test if any unexpected query is issued, so this also
 	// asserts that no resolve and no UPDATE happened.
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("the eligible path must issue exactly one query: %v", err)
+		t.Errorf("the in-service path must issue exactly one query: %v", err)
 	}
 }
 
@@ -364,7 +365,7 @@ func TestRepointRefusesWhenThereIsNoEligibleAlternative(t *testing.T) {
 
 	mock.ExpectQuery("FROM site_components sc").
 		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
-			AddRow("22222222-2222-2222-2222-222222222222", "Document Head", false))
+			AddRow("22222222-2222-2222-2222-222222222222", "Document Head", true)) // retired=true
 	// ResolveChromeComponent answers with the last-resort row, eligible=false.
 	mock.ExpectQuery("FROM content_components").
 		WithArgs("head").
@@ -372,7 +373,7 @@ func TestRepointRefusesWhenThereIsNoEligibleAlternative(t *testing.T) {
 			AddRow("22222222-2222-2222-2222-222222222222", "Document Head", "head",
 				"", "<head></head>", []byte(`{}`), false, false))
 
-	if got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "head", zap.NewNop()); got != "" {
+	if got := mustRepointFrom(t, db, "head"); got != "" {
 		t.Errorf("with no eligible alternative the slot must be left alone, got from=%q", got)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -393,7 +394,7 @@ func TestRepointMovesAnIneligibleAssignmentUnderTheLockPredicate(t *testing.T) {
 
 	mock.ExpectQuery("FROM site_components sc").
 		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
-			AddRow("33333333-3333-3333-3333-333333333333", "footer-4-column", false))
+			AddRow("33333333-3333-3333-3333-333333333333", "footer-4-column", true)) // retired=true
 	mock.ExpectQuery("FROM content_components").
 		WithArgs("site-footer").
 		WillReturnRows(sqlmock.NewRows(chromeRowCols()).
@@ -405,7 +406,7 @@ func TestRepointMovesAnIneligibleAssignmentUnderTheLockPredicate(t *testing.T) {
 	mock.ExpectExec(`UPDATE site_components[\s\S]*build_status = 'pending'[\s\S]*locked_at IS NULL`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop())
+	got := mustRepointFrom(t, db, "footer")
 	if got != "footer-4-column" {
 		t.Errorf("repoint must report the component it moved AWAY from, got %q", got)
 	}
@@ -426,7 +427,7 @@ func TestRepointReportsNothingWhenTheGuardedUpdateMatchesNoRow(t *testing.T) {
 
 	mock.ExpectQuery("FROM site_components sc").
 		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
-			AddRow("55555555-5555-5555-5555-555555555555", "footer-4-column", false))
+			AddRow("55555555-5555-5555-5555-555555555555", "footer-4-column", true)) // retired=true
 	mock.ExpectQuery("FROM content_components").
 		WithArgs("site-footer").
 		WillReturnRows(sqlmock.NewRows(chromeRowCols()).
@@ -434,8 +435,14 @@ func TestRepointReportsNothingWhenTheGuardedUpdateMatchesNoRow(t *testing.T) {
 				"", "<footer></footer>", []byte(`{}`), false, true))
 	mock.ExpectExec("UPDATE site_components").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	if got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop()); got != "" {
-		t.Errorf("a zero-row guarded update is not a repoint, got %q", got)
+	from, blocked := repointRetiredChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop())
+	if from != "" {
+		t.Errorf("a zero-row guarded update is not a repoint, got %q", from)
+	}
+	if blocked != "footer-4-column" {
+		t.Errorf("a locked slot still serving a RETIRED component must be REPORTED, got blocked=%q — "+
+			"returning silently here reproduces bugs_open/166 for the locked case, because the idempotence "+
+			"exit below then waves the slot through as already-rendered (bug_historian seat, round 1)", blocked)
 	}
 	// No INSERT INTO site_work_items expected: filing here would claim a writer
 	// wanted to change a slot the idempotence exit may never let anyone write.
@@ -460,12 +467,131 @@ func TestIdempotenceExitIsBuildStatusAware(t *testing.T) {
 	}
 	// And the repoint must run BEFORE that exit, or it can never be reached on
 	// an ordinary unforced render — which is every scheduled chrome rebuild.
-	repointAt := strings.Index(s, "repointIneligibleChromeSlot(ctx, db, siteID, slot, logger)")
+	repointAt := strings.Index(s, "repointRetiredChromeSlot(ctx, db, siteID, slot, logger)")
 	exitAt := strings.Index(s, "Check if already rendered (unless force)")
 	if repointAt < 0 || exitAt < 0 {
 		t.Fatal("could not locate both the repoint call and the idempotence exit — this test has gone blind")
 	}
 	if repointAt > exitAt {
 		t.Error("the repoint must run BEFORE the idempotence exit; below it, an unforced render returns early and the repair never runs")
+	}
+}
+
+// mustRepointFrom keeps the single-value call shape the older tests read best,
+// asserting along the way that a run which moved nothing also reports nothing
+// blocked — the two returns must not both be populated.
+func mustRepointFrom(t *testing.T, db *sql.DB, slot string) string {
+	t.Helper()
+	from, blocked := repointRetiredChromeSlot(context.Background(), db, uuid.New(), slot, zap.NewNop())
+	if from != "" && blocked != "" {
+		t.Fatalf("moved (%q) and blocked (%q) are mutually exclusive", from, blocked)
+	}
+	return from
+}
+
+// ── the narrowing, which is what council round 1 bought ──────────────────────
+//
+// The first version repointed anything not ELIGIBLE chrome. Re-running the census
+// at revision time found THREE live rows that would have moved and must not.
+// These two are those rows, and they are the reason retirement and eligibility
+// are different questions.
+
+// leopardessconsulting.co.uk's header IS that site's own active fork. A fork is
+// illegitimate as a library DEFAULT and entirely legitimate as a deliberate
+// per-site ASSIGNMENT — it is the supported way to give one site its own chrome.
+// Repointing it would have silently deleted a client's bespoke header.
+func TestRepointNeverTouchesAnActiveForkAssignedToASite(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	// retired=false: the fork is ACTIVE. That is the only question this asks.
+	mock.ExpectQuery("FROM site_components sc").
+		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
+			AddRow("77777777-7777-7777-7777-777777777777", "header-leopardess", false))
+
+	from, blocked := repointRetiredChromeSlot(context.Background(), db, uuid.New(), "header", zap.NewNop())
+	if from != "" || blocked != "" {
+		t.Fatalf("an ACTIVE fork assigned by component_id must be left alone, got from=%q blocked=%q", from, blocked)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("no resolve and no UPDATE may be issued for an in-service fork: %v", err)
+	}
+}
+
+// idea.uk's header and footer are active, unforked, component_level='section'.
+// Whether a section-level component should serve as chrome is bugs_open/167 —
+// fleet-visible, and explicitly out of scope for a fix that changes nothing live.
+func TestRepointNeverTouchesAnActiveSectionLevelAssignment(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM site_components sc").
+		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
+			AddRow("88888888-8888-8888-8888-888888888888", "site-footer", false))
+
+	if from, blocked := repointRetiredChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop()); from != "" || blocked != "" {
+		t.Fatalf("a level mismatch is bugs_open/167's question, not this one's: from=%q blocked=%q", from, blocked)
+	}
+}
+
+// The predicate that licenses touching an existing assignment must stay NARROWER
+// than the one that picks a default. If someone "tidies up" by reusing
+// chromeEligibleSQL here, both tests above go green-to-red — but only if the
+// repoint keeps asking about is_active alone, which this pins directly.
+func TestRepointAsksAboutRetirementNotEligibility(t *testing.T) {
+	src, err := os.ReadFile("render_site_components_action.go")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	fn := string(src)
+	start := strings.Index(fn, "func repointRetiredChromeSlot(")
+	if start < 0 {
+		t.Fatal("repointRetiredChromeSlot not found — this test has gone blind")
+	}
+	end := strings.Index(fn[start:], "\nfunc ")
+	body := fn[start : start+end]
+
+	if !strings.Contains(body, "NOT cc.is_active") {
+		t.Error("the repoint must key on RETIREMENT (NOT is_active) — that is what deactivated_site_components detects")
+	}
+	if strings.Contains(body, "chromeEligibleSQL") {
+		t.Error("the repoint must NOT reuse chromeEligibleSQL as its trigger: eligibility decides what may be CHOSEN " +
+			"as a default, retirement decides what may no longer be SERVED. Reusing it here repoints a site's own " +
+			"active fork and its section-level chrome — three live rows on 2026-07-31 (council corr e242e9d3).")
+	}
+}
+
+// ── the sibling audit the bug_historian seat asked for ───────────────────────
+//
+// Its objection: this "bytes present ≠ correct component present" shape is
+// shared, so a sibling render path probably carries the same blind check. Audited
+// — the two lookalikes in rerender_single_page_action.go are getSiteComponents
+// and getAreaComponents, and they are READERS, not idempotence exits. A slot at
+// build_status='pending' is still SERVING its old chrome, so filtering them would
+// blank the page's header and footer. Pinned so the next reader does not "fix"
+// the inconsistency.
+func TestChromeReadersMustNotFilterOnBuildStatus(t *testing.T) {
+	src, err := os.ReadFile("rerender_single_page_action.go")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	s := string(src)
+	for _, fn := range []string{"func getSiteComponents(", "func getAreaComponents("} {
+		start := strings.Index(s, fn)
+		if start < 0 {
+			t.Fatalf("%s not found — this audit has gone blind", fn)
+		}
+		end := strings.Index(s[start:], "\n}")
+		if strings.Contains(s[start:start+end], "build_status") {
+			t.Errorf("%s filters on build_status. It is a READER: a pending slot still serves its old chrome, "+
+				"so excluding it blanks the page. Only the idempotence EXIT in render_site_components_action.go "+
+				"asks 'is this up to date?' (bug_historian seat, council e242e9d3).", fn)
+		}
 	}
 }

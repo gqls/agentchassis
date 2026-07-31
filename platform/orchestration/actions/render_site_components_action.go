@@ -481,10 +481,28 @@ func htmlEscapeAttr(s string) string {
 	return s
 }
 
-// repointIneligibleChromeSlot moves a chrome slot off a component that is no
-// longer eligible chrome — deactivated, a fork, or the wrong component_level —
-// and onto the one the library says should serve it. It returns the name of the
-// component it moved AWAY from, or "" when it did nothing.
+// repointRetiredChromeSlot moves a chrome slot off a component that has been
+// RETIRED — `is_active = false` — and onto the one the library says should serve
+// its function. It returns the name of the component it moved away from, and
+// separately the name of one it wanted to move and could not.
+//
+// > **NARROWED at council round 1 (corr e242e9d3), and the narrowing is the whole
+// > point of the review.** The first version repointed anything that was not
+// > ELIGIBLE chrome — deactivated OR a fork OR the wrong component_level — reusing
+// > chromeEligibleSQL. Re-running the census at revision time, as the
+// > debug_historian seat demanded, found THREE live rows that criterion would have
+// > moved and must not: `idea.uk`'s header and footer (active, unforked,
+// > `component_level='section'`) and **`leopardessconsulting.co.uk`'s header, which
+// > is that site's own ACTIVE FORK.** A fork is illegitimate as a library DEFAULT
+// > and entirely legitimate as a deliberate per-site ASSIGNMENT by component_id —
+// > it is, in fact, the supported way to give one site its own chrome, which this
+// > lane's own 118 close message said out loud six hours before this function was
+// > written to undo it. The level question belongs to bugs_open/167 and is
+// > fleet-visible, which this deliberately is not.
+// >
+// > So: eligibility decides what may be CHOSEN as a default; retirement decides
+// > what may no longer be SERVED. Only the second licenses touching an existing
+// > assignment, and it is exactly what `deactivated_site_components` detects.
 //
 // It is the missing half of bugs_open/166. `deactivated_site_components` has
 // detected this state correctly since 2026-07-17 and routes the repair to
@@ -501,40 +519,50 @@ func htmlEscapeAttr(s string) string {
 //     head slots are left exactly as they are rather than being churned on every
 //     build for a library gap no site can fix.
 //   - It writes through pageComponentAgentWritableSQL, so a human-locked slot is
-//     skipped. It does NOT file a lock_blocked_change item on that path: the
-//     069 gate below the idempotence exit owns that decision, and filing one here
-//     would claim a writer wanted to change a slot that may never be written.
+//     skipped. That predicate is not borrowed from page_components on a hunch:
+//     `site_components` carries all four lock columns (locked_at, locked_by,
+//     lock_type, lock_expires_at — verified against information_schema at review
+//     time), and bugs_closed/069 put them there precisely so one predicate could
+//     guard both. The UPDATE at the end of this file already uses it.
+//     It does NOT file a lock_blocked_change item — the 069 gate below the
+//     idempotence exit owns that decision — but it does REPORT the refusal to its
+//     caller, which the first version did not. A locked slot pointing at a retired
+//     component otherwise falls through the exit and re-renders the retired
+//     component in silence, which is the original bug wearing a lock (bug_historian
+//     seat, round 1).
 //   - It sets build_status='pending' rather than clearing rendered_html. The slot
 //     keeps serving its old chrome until the new render succeeds; blanking it
 //     first would leave a window with no chrome at all, and a failed render would
 //     make that permanent.
-func repointIneligibleChromeSlot(
+func repointRetiredChromeSlot(
 	ctx context.Context,
 	db *sql.DB,
 	siteID uuid.UUID,
 	slot string,
 	logger *zap.Logger,
-) string {
+) (movedFrom string, blockedOn string) {
 	var currentID, currentName string
-	var eligible bool
+	var retired bool
 	err := db.QueryRowContext(ctx, `
-		SELECT cc.id::text, cc.name, (`+chromeEligibleSQL("cc.")+`)
+		SELECT cc.id::text, cc.name, NOT cc.is_active
 		FROM site_components sc
 		JOIN content_components cc ON cc.id = sc.component_id
 		WHERE sc.site_id = $1 AND sc.slot_name = $2
-	`, siteID, slot).Scan(&currentID, &currentName, &eligible)
-	if err != nil || eligible {
-		// No assignment, no such component, or the assignment is fine. An
-		// unassigned slot is the fallback path's job, not this one's.
-		return ""
+	`, siteID, slot).Scan(&currentID, &currentName, &retired)
+	if err != nil || !retired {
+		// No assignment, no such component, or the assignment is still in
+		// service. An unassigned slot is the fallback path's job, not this
+		// one's; a FORK or a section-level assignment is a deliberate choice
+		// and is not this function's business (see the header).
+		return "", ""
 	}
 
 	want, wantEligible, resolveErr := ResolveChromeComponent(ctx, db, ChromeSlotFunction(slot), logger)
 	if resolveErr != nil || !wantEligible || want.ID == currentID {
 		// ResolveChromeComponent has already logged the library gap at ERROR.
 		// Leaving the slot alone is the correct outcome here: there is nothing
-		// better to point it at.
-		return ""
+		// better to point it at. This is every `head` slot in the fleet today.
+		return "", ""
 	}
 
 	res, execErr := db.ExecContext(ctx, `
@@ -543,24 +571,28 @@ func repointIneligibleChromeSlot(
 		WHERE site_id = $1 AND slot_name = $2 AND `+pageComponentAgentWritableSQL("")+`
 	`, siteID, slot, want.ID)
 	if execErr != nil {
-		logger.Warn("site chrome: failed to repoint an ineligible slot (bugs_open/166)",
+		logger.Warn("site chrome: failed to repoint a retired slot (bugs_open/166)",
 			zap.String("slot", slot), zap.String("from", currentName), zap.Error(execErr))
-		return ""
+		return "", currentName
 	}
 	if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
-		// Locked, or the row vanished. Silent here on purpose — see the header.
-		logger.Info("site chrome: ineligible slot not repointed (locked or absent)",
-			zap.String("slot", slot), zap.String("from", currentName))
-		return ""
+		// Locked, or the row vanished. No work item here — the 069 gate owns
+		// that — but this MUST reach the caller: the slot goes on serving a
+		// retired component and the idempotence exit below will wave it through
+		// as "already rendered", so a silent return here reproduces the very bug
+		// this function exists to fix, for the locked case.
+		logger.Warn("site chrome: retired slot NOT repointed — locked or absent (bugs_open/166)",
+			zap.String("slot", slot), zap.String("from", currentName), zap.String("wanted", want.Name))
+		return "", currentName
 	}
 
-	logger.Warn("site chrome: repointed a slot off an ineligible component (bugs_open/166)",
+	logger.Warn("site chrome: repointed a slot off a RETIRED component (bugs_open/166)",
 		zap.String("slot", slot),
 		zap.String("from", currentName),
 		zap.String("to", want.Name),
-		zap.String("reason", "assigned component is not active, unforked, chrome-level"),
+		zap.String("reason", "assigned component is is_active=false"),
 	)
-	return currentName
+	return currentName, ""
 }
 
 func renderAndStoreSiteComponent(
@@ -576,7 +608,7 @@ func renderAndStoreSiteComponent(
 	// no ELIGIBLE chrome for the slot's function (bugs_open/118). Empty on every
 	// healthy path, including the ones that do no work at all.
 
-	// Retire an INELIGIBLE assignment before the idempotence exit below can
+	// Retire a RETIRED assignment before the idempotence exit below can
 	// declare the slot finished (bugs_open/166). This has to run first: the exit
 	// asks "does this slot hold HTML?", never "does it hold the RIGHT component's
 	// HTML?", so a slot pointing at a deactivated component reads as done for
@@ -586,8 +618,15 @@ func renderAndStoreSiteComponent(
 	//
 	// It repoints ONLY when the library offers an eligible alternative, so the
 	// `head` slots (no active head component exists fleet-wide) are untouched
-	// rather than being re-rendered pointlessly on every build.
-	repointed := repointIneligibleChromeSlot(ctx, db, siteID, slot, logger)
+	// rather than being re-rendered pointlessly on every build. It touches only
+	// RETIRED assignments — never a fork, never a level mismatch; see its header.
+	repointed, repointBlocked := repointRetiredChromeSlot(ctx, db, siteID, slot, logger)
+	if repointBlocked != "" {
+		// Surfaced in the action result as ineligible_chrome, beside the library
+		// gap it shares a field with: in both cases this slot is serving chrome
+		// the platform would not choose, and in both cases no site can fix it.
+		degraded = repointBlocked
+	}
 
 	// Check if already rendered (unless force)
 	if !force {
