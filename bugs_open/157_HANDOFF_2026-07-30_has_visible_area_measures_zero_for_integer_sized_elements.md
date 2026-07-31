@@ -1,5 +1,24 @@
 # 157 — `has_visible_area` measures 0 on any axis whose rendered size is a whole number, and reports it as "too small to see or click"
 
+> **STATUS 2026-07-31 16:30 BST — FIXED AT HEAD, NOT YET LIVE. The bug is still
+> reproducible in production right now.** Fix candidate 1 taken (broadened to the
+> whole file — see "The fix as shipped" at the bottom): `71680ad513`,
+> `b90990bf4` (gofmt sweep), `f15e00a47` (round 2, answering the council).
+> Council **APPROVED round 1** — `07639093-3d76-40f4-953b-c3708dac6a1a`, 12 seats,
+> 5 abstained, 0 unreadable, not gated by truncation, 1 objecting seat with 3
+> advisory items, **all three closed in `f15e00a47`** (see "What the council
+> caught" below).
+>
+> **This file stays in `bugs_open/` deliberately.** The closing bar is *fixed AND
+> live*, and this is a Go change: inert until an image is rebuilt and rolled.
+> Measured, not assumed — pod `browser-runner-adapter-78f467dbb7-52bx2` runs
+> `v1.0.1215` (image built ~7h before the fix commit), and a single exec returned
+> the new marker `non-numeric w/h in result` → **0** against three positive
+> controls → **1** each. `has_visible_area` itself IS live in that pod, which is
+> exactly why the defect is still biting. **Whoever rolls the next
+> browser-runner-adapter image closes this** — re-run the verification below,
+> then move the file to `bugs_closed/`.
+
 **Filed** 2026-07-30. Class: **false NEGATIVE in a live Tier-4 check type** (not a
 missing capability, not a vacuous pass). Found while building
 `tool-ai-vendor-trust-checklist` as the first end-to-end exercise of the S0–S7
@@ -164,3 +183,148 @@ demonstrates the bug. Recorded in the tool's PLAN addendum
   `run_checks_action.go` `VisibleArea` and the `has_visible_area` check type.
 - Concept register `TL-034` records `has_visible_area` as **built**; that status
   is right, and this bug is why "built" and "trustworthy" are not the same row.
+
+---
+
+## The fix as shipped (2026-07-31, `71680ad513`)
+
+Fix candidate 1 was taken, and **broadened from two lines to the file's numeric
+decode contract** for one reason found while implementing it:
+`HorizontalOverflow`, 200 lines below `VisibleArea` in the same file, **already
+hand-rolled the correct `int`/`float64` switch** —
+
+```go
+// JS numbers come back as float64/int; tolerate 2px of rounding.
+switch n := m["over"].(type) {
+case float64: ...
+case int:     ...
+```
+
+So the file held the same fact twice, right in one place and wrong in the other.
+A two-line patch to `VisibleArea` would have left that duplication standing and
+the next evaluator added to this file free to repeat the bug. Both sites now go
+through one decoder:
+
+```go
+func evalNumber(v interface{}) (float64, bool)   // float64 | int | int64 | int32 | json.Number
+```
+
+documented in its own comment as *the* way to read a number out of a
+`page.Evaluate()` result here. Its accepted set is **exactly** `float64` and
+`int` — what `parseValue` can emit — after the council's edit-quality seat
+correctly called a wider "defensive" set dead code (see below). `HorizontalOverflow` is behaviour-preserving by
+construction: same accepted types, same `> 2` comparison, same fall-back to
+`info.Clipped` on an undecodable value.
+
+**The `bool` is the load-bearing half, and it is the part the original bug report
+asked for.** `VisibleArea` now returns an **error** on an undecodable value rather
+than 0. The call site already reports `err` as `could not measure <sel>: …`,
+distinct from the threshold message — so a bookkeeping failure can no longer
+present as a layout verdict. That indistinguishability is precisely why the check
+stated a cause ("a collapsed flex/grid child") it had never observed.
+
+### Blast radius, re-measured at fix time rather than carried forward
+
+`grep -rln playwright --include='*.go' .` (excluding tests) returns **exactly two
+files**: `run_checks_action.go` and `render_audit_action.go`. Of the three
+production `Evaluate` sites, `render_audit_action.go:282` decodes via a
+`json.Marshal` → `json.Unmarshal` round-trip, which treats `int` and `float64`
+identically and **is unaffected**. This independently confirms the original
+report's two-line claim, by a different route (import census rather than a
+`.(float64)` grep — a grep proves an absence only for the spelling it searches).
+
+### Why the existing tests could never have caught it, and what was done instead
+
+`browserPage.VisibleArea` is **already typed** `(float64, float64, bool, error)`.
+The fault lives *below* that interface, in the decode of playwright's own result,
+so `fakePage` cannot express it — **`TestHasVisibleArea` was green through the
+entire life of the bug**, including its five table cases and the exact 1146x0
+shape. This is the general lesson: *a test double that is typed cannot reproduce a
+type-decode fault.*
+
+So the decode is tested **directly**, at two levels:
+`TestEvalNumberDecodesEveryShapePlaywrightReturns` over every shape playwright-go
+can return plus the ones that must report `!ok`, and
+`TestDecodeAreaHandlesEveryShapeTheEvalScriptReturns` over the whole result map
+including the `{found:false, w:0, h:0}` not-present shape. Per the "a quiet test passes when the RULE is gone" rule, it was
+**confirmed red before being accepted**: the `int` case was mutated to return 0
+(reproducing the old comma-ok behaviour) and only that subtest failed —
+
+```
+--- FAIL: TestEvalNumberDecodesEveryShapePlaywrightReturns/int_—_what_playwright_returns_for_a_whole_number
+```
+
+Two more tests pin the behaviour end-to-end: `TestIntegralSizesClearTheDefaultFloor`
+(a 24x24 control against the 24x24 floor, and `#vtc-verdict`'s discriminating
+one-integral-one-fractional mobile case) and
+`TestUnmeasurableAreaReportsMeasurementFailureNotTooSmall`, which asserts the
+detail says `could not measure` and does **not** say `too small to see or click`.
+
+### What the council caught (round 1 APPROVED, 3 advisory items, all closed)
+
+Worth reading even though the verdict was approve — two of the three were fair
+hits, and one of them was a real hole.
+
+1. **Three seats independently flagged the same gap** (edit-quality *medium*,
+   guardian *low*, architecture *watch-item*): the submission's own risk note said
+   the not-present shape `{found:false, w:0, h:0}` must keep decoding cleanly
+   rather than trip the new error path — **and nothing tested it.** *"A
+   self-identified risk with no test closing it is a fixable gap."* Correct, and
+   the stake was real: had `found:false` errored, a selector matching nothing would
+   have flipped from the deliberate `no element matches … after settle` FAIL to a
+   `could not measure` bookkeeping failure — changing what the check reports for
+   the commonest case. Closed by splitting the post-`Evaluate` half out as
+   `decodeArea()`, testable without a browser, with a 7-case table over the shapes
+   the eval script actually returns. **Mutation-proven:** making `decodeArea` error
+   on `!found` fails exactly that subtest and no other.
+2. **`evalNumber` was too WIDE, not too narrow.** It took `int64`/`int32`/
+   `json.Number` "defensively"; the edit-quality seat called it dead code, since
+   `parseValue` emits only `int` and `float64`. It was worse than dead — **a
+   speculative arm makes the contract untestable and quietly widens what counts as
+   a measurement.** Narrowed to exactly those two, with the three dropped types
+   now asserted as NEGATIVE cases so the narrowness is checked rather than assumed.
+   Anything else is a loud `could not measure`, which is the designed behaviour.
+3. **`datahelpers.ToFloat64` already exists with the identical signature** —
+   `(v interface{}) (float64, bool)` — and the reuse seat was right that it should
+   have been searched for before a new helper was written. **The local one was kept
+   deliberately**, and the reason is now at the function: `ToFloat64` also
+   `ParseFloat`s a **string**, and rejected fix candidate 2 above was *"return the
+   rect from JS as a string"*. A decoder that silently parses strings would make
+   that payload change work by accident and hide the very class of type problem
+   this bug is about. The *not looking* is logged in `WRONG_CALLS.md`; the
+   divergence is a reasoned choice, not the miss.
+
+Two further notes taken but not code changes. The **bug_historian** pointed out
+that a grep for a helper *name* cannot prove no other site decodes inline; census
+over both playwright-importing files now shows `.(float64)` appearing **zero**
+times outside a comment, and every remaining assertion on an `Evaluate` result map
+is `.(string)` or `.(bool)` — unambiguous, because only playwright's `"n"` branch
+is value-dependent. It also noted the **sibling defect in the same file is still
+open**: an unknown check type is SKIPPED and an all-skipped fence PASSES
+(`LANDMINES.md` 2026-07-30) — not in scope here, but the subsystem still has one
+instance of the broader silent-false-positive pattern. The **guardian** asked that
+the live acceptance re-run be *a condition of closing this bug rather than a risk
+footnote* — agreed, and that is what the STATUS banner at the top now says.
+
+### What still has to happen — the verification is NOT complete
+
+1. **A build and roll of `browser-runner-adapter`.** Not done by this session:
+   another session had an in-flight release at `v1.0.1215` (uncommitted
+   `IMAGE_TAG` and overlay bumps across every service), and building over it
+   would have collided with their release.
+2. **Pod-grep, not a tag and not `git log`** (`bugs_open/153`: a roll is not
+   evidence your fix shipped). Long marker plus a positive control in the same
+   exec — a short literal returns 0 on a binary that supports it:
+   ```
+   kubectl -n ai-persona-system exec <pod> -- sh -c \
+     'for s in "non-numeric w/h in result" "too small to see or click" \
+               "in the live DOM after settle"; do \
+        printf "%s => " "$s"; grep -ac "$s" /app/browser-runner-adapter || true; done'
+   ```
+   Expect the first to become **1**. It was **0** with the other two at **1** on
+   2026-07-31 15:26 UTC.
+3. **The acceptance re-run in "How to verify a fix" above, WITH its negative
+   control.** Point one `has_visible_area` at a genuinely collapsed element in the
+   same run, or a green board cannot be told from the check having been switched
+   off — which is the failure mode this very check type already has form for
+   (the skipped-check PASS + 7-day cooldown, `LANDMINES.md` 2026-07-30).

@@ -13423,3 +13423,29 @@ carried it because the happy path kept working. **A predicted error string is a 
 other — mark it `[UNVERIFIED]` until something has actually failed that way, or produce it
 deliberately.** The probe now does exactly that: it runs a deliberately invalid subject type
 every time, so the failure message is observed on every run instead of predicted once.
+- **I wrote a helper that already existed with the identical signature, and my
+  "existing coverage" search was scoped so that it could not have found it.** Fixing
+  `bugs_open/157` I added `evalNumber(v interface{}) (float64, bool)` to coerce a
+  playwright-decoded number. `platform/orchestration/datahelpers.ToFloat64(v
+  interface{}) (float64, bool)` — same signature, same purpose, overlapping type
+  switch — has been in the tree the whole time. **What caught it:** the council gate's
+  reuse seat, not me. **Why my search felt sufficient and was not:** I did search, and
+  the search was *good* — I grepped every file importing playwright, found that
+  `HorizontalOverflow` 200 lines below already hand-rolled the same int/float64
+  switch, and consolidated both into one helper. That success is exactly what stopped
+  me: **having found and merged one duplicate, the question "is there a duplicate?"
+  felt answered.** But I had scoped the search by *who calls playwright*, i.e. by the
+  symptom's neighbourhood, when the helper's real category is "coerce a JSON-decoded
+  number", which has no relationship to playwright at all. **The transferable rule:
+  search by what the helper IS, not by where the bug WAS.** A generic utility's
+  duplicate will not live near the defect that made you want it — if it did, you would
+  already have seen it. Cheap check, ~10 seconds:
+  `grep -rn "func To\(Float\|Int\)\|func .*(v interface{}) (float64, bool)" --include='*.go' platform/ internal/ pkg/`
+  before writing any `func` whose body is a type switch. (The outcome here was to keep
+  the local one deliberately — `ToFloat64` also `ParseFloat`s a *string*, which for a
+  geometry measurement would silently absorb the exact payload-shape change 157's
+  rejected fix candidate 2 proposed — but that is a *reasoned* divergence I could only
+  reach after being shown the thing I had not looked for. Not looking is the wrong
+  call; the divergence is not.) Same family as the "prior-art searches go stale" and
+  "asserted absence" entries, with a twist worth naming: **a partially successful
+  duplicate hunt is more likely to stop you than a failed one.**

@@ -1,9 +1,11 @@
 # Concept Index — master register
 
-1,684 concepts across 109 category register files (**recounted 2026-07-31**; the
+1,685 concepts across 109 category register files (**recounted 2026-07-31**; the
 headline had already drifted 1 behind again by that evening, before PBP-025 was
-added — and it moved again minutes later when TL-036 landed, which is the same
-lesson twice in one evening: re-take it from the grep, never increment from the
+added — and it moved again minutes later when TL-036 landed, and again when DOC-070
+landed that evening: its author watched this very line go 1,683 → 1,684 under them
+mid-edit, from another session's row, which is the same
+lesson three times in one evening: re-take it from the grep, never increment from the
 line you just read — so it is re-taken from the grep below rather than incremented, not
 accumulated: the running "+N more" chain below had drifted 13 behind the actual
 row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the

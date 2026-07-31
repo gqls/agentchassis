@@ -8215,3 +8215,78 @@ running binary *first*, so the post-roll check has a known-bad answer as well as
 a known-good one. Better still, run it on your own image before pushing —
 `docker run --rm --entrypoint sh <img> -c 'strings /app/<bin> | grep -c "…"'`
 answers "did my commit make the build" with no cluster involved.
+
+### A library that decodes a number by its VALUE, not its static type — and the typed test double that guarantees you cannot catch it (`bugs_open/157`, 2026-07-31)
+
+**Symptom.** A Tier-4 layout check failed elements that were visibly present and
+clickable: `#vtc-c1 renders 0x0 on desktop — present in the DOM but too small to
+see or click. A collapsed flex/grid child is the usual cause: check that its
+parent establishes a height.` The named cause was not there. In the **same run on
+the same page**, the `interaction` checks that CLICK that element passed —
+Playwright's `Click()` enforces actionability, so it cannot have been 0x0 — and
+screenshots showed a normal 24px control.
+
+**Cause.** `mxschmitt/playwright-go`'s `parseValue` (`js_handle.go:104-113`)
+decides the Go type from the *value*:
+
+```go
+if v, ok := vMap["n"]; ok {
+    if math.Ceil(v.(float64))-v.(float64) == 0 {
+        return int(v.(float64))   // INTEGRAL  -> int
+    }
+    return v.(float64)            // FRACTIONAL -> float64
+}
+```
+
+The caller asserted one concrete type with comma-ok — `w, _ := m["w"].(float64)`
+— so every **whole-number** measurement was discarded and left `0`, which was
+then compared against a `24x24` threshold and reported as a layout verdict.
+
+**The discriminating observation, and why it is the one to look for.** An element
+with one integral axis and one fractional axis measured **`0x94`**: *exactly* the
+integral axis read 0. No theory about collapsed flex children predicts that. When
+a measurement is wrong, look for a case where the same element gives one right
+answer and one wrong answer in the same call — that asymmetry indicts the decode,
+not the thing being measured.
+
+**Three transferable rules.**
+
+1. **A comma-ok type assertion on a value from another process is a silent data
+   loss, not a safety measure.** `x, _ := v.(T)` yields the zero value on a
+   mismatch, and a zero-valued *measurement* is indistinguishable from a real
+   one. Coerce across the plausible types instead, and return `(T, bool)` so
+   "could not decode" cannot masquerade as "measured zero" — then let the caller
+   raise a **measurement error**, never a domain verdict. This is the whole reason
+   the wrong answer was stated so confidently: the code had no way to say *I don't
+   know*.
+2. **A typed test double cannot reproduce a type-decode fault.** The interface was
+   already `VisibleArea(string) (float64, float64, bool, error)`, so the fake
+   returned `float64` by construction and the table test — five cases, including
+   the exact shape of the *previous* bug — was **green for the entire life of this
+   one**. The fault lived below the seam the tests could reach. So: when a bug
+   lives in decoding an external library's output, the decoder must become its own
+   directly-testable function. Mutate it to confirm the new test goes red (here:
+   make the `int` arm return 0, reproducing the old behaviour) — a test written
+   after a fix and never seen failing has proven nothing.
+3. **`go build` cannot see it, and neither can a reviewer reading the diff.** The
+   code is type-correct and idiomatic. The only thing that would have caught it
+   ahead of time is reading the library function you are decoding the output of —
+   one hop past your own file.
+
+**The framework-level tell, worth more than the fix.** 200 lines below the broken
+site, in the same file, another evaluator **already handled this correctly**:
+
+```go
+// JS numbers come back as float64/int; tolerate 2px of rounding.
+switch n := m["over"].(type) {
+case float64: ...
+case int:     ...
+```
+
+One file, one fact, known in one place and forgotten in the other — and the copy
+written *second* got it wrong. **When you find a decode bug, grep the file for the
+same decode before patching your line.** If a sibling already knows the thing you
+just learned, the defect is not the line, it is that the knowledge was
+copy-pasteable at all; the fix is one named helper both call, so the *next*
+evaluator cannot repeat it. A local patch that leaves a correct duplicate standing
+has fixed an instance and preserved the class.
