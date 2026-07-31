@@ -437,3 +437,71 @@ result. They need their own before/after arms, which will accumulate.
 Also unexplained and left alone: 3 `review_editquality` calls at cap 8000 after 15:29
 with NULL `output_tokens` (failed calls), belonging to rounds spawned before
 feature-designer's raise. [UNMEASURED] — noted rather than chased.
+
+### 2026-07-31 ~18:20 — both owner decisions applied. Candidate 4 is finished.
+
+**Decision 1 — `feature-designer/review_architecture` notes-first.** Applied via a new
+`scripts/reorder-seat-notes-first.py`. The reorder is done by **parsing the output line
+as JSON and rebuilding it with the key order I want**, not by regex surgery: the line is
+syntactically valid JSON even though it is a template, and its `notes` value contains
+`\n\n`, `|` and angle brackets that a regex would eventually mangle. All three
+`review_architecture` seats now report an identical key order —
+`reviewer, verdict, notes, objections, …` — and all three carry a length block (the
+other two hand-written, correctly refused by the applier). Idempotent: a second run says
+`ALREADY`.
+
+**Decision 2 — the budget reaches every eligible seat.** 48 seats now carry it:
+
+| | count | |
+|---|---|---|
+| eligible and applied | **48** | |
+| HAND-WRITTEN, refused | 2 | `review_architecture` on fix-proposer + council-gate — they already have a hand-authored budget, and overwriting deliberate prose is not this script's job |
+| excluded, with reason | 1 | `domain-research-classifier/review_mission_alignment` |
+| **total live review seats** | **51** | every one accounted for |
+
+099 drift: **none**. Snapshots: one per council touched (5), each verified to LACK the
+block on a seat that run actually wrote — a snapshot taken *after* a write differs in no
+other column, so that assertion is the whole difference between a rollback and a
+souvenir.
+
+**Two design points worth keeping.**
+
+1. **The target list is now DISCOVERED, not written down.** A hand-maintained roster of
+   48 pairs would be stale the first time a seat is seated — which is precisely why
+   `102_LINT` exists (a 16th seat added, one key forgotten) and why `099` exists (two
+   rosters that must be kept identical by hand). The script asks the database every run.
+2. **Eligibility is a claim about the mechanism, not a convenience.** The block asserts
+   that a degraded `object` gates the round regardless of severity. That is true only
+   where `diagnose_council_decide` is the decider, so eligibility is defined as "the
+   council has that step" — measured. `domain-research-classifier` has **zero** decide
+   steps and a different output schema (`objection_found`/`concerns`/`note`), so the
+   block would be a **false claim** in its prompt. Putting text a reviewer will act on
+   into a prompt where it does not hold is worse than leaving the seat uncovered, so it
+   is excluded and the reason prints on every run.
+
+**Told, not merely measured.** Ten of the 48 seats belong to the experience-loop lane
+(`experience-planner`, `experience-approval-council`). Notice written into their
+`RUNNING_NOTES_experience_loop.md` per the 07-29 ruling's third limb — saying what
+changed about their *guarantee* (shorter reviews, same number of findings; the block
+says "cut words, never findings" explicitly), the evidence, the datum that concerns them
+most (`review_deferral_honesty` truncated 3 of 5 calls at cap **12000**, the worst rate
+anywhere and already above the default — direct evidence a bigger cap alone is not the
+fix), and how to reverse it.
+
+**What is now unverified at a larger scale.** The effect is measured on ONE seat. 47
+more just changed behaviour, and the honest expectation is that most were never near
+their cap and will show no difference — 24 of 31 (seat, cap) pairs sat below 75%. **The
+thing to watch for is not whether peaks fall; it is whether OBJECTION COUNTS fall**,
+which would mean the budget is trading coverage for brevity despite being told not to.
+That is the failure this rollout could cause and the earlier narrow one could not:
+
+```sql
+SELECT date_trunc('day', d.created_at)::date AS day, count(*) AS reviews,
+       round(avg(COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(r->'objections')='array'
+              THEN r->'objections' ELSE '[]'::jsonb END),0))::numeric,2) AS mean_objections
+FROM diagnosis_artifacts d, LATERAL jsonb_array_elements(d.body::jsonb->'reviews') r
+WHERE d.kind='council_report' AND d.created_at > now() - interval '10 days'
+GROUP BY 1 ORDER BY 1;
+```
+Cutover for the fleet-wide batch: **2026-07-31 18:16:46–18:16:53**
+(`agent_definitions.updated_at`). Compare rounds spawned either side, by SPAWN time.

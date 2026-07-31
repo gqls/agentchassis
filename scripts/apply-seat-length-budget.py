@@ -8,14 +8,28 @@ for its own text. Six identical blocks typed into six live prompts is the drift 
 grow — the report that chose it (104_REPORT_seat_token_pressure_v1.sh) re-runs and
 will flag more. Adding a target here is one line; re-running is idempotent.
 
-WHY THESE SEATS AND NOT ALL 51. The owner's ruling on the sibling change (cap raises,
-2026-07-29) was: raise the seats that actually truncate, leave the rest until they do.
-This follows that criterion with the leading indicator instead of the lagging one —
-apply where the pressure is MEASURED, not everywhere it is imaginable. A blanket edit
-across 51 templates would change what every council on the platform asks its
-reviewers for, which is a shared-mechanism change needing its own review, and it is
-not supported by the evidence: 24 of the 31 live (seat, cap) pairs sit below 75% of
-cap and have never been near a truncation.
+SCOPE: EVERY ELIGIBLE SEAT (owner decision, 2026-07-31). Superseded the original
+narrow scope, and the reason it changed is the useful part.
+
+  It began as: "apply where the pressure is MEASURED, not everywhere it is
+  imaginable", following the owner's criterion for the sibling change (cap raises,
+  2026-07-29 — raise the seats that actually truncate, leave the rest until they do).
+  The stated objection to going wider was that a blanket edit across 51 templates
+  changes what every council asks its reviewers for, and that this was "not supported
+  by the evidence".
+
+  It is now supported by the evidence, which is why the scope changed rather than the
+  argument being dropped. Measured against a real control arm on 2026-07-31, by ROUND
+  SPAWN TIME: `review_editquality` @16000 went from peak 98.3% of cap (10 rounds
+  spawned before the block, mean 9,848 tokens) to peak 55.0% (8 rounds after, mean
+  6,569) — same seat, same afternoon, CAP UNCHANGED. That isolates the budget from
+  the cap raise it originally shipped with, which the `review_architecture` result
+  never could. A change with a measured effect and no observed cost is a different
+  proposition from the same change argued for.
+
+  Note what did NOT change: eligibility is still a claim about the mechanism (see
+  ELIGIBILITY_SQL below), and the block still refuses to overwrite a hand-authored
+  one. "All eligible" is not "all".
 
 WHAT CANDIDATE 4 TURNED OUT TO BE, AND WHAT IT IS NOT — measured, not reasoned.
 Candidate 4 was filed as "emit the load-bearing field FIRST in every seat's output
@@ -65,9 +79,53 @@ import sys
 NS = "ai-persona-system"
 POD = "postgres-clients-0"
 
-# (council, seat) -> why this one. The reason is not decoration: it is the evidence
-# that has to be re-checked before the entry is kept, and 104_REPORT reprints it.
-TARGETS = [
+# ---------------------------------------------------------------------------
+# SCOPE, from 2026-07-31: EVERY ELIGIBLE SEAT, discovered from the live DB.
+#
+# Owner decision 2026-07-31, on evidence rather than argument: the block took
+# review_editquality from 98.3% to 55.0% of an UNCHANGED cap (control arm by round
+# spawn time, 10 rounds before vs 8 after). So it stops being a per-seat remedy and
+# becomes the default for the seats the mechanism actually governs.
+#
+# DISCOVERED, NOT LISTED, and that is the point. A hand-written roster is the exact
+# drift this platform keeps paying for: 102_LINT exists because a 16th seat was added
+# and one key was forgotten on it, and 099 exists because two rosters had to be kept
+# identical by hand. A list of 48 pairs would be stale the first time a seat is
+# seated. This asks the database instead, every run.
+#
+# ELIGIBILITY IS A CLAIM ABOUT THE MECHANISM, NOT A CONVENIENCE. The block states
+# that a DEGRADED `object` gates the round to REVISE regardless of severities. That
+# is true only where `diagnose_council_decide` is the decider, so eligibility is
+# defined by the council HAVING that step — measured, not assumed. Five councils
+# qualify (council-gate, fix-proposer, feature-designer, experience-planner,
+# experience-approval-council); `domain-research-classifier` has zero decide steps
+# and a different output schema entirely, so the block would be a FALSE claim in its
+# prompt. Putting text a reviewer will act on into a prompt where it does not hold is
+# worse than leaving the seat uncovered.
+ELIGIBILITY_SQL = """
+SELECT a.type, s.key
+FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND s.key LIKE 'review_%'
+  AND s.value->'config'->>'prompt_template' IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM jsonb_each(a.default_config->'workflow'->'steps') d
+    WHERE d.value->>'action' = 'diagnose_council_decide')
+ORDER BY 1, 2;
+"""
+
+# Seats deliberately left out, with the reason. An exclusion with no reason is how a
+# gap becomes folklore; these are printed on every run so they stay arguable.
+EXCLUSIONS = {
+    ("domain-research-classifier", "review_mission_alignment"):
+        "council has NO diagnose_council_decide step and a different output schema "
+        "(objection_found/concerns/note) — the block's central claim would be false here",
+}
+
+# Seats whose pressure was MEASURED before the fleet-wide rollout. Kept because the
+# evidence is the interesting part of the history, and 104_REPORT reprints it — not
+# because these are the only targets any more.
+MEASURED = [
     ("fix-proposer",     "review_guardian",
      "peak 99.2% of an 8000 cap over 278 calls (118 labelled with a holding council) — the highest-pressure seat with attributable evidence"),
     ("council-gate",     "review_guardian",
@@ -96,6 +154,19 @@ TARGETS = [
      "third council holding it; raised to 16000 by the same owner call on 2026-07-31, "
      "so it inherits the same ceiling and the same trajectory"),
 ]
+MEASURED_WHY = {(c, s): w for c, s, w in MEASURED}
+
+
+def targets():
+    """Every eligible seat, from the live DB, minus the stated exclusions."""
+    rows = [l.split("|") for l in psql(ELIGIBILITY_SQL).splitlines() if "|" in l]
+    out = []
+    for council, seat in rows:
+        if (council, seat) in EXCLUSIONS:
+            continue
+        out.append((council, seat,
+                    MEASURED_WHY.get((council, seat), "eligible seat (fleet-wide rollout 2026-07-31)")))
+    return out
 
 # The block. One copy, here. Inserted immediately before the "## Output" heading,
 # the only anchor present in all 51 live templates.
@@ -177,16 +248,24 @@ def main():
     ap.add_argument("--verify", action="store_true", help="report live state only")
     args = ap.parse_args()
 
-    print(f"── seat length budget ── {len(TARGETS)} target(s)\n")
+    TARGETS = targets()
+    print(f"── seat length budget ── {len(TARGETS)} eligible target(s)")
+    for (c, st), why in EXCLUSIONS.items():
+        print(f"   excluded: {c}/{st}\n             {why}")
+    print()
     todo = []
     for council, seat, why in TARGETS:
         prompt = live_prompt(council, seat)
         state, detail = classify(prompt)
-        print(f"  [{state:12}] {council}/{seat}")
-        print(f"                 {detail}")
-        print(f"                 why targeted: {why}")
+        if state != "APPLIED" or args.verify:
+            print(f"  [{state:12}] {council}/{seat}")
+            if state != "APPLIED":
+                print(f"                 {detail}")
+                print(f"                 why targeted: {why}")
         if state == "NEEDS-BLOCK":
             todo.append((council, seat, prompt))
+    applied_already = len(TARGETS) - len(todo)
+    print(f"\n  ({applied_already} of {len(TARGETS)} already carry the block or were refused above)")
     print()
 
     if args.verify:
