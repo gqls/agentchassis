@@ -74,6 +74,11 @@ VALUES (
           'description', 'Queue an assemble-only rerender so the served page stops showing the removed sections',
           'config', jsonb_build_object(
             'site_id', 'input_data.site_id',
+            -- page_id populates the COLUMN, not just the spec. create_work_item
+            -- takes it as an optional input (create_work_item_action.go:247-249);
+            -- without it the queued item carries page_id in spec only and the
+            -- column is NULL. Council round 1 (editquality, edit 2) caught this.
+            'page_id', 'input_data.page_id',
             'source', 'deduplicate-sections',
             'item_type', 'page_rerender',
             'item_domain', 'build',
@@ -82,6 +87,13 @@ VALUES (
             'priority', 10,
             'summary', 'Re-assemble and deploy after removing duplicate sections',
             'item_key_prefix', 'dedupe_rerender',
+            -- REQUIRED, not optional. '<prefix>_<domain>' is SITE-wide, so two
+            -- pages deduplicated close together collide on idx_swi_dedup
+            -- (site_id, item_key) and one rerender is SILENTLY LOST
+            -- (create_work_item_action.go:157-180). This handler is per-page by
+            -- construction, so it must name the page. Unresolved is a hard error
+            -- there by design — it will not fall back to the colliding key.
+            'item_key_suffix_field', 'input_data.page_id',
             'spec', jsonb_build_object('page_id', 'input_data.page_id')
           ),
           'output_field', 'rerender_item',
