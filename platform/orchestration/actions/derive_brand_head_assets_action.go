@@ -320,7 +320,7 @@ func recordDerivedAsset(ctx context.Context, db *sql.DB, siteID uuid.UUID, asset
 		VALUES (gen_random_uuid(), $1, $2, 'image', $3, $3, $4, 'generated', 'derived-from-logo', NOW())
 		ON CONFLICT (site_id, asset_key) WHERE asset_key IS NOT NULL AND status = 'active' DO UPDATE SET
 			url = EXCLUDED.url, updated_at = NOW()
-		WHERE assets.locked_at IS NULL
+		WHERE `+assetAgentWritableSQL("assets.")+`
 	`, siteID, assetKey+" (derived)", assetKey, webPath)
 	if err != nil {
 		logger.Warn("recordDerivedAsset: provenance upsert failed (non-fatal)",

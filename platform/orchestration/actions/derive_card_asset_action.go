@@ -219,7 +219,7 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 			entity_type = EXCLUDED.entity_type, entity_id = EXCLUDED.entity_id,
 			file_size = EXCLUDED.file_size, dimensions = EXCLUDED.dimensions,
 			updated_at = NOW()
-		WHERE assets.locked_at IS NULL
+		WHERE `+assetAgentWritableSQL("assets.")+`
 	`, siteID, cardKey+" (derived card)", cardKey, webPath,
 		sourceAssetID, entityType, entityID, len(cardBytes), string(dims))
 	if err != nil {

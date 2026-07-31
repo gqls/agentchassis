@@ -2639,7 +2639,7 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 			origin_prompt = COALESCE(EXCLUDED.origin_prompt, assets.origin_prompt),
 			origin_model = COALESCE(EXCLUDED.origin_model, assets.origin_model),
 			updated_at = NOW()
-		WHERE assets.locked_at IS NULL
+		WHERE `+assetAgentWritableSQL("assets.")+`
 		RETURNING id
 	`
 

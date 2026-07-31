@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -244,6 +245,79 @@ func TestCardKeyIsSharedByTheGuardAndTheArtefactPath(t *testing.T) {
 		if !strings.HasPrefix(key, "card_") || strings.Contains(key, "-") {
 			t.Errorf("contentCardKey(%q) = %q — breaks the live card_<page_with_underscores> convention", page, key)
 		}
+	}
+}
+
+// The WRITE side needs the same lockstep discipline as the read side, and this
+// test exists because I shipped the helper without it: assetAgentWritableSQL was
+// called by nothing but its own negation and this file, while THREE writers kept
+// hand-typed copies of the predicate in their WHERE clauses. A centralisation
+// helper that no writer calls is indistinguishable from a centralisation — it
+// compiles, it tests, and the duplicates it was built to retire are still there.
+// (Independently flagged by the bugfix 8 session in bugs_closed/143 as
+// "centralisation is only one-third done unless they were swapped too".)
+//
+// Comment lines are stripped before scanning: the predicate is quoted in several
+// doc comments on purpose, and those are prose, not a second source of truth.
+func TestNoWriterHandTypesTheAssetLockPredicate(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("readdir: %v", err)
+	}
+
+	var offenders []string
+	scanned := 0
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") ||
+			strings.HasSuffix(name, "_test.go") || name == "asset_lock_guard.go" {
+			continue
+		}
+		src, err := os.ReadFile(filepath.Join(".", name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		scanned++
+		for i, line := range strings.Split(string(src), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "//") {
+				continue
+			}
+			if strings.Contains(line, "assets.locked_at IS NULL") {
+				offenders = append(offenders, fmt.Sprintf("%s:%d", name, i+1))
+			}
+		}
+	}
+
+	if scanned == 0 {
+		t.Fatal("scanned no source files — the classifier has gone blind, so a pass here means nothing")
+	}
+	if len(offenders) > 0 {
+		t.Errorf("hand-typed asset lock predicate at %v\n"+
+			"Use assetAgentWritableSQL(\"assets.\") so the write predicate and the read predicate "+
+			"(assetLockedSQL, derived from it) cannot drift, and so LOCK-004's sweep has one line to edit.",
+			offenders)
+	}
+}
+
+// Proof the scan can see an offender: the same rule over a synthetic line. Without
+// this, a scan that silently stopped matching would report a clean tree for ever.
+func TestHandTypedPredicateScanFiresOnASyntheticLine(t *testing.T) {
+	lines := []string{
+		"\t\tWHERE assets.locked_at IS NULL",                          // offender
+		"\t\t// WHERE assets.locked_at IS NULL protects only the row", // comment, must be ignored
+		"\t\tWHERE `+assetAgentWritableSQL(\"assets.\")+`",            // correct form
+	}
+	var hits []int
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "//") {
+			continue
+		}
+		if strings.Contains(line, "assets.locked_at IS NULL") {
+			hits = append(hits, i)
+		}
+	}
+	if len(hits) != 1 || hits[0] != 0 {
+		t.Fatalf("scan matched lines %v; want exactly the hand-typed one (index 0) — the comment must be ignored and the helper form must pass", hits)
 	}
 }
 
