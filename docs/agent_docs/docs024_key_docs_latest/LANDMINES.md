@@ -2349,3 +2349,50 @@ before a customer-facing domain is the one printing it.
 - **do NOT build a per-`group_key` completeness cohort, guard or drift check.** `classifyPagesForNav` re-homes pages between groups as a matter of course, so a per-group comparison scores a legitimate re-homing as a 100% loss of one class. `bugs_open/165` asked for exactly that shape for its site B and the data refused it: a per-group cohort reads `tools` 0/1 = 0% and would refuse robot-hands.com's nav rebuild **for ever**. Group membership is a classifier OUTPUT, not an independently-losable class. Pinned by `TestNavFloorAllowsAPageReHomedBetweenGroups` in `nav_prune_floor_test.go`, which fails if anyone adds one back
 - **source:** `bugs_open/165` site B, 2026-07-31 — found while measuring cohorts against production rather than copying the ones the bug file proposed. Related: the `nav-updater` landmine above (URL-prefix deletion), and `bugs_open/149` A2 for the classifier's membership contract
 - **added:** 2026-07-31, bugfix_165 sites B+C contribution lane
+
+---
+
+## Pointing a new domain at an existing single-vhost box silently serves the OLD site under the NEW name — and idea.uk's engine will take money on it
+
+**footprint:** `116.203.204.115` · `idea.uk` · `docs024_key_docs_latest/idea.uk/golang_files/service.go` · `setup.sh` · nginx `default_server`
+
+Adding an A record for a new domain that points at a box already serving another
+site does **not** produce a 404, a holding page, or any other signal that the new
+domain is unconfigured. nginx hands the request to its default server and the
+**existing site is served in full under the new hostname**. Measured 2026-07-31:
+`webdesign.uk`, `ugg2.com` and `idea.uk` returned **byte-identical** bodies
+(`md5 cf4c46c2b4e0`, `<title>idea.uk — …</title>`) within minutes of the records
+being added.
+
+**On the idea.uk box specifically this is a money bug, not a cosmetic one.** The
+engine never inspects the request host — `grep -n 'r\.Host' main.go service.go
+billing.go` returns **no match**; redirect targets come from the configured
+`PublicBaseURL`. So the shop is fully functional on the wrong domain and **a real,
+payable order can be created there**, with the buyer bounced mid-checkout to a
+domain they never visited. The "does it work?" check (`curl` → `200`) is the check
+that *hides* this: 200 is the symptom.
+
+**the check:** after pointing any domain at a shared or pre-existing box, compare
+the body against the site you did **not** intend to serve, not against nothing:
+
+```bash
+for d in <new-domain> <the-site-already-on-that-box>; do
+  echo -n "$d : "; curl -sS -m 15 "https://$d" | md5sum | cut -c1-12
+done
+# identical hashes = you are serving the old site under the new name
+```
+
+**Fix it at the edge, never on the box** — a Cloudflare Redirect Rule or removing
+the A record touches nothing on a live earning machine. Use a **302**: a 301 is
+cached near-permanently by browsers and you will be undoing it when the real site
+ships.
+
+**Two more traps in the same move.** (1) The origin's certificate almost certainly
+does not cover the new name — `openssl s_client -servername <new-domain>` on that
+box returns `subject=CN=idea.uk` with SAN `DNS:idea.uk` only. If Cloudflare still
+returns 200, that **proves** the zone is on SSL mode "Full", not "Full (strict)",
+because strict would fail the handshake — a free way to read a dashboard setting
+you cannot see. (2) HSTS leaks across the borrowed vhost:
+`Strict-Transport-Security: max-age=31536000; includeSubDomains` served under the
+new hostname pins **every future subdomain of it** to HTTPS-only for a year, which
+matters if that domain was chosen to host wildcard subdomains later.
