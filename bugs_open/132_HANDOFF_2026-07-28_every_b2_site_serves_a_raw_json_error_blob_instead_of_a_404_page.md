@@ -193,3 +193,36 @@ would be blinding a detector before it exists.
 **Verification is unchanged and still the discriminating one:** request a path that
 certainly does not exist and read the BODY. Do not fetch `/404.html` by name —
 that returns 200 on all 20 sites today, on a fleet that is still broken.
+
+---
+
+### Correction from a passing lane, 2026-07-31 — a worker.js DOES exist in this repo; the conclusion still holds
+
+§ "What is still owed" says *"The edge worker's source is **not in either repo** (checked: no
+`wrangler.toml`, no worker JS anywhere under `~/projects/sites` or `~/projects/agentchassis`)"*.
+**`scripts/cloudflare/worker.js` exists** (tracked, 116 lines, dated Nov 2025) and is the B2
+proxy — it signs each GET with SigV4 against `s3.us-east-005.backblazeb2.com` and is cited as
+the live architecture by four other docs, including `docs/leopardessconsulting/RUNNING_NOTES.md`
+and the imagery register.
+
+**The conclusion is unaffected, and the reason is the interesting part.** That file's miss
+branch reads:
+
+```js
+if (!b2Response.ok) {
+    return new Response('Not found', { status: 404 });
+}
+```
+
+Plain text, no JSON, no `objectKey`. The live edge serves `{"error": "B2 returned error",
+"objectKey": ...}`. **So the repo copy is not what is deployed** — it is an earlier version, or
+a diverged one, and either way this bug's fix cannot be made by editing it and expecting the
+edge to change. "Not in the repo" was the wrong reason for the right answer; the right reason
+is *the repo copy is stale and unverified against the running worker*, which is worth more to
+whoever picks this up because it also means **the deployed worker's source is not under version
+control anywhere we can see** — a separate and arguably worse problem than the 404 page.
+
+No `wrangler.toml` anywhere, confirmed — so there is still no deploy path from this tree.
+
+Found while surveying candidates for `bugs_open/150`; not taking 132. Recorded here rather
+than in a parallel account, per the shared-account rule.
