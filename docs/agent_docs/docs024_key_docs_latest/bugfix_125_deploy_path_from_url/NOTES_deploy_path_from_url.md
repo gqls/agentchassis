@@ -120,3 +120,57 @@ with `risks` and `grounded_in` as siblings of `rationale`. My first attempt was 
 client-side with `ERROR: .plan missing` — which is the good outcome (client-side, no
 credits) but the error text does not say *what* is missing about it. The authority is the
 **097 script header**, lines 22–40, not the RUNBOOK prose. Added to the RUNBOOK here.
+
+## 2026-07-31 (10) — council round 1: REVISE, and the gating objection was right to be raised
+
+12 reviewers, 5 abstained, 0 unreadable. Gating HIGH from `prior_art_librarian`, echoed as
+medium by `bug_historian`, `reuse_agent`, `guardian` and `debug_historian` — **five seats,
+one question**, and none of them could have known the answer without asking:
+
+> LANDMINES.md names `getPageInfo` in `rerender_single_page_action.go` ("a page whose url is
+> `/` deploys a file with NO NAME"), but the plan's edit 5 names `loadPageInfo`. Either they
+> are the same function and the plan's description of current behaviour contradicts the
+> landmine, or **there is a sixth copy of the classifier in the very file the plan touches**
+> — which is exactly the failure mode this plan is fixing.
+
+**They were right to ask and I was wrong in the submission.** `grep -n 'func getPageInfo\|func
+loadPageInfo'` returns exactly one function: `getPageInfo` at `:493`. **There is no
+`loadPageInfo` in this repo.** I invented the name — I read the file from an offset that
+started below the `func` line and typed a plausible name into the `symbol` field without
+scrolling up. The edited line, `:526`, is inside `getPageInfo`'s body, so the function the
+landmine names *is* the one I changed and there is no sixth copy. But the submission asserted
+a symbol I had never verified, in a plan whose entire argument is *"I counted the copies"*.
+
+**The check that would have caught it costs one grep**, and I had run that grep for
+*`TrimPrefix`* but never for the *function names I was writing down*. Rule: **the symbol
+field of a submission is a claim like any other — grep it.**
+
+### It also produced a correction to the landmine
+
+Checking the landmine's mechanism rather than just its conclusion: it says the guard "keys on
+the page being NAMED `index`, so an adopted or hand-made homepage under any other name
+(`home`, `landing`, `main`) falls straight through it". **It does not.** The pre-change guard
+was `p.URL == "/" || p.URL == "" || p.Name == "index"`, and the *first* clause catches the
+root case whatever the page is called; the name clause was a redundant second catch. So the
+NO-NAME outcome was not reachable by the route described. Conclusion right, footprint right,
+mechanism wrong — corrected in place, crediting the round.
+
+### And it surfaced a real distinction I had glossed
+
+`reuse_agent` asked whether `adopt_verbatim.go`'s `urlToDeployPath` — the landmine's other
+footprint — was the missed copy. It is not, and the reason matters: it is the **inverse**
+function. It produces the value stored in `pages.url` and deliberately **keeps** the leading
+slash (`/index.html`); mine produces a repo path and deliberately **strips** it. Two halves of
+one invariant with opposite output contracts. My round-1 grep had classified it as "has a
+comment about this" and moved on **without opening the function** — the same not-looking that
+016b's 2026-07-19 correction is about. Written into LANDMINES.md so the next person to tidy
+"these two URL helpers" does not merge them.
+
+### What round 1 confirmed rather than challenged
+
+Every load-bearing measurement was independently re-run by the seats' own read-only checks and
+came back identical: 316/472, 0 index/home rows, the `/tools.html` fragment collision, the
+three `page_field` agents, and 0 pages with `url = '/'`. So the round cost one resubmission and
+bought: a corrected symbol, a corrected landmine, a documented inverse-function distinction,
+four new tests, a specified post-deploy check, and the orphan gap logged on `bugs_open/098`
+instead of absorbed. **A REVISE that finds a real error in the submission is the gate working.**
