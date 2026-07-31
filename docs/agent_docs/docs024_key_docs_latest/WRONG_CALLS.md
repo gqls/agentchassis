@@ -14844,3 +14844,79 @@ assertion in prose.
   survived, but it survived on a reading I did after being asked. The cheap check:
   **an approval is not a reason to stop reading the objections** — the gating ones are
   merely the ones that blocked, not the ones most worth acting on.
+
+---
+
+### 2026-07-31 — "no fences are installed yet" offered as a safety property, when it is a fact about today
+- **the claim:** in the `computed_values` council submission I listed the
+  skip-passes-as-green hazard under risks and answered it with *"I have not yet
+  installed any of the 9 emitted fences into doc_plans."*
+- **why it was wrong:** that is an observation about the present, not a guard.
+  Nothing stopped another lane installing one before the browser-runner rolled,
+  and the result would have been a fence reporting green having asserted nothing
+  — **the exact false-green the check was written to eliminate, reproduced by the
+  fix for it.** I had even cited the governing landmine myself; citing a landmine
+  is not the same as being protected from it.
+- **what caught it:** the council gate. **Four independent seats raised it**
+  (`debug_historian` HIGH and gating, `guardian`/`architecture`/`editquality`
+  medium) — the convergence is the signal, not any one seat.
+- **the cheap check that would have:** for any capability that is inert until a
+  roll, ask *what stops someone using it before then* and write that down as a
+  runnable command, not a sentence. `acceptance/criteria/INSTALL_GATE.sh` is the
+  answer here and took ten minutes.
+
+### 2026-07-31 — read a `0` from a pod-grep as "my change did not ship", when the grep tool itself was missing
+- **the claim:** the first run of `INSTALL_GATE.sh` reported `computed_values: 0`
+  against the running `browser-runner-adapter`. Taken alone that reads as "the
+  image predates the change — rebuild and roll".
+- **why it was wrong:** the image has **no `strings` binary**, so CLAUDE.md's
+  `strings /app/X | grep -c` recipe failed silently and returned 0 for *every*
+  symbol. The change genuinely was not deployed — but the evidence for that was
+  worthless, and on a day when it HAD been deployed the same reading would have
+  cost a needless rebuild and roll.
+- **what caught it:** the **positive control in the same exec**, which came back 0
+  as well and made the script refuse to conclude anything. The check reported that
+  it was broken instead of reporting a result.
+- **the cheap check that would have:** the control itself — it is one extra grep.
+  Recorded fleet-wide in `LANDMINES.md`. This is the second time the
+  MEMORY-indexed rule *"grep a string your change ADDED plus a positive control in
+  the same exec"* has paid for itself; it should be treated as the default shape
+  of a deploy check, not an embellishment on one.
+
+### 2026-07-31 — wrote an accessibility fix into a port and only noticed it changed the page because a gate said so
+- **the claim:** implicitly, that adding a "Better option" badge to
+  `tool-loan-vs-savings` was part of porting it — the tool signals its entire
+  verdict by colour alone, which is a genuine defect.
+- **why it was wrong:** the badge changes the panels' text, so the port could no
+  longer prove it was equivalent. I had spent the same afternoon *refusing* to fix
+  a three-decimal-place money bug on exactly that ground, so I was applying two
+  standards within one commit and would not have noticed.
+- **what caught it:** `verify_rewrite.py`, which failed all six vectors on
+  `text/display` with every NUMBER matching — the diff's shape said "prose
+  changed", not "arithmetic changed".
+- **the cheap check that would have:** state the inclusion rule ONCE, before
+  starting, and re-read it at each fix. The rule that survived is
+  **observability, not severity**: a fix that provably cannot change the output
+  is in scope for a port; anything visible is its own change with its own
+  re-baseline. Both halves were exercised the same day — the page-wide
+  `localStorage.clear()` fix went in under it, the badge came out.
+
+- **A green negative test that never reached the rule it was written for — and the
+  two earlier fixes for it were also wrong.** Same lane as the entry above
+  (`verify_report_prose`, `bugs_open/160`), third instance in one afternoon, and
+  the sharpest. After the council replaced my shape rule with a closed vocabulary,
+  I added `IP54-not-rated` to prove a negation word is refused. It was refused; the
+  test was green; the assertion named the right token **and** the right check.
+  Then the mutation — admit `not` to the vocabulary — **still passed**, twice over:
+  first because my original case `IP54-not-required` also contained `required`,
+  which is not in the vocabulary either (so a different word was doing the work),
+  and then because the fixture ran at `ipMin 0`, where `buildFactBlock` never writes
+  `required protection IP54` — so `IP54` was absent from the fact block and every
+  `IP54-*` case was rejected for an **untraceable head**, never reaching the tail
+  rule at all. **The cheap check: a negative test tells you the input was rejected,
+  never WHICH rule rejected it.** Under any guard with more than one rejection path
+  — and a fabrication gate always has several — a case can be green for its whole
+  life without exercising its own subject. Mutating the rule is the only thing that
+  separates "my guard works" from "something else got there first", which is why the
+  mutation is not a formality you add after the tests pass: it is the only evidence
+  the tests are about what you think.

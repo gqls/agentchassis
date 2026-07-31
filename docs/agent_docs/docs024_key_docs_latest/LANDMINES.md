@@ -2146,3 +2146,57 @@ before a customer-facing domain is the one printing it.
 - **why it matters:** the gate is fail-closed — a false violation destroys the whole report and 404s its URL — so both directions of a wrong test are expensive: a fix that looks proven and is not, or a guard quietly disarmed by a fix "verified" on examples it never judged
 - **source:** `bugs_open/160`, fixing lane 2026-07-31; both corrections are recorded in the bug file
 - **added:** 2026-07-31, bugfix_160_prose_gate_recombination lane
+
+---
+
+### `browser-runner-adapter`'s image has NO `strings` binary — the standard pod-grep returns 0 for everything and reads as "your change did not ship"
+- **footprint:** `internal/adapters/browserrunner`, `browser-runner-adapter` (pod / deployment)
+- **the check:** CLAUDE.md's deploy-verification recipe is
+  `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "<sym>"'`.
+  On this service the pipeline fails silently — no `strings` in the image — and
+  prints `0`, which is indistinguishable from "the symbol is absent". Use
+  `grep -ac '<sym>' /app/browser-runner-adapter` instead; `-a` treats the binary as
+  text and needs nothing installed. **Always pair it with a positive control in the
+  SAME exec** (e.g. `no_horizontal_overflow`, present in every build): if the control
+  is also 0, the check is broken and you must fix the CHECK, not rebuild the image.
+  This was found exactly that way, by a control firing on the guard's first run —
+  without it the reading was "roll again", costing a needless build and roll.
+  Worked example: `docs024_key_docs_latest/loancalculator_couk/acceptance/criteria/INSTALL_GATE.sh`.
+
+### A schema value containing a QUOTE, rendered into a `<script>`, kills the whole tool — and it still passes every structural check
+- **footprint:** `content_components.html_template`, `input_schema`, `RenderTemplateReportingMissing`
+- **the check:** `text/template` escapes NOTHING, by design. A fallback like
+  `in "58-day" interest charges.` interpolated into `var S = "{{.field}}";` renders as
+  `var S = " in "58-day" interest charges.";` — a syntax error that kills every
+  statement in the block. The calculator then shows `£0.00` for every input while
+  **still shipping a `<script>` tag (so `tool_health` passes), still matching every
+  selector (so Tier 2 passes) and still rendering normally.** Only a check that reads
+  the computed VALUES catches it. There is no context-aware fix available, so the rule
+  is structural: **put copy in the MARKUP and let the script write only the number** —
+  a hidden `<div>` of `data-copy` spans read with `textContent` costs nothing and has
+  no quoting hazard at all. Grep before you install:
+  `grep -o '"{{\.[a-z_]*}}"' <template>` inside any `<script>` region is the shape to
+  refuse. `loancalculator_couk/rewrite/render_tool.go` enforces it offline.
+
+### `display:flex` on a control's parent BLOCKIFIES the control — and computed `display` is part of a tool's equivalence fingerprint
+- **footprint:** `docs024_key_docs_latest/loancalculator_couk/toolgolden.py`, `content_components.html_template`
+- **the check:** a flex (or grid) container forces every child's computed `display` to
+  the blockified form, so an `<input type=checkbox>` that computed `inline-block`
+  computes `block` the moment you modernise its row to flex. Nothing looks different
+  and nothing computes differently, but `toolgolden`/`computed_values` record display
+  because a tool that responds by REVEALING a region changes nothing else. Two tools on
+  this one site needed **opposite** layouts (`damage-checker` non-flex,
+  `application-tracker` flex) because their original stylesheets disagreed — unknowable
+  from reading either page, they look identical. So: never harmonise the layout of two
+  ported tools without re-baselining both, and expect the failure to point at the row,
+  not at the control.
+
+### Two local copies of a site can both look right — `~/projects/sites2/<domain>` is NOT what is served
+- **footprint:** `~/projects/sites`, `~/projects/sites2`
+- **the check:** both trees hold a full, plausible copy of the same domain. For
+  loancalculator.co.uk, `~/projects/sites/` matches the served bytes exactly and
+  `~/projects/sites2/` differs on **every** page checked. Nothing in either directory
+  says which is authoritative, and a port built from the wrong one produces components
+  faithful to the wrong original that pass their own review. Cost is one command:
+  `diff <(curl -s https://<domain>/<path>) ~/projects/sites/<domain>/<path>` — or md5
+  both — **before** reading a single file as source of truth.

@@ -1225,3 +1225,118 @@ was not kept.
 `onclick`, **no globals at all**, one delegated listener on the container reading
 `data-chc-next` / `data-chc-points`. Both rewrites re-verified against `c`:
 **MATCHES, 2 of 2.**
+
+---
+
+## 2026-07-31 late — the check moved into the platform, and all 11 tools were rewritten
+
+Owner asked for three things: make the numeric check part of the tools workflow,
+rewrite all the remaining tools, write a summary. All three done. The summary is
+`SUMMARY_2026-07-31_calculators_that_prove_their_own_arithmetic.md`.
+
+### 1. `computed_values` — the check, in the platform
+
+New Tier-4 criteria check type (`internal/adapters/browserrunner/run_checks_action.go`,
+`runComputedValues`). Drives with the EXISTING fill/click/select step vocabulary,
+then asserts the EXACT text of every named output. Whitespace is the only latitude.
+Registered at tier 4 in `experienceCheckTiers`, with `expect_values` in
+`experienceCheckTypeFields`; both lockstep tests pass unmodified. Commit `c11efb91c`,
+register entry TL-038.
+
+**Tier 4 ONLY, and that is the load-bearing decision.** A Tier-2 form confirming
+anchors would be four lines, exactly as `interaction` has. Adding it would mint the
+same vacuity one rung higher under a name that reads like arithmetic was checked.
+
+`toolgolden.py --emit-criteria <dir>` turns a capture into fences. 9 of 12 emitted;
+**the 3 refusals were all real findings**, including one against my own tool 2.
+
+### 2. All 11 tools rewritten, each proven — and it is 11, not 12
+
+`index.html` and `tools/standard-calc.html` are the **same calculator**, sharing
+`calculateLoan()` from `assets/js/global.js`: identical steps and identical expected
+values in all three vectors. That file also holds `getRateContext()` and
+`DYNAMIC_MARKET_AVG` with **no callers anywhere on the site**.
+
+New harness `rewrite/verify_rewrite.py`: cuts the original widget out of the REAL
+page, splices the rendered component in, serves the whole site locally, compares
+against the golden for the live URL. Proves a rewrite BEFORE it ships.
+
+> **`~/projects/sites2/loancalculator.co.uk` IS NOT THE SITE.** Two local copies
+> exist. `~/projects/sites/` matches the served bytes exactly; `sites2/` differs on
+> every page checked. Checked by md5 against live before using either — and only
+> because the habit is cheap. Rewriting from `sites2` would have produced eleven
+> components faithful to the wrong original, all passing their own review.
+
+### 3. What the gate caught that review would not have
+
+| # | caught | why nothing else would have |
+|---|---|---|
+| 1 | A schema fallback containing `"58-day"` **in double quotes** rendered into a JS string literal → syntax error → **whole calculator dead, showing £0.00 for every input** | It still shipped a `<script>` block (tool_health passes), still matched every selector (Tier 2 passes), still rendered normally. `render_tool.go` now REFUSES any template interpolating a quote-bearing field inside a `<script>`. |
+| 2 | `display:flex` **blockifies its children**; computed display is fingerprinted. The same house-style row broke **two tools in OPPOSITE directions** — damage-checker needed non-flex, application-tracker needed flex | Their original stylesheets disagreed. Unknowable from reading either page; the two look identical. |
+| 3 | A **one-character whitespace** difference: the original built rows with an `innerHTML` literal whose indentation became text nodes, so two remove buttons read `✕ ✕` not `✕✕` | `createElement` produces no such node. Invisible to a human, and to every other check. |
+
+**The rule that came out of #1 and is now applied throughout: copy goes in the
+MARKUP, the script writes only the number.** Retrofitted to tool 2, whose band
+verdicts were in JS literals — safe today because none happens to contain a quote,
+which is exactly why it was worth moving.
+
+### 4. Defects found, and the line I drew
+
+**Fixed** (provably unobservable today, gate confirms): `localStorage.clear()`
+wiping the **whole origin** rather than its own keys; two tools counting checkboxes
+**page-wide**; three property-assignment handlers (`window.onload`, `cb.onchange`)
+that silently replace another component's; a leaked object URL per download; a
+restore that died silently on a bad file.
+
+**NOT fixed** (changes output, each owed its own re-baseline): three decimal places
+on money (`£448.024`, `toLocaleString` with no `maximumFractionDigits`); 0% APR
+computes nothing on car finance; consolidation counts a rate-less debt toward the
+balance but not its interest; loan-vs-savings signals its verdict by colour alone.
+
+> **THE LINE IS OBSERVABILITY, NOT SEVERITY** — and I had to apply it against
+> myself. I wrote the accessibility badge for the colour-only verdict, the gate
+> failed it on text content, and I **reverted it**. Mixing an improvement into a
+> port means neither can be reviewed on its merits, and it is the same rule that
+> keeps the `£448.024` bug in place for now.
+
+### 5. Council: REVISE, and it was right
+
+Corr `1056cf11-7693-4fb6-a9fe-f67ee9f28bca`. 5 approve / 4 object, gated by
+`debug_historian` at **high**, and **four independent seats raised the same thing**:
+
+> A criteria check type the running binary does not know is **SKIPPED**, and an
+> **all-skipped fence PASSES**.
+
+So a fence installed before the browser-runner rolls reports green having asserted
+nothing — *the exact false-green this check exists to eliminate, reproduced by the
+fix for it*. My risk note said "no fences are installed yet", which is a fact about
+today, not a guard. Nothing stopped another lane installing one.
+
+Answered with `acceptance/criteria/INSTALL_GATE.sh`: pod-grep with a positive
+control in the same exec, plus the still-owed first-run skip assertion.
+
+> **MISSTEP, caught by the gate's own control on its first run.** It reported
+> `computed_values: 0, control: 0` and refused to conclude "not deployed". Cause:
+> **`browser-runner-adapter`'s image has no `strings` binary**, so CLAUDE.md's
+> `strings /app/X | grep -c` recipe fails silently and returns 0 for everything.
+> Without the control that reads as "your change did not ship" and costs a
+> pointless rebuild and roll. `grep -a` needs nothing installed. Second seat
+> objection worth recording: `tooling_provenance` wanted a NOTES entry for the next
+> author touching these files — this section is it.
+
+### Tally: 11 of 11, proven
+
+`application-tracker` · `car-finance-pcp-hp` · `compare-loan-offers` ·
+`consolidation-risk` · `credit-health-check` · `early-settlement` ·
+`loan-repayment` (serves BOTH standard-calc and index.html) · `loan-vs-savings` ·
+`overpayment-impact` · `rate-stress-test` · `return-damage-checker`.
+
+Three carry `allow_new_keys` (consolidation, credit-health-check,
+application-tracker) because their controls **had no ids at all**, so the emitter
+could not name anything to drive and they had **no numeric coverage available**.
+Renames are paired BY VALUE and every pre-existing key is still compared strictly,
+so a control that genuinely lost its value still fails. Re-baseline owed on ship.
+
+`damage-checker` legitimately gets no `computed_values` coverage — it has no numeric
+output. Its contract is a visibility change, so its PLAN wants `interaction` +
+`has_visible_area`. **Do not manufacture a number so a check type fits.**

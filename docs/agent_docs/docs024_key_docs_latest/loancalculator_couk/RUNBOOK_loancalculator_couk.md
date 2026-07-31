@@ -309,3 +309,75 @@ read it before waving it through.
 - **Run it from the repo root** — it resolves `toolprobe` relative to its own path.
 - Verify the gate still has teeth if you change it: break one constant
   (`(APR/100)/12` → `/11` on `standard-calc`) against a local copy and confirm exit 1.
+
+## Proving a REWRITTEN tool before it ships (2026-07-31)
+
+`toolgolden.py --compare` drives LIVE urls, so it can only judge a rewrite after
+it is deployed. On this tree committing IS deploying, so that order means shipping
+an unverified calculator to a public money page. `verify_rewrite.py` runs the same
+comparison against the rewrite first.
+
+```bash
+cd /home/ant/projects/agentchassis            # it resolves toolprobe by its own path
+LANE=docs/agent_docs/docs024_key_docs_latest/loancalculator_couk
+python3 $LANE/rewrite/verify_rewrite.py                       # every rewritten tool
+python3 $LANE/rewrite/verify_rewrite.py settlement-calculator # one
+python3 $LANE/rewrite/verify_rewrite.py --keep                # keep the staged site
+```
+
+**PASS = `all N rewritten tool(s) reproduce their golden values exactly`, exit 0.**
+
+- **The site source is `~/projects/sites/loancalculator.co.uk`.**
+  ⚠ `~/projects/sites2/loancalculator.co.uk` also exists and **is a different
+  copy** — it differs from the served bytes on every page checked. Verify before
+  trusting either: `curl -s https://loancalculator.co.uk/tools/X.html | md5sum`
+  against `md5sum ~/projects/sites/.../tools/X.html`. Rewriting from the wrong
+  copy produces components faithful to the wrong original, all passing review.
+- **A cut pattern must match EXACTLY ONCE or the tool is refused.** A pattern
+  matching zero times leaves the original widget on the page beside the
+  replacement; the page then passes while proving nothing (two ids, two scripts,
+  first wins, numbers identical). This fired for real on `standard-calc`.
+- **Use `DIV:<regex>` for anything div-delimited.** It locates the opening tag and
+  BALANCES `<div>`/`</div>`. A plain regex cannot count, and every page here uses
+  `<div class="card">` for its ARTICLE sections too.
+- **`allow_new_keys` is per-tool and must be justified in the spec.** It permits
+  ADDED fingerprint keys and pairs renames BY VALUE; every pre-existing key is
+  still compared strictly. Only for a tool whose controls had no ids and therefore
+  no numeric coverage at all. A re-baseline is owed once it ships.
+- **GOTCHA — `display:flex` blockifies its children**, and computed display is part
+  of the fingerprint. Two tools here need opposite layouts because their original
+  stylesheets differed. Do not harmonise them without re-baselining both.
+- **GOTCHA — never interpolate copy into a `<script>`.** `render_tool.go` refuses a
+  template that puts a quote-bearing schema value inside a script block, because a
+  fallback containing `"58-day"` produced a syntax error that killed a whole
+  calculator while it still passed every structural check. Copy goes in the markup;
+  the script writes only the number.
+
+## Emitting platform criteria, and the gate before installing one
+
+```bash
+python3 $LANE/toolgolden.py --emit-criteria $LANE/acceptance/criteria $URLS
+```
+
+Writes one `<slug>.criteria.json` per tool: `computed_values` checks the platform's
+own Tier-4 runner executes. It REFUSES a tool whose controls cannot be named by a
+selector rather than emitting steps that drive it differently from the capture.
+
+> ### ⛔ RUN `INSTALL_GATE.sh` BEFORE PUTTING A FENCE IN `doc_plans`
+> ```bash
+> ./$LANE/acceptance/criteria/INSTALL_GATE.sh   # exit 0 = safe to install
+> ```
+> **A check type the running browser-runner does not know is SKIPPED, and an
+> all-skipped fence PASSES.** Install one before the roll and it reports green
+> having asserted nothing — the exact false-green `computed_values` exists to
+> eliminate. Four council seats raised this; one gated the submission on it.
+>
+> - **`browser-runner-adapter`'s image has NO `strings` binary**, so CLAUDE.md's
+>   `strings /app/X | grep -c` recipe fails silently and returns 0 for everything,
+>   which reads as "your change did not ship". Use `grep -ac '<sym>' /app/<binary>`.
+>   The gate carries a **positive control in the same exec** and refuses to
+>   conclude anything when the control is also 0 — that is how this was found.
+> - Carrying the string is necessary, not sufficient: run each fence ONCE
+>   in-cluster and confirm no `not implemented` in its skips. Watch the **120s
+>   whole-request deadline** (TL-036 hit it at 36 evaluations in-cluster while the
+>   same fence took 10.6s locally); these fences carry three vectors each.

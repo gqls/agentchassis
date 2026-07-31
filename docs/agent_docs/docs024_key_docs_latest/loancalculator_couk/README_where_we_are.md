@@ -411,3 +411,69 @@ each calculator becomes a proper framework tool, reusable and improvable, with t
 requirement that it produces identical numbers to today's version. I have not started
 changing anything yet. The open question from my last note still stands and now matters
 more, because the rewrite is the bigger of the two roads — say the word and I'll begin.
+
+---
+
+**2026-07-31, later — all eleven calculators rewritten, and the check is now the
+platform's rather than mine**
+
+You asked for three things: make the numeric check part of the tools workflow,
+rewrite the rest of the tools, and write a summary. All three are done. The
+summary is `SUMMARY_2026-07-31_calculators_that_prove_their_own_arithmetic.md`.
+
+On the check: it is now a real part of the platform, not a script I run. It drives
+a calculator with fixed inputs and insists on the exact answer — £303.44, not
+"something shaped like money" — and it runs on the normal schedule in a real
+browser. I deliberately did not give it a cheap version that only checks the boxes
+exist, because a weaker check wearing this name would recreate the exact false
+confidence we had just spent a day proving was there.
+
+On the tools: eleven, not twelve. The homepage calculator and the standard loan
+calculator turn out to be the same calculator sharing one piece of code, so one
+component serves both. Every one of the eleven now reproduces its recorded values
+exactly.
+
+**The gate paid for itself several times over, on my own work.** Three worth
+telling you about. A piece of ordinary text — the phrase "58-day", in quotes —
+got dropped into a calculator's code by the templating system and produced an
+error that killed the whole tool; it showed £0.00 for every input while passing
+every structural check we have. The same layout rule broke two tools in opposite
+directions because their original stylesheets happened to disagree, which nothing
+about reading either page could have told me. And my first attempt to improve the
+harness silently moved its test click onto the navigation menu on nine of twelve
+pages — the gate had stopped testing the calculators at all, and only comparing
+two full measurements against each other showed it.
+
+I also found real defects and split them by a rule I want to state plainly,
+because I had to apply it against myself. Fixes that provably cannot change what
+a visitor sees went in — a "clear" button that was wiping all browser storage
+rather than its own, two tools counting checkboxes belonging to other parts of the
+page, a restore that failed silently. Anything that changes what the page actually
+says did not, however worthwhile. One calculator prints three decimal places on a
+money figure. Another computes nothing at all on a 0% deal, which is a real
+advertised product. A third signals its whole verdict by colour alone, which a
+colour-blind reader cannot see — I wrote the fix for that one, the gate caught
+that it changed the page's text, and I reverted it. Each is queued as its own
+change. **The test is whether a change is visible, not whether it is worth
+making**, and being inconsistent about that is how a port quietly becomes an
+unreviewable rewrite.
+
+**The platform change went to the review council and came back "revise", on a
+point I had missed and four reviewers spotted.** A check the running system does
+not recognise yet is skipped — and a set of skipped checks passes. So installing
+one of these too early reports green having tested nothing: the precise failure I
+built it to eliminate, reproduced by the fix for it. My defence had been "none are
+installed yet", which is a fact about today rather than a guard. I have written
+the guard. On its first run it caught a fault in *itself* — the standard recipe
+for checking what is deployed does not work on that particular service — and said
+so rather than telling me my change had not shipped.
+
+Nothing is live yet. Next: the components go into the database and the pages get
+rebuilt from them, which is the point at which the site actually becomes editable.
+Then the check ships and gets switched on per calculator, in that order.
+
+Two things still need you, both unchanged. **The GitHub token cannot see the
+repository holding the site's source** — that needs someone with GitHub admin.
+And the question from last week is still open: full decomposition here, or the
+cheaper freeze-the-calculators split the neighbouring lane chose. The rewrite did
+not depend on the answer; the next step does.
