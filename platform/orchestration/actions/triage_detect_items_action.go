@@ -1,4 +1,4 @@
-// FILE: platform/orchestration/actions/triage_detected_items_action.go
+// FILE: platform/orchestration/actions/triage_detect_items_action.go
 //
 // TriageDetectedItemsAction promotes discovery findings from status='detected'
 // to status='triaged' with pipeline='build' so the dispatch loop picks them up.
@@ -7,7 +7,32 @@
 // status='detected'. The dispatch loop filters item_pipeline='build' and
 // status IN ('triaged', 'approved'). This action bridges the gap.
 //
-// Used by: improvement-loop agent (after all discovery agents complete)
+// Used by: THREE live agents, not one — `improvement-loop` (step
+// `triage_findings`), `design-audit-agent` (`triage`) and `site-review-agent`
+// (`triage`). The improvement loop calls the other two as children BEFORE
+// running its own copy.
+//
+// ┌── READ THIS BEFORE BRANCHING ON THIS ACTION'S OUTPUT (bugs_open/150) ──────┐
+// │ `has_items` is CALL-SCOPED: it means "this invocation promoted at least    │
+// │ one row", nothing more. The promotion below is unconditional over the site │
+// │ (site_id + status, no type filter), so the FIRST copy to run takes every   │
+// │ row and every later copy honestly reports promoted: 0. A branch reading    │
+// │ `has_items` therefore asks "did I personally promote something?" when what │
+// │ it means to ask is "does this site have work?" — which is how one measured │
+// │ run promoted 67 findings and terminated on "No issues found — site is      │
+// │ clean", skipping its own closing rerender and dispatch.                    │
+// │                                                                            │
+// │ `site_dispatchable` / `site_dispatchable_count` are the SITE-SCOPED        │
+// │ answer, and they are what a conditional step should read. They are correct │
+// │ whoever promoted, in whatever order, including a fourth caller that does   │
+// │ not exist yet.                                                             │
+// │                                                                            │
+// │ `has_items` is kept, unchanged, because it is a fleet-wide convention      │
+// │ across actions ("my own result set was non-empty") with other live         │
+// │ consumers — build-dispatch-loop and site-work-orchestrator both branch on  │
+// │ their own loaders' has_items, correctly. Redefining it here would fix one  │
+// │ branch by making a shared word mean two things.                            │
+// └────────────────────────────────────────────────────────────────────────────┘
 //
 // Config (literals):
 //   - target_pipeline: string — pipeline to set on promoted items (default: "build")
@@ -124,16 +149,42 @@ func TriageDetectedItemsAction(ctx context.Context, params ActionParams) (interf
 
 	promoted, _ := result.RowsAffected()
 
-	logger.Info("TriageDetectedItemsAction: Complete",
-		zap.String("site_id", siteIDStr),
-		zap.Int64("promoted", promoted),
-		zap.String("target_pipeline", targetPipeline),
-	)
-
-	return map[string]interface{}{
+	// --- Site-scoped state, for callers that need to know whether there is
+	// work HERE rather than whether THIS call did any (see the header box).
+	out := map[string]interface{}{
 		"site_id":         siteIDStr,
 		"promoted":        promoted,
 		"target_pipeline": targetPipeline,
 		"has_items":       promoted > 0,
-	}, nil
+	}
+
+	dispatchable, countErr := countDispatchableWorkItems(ctx, params.DB, siteID, targetPipeline)
+	if countErr != nil {
+		// FAIL TOWARD "NOT CLEAN". The count is an input to a branch whose
+		// false side terminates the improvement loop on "site is clean" and
+		// skips its closing rerender. If we cannot answer, the honest answer
+		// is not "no work" — it is "we do not know", and of the two available
+		// behaviours the loud one is right: a needless rerender costs a
+		// render, a false clean costs the findings.
+		logger.Error("TriageDetectedItemsAction: dispatchable count failed — reporting site_dispatchable=true so the caller does not terminate as clean",
+			zap.String("site_id", siteIDStr),
+			zap.String("target_pipeline", targetPipeline),
+			zap.Error(countErr),
+		)
+		out["site_dispatchable"] = true
+		out["site_dispatchable_count"] = int64(-1)
+		out["site_dispatchable_error"] = countErr.Error()
+	} else {
+		out["site_dispatchable"] = dispatchable > 0
+		out["site_dispatchable_count"] = dispatchable
+	}
+
+	logger.Info("TriageDetectedItemsAction: Complete",
+		zap.String("site_id", siteIDStr),
+		zap.Int64("promoted", promoted),
+		zap.String("target_pipeline", targetPipeline),
+		zap.Any("site_dispatchable_count", out["site_dispatchable_count"]),
+	)
+
+	return out, nil
 }

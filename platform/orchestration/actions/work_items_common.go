@@ -19,6 +19,14 @@
 
 package actions
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/google/uuid"
+)
+
 // workItemTerminalStatuses is the canonical set of statuses that mark
 // a work item as done. idx_swi_dedup and every ON CONFLICT WHERE clause
 // on site_work_items must agree with this list — otherwise partial-
@@ -58,6 +66,56 @@ func sqlInList(statuses []string) string {
 		out += "'" + s + "'"
 	}
 	return out
+}
+
+// workItemDispatchableStatuses is the canonical set of statuses at which an
+// item is waiting for the dispatch loop, i.e. promoted and not yet claimed.
+// Its two siblings must agree with it:
+//
+//   - claim_work_item_action.go — the atomic claim's `status IN (...)` guard;
+//   - load_work_item_actions.go — the dispatcher's selection query.
+//
+// Same lockstep obligation as workItemTerminalStatuses / idx_swi_dedup above,
+// with a softer failure: a drift here does not error, it silently changes what
+// "this site has work waiting" means.
+var workItemDispatchableStatuses = []string{
+	"triaged",
+	"approved",
+}
+
+// countDispatchableWorkItems answers a question about the SITE, not about the
+// caller's own result set: how many work items are sitting in a dispatchable
+// status for this pipeline right now, whoever put them there.
+//
+// WHY IT EXISTS (bugs_open/150). Three live agents run the triage_detected_items
+// step, the promotion is unconditional over the site, and the parent's copy runs
+// last — so the parent legitimately reports `promoted: 0` for 67 findings a child
+// promoted seconds earlier, and a branch reading that lands the improvement loop
+// on "No issues found — site is clean". A step's own result is not the site's
+// state; this is the site's state.
+//
+// The predicate is deliberately NARROWER than the dispatcher's selection query,
+// which additionally filters attempt_count, approval_mode and depends_on. Those
+// clauses answer "will the loader return this row on its next tick"; this
+// function answers "is there unfinished promoted work here". Anything they would
+// exclude — an attempt-exhausted item, one awaiting approval, one whose
+// dependency has not landed — is still work, and counting it can only err toward
+// NOT clean. That is the safe direction for every caller: a needless closing
+// rerender costs a render, a false "clean" costs the finding.
+func countDispatchableWorkItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, pipeline string) (int64, error) {
+	query := fmt.Sprintf(`
+		SELECT count(*)
+		FROM site_work_items
+		WHERE site_id = $1
+		  AND status IN (%s)
+		  AND pipeline = $2
+	`, sqlInList(workItemDispatchableStatuses))
+
+	var count int64
+	if err := db.QueryRowContext(ctx, query, siteID, pipeline).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count dispatchable work items: %w", err)
+	}
+	return count, nil
 }
 
 // workItemKey builds the canonical deduplication key for a site_work_items
