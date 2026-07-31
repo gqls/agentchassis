@@ -173,3 +173,140 @@ quietly dropped:
   my change (archived has unexported `sliceLines`; the chassis exported `SliceLines` on
   2026-07-27). It is in no build and its caller has the guard, so I recorded the drift
   in the register rather than editing a historical snapshot.
+
+---
+
+## 2026-07-31, later — the council round, and two process missteps
+
+### Misstep: the first council submission died at validation, on a rule already documented
+
+`bce4caab` reached `complete_invalid` in **five seconds**, before any seat fired:
+`plan failed validation: edit 4: sketch declares no code change`. `noOpEditReason`
+(`diagnose_persist_fix_plan_action.go:547-563`) is a literal `strings.Contains` over the
+lower-cased sketch against nine phrases, and I had written *"No code change in this file."*
+inside edit 4's sketch to be helpful about a comment-only correction.
+
+**The mechanism, the file, the full nine-phrase list and the workaround are already in
+`fixloop_eg_dartsonline/RUNBOOK_council_gate.md` — line 241 and a titled LANDMINE section
+at 332-356**, contributed 2026-07-26 by a lane that hit the identical wall. CLAUDE.md names
+that runbook in the same sentence that tells you how to submit. I read the **097 script
+header** for the schema and stopped, and the runbook's own bullet says *"the plan schema is
+stricter than the 097 header suggests"*. **Reading the script that fires a mechanism is not
+reading the mechanism.** Full entry in `WRONG_CALLS.md`; the one-line pre-check is now in
+this lane's RUNBOOK.
+
+Cheap in credits (validation refuses before any seat runs, so nothing was paid for) but
+**silent where I was looking**: an invalid run writes **no `diagnosis_artifacts` rows at
+all**, so polling the verdict by correlation waits for ever while
+`orchestration_states.status` reads a reassuring `COMPLETED`. The reason is only in
+`collected_data->'__step_error'` — the `099` landmine I already knew, which is why I got
+the answer in seconds once I looked in the right column.
+
+**One thing that went right by accident and is worth knowing deliberately:**
+`RESUBMIT_CORR` **preserves the trail correlation** and changes only the run envelope
+(`bce4caab` trail, run `ec292a46`). So the `Council-Submitted: bce4caab-…` trailer already
+sitting in commit `691c1817a` stayed **correct** across the resubmission and needed no
+follow-up — which matters, because forward-only forbids the amend that fixing it would
+have required. Had I submitted the retry fresh, that committed trailer would have pointed
+at a `complete_invalid` run for ever and read as un-reviewed in the 098 report.
+
+### Resolved: the design decision the validator provoked, and why I did NOT drop the edit
+
+My first instinct was to drop the two comment-only edits from the plan, on the reasoning
+that the validator's *intent* is "a fix plan proposes changes, not observations". Reading
+`noOpEditReason`'s own header changed my mind — it says explicitly *"over-blocking a real
+edit is worse than letting the council catch a subtle no-op"*, and the runbook's landmine
+section tells you to treat the list as **a keyword blocklist, not a judgement about your
+edit**. A stale citation that caused a real wrong claim in 145's own filing is a real
+change. So the edit stayed and the prose moved to the `rationale`, which is not scanned.
+**[MISSTEP AVOIDED]** — I would otherwise have hidden a change from the reviewers in order
+to satisfy a substring check.
+
+### Note on the commit's pattern-check output (a false positive worth not chasing)
+
+The commit hook's `logged-model-output` check flagged
+`diagnose_assemble_bundle_action.go:210` — *"log call passes `body` unwrapped"*. Line 210
+is `fmt.Fprintf(&b, "### %s\n```go\n%s\n```\n\n", sym, body)`, writing into a
+`strings.Builder`; there is no logger involved and writing the body into the bundle is the
+function's entire purpose. The check cannot distinguish `fmt.Fprintf(&builder, …)` from a
+log call. Advisory, never blocks, and the three `new-capability-surface` hits ("proposes
+`cmd/assembler/`, which does not exist") are the check firing on docs that say precisely
+*that it does not exist* — its own text predicts this ("naming a path you have
+deliberately decided AGAINST fires this too"). **Recorded so the next reader of this
+commit does not re-investigate four advisories that are all correct-by-design.**
+
+### Shared-tree events during the session, for the record
+
+- **My `LANDMINES.md` append was swept into another session's commit `d194798fd`**
+  ("wrong-call + cut back…", 16:59 BST) before I got to it. Nothing lost; forward-only
+  holds; noted in my own commit message rather than silently.
+- **`makefile` has `IMAGE_TAG` bumped to `v1.0.1215` uncommitted by another session** (HEAD
+  says `v1.0.1206`), i.e. somebody is mid-build. I did not touch it — see the roll note
+  below.
+- The `143` lane committed its shared `asset_lock_guard.go` at 17:03 BST (`3aa7a5d17`),
+  which is the WIP that had been breaking `go vet` on the actions package all session.
+
+---
+
+## 2026-07-31, later still — APPROVED, and a side-quest that corrected itself twice
+
+### Council: APPROVED at round 1
+
+`complete_approved`, `decision: approved`, *"approved with 2 advisory objection(s) — none
+high-severity"*, 5 seats abstained (relevance filter), `gated_by_truncation: false`.
+
+- **`editquality` — object, low ×2.** Edits 2 and 4 are comment-only, "scope creep against
+  minimality; could be dropped without weakening the fix". **Not acted on, deliberately:**
+  the filing explicitly asks whoever takes 145 to correct those citations, and one of them is
+  the comment that caused 145's own wrong blast-radius claim. Recorded here so the decision
+  is visible rather than silent. Its note on the core edit is the useful part — it confirmed
+  the causal path independently and endorsed keeping the whole-file branch against the `:597`
+  landmine.
+- **`bug_historian` — object, MEDIUM, and it was right.** I disclosed the `maxBodyChars`
+  `break`-not-`continue` wart in `risks` and left it "for a reviewer to say so". The seat
+  called that out as a byte-for-byte match to an indexed §9 pattern, found while auditing the
+  very function I was editing, and said it should be **filed now**. **Filed as
+  `bugs_open/164`.** This is the seat doing exactly what it exists for, on me — worth saying
+  plainly, because it is the argument for keeping paying for it.
+- **`reuse_agent` — approve.** Its residual: it could not confirm from the SQL/code tier
+  whether `cmd/assembler`'s `byPath` guard has a living generalised counterpart I should have
+  extended. Answered here: no — `go list ./...` gives 0 contextkit packages, and the sibling I
+  did find (`flattenSymbols`) is already bounded by `Output` by construction.
+
+### The side-quest: two wrong root causes in one hour, both caught by re-firing
+
+Appending the landmine entry led to a `NEEDS_HUMAN_REVIEW` from RFC_005 §3.2's verifier,
+blaming a stale code index. That claim was false (every symbol present at the very
+`commit_sha` it named), so I went looking — and then filed the wrong cause **twice**:
+
+1. **The comma split mangles parenthesised symbols.** Real defect, measured 17 of 100 entries,
+   **causally inert.** Refuted by rewriting my footprint to comma-safe `path:Symbol` and
+   re-firing (`113fd03f`): identical 0 rows, identical invented cause.
+2. **Then separate path and symbol into their own items.** Refuted the same way (`f7056e8a`).
+   I had asserted that form worked from reading the SQL rather than waiting for the verdict —
+   **the identical error, twice, in the same file.**
+
+The actual cause needed the run's own persisted queries
+(`collected_data->'derived'->'result'->'code_checks'`): `derive_checks`' prompt **defines**
+kind `"symbol"` as `path:Symbol`, and `symbolTokenClause` ANDs every identifier token against
+the **`symbol` column**, path tokens included — so the query is unsatisfiable by construction
+(`0` rows, vs `1` for a bare name). **23 of 23 symbol checks across all 9 runs ever are
+path-bearing**, so no landmine has ever had a symbol confirmed and no footprint form avoids
+it. Filed as `bugs_open/163`, corrected twice in place with the refuted steps kept — the
+three-verdict table is the most useful thing in that file, because the middle rows eliminate
+the obvious explanation.
+
+**[MISSTEP, the generalisable one]** my 17/100 measurement was true, striking, freshly
+discovered, adjacent to the symptom — and not the cause. That combination is the most
+seductive wrong root cause there is. **Say what would change if you removed the cause, then
+remove it and look**, before filing. I did do that, which is why this cost an hour rather
+than becoming a handoff everyone believed; but I did it *after* writing the file, and the file
+was wrong in between. Third `WRONG_CALLS.md` row of the session, all three the same family:
+**I read the code that builds a thing instead of running the thing.**
+
+### Scoreboard of what this bug produced beyond its own fix
+
+- `bugs_open/163` — landmine verifier's symbol lookup (fleet-wide, all history).
+- `bugs_open/164` — the bundle's `break`-not-`continue` cap, at the council's request.
+- 3 × `WRONG_CALLS.md` rows; 2 × new 016b §9 patterns; 1 × `LANDMINES.md` entry;
+  CTXK-002 updated with the seam, its landmine and two verify-laters answered.

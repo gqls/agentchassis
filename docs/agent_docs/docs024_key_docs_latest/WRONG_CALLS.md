@@ -13878,3 +13878,70 @@ candidate 3 ("make the silent drop loud"). It is **already done** —
 `persistSectionSkips` writes them durably. A bug file's fix-candidate list is a
 snapshot of what was missing on the filing date; **verify each candidate is still
 missing before building it**, the same way you verify the bug is still valid.
+- **I filed a root cause and my own re-test refuted it twenty minutes later, because I never
+  ran the SQL the action actually builds.** 2026-07-31, bugfix_145 lane, now
+  `bugs_open/163`. The landmine-verifier returned `NEEDS_HUMAN_REVIEW` on my new entry,
+  saying five symbols "returned 0 rows … most likely because the code index predates the
+  bugfix_145 commit". I checked that claim — correctly — and it was false: every symbol was
+  in `code_symbols` at the exact commit the verifier named. **Then I over-reached.** I read
+  `landmines_lib.split_footprints`, saw it splits on commas, saw the house convention writes
+  symbols parenthesised (`symbolbody.go` (`ReadSymbolBody`, `findFile`)), measured that
+  **17 of 100 entries use that form and 0 use the `path:Symbol` form the verifier's prompt
+  asks for**, and filed the comma-split mangling as the root cause — with a "proof of the
+  cause, not an argument for it" section in which I rewrote my own footprint into clean
+  `path:Symbol` form and re-fired. **The re-fire came back with the same 0 rows and the same
+  invented staleness cause.** The real defect is a layer down: `symbolTokenClause`
+  (`diagnose_code_lookup_action.go:781-797`) ANDs *every* identifier token against the
+  **`symbol` column**, path tokens included, so `internal/analysis/symbolbody.go:ReadSymbolBody`
+  becomes `symbol ILIKE '%internal%' AND '%analysis%' AND '%symbolbody%' AND '%go%' AND
+  '%ReadSymbolBody%'` — **0 rows by construction**, while bare `ReadSymbolBody` returns 1.
+  **The cheap check:** build the query the Go actually builds and run it —
+  `SELECT count(*) FROM code_symbols WHERE symbol ILIKE '%internal%' AND symbol ILIKE '%analysis%' AND …;`
+  One `psql` call, thirty seconds, and it refutes the comma theory before it reaches a
+  handoff. Same family as MEMORY's *"`go build` cannot parse your SQL — PREPARE it against
+  the live schema first"* and *"re-running someone's SQL confirms its filter's blindness —
+  re-derive the population from the code"*: I read the code that *builds* the query and
+  reasoned about it, instead of executing what it builds.
+  **Generalisable, and this is the part worth keeping:** my measurement (17/100 vs 0/100) was
+  **true, striking, and not the cause**. A real, quantified, freshly-discovered defect
+  adjacent to the symptom is the most seductive wrong root cause there is, because it passes
+  every test except the one that matters — does removing it fix the symptom? **Before filing
+  a cause, state what would happen if you removed it, then remove it and look.** I did do
+  that, which is the only reason this is a twenty-minute correction rather than a handoff
+  every later thread believes — but I did it *after* filing, and the file was wrong in the
+  interval. Correct in place, visibly, and keep the refuted step: `163`'s three-row
+  experiment table is now the most useful thing in it, because the middle row eliminates the
+  obvious explanation.
+
+- **2026-07-31 — I put a function name I had never grepped into a council submission, in a
+  plan whose entire argument was "I counted the copies"** (session "bugfix 8",
+  `bugs_open/125`). Edit 5 of the submission named `loadPageInfo` in
+  `rerender_single_page_action.go`. **There is no `loadPageInfo` in this repo.** The
+  function is `getPageInfo` at `:493`. I had read the file from an offset that started
+  below the `func` line, needed a symbol for the submission's metadata, and typed a
+  plausible one without scrolling up.
+  **What caught it:** the council gate — a gating HIGH from `prior_art_librarian`, echoed
+  as medium by four more seats. Their reasoning was better than the error: LANDMINES.md
+  names `getPageInfo` against that exact file for a filename-derivation defect, so either
+  I had contradicted the landmine or **there was a sixth copy of the classifier in the very
+  file whose fix claimed "no unconverted copy remains"**. Neither was true, but only a
+  grep could say so, and I had not run it.
+  **The cheap check that would have:** `grep -n 'func <symbol>' <file>` — for every symbol
+  I was about to write down. I had grepped the *derivation* (`TrimPrefix(...url, "/")`)
+  thoroughly enough to find five call sites, and never grepped the *names I was typing*.
+  **Generalisable: the `symbol` field of a submission is a claim like any other.** A plan
+  that argues from a census is judged on the census, and a reviewer cannot tell a
+  mis-transcribed symbol from a missed call site — so an unverified name does not read as
+  sloppiness, it reads as a hole in the argument. Grep every identifier you assert.
+  **Aggravating, and the more useful half:** in the same round `reuse_agent` asked whether
+  `adopt_verbatim.go`'s `urlToDeployPath` was the copy I had missed. My round-1 grep *had*
+  hit that file — on a **comment** — and I classified it as "has a comment about this" and
+  moved on **without opening the function**. It turned out to be the *inverse* function
+  (it produces `pages.url` and keeps the leading slash, where mine strips it), which is a
+  distinction worth documenting and which I would have missed entirely. Same root error as
+  016b's 2026-07-19 correction: **grep hits whose functions were never opened.** Twice in
+  one submission, once as a wrong name and once as a wrong classification.
+  **A third, smaller one in the same bug:** I ran `grep -rn determineFilename` while
+  *excluding the file the function is defined in* (I was trying to filter out the
+  definition line) and concluded it was dead code. It has two live callers. **Filter a
+  grep's OUTPUT, never its INPUT, when the question is "does anything call this?"**

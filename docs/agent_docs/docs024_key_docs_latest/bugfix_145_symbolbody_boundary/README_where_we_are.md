@@ -106,3 +106,39 @@ the code, once about how far the leak went. In both cases the error was **stoppi
 first plausible answer**: the first producer, the first assumption about scope. Neither
 needed cleverness to catch, just following the chain one more step and making the test use
 a file that actually exists.
+
+## 2026-07-31, end of the session — approved, shipped to the branch, and two new tickets
+
+The council approved the fix first time round, with two advisory notes and nothing blocking.
+One note said my two comment corrections were scope creep; I have kept them, because the bug
+report specifically asked whoever took it to fix those comments, and one of them is the
+comment that misled the report in the first place. The other note was better than my own
+judgement: I had found a second flaw in the same function — the one where the code bundle
+*stops* instead of *skipping* when it runs out of room, silently throwing away everything the
+AI asked for after that point — and I had written it down as a footnote for a reviewer to
+decide about. The reviewer said, correctly, that a known-shape flaw found while working on
+the very same function should be a ticket, not a footnote. So it is now a ticket.
+
+There was also a detour, and it is the most instructive part of the day. Writing the warning
+note for this bug tripped our own automatic checker, which came back with "cannot confirm"
+and a confident explanation: the code index is out of date. I checked, and it wasn't — every
+symbol it claimed to be missing was right there, at the exact version it named. So I went
+looking for why, and **I got the answer wrong twice.** Both times I found a real problem in
+how the warning notes are written, measured it, wrote it up as the cause, and then re-ran the
+checker — and both times it came back exactly as before. The real cause turned out to be two
+halves of the checker that cannot agree: one half asks its question in a format the other
+half is incapable of answering. It has never once succeeded at this kind of check, across
+every run it has ever done, and no amount of care in how we write the notes can help.
+
+What I want to record from that is not the finding but the mistake, twice repeated: **each
+time, I read the code that builds the query and reasoned about it, instead of just running
+the query.** Thirty seconds of actually executing it would have settled it before I wrote
+anything down. The only reason it cost an hour instead of poisoning a handoff is that I made
+a habit of re-running the thing after claiming to have fixed it — which is the cheap check
+worth keeping.
+
+The fix itself is committed, so it goes out with the next build of the system whoever makes
+it. I have deliberately not built and rolled it myself: another session has a build already
+in flight, and rolling the system mid-flight kills any review that happens to be running.
+The ticket stays open until someone confirms it is actually running in the live system — a
+commit is not a deployment here, and we have been bitten by treating it as one.

@@ -122,3 +122,51 @@ SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
 
 **Gotcha:** a missing orchestration row is latency, not a dropped dispatch — do not
 resubmit on that evidence.
+
+## Pre-check a council submission BEFORE firing 097 (this cost me a round)
+
+The plan schema is stricter than the 097 header suggests, and `noOpEditReason` is a
+literal phrase blocklist over each `sketch`. Run this first — it checks the blocklist and
+the type traps in one go:
+
+```bash
+python3 - sub.json <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); p=d['plan']
+BANNED=["no code change","no change required","no change is required","no change needed",
+        "no change is needed","clarifying note","clarifying comment","add a comment","comment-only"]
+for i,e in enumerate(p['edits'],1):
+    for b in BANNED:
+        if b in e['sketch'].lower(): print(f"BANNED edit {i}: {b!r}")
+    assert e['operation'] in {"modify","add","remove","config_change"}, e['operation']   # 'create' is refused
+    assert e['file'] and not e['file'].startswith('/') and '..' not in e['file']
+    assert e['rationale'].strip() and e['sketch'].strip()
+assert isinstance(p['risks'], str), "risks is a single STRING, not an array"
+assert isinstance(p['grounded_in'], list)
+assert len(p['edits'])<=8 and len(json.dumps(p))<=32768
+print("ok:", len(p['edits']), "edits,", len(json.dumps(p)), "plan bytes")
+PY
+```
+
+**Gotcha:** the blocklist matches anywhere in the sketch, **including your own prose
+describing the sketch** — put folded documentation in the `rationale`, which is not
+scanned. Already documented at `RUNBOOK_council_gate.md:241` and its LANDMINE section
+`:332-356`; I did not read it and lost a round. `WRONG_CALLS.md` has the full account.
+
+**Second gotcha — where the refusal is.** An invalid run writes **no
+`diagnosis_artifacts` rows at all**, so polling for the verdict by correlation waits for
+ever, and `orchestration_states.status` says a reassuring `COMPLETED`. The reason lives
+only here:
+
+```sql
+SELECT collected_data->>'__step_error' FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+```
+
+Use `psql -tA` for that — `jsonb_pretty` on the whole `collected_data` returned **3.3MB**
+and had to be spilled to a file.
+
+**Third:** resubmit with `RESUBMIT_CORR=<original>`. The trail correlation is
+**preserved**, only the run envelope changes — so a `Council-Submitted:` trailer already
+written into a commit stays correct across the resubmission and needs no follow-up
+(which matters, because forward-only forbids the amend).
