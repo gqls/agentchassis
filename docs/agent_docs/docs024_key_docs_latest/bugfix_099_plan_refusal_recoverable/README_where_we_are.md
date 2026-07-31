@@ -171,3 +171,41 @@ I'm not closing the bug yet. The mechanism is live and I've watched every part o
 work. But I haven't yet seen a repair go all the way through and save a design in
 production, and "the plumbing works" isn't the same claim as "it saved something".
 That needs the next rebuild and one more deliberate break.
+
+---
+
+## 2026-07-31, evening — done. It saved a design.
+
+The new build carried the last fix, and I broke a plan on purpose one more time.
+
+This time it worked the whole way through. The plan was refused at 18:08:26 for having
+two edits in a stage that was only allowed one. The design was written down, an
+operator record was filed, and it went to the repair step. Sixty-five seconds later a
+corrected plan was saved and the run carried on into its review as if nothing had gone
+wrong.
+
+The detail I care about: the original plan had two stages, one of them holding two
+edits. The repaired plan has **three stages and all three edits**. It split the
+offending stage rather than dropping anything. That is precisely what it was asked to
+do, and it is the whole point — before today that plan was deleted, and the run
+reported itself clean.
+
+So the bug is closed and moved. What's left behind is deliberate rather than unfinished:
+the sibling agent with the same fault has its fix written and tested but not applied,
+because it belongs to another team, and I've filed it as its own bug so nobody has to
+rediscover it. The review gate itself I left alone on purpose — it's the thing that
+reviews changes like this one, and wiring it into its own subject buys nothing.
+
+Two last mistakes, both mine, both caught by looking rather than by care. I moved the
+bug file to the closed folder and committed only the destination, so for a few minutes
+the "closed" bug was still sitting in the open folder for everyone else — the commit
+even told me, by reporting three files changed when I'd named four, and I nearly didn't
+read it. And when I went to check my index entry had landed I searched for the wrong
+spelling of my own sentence and briefly believed it was missing.
+
+Which is the theme of the whole job, really. Five separate times something would have
+told me everything was fine for a reason that had nothing to do with what I was
+checking. None of them were caught by being careful. Every one was caught by measuring
+the specific thing instead of the thing next to it — and the single most valuable event
+in two days was a run that **failed**, because it failed for a reason I had ruled out
+in advance and no test I had written could ever have contradicted me.
