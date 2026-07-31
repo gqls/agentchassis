@@ -13449,3 +13449,49 @@ every time, so the failure message is observed on every run instead of predicted
   call; the divergence is not.) Same family as the "prior-art searches go stale" and
   "asserted absence" entries, with a twist worth naming: **a partially successful
   duplicate hunt is more likely to stop you than a failed one.**
+
+---
+
+## 2026-07-31 — a landmine I had already read, fired anyway, because the habit is stronger than the knowledge
+
+**Lane:** loancalculator_couk. Committing the first tool rewrite, my `-m` message
+contained `` `display` `` in backticks. Bash executed it:
+
+```
+/bin/bash: line 40: display: command not found
+```
+
+and the committed message now reads *"Deliberately does NOT set  on the fingerprint
+elements"* — the identifier substituted out by an empty command result. Forward-only
+forbids the amend, so the message stays damaged.
+
+**What was wrong:** nothing about my understanding. "Backticks in `-m` execute" is in
+the fleet's landmine set **and in my own loaded memory index**, which I had read at the
+start of this session. I did not forget it; I never consulted it, because I was writing
+*prose*, and in prose backticks around an identifier are simply correct markdown. The
+knowledge lived in a "shell traps" compartment and the action felt like writing, not
+shelling.
+
+**What caught it:** the visible `command not found` on stderr. Silent in the sense that
+the commit still succeeded and reported success — had the word been a real command
+(`date`, `ls`, `true`) it would have substituted its OUTPUT into the message with no
+error at all. That is the dangerous version, and this was the lucky one.
+
+**The cheap check I skipped:** quote the body with a single-quoted heredoc, or simply
+never use backticks in a commit message. I write long messages full of code
+identifiers, so this is a recurring exposure, not a one-off.
+
+**The transferable point, and it is about documentation rather than shells.** This is a
+landmine that was written down, synced to `doc_notes`, indexed in memory, and read the
+same day — and it still fired. **Documentation cannot defend an action performed by
+habit**, because the habit does not pause to look anything up. The defence has to be
+mechanical: an advisory `commit-msg` hook rejecting an unescaped backtick would cost
+one line and cannot be forgotten. Proposing rather than adding it, because
+`.githooks/` is shared and every session inherits it — but it belongs on the list next
+to `check_append_only_docs`, which earned its place in `pattern-check.py` the same way,
+off a tally in this file.
+
+**Tally note:** this is the first entry here recording a *documented* landmine firing.
+That distinction is worth keeping visible: entries whose fix is "write it down" are
+finished when written, and entries whose fix is "remember it mid-keystroke" are not
+finished until something mechanical checks them.
