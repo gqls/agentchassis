@@ -9,8 +9,11 @@ deferring this to "the register" would leave the two unreconciled:
 > … the reconciliation of shell-dead-controls vs. the new attribute check belongs on someone's
 > roadmap now, not only 'in the register' later."*
 
-**Status:** ~~OPEN, unowned~~ → **FIXED IN CODE 2026-07-31 (`9f0a8ec5b`), OPEN only until the next
-chassis roll.** Option 2 taken. Council correlation `4465f655-c6c6-49b4-a9b8-4ca7a5f647df`.
+**Status:** ~~OPEN, unowned~~ → **FIXED + council-APPROVED 2026-07-31 (round 4, 9 approve / 5
+advisory, none high). OPEN only because it is not LIVE yet** — pod-grep on both `v1.0.1218`
+replicas gives `RuntimeFillSpans` **0** against positive control `DeadControlAnchors` **2**.
+Moves to `bugs_closed/` after a roll carrying these commits, verified at the pod.
+Option 2 taken. Council correlation `4465f655-c6c6-49b4-a9b8-4ca7a5f647df` (`Council-Reviewed:`).
 Working docs: `docs024_key_docs_latest/bugfix_137_control_liveness/`. See the addendum at the
 bottom — including the part of the cause this file did not have.
 
@@ -346,3 +349,58 @@ OPEN because it is not live.** Pod-grep on both `v1.0.1218` replicas gives
 `RuntimeFillSpans` **0** against a positive control `DeadControlAnchors` **2** —
 the grep works and the fix is not in the running image. It moves to `bugs_closed/`
 after a roll that includes these commits, verified at the pod.
+
+### Council round 4 — APPROVED (9 approve, 5 advisory, none high-severity)
+
+Rounds 1–3 were REVISE; the trail is under one correlation. What each round
+changed is the useful record, because two of the three changed the fix:
+
+| round | gating objection | what it changed |
+|---|---|---|
+| 1 | `editquality` HIGH — unlinking is a documented defect class | **judges vs writers**: writers keep whole-input scope |
+| 2 | three seats — two files claimed as migrated with no edit block | claim **removed** (migrations reverted); touches no shared chrome |
+| 3 | `editquality` HIGH — a file my own landmine footprint named | measured: it has **zero** marker tests; footprint fixed at source |
+| 4 | — | **APPROVED** |
+
+**Round 3 also moved the enforcement.** `reuse_agent`: the gate I built was *"a
+second, parallel enforcement path with its own allow-list format and its own
+suppress semantics"* when `scripts/pattern-check.py` already does exactly this on
+the commit path — and I had not checked. That is this bug's own shape one level
+up. The check now lives there (`check_runtime_fill_marker`), the Go test is
+deleted, and it fires when a copy is actually introduced.
+
+**Verified manifest** — re-derived with the gate's own regex over the whole tree
+rather than from the gate's clean report: **7** real test-form sites
+(`check_empty_sections.go:140` and `:245`, `check_required_fields_missing.go:62`,
+`check_component_standards.go:519`, `check_component_template_corrupted.go:62`,
+`render_site_components_action.go:709`, `rerender_single_page_action.go:43`), all
+7 allow-listed with reasons, **0** unlisted.
+
+**Advisories acted on rather than filed** (an approval is not a reason to stop
+reading them):
+- `architecture`'s RFC-threshold note was **claimed and not written** — now in
+  `runtime_fill.go`: a sixth caller from *outside* discovery_checks/datahelpers is
+  the moment this becomes a shared contract and needs an RFC.
+- `reuse_agent` asked whether the **parsing** mechanism duplicated something —
+  checked, no quote-aware tag scanner exists in the tree; recorded in the file.
+- `bug_historian` cited a landmine where an **all-skipped fence PASSES**, which
+  would make the FAIL→SKIP change unsafe. **Verified**: `experienceVerdict`
+  returns `inconclusive` when `len(Passed)==0`, never `verified`
+  (`verify_site_experience_action.go:381-390`). The cited landmine is a different
+  function with no such guard.
+- The `strip_comments` landmine's **four controls** were run on the new check:
+  a genuine raw site fires; an allow-listed one does not; a file whose *comment*
+  mentions the marker does not; the motivating files are clean. Safe because this
+  check searches the stripped text for the **offence**, which is the direction that
+  landmine says is suppress-only.
+
+### Still owed before this can close
+
+1. A chassis roll carrying `9f0a8ec5b … 700fcb750`.
+2. Pod-grep **both** symbols in one exec: `RuntimeFillSpans` (0 → non-zero) and
+   `DeadControlAnchors` (must stay non-zero — it is **not** renamed by this change,
+   so it remains a valid control; `bugs_open/153`).
+3. **Induce the exempting branch**, not just the finding branch: a component whose
+   root carries the marker must still yield zero dead-control findings, or the
+   exemption was deleted rather than narrowed.
+4. Re-run the `vonc.com/index` measurement and record both numbers.
