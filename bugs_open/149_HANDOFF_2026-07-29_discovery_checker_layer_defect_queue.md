@@ -1,7 +1,14 @@
 # 149 — the discovery checker layer: defect queue
 
 > **STATUS 2026-07-31 (later) — A2 ✅ LIVE AND PROVEN, A6 ✅, A4's recordable half ✅,
-> C2 ✅ (answered, not a defect). 7 of 12 items resolved; the file STAYS OPEN.**
+> C2 ✅ (answered, not a defect). The file STAYS OPEN.**
+>
+> **THE COUNT, corrected — this file has 13 items, not 12** (`grep -cE '^### [ABC][0-9]\.'`
+> = 13: C1–C3, A1–A6, B1–B4). Both earlier status blocks said "of 12" and I repeated it
+> before counting. So, exactly: **DONE = C1, C3, B4** (07-30) **+ A2, A6, C2** (07-31),
+> **A4 = HALF** (recordable half done, schema half open), **OPEN = A1, A3, A5, B1, B2,
+> B3.** Six done, one half, six open. *A count carried forward from another session's
+> header is a claim like any other.*
 > Workstream: `docs024_key_docs_latest/bugfix_149_nav_membership/` (standing five).
 >
 > **PROVEN, not just shipped.** Pod-verified on both replicas of **`v1.0.1215`** (3

@@ -5,7 +5,7 @@ Milestone read-out for `bugs_open/149` Group A. Written to be read aloud.
 ## What we're trying to do
 
 Make the platform's own repair loop actually repair. `bugs_open/149` is a queue of
-twelve measured defects in the checker layer — the machinery that inspects live sites,
+thirteen measured defects in the checker layer — the machinery that inspects live sites,
 notices something wrong, and hands the problem to an agent that can fix it. This piece
 is the **routing** half: what happens after a checker has found something real.
 
@@ -85,15 +85,17 @@ And I answered a reviewer's objection with a week-long average that was true and
 irrelevant: the queue had been dead for two hours when I quoted it. The reviewer was
 more right than my rebuttal, and the correction is in all three places I had written it.
 
-**Bug 149 stands at seven of twelve resolved and stays open.** Three items closed
-yesterday, four today: the broken repair, the half-done creators, the column that
-records no decision, and one item answered as "not a defect — here is the reason, and
-it was already written down". Five remain, and closing the ticket would delete the
-record of them.
+**Bug 149 stays open, and its own arithmetic needed correcting.** The file says
+"of 12"; it has **thirteen** items. Counted properly: six are done — three closed
+yesterday, three today (the broken repair, the half-done creators, and one answered as
+"not a defect, and the reason was already written down") — one is half done, and **six
+remain**. Closing the ticket would delete the record of those six. I inherited the wrong
+denominator from the previous status block and repeated it before checking, which is a
+small instance of the thing this whole file exists to guard against.
 
 ## Where we're going
 
-Three of the five open items — scheduling, dispatch, and the dead checks — are the other
+Three of the six open items — scheduling, dispatch, and the dead checks — are the other
 lane's live work, and today's dispatch stall is now the sharpest thing in front of them.
 Of the rest: the parent-listing route is a genuine piece of build work, and the two
 database-level questions (a column defaulting to "yes", and a footer column built by its
