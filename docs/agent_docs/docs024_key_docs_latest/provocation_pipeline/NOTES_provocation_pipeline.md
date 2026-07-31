@@ -609,3 +609,83 @@ workaround.
 The remaining gap to the claim being true is now **content, not machinery**: the
 newest pool entry is 26 Jul, so even with the job enabled the site would serve
 that same provocation. Rotation needs entries dated forward from today.
+
+---
+
+## 2026-08-01 — council round 1 came back REVISE, and it was right
+
+**Verdict:** `revise`, 12 reviewers, 5 abstained, decided by a **gating objection
+from editquality (high)**, independently echoed by `bug_historian`, `guidelines`,
+`guardian` and `prior_art_librarian`:
+
+> registry.go only registers the action so it CAN be invoked by name; it does not
+> attach it to any agent_definitions workflow step nor create/point a
+> scheduled_tasks row at an agent. Nothing in the plan actually causes this action
+> to run on a schedule.
+
+`bug_historian` named the pattern exactly: *016b §9, "a renderer fix is inert
+until something re-renders — and nothing schedules a re-render."* The objection
+was **correct about the submitted plan**. I submitted before building the wiring,
+then built it (migration 283) forty minutes later. Round 2 leads with it.
+
+### The objection I had waved off, and should not have
+
+`bug_historian`, medium:
+
+> checkAgainstServed's shrink-guard … is disabled whenever the HTTPS fetch of the
+> live artefact fails. The one guard built specifically to stop silent content
+> loss is bypassed precisely during the infra flakiness most likely to co-occur
+> with a bad deploy. Author flags this in risks but it is not resolved.
+
+I had written the tolerance deliberately and justified it in the submission: the
+content is fully determined by the pool, so publishing blind is still *correct*.
+That reasoning is true and beside the point. The comparison is not there to
+validate content — it supplies the shrink guard's **denominator**. Tolerating a
+failed fetch switched off the only defence against provocations silently
+disappearing. Now fails closed, with `allow_unverified_publish` as a stated
+override. **Naming a risk in the submission is not the same as answering it**, and
+a reviewer treating my own risks section as an unresolved objection is the system
+working.
+
+### Answered with evidence rather than argument
+
+`prior_art_librarian` asked whether an existing feed agent could host the step
+instead of a new agent type — a fair challenge to a new type. Checked:
+`content-feed-trigger`'s selector requires
+`classification.content_features.news_feed.recommended = true` **and** existing
+`content_sources`. vonc.com has `news_recommended` NULL and zero content_sources,
+so hosting it there means it never fires for the only site that needs it.
+
+`guardian` flagged the outbound fetch as an unguarded SSRF surface — the domain
+comes from step config and is interpolated into a URL. Correct. Now allow-listed
+against the `sites` table with a shape check in front of it.
+
+`reuse_agent` and `architecture` both asked for the Python builder to be demoted
+**in this change, not as a follow-up**, so the second-implementation risk does not
+quietly become permanent. Done: a NOT AUTHORITATIVE header naming its two
+remaining jobs (parity oracle, manual/rollback fallback) and stating that its
+SCHEDULE list is no longer the source of truth.
+
+### The misstep, and it is a bad one
+
+While answering `tooling_provenance`'s request for a `doc_notes` entry I concluded
+that `LANDMINES.md` and the landmines scripts **did not exist in this repo**, told
+the owner so, and wrote it into round 2's risk #6 — where it is now a false claim
+in front of twelve reviewers.
+
+They all exist. `LANDMINES.md` is 342KB and tracked. Every check I ran was a
+relative path resolved against a cwd left behind by a `cd` five tool calls
+earlier. Five checks — `ls`, `find .`, `git log --`, `git ls-tree -r HEAD`, `ls`
+again — spanning filesystem, history and index, all agreeing, **all taking the
+same hidden parameter**. Unanimity across different methods is not independence
+when the methods share an input.
+
+What caught it was not doubt about the finding: it was the council trigger script,
+which I had run successfully an hour before, failing with "No such file or
+directory". A file that demonstrably existed being suddenly absent is not a
+plausible world.
+
+Filed as a landmine (with the sync applied, so it is in `doc_notes` — which also
+answers `tooling_provenance` properly) and in `WRONG_CALLS.md`. **The rule I want
+to keep: an absence claim is a claim about a search, so state the search's scope.**
+Writing "not present under `builder/`" would have shown me the error as I typed it.

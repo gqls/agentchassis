@@ -15465,3 +15465,54 @@ message containing an unescaped backtick.
   cartesian product as a count. Both had the same shape: **a number that looked like an answer to
   the question I asked, produced by a query that was answering a different one.** The tally is the
   point; a `GROUP BY`-before-you-conclude check would have caught both.
+
+## 2026-08-01 — "LANDMINES.md does not exist in this repository and git has never known it" — stated to the user and written into a live council submission. The file is 342KB and tracked.
+
+**The claim.** That `docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`,
+`scripts/landmines-sync.py`, `scripts/landmines-session-start.py` and
+`.claude/settings.json` were all absent — and therefore that CLAUDE.md's landmine
+machinery was described but not present. I reported it to the user as a finding
+and put it in risk #6 of council submission `6612dc0b` round 2, where it is now a
+false statement in front of twelve reviewers.
+
+**Why it was false.** Every check was a relative path resolved against a cwd left
+behind by `cd docs/.../provocation_pipeline/builder && python3 verify_rotation.py`
+five tool calls earlier. The shell's working directory persists between calls.
+
+**What made it convincing — this is the part worth keeping.** I did not run one
+check. I ran five, and they were *methodologically different*, which is exactly
+what normally earns confidence:
+
+| check | why it looked independent | why it was blind |
+|---|---|---|
+| `ls docs/.../LANDMINES.md` | filesystem | relative to cwd |
+| `find . -name "LANDMINES*"` | recursive filesystem sweep | `.` was the builder dir |
+| `git log --all -- docs/.../LANDMINES.md` | git history | pathspec relative to cwd |
+| `git ls-tree -r HEAD --name-only \| grep -i landmine` | git index at HEAD | **`ls-tree` is subtree-scoped from cwd** |
+| `ls scripts/landmines-sync.py` | filesystem, different path | relative to cwd |
+
+Filesystem, history and index all agreed. They shared exactly one input — the
+cwd — so they failed identically. **Unanimity across different methods is not
+independence when the methods take the same hidden parameter.** This is
+`two-blind-checks-agree-with-each-other` with the blindness supplied by the shell
+rather than by a query filter, and it is the fifth entry in this file of that
+shape.
+
+**What caught it.** Not scepticism about the finding — I had already acted on it.
+It surfaced only when the *next* command, the council trigger I had run
+successfully an hour earlier, failed with "No such file or directory". A script
+that demonstrably existed being suddenly absent is not a plausible world, and that
+implausibility is what made me check `pwd`.
+
+**The cheap check that would have.** `pwd` in the same call. Or an absolute path.
+Both are one extra word.
+
+**The sharper rule: an absence claim is a claim about a search, so state the
+search's scope.** "LANDMINES.md is not in this repo" asserts something about the
+repo; what I had measured was one subdirectory. Had I written the scope down —
+"not present under `builder/`" — the error would have been visible in the sentence
+as I typed it. Filed as a landmine with the full worked case.
+
+**Also worth noting:** I told the user this in the same message as a genuine
+finding (the cwd was also why a `docs/` listing looked empty), so the false claim
+travelled with credible ones. Corrected to the user in the next message.

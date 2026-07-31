@@ -15,6 +15,7 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -452,9 +453,18 @@ func TestShrinkingArchiveIsRefusedUnlessAllowed(t *testing.T) {
 	}
 }
 
-// With nothing served (first publish, or the fetch failed) the guards must not
-// block: the feed's content is fully determined by the pool, so publishing is
-// still correct and the comparison is an optimisation, not a correctness input.
+// With nothing served, checkAgainstServed itself neither errors nor reports "no
+// change" — it cannot distinguish a first publish from a failed fetch, so the
+// decision belongs to the caller.
+//
+// CORRECTED after the council's round 1: this comment used to say "the guards must
+// not block: the feed's content is fully determined by the pool, so publishing is
+// still correct". That was the wrong call and a reviewer caught it — the served
+// feed supplies the shrink guard's denominator, so publishing blind disables the
+// only defence against silently losing provocations. The ACTION now refuses unless
+// allow_unverified_publish is set (TestUnverifiedPublishDefaultsToRefusing); this
+// function stays permissive because a refusal here would also break a genuine
+// first publish.
 func TestMissingServedFeedDoesNotBlockPublishing(t *testing.T) {
 	feed := buildOn(t, testSchedule(), "2026-07-26")
 	next, _ := summariseFeed(feed)
@@ -465,5 +475,67 @@ func TestMissingServedFeedDoesNotBlockPublishing(t *testing.T) {
 	}
 	if skip {
 		t.Error("a missing served feed must not be read as no change")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Round 2 — guards added after the council's first verdict
+// ---------------------------------------------------------------------------
+
+// An unreadable served feed must REFUSE, not publish blind.
+//
+// The first draft tolerated it, reasoning that content is determined by the pool.
+// That misses what the comparison is for: the served feed supplies the shrink
+// guard's denominator, so tolerating a failed fetch switched off the only defence
+// against silently dropping provocations. This pins the corrected behaviour —
+// checkAgainstServed with no served feed must not report "safe to publish" in a
+// way the caller can mistake for a verified publish.
+func TestNoServedFeedMeansUnverifiedNotVerified(t *testing.T) {
+	feed := buildOn(t, testSchedule(), "2026-07-26")
+	next, _ := summariseFeed(feed)
+
+	// checkAgainstServed itself stays permissive by design — it cannot tell a
+	// first publish from a failed fetch. The refusal is the CALLER's job, which is
+	// why the caller now branches on AllowUnverifiedPublish. What must remain true
+	// here is that a nil served feed never yields skip=true, because that would
+	// silently drop the publish instead of performing it.
+	skip, err := checkAgainstServed(nil, next, false)
+	if err != nil {
+		t.Errorf("checkAgainstServed should not itself error on a nil served feed: %v", err)
+	}
+	if skip {
+		t.Error("a nil served feed must never read as 'no change' — that would skip a real publish")
+	}
+}
+
+// The config flag must exist and default to fail-closed. A guard whose default is
+// permissive is not a guard.
+func TestUnverifiedPublishDefaultsToRefusing(t *testing.T) {
+	fc := parseProvocationFeedConfig(map[string]interface{}{"domain": "vonc.com"})
+	if fc.AllowUnverifiedPublish {
+		t.Error("allow_unverified_publish must default to false, or a failed fetch silently disables the shrink guard")
+	}
+	fc = parseProvocationFeedConfig(map[string]interface{}{
+		"domain": "vonc.com", "allow_unverified_publish": true,
+	})
+	if !fc.AllowUnverifiedPublish {
+		t.Error("allow_unverified_publish was not read from config, so the override is unreachable")
+	}
+}
+
+// The domain is interpolated into an outbound URL, so anything that is not a
+// bare hostname must be refused before it reaches the network.
+func TestOutboundDomainRejectsNonHostnames(t *testing.T) {
+	// No DB needed: every one of these must fail the shape check, which runs
+	// before the allow-list query. A nil *sql.DB would panic if any reached it,
+	// so this also proves the shape check comes first.
+	for _, bad := range []string{
+		"", "vonc.com/../etc", "user:pw@vonc.com", "vonc.com:8080",
+		"localhost/latest/meta-data", "vonc.com?x=1", "vonc.com#f", "a b.com",
+		"http://vonc.com", "vonc.com\\x",
+	} {
+		if err := assertKnownDomain(context.Background(), nil, bad); err == nil {
+			t.Errorf("domain %q was accepted; it must be refused before any fetch", bad)
+		}
 	}
 }

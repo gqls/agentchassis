@@ -2663,3 +2663,20 @@ matters if that domain was chosen to host wildcard subdomains later.
   If you must pattern-match, anchor it: `s.domain = $1`, or at minimum verify by grouping **by `s.domain`** so a foreign site announces itself in the output instead of hiding in a total
 - **source:** 2026-07-31, mortgagecalculator.co.uk adoption pre-flight. `mortgagecalculator_couk_adoption/NOTES` + `RUNBOOK` §6
 - **added:** 2026-07-31, mortgagecalculator adoption lane
+
+### A relative path is resolved against a cwd an earlier `cd` left behind — and `find .`, `git log --`, `git ls-tree` and `ls` are ALL blind the same way, so they corroborate each other
+
+- **footprint:** any `Bash` call using a repo-relative path; `cd <dir> && <cmd>` anywhere earlier in the session; `find .`, `git ls-tree -r HEAD --name-only`, `git log -- <relpath>`, `ls <relpath>`
+- **fires when:** you run `cd docs/x/y && python3 thing.py` for convenience, and then — several tool calls later — check whether some unrelated file exists. The working directory **persists between calls**. A "Shell cwd was reset" notice appears for *some* calls and not others, so its absence is not a guarantee, and nothing in the later command looks wrong.
+- **the tell: you conclude a file, a script, or a whole directory tree DOES NOT EXIST** — and the conclusion arrives with what feels like overwhelming corroboration. Worked case (2026-08-01): `ls docs/.../LANDMINES.md` → no such file; `find . -name "LANDMINES*"` → nothing; `git log --all -- docs/.../LANDMINES.md` → nothing; `git ls-tree -r HEAD --name-only | grep -i landmine` → nothing; `ls scripts/landmines-sync.py` → no such file. **Five checks, unanimous, all wrong.** The file is 342KB and tracked. The cwd was a `builder/` subdirectory from a `cd` five calls earlier, so every relative path resolved beneath it — `find .` searched only that subtree, `git ls-tree` listed only that subtree, and `git log -- <relpath>` scoped to a path that does not exist.
+- **why it is worse than a plain typo:** the checks are *methodologically different* (filesystem, index, history) which reads as independent confirmation, but they share one input — the cwd — so they fail identically. This is [[two-blind-checks-agree-with-each-other]] with the blindness supplied by the shell rather than by the query. It cost a false statement to the user and a **false claim inside a live council submission**, which is the expensive kind.
+- **the check:** for any existence or absence claim, use an **absolute path**, or `cd` to the repo root in the same command:
+
+  ```bash
+  ls -la /home/ant/projects/agentchassis/docs/.../LANDMINES.md          # absolute
+  git ls-files | grep -i landmine  # anchored
+  ```
+
+  `git ls-files` (whole index regardless of cwd) is safer than `git ls-tree -r HEAD` (subtree-scoped). **And print `pwd` in the same call as any absence check** — one extra word, and it makes the failure mode visible instead of invisible.
+- **source:** 2026-08-01, provocation_pipeline lane. `provocation_pipeline/NOTES_provocation_pipeline.md`; `WRONG_CALLS.md`
+- **added:** 2026-08-01, provocation_pipeline lane

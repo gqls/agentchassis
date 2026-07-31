@@ -71,6 +71,22 @@ type provocationFeedConfig struct {
 	// ForceCommit publishes even when the only change would be the timestamp.
 	// Default false — see the no-op skip in RenderProvocationFeedAction.
 	ForceCommit bool
+
+	// AllowUnverifiedPublish permits publishing when the currently-served feed
+	// cannot be read at all. Default false, i.e. FAIL CLOSED.
+	//
+	// This defaulted to true in the first draft, on the reasoning that the feed's
+	// CONTENT is fully determined by the pool so publishing blind is still
+	// correct. That reasoning is wrong, and a council reviewer caught it: the
+	// shrink guard exists to stop provocations silently disappearing, and it is
+	// the served feed that supplies its denominator. Tolerating a failed fetch
+	// therefore disabled the one guard against silent content loss during exactly
+	// the infrastructure trouble most likely to accompany a bad deploy.
+	//
+	// Failing closed costs at most a delayed rotation — the next run picks it up
+	// within the interval — which is the trade this whole action already makes
+	// everywhere else.
+	AllowUnverifiedPublish bool
 }
 
 func parseProvocationFeedConfig(config map[string]interface{}) provocationFeedConfig {
@@ -104,6 +120,9 @@ func parseProvocationFeedConfig(config map[string]interface{}) provocationFeedCo
 	}
 	if v, ok := config["force_commit"].(bool); ok {
 		fc.ForceCommit = v
+	}
+	if v, ok := config["allow_unverified_publish"].(bool); ok {
+		fc.AllowUnverifiedPublish = v
 	}
 	return fc
 }
@@ -520,9 +539,41 @@ type servedFeed struct {
 	Canonical    string // the feed with generated_at removed, for equality
 }
 
+// assertKnownDomain refuses a domain that is not a site this platform owns.
+//
+// The domain arrives from step config and is interpolated into an outbound URL,
+// so without this the action is a request-forgery primitive for anyone who can
+// write a workflow step: point it at an internal address and it will fetch that
+// and report the body's shape. `platform/httpguard` does not help here — it
+// guards INBOUND abuse.
+//
+// The `sites` table is the natural allow-list because it is the same set the git
+// export path already trusts, so this adds no new source of authority. The shape
+// checks in front of it stop a value like "evil.test/x#" or "user:pw@host" from
+// being smuggled through a domain that happens to match after parsing.
+func assertKnownDomain(ctx context.Context, db *sql.DB, domain string) error {
+	if domain == "" {
+		return fmt.Errorf("no domain given")
+	}
+	if strings.ContainsAny(domain, "/@:?#\\ ") {
+		return fmt.Errorf("domain %q contains characters that cannot appear in a hostname", domain)
+	}
+	var known bool
+	if err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM sites WHERE domain = $1)`, domain).Scan(&known); err != nil {
+		return fmt.Errorf("check domain against sites: %w", err)
+	}
+	if !known {
+		return fmt.Errorf("domain %q is not a site in this platform; refusing to fetch it", domain)
+	}
+	return nil
+}
+
 // fetchServedFeed reads the file the site is currently serving — the artefact,
 // not the repository and not the tag. Used for two things: skipping a no-op
 // commit, and refusing a shrinking archive.
+//
+// The caller must have passed the domain through assertKnownDomain first.
 func fetchServedFeed(ctx context.Context, domain, dataPath, filename string) (*servedFeed, error) {
 	url := fmt.Sprintf("https://%s/%s/%s", domain, strings.Trim(dataPath, "/"), filename)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -644,6 +695,9 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 	if fc.Domain == "" {
 		return nil, fmt.Errorf("provocation feed requires an explicit domain; refusing to publish without one")
 	}
+	if err := assertKnownDomain(ctx, params.DB, fc.Domain); err != nil {
+		return nil, fmt.Errorf("provocation feed: %w", err)
+	}
 
 	schedule, err := loadProvocations(ctx, params.DB, fc.Domain)
 	if err != nil {
@@ -665,15 +719,27 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 		return nil, fmt.Errorf("summarise built feed: %w", err)
 	}
 
-	// Read the artefact, never the repo. A failure here is logged and tolerated:
-	// the feed's CONTENT is fully determined by the pool, so publishing without
-	// the comparison is still correct — the only cost is a redundant commit. The
-	// comparison is an optimisation and a guard, not a correctness input, so it
-	// must not be able to block a legitimate publish.
+	// Read the artefact, never the repo.
+	//
+	// FAILING CLOSED HERE IS DELIBERATE, and it is a correction. The first draft
+	// logged a fetch failure and published anyway, reasoning that the content is
+	// fully determined by the pool. That reasoning ignores what the comparison is
+	// FOR: the served feed supplies the denominator for the shrink guard, so
+	// tolerating a failed fetch switched off the only defence against silently
+	// dropping provocations — during exactly the infrastructure trouble most
+	// likely to accompany a bad deploy. Refusing costs one delayed rotation,
+	// picked up by the next run within the interval.
 	served, ferr := fetchServedFeed(ctx, fc.Domain, fc.DataPath, fc.Filename)
 	if ferr != nil {
+		if !fc.AllowUnverifiedPublish {
+			return nil, fmt.Errorf(
+				"refusing to publish: cannot read the currently-served feed, so the "+
+					"archive-shrink guard has no denominator and content loss would be "+
+					"undetectable (%w). Set allow_unverified_publish to override", ferr)
+		}
 		params.Logger.Warn("RenderProvocationFeed: could not read the served feed; "+
-			"publishing without the no-op and shrink checks", zap.Error(ferr))
+			"allow_unverified_publish is set, so publishing WITHOUT the shrink guard",
+			zap.Error(ferr))
 	}
 
 	skip, err := checkAgainstServed(served, next, fc.AllowShrink)

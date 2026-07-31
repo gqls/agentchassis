@@ -1,6 +1,46 @@
 #!/usr/bin/env python3
 """Build vonc.com/data/provocations.json from a SCHEDULE, not from a literal.
 
+================================================================================
+NOT AUTHORITATIVE ANY MORE. THIS IS THE TEST ORACLE AND THE MANUAL FALLBACK.
+(demoted 2026-08-01, at the council gate's direction — round 1 of correlation
+6612dc0b, objections from the reuse_agent, architecture and guardian seats)
+================================================================================
+
+The authority for this feed is now the platform:
+
+    platform/orchestration/actions/provocation_feed_action.go
+    (`render_provocation_feed`, agent `provocation-feed-publisher`,
+     schedule `provocation-feed-refresh`, pool table `provocations`)
+
+This script REMAINS, deliberately, for exactly two jobs:
+
+  1. THE ORACLE. The Go action is a second implementation of one artefact, and
+     two implementations drift while each stays self-consistent. This file is
+     what the Go side is checked against, by
+     platform/orchestration/actions/provocation_feed_parity_test.go against the
+     fixtures in .../actions/testdata/. That test is the only thing standing
+     between the two, so this script has to keep working.
+
+  2. THE MANUAL FALLBACK, via publish_feed.sh, for a publish that cannot wait for
+     the scheduled job (and for the rollback path, which is the same script).
+
+WHAT THAT MEANS IF YOU EDIT THIS FILE:
+
+  * Its SCHEDULE list is NO LONGER THE SOURCE OF TRUTH and is not read by
+    anything deployable. Adding a provocation here changes nothing on the live
+    site — the pool table is what the publisher reads. See RUNBOOK § "Adding a
+    provocation".
+  * A change to the feed's SHAPE or to the seal rules must be made on BOTH sides
+    and the parity fixtures regenerated from both, or the golden test starts
+    agreeing with whichever side you changed. There is no automated check that
+    you did this; it is process discipline, which is precisely why the council
+    flagged it and why it is written here rather than in a handoff.
+  * The seal invariants below (check_seal) are duplicated as checkFeed in the Go
+    action. They are the same rules stated twice. Change one and you have
+    reopened the leak in the other.
+
+
 Phase 0 of provocation_pipeline/PLAN_2026-07-31. Successor to
 gauntlet_dead_cta/p4_sources/build_provocations.py, which produced the live
 file and has no rotation logic of any kind: `TODAY` was a fixed dict, the
