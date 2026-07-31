@@ -1,5 +1,18 @@
 # HANDOFF — webdesign.uk build service, continue here (2026-07-31)
 
+> # ⛔ SUPERSEDED — go to `HANDOFF_2026-07-31b_continue_here.md`
+>
+> Written when P4 looked like the next task. **It no longer is:** P4 was
+> planned the same day (`PLAN_2026-07-31_p4_order_intake.md`) and its premise
+> verified live, and **P1 is now the thing to build.** The `b` handoff is the
+> current cold-start entry point.
+>
+> Still correct and still worth reading here: **§4** (the council/register
+> obligations for any new shared action) and **§5** (the lane's landmines).
+> Everything else is stale — §1's "P4 is blocked" framing is resolved, and §3's
+> sizing of P4 was superseded within hours by the finding that the whole
+> queue→build chain already exists.
+
 **COLD-START ENTRY POINT.** Written so a genuinely fresh Claude Code session —
 zero context, new terminal — can pick this workstream up without re-reading the
 whole PLAN first. Prose and detail live in the other four standing docs:

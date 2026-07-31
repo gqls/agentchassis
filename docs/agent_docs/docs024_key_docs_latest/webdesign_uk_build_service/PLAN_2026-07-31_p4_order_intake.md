@@ -202,12 +202,32 @@ mechanism** (CLAUDE.md, owner rulings 2026-07-28 / 2026-07-29), so:
    - Note this makes the collector's conflict clause **stateful** — it must
      read the existing row's status, not just `DO NOTHING` blindly. That is
      the single most important line of logic in P4.
-3. **Build order — still open, and now better informed.** §5's live test proves
-   the downstream pipeline works *today*, so P4 has a verified foundation. But
-   P4 still has nothing to poll until P1 exists, and no council submission can
-   carry honest evidence without a real box on the other end. **Recommendation
-   unchanged: P1 first**, with this document as the settled contract P1's
-   orders endpoint should be built to satisfy.
+3. ~~**Build order**~~ — **DECIDED: P1 first.** §5's live test proves the
+   downstream pipeline works *today*, so P4 has a verified foundation and can
+   wait cheaply. P4 has nothing to poll until P1 exists, and no council
+   submission could carry honest evidence without a real box on the other end.
+   Cold-start for P1: `HANDOFF_2026-07-31b_continue_here.md`.
+
+## 8. What P1 must build for P4 — the contract, stated once
+
+**P4 cannot be retrofitted onto a box that has no notion of collection.**
+idea.uk's engine — P1's precedent — has no such concept (grepped: no
+`collected`/`exported`/`dispatched` field; its `awaiting_review | delivered |
+failed` lifecycle is about *fulfilment*, not about the cluster having picked an
+order up). So **P1 owes P4 three small things**, ~30 lines total, and building
+them in P1 is far cheaper than adding them later to a box taking real money:
+
+1. **A collection marker on the order** — e.g. `CollectedAt *time.Time`.
+2. **An authenticated list endpoint** returning paid, not-yet-collected orders.
+   Follow the box's own existing pattern rather than inventing one:
+   `INTERNAL_API_KEY` + `Authorization: Bearer` (idea.uk `main.go:36`, as used
+   by its `/internal/run` and `/op` routes).
+3. **An acknowledge path** so the cluster can mark orders collected — this is
+   what makes a lost response safe to retry.
+
+**And the stateful conflict rule from §7.2 lives on the cluster side, not
+here** — the box just reports orders; the collector decides what a repeat
+domain means.
 
 ## Related
 

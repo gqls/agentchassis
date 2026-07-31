@@ -293,3 +293,60 @@ is measuring one complete site build end to end, which needs the actual
 build-trigger machinery from a later phase — everything else this early
 checklist was meant to answer (cost, whether Fable-5 will even run for us,
 and now this) is in hand.
+
+---
+
+## 2026-07-31 (evening) — P4 is planned and proven; next thread builds the shop
+
+Three things happened since the last note, and the middle one is the good news.
+
+**The SSRF fix went live on your chassis roll.** I checked it properly rather
+than assuming — grepped the running pods for a string the fix added, with a
+control to prove the grep worked, on all three replicas rather than one. It's
+there, so that bug is closed rather than sitting open with the code merged.
+
+**P4 turned out to be about a tenth of the work we thought, and I proved it
+rather than asserting it.** The machinery to take "a domain plus a brief" and
+turn it into a real site build already exists in the platform and has been
+quietly running every two minutes this whole time — it's just been idle, because
+nothing has been putting anything into it since March. So P4 isn't building a
+pipeline; it's putting one row into one table that already works.
+
+I didn't want to take that on trust after four months of nobody using it, so I
+ran a real test row through the live system. It worked — including the part that
+mattered most, that the customer's brief travels through intact rather than
+getting dropped somewhere. I did it in a way that couldn't accidentally start a
+real site build and spend money: there's a specific condition that makes the
+system skip a site, and I used it deliberately as a handbrake. Nothing ran,
+nothing was spent, and I cleaned up afterwards back to exactly the numbers I
+started with.
+
+Worth mentioning because it nearly went wrong: **your fresh chassis rolled out
+in the middle of the test**, and for about five minutes everything went silent
+in a way that looks identical to "this is broken". It wasn't — there's a known
+five-minute dead zone after a restart. I'd checked the timing before starting
+precisely because you'd said a build was coming, so I recognised it rather than
+writing the whole plan off as a failure. I've recorded that trap so nobody else
+loses an afternoon to it.
+
+**Next is P1 — the shop itself**, and I've written the handoff for a fresh
+thread to pick it up. The short version of why P1 and not P4: P4 has nothing to
+collect from until the shop exists, and the shop is the thing that tells us
+whether anyone actually wants this. idea.uk is the cautionary tale sitting right
+next to us — complete, working, live, and still no strangers buying.
+
+The genuinely useful discovery for P1 is that the payment side is close to a
+copying job. idea.uk's engine already does Stripe properly, stores orders
+safely, and even handles the fiddly cases like a payment notification arriving
+twice. It also already has a "domain" field on an order, which is the whole of
+your intake. The new work is the chat, and the spend controls that have to ship
+with it — a chat costs money on every visitor, including hostile ones, so those
+aren't a later polish.
+
+One thing I've written into both plans so it can't get lost: **the shop needs a
+small "has the cluster collected this order yet?" marker built in from the
+start.** It's about thirty lines, nothing uses it until P4, and adding it later
+means surgery on a box that by then is taking real money.
+
+**Still waiting on you:** the short preview domain, the price (unblocked now —
+we know the cost), and DNS for webdesign.uk. None of them block starting P1.
