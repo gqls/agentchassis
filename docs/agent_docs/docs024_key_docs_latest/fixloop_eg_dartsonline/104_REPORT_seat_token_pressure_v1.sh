@@ -12,15 +12,23 @@
 # in `metadata.gated_by_truncation`. Candidate 2 is this: nothing measures the RATE.
 #
 # THE LEADING INDICATOR IS THE POINT, NOT THE LAGGING ONE.
-# Counting truncations would report ~0 today and never fire, because candidate 3
-# raised the cap on every seat that had actually truncated. That does not mean the
-# door is shut — a cap raise MOVES the cliff, it does not remove it (proved on this
-# very seat: `review_architecture` was raised to 16000 and a longer prompt
-# reintroduced truncation against the new cap within hours). So the headline here is
+# A cap raise MOVES the cliff, it does not remove it — proved on `review_architecture`,
+# raised to 16000 and reintroducing truncation against the new cap within hours on a
+# longer prompt. So the headline here is
 # HEADROOM — output_tokens as a fraction of the seat's CURRENT cap, reported as both
 # the peak (the near-miss) and the p95 (the routine pressure). A seat whose longest
 # review landed at 99% of its cap has not truncated yet and is one sentence away.
 #
+# > CORRECTED 2026-07-31, and the original claim was wrong for a reason worth keeping.
+# > This header used to say "counting truncations would report ~0 today and never fire,
+# > because candidate 3 raised the cap on every seat that had actually truncated". The
+# > ~0 was real and the explanation was FALSE: truncations read ~0 because THIS SCRIPT
+# > COULD NOT SEE THEM (note 4 below), not because they had stopped. The true count over
+# > the same window was 94, including seats this report was calling "ok". I built the
+# > leading indicator for a good reason and then used a broken lagging one to argue that
+# > the leading one was necessary — a right conclusion resting on a wrong measurement,
+# > which is the most durable kind of error because nothing about it looks wrong.
+
 # WHAT IT MEASURES AND CANNOT MEASURE — read this before quoting a number.
 #
 #  1. ONLY CALLS AT THE SEAT'S CURRENT LIVE CAP COUNT. `llm_call_log.max_tokens` is
@@ -46,7 +54,16 @@
 #     them too — invisibly, and this report cannot see it. A seat that asked no
 #     questions and a seat whose questions were cut off look identical.
 #
-#  4. A NULL `gated_by_truncation` MEANS "WRITTEN BY A PRE-FIX BINARY", NOT "CLEAN".
+#  4. A TRUNCATED CALL HAS NO `output_tokens` — it is recorded success=false with the
+#     cut stated in `error_message`. So a truncation count written as
+#     `output_tokens >= max_tokens` (the obvious form, and the one this script shipped
+#     with on 2026-07-31) can NEVER match: it found 4 fleet-wide where the real number
+#     was 94. The same omission biased the HEADROOM figures, because dropping those
+#     rows removes the most extreme calls from exactly the seats that truncate most.
+#     Both fixed: truncations come from `error_message`, and a truncated call scores
+#     frac = 1.0 because it did reach its cap.
+#
+#  5. A NULL `gated_by_truncation` MEANS "WRITTEN BY A PRE-FIX BINARY", NOT "CLEAN".
 #     Section 3 reports the two populations separately and never sums them. The
 #     field is emitted unconditionally by the live code precisely so absence and
 #     false stay distinguishable.
@@ -106,16 +123,25 @@ WITH live AS (
   SELECT seat, cap, string_agg(DISTINCT council, ',') AS councils_holding
   FROM live GROUP BY 1,2
 ), calls AS (
+  -- A TRUNCATED call carries output_tokens = NULL and states the cut in
+  -- error_message, so it can never satisfy 'output_tokens >= max_tokens'. Counting
+  -- truncations that way undercounted them 23-fold (4 seen, 94 real) and — worse —
+  -- dropped the most extreme calls from the headroom stats, so pressure was measured
+  -- only over calls that did NOT truncate. A truncated call DID reach its cap, so it
+  -- scores frac = 1.0 rather than being excluded.
   SELECT step_name AS seat, max_tokens AS cap, agent_type, created_at,
-         output_tokens::numeric / max_tokens AS frac
+         (error_message ILIKE '%stop_reason=max_tokens%') AS was_truncated,
+         COALESCE(output_tokens::numeric / max_tokens,
+                  CASE WHEN error_message ILIKE '%stop_reason=max_tokens%' THEN 1.0 END) AS frac
   FROM llm_call_log
   WHERE created_at > now() - interval '${DAYS} days'
-    AND step_name LIKE 'review_%' AND max_tokens > 0 AND output_tokens IS NOT NULL
+    AND step_name LIKE 'review_%' AND max_tokens > 0
+    AND (output_tokens IS NOT NULL OR error_message ILIKE '%stop_reason=max_tokens%')
 ), agg AS (
   SELECT p.seat, p.cap, p.councils_holding, count(c.frac) AS n,
          round(100*(percentile_cont(0.95) WITHIN GROUP (ORDER BY c.frac))::numeric,1) AS p95_pct,
          round(100*max(c.frac),1) AS peak_pct,
-         count(*) FILTER (WHERE c.frac >= 1) AS truncated,
+         count(*) FILTER (WHERE c.was_truncated) AS truncated,
          to_char(min(c.created_at),'MM-DD') || '..' || to_char(max(c.created_at),'MM-DD') AS span,
          count(c.frac) FILTER (WHERE c.agent_type = ANY(string_to_array(p.councils_holding,','))) AS n_holder,
          string_agg(DISTINCT c.agent_type, ',') AS logged_as
