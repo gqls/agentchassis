@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,677 concepts across 109 category register files (**counted 2026-07-30**, not
+1,679 concepts across 109 category register files (**recounted 2026-07-31**, not
 accumulated: the running "+N more" chain below had drifted 13 behind the actual
 row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
 chain is kept only as a history of *why* entries postdate the freeze).
@@ -207,6 +207,7 @@ an ID prefix, or a status word.
 | DES-002 | Style collections (data bundle + design bridge ancestry) | deployed | A `style_collections` row bundles the components and tokens defining a site's visual identity:... | design-composition.md |
 | DES-050 | Library-row cleanup pattern for failed composition cascades | deployed | A bad composition cascade leaves one set of library rows... | design-composition.md |
 | TL-034 | `has_visible_area` — the Tier-4 check that separates "exists" from "usable" | built | Measures the rendered box; three tools served work areas of 1146x0 that selector_exists passed... | tool-lifecycle.md |
+| TL-035 | `capture_renders` — a screenshot of a page that PASSED | built | Opt-in; the only screenshot path fired exclusively on failure, so three defects on all-passing pages were found by a human looking... | tool-lifecycle.md |
 | TL-032 | Orphan element-reference detection (`OrphanElementRefs` + check `orphan_element_refs`) | built | A static detector for a page whose own JavaScript addresses element ids the page never contains or creates, so... | tool-lifecycle.md |
 | TL-033 | Ported tools were invisible to the whole acceptance ladder (eligibility + subject-key widening) | deployed | Every tier opened with `cc.component_level='tool'`, so 63 ported tools in one shared 'section' row were never... | tool-lifecycle.md |
 | TL-013 | Tier-2 static acceptance checker + the anchor rule (discovery check `tool_acceptance`) | deployed | A browserless discovery check (sibling of tool_health): loads the current travelling PLAN's criteria fence,... | tool-lifecycle.md |
@@ -352,6 +353,7 @@ an ID prefix, or a status word.
 | FIX-007 | Known-answer benchmark methodology | convention | Blind reruns scored against pre-registered rubric | fix-loop.md |
 | CQ-002 | validate_page_content gate (pre-deploy content validator) | deployed | Blocker validator (placeholder/contamination/links/email) routing failures to human review | content-quality.md |
 | DBI-023 | VM sizing / Hetzner box selection | deployed | Boxes sized by disk/log headroom; EU-only Hetzner, x86-only build caveat | database-and-infrastructure.md |
+| CQ-018 | Cross-page content-duplication checker + deterministic handler | built, inert | Same-page identical sections repaired automatically; near-duplicate copy queued as capability_gap, never rewritten | content-quality.md |
 | CQ-007 | Adoption content-quality defect families (polish batch) | partial | Brand-suffix titles, empty footer contact, duplicated H1s, empty meta descriptions | content-quality.md |
 | CGV-021 | Page-content-writer + admin content brief regeneration flow | partial | Bridge doc: admin edits brief -> Regenerate -> content_rewrite item with brief in prompt | content-governance.md |
 | NAV-007 | Hardcoded fallback nav/header defaults inventing structure | partial | Brochure-default fallbacks fabricate URLs; later found not the live-path cause for one incident | navigation.md |
