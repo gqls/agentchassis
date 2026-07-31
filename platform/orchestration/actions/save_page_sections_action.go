@@ -470,6 +470,37 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// --- Locked-section preservation (bugs_open/058) ---
+	// Human-locked rows must survive the rebuild with copy AND row identity
+	// intact (admin lock/unlock addresses rows by id; "unchanged" means
+	// updated_at too). So: preload the actively-locked rows, delete only the
+	// agent-writable ones, and skip the incoming section that would have
+	// replaced a locked slot — the locked copy stands, only its position moves
+	// to follow the new composition. Expiry-aware predicate is the single
+	// shared one (lock_helpers.go).
+	//
+	// Loaded HERE, ahead of the completeness floor below, because the floor's
+	// numerator is what this save will actually insert and a lock discards the
+	// incoming section that matches it.
+	lockedRows := loadActiveLockedRows(ctx, params.DB, pageID, params.Logger)
+
+	// --- Completeness floor (bugs_open/165 site A; rule from bugs_closed/135) ---
+	// LAST of this action's refusal guards, because it is the only one that needs
+	// the FINAL section set: the interactive-tool preservation above re-appends
+	// sections a rebuild dropped, and a floor measured before that would refuse a
+	// save the preservation had already repaired. Ahead of the history snapshot
+	// below so that a refused save writes nothing whatever — not even a history
+	// row recording content it never went on to replace.
+	//
+	// The other guards ask whether this save is ENTITLED to delete these rows, or
+	// whether the replacement looks impoverished in characters. This one asks the
+	// question none of them do: did this run see enough of the page to be
+	// replacing it at all? See save_sections_prune_floor.go.
+	floorDetail, floorErr := enforcePageSectionFloor(ctx, params, siteID, pageID, pageName, sections, lockedRows)
+	if floorErr != nil {
+		return nil, floorErr
+	}
+
 	// Load page purpose for content_brief population
 	var pagePurpose string
 	_ = params.DB.QueryRowContext(ctx, `
@@ -517,17 +548,10 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		)
 	}
 
-	// --- Locked-section preservation (bugs_open/058) ---
-	// Human-locked rows must survive the rebuild with copy AND row identity
-	// intact (admin lock/unlock addresses rows by id; "unchanged" means
-	// updated_at too). So: preload the actively-locked rows, delete only the
-	// agent-writable ones, and skip the incoming section that would have
-	// replaced a locked slot — the locked copy stands, only its position moves
-	// to follow the new composition. Expiry-aware predicate is the single
-	// shared one (lock_helpers.go).
-	lockedRows := loadActiveLockedRows(ctx, params.DB, pageID, params.Logger)
-
-	// Clear existing components for this page — except actively-locked rows
+	// Clear existing components for this page — except actively-locked rows.
+	// lockedRows was loaded above (see the preservation note there), and the
+	// completeness floor has already established that this run saw enough of the
+	// page to be replacing it.
 	_, err = params.DB.ExecContext(ctx, `
 		DELETE FROM page_components WHERE page_id = $1 AND `+pageComponentAgentWritableSQL(""),
 		pageID)
@@ -602,7 +626,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		// narrow — an empty generic stub AND no component link — so it never
 		// touches a resolved component, a generic block that DID receive content
 		// (those carry visible text), or a non-generic orphan.
-		if componentIDPtr == nil && isEmptyGenericStub(section.HTML) {
+		if sectionIsUnresolvableStub(section) {
 			params.Logger.Error("SavePageSectionsAction: refusing to persist an empty generic stub for an unresolved section",
 				zap.String("page_name", pageName),
 				zap.String("slot_name", section.ComponentName),
@@ -701,7 +725,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("locked_sections_preserved", len(lockedSlotsPreserved)),
 	)
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"success":                   true,
 		"page_id":                   pageID.String(),
 		"page_name":                 pageName,
@@ -709,7 +733,15 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		"sections_saved":            savedCount,
 		"skipped_stub_sections":     skippedStubs,
 		"locked_sections_preserved": lockedSlotsPreserved,
-	}, nil
+	}
+	// The floor's numbers are reported on a PASSING save too, not only when it
+	// refuses. "sections_saved: 2" without the denominator is the alarm presented
+	// as output — 135 candidate (3), and the reason orchestration_states could not
+	// answer "was that rebuild thin?" after the fact.
+	for k, v := range floorDetail {
+		result[k] = v
+	}
+	return result, nil
 }
 
 // lockedPageRow is an actively-locked page_components row preserved through a
@@ -792,6 +824,25 @@ func isEmptyGenericStub(html string) bool {
 		return false
 	}
 	return strings.TrimSpace(stripHTMLTags(html)) == ""
+}
+
+// sectionIsUnresolvableStub is the bugs_open/039 skip predicate, extracted so
+// that the insert loop and the completeness floor (save_sections_prune_floor.go)
+// decide by the SAME rule. They must agree: the floor counts what this save will
+// write, and a section the loop is about to discard is not written. Two copies of
+// this condition sixty lines apart is the drift class the council reviews for —
+// a floor that counted discarded stubs as confirmed content would be permissive
+// in the one direction it must not be.
+//
+// Mirrors the loop's original test exactly: no resolvable component_id AND the
+// hollow generic stub.
+func sectionIsUnresolvableStub(s SectionData) bool {
+	if s.ComponentID != "" {
+		if _, err := uuid.Parse(s.ComponentID); err == nil {
+			return false
+		}
+	}
+	return isEmptyGenericStub(s.HTML)
 }
 
 // SectionData holds extracted section data
