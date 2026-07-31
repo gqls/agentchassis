@@ -14092,3 +14092,44 @@ I had only reasoning" family (the first: claiming 592 paths "corrected" a regist
 figure of 530, when 530 was a test fixture I had invented). Both were caught by going
 to *use* the claim. **The pattern: an unmeasured claim survives right up until
 something makes it do work.**
+
+---
+
+## 2026-07-31 — I asked for the last three bug numbers and read the answer as "the next free one"
+
+**Thread:** bugfix 11 session, filing the sibling case for `bugs_closed/135`.
+
+**The claim.** I ran `ls bugs_open/ bugs_closed/ | grep -oE "^[0-9]{3}" | sort -n |
+tail -3`, got `162 / 163 / 164`, and filed a new case as **162**. Another session had
+filed `162_HANDOFF_..._fix_proposer_still_discards_a_good_plan_on_a_structural_refusal.md`
+earlier the same day — so I created a **duplicate number**, in a directory whose own
+index says *"numbering is one sequence across both dirs and is never reassigned"* and
+which already carries six documented ambiguous numbers (016, 017, 083, 112, 131, 146)
+that cost every later reader a disambiguating grep.
+
+**Why it was false.** The query answers "what are the three highest numbers IN USE".
+It cannot answer "what is free" — that is `max + 1`, and the two differ by exactly one.
+I wrote a command for one question and read its output as the answer to another. The
+output was correct; my reading added a fact it did not contain.
+
+**What caught it.** Nothing I did on purpose. I opened 016b §10 to add an index row
+and saw `| 162 | **fix-proposer still discards a completed plan …` already sitting
+there — a file I was editing for an unrelated reason. Had §10 not needed a row, the
+duplicate would have shipped.
+
+**The cheap check.** `tail -1` and add one, or better, assert it: `ls … | sort -n |
+tail -1` then confirm `ls bugs_*/<N>_* ` returns nothing before writing the file. One
+extra `ls` against the number you are about to claim. **On a tree with many concurrent
+sessions, "the next number" is a claim about a shared resource and must be tested at
+the moment of use, not derived.**
+
+**Cost.** ~5 minutes: `git mv` to 165 and repoint five files. Caught before the number
+reached the 016b index, the register or any commit message, so nothing downstream had
+to be unpicked. The precedent for renumbering is `cf2cafcdd` ("bug(092, was 090):
+renumber — another session took 090 67 seconds earlier"), which is the same collision
+at 67 seconds rather than several hours.
+
+**Tally note.** Third entry from this session in the family *my measurement answered a
+question I had not asked* (after the 530-was-my-own-test-fixture claim and the
+paths-are-the-stronger-signal ranking). All three shared one shape: **I trusted a
+number without asking what question its query could actually express.**

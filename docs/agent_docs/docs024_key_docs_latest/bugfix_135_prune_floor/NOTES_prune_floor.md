@@ -273,7 +273,7 @@ delete, this time above the floor (33 of 38 = 87%) → `prune_status=pruned`,
 `pruned=5`, every cohort listed with its numbers, index restored *exactly* to
 baseline (4,992 rows, 592 paths, one commit, 0 leftovers). Self-healing as designed.
 
-## (12) 2026-07-31 — council round 2: REVISE, and the objection became `bugs_open/162`
+## (12) 2026-07-31 — council round 2: REVISE, and the objection became `bugs_open/165`
 
 `bug_historian`, HIGH, on the *scope* rather than the code: a rigorous fail-closed
 guard for `code_symbols` while three mechanistically identical deletes stay
@@ -289,7 +289,7 @@ inside a fix for a fourth is that, tripled. Two of the three were being edited b
 other lanes the same day, and 135's cohorts were only defensible because they were
 chosen *after* reading the live distribution — guessing three more sets is how you
 build a guard that fires on legitimate edits and gets deleted by the first person
-it blocks. So: **filed as `bugs_open/162`**, with the fix shape, the per-site
+it blocks. So: **filed as `bugs_open/165`**, with the fix shape, the per-site
 cohort question, and the "why not here" reasoning written down.
 
 Two other objections, answered rather than deferred:

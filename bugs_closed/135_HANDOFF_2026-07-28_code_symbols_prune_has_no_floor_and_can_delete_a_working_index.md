@@ -277,7 +277,7 @@ when it should not, and the retained-then-pruned cycle is self-healing as design
 plan never showed it had checked the prior 07-27 reader-side fix; answered with
 four greps, complementary not duplicate). Round 2 REVISE (`bug_historian` HIGH —
 **the three sibling call sites should not be left exposed**). That objection is
-correct and is now **`bugs_open/162`**, filed at the seat's direction rather than
+correct and is now **`bugs_open/165`**, filed at the seat's direction rather than
 answered by widening this patch — the reasoning is in that file's "Why this was
 not done in 135's commit". `guardian`'s medium (are the new result keys additive-
 safe?) is answered by measurement: three agent definitions mention `index_result`,
@@ -286,6 +286,6 @@ safe?) is answered by measurement: three agent definitions mention `index_result
 image grep beside a `bugs_open/153` citation that implies the harder check — and
 is now moot: the production pod-grep above is the harder check.
 
-**Not closed by:** the sibling conversions (`bugs_open/162`), and there is still no
+**Not closed by:** the sibling conversions (`bugs_open/165`), and there is still no
 automated consumer of the `prune-refused` notes — deliberate, and said plainly in
 the code rather than implied away.
