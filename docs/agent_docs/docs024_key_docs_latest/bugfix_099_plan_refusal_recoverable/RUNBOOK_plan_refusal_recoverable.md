@@ -144,6 +144,30 @@ SELECT created_at, metadata->>'shape' AS shape,
 `body` is the rejected plan verbatim, so a design the loop gave up on is recoverable
 by hand. **The `note_kind` filter is not optional** — see `LANDMINES.md`.
 
+## Read the refusals WITHOUT knowing about `note_kind` (the operator surface)
+
+```sql
+SELECT occurred_at, agent_type, step_name, severity, error_message,
+       context->>'repair_attempt' AS attempt, context->>'exhausted' AS exhausted,
+       orchestration_id
+  FROM agent_error_log
+ WHERE error_code = 'FIX_PLAN_VALIDATION_REFUSED'
+ ORDER BY occurred_at DESC LIMIT 20;
+```
+
+`severity` discriminates the two outcomes: `warning` = routed to repair, `error` =
+repair budget spent and the run failed. A row is written on **both**, so the absence
+of a row means no refusal happened — never a refusal that passed quietly.
+
+**Gotcha:** that table's timestamp column is **`occurred_at`**, not `created_at`.
+`ORDER BY created_at` **errors** rather than returning nothing, which is at least
+honest — unlike most of the traps on this page.
+
+**Gotcha:** the very first live refusal (2026-07-31) wrote this row with
+`orchestration_id` **empty** — the correlation was in `context` but the column every
+other query joins on was blank. Fixed in the same lane; rows written before the
+following roll will have it blank, so join on `context->>'correlation_id'` for those.
+
 ## Verify the fix on the failing branch (the only test that counts)
 
 > **CORRECTION 2026-07-30 — 099's stated verification CANNOT prove candidate 2, and
