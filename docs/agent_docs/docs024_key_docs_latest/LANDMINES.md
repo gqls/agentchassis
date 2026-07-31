@@ -1966,3 +1966,38 @@ source document and the entry points at it.
 - **and measure the blast radius with the RIGHT NEEDLE:** the phrase is **`usage limit`**, not `spending limit`. Grepping `ILIKE '%spending limit%'` returns **0 rows** during a live outage and reads as "it's just me" — the mistake was made and caught within one query on 2026-07-31. `ILIKE '%usage limit%'` over `orchestration_states` in the last few hours tells you whether the fleet is down or your run is unlucky.
 - **source:** 2026-07-31 18:58:41 UTC, first hit fleet-wide, killing a `bugs_open/149` A6 council round at `review_tooling_provenance` and another session's round at `review_editquality` a minute later; stated reset 2026-08-01 00:00 UTC. Distinct from — and a counter-example to — the transient-fault guidance at `RUNBOOK_council_gate.md`'s `complete_invalid` note, which should be read together with this entry
 - **added:** 2026-07-31, bugfix_149_nav_membership lane
+
+### A completeness floor on `page_components` must exclude LOCKED slots from its target, or it refuses perfect rebuilds
+
+**footprint:** `platform/orchestration/actions/save_sections_prune_floor.go` · `pages.sections` · `page_components.locked_at`
+
+A guard that asks "did this rebuild produce enough?" needs a target to compare
+against, and `pages.sections` (the planned composition) is the obvious one — it is
+written by seven other actions, so it is a genuine second opinion rather than an
+echo. **It is also wrong on its own.** An actively-locked slot is not deleted and
+the incoming section that matches it is discarded, so a locked slot can never be
+part of what the save writes. Count it in the target and a *flawless* rebuild
+scores below the floor and is refused — on exactly the pages a human cared enough
+about to lock. `idea.uk/index.html` plans 6 sections and holds 4 locks, so a
+perfect rebuild writes 2 and scores 2/6 = 33%.
+
+**the check:** before trusting any per-page count that carries the agent-writable
+predicate, remember it answers "rows this save may TOUCH", not "rows the page
+HAS". Read the rows, not the count:
+
+```sql
+SELECT pc.slot_name, pc.build_status, pc.locked_at IS NOT NULL AS locked
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='<domain>' AND p.url='<url>' ORDER BY pc.position;
+```
+
+Then build the target as `planned − suppressed − locked`, and simulate it across
+every page the code can actually REACH — split by `rebuild_policy`, because
+`owned` pages are refused ~370 lines earlier and counting them inflates the
+false-positive rate with pages that never arrive. Measured: raw planned → 3 trips;
+locked excluded → **0 of 238 reachable pages**. Applies to `site_nav_items` too,
+which carries the same lock columns.
+
+**and do not identify a page by `url` alone** — `/index.html` exists once per
+site, so `WHERE url='/index.html'` returns 14 unrelated pages and reads as
+duplicate rows. Join `sites`, or key on `pages.id`.

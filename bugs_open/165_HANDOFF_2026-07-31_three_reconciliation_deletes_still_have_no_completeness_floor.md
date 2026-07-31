@@ -2,9 +2,35 @@
 
 **Filed 2026-07-31** by the `bugfix_135_prune_floor` lane, **at the explicit
 direction of the council gate's `bug_historian` seat** (corr
-`14239fa4-552f-4821-abaf-ea15ccee4ea5`, round 2, severity HIGH). Status: **OPEN,
-unowned.** Latent — no failure to point at *today*, but two of the named
-precedents are failures that already happened.
+`14239fa4-552f-4821-abaf-ea15ccee4ea5`, round 2, severity HIGH). Status: **OPEN —
+site A DONE, B and C outstanding.** Latent — no failure to point at *today*, but
+two of the named precedents are failures that already happened.
+
+> **UPDATE 2026-07-31 evening — site A is fixed and committed (`ecf738002`).**
+> `save_page_sections_action.go` now carries a measured completeness floor
+> (`save_sections_prune_floor.go`, 17 tests), reusing `evaluatePruneFloor`
+> unchanged. Council `a54172b6-9756-4abc-a9e0-f173ad4de779`, committed with
+> `Council-Submitted:` before the verdict landed. **Not yet closed, and it must
+> not be until both branches are induced live** — the floor is inert on healthy
+> input by design, so the roll alone proves nothing. Lane docs:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_165_reconciliation_deletes/`.
+>
+> **Two things the fixing session learnt that change the advice below.**
+>
+> 1. **The per-`slot_name` cohort this file suggests for A does not work, and the
+>    measurement is decisive:** 998 of 1,009 `(page_id, slot_name)` groups hold
+>    exactly ONE row. Every per-slot cohort would be 1 stored, so a legitimate
+>    single-section removal scores it 0% and refuses — 89 real shrinkages in 4.5
+>    months, each blocked. What shipped instead is two page-level cohorts in
+>    different units: rows (what the save inserts vs what the DELETE removes) and
+>    plan (vs `pages.sections`, which seven *other* actions write and this one
+>    never does). The plan cohort is what breaks the **ratchet** — once a writer
+>    has cut a page to two rows, the row cohort reads 2/2 = 100% for ever.
+> 2. **Exclude actively-locked rows from any plan-side denominator.** Counting a
+>    slot a lock makes unwritable refuses a *perfect* rebuild of the pages a human
+>    curated (`idea.uk/index.html`: 6 planned, 4 locked, so a flawless rebuild
+>    scores 2/6). Applies to B as much as to A — `site_nav_items` carries the same
+>    lock columns.
 
 ## Why this exists as its own case
 
@@ -35,7 +61,7 @@ which is now guarded):
 
 | # | site | delete | stakes |
 |---|---|---|---|
-| A | `save_page_sections_action.go:532` | `DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` | **HIGH — real content, lost before** |
+| A | `save_page_sections_action.go:532` | `DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` | **HIGH — real content, lost before.** GUARDED 2026-07-31 (`ecf738002`); open until induced live |
 | B | `populate_nav_tables_action.go:147,150` | `DELETE FROM site_nav_items WHERE site_id = $1` then `site_nav_groups` | medium — regeneratable, but a partial nav is served |
 | C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable |
 | — | `code_symbols_actions.go` | guarded 2026-07-31 (`bugs_closed/135`) | — |

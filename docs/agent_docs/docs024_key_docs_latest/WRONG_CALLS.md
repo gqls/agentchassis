@@ -14556,3 +14556,43 @@ looking wrong, which is luck, not method.
   exist if a real prior pass had happened (the new function names): zero. The cheap
   check: **search for something only the thing you are looking for would produce**, not
   for the topic's vocabulary.
+
+---
+
+## 2026-07-31 — I read "live = 2" as a stripped page, and it was a curated one
+
+**The claim.** Simulating a proposed completeness cohort for `bugs_open/165` site
+A, three pages tripped it. One was `idea.uk/index.html`: plan says 6 sections, my
+query said `live = 2`. I wrote that down as evidence the cohort was working —
+finding a homepage that a truncating writer had stripped to two sections, which is
+precisely the defect the guard exists to catch.
+
+**What was actually true.** The page has all six sections, matching its plan
+exactly. **Four of them are locked.** My `live` count applied the agent-writable
+predicate (`locked_at IS NULL OR expired`), so it correctly counted the rows a
+rebuild may TOUCH — and I read that number as the rows the page HAS.
+
+**Why it mattered more than a wrong sentence.** The misreading was already baked
+into the design: my cohort's denominator was the raw planned count, so a *perfect*
+rebuild of that page — 6 sections handed over, 4 swallowed by locks, 2 written —
+scores 2/6 = 33% and is REFUSED. I would have shipped a guard that blocks every
+future rebuild of exactly the pages someone had deliberately protected. `165` warns
+in terms that "a guard that cries wolf gets deleted by the first person it blocks";
+mine would have cried wolf at the most curated pages on the estate.
+
+**What caught it.** Opening the six rows instead of trusting the one number —
+done only because I wanted to quote the offender as a worked example in a code
+comment. Nothing structural caught it. The count was not wrong; it answered the
+question its predicate encoded, which was not the question I was asking it.
+
+**The cheap check that would have.** When a count carries a filter, name the
+filter in the variable and in the claim: not `live`, but `live_writable`. Typing
+`writable` is enough to make "planned 6 vs writable 2" read as a comparison
+between two different populations, which is what it is. Cost: seconds. Cost of
+missing it: a guard that would have been removed within a week of shipping, taking
+the protection with it.
+
+**Tally note.** This is the same family as the existing entries on filters
+defining conclusions — but the new part is that the bad number flowed into a
+DESIGN, not just a sentence. A wrong figure in prose gets corrected by the next
+reader; a wrong figure in a denominator ships.
