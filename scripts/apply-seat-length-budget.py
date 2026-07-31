@@ -84,6 +84,17 @@ TARGETS = [
      "near-miss threshold exists for. A p95 rule would never have seen it"),
     ("council-gate",     "review_debug_historian",
      "same seat, mirrored roster"),
+    ("fix-proposer",     "review_editquality",
+     "ADDED 2026-07-31: peak 98.3% of its RAISED 16000 cap over 52 calls, ALL 52 "
+     "attributable, and rising — 13,115 -> 13,592 -> 15,721 -> 15,525 tokens across "
+     "07-30/07-31, the last two within an hour. The 07-28 raise to 16000 bought this "
+     "seat about three days. This is the clearest measurement anywhere that a cap "
+     "raise MOVES the cliff rather than closing it, on the very seat it was applied to"),
+    ("council-gate",     "review_editquality",
+     "same seat, mirrored roster"),
+    ("feature-designer", "review_editquality",
+     "third council holding it; raised to 16000 by the same owner call on 2026-07-31, "
+     "so it inherits the same ceiling and the same trajectory"),
 ]
 
 # The block. One copy, here. Inserted immediately before the "## Output" heading,

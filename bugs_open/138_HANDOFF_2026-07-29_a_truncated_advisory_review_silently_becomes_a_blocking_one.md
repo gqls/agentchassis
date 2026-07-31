@@ -580,3 +580,64 @@ at 21:21 and 03:21, the changed set spoke at 09:21.
 above), and the `true`-branch live proof for candidate 1. Candidates 2 and 4 are
 answered — 4 partly by refutation, which is a real answer and cheaper than the fix it
 replaced.
+
+
+---
+
+## 2026-07-31 — OWNER RAISED THE CAPS, and the re-run measured this bug's own central claim
+
+**Owner call:** `review_architecture` / `review_editquality` / `review_guidelines`
+8000 → 16000 on **feature-designer** (`sql_for_agents/277_…sql`), closing the gap
+where the 07-29 ruling reached two of the three councils holding those seats. Verified
+nine-of-nine at 16000; snapshot confirmed to PREDATE the write (backup reads 8000).
+Predicted before running and confirmed after: 102 now shows the same deliberate
+value-drift on feature-designer as on its siblings; 099 unchanged, which is exactly
+why the gap existed.
+
+**Propagates the CAP only.** The 07-29 architecture fix had three parts;
+feature-designer's `review_architecture` prompt still lacks the other two (notes-first
+ordering, and the length block). Verified by diff — it legitimately differs elsewhere
+(it judges a design, renders `{{.spec_row.spec_json}}`), so this is drift on two
+specific halves, not a stale copy. **Open, and a separate decision** because those two
+change what a reviewer is asked to do rather than how much room it has.
+
+### The finding that outranks the change: a raised cap is already nearly full
+
+Re-running the report immediately after found **`review_editquality@16000` at peak
+98.3%, all 52 calls attributable.** Checked against `llm_call_log` directly rather
+than trusting the aggregate:
+
+| when | output tokens | % of the 16000 cap |
+|---|---|---|
+| 07-30 19:36 | 13,115 | 82.0 |
+| 07-30 19:48 | 13,592 | 85.0 |
+| **07-31 14:52** | **15,721** | **98.3** |
+| **07-31 15:30** | **15,525** | **97.0** |
+
+A **rising trend**, last two inside an hour. Earlier the same day the pair read peak
+62.9% on 28 calls.
+
+**This is the strongest evidence this bug has produced for its own central claim.**
+"A cap raise MOVES the cliff, it does not close it" rested on `review_architecture`
+reintroducing truncation against a new cap within hours — one seat, confounded by a
+longer prompt shipping at the same time. This is the *other* raised seat, no prompt
+change, growing into its doubled ceiling over three days, fully attributable. **The
+07-28 raise bought `review_editquality` about three days.** Which is also the correct
+way to read the change made above: raising feature-designer to 16000 buys time, not
+immunity.
+
+`review_editquality` added to the length-budget targets on all three councils (**10
+targets now**); cutover `15:39:26`–`15:39:30` from `agent_definitions.updated_at`.
+099 drift none; re-run idempotent.
+
+**Unmeasured, and it is the next thing to look at:** whether the length budget holds
+this seat. Its trajectory is steeper than any other seat's, and only rounds spawned
+after 15:39:3x carry the block. **If its next peaks stay near 98%, the budget is being
+ignored by the seat that most needs it** — and the honest response is a per-seat
+instruction, not a third cap raise. Query in RUNBOOK §10, restricted to
+`step_name='review_editquality' AND max_tokens=16000`.
+
+**Also gone from the flagged set, as intended:** `review_editquality@8000` and
+`review_guidelines@8000` no longer appear, because no live council holds those pairs
+any more. The report keys on (seat, cap) from live config, so a resolved divergence
+disappears rather than lingering as a stale row.
