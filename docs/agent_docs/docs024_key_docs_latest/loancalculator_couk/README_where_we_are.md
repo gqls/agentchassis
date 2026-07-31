@@ -246,3 +246,84 @@ twenty-seven pages frozen for ever, and your instruction for this site was that 
 calculator's working parts exactly while letting everything around them be rewritten.
 If you would rather have the cheap version here too, now is the moment to say, because
 it is a much shorter road and I would stop building the longer one.
+
+---
+
+**2026-07-31 (later) — I built the splitter, and my own tests told me it worked when it didn't**
+
+Progress, one genuine near-miss, and one thing I need to flag about the homepage.
+
+**The near-miss is the interesting part, so I'll start there.** I wrote the tool that
+splits each page into "editable writing" and "the calculator, kept exactly as it is",
+and I wrote four tests for it: the calculator's code survives untouched, its styling
+survives untouched, no chunk of the page goes missing, and nothing the calculator
+depends on gets left behind. All four passed, on all 27 pages, first time.
+
+The splitter was useless. It had put **98% of the text on the calculator pages into the
+frozen, untouchable part** — on eleven of the twelve pages, *everything* was frozen.
+The site would have ended up exactly as unable to change as it is today, and I would
+have had a clean set of test results saying otherwise.
+
+The reason is worth knowing, because it is not a coding slip. Every test I had written
+asked *"did anything break?"*. Not one asked *"did anything actually become
+editable?"* — which is the entire point of the job. A test that only checks you did no
+harm will happily pass a change that does nothing at all. I have added a fifth test
+that measures how much of each page ended up editable, and that one failed straight
+away. Two rounds of fixing later, the frozen share is down to 25%, and the flagship
+loan calculator page went from 90% frozen to 5% — its whole "Basics of Borrowing"
+article is now ordinary editable text, with only the calculator itself preserved.
+
+I have written this up for the wider team, because the general version applies to any
+job like this: tests that check you preserved something can never fail on a change that
+does nothing. So at least one test has to be one that *doing nothing* would fail.
+
+**The homepage has a calculator, and I had missed it.** This morning I told you the site
+has eleven calculators, not twelve. That was right about the tools folder and wrong
+about the site: the **front page** has a working loan calculator on it too. So it is
+twelve — eleven in the tools folder plus the homepage — and the roadmap page still is
+not one. The old figure of twelve was the right number by coincidence while pointing at
+the wrong page, which is more awkward than simply being wrong.
+
+It mattered practically: my "before" photograph only covered the tools folder, so if the
+splitting work broke the homepage calculator, nothing would have told me. Re-taken and
+extended — thirteen pages checked, twelve calculators working, one page correctly
+recorded as having nothing to click.
+
+**Something you should know about the calculators' appearance.** Eight pages carry their
+own private styling rules written into the page itself, and seven of those are
+calculators. On the credit health check, two of those rules are what make it show one
+step at a time instead of all five at once. So "keep the calculator working" is not just
+about keeping its code — drop those rules and the calculator computes every number
+correctly while looking completely broken. That is now one of the things the splitter
+proves it has preserved.
+
+Relatedly, a neighbouring project reported that this exact page was broken on our live
+site. **It isn't** — I checked what the server actually sends, and the rules are there.
+Their check only looked at the shared stylesheet and could not see rules written into the
+page. Their wider claim that "36 styling classes are undefined" is really 19 for the same
+reason. I have written to them with the evidence and a corrected command; their own site
+is unaffected. Nineteen is still real, though, and one of them is the FCA warning box —
+regulatory text that currently renders unstyled.
+
+**One thing has become a genuine blocker for you rather than me.** The plan said we would
+read the site's files from our own deploy repository, platform-side, so any future site
+could be adopted the same way. I costed it before building it: the machinery exists and
+works, but **the platform's read-only GitHub token cannot see the `sites` repository at
+all** — only the main code repository. Widening it needs GitHub admin access, which is
+not on this machine. Same shape as the DNS item on the neighbouring project: yours to do,
+not mine.
+
+The good news is that it turned out not to block anything here. Decomposition needs
+faithful copies of the pages, and we already have those in the database — I re-verified
+all 27 are byte-for-byte identical to what visitors receive. So the file-reading work is
+no longer a prerequisite; it is an improvement whose value is *the next* site, and it can
+wait for you.
+
+**Where this leaves things.** The splitting rule is now proved against all 27 real pages,
+offline, with nothing written to the database and no site file touched. What remains
+before anything changes for visitors is the shared page furniture I mentioned earlier
+(the navigation, header and footer, which the "keep it exactly as it is" mode never
+stored), then the switch to editable mode, then letting the normal planning and design
+stages run. I have not started any of that, and I would rather not until you have had a
+chance to answer the question from my last note about whether you want the full version
+here or the cheaper freeze-the-calculators version the neighbouring project chose.
