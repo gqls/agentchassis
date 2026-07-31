@@ -273,6 +273,23 @@ grep `/bugs_open/` and `/bugs_closed/` for the mechanism before filing — on
 2026-07-19 that turned a would-be duplicate into a sharper finding, and then into
 a correction when the loop refuted it.
 
+**OWNER RULING 2026-07-31 — a `bugs_open/` file asserting a cross-cutting or
+structural root cause is not "filed" until it has been through the loop above,
+or the filing session states plainly why it substituted equivalent first-hand
+verification.** This turns the "always file when ANY of these hold" list from
+guidance a session can reasonably skip under time pressure into a stated norm
+with a named escape hatch (a real substitute, but a declared one, not a silent
+omission). Raised because `bugs_open/155` was filed on rigorous first-hand
+verification alone — reproduced the failure, read the exact code path, confirmed
+the fix — without running `090`, which by this section's own criteria it
+should have. Run afterward: **CONFIRMED**, first iteration, independently
+re-reading the same functions and citing the same lines. See
+`architecture_review/RFC_005_targeted_review_for_docs_that_feed_the_fleet.md`
+for the fuller discussion (it also covers why this does NOT extend to a
+council review of `bugs_open/`/`016b` themselves — wrong tool for prose, and it
+would dilute the architecture seat's signal for the platform-code case that
+most needs it).
+
 ## Working docs — the standing five (owner directive, 2026-07-18; cadence added 2026-07-19)
 
 Any workstream that will outlive one session keeps **five living documents** in
