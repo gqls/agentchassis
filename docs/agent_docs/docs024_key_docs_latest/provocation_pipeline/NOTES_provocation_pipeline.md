@@ -322,3 +322,78 @@ All six mutations now produce a named, dated failure line.
   date the output is *identical to the stale live file*. **Phase 0 makes rotation
   possible; it does not make the site rotate.** That needs new entries or the
   generator, plus the scheduled task.
+
+---
+
+## 2026-07-31 — Phase 0 PUBLISHED and live
+
+Owner authorised publishing. Done, verified, no regression.
+
+### Target proven before writing [VERIFIED]
+
+`sites.github_repo` is **empty** for vonc.com, so the DB could not confirm the
+deploy target and the "wrong repo succeeds silently" landmine was live. Proved it
+instead: fetched the `gqls/sites` blob and compared with the served bytes —
+both 9,797 bytes, md5 `b6d1e766…`, `cmp` identical. That repo path *is* the file
+the site serves.
+
+### MISSTEP 5 — my rollback was blocked by my own preflight
+
+Wrote `publish_feed.sh` as both the publish and the rollback path, on the
+reasoning that a revert only ever run in an emergency is a revert nobody knows
+works. Then dry-ran the rollback against the pre-Phase-0 backup.
+
+**It refused.** The preflight required `today.slug`, and the pre-Phase-0 live file
+has no slug — that being exactly the defect Phase 0 fixes. **The escape hatch was
+gated on the improvement it exists to undo.** Had that shipped, discovering it
+would have happened at the worst possible moment.
+
+Fixed by splitting the preflight into two tiers: **safety** checks run on every
+path (fields the live loader reads, `today` present, no duplicate slugs, today not
+also archived — failing these is an outage, since `round.go` 503s without
+`today`), **quality** checks are skipped under `--rollback`. Verified all four
+combinations: forward passes, rollback passes with quality skipped, rollback file
+without the flag is still refused, and a feed with `today.headline` removed is
+refused on **both** paths.
+
+**Transferable:** a guard on a publish path must be tested against the *oldest*
+artefact you might need to restore, not only the newest you intend to ship. And
+this was found by *running* the rollback, not by reading it — the reasoning that
+produced the bug would have kept producing it.
+
+### Published [VERIFIED at the artefact]
+
+`gqls/sites:vonc.com/data/provocations.json`, 9,797 → 9,869 bytes. Served and
+matching **~45 s** after the PUT (the script polls until the served md5 equals
+what it pushed, rather than trusting the PUT's 200).
+
+Live feed now: `generated_at 2026-07-31T15:03:31Z` (computed, not a literal, for
+the first time), `today.slug=nobody-wants-personalised-internet`,
+`today.date=26 Jul`, archive 8.
+
+### Regression check — rendered, not grepped
+
+- **home**: headline still paints in `.pc-headline`, body still paints. Unchanged.
+- **archive**: 8/8 entries, 7 linked + 1 deliberately non-openable, empty state
+  `hidden`, and **0** occurrences of today's slug or body — the owner's archive
+  rule holding on the live site.
+- **gauntlet**: `gi-sealed` present, **0** occurrences of the headline or body.
+  The seal is intact; publishing did not open a leak.
+
+Safe because the live loader reads only six fields
+(`eyebrow/headline/body/primary_cta/secondary_cta/stats` — confirmed by grepping
+the **served** `assets/js/snippets.js`, not the repo copy) and all six are
+byte-identical to before. `date` and `slug` are additive and read by nothing.
+
+### What is STILL NOT TRUE, and must not be overstated
+
+**The site does not rotate.** It now *can*: the builder is date-driven, the feed
+has the fields archiving needs, and publishing is one verified command. But the
+schedule's last entry is 26 Jul, and **nothing rebuilds or republishes on a
+cadence** — so tomorrow the site will serve exactly what it serves today.
+
+**"Every day, one provocation" is still a false claim on the live site.** Phase 0
+removed the structural obstacles; it did not fix the defect this workstream
+exists to fix. Two things are outstanding and both are required: provocations to
+rotate *to* (Grok generator, or hand-written entries as a bridge) and a
+`scheduled_tasks` row that rebuilds and republishes daily.

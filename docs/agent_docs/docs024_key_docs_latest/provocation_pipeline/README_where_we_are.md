@@ -306,3 +306,52 @@ for it. Both fixed, and all six breakages are now caught.
 produces exactly that same file today — Phase 0 makes rotation *possible*, it
 doesn't make the site rotate. That needs new provocations (or the generator) and
 the scheduled job. Publishing changes a live site, so I'll wait for you to say go.
+
+---
+
+**2026-07-31 (later) — published, and an honest account of what that did and didn't fix**
+
+The new feed is live. It went out at 15:03 and the site was serving it 45 seconds
+later. I checked the three pages afterwards by rendering them rather than reading
+the HTML: the home page still shows the provocation, the archive still lists all
+eight past ones, and the Gauntlet page is still sealed with no leak. Nothing broke.
+
+Before writing anything I proved I had the right target. The database column that
+is supposed to name a site's deploy repository is **empty** for vonc, so I
+couldn't confirm it that way — and there's a known trap where publishing to a
+plausible-but-wrong repo returns success and changes nothing anyone can see. So I
+pulled the file out of the repo and compared it byte for byte with what the site
+was serving. Identical, so that path is genuinely the one feeding the site.
+
+**Something I got wrong, and it's the useful part of this update.** I wrote the
+publish script so that rolling back is the same script run with an older file —
+on the principle that an emergency revert nobody has ever run is not really a
+revert. Then I dry-ran the rollback against the backup I'd just taken.
+
+It refused. My own safety check required the new slug field, and the file I'd be
+rolling *back to* doesn't have one — because that missing field is precisely the
+thing this change fixes. **The escape hatch was blocked by the improvement it
+exists to undo.** If that had shipped, I'd have discovered it at the exact moment
+it mattered. Now split in two: the checks that prevent an outage run always, the
+"is this up to our new standard" checks are skipped when reverting. I tested all
+four combinations.
+
+**Now the part I want to be plain about: the site still does not rotate, and it is
+still making a false claim.**
+
+What today bought is capability, not behaviour. The builder now picks by date, the
+feed carries the fields the archive needs, publishing is one verified command, and
+reverting works. But the schedule's last entry is 26 July and nothing rebuilds on a
+cadence — so tomorrow the site will serve exactly what it serves today. "Every day,
+one provocation" is as untrue this evening as it was this morning.
+
+Two things are needed and both are required — neither alone does it. Provocations
+to rotate *to*, which is either the Grok generator or a handful written by hand as
+a bridge. And a scheduled job that rebuilds and republishes daily.
+
+One trap I've filed for whoever does that job: the feed now carries a real
+generation timestamp, and once something rebuilds daily that timestamp will move
+every single day whether or not the provocation changed. So it will *look* like
+rotation is working while the site repeats itself — the original bug wearing the
+fix as a disguise. The only honest test is whether the provocation's identifier
+changed, never the timestamp.

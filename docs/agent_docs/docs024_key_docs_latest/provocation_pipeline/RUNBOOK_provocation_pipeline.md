@@ -16,11 +16,22 @@ print('archive entries:', len(d['archive']['entries']))
 "
 ```
 
-> **GOTCHA — `generated_at` is a HARDCODED LITERAL.** `build_provocations.py:226`
-> sets it to the string `"2026-07-26T00:00:00Z"`. Re-running the builder today
-> still emits that date. **So this command cannot currently tell a fresh file from
-> a stale one** — it is only a freshness check *after* Phase 0 makes the field
-> real. Until then, freshness is `gh api repos/gqls/sites/commits?path=...`.
+> ~~**GOTCHA — `generated_at` is a HARDCODED LITERAL.** `build_provocations.py:226`
+> sets it to the string `"2026-07-26T00:00:00Z"` … this command cannot tell a fresh
+> file from a stale one.~~
+>
+> **CORRECTED 2026-07-31 — FIXED AND LIVE.** `builder/build_provocations.py`
+> computes it, and the served file now carries a real stamp
+> (`2026-07-31T15:03:31Z` at publish). **So this command IS a valid freshness
+> check again**, from that timestamp onward.
+>
+> **Two carve-outs, both live:** the *old* builder at
+> `gauntlet_dead_cta/p4_sources/build_provocations.py` still hardcodes the literal
+> — run that one and you silently re-stamp the feed to 26 Jul. And a real
+> `generated_at` proves the file was **rebuilt**, not that the provocation
+> **changed**: a daily rebuild of an unchanged schedule moves the timestamp every
+> day while the site says the same thing. For "did it rotate", compare
+> `today.slug`, never `generated_at`.
 
 ## 2. Confirm nothing regenerates it
 
@@ -124,3 +135,67 @@ GROUP BY p.name, p.url;
 > `provocation → /blog/provocation.html` (0 components). The 2026-06-25 plan's
 > claim that the index page has "zero components" is **stale** — it has one,
 > `provocations-archive-list`, `build_status=deployed`.
+
+## 7. Build and publish the feed (Phase 0, live 2026-07-31)
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/provocation_pipeline/builder
+python3 build_provocations.py > /tmp/feed.json      # --date YYYY-MM-DD to test another day
+python3 verify_rotation.py                          # invariants across the whole schedule
+./publish_feed.sh --dry-run /tmp/feed.json          # preflight + target + sha, writes nothing
+./publish_feed.sh /tmp/feed.json "vonc.com: ..."    # PUT, then polls the SERVED file
+```
+
+`publish_feed.sh` does not exit 0 until the **served** bytes match what it
+pushed (or it fails after 10 minutes and says so). Measured 2026-07-31: GitHub
+PUT → B2/CDN served in **~45 s**.
+
+> **GOTCHA — `sites.github_repo` is EMPTY for vonc.com**, so the usual "read the
+> deploy repo from the DB" move returns nothing and cannot confirm the target.
+> The repo is `gqls/sites`, path `vonc.com/data/provocations.json`. **Prove it
+> before writing** rather than trusting the runbook — fetch the blob and compare
+> against the served bytes:
+> ```bash
+> gh api repos/gqls/sites/contents/vonc.com/data/provocations.json --jq '.content' \
+>   | base64 -d > /tmp/blob.json
+> curl -s https://vonc.com/data/provocations.json > /tmp/served.json
+> cmp /tmp/blob.json /tmp/served.json && echo "this repo path IS what the site serves"
+> ```
+> This is the "wrong repo succeeds silently" landmine: a PUT to a plausible-looking
+> path returns 200 and changes nothing a visitor sees.
+
+### Rolling back
+
+Same script — there is no separate revert path, deliberately, so publishing
+forward exercises the mechanism a rollback would use.
+
+```bash
+./publish_feed.sh --rollback backups/provocations_2026-07-31_pre_phase0.json "revert"
+```
+
+> **GOTCHA, found by dry-running the rollback rather than by reasoning:
+> `--rollback` EXISTS because the first version of the preflight refused to roll
+> back.** The pre-Phase-0 file has no `today.slug` — that is the defect Phase 0
+> fixes — and the preflight required one, so the escape hatch was gated on the
+> very improvement it exists to undo. The preflight is now two tiers:
+> **safety** checks (the fields the live loader reads, `today` present, no
+> duplicate slugs, today not in the archive) run on **every** path, because
+> failing them is an outage — `round.go` 503s when `today` is missing, by design.
+> **Quality** checks (slug/date) are skipped under `--rollback`.
+> **Generalise it: any guard on a publish path must be checked against the oldest
+> artefact you might need to restore, not just the newest one you intend to ship.**
+
+### Post-publish regression check (render, do not grep)
+
+```bash
+cd /home/ant && for p in "" "provocations/index.html" "tools/gauntlet/index.html"; do
+  timeout 90 /snap/bin/chromium --headless --disable-gpu --no-sandbox --dump-dom \
+    --virtual-time-budget=9000 "https://vonc.com/$p" > "/home/ant/r_${p//\//_}.html" 2>/dev/null
+done
+```
+
+Assert three things, because they can fail independently: home still **paints**
+the headline and body; the archive still shows 8 entries with the empty state
+`hidden` and **zero** occurrences of today's slug or body; the gauntlet page still
+carries `gi-sealed` with **zero** occurrences of either. Verified all three
+2026-07-31 after the Phase 0 publish.

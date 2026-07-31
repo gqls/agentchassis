@@ -839,6 +839,21 @@ source document and the entry points at it.
 - **source:** found 2026-07-31 picking up `gauntlet_dead_cta/HANDOFF_2026-07-30_B`,
   whose own verification step this defeats. Fixing it is Phase 0 item 1 of
   `provocation_pipeline/PLAN_2026-07-31_provocation_pipeline.md`
+- **UPDATED 2026-07-31 (same day) — HALF FIXED, and the half that remains is the
+  dangerous half.** The successor builder
+  (`provocation_pipeline/builder/build_provocations.py`) computes the field, and
+  the live feed now carries a real stamp. **The original at
+  `gauntlet_dead_cta/p4_sources/build_provocations.py` still hardcodes the
+  literal and is still runnable** — so running the old builder now *reverts* the
+  feed's timestamp to 26 Jul while appearing to publish successfully. Two
+  builders, one contract, and the wrong one silently un-fixes it. Check which
+  path you are running before you publish.
+- **and a NEW trap the fix creates:** a real `generated_at` proves the file was
+  **rebuilt**, not that the provocation **changed**. Once a daily job exists, the
+  timestamp will advance every day whether or not the schedule moved, so
+  "generated_at is today" will read as "rotation works" while the site says the
+  same thing for a month — the original defect wearing the fix as a disguise.
+  **For "did it rotate", diff `today.slug`. Never `generated_at`.**
 - **added:** 2026-07-31, provocation_pipeline lane
 
 ### vonc's provocation feed is read by the SERVER too — a client-side selector desyncs the game from the page
