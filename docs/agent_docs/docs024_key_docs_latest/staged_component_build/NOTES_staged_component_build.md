@@ -663,3 +663,47 @@ protects it from a rebuild clobbering the tool — the leopardess lane found `ow
 protects their four tool pages. Flipping it is NOT a free improvement: their S4 correction
 showed `owned` *blocks* the generic save path, so the order matters and it needs its own
 red/green. Left for whoever picks up the S4 rewrite.
+
+> **CORRECTION to the entry above, same day, and it lands on my own claim.** I wrote that
+> the check "went `FAIL 2` → `FAIL 1`" and treated that as progress toward testability. **It
+> was progress on one axis only, and my check then reported a FALSE GREEN on the very tool
+> I had just renamed.**
+>
+> **The bug was mine and it was a mislabelled column.** The check tested
+> `EXISTS (SELECT 1 FROM doc_plans …)` and I named the result **`has_fence`**. That proves a
+> **PLAN row exists** — it says nothing about whether the PLAN contains a ```criteria fence.
+> `tool-review-council-simulator` has a PLAN and **no fence**. So after the rename its page
+> resolved, my check moved it into **"testable now"**, and it is not testable: the run starts
+> and then **SKIPS with `needs_criteria`** — the exact silent class this check exists to find.
+> A detector that reports health it has not measured is worse than no detector.
+>
+> **Measured properly:** of 29 tool components, **10 have a PLAN with a fence, 1 has a PLAN
+> with no fence, 18 have no PLAN at all.** The check now separates three states and fails on
+> two of them:
+>
+> | state | n | what a run does |
+> |---|---|---|
+> | testable now | 9 | asserts something |
+> | authoring backlog (no PLAN) | 10 | nothing claims it was tested — honest |
+> | neither | 8 | as above |
+> | **BROKEN A** — fence, page unresolvable | **1** | hard-errors (`tool-arena-interface`, orphan) |
+> | **BROKEN B** — PLAN, no fence | **1** | **SKIPS and reads clean** (`tool-review-council-simulator`) |
+>
+> 10 + 9 + 8 + 1 + 1 = 29, and the arithmetic reconciling is now part of the output.
+>
+> **The rename was still right** — it restored the platform's own invariant and removed one
+> of two blockers — but it was **not sufficient**, and saying so is the point. The tool needs
+> a fence authored before it can be tested at all. That is the honest next step, not a green
+> checker.
+>
+> **And a third self-inflicted fault in the same file, in the same hour:** writing
+> ```` '%```criteria%' ```` inline inside a double-quoted bash string made bash treat the
+> backticks as **command substitution**, and the script would not parse. That is a landmine
+> already recorded fleet-wide (*"backticks in `-m` execute"*) and I hit it **one edit after
+> writing a comment about a different silent-failure trap in the same file.** Fixed by moving
+> the pattern into a single-quoted variable, with a comment saying it must stay there.
+>
+> Running tally of this one class: **eight instances in two days**, and the last three were
+> all in the detector I built to catch the class. That is not an argument that the discipline
+> is working; it is an argument that **nothing here should be trusted until it has been
+> watched to fail**, including — especially — the things I write to do the watching.

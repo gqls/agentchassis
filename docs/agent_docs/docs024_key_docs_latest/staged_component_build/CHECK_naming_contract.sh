@@ -29,6 +29,13 @@ PSQL=(kubectl -n "$NS" exec -i postgres-clients-0 -- psql -U clients_user -d cli
 
 q() { "${PSQL[@]}" -c "$1" 2>/dev/null; }
 
+# ⚠ THE FENCE PATTERN LIVES IN A SINGLE-QUOTED VARIABLE, AND MUST STAY THAT WAY.
+# Writing the three backticks inline inside the double-quoted SQL made bash treat them
+# as COMMAND SUBSTITUTION and the script would not even parse. That is a landmine already
+# recorded fleet-wide ('backticks in -m execute') and I hit it anyway, one edit after
+# writing a comment about a different silent-failure trap in the same file.
+FENCE='```criteria'
+
 echo "=== The three-way naming contract ============================================="
 echo "Population: content_components where component_level='tool', is_active,"
 echo "forked_from IS NULL — the canonical tool set (idx_cc_tool_function_unique's scope)."
@@ -52,37 +59,62 @@ q "WITH tools AS (
      SELECT t.function,
             EXISTS (SELECT 1 FROM doc_plans dp
                      WHERE dp.subject_type='tool' AND dp.subject_key=t.function
-                       AND COALESCE(dp.is_current,true))                       AS has_fence,
+                       AND COALESCE(dp.is_current,true))                       AS has_plan,
+            EXISTS (SELECT 1 FROM doc_plans dp
+                     WHERE dp.subject_type='tool' AND dp.subject_key=t.function
+                       AND COALESCE(dp.is_current,true)
+                       AND dp.body LIKE '%$FENCE%')                       AS has_fence,
             EXISTS (SELECT 1 FROM pages p
                      WHERE p.name = t.function OR p.name = 'tool-'||t.function) AS resolves
        FROM tools t
    )
-   SELECT CASE WHEN has_fence AND resolves      THEN 'testable now'
-               WHEN has_fence AND NOT resolves  THEN 'BROKEN: fence exists, page unresolvable'
-               WHEN NOT has_fence AND resolves  THEN 'authoring backlog: page fine, no fence'
-               ELSE 'neither: no fence and no resolvable page' END AS state,
+   SELECT CASE
+       WHEN has_fence AND resolves                THEN 'testable now'
+       WHEN has_fence AND NOT resolves            THEN 'BROKEN A: fence exists, page unresolvable (hard-errors)'
+       WHEN has_plan AND NOT has_fence AND resolves
+                                                  THEN 'BROKEN B: PLAN but NO criteria fence (SKIPS, reads clean)'
+       WHEN has_plan AND NOT has_fence            THEN 'BROKEN B+: PLAN, no fence, AND no page'
+       WHEN resolves                              THEN 'authoring backlog: page fine, no PLAN at all'
+       ELSE 'neither: no PLAN and no resolvable page' END AS state,
           count(*)
      FROM r GROUP BY 1 ORDER BY 2 DESC;"
 
 echo
 echo "--- the BROKEN class, named, with its remedy ---"
-echo "(a fence that can never run. This is the class that produces a misleading result"
-echo " rather than an honest absence, so it is the only one that fails this check.)"
+echo "(a claimed subject that can never actually be asserted — either the page cannot be"
+echo " resolved (A) or there is no criteria fence to run (B). Both produce a misleading"
+echo " result rather than an honest absence, which is why only these fail this check.)"
 BROKEN=$(q "WITH tools AS (
               SELECT DISTINCT function FROM content_components
                WHERE component_level='tool' AND is_active AND forked_from IS NULL
             )
-            SELECT t.function
+            SELECT t.function || '|' ||
+                   CASE WHEN NOT EXISTS (SELECT 1 FROM pages p
+                                          WHERE p.name = t.function
+                                             OR p.name = 'tool-'||t.function)
+                        THEN 'A' ELSE 'B' END
               FROM tools t
              WHERE EXISTS (SELECT 1 FROM doc_plans dp
                             WHERE dp.subject_type='tool' AND dp.subject_key=t.function
                               AND COALESCE(dp.is_current,true))
-               AND NOT EXISTS (SELECT 1 FROM pages p
-                                WHERE p.name = t.function OR p.name = 'tool-'||t.function)
+               AND (
+                 -- A: it claims a subject but the page cannot be resolved -> hard error
+                 NOT EXISTS (SELECT 1 FROM pages p
+                              WHERE p.name = t.function OR p.name = 'tool-'||t.function)
+                 -- B: it has a PLAN but NO criteria fence -> SKIPS, and a skip reads clean.
+                 -- This arm exists because the first version of this script tested only for
+                 -- a doc_plans ROW and called the column has_fence. A PLAN with no fence
+                 -- was therefore reported as 'testable now' — a FALSE GREEN, in the worst
+                 -- direction, on the exact tool this lane had just renamed.
+                 OR NOT EXISTS (SELECT 1 FROM doc_plans dp
+                                 WHERE dp.subject_type='tool' AND dp.subject_key=t.function
+                                   AND COALESCE(dp.is_current,true)
+                                   AND dp.body LIKE '%$FENCE%')
+               )
              ORDER BY 1;")
 
 if [ -z "$BROKEN" ]; then
-  echo "  none — every tool carrying a fence resolves to a page."
+  echo "  none — every tool with a PLAN has a fence AND a resolvable page."
 else
   # ⚠ READ INTO AN ARRAY FIRST — do NOT `while read` over a here-string here.
   # The first version of this script did, and it printed ONE of the two broken tools
@@ -94,8 +126,18 @@ else
   # That is this lane's own rule ("print the count you measured") catching its own bug,
   # and it is the sixth instance in two days of the one class the ladder exists to defeat.
   mapfile -t BROKEN_ARR <<< "$BROKEN"
-  for fn in "${BROKEN_ARR[@]}"; do
-    [ -z "$fn" ] && continue
+  for row in "${BROKEN_ARR[@]}"; do
+    [ -z "$row" ] && continue
+    fn=${row%|*}; kind=${row##*|}
+    if [ "$kind" = "B" ]; then
+      echo "  ✗ $fn"
+      echo "      has a PLAN but NO \`\`\`criteria fence. The page resolves, so the run"
+      echo "      STARTS and then SKIPS with needs_criteria — honest, but not a failure,"
+      echo "      so it reads as a clean run that asserted nothing. THIS IS THE SILENT CLASS."
+      echo "      REMEDY: author the fence. Never invent a selector; watch every criterion"
+      echo "      pass by hand before writing it."
+      continue
+    fi
     STRIPPED=${fn#tool-}
     CAND=$(q "SELECT p.name || '  (' || s.domain || p.url || ')'
                 FROM pages p JOIN sites s ON s.id = p.site_id
@@ -127,8 +169,9 @@ q "WITH tools AS (
      SELECT DISTINCT function FROM content_components
       WHERE component_level='tool' AND is_active AND forked_from IS NULL
    )
-   SELECT count(*) || ' tool(s) resolve to a page but carry no fence — they cannot be'
-       || ' acceptance-tested either, but honestly so: nothing claims they were.'
+   SELECT count(*) || ' tool(s) resolve to a page but have NO PLAN AT ALL — they cannot be'
+       || ' acceptance-tested either, but honestly so: nothing claims they were. This is'
+       || ' the authoring backlog, not a defect.'
      FROM tools t
     WHERE NOT EXISTS (SELECT 1 FROM doc_plans dp
                        WHERE dp.subject_type='tool' AND dp.subject_key=t.function
@@ -139,9 +182,9 @@ q "WITH tools AS (
 echo
 if [ -n "$BROKEN" ]; then
   N=$(printf '%s\n' "$BROKEN" | grep -c .)
-  echo "RESULT: FAIL — $N tool(s) carry a fence that can never resolve to a page."
+  echo "RESULT: FAIL — $N tool(s) claim a subject they cannot actually assert."
   echo "Each one currently produces a skipped-but-not-failed run, which reads as clean."
   exit 1
 fi
-echo "RESULT: PASS — no tool carries a fence it cannot run."
+echo "RESULT: PASS — no tool claims a subject it cannot assert."
 exit 0
