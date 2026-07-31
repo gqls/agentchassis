@@ -388,6 +388,15 @@ func TestPageSectionFloorCatchesATruncatedFirstBuild(t *testing.T) {
 // way the flag is set. That is the vacuous-mock landmine on this exact helper.
 // Verified by clearing the flag: the INSERT then carries `unresolved`, the
 // WithArgs mismatch fails the Exec, and this test fails.
+//
+// IT NOW GUARDS ALL THREE CALL SITES. Site A shipped a private emitter hours
+// before sites B and C landed the same routing as the shared
+// emitPruneRefusalWorkItem; the private copy is retired, and this test points at
+// the shared function, so clearing the flag there fails this test on behalf of
+// page_components, site_nav_items/groups AND link_registry. The sibling test
+// TestPruneRefusalWorkItemRoutesToHumanReview pins the ROUTING but cannot pin the
+// flag: with recurrenceExpected set the COUNT is never issued, so a test that
+// does not supply a branding history passes either way.
 func TestPageSectionRefusalSurvivesATwoStrikeHistory(t *testing.T) {
 	db, mock := floorMockDB(t)
 	mock.MatchExpectationsInOrder(false)
@@ -408,8 +417,9 @@ func TestPageSectionRefusalSurvivesATwoStrikeHistory(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	if err := emitIncompleteSaveRefusalItem(context.Background(), db,
-		uuid.New(), uuid.New(), "services", "refused: too few sections", zap.NewNop()); err != nil {
+	if err := emitPruneRefusalWorkItem(context.Background(), db,
+		savePageSectionsRefusal(uuid.New(), uuid.New(), "services", "refused: too few sections"),
+		zap.NewNop()); err != nil {
 		t.Fatalf("the third refusal on a page did not reach site_work_items as needs_human_review: %v", err)
 	}
 }

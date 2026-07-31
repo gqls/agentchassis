@@ -78,7 +78,6 @@ package actions
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -204,7 +203,7 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 	if err != nil {
 		reason := fmt.Sprintf("save_page_sections: REFUSED for page %q — the completeness floor could not be measured (%v), so nothing was deleted or written", pageName, err)
 		params.Logger.Error(reason)
-		_ = emitIncompleteSaveRefusalItem(ctx, params.DB, siteID, pageID, pageName, reason, params.Logger)
+		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason), params.Logger)
 		return nil, fmt.Errorf("%s", reason)
 	}
 
@@ -238,7 +237,7 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 			zap.Int("sections_projected", projected),
 			zap.Int("writable_rows", m.WritableRow),
 			zap.Int("planned_sections", m.Planned))
-		_ = emitIncompleteSaveRefusalItem(ctx, params.DB, siteID, pageID, pageName, reason, params.Logger)
+		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason), params.Logger)
 		return nil, fmt.Errorf("%s", reason)
 	case verdict.Disabled:
 		detail["completeness_status"] = "floor_disabled"
@@ -249,97 +248,37 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 	return detail, nil
 }
 
-// emitIncompleteSaveRefusalItem is the DURABLE surface for a refusal.
+// savePageSectionsRefusal builds the durable record for a refusal.
 //
-// site_work_items rather than 135's doc_notes, because this writer IS
-// site-scoped and the columns site_work_items requires (site_id, pipeline) are
-// all in hand — 135 fell back to doc_notes only because a repo-wide indexer has
-// no site. Routing mirrors the lock-blocked family: status 'needs_human_review'
-// with NO handler_agent, because whether a page genuinely shrank by half is a
-// human judgement (accept it and lower the floor for that step, or find the
-// writer that truncated), and no automated handler can make it. Persistence goes
-// through insertWorkItem so it inherits the idx_swi_dedup-matched ON CONFLICT and
-// the two-strike rule; the item_key is per page, so a page failing every rebuild
-// collapses into one open item instead of one per attempt.
+// The EMITTER is the shared one (prune_floor.go, emitPruneRefusalWorkItem): sites
+// B and C landed the same routing as a shared helper hours after site A shipped a
+// private copy, so the copy is retired here rather than left to drift. Two
+// near-identical emitters that must stay in step is exactly the class this
+// council reviews for, and the reuse_agent seat flagged the risk on round
+// a54172b6 before the duplicate existed. What stays site-specific is the prose —
+// "sections on a page" means nothing for a site's nav — which is precisely the
+// split the shared helper was shaped for.
 //
-// recurrenceExpected IS SET, and the landmine on that flag says to state which of
-// the two cases this is rather than leaving the reader to guess. This is NOT a
-// detected defect handed to a handler that keeps failing — there is no handler
-// (status 'needs_human_review', handler_agent NULL), so "the fix is not working"
-// has no referent. Each refusal is a fresh event about a fresh rebuild attempt.
-// Without the flag, `insertWorkItem`'s anti-churn heuristics apply: a refusal
-// arriving within 3h of a terminal predecessor is DROPPED ENTIRELY, and the third
-// is born `unresolved` — terminal, and off the human-review queue this row exists
-// to reach. That is a silently unrecorded refusal of a content-destroying save,
-// which is the failure this durable surface was added to prevent. Dedup is NOT
-// waived by the flag (idx_swi_dedup still refuses a second OPEN item for the same
-// site+item_key), so a page failing every rebuild still collapses to one open
-// item. Raised as a medium objection by four seats — editquality,
-// tooling_provenance, debug_historian and guardian — on council round
-// a54172b6-9756-4abc-a9e0-f173ad4de779, and they were right.
-//
-// Best-effort by design: every failure is logged, and the call sites discard the
-// returned error with an explicit `_ =`. It is RETURNED rather than swallowed
-// here only so a test can observe it — the two-strike branding above is invisible
-// from outside otherwise, and an unobservable guard is how the vacuous-mock
-// landmine on this very helper got written.
-func emitIncompleteSaveRefusalItem(ctx context.Context, db *sql.DB, siteID, pageID uuid.UUID,
-	pageName, reason string, logger *zap.Logger) error {
-
-	if db == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"page_name": pageName,
-		"source":    "save_page_sections",
-		"reason":    reason,
-		"fix": "A page rebuild produced too few sections to be allowed to replace what is stored, " +
+// recurrenceExpected is set BY the shared emitter, and the test that pins it
+// (TestPageSectionRefusalSurvivesATwoStrikeHistory) now points at the shared
+// function, so it guards all three call sites rather than only this one.
+func savePageSectionsRefusal(siteID, pageID uuid.UUID, pageName, reason string) pruneRefusal {
+	pID := pageID
+	return pruneRefusal{
+		SiteID:   siteID,
+		PageID:   &pID,
+		Source:   "save_page_sections",
+		Pipeline: "build",
+		ItemType: "save_refused_incomplete",
+		ItemKey:  fmt.Sprintf("save_refused_incomplete:%s", pageName),
+		Subject:  pageName,
+		Summary: fmt.Sprintf("Page rebuild refused: %q returned too few sections to replace what is stored",
+			pageName),
+		Reason: reason,
+		Fix: "A page rebuild produced too few sections to be allowed to replace what is stored, " +
 			"so NOTHING was deleted and the existing page still stands (bugs_open/165). Decide: if the " +
 			"page genuinely shrank, lower prune_floor_ratio on the save_page_sections step (0 disables " +
 			"the floor); otherwise find why the writer returned a short section set — a truncated LLM " +
 			"completion, a partial plan read, or an upstream step that failed without erroring.",
 	}
-	specJSON, _ := json.Marshal(spec)
-
-	summary := fmt.Sprintf("Page rebuild refused: %q returned too few sections to replace what is stored", pageName)
-	if len(summary) > 250 {
-		summary = summary[:247] + "..."
-	}
-
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		logger.Warn("save_page_sections: begin tx failed for refusal item",
-			zap.String("page_name", pageName), zap.Error(err))
-		return err
-	}
-	pID := pageID
-	if _, err := insertWorkItem(ctx, tx, workItem{
-		siteID:    siteID,
-		pageID:    &pID,
-		source:    "save_page_sections",
-		pipeline:  "build",
-		itemType:  "save_refused_incomplete",
-		severity:  "high",
-		summary:   summary,
-		spec:      string(specJSON),
-		priority:  20,
-		status:    "needs_human_review",
-		createdBy: "save_page_sections",
-		itemKey:   fmt.Sprintf("save_refused_incomplete:%s", pageName),
-		// See the note above: no handler_agent, so a repeat is a new event, not a
-		// failed fix. Pinned by TestPageSectionRefusalSurvivesATwoStrikeHistory.
-		recurrenceExpected: true,
-	}, logger); err != nil {
-		_ = tx.Rollback()
-		logger.Warn("save_page_sections: could not record the refusal as a work item",
-			zap.String("page_name", pageName), zap.Error(err))
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		logger.Warn("save_page_sections: commit failed for refusal item",
-			zap.String("page_name", pageName), zap.Error(err))
-		return err
-	}
-	return nil
 }
