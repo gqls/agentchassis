@@ -28,6 +28,50 @@
 //
 // i.e. derive, re-render chrome, propagate to every deployed page. This function
 // asks for exactly that, once per site, through the existing work-item path.
+//
+// ---------------------------------------------------------------------------
+// COUNCIL ROUND 4486f1a9 — APPROVED (12 reviewers, 0 unreadable, 2 medium
+// objections, none high). The two medium objections are answered here rather than
+// in a doc, because both are questions a future reader of this file will have.
+//
+// 1. `bug_historian`, medium: "the fix's actual delivery depends on a triage step
+//    this plan does not control … a work item that sits in 'triaged' with nothing
+//    promoting it is functionally the same silent non-delivery, just moved one hop
+//    downstream". MEASURED 2026-07-31, and the answer inverts the worry:
+//      - `nav_drift` all-history: **17 raised, 17 claimed, 17 complete.** This
+//        function uses that exact item_type and handler.
+//      - `build-pipeline-trigger` is ENABLED, last fired 2026-07-31 09:18:21Z.
+//      - the `pipeline='build'` lane claimed 1,580 of 1,664 items over 7 days,
+//        with claims on every one of those days.
+//    The 263-detected/0-triaged backlog cited in the submission is the
+//    **`detected` → `triaged` promotion** step, and this request is born `triaged`
+//    precisely to skip it. So the hop downstream is a lane with a perfect record
+//    for this item type, not a second queue. **Re-measure before trusting this
+//    paragraph** — the standing query is RUNBOOK R12 in
+//    docs024_key_docs_latest/bugfix_149_nav_membership/.
+//
+// 2. `guardian`, medium: "I can't confirm from SQL that `recurrenceExpected`
+//    exists on the workItem struct with the semantics claimed; if it doesn't …
+//    the third rebuild request goes terminal silently". Correct to ask, and it is
+//    a code fact rather than a database one: the field is declared at
+//    `load_work_item_actions.go:1069` and the two-strike block it disables is at
+//    `:1082-1118` (`if terminalCount >= 2 { … item.status = "unresolved" }`,
+//    guarded by `if item.itemKey != "" && !item.recurrenceExpected`). The dedup is
+//    NOT waived by the flag — `ON CONFLICT (site_id, item_key) WHERE item_key IS
+//    NOT NULL AND status NOT IN (<terminal>) DO NOTHING` at `:1148` still refuses a
+//    second OPEN request. `nav_rebuild_request_test.go` pins both halves.
+//
+// Also from the round, worth keeping:
+//   - `architecture` (low): this helper is exported but has only the two callers
+//     in this package. **A third caller from OUTSIDE
+//     platform/orchestration/actions is an RFC moment, not a silent adoption** —
+//     at that point it is a general on-ramp to the work-item queue and has never
+//     been reviewed as one.
+//   - `guardian` (low): deleting addToolToNav rested on a grep, and "grep is not
+//     reliable evidence of absence". True, and the stronger proof is that the Go
+//     COMPILER now enforces it: the package builds with the function gone, which
+//     no grep could establish.
+// ---------------------------------------------------------------------------
 
 package actions
 
@@ -67,6 +111,14 @@ type NavRebuildRequest struct {
 // RequestNavRebuild files one work item asking nav-updater to rebuild the site's
 // nav tables and re-render its chrome. Returns true if an item was created;
 // false if an open request already covers this site (not a failure).
+//
+// COALESCING, spelled out because the `editquality` seat asked what happens to the
+// second request (low): the item_key is scoped to the SITE, so while one request is
+// still open a second returns false and writes nothing — including nothing from its
+// own spec. That is intended: the rebuild is site-wide, so one pending request
+// covers any number of new pages. The consequence to know is that `spec.page_name`
+// then names only the FIRST page that asked, so read it as "what prompted this",
+// never as "what this will fix".
 //
 // Best-effort by design: a nav request must never roll back a tool build that
 // has already succeeded, so failures are logged and swallowed exactly as the
