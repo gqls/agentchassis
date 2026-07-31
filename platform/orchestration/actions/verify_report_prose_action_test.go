@@ -91,6 +91,7 @@ func TestProseGateAcceptsRecombinedNotation(t *testing.T) {
 	for _, phrase := range []string{
 		"Any enclosure must be IP54-or-better for this cell.",
 		"An IP54-rated housing is the minimum here.",
+		"An IP54-Rated housing is the minimum here.", // title case: the vocabulary carries the safety property, not the capitalisation
 		"Specify an ISO 9409-1-50-4-M6-compatible flange.",
 		"A 2F-85-compatible bracket is available.",
 	} {
@@ -112,14 +113,30 @@ func TestProseGateAcceptsRecombinedNotation(t *testing.T) {
 // reject one of these. A fix asserted only on the recombination above has
 // disarmed the guard rather than corrected it.
 func TestProseGateStillRejectsFabricatedSiblings(t *testing.T) {
-	scoring := realScoring(t, 2.5, 0)
+	// ipMin 54 deliberately: buildFactBlock only writes "required protection
+	// IP54" when IPMin > 0, so at ipMin 0 every IP54-* case below is rejected
+	// for an untraceable HEAD and the tail rule is never reached. The first
+	// version of this test did exactly that, and mutations that widened the
+	// vocabulary did not fail it — the cases passed for the wrong reason.
+	scoring := realScoring(t, 2.5, 54)
 	for _, tc := range []struct{ token, sentence, clause string }{
 		{"2F-140", "Consider the Robotiq 2F-140 as an alternative.", "whole token untraceable"},
-		{"2F-85-XL", "The Robotiq 2F-85-XL offers more travel.", "upper-case tail is SKU material"},
-		// Lower-case deliberately: an upper-case single letter is already
-		// rejected by the case clause, so "2F-85-X" would pin nothing here.
-		{"2F-85-x", "The Robotiq 2F-85-x is the compact build.", "single-letter tail is SKU material"},
-		{"GEP5010IO-00-B", "The Zimmer Group GEP5010IO-00-B is the sealed variant.", "digit in the tail is a variant number"},
+		{"2F-85-XL", "The Robotiq 2F-85-XL offers more travel.", "invented suffix code"},
+		{"2F-85-x", "The Robotiq 2F-85-x is the compact build.", "single-letter suffix code"},
+		{"GEP5010IO-00-B", "The Zimmer Group GEP5010IO-00-B is the sealed variant.", "invented variant number"},
+
+		// The gating objection of council round 1 (compliance, HIGH): a tail is
+		// admitted by MEANING, not by shape, or the fabrication simply moves
+		// from the model number to the qualifier and the report contradicts the
+		// specification it cites. Each of these is lower-case English and would
+		// have cleared the shape rule these tests originally pinned.
+		// Every other word in these tails is ADMITTED, so each case fails on
+		// exactly one word. "IP54-not-rated" is the negation of the legitimate
+		// "IP54-rated" and differs from it by one segment: admit "not" to the
+		// vocabulary and this token clears, which is what pins the exclusion.
+		{"IP54-not-rated", "An enclosure is IP54-not-rated for this cell.", "negation inverts the stated requirement"},
+		{"IP54-or-lower", "Specify IP54-or-lower protection.", "inverts a minimum into a maximum"},
+		{"2F-eighty-five", "The Robotiq 2F-eighty-five is an option.", "spelled-out numeral is not a qualifier"},
 	} {
 		prose := proseWith("The requirement is 200.0 N.", tc.sentence)
 		v := verifyReportProse(prose, scoring, nil, seedVertexVendors)

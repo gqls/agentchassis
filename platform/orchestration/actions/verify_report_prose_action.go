@@ -245,7 +245,8 @@ var modelNumberRe = regexp.MustCompile(`\b[A-Za-z0-9]*(?:[A-Za-z][0-9]|[0-9][A-Z
 //
 //  1. verbatim in the fact block / request context;
 //  2. overlapping a scored candidate or maker name;
-//  3. a traceable HEAD with an English QUALIFIER TAIL — bugs_open/160.
+//  3. a traceable HEAD with a tail drawn from the closed qualifierWords
+//     vocabulary — bugs_open/160.
 //
 // Route 3 exists because the writer legitimately RECOMBINES an allowed token
 // into a phrase: "IP54-or-better" from the fact block's "IP54". A recombination
@@ -295,33 +296,53 @@ func allQualifierSegments(segs []string) bool {
 	return len(segs) > 0
 }
 
-// qualifierSegment reports whether a trailing hyphen segment is ordinary
-// English rather than more model number. Every clause is here because it
-// rejects a specific fabrication, and dropping any one of them clears an
-// invented sibling — which is the whole reason this gate exists:
+// qualifierWords is the CLOSED vocabulary a recombination tail may draw on.
+// Membership is the whole test — deliberately semantic, not orthographic.
 //
-//	no digit         "2F-140", "GEP5010IO-00-B" — a digit in the tail IS a variant number
-//	at least 2 chars "2F-85-x"                  — single letters are SKU suffix material
-//	lower-case       "2F-85-XL"                 — upper-case codes are SKU suffix material
+// The first version of this rule accepted any lower-case alphabetic segment of
+// two or more characters as "English". The council's compliance seat rejected
+// that at HIGH severity (corr 926a7bea, round 1) and was right: shape does not
+// distinguish "or"/"better" from "not"/"instead"/"unless", so "IP54-not-required"
+// cleared a gate whose entire purpose is to stop a report asserting something
+// the facts do not say — the fabrication merely relocated from the model number
+// to the qualifier. The edit-quality seat named the same hole from the other
+// end: spelled-out numerals ("2F-eighty-five") are lower-case English too.
 //
-// Two residuals, stated rather than absorbed. A title-cased qualifier
-// ("IP54-Rated" in a heading) is NOT cleared, and a lower-case invented suffix
-// ("2F-85-plus") IS. Both are answered by the same thing — a closed vocabulary
-// of qualifier words — which is not built here because no instance of either
-// has been observed, and the asymmetry favours strictness: an over-strict
-// rejection produces a retry whose different phrasing usually passes (016b
-// records this very report passing on retry), while an under-strict clearance
-// publishes a fabricated model number in a customer-facing report.
+// Two admission rules, and everything absent is absent on purpose:
+//
+//   - CONNECTIVES that assert nothing on their own: or, and, of, to.
+//   - RESTATEMENTS of the stated value: a word that says "meets what the fact
+//     block already says" (rated, compliant, compatible, class) or "at least as
+//     much as it says" (better, above, minimum) — never less, never other.
+//
+// So there is no "not", "non", "without", "unless", "instead", "under", "below",
+// "less", "lower", and no numeral word. Each of those would let the prose invert
+// or replace a published figure while still tracing to it.
+//
+// Extending this list is a one-line change plus a test. Prefer that to widening
+// the rule: the cost of a missing word is one rejected report, which the writer
+// usually clears on retry with different phrasing; the cost of a shape rule is a
+// customer-facing report that contradicts the specification it cites.
+var qualifierWords = map[string]bool{
+	"and": true, "of": true, "or": true, "to": true,
+
+	"above": true, "better": true, "greater": true, "higher": true,
+	"min": true, "minimum": true, "over": true,
+
+	"capable": true, "class": true, "compatible": true, "compliant": true,
+	"equivalent": true, "flange": true, "flanged": true, "grade": true,
+	"mount": true, "mounted": true, "rated": true, "ready": true,
+	"series": true, "size": true, "sized": true, "style": true,
+	"threaded": true, "type": true,
+}
+
+// qualifierSegment reports whether a trailing hyphen segment is an admitted
+// English qualifier. Case-insensitive, so a title-cased "IP54-Rated" in a
+// heading clears — the vocabulary, not the capitalisation, is what carries the
+// safety property, and the earlier lower-case-only rule rejected that phrase
+// for no reason anyone could defend.
 func qualifierSegment(s string) bool {
-	if len(s) < 2 {
-		return false
-	}
-	for _, r := range s {
-		if r < 'a' || r > 'z' {
-			return false
-		}
-	}
-	return true
+	return qualifierWords[strings.ToLower(s)]
 }
 
 // verifyReportProse is the pure core (unit-tested directly). contextValues
