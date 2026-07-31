@@ -318,3 +318,101 @@ func TestChromeGoLookupScanFiresOnTheOriginalDefect(t *testing.T) {
 		}
 	}
 }
+
+// ── the pin path: fail loud, change nothing (bugs_open/170) ──────────────────
+//
+// RenderHeader/RenderFooter consult the style collection BEFORE the by-function
+// branch, and dereference the pin with GetComponentByID — `WHERE id = $1`, no
+// eligibility predicate of any kind. Live 2026-07-31, three DEPLOYED sites are
+// pinned to header-professional-dark with is_active=false.
+//
+// That is 118's defect class on a fourth path and fixing it moves live markup, so
+// it is filed (bugs_open/170) rather than fixed. What ships here is the fail-loud
+// guard the council's bug_historian seat gated on: the pin is still honoured, but
+// the condition stops being silent.
+
+func TestChromePinPredicateDoesNotExcludeForks(t *testing.T) {
+	got := chromePinEligibleSQL("")
+
+	// The one clause that must NOT be here. leopardessconsulting.co.uk pins
+	// header-leopardess, a FORK, and that is correct — a pin naming a site's own
+	// fork is what a pin is for. Copying chromeEligibleSQL would report the single
+	// legitimate pin in the fleet as the defect and miss the three real ones.
+	if strings.Contains(got, "forked_from") {
+		t.Errorf("the PIN predicate must not exclude forks — pinning a site to its own fork is the "+
+			"intended use (leopardessconsulting.co.uk). got %q", got)
+	}
+	// The two clauses that must be.
+	if !strings.Contains(got, "is_active") {
+		t.Errorf("pin predicate %q has no is_active clause — that is the whole of bugs_open/170", got)
+	}
+	if !strings.Contains(got, "component_level IN (") {
+		t.Errorf("pin predicate %q has no level filter — a section component could be pinned as chrome", got)
+	}
+	// And it must differ from the POOL predicate, or the asymmetry has been lost.
+	if got == chromeEligibleSQL("") {
+		t.Error("pin and pool predicates are identical — the fork asymmetry has been collapsed, " +
+			"which reintroduces a false positive on the one correct pin in the fleet")
+	}
+}
+
+func TestChromePinEligibleSQLQualifiesEveryColumn(t *testing.T) {
+	got := chromePinEligibleSQL("cc.")
+	for _, col := range []string{"is_active", "component_level"} {
+		if !strings.Contains(got, "cc."+col) {
+			t.Errorf("alias form did not qualify %s: %q", col, got)
+		}
+	}
+}
+
+// An ineligible pin must still RENDER — the guard reports, it does not repair.
+// A guard that changed the component here would move three live sites onto
+// different markup, which is the owner call bugs_open/170 exists to ask.
+func TestAnIneligiblePinIsStillRenderedAndOnlyReported(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	collID := "77777777-7777-7777-7777-777777777777"
+	pinID := "88888888-8888-8888-8888-888888888888"
+
+	// GetStyleCollectionForSite
+	mock.ExpectQuery("FROM sites s").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name", "display_name", "header_component_id", "footer_component_id",
+			"css_theme_id", "color_palette", "typography", "category", "industry_tags",
+		}).AddRow(collID, "professional-dark", "Professional Dark", pinID, nil,
+			nil, []byte(`{}`), []byte(`{}`), "", []byte(`[]`)))
+
+	// GetComponentByID — the unguarded dereference
+	mock.ExpectQuery("FROM content_components").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name", "function", "category", "html_template", "input_schema", "is_dark_section",
+		}).AddRow(pinID, "header-professional-dark", "site-header", "",
+			`<header class="site-header">PINNED DEACTIVATED HEADER</header>`, []byte(`{}`), false))
+
+	// reportIneligibleChromePin's probe: deactivated, so eligible=false
+	mock.ExpectQuery("FROM content_components").
+		WillReturnRows(sqlmock.NewRows([]string{"name", "component_level", "is_active", "eligible"}).
+			AddRow("header-professional-dark", "site", false, false))
+
+	got, err := RenderHeader(context.Background(), db, uuid.New(), &RenderContext{}, zap.NewNop())
+	if err != nil {
+		t.Fatalf("RenderHeader: %v", err)
+	}
+
+	// The pin is HONOURED. This is the assertion that keeps the guard non-breaking:
+	// if someone later makes it repair, this test goes red and they must go and get
+	// the owner call bugs_open/170 is waiting on.
+	if !strings.Contains(got, "PINNED DEACTIVATED HEADER") {
+		t.Errorf("an ineligible PIN must still render — reporting is not repairing, and repairing here "+
+			"moves three deployed sites onto different markup (bugs_open/170). got:\n%s", got)
+	}
+	// sqlmock fails on any unexpected query, so this also asserts the probe ran and
+	// that no by-function resolve happened (the pin short-circuits that branch).
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the pin path must issue exactly collection + component + eligibility probe: %v", err)
+	}
+}
