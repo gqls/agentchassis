@@ -262,3 +262,61 @@ since **2026-07-17**, raised by exactly the withholding this bug describes, nami
 the page AND the section. The bug file says "no work item naming it"; there is one,
 and it is two weeks old. Checking the work queue for the symptom is cheaper than
 the fleet-wide discriminator that started this, and it points at the same page.
+
+## 2026-07-31 21:18 UTC — ACCEPTANCE TEST PASSED, bug CLOSED
+
+Re-checked before re-running and the world had moved again: chassis **v1.0.1223**
+(fifth roll of the evening), and **the dispatch stall had cleared** — last
+`pipeline='build'` completion 20:34 UTC, hung spawns 2 → 1. But the queue had
+ballooned **73 → 317** and the dispatcher was working only through
+`dartsonline.com`, so my item was still `triaged`, unclaimed, 7 hours after queueing.
+**A queue that is moving is not a queue that is moving for you.**
+
+So I bypassed it: direct Kafka dispatch at `page-build-handler`, envelope copied from
+`033_rerender_pages_trigger.sh`. The input shape came from reading the agent's own
+workflow steps — `load_page_record` reads `input_data.spec.page_name` /
+`input_data.spec.page_id`, so the dispatch loop passes the work item's `spec` under
+`input_data.spec`; mirroring that is what made it run first time.
+
+**Verified the message landed rather than trusting exit 0** (the documented
+`kubectl run -i | kcat -P` landmine): orchestration row `a346210a` present within 20s.
+
+### The evidence, in the order it arrived
+
+```
+plan_sections:
+  ready_names         = ["hero-contact", "contact-form", "contact-info"]
+  ready=3  deferred=0  skipped=0
+  source_aliases_used = { "site_specs.identity.email": "sites.email" }
+```
+
+`contact-info` had been deferred on every build since at least 2026-07-17. It is now
+READY, and **the alias record names its own source** — the provenance field the
+council's `bug_historian` seat asked for, doing exactly the job it was added for. I
+did not have to infer which store won; the build record says.
+
+Then: 3 `page_components`, `contact-info` carrying
+`vetcomparison@contactforsales.com`, page `deployed` 21:18:15 at `/contact.html`.
+
+**The negative control passed, and it is the half that mattered.** `contact-info`'s
+keys are exactly `email`, `intro_text`, `section_title`. **No `phone`, no `address`,
+no `hours`** — those exist in no store for this site, and the fallback did not invent
+them. `source_aliases_used` likewise lists only `email`. That is `ensureSiteRow`'s
+deliberate no-COALESCE decision demonstrated on live data rather than asserted in a
+comment, and it is the specific failure I was most worried about shipping.
+
+**And the reconciliation path closed itself.** The `needs_section_data` item that had
+sat at `needs_human_review` since **2026-07-17** went `complete` at 21:13:09 —
+`closeResolvedDataRequest` firing as designed. Two weeks of a human-review request
+that no human was ever going to satisfy, retired by fixing the actual cause.
+
+Cancelled my own queued item `45f9b005` with a reason, so the queue does not carry a
+duplicate rebuild of a page that is now correct.
+
+### What I would do differently
+
+The whole "blocked on 029" episode cost an hour and was avoidable: **the direct
+dispatch was always available, documented, and took four minutes.** I treated the
+work queue as the only route because that is how the dispatcher does it. When a
+shared queue is the blocker and the handler takes a self-contained message, dispatch
+the handler.

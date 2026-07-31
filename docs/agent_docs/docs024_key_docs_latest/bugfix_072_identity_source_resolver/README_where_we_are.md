@@ -215,3 +215,38 @@ The check that matters most when it does run isn't that the block appears. It's 
 the phone number, address and opening hours **stay missing**, because vetcomparison
 genuinely has none of those recorded anywhere. If those show up, the system has
 invented them, and I'd rather find that out on a test page than on a live one.
+
+---
+
+**2026-07-31, 21:20 — it works, and the ticket is closed.**
+
+You asked me to rerun it, so I did, and it passed.
+
+The queue had actually started moving again while we were talking, but it had 317
+jobs in it and was grinding through one site's backlog, so mine was never going to
+come up tonight. Rather than wait, I sent the job straight to the page builder —
+skipping the queue entirely. That took four minutes and I should have done it an hour
+earlier; treating the queue as the only route was my mistake, not a real constraint.
+
+**The result.** vetcomparison.uk's contact page now builds three sections instead of
+two. The contact block is there, with the email address in it — the one that has been
+sitting in the site's record all along where nothing could read it. The page deployed
+at 21:18.
+
+The system also explained itself, which is the part I'm most pleased with. Because of
+the change a reviewer asked for, the build record now literally says where the value
+came from: `site_specs.identity.email → sites.email`. I didn't have to deduce it.
+
+**The check I actually cared about passed too.** vetcomparison has no phone number, no
+address and no opening hours recorded anywhere. The rebuilt block contains an email
+and nothing else — the system did not invent the missing details to fill the space.
+That was the one way this fix could have done real damage, and it didn't.
+
+One small bonus: there was a request for human help sitting on that page since 17
+July, asking someone to supply the missing contact data. It closed itself
+automatically when the data resolved. Nobody was ever going to action it, because the
+data was never actually missing.
+
+The ticket has moved to the closed pile. Note for future reference: there are now two
+closed bugs numbered 072 — this one and an unrelated CSS one — so it's worth quoting
+the description rather than the number.

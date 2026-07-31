@@ -51,7 +51,7 @@ than chasing pointers through other sessions' work.
 ## ⚠️ Duplicate numbers exist — check the slug, not just the number
 
 The numbering was assigned by concurrent threads and has collided repeatedly —
-**nine numbers so far**, listed below. (This line read "collided twice" until
+**ten numbers so far**, listed below. (This line read "collided twice" until
 2026-07-26; it was written when that was true and the table outgrew it. If you
 are adding a row, update the count too.)
 
@@ -66,6 +66,7 @@ are adding a row, update the count too.)
 | `040` | failed page build leaves page deployed / partially composed — **040-partial-build**, closed 2026-07-24 (guard live `v1.0.1146`, skip persistence live `v1.0.1155`) | kafka dial timeouts fleet-wide — **040-kafka-dial**, still open (two files, both `040`, both 2026-07-20) |
 | `043` | diagnosis runs hang at the `route` step — **043-route-hang**, closed 2026-07-26 (resolver budget live `v1.0.1165`, migration 191 applied, root fix = `003` F2/F3 live `v1.0.1159`) | generated page copy invents quantitative claims — **043-fabricated-stats**, still open (two files, both `043`, both filed 2026-07-20) |
 | `044` | plan_sections defers an empty-schema component by name heuristic (closed 2026-07-21, live `v1.0.1146`) | no capability inventory / dormant agents undetectable (still open) — two files, both `044`, both filed 2026-07-20 |
+| `072` | **both** here now: component markup ships without matching CSS — **072-component-css**, closed 2026-07-26 (live `v1.0.1171`); **and** `contact-info` reads flat `identity` keys / the resolver could not read the canonical `sites` row — **072-identity-resolver**, closed 2026-07-31 (PBP-026, live `v1.0.1223`, acceptance test passed on the real path, orch `a346210a`) | — |
 | `088` | **both** here now: snapshot revert destroys every component lock — **088-snapshot-lock-wipe**, closed 2026-07-26 (migration 219, live on apply); **and** writer self-correction emits two JSON objects — **088-two-json-objects**, closed 2026-07-27 (migration 227 + parser tier 3 live in `v1.0.1172`, induced live). Two files, both `088`, both filed 2026-07-26 within hours of each other by concurrent sessions; the number was free when each was checked | — |
 
 A bare reference to `bugs_open/016` or `bugs_open/017` in older docs or code
