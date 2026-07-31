@@ -4,8 +4,82 @@
 §1 (149's C1 recognition gap). It answers §1's question and **falsifies two of its three
 fix candidates**, so read this before acting on that file.
 
-**Status: OPEN, unowned. Structural + cross-cutting. The repair is partly an OWNER CALL
-(the register is human-owned by design), so nothing is changed by this filing.**
+> ## STATUS 2026-07-31 (later) — FIXED AT SOURCE AND ARMED. Open only until the served pages catch up.
+>
+> Owner authorised the repair ("take on bugs_open/161") and chose the **coherent rewrite**
+> plus **arm the patterns**. What is done, each verified at the artefact rather than at the
+> COMMIT:
+>
+> | step | state |
+> |---|---|
+> | **1. the false fact** | **CORRECTED, LIVE.** `270_bug161_…sql`. Supersede-then-insert, old row kept as history. `gd-trials` claim → "maximum attempts modelled per query", `context_terms` no longer include "monte carlo"/"simulation"/"trial", source now cites `Math.min(val, 10000)`. All 4 facts preserved. |
+> | **2. the writer whitelist** | **CORRECTED, LIVE.** `writer_block` now states the tools compute exact probability and **explicitly prohibits** attributing sampling to them, while still permitting the technique to be taught. |
+> | **3. every repo reseed vector** | **CORRECTED.** `218_evidence_facts_for_043_sites.sql:139`, `SQL_2026-07-24_evidence_base_four_sites.sql:48`, and `SQL_2026-07-24_gamesdesign_index_stats_traced.sql` (both its trace note and its `stat3_label`). `bk_site_specs.sql` deliberately untouched — a backup should record what was. |
+> | **4. the published copy** | **REPAIRED in the DB**, 14 replacements across 10 components, `content_data` **and** `rendered_html`, every replacement asserted to have matched in both before and to be absent after. |
+> | **5. detection** | **ARMED, LIVE.** `271_bug161_…sql`, two per-site `banned_claims` patterns with order-enforcing guards. |
+> | **6. the served pages** | ⚠ **STALE — the only thing outstanding.** See below. |
+>
+> **The measurement that proves 5 is precise, not just present** — `cmd/claimscan` over the
+> complete live corpus (67 components, export row count asserted 67/67, no base64
+> truncation stubs):
+>
+> | configuration | findings |
+> |---|---|
+> | current register, original copy | **0** ← the whole bug: 10 live falsehoods, scanner clean |
+> | corrected register, original copy | **0** ← correcting the register flags NOTHING (see the correction below) |
+> | corrected register **+ patterns**, original copy | **18 findings on exactly 10 components** — all 10 false ones, and it **spares** the one legitimate component |
+> | corrected register + patterns, **repaired copy** | **0** |
+>
+> **⚠ STEP 6, stated plainly: the fix is in the database and NOT yet on the website.** The 6
+> affected pages were last deployed **12:51–12:53**; my repair landed **15:28**. So the served
+> HTML still asserts the falsehood. `build_status='needs_rebuild'` is **not** a route — that
+> queue is dead (44 pages, oldest stuck since **2026-04-23**). What will fix it: the
+> automated `rerender-pages` sweep queued a full-site gamesdesign rerender at **15:28:33**
+> (34 items, `reason` NULL → `check_rerender_mode`'s else branch → `render_page`,
+> "assemble stored HTML"), which is exactly the mode that redeploys the corrected
+> `rendered_html` without regenerating anything. The dispatcher is alive (1,261 complete,
+> last touched 15:38) but ~100 minutes behind, so it was left to drain rather than
+> double-dispatched into another lane's sweep. **Verify with:**
+> ```sql
+> SELECT p.name, p.deployed_at > '2026-07-31 15:28:35+00' AS carries_the_fix
+> FROM pages p WHERE p.site_id='e33263f4-74f8-494f-b191-546845dbbddf'
+>   AND p.name IN ('guide-skinner-box','guide-rng-design','tool-spawn-rate-balancer-guide',
+>                  'game-auto-battler','game-economy-simulator','guide-fairness-in-rng');
+> ```
+> If it has not drained, fire `page-rerender` for those 6 page ids directly with a `reason`
+> **not** in (`image_landed`, `section_data_resolved`, `cta_links_stale`) so it stays
+> assemble-only. **Then confirm at the served URL, not at `rendered_html`.**
+>
+> ### Corrections to this file's own first draft, all found by re-measuring
+>
+> 1. **"three deployed components" was wrong — it is ELEVEN carrying the phrase, TEN false.**
+>    I undercounted from reading truncated psql output. The ten: `game-auto-battler`,
+>    `game-economy-simulator`, `guide-fairness-in-rng` (×2), `guide-rng-design` (×2),
+>    `guide-skinner-box` (×2), `tool-spawn-rate-balancer-guide` (×2).
+>    `tool-loot-table-balancer-guide` carries only general technique teaching and reader
+>    advice — **true, and deliberately left alone.**
+> 2. **"Doing this ARMS the gates against the surviving components" was WRONG.** Measured: 0
+>    findings before and after the register fix. Every affected page is `guide`, `game` or
+>    `blog-post` — all in `editorialPageTypes`, exempt from `ScanUnregisteredNumbers`. The
+>    file said this in one section and the opposite in another; the second was right. What
+>    arms detection is `banned_claims`, because `ScanBannedClaims` "runs on every surface".
+> 3. **The 043 audit's trace note was wrong TWICE, not once**, and this is the sharpest thing
+>    here. It wrote: *"stat3 'Monte Carlo Trials 10,000' — TRACES: the deployed drop-rate
+>    simulator/tuner … run 10000 iterations per query in their shipped JS. TRUE; kept."* It
+>    caught three of four stats as fabricated and marked this one TRUE. **(a)** "Monte Carlo"
+>    is false — no randomness at all. **(b)** "10000 iterations per query" is **also** false:
+>    the tuner's CDF is sized `maxKills = Math.max(1, kph * hours)` — from the *user's*
+>    inputs — and the only real 10000 is `Math.min(val, 10000)`, a clamp. **The trace found
+>    the digits and took the technique word from the copy it was auditing.** That is the
+>    mechanism by which an audit launders the thing it is auditing.
+> 4. **A multi-session hazard, recorded because it was luck.** The `rerender-pages` sweep
+>    queued its rerenders at 15:28:33, *inside* my repair window (15:28:04–15:28:34). Had my
+>    repair finished seconds later, that sweep would have deployed the FALSE copy and read as
+>    a completed rerender. On a shared tree, a data repair races the sweeps that publish it.
+
+**Status: was OPEN/unowned when filed. Structural + cross-cutting. The register was
+human-owned by design, so the original filing changed nothing and asked for a ruling; the
+ruling came and the fix above is applied.**
 
 > ## Diagnosis loop: UNVERIFIABLE at the iteration cap — every substantive element corroborated, blocked by a harness truncation
 >
@@ -233,6 +307,11 @@ sql-sourced facts. gamesdesign, relojistas, vonc and robot-hands can never raise
 
 ## What is still being served
 
+> **CORRECTED 2026-07-31 — this table listed THREE components; the real count is ELEVEN
+> carrying the phrase, of which TEN are false.** I undercounted from truncated psql output.
+> All ten are now repaired in the DB (see the status block); the full list and the one
+> deliberately-spared component are there. The table below is left as filed, understated.
+
 `page_components`, `build_status='deployed'`, 2026-07-31:
 
 | page | slot | text |
@@ -257,8 +336,17 @@ three components get flagged. They need a direct repair. The homepage is already
    query", `writer_line` → "{value} maximum attempts modelled in the drop-rate tools",
    `context_terms` → drop `"monte carlo"` and `"simulation"`, keep `"attempt"`/`"trial"`,
    `source.artifact` → "`Math.min(val, 10000)` input clamp in tool-drop-rate-simulator".
-   **Doing this ARMS the gates against the three surviving components** — that is the point,
-   but it means the next build on those pages starts objecting, so sequence it with 3.
+   ~~**Doing this ARMS the gates against the three surviving components** — that is the point,
+   but it means the next build on those pages starts objecting, so sequence it with 3.~~
+   > **CORRECTED 2026-07-31 — FALSE, and measured to be false: 0 findings before the register
+   > fix and 0 after.** Every affected page is `guide`/`game`/`blog-post`, all in
+   > `editorialPageTypes`, so `ScanUnregisteredNumbers` never runs on them. Correcting the
+   > register stops the writer being *instructed* and stops the engine *vouching* — it does
+   > not detect the already-published copy. **`banned_claims` is what arms detection**, because
+   > `ScanBannedClaims` runs on every surface (`claims.go`, and it says so explicitly). Two
+   > patterns are now live; the sequencing that DOES matter is the opposite of what this
+   > paragraph said — repair the copy FIRST, because a banned claim is BLOCKER severity and
+   > would otherwise make 6 pages unsaveable with the falsehood still published.
 2. **Then repair the three deployed components.** They assert a technique the tools do not
    use. `blog-post` exemption means no gate will raise them; they need naming explicitly.
 3. **Make "the artefact backs this" checkable rather than prose.** The generalisable fix, and
