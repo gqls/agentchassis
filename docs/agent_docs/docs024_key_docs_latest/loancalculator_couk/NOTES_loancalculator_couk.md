@@ -1171,3 +1171,57 @@ re-baseline. Not worked around silently.
 > Each of these cost a cycle and none was dangerous, but the shape is worth keeping:
 > **a check written in terms of a name will match the name wherever it appears,
 > including in the sentence explaining that the name is gone.**
+
+### Fixing the harness limitation — and my first fix made it WORSE, caught by a golden-to-golden diff
+
+I said the onclick-only press selector had to be fixed before rewriting ten more tools,
+because it forced inline handlers into every component. Fixing it took two attempts, and
+the failure mode of the first is the useful part.
+
+**Attempt 1: fall back to "any enabled button".** Re-baselined
+(`GOLDEN_2026-07-31b`) and diffed against the original golden field by field —
+**1,653 fields compared, 31 drifted.**
+
+- **`pressed` went `'none'` → `'mobile-menu-btn'` on 9 of 12 pages.** The first enabled
+  button on these pages is the **nav hamburger**, so the "fix" silently moved the press
+  off the tool entirely and onto site furniture. The gate was no longer testing the tool
+  at all — and the *fingerprint barely moved*, so nothing but a golden-to-golden diff
+  would ever have shown it.
+- **`application-tracker` leaked state between vectors.** Its `before` snapshot for
+  vectors 2 and 3 showed five checkboxes already `true`: it persists to `localStorage`,
+  the browser profile is reused across the three navigations, and once my extended
+  driver began ticking checkboxes, vector 1's answers were still there when vector 2
+  started. **A contaminated baseline is perfectly self-consistent**, so the round-trip
+  test could never catch it.
+
+**Attempt 2**, both fixed: exclude buttons inside `nav`/`header`/`[id*=nav]`/`[id*=menu]`
+so the fallback cannot leave the tool, and clear `localStorage`/`sessionStorage` **then
+reload** before each vector (clearing *after* the scripts have read storage leaves the
+restored values on screen).
+
+`GOLDEN_2026-07-31c` vs the original: **1,653 fields compared, 21 drifted — all of them
+`application-tracker`, and every one an improvement.** The original golden pressed
+**"Clear All Progress"**, which *wiped the state the driver had just set*, so it recorded
+the **post-wipe** state as the tool's behaviour. `c` presses nothing (all its buttons are
+reset/download) and records the driven state: boxes ticked, notes filled,
+`save-status: "Typing..."`. Everything else — the other 9 calculators, the homepage and
+the wizard — drifted **zero fields**, and `standard-calc`'s `pressed` returned to
+`'none'`, which is the check that the fix is targeted rather than broad.
+
+> **The transferable point: a round-trip proves DETERMINISM, not CORRECTNESS of the
+> baseline.** Golden A round-tripped perfectly — twelve for twelve — while containing a
+> destructively-wrong record for one tool and a state leak affecting another. Both were
+> invisible to any single run, and both fell out immediately from diffing two goldens
+> taken with different harness versions. **When you change a measuring instrument,
+> re-measure and diff the whole corpus; do not just check the new run passes.** This is
+> the prospective form of the landmine I filed this morning about harness versions.
+
+`GOLDEN_2026-07-31c` is now the live baseline. `GOLDEN_2026-07-31` is superseded and kept
+as the record of what the earlier harness saw (per the same landmine: a verdict is only
+meaningful with the harness that produced it). `b` was a strictly worse intermediate and
+was not kept.
+
+**With the harness fixed, tool 2 was rewritten the right way round**: no inline
+`onclick`, **no globals at all**, one delegated listener on the container reading
+`data-chc-next` / `data-chc-points`. Both rewrites re-verified against `c`:
+**MATCHES, 2 of 2.**

@@ -142,12 +142,39 @@ DRIVE_JS = r"""
 
 PRESS_JS = r"""
 (() => {
-  // First button that carries an onclick handler and is not navigation.
-  const b = Array.from(document.querySelectorAll('button,input[type=button],input[type=submit]'))
-    .find(e => !e.disabled && (e.getAttribute('onclick') || e.onclick));
+  // Prefer a button with an onclick handler, but FALL BACK to any enabled button.
+  //
+  // The onclick-only selector was a real defect, found while rewriting these tools
+  // as components: a modernised tool that binds with addEventListener instead of an
+  // inline onclick attribute has no onclick, so it was undrivable BY THE GATE and
+  // scored inert while working perfectly. That is the harness dictating the code's
+  // style -- it would have forced inline handlers into every component we write.
+  //
+  // Reset-ish buttons are excluded because clicking one is deterministic but
+  // destroys the state the vector just established (the wizard's "Start Over" calls
+  // location.reload(), which would discard the answer and make the press invisible).
+  // Two exclusions, both learned by re-baselining and diffing rather than reasoning:
+  //
+  // RESET — clicking one is deterministic but destroys the state the vector just
+  // established (application-tracker's "Clear All Progress", the wizard's
+  // "Start Over" which calls location.reload()).
+  //
+  // CHROME — the fallback must not reach out of the tool and into the page furniture.
+  // The first enabled button on nine of these pages is the nav hamburger
+  // (#mobile-menu-btn), so the naive fallback silently moved the press off the tool
+  // entirely and onto site navigation: `pressed` went 'none' -> 'mobile-menu-btn' on
+  // 9 of 12 pages. That is not a gate at all, and nothing but a golden-to-golden diff
+  // would have shown it, because the fingerprint barely moved.
+  const RESET = /reset|clear|start over|start again|cancel|close|download|backup/i;
+  const all = Array.from(document.querySelectorAll(
+                'button,input[type=button],input[type=submit],[role=button]'))
+    .filter(e => !e.disabled)
+    .filter(e => !e.closest('nav,header,[id*=nav],[class*=nav],[id*=menu],[class*=menu]'))
+    .filter(e => !RESET.test((e.textContent || e.value || '') + ' ' + (e.id || '')));
+  const b = all.find(e => e.getAttribute('onclick') || e.onclick) || all[0];
   if (!b) return 'none';
   b.click();
-  return b.id || (b.textContent || '').trim().slice(0, 40) || 'button';
+  return b.id || (b.textContent || b.value || '').trim().slice(0, 40) || 'button';
 })()
 """
 
@@ -216,8 +243,24 @@ class Runner:
         DIALOG_STUB = ("window.confirm=()=>true;window.alert=()=>undefined;"
                        "window.prompt=()=>'';'stubbed'")
 
+        # Each vector must start from the SAME state or it is not a controlled
+        # comparison. application-tracker persists its checkboxes and notes to
+        # localStorage, and the browser profile is reused across the three
+        # navigations -- so once the driver began ticking checkboxes, vector 1's
+        # answers were still there when vector 2 started, and its `before` snapshot
+        # recorded five boxes already ticked. Caught by diffing two goldens, not by
+        # any single run: a contaminated baseline is perfectly self-consistent.
+        CLEAR_STATE = ("try{localStorage.clear();sessionStorage.clear()}catch(e){};"
+                       "'cleared'")
+
         page = {}
         for name, scale in VECTORS:
+            # Clear storage, then RELOAD, so the page rebuilds from a clean state:
+            # clearing after the scripts have already read localStorage would leave
+            # the restored values on screen.
+            cdp.call("Page.navigate", {"url": url})
+            settle()
+            ev(CLEAR_STATE, timeout=10)
             cdp.call("Page.navigate", {"url": url})
             shape = settle()
             ev(DIALOG_STUB, timeout=10)
