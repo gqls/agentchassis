@@ -703,3 +703,27 @@ a non-finding. Their arms will accumulate; re-run RUNBOOK §10 in a few days.
    deliberately not bundled because they change what a reviewer is asked to DO.
 2. Whether the length budget should reach the remaining 41 seats. The evidence for
    extending is now much stronger than it was this morning: it is measured, not argued.
+
+### 2026-07-31 ~18:20 — both open decisions taken by the owner, and applied
+
+- **`feature-designer/review_architecture` emits `notes` third**, matching its two
+  siblings (FIX-060, `scripts/reorder-seat-notes-first.py`). All three architecture
+  seats now report an identical output key order.
+- **The length budget covers 48 of 51 review seats.** 2 refused (hand-authored blocks
+  on `review_architecture`), 1 excluded with a printed reason
+  (`domain-research-classifier` — no `diagnose_council_decide` step and a different
+  schema, so the block's central claim would be **false** in its prompt). 099 drift
+  none; 5 snapshots, each verified to LACK the block on a seat that run wrote.
+- The 10 seats belonging to the experience-loop lane were **told, not merely measured**
+  (07-29 ruling, third limb): notice in their `RUNNING_NOTES_experience_loop.md`, stating
+  what changed about their guarantee and how to reverse it.
+
+**The new exposure, stated plainly:** 47 seats changed behaviour with no per-seat
+evidence, on the strength of one measured seat. Most were nowhere near their cap, so the
+expected result is no visible change. **The failure this rollout can cause — and the
+narrow one could not — is a fall in OBJECTION COUNTS**, i.e. coverage traded for brevity
+despite the block saying "cut words, never findings". Watch that, not the peaks. Query
+and cutover times (`18:16:46`–`18:16:53`) in `NOTES`.
+
+**Candidate 4 is now finished.** This bug remains OPEN for one reason and one only:
+candidate 1's `true` branch has never fired in production.

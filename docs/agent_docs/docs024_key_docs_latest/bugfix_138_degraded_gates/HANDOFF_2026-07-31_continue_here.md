@@ -47,14 +47,18 @@ wording is proven by unit test and by the persistence path, not by a live instan
    a maximum grows with the sample, and that comparison is a trap this lane has already
    documented.
 
-3. **Two owner decisions, both one call each, neither of them work:**
-   - `feature-designer/review_architecture` still lacks the **notes-first output order**
-     and the **length block** — two of the 07-29 fix's three parts. The cap was
-     propagated by `277`; these were deliberately not bundled because they change what a
-     reviewer is asked to *do*, not how much room it has.
-   - Whether the length budget should reach the remaining 41 seats. **The case is much
-     stronger than it was this morning**, because the effect is now measured rather than
-     argued (below). Extending is one line in the script's `TARGETS`.
+3. ~~Two owner decisions~~ **BOTH DECIDED AND APPLIED, 2026-07-31 ~18:20.** Kept here
+   because what they were is still the fastest way to understand the shape of the fix:
+   - `feature-designer/review_architecture` now emits `notes` third, matching its two
+     siblings (FIX-060). All three architecture seats report an identical key order.
+   - The length budget now covers **48 of 51** seats. 2 refused (hand-authored blocks),
+     1 excluded with a printed reason. 099 drift none.
+   **What this creates, and it is new:** 47 seats changed behaviour with no per-seat
+   evidence. Most were never near their cap, so expect no visible change in peaks. **The
+   thing to watch is whether OBJECTION COUNTS fall** — that would mean coverage traded
+   for brevity, which is the failure this rollout can cause and the narrow one could not.
+   Query in `NOTES`, dated 2026-07-31 ~18:20; fleet cutover `18:16:46`–`18:16:53`.
+   Compare rounds either side **by spawn time**.
 
 ## The result worth carrying forward
 
