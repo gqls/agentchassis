@@ -419,6 +419,73 @@ for the owner to choose (G10 in the PLAN):
    direct fetch before queueing any deploy, and fail loud. This one is worth doing
    whichever source wins, because it is the check that saved this run.
 
+---
+
+## 2026-07-31 — from the `loanandmortgagecalculator_couk` lane (not this lane's work)
+
+I copied this site's 11 working tool files to seed a new combined site, so I read
+this directory and your `git log` first. Three things you will want, none of which
+needs anything from you.
+
+**1. Your council verdict landed, and the roll did not kill it.** Your README says
+you were holding off deploying to protect the run. A chassis roll to `v1.0.1211`
+happened anyway at **2026-07-30 17:33Z** (another session), and your verdict came
+through afterwards regardless:
+
+```sql
+SELECT created_at, kind, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='f9eae63e-05fb-40c8-b60c-1670c5681cbe' ORDER BY created_at;
+--  2026-07-30 16:50:51  fix_plan
+--  2026-07-30 19:30:03  fix_plan
+--  2026-07-30 19:43:05  council_report   revise
+```
+
+**REVISE**, at 19:43Z — about two hours after the roll. So the "a roll kills an
+in-flight council" rule in your RUNBOOK §9 did not fire here. Worth knowing before
+you spend another run on the assumption that it did.
+
+**2. `fidelity=locked` is confirmed live in the pod**, if you have not re-checked
+since the roll. Pod-grepped on three strings `e6a8bb63b` added plus a positive
+control, on `v1.0.1211`: `Verbatim adoption complete` 1, `verbatim_adoption_deploy`
+1, `apply_adoption_plan` 2. (Note `grep -c fidelity` proves nothing — there were
+~10 unrelated pre-existing hits.)
+
+**3. Three live defects on loancalculator.co.uk, found by browser-auditing your
+tools before copying them.** Evidence is a real-browser run of
+`webdesign_tools_repair/toolaudit.py` against your live URLs, and `evalpage.py` by
+hand where the verdict needed checking:
+
+- **`tools/credit-health-check.html` is broken on the live site.** It is a five-step
+  wizard: its script moves the class `active` between `<div id="step-N"
+  class="check-step">` elements and relies entirely on CSS to hide the steps you are
+  not on. **`assets/css/style.css` defines neither `.check-step` nor `.active`**, so
+  all five steps render simultaneously and the tool is unusable. The script is
+  correct — this is not findable by reading it. Two rules fix it:
+  `.check-step{display:none}` and `.check-step.active{display:block}`. Verified on my
+  copy: clicking step 1's button now takes `step-1` `block→none` and `step-2`
+  `none→block`.
+- **36 classes your tools use are undefined in that stylesheet** —
+  `.fca-style-warning`, `.market-context-box`, `.comparison-grid`, `.score-meter`,
+  `.stat-value`, `.progress-bar`, `.verdict-text`, `.type-btn`, `.debt-row` and 27
+  others. Mostly cosmetic; `.check-step` was the one where the absence was
+  load-bearing. Reproduce with:
+  `for c in $(grep -oh 'class="[^"]*"' tools/*.html index.html | sed 's/class="//;s/"//' | tr ' ' '\n' | sort -u); do grep -q "\.$c\b" assets/css/style.css || echo ".$c"; done`
+- **`tools/credit-roadmap.html` is not a tool.** 1,816 bytes, zero controls, zero
+  script — a short article sitting in `/tools/`. The audit scores it `NO-CONTROL`,
+  correctly. Either move it to `/guides/` or give it controls; as filed it fails its
+  section's promise.
+
+**And one that is NOT a defect, so you can ignore an adverse verdict if you see
+it:** `tools/damage-checker.html` **works**. It scored `DEAD` because `toolaudit.py`
+had no checkbox branch in its control picker, and that page has four checkboxes and
+no buttons — so the harness drove nothing and reported that nothing changed. Ticking
+`#dmg-1` takes `#damage-verdict` from `display:none` to `block`. Harness fixed
+(`288e6e2be`); faults 11 and 12 are written up in the `webdesign_tools_repair`
+NOTES. **If you audited your tools before 2026-07-31, re-run it** — the harness was
+also blind to any page without a `<main>` element, which is all of yours.
+
+I have not touched this site or this directory beyond appending here.
+
 ## 2026-07-31 — the acceptance baseline, and three premises of this lane corrected
 
 Opening session of the decomposition build (`fidelity=high`). Before writing any
@@ -580,3 +647,77 @@ and the difference is a genuine design question for the owner — see
 ours decomposes so a tool page's prose can evolve around a preserved widget. The
 owner's word for this site was **"completely editable"**, which their split does not
 deliver for 11 of 27 pages.
+
+### Step 1 (file source) is OWNER-BLOCKED — and step 2 never needed it
+
+The handoff's step 1 reads: *"Read our own bytes from the deploy repo (`gqls/sites`,
+dir `loancalculator.co.uk/`) via **git-adapter**, so it is platform-side and reusable."*
+Three things about that turned out to be wrong or blocked, in increasing order of
+importance.
+
+**1. git-adapter cannot read. It is write-only.** Its entire action surface is
+`commit`, `create_repo`, `delete_repo`, `create_branch`, `create_pull_request`
+(`internal/adapters/git/adapter.go:357`). There is no fetch/read/list operation, so
+"via git-adapter" is a build, not a wiring job — and by the 2026-07-12 owner ruling
+quoted in the code, the **write** credential lives in git-adapter deliberately while
+reads go through a read token elsewhere. Adding a read op to the *write* adapter would
+push against that separation.
+
+**2. The read machinery already exists elsewhere — reuse it, don't add to git-adapter.**
+`platform/orchestration/actions/diagnose_read_repo_files_action.go` already does
+exactly this: GitHub **Contents API** with the `application/vnd.github.raw` media type
+(no git binary in the chassis image, no base64 size quirks), authenticated by
+`GITHUB_READ_TOKEN`. I exercised that identical code path as a positive control and it
+works — `makefile` from `gqls/agentchassis`, **HTTP 200, 101,280 bytes**. What it is
+*not* is reusable as-is: its input contract is the fix-plan schema (`plan.Edits`,
+`modify`/`add`), and it reads files a plan names, not a directory listing. A site
+source needs list-a-directory + fetch-each, which is a new action reusing that
+transport.
+
+**3. THE BLOCKER: the read token cannot see `gqls/sites`. Measured.**
+
+| request | result |
+|---|---|
+| `GET /repos/gqls/agentchassis` (control) | **200** |
+| `GET /repos/gqls/agentchassis/contents/makefile` raw (the real code path) | **200**, 101,280 bytes |
+| `GET /repos/gqls/sites` **authenticated** | **404** |
+| `GET /repos/gqls/sites` unauthenticated | **404** |
+
+The token is a **fine-grained** PAT (`github_pat_`, 93 chars) and it *is*
+authenticated — `x-ratelimit-limit: 5000` is the authenticated ceiling, not the
+anonymous 60. So the 404 is **repo scope**, not auth failure and not a wrong path.
+`gqls/sites` is private and simply outside this token's selected repositories.
+
+> **LANDMINE (filed): GitHub answers "you may not see this" with 404, never 403.** An
+> action built on this token would report *"loancalculator.co.uk not found in the
+> deploy repo"* and the next session would hunt the path, the ref, the site-name
+> spelling and the case — none of which is the cause. The positive control is what
+> distinguishes them: same token, same media type, different repo.
+
+Also required even once the token can see it: **`site-adoption-agent` is not on the
+`isRepoCloningAgent` gate** (`spawn_actions.go:3066` — the members are `diagnose-agent`,
+`code-indexer`, `fix-implementer`, `feature-implementer`), and that gate is what
+injects `GITHUB_READ_TOKEN` into the pod. So the platform-side route needs, in order:
+an owner-minted token scope → the agent added to the gate → the new list+read action.
+
+**Only the first is blocked, and it is genuinely the owner's** (no GitHub admin
+credential on this machine — the same shape as the loanandmortgage lane's Cloudflare
+item). Recorded for the owner; not attempted.
+
+#### The re-sequencing this forces, and it is an improvement
+
+**Step 2 (decomposition) does not depend on step 1 at all, and the handoff's ordering
+implied it did.** Decomposition needs faithful *bytes*, and we already hold them **in
+the database**: `page_components.rendered_html`, 27/27 confirmed byte-exact against
+the served files again today (md5 both sides, `14643b1f…` for `standard-calc`). The
+previous session put them there precisely because the crawl could not be trusted.
+
+So the correct order is:
+- **now, unblocked:** decompose from the stored components — they are the verified
+  faithful source for *this* site;
+- **later, owner-gated:** the platform-side file-source action, whose value is **the
+  next** site, not this one. It stops being a prerequisite and becomes a generalisation.
+
+That also shrinks what has to be right on the first attempt: the decomposer reads from
+the same table it writes to, inside one transaction, with no network and no new
+credential.
