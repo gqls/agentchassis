@@ -14660,3 +14660,15 @@ assertion in prose.
   own write becoming my evidence, but **another thread's write** becoming it. Retracted
   and marked `[UNVERIFIED]` rather than resolved, because resolving it needs the
   dispatching session's transcript and it changes nothing about the fix.
+- **`git mv` + a one-path pathspec commit = the file lands in BOTH directories on HEAD.**
+  Closing `bugs_open/142` I ran `git mv bugs_open/… bugs_closed/…`, then committed with
+  an explicit pathspec naming only the `bugs_closed/` path — per the commit-per-task
+  rule. `git mv` stages a **delete AND an add**; the pathspec took the add and left the
+  delete staged, so HEAD carried the bug in `bugs_open/` *and* `bugs_closed/`. Working
+  tree looked right (`ls bugs_open/142_*` → no such file), which is why it passes a
+  casual check. The next thread grepping `/bugs_open/` would have found a closed bug and
+  treated it as live — the exact confusion the two-directory split was created to remove.
+  **The cheap check: on a rename, name BOTH paths on the commit, and verify with
+  `git ls-tree -r HEAD --name-only | grep <file>` rather than `ls`.** The pathspec
+  discipline that keeps other sessions' work out of your commit is the same discipline
+  that silently drops half of your own move.
