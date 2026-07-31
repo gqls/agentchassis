@@ -3041,3 +3041,61 @@ CLAUDE.md warns that a missing row is usually latency and that retrying costs a
 duplicate round, so I went and got pod ages first. The rule held — the evidence just
 happened to point the other way this time, and it only pointed anywhere because I
 finally fixed the query rather than trusting it.
+
+---
+
+## 2026-07-31 (~15:30Z) — island swapped to v1.0.1216; PUB-004 is LIVE and proven
+
+Owner authorised the swap that the classifier had refused. Compose backed up
+(`docker-compose.yml.bak-1207-pre1216`), one line changed — `diff` showed exactly
+`50c50` and nothing else — then `docker compose up -d tools-api`.
+
+Verification, in the order that makes it proof rather than a deploy:
+
+| check | result |
+|---|---|
+| running binary vs built binary | `sha256 7b8abbb4…` **identical** (image ids are not portable across `save\|load`; the hash is) |
+| CORS shared-mechanism change | live `OPTIONS` returns `access-control-allow-methods: GET, POST, OPTIONS` |
+| nonexistent slug / malformed slug | 404 / 404 `no such round` |
+| `{}` / `not-a-uuid` / unknown uuid | 400 / 400 `not a valid id` / 404 |
+| round with **no verdict** | **409** `round has no verdict yet` |
+| publish, pressed twice | 200 both times, **same slug `ny_rf4adv5`** |
+| the read | 4,169 chars; keys exactly slug/published_at/argued_at/provocation/position/counter/defence/verdict — **no `client_ip_hash`, `site_id`, `id`, `tool`** |
+| same slug after unpublishing | **404** |
+| `POST /round` (the game) | 200, real round_id + provocation |
+| published rows, after everything | **0** |
+
+Two of those deserve their own line.
+
+**The gate was proven in the negative direction.** "A published round is readable"
+does not establish that an unpublished one is not — those are different claims, and
+only the second is the privacy property. So I published one round, read it, set the
+two columns back to NULL, and re-fetched **the same slug**: 404. That is the check
+that actually protects a visitor who never pressed share.
+
+**The happy path was proven on OUR OWN harness round and then reverted**, so the
+public record still starts empty. Publishing a stranger's writing to test a feature
+would have breached the very consent design being tested; publishing our own and
+undoing it costs nothing and proves the same mechanism.
+
+> **The container's grep is not a binary-inspection tool, and it lies in the
+> direction that reads as "your change did not ship".** Grepping the RUNNING binary,
+> busybox `grep -a -c` found `Access-Control-Allow-Methods` but returned **0** for
+> `GET, POST, OPTIONS` — while GNU grep finds both in the *same bytes*, the sha256
+> being identical. Had I trusted it I would have concluded the CORS edit was missing
+> from a binary I had just hash-matched. Settled at the artefact instead: a live
+> preflight returns the header. Same family as the recorded landmine about `strings`
+> being absent from the browser-runner image — **and the third time this session a
+> broken CHECK impersonated a broken artefact** (the other two: `grep -c` without
+> `-a` on the local binary, and the driver's silent `SKIP PIL`). The pattern is now
+> unmistakable: *when a check says the artefact is wrong, suspect the check first if
+> a control disagrees.*
+
+**The council's rate-limit objection got live confirmation within minutes.** My own
+six-request verification burst hit **429 `rate limit exceeded`** on the sixth
+request. The ceiling is real, per-caller, and reached trivially — four seats flagged
+it and a smoke test tripped it, which is about as strong as advisory objections get.
+Not retuned (see the register for why), but no longer a hypothetical.
+
+One residue, stated: the last check created one extra incomplete round row via
+`POST /round`. Harmless; it is a round nobody argued.

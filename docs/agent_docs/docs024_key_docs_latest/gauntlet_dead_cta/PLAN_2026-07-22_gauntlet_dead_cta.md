@@ -397,13 +397,18 @@ line of markup; not worth guessing now.
 
 ### Step 2 — what remains, in order
 
-1. **Swap the island to `v1.0.1216`.** One line in `/opt/island/docker-compose.yml`
-   (currently pins `v1.0.1207` at line 50) plus `docker compose up -d tools-api`.
-   The image is already loaded on the box and `1207` is still present, so rollback
-   is a tag change and a restart. **BLOCKED: the permission classifier refused the
-   compose edit** — a sensible place for a human check, so it needs the owner's go
-   rather than a workaround. Until then the endpoints exist in the binary and are
-   unreachable.
+1. ~~**Swap the island to `v1.0.1216`.**~~ **DONE 2026-07-31 ~15:30Z, owner
+   authorised.** Compose backed up as `docker-compose.yml.bak-1207-pre1216`, one
+   line changed (`diff` shows exactly `50c50`), `docker compose up -d tools-api`.
+   **Both endpoints are LIVE and every path is verified** — running binary
+   byte-identical (`sha256 7b8abbb4…`), CORS confirmed at the artefact, all six
+   negative paths correct, idempotency proven (two presses, same slug
+   `ny_rf4adv5`), the read serving 4,169 characters with no private field, and the
+   gate proven in the negative direction (same slug 404s once unpublished). The
+   happy path was proven on one of our own harness rounds and then **unpublished**,
+   so the public record is still empty (0 published). Full evidence in the register
+   under PUB-004 § *live proof*. `POST /round` still works — no regression.
+   Rollback remains cheap: `1207` is still on the box beside the `.bak-*` compose.
 2. **The record page.** A new page at `/tools/gauntlet/round.html` — `pages` +
    `content_components` + `page_components` + `pages.sections`, following
    `sql_for_agents/275_oufe_tool_relevant_alternative.sql`, which is a complete
