@@ -8807,10 +8807,20 @@ the neighbour is judged *and* that the shell's own contents are still excused �
 then prove both are load-bearing by mutating the predicate each way (whole-document
 span; empty span) and checking which tests fall over.
 
-**And the trap in the ENFORCEMENT, which is this pattern eating its own tail.**
-The natural third step is a source-lockstep test that fails the build for any raw
-marker test outside the predicate's file. Write it — a comment is not an
-enforcement mechanism. But **its first version will be blind to a spelling**: a
+**And the trap in the ENFORCEMENT, which is this pattern eating its own tail —
+TWICE.**
+
+*First*, put the gate where the platform already keeps gates. The natural instinct
+is a source-lockstep test in the package you are working in; on this platform that
+is a **second enforcement path with its own allow-list format and its own suppress
+semantics**, which is the duplication you are supposedly fixing. `pattern-check.py`
+already runs on the commit path with an established allow-list idiom, and hosting a
+new rule costs one function plus one registry entry. It also fires when a copy is
+actually *introduced*, rather than whenever someone happens to run one package's
+tests. Check for the existing mechanism before building the enforcement — the same
+discipline you are applying to the thing being enforced.
+
+*Second*, **its first version will be blind to a spelling**: a
 pattern matching `Contains`/`HasPrefix`/`HasSuffix`/`Index` reports the tree clean
 while a call site tests the same marker through `regexp.MustCompile`. A gate that
 proves an absence only for the spellings it searches is the defect it was written
@@ -8822,7 +8832,16 @@ converting it would silently change behaviour) is a decision to record, not an
 exception to hide, and a gate with no escape hatch just pressures the next author
 into weakening the pattern.
 
-Category tags: `judge-vs-writer-safe-direction`, `a-sibling-that-declined-to-automate-is-a-ruling`,
+**Give the allow-list a REASON per entry, and run the four controls.** An entry is
+a decision on the record; a gate with no escape hatch only pressures the next author
+into weakening the pattern. And if your host lint shares a comment-stripper, check
+which direction it is safe in — stripping is suppress-only for a check that searches
+the stripped text for **the offence**, and *invents* findings for one searching for a
+**guard**. Run all four: (a) a genuine offender fires, (b) an allow-listed one does
+not, (c) a file whose *comment* mentions the thing does not, (d) the files that
+motivated the rule are clean.
+
+Category tags: `put-the-gate-where-the-gates-live`, `judge-vs-writer-safe-direction`, `a-sibling-that-declined-to-automate-is-a-ruling`,
 `the-gate-is-blind-to-a-spelling`, `scope-set-by-caller-chunking`, `correct-at-every-call-site`,
 `local-workaround-instead-of-fixing-the-predicate`,
 `two-judges-disagree-is-a-symptom-not-the-bug`, `name-the-old-predicate`,
