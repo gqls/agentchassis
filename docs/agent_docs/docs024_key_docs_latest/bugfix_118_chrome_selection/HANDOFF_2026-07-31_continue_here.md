@@ -82,10 +82,15 @@ this repoint by hand, 21 times.
    (old) until it shows `Explore` (new). That queue is `bugs_open/149`'s lane, not
    this one. Do not "fix" it here; do not read "28/28 slots active" as "the fleet
    looks right".
-2. **`bugs_open/167`** — the page-BUILD path (`RenderHeader`/`RenderFooter`/`RenderHead`
-   via `GetComponentByFunction`) can still render a `component_level='section'`
-   component as site chrome. Deliberately scoped out: fixing it changes chrome markup
-   on every page build fleet-wide. **Owner call, and it has not been put to them.**
+2. ~~**`bugs_open/167`**~~ — **PICKED UP AND FIXED BY ANOTHER LANE the same evening**
+   (`8b29404d6`, `11f8b9e08`, closed in `306130ba3` → `bugs_closed/167`), which is the
+   filing rule working exactly as intended: I scoped it out as an owner call and named
+   it, and a lane that wanted it took it within hours. **They found a FOURTH chrome
+   path I had missed and filed it as `bugs_open/170`** — the style-collection pin
+   (`style_collections.header_component_id`), which applies no eligibility predicate at
+   all and has three deployed sites pinned to a deactivated header. So the census in
+   this lane's PLAN ("the question is asked in four places") was itself one short.
+   **Read 170 before touching chrome again**, and note their closure says NOT LIVE.
 3. **No active `head` component exists fleet-wide.** 13 head slots still point at
    deactivated components and `repointRetiredChromeSlot` correctly declines rather
    than churn them. Activating one changes every page's `<head>` (the build path falls
