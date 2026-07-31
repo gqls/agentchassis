@@ -141,6 +141,20 @@ func (c *UndeployedAssetsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		return nil, err
 	}
 	for _, note := range provenanceNotes {
+		// Findings ride collected_data, which database-cleanup prunes at ~24h,
+		// so on its own this observation is a slow silent drop — the council
+		// gate's bug_historian seat named that (correlation 35d88a60) and it is
+		// the same retention trap already in WRONG_CALLS. A pod log line is not
+		// durable either, but it is queryable while the run is recent and it
+		// costs nothing; the durable surface for this class is bugs_open/152,
+		// which owns the URL-rewrite defect that produces these rows. Filing a
+		// work item instead was considered and rejected: the state is
+		// "cannot tell", and there is no handler for that.
+		dctx.Logger.Warn("undeployed_assets: brand-head provenance url unexpected — cannot tell whether the artefact is deployed",
+			zap.String("purpose", note.Purpose),
+			zap.String("expected_path", note.ExpectedPath),
+			zap.String("actual_url", note.ActualURL),
+			zap.String("owned_by", "bugs_open/152"))
 		result.Findings = append(result.Findings, map[string]interface{}{
 			"check":         "undeployed_assets",
 			"observation":   "brand_head_provenance_url_unexpected",
@@ -161,19 +175,33 @@ func (c *UndeployedAssetsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 			"has_logo":        gap.HasLogo,
 		})
 
-		// The handler's own precondition, predicted by the item rather than
-		// discovered by it: derive_brand_head_assets returns
-		// {"derived": false, "reason": "no active logo asset"} when the site has
-		// no active asset_key='logo' row. Say so in the summary rather than
-		// suppressing the finding — a check that silently drops the case it
-		// cannot route is the failing-branch-with-no-branch shape this file was
-		// filed about. (Measured 2026-07-31: all 14 sites with deployed pages
-		// have one, so this reads as unreachable today. It is written for the
-		// day it is not.)
-		summary := fmt.Sprintf("Brand-head asset '%s' has never been generated — the site serves nothing at %s",
+		// STATE WHAT IS KNOWN, NOT WHAT IS LIKELY. The obvious phrasing here is
+		// "has never been generated", and it would be an over-claim the check
+		// cannot support: recordDerivedAsset is BEST-EFFORT — it swallows its
+		// error as `logger.Warn("provenance upsert failed (non-fatal)")`, and its
+		// ON CONFLICT carries a lock guard — so the git commit can succeed while
+		// no row is written. In that case the artefact is live and serving 200
+		// and this finding still fires. Raised by the council gate's
+		// bug_historian seat (correlation 35d88a60), and it is right: the same
+		// discipline that stopped this check filing against gamesdesign and
+		// robot-hands applies to its own headline sentence. So the summary
+		// asserts the absence of the RECORD, which is the thing actually
+		// measured, and names the other reading. The remedy is identical either
+		// way — re-derive, which re-commits the file and writes the row.
+		//
+		// The handler's own precondition is predicted rather than discovered:
+		// derive_brand_head_assets returns {"derived": false, "reason": "no
+		// active logo asset"} without an active asset_key='logo' row. Said in
+		// the summary rather than suppressing the finding — a check that
+		// silently drops the case it cannot route is the failing-branch-with-no-
+		// branch shape this file was filed about. (Measured 2026-07-31: all 14
+		// sites with deployed pages have one, so this reads as unreachable
+		// today. It is written for the day it is not.)
+		summary := fmt.Sprintf(
+			"No asset record publishes brand-head '%s' at %s — either it was never derived, or the best-effort provenance row was lost after the commit; re-derive resolves both",
 			gap.Purpose, gap.ExpectedPath)
 		if gap.HeadReferences {
-			summary += ", and the site head already points at it"
+			summary += ". The site head already points at it"
 		}
 		if !gap.HasLogo {
 			summary += " (blocked: no active logo asset to derive from)"

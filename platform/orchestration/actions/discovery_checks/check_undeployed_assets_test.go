@@ -115,8 +115,21 @@ func TestBrandHeadGapIsRaisedWhenNoAssetRowExists(t *testing.T) {
 		if wi.Status != "detected" {
 			t.Errorf("status = %q, want detected — writing 'triaged' direct from a detector is bugs_open/083's landmine", wi.Status)
 		}
-		if !strings.Contains(wi.Summary, "the site head already points at it") {
+		if !strings.Contains(wi.Summary, "The site head already points at it") {
 			t.Errorf("summary should say the head advertises the missing artefact, got %q", wi.Summary)
+		}
+		// The claim must be about the RECORD, not about history. recordDerivedAsset
+		// is best-effort (it warns and continues on failure), so a committed,
+		// 200-serving artefact can have no row — "never generated" would be an
+		// over-claim this check cannot support. Council gate 35d88a60,
+		// bug_historian seat.
+		if strings.Contains(wi.Summary, "never been generated") {
+			t.Errorf("summary asserts an unverifiable history claim: %q\n"+
+				"recordDerivedAsset is best-effort, so an absent row does NOT prove the artefact was "+
+				"never derived. State the absence of the record, which is what was measured.", wi.Summary)
+		}
+		if !strings.Contains(wi.Summary, "No asset record publishes") {
+			t.Errorf("summary should assert the absence of the RECORD, got %q", wi.Summary)
 		}
 	}
 	// Sorted order is load-bearing: Go map iteration is randomised and the
