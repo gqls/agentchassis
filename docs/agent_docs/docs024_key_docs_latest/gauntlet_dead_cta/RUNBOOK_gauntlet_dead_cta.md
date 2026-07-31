@@ -442,3 +442,87 @@ ssh $ISL 'docker exec island-tools-api-1 sha256sum /tools-api'                  
 - For a change with **no static marker** (a literal in an options map), the
   verification is behavioural: N consecutive real calls with the failure
   absent, plus the armed log still silent.
+
+## 14. Querying the ROUNDS — they are not in `clients_db` (2026-07-31)
+
+**CLAUDE.md's psql one-liner cannot see `gauntlet_rounds`**, and its answer —
+`relation "gauntlet_rounds" does not exist` — reads exactly like *no visitor has
+ever completed a round*. The table lives on the **island**, in its own postgres
+container (db `tools_api`, user `tools_api`), created by
+`sql_for_agents/198_tools_api_gauntlet_rounds.sql`.
+
+```bash
+ISL=root@toolsapisuk.vs.mythic-beasts.com
+ssh $ISL "docker exec \$(docker ps --format '{{.Names}}' | grep -i postgres | head -1) \
+  psql -U tools_api -d tools_api -c \"SELECT count(*) FROM gauntlet_rounds;\""
+```
+
+- **A round is six prose fields on ONE row**: `provocation` (jsonb, `body` +
+  `headline`), `position_text`, `counter->>'counter_position'`,
+  `counter->>'challenge'`, `defence_text`, `verdict->>'reasons'`. So "the whole
+  debate" needs no joins and no reconstruction — and there is exactly **one**
+  exchange per round, which is why no "pick the best exchange" logic is ever
+  needed.
+- `verdict IS NOT NULL` is the test for *complete*; `position_text <> ''` only
+  means they filed a position. On 2026-07-31: 95 rows, 51 complete.
+- **`count(DISTINCT client_ip_hash)` was 1 across all 95 rows** — every stored
+  round is harness traffic behind one proxy address. Do not read the row count
+  as participation, and do not seed any public surface from this table.
+
+## 15. Delivering a JS-ONLY change to the gauntlet (proven live 2026-07-31)
+
+When the change is entirely in the canvas/JS and the markup does not move,
+deliver **`js_content` alone** and leave `html_template` / `rendered_html`
+untouched. §11's substitution trap (27 `{{.vars}}`) then cannot bite at all —
+the safest delivery is the one that does not open that door.
+
+```bash
+# 0. THREE-WAY BASELINE FIRST. A delivery onto an unknown baseline is not a delivery.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -t -A -F'|' -c "SELECT updated_at, md5(js_content), length(js_content)
+                  FROM content_components WHERE id='5da50747-7936-4b8f-a66d-c1ea98919c75';"
+curl -s https://vonc.com/tools/assets/gauntlet-interface.js | md5sum   # must equal the row
+md5sum p4_sources/<the source you are editing>.js                     # and so must the repo copy
+# Keep that updated_at: it is the concurrency guard. Back the column up to p4_sources/backups/.
+
+# 1. Build the guarded transaction with a script, not by hand:
+python3 p4_sources/build_deliver_sql.py     # base64 + WHERE updated_at=<read> + DO-block asserts
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < deliver.sql
+# expect: UPDATE 1 / DO / COMMIT / NOTICE delivered: <n> chars, md5 <x>
+
+# 2. Republish the asset (this is what emits js_content to /tools/assets/*.js):
+./scripts/rerender_gauntlet_vonc.sh     # PUBLISH_OK x2 is the known double-fire; both COMPLETE
+
+# 3. Verify the SERVED asset, with controls and WITHOUT a cache-buster:
+curl -s -D - https://vonc.com/tools/assets/gauntlet-interface.js -o served.js | grep -i cf-cache-status
+md5sum served.js        # must equal the md5 the DO block printed
+```
+
+- **The `DO` block is not optional.** `UPDATE 0` (guard fired — someone else
+  wrote the row) and a successful write are indistinguishable in psql's output.
+  Assert new markers present, **old markers absent**, and `md5(v)` equal to the
+  file you actually verified.
+- **Check the asset without a cache-buster too.** `?cb=` proves the origin is
+  right; only the plain URL proves what a visitor gets. Read `cf-cache-status`.
+- **Grep for a string the change REMOVED and an untouched control**, not just
+  for what it added: "new marker absent" and "file blanked" look identical.
+- **`orchestration_states.status` is UPPERCASE** (`COMPLETED`/`FAILED`) — a
+  lowercase poll predicate never matches and waits for ever.
+- Poll the rerender **by payload**, not by the printed correlation id:
+  `WHERE collected_data->'input_data'->>'page_id' = '<page>'`.
+
+### Two tool traps that cost real time here
+
+- **`chromium` is a snap: it CANNOT write to `/tmp`.** `--screenshot` fails with
+  `Permission denied (13)` and through a pipe the shell still shows exit 0.
+  Render from a `$HOME` directory.
+- **The JS stores non-ASCII in strings as literal `\uXXXX`, and an editor
+  channel that decodes escapes cannot emit one** — `·` becomes `·` and
+  `\\u00B7` becomes *two* backslashes, so both an Edit's `old_string` match and
+  a hand-written replacement fail. Splice with a script that builds the escape
+  from a language literal (`p4_sources/apply_card_edit.py`), then assert the
+  file still contains the escape and **not** a raw character.
+- **Playwright was absent from every venv** while its browsers were still cached
+  in `~/.cache/ms-playwright`, so the lane's `drive_*.py` harnesses all failed at
+  import. Restored at `~/.venvs/vonc_pw` (2026-07-31) — use that interpreter.

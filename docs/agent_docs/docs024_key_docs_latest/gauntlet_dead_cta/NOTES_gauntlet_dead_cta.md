@@ -2424,3 +2424,118 @@ is indistinguishable from work that has not finished yet** — same shape as the
 silent-zero traps in MEMORY. The fix is to assert the terminal set exists before
 waiting on it (`SELECT DISTINCT status`), or match case-insensitively. The second
 poller I wrote used `status='COMPLETED'` and behaved.
+
+---
+
+## 2026-07-31 — HANDOFF A: the share card. Measured first, then shipped step 1.
+
+Owner-raised: *"perhaps the card should have the whole debate or there might be two
+cards or the card links through to a record of the full debate."* The handoff's own
+first deliverable was **the choice**, not a build, so I mocked all three against a
+real round before asking anything.
+
+**The measurement is what decided it, and it is worth keeping.** Census over the
+island's `gauntlet_rounds` (51 complete rounds, 25–30 Jul):
+
+| field | avg chars |
+|---|---|
+| provocation body | 323 |
+| visitor position | 94 |
+| counter_position | 1,006 |
+| challenge | 292 |
+| defence | 151 |
+| verdict reasons | 1,243 |
+| **whole debate** | **3,109** (min 2,396, max 5,073) |
+
+Against that, a 1200×630 card holds **~700 characters legibly** once a timeline has
+downscaled it (`p4_sources/share_card_options_2026-07-30/budget.html` prints the
+table; canvas `measureText`, real font metrics). So:
+
+- whole debate on one card auto-fits at **11px** → ~4.6px in a feed. Not a card.
+- the exchange (challenge+defence) fits at **26px**. 18% of the round.
+- challenge+defence+reasons fits at **16px** → readable only if tapped.
+- **two cards carry ~46% of one round.** No card-only option carries a debate.
+
+That reframed the brief: options 1 and 2 are both *excerpting* strategies and only
+option 3 carries the round. The owner chose **3 staged via 1** (plus:
+publish-on-share for step 2, ledger-link deferred).
+
+> **CORRECTION to the handoff, and it made option 1 cheaper.** HANDOFF A says option 1
+> "likely forces a 'best exchange' excerpt, which is an editorial choice a machine
+> will make badly." **There is no such choice.** A round has exactly one exchange by
+> construction — `position_text`, `counter`, `defence_text`, `verdict` are one column
+> each on one row (`store.Round`, `internal/tools-api/store/rounds.go:11`). Nothing is
+> selected from a set. Caught by reading the store before designing, not by mocking.
+
+### Missteps, in the order I made them
+
+1. **`gauntlet_rounds` is not in `clients_db`.** CLAUDE.md's psql one-liner answered
+   `relation "gauntlet_rounds" does not exist`, which reads exactly like *no round has
+   ever been stored* — i.e. like the feature being dead. It lives on the **island**
+   (`tools_api`/`tools_api` in its own postgres container). Two commands wasted; it
+   could as easily have become a false claim in a handoff. Landmine filed.
+2. **My own capacity table over-estimated the card by ~25%.** It measured prose
+   against the frame and forgot that labels, the ruling line and the footer eat
+   vertical space the prose then cannot have. The first exchange-card mock used 599
+   characters "inside" a 737-character budget **and overlapped its own ruling line** —
+   visible in the render, which is the only reason I caught it. Fix: auto-fit against
+   the *drawn* layout (binary-search the type size), never against a character budget.
+   Logged in `WRONG_CALLS.md`.
+3. **`chromium` here is a snap and cannot write to `/tmp`.** `--screenshot` fails
+   `Permission denied (13)` and, through a pipe, the shell still reports exit 0. Render
+   from a `$HOME` dir.
+4. **The escape trap, from the other direction.** The JS stores non-ASCII in strings
+   as literal `\uXXXX`. My editor channel decodes `\uXXXX` to the character and leaves
+   `\\` as *two* backslashes, so **neither form can emit one literal backslash** — two
+   Edit attempts failed differently and the second's failure looked like a mismatch
+   somewhere else. Did the splice in Python instead, building the escape from a Python
+   literal (`apply_card_edit.py`). MEMORY's escape-emission note covers the write
+   direction; this is the same trap when *matching* existing text.
+
+### Step 1 shipped — the exchange card, live and verified
+
+`js_content` only. I deliberately did **not** touch `html_template` /
+`rendered_html`: the component has 27 `{{.vars}}` and RUNBOOK §11 records a session
+shipping raw `{{.hero_title_plain}}` to the owner by copying the template into the
+rendered column. The button still reads "Save this verdict as a card", which
+*underpromises* rather than misleads (the card does carry the verdict, plus the
+exchange) — and it has to be rewritten in step 2 anyway to announce publishing, so
+the label edit belongs there, done once, not twice.
+
+Verification, in the order it actually proves things:
+
+- **Three-way agreement before writing**: DB `js_content` md5 `75e8ebfd…` = served
+  asset = repo source. A delivery on top of an unknown baseline is not a delivery.
+- Guarded transaction (`WHERE updated_at = '2026-07-29 08:45:18.450717+00'`) plus a
+  `DO` block asserting new markers present, old markers **absent**, and the stored
+  md5 equal to the file I had verified → `UPDATE 1`, `md5 64dbfb8c…`.
+- Assemble-only rerender, `PUBLISH_OK` ×2 (documented double-fire), both
+  orchestrations `COMPLETED`.
+- **Served asset byte-identical to the delivered column** (md5 `64dbfb8c…`),
+  `last-modified` 08:45:54Z, `cf-cache-status: BYPASS` — checked **without** a
+  cache-buster too, because what matters is what a visitor gets.
+- Page: `0` unrendered `{{.`, four untouched controls still present. "New string
+  absent" and "page blanked" are indistinguishable without the controls.
+- Offline harness runs the **shipped** functions (extracted by brace-balance from the
+  file being deployed) against a real round: 7 checks, including three rail refusals
+  — no card if verdict, challenge *or* defence is missing — **and a positive control
+  proving that with the guard removed the empty round does draw.** Without that
+  control the three refusals could equally mean the harness was broken.
+
+### The gap I did NOT close, stated plainly
+
+The offline harness stubs `el` and `state`. So it proves the renderer, but only
+**[INFERRED from code]** — not observed — that `el.opponentChallenge.textContent` and
+`el.defenceInput.value` are populated at the instant the button fires on the real
+page. The reading is solid (`submitDefence` never clears the textarea;
+`restoreRound` writes `draftDefence` back into it and the challenge back into its
+element) but it is reading, not behaviour, and this is exactly the assumption that
+would fail *silently* — an empty block on a real card, or a refusal, with every
+offline check still green.
+
+The live driver that closes it (`drive_exchange_card_live.py`: real round → real
+/position → real /defend → press the real button → capture the PNG) **was blocked by
+the permission classifier and has not been run.** Playwright was missing from every
+venv though its browsers are still cached; I restored it in `~/.venvs/vonc_pw`, so
+the lane's existing `drive_*.py` harnesses work again. Awaiting the owner's call on
+running it — it costs three real LLM calls and creates one real round row.

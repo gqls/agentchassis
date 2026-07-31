@@ -12668,3 +12668,36 @@ after a correction, not just the notes where you recorded it.
   transferable rule is not "be more careful" — it is **watch every branch of a new check
   fail before quoting anything it says**, and that applies hardest to the checks you write to
   police everyone else's.
+
+---
+
+**2026-07-31 — gauntlet_dead_cta — "599 characters fits inside a 737-character budget."**
+It did not, and the card I built to prove it **overlapped its own ruling line**.
+
+I measured the share card's capacity properly — canvas `measureText`, real font metrics,
+per type size — and produced a table saying a 1200×630 card holds ~737 characters at 32px.
+Then I built the mock with 599 characters of real round text and shipped it into a
+comparison for the owner. The defence block ran straight through the verdict line
+underneath it.
+
+**What was wrong:** the budget measured *prose against the frame*. The actual card also
+carries two section labels, a rule, a ruling line and a footer, and those take vertical
+space the prose then cannot have — about 25% of it. The number was not miscalculated; it
+was **answering a different question** than the one I used it for, which is the
+`narrow-filter-defines-the-conclusion` family: my measurement encoded "how much text fits
+in a rectangle", and I read it as "how much text fits on this card".
+
+**What caught it:** looking at the rendered PNG. Nothing else would have — every figure
+in the table was correct, and a check that recomputed the budget would have agreed with
+itself. This is the *two-blind-checks-agree* shape: the verifier and the thing verified
+shared the same blind spot.
+
+**The cheap check I skipped:** auto-fit against the **drawn layout** rather than a
+character budget — binary-search the type size with the labels and chrome included, which
+is four lines of code and cannot disagree with the output because it *is* the output. Both
+the shipped renderer and every later mock now do this, and the shipped one records why in
+a comment so the budget table cannot be reintroduced as a shortcut.
+
+**Tally note:** this is the second time in two days a *correct* measurement was used to
+answer a question it did not encode. The recurring fix is not more precision — it is
+**assert on the artefact, not on the model of the artefact.**

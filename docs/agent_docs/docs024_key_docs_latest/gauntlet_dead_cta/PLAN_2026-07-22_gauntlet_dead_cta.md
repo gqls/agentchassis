@@ -327,3 +327,67 @@ no server identity — and is the right first form. Server-side history implies
 identity and is a separate, later decision. The same rail applies as
 everywhere: entries are created ONLY as the consequence of a real /defend
 response, never synthesised or backfilled.
+
+## OWNER DIRECTION 2026-07-31 — the share card: **option 3, staged via option 1**
+
+Answering `HANDOFF_2026-07-30_A_share_card_and_the_full_debate.md`. Three
+decisions, taken after seeing all three options mocked with a real round
+(decision page: `https://claude.ai/code/artifact/2cb2166e-ba5e-406d-a6b2-aabfa5fb8d45`;
+sources + measurement in `p4_sources/share_card_options_2026-07-30/`).
+
+**1. The card links through to a record of the full debate (option 3), reached
+through the exchange card (option 1).** Not either/or: step 1 ships an exchange
+card needing no new URL, endpoint or migration; step 2 adds the per-round page
+and the same card becomes the hook by gaining one line. Nothing in step 1 is
+discarded by step 2.
+
+**Why the choice was largely settled by measurement, not preference** — keep
+this, because it will be re-litigated otherwise:
+
+- a complete round averages **3,109 characters** (51 complete rounds on the
+  island, 25–30 Jul; min 2,396, max 5,073);
+- a 1200×630 card holds **~700 characters legibly** once a timeline downscales
+  it (≈2.38× at X's ~504px in-timeline width — that width is `[ASSUMED]`, but the
+  conclusion survives any plausible figure);
+- therefore **the whole debate cannot go on a card** (it auto-fits at 11px,
+  ~4.6px in a feed), and **two cards carry only ~46% of one round**.
+- So options 1 and 2 were both *excerpting* strategies. Only option 3 carries
+  the round. **Option 2 was rejected**: ~2× option 1's cost, still not a debate,
+  and its real cost is a decision the owner makes every time he posts.
+
+**2. Publication model: pressing share publishes the round.** One action —
+downloads the PNG, makes that round public, and the card carries the permalink.
+Rationale: no second control, and no dead links (every shared card has a page).
+**Two requirements that follow, and neither is optional:**
+- **the button must say plainly that sharing publishes** (owner's own words).
+  It is therefore rewritten in step 2, once — which is why step 1 deliberately
+  leaves the label alone rather than editing it twice;
+- **consent is inferred from a press, so the wording IS the consent mechanism.**
+  Publishing by default was explicitly rejected: it would put a stranger's
+  writing online without asking and would have seeded the record from the 51
+  existing **harness** rounds (`count(DISTINCT client_ip_hash)` = 1 over all 95
+  rows — no stranger has ever argued here). **The public record starts empty.**
+
+**3. Whether the private opinion ledger links out to a published round:
+DEFERRED** until the record page exists and can be looked at. Reversible, one
+line of markup; not worth guessing now.
+
+### Status
+
+- **Step 1 is LIVE** (2026-07-31, `js_content` only, served asset verified
+  byte-identical, md5 `64dbfb8c…`). The card carries vonc's challenge, the
+  visitor's defence and the ruling, auto-fitted (26px on the measured round).
+  It carries **no per-round URL by design** — there is no page yet and a 404
+  link is worse than none.
+- **Step 2 is not started.** Its shape, from reading the code: one read-only
+  `GET` endpoint (`store.GetRound` already exists and returns every field
+  needed), one static page fetching by id client-side exactly as the gauntlet
+  page does, a published flag set by the share press, and the card's link line.
+  **Known limitation to state up front:** a client-fetched page cannot emit a
+  per-round `og:image` (crawlers do not run JS), so a shared *link* previews
+  with the site's generic card. This does not affect the actual plan, where the
+  owner posts the PNG and it travels as an image.
+- **Outstanding verification** on step 1: the card has not been pressed on the
+  live page (the live driver was blocked by the permission classifier). The
+  renderer is proven against a real round offline, and that the required DOM
+  values are present at press time is `[INFERRED]` from the code, not observed.

@@ -993,3 +993,57 @@ worry about: nothing in the system noticed that a page was serving itself twice.
 alarm, no check, nowhere — I looked. That is filed as bug 156 with the cheap fixes
 listed in order of which one genuinely shuts the door. The vonc page is fixed; the
 hole that let it ship is not.
+
+---
+
+**31 July 2026 — the share card now carries the argument, not just the score.**
+
+You asked whether the card should hold the whole debate, or whether there should be
+two cards, or whether it should link through to a record of the full thing. I took
+your instruction that the choice comes first and mocked all three with a real round
+before asking you anything.
+
+The useful thing that came out of it is that the choice was mostly settled by
+measurement rather than taste. I measured every complete round on the island — 51 of
+them — and an average debate is about 3,100 characters. Then I measured how much text
+actually fits on one of those 1200×630 cards at a size you can still read after a
+timeline has shrunk it down: roughly 700 characters. So the whole debate on one card
+was never a real option. I built it anyway so you could see it: everything fits at
+eleven-pixel type, which is about four and a half pixels once it's in a feed. It's
+not a card, it's a photograph of a document.
+
+The genuinely surprising bit was that **two cards don't solve it either** — two cards
+between them carry a bit under half of one round. So options one and two were both
+"which bits do we leave out", and only the third option carries the argument. That's
+not how the three options looked when they were written down, and I don't think it was
+obvious before someone measured it.
+
+You chose the third, reached through the first, and that ordering turns out to be
+free — nothing built in the first step gets thrown away by the second. **The first
+step is done and live.** The card now shows the challenge vonc actually put to you,
+what you actually wrote back, and how the judge ruled — instead of a headline and the
+words "opponent wins", which was thirteen characters of argument about a stranger.
+
+Two things I want to be straight about.
+
+The first is a limit I chose deliberately: the new card carries no per-round link,
+because there is no per-round page yet and a link that leads to a 404 is worse than no
+link at all. That link arrives with step two, along with the button rewording — you
+asked that pressing share should also publish the round, and the button has to say so
+plainly, so it gets rewritten once, then, rather than twice.
+
+The second is a gap in my testing that I have not closed. I proved the new card draws
+correctly by running the actual shipped code against a real round, and I proved the
+live site is serving exactly the file I wrote, byte for byte. What I have *not* done is
+press the real button on the real page and look at the picture that comes out. I can
+see from the code that the two pieces of text the card needs are still on the page at
+that moment, but that's me reading, not me watching — and it's the one failure that
+would be invisible, because the card would just come out with an empty half while
+every other check stayed green. The script that would settle it needs your permission
+to run (it drives the live page and spends three real AI calls). Say the word and I'll
+run it; it takes a couple of minutes.
+
+There's also a smaller thing worth knowing for next time: the rounds table isn't in
+the main database at all, it's on the island. The standard database command in our
+notes replies "no such table", which reads exactly like nobody has ever played the
+game. I've written that down where the next person will hit it.

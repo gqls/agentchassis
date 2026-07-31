@@ -864,3 +864,69 @@ source document and the entry points at it.
 - **source:** found 2026-07-31 planning provocation rotation; I had already
   half-committed to the client-side design before grepping for consumers
 - **added:** 2026-07-31, provocation_pipeline lane
+
+### `gauntlet_rounds` is not in `clients_db` — the standard psql command says it does not exist
+
+- **footprint:** table `gauntlet_rounds`; the `kubectl -n ai-persona-system exec
+  -i postgres-clients-0 -- psql -U clients_user -d clients_db` command in
+  CLAUDE.md; `internal/tools-api/store/rounds.go`;
+  `sql_for_agents/198_tools_api_gauntlet_rounds.sql`
+- **fires when:** asking anything about vonc.com Gauntlet rounds — how many
+  visitors played, what a real round contains, whether a feature has any traffic
+- **the tell:** none. The repo-documented DB command returns
+  `relation "gauntlet_rounds" does not exist` / `Did not find any relation`,
+  which is **exactly** what an unused feature looks like. The migration file sits
+  in `sql_for_agents/` like every other migration, so nothing hints that it was
+  applied somewhere else. The table lives on the **island** VM in its own
+  postgres container (db `tools_api`, user `tools_api`), because tools-api runs
+  there and not in the cluster. A session that stops at the error will conclude
+  the round store is empty or the migration never ran, and both are wrong
+- **the check:** `ssh root@toolsapisuk.vs.mythic-beasts.com "docker exec \$(docker
+  ps --format '{{.Names}}' | grep -i postgres | head -1) psql -U tools_api -d
+  tools_api -c 'SELECT count(*) FROM gauntlet_rounds;'"` — and before believing
+  *any* "table does not exist" for a tools-api table, check whether the service
+  is a cluster deployment at all (`kubectl get pods | grep tools-api` returns
+  nothing)
+- **source:** 2026-07-31, gauntlet_dead_cta lane; cost two commands and could
+  have become a false "no visitor has ever completed a round" in a handoff
+- **added:** 2026-07-31, gauntlet_dead_cta lane
+
+### `chromium` here is a SNAP and cannot write to `/tmp` — `--screenshot` fails at exit 0 through a pipe
+
+- **footprint:** `chromium` / `/snap/bin/chromium`, `--screenshot`, `--dump-dom`,
+  any headless render into the session scratchpad under `/tmp/claude-*`
+- **fires when:** rendering a page or canvas to PNG for verification or for a
+  mock, writing into the scratchpad directory the harness tells you to use
+- **the tell:** `Failed to write file <name>: Permission denied (13)` on stderr —
+  but piped through `| tail` or `| grep` the shell reports **exit 0**, and the
+  PNG simply is not there. Reads as "the render produced nothing", so the
+  instinct is to debug the page or the canvas code, which is fine
+- **the check:** render from a `$HOME` directory and copy the result where you
+  need it; assert the file exists and is plausibly sized (`> 20000` bytes for a
+  1200×630 card) rather than trusting the exit status
+- **source:** 2026-07-31, gauntlet_dead_cta lane, building share-card mocks
+- **added:** 2026-07-31, gauntlet_dead_cta lane
+
+### A source that stores non-ASCII as literal `\uXXXX` cannot be edited through an escape-decoding channel
+
+- **footprint:** `p4_sources/gauntlet_js_*.js` and any file whose string
+  literals use `—`, `“`, `·` rather than the characters; the Edit
+  tool's `old_string`/`new_string`
+- **fires when:** editing such a file — matching existing text OR writing new
+  text. Not just emitting: **matching**, which is the direction that looks like
+  a mystery
+- **the tell:** the escape-decoding trap already recorded fleet-wide covers
+  writing; the additional fact is that **no form works.** A typed `·`
+  decodes to `·` (so it never matches the file's 7 literal characters) and a
+  typed `\\u00B7` lands as **two** backslashes (so it never matches either). Two
+  Edit attempts fail with *different* diagnostics, and the second failure's
+  "mismatch is likely elsewhere" note sends you hunting the wrong part of the
+  string
+- **the check:** confirm the convention first —
+  `python3 -c "print(repr(open(F).read()[a:b]))"` — then splice with a script
+  that builds the escape from a **language** literal (in Python, `"\\u00B7"`
+  evaluates to backslash + `u00B7`). Afterwards assert both directions: the
+  escape is still present in the file **and** no raw character leaked in
+- **source:** 2026-07-31, gauntlet_dead_cta lane, replacing the share-card
+  renderer; `p4_sources/apply_card_edit.py` is the working pattern
+- **added:** 2026-07-31, gauntlet_dead_cta lane
