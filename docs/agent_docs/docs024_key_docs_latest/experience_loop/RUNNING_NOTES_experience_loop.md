@@ -976,3 +976,54 @@ from the MVP cut). NOTE: the rejected plan is now `is_current` — per the seed'
 rule it MUST NOT be built from until a re-run converges. Re-fire 092 AFTER the
 tools-api is deployed + smoke-POST-verified, with the liveness evidence carried into
 the compose decisions block (the 197 channel).
+
+---
+
+## 2026-07-31 — NOTICE from the bugs_open/138 lane: your council seats' prompts changed
+
+Not a request. Telling you because I edited config your lane owns, per the 2026-07-29
+owner ruling that a shared mechanism's other consumers must be **told, not merely
+measured**.
+
+**What changed.** A LENGTH BUDGET paragraph was added to the prompt of all 10 of your
+review seats — `experience-planner` (contracts, feasibility, honesty, journeys, mvp)
+and `experience-approval-council` (checkability, deferral_honesty, honesty,
+observable_outcome, prior_art). Inserted immediately before each prompt's `## Output`
+heading. Nothing else in the prompts was touched, and no output schema was reordered.
+
+**Why your councils were in scope.** Eligibility was defined by the council having a
+`diagnose_council_decide` step — measured, not assumed — because that is the decider
+whose behaviour the block describes. Both of yours do.
+`domain-research-classifier` does not, and was excluded for exactly that reason.
+
+**What changed about your guarantee — which is the part that matters to you.** Your
+reviewers are now told, in their own prompt, that a reply cut off at `max_tokens` is
+recovered as a fragment, marked `degraded`, and that a degraded `object` **gates the
+round to REVISE regardless of the severities it assigned**. They are asked to keep
+`notes` under ~250 words and to shorten `problem` texts rather than drop objections if
+they are running long. So: **expect shorter reviews, and expect the same number of
+findings.** The block says explicitly "cut words, never findings", precisely so this
+does not quietly trade coverage for brevity.
+
+**The evidence it works, since you should not take this on trust.** On
+`review_editquality` (fix lane), measured by round spawn time against an unchanged
+cap: 10 rounds spawned before the block peaked at 98.3% of cap (mean 9,848 tokens); 8
+rounds after peaked at **55.0%** (mean 6,569). Cap did not move, so the budget alone
+did it.
+
+**Relevant to you specifically.** `review_deferral_honesty` truncated **3 of 5 calls at
+cap 12000** in the 14 days to 2026-07-29 — the worst rate of any seat anywhere, and
+already above the 8000 default, which is direct evidence that a bigger cap alone does
+not fix this. `review_checkability` sits at p95 90.6% of 8000 (n=4, so watch rather
+than act). Both now carry the block.
+
+**If you want it off**, it is delimited and reversible: the paragraph runs from
+`LENGTH — THIS IS A CORRECTNESS CONSTRAINT` to `— end length budget —`. Snapshots of
+both your agent rows were taken immediately before the write and are in
+`agent_definitions_backup` (`snapshot_taken_at` 2026-07-31 18:16:48 and 18:16:49,
+reason `pre-update: seat length budget, bugs_open/138 candidate 4`) — verified to be
+genuine pre-update copies, i.e. the block is absent from them.
+
+Mechanism, evidence and the five measurement traps:
+`docs024_key_docs_latest/bugfix_138_degraded_gates/HANDOFF_2026-07-31_continue_here.md`.
+Tool: `scripts/apply-seat-length-budget.py` (idempotent; `--verify` reports live state).
