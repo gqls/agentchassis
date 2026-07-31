@@ -14376,3 +14376,92 @@ looking wrong, which is luck, not method.
   your finding will actually emit, as a sentence, against the site it will name.** The fix
   is a third state — observed, unfiled — not a better predicate. A detector whose subject
   is false positives must not buy its coverage with a false claim.
+- **I reused an "is there more?" probe as a "how much more?" number, and it would have
+  shipped a figure wrong by three orders of magnitude** (`bugs_open/092` fix,
+  `prepare_link_context_action.go`, 2026-07-31). To detect overflow past a page-list cap I
+  queried `LIMIT limit+1` — correct, and it answers a **boolean**. I then wrote
+  `omitted = len(pages) - limit` into the action's output as `pages_omitted_by_cap`. That
+  expression can only ever evaluate to **1**, so on a 4,000-page site the field would have
+  read "1 page omitted": precise, measured-looking, and useless in the direction that
+  matters, because nobody re-checks a number that looks computed. **The cheap check: for
+  every quantity you emit, ask what its MAXIMUM possible value is under the query that
+  produced it.** A `+1` probe caps its own answer at 1. Fixed by asking for the real
+  `count(*)` only on the rare over-cap path, and using `-1` as an explicit
+  "over the cap, exact figure unknown" marker rather than inventing a plausible one.
+  Caught by re-reading my own diff before committing — no test would have found it,
+  because the test would have asserted the same wrong arithmetic.
+- **Then my own sentinel was invisible to my own guard — the silent cap, reintroduced by
+  the fix for the silent cap.** Having added `-1`, both consuming call sites still read
+  `if truncated > 0`. So the single case meaning *"truncated, and I cannot even tell you by
+  how much"* would have been reported as **no truncation at all**, which is the exact
+  failure the cap's reporting exists to prevent. **The cheap check: after adding a sentinel
+  value, grep every comparison against that variable and re-read it with the sentinel
+  substituted in.** Same family as the memory index's "your own action can silence your own
+  detector" group — which I had read, in this session, before doing it twice in one file.
+
+## 2026-07-31 — `bugfix_118` chrome selection: I named passengers in a commit that carried none, and I nearly shipped an `ORDER BY` as a tidy-up
+
+- **I wrote a paragraph into a commit message naming three other sessions' entries as
+  same-file passengers, and my commit contained none of them.** I ran `git diff` on
+  `LANDMINES.md` and `000_concept_index.md`, saw other lanes' uncommitted entries in both,
+  and did the honest-looking thing: named them in the message so the sweep was visible.
+  Between that check and the `git commit` two tool calls later, the `137` lane committed
+  both files (`f0a52f42b`) — carrying **my** lines as **their** passenger — so my pathspec
+  matched two clean files and silently took neither. The record now says I swept up work I
+  did not sweep, and forward-only means it stays there.
+  **The cheap check: run `git status --porcelain <paths>` in the SAME command as the
+  commit, not before it.** On this tree a two-minute-old status is a guess, and the
+  direction of a passenger flips without warning — the file you are protecting others from
+  may already have protected you. CLAUDE.md says the session-start status "goes stale
+  within minutes"; I read that as being about the *start* of a session rather than about
+  the gap between any two of my own calls.
+- **I almost shipped `ORDER BY name` on `GetComponentByFunction` as "just determinism".**
+  It is a `LIMIT 1` on a widely-consumed lookup, so the ordered query and the unordered one
+  could have disagreed — and if they had, the chrome markup on every page BUILD would have
+  changed as a side effect of a tidy-up, in a fix whose entire claim was "zero pages
+  re-rendered". I only found out by running both forms. They agree, for exactly the two
+  functions that have any choice to make. **The cheap check: an `ORDER BY` added to an
+  existing `LIMIT 1` is a behaviour change until you have measured that it is not** — and
+  the measurement is one query (which functions have >1 eligible row, and what does each
+  form return for them). The council's guardian seat independently objected that this claim
+  was "asserted, not verified" in the submission; it was measured, but I had put the
+  measurement in the RUNBOOK and not in the evidence I gave the reviewers, which is the same
+  failure one step later.
+- **I wrote `WHERE deleted_at IS NULL` against `sites` from habit and got a hard error.**
+  Third time this repo has punished assuming a soft-delete column. `\d <table>` first is
+  already the standing rule; the reason it keeps being broken is that the assumption is
+  invisible until the query runs — it does not feel like a claim.
+- **A 0-byte `go.mod` is a full disk, not a broken repo.** `git archive HEAD | tar -x` into
+  `/tmp` produced `go: error reading go.mod: missing module declaration`, which reads like a
+  module problem and sent me looking at the repo. `/tmp` here is a 16G tmpfs that other
+  sessions had filled to 94%, and the extraction had silently truncated. **The cheap check:
+  `wc -c <dir>/go.mod` immediately after any archive extraction** — and do not build under
+  `/tmp` on this box at all.
+- **Two landmines were written TODAY, by other lanes, for the two traps I then walked
+  into within an hour — because I grepped `LANDMINES.md` for nothing** (`bugs_open/128`
+  fix, 2026-07-31). The `SessionStart` hook shows entries matching files **already dirty
+  in the tree**; both of mine matched files that were clean when my session started
+  (`platform/storage/url_helpers.go`, `/tmp`), so neither was shown, which is exactly the
+  gap CLAUDE.md names when it says *"still grep it yourself for table, command and symbol
+  footprints, which cannot match a path"*. I read that sentence at session start and did
+  not act on it.
+  - **The expensive one.** Needing "the path this asset is served from", I reached for
+    `storage.DeployedWebPath` — correct — and then wrote into a code comment that it
+    *"already applies"* `BrandHeadAssetPaths`. It does not: for `og_card` the arguments are
+    equal, so the `_`→`-` swap is never reached and it returns `/assets/images/og_card.png`
+    for a file served at `/assets/images/og-card.png`. Shipped, that check would have
+    reported a **404 for the og card and the favicon of every site in the fleet**, both
+    referenced from the head on every page — a fleet-wide false positive inside a fix whose
+    entire point was removing false positives. The landmine for it had existed for hours
+    (`bugs_open/142`, commit `d671fb2b2`), with the measurement I would have needed.
+  - **What actually caught it:** re-reading my own comment against the helper's source
+    before running anything — the same "read your own diff" reflex that caught the
+    `pages_omitted_by_cap` error two entries above. Not a test; I had not written one yet,
+    and the test I later wrote (`TestImageURL404_BrandHeadPathsResolveThroughTheirOwnMap`)
+    exists only because the mistake told me where to point it.
+  - **The cheap check, and it is one command:** before using an unfamiliar shared helper,
+    `grep -n "<SymbolName>" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`. It is
+    ~0.2s and it would have returned the whole trap, pre-measured, for both of my
+    mistakes. **A helper whose doc comment calls itself "the single source of truth" is
+    the case where grepping matters most, not least** — that sentence is what makes you
+    trust it instead of testing it, and it is why the 142 lane wrote the entry at all.

@@ -2555,6 +2555,72 @@ will never create one, and proves nothing about selection. Only the full **site-
 level you need a real build, not a rerender — or mirror `queryCandidates` in SQL (it is a
 verbatim copy of the Go query) and confirm the sole candidate, which is deterministic.
 
+### One question, three implementations, three DIFFERENT wrong answers — and the correct one is in the codebase already, unreused
+
+**Symptom.** A fix applied to the obviously-correct target has no effect. On chrome:
+an owner-approved gate went into the footer component marked `is_active=true`, the
+site's chrome was fully rebuilt, and no page changed (`bugs_open/118`). The natural
+reading is "my fix was wrong". It was not — a *different* component renders.
+
+**Diagnose by running every implementation side by side, not by reading the one you
+are in.** Grep for the question, not the symptom: `grep -rn "WHERE function = " --include=*.go`
+found three lookups answering "which library component serves function F", and running
+all three against the same live library gave three different rows:
+
+| call site | predicate | picks |
+|---|---|---|
+| `render_site_components` | **none at all**, `ORDER BY name LIMIT 1` | a **deactivated** component |
+| `link_site_components` | `is_active` only | an **active FORK** of one client's component |
+| `GetComponentByFunction` | `is_active AND forked_from IS NULL`, **no `ORDER BY`** | a **`component_level='section'`** page-section component |
+| `component_selector.go queryCandidates` | active + unforked + level-filtered | **the right one, and the one nobody copied** |
+
+**Root cause is not any of the three predicates.** It is that a shared judgement had
+no single definition, so each site was written from scratch by whoever needed it and
+each stopped at a different depth. **The tell that you are in this class: the four
+implementations are not a fix and three bugs — each is defensible read alone.** No
+review of any single call site finds this; only listing them together does.
+
+**Three traps specific to component selection, each of which broke a candidate fix:**
+1. **`is_active` alone is not enough.** A FORK carries its parent's `function`, so an
+   active fork of one site's header sits in the generic pool for every other site. The
+   canonical lookup's own doc comment had said so for months. **A doc comment enforces
+   nothing.**
+2. **`is_active AND forked_from IS NULL` is still not enough.** `component_level`
+   decides whether a row is chrome at all, and a page-section component can share a
+   chrome `function` name. §9's own *"Light site renders dark chrome"* entry recorded
+   the principle years earlier; no predicate encoded it.
+3. **Adding `ORDER BY` to an existing `LIMIT 1` is a behaviour change until measured.**
+   Ask which keys have >1 eligible row, and what each form returns for exactly those.
+   Here it was 2 of ~200, and both agreed — so the fix pinned the status quo instead
+   of changing it. Had they disagreed, a tidy-up would have changed live markup.
+
+**Fix.** One named predicate string, callers built from it, plus a **source-scanning
+lockstep test** that fails when someone hand-types a fourth copy (the LOCK-007
+construction — `TestNoWriterHandTypesTheAssetLockPredicate` is the model, and its
+synthetic-line non-vacuity test with it). Give the resolver an `eligible bool` return
+rather than an error when the library has nothing legitimate: refusing is not free if
+a downstream injection (favicon, og-card) rides on the same artefact.
+
+**And the measurement that decides whether it needs an owner call.** A selection fix
+sounds fleet-visible and usually is not: if the choice is PINNED per site in a join
+table (`site_components.component_id`), the selection code runs only for rows that do
+not exist yet. Measured here: 14 of 14 real sites pinned, so live blast radius was
+**one** site created the previous day, and **zero** pages re-rendered. The filed bug had
+parked the fix for four days on the belief that it "changes the rendered footer on every
+site" — which conflated *fixing the chooser* with *repairing the fleet*. **Separate
+those two before costing either.**
+
+**Cross-refs.** `bugs_open/118` (the case, with three corrections written into it);
+concept register **CLC-013**; `bugs_open/166` (the detector for this state routes its
+repair to a handler that re-renders the same deactivated component, so the item can
+never be satisfied — a `complete` work item is not a repaired artefact);
+`bugs_open/167` (the build path still resolves chrome through the unfiltered lookup —
+deliberately scoped out, and filed rather than left as an informal question, which is
+what the council's bug_historian seat asked for). Category tags:
+`one-question-many-implementations`, `doc-comment-enforces-nothing`,
+`fork-shares-its-parents-key`, `order-by-is-a-behaviour-change`,
+`pinned-choice-shrinks-the-blast-radius`, `separate-the-fix-from-the-repair`.
+
 ### One call site of a shared judgement gets the rigorous fix; the sibling stays heuristic
 
 **Symptom.** A defect is fixed at the site where it was observed — with a rigorous
@@ -4570,6 +4636,9 @@ See `/bugs_closed/README.md`.
 | 164 | **The diagnosis bundle's body cap `break`s instead of skipping, so one oversized symbol silently drops the whole rest of scope.** `diagnose_assemble_bundle_action.go:197-213`: a body that cannot be READ does `continue` and its siblings still render, but a body that merely does not FIT does `break` and **every remaining scope entry is dropped, however small**. Worse than it looks because scope is `sort.Strings`-SORTED (`loop.go:390`,`:416`), so the casualties are an alphabetical tail — one 60,000-char file under `internal/` can evict everything under `pkg/` and `platform/`; the verdicter is never told (contrast `siblingSignatures`, which DOES write `_(further files omitted — cap reached)_` at `:604`); and it corrupts the loop's control signal, not just its content, since the verdict names `next_scope` from what it could see and the narrowing guard records that as progress. `maxBodyChars` defaults to 60,000 while the whole-file branch is unbounded at the read AND advertised to the model at `:597` — so the platform invites the input that triggers it. Fix candidates: (1) `continue` + a per-symbol `_(body omitted — N chars, cap M)_` line in the bundle; (2) report `included` vs `len(scope)` in the bundle TEXT not just the `:304` log; (3) per-symbol budget, reusing `siblingSignatures`' own allocator; (4) bound the read (the knob `145` declined). 1+2 are ~10 lines | **OPEN, unowned.** Filed 2026-07-31 **at the council gate's explicit request** — I disclosed it in `145`'s submission `risks` and declined to fix it, and the `bug_historian` seat objected (medium) that a byte-for-byte match to an indexed §9 pattern found while auditing the very function being edited must be FILED, not footnoted. **Rate is `[UNMEASURED]` and must not be quoted as having fired** — the first job is to measure it. Same family as `012`. See §9 *"A hard cap that silently discards its input's tail"* (2026-07-20) |
 | 135 | **The `code_symbols` reconciliation prune had no floor: any run that saw part of the repo deleted everything it missed** — a truncated tarball, a moved directory or a short analyser `Output` all return small-but-nonzero with NO error, so the index does not break, it THINS, and then answers "absent" more confidently than before (`bugs_closed/108`'s wording fix). Filed by the council's `bug_historian` seat reading the call site, before anything failed | **CLOSED 2026-07-31 → `/bugs_closed/`** — LIVE v1.0.1218, **both branches induced in production**, not inferred from a green run. Per-cohort floor (`prune_floor_ratio`, default 0.5, **0 disables**, refusal names that remedy), fails CLOSED when unmeasurable, durable `doc_notes` refusal, and `prune_status` replaces an ambiguous `pruned: 0`. Rule extracted to `prune_floor.go` (register **CTXA-025**) as pure counts so the siblings can reuse it. **The induction refuted the author's own design claim**: the whole-repo path cohort PASSED at 60% while `kind=interface` refused at 8% — a single whole-corpus ratio, the obvious design, would have permitted the delete (`WRONG_CALLS.md` 07-31). Sibling call sites deliberately NOT converted → `165` |
 | 165 | **Three more reconciliation deletes still have no completeness floor** — `save_page_sections_action.go:532` (`page_components`), `populate_nav_tables_action.go:147` (`site_nav_items`/`site_nav_groups`), `site_db_actions.go:1474` (`link_registry`). Same mechanism as `135`: delete-everything-this-run-did-not-re-write, with nothing checking the run saw the corpus | **OPEN, unowned.** Filed at the direction of the council's `bug_historian` (HIGH, corr `14239fa4`): leaving the siblings exposed is itself §9's *"one call site of a shared judgement gets the rigorous fix; the sibling stays heuristic"* (`021`). **`page_components` is the live one** — 016b §9 cases 1–2 plus `001`/`037`/`038`/`058`; its existing `pageComponentAgentWritableSQL` guard is an AUTHORITY check ("may I delete this row?"), not a COMPLETENESS check, and a writer that returned two sections instead of twelve passes it perfectly. **Reuse the rule, NOT 135's cohorts** — each site must measure its own |
+| 118 | **One question — "which library component serves chrome function F?" — had THREE implementations and three different wrong answers.** `render_site_components` had **no predicate at all** (`ORDER BY name LIMIT 1`) and picked `footer-4-column`, `is_active=false`, then INSERTed that choice into `site_components` where it outlived every attempt to fix chrome by editing the *active* component; `link_site_components` filtered on `is_active` alone, which picks `header-leopardess`, an **active FORK** of one client's header (a fork carries its parent's `function`); `GetComponentByFunction` filtered correctly but had **no `ORDER BY`** over a two-member pool and its winner `site-header` is `component_level='section'` — a page-section component. The correct predicate was already in the codebase, in `component_selector.go queryCandidates`, and nobody had copied it | **FIXED IN CODE 2026-07-31 (`b052249d8`, `db0de5656`), council **APPROVED round 1** `5bc232d6`, 5 advisory objections all answered; OPEN only until the chassis rolls.** One named predicate + `ResolveChromeComponent` + a source-scanning lockstep test (the LOCK-007 construction). Concept register **CLC-013**. **Three corrections to the filed bug, all from measurement:** candidate 1 does NOT "change the rendered footer on every site" — the fallback fires only on a slot with no `site_components` row, all 14 real sites are pinned, so live blast radius is **one** site (`loancalculator.co.uk`, created 07-30) and **zero** pages re-render; "add `AND is_active`" as written would have shipped the forked header fleet-wide; and `is_active`+`forked_from` still picks a section component without `component_level`. Residuals filed, not hand-waved: **166** (the repair that cannot repair) and **167** (the build path still uses the unfiltered lookup) | filed 2026-07-27 by the relojistas lane; fixed 2026-07-31; workstream `docs024/bugfix_118_chrome_selection/` |
+| 166 | **The `deactivated_component` detector files an item whose handler re-renders the deactivated component.** `DeactivatedSiteComponentsCheck` correctly finds every `site_components` row pointing at an `is_active=false` component and routes it to `rerender-pages`, which renders **whatever `component_id` already points at** — so the condition is exactly as true after the repair as before. Items since **2026-07-17**, two stamped `[unresolved after 2 attempts]`; 11 footers on `footer-4-column`, 7 headers on `header-bold-gradient`, 9 heads on `Document Head`. Fix candidate 1 is a REPOINT rather than a re-render (118 shipped the "which one instead?" half), and it is **fleet-visible** — 11 sites' footers change — so it needs an owner call. `head` cannot be repaired at all until the library has an active head component | **OPEN, unowned**, filed 2026-07-31 by the 118 lane. Distinct from `083` (those are never picked up; these ARE and the handler cannot help) |
+| 167 | **The page-build path can render a `component_level='section'` component as site chrome.** `RenderHeader`/`RenderFooter`/`RenderHead` resolve through `GetComponentByFunction`, which has no level filter — correctly, since its other callers ask it for section functions — and live it returns `site-header` (6,614 chars, level `section`) for `site-header` and `site-footer` (7,519, level `section`) for `site-footer`, not the `*-theme-chrome` pair. `016b` §9 already said "`site-head` (`component_level=section`) is unreachable as chrome"; it is reachable | **OPEN, unowned**, filed 2026-07-31 by the 118 lane **as a deliberate scope-out, not an oversight**: pointing those three at `ResolveChromeComponent` changes chrome markup on every page build fleet-wide, which is the one thing 118's measurement established its own fix was not. The council's bug_historian, architecture and guardian seats each objected that this residual needed a tracking artifact rather than an informal question — this is it |
 | 099 | **The feature designer's plans died on a validator rule its prompt never stated, and the loss was SILENT.** `diagnose_persist_fix_plan` returned a bare error on any structural validation failure — the step fails, `error_step` routes to `complete_refused`, and a COMPLETED, GOOD design is discarded with `orchestration_states.error` **NULL** (reason only in `collected_data->>'__step_error'`, so a dashboard keyed on `error` reports the run clean). Candidate 1 (migration `222`) stated ONE rule in the prompt; the validator has a dozen and gains more, so that shape had to be repeated per rule, per agent, and drifted whenever the validator changed. **Candidate 2 (the durable fix) makes the refusal RECOVERABLE**: the rejected plan + exact problems persist as `iteration_note`/`note_kind=plan_validation_refusal` (no DDL — `kind` is CHECK-constrained), an `agent_error_log` `FIX_PLAN_VALIDATION_REFUSED` row is written on BOTH outcomes, and the action returns a result routing to a dedicated `repair_plan` step for `max_repair_attempts` rounds. **Opt-in**: with `repair_step` unset the action is byte-for-byte the old behaviour. Gate NOT lowered — nothing invalid is persisted on either path; truncation stays terminal, but a **schema mismatch (well-formed JSON, wrong shape) is repairable** — that distinction was found by the FIRST live repair failing on it | **CLOSED 2026-07-31 → `/bugs_closed/`**: live on `v1.0.1216`/`1218` + migration `272`, and **proven on the failing branch** — corr `53fff682`, refusal at 18:08:26 (`stage s1: 2 edits exceeds the per-stage cap 1`), repaired `fix_plan` persisted 18:09:31 with **3 stages / all 3 edits** (original: 2 stages, one holding 2), run continued into its council. ⚠ **099's own stated verification is INSUFFICIENT and returns a false PASS** — written for candidate 1, which worked, so re-firing its work item takes the SUCCESS path and satisfies both stated conditions while the repair loop never fires; the corrected test induces a refusal and requires FOUR conditions. Residue is DECISIONS, not omissions: `fix-proposer` → `bugs_open/162` (fix written, dry-run clean, unapplied — another lane owns it); `council-gate` not opted in on purpose; size caps (`max_stages`/`max_total_edits`) stay unrepairable because they ask for less scope while the repair prompt forbids dropping it. Register `FIX-057` |
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the
