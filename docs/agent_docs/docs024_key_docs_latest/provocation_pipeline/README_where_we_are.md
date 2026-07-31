@@ -355,3 +355,71 @@ every single day whether or not the provocation changed. So it will *look* like
 rotation is working while the site repeats itself — the original bug wearing the
 fix as a disguise. The only honest test is whether the provocation's identifier
 changed, never the timestamp.
+
+---
+
+## Later that evening — the good news, and then a mistake of mine worth explaining
+
+Two things fixed themselves while I was away, and one thing I'd written down turned
+out to be wrong in a way that matters.
+
+**The good news first.** The other team working on the Gauntlet finished their job.
+They'd been sealing today's provocation so it can only be read once you step into
+the round, and this afternoon the site was in a silly half-state — the lobby card
+said "sealed" while the page above it still printed the whole provocation. That's
+gone. I re-checked by loading the actual page: today's headline and body now appear
+**nowhere** on the home page, the sealed card is there, and the "past provocation"
+sample they added renders properly. I'd flagged that last one as unproven earlier,
+because the thing I'd matched on could have come from an old archive card just as
+easily as the new code. This time I found a label only the new code can produce. So
+it's genuinely confirmed now rather than probably-fine.
+
+That also means publishing is safe again, which it wasn't this afternoon.
+
+**Now my mistake.** This morning I wrote the handoff document that tells the next
+session what to do, and the first instruction was: write a few provocations by hand,
+then add a scheduled job to rebuild and republish daily. I sat down this evening to
+do exactly that, and it doesn't work. There is no job to add.
+
+The scheduled jobs on this platform all point at an agent — a named piece of
+software that does the work. There isn't one for provocations. There's no code
+anywhere in the deployed system that knows how to build this file. The builder I
+wrote today is a script sitting in the documentation folder; the cluster can't run
+it, and nothing ever ships it. So the "scheduled job" I'd confidently written down
+as the next step would have had nothing to point at. You'd get a row in a table that
+does nothing.
+
+The reason I got it wrong is worth saying, because it's the sort of error that reads
+as perfectly sensible on the page. I'd correctly checked that the *news* feed on our
+other sites rebuilds itself on a schedule and commits the result — that's real and
+it works. I then let that stand as proof that *our* feed had a path to the same
+machinery. It doesn't. It only proved a different feed does. Both halves of my
+instruction were true on their own: we do need provocations written, and we do need
+a scheduled job. Nothing joined them up, and I never checked the join. One database
+query would have told me, and I ran it when I went to *do* the step rather than when
+I *wrote* it.
+
+**What it actually takes.** Real, but not alarming, and mostly copying something
+that already works. The provocations need to live in the database instead of in a
+script. Then a piece of code that picks today's, builds the file and commits it —
+and there's a near-identical one already running for the vet medicine directory,
+which does exactly this shape of job every two days. Then the agent definition and
+the scheduled row, which are small. Writing the provocations comes **last**, because
+until the rest exists they're just words in a file nobody can publish.
+
+**One thing I want to flag, because it's a cost of a decision rather than a bug.**
+There was a much cheaper way to do all of this: publish a fortnight of provocations
+in one go and let the site pick today's by the date. No scheduled job at all, no new
+code, and — the real attraction — rotation that *cannot quietly stop working*, which
+a nightly job always can. I liked it a lot.
+
+The seal rules it out. Publishing a fortnight ahead puts every one of those
+provocations in a file anyone can read, and the whole point of the seal is that
+today's isn't readable until you step in — tomorrow's certainly shouldn't be. So the
+sealing decision is what forces us into the nightly job. That's not a complaint and
+I don't think it changes the decision, but it's a real cost and it was invisible
+from inside either piece of work. I've written it down so nobody proposes the cheap
+version again in three weeks and has to rediscover why it doesn't fly.
+
+The headline hasn't moved, though, and I don't want it buried under all that:
+**the site still doesn't rotate, and the promise on the front page is still false.**
