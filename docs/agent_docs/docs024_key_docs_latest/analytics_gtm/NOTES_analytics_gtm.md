@@ -271,3 +271,35 @@ one prefix**, and its failure mode is a red workflow rather than corrupted outpu
 > Also confirmed the earlier live-check caveat is real and generalises: one vetcomparison
 > page read `gtm=0` because I fetched it 43 seconds *before* its `last-modified`. An
 > immediate post-deploy check can read the old bytes and look exactly like a failure.
+
+### The regression that proved `--skip-newer` does not protect you
+
+On the final sweep **`dartsonline.com` went BACKWARDS** — it read `gtm=2` at 13:00 and
+`gtm=0` twenty minutes later, cache-buster confirmed, not a CDN artefact. Its
+`last-modified` was `12:52:18Z`: *rewritten during my own rollout*, with pre-GTM bytes.
+
+Checked the source of truth before theorising: **git master is correct** — `index.html`
+for dartsonline and all four other pending domains returns `grep -c googletagmanager` = 2
+straight from the GitHub API. So the render, the commit and the repo are all right; only
+the bucket was wrong.
+
+**Mechanism.** Queued runs check out **their own** (older) commit, and if that commit's
+diff touches no domain-shaped directory the workflow falls through to syncing **every**
+domain — from an older tree. I had assumed `--skip-newer` made out-of-order execution
+safe. **It does not:** `git checkout` stamps every file with a *fresh* mtime, so the
+source always looks newer than the bucket and nothing is ever skipped. An older run can
+therefore overwrite a newer one, and with ~230 runs draining out of order the estate
+churns rather than converging monotonically.
+
+> **CORRECTED:** the entry above says "left to drain … `--skip-newer` makes out-of-order
+> syncs safe". **That was wrong**, and dartsonline is the counter-example. Draining is
+> still safe in the sense that nothing is lost — the repo is authoritative — but the
+> *final* state depends on whichever run happens to touch a domain last, which is not
+> something to leave to chance.
+
+**Fix applied:** pushed one root-level `.full-sync-stamp` (commit `2582e69f5`). A
+root-level file matches neither the domain-dir grep nor `paths-ignore`, so it triggers the
+workflow with an **empty `CHANGED`** → the fallback branch syncs **every** domain from the
+current tree. Queued at 13:14:00Z, i.e. **behind** the whole backlog, so it runs last and
+converges the estate regardless of the order everything before it ran in. One run instead
+of 230 — which is also the shape the rollout should have used from the start.
