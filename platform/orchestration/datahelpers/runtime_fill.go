@@ -37,6 +37,21 @@
 //	                              names it so it is a choice rather than a
 //	                              coincidence.
 //
+// WHERE THE RFC THRESHOLD IS, so the next adopter meets it rather than
+// rediscovering it (council `architecture` seat, correlation 4465f655, round 3).
+// This is a point fix today because every consumer lives inside one subsystem —
+// discovery_checks plus this package — so the exported symbols are an internal
+// helper, not a platform contract. **A sixth caller from OUTSIDE that subsystem
+// — a renderer, a build-time validator, an adapter — is the moment this becomes
+// a shared contract and needs an RFC, not another allow-list entry.** The test
+// is who consumes it, not how many do.
+//
+// WHY A HAND-ROLLED SCANNER. Checked before writing one (council `reuse_agent`,
+// round 4): the tree has no quote-aware tag-boundary scanner to reuse — links.go
+// and link_repair.go both use bare regexes that a `>` inside an attribute value
+// would defeat. goquery is the obvious alternative and is refused for the reason
+// below.
+//
 // WHY BYTE SPANS AND NOT A DOM. RepairPageLinks guarantees byte-identical output
 // when it changes nothing, and re-serialising through goquery would break that
 // guarantee on every page it touches. So the string world gets byte spans and the
