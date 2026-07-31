@@ -1295,3 +1295,57 @@ turned "it's stuck" into "it was killed at 15:00" — a fact rather than a guess
 
 Round three is running again now and progressing normally. I'll tell you the verdict when
 it lands.
+
+---
+
+2026-07-31, evening. Your choice is live. Arriving at the home page now, you see a
+finished provocation in full — the one about AI never being funny on purpose, from
+5 July — clearly labelled as a past one, with its full case a click away. Below it,
+the button into today's round. Today's question itself appears nowhere on the site:
+not on the home page, not on the Arena, not in either of the two lists of
+provocations. It exists for you the moment the clock starts and not before. I
+checked every one of the eighteen pages by loading them in a real browser: three
+were showing it this morning, none is now.
+
+The Gauntlet still works — I started a real round against the live engine and it
+came back with today's question and a round number, which is the thing that
+mattered most to get right.
+
+**The part I want to be straight with you about, because I nearly broke the
+Gauntlet.**
+
+My first attempt deleted today's provocation from the file the website reads. It
+seemed obviously right: the Gauntlet page doesn't read that file, so nothing
+needed the text. But the Gauntlet's *engine* does read it, from the server side,
+and that is how a round gets its question. Had that gone out, every round would
+have opened with a blank provocation — I would have destroyed the feature I was
+protecting, with a change made to protect it.
+
+It never went out. What stopped it was a habit rather than a clever check: before
+overwriting a live file I compared it against what the site was actually serving.
+They didn't match — the live file had two fields my version couldn't produce — and
+pulling that thread showed me another session had rebuilt this whole pipeline four
+minutes earlier, and that their notes named the engine as a reader. I had been
+following an instruction sheet that was correct five days ago.
+
+Worth saying: three separate safety checks existed that would each have caught
+this, including one written by the other session that afternoon. None of them fired,
+because I was about to publish through a different route than the one they guard. A
+guard only guards the door you actually walk through.
+
+So the seal works differently from how I described it this morning, and I was wrong
+then too. I told you it was a "data-level" seal — that the text simply wasn't
+anywhere the browser could reach. It isn't that. Today's provocation has to sit at
+a public address so the engine can fetch it, which means anyone who knows that
+address can read it. What we have is a seal for a normal visitor: nobody browsing
+the site will meet today's question before they choose to argue it. That is worth
+having and it is what you asked for — but it is not a secret, and I shouldn't have
+implied it was.
+
+One more thing, small but it amused me. After the fix went live my own leak-detector
+still reported three pages leaking. It was wrong: it had been taught to look for the
+old lobby card, and the new sealed card sits in exactly that spot, so it was
+reporting a leak every time it found the fix. A detector aimed at where a problem
+used to live stops being a detector the moment you fix it. Both my checkers now look
+for today's actual words, taken fresh from the feed each run, so they cannot go quietly
+blind the next time the provocation changes.

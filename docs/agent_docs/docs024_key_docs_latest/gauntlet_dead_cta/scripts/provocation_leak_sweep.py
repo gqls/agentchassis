@@ -29,6 +29,7 @@
 # page that was painting it.
 
 import json
+import re
 import subprocess
 import sys
 import urllib.request
@@ -39,19 +40,48 @@ SITE_ID = "9ec3b9ee-5b08-461b-b4f8-9e1e03579c74"
 
 
 def load_today():
-    # LANDMINE: vonc.com is behind Cloudflare and 403s urllib's default
-    # User-Agent, while curl on the same URL returns 200. A bare urlopen here
-    # fails with HTTP 403 that reads like the file is missing.
+    """The strings that must NOT be painted, derived from `today` ONLY.
+
+    CORRECTED 2026-07-31, after this script produced two false positives against
+    itself. It used to probe `arena.cards[0].title` and `.desc` as well, because on
+    the day it was written that card was DERIVED from today's provocation and was
+    genuinely one of the leak surfaces. Once the card was sealed, those two probes
+    started matching the SEAL copy — "Sealed until you step in" — so the sweep
+    reported a leak for finding exactly what it should find, and could never go
+    green.
+
+    The lesson generalises: a probe aimed at a surface that CARRIED the defect stops
+    being a probe for the defect the moment that surface is fixed. Aim probes at the
+    THING (today's provocation text), never at a place it used to appear.
+
+    Today's provocation legitimately lives in this feed — the engine reads it
+    server-side (round.go FetchProvocation) — so a leak is about what is PAINTED,
+    never about what the feed contains.
+
+    LANDMINE: vonc.com is behind Cloudflare and 403s urllib's default User-Agent,
+    while curl on the same URL returns 200. A bare urlopen fails with an HTTP 403
+    that reads like the file is missing.
+    """
     req = urllib.request.Request(DATA, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=30) as r:
         d = json.load(r)
     t = d["today"]
-    return {
-        "headline": t["headline"].replace("<em>", "").replace("</em>", ""),
-        "body": t["body"][:50],
-        "lobby_title": d["arena"]["cards"][0]["title"],
-        "lobby_desc": d["arena"]["cards"][0]["desc"][:45],
-    }
+    headline = re.sub(r"<[^>]+>", "", t.get("headline") or "").strip().rstrip(".")
+    body = (t.get("body") or "").strip()
+    probes = {}
+    if headline:
+        probes["headline"] = headline
+    if body:
+        probes["body_open"] = body[:45]
+        if len(body) > 160:
+            # A second window, so a renderer painting only part of the body is
+            # still caught.
+            probes["body_mid"] = body[80:140]
+    if not probes:
+        print("today carries no text — the feed is malformed and this sweep cannot "
+              "make a claim about the seal")
+        sys.exit(2)
+    return probes
 
 
 def page_urls(argv):
@@ -76,7 +106,9 @@ def main():
     today = load_today()
     urls = page_urls(sys.argv)
     leaks, unscored = [], []
-    print(f"{'url':47s} {'code':5s} {'head':6s} {'body':6s} {'lobT':6s} {'lobD':6s} chars")
+    names = list(today.keys())
+    print("%-47s %-5s %s chars" % ("url", "code",
+                                   " ".join("%-9s" % n for n in names)))
     with sync_playwright() as p:
         b = p.chromium.launch()
         for u in urls:
@@ -97,9 +129,8 @@ def main():
             elif any(hit.values()):
                 leaks.append(u)
             mark = "  <<< LEAK" if code == 200 and any(hit.values()) else ""
-            print(f"{u[:47]:47s} {code:<5} {str(hit['headline']):6s} "
-                  f"{str(hit['body']):6s} {str(hit['lobby_title']):6s} "
-                  f"{str(hit['lobby_desc']):6s} {len(txt)}{mark}")
+            print("%-47s %-5s %s %d%s" % (u[:47], code,
+                  " ".join("%-9s" % hit[n] for n in names), len(txt), mark))
         b.close()
 
     print(f"\n{len(leaks)} of {len(urls)} pages paint today's provocation:")

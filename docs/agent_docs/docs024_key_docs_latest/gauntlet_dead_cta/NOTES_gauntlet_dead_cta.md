@@ -3149,3 +3149,100 @@ confessing my own errors at length, which reads as performance even when the con
 are accurate. **A submission should state the change and the evidence; the seats are
 reviewing the plan, not my conduct.** The self-corrections belonged here in NOTES, where
 they already were. Recorded for future submissions from this lane.
+
+---
+
+## 2026-07-31 (evening) — the seal is LIVE, and my first design would have killed the round
+
+Owner ruling: ONE invariant site-wide — today's provocation readable in the Gauntlet,
+after entry, and nowhere else — with home and Arena showing a PAST provocation in full
+as the worked sample. Delivered and verified. **0 of 19 pages paint today's
+provocation** (was 3), the engine still serves it, and nothing is blank.
+
+### The mistake, because it is the valuable part
+
+My first implementation enforced the seal by **deleting `today.headline`/`today.body`
+from the feed**, reasoning that nothing needed them because the Gauntlet page does not
+fetch the feed. The page does not. **The ENGINE does.**
+`internal/tools-api/handlers/round.go` `FetchProvocation()` fetches
+`https://{domain}/data/provocations.json` **server-side**; `RoundHandler` persists the
+whole `today` object as the round's provocation and returns it. **Every round would
+have served an empty question** — the feature the seal exists to protect, destroyed by
+the change protecting it.
+
+> **CORRECTED: my "the seal is a data-level seal" claim (written into HANDOFF C that
+> morning) was wrong.** The provocation MUST live at a public URL the engine can
+> fetch, so anyone opening `/data/provocations.json` can read it. It is an
+> **experiential** seal for a normal visitor, not a secret. Say it that way.
+
+**Three independent things would each have caught it; only one actually did.**
+1. What caught it: **verifying the publish target before publishing.** The repo file
+   carried `today.date`/`today.slug` my generator cannot produce.
+2. Their `publish_feed.sh` safety preflight refuses a feed missing `today.headline`.
+3. `verify_rotation.py` would have failed.
+I got to within one command of publishing with all three in place, because I was
+about to run the *wrong* publish path. **A guard only guards the door you walk
+through.**
+
+**And I edited the wrong generator.** `gauntlet_dead_cta/RUNBOOK` §8 documents
+`p4_sources/build_provocations.py` — accurate on 07-26, superseded since by
+`provocation_pipeline/builder/build_provocations.py` (their Phase 0 went live 16:07,
+**four minutes before my commit**). Reading the runbook is not checking; the check is
+comparing the artefact you are about to overwrite against what the site serves.
+The old file now carries a SUPERSEDED banner rather than being deleted (forward-only).
+
+### The design that shipped
+
+The seal **cannot** be key-absence while the engine needs a public feed, so it is a
+**renderer-level invariant**, enforced by checkers:
+- `today` untouched → engine contract intact.
+- New SIBLING keys the engine never reads: `seal` (display copy) and `sample` (a past
+  provocation in full, DERIVED from the newest archived entry with a case, so it
+  follows the schedule and needs no edit when HANDOFF B lands).
+- `arena.cards[0]` sealed — it was 2 of the 3 leaking surfaces, and one data change
+  fixed both lobby grids with no JS change.
+- `check_seal()` guards BOTH directions in one function, because they pull opposite
+  ways: today MUST keep headline/body/slug/date, and nothing outside today may name
+  today's provocation. Proven by induced fault in both directions.
+- Their `verify_rotation.py` invariant "card 0 MUST match today" **inverted** — it
+  encoded the pre-seal design — plus the engine contract, so nobody can "seal" today
+  by emptying it. All 39 dates × 9 provocations still pass.
+
+### My own instrument produced two false positives against itself
+
+After the feed went live the sweep still reported LEAK on 3 pages via its `lobT`/`lobD`
+columns — because it derived those probes from `arena.cards[0]`, which was **now the
+sealed card**. It was reporting a leak for finding exactly what it should find, and
+could never have gone green. **A probe aimed at a surface that CARRIED the defect stops
+being a probe for the defect the moment that surface is fixed.** Both the sweep and
+the drive harness now derive probes from `today` itself — aim at the THING, not at a
+place it used to appear. A hardcoded probe list would also have gone silently inert on
+the next rotation.
+
+### Delivered (order matters) and verified at the artefact
+
+Feed FIRST, then renderers: feed-first leaves a partially-sealed but coherent site,
+renderer-first leaves an EMPTY home card (the loader would find no `sample`/`seal`).
+
+1. Feed via their `publish_feed.sh` — served + md5-matched in ~45s.
+2. `js_snippets.provocation-card-loader` UPDATE inside BEGIN/COMMIT with a `DO $$`
+   guard asserting the new markers present AND the old reads absent; then the
+   asset-renderer trigger. Verified in the SERVED bundle with a positive control
+   (`data.sample` 3, `data.seal` 2, `t.headline` **0**, `lobby-grid-loader` present).
+3. Arena via `deliver_section_edit.sh` — **`apply_section_edit` re-renders the
+   component from its CURRENT TEMPLATE**, so updating `content_components.html_template`
+   was sufficient and hand-writing `page_components.rendered_html` was unnecessary
+   (I had started to; the sanctioned path is both simpler and safer here).
+4. `POST https://tools.apis.uk/api/v1/tools/gauntlet/round` with `Origin: vonc.com`
+   → **200, real headline+body, round_id issued**, and no `seal`/`sample` copy in the
+   payload. The reveal works. **Note the API host is `tools.apis.uk`, resolved from
+   `var API` in `/tools/assets/gauntlet-interface.js` — a POST to `vonc.com/api/...`
+   404s, which is my path being wrong, not the engine being down.**
+
+Arena template comment deliberately does NOT name the removed feed keys — that
+template's own header rules it out (a comment in served HTML is indistinguishable from
+live code to a scanner). Detail lives here instead.
+
+**Left open, unrelated and pre-existing:** `/blog/provocation.html` is `status='active'`
+in `pages` but 404s live, so every sweep reports 1 page UNSCORED (exit 2, deliberately
+not a pass). Not filed — it wants a check of whether the row or the file is wrong.
