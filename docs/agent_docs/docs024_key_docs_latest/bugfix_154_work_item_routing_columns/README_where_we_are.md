@@ -90,3 +90,46 @@ tools on one site are indistinguishable. That is a real problem but it is a
 different one, in a different place, and fixing it would change how jobs are
 de-duplicated across the whole fleet. It stays on the ticket rather than riding
 along in a change about something else.
+
+## 2026-07-31, late evening — the build went out, and both halves are now live
+
+A fresh chassis image (`v1.0.1219`) was deployed, so I did the two things that
+were waiting on it.
+
+First I checked the fix was actually *in* it. That sounds like paperwork, but a
+deployment tells you a new image is running — not that it contains your change,
+because the image carries no record of which commit built it. So the check is to
+look inside the running program for a piece of text my change added, on both
+copies of it, alongside a second piece of text that was already there. The second
+one matters: if it also came back missing, that would tell me my search was
+broken rather than my fix absent. Both copies, both strings, present.
+
+Then I applied the configuration half — the one line that tells the dispatcher to
+read the proper column. It went in cleanly, and it took its own snapshot on the
+way through so it can be put back.
+
+So the bug is fixed and live. What is left is one observation: watching a real job
+go through and get past the step that used to kill it.
+
+## The bit that is still running
+
+With your go-ahead I reset one stuck job on gamesdesign.co.uk so it would be
+picked up again. It has not been picked up yet — about twenty minutes so far —
+and I want to be clear that this is not a sign of trouble. I checked three things
+that could have meant something was wrong, and all three came back healthy: the
+dispatcher is alive and working, the site is not locked or blocked, and my job is
+second in the queue for that site, well within the batch it takes.
+
+What it is actually waiting for is the dispatcher's habit of picking one site at a
+time, fairly arbitrarily, from a large list. So gamesdesign will come up; it just
+has not come up yet. Nothing about that reflects on the fix either way.
+
+I have left a watcher running and written a full handoff, so this can be finished
+either here or in a fresh conversation without re-deriving anything. The one
+remaining question is a single yes/no: does the job get past the step that used to
+fail? Anything beyond that step is a pass, because that failure was the very first
+thing the job did.
+
+I have not closed the ticket yet, for that reason. Closing it now would mean
+claiming a result I have not seen, and the whole point of that step is that it is
+the one thing nobody has actually witnessed.

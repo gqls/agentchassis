@@ -278,3 +278,75 @@ the missing contract doc, which is now the register's open review question.
 
 **No resubmission**: APPROVED with nothing high-severity. The revisions above
 went into the un-applied migration and the two docs, not into a new round.
+
+## 2026-07-31, ~21:45 — the image landed; both halves are now LIVE
+
+**Go half — pod-grepped on BOTH replicas, `v1.0.1219`:**
+
+```
+=== agent-chassis-59cb674798-t7dgn ===   NEW: 1   CTRL: 1
+=== agent-chassis-59cb674798-z84n8 ===   NEW: 1   CTRL: 1
+```
+
+`NEW` = `"routing field left unset"` (a string this change added).
+`CTRL` = `"LoadWorkItemsAction: Starting"` (pre-existing). The control is the
+point: without it a `0` on the new symbol is ambiguous between "not shipped" and
+"my grep is broken", which is the `bugs_open/153` trap.
+
+Timing reconciles independently: commits at **18:25:37Z / 18:27:55Z**, pods
+started **19:09:31Z / 19:09:52Z**. Recorded because the commit timestamps display
+in `+01:00` and the pod times in `Z` — comparing them raw makes the fix look like
+it *post-dates* the roll by 18 minutes. It does not.
+
+**Config half — `sql_for_agents/278` applied:**
+
+```
+rows_to_change_expect_1 → 1
+NOTICE: Snapshot captured: type=build-dispatch-loop, source_version=1,
+        source_id=099b51e0-6dd0-4856-8f82-805a379e8b1d
+UPDATE 1
+build-dispatch-loop | current_item.component_id
+COMMIT
+```
+
+The pre-flight count and the `snapshot_agent()` call are the council's
+`debug_historian` and `tooling_provenance` objections, and both earned their
+place: the count proved the row was still the shape the migration was written
+against (it is shared and mutable, and ~4 hours had passed), and the snapshot is
+a real rollback artefact rather than a `SELECT` in a terminal.
+
+## Verifying at the artefact — and why it did not complete inside this session
+
+Owner's call (asked, because dispatching runs an automated LLM rewrite against a
+live customer tool): dispatch **one** item on `gamesdesign.co.uk` —
+`ee745694`, `tool-bayesian-ranking`. Chosen over robot-hands.com, which several
+active lanes are working.
+
+Reset to `triaged` with `attempt_count=0`. **That reset is legitimate rather than
+an override of a judgement:** all three of its failures were caused by *this*
+bug, so the attempts were spurious. `5b4fd5cc` was deliberately NOT touched —
+it is `wont_fix`, which is a human decision, not collateral damage.
+
+Pre-state captured for the change-detection:
+`tool-bayesian-ranking` `c345a76a`, `md5=5de92eba982c30315b3886096b52dd87`,
+9158 bytes, `updated_at=2026-07-29 18:48:23Z`.
+
+**It did not dispatch within ~20 minutes, and the reason is not this bug.**
+Checked rather than assumed:
+
+| check | result |
+|---|---|
+| dispatch lane alive? | `build-dispatch-loop` last claimed **28 min ago** — alive, slow. (Grouped by `claimed_by`; a bare `max(claimed_at)` would have shown 168 min and blamed `diagnose-dispatch-loop`.) |
+| site eligible? | `gamesdesign.co.uk` not locked, `deployed`, **0** claimed items (so not the `NOT EXISTS` whole-site blocker), **36** dispatchable |
+| item reachable in the 5-item window? | **rank 2 of 36** (`priority 60`, behind one `nav_drift` at 30) — comfortably inside `max_items: 5` |
+
+So the item is correctly queued and correctly ranked; what it is waiting on is
+`find_dispatchable_site` picking **this** site, which is one site per tick and
+effectively arbitrary among eligible sites (WDS-002 — lowest-UUID sites can
+starve others). Nothing here is evidence about the fix either way.
+
+**[UNPROVEN AT HAND-OFF]** the live join of the two halves on a real row. What IS
+proven: the coalesce is in both running binaries, the mapping reads the column
+path, the induced-fault test covers the exact column-only shape, and all four
+stuck items' `component_id`s satisfy every clause of `load_tool`'s query. The
+single remaining question is whether `load_tool` clears on a real dispatch.
