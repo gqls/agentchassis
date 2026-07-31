@@ -97,34 +97,30 @@ So the chain is: nav tables ✅ → stored chrome ✅ → **served pages ⛔**.
    verbatim. Fixed across `6fc1ff3ed` → `30fdcfb55` → **`997c24baf`** (current). Census +
    traps in **RUNBOOK R15/R16**, register **NAV-013**. Inert until the next chassis roll.
 
-   > ### ⛔ THE ONE THING OWED: re-fire round 3 after 2026-08-01 00:00 UTC. Nothing to edit.
+   > ### ✅ COUNCIL APPROVED — round 4, 2026-07-31 19:22 UTC. Nothing owed.
    >
-   > Council `11c5c813-dfad-437e-b4a9-09c56475e8d2`, three rounds:
-   > **r1 REVISE** (5 seats, one HIGH) → **r2 REVISE** (8 approve / 2 object) →
-   > **r3 DIED ON AN ACCOUNT CAP, NOT ON MERIT.**
+   > `11c5c813-dfad-437e-b4a9-09c56475e8d2` — **APPROVED, "all reviewers approve"**,
+   > 13 reviewers, 4 abstained, `gated_by_truncation: false`, **no objection above low**.
+   > Trailer `Council-Reviewed:` carried on `8cbc02c77`; the earlier commits carry
+   > `Council-Submitted:` on the same correlation, which `098` resolves at report time.
    >
-   > ```
-   > COMPLETED | complete_invalid | failed_step = review_tooling_provenance
-   > 400 invalid_request_error: "You have reached your specified API usage limits.
-   >                             You will regain access on 2026-08-01 at 00:00 UTC."
-   > ```
+   > Four rounds: **r1 REVISE** (5 seats, one HIGH) → **r2 REVISE** (8 approve / 2 object)
+   > → **r3 DIED ON THE API USAGE CAP** at `review_tooling_provenance`, 18:58:41, not on
+   > merit → **r4 APPROVED**, re-fired unchanged at 19:15 after the owner raised the limit.
+   > *The r3 submission was re-sent byte-for-byte — no edit was needed, which is what the
+   > "read `__step_error` before touching the JSON" rule buys you.*
    >
-   > First hit fleet-wide **18:58:41**; another session's round died at
-   > `review_editquality` a minute later. **ALL LLM-backed work is down until 00:00 UTC** —
-   > councils, diagnosis loops, content generation.
+   > **Still INERT until the next chassis roll.** Not rolled by this session deliberately:
+   > two other councils were mid-round at 19:22 (`ad116b3a`, `03a5b147`, both 0 min idle)
+   > and a roll kills in-flight council and diagnosis runs (RUNBOOK R13). Whoever rolls
+   > next ships it; verify with the R11 pod-grep plus a positive control.
    >
-   > **Do NOT edit the submission** — it is complete and answers every r1/r2 objection.
-   > Re-fire it as-is: `RESUBMIT_CORR=11c5c813-dfad-437e-b4a9-09c56475e8d2
-   > ./…/097_TRIGGER_council_review_v1.sh <submission.json>`. The JSON is in this session's
-   > scratchpad; if it is gone, r1/r2's answers are recorded verbatim in `NOTES` under
-   > *"three council rounds on the authored-label fix"*.
-   >
-   > **LANDMINE:** `complete_invalid` with reviewers already fired normally means a
-   > *transient* seat fault, and `RUNBOOK_council_gate.md` says resubmit unchanged. **That
-   > is wrong for this cause** — every retry re-runs the passed seats into the same wall.
-   > Read `__step_error->>'message'` and distinguish by what it SAYS, not by the step name.
-   > Entry added to `LANDMINES.md`. And size it with `ILIKE '%usage limit%'` — `'%spending
-   > limit%'` returns 0 rows mid-outage (logged in `WRONG_CALLS.md`).
+   > **Advisories acted on, not just noted:** `editquality` flagged the one gap in the test
+   > matrix (asymmetric `Tools/ X` — behaviour right, no case pinned it) — closed in
+   > `8cbc02c77`, proven failing under a both-sides pattern. `debug_historian` flagged that
+   > this lane's `git archive HEAD | tar -x` verification is itself the documented tmpfs
+   > hazard — 1.76GB in four checkouts, deleted, `/tmp` 66% → 55%. `bug_historian`
+   > re-raised the dead twin: that is **A7**, tracked.
 
    **What the three rounds bought, beyond the verdict** — both were real defects the
    submission had, and one was worse than anything reported:

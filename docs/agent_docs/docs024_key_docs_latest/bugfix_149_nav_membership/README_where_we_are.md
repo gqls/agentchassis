@@ -274,3 +274,32 @@ later. All LLM-backed work across the fleet — reviews, diagnoses, page writing
 until then. The code is committed and I believe it's right; the reviewers' outstanding
 points are all answered in the round that was interrupted, so it only needs re-sending after
 midnight. Nothing needs rewriting.
+
+## 2026-07-31 (later evening) — approved
+
+You raised the limit, so I re-sent the review request exactly as it was — not a word
+changed — and it came back **approved by all thirteen reviewers**, with nothing raised
+above the mildest severity. It got past the very reviewer that had died on the cap an hour
+earlier, which confirms the earlier failure was the billing limit and nothing to do with
+the work.
+
+That's worth a sentence on its own: the sensible-looking reaction to a review that dies
+halfway is to assume you sent something malformed and start editing. If I had done that,
+this round would have carried changes nobody asked for and I'd never have learned the
+original was fine.
+
+Two of the mild comments were worth acting on rather than filing. One reviewer spotted the
+single gap in my test coverage — a label written "Tools/ X" with the space on only one side.
+The behaviour was already correct; I just hadn't written a test proving it, so I did. The
+other pointed out something I hadn't considered at all: the way I'd been verifying my work,
+by extracting a clean copy of the codebase into temporary space, is itself a known problem —
+that space is shared with about thirty other sessions, and I was sitting on 1.76 GB of it
+across four copies. Deleted, and the shared disk went from 66% full to 55%. A fair hit: I'd
+used that technique four times tonight without once thinking about what it cost anyone else.
+
+**One thing I chose not to do.** The fix is approved and committed but won't affect any
+website until the software is rebuilt and redeployed. I didn't do that, because two other
+sessions had reviews running at that exact moment, and a redeploy kills anything in
+progress — and those were the first jobs to get through since the outage. It'll go out with
+whoever redeploys next on a quiet moment. Approved and committed is not the same as live,
+and I'd rather say so than let it read as finished.

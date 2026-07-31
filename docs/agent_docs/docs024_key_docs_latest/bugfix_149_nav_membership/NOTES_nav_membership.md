@@ -459,3 +459,55 @@ seats that already passed and hit the same wall. Landmine written, because a 400
 and 2 are answered in full; round 3 carries those answers and needs only to be re-fired
 after 00:00 UTC on the same correlation `11c5c813-dfad-437e-b4a9-09c56475e8d2`. The
 submission JSON is ready — nothing about it needs editing.
+
+## 2026-07-31 (19:15–19:25 UTC) — round 4: APPROVED, and the cap was the only thing wrong with round 3
+
+Owner raised the API limit. Re-fired the round-3 submission **byte-for-byte** — the
+committed `SUBMISSION_149_A6_authored_label_r3.json`, no edit — on the same correlation.
+
+```
+r4 corr a5594447 | COMPLETED | complete_approved | 19:15:38 → 19:22:00
+decision: approved      decided_by: "all reviewers approve"
+13 reviewers · 4 abstained · gated_by_truncation: false · no objection above LOW
+```
+
+It cleared `review_tooling_provenance`, the exact seat that died on the cap at 18:58 — so
+the failure really was the account limit and nothing about the plan. **That is the payoff
+for reading `__step_error->>'message'` instead of assuming a `complete_invalid` meant a bad
+submission: had I "fixed" the JSON, round 4 would have carried edits nobody asked for and
+I would never have known the original was fine.**
+
+Before firing I checked whether access had actually returned and it had **not** yet
+resolved cleanly — the newest LLM call (19:05:33) was itself a usage-limit death, and the
+count had gone 2 → 3 since my last measurement. So I fired knowing it might fail, on the
+owner's word, with the failure cheap to detect. It succeeded.
+
+### The four advisories, and what I did with each
+
+- **`editquality` [low]** — `navCategorySeparator` treats whitespace on **one** side as a
+  separator (`Tools/ X`, `X /Tools`) while my rationale said "whitespace-delimited", which
+  reads as both-sides; and no case pinned either reading. The behaviour is right — an
+  asymmetric slash is the same authoring slip, and what must survive is the slash with
+  whitespace on *neither* side. **The test matrix had the gap, so I closed the gap**
+  (`8cbc02c77`), proven failing under a both-sides pattern:
+  `navLabelForPage("Tools/ Arena") = "Tools/ Arena", want "Arena"`.
+- **`debug_historian` [low]** — my `git archive HEAD | tar -x` verification is *itself* a
+  documented hazard: `/tmp` is a **16G tmpfs shared by ~30 sessions**, and I was holding
+  **1.76GB across four checkouts**. Deleted them; `/tmp` went 66% → 55%. A defensible
+  reason to avoid the dirty shared tree does not make the mechanism free, and I had used it
+  four times without once looking at the cost. *The landmine for this was already written,
+  by another lane, and I did not grep for it because I did not think of `tar -x` as a thing
+  with a footprint.*
+- **`bug_historian` [low]** — the dead twin again; that is **A7**, tracked, deliberately
+  not fixed here.
+- **`guardian` [low]** — not an objection: it recorded that the sibling audit was the right
+  blast-radius discipline and that it had no basis to contradict it from SQL alone.
+
+### Deliberately NOT rolled
+
+Two other councils were mid-round at 19:22 (`ad116b3a` at `review_render_guardian`,
+`03a5b147` at `review_reuse_agent`, both 0 minutes idle). A chassis roll kills in-flight
+council and diagnosis runs (RUNBOOK R13), and the fleet had just come off a two-hour LLM
+outage, so those rounds are the first work to complete since. The fix stays inert until
+somebody rolls on a quiet queue. **Approved and committed is not live** — that distinction
+is this repo's whole fixed-AND-live bar.
