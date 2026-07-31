@@ -3428,3 +3428,64 @@ The pattern across today's three submissions, for the record: the council's valu
 not been catching wrong code — it has been asking the absence questions I did not
 ("does anything else read this?", "does it honour locks?"). Both real finds came from
 a seat asking about something the plan *didn't* touch.
+
+## 2026-08-01 — rate limit retuned, and a landmine corpus that had never fired
+
+Owner: *"we can adjust when we get visitors, keep it roughly right for now, make
+it so it doesn't trip often."* Social previews accepted as-is, no action.
+
+**Changed:** `RATE_LIMIT_RPS 1 -> 2`, `RATE_LIMIT_BURST 5 -> 20`, via the island
+compose `environment:` block. Config only — the values are read from env
+(`config.go:45,51`), so no image build. Backed up as
+`docker-compose.yml.bak-pre-ratelimit`; the diff is 2 env lines plus comments,
+and one correction to a block comment that still named `v1.0.1178` as the current
+tag three rolls after it stopped being true. Verified `printenv` in the running
+container, then verified the *behaviour* separately — see below.
+
+**Grounded in measurement:** a record page costs exactly 1 API request, the
+gauntlet page 0 until a round starts, a full round plus publish 4 over ~90s. So
+burst is what trips; burst is what moved most.
+
+**The measurement that mattered, and nearly fooled me.** Twenty rapid reads over
+the internet returned **10 successes** against a limiter configured for burst 20.
+That reads exactly like "the config did not take". It was Cloudflare: `429`,
+`error code: 1015`, `retry-after: 9`, `server: cloudflare`, `text/plain` — ours
+is JSON. Bypassing Cloudflare (`docker exec` → `127.0.0.1:8080`) returns **20 x
+200 then 429**, which is burst 20 exactly.
+
+That is the **third** time in two days a Cloudflare refusal impersonated our own
+service — after the `403 / error code: 1010` browser-integrity check that broke
+the record-page driver. Filed as a landmine with the full table.
+
+**Consequence worth knowing: for internet traffic the binding limit is
+Cloudflare's ~10, not ours.** Our ceiling is now defence in depth. Raising it
+further would change nothing observable.
+
+### Filing that landmine exposed four that had never fired
+
+Grepping `LANDMINES.md` before filing (the lesson from yesterday's duplicate), I
+found no Cloudflare-error-code entry — but did find two written with `##`
+headings. `HEADING_RE` is `^###`, so those were not skipped: their text was
+**absorbed into the preceding entry's body**, corrupting a neighbour's row too.
+
+Fixing the headings did not make them sync. Running the parser directly rather
+than guessing showed why: `parse()` reported **4 skipped (no footprint)**.
+
+- three wrote `**footprint:**` with **no leading `- ` bullet**, which `FIELD_RE`
+  requires;
+- one used a custom label, `**footprint — SITES THAT TEST THE MARKER**`, which
+  `FIELD_RE`'s `[a-z ]+` cannot match — an entry about a defect that cost two
+  live dead controls, protecting nobody;
+- all four separated footprints with `·`, which `split_footprints` does not split
+  on (commas and semicolons only) — so even once parsed, each would have produced
+  one blob `subject_key` matching no path.
+
+Repaired: `parse()` 139 → **143 entries, 0 skipped**; `doc_notes` owned rows
+593 → **635**. The custom-labelled entry keeps its list verbatim under a clean
+parsing line — no other lane's words were rewritten.
+
+**The general point.** A landmine that does not parse is *silently* absent, and
+"the hook did not warn me" is indistinguishable from "there is no landmine here".
+The parser does warn on skipped entries, but only when a human runs it and reads
+the output — and `--apply` prints the count of rows written, which goes UP either
+way. Nothing in the pipeline treats a skipped entry as a failure.

@@ -824,3 +824,62 @@ Polling the asset after `rerender_gauntlet_vonc.sh`, the served file went
 old md5 → **`980bb347…`** (neither old nor new) → new md5. A single mid-flight
 fetch therefore looks exactly like another session having written the row. Fetch
 three times and compare `wc -c` against the file before believing it.
+
+## 20. Retuning the island rate limit — and measuring the RIGHT layer (2026-08-01)
+
+`RATE_LIMIT_RPS` / `RATE_LIMIT_BURST` are read from the environment
+(`config/config.go:45,51`, defaults `1.0` and `5`) and applied to a per-IP token
+bucket registered on the whole `/api/v1` group (`server.go:39`). **So this is a
+config change: edit compose, restart, no image build.**
+
+```bash
+ISL=root@toolsapisuk.vs.mythic-beasts.com
+ssh $ISL "cp /opt/island/docker-compose.yml /opt/island/docker-compose.yml.bak-pre-<what>"
+# edit the `environment:` block, then PROVE the edit before restarting:
+ssh $ISL "diff /opt/island/docker-compose.yml.bak-pre-<what> /opt/island/docker-compose.yml"
+ssh $ISL "cd /opt/island && docker compose config --quiet && echo PARSES"
+ssh $ISL "cd /opt/island && docker compose up -d tools-api"
+ssh $ISL "docker exec island-tools-api-1 printenv | grep RATE_LIMIT"
+```
+
+**Set 2026-08-01 to `RPS 2` / `BURST 20`** (owner: *"roughly right for now, make
+it so it doesn't trip often"*). Grounded in measurement, not taste:
+
+| what a visitor does | API requests |
+|---|---|
+| load the gauntlet page | **0** — nothing fires until a round starts |
+| load a record page | **1** |
+| play a round and publish | **4**, over ~90s |
+
+So **burst** is what trips and burst is what moved (5 → 20, ~10 records opened at
+once with headroom); RPS only doubled, because sustained rate is the abuse
+exposure and it refills those 20 tokens in 10s.
+
+### `printenv` proves the variable is SET, not that the limiter uses it
+
+And you cannot measure the app's ceiling from your desk, because **Cloudflare
+rate-limits in front of it at ~10 rapid requests** and returns its own 429. Take
+Cloudflare out of the path:
+
+```bash
+ssh $ISL "docker exec island-tools-api-1 sh -c '
+  for i in \$(seq 1 25); do wget -q -O /dev/null -S --header=\"Origin: https://vonc.com\" \
+    http://127.0.0.1:8080/api/v1/tools/gauntlet/round/<slug> 2>&1 \
+    | grep -o \"HTTP/1.1 [0-9]*\" | tail -1; done' " | sort | uniq -c
+# 20 x 200 then 5 x 429  ==  RATE_LIMIT_BURST=20, exactly.
+```
+
+Over the internet the same 25 requests give **10 x 200** — that is Cloudflare,
+`error code: 1015`, `retry-after: 9`, `server: cloudflare`. Ours is JSON
+(`{"error":"rate limit exceeded"}`). **Read the body before believing the
+status**; full table in `LANDMINES.md`, *"Cloudflare refuses in front of the
+island"*.
+
+**Consequence:** for internet traffic the binding limit is Cloudflare's, not
+ours. Raising `RATE_LIMIT_BURST` above ~10 buys nothing a visitor can observe —
+it is defence in depth. **Do not "fix" a 1015 by raising `RATE_LIMIT_BURST`.**
+
+The proper fix for the underlying design — one ceiling shared by paid 8–18s LLM
+POSTs and free public reads — is a separate, looser limit on the read route.
+That is platform code and a council round; deliberately not done for what was a
+config-sized problem.
