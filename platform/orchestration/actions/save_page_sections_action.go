@@ -289,9 +289,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			SELECT slot_name, rendered_html, content_data
 			FROM page_components
 			WHERE page_id = $1 AND build_status = 'deployed'
-			  AND (rendered_html ILIKE '%<canvas%'
-			    OR rendered_html ILIKE '%game-container%'
-			    OR rendered_html ILIKE '%tool-page%')
+			  AND `+interactiveHTMLSQL("rendered_html")+`
 		`, pageID)
 		if qErr != nil {
 			params.Logger.Warn("SavePageSectionsAction: interactive-section preload failed (Layer 2)",
@@ -445,11 +443,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	{
 		var existingInteractive bool
 		scanErr := params.DB.QueryRowContext(ctx, `
-			SELECT COALESCE(bool_or(
-				rendered_html ILIKE '%<canvas%'
-			 OR rendered_html ILIKE '%game-container%'
-			 OR rendered_html ILIKE '%tool-page%'
-			), false)
+			SELECT COALESCE(bool_or(`+interactiveHTMLSQL("rendered_html")+`), false)
 			FROM page_components
 			WHERE page_id = $1 AND build_status = 'deployed'
 		`, pageID).Scan(&existingInteractive)
@@ -1147,11 +1141,72 @@ func enrichSectionsWithComponentIDs(ctx context.Context, db *sql.DB, sections []
 // sectionHTMLIsInteractive reports whether a section's rendered HTML carries an
 // interactive tool/game. Same signal used by the blast-radius sweep, the
 // Layer 2 carry-forward, and the Layer 1 interactivity guard.
+// ── The interactivity predicate: ONE definition, two languages ──────────
+//
+// This predicate decides whether a section holds a hand-built interactive tool
+// that a rebuild must not destroy. It was previously spelled out five times —
+// four SQL OR-chains plus one Go function — which is the drift shape this
+// platform has been bitten by before (idx_swi_dedup vs workItemTerminalStatuses).
+// Both languages now derive from the slices below, and a test asserts they cover
+// the same markers.
+//
+// WIDENED 2026-07-30. The original three markers (<canvas, game-container,
+// tool-page) recognise games and marked tool pages. They do NOT recognise a
+// calculator: loancalculator.co.uk's twelve tools are <input> fields plus an
+// inline <script> using getElementById, containing none of the three. A rebuild
+// of those pages would have passed both guards and silently dropped every
+// calculator — the same silent-loss class the guards exist to prevent.
+//
+// Deliberately NOT widened to "<input> anywhere". Over-matching has a real cost
+// in the other direction: a section wrongly judged interactive is carried
+// forward verbatim and can never be improved by the writer or the improvement
+// loops, which is the opposite of what an evolving site needs. A plain contact
+// form or a newsletter box must stay editable. So a control alone is not enough
+// — it must be a control the page's own script drives.
+var (
+	// Structural markers strong enough on their own: bespoke rendering surfaces
+	// and explicit tool markup.
+	interactiveStructuralMarkers = []string{"<canvas", "game-container", "tool-page", "data-tool"}
+
+	// Interactive controls — only meaningful together with a script (below).
+	interactiveControlMarkers = []string{"<input", "<select", "<textarea", "oninput=", "onchange=", "onclick="}
+)
+
+// sectionHTMLIsInteractive reports whether the section holds an interactive tool.
+// Structural marker alone, OR a script driving a control.
 func sectionHTMLIsInteractive(html string) bool {
 	h := strings.ToLower(html)
-	return strings.Contains(h, "<canvas") ||
-		strings.Contains(h, "game-container") ||
-		strings.Contains(h, "tool-page")
+	for _, m := range interactiveStructuralMarkers {
+		if strings.Contains(h, m) {
+			return true
+		}
+	}
+	if !strings.Contains(h, "<script") {
+		return false
+	}
+	for _, m := range interactiveControlMarkers {
+		if strings.Contains(h, m) {
+			return true
+		}
+	}
+	return false
+}
+
+// interactiveHTMLSQL renders the same predicate as a SQL boolean over `col`,
+// so the queries and sectionHTMLIsInteractive cannot disagree. ILIKE gives the
+// case-insensitivity that strings.ToLower gives the Go side.
+func interactiveHTMLSQL(col string) string {
+	lit := func(m string) string { return "'%" + strings.ReplaceAll(m, "'", "''") + "%'" }
+	var structural []string
+	for _, m := range interactiveStructuralMarkers {
+		structural = append(structural, col+" ILIKE "+lit(m))
+	}
+	var controls []string
+	for _, m := range interactiveControlMarkers {
+		controls = append(controls, col+" ILIKE "+lit(m))
+	}
+	return "((" + strings.Join(structural, " OR ") + ") OR (" +
+		col + " ILIKE '%<script%' AND (" + strings.Join(controls, " OR ") + ")))"
 }
 
 // saveSectionsLookupPageID finds page UUID by site_id and page name, and

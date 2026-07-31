@@ -64,8 +64,9 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 
 	config := params.StepConfig.Config
 
-	// Extract input fields
-	inputFields := []string{"page_id", "site_id", "domain"}
+	// Extract input fields. page_name is included so a dispatch that identifies
+	// the page by name can be resolved rather than rejected — see below.
+	inputFields := []string{"page_id", "site_id", "domain", "page_name"}
 	if fields, ok := config["input_fields"].([]interface{}); ok {
 		inputFields = make([]string, len(fields))
 		for i, f := range fields {
@@ -75,10 +76,37 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 
 	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
 
-	// Get page_id
+	// Get page_id — or resolve it from (site_id, page_name).
+	//
+	// This action used to fail outright when page_id was absent, which made it
+	// brittle in a way that reads as a flaky handler rather than a malformed
+	// dispatch: the error is "page_id not found in input", it retries to
+	// attempt_count=3, and nothing names the real problem. It has cost two lanes
+	// real time (dartsonline 2026-07-29, 2 items x 3 attempts; leopardess
+	// 2026-07-30, 29 failed render_page runs over ~10 pages, all dispatched with
+	// {domain, site_id, page_name} and no page_id) and it is a documented landmine.
+	//
+	// Resolution is exact, not a guess: pages carries a UNIQUE (site_id, name)
+	// constraint (pages_site_id_name_key), so a site_id + page_name pair
+	// identifies at most one row. Sibling item types already resolve by page_name
+	// (needs_page does), which is precisely why callers keep sending it.
 	pageIDStr, _ := extracted["page_id"].(string)
 	if pageIDStr == "" {
-		return nil, fmt.Errorf("page_id not found in input")
+		siteIDStr, _ := extracted["site_id"].(string)
+		pageName, _ := extracted["page_name"].(string)
+		resolved, rErr := resolvePageIDByName(ctx, params.DB, siteIDStr, pageName)
+		if rErr != nil {
+			// Name what was actually received, so a malformed dispatch is
+			// diagnosable from the error alone rather than from a landmine file.
+			return nil, fmt.Errorf(
+				"page_id not found in input and could not be resolved (site_id=%q page_name=%q): %w",
+				siteIDStr, pageName, rErr)
+		}
+		params.Logger.Info("RerenderSinglePageAction: page_id absent, resolved from (site_id, page_name)",
+			zap.String("site_id", siteIDStr),
+			zap.String("page_name", pageName),
+			zap.String("page_id", resolved.String()))
+		pageIDStr = resolved.String()
 	}
 	pageID, err := uuid.Parse(pageIDStr)
 	if err != nil {
@@ -223,6 +251,32 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 		"page_id":   pageIDStr,
 		"page_name": pageInfo.Name,
 	}, nil
+}
+
+// resolvePageIDByName resolves a page's id from its site and name.
+//
+// Exact by construction: pages carries UNIQUE (site_id, name)
+// (pages_site_id_name_key), so this can return at most one row and never has to
+// choose. Both inputs are required — resolving on a name alone would be
+// ambiguous across sites, which is a worse failure than refusing.
+func resolvePageIDByName(ctx context.Context, db *sql.DB, siteIDStr, pageName string) (uuid.UUID, error) {
+	if siteIDStr == "" || pageName == "" {
+		return uuid.Nil, fmt.Errorf("both site_id and page_name are required to resolve a page_id")
+	}
+	siteID, err := uuid.Parse(siteIDStr)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("invalid site_id %q: %w", siteIDStr, err)
+	}
+	var pageID uuid.UUID
+	err = db.QueryRowContext(ctx,
+		`SELECT id FROM pages WHERE site_id = $1 AND name = $2`, siteID, pageName).Scan(&pageID)
+	if err == sql.ErrNoRows {
+		return uuid.Nil, fmt.Errorf("no page named %q on site %s", pageName, siteID)
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return pageID, nil
 }
 
 // loadVerbatimPageHTML returns the stored document for a page that must ship
