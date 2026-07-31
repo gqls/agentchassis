@@ -166,6 +166,19 @@ in scope" from "seven symbols dropped".
   `:208` (this bug), `:521`, `:605`. **The other two already write a marker before breaking.**
   This loop was the sole deviation from a convention its own file established twice — so the
   fix is a reuse of that convention, not a new mechanism, and needs no architecture seam.
+
+  > **CORRECTED 2026-07-31, by this bug's own council round — "three sites repo-wide" is true
+  > only for the SHAPE I greped.** The pattern keyed on `+ len(x) > cap`, which structurally
+  > cannot see a **count** cap or a **slice reslice** (the reslice form has no comparison
+  > operator at all). The `bug_historian` seat asked for exactly that complement; re-run for it,
+  > `diagnose_load_runtime_action.go:945` is a genuine fourth instance — **now
+  > `bugs_open/172`**, and it sits inside the file `bd003f67a` had cleared by name. The
+  > remaining count-shaped sites were triaged and are sound: `diagnose_route_action.go`
+  > (`:359`,`:388`,`:451`,`:466`) reports its drops, `diagnose_read_repo_files_action.go:136`
+  > fails LOUD with an error, and `diagnose_run_checks`/`diagnose_code_lookup`/
+  > `diagnose_load_runtime:454` still report as `bd003f67a` recorded.
+  > **State the pattern beside the conclusion** — see 016b §9 *"an audit clears the file it
+  > searched, not the file it read"*, which this correction is the source of.
 - **One live consumer**: `diagnose-agent` is the only active agent invoking the action; it reads
   neither `bundle.truncated` nor `bundle.symbol_count`, and does not override `max_body_chars`
   (so production runs the 60,000 default). Nothing in Go reads the flag either. The only
