@@ -285,8 +285,8 @@ func TestNoChromeSelectionHandTypesItsOwnLookup(t *testing.T) {
 // to prevent, applied to itself.
 func TestChromeLookupScanFiresOnASyntheticLine(t *testing.T) {
 	lines := []string{
-		`			WHERE function = 'site-footer' AND is_active = true`, // offender: the old link_site_components form
-		`		// WHERE function = 'site-header' ORDER BY name LIMIT 1`, // comment, must be ignored
+		`			WHERE function = 'site-footer' AND is_active = true`,                                     // offender: the old link_site_components form
+		`		// WHERE function = 'site-header' ORDER BY name LIMIT 1`,                                  // comment, must be ignored
 		"		comp, eligible, err := ResolveChromeComponent(ctx, db, ChromeSlotFunction(slot), logger)", // correct form
 	}
 	var hits []int
