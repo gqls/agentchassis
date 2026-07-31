@@ -3394,3 +3394,37 @@ checker is ever enabled.
 
 Submission tone: plain, checked mechanically (no shouted-caps runs) before firing —
 the constitution seat's round-3 objection, applied. Verdict pending on `6c5d1491`.
+
+## 2026-08-01 — guard APPROVED first round; its approval found one more real gap, now closed
+
+`6c5d1491` came back **approved in 5½ minutes**, first round, 7 approve / 5 advisory
+object — against the checker's three rounds. Two differences worth attributing: every
+load-bearing figure went in with its query output attached (the round-3 lesson), and
+the tone was plain, checked mechanically before firing (the constitution lesson).
+
+Of the five advisory objections, two were moot (the committed tests already assert
+`ExpectationsWereMet`; the doc_notes row already existed — both invisible from the
+plan sketch), one is a fair extraction follow-up (the three-store walk now exists in
+three places; recorded in doc_notes for whoever next touches the other two readers),
+and one — the name-aliasing fail-open edge — was self-disclosed in the submission and
+stands as a stated residual with `section_source_drift` as its detector.
+
+**The fifth found a real gap.** `improvement_guardian` asked whether the repair
+excludes lock-protected rows. It did not — and `lock_helpers.go:37-45` states the
+exact rule the DELETE was violating ("every automated writer's UPDATE/DELETE must use
+this fragment, not its own lock test"), on a table with **47 locked, unexpired rows
+live right now**, with `bugs_closed/058` as the named precedent. Fixed same day
+(`594b422e7`, corr `57885d11`, verdict pending): the canonical expiry-aware predicate
+rides the existing FOR UPDATE load as a column; a locked row is never a victim; a
+locked keeper still sheds its writable twin; skips are reported and the no-op detail
+now distinguishes clean / plan-specified / lock-protected.
+
+Scope note recorded rather than fudged: the detect half stays lock-blind because the
+predicate is unexported in `actions` and `discovery_checks` cannot import it without a
+cycle — inlining a copy is the drift the single-source rule exists to prevent. The
+consequence is a visibly looping item whose result names its cause, not content loss.
+
+The pattern across today's three submissions, for the record: the council's value has
+not been catching wrong code — it has been asking the absence questions I did not
+("does anything else read this?", "does it honour locks?"). Both real finds came from
+a seat asking about something the plan *didn't* touch.
