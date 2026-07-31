@@ -139,3 +139,110 @@ wrong, `cp` fails, mutations ACCUMULATE, and M3 is measured on top of M1+M2 — 
 tests still fail, so it looks like it worked. Attribution is the entire point.
 Check the restore actually happened (`grep -c` the mutated string), and re-run the
 baseline at the end: it must come back green.
+
+## Inducing the floor live (site A recipe — both branches, 2026-07-31)
+
+**A green run proves nothing: the floor is inert on healthy input by design.** The
+only proof is to induce the fault, watch the refusal, confirm nothing was deleted,
+clear the induction, and watch a normal run pass.
+
+### Prove the code is actually in the pod FIRST
+
+```bash
+kubectl -n ai-persona-system exec <pod> -- sh -c '
+  strings /app/agent-chassis | grep -c "returned too few sections to replace what is stored"   # mine
+  strings /app/agent-chassis | grep -c "wanted to %s locked section"'                          # control
+```
+
+Both replicas, one exec each, marker AND a control invariant under your own diff.
+
+**Gotcha — a fix with no string literal cannot be pod-grepped.** The
+`recurrenceExpected` fix was a struct field and a control-flow change: nothing
+lands in rodata. Date it instead against a neighbouring commit that DID add a
+string — if a literal from a commit made *after* yours is present, and the build
+comes from committed HEAD, yours is an ancestor and is in.
+
+### Induce by inflating the PLAN, not by adding rows
+
+```sql
+-- save the exact baseline first; you will restore it verbatim
+SELECT sections::text FROM pages WHERE id='<page>';
+UPDATE pages SET sections = sections || '["i1","i2",...]'::jsonb WHERE id='<page>';
+```
+
+**Gotcha — the obvious induction does not work.** Adding synthetic
+`page_components` rows to inflate the *stored* side fails, because
+`rerender_page_sections` loads ALL rows for the page and regenerates from them:
+the synthetic rows inflate the numerator too and the ratio stays 1.0. Inflating
+`pages.sections` is both effective and safer — one jsonb column, no content.
+
+### Getting the trigger to actually REACH save_page_sections
+
+Four gates sit in front of it. All four cost a firing:
+
+1. `input_data.spec.reason` must be `image_landed`, `section_data_resolved` or
+   `cta_links_stale` — otherwise `check_rerender_mode` routes to `render_page` and
+   the section path never runs.
+2. `input_data.spec.page_name` must be set — page-rerender's `save_sections`
+   config reads `page_name_field: input_data.spec.page_name`, and without it the
+   action returns `{"skipped": true, "reason": "no page name"}` **before every
+   guard**, which looks exactly like a pass.
+3. The page must not escalate. `rerender_page_sections` escalates the whole page
+   if any section's `content_data` is missing a schema-required `source:"llm"`
+   field — **not** merely if it is NULL. Find a page that passes by mirroring
+   `missingRequiredLLMFields` in SQL:
+
+```sql
+WITH fld AS (
+  SELECT pc.page_id, f.key AS field, f.value->>'source' AS src,
+         (f.value->>'required')::boolean AS req, pc.content_data -> f.key AS val
+  FROM page_components pc JOIN content_components c ON c.id = pc.component_id,
+  LATERAL jsonb_each(COALESCE(c.input_schema->'fields', c.input_schema)) AS f
+  WHERE jsonb_typeof(COALESCE(c.input_schema->'fields', c.input_schema))='object')
+SELECT DISTINCT page_id FROM fld
+WHERE src='llm' AND req IS TRUE
+  AND (val IS NULL OR val='null'::jsonb OR val::text IN ('""','[]','{}'));  -- EXCLUDE these
+```
+
+4. `rebuild_policy='owned'` pages are refused ~370 lines earlier.
+
+### Publish so the message actually goes
+
+Payload in the container COMMAND with a `PUBLISH_OK` marker — `kubectl run -i |
+kcat -P` loses ~4 of 5 at exit 0:
+
+```bash
+kubectl -n kafka run "kcat-$(date +%s)-$RANDOM" --rm --restart=Never \
+  --image=edenhill/kcat:1.7.1 --attach=true --quiet --command -- sh -c \
+  "printf '%s' '<JSON>' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+   -t system.agent.generic.requests -H correlation_id=<uuid> ... && echo PUBLISH_OK"
+```
+
+### Read the result
+
+```sql
+SELECT status, current_step FROM orchestration_states WHERE orchestration_id='<orch>';
+SELECT jsonb_pretty(collected_data->'save_sections') FROM orchestration_states WHERE orchestration_id='<orch>';
+```
+
+Refusal → `FAILED @ save_sections`, and the reason is in the chassis log
+(`REFUSED for page`), NOT in `__step_error`. Pass → `completeness_status: passed`
+with both cohorts in `completeness_cohorts`.
+
+**Then prove nothing was deleted** — compare md5s to the baseline you took:
+
+```sql
+SELECT slot_name, position, md5(COALESCE(content_data::text,'')) AS cd_md5, updated_at
+FROM page_components WHERE page_id='<page>' ORDER BY position;
+```
+
+### Clean up, and check you did
+
+```sql
+UPDATE pages SET sections='<exact baseline json>'::jsonb WHERE id='<page>';
+SELECT count(*) FROM pages WHERE sections::text ~ '"i1"|"induced-';  -- must be 0
+```
+
+**Gotcha:** restore the plan on EVERY page you touched, including ones you
+abandoned mid-way. Two of my four attempts were dead ends on other pages and both
+were left inflated until I swept for the marker.

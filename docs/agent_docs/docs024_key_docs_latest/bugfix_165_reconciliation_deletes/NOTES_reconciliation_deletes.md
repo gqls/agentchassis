@@ -182,3 +182,109 @@ own measurement**, that repeats the mistake 165 was filed to stop.
 `item_type` already exists under another name, and `guardian` noted it has no
 record of the 2026-07-29 owner ruling cited in the risks (it is in CLAUDE.md,
 verifiable by any thread).
+
+## 7. LIVE INDUCTION — both branches proven on v1.0.1223 (2026-07-31 ~22:20 BST)
+
+**Provenance first, because a roll is not evidence.** Both replicas pod-grepped in
+one exec each: three markers my change added (`save_refused_incomplete` ×2,
+"returned too few sections to replace what is stored", "completeness floor could
+not be measured") plus two controls invariant under my own diff (a `lock_helpers`
+literal and 135's `index_code_symbols: prune REFUSED`). All present on both.
+
+The second commit (`bb51f5c6e`, `recurrenceExpected`) added **no string literal**,
+so it is invisible to a pod-grep — a real provenance hole. Closed indirectly: the
+binary carries a literal from `9cc63c775` (committed 20:37 BST), which POSTDATES
+`bb51f5c6e` (20:33 BST), and since `make build-*` builds from committed HEAD, my
+fix is necessarily an ancestor of what was built. Worth remembering — **a fix
+consisting only of a struct field or a control-flow change cannot be pod-grepped
+for directly; you have to date it against a neighbouring commit that did add a
+string.**
+
+### Four dead ends before the guard could even be reached
+
+The induction itself was easy; *arriving* at `save_page_sections` took five
+firings. Recorded because the next person converting sites B and C will hit the
+same wall:
+
+1. **`check_rerender_mode` skipped the whole section path.** A plain page-rerender
+   goes `check_rerender_mode → render_page` (assemble stored HTML) and never
+   touches `save_sections`. The sections path needs
+   `input_data.spec.reason ∈ {image_landed, section_data_resolved, cta_links_stale}`.
+2. **`check_escalated` stopped it before `save_sections`.** `rerender_page_sections`
+   escalates the WHOLE page to the writer if any section's `content_data` is
+   missing a schema-required `source:"llm"` field. Two candidate pages escalated.
+   The condition is NOT "content_data IS NULL" — I had to mirror
+   `missingRequiredLLMFields` in SQL to find a page that would pass.
+3. **`save_page_sections` returned `{"skipped": true, "reason": "no page name"}`** —
+   it bails at the top, before every guard including mine, when it cannot resolve
+   the page name. page-rerender's config reads `input_data.spec.page_name`, which
+   a hand-fired payload does not carry.
+4. **My first induction idea was structurally wrong.** I planned to add synthetic
+   `page_components` rows to inflate the *stored* side. But
+   `rerender_page_sections` loads ALL rows for the page and regenerates from them,
+   so synthetic rows inflate the numerator too and the ratio stays 1.0 — the floor
+   would never have fired. This is "a repro is destroyed by the render" in a new
+   costume. Inflating `pages.sections` instead is what works, and it is also
+   safer: it touches one jsonb column and no content.
+
+### The results
+
+**REFUSAL branch** — plan inflated 7 → 20, so a healthy 7-section rebuild scores
+35%:
+
+```
+orchestration: FAILED @ save_sections
+save_page_sections: overwrite: REFUSED for page "enterprise-reference-deployment"
+  — this run re-confirmed too little of what is stored (prune_floor_ratio=0.50):
+  planned sections 35% (7 of 20). NOTHING was deleted; …
+site_work_items: save_refused_incomplete | needs_human_review | high
+page_components: all 7 rows byte-identical to baseline (md5 + updated_at 2026-07-27)
+```
+
+**Three things that only a live run could establish:**
+
+- **The PLAN cohort is what refused. The rows cohort read 7 of 7 = 100% and
+  passed.** That is the ratchet scenario, live: with only the row cohort — the
+  obvious single-cohort design — this run would have been waved straight through.
+  The second cohort is not belt-and-braces; it is the one that fired.
+- **`recurrenceExpected` works.** The item landed as `needs_human_review`, not
+  branded `unresolved`. That is the four-seat council objection, closed with
+  evidence rather than with a unit test alone.
+- **The `guardian` seat's open question is ANSWERED: the consumer treats it as
+  fatal.** page-rerender has no `error_step` on `save_sections`, and the
+  orchestration went to **FAILED**, not `COMPLETED`. So the refusal genuinely
+  stops the pipeline rather than adding a row nobody reads. That was the one
+  thing I could not answer from config, and it is now answered for this consumer.
+  **Still unmeasured for the other five** — see the bug file.
+
+**PASS branch** — plan restored to 7, re-fired:
+
+```
+orchestration: COMPLETED
+completeness_status: passed   sections 100% (7 of 7), planned sections 100% (7 of 7)
+sections_saved: 7             writable_rows: 7   planned_sections: 7   locked_rows: 0
+```
+
+The numbers are reported on the SUCCESSFUL save, which was candidate (3) of 135 —
+the denominator published beside the count, so `orchestration_states` can answer
+"was that rebuild thin?" after the fact.
+
+Cleanup verified: all three pages I touched restored to their exact baseline
+plans, row counts unchanged, and **0 pages fleet-wide carry a stray induced
+marker**.
+
+### A DEFECT THE INDUCTION EXPOSED, not yet fixed
+
+The refusal text ends: *"the rows this run did not confirm are retained and a
+later run that sees the whole corpus will prune them."* **That sentence is false
+at this call site.** It is inherited verbatim from `prune_floor.go`'s shared
+`Reason()`, where it is true — 135 refuses only the prune, so a later healthy run
+does clean up. Here the WHOLE SAVE is refused, nothing is pruned later, and the
+page simply does not get rebuilt until someone acts. An operator reading it could
+reasonably conclude the situation self-heals. It does not.
+
+Not fixed in this pass **deliberately**: the sentence lives in the shared rule, so
+changing it changes 135's message too, and making the clause caller-supplied is a
+signature change to a shared mechanism — exactly the class CLAUDE.md says to route
+on its own merits rather than ride along inside a bug fix. Filed as a follow-up in
+`bugs_open/165`.

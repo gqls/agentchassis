@@ -61,7 +61,7 @@ which is now guarded):
 
 | # | site | delete | stakes |
 |---|---|---|---|
-| A | `save_page_sections_action.go:532` | `DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` | **HIGH — real content, lost before.** GUARDED 2026-07-31 (`ecf738002`); open until induced live |
+| A | `save_page_sections_action.go:532` | `DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` | **HIGH — real content, lost before. DONE: guarded, live on v1.0.1223, BOTH BRANCHES INDUCED 2026-07-31** |
 | B | `populate_nav_tables_action.go:147,150` | `DELETE FROM site_nav_items WHERE site_id = $1` then `site_nav_groups` | medium — regeneratable, but a partial nav is served |
 | C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable |
 | — | `code_symbols_actions.go` | guarded 2026-07-31 (`bugs_closed/135`) | — |
@@ -131,16 +131,42 @@ None of that argues the work should not happen — only that it is its own work.
 
 ## How to verify, when someone does it
 
-**For site A, the acceptance test has an EXTRA question the council raised and
-nobody has answered** (`guardian`, medium, round `a54172b6`): does a failed
-`save_page_sections` step actually stop the six consumers, or do they swallow it
-and mark the orchestration complete? A refusal the pipeline reports as `complete`
-adds a row nobody reads. What is visible from config is not enough to decide —
+> **SITE A IS DONE — both branches induced in production 2026-07-31 on
+> v1.0.1223.** Refusal: plan inflated 7→20, orchestration went **FAILED @
+> save_sections**, `planned sections 35% (7 of 20)`, work item written
+> `needs_human_review`, and **all 7 rows byte-identical to baseline — nothing
+> deleted**. Pass: plan restored, `COMPLETED`, both cohorts 100%, 7 sections
+> saved, numbers reported on the successful save. Full account, including four
+> dead ends before `save_page_sections` could even be reached, in the lane's
+> NOTES §7; the induction recipe is in its RUNBOOK.
+>
+> **The PLAN cohort is what refused — the rows cohort read 7 of 7 = 100%.** The
+> obvious single-cohort design would have waved that run straight through. This
+> is the ratchet, demonstrated live rather than argued.
+>
+> **`guardian`'s question is ANSWERED for one consumer and still open for five.**
+> page-rerender has no `error_step` on `save_sections` and the orchestration went
+> to FAILED, so the refusal genuinely stops the pipeline. **Unmeasured for
+> page-build-handler, pageflow-builder, page-rebuild, site-work-orchestrator and
+> tool-recreation-handler** — if any of those swallows a step error and marks the
+> run complete, the refusal there is a row nobody reads. Worth one induction each.
+>
+> **FOLLOW-UP, deliberately not done here: the refusal text lies at this call
+> site.** It ends *"the rows this run did not confirm are retained and a later run
+> that sees the whole corpus will prune them"* — true for 135, which refuses only
+> the prune, and FALSE here, where the whole save is refused, nothing is pruned
+> later, and the page simply is not rebuilt until someone acts. An operator could
+> reasonably read it as self-healing. The sentence is in `prune_floor.go`'s shared
+> `Reason()`, so fixing it (a caller-supplied "what happens next" clause) is a
+> signature change to a shared mechanism and belongs on its own merits, not
+> riding inside a bug fix.
+
+**How the guardian's question was answered, for whoever repeats it on B and C**
+(`guardian`, medium, round `a54172b6`): config alone cannot decide it —
 `page-build-handler` has `error_step: mark_item_failed`, `page-rerender` and
-`tool-recreation-handler` have none, and the other three nest the step inside a
-loop where a top-level census cannot see it. **The induction below answers it
-empirically: induce the refusal, then check whether the orchestration row reports
-failure or reports complete.** Do that before closing site A.
+`tool-recreation-handler` have none, and three nest the step inside a loop where a
+top-level census cannot see it. **Induce the refusal and read the orchestration
+row's status.** That is the only thing that settles it.
 
 The same bar 135 was held to: **a green run proves nothing.** The floor is inert
 on healthy input by design. Induce the fault (write a page with a deliberately
