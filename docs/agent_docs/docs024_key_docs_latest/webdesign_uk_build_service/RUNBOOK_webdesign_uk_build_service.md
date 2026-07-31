@@ -236,3 +236,104 @@ record and will overwrite anything staged now.
 Everything operational — provisioning the box, the engine build, Stripe test
 mode, the preview vhost. Those arrive with P1; this file gets them then, not
 before.
+
+---
+
+## Cloudflare: a 302 holding redirect for a domain with no site yet
+
+**Why 302 and not 301.** A 301 is cached by browsers close to permanently and is
+**not reliably flushable** — you cannot make a visitor forget it. webdesign.uk's
+redirect is temporary by definition (it is deleted the day P1 ships), so a 301
+would strand returning visitors on webdesign.co.uk after launch. Cloudflare
+defaults this field to 301; **change it.**
+
+### Steps (Cloudflare dashboard)
+
+1. Select the **`webdesign.uk`** zone → **Rules** → **Redirect Rules** →
+   **Create rule**.
+2. Name it something that says it is temporary, e.g. `holding — delete at P1`.
+3. **If incoming requests match** → **All incoming requests** (simplest; covers
+   apex and any hostname in the zone). Use a custom expression
+   `(http.host eq "webdesign.uk")` only if `www` needs different treatment.
+4. **Then… Take action** → **URL redirect**
+   - Type **Static**
+   - URL `https://webdesign.co.uk/`
+   - Status code **302 (Found)** ← the field that defaults to 301
+   - Preserve query string **off** (the target is a different site)
+5. Deploy.
+
+### The DNS half — do NOT skip it
+
+A Redirect Rule only fires if the request reaches Cloudflare, so the hostname
+**must have a proxied (orange) record**. But it must not keep pointing at a real
+box:
+
+| record | value | proxy |
+|---|---|---|
+| `webdesign.uk` A | **`192.0.2.1`** | orange |
+| `www` A | `192.0.2.1` | orange |
+
+**`192.0.2.1` is TEST-NET-1 — reserved for documentation and never routable.** The
+redirect is served at Cloudflare's edge and the origin is never contacted, so the
+address only has to exist for the record to be proxiable.
+
+**Gotcha, and this is the whole reason for the dummy address:** leaving the record
+on a real box means the redirect is the *only* thing preventing that box being
+served under this hostname. Disable the rule, mis-scope its expression, or hit a
+path it does not match, and the origin answers again. On 2026-07-31 that origin was
+idea.uk's live shop, which serves under **any** hostname (no `Host` validation) and
+would take a real payment. **Fail closed: point it at an address that cannot
+answer.**
+
+### Verify from outside
+
+```bash
+curl -sS -o /dev/null -D- -m 15 https://webdesign.uk | grep -iE '^HTTP|^location'
+# want: HTTP/2 302   and   location: https://webdesign.co.uk/
+```
+
+**Gotcha:** test in a private window or with `curl`, never in a browser you have
+already loaded the domain in — if you visited it while a 301 was live, your own
+browser will keep redirecting and you will "verify" a rule that is not running.
+
+**Fallback if Redirect Rules are unavailable on the plan:** a **Page Rule** with
+*Forwarding URL* → **302** does the same job. Older mechanism, smaller free quota.
+
+## Cloudflare: wildcard previews on ugg2.com
+
+**Measured 2026-07-31 21:58 — the apex is wired to the bucket and the wildcard is
+NOT there:**
+
+```bash
+$ curl -sS https://ugg2.com
+{"error":"B2 returned error","objectKey":"ugg2.com/index.html","status":404, ...}
+$ dig +short A test.ugg2.com    # -> empty
+$ dig +short A acme.ugg2.com    # -> empty
+```
+
+The apex reaching the Worker proves the **route** works for `ugg2.com`; it says
+nothing about subdomains. A proxied wildcard record would return CF anycast
+addresses for *any* subdomain, so **empty means the record does not exist**.
+
+Two things are needed, and they are separate systems — either alone looks broken:
+
+1. **DNS:** a record with name `*` (A or CNAME, same target as the apex),
+   **Proxied (orange)**. Grey ⇒ certificate warnings on every preview.
+2. **Worker route:** add `*.ugg2.com/*` alongside the existing `ugg2.com/*`. A
+   route for the apex does **not** match subdomains.
+
+Then the test that settles PLAN §6a claim (B):
+
+```bash
+# upload an object at key  test.ugg2.com/index.html  in the bucket, then:
+curl -sS -o /dev/null -D- https://test.ugg2.com/ | head -3     # want 200
+curl -sS https://test.ugg2.com/ | head -c 120                  # want your file
+```
+
+**Gotcha:** if it 404s, read the `objectKey` in the JSON body before assuming the
+wildcard failed — it tells you exactly which key was looked for, so a key/filename
+mismatch is distinguishable from a routing miss. Those are different failures with
+different fixes.
+
+**Gotcha:** Universal SSL covers **one label** — `acme.ugg2.com` is covered,
+`a.b.ugg2.com` is not. Keep preview slugs single-label.
