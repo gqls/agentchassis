@@ -15167,3 +15167,24 @@ assertion in prose.
   in this file with the same skeleton — **a check that produces no output on success cannot be
   distinguished from a check that did not happen, so the thing you must verify is that it RAN,
   not that it was quiet.**
+
+- **I sized a per-site corpus with two sibling LEFT JOINs and read the cartesian product as a
+  count.** Choosing the cohorts for `bugs_open/165` site B, I needed nav items per site, and
+  wrote `FROM sites s LEFT JOIN site_nav_groups g ON g.site_id=s.id LEFT JOIN site_nav_items i
+  ON i.site_id=s.id … count(i.id) AS items`. It returned leopardessconsulting 92, finetuning 75,
+  ai-agent-orchestration 72 — against a whole-table total of **184 rows across 16 sites**. Every
+  figure was items × groups: leopardess is 4 groups × 23 items = 92. **Two child tables joined
+  off the same parent multiply each other**, and neither `count()` nor the row-per-site shape
+  gives any sign of it — the output looked exactly like a table of counts, which is why I
+  carried it into the next query before noticing.
+  What caught it: the per-site numbers summed to far more than the total I had measured *in the
+  same batch* moments earlier. Had I not happened to take that total, the wrong denominators
+  would have gone straight into the cohort design — and a denominator inflated by a factor of
+  the group count makes a completeness floor read as passing when it should refuse, which is the
+  one direction this particular guard must not be wrong in.
+  **The cheap check: never aggregate across two sibling joins — put each child in its own
+  scalar subquery** (`(SELECT count(*) FROM site_nav_items i WHERE i.site_id=s.id)`), which
+  cannot fan out. And when a query returns per-group figures, **assert them against the
+  ungrouped total in the same run**; the disagreement is the only tell there is.
+  Sibling of the counting entries already here, but a distinct mechanism: those are about a
+  filter narrowing what you counted, this is about a join *inventing* rows you never had.
