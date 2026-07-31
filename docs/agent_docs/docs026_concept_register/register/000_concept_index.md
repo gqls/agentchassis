@@ -1,6 +1,8 @@
 # Concept Index — master register
 
-1,685 concepts across 109 category register files (**recounted 2026-07-31**; the
+1,686 concepts across 109 category register files (**re-taken from the grep 2026-07-31
+after DES-081 landed** — not incremented from the 1,685 that was sitting here, per this
+line's own rule; the
 headline had already drifted 1 behind again by that evening, before PBP-025 was
 added — and it moved again minutes later when TL-036 landed, and again when DOC-070
 landed that evening: its author watched this very line go 1,683 → 1,684 under them
@@ -1838,6 +1840,7 @@ an ID prefix, or a status word.
 | DBG-005 | Claimed-item-timeout evidence-based auto-completion (false-positive family) | partial | v1→v2 fix history for false-completing stuck claims; homepage zero-component incident | debugging.md |
 | CH-004 | Companies House matching cascade (revised 7-tier signal architecture) | partial | v2 plan: 7 tiers incl. website-scrape and corporate-group mapping, targets 70-90% match | companies-house-enrichment.md |
 | DES-052 | `analyze_design` requires structured palette.reference_values (else the LLM invents a palette) | deployed | webdesign-agent's `analyze_design` LLM step reads colours only from `design_intent.palette.reference_values`,... | design-composition.md |
+| DES-081 | `data-hcc-carousel` opt-in carousel hook (shared snippet + info-card-grid `carousel` flag) | deployed | A two-part opt-in seam letting any section component present a single-row scrolling card track driven by the existing... | design-composition.md |
 | IMG-013 | flattenImageryBlock write path + lock transfer (Phase 2G.2) | deployed | write_site_plan inserts site_plan_imagery rows and transfers HITL locks across replans. | imagery.md |
 | DEV-037 | Whole-blob input_data passthrough mapping (anti-pattern) | superseded | {"input_data":"input_data"} double-nests the caller's data; replaced by explicit per-field mapping. | development-guide.md |
 | DEV-002 | Canonical field-path resolution helpers (datahelpers) vs duplicated resolvers | partial | ~18 near-duplicate dot-path resolvers exist; datahelpers.ExtractNestedField etc. are canonical. | development-guide.md |

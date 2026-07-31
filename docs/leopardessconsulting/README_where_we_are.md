@@ -767,3 +767,82 @@ check of mine reported zero when the real answer was twelve, each time because I
 written the search pattern slightly wrong rather than because anything was broken. I
 caught all three by having the check print the number it measured rather than just a
 pass or fail, which is the habit I would keep from today.
+
+---
+
+## 31 July 2026 — the two service blocks are carousels, and six links that were never links now work
+
+Both blocks on the services page now scroll. The first one, "What the platform does", is the
+same carousel style we use on fundamentallyai.com — six cards you can page through with
+arrows, each with its own image, each opening in place to reveal the rest of its sentence.
+The second, "Systems That Run, Record, and Report", keeps exactly the cards you had; they
+just sit in one scrolling row now instead of wrapping onto two lines, with the same arrows.
+
+**On the broken links, the truth is slightly worse and slightly better than it looked.**
+They were not broken links. They were not links at all. Every one of the six pointed at a
+page under `/services/` that has never existed on this site — a monitoring page, an
+orchestration page, and four more. The platform noticed that before publishing, and it has a
+sensible rule for it: if a link points nowhere, strip the link and keep the words. So what
+reached the page was the words "See how it works" and a little arrow, sitting in the card
+with nothing to click. Six times. That is why it read as broken rather than giving you a
+404 — the safety net caught it, and the safety net looks like this when it fires.
+
+Each of the six now points at a page that genuinely describes it: three to "What we have
+built" (which covers the news engine, the Companies House pipeline and the tool generator,
+each in its own section), two to the technical architecture page, one to how it works. I
+checked all of them return a real page first, and I checked whether I could link to the
+specific section within each page rather than the page as a whole — I can't, because none of
+our pages emit the anchors that would need. That is a separate small job if you want it.
+
+**Three other things were wrong on that page and are now fixed.**
+
+The invented tool you clicked on back on the 18th — the "Monitoring Coverage Gap Finder" —
+was still mentioned three more times. It was cleaned out of the links back then, but it had
+also been written into the body text in three places, and the platform's link-checking only
+looks at actual links. A dead address typed out as ordinary prose is invisible to it. All
+three are gone.
+
+The "Get in touch" button at the bottom of that page was not a button. Neither was the one
+next to it. Both had their wording set but no destination, and the template quite reasonably
+declines to draw a button that goes nowhere — so it drew nothing, and the result looks like
+a deliberate design choice rather than a fault. They both work now, one to the contact page
+and one to the ROI estimator.
+
+And a number was wrong. The page claimed the platform had produced "more than 90,790"
+decision records, "every one of them readable after the fact". The first half was measured
+honestly a fortnight ago; the problem is that the table it was counted from is emptied every
+day, so the number was never a running total and the records are not all still readable.
+When I looked, it held 2,364. Our own claim-checking system had already spotted this on the
+26th and flagged it for a human — nobody picked the flag up, so it stayed on the site for
+another five days. I have replaced it with what is actually true and durable. Same story,
+less dramatically, for several other figures, all of which had grown: nine sites is really
+fifteen, and the agent catalogue is 190 rather than 157.
+
+**One thing I got wrong myself, and caught before it went out.** The page listed six AI
+providers we can use. I checked it the lazy way — searched the code for each provider's name,
+found six matches, and wrote down that five of them worked. Then I happened to read a warning
+note we'd written to ourselves months ago, two entries below the thing I was actually looking
+up, which said in plain words that only two providers worked and that one of the six was a
+model rather than a provider. It was right and I was wrong. Three work today: Anthropic,
+Google Gemini, and our own self-hosted setup. Finding a name in the code proves the name is
+in the code; it does not prove the thing runs. The page now says three.
+
+**How much of this I actually proved rather than assumed.** The awkward part of this platform
+is that a component can look perfect in the database and do nothing in a browser. So I drove
+the finished page in a real browser and clicked the arrows, then deliberately broke the code
+two different ways to check my test could still fail — once by switching off the script
+entirely, once by undoing just the single line I'd changed. The first killed both carousels;
+the second killed only the new one, which is how I know the new one works because of that
+line and not by accident. Twice during that my test told me something was broken when it
+wasn't, both times because of how I was measuring rather than what I was measuring, and both
+times the deliberately-broken version is what exposed it.
+
+**Worth flagging for a decision.** To make the second block scroll, I had a choice between
+copying the card component just for this site or adding an optional setting to the shared
+one. I added the setting — partly because our own notes warn that a copied section component
+gets silently reverted the next time a page rebuilds, which would have had the carousel
+mysteriously vanishing. That component is used on eighteen pages across nine of our sites, so
+before touching it I proved that all eighteen render byte-for-byte identically unless they
+explicitly ask for the carousel. None of them does. The arrows themselves reuse a carousel
+script we already had — which, it turns out, had never actually run on any site, ever. This
+is its first outing, which is another reason I insisted on clicking the arrows myself.

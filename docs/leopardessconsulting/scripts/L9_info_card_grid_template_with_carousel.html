@@ -1,0 +1,326 @@
+<style>
+  .info-card-grid-section {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background);
+    color: var(--color-text);
+  }
+
+  .info-card-grid-section .info-card-grid__inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+
+  .info-card-grid-section .info-card-grid__header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .info-card-grid-section .info-card-grid__eyebrow {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .info-card-grid-section .info-card-grid__title {
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0 0 1rem;
+    line-height: 1.2;
+  }
+
+  .info-card-grid-section .info-card-grid__subtitle {
+    font-size: 1.0625rem;
+    color: var(--color-text-muted);
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .info-card-grid-section .info-card-grid__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .info-card-grid-section .info-card-grid__card {
+    background: var(--color-card-bg, var(--color-surface));
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius, 0.5rem);
+    padding: 2rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    box-shadow: var(--shadow, 0 2px 8px rgba(0,0,0,0.06));
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .info-card-grid-section .info-card-grid__card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow, 0 6px 20px rgba(0,0,0,0.1));
+  }
+
+  .info-card-grid-section .info-card-grid__card-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    background: var(--color-surface-alt, var(--color-surface));
+    border-radius: var(--border-radius, 0.5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.375rem;
+    flex-shrink: 0;
+    border: 1px solid var(--color-hairline, var(--color-border));
+    overflow: hidden;
+  }
+
+  /* An icon IMAGE is line art drawn dark-on-light, so its chip is painted
+     light and the artwork sits on it as a chip. This is a matched pair — the
+     literal is chosen for the artwork it holds, not inherited from a theme
+     that may be dark. Cards with only an emoji `icon` are untouched. */
+  .info-card-grid-section .info-card-grid__card-icon--img {
+    background: var(--color-icon-chip-bg, #EEF2F8);
+    padding: 0.3rem;
+  }
+  .info-card-grid-section .info-card-grid__card-icon-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .info-card-grid-section .info-card-grid__card-title {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .info-card-grid-section .info-card-grid__card-body {
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    line-height: 1.65;
+    margin: 0;
+    flex-grow: 1;
+  }
+
+  .info-card-grid-section .info-card-grid__card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    min-height: 44px;
+    padding: 0.25rem 0;
+    transition: color 0.2s ease;
+    margin-top: auto;
+  }
+
+  .info-card-grid-section .info-card-grid__card-link:hover {
+    color: var(--color-primary-hover, var(--color-primary));
+    text-decoration: underline;
+  }
+
+  .info-card-grid-section .info-card-grid__card-link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .info-card-grid-section .info-card-grid__card-link-arrow {
+    font-style: normal;
+    transition: transform 0.2s ease;
+  }
+
+  .info-card-grid-section .info-card-grid__card-link:hover .info-card-grid__card-link-arrow {
+    transform: translateX(3px);
+  }
+
+  @media (max-width: 768px) {
+    .info-card-grid-section {
+      padding: 3rem 1.25rem;
+    }
+
+    .info-card-grid-section .info-card-grid__grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .info-card-grid-section .info-card-grid__card {
+      padding: 1.5rem 1.25rem;
+    }
+
+    .info-card-grid-section .info-card-grid__header {
+      margin-bottom: 2rem;
+    }
+  }
+</style>
+{{if $.carousel}}<style>
+  /* OPT-IN CAROUSEL LAYOUT — emitted only when content_data sets carousel:true.
+     Everything in this block, and every `data-hcc-*` attribute in the markup
+     below, sits behind a conditional guard on that one flag. An instance that
+     does not set it renders BYTE-IDENTICALLY to the pre-carousel template,
+     which is the whole point: this component has 18 instances across 9 sites
+     and none of the other 17 asked to become a carousel.
+
+     Do NOT write template syntax inside a comment in this file. Go's parser
+     does not know what a CSS comment is: a literal conditional written out in
+     prose here opens an action that never closes, the parse fails, and
+     RenderTemplateReportingMissing does not surface that — it falls back to a
+     regex renderer, so the page ships MANGLED rather than erroring. The first
+     draft of this very comment did exactly that. */
+
+     Spacing is named LOCALLY with literal fallbacks. Do NOT reach for
+     --spacing-xl / --spacing-lg / --spacing-md: --spacing-section is the only
+     --spacing-* custom property that exists fleet-wide, and an undefined var()
+     with no fallback makes the whole declaration invalid at computed-value
+     time, so the padding computes to 0 rather than to something small. That
+     failure is invisible in the stored CSS and reads as a deliberate
+     edge-to-edge design. (Measured on fundamentallyai.com, 2026-07-30.) */
+  .info-card-grid-section {
+    --icg-track-gap:  1.5rem;
+    --icg-arrow-size: 44px;
+  }
+
+  /* A carousel at EVERY width: grid-auto-flow stays `column` always, so the
+     cards never wrap to a second line. Only the column width changes at wider
+     viewports, which is what lets more cards share the single row. */
+  .info-card-grid-section .info-card-grid__viewport { position: relative; }
+
+  .info-card-grid-section .info-card-grid__grid--carousel {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-auto-columns: minmax(min(20rem, 82vw), 1fr);
+    gap: var(--icg-track-gap);
+    align-items: stretch;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    padding-bottom: 0.75rem;
+    scrollbar-width: thin;
+  }
+
+  .info-card-grid-section .info-card-grid__grid--carousel > .info-card-grid__card {
+    scroll-snap-align: start;
+    min-width: 0;
+  }
+
+  /* translateY on hover lifts the card out of its snap position mid-scroll on
+     a touchpad, which reads as a jitter. The grid layout keeps the lift. */
+  .info-card-grid-section .info-card-grid__grid--carousel > .info-card-grid__card:hover {
+    transform: none;
+  }
+
+  @media (min-width: 60rem) {
+    .info-card-grid-section .info-card-grid__grid--carousel {
+      grid-auto-columns: minmax(17rem, 1fr);
+    }
+  }
+
+  /* The base template's mobile rule sets `grid-template-columns: 1fr` on
+     .info-card-grid__grid. With grid-auto-flow:column that would create one
+     explicit 1fr column and push every other card into auto columns sized off
+     it — so the carousel variant restores `none` at the same breakpoint. It is
+     listed AFTER the base rule in source order and at equal specificity, which
+     is what makes it win; do not move this block above the base <style>. */
+  @media (max-width: 768px) {
+    .info-card-grid-section .info-card-grid__grid--carousel {
+      grid-template-columns: none;
+      gap: var(--icg-track-gap);
+    }
+  }
+
+  /* Overlaid prev/next arrows. Same visual language and the same data-hcc-*
+     contract as hero-card-carousel, whose snippet drives them — reused rather
+     than reimplemented, so there is one carousel behaviour on this platform
+     and not two that drift. Vertically centred: unlike teaser-reveal-panel
+     there is no open/close here, so the track height never changes and 50% is
+     stable. */
+  .info-card-grid-section .info-card-grid__arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    inline-size: var(--icg-arrow-size);
+    block-size: var(--icg-arrow-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text);
+    border-radius: 999px;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: var(--shadow, 0 4px 6px rgba(0,0,0,0.07));
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+  .info-card-grid-section .info-card-grid__arrow--prev { left: -1.1rem; }
+  .info-card-grid-section .info-card-grid__arrow--next { right: -1.1rem; }
+  .info-card-grid-section .info-card-grid__arrow:hover {
+    background: var(--color-primary);
+    color: var(--color-card-bg, #fff);
+  }
+  .info-card-grid-section .info-card-grid__arrow:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Native swipe and scroll-snap already cover touch, and at this width an
+     overlaid arrow sits on top of the card text. Hiding them is a deliberate
+     degradation, not a gap. */
+  @media (max-width: 40rem) {
+    .info-card-grid-section .info-card-grid__arrow { display: none; }
+  }
+
+  .info-card-grid-section .info-card-grid__live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .info-card-grid-section .info-card-grid__grid--carousel { scroll-behavior: auto; }
+  }
+</style>
+{{end}}
+<section class="info-card-grid-section" data-component="info-card-grid"{{if $.carousel}} data-hcc-carousel data-hcc-autoplay="false"{{end}}>
+  <div class="info-card-grid__inner">
+    <header class="info-card-grid__header">
+      <span class="info-card-grid__eyebrow">{{.section_eyebrow}}</span>
+      <h2 class="info-card-grid__title">{{.section_title}}</h2>
+      <p class="info-card-grid__subtitle">{{.section_subtitle}}</p>
+    </header>
+    {{if $.carousel}}<div class="info-card-grid__viewport">
+      <button type="button" class="info-card-grid__arrow info-card-grid__arrow--prev" data-hcc-prev aria-label="Previous card"><span aria-hidden="true">&lsaquo;</span></button>
+    {{end}}<div class="info-card-grid__grid{{if $.carousel}} info-card-grid__grid--carousel{{end}}"{{if $.carousel}} data-hcc-track{{end}}>
+      {{range .cards}}
+      <article class="info-card-grid__card"{{if $.carousel}} data-hcc-slide{{end}}>
+        <div class="info-card-grid__card-icon{{if .icon_image}} info-card-grid__card-icon--img{{end}}" aria-hidden="true">{{if .icon_image}}<img class="info-card-grid__card-icon-img" src="{{.icon_image}}" alt="" loading="lazy" width="44" height="44">{{else}}{{.icon}}{{end}}</div>
+        <h3 class="info-card-grid__card-title">{{.title}}</h3>
+        <p class="info-card-grid__card-body">{{.body}}</p>
+        {{if .link_url}}<a class="info-card-grid__card-link" href="{{.link_url}}">
+          {{.link_label}}
+          <em class="info-card-grid__card-link-arrow" aria-hidden="true">&rarr;</em>
+        </a>{{end}}
+      </article>
+      {{end}}
+    </div>{{if $.carousel}}
+      <button type="button" class="info-card-grid__arrow info-card-grid__arrow--next" data-hcc-next aria-label="Next card"><span aria-hidden="true">&rsaquo;</span></button>
+      <span class="info-card-grid__live" aria-live="polite" data-hcc-live></span>
+    </div>{{end}}
+  </div>
+</section>
+

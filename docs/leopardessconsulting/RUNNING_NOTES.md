@@ -1929,3 +1929,226 @@ Cross-links between all 4: resolve (after the one-extra-rerender fix above)
 Blog listing: 10 cards, 0 empty <img src="">
 Full 27-page sitemap re-sweep: 0 empty img tags anywhere on the site
 ```
+
+---
+
+## 2026-07-31 (session "leopardess consulting") — /services.html: both blocks are carousels; six links that were never links now work
+
+Owner ask, verbatim in effect: turn the two `/services.html` component blocks into
+carousels. "What the platform does" should become the default carousel we use on
+fundamentallyai.com, **with images**. "Systems That Run, Record, and Report" can keep the
+cards as they are but scroll them, and **needs working links to the pages they describe,
+which are broken at the moment**.
+
+### First finding: the links were not "broken", they were not links at all
+
+The stored `page_components.rendered_html` for `info-card-grid` contained six perfectly
+good anchors — to `/services/monitoring.html`, `/services/agent-orchestration.html`,
+`/services/human-oversight.html`, `/services/entity-verification.html`,
+`/services/tool-generation.html`, `/services/audit-trail.html`. **All six 404. None of
+those pages has ever existed on this site.**
+
+The served page contained **no `/services/` href at all**. The mechanism is
+`datahelpers.RepairPageLinks` (`platform/orchestration/datahelpers/link_repair.go:139`),
+reached on the rerender path via `repairOutboundPageLinks`: for an internal `<a href>`
+whose target is not a real `pages.url`, it **removes the anchor and keeps the inner
+text**. That is correct, deliberate behaviour (`bugs_open/079`/`097`) — the page ships,
+the prose survives, the 404 dies.
+
+But the inner text here was the link *label*, so what the owner actually saw was:
+
+```
+<p class="info-card-grid__card-body">A multi-source pipeline collects…</p>
+
+  See how it works
+  <em class="info-card-grid__card-link-arrow" aria-hidden="true">&rarr;</em>
+```
+
+— "See how it works →" sitting in the card as dead prose, with no anchor round it. Six
+times. **The repair is why it looked broken rather than 404ing**, and the real defect was
+upstream: `content_data.link_url` pointing at six pages nobody ever built.
+
+Fixed by repointing each at a live page that genuinely describes it (all verified 200
+first): monitoring → `/case-studies.html`, orchestration → `/technical-architecture.html`,
+approval gates → `/how-it-works.html`, entity verification → `/case-studies.html`, tool
+generation → `/case-studies.html`, audit trail → `/technical-architecture.html`. Three
+share `/case-studies.html` and that is not laziness — it is the page that describes the
+news-credibility engine, the Companies House pipeline **and** the tool generator, each as
+its own `h3`. Checked for anchor targets to deep-link to instead: **the whole site emits
+zero heading `id`s**, so there was nothing honest to point at (`bugs_open/071`'s gap,
+confirmed here rather than assumed).
+
+### Second and third instances of the same phantom tool, both in PROSE
+
+`/tools/tool-monitoring-coverage-gap-finder.html` is the invented URL punch-list item 3
+recorded the owner clicking on 2026-07-18. Two more instances were still live on this page
+today, and **both survived that clean-up because they were prose, not `link_url` fields**:
+
+1. `services-grid` `features[2].description` — real `<a href>` markup inside a text field.
+2. `info-card-grid` `cards[4].body` — the URL written out as bare text.
+3. …and a **third**, found only because the post-deploy check asserted the string was gone
+   and it came back `1`: `call-to-action.subheadline`, *"use our Monitoring Coverage Gap
+   Finder at /tools/tool-monitoring-coverage-gap-finder.html"*.
+
+**`RepairPageLinks` cannot help with any of these.** Its regex is anchored on `<a …>…</a>`;
+a dead URL written as prose has no anchor to unlink, so it ships verbatim, and the phantom
+link *detector* has nothing to detect either. All three are gone now.
+
+### The CTA on this page had no buttons at all
+
+While removing instance 3, found `call-to-action` carried `primary_cta: "Get in touch"` and
+`secondary_cta: "Estimate your monitoring gap"` and **neither `primary_cta_url` nor
+`secondary_cta_url`**. The template gates the whole button on
+`{{if and .primary_cta .primary_cta_url}}`, so the served page had
+`<div class="cta-buttons">` containing nothing but whitespace — no error, no empty box, a
+page that looks deliberately button-less. Same class as the `hero-tool`/`tool-cta` landmine,
+on a different component. Confirmed the fix pattern against working CTAs elsewhere
+(vonc.com, robot-hands.com both set `primary_cta_url` in `content_data` and render a
+button) rather than guessing. Now: primary → `/contact.html`, secondary → the ROI estimator
+that actually exists, and the secondary label rewritten so it names the tool it reaches.
+
+### Block A: `services-grid` → `teaser-reveal-panel`, with six generated images
+
+Repointed the instance at the canonical `teaser-reveal-panel` (`22c12251`) and rewrote the
+six features as `key`/`hook`/`continuation`/`body` + `image_url`/`image_alt`. The schema's
+hard rules are enforced in the loader script, not trusted: no digit in `hook` or
+`continuation`, `hook` a complete sentence under 12 words, `continuation` an incomplete
+clause under 20 words with no ellipsis, `image_alt` never a restatement of `hook`. Also
+asserted the payload contains no `gap-finder`, no `90,790`, and no provider the LLM factory
+rejects.
+
+**Placement updated in all THREE places** — `page_components.slot_name`, `pages.sections`,
+and the current `site_specs.site_plan` aspect (`8439e6b2`, `data->'pages'->1->'sections'`).
+On this site the aspect is the real authority because `site_plan_sections` holds **0** rows
+for it (verified, not assumed), and a placement missing from any one of the three is
+dropped by a later `complete` rerender.
+
+Six images generated Route-A-safe (scope-less `needs_imagery` → image-build-handler, so no
+`needs_page` is emitted and no content is touched), `kind:'icon'` → Banana. Both escalation
+branches were pre-checked clean before the rerender (every slot an object with non-empty
+`content_data`; every required `source:"llm"` field present) — otherwise the whole page
+escalates to the writer and the hand-authored copy is rewritten.
+
+**Two of the six were rejected on sight and re-rolled**, which is why the site's rule is to
+look at every generated image:
+- `verification` drew the confirmation mark as an **X** — a cross reads as *rejected*, the
+  exact opposite of the claim the card makes. Re-prompted with "NO tick marks, NO cross or
+  X marks" and an explicit "nothing is rejected"; it now shows the token emerging
+  double-outlined past the register.
+- `siteops` filled its page frames solid white, which fought the delicate gold linework of
+  the other five. Re-prompted to outlines-only.
+Same `asset_key` on the re-roll overwrites the same deployed file, so no `content_data`
+change was needed. All six then reviewed again and accepted.
+
+### Block B: an opt-in carousel on the SHARED `info-card-grid`, not a fork
+
+`info-card-grid` has **18 instances across 9 sites**. Two options:
+
+- **Fork it for leopardess.** Rejected, and the RUNBOOK already says why —
+  **landmine 14: "a *section* component fork does NOT survive rerender
+  (`save_page_sections` re-links to the canonical component by function)".** A fork would
+  have been silently reverted on the next rerender and I would have spent the session
+  hunting for why the carousel kept disappearing.
+- **Add an opt-in flag to the canonical component.** Chosen. `carousel: true` in
+  `content_data` switches the container to a single-row scroll-snap track with overlaid
+  prev/next arrows; absent, nothing changes.
+
+**Byte-identity was proven, not asserted.** Wrote a Go harness (`text/template`, the same
+engine `executeGoTemplate` uses) that renders all 18 live instances' real `content_data`
+through the old and new templates: **18/18 byte-identical**, 0 errors. Plus the control
+that makes it mean something — the same 18 rendered *with* `carousel:true` **all differ**,
+so the comparison is measuring something. Measured first that **0 of 18** instances carry a
+`layout`, `display` or `carousel` key, so the new arm could not reach any of them.
+
+The harness earned its keep immediately: the first draft **failed to parse**. My CSS comment
+explained the guard by writing the template conditional out in prose, and Go's parser does
+not know what a CSS comment is — it read those as real actions and hit `unexpected EOF`.
+Worse, `RenderTemplateReportingMissing` does not surface a parse failure; it **falls back to
+a regex renderer**, so this would have shipped mangled markup rather than an error. Landmine
+filed.
+
+**The arrows reuse `hero-card-carousel`'s snippet rather than a new one.** That snippet was
+already fully generic — every behaviour reads `data-hcc-track` / `-slide` / `-prev` /
+`-next` / `-live` / `-autoplay` and no class or component name — *except* one line, its
+`initAll` selector. Widened that to
+`".hero-card-carousel[data-component='hero-card-carousel'], [data-hcc-carousel]"` and added
+`info-card-grid` to its `applies_to`. Measured before widening: `data-hcc-carousel` appeared
+in **0** `page_components` and **0** `site_components` fleet-wide.
+
+**Worth knowing: `hero-card-carousel` has never rendered anywhere on the fleet** — 0
+`page_components`, 0 `site_components`, `usage_count` 0. Its snippet was `is_active` but had
+never been bundled into any site, so **this is its first execution in production, ever.**
+`teaser-reveal-panel` only ever copied its *pattern*. That is precisely why the arrows had
+to be proven by a real click and not by markup presence.
+
+Both loads verified against the local file with `md5`, not with `UPDATE 1`.
+
+### The JS bundle was empty, and that is why this mattered
+
+`/assets/js/snippets.js` on this site was **334 bytes, "0 active snippet(s)"** — the site had
+no component matching any active snippet's `applies_to`. Fired `site-asset-renderer`
+(`load_site → render_js_snippets → deploy_js_snippets`, the minimal agent for this). Now
+**13,781 bytes, 2 snippets**: `hero-card-carousel` (pulled in by the `applies_to` addition)
+and `teaser-reveal-panel`.
+
+### Verification: 19 served-page assertions, then a real-gesture probe with two mutants
+
+Served-page checks all pass, including four controls that were left untouched (the CTA
+section, the hero, a nav link, the `snippets.js` script tag). Six `info-card-grid__card-link`
+anchors now survive link repair, which is itself the proof the targets are real — the repair
+would have stripped them otherwise. `services-grid` gone, `90,790` gone, all three
+`gap-finder` instances gone, and `OpenAI`/`Mistral`/`xAI`/`Perplexity` down from 4 to 0.
+
+**Two measurement mistakes of my own, both caught by controls:**
+
+1. **First probe reported the info-card arrows DEAD.** They were not. I ran headless
+   Chromium with `--virtual-time-budget`, which does not advance the smooth-scroll
+   animation, so I was reading `scrollLeft` mid-flight (`before=25, after=34`, a 9px
+   twitch) or before it moved at all. The tell was the **mutant**: with the snippet's
+   `initAll` deleted, `trp.NEXT_SCROLLED` was *still* `true` — an assertion that passes on
+   deliberately broken code is measuring noise. Fixed with
+   `--force-prefers-reduced-motion`, which makes both snippets scroll with
+   `behavior:"auto"`, so the new position is readable on the next line with no animation
+   to race.
+2. **Second probe reported sibling-close BROKEN.** Also wrong: I clicked two `<summary>`
+   elements back to back with no turn of the event loop, and the sibling-close rides on the
+   async `toggle` event. Restoring a 150ms gap between clicks reported it working, and the
+   mutant confirmed the assertion still discriminates.
+
+Final probe, live page vs two mutants:
+
+```
+LIVE          trp: slides=6 overflows=true arrowShown=true NEXT_SCROLLS=true PREV_RETURNS=true
+              trp: OPENS=true DEEPLINKS=true SIBLING_CLOSES=true
+              icg: slides=6 overflows=true arrowShown=true NEXT_SCROLLS=true PREV_RETURNS=true
+              icg: cardAnchors=6 anchorsWithHref=6
+MUT no-init   trp/icg NEXT_SCROLLS=false PREV_RETURNS=false, DEEPLINKS=false, SIBLING_CLOSES=false
+              (trp.OPENS stays true and icg anchors stay 6 — correct: native <details> and
+               server-rendered hrefs are the progressive-enhancement baseline, not JS)
+MUT old-sel   trp.NEXT_SCROLLS=true, icg.NEXT_SCROLLS=false
+              (restoring the narrow selector kills ONLY the info-card carousel — which
+               attributes it to the one-line widening and nothing else)
+```
+
+### Figures: re-measured before being repeated, and one was a live false claim
+
+Full table and evidence in `AUDIT_verified_facts.md` ("Re-measurement 2026-07-31"). The
+headline: **"more than 90,790 orchestration state records ... every one of them readable
+after the fact"** was a **point-in-time row count of a table that is pruned hourly at 24h**,
+published as a cumulative "to date" total plus a durability promise. Live row count when
+re-measured: **2,364**. The claims layer had already caught this on 2026-07-26 and routed it
+to `needs_human_review` (`bugs_open/091`: *live 1,900 vs published 90,790*) — nothing drained
+it, so it stayed live five more days. Also refreshed: sites 9 → **15**, definitions 157 →
+**190** (185 active), sub-agent spawners 40 → **42**, feed items 6,262 → **7,990**, scored
+5,228 → **6,794**, businesses 2,000 → **3,419**.
+
+**And I got one wrong myself, before shipping.** I "verified" the provider list with
+`grep -ioE 'case "(anthropic|openai|gemini|mistral|xai|perplexity|ollama)"'`, got six names,
+and wrote "five hosted providers plus a self-hosted path" into the audit file. **This
+workstream's own RUNBOOK landmine 12 caught it** — read while looking up the rerender recipe
+two entries below. `platform/aiservice/factory.go:24-35` supports exactly **three**
+(anthropic, ollama, gemini); `openai` is a stub that returns an error; `xai`/`perplexity`
+are not in that switch at all — the arms I found are in `feed_actions.go`, a separate
+news-*search* path. A `case` arm is not a working provider, and **a grep that disproves part
+of a claim has not validated the rest**. RUNBOOK landmine 12 updated (Gemini added);
+`WRONG_CALLS.md` row written.

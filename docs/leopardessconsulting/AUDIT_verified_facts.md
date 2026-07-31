@@ -198,3 +198,112 @@ can't be proven.
 check against a back issue. I have not seen the article myself — the claim is
 *attributed*, not independently verified, and that is the honest standing of it. The
 "third busiest" ordinal remains explicitly labelled as recollection.
+
+---
+
+## Re-measurement 2026-07-31 — every figure on `/services.html`, checked before rewriting it
+
+Occasion: the owner asked for the two `/services.html` blocks to become carousels.
+Rewriting a sentence means owning the numbers inside it, so every figure on that page
+was re-derived from the live system first (CLAUDE.md: *ground every figure against the
+live system before repeating it from another doc*). All queries below were run against
+`postgres-clients-0 / clients_db` on **2026-07-31**.
+
+| Figure as published | Live value 2026-07-31 | Query / evidence | Standing |
+|---|---|---|---|
+| "more than 90,790 orchestration state records" | **row count 2,364**; cumulative sequence **6,996,354** | `SELECT count(*) FROM orchestration_states` → 2,364, window 07-13→07-31. `SELECT last_value FROM orchestration_state_audit_id_seq` → 6,996,354 | **MISLABELLED — see the correction below** |
+| "more than 2,000 business records" verified | **3,419** | `SELECT count(*) FROM business_intel.businesses` | TRUE and understated; refreshed |
+| "enriched 937 with filed accounts" | **937** | `SELECT count(*) FROM business_intel.companies_house_data` | TRUE, unchanged |
+| "6,262+ feed items collected" | **7,990** (since 2026-03-27) | `SELECT count(*) FROM content_feed_items` | TRUE and understated; refreshed |
+| "5,228+ credibility-scored" | **6,794** | `… WHERE credibility IS NOT NULL` | TRUE and understated; refreshed |
+| "six-hour refresh cycle" | **21600s, enabled, last completed 2026-07-31** | `SELECT interval_seconds, enabled, last_completed_at FROM scheduled_tasks WHERE name='content-feed-refresh'` | TRUE, re-verified live |
+| "Nine sites built and operated" | **15** (14 `deployed` + 1 `active`), all with a domain | `SELECT count(*) FROM sites WHERE status IN ('deployed','active')` | TRUE and understated; refreshed |
+| "157 definitions as of 2026-07-16" | **190 live rows**, 184 distinct types | `agent_definitions WHERE COALESCE(is_snapshot,false)=false AND deleted_at IS NULL` | grew; refreshed |
+| "60 definitions are currently active" | **185** | same filter `AND is_active` | **[UNRECONCILED]** — see below |
+| "40 spawn sub-agents" | **42** | `steps` is an OBJECT keyed by step name, not an array; `jsonb_each(...)` where `step->>'action' IN ('spawn_agent','spawn_group','spawn_agent_k8s')` | TRUE; refreshed |
+| "Model and provider are selectable per workflow step" | **TRUE, richly** | `ai_service` on 100+ steps carries its own `{model, provider, max_tokens}` — `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-sonnet-5`, `claude-opus-4-6`, per-step `max_tokens` from 150 to 32000 | TRUE, re-verified |
+| "Anthropic Claude, OpenAI, Gemini, **Mistral**, xAI, and Perplexity are all available as selectable providers" | **THREE work: anthropic, ollama, gemini** | `platform/aiservice/factory.go:24-35` — the single switch every LLM step goes through. `openai` returns `"OpenAI provider not yet implemented"`; `xai`/`perplexity`/`mistral` are not in the switch and fall to `default` → error | **FALSE as published — see CORRECTION 2** |
+| Every configured step's provider | **`anthropic`, 100% of them** | no step or definition config carries any other LLM provider value | context for the row above |
+
+### CORRECTION 1 — the 90,790 figure is a pruned table's row count, published as a cumulative total
+
+`orchestration_states` is **pruned hourly at 24h**
+(`platform/orchestration/actions/diagnose_dormant_agents_action.go:15,349`). The
+published sentence — "has produced more than 90,790 state records ... every one of them
+readable after the fact" — reads as a cumulative to-date total and as a durability
+promise. Neither survives the pruning: the table held **2,364** rows when re-measured.
+
+What *is* cumulative and evidenced: `orchestration_state_audit` is written by a database
+trigger (`orchestration_state_audit_trigger AFTER UPDATE ON orchestration_states`), and
+its identity sequence has never been reset. `last_value = 6,996,354` against a live row
+count of ~100,400 spanning only 07-29→07-31 (`min(id)=6,895,954`) proves both that
+~7.0M transitions have been recorded and that the table itself keeps a rolling window
+of roughly three days. **So the durable figure is a rate plus a window, never a total** —
+which is the fleet lesson about retention-clocked history tables, arrived at here
+independently.
+
+This drift was **already detected by the platform's own claims layer** on 2026-07-26
+and routed to `needs_human_review`: `bugs_open/091` records
+`C4-orchestration-state-records (live 1,900 vs published 90,790)`. It was never
+resolved, so the stale figure stayed live for five more days. The claims layer worked;
+the draining of what it found did not.
+
+### CORRECTION 2 — the provider list is wrong, and my first version of THIS ROW was wrong too
+
+> **CORRECTED 2026-07-31, before anything shipped.** My first draft of this section said
+> *"five hosted providers plus a self-hosted path"*, derived from
+> `grep -ioE 'case "(anthropic|openai|gemini|mistral|xai|perplexity|ollama)"'` returning
+> six names. **That was a wrong call, and it would have replaced one overclaim with
+> another.** What caught it: this workstream's own `RUNBOOK.md` **landmine 12**, which
+> already said in plain words that only two text providers worked end to end. Reading the
+> code the landmine pointed at settled it.
+>
+> **A `case` arm is not a working provider.** `platform/aiservice/factory.go:24-35` is the
+> single switch every LLM step passes through, and it is decisive:
+>
+> | provider | factory behaviour |
+> |---|---|
+> | `anthropic` | `NewAnthropicClient` — works |
+> | `ollama` | `NewOllamaClient` — works (self-hosted, in-cluster) |
+> | `gemini` | `NewGeminiClient` — works (added by `bugs_closed/107`+`110`; this is what has changed since landmine 12 was written, and the landmine needs that one amendment) |
+> | `openai` | `return nil, fmt.Errorf("OpenAI provider not yet implemented")` — **a stub that errors** |
+> | `xai`, `perplexity`, `mistral` | not in the switch at all → `default` → `unsupported AI provider` |
+>
+> The `case "xai"` / `case "perplexity"` / `case "openai"` arms my grep found are all in
+> **`platform/orchestration/actions/feed_actions.go`** (lines 416-457, 737-752) — a
+> separate, purpose-built news-and-signal search path that calls those vendors' *search*
+> APIs directly. They are real, and they are not general-purpose LLM providers.
+
+So the published sentence is **false on two counts**: OpenAI is named as available when it
+is a stub that raises an error, and Mistral/xAI/Perplexity are named as selectable
+providers when the LLM factory rejects all three.
+
+Mistral is nonetheless real here — as `mistral-small3.1` pulled by the cluster's own
+`ollama-adapter` and `ollama-eval` deployments (24B, Q4, CPU-only, no GPU on any node;
+`deployments/kustomize/services/ollama-adapter/base/deployment.yaml:34`,
+`platform/orchestration/actions/refresh_product_specs_action.go:64`). It is a **model on
+the self-hosted path**, not a provider beside Anthropic.
+
+**The honest form, now published:** three providers work for generating text — Anthropic,
+Google Gemini, and a self-hosted Ollama path that keeps inference inside the cluster — and
+the claim is about *those three*. Nothing on the page names OpenAI, xAI or Perplexity as an
+LLM provider any more. `RUNBOOK.md` landmine 12 stands, with Gemini added.
+
+### [UNRECONCILED] — "60 active" against a live 185
+
+Not asserting a cause. Candidates not investigated: `is_active` semantics changed; the
+2026-07-16 count applied a filter not recorded alongside it; or ~125 definitions were
+genuinely activated in the fortnight since. The 2026-07-09 audit for this site recorded
+"143 agent defs, 56 active", which is consistent with the 60 rather than the 185, so the
+step change is real and recent. **Flagged, not explained** — the published copy now
+quotes the figure I measured myself with the query written beside it, and does not
+inherit the 60.
+
+### Also removed while here: a phantom tool URL, live on this page since 2026-07-18
+
+`/tools/tool-monitoring-coverage-gap-finder.html` was linked from the `services-grid`
+block (inside `features[2].description`, as real markup) and named again in prose in the
+`info-card-grid` block (`cards[4].body`). **No such page has ever existed** — it is
+absent from `pages` and returns 404. It is the same invented URL punch-list item 3
+recorded the owner clicking on 2026-07-18; two further instances survived that clean-up
+because they were inside body prose rather than a `link_url` field.

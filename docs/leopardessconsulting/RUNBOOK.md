@@ -183,10 +183,21 @@ platform does NOT gate specialised-slot contrast.
 11. **No tenant isolation exists on this platform today** (no row-level security;
     shared Postgres, Kafka, and `ollama-adapter` pod across every site). Relevant if
     positioning copy or a client conversation implies otherwise — see AUDIT §4b, P5.
-12. Only **two** text-generation providers work end-to-end: `anthropic` and `ollama`.
-    `openai` is a stubbed error in `createAIClient`; nothing else is wired for text.
+12. Only **~~two~~ THREE** text-generation providers work end-to-end: `anthropic`,
+    `ollama` and — **added 2026-07-31** — `gemini` (`NewGeminiClient`, wired by
+    `bugs_closed/107`+`110`; the rest of this landmine is unchanged and still bites).
+    `openai` is a stubbed error; nothing else is wired for text.
     "Mistral" is a model name run through Ollama, not a separate provider. Don't let
     site copy imply more provider choice than this.
+    **The authority is `platform/aiservice/factory.go:24-35`, not a grep.** `createAIClient`
+    is a one-line pass-through to `aiservice.NewClient`, so reading it tells you nothing.
+    A `case "<provider>"` arm elsewhere in the tree is NOT evidence the provider works:
+    `feed_actions.go:416-457,737-752` has live `case "xai"`, `case "perplexity"` and
+    `case "openai"` arms, but that is the news/signal **search** path calling those
+    vendors' search APIs — nothing to do with which LLM a workflow step can select.
+    A grep for the provider name finds those and reads as six working providers.
+    This cost a wrong entry in `AUDIT_verified_facts.md` on 2026-07-31, caught by
+    re-reading this landmine; see that file's CORRECTION 2.
 13. **`page-rerender` needs `spec.reason='section_data_resolved'` + `spec.page_name`** to
     regenerate sections; without the reason it only re-assembles stored HTML. `page_name`
     is the page `name`, not the url. (`check_rerender_mode`.)
