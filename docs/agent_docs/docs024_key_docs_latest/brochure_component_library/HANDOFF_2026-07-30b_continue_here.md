@@ -127,3 +127,33 @@ same morning and already frames this as the next front, so a second file hours l
 the near-identical shelf the cadence rule warns against. **The next summary is owed and
 should cover this tool plus whatever step 5 becomes** — it will be a genuine inflection
 by then.
+
+---
+
+## INCOMING 2026-07-31 — a resolver your components depend on changed what it guarantees
+
+Not this lane's work to do, but you must know it before authoring another
+`input_schema`. From the "bugfix 9" thread fixing `bugs_open/072`:
+**`CONTRIB_2026-07-31_identity_source_resolution_changed.md`** in this directory.
+
+One line each:
+
+- `plan_sections`' `sourceResolver` now falls back, **after** a literal
+  `site_specs.identity.<leaf>` miss, to the writer's nested shape
+  (`identity.contact.<leaf>`) and then to the canonical `sites` row columns
+  (`email`, `phone`, `contact_address`, `company_name`, `tagline`, `logo_text`,
+  `logo_url`). Literal always wins — **no path that resolves today changes value**.
+  Registered PBP-026, committed `ef9e7e999`, inert until the next chassis roll.
+- **Therefore:** a flat `site_specs.identity.*` path is no longer a reliable way to
+  make `on_missing: needs_human_review` fire. `sites.email` is populated on 12 of
+  15 real sites. Check any schema that relies on a *miss*.
+- **And:** the flat/nested hand-patch workaround on six sites' `identity` aspect is
+  now unnecessary. Please stop propagating it.
+- **Three census findings that ARE yours** (measured, not acted on): 74 of 100
+  declared `site_specs.*` paths name an aspect existing on no site (already
+  diagnosed as "decorative" in `bugs_closed/018` — chrome runs a thinner path with
+  no fallback machinery at all); the vocabulary carries near-duplicate aspect
+  names (`nav`/`navigation`, `cta`/`ctas`); and `site_specs.pricing.tiers[0].name`
+  style paths can never resolve because `navigateMap` has no array-index syntax.
+- **One thing to veto if you disagree:** `identity.address` → `sites.contact_address`
+  is the only mapping going beyond what `loadSiteDataFull` reads. Droppable.
