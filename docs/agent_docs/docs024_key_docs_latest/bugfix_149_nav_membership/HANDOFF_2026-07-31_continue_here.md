@@ -53,21 +53,53 @@ So the chain is: nav tables ✅ → stored chrome ✅ → **served pages ⛔**.
   `NOTES_checker_gaps.md` with the measurements and the trap.
 - **The trap, because it will fool you too:**
   `scheduled_tasks.last_triggered_at`/`last_completed_at` keep advancing while nothing
-  runs — a fire-and-forget stamp. The real tells are `max(claimed_at)` fleet-wide and
-  the newest `complete_idle` orchestration. See RUNBOOK **R12**.
+  runs — a fire-and-forget stamp. ~~The real tells are `max(claimed_at)` fleet-wide and
+  the newest `complete_idle` orchestration.~~ See RUNBOOK **R12**.
+
+  > **⚠ CORRECTED 2026-07-31 18:13 — `max(claimed_at)` fleet-wide is NOT a real tell, and
+  > it fooled the very next session that used it.** Asked cold it returned **1 minute
+  > ago**, which reads as recovery. `GROUP BY claimed_by` inverts it: the only lane
+  > claiming was **`diagnose-dispatch-loop`** — another session's diagnosis run
+  > investigating this outage — while **`build-dispatch-loop` had last claimed 156 minutes
+  > earlier**. An outage attracts precisely the traffic that poisons the aggregate. **Make
+  > the answer name the lane** (R12 query 5); `complete_idle` remains sound (295 min stale
+  > at the same moment). Cross-check the backlog directly: gamesdesign's 34 `page_rerender`
+  > items had not moved off `triaged` since 15:28.
 - **Bypass for one site while it is down:** `./TRIGGER_nav_rebuild.sh <domain>` in this
   directory. It completed in ~30s with the loop dead, and refuses by default if a
   rebuild would fail to reproduce an existing nav row.
 
 ## 4. What a fresh session could do next, in order of value
 
-1. **Prove the label fix on a second site** (the `guardian` seat asked for more than a
-   one-site spot check before any fleet-wide dispatch). gamesdesign's labels were
-   authored into `pages.nav_label` by hand, so it **does not exercise** the code fix. A
-   site with flagged tool pages and NULL `nav_label` does — candidates from RUNBOOK R5:
-   **gaswholesalers (4), finetuning (4), ai-agent-orchestration (4), vonc (3), oufe (2),
-   fundamentallyai (2)**. Run `TRIGGER_nav_rebuild.sh <domain>`, then read the labels
-   (RUNBOOK R8's second query). Expect clean names, no `/`, no `Index`.
+1. ~~**Prove the label fix on a second site**~~ — **DONE 2026-07-31 18:16 UTC.**
+   gaswholesalers.com, corr `fd85fc84-f021-4e47-801a-db4c90174127`, chassis v1.0.1218:
+   19 active nav rows → **23**, all four additions in `utility` with clean labels
+   (`Fuel Cost Estimator` · `Gas Unit Converter` · `Breakeven Volume Calculator` ·
+   `Fuel Budget Forecaster`), the 19 pre-existing labels unchanged. Stored footer carries
+   all four; served pages do not, for §3's reason. Recipe kept as **RUNBOOK R14**.
+
+   > **⚠ CORRECTED — the candidate list above was built on the wrong column, and two of
+   > its six entries would have proved nothing.** It ranked sites by *count of flagged
+   > tool pages*. What decides whether the code runs is **`nav_label IS NULL`**: an
+   > authored label ≤30 chars is returned verbatim and `navSimplifyLabel` is never called.
+   > **vonc (3) and oufe (2) have ZERO NULL labels** — they would have produced a
+   > clean-looking pass exercising nothing, which is exactly gamesdesign's failure and the
+   > reason a second site was asked for. Real ranking (R14): gaswholesalers **4/4**,
+   > finetuning 2/4, ai-agent-orchestration 2/4, leopardess 1/5, fundamentallyai 1/3,
+   > robot-hands 1/1; vonc, oufe, gamesdesign **0**. A candidate list filtered on the
+   > wrong column is worse than none, because it looks checked.
+
+   **What the proof turned up, which was not on anyone's list.** The no-slash invariant
+   covered only the labels the derivation **computes**. `navLabelForPage` returns a
+   planner-**authored** `nav_label` verbatim when ≤30 chars, slash and all — and
+   **ai-agent-orchestration.com was already serving a nav row labelled
+   `Tools / AI Readiness Quiz`**. 8 live pages carry such a label, 7 flagged, 2 trusted
+   verbatim. Fixed in `6fc1ff3ed` (`navLabelDropCategoryPrefix`, guard test proven failing
+   on the defect first); council **`11c5c813-dfad-437e-b4a9-09c56475e8d2`** submitted,
+   committed with `Council-Submitted:`. **Owed by the next session: read that verdict and
+   act on a REVISE/REJECTED — the code is already on the shared branch.** Inert until the
+   next chassis roll. Census + traps in **RUNBOOK R15/R16**, register **NAV-013**.
+
 2. **`bugs_open/149` A3** — nothing keeps a parent listing in sync, so a tool page with
    *no* nav flags is still invisible (correctly out of nav, absent from `/tools/index`,
    which nothing rebuilds). Genuine new build work; the analogue exists for blogs
@@ -140,8 +172,9 @@ cannot see a LABEL defect.
 
 | what | where |
 |---|---|
-| commits | `1884f1ee8` (fix) · `8c41e3eaf` (objections answered) · `c053bb31f` (label regression) · `a8c21d233` (docs) · `5a35a20b2` (count) |
-| council | `4486f1a9-6d96-4767-9ddd-6ff5e92ba45c` — **APPROVED**, 12 reviewers, 0 unreadable, 2 medium (both answered), no high |
+| commits | `1884f1ee8` (fix) · `8c41e3eaf` (objections answered) · `c053bb31f` (label regression) · `a8c21d233` (docs) · `5a35a20b2` (count) · **`6fc1ff3ed`** (authored-label half + NAV-013) |
+| council | `4486f1a9-6d96-4767-9ddd-6ff5e92ba45c` — **APPROVED**, 12 reviewers, 0 unreadable, 2 medium (both answered), no high · **`11c5c813-dfad-437e-b4a9-09c56475e8d2` — authored-label half, VERDICT OWED** |
+| second-site proof | gaswholesalers.com, corr `fd85fc84-f021-4e47-801a-db4c90174127`, 18:16 UTC, v1.0.1218 — 19 nav rows → 23, labels clean, `Break-Even`/`Breakeven` fingerprint proves URL derivation |
 | diagnosis loop | `1d8085f0-b596-4cce-9417-f48227ac67d3` — **CONFIRMED**, first iteration |
 | concept register | **NAV-013**; NAV-008 superseded in part; NAV-006 narrowed |
 | standing five | this directory (`PLAN` · `RUNBOOK` R1–R13 · `NOTES` · `README_where_we_are` · `SUMMARY_2026-07-31`) |

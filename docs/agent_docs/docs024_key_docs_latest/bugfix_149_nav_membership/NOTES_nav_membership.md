@@ -238,3 +238,136 @@ Two things I want to keep from that:
   `WRONG_CALLS.md` today), and switching to `git merge-base --is-ancestor` answered the
   question without a binary marker. **Ancestry beats a string grep for "is this commit in
   that image", and it cannot be fooled by a comment or a test file.**
+
+## 2026-07-31 (18:00–18:30 UTC) — second-site proof, and it found the half of the invariant that was never covered
+
+Picked up cold from `HANDOFF_2026-07-31_continue_here.md` §4 item 1: prove the A6 label
+fix on a site that actually exercises it, which the `guardian` seat had asked for before
+any fleet-wide dispatch.
+
+**Re-measured first, and the handoff's own headline had already moved.** §3 said the build
+dispatch loop was dead with the newest claim anywhere at `15:52` (136 minutes). At 18:13
+`max(claimed_at)` fleet-wide read **1 minute ago** — which looks like recovery and is not.
+Grouping by `claimed_by`:
+
+```
+diagnose-dispatch-loop   | 18:14:07 |    6 min | 4 claims/6h
+build-dispatch-loop      | 15:44:10 |  156 min | 16 claims/6h
+```
+
+The only lane claiming is **another lane's diagnosis run investigating the outage itself**.
+So RUNBOOK **R12 query 4** — the query this lane added that morning, precisely to stop a
+7-day aggregate hiding a dead lane — has the **same defect one level down**: a fleet-wide
+`max()` cannot tell "the queue recovered" from "somebody is standing next to the corpse".
+R12 updated to require `GROUP BY claimed_by`. Third time this lane has been bitten by an
+aggregate that answers a narrower question than the one asked.
+
+**Choosing the site — the handoff's candidate list was wrong, and wrong in an instructive
+way.** It listed candidates by *count of flagged tool pages* (`gaswholesalers (4),
+finetuning (4), ai-agent-orchestration (4), vonc (3), oufe (2), fundamentallyai (2)`). The
+property that decides whether the code runs is `nav_label IS NULL` — an authored label
+≤30 chars is returned verbatim and `navSimplifyLabel` is never called. Measured:
+
+| domain | flagged child pages | of which `nav_label` NULL |
+|---|---|---|
+| gaswholesalers.com | 4 | **4** |
+| finetuning.uk | 4 | 2 |
+| ai-agent-orchestration.com | 4 | 2 |
+| leopardessconsulting.co.uk | 5 | 1 |
+| fundamentallyai.com | 3 | 1 |
+| **vonc.com** | 3 | **0** |
+| **oufe.com** | 2 | **0** |
+| gamesdesign.co.uk | 6 | 0 |
+
+> **CORRECTED 2026-07-31:** vonc and oufe were named as candidates in the handoff and
+> **would not have exercised the fix at all** — every one of their tool labels is authored.
+> They would have produced a clean-looking result that proved nothing, which is the same
+> failure as gamesdesign and the reason a second site was asked for. A candidate list
+> filtered on the wrong column is worse than no list, because it looks like it was checked.
+
+**The run.** `./TRIGGER_nav_rebuild.sh gaswholesalers.com`, corr
+`fd85fc84-f021-4e47-801a-db4c90174127`, 18:16 UTC, chassis v1.0.1218, pre-flight
+`unreproducible_rows=0`. COMPLETED; no `__step_error` key in `collected_data`.
+
+Prediction written down before the run, and it held exactly: all four land in **utility**
+(never-primary by URL, flag present), 19 rows → **23**, existing labels unchanged.
+
+```
+utility |  9 | Fuel Cost Estimator         | /tools/tool-fuel-cost-estimator.html
+utility | 10 | Gas Unit Converter          | /tools/tool-gas-unit-converter.html
+utility | 11 | Breakeven Volume Calculator | /tools/tool-breakeven-volume-calculator.html
+utility | 12 | Fuel Budget Forecaster      | /tools/tool-fuel-budget-forecaster.html
+```
+
+**The decisive fingerprint, and it is better evidence than the count.** The page title is
+`Wholesale Break-Even Volume Calculator | Tools`; the derived label is
+`Breakeven Volume Calculator`. **`Break-Even` vs `Breakeven`** — the label cannot have come
+from the title, only from the URL slug, and nothing but `navLabelSegmentFromURL` strips the
+`tool-` prefix. This site also uses the flat `/tools/tool-x.html` convention, so the prefix
+strip ran in production for the first time; gamesdesign is all directory-style.
+
+Chrome re-rendered: the stored footer carries all four links, header carries none (correct
+— utility is a footer group), and every anchor text is clean.
+
+**A false positive of my own, caught within one query.** My first chrome check was
+`rendered_html ILIKE '%Tools/%'` for a mangled label, and it returned **true**. It was
+matching the `href` — `/tools/tool-fuel-cost-estimator.html` — case-insensitively. A needle
+that matches the thing you are looking for AND the thing you are looking at is not a check.
+Fixed by extracting anchor *text* rather than scanning the whole document. Logged in
+`WRONG_CALLS.md`.
+
+Served pages unchanged as expected: 0 `/tools/` links on the live homepage, 31
+`page_rerender` items filed at 18:16:30, all sitting `triaged`. Nav tables ✅ → stored
+chrome ✅ → served pages ⛔, exactly as §3 predicted, for exactly the reason §3 gives.
+
+### The finding: the invariant only ever covered one of two paths
+
+While measuring which sites had authored labels I read the authored values, and three sites
+carry labels shaped `Tools / X`. `navSimplifyLabel`'s own doc comment says **"a label
+containing a slash is never right"** — and A6 made that true of every label the derivation
+*computes*. `navLabelForPage` returns an authored `nav_label` **verbatim** when it is ≤30
+chars, so the guarantee stopped at the function boundary beside the one that was reviewed.
+
+Not hypothetical — one had already reached a live nav row:
+
+```sql
+SELECT s.domain, ni.label, ng.group_type FROM site_nav_items ni ... WHERE ni.label LIKE '%/%';
+ ai-agent-orchestration.com | Tools / AI Readiness Quiz | utility
+```
+
+8 pages carry a slash-shaped `nav_label`, 7 flagged for nav, exactly **2** short enough to
+be trusted verbatim (25 and 30 chars).
+
+**Siblings checked before fixing only mine**, per the `bugfix_072` landmine. There are
+**four** label paths and the picture is not what `nav_tables.go`'s header comment claims:
+
+- `navSimplifyLabel` — fixed by A6. Live.
+- `navLabelForPage` — the gap. Live. **Fixed here.**
+- `rerenderSimplifyNavLabel` (`rerender_pages_actions.go:440`) — **still contains the exact
+  pre-A6 defect** (`name := strings.TrimPrefix(url, "/")`, the whole path). Reads like a
+  live bug. It is **dead**: its only callers are `rerenderGetHeaderNavFromDB` /
+  `rerenderGetFooterNavFromDB`, whose sole call site is **commented out** at
+  `rerender_pages_actions.go:168`. Deliberately left alone — deleting reachable-looking
+  code is a separate decision from fixing a live label.
+- `datahelpers.SimplifyNavLabel` — takes a page **name**, not a URL, so it cannot
+  title-case a path. Not at risk.
+
+`nav_tables.go:554` says `navSimplifyLabel` "consolidates" the other two. **That is the
+intent, not the state** — both still exist. A comment describing a consolidation that never
+happened is indistinguishable from one describing a real one.
+
+**The fix** (`6fc1ff3ed`): `navLabelDropCategoryPrefix` takes the last `/`-separated segment
+of an authored label **before** the length test. Ordering is the load-bearing part — a label
+still oversized once its prefix is gone (`Tools / Agent Architecture Complexity Estimator`
+→ 39 chars) still falls through to `navSimplifyLabel`, so shedding a prefix cannot smuggle a
+39-character item into a footer column. Last-segment rather than URL-derivation because the
+URL flattens the planner's capitalisation: `ai-readiness-quiz` → `Ai Readiness Quiz`, where
+the planner wrote `AI Readiness Quiz`.
+
+Guard proven the R9 way — reverting the one line gives 4 FAILs naming the served label,
+restored gives `ok`, window a few seconds. `git archive HEAD` + these two files only:
+`go build ./platform/...` and the package tests both green, so the commit cannot break HEAD
+through another session's WIP in the same package.
+
+Council `11c5c813-dfad-437e-b4a9-09c56475e8d2` submitted; committed with
+`Council-Submitted:` rather than holding code for the verdict.

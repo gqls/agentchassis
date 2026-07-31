@@ -161,3 +161,67 @@ remain, and **I am not closing the ticket** — three of the five are the other 
 live work, one needs a database schema change that wants its own review, and one is a new
 piece of build work. Closing it would delete the record of five real defects. I would
 rather leave it open and honest than tick it off.
+
+## 2026-07-31 (early evening)
+
+Picked this up cold from the handoff. The job on the list was to prove yesterday's label
+fix on a second website — one of the reviewers had said, fairly, that checking it on a
+single site wasn't enough to justify running it across the fleet.
+
+The first thing I did was re-check the claim at the top of the handoff, that the queue
+which publishes pages was dead. The obvious query said it had recovered: something had
+been picked up a minute ago. That was misleading, and in a way worth writing down. The
+only thing picking work up was **another team's investigation into why the queue is
+dead**. The real build queue hadn't touched anything for two and a half hours. So the
+measurement was right and the conclusion would have been wrong — the same trap this lane
+fell into yesterday, one level down. I've fixed the recipe so the next person has to
+break the number down by *who* picked the work up.
+
+Then, choosing the site. The handoff suggested six candidates, and two of them were no
+good — not because anything had changed, but because the list had been built on the wrong
+property. What matters isn't how many tool pages a site has; it's whether anybody typed
+the menu labels in by hand. If they did, the code I'm trying to test never runs. Two of
+the six had every label hand-typed, so they'd have produced a clean, meaningless pass. I
+picked gaswholesalers.com, where all four tool pages have no hand-typed label at all.
+
+It worked, and there's a small detail that makes it properly convincing rather than just
+encouraging. The page is titled "Wholesale Break-**E**ven Volume Calculator", with a
+hyphen. The menu label came out as "Break**e**ven Volume Calculator", without one. The
+only place that spelling exists is the page's web address. So the label demonstrably came
+from the code I was testing, and not from the title by coincidence — which is the kind of
+thing a bare "it looks right" check can't tell you.
+
+**And then the useful part, which I wasn't looking for.** While working out which sites
+had hand-typed labels, I read the labels themselves — and found that several are written
+as "Tools / AI Readiness Quiz", with a slash in them. Yesterday's fix exists specifically
+because a slash in a menu label is always wrong. But it only fixed the labels the system
+*works out for itself*. The ones a person *typed in* were handed straight through
+untouched, as long as they were reasonably short. So the rule was being enforced on one
+side of a door and not the other, and one of these has already reached a live website:
+ai-agent-orchestration.com is right now showing a footer link labelled "Tools / AI
+Readiness Quiz".
+
+I've fixed that. It's a small change — when a label has been typed as "Category / Page
+Name", just use the page name, since the link is already sitting inside a menu group and
+doesn't need telling twice. I kept the typed words rather than regenerating them from the
+web address, because the address gives you "Ai Readiness Quiz" and a person wrote "AI".
+
+Two things I checked before writing it, because both could have made this worse. First,
+whether the same mistake lives anywhere else — it does, in an older copy of the same
+function that still has the original bug in it. That one turned out to be dead code,
+reachable only through a line somebody commented out, so I've left it alone and written
+down clearly that it *looks* like a live bug and isn't. Second, whether stripping the
+category could let an over-long label sneak through the length limit — it could, so the
+strip happens before the length check, not after, and there's a test that fails if anyone
+reverses those two steps.
+
+Measured rather than guessed: this changes at most seven menu labels across every site we
+run, and fixes one that's live and wrong today. Before committing I checked the guard
+test actually catches the bug by putting the bug back for a few seconds and watching it
+fail — a test that has never been seen to fail isn't evidence of anything.
+
+The change is committed and has gone to the review council. It won't be visible to anyone
+until the next time the software is rebuilt and rolled out, and the four new menu links on
+gaswholesalers still aren't on the live site either, for the same reason as everything
+else today: the queue that republishes pages is still down, and that remains somebody
+else's problem to fix.

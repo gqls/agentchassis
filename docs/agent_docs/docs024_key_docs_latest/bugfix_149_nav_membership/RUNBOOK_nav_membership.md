@@ -265,6 +265,8 @@ Measured 2026-07-31: **`nav_drift` = 17 raised / 17 claimed / 17 complete**;
 >
 > ```sql
 > -- 4. THE LIVENESS QUESTION, asked directly
+> --    ⚠ SUPERSEDED — see query 5. A fleet-wide max() answers a different
+> --    question from the one you are asking. Do not run this on its own.
 > SELECT max(claimed_at) AS newest_claim_anywhere,
 >        round(EXTRACT(EPOCH FROM (NOW() - max(claimed_at)))/60) AS mins_since
 > FROM site_work_items;
@@ -272,6 +274,34 @@ Measured 2026-07-31: **`nav_drift` = 17 raised / 17 claimed / 17 complete**;
 > SELECT max(updated_at) FROM orchestration_states WHERE current_step = 'complete_idle';
 > ```
 >
+> > **⚠ CORRECTED AGAIN 2026-07-31 18:13 — query 4 has the SAME defect as query 2, one
+> > level down, and it fooled me on the very next session.** Query 4 was added that
+> > afternoon to stop a 7-day aggregate hiding a lane that had died two hours ago. Asked
+> > cold the next session, it returned **`mins_since = 1`** — which reads as "the queue
+> > recovered". It had not. **Group by `claimed_by` and the picture inverts:**
+> >
+> > ```sql
+> > -- 5. THE LIVENESS QUESTION, asked so the answer names WHO
+> > SELECT claimed_by, max(claimed_at) AS newest_claim,
+> >        round(EXTRACT(EPOCH FROM (NOW()-max(claimed_at)))/60) AS mins_since,
+> >        count(*) FILTER (WHERE claimed_at > NOW() - INTERVAL '6 hours') AS claims_6h
+> > FROM site_work_items WHERE claimed_by IS NOT NULL
+> > GROUP BY 1 ORDER BY newest_claim DESC;
+> > ```
+> >
+> > ```
+> > diagnose-dispatch-loop   | 18:14:07 |   6 min |  4      <- another lane, investigating
+> > build-dispatch-loop      | 15:44:10 | 156 min | 16      <- the one you care about: DEAD
+> > ```
+> >
+> > The only lane claiming was **another session's diagnosis run investigating this very
+> > outage**. A fleet-wide `max()` cannot distinguish "the queue recovered" from "somebody
+> > is standing next to the corpse" — and an outage ATTRACTS exactly the kind of activity
+> > that poisons the aggregate, so the failure mode gets *more* likely the more the fleet
+> > is doing the right thing. **Always name the lane.** Third aggregate-hides-the-answer
+> > error on this lane; logged in `WRONG_CALLS.md`.
+>
+
 > **`scheduled_tasks.last_triggered_at`/`last_completed_at` advancing is a
 > fire-and-forget stamp** — it proves the scheduler fired, never that a dispatch-loop
 > orchestration was created. That trap is written down in
@@ -309,3 +339,100 @@ minutes of LLM calls with no resume. Two other sessions had rounds at `review_bu
 when this change was ready to ship on 2026-07-31, so the roll waited. A `current_step` of
 `review_*` is somebody's council; `mins_idle` under ~5 means it is live, not stale.
 **Build immediately (it touches nothing); roll on a quiet queue.**
+
+## R14 — picking a site that actually EXERCISES the label fix (not one that merely passes)
+
+The property that decides whether the label code runs is **`nav_label IS NULL`**, not how
+many tool pages a site has. `navLabelForPage` returns an authored `nav_label` ≤30 chars
+verbatim, so a site whose labels were typed in by hand produces a clean, meaningless pass.
+
+```sql
+SELECT s.domain,
+       count(*) FILTER (WHERE p.nav_label IS NULL OR p.nav_label='') AS null_label,
+       count(*) AS flagged_child_pages,
+       string_agg(p.name || ' [' || COALESCE(p.nav_label,'NULL') || ']', ' | ' ORDER BY p.name) AS pages
+FROM pages p JOIN sites s ON s.id = p.site_id
+WHERE p.status IN ('active','deployed','pending')
+  AND (p.url ILIKE '/tools/%' OR p.url ILIKE '/guides/%' OR p.url ILIKE '/resources/%')
+  AND (COALESCE(p.in_header,false) OR COALESCE(p.in_footer,false))
+  AND COALESCE(p.page_type,'content') NOT IN ('blog-index','entity-directory','section-index','news-index')
+GROUP BY 1 ORDER BY 2 DESC, 3 DESC;
+```
+
+**Gotcha, and it cost the handoff a wrong candidate list:** ranking by
+`flagged_child_pages` named `vonc (3)` and `oufe (2)`, both of which have **zero** NULL
+labels and would not have run the code at all — the same defect as gamesdesign, which is
+why a second site was asked for in the first place. Measured 2026-07-31: gaswholesalers
+**4/4 NULL** (the one to use), finetuning 2/4, ai-agent-orchestration 2/4, leopardess 1/5,
+fundamentallyai 1/3, robot-hands 1/1, and vonc/oufe/gamesdesign **0**.
+
+Also prefer a site on the **flat** `/tools/tool-x.html` convention: it exercises the
+`tool-` prefix strip, which the directory-style `/tools/x/index.html` sites never reach.
+
+**And the check that makes the proof decisive rather than encouraging** — find a page whose
+title and URL slug disagree in spelling. gaswholesalers' title is
+`Wholesale Break-Even Volume Calculator | Tools`; the derived label is
+`Breakeven Volume Calculator`. `Break-Even` vs `Breakeven` proves the label came from the
+URL and not from the title by coincidence. A label that merely *looks* right proves nothing
+about which code path produced it.
+
+## R15 — the authored-label census (the half the invariant did not cover)
+
+```sql
+-- pages carrying a slash-shaped authored label, and whether it is trusted verbatim
+SELECT s.domain, p.name, p.nav_label, length(p.nav_label) AS len,
+       (length(p.nav_label) <= 30) AS trusted_verbatim,
+       COALESCE(p.in_header,false) OR COALESCE(p.in_footer,false) AS flagged
+FROM pages p JOIN sites s ON s.id=p.site_id
+WHERE p.nav_label LIKE '%/%' AND p.status IN ('active','deployed','pending')
+ORDER BY trusted_verbatim DESC, s.domain;
+
+-- and the ones that already REACHED a live nav row (this is the defect, not the risk)
+SELECT s.domain, ni.label, ng.group_type
+FROM site_nav_items ni JOIN site_nav_groups ng ON ng.id=ni.group_id
+JOIN sites s ON s.id=ni.site_id
+WHERE ni.status='active' AND ni.label LIKE '%/%';
+```
+
+Measured 2026-07-31: **8 pages** with a slash-shaped `nav_label`, 7 flagged, **2** short
+enough to be returned verbatim — and **1 already live**, ai-agent-orchestration.com's
+`Tools / AI Readiness Quiz`. That second query is the one worth keeping: it asks what is
+*wrong now*, not what *could* go wrong.
+
+**The trap on the verification side, which caught me:** checking the rendered chrome with
+`rendered_html ILIKE '%Tools/%'` returns **true on a healthy footer** — it matches the
+`href` (`/tools/tool-fuel-cost-estimator.html`), not the label. Extract the anchor *text*:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc "
+  SELECT rendered_html FROM site_components WHERE site_id='<uuid>' AND slot_name='footer';" \
+ | grep -oE '<a[^>]*href="[^"]*"[^>]*>[^<]*</a>' \
+ | sed -E 's/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/\2  ->  \1/'
+```
+
+**Schema gotcha:** `site_components` has **`slot_name`**, not `component_type`, and the
+chrome slots are `header` / `footer` / `head`. `\d site_components` first.
+
+## R16 — the four label functions, only two of which are live
+
+Before changing any label behaviour, know which of these you are in. `nav_tables.go:554`
+says `navSimplifyLabel` "consolidates" the other two — **that is the intent, not the
+state**; both still exist.
+
+| function | file | status |
+|---|---|---|
+| `navSimplifyLabel` | `nav_tables.go:574` | **LIVE** — fixed by A6 |
+| `navLabelForPage` | `populate_nav_tables_action.go:498` | **LIVE** — the authored path, fixed 07-31 |
+| `rerenderSimplifyNavLabel` | `rerender_pages_actions.go:440` | **DEAD, and still holds the pre-A6 whole-path defect** |
+| `datahelpers.SimplifyNavLabel` | `datahelpers/nav_labels.go:43` | live, but takes a page **name** not a URL — cannot title-case a path |
+
+```bash
+# why the third is dead — its only call site is commented out
+grep -n "rerenderGetHeaderNavFromDB\|rerenderGetFooterNavFromDB" platform/orchestration/actions/rerender_pages_actions.go
+#   168: /*dbNav := rerenderGetHeaderNavFromDB(ctx, params.DB, siteID, 6, params.Logger)*/
+```
+
+**Do not "fix" the third one on sight.** It reads exactly like a live bug — it still does
+`name := strings.TrimPrefix(url, "/")` on the whole path — and repairing dead code costs a
+council round and teaches the next reader that it matters. Leave it, or delete it as a
+deliberate, separately-argued tidy-up.
