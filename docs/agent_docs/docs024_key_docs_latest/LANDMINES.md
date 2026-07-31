@@ -1342,3 +1342,29 @@ source document and the entry points at it.
   `site_plan_sections` keys on `component_name`/`page_name`, not `function`/`page_id`.)
 - **source:** 2026-07-31, staged_component_build, refuting its own check's orphan verdict
 - **added:** 2026-07-31, staged_component_build
+
+### `strip_comments()` in pattern-check.py is only suppress-only for checks that search for the OFFENCE — for one searching for a GUARD it INVENTS findings
+
+- **footprint:** `scripts/pattern-check.py` (`strip_comments`, `COMMENT`, `check_stdin_eater`); any new check added to that script
+- **fires when:** you add or fix a rule in `pattern-check.py` and reach for the shared `strip_comments()` helper so a comment ABOUT an invariant is not read as a violation of it
+- **the tell:** the helper's own docstring states the safety property — *"it can only ever
+  suppress a finding, never invent one"* — and that is **true only for a check that searches
+  the stripped text for the thing it is complaining about.** `check_stdin_eater` searches the
+  body for the **guard** (`</dev/null`), so stripping can delete the guard and manufacture a
+  finding. Worse, `COMMENT` treats **`--`** as a comment start, and `--` is **kubectl's
+  argument separator**, so the extremely common
+  `kubectl exec -i pod -- psql -c '…' </dev/null` strips to `kubectl exec -i pod` and a
+  correctly-guarded loop is flagged
+- **why it is a landmine:** the docstring reads as a proof of safety, so you stop thinking.
+  Both directions were hit within minutes on 2026-07-31 — first the rule fired on a COMMENT
+  warning about the trap (`CHECK_naming_contract.sh`, whose code uses the correct
+  `mapfile`+`for`), then the "fix" using `strip_comments` flagged a properly guarded loop
+- **the check:** strip with a language-appropriate stripper (`#`-only for shell, and only where
+  `#` starts a word so `${row#tool-}` survives), search the OFFENCE in the stripped body and
+  the GUARD in the RAW body — then **run all four controls, because two of them are the ones
+  that catch this**: (a) a genuine unguarded eater must fire, (b) a guarded one must not,
+  (c) a genuine eater whose body carries a comment mentioning the trap must still fire,
+  (d) the file that motivated the fix must be clean. Narrowing a detector until only (d)
+  passes makes it inert
+- **source:** 2026-07-31, staged_component_build, fixing a false positive on its own check script
+- **added:** 2026-07-31, staged_component_build

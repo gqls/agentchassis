@@ -233,16 +233,43 @@ def check_stdin_eater(files, ref, findings):
         if not (path.endswith(".sh") or path.endswith(".bash")):
             continue
         content = file_content(path, ref)
-        lines = content.splitlines()
+        # COMMENTS ARE STRIPPED FOR THE OFFENCE SEARCH ONLY, AND WITH A SHELL-SPECIFIC
+        # STRIPPER (added 2026-07-31). Two bugs were fixed here, the second introduced
+        # while fixing the first:
+        #
+        #  1. Without any stripping the rule fires on a comment that WARNS about the
+        #     trap. CHECK_naming_contract.sh carries "do NOT `while read` over a
+        #     here-string here" directly above the mapfile+for loop that is the correct
+        #     fix, and this check reported that file as the defect. A detector that
+        #     flags its own warning text teaches people to ignore the whole script.
+        #
+        #  2. The shared strip_comments() CANNOT be used here, and its docstring's
+        #     claim that it "can only ever suppress a finding, never invent one" does
+        #     NOT hold for this check. It treats `--` as a comment start, and `--` is
+        #     kubectl's argument separator, so
+        #       kubectl exec -i pod -- psql -c '…' </dev/null
+        #     strips down to "kubectl exec -i pod" and THE GUARD DISAPPEARS. A
+        #     correctly-guarded loop then gets flagged. The monotonicity claim holds
+        #     only for checks that search the stripped text for the OFFENCE; a check
+        #     that searches it for a GUARD inverts the direction.
+        #
+        # Hence: `#`-only stripping (and only where `#` starts a word, so `${row#tool-}`
+        # survives), the offence searched in the stripped body, and the guard searched
+        # in the RAW body. Line count is preserved either way, so reported line numbers
+        # are unaffected. Both directions are covered by controls — a genuine unguarded
+        # eater must still fire, and a guarded one must not.
+        raw_lines = content.splitlines()
+        lines = [SH_COMMENT.sub("", l) for l in raw_lines]
         depth_stack = []
         for i, line in enumerate(lines):
             if re.search(r"\bwhile\b.*\bread\b", line):
                 depth_stack.append(i)
             if re.match(r"^\s*done\b", line) and depth_stack:
                 start = depth_stack.pop()
-                body = "\n".join(lines[start:i])
+                body = "\n".join(lines[start:i])              # comment-free: the OFFENCE
+                body_raw = "\n".join(raw_lines[start:i])       # verbatim: the GUARD
                 m = STDIN_EATERS.search(body)
-                if m and "</dev/null" not in body and "< /dev/null" not in body:
+                if m and "</dev/null" not in body_raw and "< /dev/null" not in body_raw:
                     findings.append((
                         "stdin-eater", f"{path}:{start + 1}",
                         f"`while read` loop calls {BOLD}{m.group(1).strip()}{RESET} without redirecting its stdin",
@@ -272,6 +299,12 @@ DECLARED_PAIRS = [
 CODE_EXT = (".go", ".sql", ".sh", ".py", ".ts", ".tsx", ".js")
 
 COMMENT = re.compile(r"(//|--|#).*$")
+
+# Shell-only comment stripper. Deliberately NOT the COMMENT regex above: `--` is
+# kubectl's argument separator, not a shell comment, and treating it as one deletes
+# the `</dev/null` guard that check_stdin_eater looks for. `(?<!\S)` keeps
+# `${row#tool-}` and `"a#b"` intact by requiring whitespace or line-start before `#`.
+SH_COMMENT = re.compile(r"(?<!\S)#.*$")
 
 
 def strip_comments(text):
