@@ -496,6 +496,90 @@ in `prototype/README.md`.
   independent reasons the Python-literal pool stops being adequate. Recommend
   starting with the table rather than migrating to it.
 - §7.4 (*prototype or spec first?*) — **answered by the owner: prototype.** Done.
-- §7.1 (*human approval or automated gate only?*) — **still open**, and 9.1 raises
-  the stakes: an adversarial upstream source makes an unreviewed publish path
-  riskier than it was when the pool was hand-written.
+- §7.1 (*human approval or automated gate only?*) — **ANSWERED 2026-07-31: no human
+  approval, "we can try without for now."** The owner read the §4 recommendation
+  and the 9.1 stakes and took the speed. That is his call and it is now the
+  design; §10 states what it obliges us to build instead.
+
+---
+
+## 10. Building for an UNREVIEWED publish path (owner decision, 2026-07-31)
+
+The recommendation in §4 was a human approving (b) and (c) until contestant data
+exists. **The owner has decided against it, and the decision is recorded as taken,
+not as pending.** What follows is not a re-argument — it is the set of properties
+the pipeline now has to have *because* nobody is in the loop.
+
+**The load-bearing change: the gate stops being a filter and becomes the only
+control.** With an approver, a gate miss costs a moment of someone's attention.
+Without one, a gate miss is a false statement on a live homepage — which is
+`bugs_open/149` C1, witnessed on 2026-07-29 on another site. So:
+
+### 10.1 Fail CLOSED, and the degraded mode is "yesterday's provocation stays"
+
+If generation produces nothing that clears the gate, **publish nothing**. The feed
+keeps the current provocation and the site is unchanged.
+
+That degraded state is, precisely, the bug this workstream exists to fix — but
+there is a real difference between it happening silently for a month and it
+happening deliberately for a day with an alert attached. **A stale provocation is
+a broken promise; a false one is a broken product.** Prefer the first.
+
+**This is already how the news pipeline behaves and it is proven live** — step 6 of
+`090_content_feed_orchestrator.sql` is an `evaluate_condition` on
+`news_render_result.item_count`, routing `0 → complete` so `commit_news` never
+runs on an empty render. Reuse that shape rather than inventing one.
+
+### 10.2 A gate that ERRORS must count as a rejection, never as a pass
+
+The failure to design against is not the gate judging wrongly — it is the gate not
+running at all (timeout, API error, malformed response) and the pipeline reading
+"no objection returned" as "no objection exists".
+
+> **This exact bug has already been shipped on this platform.** A `!= nil` guard
+> turned *unknown* into *no rule*, so an unpublished product range scored `Match`
+> on a live page (fixed 2026-07-29, chassis v1.0.1196). **Absence of a verdict is
+> not a favourable verdict.** Encode the default as reject and test the timeout
+> path explicitly, because it is the path that will not be exercised by accident.
+
+### 10.3 Somebody has to be able to see what it decided
+
+An approval queue has a reviewer looking at every candidate as a side effect. Take
+the reviewer away and **nothing observes the gate unless we build the observation.**
+Otherwise the first evidence of a broken gate is a complaint about the live site.
+
+Minimum: every gate decision persisted with its verdict, its reasons, and the
+candidate it judged — including the rejections, which are the interesting half.
+A gate that has rejected 100% or 0% for a week is broken in one of two directions
+and both are invisible without the log.
+
+### 10.4 A rollback that exists BEFORE the first automated publish
+
+One command that restores the previous provocation, written and *tested* while
+nothing is going wrong. Not "we will write one if we need it" — the moment it is
+needed is the worst moment to write it. The feed is a single file in a git repo,
+so this should be cheap; cheap and absent is the worst combination.
+
+### 10.5 One publish per day is itself a safety property
+
+At most one rotation per day means a broken generator can produce at most one bad
+day before anyone notices, rather than a flood. Do not add a "catch-up" mode that
+publishes several at once to fill a gap.
+
+### 10.6 Calibration is no longer optional
+
+§4 proposed testing the gate against the nine existing provocations. With a human
+backstop that was good practice; without one **it is the only evidence the gate
+works at all.** It must pass all 9 and reject a set of deliberately bad samples
+(a bare insult, a factual claim dressed as opinion, a one-sided political take, a
+piece of trending slop) *before* it is wired to anything that publishes.
+
+### 10.7 What this does NOT change
+
+The §4 split still holds and matters more: **the thesis is exempt from the claims
+rail, the body's factual assertions are not.** Removing the human removes the
+judge of "interesting" and "relevant"; it does not make the truth check optional.
+Criteria (b) and (c) remain unmeasurable until there are contestants (§5.4) — they
+will now be judged by a model with no data behind it, so treat their verdicts as
+the weakest part of the gate and keep the confidence of that judgement out of the
+publish decision where it is separable from safety and form.

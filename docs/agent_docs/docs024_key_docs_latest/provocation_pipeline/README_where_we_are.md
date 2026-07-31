@@ -237,3 +237,72 @@ recommendation from earlier today, which matters more now that the source is an
 adversarial one; and your read on those four paired-mode decisions, particularly
 the organiser not being able to see positions, since that's the one a customer
 will ask you to change.
+
+---
+
+**2026-07-31 (evening) — the builder can now rotate, and what your "no approval" decision obliges**
+
+You agreed the four paired-mode decisions and said we can try without human
+approval for now. Both recorded as settled — I'm not going to keep raising the
+approval question.
+
+But it does change what has to be built, so I've written that down rather than
+leaving it implied. With a person approving, a filter miss costs someone thirty
+seconds of attention. With nobody there, a filter miss is a false statement on a
+live page. So five things become obligations rather than nice-to-haves:
+
+If nothing passes the filter on a given day, we **publish nothing** and yesterday's
+provocation stays up. That's the same broken state we started with — but there's a
+real difference between it happening silently for a month and deliberately for a
+day with an alert on it. A stale provocation is a broken promise; a false one is a
+broken product. The news pipeline already works this way, so we can copy it rather
+than invent it.
+
+If the filter *errors* — times out, returns nonsense — that must count as a
+rejection, never as a pass. We have already shipped this exact bug once: a check
+treated "don't know" as "no objection" and put an unpublished product range on a
+live page as a confirmed match. Absence of a verdict is not a favourable verdict.
+
+Somebody has to be able to see what the filter decided, including the rejections.
+With an approver, a human sees every candidate as a side effect of approving it.
+Take the approver away and nothing observes the filter at all unless we build the
+observing — and then the first sign it's broken is a complaint.
+
+A rollback command has to exist and be tested *before* the first automatic
+publish, not written in a hurry when it's needed.
+
+And calibrating the filter against our existing nine provocations stops being good
+practice and becomes the only evidence it works.
+
+**The builder now rotates.** I rewrote it as a schedule: each provocation carries
+the date it goes live, today's is whichever one has most recently arrived, and the
+archive is everything published before it. That implements your archive rule as a
+property of the structure rather than a step someone has to remember — nothing can
+be in both places, ever.
+
+I checked it the strongest way available: run the new builder for today and
+compare against what the site is actually serving. Identical, apart from a real
+generation timestamp and the two fields (a date and a slug) whose absence is
+exactly why the archive got stuck on 5 July.
+
+That comparison caught me quietly rewording live copy. I'd derived the arena's
+first card from the archive teaser, but the live card has a longer hand-written
+line — so a "no behaviour change" refactor would have changed the words on the
+page. Fixed properly, and the card is still derived from one place so it can't go
+stale.
+
+**Two things I got wrong, both worth the telling.** My first comparison checked the
+card *titles*, found them all identical, and reported a match — the difference was
+in a field I hadn't put on my list. And when I built the checker that proves
+rotation works, I deliberately broke the builder six ways to see if the checker
+would notice: it missed one. Freezing the date to a fixed value sailed straight
+through, because I'd checked the date was *present* and never that it was
+*correct*. That is precisely the trap I'd written up and filed this morning, about
+this same file. Knowing a failure mode turns out not to be the same as checking
+for it. Both fixed, and all six breakages are now caught.
+
+**Nothing has been published.** All of this is local. The site is still serving the
+26 July provocation, and with only nine provocations scheduled the new builder
+produces exactly that same file today — Phase 0 makes rotation *possible*, it
+doesn't make the site rotate. That needs new provocations (or the generator) and
+the scheduled job. Publishing changes a live site, so I'll wait for you to say go.

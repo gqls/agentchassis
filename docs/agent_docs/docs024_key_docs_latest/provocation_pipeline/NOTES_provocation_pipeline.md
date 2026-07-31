@@ -230,3 +230,95 @@ flow with curl against the live server:
   behaviour and should be labelled as such until something is actually posted.
 - "Grok supplies topics, not provocations" is a design position, not a finding —
   no Grok call has been made from this workstream yet.
+
+---
+
+## 2026-07-31 — Phase 0 built: the builder is schedule-driven
+
+Owner agreed the four paired-mode decisions and ruled **no human approval for
+now**. Recorded as taken; PLAN §10 states what an unreviewed publish path
+obliges instead (fail closed to yesterday's provocation, gate errors count as
+rejections, decisions logged, rollback written before first publish,
+calibration against the 9 no longer optional).
+
+### The new builder, and why it lives in this lane
+
+`provocation_pipeline/builder/build_provocations.py`. The original stays where it
+is in `gauntlet_dead_cta/p4_sources/` — it produced the live file and that is a
+fact about history, so calling it "superseded" would be false until something
+else has actually published. Also: that lane is actively working (they shipped
+the share card this morning), and a new file in my own directory cannot collide
+with theirs.
+
+Selection is a **schedule**: each entry carries a `publish` date, `today` is the
+latest entry whose date has arrived, and the archive is everything published
+strictly before it. That implements the owner's rule exactly — an entry is
+archived the moment a later one is published and never during its own day — as a
+property of the data structure rather than a step someone has to remember.
+
+### Verified behaviour-preserving before anything else [VERIFIED]
+
+The strongest check available for a refactor: run it for 2026-07-31 and diff
+against the **served** file. Result — identical, apart from the computed
+`generated_at` and the two additions (`today.date`, `today.slug`) that are the
+entire point.
+
+That diff caught a real regression I had introduced and would otherwise have
+shipped: I derived `arena.cards[0].desc` from the archive teaser, but the live
+card carries a longer hand-written blurb. Deriving it would have silently
+reworded live copy under cover of a "no behaviour change" refactor. Fixed with an
+optional `card_desc` on the schedule entry, so the card is still derived from one
+source of truth and the live string is preserved.
+
+> **Note the near-miss in my own method.** My first comparison checked
+> `card[i].title` and reported SAME for all six cards. The titles *were* the
+> same; `desc` was not, and I had not looked at it. **A field-by-field check is
+> only as good as the field list**, and I had chosen a list that happened to
+> exclude the one I had changed. Caught by then diffing whole documents instead
+> of chosen fields. Same family as this morning's entry — a check that answers
+> the question you encoded rather than the one you meant.
+
+### `verify_rotation.py` — assert the mechanism, not a day's output
+
+39 dates across the schedule span plus 10 days past the end. Invariants: today is
+never also archived; today always has slug and date; the arena's first card
+matches today; the archive is exactly the earlier entries, newest first; the
+archive grows by exactly one when today changes and not at all when it does not;
+9 distinct provocations appear in schedule order; and a date before the schedule
+starts must FAIL rather than invent one. All hold.
+
+### MISSTEP 4 — my verifier passed a mutation of exactly the class I filed this morning
+
+Mutation-tested the verifier by breaking the builder six ways. Four caught
+immediately. Two did not behave:
+
+- **`today.date` frozen to a literal — NOT CAUGHT.** The verifier asserted the
+  field was *present*, never that it was *right*. And `today.date` is what gets
+  carried into the archive on promotion, so a frozen value would date every
+  archived entry identically while looking completely plausible.
+  **This is the same defect I filed in `LANDMINES.md` this morning** — the
+  hardcoded `generated_at` whose freshness check reads a literal. I wrote the
+  landmine, then wrote a checker with the identical blind spot four hours later,
+  in the same file it was about. Knowing a failure mode is not the same as
+  checking for it. Fixed: assert `today.date` and every archived entry's date
+  equal the scheduled date, with the short-date formatter **re-derived in the
+  verifier** rather than imported — a verifier that formats dates with the code
+  under test cannot detect a formatting change, only agree with it.
+- **Slug deleted — "caught", but by crashing.** `KeyError` before the check that
+  was supposed to report it. Non-zero exit, so a mutation test scores it as
+  caught while the operator learns nothing. Fixed by ordering the presence check
+  first and skipping the slug-dependent checks for that date.
+  **Worth generalising: "the mutation test went red" is not the same as "the
+  checker reported the defect".** Read the output, not the exit code.
+
+All six mutations now produce a named, dated failure line.
+
+### [UNMEASURED] / not done
+
+- Nothing has been published. The new builder's output has never been served;
+  everything above is local. Publishing is an outward-facing change and is the
+  owner's call.
+- The schedule still has 9 entries and the last publishes 26 Jul, so on today's
+  date the output is *identical to the stale live file*. **Phase 0 makes rotation
+  possible; it does not make the site rotate.** That needs new entries or the
+  generator, plus the scheduled task.
