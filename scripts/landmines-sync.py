@@ -50,9 +50,20 @@ def sql_lit(s):
 
 
 def run_psql(sql, capture=True):
+    """Send SQL on STDIN, not as `-c`.
+
+    `-c` put the whole statement list in argv, and on 2026-07-30 the corpus grew
+    past the kernel's argument limit: --apply died with `OSError: [Errno 7]
+    Argument list too long` mid-append, which is a sync that stops working purely
+    because the file it syncs got bigger. Nothing about the SQL changes — the apply
+    path already wraps itself in explicit BEGIN;/COMMIT;, so atomicity is exactly
+    what it was; only the transport moves. ON_ERROR_STOP=1 still aborts the
+    transaction on the first failure.
+    """
     cmd = PSQL.split()
     proc = subprocess.run(
-        cmd + ["-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", sql],
+        cmd + ["-v", "ON_ERROR_STOP=1", "-t", "-A"],
+        input=sql,
         capture_output=capture,
         text=True,
     )
