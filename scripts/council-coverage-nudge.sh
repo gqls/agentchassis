@@ -37,8 +37,31 @@ if grep -qiE '^[[:space:]]*Council-Reviewed:' "$MSGFILE"; then
 fi
 
 n=$(printf '%s\n' "$plat" | grep -c . || true)
+
+# Submitted but not yet judged (the `Council-Submitted:` trailer, added
+# 2026-07-30) is the CORRECT state for a thread following the 2026-07-20 rule to
+# commit the moment the work is coherent — the verdict takes ~30 minutes and
+# forward-only forbids the amend that `Council-Reviewed:` would need. Nudging
+# that thread as "un-reviewed" punishes compliance and teaches everyone to
+# ignore the nudge, which costs the advisory its only power. So acknowledge it
+# instead: the trailer is live, 098 resolves the verdict at report time, and the
+# one thing still owed is READING that verdict.
+#
+# Found 2026-07-31 by the bugfix_143 lane, which was nudged on a commit carrying
+# `Council-Submitted:` for a submission that was mid-council at the time.
+if grep -qiE '^[[:space:]]*Council-Submitted:' "$MSGFILE"; then
+  printf '\n\033[1;36m── council coverage · advisory ──\033[0m\n'
+  printf '  %s platform-code file(s) staged with a \033[1mCouncil-Submitted\033[0m trailer — verdict pending.\n' "$n"
+  printf '  Correct for a pre-verdict commit: 098 credits this automatically once the\n'
+  printf '  correlation is approved, with no amend. Still owed: READ the verdict, and act\n'
+  printf '  on a REVISE/REJECTED (the code is already on the shared branch).\n'
+  exit 0
+fi
+
 printf '\n\033[1;36m── council coverage · advisory ──\033[0m\n'
 printf '  %s platform-code file(s) staged, no \033[1mCouncil-Reviewed\033[0m trailer.\n' "$n"
 printf '  The gate now approves ~80%% of sound changes in ~30 min (submit: 097_TRIGGER_council_review_v1.sh).\n'
+printf '  Committing before the verdict? Use \033[1mCouncil-Submitted: <corr>\033[0m — it asserts nothing,\n'
+printf '  and 098 credits the commit when approval lands.\n'
 printf '  This commit will list as un-reviewed in the 098 report. Advisory — never blocks.\n'
 exit 0
