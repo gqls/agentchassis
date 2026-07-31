@@ -225,3 +225,52 @@ until the next time the software is rebuilt and rolled out, and the four new men
 gaswholesalers still aren't on the live site either, for the same reason as everything
 else today: the queue that republishes pages is still down, and that remains somebody
 else's problem to fix.
+
+## 2026-07-31 (evening) — the review council did its job on me three times
+
+Three things happened after I sent the menu-label fix for review, and they're worth
+setting down plainly because two of them were the reviewers catching me out.
+
+**First, they objected to something I'd already fixed — and they were right to.** There's
+a standing warning attached to the file I was editing, saying that running the navigation
+rebuild deletes tool links and doesn't put them back. Five reviewers raised it. That
+warning is out of date: this same workstream fixed the underlying problem this morning and
+wrote the correction into the warning itself. But when the reviewers looked the warning up,
+the system handed them a **cut-off version** — and the cut fell four paragraphs above the
+correction. So they read the old, frightening version, and objected in good faith.
+
+I could have argued. Instead I moved the correction to the **first line** of the warning,
+where anyone reading a truncated copy will see it. If a correction is at the bottom of a
+document, and your readers only ever get the top, then you haven't corrected anything.
+
+**Second, and this one stung: a reviewer accused me of claiming a fix I hadn't verified,
+and they were exactly right.** I'd told them I had fixed the warning "at source". What I'd
+actually done was edit the file — and forget to run the step that copies it into the
+database the reviewers actually read from. So the file said one thing and their copy said
+another, and I'd confirmed my claim by re-reading the file I'd just written, which proves
+nothing. That's a real mistake and I've logged it. The lesson is narrow and useful: saying
+"I fixed it at source" is a claim about a *pipeline*, not about a file, and it has to be
+checked at the far end.
+
+**Third, an objection about a rare edge case led me to a worse bug than the one reported.**
+A reviewer pointed out that my tidy-up didn't handle a label ending in a stray slash. Fair,
+if obscure. But while writing the test for it I thought to ask whether any real page has a
+slash in its name that *isn't* a category prefix — rather than assuming none did. One does:
+webdesign.co.uk has a page called "A/B Test Calculator". My code would have quietly renamed
+it "**B** Test Calculator". Nothing would have failed; nobody would have noticed until they
+looked at the menu. That page happens not to be in any menu today, which is the only reason
+it wasn't already broken.
+
+So the rule is narrower now: a slash only counts as a category divider when it has spaces
+around it, the way "Tools / AI Readiness Quiz" is written. A slash inside a word is part of
+the name. I also had to fix my own test, which insisted no menu label may contain a slash —
+a rule strict enough to condemn a perfectly good name. **A rule that's too strict isn't the
+safe option; it licenses a "fix" that breaks correct data.**
+
+**Where it stopped.** The third review round was cut off partway through, not on merit: the
+account hit its **API usage limit at 18:58 UTC**, and everything that talks to the AI models
+stops until **midnight UTC**. My run was the first casualty; another session's died a minute
+later. All LLM-backed work across the fleet — reviews, diagnoses, page writing — is down
+until then. The code is committed and I believe it's right; the reviewers' outstanding
+points are all answered in the round that was interrupted, so it only needs re-sending after
+midnight. Nothing needs rewriting.

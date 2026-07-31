@@ -94,11 +94,55 @@ So the chain is: nav tables ✅ → stored chrome ✅ → **served pages ⛔**.
    planner-**authored** `nav_label` verbatim when ≤30 chars, slash and all — and
    **ai-agent-orchestration.com was already serving a nav row labelled
    `Tools / AI Readiness Quiz`**. 8 live pages carry such a label, 7 flagged, 2 trusted
-   verbatim. Fixed in `6fc1ff3ed` (`navLabelDropCategoryPrefix`, guard test proven failing
-   on the defect first); council **`11c5c813-dfad-437e-b4a9-09c56475e8d2`** submitted,
-   committed with `Council-Submitted:`. **Owed by the next session: read that verdict and
-   act on a REVISE/REJECTED — the code is already on the shared branch.** Inert until the
-   next chassis roll. Census + traps in **RUNBOOK R15/R16**, register **NAV-013**.
+   verbatim. Fixed across `6fc1ff3ed` → `30fdcfb55` → **`997c24baf`** (current). Census +
+   traps in **RUNBOOK R15/R16**, register **NAV-013**. Inert until the next chassis roll.
+
+   > ### ⛔ THE ONE THING OWED: re-fire round 3 after 2026-08-01 00:00 UTC. Nothing to edit.
+   >
+   > Council `11c5c813-dfad-437e-b4a9-09c56475e8d2`, three rounds:
+   > **r1 REVISE** (5 seats, one HIGH) → **r2 REVISE** (8 approve / 2 object) →
+   > **r3 DIED ON AN ACCOUNT CAP, NOT ON MERIT.**
+   >
+   > ```
+   > COMPLETED | complete_invalid | failed_step = review_tooling_provenance
+   > 400 invalid_request_error: "You have reached your specified API usage limits.
+   >                             You will regain access on 2026-08-01 at 00:00 UTC."
+   > ```
+   >
+   > First hit fleet-wide **18:58:41**; another session's round died at
+   > `review_editquality` a minute later. **ALL LLM-backed work is down until 00:00 UTC** —
+   > councils, diagnosis loops, content generation.
+   >
+   > **Do NOT edit the submission** — it is complete and answers every r1/r2 objection.
+   > Re-fire it as-is: `RESUBMIT_CORR=11c5c813-dfad-437e-b4a9-09c56475e8d2
+   > ./…/097_TRIGGER_council_review_v1.sh <submission.json>`. The JSON is in this session's
+   > scratchpad; if it is gone, r1/r2's answers are recorded verbatim in `NOTES` under
+   > *"three council rounds on the authored-label fix"*.
+   >
+   > **LANDMINE:** `complete_invalid` with reviewers already fired normally means a
+   > *transient* seat fault, and `RUNBOOK_council_gate.md` says resubmit unchanged. **That
+   > is wrong for this cause** — every retry re-runs the passed seats into the same wall.
+   > Read `__step_error->>'message'` and distinguish by what it SAYS, not by the step name.
+   > Entry added to `LANDMINES.md`. And size it with `ILIKE '%usage limit%'` — `'%spending
+   > limit%'` returns 0 rows mid-outage (logged in `WRONG_CALLS.md`).
+
+   **What the three rounds bought, beyond the verdict** — both were real defects the
+   submission had, and one was worse than anything reported:
+   - r2 `editquality`: the separator strip returned the **original** slash-bearing label
+     when the tail was empty (`"Tools / "`). The invariant held for the common case and
+     called itself a guarantee.
+   - **Found while testing that:** splitting on *any* `/` mangles **`A/B Test Calculator`**
+     → `B Test Calculator`. webdesign.co.uk really has that page (the one fleet title with a
+     slash); it is unflagged, so the mangling was **latent, not live**. Rule narrowed to a
+     **whitespace-delimited** separator, and the test's own assertion corrected — it had
+     demanded no `/` survive, which would condemn a correct name.
+   - r2 `prior_art_librarian` [HIGH] was **right and my claim was false**: I said the
+     landmine was "fixed at source" having edited `LANDMINES.md` *after* the last
+     `landmines-sync.py --apply`, so `doc_notes` — the store the council reads — still had
+     the old body. **Re-sync after appending, and verify by reading the ROSTER back, not
+     the file.** Also why r1 gated at all: the council's landmine lookup **truncates**, and
+     this lane's own `⚠ NARROWED` correction sat four bullets below the cut. It now sits in
+     the entry's first bullet.
 
 2. **`bugs_open/149` A3** — nothing keeps a parent listing in sync, so a tool page with
    *no* nav flags is still invisible (correctly out of nav, absent from `/tools/index`,

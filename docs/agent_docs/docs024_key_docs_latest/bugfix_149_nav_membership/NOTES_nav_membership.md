@@ -371,3 +371,91 @@ through another session's WIP in the same package.
 
 Council `11c5c813-dfad-437e-b4a9-09c56475e8d2` submitted; committed with
 `Council-Submitted:` rather than holding code for the verdict.
+
+## 2026-07-31 (18:30–19:05 UTC) — three council rounds on the authored-label fix, and the fleet hit its API cap mid-round-3
+
+**Round 1 — REVISE**, gated HIGH by `prior_art_librarian`, with three more MEDIUMs from
+`bug_historian`, `guardian` and `debug_historian` all on the same point: the landmine
+*"nav-updater DELETES every nav link under /tools/ … and puts none back"* is keyed to the
+file I was editing and my submission never cited it.
+
+The objection to the **submission** was right. The **hazard** was already fixed — by this
+lane, that morning, and the narrowing is written in the entry. So why did four seats not
+see it? **Their landmine lookup returned a body truncated at `"the tell: there is none at
+the time. The run COMPLETES, th…"` — four bullets ABOVE the `⚠ NARROWED` banner.** The
+correction was below the fold, and every reader that truncates is blind to it.
+
+Fixed at the mechanism rather than argued in the round: the STATUS now sits in the entry's
+**first bullet**. Landmine entries are read truncated by machines; a correction placed at
+the bottom is a correction nobody receives.
+
+I also answered the rest with checks rather than prose — the landmine's own DELETE+rebuild
+scenario executed on gaswholesalers (19 rows reproduced, 4 added, 0 lost), fleet child-path
+nav rows going **up** (16/7 domains on 07-30 → 26/8 today), deadness re-verified at HEAD
+with `git grep … HEAD -- '*.go'`, and `datahelpers.ExtractNameFromURL` **executed** to show
+reuse would emit `" AI Readiness Quiz"` with a leading space.
+
+**Round 2 — REVISE, but 8 approve / 2 object.** Both objections were correct.
+
+1. `editquality` [MEDIUM]: `navLabelDropCategoryPrefix` returned the **original** label,
+   slash intact, when the text after the last `/` was empty — so `"Tools / "` survived and
+   was then trusted verbatim at ≤30 chars. **The invariant held for the common case and
+   called itself a guarantee.** Exactly the thing this lane keeps writing down about other
+   people's checks. Fixed: scan backwards for the last segment *with content*.
+
+2. `prior_art_librarian` [HIGH]: *"the landmine as it reads in the council's own roster is
+   still the unqualified absolute — that is the shape of a false register-correction
+   claim, asserted-fixed not verified."* **This was correct and my claim was false as
+   stated.** I ran `landmines-sync.py --apply` at ~18:24, edited `LANDMINES.md` at ~18:35,
+   and never re-synced. The file had the correction; `doc_notes` — the store the council
+   actually queries — did not. **"I fixed it at source" was a claim about a PIPELINE, and I
+   verified it by re-reading the FILE I had just written.** Re-synced and verified by
+   reading the roster back: `has_status_first=t, has_narrowed=t`, inside the first 200
+   characters. Logged in `WRONG_CALLS.md`.
+
+### The defect the round-2 objection uncovered, which was worse than the one reported
+
+Writing the test for editquality's case, I asked whether any real label or title contains a
+slash *that is not a category prefix*, instead of assuming none did. One does:
+
+```
+webdesign.co.uk | tool-ab-test-calculator | "A/B Test Calculator | webdesign.co.uk"
+```
+
+Splitting on **any** `/` turns `A/B Test Calculator` into **`B Test Calculator`**. That page
+carries no authored `nav_label` today, so the mangling was **latent, not live** — which is
+the kind that ships, because nothing fails until someone sets a flag. The rule is now
+narrowed to a **whitespace-delimited** slash; an intra-word slash is part of the name. All 8
+live slash-bearing labels use the `Tools / X` form, so the narrower rule still fixes every
+real case.
+
+It also forced a correction to **my own test's assertion**, which demanded that no `/`
+survive — a rule that would condemn `A/B Test Calculator`. It now demands that no category
+**separator** survive. *An over-strong invariant is not a safe default: it licenses a fix
+that breaks correct data.*
+
+### Round 3 — died on an account cap, not on merit
+
+`COMPLETED / complete_invalid` at `review_tooling_provenance`, five seats in:
+
+```
+API request failed with status 400: {"type":"invalid_request_error",
+ "message":"You have reached your specified API usage limits.
+            You will regain access on 2026-08-01 at 00:00 UTC."}
+```
+
+First hit **fleet-wide at 18:58:41**; my round was its first casualty and another session's
+round died at `review_editquality` a minute later. **Not resubmitted** — the council-gate
+runbook's `complete_invalid` guidance ("a seat lost its connection; resubmit unchanged") is
+correct for a transient fault and **actively wrong here**: every retry would re-run the
+seats that already passed and hit the same wall. Landmine written, because a 400
+`invalid_request_error` naming one seat looks exactly like a bad submission.
+
+**A wrong call inside that measurement**, logged: I sized the outage with
+`ILIKE '%spending limit%'` and got **0 rows during a live outage** — the message says
+"usage limits". I had the exact string on screen and typed a synonym.
+
+**State: the code is committed (`997c24baf`) and correct; the verdict is OWED.** Rounds 1
+and 2 are answered in full; round 3 carries those answers and needs only to be re-fired
+after 00:00 UTC on the same correlation `11c5c813-dfad-437e-b4a9-09c56475e8d2`. The
+submission JSON is ready — nothing about it needs editing.
