@@ -13236,3 +13236,69 @@ attached.)
 recorded here. I noticed only because "one site has nav groups" is absurd — the absurdity
 was luck, and a plausible number would have gone through. *A zero (or a one) from a filter
 you invented is not evidence*, which is already in this file, and I did it anyway.
+
+---
+
+## 2026-07-31 — I counted `case "<provider>"` arms and called it a provider list. Two of the six error at runtime.
+
+**The context.** Rewriting `leopardessconsulting.co.uk/services.html` into carousels. The
+published copy claimed "Anthropic Claude, OpenAI, Gemini, Mistral, xAI, and Perplexity are
+all available as selectable providers", so before repeating it I checked, the right instinct.
+
+**The claim.** I ran
+`grep -ioE 'case "(anthropic|openai|gemini|mistral|xai|perplexity|ollama)"'` over
+`platform/ internal/`, got back **anthropic, gemini, ollama, openai, perplexity, xai**, and
+wrote into the site's AUDIT file: *"five hosted providers plus a self-hosted path — no
+mistral"*. I even felt good about it, because the grep had **falsified part** of the copy
+(Mistral was absent), and finding one error makes the rest of a check feel exercised.
+
+**Why it was wrong.** `platform/aiservice/factory.go:24-35` is the one switch every LLM step
+passes through, and it supports exactly **three**: anthropic, ollama, gemini. `openai` is
+`return nil, fmt.Errorf("OpenAI provider not yet implemented")` — an arm that exists purely
+to error. `xai` and `perplexity` are not in that switch at all. The arms my grep found for
+those three live in `feed_actions.go:416-457,737-752`, a completely different code path that
+calls those vendors' **search** APIs for news gathering. So of my six, three were real, one
+was a stub that errors, and two were a different feature entirely. I would have replaced the
+site's overclaim with a smaller overclaim and marked it verified.
+
+**What caught it.** This workstream's own `RUNBOOK.md` **landmine 12**, read for an unrelated
+reason (I was looking up the rerender recipe two entries below it). It said in plain words,
+written months earlier, that only two text providers worked end to end and that "Mistral" was
+an Ollama model — and it named `createAIClient` as the place to look. **The landmine file did
+its job on a session that had no symptom and was not suspicious.** Nothing about my grep
+output looked wrong; six names for a claim of six is exactly what confirmation feels like.
+
+**The cheap check: for "is X supported", find the ONE construction site and read its default
+arm.** A capability is proven by the factory/registry/dispatcher that must return something
+usable, and the informative branches are the ones that *refuse* — a stub returning an error
+and a working client look identical to a grep for the name beside them. Corollary, because
+this is what actually fooled me: **a grep that disproves part of a claim has not thereby
+validated the rest.** Mistral's absence made the other five feel counted when they had only
+been matched.
+
+**Also worth its own line:** `createAIClient` in `ai_actions.go` is a one-line pass-through
+to `aiservice.NewClient`. Reading the function the landmine named tells you nothing; you have
+to follow it one hop. A pass-through wrapper is a good place to stop reading and be wrong.
+- **A backtick in a markdown heading made a present entry read as absent, and I acted
+  on it — committing a duplicate and a false claim.** I appended a landmine entry, ran
+  `landmines-sync --apply`, then checked it with `grep -c 'snapshot_agent() writes to'`.
+  Zero. The heading actually reads ``### `snapshot_agent()` writes to
+  `agent_definitions_backup`…`` — **the backtick sits between `)` and `writes`**, so my
+  retyped pattern could never match. I concluded the entry had been lost to a concurrent
+  write of a file I already knew was being swept by other sessions (it had been, twice
+  that hour — which is why the wrong conclusion was so easy to accept), re-appended it,
+  and committed `8287e5835` whose message asserts *"the first copy of this entry was
+  lost from the file by a concurrent write"*. Both copies were in the file and in git the
+  whole time. **What caught it:** checking whether my own commit contained the entry —
+  `git show <sha>:<path> | grep -c` returned 0 for a commit that reported 8 insertions,
+  and 8 lines is exactly the entry's length. Two numbers that cannot both be right is
+  what finally made me question the pattern rather than the file. The cheap check is
+  `grep -F` on a fragment **copied out of the file**, never retyped, or a distinctive
+  plain-text run with no formatting in it. **The transferable part is not about grep.**
+  This was the third check that day to answer a different question from the one I meant
+  to ask, and the only one that did damage — the other two were caught before they
+  reached a file. The difference was not care, it was that this one **confirmed a hazard
+  I had already seen twice**, so nothing in me argued with it. Same shape as the
+  mis-attribution and the mixed-denominator entries above: **a true background fact
+  lends its credibility to a specific claim that happens to fit it.** Forward-only, so
+  the false sentence stays in history; withdrawn in `bcecb65e3` and here.
