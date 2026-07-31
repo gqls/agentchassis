@@ -45,7 +45,20 @@ TRAIN_PY="${WORKSPACE}/02_train_llama_3_3_70b.py"
 SETUP_SH="${WORKSPACE}/00_vm_setup.sh"
 MANIFEST="${WORKSPACE}/upload_manifest.json"
 
+# Optional env overrides (2026-07-31, finetuning_uk_service). Unset = behaviour
+# identical to before: 02_train's own 70B default, checkpoint every 50 steps.
+#   BASE_MODEL  — passed through as --base-model (e.g. an unsloth 1B/3B for the
+#                 paid-demo runs). Set it on the invocation: BASE_MODEL=... run.sh
+#                 (the launcher's ssh_exec command template must export it when
+#                 the automated path adopts this — not wired yet).
+#   SAVE_STEPS  — checkpoint cadence; 0 = no checkpoints (right for runs shorter
+#                 than one cadence interval). The manifest is still passed when
+#                 present: the FINAL adapter upload is what makes DONE durable.
+BASE_MODEL="${BASE_MODEL:-}"
+SAVE_STEPS="${SAVE_STEPS:-50}"
+
 echo "RUN_SH_START ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "RUN_SH_MODEL base_model=${BASE_MODEL:-default-70b} save_steps=${SAVE_STEPS}"
 
 cd "${WORKSPACE}"
 
@@ -72,11 +85,11 @@ source "${VENV}/bin/activate"
 
 # ── 2. Smoke pass (gates the full run) ─────────────────────────────────────
 echo "RUN_SH_STEP step=smoke"
-python "${TRAIN_PY}" \
-  --data "${DATA}" \
-  --output "${SMOKE_OUT}" \
-  --limit 20 \
-  --epochs 1
+SMOKE_ARGS=(--data "${DATA}" --output "${SMOKE_OUT}" --limit 20 --epochs 1)
+if [[ -n "${BASE_MODEL}" ]]; then
+  SMOKE_ARGS+=(--base-model "${BASE_MODEL}")
+fi
+python "${TRAIN_PY}" "${SMOKE_ARGS[@]}"
 echo "RUN_SH_SMOKE_OK"
 
 # ── 3. Full train (defaults: 3 epochs) ─────────────────────────────────────
@@ -88,10 +101,13 @@ echo "RUN_SH_STEP step=full_train"
 # RUN_SH_DONE below is only reached once the adapter is in B2 — so the monitor
 # can safely decommission on DONE. Without a manifest (e.g. a manual run) the
 # args are unchanged: no checkpoints, no upload — identical to before.
-# SAVE_STEPS is the cadence knob (~1.5h at ~110s/step); the manifest carries
-# enough checkpoint URLs to cover a full run at this cadence.
-SAVE_STEPS=50
+# SAVE_STEPS is the cadence knob (~1.5h at ~110s/step at 70B; env-overridable,
+# 0 = no checkpoints for short runs); the manifest carries enough checkpoint
+# URLs to cover a full run at this cadence.
 FULL_ARGS=(--data "${DATA}" --output "${FULL_OUT}")
+if [[ -n "${BASE_MODEL}" ]]; then
+  FULL_ARGS+=(--base-model "${BASE_MODEL}")
+fi
 if [[ -f "${MANIFEST}" ]]; then
   FULL_ARGS+=(--save-steps "${SAVE_STEPS}" --upload-manifest "${MANIFEST}")
   echo "RUN_SH_UPLOAD manifest=present save_steps=${SAVE_STEPS}"
