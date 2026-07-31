@@ -46,3 +46,4 @@ webdesign_uk_build_service
 work_item_completion_integrity
 idea_uk_demand
 bugfix_161_register_ratifies    # one-off: SQL + repair script for one false register fact on one site. No reusable mechanism; the banned patterns are site data.
+bugfix_125_deploy_path_from_url    # one-off: a bug-fix lane. The shared helper it ships (datahelpers.PageFilePathFromURL) is a de-duplication of five existing copies of one rule, not a new capability — no consumer gains an ability it did not have.

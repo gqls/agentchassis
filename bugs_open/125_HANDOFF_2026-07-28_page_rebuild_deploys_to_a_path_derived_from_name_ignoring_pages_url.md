@@ -37,6 +37,14 @@ serves at a different URL with different content**.
 
 ## Root cause
 
+> **CORRECTED 2026-07-31 (bugfix-8 session): the function is `determinePageFilename`
+> at `git_deployer_actions.go:374`. There is no `resolveFilePath` in this repo** — the
+> name below is wrong and a grep for it returns nothing, which reads as "the code has
+> been refactored away" rather than "the bug file has the wrong name". The bug-sweep
+> handoff (`bug_backlog_clearing/HANDOFF_2026-07-28_bug_sweep_continue_here.md` §4a)
+> has the correct name. The line range is also off by ~40. Everything else in this
+> section is accurate.
+
 `resolveFilePath`, `platform/orchestration/actions/git_deployer_actions.go:414-445`.
 Given the page object it tries, in order:
 
@@ -243,3 +251,91 @@ separate multi-file path (`filesMap`, same file) those steps likely take. **I ha
 not traced it, so it is recorded as unverified rather than filed.** If the estate
 were overwriting `index.html` 49 times it would be extremely visible, and it is
 not. `[UNVERIFIED — needs the filesMap path read before anyone acts on it.]`
+
+---
+
+## FIX COMMITTED 2026-07-31 (bugfix-8 session) — candidate 1, widened to the whole class
+
+Lane docs: `docs024_key_docs_latest/bugfix_125_deploy_path_from_url/`.
+Commit `5dc177f97`. Council `Council-Submitted: 758f6e62-99b8-4f33-a81b-7143351ecd69`.
+
+### Re-measured before touching anything — the filed figure had moved
+
+| | filed 07-28 | measured 07-31 |
+|---|---|---|
+| wrong path | 280 | **316** |
+| right path | 151 | 156 |
+| total with a url | 431 | **472** |
+
+Still 2/3 of the estate, and 41 pages larger. Same query as the one in this file.
+
+### What shipped, and why it is not the three lines candidate 1 describes
+
+Candidate 1 ("try `p["url"]` first") closes the instance and leaves the class.
+Grepping the **derivation** instead of the symptom
+(`grep -rn 'TrimPrefix(.*[Uu][Rr][Ll], "/")' platform/ internal/`) found **five**
+places that turn a page into a deploy path — and **four of them already consult `url`
+first and get it broadly right**:
+
+| site | consults `url`? |
+|---|---|
+| `datahelpers/file_extractor.go:194` `determineFilename` | **yes** — comment reads *"Try url field first"* |
+| `rerender_single_page_action.go:521` | yes |
+| `get_pages_for_rerender_action.go:176` | yes |
+| `rerender_pages_actions.go:324` | yes |
+| **`git_deployer_actions.go:374` `determinePageFilename`** | **NO — this bug** |
+
+So this is a **duplicated classifier that drifted**, not a missing feature — and the
+correct implementation sitting eleven characters away in the name (`determineFilename`
+vs `determinePageFilename`) bought nothing, because the wrong copy is the one the three
+build pipelines reach. Shipped as one definition —
+`datahelpers.PageFilePathFromURL` / `PageDeployFilename` — with all five call sites
+moved onto it, plus the lockstep tests 016b §9 asks for (56 cases).
+
+### Two things in this file's pre-work that did not survive checking
+
+1. **"The fix must strip `#…`" (sweep handoff §4a) is the wrong repair and would be
+   destructive.** The single fragment row is `idea.uk` / `tool-audience-check` →
+   `/tools.html#audience-check`, and **`/tools.html` is a different page's canonical
+   url** (`idea.uk`/`tools`, measured). Stripping the fragment aims one page's rebuild
+   at another page's file — strictly worse than the bug. A url with a fragment names no
+   file of its own, so the helper **declines** it (`ok=false`) and the caller falls back
+   to its own chain. Making an input *valid* and making it *correct* are different
+   operations.
+2. **The leading slash is not mentioned anywhere in the pre-work and is load-bearing.**
+   `pages.url` is site-absolute on **472/472** rows and `CommitToRepo` builds
+   `data.Domain + "/" + path` (`internal/adapters/git/github_client.go:69`), so a
+   passed-through url yields `example.com//tools/x.html` — a `//` and an empty segment
+   in the GitHub tree. Every existing path here is repo-relative (`assets/css/styles.css`).
+
+### Blast radius of the change itself, measured before submission
+
+- **471 of 472** live urls resolve byte-identically to what the three rerender call
+  sites produce today ⇒ swapping them is inert for every page but one.
+- The exception is the fragment row, which those copies today turn into a file literally
+  named `tools.html#audience-check.html`. **Not present on the live site (404)** — so
+  that copy's defect is latent too.
+- **0** pages named `index`/`home` carry a non-`/index.html` url ⇒ dropping that special
+  case from the rerender copies is inert.
+- **0** urls with a query string, `..`, `//`, whitespace, or a multi-dot final segment.
+
+### The `[UNVERIFIED]` in §4d of the sweep handoff is now resolved
+
+*"16 `git_commit` steps appear to default to `index.html`"* — read the path rather than
+acting on it, as instructed. Of the 19 live top-level `git_commit` steps, **none carries
+`page_field`**: they use `files_field` (the multi-file map, keyed by the renderer) or
+`file_path`/`filename_field`. The three that DO carry `page_field` are
+`pageflow-builder`, `page-rebuild` and `site-work-orchestrator`, and their `deploy_page`
+steps sit **inside a loop step's sub-steps**, which is why a `jsonb_each` over
+`workflow.steps` finds zero of them. So the "16 defaulting to index.html" reading is an
+artefact of that query shape, not a real population. Query that finds them:
+`WHERE default_config::text LIKE '%page_field%'`.
+
+### Still open after this fix, deliberately
+
+**This stops new orphans; it does not retract existing ones.** Candidate 3 (a
+`delete_file` verb on the git adapter) and candidate 4 (a sweep for repo files with no
+matching `pages.url`) are untouched and remain the right pairing — `bugs_open/098` needs
+the same primitive. Candidate 2 (refuse on disagreement) was deliberately NOT taken: it
+would block 316 pages on a disagreement that is expected until each is next deployed.
+The disagreement is logged instead, which also makes the fix observable in the pod.
