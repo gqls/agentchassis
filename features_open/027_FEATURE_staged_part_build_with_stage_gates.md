@@ -137,3 +137,59 @@ review, a reporting gate is additive.
 `features_open/015`, `017`, `026`; `bugs_open/149`, `151`; register TL-008, TL-012,
 TL-016, TL-017, TL-033, DOC-003, DOC-010, CLC-012;
 `docs024_key_docs_latest/brochure_component_library/` (the lane that produced the evidence).
+
+---
+
+## Progress — 2026-07-31: the first machinery built, and it is not a stage gate
+
+**Scope reminder:** the ladder was cut from eight gates to three by owner ruling (D8, lane
+PLAN). Machinery gets built for the claim-before-the-build (S1), verification through the
+visitor's real gesture (S6), and **every check proven able to fail** (the S2 *discipline*, not
+the S2 harness). The other five stages are unfunded, not disproved.
+
+**What now exists** (`docs024_key_docs_latest/staged_component_build/scripts/`, register
+**TL-036**):
+
+- **`try_fence.go`** — run a candidate criteria fence against a live URL and see every verdict,
+  offline, before it is published. It separates profile-gated skips (legitimate) from
+  type-not-implemented skips (a defect, because upstream an unknown type is *skipped, not
+  failed*, and an all-skipped set reads as PASS plus a 7-day cooldown — this feature's D3), and
+  it asserts its own arithmetic rather than trusting its own report.
+- **`prove_fence_can_fail.go`** — the S2 discipline discharged: a green local baseline, then one
+  mutation at a time, and **exit 1 if any check has no mutant at all**. A green with a hole in
+  it is unreachable.
+
+Both call `RunChecksAction.Execute` from `internal/adapters/browserrunner` — the fleet's own
+evaluator, not a second implementation of the same switch.
+
+**Why this and not a stage gate first.** P1a (the three-way naming contract) outranked
+everything because a mismatch makes a fired run *skip and read clean*. That check is built and
+run. Its one remaining BROKEN-B case — a tool with a PLAN and no fence, so its acceptance run
+started and asserted nothing — is now **closed**: `tool-review-council-simulator` has an
+18-check fence live in `doc_plans`, verified 36/36 on the live page across both profiles, with
+17 of 17 mutants caught and all 18 checks watched red.
+
+**The finding worth carrying into the remaining stages.** The mutation prover **refuted one of
+the checks it was written to validate, on its first run** — a check named for a guarantee it
+could not test (`threshold-lever-updates-live`, which passed the mutant that killed the
+slider's `input` listener, because Playwright's `fill()` also fires `change`). Generalised:
+**a check's ID is an assertion, and it is the one part of a check that nothing validates.** The
+evaluator will faithfully run the wrong test under the right name for ever. So the S2 rule
+should be stated as *mutate against the NAME*, not against the code — every one of this lane's
+four self-inflicted instances of the class had correct code and a lying name.
+
+**Still open on this feature**, in order:
+
+1. **S6 for components** — dispatch a component's fence to `browser-runner-adapter` as
+   `tool-acceptance-agent` does for tools. Wiring, not construction; the harnesses above now
+   let the fence be written and proven before the dispatch exists.
+2. **The Go gate for `subject_type='component'` has never been exercised** (register DOC-068).
+   The DB half is live (migration 273 applied 07-31); the Go half is in the binary by build date
+   only, and `doc_plans` holds 0 component rows. Needs a dispatch, not a query —
+   `load_doc_context` takes `subject_type` from **step config** (`load_doc_context_action.go:37-43`).
+3. **`tool-arena-interface`** — the last BROKEN-A case: a tool component with no page under any
+   name. Not a rename; a decision about whether it should exist. Needs a human.
+4. **`has_visible_area` checks are owed to every fence** once `bugs_open/157` closes. The type
+   is live in the running binary but reports 0 for whole-number axes, so it currently accuses
+   correct elements of being invisible — deliberately omitted from the first fence, and recorded
+   there as an omission rather than left to look like an oversight.

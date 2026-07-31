@@ -72,3 +72,65 @@ render-and-check feature is the *instrument* they both need. That makes them thr
 things that fit together rather than one big thing, which means this lane can get on
 with its part without waiting on the others. I have deliberately *not* taken ownership
 of the site maturity ladder — that's still yours to place.
+
+---
+
+**31 July 2026, afternoon (fresh thread, picked up from the handoff)**
+
+The job was the one the handoff called the concrete next build: our own tool on
+fundamentallyai.com, the review-council simulator, had a written specification but nothing a
+machine could check. So when the test system was pointed at it, the run started, found nothing
+to test, and stopped — and that came back looking like a clean result rather than like nothing
+having happened. That is the failure this lane exists to remove, and it was the last remaining
+instance of it that we could actually fix.
+
+It is fixed. The tool now has eighteen checks attached to it, and they are the sort that can
+genuinely be wrong: the panel actually builds in the visitor's browser, moving the strictness
+slider actually changes the answer, each of the four headline numbers is really a number rather
+than the dash it is served as, the buttons that select eight, twenty-six and two reviewers each
+select that many, and — the one I would keep if I could only keep one — **when you deselect
+every reviewer, the tool says "n/a" rather than inventing a hundred per cent.** That last one
+is the honesty we promised in writing when we built it, and it is now a machine-checked
+property instead of a sentence in a document.
+
+**Two things are worth telling you about how it went, because neither was the plan.**
+
+First, I built the test-the-test tool before writing any of the checks, and it paid for itself
+on its first run. The eighteen checks passed against the live site on desktop and mobile,
+thirty-six for thirty-six, first attempt. That is the exact shape this lane has learned to
+distrust, and it was right to: when I then deliberately broke the tool one way at a time, one
+of my own checks — the one about the strictness slider — **carried on passing.** It turned out
+to be checking something weaker than its own name claimed. I renamed it to what it actually
+proves and wrote down the limitation. A check that quietly means less than its name is the same
+mistake as the one that caught us yesterday, and this is the first time in this lane that it was
+caught before the thing was published rather than afterwards by a reader.
+
+Second, the same tool told me four of my checks had never been *seen* to fail — they only broke
+when I broke the whole page, which proves they depend on the page working, not that each one is
+watching its own number. So I added four more deliberate breakages, one per check. Final state:
+seventeen deliberate breakages, seventeen caught, all eighteen checks watched to fail, and the
+harness refuses to report a pass if any check has no breakage of its own. There is no way to get
+a green with a hole in it.
+
+**One thing I deliberately left out**, so it does not look like an oversight later. There is a
+newer check that measures whether an element is actually big enough to see and click, and it is
+now live on the cluster — but it is broken in a way another team has already diagnosed and
+filed: any element whose size is a whole number of pixels reads as zero, so it accuses correct
+elements of being invisible. Our roster's checkboxes are exactly that shape. Using it today
+would have produced a confident failure about a tool that is fine. It is noted in the tool's
+specification with "add these when that bug closes", and I left the bug to the team that holds
+the reproducer rather than starting a second thread on it.
+
+**Where that leaves the naming problem.** Of thirty tools, the one broken-and-misleading case
+is now down to a single orphan — a tool component with no page under any name. That one is not a
+rename, it is a decision about whether the thing should exist at all, and it needs a human.
+There are also ten tools with a page and no written specification at all; that is honest rather
+than misleading — nothing claims they were tested — so it is a backlog, not a defect. And worth
+noting: the newest tools are arriving already correct, three in a row now, because the code path
+that creates them enforces the naming itself. The problem is confined to older and ported ones.
+
+**A recurring annoyance you should know about**, because it has now happened three sessions
+running: the numbers move while I am working. The tool count went from twenty-nine to thirty
+mid-session — another team created a tool ten minutes before I ran the check. I reconciled it
+rather than reporting the new figure as if it were mine, and the only reason that was possible
+is that the check prints its own denominator next to its breakdown.

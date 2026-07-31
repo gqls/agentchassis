@@ -798,3 +798,119 @@ items in order, six "do NOT" items (don't rebuild the eight stages, don't take 1
 **Re-stated in the handoff because they moved under me:** fence count 23→25, landmine
 corpus 57→190, tool components 28→29 — all inside 24 hours. The handoff tells the next
 thread to re-run every figure rather than quote one.
+
+## 2026-07-31 (afternoon, fresh thread) — the fence is AUTHORED and BROKEN B is closed; my own mutant refuted one of my checks
+
+Picked up the handoff cold. First act was to re-run `CHECK_naming_contract.sh` rather than
+trust its recorded state: **FAIL 2**, unchanged — `tool-arena-interface` (BROKEN A, orphan)
+and `tool-review-council-simulator` (BROKEN B, PLAN with no fence). Took the second, which
+the handoff named as the concrete next build.
+
+### The instrument came first, because authoring blind is how the false green happened
+
+The remedy in the check's own output is *"author the fence. Never invent a selector; watch
+every criterion pass by hand before writing it."* There was no way to do the second half
+cheaply: the only way to exercise a fence was to write it into `doc_plans` and dispatch a
+cluster run, so the first time anyone saw it run was **after** it had been published as the
+tool's contract.
+
+So I built two harnesses, both of which **import `internal/adapters/browserrunner` and call
+`RunChecksAction.Execute`** — the platform's own evaluator, not a reimplementation. A second
+implementation would have been a third thing to keep in step, which is the drift class D5′
+exists because of.
+
+- `scripts/try_fence.go` — run a candidate fence against a live URL. Prints every check with
+  its detail, separates *profile-gated* skips (fine) from *type-not-implemented* skips (a
+  defect), and **asserts the arithmetic**: passed + failed + gated + unimplemented must equal
+  checks x profiles x urls, or it says the report is incomplete and exits 1.
+- `scripts/prove_fence_can_fail.go` — serves a local copy of the real page from a throwaway
+  server, 302-ing every other asset to the live origin so the copy is a fair control, then
+  applies one mutation at a time.
+
+**I drove the harness red before trusting it**, with a probe fence containing one impossible
+selector, one bogus check type and one check that must pass. All three buckets fired and the
+arithmetic reconciled. Only then did I write a real fence.
+
+### Then the mutation prover refuted one of my own checks, on its first run
+
+18 checks, and against the live URL they went **36/36 green on desktop and mobile, first
+time**. That is exactly the shape this lane distrusts, and it was right to.
+
+`prove_fence_can_fail.go` caught 12 of 13 mutants. The miss was mine and it matters:
+
+> **`threshold-lever-updates-live` did not assert what its name claimed.** The mutant killed
+> the slider's `input` listener; the check still PASSED. Cause: the tool also binds `change`,
+> and Playwright's `fill()` dispatches **both**. So the check would pass on a tool wired only
+> to `change` — while its id asserted the PLAN's "all live-updating on the `input` event"
+> claim. A check named for a guarantee it cannot test is the same defect as `has_fence`
+> testing for a PLAN row: **it reports health it never measured.**
+
+Fixed as two separate things, deliberately: the mutant now kills **both** listeners (the real
+dead-slider defect, which the check does catch), and the check was **renamed** to
+`threshold-lever-updates-the-readout` — which is what it proves. The residual gap is written
+into the PLAN rather than left implicit: **no fence can distinguish `input` from `change`
+wiring**, because the criteria vocabulary has no way to dispatch one DOM event without the
+other. The "no calculate button" half of the claim IS covered.
+
+**This is the tenth instance of the class in three days and the fourth I have introduced
+inside an instrument built to catch it.** The difference this time is that the instrument
+caught it before publication rather than a reader catching it afterwards, which is the first
+time that has happened in this lane.
+
+### The coverage table, which is the reason to keep the file
+
+The prover also reported four checks as **NEVER RED** — `page-serves-200` and the three
+result-figure checks. They only ever went red as *collateral* of the "init never runs" mutant,
+which proves they depend on "JS ran", not that each asserts its own figure. Added four
+targeted mutants: three placeholder-reverts, and — since no edit inside the page can falsify
+a status check — a server-level mutant that answers the tool path **404**.
+
+Final: **17 mutants, 17 caught, 18 of 18 checks watched red, baseline all-green.** The prover
+exits 1 if any check has no mutant at all, so a green with a hole in it is not reachable.
+
+### Written, and verified at the artefact rather than at the status
+
+Followed `write_doc_plan_action.go:94-110` exactly — supersede then insert in ONE transaction,
+because `idx_doc_plans_current` is a partial unique index on `(subject_type, subject_key)
+WHERE is_current` and would reject two current rows. Dry-run in a rolled-back transaction
+first, per migration 273's precedent.
+
+The chain proved end to end, each link measured, not assumed:
+- assembled body contains the fence marker **exactly once** — load-bearing, because both
+  extractors (`check_tool_acceptance.go:552`, `load_doc_context_action.go:143`) take the
+  **FIRST** one and read to the next triple-backtick;
+- the fence extracted from the assembled body is **byte-identical** to the authored JSON;
+- stored body length is **exactly 15,165** — which is also the check that psql did not
+  interpolate anything inside the dollar-quoted literal;
+- the fence extracted **back out of the database** equals the authored JSON, and **running
+  that DB-resident copy** against the live page gives 36/36.
+
+`CHECK_naming_contract.sh` now reports **BROKEN B: 0**. Only the orphan remains.
+
+### The denominator moved AGAIN, mid-session, and I reconciled it rather than quoting it
+
+The check read **30** canonical tool components, not the 29 the handoff recorded. Cause
+identified rather than assumed: `tool-gripper-safety-factor-calculator`, created
+**2026-07-31 12:27:28** — roughly ten minutes before my run. Reconciled:
+population 29 -> 30 is that tool; `testable now` 9 -> 11 is **+1 my fence and +1 the new
+tool**; BROKEN B 1 -> 0 is my fence. Checked, not inferred: the new tool has a fence AND a
+resolvable page — **born compliant**, the third consecutive tool to arrive that way, which
+keeps strengthening the previous session's finding that the defect is in older/ported tools
+and this check is a backlog cleaner rather than a permanent gate.
+
+That is three sessions running in which a figure moved underneath the thread working on it.
+
+### What I did NOT do, and why
+
+- **No `has_visible_area` check**, though the type IS now live in the running binary
+  (verified: both long markers present on `browser-runner-adapter` built 07-31 08:53:36 UTC,
+  three positive controls also present — so the 07-30 note that it was committed-and-unrolled
+  is now out of date). `bugs_open/157` is **unfixed at HEAD** — `run_checks_action.go:773-774`
+  still comma-ok asserts `float64`, and playwright-go returns `int` for a whole number, so any
+  integer-sized axis measures 0 and the check accuses a correct element of being invisible.
+  Adding it would have bought a false FAIL. Recorded in the PLAN as a named omission with
+  "add these when 157 closes", because the roster's 24px checkboxes are exactly what that type
+  exists to police. **Did not take 157** — it is the leopardess lane's, per the handoff.
+- **No council submission.** Nothing here touches `platform/`, `internal/` or `pkg/`; the two
+  harnesses live under `docs/`, which the gate refuses client-side. Saying so explicitly
+  because an absent trailer should be a stated decision, not a silent omission.

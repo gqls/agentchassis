@@ -210,3 +210,82 @@ python3 docs/agent_docs/docs024_key_docs_latest/brochure_component_library/scrip
   against the live URL — but smooth-scroll does not resolve inside
   `--virtual-time-budget`, so the shot lands scrolled to the top. Untried lever:
   force `prefers-reduced-motion` first.
+
+---
+
+## 8. Author a criteria fence, and prove it before publishing it
+
+**The rule this discharges:** a fence is a tool's published contract. Until 2026-07-31 the
+only way to exercise one was to write it into `doc_plans` and dispatch a cluster run — so the
+first time anyone saw it run was *after* it was published. Both harnesses below import
+`internal/adapters/browserrunner` and call `RunChecksAction.Execute`, so they are the **same
+evaluator the fleet uses**, not a lookalike.
+
+```bash
+# 1. does the fence pass on the live page, on every profile, with nothing skipped?
+go run docs/agent_docs/docs024_key_docs_latest/staged_component_build/scripts/try_fence.go \
+  <fence.json> https://<domain>/<path>
+
+# 2. can every check in it go RED? (baseline control + one mutation at a time)
+go run docs/agent_docs/docs024_key_docs_latest/staged_component_build/scripts/prove_fence_can_fail.go \
+  <fence.json> https://<domain>/<path>
+```
+
+**Run (2). (1) alone is not evidence** — the fence for `tool-review-council-simulator` went
+36/36 green first time and one of its checks was still asserting nothing.
+
+Gotchas, each of which cost something here:
+
+- **`selector_count` does NOT assert a count.** `run_checks_action.go:497` passes on `n > 0`
+  and `criteriaCheck` has no expected-count field — it is `selector_exists` with a friendlier
+  detail line, and that detail line *reads* like an assertion. Assert counts through text the
+  tool itself renders (`^26 seats on the panel$`), which also proves the tool can say what it
+  did.
+- **The fence must be the FIRST triple-backtick `criteria` block in the body.** Both
+  extractors (`check_tool_acceptance.go:552`, `load_doc_context_action.go:143`) take the first
+  one and read to the next triple-backtick. So prose that names the fence *in backticks*
+  above the real one silently hijacks extraction and yields unparseable JSON. Refer to it in
+  plain words in prose. Verify: the marker must appear **exactly once**.
+- **Checks share ONE page per profile and run in fence order.** `evaluateOnPage` iterates the
+  applicable checks against a single page instance, so interactions accumulate. Put structural
+  and default-state checks first; sequence presets so a state-wiping one comes last.
+  `no_console_errors` is forced last by the runner. **Reordering a fence changes what it tests.**
+- **A check id ending `-EDIT` is silently skipped** as a placeholder selector
+  (`splitByProfile`). Never name one that way.
+- **A local copy of the page must proxy its assets** or the control is not fair: the copy
+  404s `/assets/css/styles.css` and `/assets/js/snippets.js`, Chromium logs those as console
+  errors, and `no_console_errors` goes red for a reason unrelated to the mutation.
+  `prove_fence_can_fail.go` 302s every non-page request to the live origin.
+- **`page_status_ok` cannot be falsified by any edit inside the page.** Its mutant has to be
+  server-level (answer the path 404), which is why the prover has a `serveStatus` mutant kind.
+- **A mutant that turns everything red proves nothing.** The prover requires `page-serves-200`
+  to still pass under every body mutant, so a demolition cannot masquerade as validating the
+  whole fence at once.
+
+## 9. Write a PLAN body (or a fence) into `doc_plans` by hand
+
+`idx_doc_plans_current` is a **partial unique index** on `(subject_type, subject_key) WHERE
+is_current`, so you cannot just insert. Mirror `write_doc_plan_action.go:94-110`: supersede
+then insert, **one transaction**.
+
+```sql
+BEGIN;
+UPDATE doc_plans SET is_current=false, superseded_at=now(), updated_at=now()
+ WHERE subject_type='tool' AND subject_key='<key>' AND is_current;
+INSERT INTO doc_plans (subject_type, subject_key, body, source, created_by)
+VALUES ('tool','<key>', $planbody$...$planbody$, '<lane>', 'operator:<lane>');
+-- verify INSIDE the transaction, then COMMIT (or ROLLBACK for a dry run)
+COMMIT;
+```
+
+- **Dollar-quote the body and generate the file from a script, never a shell string.** The
+  body contains triple backticks; in a double-quoted bash string those are **command
+  substitution**. Generating the `.sql` from Python and piping it avoids the shell entirely.
+- **Dry-run it first with `ROLLBACK`**, per migration 270/273's precedent, with the
+  verification queries *inside* the transaction.
+- **Assert the stored `length(body)` equals the length you built.** That single check is also
+  how you prove psql did not interpolate a `:name` inside the literal — a silent mangling that
+  would otherwise reach production as the tool's contract.
+- **Then read it back out and re-run the fence from the DB copy.** Writing the field is not
+  reading the field: the only proof that the platform will run what you meant is to extract
+  the fence *from the database* and pass that through the evaluator.

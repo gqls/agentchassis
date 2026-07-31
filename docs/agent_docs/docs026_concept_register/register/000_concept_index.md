@@ -1,6 +1,10 @@
 # Concept Index — master register
 
-1,679 concepts across 109 category register files (**recounted 2026-07-31**, not
+1,682 concepts across 109 category register files (**recounted 2026-07-31**; the
+headline had already drifted 1 behind again by that evening, before PBP-025 was
+added — and it moved again minutes later when TL-036 landed, which is the same
+lesson twice in one evening: re-take it from the grep, never increment from the
+line you just read — so it is re-taken from the grep below rather than incremented, not
 accumulated: the running "+N more" chain below had drifted 13 behind the actual
 row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
 chain is kept only as a history of *why* entries postdate the freeze).
@@ -517,6 +521,7 @@ an ID prefix, or a status word.
 | DIAG-015 | Live schema section in the bundle (gatherSchema) | deployed | Denylist-driven live information_schema section stops the model guessing table names | diagnosis-loop.md |
 | CASE-018 | Reuse-not-rebuild site build-out with honest "simulation" labelling | aspirational | Deploy existing tool library, label deterministic widgets as simulations | site-case-studies.md |
 | PBP-024 | Deploy-observability bookkeeping gap | partial | Deploy path never writes deploy_commit/last_built_at, weakening change-detection evidence | page-build-pipeline.md |
+| PBP-025 | componentless_pages discovery check (repair half of PBP-023) | built, not enabled | Active+deployed page with sections but ZERO page_components serves chrome only and no check could see it | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
 | STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |
@@ -918,7 +923,8 @@ an ID prefix, or a status word.
 | NAV-012 | Header nav from pages.in_header + nav-label hygiene | deployed | Nav membership is a data flag; label hygiene is a companion defect | navigation.md |
 | DES-055 | Three-per-row no-orphan grid rule as a content fix | convention | Neither a global `repeat(3,1fr)` nor a per-component `auto-fit,minmax()` avoids orphan/stretched last cards in... | design-composition.md |
 | DOC-066 | docs019 working/main snapshot bundle (duplicate early-draft staging copy) | superseded | Nested archive-of-archive with zero unique content vs live docs | documentation-system.md |
-| DOC-068 | `subject_type='component'`: travelling docs for a section component (the ladder's substrate) | submitted, NOT live | A component can carry a PLAN + criteria fence and per-site NOTES; PLAN is the fleet-wide contract, NOTES the per-site verdicts. LANDMINE: doc_notes also allows 'landmine' — re-adding its CHECK from doc_plans' array orphans 57 live rows | documentation-system.md |
+| DOC-068 | `subject_type='component'`: travelling docs for a section component (the ladder's substrate) | DB half LIVE, Go gate unexercised | A component can carry a PLAN + criteria fence and per-site NOTES; PLAN is the fleet-wide contract, NOTES the per-site verdicts. LANDMINE: doc_notes also allows 'landmine' — re-adding its CHECK from doc_plans' array orphans 57 live rows | documentation-system.md |
+| TL-036 | Offline criteria-fence trial + mutation prover (try_fence / prove_fence_can_fail) | built and exercised | A fence can be run and proven able to fail BEFORE it is published as a tool contract; uses the fleet's own RunChecksAction. LANDMINE: a check's ID is an assertion nothing validates — `selector_count` does not assert a count | tool-lifecycle.md |
 | DBG-051 | Assumed-status-values trap | deployed | Never assume a status column's vocabulary; always SELECT DISTINCT first | debugging.md |
 | MIGG-001 | Proposed migration runner/ledger for hand-applied agent-def changes | aspirational | Never built; only manual "2d state check" stands in; responds to DBG-010's incident | migration-governance.md |
 | OPP-002 | Operator discipline: verify-by-artifact, dated backups, kcat | deployed | Never trust a status; diff bytes, dated backups, kcat trigger convention | operator-practice.md |

@@ -1,0 +1,60 @@
+{
+  "profiles": ["desktop", "mobile"],
+  "container": ".tool-container[data-component=\"tool-review-council-simulator\"]",
+  "checks": [
+    { "id": "page-serves-200", "type": "page_status_ok" },
+
+    { "id": "tool-container-renders", "type": "selector_exists",
+      "selector": ".tool-container[data-component=\"tool-review-council-simulator\"]" },
+
+    { "id": "roster-is-built-client-side", "type": "selector_exists",
+      "selector": ".rcs-seat" },
+
+    { "id": "default-preset-is-our-typical-eight", "type": "interaction",
+      "expect": { "selector": "#rcs-seats-out", "text_matches": "^8 seats on the panel$" } },
+
+    { "id": "threshold-starts-where-we-run-it", "type": "interaction",
+      "expect": { "selector": "#rcs-threshold-out", "text_matches": "^Only high severity blocks$" } },
+
+    { "id": "headline-is-computed-not-a-placeholder", "type": "interaction",
+      "expect": { "selector": "#rcs-pass1", "text_matches": "^[0-9]+\\.[0-9]%$" } },
+
+    { "id": "within-rounds-is-computed", "type": "interaction",
+      "expect": { "selector": "#rcs-passn", "text_matches": "^[0-9]+\\.[0-9]%$" } },
+
+    { "id": "mean-rounds-is-computed", "type": "interaction",
+      "expect": { "selector": "#rcs-rounds-needed", "text_matches": "^[0-9]+\\.[0-9]$" } },
+
+    { "id": "seats-firing-is-computed", "type": "interaction",
+      "expect": { "selector": "#rcs-firing", "text_matches": "^[0-9]+\\.[0-9]$" } },
+
+    { "id": "blocker-chart-is-ranked", "type": "interaction",
+      "expect": { "selector": "#rcs-blockers-list .rcs-bar-row" } },
+
+    { "id": "reality-band-is-drawn", "type": "interaction",
+      "expect": { "selector": "#rcs-reality-legend .rcs-legend-pct" } },
+
+    { "id": "denominator-states-what-it-counts", "type": "interaction",
+      "expect": { "selector": "#rcs-denominator", "text_matches": "count ROUNDS" } },
+
+    { "id": "threshold-lever-updates-the-readout", "type": "interaction",
+      "steps": [ { "action": "fill", "selector": "#rcs-threshold", "value": "0" } ],
+      "expect": { "selector": "#rcs-threshold-out", "text_matches": "^Any objection blocks$" } },
+
+    { "id": "every-seat-preset-counts-twenty-six", "type": "interaction",
+      "steps": [ { "action": "click", "selector": ".rcs-preset[data-preset=\"all\"]" } ],
+      "expect": { "selector": "#rcs-seats-out", "text_matches": "^26 seats on the panel$" } },
+
+    { "id": "no-horizontal-overflow", "type": "no_horizontal_overflow" },
+
+    { "id": "minimal-preset-is-the-measured-pair", "type": "interaction",
+      "steps": [ { "action": "click", "selector": ".rcs-preset[data-preset=\"minimal\"]" } ],
+      "expect": { "selector": "#rcs-seats-out", "text_matches": "^2 seats on the panel$" } },
+
+    { "id": "cleared-panel-refuses-to-invent-a-number", "type": "interaction",
+      "steps": [ { "action": "click", "selector": ".rcs-preset[data-preset=\"none\"]" } ],
+      "expect": { "selector": "#rcs-pass1", "text_matches": "^n/a$" } },
+
+    { "id": "no-console-errors", "type": "no_console_errors" }
+  ]
+}
