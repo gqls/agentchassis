@@ -595,3 +595,110 @@ func TestChromeReadersMustNotFilterOnBuildStatus(t *testing.T) {
 		}
 	}
 }
+
+// The build_status vocabulary, pinned — council round 2, bug_historian and
+// render_guardian and architecture seats, all circling the same worry.
+//
+// The objection: 'pending' becomes a live value of site_components.build_status
+// where the platform's own record says it is 'rendered' and never anything else,
+// so no existing consumer has ever had to handle it. Audited at review time: the
+// ONLY file outside this one that mentions site_components.build_status is
+// check_undeployed_assets.go, and it does not filter on it — the mention is a
+// comment warning the next reader NOT to add such a filter. This test keeps that
+// true, because the day someone adds one, a slot mid-repoint disappears from
+// their probe silently.
+//
+// And the failure mode, stated because it is the reassuring half: if the render
+// after a repoint fails, the slot stays at 'pending' with its OLD chrome still
+// served, and the next unforced render retries it — precisely because of the exit
+// clause this change adds. Stuck-pending is self-healing by construction, not a
+// wedge.
+func TestNoConsumerFiltersSiteComponentsOnBuildStatus(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("readdir: %v", err)
+	}
+
+	var offenders []string
+	scanned, blocks := 0, 0
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(filepath.Join(".", name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		s := string(src)
+		if !strings.Contains(s, "site_components") {
+			continue
+		}
+		scanned++
+		for _, q := range siteComponentQueries(s) {
+			blocks++
+			if buildStatusFilter.MatchString(q) && !strings.Contains(q, "<> 'pending'") {
+				offenders = append(offenders, name+": "+strings.Join(strings.Fields(q), " ")[:120])
+			}
+		}
+	}
+
+	if scanned == 0 || blocks == 0 {
+		t.Fatalf("scanned %d files / %d site_components queries — this audit has gone blind", scanned, blocks)
+	}
+	if len(offenders) > 0 {
+		t.Errorf("these filter site_components on build_status: %v\n"+
+			"A slot mid-repoint sits at 'pending' while still SERVING its old chrome. Filtering it out "+
+			"makes that slot invisible to you rather than excluded from it — see the standing comment in "+
+			"discovery_checks/check_undeployed_assets.go, and council corr e242e9d3 round 2.", offenders)
+	}
+}
+
+var buildStatusFilter = regexp.MustCompile(`(?i)(WHERE|AND)\s+[a-z_.]*build_status\s*(=|<>|!=|IN)`)
+
+// siteComponentQueries returns the backtick-quoted SQL literals that actually
+// mention site_components.
+//
+// > **NARROWED after the first version FAILED ON THREE FALSE POSITIVES**, all of
+// > them `pages.build_status` in files that merely also mention site_components
+// > (component_library.go x2, store_generated_component_action.go). A
+// > file-level population answered "does this file talk about both things?",
+// > which is not the question. The narrowing is guarded by
+// > TestBuildStatusScanStillFiresOnASyntheticOffender below, because narrowing
+// > past a false positive is exactly how a rule goes inert.
+func siteComponentQueries(src string) []string {
+	var out []string
+	parts := strings.Split(src, "`")
+	for i := 1; i < len(parts); i += 2 { // odd indices are inside backticks
+		if strings.Contains(parts[i], "site_components") {
+			out = append(out, parts[i])
+		}
+	}
+	return out
+}
+
+// The narrowing must not have switched the rule off. Fed a site_components query
+// that DOES filter on build_status, it must still fire; fed the three shapes that
+// caused the false positives, it must stay quiet.
+func TestBuildStatusScanStillFiresOnASyntheticOffender(t *testing.T) {
+	offender := "SELECT slot_name FROM site_components WHERE site_id = $1 AND build_status = 'rendered'"
+	if !buildStatusFilter.MatchString(offender) || len(siteComponentQueries("x`"+offender+"`y")) != 1 {
+		t.Fatal("the narrowed scan no longer sees a real offender — it has gone inert")
+	}
+
+	for _, quiet := range []string{
+		"SELECT name FROM pages WHERE site_id = $1 AND build_status = 'deployed'",         // the false positive class
+		"UPDATE pages SET build_status = 'needs_rebuild' WHERE build_status = 'deployed'", // ditto
+	} {
+		if len(siteComponentQueries("x`"+quiet+"`y")) != 0 {
+			t.Errorf("a pages.build_status filter must not be in the population: %q", quiet)
+		}
+	}
+
+	// And the one legitimate site_components filter — the idempotence exit — is
+	// recognised by its exemption rather than by luck.
+	exit := "SELECT 1 FROM site_components WHERE site_id = $1 AND COALESCE(build_status, '') <> 'pending'"
+	if qs := siteComponentQueries("x`" + exit + "`y"); len(qs) != 1 || !strings.Contains(qs[0], "<> 'pending'") {
+		t.Fatal("the idempotence exit must be in the population AND carry the exemption marker")
+	}
+}
