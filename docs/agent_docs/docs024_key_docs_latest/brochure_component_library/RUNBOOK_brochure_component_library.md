@@ -711,3 +711,40 @@ python3 scripts/probe_council_simulator.py --url https://fundamentallyai.com/too
 Measured 2026-07-30: two of three re-renders completed in **under 2 minutes**; the third
 sat `triaged` for over 11. Same route, same payload, 5x the latency. Budget the 10
 minutes the runbook says and do not re-dispatch on the strength of a slow one.
+
+## Looking at a page, or at one element of it (added 2026-07-31)
+
+```bash
+scripts/look.py <url>                          # whole page
+scripts/look.py <url> --selector '.trp'        # + a crop of that element
+scripts/look.py <url> --selector '.trp' --profile mobile
+scripts/look.py <url> --selector '#rcs-results' --pad 40 --out ~/results.png
+```
+
+Prints the element's measured box, so a run that found nothing is distinguishable from
+one that did, and writes `~/look.png` plus `~/look-<n>-crop.png`.
+
+**Use this instead of hand-rolling `chromium --headless --screenshot`.** Doing it by hand
+cost six wrong crops in one session. The four traps it encodes, all measured:
+
+- **snap chromium cannot read or write outside `$HOME`.** A temp file under `/tmp` gives
+  `ERR_FILE_NOT_FOUND`; a screenshot written to `/tmp` silently does not appear.
+- **Never chase the document height.** Sections sized in `vh` grow with the viewport, so
+  "measure the document, render that tall" diverges — measured on `/model-fine-tuning.html`
+  as 1000 → 2854 → 4152 → 6141 → 6453, never settling. The script measures and shoots at
+  ONE fixed generous height (4000, grown only if the element falls outside), so both
+  numbers come from the same geometry.
+- **`--screenshot` photographs from the top and IGNORES scroll position.** So
+  `scrollIntoView` moves your measurement and not your image. An earlier version of the
+  script did exactly that and produced a confidently blank crop.
+- **A `file://` copy does not execute the page's cross-origin scripts; an
+  `http://127.0.0.1` copy DOES.** To measure an element you must inject a probe, which
+  means serving your own copy — over `file://` the site's real JS never runs and the
+  layout is wrong. This is also why `probe_council_simulator.py`-style harnesses report
+  the arrows and sibling-close of `teaser-reveal-panel` as broken when they are fine: it
+  is `file://` that is special-cased, not cross-origin. **Serve over loopback and the
+  problem disappears** — the cleanest fix available for any future interaction probe.
+
+Also retries the fetch with backoff: the origin self-throttles under a burst and answers
+with a connection reset or an EMPTY 200, and the second is worse because it looks like a
+page.
