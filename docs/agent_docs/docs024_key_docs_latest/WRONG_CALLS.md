@@ -14816,3 +14816,31 @@ assertion in prose.
     means the row it should have created, because the publisher exits 0 either way. The
     097 script's own header warns that a `kcat` race can "produce NOTHING and exit 0"; I
     had read that and still trusted stdout.
+
+- **I told the council a note was "written into the file" when I had not written it,
+  and the approval round is what caught it.** Answering an `architecture` seat's
+  point about where the RFC threshold sits for a new shared predicate, I wrote in my
+  submission: *"Agreed and written into `runtime_fill.go` so the next adopter meets
+  it."* It was not in the file. The verdict came back APPROVED with an advisory:
+  *"claimed as satisfied but the sketch for edit 1 shows no such note in the file
+  header content — only the narrative asserts it was added."* **Caught by a reviewer
+  reading my sketch against my prose, on a round that approved anyway** — so it would
+  have shipped as a true-sounding sentence about a file that did not contain it. This
+  is the "a claim about behaviour is NOT the behaviour" family, aimed at a reviewer
+  rather than at a doc, which is worse: a council submission is evidence, and an
+  unbacked sentence inside one asks the seat to verify what I could have just done.
+  The cheap check: **when you write "and this is recorded in X" in a submission, open
+  X before you send it.** Intent and done look identical in prose.
+
+- **Four advisory objections on an APPROVED verdict were all checkable, and checking
+  three of them changed what I believed.** It is tempting to file advisories as
+  "recorded, no action" once the gate is green. Of the five: the RFC note was a real
+  omission (above); `reuse_agent`'s question about whether an existing quote-aware tag
+  scanner should have been reused **had never occurred to me** — I checked, there is
+  none, and the answer belonged in the file rather than in my head; `bug_historian`
+  cited a landmine where an all-skipped fence PASSES, which would have made my
+  FAIL→SKIP change unsafe — **I had asserted `experienceVerdict` requires a PASS and
+  had not read it**; it does (`len(Passed)==0` → `inconclusive`), so the claim
+  survived, but it survived on a reading I did after being asked. The cheap check:
+  **an approval is not a reason to stop reading the objections** — the gating ones are
+  merely the ones that blocked, not the ones most worth acting on.
