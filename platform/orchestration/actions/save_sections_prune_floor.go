@@ -204,7 +204,7 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 	if err != nil {
 		reason := fmt.Sprintf("save_page_sections: REFUSED for page %q — the completeness floor could not be measured (%v), so nothing was deleted or written", pageName, err)
 		params.Logger.Error(reason)
-		emitIncompleteSaveRefusalItem(ctx, params.DB, siteID, pageID, pageName, reason, params.Logger)
+		_ = emitIncompleteSaveRefusalItem(ctx, params.DB, siteID, pageID, pageName, reason, params.Logger)
 		return nil, fmt.Errorf("%s", reason)
 	}
 
@@ -238,7 +238,7 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 			zap.Int("sections_projected", projected),
 			zap.Int("writable_rows", m.WritableRow),
 			zap.Int("planned_sections", m.Planned))
-		emitIncompleteSaveRefusalItem(ctx, params.DB, siteID, pageID, pageName, reason, params.Logger)
+		_ = emitIncompleteSaveRefusalItem(ctx, params.DB, siteID, pageID, pageName, reason, params.Logger)
 		return nil, fmt.Errorf("%s", reason)
 	case verdict.Disabled:
 		detail["completeness_status"] = "floor_disabled"
@@ -262,14 +262,32 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 // the two-strike rule; the item_key is per page, so a page failing every rebuild
 // collapses into one open item instead of one per attempt.
 //
-// Best-effort by design: a failure here is logged and swallowed. The refusal
-// itself is already carried by the returned error, and losing the note must not
-// change the decision that produced it.
+// recurrenceExpected IS SET, and the landmine on that flag says to state which of
+// the two cases this is rather than leaving the reader to guess. This is NOT a
+// detected defect handed to a handler that keeps failing — there is no handler
+// (status 'needs_human_review', handler_agent NULL), so "the fix is not working"
+// has no referent. Each refusal is a fresh event about a fresh rebuild attempt.
+// Without the flag, `insertWorkItem`'s anti-churn heuristics apply: a refusal
+// arriving within 3h of a terminal predecessor is DROPPED ENTIRELY, and the third
+// is born `unresolved` — terminal, and off the human-review queue this row exists
+// to reach. That is a silently unrecorded refusal of a content-destroying save,
+// which is the failure this durable surface was added to prevent. Dedup is NOT
+// waived by the flag (idx_swi_dedup still refuses a second OPEN item for the same
+// site+item_key), so a page failing every rebuild still collapses to one open
+// item. Raised as a medium objection by four seats — editquality,
+// tooling_provenance, debug_historian and guardian — on council round
+// a54172b6-9756-4abc-a9e0-f173ad4de779, and they were right.
+//
+// Best-effort by design: every failure is logged, and the call sites discard the
+// returned error with an explicit `_ =`. It is RETURNED rather than swallowed
+// here only so a test can observe it — the two-strike branding above is invisible
+// from outside otherwise, and an unobservable guard is how the vacuous-mock
+// landmine on this very helper got written.
 func emitIncompleteSaveRefusalItem(ctx context.Context, db *sql.DB, siteID, pageID uuid.UUID,
-	pageName, reason string, logger *zap.Logger) {
+	pageName, reason string, logger *zap.Logger) error {
 
 	if db == nil {
-		return
+		return nil
 	}
 
 	spec := map[string]interface{}{
@@ -293,7 +311,7 @@ func emitIncompleteSaveRefusalItem(ctx context.Context, db *sql.DB, siteID, page
 	if err != nil {
 		logger.Warn("save_page_sections: begin tx failed for refusal item",
 			zap.String("page_name", pageName), zap.Error(err))
-		return
+		return err
 	}
 	pID := pageID
 	if _, err := insertWorkItem(ctx, tx, workItem{
@@ -309,14 +327,19 @@ func emitIncompleteSaveRefusalItem(ctx context.Context, db *sql.DB, siteID, page
 		status:    "needs_human_review",
 		createdBy: "save_page_sections",
 		itemKey:   fmt.Sprintf("save_refused_incomplete:%s", pageName),
+		// See the note above: no handler_agent, so a repeat is a new event, not a
+		// failed fix. Pinned by TestPageSectionRefusalSurvivesATwoStrikeHistory.
+		recurrenceExpected: true,
 	}, logger); err != nil {
 		_ = tx.Rollback()
 		logger.Warn("save_page_sections: could not record the refusal as a work item",
 			zap.String("page_name", pageName), zap.Error(err))
-		return
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		logger.Warn("save_page_sections: commit failed for refusal item",
 			zap.String("page_name", pageName), zap.Error(err))
+		return err
 	}
+	return nil
 }

@@ -76,14 +76,12 @@ func expectRefusalItem(mock sqlmock.Sqlmock) {
 	}
 	args[statusIdx] = "needs_human_review"
 
-	// Order matters: insertWorkItem runs the two-strike COUNT on the TX, so it
-	// comes after Begin. Registered so it SUCCEEDS with a clean history (0 prior
-	// terminal items) — insertWorkItem swallows a failure of this query, so an
-	// unregistered one would leave the two-strike branding untested and the
-	// status assertion below passing for the wrong reason.
+	// No two-strike COUNT is registered: the emitter sets recurrenceExpected, so
+	// insertWorkItem's `if item.itemKey != "" && !item.recurrenceExpected` guard
+	// means that query is never issued on the correct path. The case where it IS
+	// issued — the flag dropped — is pinned separately and deliberately, by
+	// TestPageSectionRefusalSurvivesATwoStrikeHistory.
 	mock.ExpectBegin()
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*)")).
-		WillReturnRows(sqlmock.NewRows([]string{"count", "age_hours"}).AddRow(0, 999.0))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
 		WithArgs(args...).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -368,6 +366,51 @@ func TestPageSectionFloorCatchesATruncatedFirstBuild(t *testing.T) {
 	if _, err := enforcePageSectionFloor(context.Background(), floorParams(db, nil),
 		uuid.New(), uuid.New(), "new-page", plainSections(1), nil); err == nil {
 		t.Fatal("a 1-of-8 first build was allowed")
+	}
+}
+
+// THE FOUR-SEAT OBJECTION, PINNED. Council round a54172b6 raised this as medium
+// from editquality, tooling_provenance, debug_historian and guardian: a new
+// emitter reusing a per-page item_key through insertWorkItem inherits the
+// two-strike rule, and the third refusal on a chronically-thin page is born
+// `unresolved` — terminal, and off the human-review queue this row exists to
+// reach. Worse, a refusal arriving within 3h of a terminal predecessor is dropped
+// outright. Both are silent, and both hit exactly when the page needs looking at.
+//
+// So the emitter sets recurrenceExpected, and this test is the proof. It supplies
+// a history that WOULD brand the item — 2 prior terminal items, newest 100h old,
+// so the <3h within-cycle suppression does not fire instead and mask the result —
+// and requires the INSERT to still carry `needs_human_review`.
+//
+// Registered so the COUNT SUCCEEDS, which is the whole trick: insertWorkItem does
+// `if err == nil && terminalCount > 0`, so an UNregistered query errors, the error
+// is swallowed, the branding never happens, and the test passes green whichever
+// way the flag is set. That is the vacuous-mock landmine on this exact helper.
+// Verified by clearing the flag: the INSERT then carries `unresolved`, the
+// WithArgs mismatch fails the Exec, and this test fails.
+func TestPageSectionRefusalSurvivesATwoStrikeHistory(t *testing.T) {
+	db, mock := floorMockDB(t)
+	mock.MatchExpectationsInOrder(false)
+
+	const cols = 16
+	const statusIdx = 11 // 0-based; $12
+	args := make([]driver.Value, cols)
+	for i := range args {
+		args[i] = sqlmock.AnyArg()
+	}
+	args[statusIdx] = "needs_human_review"
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*)")).
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age_hours"}).AddRow(2, 100.0))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO site_work_items")).
+		WithArgs(args...).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	if err := emitIncompleteSaveRefusalItem(context.Background(), db,
+		uuid.New(), uuid.New(), "services", "refused: too few sections", zap.NewNop()); err != nil {
+		t.Fatalf("the third refusal on a page did not reach site_work_items as needs_human_review: %v", err)
 	}
 }
 

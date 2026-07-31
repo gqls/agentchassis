@@ -111,3 +111,74 @@ committed with `Council-Submitted:` since the verdict had not landed.
 Not yet proven live: the code is inert until the next chassis roll, and **a green
 run proves nothing** — the floor is inert on healthy input by design. Both branches
 still need inducing in production, per `165`'s own verification bar.
+
+## 6. Council verdict — APPROVED round 1, and one objection was a real defect
+
+`a54172b6-9756-4abc-a9e0-f173ad4de779`: **approved**, 15 reviewers, 2 abstained,
+7 advisory objections, none high. Dispositions, because "approved" is not a reason
+to skip reading them:
+
+**FIXED — `recurrenceExpected`, raised as medium by FOUR seats** (`editquality`,
+`tooling_provenance`, `debug_historian`, and `guardian` adjacently). They were
+right and I had walked straight past a landmine written the same day. The new
+emitter reuses a per-page `item_key` through `insertWorkItem`, so it inherited the
+anti-churn heuristics: a refusal arriving within 3h of a terminal predecessor is
+**dropped entirely**, and the third is born `unresolved` — terminal, and off the
+human-review queue the row exists to reach. Both silent, both firing exactly when
+a chronically-thin page most needs looking at.
+
+The landmine's own decision rule is "detected defect → leave the flag off; action
+request → set it", and applying it honestly settles it: there is **no handler**
+(`handler_agent` NULL, status `needs_human_review`), so "the fix is not working"
+has no referent. Each refusal is a fresh event about a fresh rebuild. Flag set,
+stated at the call site as the landmine requires, and pinned by
+`TestPageSectionRefusalSurvivesATwoStrikeHistory` — which supplies a two-strike
+history that WOULD brand the item and requires the INSERT to still carry
+`needs_human_review`. Verified by clearing the flag and watching it fail (M5).
+The emitter now returns its error (call sites discard it with an explicit `_ =`)
+purely so the branding is observable from a test at all — unobservable is how the
+vacuous-mock landmine on this very helper got written.
+
+**ANSWERED BY MEASUREMENT — `prior_art_librarian`, medium, and the sharpest of
+them.** It cited a standing landmine: `pages.sections` is a materialised CACHE and
+"the build reads `site_plan_sections`", so my ratchet-breaking cohort might be
+measured against stale data. Checked rather than argued:
+
+- Of 115 pages resolvable in both, **114 agree**; **0** have the cache HIGHER than
+  upstream. Only cache-higher can cause a false refusal, so the drift that exists
+  (1 page, cache lower) is in the permissive direction and harmless.
+- `site_plan_sections` resolves for **115** pages against `pages.sections`' **425**.
+  Switching the denominator would make the cohort inert on most of the estate.
+
+So `pages.sections` stays, now for a measured reason rather than an assumed one.
+Recorded here because the objection was correct to demand the check even though
+the check cleared it.
+
+**NO CHANGE — `guidelines`, medium, on `ON CONFLICT` vs `DELETE+INSERT`.**
+Verified: `insertWorkItem` does use `ON CONFLICT (site_id, item_key)`
+(`load_work_item_actions.go:1230`), so the prose was accurate. The seat's concern
+is a property of the shared helper this change reuses, not something introduced
+here; the file already carries a comment tying that `ON CONFLICT` clause to
+migration 012's index predicate, which is the drift this repo tracks separately.
+
+**OPEN, and honestly open — `guardian`, medium.** "Is a failed `save_page_sections`
+step fatal for the six consumers, or swallowed?" A refusal that the pipeline marks
+`complete` anyway would add a row nobody reads. Measured what is visible:
+`page-build-handler` has `error_step: mark_item_failed`; `page-rerender` and
+`tool-recreation-handler` have none; the other three nest the step inside a loop
+and do not appear in a top-level census at all. That is not enough to assert
+either way, and the induction already planned answers it empirically — induce a
+refusal and see whether the orchestration reports failure or reports complete.
+**Added to the acceptance test rather than answered here.**
+
+**ALREADY DONE — `bug_historian` and `architecture` both asked that
+`bugs_open/165` stay OPEN and tracked** so sites B and C do not fall off the radar
+once the highest-stakes one is fixed. It is open, its table row records site A as
+guarded-but-unproven, and the `architecture` seat's warning is worth repeating
+here: if a future round closes B or C by **copying this cohort shape without its
+own measurement**, that repeats the mistake 165 was filed to stop.
+
+**LOW, unactioned — `reuse_agent`** asked whether an equivalent refusal
+`item_type` already exists under another name, and `guardian` noted it has no
+record of the 2026-07-29 owner ruling cited in the risks (it is in CLAUDE.md,
+verifiable by any thread).
