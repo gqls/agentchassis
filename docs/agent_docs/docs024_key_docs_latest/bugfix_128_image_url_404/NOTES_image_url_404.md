@@ -174,3 +174,82 @@ one I walked into without grepping for.
 - Six existing `detected` rows keep the old extension-less dedup key and will not dedup
   against new ones; three `robot-hands` rows among the wider set were the old predicate's
   **false positives** and can be cancelled outright. Listed in the bug file.
+
+## Council round 1 — REVISE, and both objections were worth having
+
+`SUBMISSION_CORR=99dca96a-413a-4bcb-b278-9577f920786d`. 4 seats abstained (relevance
+filter), 2 objected, 2 approved. `decided_by: gating objection from bug_historian`.
+
+**bug_historian, HIGH (the gating one).** *"The landmine index carries THREE separate
+entries — keyed on `BuildAssetPaths`, `BrandHeadAssetPaths`, and
+`derive_brand_head_assets_action.go` — all pointing to the same warning: 'DeployedWebPath
+is silently WRONG'… a shared-mechanism defect patched at the one call site anyone has
+looked at, left generic and exploitable everywhere else."*
+
+Exactly the right question, and my answer at submission time was "I already handled the
+one case I found", which is not an answer. Five queries:
+
+1. **It is ONE entry, not three.** All six `landmine` rows carrying that text have an
+   identical body (`md5 22d7e0e3`) — `landmines-sync.py` writes one row per **footprint
+   token**, and this entry's footprint names six symbols/paths. The seventh matching row
+   is a `pipeline`/`diagnose` digest. The entry's own text scopes itself: *"correct for
+   every purpose except the two brand-head artefacts"*.
+2. **The drift has one mechanism, and its risk set outside brand-head is empty.** The
+   `_`→`-` swap is skipped only when `asset_key == purpose`, so a wrong path needs an
+   **underscore** purpose stored that way. Over all 267 active rows the skip set is
+   `favicon` ×12, `og_card` ×12 (brand-head, branched), `hero` ×5, `logo` ×4 — and the
+   last two have no underscore to mis-render. Every other underscore purpose has a
+   distinct key (`content_hero` ×31, `sprite_sheet` ×1) and takes the swap.
+3. **The deployer branches identically** (`deploy_image_asset_action.go:185`), which is
+   why the helper claims to mirror it; they can only disagree where something else
+   publishes the file — the brand-head pair.
+4. **`deploy_path` override: 0 orchestrations in all history.** Unused passthrough.
+5. **Empirical backstop** for a mechanism none of us thought of: 109 of 127 rendered
+   paths matched and **all 109 serve 200**. One working file sits at an unpredicted path
+   and it has no asset row at all.
+
+The audit is now a comment block on `loadDeployedAssetPaths` (`6d3992213`), because a
+question that cost five queries should not need asking twice.
+
+**editquality, medium ×3 + low ×1: bundling.** *"Edits 3/4/5/6 are independently-diagnosed
+fixes the cited diagnosis never mentions."* **This was a defect in my submission, not in
+the change** — I put the evidence in each edit's rationale and grounded none of it in the
+diagnosis. All four are in the bug file, and three are causally entangled rather than
+adjacent: Defect 3 (chrome) is a **titled section** of the 07-29 diagnosis; the routing
+removal is *forced* by edits 1–2, because the pinning test says unmasking activates that
+branch for the first time; the extension key is forced too, since the old code kept only
+the **first** path per basename (`refs[basename]`, first-wins) and so never evaluated
+both `logo.jpg` and `logo.png`. Empty-src is the one genuinely separable item and the bug
+file asks for it in terms. Kept, and grounded with quotes in round 2.
+
+Worth recording that the same round's `reuse_agent` seat **approved edit 3 specifically**
+— *"precisely the unify-don't-duplicate move"* — while `editquality` objected to it as
+out-of-scope. Two seats, opposite readings of one edit, as in the 07-29 owner ruling.
+
+## Round 2 did NOT get a verdict — the API cap, not the submission
+
+Resubmitted with `RESUBMIT_CORR` (run `3f302ddd-6acf-4afa-8ea9-7d0c96f18d1a`). It
+terminated `complete_invalid`, which looks like a schema refusal and is not:
+
+```
+step review_editquality failed: ... API request failed with status 400:
+"You have reached your specified API usage limits.
+ You will regain access on 2026-08-01 at 00:00 UTC."
+```
+
+So the panel could not sit. This is `bugs_open/130`'s cap, the same one the `111` lane
+hit on 07-28. **The verdict on record is therefore still round 1's REVISE**, and both
+commits carry `Council-Submitted:` rather than `Council-Reviewed:` — which asserts
+nothing, so it cannot be a false claim, and `098` will credit them when a verdict
+finally lands. **Do not read the round-2 answers above as approved.** Resubmit the
+same file after 00:00 UTC:
+
+```
+RESUBMIT_CORR=99dca96a-413a-4bcb-b278-9577f920786d \
+  ./docs/.../097_TRIGGER_council_review_v1.sh <scratch>/submission_128_r2.json
+```
+
+**Trap for the next reader:** `complete_invalid` on a council run does NOT mean your
+submission was malformed. Read `collected_data->'__step_error'` before rewriting
+anything — a FAILED step shows as COMPLETED with `error` NULL (`bugs_open/099`), and the
+real message is in `__step_error`.

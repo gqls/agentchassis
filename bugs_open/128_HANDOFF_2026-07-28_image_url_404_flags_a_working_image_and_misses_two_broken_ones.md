@@ -453,3 +453,39 @@ SELECT s.domain, w.item_key, w.severity, w.spec->>'kind', left(w.summary,80)
 Expected shape fleet-wide, from today's measurement: **18 page findings + 2 chrome
 findings**, of which 17 + 2 are live 404s and one (webdesign's legacy hero) is the named
 false positive.
+
+### Council record — REVISE at round 1, answered; round 2 could not sit
+
+`SUBMISSION_CORR=99dca96a-413a-4bcb-b278-9577f920786d`. Round 1: 2 approve
+(`reuse_agent`, `guidelines`), 2 object, 4 abstained, `decided_by: gating objection from
+bug_historian`.
+
+- **bug_historian (HIGH):** does adopting `storage.DeployedWebPath` inherit a
+  shared-mechanism defect patched at one call site? **Answered by audit, and the audit
+  is in the code** (`6d3992213`): it is one landmine entry not three (six `doc_notes`
+  rows, one body, footprint-expanded); the drift needs an underscore purpose stored with
+  `asset_key == purpose`, and over 267 active rows that set is exactly the two
+  brand-head purposes, which the code branches on; the deployer branches identically;
+  `deploy_path` has never been passed in any orchestration; and 109 of 127 rendered paths
+  matched with all 109 serving 200.
+- **editquality (medium ×3, low):** bundling. A defect in the **submission**, not the
+  change — all four extra edits are in this file, three are causally forced by the core
+  fix, and round 2 grounds each in a quote. Note `reuse_agent` **approved** the very edit
+  `editquality` objected to, calling it *"precisely the unify-don't-duplicate move"*.
+
+**Round 2 returned no verdict.** It terminated `complete_invalid`, which looks like a
+schema refusal and is not — `collected_data->'__step_error'` reads *"You have reached
+your specified API usage limits. You will regain access on 2026-08-01 at 00:00 UTC"*
+(`bugs_open/130`'s cap). **So the verdict of record is still REVISE**, both commits carry
+`Council-Submitted:` rather than `Council-Reviewed:`, and the round-2 answers above are
+**not approved**. Resubmit `submission_128_r2.json` with the same `RESUBMIT_CORR` after
+00:00 UTC.
+
+### Status
+
+**FIXED IN CODE, NOT YET LIVE — stays in `/bugs_open/` per the standing bar.** Commits
+`beff42809` (fix + 10 tests) and `6d3992213` (the drift audit). Inert until a chassis
+image ≥ `6d3992213` is built and rolled; until then the six sites above are still
+painting a broken hero and `idea.uk` is still serving a 404 favicon and og-card on every
+page. Close it when the acceptance set at the end of the previous section passes against
+a rolled pod.

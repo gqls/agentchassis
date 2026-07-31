@@ -90,7 +90,12 @@ reports a 404 for every site's og card and favicon.
 ## Running the REAL Go helpers over live data (not a re-implementation)
 
 A Python mirror of a Go function agrees with itself, which proves nothing. Extract the
-rows with `psql -At -F'|'`, then drive the actual helpers:
+rows with `psql -At -F'|'`, then drive the actual helpers.
+
+**`cmd/xcheck128` below is a THROWAWAY that lives only in the scratch checkout under
+`$HOME/.cache` — it is deliberately not a `cmd/` in this repo, and nothing should adopt
+it.** It exists to run the real `storage` helpers against live rows once; the durable
+version of the same assertion is the test file.
 
 ```bash
 T=$HOME/.cache/bugfix128_headtree            # NOT /tmp — see below
