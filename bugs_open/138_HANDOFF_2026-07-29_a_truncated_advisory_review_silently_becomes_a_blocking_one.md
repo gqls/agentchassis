@@ -641,3 +641,65 @@ instruction, not a third cap raise. Query in RUNBOOK §10, restricted to
 `review_guidelines@8000` no longer appear, because no live council holds those pairs
 any more. The report keys on (seat, cap) from live config, so a resolved divergence
 disappears rather than lingering as a stale row.
+
+---
+
+## 2026-07-31 evening — CANDIDATE 4 IS VERIFIED TO WORK. The budget alone, on an unchanged cap.
+
+A fresh chassis build (replicaset `6fd67d6649`) made two checks possible.
+
+**FIX-055 survived the rebuild.** Both new pods carry `gating TRUNCATED objection from`
+and `gated_by_truncation`, with both controls non-zero in the same exec. This is
+`bugs_open/153`'s check run in the *other* direction — not "did my fix arrive" but "did
+it survive someone else's build". A build from an older ref would have silently removed
+a fix that was live an hour earlier and nothing else would have said so.
+
+**The length budget works, measured against a real control arm.** Filtered by the
+ROUND'S SPAWN TIME (`orchestration_states.created_at`), per seat, against that seat's own
+cutover — because an orchestration keeps the workflow definition it loaded at spawn, so
+call time is the wrong clock:
+
+| `review_editquality` @16000 | calls | peak | % of cap | mean |
+|---|---|---|---|---|
+| rounds spawned **BEFORE** the block | 10 | 15,721 | **98.3%** | 9,848 |
+| rounds spawned **AFTER** the block | 8 | 8,793 | **55.0%** | 6,569 |
+
+Same seat, same afternoon, **same cap** — editquality was already at 16000. **So the
+budget alone did this**, which separates the two halves that `review_architecture` could
+not: there the cap raise and the budget shipped together and no one could say which
+mattered. Here the cap did not move.
+
+The small-sample objection cuts the wrong way: a maximum grows with n, and the arm with
+MORE calls (10, before) is the one with the higher peak.
+
+**Explicitly NOT claimed for the other three seats.** `guardian`,
+`improvement_guardian` and `debug_historian` have **zero** pre-cutover calls in the
+window, so no control arm exists. Their post-cutover peaks (77.6%, 37.5%, 70.8%) sit
+below their 14-day historical peaks (99.2%, 96.6%, 99.8%) — but **a max over 14 calls is
+not comparable to a max over 278**, because a maximum grows with the sample. Recorded as
+a non-finding. Their arms will accumulate; re-run RUNBOOK §10 in a few days.
+
+> **A correction to this file's own framing, from the day's third measurement error.**
+> My first pass at the above filtered `llm_call_log.created_at`, which mixed rounds
+> carrying the old prompt into the "after" arm and folded `review_editquality` (cutover
+> 15:39:30) into a filter built for the 15:12 batch. Both mistakes are warned against in
+> this workstream's own RUNBOOK §10, in writing, by me. **The lesson that generalises is
+> not "use the right timestamp"** — it is that on this platform *config cutover time* and
+> *effective time for a given run* are different clocks, and every before/after
+> measurement here needs the spawn-time join, not the convenient one.
+
+### Where this bug now stands
+
+| candidate | state |
+|---|---|
+| 1 — say WHY a round gated | **LIVE, pod-verified twice** (incl. surviving a rebuild). `true` branch still unproven live — no post-roll round has been gated by a truncation. |
+| 2 — alert on the rate | **DONE and running** (FIX-058). Built on headroom, not truncation counts. Has found 2 targets on its own. |
+| 3 — right-size caps | **DONE.** Owner raised feature-designer 2026-07-31 (`sql_for_agents/277`), closing the last divergence in this lane. |
+| 4 — schema order / length | **Reorder REFUTED by measurement; length budget APPLIED to 10 targets and VERIFIED to work.** |
+
+**Still open, and both are one decision each, not work:**
+1. `feature-designer/review_architecture` still lacks the notes-first output order and the
+   length block — two of the 07-29 fix's three parts. The cap was propagated; these were
+   deliberately not bundled because they change what a reviewer is asked to DO.
+2. Whether the length budget should reach the remaining 41 seats. The evidence for
+   extending is now much stronger than it was this morning: it is measured, not argued.
