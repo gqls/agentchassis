@@ -1,0 +1,179 @@
+# PLAN — doc review mechanisms (LANDMINES.md verifier + bugs_open staleness sweep)
+
+**Started 2026-07-31.** Implements the owner ruling on
+`architecture_review/RFC_005_targeted_review_for_docs_that_feed_the_fleet.md`
+(2026-07-31): §3.1 (diagnosis-loop discipline for `bugs_open/`) is already
+adopted as a practice norm, recorded in `CLAUDE.md` directly — nothing to
+build there. This workstream is the other two rulings:
+
+- **§3.2 — a dedicated single-pass verifier agent for `LANDMINES.md` entries**
+  (not a mechanical sync-script grep — the owner's explicit choice, because a
+  grep only confirms a footprint exists, not that the entry's claim is still
+  true).
+- **§3.3 — a weekly staleness sweep over `bugs_open/`** (flags, never
+  auto-closes; the fixed-AND-live bar for closing a bug stays a human/thread
+  judgment call).
+
+Why this is its own workstream and not inline in the RFC: both are new,
+standing, reusable mechanisms — CLAUDE.md's own rule ("when you build a new
+reusable mechanism, register it") and the standing-five convention both apply,
+and neither should be improvised live in a conversation that was really about
+whether to build them at all.
+
+---
+
+## Part A — LANDMINES.md verifier agent (§3.2)
+
+### What it checks, per entry
+
+Each `LANDMINES.md` entry has four load-bearing fields (see the file's own
+"Entry format" section): `footprint`, `fires when`, `the tell`, `the check`.
+The verifier's job is narrower than a full diagnosis — it is not asking
+"is this a real bug", it is asking **"is this entry still an accurate
+description of the system"**:
+
+1. Does the **footprint** still resolve (file/table/symbol exists at all)?
+2. Does **the check**, run for real, still produce what **the tell** claims?
+3. Is the entry internally consistent (does the footprint actually relate to
+   the fires-when clause, or has drift made them describe different things)?
+
+### Reuse before build
+
+`the check` field is free text — sometimes a SQL query, sometimes a
+`grep`/`kubectl exec` command, sometimes a code citation. Two existing
+capabilities cover most of this without new Go code:
+
+- **Footprint resolution** (file/table/symbol exists): the diagnose loop
+  already does exactly this — its "static" evidence-trail citations
+  (confirmed live in `bugs_open/155`'s verification run) come from
+  `diagnose_code_lookup_action.go` / `code_symbols_actions.go`. Reuse this
+  action directly rather than writing a second code-search path.
+- **SQL-shaped checks**: `query_database`, already generic and widely used
+  (confirmed in the `$ctx.` param-namespace work).
+- **Shell/kubectl-shaped checks** (a real fraction of entries — `strings
+  /app/agent-chassis`, `grep -ac`, etc.): **no existing action runs an
+  arbitrary shell command from inside a workflow**, by design (agents don't
+  get a shell). Open question for implementation, not decided here: either
+  (a) these entries fall back to LLM judgment on internal consistency only
+  (weaker, but honest about the limitation), or (b) a narrow, allow-listed
+  "run this specific class of read-only pod check" action gets built — which
+  would itself be new platform code, council-gate scope, and its own
+  submission. Do not build (b) speculatively; only if (a) proves insufficient
+  in practice.
+
+### Design sketch
+
+A single-step agent (`landmine-verifier`, matching the `asset-deployer` /
+`section-editor` shape — an `agent_definitions` row, not new Go code for the
+agent itself):
+
+1. Input: one entry's four fields, resolved from the `doc_notes` row
+   `landmines-sync.py` already writes (`categories ? 'landmine'`,
+   `source LIKE 'LANDMINES.md#%'`).
+2. Run the footprint/check-resolution actions above for whatever's
+   mechanically checkable.
+3. One `execute_llm_prompt` call: given the entry + the fresh check results,
+   judge whether the entry still holds. Single pass — no iteration, no
+   hypothesis refinement (that's what makes it "dedicated" rather than a
+   reuse of the full diagnose-orchestrator loop, which is built for
+   multi-round root-causing, not a one-shot doc fact-check).
+4. Output: a verdict + citations, written back as... **open question**:
+   append to the entry itself (a `**last verified:** YYYY-MM-DD, <verdict>`
+   line, mechanical and visible in-file), or a separate `doc_notes` row
+   (queryable, doesn't touch the append-only ledger's own text). Leaning
+   toward the former — matches this repo's preference for visible,
+   in-place, dated corrections over a parallel ledger — but this is a real
+   decision for whoever builds it, not settled here.
+
+### Trigger
+
+Wire as a step appended after `landmines-sync.py --apply` (new/changed
+entries only — diff against the previous sync state, which the script
+already tracks via its hash-based dedup), rather than a separate periodic
+sweep. New entries get checked once, at the moment they're most likely to
+be wrong (freshly written, unreviewed) and most likely to matter (about to
+be read by a council seat for the first time).
+
+### Blast radius / scope note
+
+This is additive and inert until wired: it does not change what
+`landmines-sync.py` writes, what `doc_notes` contains today, or what any
+council seat's `schema_hint` carries. Per the 2026-07-29 owner ruling's
+narrowing (additive-and-inert vs. additive-and-guarantee-changing), this
+should not need its own architecture RFC beyond this one — but if the agent
+definition's SQL touches `platform/`-scoped Go (only true if the shell-check
+allow-list gets built, per the open question above), that piece specifically
+goes through the normal council gate before shipping.
+
+---
+
+## Part B — weekly `bugs_open/` staleness sweep (§3.3)
+
+### Design sketch, cheap-first-pass only (per RFC_005 §3.3)
+
+A CronJob-triggered agent, same family as `build-pipeline-trigger`
+(`docs/agent_docs/sql_for_agents/052_build_pipeline_trigger.sql`):
+
+1. Enumerate `bugs_open/*.md` files whose status line does not read CLOSED
+   (the existing 016b §10 index already tracks this by number; the sweep can
+   read the files directly rather than trusting the index, since the index
+   is itself hand-maintained and can lag).
+2. **Cheap pass only, this phase**: for each file, extract cited
+   `path:line`/`path:Symbol` references and confirm the path still exists and
+   the symbol is still greppable nearby (reuse the same code-lookup action as
+   Part A — one reusable capability, two consumers). This catches refactors,
+   renames, and deletions mechanically, with no LLM cost.
+3. **Explicitly deferred, not built this phase**: re-running each bug's own
+   "How to verify a fix" query/command and diffing the result. Heterogeneous
+   per bug, meaningfully more engineering, and the RFC's own §3.3 language
+   ("deeper pass, sampled, not every run") treats this as a later increment,
+   not the initial build.
+4. Output: a flagged worklist (which files, which citations no longer
+   resolve) — written where a human/thread will actually see it. Candidate:
+   a `doc_notes` row per run (queryable, matches how the diagnose loop
+   already persists notes) plus a short append to a new
+   `docs/agent_docs/docs024_key_docs_latest/bugs_open_staleness/` log, rather
+   than editing any `bugs_open/*.md` file directly — this sweep should never
+   auto-write into a bug file it didn't author.
+
+### Cadence
+
+Weekly, per the owner's ruling — a K8s CronJob, matching
+`build-pipeline-trigger`'s pattern (that one runs on a 30-minute heartbeat;
+this is intentionally much less frequent, since `bugs_open/` entries don't
+churn at anything like that rate).
+
+### What this sweep must get right from day one (found live, while drafting RFC_005)
+
+Any check that reads "the current code" needs an explicit, resolvable ref —
+**never a bare `HEAD`**, and refuse rather than silently fall back to a stale
+`main`. This session's own branch was 547 commits ahead of `origin` at one
+point mid-conversation, and the function `bugs_open/155` describes was not
+yet an ancestor of `origin` either — running a diagnosis against that stale
+ref would have "returned a confident wrong answer" (090's own words, from a
+2026-07-19 incident it already learned this lesson from). The sweep should
+copy `090`'s ref-resolution discipline (current branch, refuse if unresolvable
+on the remote) rather than re-learn it.
+
+---
+
+## Open questions for whoever builds this (not decided in this PLAN)
+
+1. Part A: shell/kubectl-shaped checks — accept the weaker LLM-only fallback,
+   or build the narrow allow-listed action? (recommend: ship without it,
+   revisit if it proves insufficient)
+2. Part A: verdict written in-file vs. a separate `doc_notes` row?
+   (leaning in-file; not settled)
+3. Part B: where exactly does the flagged worklist live, and who is expected
+   to act on it? (a worklist nobody reads is the exact "unadopted ledger"
+   failure this whole thread has been trying to avoid)
+4. Both: concept-register entries owed on delivery, per CLAUDE.md's own rule
+   — not optional, just not yet done because nothing has shipped.
+
+## Next steps
+
+Neither mechanism is built yet. This PLAN scopes both; building either is a
+separate piece of work (new `agent_definitions` rows at minimum, a CronJob
+manifest for Part B, possibly a council-gate submission if the shell-check
+allow-list in Part A gets built). Continue here rather than opening a third
+document once work starts.
