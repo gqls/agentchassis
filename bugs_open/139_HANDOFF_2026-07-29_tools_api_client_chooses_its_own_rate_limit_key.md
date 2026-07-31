@@ -366,3 +366,73 @@ deleting them now would remove evidence from the very table being measured.
 
 **When it lands, `platform/httpguard`'s register entry PUB-002 stops being true** —
 it says "called by NOTHING", and this import is its first caller.
+
+---
+
+## FIXED, LIVE AND PROVEN IN PRODUCTION — 2026-07-31 08:37Z, by the gauntlet_dead_cta lane
+
+Owner instruction: take this before the distribution leg, "the identity column is
+what the experiment gets measured on." `who-owns.py` says this bug is yours, so
+this is a contribution into your account, not a parallel one — **including the
+close/no-close call, which is yours to make.** The closing bar (fixed AND live) is
+met; the file is left in `/bugs_open/` for you.
+
+**The swap.** Island `aqls/tools-api:v1.0.1198` → `v1.0.1207`, done by this thread
+over ssh (compose backed up to `docker-compose.yml.bak-1198-pre1207`; one line
+changed, diffed before restart; container recreated, `compose ps` confirms the new
+image rather than a silently-kept old container).
+
+**Before/after on the RUNNING container, controls both ways:**
+
+| marker | v1.0.1198 (was live) | v1.0.1207 (now live) |
+|---|---|---|
+| `CF-Connecting-IP` | **0** | **1** |
+| `cloudflare-tunnel` | **0** | **1** |
+| `gin-gonic` (control) | **1186** | — |
+| nonsense token (control) | — | **0** |
+
+The 1186 is what makes the two zeros real absences rather than a broken `strings`.
+
+**THE ACCEPTANCE CHECK PASSES, and it passed from ONE machine — here is why that
+is legitimate.** Your CONTRIB is right that one test machine cannot distinguish a
+constant from a working key *in general*. It can here, because the before-state
+was itself a constant: the 95 prior rows are effectively the second network.
+
+- Fired a real `POST /api/v1/tools/gauntlet/round` through Cloudflare.
+- Stored hash: **`9e464fe9fca925b099a25141f40afad5`**.
+- That value was **computed before the request was sent**, from this machine's own
+  egress address as `cloudflare.com/cdn-cgi/trace` reported it, through the same
+  `sha256(...)[:16]` that `hashIP` uses. So the column did not merely *change* — it
+  changed to **the one predicted**. A changed-but-unpredicted value would only have
+  proved "not the gateway"; this proves *which* address arrived.
+- `count(DISTINCT client_ip_hash)` on `gauntlet_rounds`: **1 → 2** (96 rows).
+
+**⇒ The `[INFERRED]` item is now MEASURED: `CF-Connecting-IP` does reach the app
+process.** That was the one thing you flagged as needing us, and it needed the
+deploy to settle rather than a header-echo endpoint.
+
+**One correction to your CONTRIB's figure, which turns out to be a correction to
+MY check, not yours.** I first queried for `client_ip_hash = sha256('172.18.0.1')`
+and got **0 rows**, which read as "the constant is not the docker gateway". Wrong:
+`hashIP` truncates to `sum[:16]` (`round.go:33-37`), so the stored value is the
+first 32 hex chars. `245c0ffc0f6a0215471542b9add1fa53` is exactly that prefix of
+the full digest. **Your 83-of-83 claim is correct as written**; on 07-31 the same
+population reads 95 of 95 before my round. *Check: when comparing against a stored
+digest, read the hashing function's WIDTH before asserting a mismatch.*
+
+**Deliberately NOT done:** your three manual-test probe rows are still there. They
+are now load-bearing evidence — part of the 95-row constant block that makes the
+`1 → 2` transition demonstrable — so removing them would delete the before-state of
+the measurement. Say the word if you still want them gone.
+
+Council: submitted `e053fac4-eeaf-431e-aa88-817c4107476e`. Round 1 came back
+REVISE on a `prior_art_librarian` gating objection (`editquality` approved) asking
+for the full text of the "per-IP limiter behind Cloudflare" landmine note, to check
+whether it endorsed this fix or warned of something uncovered. It endorses it: its
+specific httpguard warning is that "httpguard's rightmost-XFF fallback lands on
+the same constant", and `CloudflareTunnel()` declares **only** `CF-Connecting-IP`
+with no XFF entry at all, so that fallback is unreachable by construction — pinned
+by `TestFrom_IgnoresXForwardedFor`. Round 2 resubmitted on the same correlation
+with **no code change**, because the objection asked what the prior art said and
+the answer is evidence. `PUB-002`'s "called by NOTHING" is now corrected in the
+register.
