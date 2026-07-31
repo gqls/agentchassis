@@ -177,6 +177,53 @@ func TestAliasChainIsBounded(t *testing.T) {
 	}
 }
 
+// Every aliased resolution must land in aliasesUsed, which the action surfaces as
+// source_aliases_used. Asked for by the council gate's bug_historian seat (corr
+// dd03a73b): a zap line is not a queryable record of a section whose data
+// provenance changed. The map must stay EMPTY when everything resolved literally,
+// so its presence in a build record is itself the signal.
+func TestAliasedResolutionsAreRecordedStructurally(t *testing.T) {
+	r := newTestResolver(map[string]interface{}{
+		"company_name": "Literal Co",
+		"contact":      map[string]interface{}{"phone": "07934 524 911"},
+	}, map[string]string{"email": "vonc@contactforsales.com"})
+
+	r.resolve(context.Background(), "site_specs.identity.company_name") // literal
+	r.resolve(context.Background(), "site_specs.identity.phone")        // nested alias
+	r.resolve(context.Background(), "site_specs.identity.email")        // sites-row alias
+	r.resolve(context.Background(), "site_specs.identity.hours")        // resolves nowhere
+
+	want := map[string]string{
+		"site_specs.identity.phone": "site_specs.identity.contact.phone",
+		"site_specs.identity.email": "sites.email",
+	}
+	if len(r.aliasesUsed) != len(want) {
+		t.Fatalf("got %v, want %v", r.aliasesUsed, want)
+	}
+	for k, v := range want {
+		if r.aliasesUsed[k] != v {
+			t.Errorf("%s: got %q, want %q", k, r.aliasesUsed[k], v)
+		}
+	}
+	// A literal resolve must not be recorded — otherwise the signal is noise.
+	if _, recorded := r.aliasesUsed["site_specs.identity.company_name"]; recorded {
+		t.Error("a literal resolution must NOT be recorded as an alias")
+	}
+}
+
+func TestNothingRecordedWhenEverythingResolvesLiterally(t *testing.T) {
+	r := newTestResolver(map[string]interface{}{
+		"email": "flat@example.com", "phone": "123", "company_name": "C",
+	}, map[string]string{"email": "unused@example.com"})
+
+	for _, p := range []string{"identity.email", "identity.phone", "identity.company_name"} {
+		r.resolve(context.Background(), "site_specs."+p)
+	}
+	if len(r.aliasesUsed) != 0 {
+		t.Errorf("expected no aliases recorded, got %v", r.aliasesUsed)
+	}
+}
+
 // A site with no identity aspect at all (loancalculator.co.uk) must still reach
 // the sites row — the aspect being absent is not a reason to skip the canonical
 // store.

@@ -95,6 +95,12 @@ type sourceResolver struct {
 	pagesLoaded   bool
 	assetsLoaded  bool
 	siteRowLoaded bool
+	// aliasesUsed records every resolution that came from somewhere other than
+	// the path the schema declared: "site_specs.identity.email" →
+	// "sites.email". Surfaced in the action result as source_aliases_used so a
+	// build record shows which fields changed provenance, rather than that fact
+	// living only in a log line.
+	aliasesUsed map[string]string
 }
 
 // identityContainerAspects lists the site_specs aspects whose writers group
@@ -629,8 +635,20 @@ func (r *sourceResolver) resolveSpecAlias(ctx context.Context, path string) (int
 	aspect, leaf := parts[0], parts[1]
 
 	// 1. The writer's nested container.
+	//
+	// NOT redundant with the sites-row step below, though it looks it. The action
+	// designed to copy this nested shape into the sites columns —
+	// sync_site_identity_action, which reads exactly identity.contact.email/phone
+	// — is registered in Go and wired into **zero** live agents (measured
+	// 2026-07-31: 0 matching agent_definitions rows, against 9 for plan_sections
+	// as a positive control). Its own header says it "should be added as a step in
+	// the build flow"; it never was. So nothing else in the pipeline reads the
+	// classifier's nested shape, and a new site — which is written nested-only —
+	// would resolve nothing without this step. Raised as scope by the council
+	// gate's edit-quality seat (corr dd03a73b) and kept on that evidence.
 	for _, container := range identityContainerAspects[aspect] {
 		if val, ok := r.resolveSpecPath(aspect + "." + container + "." + leaf); ok {
+			r.noteAlias("site_specs."+path, "site_specs."+aspect+"."+container+"."+leaf)
 			r.logger.Info("plan_sections: site_specs path resolved via the writer's nested shape",
 				zap.String("requested", "site_specs."+path),
 				zap.String("resolved_from", "site_specs."+aspect+"."+container+"."+leaf),
@@ -649,6 +667,7 @@ func (r *sourceResolver) resolveSpecAlias(ctx context.Context, path string) (int
 	}
 	r.ensureSiteRow(ctx)
 	if val, ok := r.siteRow[col]; ok {
+		r.noteAlias("site_specs."+path, "sites."+col)
 		r.logger.Info("plan_sections: site_specs path resolved from the canonical sites row",
 			zap.String("requested", "site_specs."+path),
 			zap.String("resolved_from", "sites."+col),
@@ -656,6 +675,15 @@ func (r *sourceResolver) resolveSpecAlias(ctx context.Context, path string) (int
 		return val, true
 	}
 	return nil, false
+}
+
+// noteAlias records a resolution that did not come from the declared path, so
+// the build result carries it (source_aliases_used) and not only the log.
+func (r *sourceResolver) noteAlias(requested, resolvedFrom string) {
+	if r.aliasesUsed == nil {
+		r.aliasesUsed = make(map[string]string)
+	}
+	r.aliasesUsed[requested] = resolvedFrom
 }
 
 // resolveConfigPath navigates site content_data config
@@ -1073,6 +1101,14 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		"deferred_count":    len(deferred),
 		"skipped_count":     len(skipped),
 		"total_sections":    len(sectionNames),
+		// Which fields resolved from somewhere other than the path they declare
+		// (PBP-026). Asked for by the council gate's bug_historian seat on corr
+		// dd03a73b: a zap line is not a queryable record of a section whose data
+		// provenance changed, and this platform's own history says logs are not a
+		// reliable substitute for a structured signal when auditing that. Absent
+		// from the payload entirely when nothing aliased, so its presence is the
+		// signal. Empty for every build on a site whose specs are populated.
+		"source_aliases_used": resolver.aliasesUsed,
 	}, nil
 }
 
