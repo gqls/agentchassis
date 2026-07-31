@@ -60,6 +60,18 @@ func TestChromeEligiblePredicateCarriesAllThreeClauses(t *testing.T) {
 			t.Errorf("chrome level whitelist must not admit %s — that is a page-body level", body)
 		}
 	}
+
+	// The predicate must apply the level filter as an AND on the SAME row as the
+	// function match, never as an OR or a standalone clause: the council's
+	// editquality seat objected that 'header'/'footer' were whitelisted
+	// unverified, and the answer (measured 2026-07-31) is that they admit ZERO
+	// rows because `function = $1` is applied first — all six rows at those
+	// levels carry their own non-chrome functions (header-docs,
+	// header-minimal-tool, footer-with-disclaimer, …). That answer only holds
+	// while the two are conjunctive.
+	if strings.Contains(strings.ToUpper(got), " OR ") {
+		t.Errorf("chrome predicate must be a conjunction, got %q — an OR would let a level admit a row the function filter excluded", got)
+	}
 }
 
 func TestChromeEligibleSQLQualifiesEveryColumn(t *testing.T) {

@@ -217,6 +217,18 @@ func GetComponentByFunction(ctx context.Context, db interface{}, function string
 // (component_selector.go queryCandidates) has had the right shape all along —
 // active, unforked, level-filtered — and is the reason this one is written the
 // same way rather than invented.
+//
+// WHY NOT PARAMETERISE queryCandidates INSTEAD (the council's prior_art
+// objection, corr 5bc232d6 — a fair one, because the plan cited it as correct
+// and then did not reuse it). Four things would have to become conditional to
+// share one WHERE clause: it keys on `section_type`, not `function`; it is
+// hard-filtered to `component_level='section'`, which is the exact complement of
+// the chrome set; it returns []ComponentCandidate with no html_template or
+// input_schema, which is what chrome rendering actually needs; and it exists to
+// SCORE a field of candidates, where chrome selection has one answer and the
+// scoring is meaningless over a pool whose size is one. What is genuinely shared
+// is the SHAPE of the eligibility rule, and that is what this copies —
+// deliberately, and with the reasoning here rather than left to be rediscovered.
 
 // chromeComponentLevels is the set of content_components.component_level values
 // that may serve as SITE CHROME. It is a whitelist and not `<> 'section'` on
@@ -226,6 +238,19 @@ func GetComponentByFunction(ctx context.Context, db interface{}, function string
 // The estate uses four levels for chrome because the vocabulary grew twice:
 // 'site' (the site-header/site-footer pool, 12 rows), and the singular 'header',
 // 'footer' and 'head' levels that predate it.
+//
+// MEASURED 2026-07-31, answering the council's editquality objection (corr
+// 5bc232d6) that 'header'/'footer' were in the list unverified: those two levels
+// currently admit ZERO rows to any chrome pool. All six rows at them are legacy
+// `*_pre_037` components carrying their OWN functions (`header-docs`,
+// `header-minimal-tool`, `footer-with-disclaimer`, …), and `function = $1` is
+// applied before the level filter is ever consulted. Exactly ONE row is both
+// chrome-level and chrome-function — `head-seo-standard` (level 'head',
+// function 'head', is_active=false) — which is what the 'head' entry is for.
+// So 'header' and 'footer' are FORWARD-LOOKING, not observed. They stay because
+// narrowing the list to ('site','head') would make a chrome component correctly
+// filed at level 'header' silently ineligible, which is the worse failure: a
+// selection that finds nothing looks exactly like a library with nothing in it.
 const chromeComponentLevels = `'site', 'header', 'footer', 'head'`
 
 // chromeEligibleSQL is THE chrome-eligibility predicate. Every chrome selection
@@ -269,6 +294,14 @@ func ChromeSlotFunction(slot string) string {
 // this function at all, and the returned component is a last-resort pick. Callers
 // must treat that as a defect to report, never as a default — it is how every site
 // in the fleet ended up assigned to a deactivated footer.
+//
+// [UNCONSUMED] The report it produces — an ERROR log and `ineligible_chrome` in
+// render_site_components' result — has NO automated reader today, and the council's
+// bug_historian seat is right that this is the bugs_open/071 / bugs_open/083 shape
+// (a signal computed and then discarded). It is stated rather than fixed, because
+// the obvious remedy is to file a work item, and a work item for exactly this
+// condition already exists, already fires, and already cannot be satisfied —
+// see bugs_open/166. Adding a second unsatisfiable item is not closing a loop.
 //
 // It answers with the last-resort row rather than an error because refusing is not
 // free: `head` has NO eligible component today (both candidates are is_active=false)
