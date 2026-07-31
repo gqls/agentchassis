@@ -238,3 +238,91 @@ Pre-flight found two replicasets live and one pod not ready: another session was
 mid-roll. Latest pod start `23:10:17Z`, so the ~300s no-dispatch window runs to
 about `23:15:20Z`. Waited rather than firing into it, since that failure mode is a
 silently dropped spawn with no error to read afterwards.
+
+---
+
+## 2026-07-31 — the adoption ran, and the queue is HELD
+
+Both orchestrations `COMPLETED`. **23 pages, 25 work items, 5 specs.**
+
+### The crawl found 23 URLs, not the predicted 20 or 22 — and one is a 404
+
+Both link fixes worked, confirmed in the crawl payload: `guides/buy-to-let.html` and
+`guides/your-mortgage-scorecard.html` are both present, and they were the two
+orphans. `404.html` was correctly not reached.
+
+The 23rd is **`/guides/index.html`, which does not exist** — it is the target of the
+6 guides' broken `Home` links (defect #1, deferred by owner decision D7). Firecrawl
+followed those links and captured the B2 error body as page content:
+
+```
+statusCode: 404, title: (empty)
+markdown: ```json { "error": "B2 returned error",
+  "objectKey": "mortgagecalculator.co.uk/guides/index.html",
+  "status": 404, ... "Key not found" } ```
+```
+
+**So a deferred cosmetic defect turned into adoption input.** That is the transferable
+point: a broken internal link is not only a user-facing 404, it is a *content source*
+for anything that crawls the site. Deferring it looked free and was not.
+
+**But the outcome was benign, and I should record why rather than claim a save I did
+not make.** The analyser did not treat the error blob as content. It planned
+`guides-index` / `section-index` / title "Mortgage Guides | MortgageCalculator.co.uk"
+— i.e. it inferred that a guides index *ought* to exist. `CanonicalisePage` maps
+`section-index` with slug `guides-index` to **`/guides/index.html`**, the very URL
+that 404s. So building it **fixes defect #1 as a side effect**. Lucky, not designed:
+had the analyser echoed the error text instead, this would have been a junk page.
+
+### The URL map, measured from `pages` rather than derived
+
+My prediction from reading `CanonicalisePage` matched the created rows exactly. The
+homepage is the sole survivor of its own URL:
+
+| old (live now) | new (planned) |
+|---|---|
+| `/index.html` | **`/index.html` — unchanged, so it is OVERWRITTEN in place** |
+| `/repayment.html` | `/tools/repayment/index.html` |
+| `/simple.html`, `/stamp-duty.html`, +9 more | `/tools/<slug>/index.html` |
+| `/fact-finder.html` | `/games/fact-finder/index.html` (classified `game`) |
+| `/investor.html` | `/investor/index.html` (classified `section-index`) |
+| `/guides/<x>.html` × 9 | `/guides/<x>/index.html` |
+| *(404 today)* | `/guides/index.html` — newly created |
+
+All 23 are `build_status='planned'`, `rebuild_policy='generic'` — **not `owned`**,
+which is the recreate path's signature and the opposite of what `locked` produces.
+
+### Work items, and why I held them
+
+25 items, all `triaged` on creation: 12 `needs_tool_recreation` → tool-recreation-
+handler, 11 `needs_content_page` → page-build-handler, 1 `needs_domain_research` →
+classifier, 1 `needs_rerender` → rerender-pages.
+
+`build-pipeline-trigger` runs at `interval_seconds=120`, so that queue was ~2 minutes
+from starting an unreviewed LLM rewrite of the whole site, ending in a rerender that
+overwrites the live homepage.
+
+**Held 24 of 25 to `deferred`; left `needs_domain_research` running.** Reasoning:
+
+- `deferred` is verified **not** in `workItemTerminalStatuses`
+  (`work_items_common.go:37-44` — complete/failed/verified/rejected/wont_fix/
+  unresolved/cancelled), so the rows keep their `idx_swi_dedup` slot and nothing can
+  create duplicates behind them. Release is a plain `UPDATE` back to `triaged`.
+- The classifier is research, not publishing, and it **supersedes** the identity spec
+  — so it has to run *before* the positioning work, not after.
+- Holding is one reversible statement; letting the tick fire is not. Under time
+  pressure the action that preserves the owner's options is the correct default.
+
+### The identity came back better than the handoff predicted — but still not narrow
+
+Handoff §6 warned the sibling's auto-identity was *"UK consumers researching loans,
+mortgages, car finance, and debt management"* — generic and cross-contaminated. Ours:
+
+> UK homeowners, first-time buyers, property investors, and anyone seeking mortgage
+> advice or calculations
+
+That is **mortgage-only** — no loans, no car finance — so the contamination the
+handoff feared did not happen. It is still broad ("anyone seeking mortgage advice")
+and, critically, **says nothing about what this site is NOT**. No `divergence_rule`.
+The classifier will supersede this anyway, so the positioning work happens after it
+lands, not now.
