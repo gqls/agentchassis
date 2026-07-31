@@ -258,3 +258,33 @@ The other objections and what each earned:
   quoting it. Quoted in round 2.
 
 Round 2 resubmitted on the same correlation so the trail accumulates.
+
+## 2026-07-31 (late) — round 2 APPROVED, and my own guard was the last thing wrong
+
+6 advisory objections, none high. Two earned code; four were already true in the
+tree and needed verifying rather than arguing.
+
+**The one that earned the most:** three seats independently worried that `pending`
+becomes a live value of `site_components.build_status` where the platform's record
+says it is `'rendered'` and never anything else. Audited — the only other file
+mentioning it is `check_undeployed_assets.go`, which does **not** filter on it (the
+mention is a comment warning the next reader not to add such a filter). Now pinned
+by a test, because that comment enforces nothing. And the reassuring half, which
+was not obvious to me either: **stuck-pending is self-healing.** A failed render
+leaves the slot at `pending` still serving its old chrome, and the next unforced
+render retries it — precisely because of the exit clause this change adds.
+
+**The guard I wrote to pin that was itself wrong, and its own first run caught it.**
+I scoped the population as "files that mention `site_components`", which produced
+three false positives — all `pages.build_status`, in files that merely also mention
+chrome. That question is "does this file talk about both things?", not the one I
+asked. Narrowed to the backtick-quoted SQL literals that actually name
+`site_components`, and then guarded the narrowing with a synthetic-offender test,
+because narrowing past a false positive is how a rule goes inert.
+
+**Four seats flagged a name drift that is real in the SUBMISSION and not in the
+tree.** Edit 1 renamed the function; edit 2's *sketch* still called the old name.
+The code has only the new name and compiles. The lesson is mine, not theirs: the
+sketch is what reviewers read, so a stale sketch spends a round's attention on a
+non-problem — and four seats spending it is the no-silent-rename rule working
+exactly as designed.

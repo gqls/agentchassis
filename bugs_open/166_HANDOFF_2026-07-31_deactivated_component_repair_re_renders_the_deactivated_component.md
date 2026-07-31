@@ -1,8 +1,16 @@
 # 166 — the `deactivated_component` repair re-renders the deactivated component, so the finding can never be satisfied
 
-> **STATUS 2026-07-31 (evening): FIXED IN CODE, committed `39afbf697`, council
-> submission `e242e9d3-1e5a-4b14-a16f-fbff9ca86d35`. OPEN until the next chassis
+> **STATUS 2026-07-31 (late): FIXED IN CODE and council-APPROVED at round 2
+> (`e242e9d3-1e5a-4b14-a16f-fbff9ca86d35`). Commits `39afbf697` → `60fd06e68`
+> (round-1 narrowing) → `4ba946e8b` (round-2 answers). OPEN until the next chassis
 > roll** — a fix that has not shipped leaves the defect reproducible.
+>
+> **Round 1 came back REVISE and it stopped a damaging change**: the trigger was
+> "not ELIGIBLE chrome", which matched three live rows it must not have, including
+> `leopardessconsulting.co.uk`'s own ACTIVE FORK — the supported way to give one
+> site its own chrome. Narrowed to `NOT is_active`. **Eligibility decides what may
+> be CHOSEN as a library default; retirement decides what may no longer be SERVED.**
+> Round 2 approved with 6 advisory objections, none high.
 >
 > `repointRetiredChromeSlot` (**narrowed from `repointIneligibleChromeSlot` at council
 > round 1, `60fd06e68` — the first version would have repointed a site's own ACTIVE FORK;

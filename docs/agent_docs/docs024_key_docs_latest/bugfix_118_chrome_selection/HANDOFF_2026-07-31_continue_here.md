@@ -14,16 +14,17 @@ IN CODE and committed** (`39afbf697`), **awaiting a council verdict and a roll**
 `bugs_open/167` is filed and untouched (owner call). Nothing is half-edited; the
 working tree is clean of this lane's work.
 
-## THE ONE THING OWED RIGHT NOW
+## THE ONE THING OWED RIGHT NOW — verify 166 at the pod after the next roll
 
 **Read the council verdict for `e242e9d3-1e5a-4b14-a16f-fbff9ca86d35` and act on it.**
 The code is already on the shared branch under a `Council-Submitted:` trailer, which
 is correct for a pre-verdict commit (098 credits it automatically once approved, no
-amend needed). **UPDATED 22:0x UTC: round 1 came back REVISE and has been answered; round 2 is
-running on the SAME correlation** (`RESUBMIT_CORR`, so the trail accumulates). What
-is owed is now round 2's verdict. Budget ~30-60 min per round under current load —
-round 1 took ~55 minutes against 118's nine, which is fleet latency, not a dropped
-dispatch.
+amend needed). **RESOLVED 2026-07-31 ~22:00 UTC: round 1 REVISE → answered → round 2 APPROVED**
+(6 advisory, none high, all answered in `4ba946e8b`). The commit carries
+`Council-Reviewed:`. **Nothing is owed to the council on this lane.**
+
+What IS owed is the roll: `bugs_open/166` is fixed, approved and **inert** until a
+chassis image ships, which is the only reason it is still in `bugs_open/`.
 
 ```sql
 SELECT current_step, status FROM orchestration_states
