@@ -14041,3 +14041,54 @@ collision, **the contribution is the deliverable.**
   already-recorded rule that **a grep proves an absence only for the spelling it
   searches** — and my second mistake of the day of trusting a hand-typed pattern over
   an anchored one.
+
+---
+
+## 2026-07-31 — I ranked two guard signals by reasoning, shipped the ranking as documentation, and the first live test reversed it
+
+**Thread:** bugfix 11 session, `bugs_closed/135` (the code_symbols prune floor).
+
+**The claim.** The guard measures two things before allowing a destructive prune:
+each symbol KIND separately, and the count of distinct source PATHS. I wrote, in the
+concept register (CTXA-025), the workstream PLAN and the council submission, that the
+path cohort is the stronger of the two — *"rows measure how much this run WROTE; paths
+measure how much of the repo it SAW, which is the property that actually fails when a
+tarball arrives truncated"* — and called it "the most trustworthy signal that a run
+genuinely did not see the repo."
+
+**Why it was false.** In the live induction, against the exact fault class I designed
+it for, the ranking inverted:
+
+```
+kind=interface   8%  (33 of 433)   below -> REFUSED
+distinct paths  60%  (592 of 992)  PASSED
+```
+
+The signal I called strongest **passed the bad run**. The per-kind cohort — which I
+included because the case file's council rounds insisted on it, not because I argued
+for it — is the only thing that caught it. Had I shipped my own reasoning (one
+whole-corpus signal, in the better unit), the guard would have permitted the delete.
+
+**What caught it.** Running the induction instead of declaring the guard shipped. A
+green run over a healthy repo would have shown both cohorts at 100% and told me
+nothing — which is precisely what the case file warned ("a green run over a healthy
+repo proves only that the guard is inert"). The refutation was free; it arrived in the
+same 90 seconds as the confirmation.
+
+**The cheap check.** *A comparative claim needs a case where the two differ.* "A is a
+stronger signal than B" is not established by a design argument, and it is not
+established by a test where both agree — only by an input that separates them. I had
+no such case, and I stated the ranking anyway, in the same voice as the measured facts
+around it. The marker existed for exactly this (`[INFERRED]`) and I did not use it,
+because it did not feel like an inference.
+
+**Cost.** Nothing shipped wrong — both cohorts were in the code, so the correct
+behaviour was never at risk; only my written explanation of *why* it works was wrong.
+Corrected in CTXA-025, the workstream NOTES and the owner log. The real cost is that
+the wrong ranking had already gone to a council seat as part of the design rationale.
+
+**Tally note.** Second entry today from this session in the "stated a conclusion where
+I had only reasoning" family (the first: claiming 592 paths "corrected" a register
+figure of 530, when 530 was a test fixture I had invented). Both were caught by going
+to *use* the claim. **The pattern: an unmeasured claim survives right up until
+something makes it do work.**

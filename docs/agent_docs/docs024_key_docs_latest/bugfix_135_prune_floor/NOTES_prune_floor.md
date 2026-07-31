@@ -233,3 +233,72 @@ callable mechanism in the register (CTXA-025). Writing a §9 entry as well would
 put a symptom-shaped account of something that has never happened into the file
 sessions read *after* they have a symptom. Recorded because "add the pattern to
 016b §9" is the reflex, and here the reflex is wrong.
+
+## (11) 2026-07-31 18:09 — the induction ran, and the cohort that PASSED is the finding
+
+Production rolled to **v1.0.1218** (another session's build from a HEAD containing
+`10524a03c` — the pod-grep is what establishes that, not the tag). Both replicas,
+one `strings` pass each, positive **and** negative control in the same exec:
+`INDEX NOT AT ONE COMMIT` 1, `prune_floor_ratio` 2, `refused_floor` 1,
+`index_code_symbols: complete` 1 (pre-existing control), `NEVER_PRESENT_CONTROL_XYZ`
+absent.
+
+**Refusal branch.** 400 synthetic `interface` rows at a bogus `commit_sha` →
+`prune_status=refused_floor`, `pruned=0`, 5,392 rows intact, durable note written,
+`prune_floor_from_config: false` (armed at the code default, exactly as claimed).
+
+**And the thing worth keeping:**
+
+```
+kind=interface   8%  (33 of 433)   below -> REFUSED
+distinct paths  60%  (592 of 992)  passed
+```
+
+**The whole-repo signal PASSED while the per-kind cohort refused.** I had argued
+for cohorts from first principles ("a 95% total can hide a wiped class") and put a
+whole-repo path cohort in as the stronger, more trustworthy signal. The induction
+says the opposite about which one earns its place: the path cohort — the one I
+described in the register as "the most trustworthy signal that a run genuinely did
+not see the repo" — is the one that would have let this delete through. A single
+whole-corpus ratio, which is the obvious design and the one I would have shipped if
+the case file had not insisted on per-kind, permits it.
+
+Both cohorts stay: they fail on *different* inputs, and the induction only shows
+that this particular fault shape is caught by the kind cohort. But the claim "paths
+are the stronger signal" was mine, unmeasured, and it is now **[REFUTED for this
+fault shape]** by the first real test of it. Corrected in CTXA-025.
+
+**Pass branch.** Synthetics cleared, 5 left so there was genuinely something to
+delete, this time above the floor (33 of 38 = 87%) → `prune_status=pruned`,
+`pruned=5`, every cohort listed with its numbers, index restored *exactly* to
+baseline (4,992 rows, 592 paths, one commit, 0 leftovers). Self-healing as designed.
+
+## (12) 2026-07-31 — council round 2: REVISE, and the objection became `bugs_open/162`
+
+`bug_historian`, HIGH, on the *scope* rather than the code: a rigorous fail-closed
+guard for `code_symbols` while three mechanistically identical deletes stay
+unguarded — including `save_page_sections`'s `page_components`, which has a
+four-case-file lineage and has actually lost content twice. It names the pattern:
+`021_HANDOFF_durable_write_guard_covers_one_path_only`, 016b §9 "one call site of a
+shared judgement gets the rigorous fix; the sibling stays heuristic".
+
+**It is right, and the answer is not a wider patch.** CLAUDE.md's own seam ruling
+and `bugs_closed/124`'s REJECTED verdict both say a shared mechanism arriving
+inside a bug patch is architecture-scope; converting three more shared writers
+inside a fix for a fourth is that, tripled. Two of the three were being edited by
+other lanes the same day, and 135's cohorts were only defensible because they were
+chosen *after* reading the live distribution — guessing three more sets is how you
+build a guard that fires on legitimate edits and gets deleted by the first person
+it blocks. So: **filed as `bugs_open/162`**, with the fix shape, the per-site
+cohort question, and the "why not here" reasoning written down.
+
+Two other objections, answered rather than deferred:
+- `guardian` (medium): are the new result keys additive-safe? **Measured, not
+  asserted** — three agent definitions mention `index_result`; **none** reads
+  `pruned` or any prune key (`default_config::text ~ 'index_result\.(pruned|prune)'`
+  is false for all three), and `grep -rn index_result --include=*.go` finds no Go
+  reader at all.
+- `debug_historian` (medium): a fair hit — round 2 cited a **pre-roll image** grep
+  next to a `bugs_open/153` citation that implies the *pod* check. It was an image
+  validation dressed as deploy verification. Now moot, and the lesson stands
+  independently of that: the citation implied a check I had not yet been able to run.

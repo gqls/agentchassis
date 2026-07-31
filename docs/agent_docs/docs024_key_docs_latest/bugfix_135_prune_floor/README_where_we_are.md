@@ -71,3 +71,42 @@ half-missing and confirm the delete refuses, then clean up and confirm a normal 
 still prunes. Until that has happened I would describe this as shipped and
 unproven, not done.
 
+
+---
+
+**2026-07-31, evening.** It works, and we watched it work.
+
+A fresh chassis went out (v1.0.1218) carrying the change. First we checked the
+running program actually contains it, by looking for our own new text inside the
+deployed binary rather than trusting the version number — plus one string we knew
+was already there and one we knew was nowhere, so we could tell a real match from
+a broken search.
+
+Then we made the index *look* half-missing on purpose: 400 fake entries of one
+symbol type, filed under a made-up commit id, which drags that category down to 8%.
+Ran the refresh. **It refused.** Nothing was deleted, all 5,392 rows were still
+there afterwards, and the refusal wrote itself down with the numbers and with the
+instruction for overriding it if the shrinkage were genuine. Then we cleared the
+fakes, left five behind so there was really something to delete, and ran it again:
+this time it deleted exactly those five and put the index back to precisely where
+it started. So it fires when it should and stays out of the way when it shouldn't.
+
+**One thing we got wrong, and the test caught it.** The guard checks two things:
+each type of symbol separately, and the count of source files seen. I had argued
+the file-count was the stronger of the two — the better answer to "did this run
+actually see the codebase". In the live test the file-count check **passed** at 60%
+while the per-type check caught the problem at 8%. So the signal I called stronger
+is the one that would have let the deletion through. Both stay, because they fail
+on different kinds of accident, but my reasoning about which mattered more was
+unsupported and is now corrected in the record.
+
+**The review council said something we're acting on.** It approved the mechanics
+and then made a fair, larger point: we have now built a careful guard for the code
+index while three other places in the platform delete-what-they-didn't-see with no
+such check — and one of them is the page-content table that has genuinely lost a
+customer-facing page twice before. Rather than widen this fix (which our own rules
+say is how shared machinery ends up shipping unreviewed, and two of those files
+were being edited by other people today), we've written it up as its own ticket
+with the fix shape and the reasoning. It's ready for whoever picks it up.
+
+The original ticket is closed and moved. The new one is open and unowned.
