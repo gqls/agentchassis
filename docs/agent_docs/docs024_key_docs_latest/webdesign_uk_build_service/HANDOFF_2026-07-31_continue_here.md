@@ -77,11 +77,29 @@ collect them.** The box never dials in, never holds a cluster credential. This
 is the one architectural property everything else in this workstream is built
 to protect — see §4.1's full reasoning before touching it.
 
+> **⚠ ADDED 2026-07-31, before any P4 planning got further than grounding —
+> read this first, it changes the shape of item 1 below.** The obvious starting
+> point is the **`http_request` action, already in the registry**, categorised
+> `external`, described as *"Make an HTTP request to an external endpoint"*.
+> **It is a STUB.** `HTTPRequestAction` (`generic_actions.go:130-155`) reads
+> `url`/`method`, makes **no network call whatsoever**, and returns a hardcoded
+> `{"status": 200, "body": {"success": true, "data": "mock response"}}` — its
+> own comment says *"For now, return mock response"*. A P4 built on it would
+> report healthy runs forever while collecting nothing. **0 live agent
+> definitions reference it** (checked), so nothing is fooled today.
+> **Consequence for P4: item 1 below is a genuinely new action, or the honest
+> implementation of that stub** — and if you implement the stub, that is a
+> shared-mechanism change touching every future caller, so it carries the full
+> §4 obligations rather than being a quiet fill-in. Either way it must use
+> `fetchguard.NewClient` (§5), not a bare `&http.Client{}`. Also in
+> `LANDMINES.md`, footprint `http_request`.
+
 So P4 is, concretely:
 
 1. **An action** (new, in `platform/orchestration/actions/`) that calls the
    box's own API (built in P1/P3) over HTTPS, asks for orders in a `paid`
-   state it has not yet collected, and marks them collected.
+   state it has not yet collected, and marks them collected. **See the warning
+   above — do not assume `http_request` does this.**
 2. **A scheduled task** (`scheduled_tasks` row) that fires this action on some
    interval — start conservative (hourly?) rather than tight, since nothing
    about "next day or so" fulfilment needs low latency.
