@@ -167,6 +167,29 @@ by hand. **The `note_kind` filter is not optional** — see `LANDMINES.md`.
 > DIFFERENT rule from the one candidate 1 taught — being rule-agnostic is the whole
 > claim.
 
+### BEFORE ARMING: check nobody else is mid-run on this agent
+
+Arming a cap mutates a **shared live agent**, and DB config is live immediately. Any
+other lane's designer run that reaches `persist_plan` while your cap is armed will be
+refused by *your* test, not by its own plan.
+
+```sql
+SELECT orchestration_id, current_step, status, created_at
+  FROM orchestration_states
+ WHERE workflow_plan::text LIKE '%check_spec_approved%'   -- feature-designer's signature step
+   AND status NOT IN ('COMPLETED','FAILED')
+ ORDER BY created_at DESC LIMIT 6;
+```
+
+**Gotcha:** `orchestration_states` has **no `agent_type` column** — the obvious query
+errors out rather than returning nothing, which is at least honest. Match on a step
+name unique to the agent's `workflow_plan` instead.
+
+**I armed before running this check** on 2026-07-31. It happened to be safe (only my
+own run was in flight), but the order was wrong: this is the same family as CLAUDE.md's
+"checking the pod does not check the queue". Disarm as soon as the run terminates —
+keep the armed window in minutes, not hours.
+
 ### Induce a repairable refusal (the discriminating test)
 
 Set the per-stage edit cap to 1, so any natural multi-edit stage trips it. This is

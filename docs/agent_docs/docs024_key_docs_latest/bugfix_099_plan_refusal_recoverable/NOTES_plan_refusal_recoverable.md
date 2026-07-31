@@ -316,3 +316,102 @@ wrong session on the commit.
 
 Not logged in `WRONG_CALLS.md` itself: I did not make an error, and that file is for
 claims of mine that turned out false.
+
+## 2026-07-31 — the fix went live, and then another session's roll killed both my runs
+
+### The Go half shipped without me rolling anything
+
+The fleet rolled to **v1.0.1214** while I was writing docs. My commit `8eebba0cf` was
+already an ancestor of HEAD, and `make build-*` builds from committed HEAD, so it
+carried. This is the "your commit is a deploy" property working in my favour for once:
+I never rolled, and I deliberately did not, because a roll kills in-flight councils.
+
+Verified on **both replicas**, not inferred from the tag:
+
+```
+plan_validation_refusal (r1):        2
+FIX_PLAN_VALIDATION_REFUSED (r2):    1
+"staged plan failed validation":     0   <-- MY CONTROL, and it is ZERO
+diagnose_persist_fix_plan (control): 11
+```
+
+### MISSTEP — I picked a positive control that my own refactor destroyed
+
+The zero is not a failed deploy. `"staged plan failed validation"` no longer exists as
+a contiguous literal: my refactor replaced it with `"%s failed validation: %s"` where
+`%s` is `"staged plan"`, assembled at runtime. **With only that control I would have
+read a successful deploy as a failed one** and gone hunting a build problem that did
+not exist. The second control settled it in the same exec.
+
+The rule is now in `LANDMINES.md` and `WRONG_CALLS.md`: **a positive control must be
+invariant under your own diff** — take it from a file you did not touch, or use two.
+It is a sibling of the already-recorded trap that a short literal never reaches rodata.
+
+### 272 applied, and the corrected rollback proven
+
+Applied after the pod-grep, in the documented order. Verified path-qualified:
+`persist_plan -> check_plan_valid -> (review_editquality | repair_plan -> persist_plan)`,
+cap 1. And the **corrected** restore query returns the right row:
+
+```sql
+SELECT snapshot_taken_at, snapshot_reason FROM agent_definitions_backup
+ WHERE type='feature-designer' ORDER BY snapshot_taken_at DESC LIMIT 1;
+-- 2026-07-31 14:57:03 | 272_feature_designer_plan_repair_loop.sql: pre-update
+```
+
+So the `debug_historian` objection's fix is demonstrated, not merely written.
+
+### Choosing the induced test by MEASUREMENT changed it
+
+I was about to arm `max_edits=1` (per-stage). Then I read the plan this work item
+actually produces — correlation `c91bb061`, the one 099 itself cites:
+
+```
+s1: 1 edit(s)   s2: 1 edit(s)   s3: 1 edit(s)
+```
+
+**One edit per stage — that cap would never have tripped**, and the run would have
+sailed through the success path looking like a pass. It has **3 stages**, so
+`max_stages=2` trips deterministically *and* is repairable by merging two stages with
+no scope loss (s1 colour machinery, s2 tests, s3 handler — different files, so merging
+cannot trip the one-edit-per-file rule either). It is also a *different* rule from the
+one candidate 1 taught, which is the rule-agnostic claim under test.
+
+**That is the third time on this bug that an assumed verification would have returned a
+false pass.** First 099's own stated procedure; then `max_edits=1`; and the deploy
+control above. The common shape: a check that passes for a reason unrelated to the
+thing being checked.
+
+### MISSTEP — I armed a shared live agent before checking who else was running
+
+Armed `max_stages=2` on the live `feature-designer` row, *then* checked for other
+in-flight runs. Only mine was running, so no harm — but the order was wrong, and DB
+config is live immediately. Same family as CLAUDE.md's "checking the pod does not
+check the queue". The check is now the first step of the RUNBOOK's induction section,
+with its own gotcha: `orchestration_states` has **no `agent_type` column**, so match on
+a step name unique to the agent's `workflow_plan`.
+
+### Then another session rolled to v1.0.1215 and killed both my runs
+
+Pods restarted **15:00:20** and **15:00:42**. My council round 2 had reached
+`review_tooling_provenance` at **14:59:29**; my designer run entered `design` at
+**14:58:55**. Both died about a minute later, and both sat at `EXECUTING_STEP` with a
+frozen `updated_at` — the documented mask (`64ae96cd2`, "EXECUTING_STEP hid it for an
+hour"). Nothing errored. Nothing said anything.
+
+**I did the one thing available to me — I did not roll — and it was not enough.** On a
+shared tree the roll that kills your council need not be yours, and there is no
+mechanism that reserves the fleet for the duration of a review. Worth stating plainly
+because the existing landmine reads as advice to the roller ("check for in-flight
+councils before you build"); the corollary for the *reviewee* is that a council round
+is simply not durable across a roll, and a long one is a coin flip on a tree that
+rolled four times in an evening on 07-27 and twice in an hour today.
+
+Practical consequence adopted: the stall detector. My re-run monitor now flags
+`updated_at` older than 420s as "likely killed by a roll" rather than waiting out the
+full timeout, because the frozen-EXECUTING_STEP signature is indistinguishable from
+slow progress until you look at the clock.
+
+Re-fired both: designer `c5219a69` (orch `46ecdb25`), council on the same trail corr
+`f4a4628f` (run orch `5d635e84`). DB config survived the roll, as expected — the
+armed cap and migration 272 were both still in place, so only the runs were lost.
