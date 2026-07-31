@@ -43,6 +43,33 @@
   question from the original plan is now settled in favour of doc_notes
   (built that way already, for the concurrency reasons discussed there).
 
+**2026-07-31, later — end-to-end CONFIRMED live.** Fresh chassis image
+deployed (`v1.0.1215`, both pods started ~15:00 UTC — verified via
+`kubectl get pods`, not assumed from the roll alone, per this repo's own
+"a roll is not evidence your fix shipped" rule). Re-ran the exact same
+test (correlation `11ef1686-a28b-4665-8865-0f7e239e640f`) against the same
+entry: **COMPLETED**, all 5 steps, no error. Verdict written to `doc_notes`
+(id `0f1cc9b3-b722-40ba-a5eb-4b6172156786`):
+
+> **last verified (landmine-verifier): STILL_VALID.** All three code
+> components of the bug footprint — `resolveStorageURIFromAsset` reading
+> `purpose+"_uri"` from site `content_data`, `StoreAssetAction` doing
+> last-write-wins into that same key, and the `updateContentDataField`
+> helper — are confirmed present and unchanged at commit d98010e8. Checked
+> against 087_towards_multiple_domains.
+
+Correct on all counts: the `deploy_image_asset` bug (`bugs_open/155`) is
+genuinely still unfixed in the platform, and the verdict cites the real code,
+not a rephrasing of the entry text. **Part A is done for a first pass** —
+built, tested against a real entry, verified live on the deployed image, and
+the platform bug it surfaced along the way is fixed, tested, and
+council-submitted.
+
+Remaining, for a later increment, not blocking: automatic dispatch on
+new/changed entries (currently manual per-entry); the shell/kubectl-shaped
+`the check` limitation (LLM-judgement fallback only); RFC_005 §3.3 (the
+weekly staleness sweep) is unstarted.
+
 ---
 
 **Started 2026-07-31.** Implements the owner ruling on
