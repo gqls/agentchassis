@@ -12490,3 +12490,59 @@ someone else's careful, well-evidenced measurement, which is what made it credib
 
 Tally: "re-ran a query and called it re-measured" → 1. This is the one I would most expect to
 repeat, because it looks exactly like diligence.
+
+---
+
+## 2026-07-31 — "the first real consumer of the schema-driven fill", about a mechanism that had existed for two months
+
+**The claim.** Shipping GTM on idea.uk, I designed a per-site chrome-config seam
+(`site_specs` key + map-valued `input_schema` field with `source: config.*` + an `{{if}}`
+gate) and wrote it up as concept **STY-050**, describing it in the commit message and the
+register as *"the first real consumer of `bugs_open/018`'s schema-driven fill"*.
+
+**It was false.** `head-seo-standard` — a head component covering 4 live domains — has
+carried the identical pattern since **2026-05-13**: a gated `{{if .analytics_id}}` block
+feeding gtag.js, declared `{"type":"text","source":"config.analytics_id","required":false,
+"on_missing":"skip_field"}`. Not a near-miss: the same source prefix, the same gate, for
+the same purpose (analytics), two months earlier.
+
+**What caught it.** Luck, one day late. A Phase C query checking `<meta charset>` anchors
+across the three head components happened to also select `has_gtm`, and a component I had
+never touched came back `true`. Nothing about the original work would ever have surfaced it.
+
+**The cheap check that would have:** grep the **live component corpus** for the thing being
+built, before designing it —
+`SELECT name FROM content_components WHERE html_template ILIKE '%googletagmanager%' OR
+ html_template ILIKE '%gtag%';`
+One query, ~1 second. I *did* follow CLAUDE.md's "grep before you file" — `/bugs_open/`,
+`/bugs_closed/`, the workstream dirs, the concept register. **Every one of those searches
+was over prose.** The mechanism lived in a `content_components` row, and no amount of
+grepping documentation finds a rendering seam that only exists as data. The register is
+explicitly known to be blind post-2026-07-13 (`bugs_open/106`), so for anything
+config-shaped the *repo* is the wrong corpus by construction.
+
+**Second error, same investigation, nearly a second false entry.** Having found it, I
+queried `input_schema->'analytics_id'`, got NULL, and wrote "not declared — a dead seam".
+The shape is **wrapped**: `input_schema->'fields'->'analytics_id'` is the live path, and
+`render_site_components_action.go:604-607` handles both shapes *precisely because both
+exist in the fleet*. A correctly-built seam looked like a broken one because I guessed the
+JSON path. Caught only by re-checking before asserting — the same class as the
+`pages.rendered_html` / `site_components.function` guesses the day before, except **jsonb
+returns NULL instead of erroring**, so this one would have shipped.
+
+**What it cost.** Nothing live — the mechanism is sound and the correction is inline in
+STY-050. What it nearly cost is worse than a duplicate: two seams for one job across
+overlapping domains, where a site carrying both would load GA4 directly **and** through
+GTM and double-count every pageview. That is now a stated Phase C decision instead of a
+discovery someone makes from a bad traffic graph.
+
+**The transferable rule:** *"has this been built already?"* and *"is it written down?"* are
+different questions with different corpora. On this platform a mechanism can be entirely
+**config** — a component template, an `input_schema`, an agent definition row — and be
+invisible to every documentation search you are told to run. **Query the live tables for
+the mechanism, not just the docs for the idea.** Related: [[prior-art-search-goes-stale]]
+(an absence is only true when you looked), [[seed-sql-is-history-live-row-is-fact]] (the
+live row is the fact), [[grep-the-config-key-before-calling-it-a-win]].
+
+Tally: "searched the docs and called it prior-art-checked" → 1. "Guessed a jsonb path and
+read NULL as absence" → 1 (and this one fails silently, unlike a bad column name).

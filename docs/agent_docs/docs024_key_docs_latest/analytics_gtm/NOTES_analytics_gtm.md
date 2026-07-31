@@ -85,3 +85,77 @@ vet` clean, full suite green, 5 new tests in `gtm_test.go` asserting **placement
 **Not deployed:** it is the live Stripe payment service and `capacity` reported
 `{"active":1}`. Restart is an owner call. Rollback is the existing
 `/opt/idea/idea.bak.*` binary-swap pattern.
+
+---
+
+## 2026-07-31 — a competing analytics seam already existed, and I only found it by accident
+
+**Phase A re-verified after the chassis roll.** Still live: 5/5 spot-checked URLs return
+2 GTM hits, and `site_components.updated_at` for both idea.uk slots is unchanged at
+`2026-07-30 19:37:05`. The roll neither reverted nor rebuilt the chrome, as expected —
+Phase A is DB-only and touched no Go.
+
+### The finding
+
+While checking charset anchors across the three head components (for Phase C, because
+an anchor mismatch would make the insertion silently miss), the same query returned
+`has_gtm` — and **`head-seo-standard`, which I have never touched, came back true.**
+
+It has carried a gated analytics block since **2026-05-13**:
+
+```
+{{if .analytics_id}}
+<script async src="https://www.googletagmanager.com/gtag/js?id={{.analytics_id}}"></script>
+… gtag('config', '{{.analytics_id}}'); …
+{{end}}
+```
+
+declared properly — `{"type":"text","source":"config.analytics_id","required":false,
+"on_missing":"skip_field"}`. That is **the identical mechanism I designed for Phase A**,
+two months older, on a different head component covering 4 domains
+(ai-agent-orchestration.com, finetuning.uk, gaswholesalers.com, leopardessconsulting.co.uk).
+
+> **CORRECTED:** yesterday's commit message and STY-050 both claimed this was "the first
+> real consumer of `bugs_open/018`'s schema-driven fill". **That is false.** Withdrawn in
+> the register with the correction inline.
+
+**It is dormant, not broken:** `SELECT count(*) FROM site_specs WHERE is_current AND
+data::text ILIKE '%analytics_id%'` → **0**. No site sets it, so the gate never opens and
+no artefact carries gtag. A correctly-built seam that nothing populates — which looks
+exactly like a broken one until you check the schema rather than the output.
+
+### Two mistakes inside the same investigation
+
+1. **I never grepped for prior art on the thing I was building.** One query would have
+   done it before I designed anything:
+   `SELECT name FROM content_components WHERE html_template ILIKE '%googletagmanager%'
+    OR html_template ILIKE '%gtag%';`
+   I grepped `/bugs_open/` and the workstream dirs as CLAUDE.md requires, but never the
+   **live component corpus** — which is where a rendering mechanism actually lives.
+2. **I then mis-read its schema and nearly recorded a second false claim.**
+   `input_schema->'analytics_id'` returned NULL and I wrote "not declared". The shape is
+   **wrapped** — `input_schema->'fields'->'analytics_id'` is the live path, and
+   `render_site_components_action.go:604-607` handles both shapes precisely because both
+   exist. A working seam looked undeclared because I queried the wrong path. Caught only
+   because I re-checked before asserting.
+
+### What it changes for Phase C
+
+There are now **two competing analytics seams** in the fleet:
+
+| seam | component | domains | mechanism | state |
+|---|---|---|---|---|
+| `config.analytics.gtm_container_id` | `Document Head` | 9 | **GTM** | live on idea.uk only |
+| `config.analytics_id` | `head-seo-standard` | 4 | **gtag.js / GA4 direct** | dormant, 0 sites |
+| — | `webdesign.co.uk Document Head` | 1 | neither | — |
+
+**A site that ever carries both would load GA4 directly AND through GTM and
+double-count every pageview.** So Phase C is no longer "repeat the recipe 13 times" —
+it needs a decision on which seam survives. Recommendation: **GTM only**; retire
+`analytics_id` (or make the two mutually exclusive in the template) rather than leave a
+dormant mechanism that will look reasonable to the next session that finds it.
+
+**Third trap for Phase C, unrelated:** `webdesign.co.uk Document Head` uses a
+**lowercase** `<meta charset="utf-8">`. The anchor is case-sensitive in `replace()`, so
+the idea.uk migration applied verbatim would update 0 rows on that site and report
+success. Guard on the anchor count, per site, as p4_34 does.

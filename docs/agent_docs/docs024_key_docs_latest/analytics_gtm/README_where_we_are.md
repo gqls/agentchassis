@@ -76,3 +76,56 @@ So: idea.uk's website is done, the tool's pages are written and waiting on your 
 and the other domains are a repeat of the same recipe — three shared head templates
 and six header templates cover all fourteen sites, so it is a short job once you are
 happy with the shape.
+
+---
+
+## 2026-07-31
+
+The chassis was rebuilt and deployed overnight. I re-checked idea.uk afterwards, because
+a rebuild is exactly when something quietly reverts — it hadn't. The tags are still on
+every page and the co-tenant sites are still clean.
+
+Then I found something while preparing the rollout to the other domains, and it is worth
+telling you plainly because it changes the plan.
+
+**We already had an analytics mechanism, and I didn't know.** Four of the sites —
+ai-agent-orchestration, finetuning, gaswholesalers and leopardessconsulting — share a
+different page header from idea.uk's, and that one has had a Google Analytics hook built
+into it since **May**. It is the same idea I built this week, just wired for Google
+Analytics directly rather than Tag Manager. Nobody ever switched it on: no site has the
+setting filled in, so it has sat there doing nothing for two months.
+
+I found it by accident, a day after shipping, while checking something unrelated. That is
+my mistake and I have written it up properly. I searched the documentation for prior work,
+which is what the house rules ask for — but this thing was never written down anywhere. It
+exists only as a row in the database. **On this platform a capability can be pure
+configuration and be invisible to every document search.** I should have queried the live
+components, which would have taken about a second.
+
+**Why it matters to you rather than just to me:** if we roll Tag Manager onto those four
+sites without dealing with the old hook, and someone later switches the old one on, those
+sites would report every visit **twice** — once directly and once through Tag Manager.
+You'd be looking at doubled traffic figures with no obvious reason. So the rollout now has
+a decision in front of it: keep Tag Manager and retire the old hook. Retiring it is
+completely safe right now precisely because nothing uses it — that stops being true the
+moment anyone turns it on.
+
+**So the other thirteen domains are waiting on two things from you**, and neither is
+something I can decide:
+
+First, **which container**. `GTM-PQ3WCTBD` is the one you gave me for idea.uk. Putting
+thirteen other businesses into it is what I recommended — one container, one property,
+with each domain identified automatically — but it is your call, and if you'd rather they
+were separate I need a container ID for each.
+
+Second, **the old hook** — my recommendation is to retire it, as above.
+
+**And idea.uk's paid tool is still waiting.** That is the one with the "Payment received"
+and "Request received" pages. Until it goes out, Google will show you visitors to idea.uk
+and no sales at all. The change is built and tested; it needs a restart of the program
+that takes the money, and there was an order in progress each time I looked. I have
+written the exact steps down so it can be done in a couple of minutes whenever you want,
+including waiting for the queue to be empty first if you'd prefer.
+
+I've also written a full handoff document, so if we pick this up in a fresh conversation
+nothing is lost.

@@ -94,8 +94,40 @@ the single most important finding in this workstream.
 |---|---|---|
 | **A** | idea.uk static site (21 pages) | ✅ **DONE + LIVE 2026-07-30**, 19/19 fetchable URLs verified |
 | **B** | idea.uk tool binary (11 pages incl. conversions) | ✅ code written, builds, 5 new tests pass — ⏸ **NOT DEPLOYED, awaiting owner** (live payment service, 1 order active) |
-| **C** | remaining 13 domains | ⏸ designed, not started — 3 head + 6 header templates + 1 spec row per domain |
+| **C** | remaining 13 domains | ⏸ **BLOCKED on two owner inputs** — see §5a. Not "repeat the recipe 13×" any more |
 | **D** | Google-side account structure | ⏸ owner decision — see §6 |
+
+## 5a. Phase C is blocked on two owner inputs, and one design decision (added 2026-07-31)
+
+**Blocker 1 — container ids do not exist yet and cannot be invented.** `GTM-PQ3WCTBD` was
+supplied *for idea.uk*. Rolling it to 13 more domains would put 13 businesses in one
+container, which is the §6 recommendation but is a **decision, not an implementation
+detail**. Either confirm one container estate-wide, or supply a container per domain.
+Nothing can be applied until one of those exists.
+
+**Blocker 2 — there is already a SECOND analytics seam, and the two conflict.**
+Discovered 2026-07-31 (see NOTES; logged in `WRONG_CALLS.md`):
+
+| seam | component | domains | mechanism | state |
+|---|---|---|---|---|
+| `config.analytics.gtm_container_id` | `Document Head` | 9 | **GTM** | live on idea.uk only |
+| `config.analytics_id` | `head-seo-standard` | 4 | **gtag.js / GA4 direct** | **dormant — 0 sites set it** |
+| — | `webdesign.co.uk Document Head` | 1 | neither | — |
+
+`head-seo-standard`'s seam predates this workstream by two months and uses the *same*
+pattern. **A site carrying both would load GA4 directly AND through GTM, double-counting
+every pageview.** So Phase C must first decide which seam survives.
+
+**Recommendation: GTM only.** Retire `analytics_id` — or make the template refuse to
+render both — rather than leave a dormant mechanism that will read as reasonable to the
+next session that finds it. Retiring it is safe today precisely *because* it is dormant:
+0 sites set the key, so removal changes no rendered byte. That will stop being true the
+moment someone populates it.
+
+> ⚠ **Third trap, mechanical.** `webdesign.co.uk Document Head` uses a **lowercase**
+> `<meta charset="utf-8">`. `replace()` is case-sensitive, so the idea.uk migration
+> applied verbatim updates **0 rows** on that site and still reports success. Guard on a
+> per-site anchor count, as `p4_34` does.
 
 ## 6. Google-side: how to structure this for many domains
 
