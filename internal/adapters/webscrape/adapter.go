@@ -15,6 +15,7 @@ import (
 	"github.com/gqls/agentchassis/internal/adapters/shared/throttle"
 	"github.com/gqls/agentchassis/internal/adapters/webscrape/providers"
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/fetchguard"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
@@ -49,17 +50,18 @@ type ResponsePayload struct {
 
 // Adapter handles web scraping requests with s3 storage
 type Adapter struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	logger        *zap.Logger
-	consumer      *kafka.Consumer
-	producer      kafka.Producer
-	providers     map[string]providers.ScrapingProvider
-	storageClient storage.Client
-	httpClient    *http.Client
-	config        *config.ServiceConfig
-	healthServer  *http.Server
-	throttle      *throttle.Throttle
+	ctx             context.Context
+	cancel          context.CancelFunc
+	logger          *zap.Logger
+	consumer        *kafka.Consumer
+	producer        kafka.Producer
+	providers       map[string]providers.ScrapingProvider
+	storageClient   storage.Client
+	httpClient      *http.Client // fixed, trusted hosts only (the scraping provider's own API)
+	imageHTTPClient *http.Client // bugs_open/159: fetches URLs taken from SCRAPED PAGE CONTENT — attacker-influenced by construction, so this one is fetchguard-wrapped and httpClient is deliberately not
+	config          *config.ServiceConfig
+	healthServer    *http.Server
+	throttle        *throttle.Throttle
 }
 
 // NewAdapter creates a new web scraping adapter
@@ -115,6 +117,14 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		},
 	}
 
+	// downloadImage fetches whatever image URL the scraped page's own content
+	// named (bugs_open/159) — that page belongs to a domain this platform did
+	// not choose, so the URL is attacker-influenced by construction. Guarded
+	// separately from httpClient above, which only ever talks to the fixed,
+	// trusted scraping-provider API.
+	imageHTTPClient := fetchguard.NewClient(fetchguard.DefaultConfig())
+	imageHTTPClient.Timeout = 120 * time.Second
+
 	requestThrottle := throttle.New(logger)
 
 	// Initialize providers
@@ -137,16 +147,17 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 	}
 
 	return &Adapter{
-		ctx:           adapterCtx,
-		cancel:        cancel,
-		logger:        logger,
-		consumer:      consumer,
-		producer:      producer,
-		providers:     scrapingProviders,
-		storageClient: storageClient,
-		httpClient:    httpClient,
-		throttle:      requestThrottle,
-		config:        cfg,
+		ctx:             adapterCtx,
+		cancel:          cancel,
+		logger:          logger,
+		consumer:        consumer,
+		producer:        producer,
+		providers:       scrapingProviders,
+		storageClient:   storageClient,
+		httpClient:      httpClient,
+		imageHTTPClient: imageHTTPClient,
+		throttle:        requestThrottle,
+		config:          cfg,
 	}, nil
 }
 
@@ -909,14 +920,20 @@ func (a *Adapter) uploadContent(data []byte, key string, contentType string, log
 	return uri, presignedURL, nil
 }
 
-// downloadImage downloads an image from a URL
+// downloadImage downloads an image from a URL discovered in SCRAPED PAGE
+// CONTENT — not a URL this platform chose, so it is attacker-influenced by
+// construction (bugs_open/159). Fetched via a.imageHTTPClient, which is
+// fetchguard-wrapped: every dial (including a redirect target) is refused if
+// it resolves to a private/loopback/link-local address, closing the SSRF
+// path a scraped page could otherwise use to reach the pod's own cloud
+// metadata endpoint or another service on the cluster network.
 func (a *Adapter) downloadImage(ctx context.Context, imageURL string) ([]byte, string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := a.httpClient.Do(req)
+	resp, err := a.imageHTTPClient.Do(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to download image: %w", err)
 	}
@@ -926,20 +943,28 @@ func (a *Adapter) downloadImage(ctx context.Context, imageURL string) ([]byte, s
 		return nil, "", fmt.Errorf("image download failed with status: %d", resp.StatusCode)
 	}
 
-	// Read image data
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(resp.Body); err != nil {
+	// Capped read: a hostile or misconfigured origin that streams forever
+	// must not be read into memory without bound. A response that hits the
+	// cap is a FAILURE, not a partial image — storing a cut-off image would
+	// look like a complete one to everything downstream, exactly the
+	// truncation-looks-complete shape this platform has been burned by
+	// before (bugs_open/012).
+	data, truncated, err := fetchguard.LimitedRead(resp, fetchguard.DefaultConfig().MaxResponseBytes)
+	if err != nil {
 		return nil, "", fmt.Errorf("failed to read image data: %w", err)
+	}
+	if truncated {
+		return nil, "", fmt.Errorf("image at %s exceeded the %d-byte cap — refusing a truncated image", imageURL, fetchguard.DefaultConfig().MaxResponseBytes)
 	}
 
 	// Get content type
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
 		// Try to detect from data
-		contentType = http.DetectContentType(buf.Bytes())
+		contentType = http.DetectContentType(data)
 	}
 
-	return buf.Bytes(), contentType, nil
+	return data, contentType, nil
 }
 
 // getImageExtension returns file extension for content type
