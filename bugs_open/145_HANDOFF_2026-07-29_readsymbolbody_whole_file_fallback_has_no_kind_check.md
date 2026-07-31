@@ -1,5 +1,47 @@
 # 145 — `ReadSymbolBody`'s whole-file fallback reads ANY path off disk, with no kind check
 
+> ## STATUS 2026-07-31 (session "bugfix 12") — FIXED, COUNCIL-APPROVED, COMMITTED. **Stays OPEN for one reason: not yet live.**
+>
+> **Fix:** `691c1817a` — the analyser `Output` is now the READ BOUNDARY, not just the span
+> source: an unconditional `findFile` runs BEFORE `os.ReadFile`, for the whole-file branch as
+> well as the symbol branch. Council gate **APPROVED at round 1** (corr
+> `bce4caab-17b6-4bbb-ba6b-d1e18f196156`, 2 low advisories, none high). Register **CTXK-002**
+> carries the seam, its landmine and two answered verify-laters. Workstream:
+> `docs024_key_docs_latest/bugfix_145_symbolbody_boundary/`.
+>
+> **WHY IT IS STILL OPEN — the defect is still reproducible in production.** A Go change is
+> inert until an image is rebuilt and rolled. The running chassis is `v1.0.1215`, pods started
+> **2026-07-31 15:00:20Z**, i.e. **two hours before the fix commit**. Per CLAUDE.md's closing
+> bar ("fixed AND live"), that keeps this OPEN. **Close it — and move it to `bugs_closed/` —
+> when this passes on the running pod** (a positive control in the same exec, because a roll is
+> not evidence your fix shipped, `bugs_open/153`):
+>
+> ```bash
+> P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+> kubectl -n ai-persona-system exec $P -- sh -c \
+>   'strings /app/agent-chassis | grep -c "bodies are read only for files the analyser parsed"; \
+>    strings /app/agent-chassis | grep -c "not in analysis (no FileInfo for that path)"'
+> ```
+> Expect **≥1** for the first (the string this fix ADDED — the new suffix on the refusal) and
+> **≥1** for the second (the positive control: the pre-existing part of the same message, which
+> proves the grep and the binary are both sound). A `0` then `≥1` means the image predates the
+> fix; `0` then `0` means the probe is broken, not the fix.
+>
+> **Not built/rolled by this session, deliberately:** another session had `IMAGE_TAG`
+> `v1.0.1215` bumped uncommitted (mid-build), and at the time of writing two council review
+> steps belonging to another round were EXECUTING — a roll kills an in-flight council. The
+> commit is in `HEAD`, so the next `make build-agent-chassis` by anyone carries it.
+>
+> **Spun out, do not re-file:** `bugs_open/164` (the same loop's `maxBodyChars` `break`
+> silently dropping the rest of scope — filed at the council's request) and `bugs_open/163`
+> (the landmine verifier, found while filing this bug's landmine).
+>
+> **Two claims in the filing below are WRONG — corrected in the body, but read this first:**
+> (1) the bare-path branch is **NOT** "currently unreachable" — `route.scope` carries the LLM
+> verdict's `next_scope` verbatim and the bundle *advertises* bare paths at `:597`, which
+> **kills fix candidate 1**; (2) the leak was **not** bounded by the repo — a file outside the
+> checkout came back. Both measured.
+
 **Filed 2026-07-29. OPEN, UNOWNED. Pre-existing — reachable today, independent of the
 change that surfaced it.**
 
