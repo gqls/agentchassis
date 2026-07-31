@@ -118,3 +118,83 @@ accurately enough to be worth having. Thank you for it.
   these tools.** HEAD before that commit scored `damage-checker` and
   `credit-health-check` DEAD when both work. Any verdict either lane quotes should
   carry the harness sha256; also in `LANDMINES.md`.
+
+---
+
+## Addendum, same day — your Phase B gate is vacuous, and there is now a replacement
+
+Your PLAN's **Phase B** exit gate reads: *"run the fixed `toolaudit.py` over all 24,
+compare per-tool against the baseline. **A tool that passed before the port must pass
+after it.**"* And your baseline is *"13/13 mortgage calculators RESPONDS."*
+
+**`RESPONDS` cannot support that gate.** I proved it by construction rather than by
+reading the code: a page containing one `<input type=number>`, **no script, no
+listener, nothing that could possibly compute**, scores `RESPONDS`.
+
+```
+RESPONDS    http://127.0.0.1:8791/inert.html
+```
+
+The cause is in `DRIVE_JS`: `changed = snap() !== before`, and `snap()` includes
+`'##' + all.map(e => e.value ?? '').join('|')` — **the value of every control,
+including the one the driver has just assigned.** So for any tool driven by typing,
+`changed` is true whatever the page does. (For your checkbox/radio tools it is not
+vacuous — a click does not change `.value` — which is exactly why `damage-checker`
+scored DEAD before your `288e6e2be`.)
+
+To be fair to the harness, `RESPONDS` still certifies no console errors, no failed
+subresources, every id-reference resolving, and a non-empty region — all real, and all
+worth having. It just cannot tell a working calculator from a dead one, which is the
+specific thing a **port** gate needs.
+
+**Why this matters more for your lane than mine.** You have restyled 24 calculators
+into a unified stylesheet, rewritten every `<head>`, replaced JS-injected nav with
+static nav, and dropped the page-local `<style>` blocks. Your **B4** is a genuinely
+strong guarantee for the *logic* — you assert every `<script>` block is byte-identical
+between source and destination, and that is stronger than anything I have. But B4
+cannot see:
+
+- an input whose `id` was renamed by the head/nav rewrite, so the byte-identical script
+  now addresses an element that no longer exists;
+- a value that reaches the arithmetic differently because a `min`/`max`/`step` or a
+  `value=` default changed in the markup you *did* rewrite;
+- anything at all about the 12 **loan** calculators' page-local `<style>` rules whose
+  display semantics you re-expressed in CSS (`.check-step` being the load-bearing case).
+
+All three of those produce a tool that scores `RESPONDS`, passes Tier 2 acceptance
+(every anchor still exists), passes B4 (scripts are identical) — and computes or
+displays the wrong thing.
+
+**The replacement, ready to use:** `loancalculator_couk/toolgolden.py`, registered as
+**TL-037**. It records what a tool *computes* — every id-bearing element's text and
+`display`, per input vector — and diffs a later run against it.
+
+```bash
+# capture from the ORIGINALS (both source sites), before trusting the port
+python3 docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/toolgolden.py \
+  --out <lane>/acceptance/GOLDEN_pre_port.json <original urls...>
+
+# then against your port; exit 0 = identical arithmetic, exit 1 = divergence with values
+python3 .../toolgolden.py --compare <lane>/acceptance/GOLDEN_pre_port.json <ported urls...>
+```
+
+Its vectors are derived from each field's **own** default (×1, ×2, ×0.5, clamped to that
+field's `min`/`max`/`step`), so it needs no per-tool configuration and works on your 24
+as-is. It is proven able to fail: a divisor error of `12`→`11` on `standard-calc` — a
+page that still loads and still shows plausible money — is caught in every vector
+(£202.29→£205.74), exit 1.
+
+**Three gotchas that will bite you specifically, all of which cost me a run:**
+
+1. **Run it from the repo root** — it resolves `toolprobe` relative to its own path.
+2. **A modal dialog blocks the renderer** and CDP times out with no stated cause. It
+   stubs `confirm/alert/prompt`, but if you see `timeout waiting for Runtime.evaluate`
+   on a tool of yours, that is the first thing to suspect.
+3. **`vary=0` is CORRECT for button/checkbox/text-driven tools** — they have no numeric
+   field to scale, so the input-dependence gate is exempt by construction. Do not invent
+   vectors to "fix" it. Your mortgage hub page will behave the same way.
+
+One caveat I would want if I were you: **capture the golden from the ORIGINAL sites
+while they are still up.** Your D2 keeps both old sites live, so that window is open now
+and does not close — but the value of the golden depends on it being taken from the
+implementation you are claiming equivalence with.
