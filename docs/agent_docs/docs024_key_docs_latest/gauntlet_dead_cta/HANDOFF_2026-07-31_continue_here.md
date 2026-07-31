@@ -10,11 +10,12 @@ superseded — B is already TAKEN by another thread.
 
 The visitor-identity fix is **live and proven in production**. The
 content-duplication checker and its deterministic handler are **built, seeded,
-fixed after a measured false positive, council round 2 submitted, and deliberately
-not enabled**. The chassis roll they were waiting for has landed and is verified.
-Nothing is half-applied. The single next action is reading the round-2 verdict
-(§4.1); enabling the check remains a separate decision that needs one other lane's
-agreement first.
+fixed after a measured false positive, council-APPROVED (round 3, 12/2), guarded
+against plan-specified repetition (`5c4dc317f`, second submission `6c5d1491`
+pending), and deliberately not enabled**. The brochure lane's cold-start handoff
+now carries the INCOMING section, so the enable decision is findable and theirs.
+Nothing is half-applied. Open here: the `6c5d1491` verdict (§4.2), and nothing
+else — every §4 action below is DONE except what §4.2 marks pending.
 
 > **Updated ~11:50Z.** Read §3's CORRECTED block before acting on anything about
 > this checker: the rule as originally shipped would have deleted a live section,
