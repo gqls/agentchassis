@@ -46,7 +46,7 @@ func dedupeParams(db *sql.DB, pageID uuid.UUID) ActionParams {
 }
 
 func sectionColumns() []string {
-	return []string{"id", "position", "slot_name", "content_data"}
+	return []string{"id", "position", "slot_name", "content_data", "agent_writable"}
 }
 
 // expectLoadAndResolve registers the two queries every scenario starts with:
@@ -82,8 +82,8 @@ func TestRemoveDuplicates_PlanSpecifiedRepetitionIsSkipped(t *testing.T) {
 	pageID, siteID := uuid.New(), uuid.New()
 
 	expectLoadAndResolve(mock, pageID, siteID, sqlmock.NewRows(sectionColumns()).
-		AddRow(uuid.New().String(), 1, "info-card-grid", dupBlobA).
-		AddRow(uuid.New().String(), 2, "info-card-grid", dupBlobA))
+		AddRow(uuid.New().String(), 1, "info-card-grid", dupBlobA, true).
+		AddRow(uuid.New().String(), 2, "info-card-grid", dupBlobA, true))
 	mock.ExpectQuery(`site_plan_sections`).
 		WithArgs(siteID, "index").
 		WillReturnRows(planTableRows("info-card-grid", "info-card-grid"))
@@ -122,9 +122,9 @@ func TestRemoveDuplicates_PlanCountOneStillDeletes(t *testing.T) {
 	keepID, dropID, otherID := uuid.New(), uuid.New(), uuid.New()
 
 	expectLoadAndResolve(mock, pageID, siteID, sqlmock.NewRows(sectionColumns()).
-		AddRow(keepID.String(), 1, "hero-about", dupBlobA).
-		AddRow(dropID.String(), 2, "hero-about", dupBlobA).
-		AddRow(otherID.String(), 3, "differentiators", dupBlobB))
+		AddRow(keepID.String(), 1, "hero-about", dupBlobA, true).
+		AddRow(dropID.String(), 2, "hero-about", dupBlobA, true).
+		AddRow(otherID.String(), 3, "differentiators", dupBlobB, true))
 	mock.ExpectQuery(`site_plan_sections`).
 		WithArgs(siteID, "index").
 		WillReturnRows(planTableRows("hero-about", "differentiators"))
@@ -167,8 +167,8 @@ func TestRemoveDuplicates_AspectPathIsGuardedToo(t *testing.T) {
 	pageID, siteID := uuid.New(), uuid.New()
 
 	expectLoadAndResolve(mock, pageID, siteID, sqlmock.NewRows(sectionColumns()).
-		AddRow(uuid.New().String(), 1, "generic-text-block", dupBlobA).
-		AddRow(uuid.New().String(), 2, "generic-text-block", dupBlobA))
+		AddRow(uuid.New().String(), 1, "generic-text-block", dupBlobA, true).
+		AddRow(uuid.New().String(), 2, "generic-text-block", dupBlobA, true))
 	mock.ExpectQuery(`site_plan_sections`).
 		WithArgs(siteID, "index").
 		WillReturnRows(planTableRows()) // table silent
@@ -206,8 +206,8 @@ func TestRemoveDuplicates_CachePathIsGuardedToo(t *testing.T) {
 	pageID, siteID := uuid.New(), uuid.New()
 
 	expectLoadAndResolve(mock, pageID, siteID, sqlmock.NewRows(sectionColumns()).
-		AddRow(uuid.New().String(), 1, "info-card-grid", dupBlobA).
-		AddRow(uuid.New().String(), 2, "info-card-grid", dupBlobA))
+		AddRow(uuid.New().String(), 1, "info-card-grid", dupBlobA, true).
+		AddRow(uuid.New().String(), 2, "info-card-grid", dupBlobA, true))
 	mock.ExpectQuery(`site_plan_sections`).
 		WithArgs(siteID, "index").
 		WillReturnRows(planTableRows())
@@ -248,8 +248,8 @@ func TestRemoveDuplicates_UnreadablePlanStoreFailsClosed(t *testing.T) {
 	pageID, siteID := uuid.New(), uuid.New()
 
 	expectLoadAndResolve(mock, pageID, siteID, sqlmock.NewRows(sectionColumns()).
-		AddRow(uuid.New().String(), 1, "hero-about", dupBlobA).
-		AddRow(uuid.New().String(), 2, "hero-about", dupBlobA))
+		AddRow(uuid.New().String(), 1, "hero-about", dupBlobA, true).
+		AddRow(uuid.New().String(), 2, "hero-about", dupBlobA, true))
 	mock.ExpectQuery(`site_plan_sections`).
 		WithArgs(siteID, "index").
 		WillReturnError(fmt.Errorf("connection reset"))
@@ -263,5 +263,90 @@ func TestRemoveDuplicates_UnreadablePlanStoreFailsClosed(t *testing.T) {
 	}
 	if merr := mock.ExpectationsWereMet(); merr != nil {
 		t.Error(merr)
+	}
+}
+
+// A LOCKED duplicate is never a victim (lock_helpers.go: every automated
+// writer's DELETE must use the canonical predicate — bugs_closed/058 is the
+// precedent). Both rows identical, the later one locked: nothing is deleted,
+// and the result says which row a human must unlock.
+func TestRemoveDuplicates_LockedDuplicateIsNeverAVictim(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	pageID, siteID := uuid.New(), uuid.New()
+	lockedID := uuid.New()
+
+	expectLoadAndResolve(mock, pageID, siteID, sqlmock.NewRows(sectionColumns()).
+		AddRow(uuid.New().String(), 1, "hero-about", dupBlobA, true).
+		AddRow(lockedID.String(), 2, "hero-about", dupBlobA, false)) // locked
+	mock.ExpectQuery(`site_plan_sections`).
+		WithArgs(siteID, "index").
+		WillReturnRows(planTableRows("hero-about")) // plan x1: the plan guard does NOT protect this
+	mock.ExpectCommit() // no DELETE registered
+
+	got, err := RemoveDuplicatePageSectionsAction(context.Background(), dedupeParams(db, pageID))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := got.(map[string]interface{})
+	if m["changed"] != false {
+		t.Errorf("a locked duplicate must not be deleted; got %v", m)
+	}
+	skipped, _ := m["lock_skipped"].([]map[string]interface{})
+	if len(skipped) != 1 || skipped[0]["component_id"] != lockedID.String() {
+		t.Errorf("the locked row must be REPORTED so the doubled page says why; got %v", m["lock_skipped"])
+	}
+	if !strings.Contains(m["detail"].(string), "lock-protected") {
+		t.Errorf("detail must name the lock; got %q", m["detail"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}
+
+// A locked KEEPER does not block deleting its writable twin — keeping what a
+// human pinned is the point of the lock, and the duplicate is still redundant.
+func TestRemoveDuplicates_LockedKeeperStillSheddsWritableTwin(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	pageID, siteID := uuid.New(), uuid.New()
+
+	expectLoadAndResolve(mock, pageID, siteID, sqlmock.NewRows(sectionColumns()).
+		AddRow(uuid.New().String(), 1, "hero-about", dupBlobA, false). // keeper, locked
+		AddRow(uuid.New().String(), 2, "hero-about", dupBlobA, true).  // writable duplicate
+		AddRow(uuid.New().String(), 3, "differentiators", dupBlobB, true))
+	mock.ExpectQuery(`site_plan_sections`).
+		WithArgs(siteID, "index").
+		WillReturnRows(planTableRows("hero-about", "differentiators"))
+	mock.ExpectExec(`DELETE FROM page_components`).
+		WithArgs(pageID, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE page_components`).
+		WithArgs(pageID).
+		WillReturnResult(sqlmock.NewResult(0, 2))
+	mock.ExpectQuery(`SELECT count`).
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
+	mock.ExpectCommit()
+
+	got, err := RemoveDuplicatePageSectionsAction(context.Background(), dedupeParams(db, pageID))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := got.(map[string]interface{})
+	if m["changed"] != true || m["removed"] != 1 {
+		t.Errorf("a locked keeper must not stop the writable duplicate being removed; got %v", m)
+	}
+	if skipped, _ := m["lock_skipped"].([]map[string]interface{}); len(skipped) != 0 {
+		t.Errorf("the keeper is not a victim, so nothing is lock-skipped; got %v", skipped)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
 	}
 }

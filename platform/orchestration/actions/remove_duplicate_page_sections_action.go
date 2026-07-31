@@ -72,6 +72,7 @@ type dupSectionRow struct {
 	Slot     string
 	Text     string
 	Raw      string // canonical content_data::text — see datahelpers.SectionIdentityKey
+	Writable bool   // pageComponentAgentWritableSQL — a locked row is never a victim
 }
 
 // RemoveDuplicatePageSectionsAction removes content-identical duplicate sections
@@ -109,7 +110,8 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 	defer func() { _ = tx.Rollback() }()
 
 	rows, err := tx.QueryContext(ctx, `
-		SELECT id, position, COALESCE(slot_name, ''), COALESCE(content_data::text, '{}')
+		SELECT id, position, COALESCE(slot_name, ''), COALESCE(content_data::text, '{}'),
+		       `+pageComponentAgentWritableSQL("")+`
 		FROM page_components
 		WHERE page_id = $1
 		ORDER BY position
@@ -123,7 +125,7 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 	for rows.Next() {
 		var r dupSectionRow
 		var raw string
-		if err := rows.Scan(&r.ID, &r.Position, &r.Slot, &raw); err != nil {
+		if err := rows.Scan(&r.ID, &r.Position, &r.Slot, &raw, &r.Writable); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("scan section: %w", err)
 		}
@@ -204,6 +206,7 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 	}
 
 	var remove []dupSectionRow
+	var lockSkipped []map[string]interface{}
 	keptPerGroup := 0
 	for _, grp := range byText {
 		if len(grp) < 2 || planProtected[grp[0].Slot] {
@@ -211,7 +214,26 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 		}
 		sort.Slice(grp, func(i, j int) bool { return grp[i].Position < grp[j].Position })
 		keptPerGroup++
-		remove = append(remove, grp[1:]...)
+		// A locked row is NEVER a victim (lock_helpers.go: every automated
+		// writer's DELETE must use the canonical predicate; bugs_closed/058 is
+		// what happens otherwise). A locked KEEPER is fine — keeping what a
+		// human pinned is the point of the lock. A locked duplicate is skipped
+		// and reported, so a page that stays doubled says why.
+		for _, victim := range grp[1:] {
+			if victim.Writable {
+				remove = append(remove, victim)
+				continue
+			}
+			lockSkipped = append(lockSkipped, map[string]interface{}{
+				"component_id": victim.ID.String(),
+				"slot_name":    victim.Slot,
+				"position":     victim.Position,
+			})
+			logger.Info("remove_duplicate_page_sections: duplicate row is lock-protected, skipping",
+				zap.String("page_id", pageID.String()),
+				zap.String("component_id", victim.ID.String()),
+				zap.String("slot", victim.Slot))
+		}
 	}
 
 	if len(remove) == 0 {
@@ -221,6 +243,9 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 		detail := "no content-identical duplicate sections on this page"
 		if len(planSkipped) > 0 {
 			detail = "every content-identical duplicate on this page is plan-specified repetition — nothing deleted"
+		}
+		if len(lockSkipped) > 0 {
+			detail = "every deletable duplicate on this page is lock-protected — nothing deleted; a human unlock releases them"
 		}
 		logger.Info("remove_duplicate_page_sections: nothing to remove",
 			zap.String("page_id", pageID.String()), zap.Int("sections", len(sections)),
@@ -232,6 +257,7 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 			"duplicate_groups":          0,
 			"changed":                   false,
 			"plan_specified_repetition": planSkipped,
+			"lock_skipped":              lockSkipped,
 			"detail":                    detail,
 		}, nil
 	}
@@ -317,6 +343,7 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 		"removed_components":        removedDetail,
 		"stale_spec_ids":            staleFromSpec,
 		"plan_specified_repetition": planSkipped,
+		"lock_skipped":              lockSkipped,
 		"changed":                   true,
 		"needs_rerender":            true,
 	}, nil
