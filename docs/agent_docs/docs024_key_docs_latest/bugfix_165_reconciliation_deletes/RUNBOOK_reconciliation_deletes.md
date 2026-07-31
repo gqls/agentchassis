@@ -246,3 +246,112 @@ SELECT count(*) FROM pages WHERE sections::text ~ '"i1"|"induced-';  -- must be 
 **Gotcha:** restore the plan on EVERY page you touched, including ones you
 abandoned mid-way. Two of my four attempts were dead ends on other pages and both
 were left inflated until I swept for the marker.
+
+## R-B1 — replay the nav membership rule in SQL, to size a cohort's false positives
+
+The one query that decided site B's cohorts. It mirrors `classifyPagesForNav` and
+answers "what would a rebuild produce, per site and per group, against what is
+stored". **Gotchas, both of which bit:** (a) legal pages bypass the
+`in_header`/`in_footer` check entirely, so a flag-only denominator matches only
+14 of 16 sites — include the legal branch and it matches 16 of 16; (b) join the
+items to the GROUP (`i.group_id = g.id`), never both children off `sites`, or you
+get items × groups.
+
+```sql
+WITH p AS (
+  SELECT pg.site_id, s.domain, pg.name, pg.url, pg.page_type,
+         COALESCE(pg.in_header,false) AS ih, COALESCE(pg.in_footer,false) AS if_, lower(pg.name) AS nm
+  FROM pages pg JOIN sites s ON s.id=pg.site_id
+  WHERE pg.status IN ('active','deployed','pending')      -- == navPageScopeSQL
+), c AS (
+  SELECT *, (nm IN ('404','sitemap','robots')) AS is_system,
+    (nm LIKE 'privacy%' OR nm LIKE 'terms%' OR nm LIKE 'cookie%'
+      OR nm LIKE 'disclaimer%' OR nm LIKE 'legal%') AS is_legal,
+    (page_type IN ('blog-post','tool','entity-page')
+      OR ((lower(url) LIKE '/tools/%' OR lower(url) LIKE '/blog/%' OR lower(url) LIKE '/guides/%'
+         OR lower(url) LIKE '/articles/%' OR lower(url) LIKE '/case-studies/%' OR lower(url) LIKE '/news/%'
+         OR lower(url) LIKE '/resources/%' OR lower(url) LIKE '/insights/%')
+        AND page_type NOT IN ('blog-index','entity-directory','section-index','news-index'))) AS never_primary
+  FROM p
+), exp AS (
+  SELECT site_id, domain,
+    CASE WHEN is_system THEN NULL WHEN is_legal THEN 'legal'
+         WHEN never_primary THEN (CASE WHEN ih OR if_ THEN 'utility' END)
+         WHEN NOT ih THEN (CASE WHEN if_ THEN 'utility' END)
+         ELSE 'primary' END AS grp
+  FROM c
+), e AS (SELECT site_id, domain, grp, count(*) AS expected FROM exp WHERE grp IS NOT NULL GROUP BY 1,2,3),
+   st AS (SELECT g.site_id, g.group_key, count(i.id) AS stored
+          FROM site_nav_groups g LEFT JOIN site_nav_items i ON i.group_id = g.id   -- NOT off sites
+          GROUP BY 1,2)
+SELECT COALESCE(e.domain,(SELECT domain FROM sites WHERE id=st.site_id)) AS domain,
+       COALESCE(e.grp, st.group_key) AS grp,
+       COALESCE(e.expected,0) AS expected, COALESCE(st.stored,0) AS stored,
+       CASE WHEN COALESCE(st.stored,0)=0 THEN 'n/a (empty)'
+            WHEN COALESCE(e.expected,0)::float/st.stored < 0.5 THEN '*** WOULD REFUSE ***' ELSE 'ok' END AS verdict
+FROM e FULL OUTER JOIN st ON st.site_id=e.site_id AND st.group_key=e.grp
+ORDER BY verdict DESC, domain, grp;
+```
+
+**How to read it.** Per-site totals matching stored exactly (they did, 16 of 16)
+means the whole-site cohort has no false positives today. Any `WOULD REFUSE` row
+at group level is the argument AGAINST a per-group cohort, not for one — a
+re-homed page produces exactly that signature. Drop the `FULL OUTER JOIN` half
+and you lose the stored-only groups, which is where the finding was.
+
+**Re-run it before trusting the 0-of-16 figure** — it is a snapshot, and
+`classifyPagesForNav` is actively edited by the `bugfix_149_nav_membership` lane.
+If the classifier's membership rule changes, this replay must change with it or it
+silently measures the old rule.
+
+## R-B2 — prove a guard FIRES, without breaking the shared tree
+
+A green test run says nothing about a guard that is inert by design. Break it in a
+sandbox built from committed `HEAD` plus your working files, never in the tree —
+another session may commit your broken file.
+
+```bash
+SB=<scratchpad>/negctl
+rm -rf "$SB" && mkdir -p "$SB"
+git rev-parse --short HEAD > "$SB/.head"     # record what you tested against
+git archive HEAD | tar -x -C "$SB"
+for f in prune_floor.go nav_prune_floor.go nav_prune_floor_test.go \
+         link_registry_prune_floor.go populate_nav_tables_action.go site_db_actions.go; do
+  cp platform/orchestration/actions/$f "$SB/platform/orchestration/actions/$f"
+done
+cd "$SB" && go test ./platform/orchestration/actions/ -count=1     # baseline: green
+# then neuter ONE thing and re-run — e.g. evaluatePruneFloor(floor, nil)
+```
+
+The four controls run for B and C, and what each must produce:
+
+| break | expected |
+|---|---|
+| `evaluatePruneFloor(floor, nil)` in `nav_prune_floor.go` | exactly the 4 nav refusal tests fail; **no allow test fails** |
+| add a `{Label: "nav group: tools", Confirmed: 0, Stored: 1}` cohort | `TestNavFloorAllowsAPageReHomedBetweenGroups` fails |
+| `evaluatePruneFloor(floor, nil)` in `link_registry_prune_floor.go` | its refusal test fails |
+| replace `navPageScopeSQL` in the loader with a literal | `TestLoadPagesForNavUsesTheSharedScopePredicate` fails |
+
+**The second row is the one that matters** — it is what stops someone re-adding
+the per-group cohort the bug file asked for. **"No allow test fails" in row one is
+half the control**: a neutering that fails everything proves only that you broke
+compilation.
+
+## R-C1 — the query that decides C's partition, once `link_registry` is non-empty
+
+C ships one unpartitioned cohort because there is no distribution to read
+(0 rows all-history). Run this before adding a partition:
+
+```sql
+SELECT link_type, scope, count(*) AS rows, count(DISTINCT source_page_id) AS pages,
+       round(avg(n),2) AS avg_rows_per_page
+FROM (SELECT link_type, scope, source_page_id,
+             count(*) OVER (PARTITION BY source_page_id, link_type) AS n
+      FROM link_registry) x
+GROUP BY 1,2 ORDER BY rows DESC;
+```
+
+**The decision rule:** if most `(page, link_type)` groups hold one row, a
+per-`link_type` cohort is site A's rejected per-`slot_name` shape again — every
+cohort is 1 stored, so any legitimate single-link removal scores 0% and refuses.
+Do not add it.
