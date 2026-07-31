@@ -71,6 +71,7 @@ type dupSectionRow struct {
 	Position int
 	Slot     string
 	Text     string
+	Raw      string // canonical content_data::text — see datahelpers.SectionIdentityKey
 }
 
 // RemoveDuplicatePageSectionsAction removes content-identical duplicate sections
@@ -127,6 +128,7 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 			return nil, fmt.Errorf("scan section: %w", err)
 		}
 		r.Text = datahelpers.NormaliseSectionText(raw)
+		r.Raw = raw
 		sections = append(sections, r)
 	}
 	rows.Close()
@@ -144,7 +146,10 @@ func RemoveDuplicatePageSectionsAction(ctx context.Context, params ActionParams)
 		if len(s.Text) < 80 {
 			continue
 		}
-		byText[s.Text] = append(byText[s.Text], s)
+		// Same identity key as the detector, from datahelpers, so the two halves
+		// cannot disagree about what "identical" means.
+		k := datahelpers.SectionIdentityKey(s.Slot, s.Raw)
+		byText[k] = append(byText[k], s)
 	}
 
 	var remove []dupSectionRow

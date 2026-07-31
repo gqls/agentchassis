@@ -91,6 +91,7 @@ type siteSection struct {
 	SlotName    string
 	Position    int
 	Text        string
+	Raw         string // content_data::text as read from jsonb — canonical, see datahelpers.SectionIdentityKey
 	Tokens      map[string]struct{}
 	FactIDs     []string
 }
@@ -245,7 +246,12 @@ func findIdenticalSamePage(sections []siteSection) []identicalPageGroup {
 	for pageID, secs := range byPage {
 		byText := map[string][]siteSection{}
 		for _, s := range secs {
-			byText[s.Text] = append(byText[s.Text], s)
+			// Identity = same slot + byte-identical blob. The >=80-char floor
+			// above uses the normalised PROSE (is this a meaningful section at
+			// all); identity uses the BYTES (is there anything to decide). See
+			// datahelpers.SectionIdentityKey — both halves must use this.
+			k := datahelpers.SectionIdentityKey(s.SlotName, s.Raw)
+			byText[k] = append(byText[k], s)
 		}
 		var groups [][]siteSection
 		for _, grp := range byText {
@@ -391,6 +397,7 @@ func loadSiteSections(dctx DiscoveryCheckContext) ([]siteSection, error) {
 			return nil, err
 		}
 		s.Text = datahelpers.NormaliseSectionText(raw)
+		s.Raw = raw
 		s.Tokens = datahelpers.SectionTokenSet(s.Text)
 		out = append(out, s)
 	}
