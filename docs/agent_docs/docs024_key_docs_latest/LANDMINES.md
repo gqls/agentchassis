@@ -930,3 +930,85 @@ source document and the entry points at it.
 - **source:** 2026-07-31, gauntlet_dead_cta lane, replacing the share-card
   renderer; `p4_sources/apply_card_edit.py` is the working pattern
 - **added:** 2026-07-31, gauntlet_dead_cta lane
+
+### `length()` on stored HTML is CHARACTERS; a file's size is BYTES
+
+- **footprint:** `page_components.rendered_html`, `site_components.rendered_html`,
+  `content_components.html_template`; any byte-fidelity gate comparing stored markup
+  against a deployed file
+- **fires when:** you compare a stored page against the file it was loaded from, or
+  build the "did the bytes survive" check that verbatim/adoption work depends on
+- **the tell:** a small, unexplained deficit — stored *smaller* than the file by a
+  handful. `standard-calc` on loancalculator.co.uk reports `length()` = **5,730**
+  against a **5,734**-byte file. The gap is exactly the **four `£` signs**, 2 bytes
+  each in UTF-8. Any page with `£`, `—`, `“`, `é` has one. It reads as a truncation
+  and is not
+- **why it is a landmine, not a bug:** it is wrong in **both** directions and both
+  look right. It fails a byte-exact page (so a faithful adoption is reported broken),
+  and it can **offset a real difference against a multi-byte character** (so a
+  corrupted page is reported exact). A gate that is wrong in the safe-looking
+  direction is the worse half
+- **the check:** compare `md5(rendered_html)` / `sha256(...)` against `md5sum` of the
+  file, or `octet_length()` against `wc -c`. **Never `length()`.** Both sides of the
+  loancalculator check reconcile at `14643b1f76ba4ee333d39a2ecfdf4352`
+- **source:** 2026-07-31, loancalculator_couk lane, re-verifying the 27/27 byte-exact
+  claim before building the render_guardian's requested in-pipeline fidelity gate
+- **added:** 2026-07-31, loancalculator_couk lane
+
+### A tool-audit verdict is only meaningful with the harness version that produced it
+
+- **footprint:** `docs024_key_docs_latest/webdesign_tools_repair/toolaudit.py` +
+  `toolprobe.py`; any before/after tool comparison, and any `RESPONDS`/`DEAD` verdict
+  quoted from a doc
+- **fires when:** you compare a new audit run against a recorded baseline, or cite
+  another lane's verdict. No symptom — both runs succeed and print a clean table
+- **the tell:** this harness is **edited most days, by whichever lane is using it**,
+  and its fixes are written against whatever site exposed the blindness. On
+  2026-07-31 the committed version (`f38f5bf7f`) scored **two working
+  loancalculator.co.uk calculators DEAD**: `damage-checker`'s only controls are
+  checkboxes, and the driver assigned `.value` (a no-op on a checkbox — a tick is a
+  `click()`); `credit-health-check` is a wizard that responds by moving a class so a
+  different `<div id="step-N">` becomes visible, which `innerHTML` diffing cannot
+  see. The fixes for both sat **uncommitted in the working tree** while another lane
+  ran it against the same site
+- **the consequence:** a baseline taken with harness A and compared against harness B
+  attributes the harness's drift **to the site**, in whichever direction happens to
+  flatter or condemn it. This is the prospective form of
+  `a-pass-from-a-blind-check-outlives-the-blindness`
+- **the check:** `sha256sum` **both** files and record it beside the verdict; re-pin
+  the identical pair before the after-run. If the version you used is uncommitted,
+  save `git diff` of it alongside the results (worked example:
+  `loancalculator_couk/acceptance/harness_wip_vs_f38f5bf7f.diff`). Ports and profile
+  dirs are randomised per run, so concurrent audits are safe — it is the *file* that
+  is shared, not the browser
+- **source:** 2026-07-31, loancalculator_couk lane, taking the acceptance baseline
+  while the loanandmortgagecalculator lane was mid-edit on the same harness
+- **added:** 2026-07-31, loancalculator_couk lane
+
+### A page under `/tools/` need not be a tool, and `NO-CONTROL` is often the RIGHT answer
+
+- **footprint:** `pages` rows with `url LIKE '/tools/%'`; tool acceptance gates;
+  `discovery_checks/tool_eligibility.go`, `check_missing_tools.go`; any count of "how
+  many tools does this site have"
+- **fires when:** you size a tool inventory from the URL prefix or the page type, or
+  write a gate of the form "every tool page must respond"
+- **the tell:** the count is inherited from a handoff and has never been measured.
+  loancalculator.co.uk was described as having **12 calculators in five separate
+  documents**; it has **11**. `tools/credit-roadmap.html` is static prose that lives
+  in the tools folder — zero `<input>`/`<button>`/`<select>`/`onclick`/
+  `addEventListener`, and its only `<script>` is the shared `nav.js`. The same shape
+  has now bitten three lanes: webdesign and mortgagecalculator each have a `/tools/`
+  **hub page** whose "buttons" are all `<a>` navigation
+- **why it is a landmine:** the gate is **unpassable**, and it fails in the direction
+  that looks like a site defect rather than a harness fault. "10 of 11 respond" reads
+  as one broken calculator for ever, and an always-failing gate gets ignored — which
+  costs you the gate, not just the count
+- **the check:** derive the inventory from **controls, not the path** —
+  `grep -c '<input\|<button\|<select\|onclick\|addEventListener'` per page, and
+  corroborate at runtime (a real-browser audit scores a genuinely static page
+  `NO-CONTROL — nothing a visitor can touch`). Record the expected `NO-CONTROL` set
+  **as part of the gate**, so the pass condition is `RESPONDS=11 NO-CONTROL=1` rather
+  than "all respond"
+- **source:** 2026-07-31, loancalculator_couk lane, building the acceptance bar for
+  the `fidelity=high` decomposition
+- **added:** 2026-07-31, loancalculator_couk lane

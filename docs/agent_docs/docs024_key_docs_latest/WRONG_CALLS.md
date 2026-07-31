@@ -12701,3 +12701,61 @@ a comment so the budget table cannot be reintroduced as a shortcut.
 **Tally note:** this is the second time in two days a *correct* measurement was used to
 answer a question it did not encode. The recurring fix is not more precision — it is
 **assert on the artefact, not on the model of the artefact.**
+
+---
+
+## 2026-07-31 — "12 calculators": a figure five documents repeated and nobody ever measured
+
+**Lane:** loancalculator_couk. **Claim:** *"a hand-built 27-page UK loan site (12
+inline-JS calculators, 13 guides)"* — written in the PLAN, the NOTES, the SUMMARY, the
+README and finally the HANDOFF, which is where I read it and believed it.
+
+**What was wrong:** it is **11**. `tools/credit-roadmap.html` is a static prose page
+that happens to live in the tools folder: zero `<input>`/`<button>`/`<select>`/
+`onclick`/`addEventListener`, and its only `<script>` is the shared `nav.js`.
+12 = 27 − 13 guides − index − legal. **The number was derived by subtraction from the
+directory layout and then written in the voice of an inventory.**
+
+**Why it mattered more than a miscount.** The lane's acceptance bar is the owner's own
+sentence — *"starts similarly enough with working tools"* — operationalised as "every
+calculator still computes in a real browser". Measured over 12 that gate is
+**unpassable**: one of the twelve cannot compute and never could, so a correct build
+reports `11/12` for ever. An always-failing gate gets explained away, and then
+ignored, and then the one real regression it existed to catch arrives looking exactly
+like the noise. **The wrong denominator does not weaken the gate, it destroys it** —
+and it fails in the direction that blames the site.
+
+**What caught it:** taking the baseline *before* changing anything, which is the only
+reason I ran anything over that page at all. Static grep and a real-browser audit
+disagreed with the docs and agreed with each other — `NO-CONTROL — nothing a visitor
+can touch` against `RESPONDS` for the other 11.
+
+**The cheap check I skipped, and every prior session skipped:**
+`grep -c '<input\|<button\|<select\|onclick\|addEventListener' tools/*.html` — one
+command, over files already on disk, at any point in the previous two days. Nobody ran
+it because the figure never looked like a claim; it looked like a description of a
+directory.
+
+**The transferable shape.** This is the `[UNMEASURED]`-marker rule failing in its
+blindest spot: **an inference that is stated once, then quoted forward, launders itself
+into a finding.** By the fifth document it carried the authority of five sources and
+had exactly one origin, which was arithmetic on a folder listing. A marker on the
+first writing would have stopped it; so would asking "which page is the twelfth?"
+
+Two smaller instances the same morning, both the same shape and both caught by reading
+the mechanism rather than the symptom:
+
+- **"the blocker is nested `<html>`"** — true and *incomplete*. `site_components` is
+  **empty (0 rows)**, and `assemblePage` reads chrome from that table, so the flip
+  this lane was warning about would also have shipped every page with **no head, no
+  nav and no footer**. Recorded as the whole blocker for a day. Caught by reading
+  `getSiteComponents` before writing the extractor.
+- **"27/27 byte-exact"** — this one **held**, but my first re-verification appeared to
+  refute it (`length()` = 5,730 vs a 5,734-byte file) and I nearly filed a fidelity
+  regression. The gap was four `£` signs; `length()` counts characters. Now a landmine,
+  because the in-pipeline gate the council asked for was about to be built on it.
+
+**Tally note:** every entry above was caught by *measuring the thing itself before
+acting on a description of it*. The recurring cheap check is not a new tool — it is
+running the one-line query against the live system **before** repeating a figure, and
+marking it `[UNMEASURED]` when you don't.
