@@ -9064,3 +9064,72 @@ a warning is not a record.
 **Related:** the "silent gate has TWO causes with opposite fixes" family; `bugs_closed/063`
 (fail-open on missing config — the protective branch skipped exactly where protection was
 needed); `bugs_open/071` (the same class one stage later: the gate detects, then discards).
+
+### A bug's own measurement can be the thing blocking its fix — and on a shared tree it goes stale in hours, invalidated by the filing lane itself (`bugs_closed/167`, 2026-07-31)
+
+`bugs_open/167` was filed with a live table showing the page-build path resolving
+`site-header` to `site-header`, a `component_level='section'` component. That table was the
+**entire reason the bug was parked**: it implied the one-line fix would flip every page's
+header and footer to a different component, so the file said "a fleet-visible change, and an
+owner call, not an oversight". Correct reasoning, correctly recorded, and it sat there.
+
+Re-running each function's own query verbatim before touching anything showed the two
+predicates **already returned the same row**, so the fix changed no served byte and the owner
+call did not apply. `content_components.updated_at` says why: `header-theme-chrome` was
+activated at `12:39:53` that same day — by the **filing lane's own fleet repoint**, hours
+before it wrote the bug. Once active, `ORDER BY name` sorts it ahead of `site-header`.
+
+The lane measured, acted, and then filed — and the filing described the world as it had been
+before its own action. Nothing was careless: the table was dated, accurate when taken, and
+carried the evidence inline exactly as the working-docs rules require.
+
+- **The pattern:** a measurement recorded as a *blocker* has a different shelf life from one
+  recorded as a *finding*. A finding that goes stale is merely out of date; a blocker that goes
+  stale **stops work that is now free**, and nothing in the file will ever say so, because the
+  file cannot know what changed after it was written.
+- **The cheap check:** before you accept "this needs an owner call / a visible change / a
+  migration", **re-run the query the claim rests on.** Not the conclusion — the query. If the
+  bug file does not contain a runnable query, that absence is itself the finding.
+- **Where it bites hardest:** many sessions on one tree and one live DB. The rows a bug
+  describes are shared mutable state, and the lane most likely to have changed them is the lane
+  that filed the bug — because it was working in exactly that area.
+- Sibling of "a closed bug's scope-out EXPIRES" and "prior-art searches go stale"; the twist
+  here is that the stale fact was **self-inflicted and same-day**, which is far shorter than
+  the days-to-weeks those entries teach you to watch for.
+
+### A guard's exemptions are the exact shape of its blind spot — so the second scan must be the COMPLEMENT of the first, never a copy (`bugs_closed/167`, 2026-07-31)
+
+`bugs_closed/118` shipped a scan to stop chrome selection ever splitting into three predicates
+again. It is a good guard: it has a `scanned == 0` blindness check and a synthetic self-test
+proving it can see an offender. It has two exemptions, both deliberate and both right —
+
+```go
+if e.IsDir() || !strings.HasSuffix(name, ".go") ||
+    strings.HasSuffix(name, "_test.go") || name == "component_library.go" {
+    continue
+}
+```
+
+— it skips `component_library.go` because that file legitimately *contains* the predicate, and
+it matches hand-typed **SQL** (`function = 'site-header'`) because three hand-typed queries
+were the bug.
+
+`bugs_open/167` was three more instances of the same class, and the guard was **structurally
+incapable** of seeing any of them: they lived in `component_library.go`, and they contained no
+SQL — they were Go calls, `GetComponentByFunction(ctx, db, "site-header", logger)`, handing a
+chrome function name to a lookup with no `component_level` filter. Every exemption that made
+the guard precise also defined precisely where the next instance could hide.
+
+- **The pattern:** a guard tells you about the region it scans and says **nothing** about its
+  exemptions — but a green run *reads* as "this class is handled". The exemption list is the
+  most valuable thing in a guard file and the least read.
+- **The cheap check:** when you find a new instance of a class a guard already covers, do not
+  ask "why did it not fire". Ask **"which exemption does this instance sit inside?"** — it will
+  be one of them, and that tells you what the second guard must be.
+- **The remedy is a complement, not a copy.** The new scan matches the **call** form, covers
+  the exempted file, and deliberately does *not* match a variable function argument (the
+  generic section lookup must keep working). Two narrow scans with disjoint blind spots beat
+  one broad scan that has to be loosened until it is noisy.
+- **Both scans now share a vocabulary** (`site-header|site-footer|head`) in two separate
+  regexes — a dedup-index/Go-list lockstep hazard. Written down at the top of each, because
+  adding a chrome function to one and not the other silently halves the coverage.
