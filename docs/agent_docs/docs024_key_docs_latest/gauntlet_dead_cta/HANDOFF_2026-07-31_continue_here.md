@@ -264,7 +264,30 @@ session moves it again.
 >   switch on an unreviewed destructive path costs, and it is the second time this
 >   week the "it's inert so it's safe" framing has been too comfortable.
 
-### 4.0 THE OPEN DECISION — fire round 3, or stop here?
+### 4.0 ROUND 3 — FIRED (owner decision, 2026-07-31), killed once by a roll, re-fired
+
+**Owner said fire it.** Submitted 14:49 as `45d143e0` — **killed at 15:00 by another
+session's chassis roll** (both pods `startTime` 15:00:20/15:00:42 vs a last
+`updated_at` of 14:59:59), 11 minutes in, with 8 of 12 reviews already landed.
+**Re-fired UNCHANGED** as `e4f81e61-83f3-4185-83f1-00b0c45dc4d6` after the ~300s
+post-restart window. An infra death is not a judgement, so the plan was not altered —
+same class the runbook records for `complete_invalid` with no `council_report`.
+
+⚠ **If you inherit this mid-flight, a dead council looks exactly like a slow one.**
+`status` stays `EXECUTING_STEP`, `error` is NULL, and `currently_executing` names a
+step whose output is **already in `collected_data`**. Compare `updated_at` against pod
+`startTime`; rounds 1 and 2 took 11 and 13 minutes end to end, so anything past ~15
+without movement deserves the pod check. Landmine filed.
+
+⚠ **And `orchestration_states` has NO `id` column — it is `orchestration_id`.** My
+poll asked for `id` with stderr to `/dev/null`, so it returned empty for 31 minutes
+and I read that as queue latency, which is exactly what CLAUDE.md primes you to
+expect. Never `2>/dev/null` a query whose emptiness you intend to read as evidence.
+Landmine + `WRONG_CALLS` filed.
+
+The original decision, kept because the reasoning still applies if there is a round 4:
+
+#### The argument that was weighed — fire round 3, or stop?
 
 Everything the seats asked for is done and committed (`9fec8ce01`). Round 3 would be
 a resubmit on the same trail with the lookups attached and no code change beyond the
@@ -277,9 +300,8 @@ answerable by attachment, which is exactly what has been attached; approval make
 the standing rule is *one council run per coherent task, not per iteration*. A third
 round buys a trailer, not a safer mechanism. The check stays inert either way.
 
-**Not fired without a decision, because it spends real credits and the change is
-already safe.** If it is fired, use
-`RESUBMIT_CORR=da3f2d9b-ae6f-492d-ad3b-748323b66367`.
+~~**Not fired without a decision.**~~ Fired on the owner's instruction; see above.
+Any further round uses `RESUBMIT_CORR=da3f2d9b-ae6f-492d-ad3b-748323b66367`.
 
 ### 4.1 Read the verdict
 
