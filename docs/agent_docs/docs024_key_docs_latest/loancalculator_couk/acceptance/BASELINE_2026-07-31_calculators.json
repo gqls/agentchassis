@@ -1,5 +1,19 @@
 [
  {
+  "url": "https://loancalculator.co.uk/index.html",
+  "console": [],
+  "bad_subresources": [],
+  "unresolved": [],
+  "self_removed": [],
+  "controls": 3,
+  "changed": true,
+  "pressed": null,
+  "empty_regions": [],
+  "responsive": null,
+  "verdict": "RESPONDS",
+  "why": []
+ },
+ {
   "url": "https://loancalculator.co.uk/tools/application-tracker.html",
   "console": [],
   "bad_subresources": [],

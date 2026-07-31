@@ -721,3 +721,157 @@ So the correct order is:
 That also shrinks what has to be right on the first attempt: the decomposer reads from
 the same table it writes to, inside one transaction, with no network and no new
 credential.
+
+## 2026-07-31 (later) — the decomposition rule, proved offline; and a rule that passed every safety test while failing the brief
+
+Built `decompose_prover.py` in this directory: it runs the proposed splitting rule
+over all 27 real pages, writes **nothing** to the DB and touches no site file, and
+asserts the properties that would otherwise fail silently. The shipped decomposer
+will be **Go** (platform convention); this exists so the rule is measured before it
+is written, and so the council submission carries evidence instead of an argument.
+
+Source of truth: the 27 stored components, exported from `page_components.
+rendered_html`. **Re-verified byte-exact a third way** — DB → base64 → file, md5
+against the repo files: **27/27**.
+
+> **Misstep, and the check that caught it.** The first export produced 27 pages of
+> **exactly 57 bytes each**. `encode(...,'base64')` **wraps output at 76 characters**,
+> so each row spans many lines and my per-line parser read only the first. It
+> "succeeded" — 27 files written, no error. What caught it was comparing each decoded
+> page's md5 against the repo file, which is the only reason I did not go on to
+> decompose 27 fragments and conclude the pages were empty. Fix:
+> `translate(encode(...), E'\n', '')`.
+
+### The rule, and why each clause exists
+
+- page-local `<style>` and every inline `<script>` are captured **byte-exact**, by
+  slicing the source at parser-reported offsets rather than re-serialising parser
+  events (re-serialising normalises entities and attribute quoting — that is how a
+  "faithful" port stops being faithful);
+- a node is **tool-marked** if it is a form control or carries an `id` an inline
+  script addresses;
+- for each top-level body block, **descend** while every marked descendant sits
+  inside one child; where descent stops, the **marked children** become the tool and
+  everything passed on the way down becomes editable prose, in document order.
+
+**Why the `id` rule rather than "the block with the inputs".** A calculator's output
+region usually has no controls in it — `standard-calc` writes its answer into
+`<div id="monthly-display">`. Keyed on controls alone, the results box is prose, and
+the writer loop may one day rewrite away the very element `getElementById` targets.
+The script's own id references are the only honest definition of what the tool needs.
+
+### [FAILED, then fixed] v1 passed every safety proof and delivered nothing
+
+v1 classified whole top-level blocks. It passed P1–P4 (bytes preserved, no block
+lost, no orphaned script target) on all 27 pages — and put **98% of the visible text
+on interactive pages inside the frozen tool component; 100% on eleven of twelve
+pages.** Zero editable prose. The site would have been just as unable to evolve as it
+is today, with a clean test run to say otherwise.
+
+The cause is structural, not a coding slip: on this site the calculator and its
+article are **siblings inside one `.container` wrapper**, so any whole-block rule
+freezes both.
+
+**The lesson is about the proofs, not the rule.** P1–P4 all measure *"nothing
+broke"*. Not one of them measures *"anything became editable"*, which is the entire
+brief. So I added **P5: the share of interactive-page text left editable**, and it is
+the proof that failed. Safety proofs and purpose proofs are different axes, and a
+green suite on the first says nothing about the second.
+
+| rule | frozen text on interactive pages |
+|---|---|
+| v1 — whole top-level blocks | **98%** (100% on 11 of 12 pages) |
+| v2 — descend while one child holds the markers | 49% |
+| v3 — + take marked CHILDREN, not the parent; capture loose text | **25%** |
+
+v2 still swallowed the `<h1>` and intro paragraph on 5 pages, because a tool's
+machinery legitimately spans **two** siblings — `car-finance-calculator` has an input
+`.card` and a separate `.comparison-grid` results region, so descent stopped at their
+parent and took the prose with it. v3 stops there but takes only the marked children.
+`standard-calc` went 90% frozen → **5%**; every interactive page now has editable
+prose.
+
+> **Misstep — my own P6 was measuring the wrong thing.** P6 ("no visible text lost")
+> failed on exactly 5 pages, each by 45–60 characters, which looked precisely like
+> real content loss and sent me hunting dropped text nodes. It was comparing
+> body-derived output against **whole-document** text, so the shortfall was each
+> page's `<title>` — which is not lost at all, it is carried as page metadata and
+> re-injected by `assemblePage`. Corrected to body-vs-body and tightened to 98%.
+> Same family as the fleet's `check-answers-the-question-you-encoded`: the figure was
+> right, the question was not.
+
+**A real bug that P6 did catch, before I broke it:** descent iterated element
+children only, so **loose text between two elements was silently dropped**. Now
+captured as prose via span arithmetic.
+
+### Current result — all proofs pass
+
+`P1` script bytes · `P2` style bytes · `P4` no orphaned script target · `P5` 25%
+frozen · `P6` no body text lost, at a 98% threshold. Reproduce:
+`python3 decompose_prover.py <dir-of-stored-pages>`.
+
+### [CORRECTED 2026-07-31, correcting MY OWN correction earlier today] the homepage is a calculator too
+
+This morning I corrected "12 calculators" to 11. That is right about `/tools/` and
+**incomplete about the site**: `index.html` carries a **working hero calculator** —
+`<input id="amount|interest|years">`, wired by an inline script, with the arithmetic
+in **external** `/assets/js/global.js`. The audit scores it `RESPONDS`.
+
+So the honest statement is: **12 interactive pages — 11 under `/tools/` plus the
+homepage — and `credit-roadmap` is not one of them.** The original figure of 12 was
+the right *number* by coincidence and the wrong *membership*, which is worse than
+being wrong, because it agrees with the corrected count while pointing at a different
+page.
+
+**My acceptance baseline had the same hole**: it audited `/tools/*` only, so a
+regression to the homepage calculator would not have been noticed. Baseline re-run
+and extended — **12 RESPONDS + 1 NO-CONTROL across 13 pages**
+(`acceptance/BASELINE_2026-07-31_calculators.json`).
+
+Consequence for the decomposer: the homepage tool depends on an **external** script,
+so preserving inline `<script>` is not sufficient — the tool component must also keep
+its `<script src>` dependencies. The prover records these separately
+(`external_scripts`) and the Go action must carry them.
+
+### Corrections to the neighbouring lane's contribution (their §3, above)
+
+They audited my tools before copying them and reported three live defects. Checked
+each at the live bytes; two of the three do not hold.
+
+- **`credit-health-check` is NOT broken on the live site. REFUTED.** Their evidence
+  was that `assets/css/style.css` defines neither `.check-step` nor `.active`. True —
+  and the page defines both **itself**, in a page-local `<style>` block in its
+  `<head>`, along with `.score-meter` and `#meter-fill`. Fetched the live URL with a
+  cache-buster: both rules are present in the served bytes. Their check looked only
+  at the external stylesheet, so it could not see them.
+- **"36 classes undefined in that stylesheet" is really 19.** Reproducing their
+  method gives 44; counting page-local `<style>` too gives **19**. **25 classes are
+  rescued by inline `<style>`** — including 7 of the 9 they named as evidence
+  (`.check-step`, `.active`, `.score-meter`, `.comparison-grid`, `.stat-value`,
+  `.progress-bar`, `.verdict-text`, `.type-btn`, `.debt-row`; only
+  `.fca-style-warning` and `.market-context-box` are genuinely undefined). The
+  underlying point survives at a quarter of the size: **19 classes do render
+  unstyled**, and `.fca-style-warning` — the FCA compliance banner — is one of them.
+- **`credit-roadmap` is not a tool: CONFIRMED**, independently of my own two checks.
+
+Their remediation is unaffected: because their method **over**-reported, the classes
+they restyled into their unified sheet are a superset of the real gap, and their copy
+does define `.check-step`/`.active`/`.score-meter`. They dropped the inline `<style>`
+blocks (0 `<style>` tags in their port) and covered the rules in CSS instead — safe,
+by luck rather than by design. Worth telling them, because the same blind method will
+under-count the next port.
+
+**And the reason this matters far more to us than to them:** page-local `<style>` is
+**load-bearing on 8 pages, 7 of them calculators**. A decomposer that preserves inline
+`<script>` but drops inline `<style>` produces calculators that **compute perfectly
+and display wrongly** — `credit-health-check` would show all five wizard steps at
+once. That is exactly the state they mistakenly reported as live, and it is precisely
+what my v1 would have shipped had P2 not been in the prover from the start.
+
+### Design consequence, stated now rather than discovered later
+
+Descent **dissolves the per-page `.container` wrapper**: its children become sibling
+sections and layout must come from the chrome that assembly wraps them in. Correct for
+a site moving to assembled mode, but it is a real visual change and **not** a fidelity
+claim. It belongs in the owner read-out, and it is a second reason the site-level
+`head`/`header`/`footer` components have to exist before any flip.
