@@ -15013,3 +15013,27 @@ assertion in prose.
   **time anchor** unexamined. Fixing one axis of a measurement does not make the
   others sound. Caught only because the item's continued silence stopped matching
   my story and I went looking for a second explanation.
+- **CORRECTION to the entry immediately above, same session, 40 minutes later: that
+  "correction" was itself wrong, and it was wrong via a trap I had documented in my
+  own handoff two commits earlier.** I reported dispatch as a fleet-wide ~90-minute
+  claim drought and pointed at `bugs_open/029`. I had compared my **shell's local
+  clock** (22:05 BST) against a **UTC** DB timestamp (`20:33:49Z`), inflating a
+  31-minute gap to 90. Asked properly — letting the DB compute the interval —
+  `mins_since_last_claim_anywhere` was **39**, and the half-hourly histogram showed
+  dispatch is **bursty**: nothing between 18:30–20:00Z (a genuine ~90-min gap), then
+  **19 claims** in the following half hour, then quiet again. So the fleet was
+  behaving normally, my **original** "alive, intermittent" reading was substantially
+  right, and I overturned a correct call with a confident wrong one — then wrote it
+  into a cold-start handoff telling the next session to route work at another lane's
+  bug. **The cheap check: never subtract a shell clock from a database timestamp —
+  make the DB do the arithmetic (`extract(epoch from now()-max(claimed_at))`).** The
+  first liveness figure I quoted was right precisely *because* it came from the DB;
+  I then "improved" on it by hand and broke it. Three things make this worth its own
+  row rather than an edit: (1) I had written the `+01:00` vs `Z` trap into the very
+  file I then published the error in — **knowing a trap is not the same as having a
+  procedure that avoids it**; (2) a measurement has more than one axis, and the day's
+  earlier lesson (`GROUP BY claimed_by`) fixed the *population* while leaving the
+  *time anchor* unexamined — **fixing one axis does not make the others sound**; and
+  (3) **the correction was more confident than the thing it corrected**, which is the
+  shape to distrust hardest in my own writing. It survived only because the item's
+  continued silence stopped matching the story and I re-measured a third time.
