@@ -1,5 +1,50 @@
 # PLAN — doc review mechanisms (LANDMINES.md verifier + bugs_open staleness sweep)
 
+## Progress log
+
+**2026-07-31 — Part A, first pass built and test-driven.**
+
+- `landmine-verifier` agent definition applied
+  (`docs/agent_docs/sql_for_agents/276_landmine_verifier.sql`): load_entry
+  (query_database) -> derive_checks (execute_llm_prompt) -> run_checks
+  (diagnose_code_lookup, reused from the diagnose loop) -> verify
+  (execute_llm_prompt) -> persist_verdict (append_doc_note). No new Go code
+  for the agent itself.
+- End-to-end test run (`LANDMINES.md#deployimageasset-resolves-its-source-
+  image-by-purpose-not-by-the-assetid-you-pas`) got through all four steps
+  and failed only at the last one, `persist_verdict`.
+- Root cause was NOT this agent's design — it was a real, pre-existing
+  platform bug: `validDocSubjectTypes`
+  (`platform/orchestration/actions/doc_subjects_common.go`) never got
+  `'landmine'` added when migration 270 widened `doc_notes_subject_type_check`
+  two days ago. Exactly the split-contract shape `bugs_closed/064` exists to
+  prevent, and it slipped past that bug's own regression test because the
+  test only ever watched `doc_plans_subject_type_check` (migration 270
+  correctly never touches `doc_plans`). Fixed both the list and the test
+  (commit `7290433f2`) — the test now checks the union of both tables'
+  constraints, closing the blind spot rather than just the immediate case.
+  `go build`/`vet`/`test` clean on the package.
+- **Submitted to the council gate**: `SUBMISSION_CORR=cb405b7b-c32a-463c-9687-ee3b52acc2fb`,
+  queued. **Process note against myself**: committed `7290433f2` before
+  submitting, so that commit carries no `Council-Reviewed`/`Council-Submitted`
+  trailer — forward-only forbids amending it now. Recording the correlation
+  here for traceability since the automatic 098 join won't find it on the
+  commit itself. Read the verdict before trusting the fix is architecturally
+  sound, even though it's already committed and tested locally.
+- **Blocked on an image roll, not yet requested**: the fix is committed to
+  the working tree but Go changes are inert until the chassis image is
+  rebuilt and deployed — the running pods still carry the old binary, so
+  re-running the verifier right now would hit the same failure again. This
+  is a fleet-wide action (a new agent-chassis image affects every agent, not
+  just this one), so it's paused for an explicit go-ahead rather than done
+  unilaterally.
+- Not yet done: wiring an automatic trigger (currently a manual kafka
+  message, see the SQL file's own header); the in-file-vs-doc_notes verdict
+  question from the original plan is now settled in favour of doc_notes
+  (built that way already, for the concurrency reasons discussed there).
+
+---
+
 **Started 2026-07-31.** Implements the owner ruling on
 `architecture_review/RFC_005_targeted_review_for_docs_that_feed_the_fleet.md`
 (2026-07-31): §3.1 (diagnosis-loop discipline for `bugs_open/`) is already
