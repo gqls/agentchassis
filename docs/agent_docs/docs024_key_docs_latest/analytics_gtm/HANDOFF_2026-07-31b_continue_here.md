@@ -16,6 +16,27 @@ Actions deploy runs were still queued at the time of writing, so **5 domains may
 serving pre-GTM bytes until that drains (~100 min from ~13:05 UTC)** — it is self-healing
 and needs no intervention, only a re-check.
 
+## ⚠ AMENDMENT (13:15Z) — read this before judging any domain
+
+Two things changed after the body below was written:
+
+1. **`--skip-newer` does NOT make out-of-order syncs safe.** `git checkout` stamps a
+   fresh mtime on every file, so an older queued run's tree always looks newer than the
+   bucket and overwrites it. `dartsonline.com` regressed 2 → 0 this way. **Git master is
+   authoritative and is correct for all 14 domains** (verified via the GitHub API), so
+   nothing is lost — but the estate churns while the backlog drains instead of converging.
+2. **A trailing full-estate sync is already queued to fix it.** Commit `2582e69f5` adds a
+   root-level `.full-sync-stamp`; a root file matches neither the domain-dir grep nor
+   `paths-ignore`, so `CHANGED` comes back empty and the workflow's fallback branch syncs
+   **every** domain from the current tree. It was queued at 13:14:00Z, behind the whole
+   backlog, so it runs **last**.
+
+**So: do not re-fire re-renders for a domain reading 0.** Wait for the backlog plus that
+final run, then re-verify. Only if a domain is still untagged *after* the `.full-sync-stamp`
+run has completed is there a real problem — and the first check then is
+`gh api repos/gqls/sites/contents/<domain>/index.html --jq .content | base64 -d | grep -c googletagmanager`,
+because if the repo is right the fault is in the sync, not the platform.
+
 ## Verify current reality before doing anything (things may have drained)
 
 ```bash
