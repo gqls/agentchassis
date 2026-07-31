@@ -706,14 +706,7 @@ func renderAndStoreSiteComponent(
 	// own hrefs client-side, so an empty URL attribute there is intentional, not a
 	// dead control — exempt them exactly as check_dead_controls does
 	// (render_guardian council note, 2026-07-22).
-	// WHOLE-INPUT on purpose (bugs_open/137), for the same reason as
-	// RepairPageLinks: this is a WRITER, not a judge. DropDeadURLControls removes
-	// the control from the markup, so a too-narrow exemption deletes chrome that
-	// was going to hydrate, while a too-wide one merely leaves a dead control
-	// visible — and visible is what emitChromeDeadControlItem escalates. Its
-	// input is one chrome component, so the two scopes coincide today; the named
-	// predicate records which one is intended if that ever stops being true.
-	if len(deadURLFields) > 0 && !datahelpers.HasRuntimeFillMarker(renderedHTML) {
+	if len(deadURLFields) > 0 && !strings.Contains(renderedHTML, "data-runtime-fill") {
 		beforeLen := len(renderedHTML)
 		renderedHTML = DropDeadURLControls(renderedHTML)
 		logger.Warn("site chrome: dropped dead URL control(s) before store — bugs_open/054",
