@@ -137,3 +137,75 @@ watching. Logged in `WRONG_CALLS.md` with the general form: **a doc written in o
 sitting will invent whatever the story needs to finish**, which is precisely what the
 standing-five *cadence* rule (write as the work happens, not at handoff) defends
 against — and I had violated that rule to get into the position.
+
+## 2026-07-31 — council APPROVED, and the four advisories discharged
+
+`75f3cd52` → **approved**, `decided_by: "all reviewers approve"`, 14 seats voting, 4 abstained
+(render_guardian/mission/diagnosis_guardian/reuse_agent variously out of jurisdiction),
+**no objection above `low`**. Turnaround **~6 minutes** (21:33:56 → 21:39:40), not the ~30 the
+runbook warns to budget — so the queue latency figure is load-dependent, not a floor.
+
+Four advisories. Discharged, not banked:
+
+1. **`debug_historian` (low, edit 1) — my "no consumer overrides `max_body_chars`" claim rested
+   on `default_config::text LIKE '%diagnose_assemble_bundle%'`, a FLAT TEXT search**, and it
+   named the landmine: a step's prompt and its token cap sit at different depths in that jsonb,
+   and depth-blind reads have misreported before. **It was right that the claim was softer than
+   I presented it.** Re-derived path-aware, walking every live agent's steps:
+   ```sql
+   SELECT ad.type, s.key, s.value->'config'->>'max_body_chars', s.value->>'output_field'
+     FROM agent_definitions ad, jsonb_each(ad.default_config->'workflow'->'steps') AS s
+    WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+      AND s.value->>'action' = 'diagnose_assemble_bundle';
+   ```
+   → one row: `diagnose-agent / assemble_bundle`, override **NULL**, `output_field=bundle`. So
+   60,000 IS what production runs — now established at the right depth.
+2. **`guardian` (low, edit 4) — the `truncated` redefinition was backed by a SOURCE grep, not a
+   fleet check.** Also right. Re-ran against the DB for any live agent referencing `.truncated`
+   or `symbol_count` at any depth: **0 rows**. The semantic shift has no live reader.
+3. **`tooling_provenance` (low, edit 5) — no `doc_notes` write, so the next fixer of this file
+   re-derives the reasoning.** Discharged as a `LANDMINES.md` entry (the NULL-vs-0 trap the two
+   new metadata keys create) + `landmines-sync.py --apply`: 4 owned rows now in `doc_notes`,
+   `--check` reports in sync. That is the platform's actual mechanism for making a trap
+   agent-readable, which is what the objection was asking for.
+4. **`bug_historian` (low, edit 3)** — a future consumer reading `truncated` alone still cannot
+   separate size-omission from read-failure; only the jsonb counts carry that. Named in the
+   landmine entry and in `164`'s VERIFY, for whoever adds such a consumer.
+
+### The architecture note that found a fourth cap — and my grep could not have seen it
+
+`bug_historian` also attached a note for a human: this was the **third** piecemeal pass over
+caps in this file (145, `bd003f67a`, now 164), and someone should confirm no fourth cap-shaped
+site exists **outside my grep's pattern — e.g. count-based rather than char-length-based.**
+
+**Correction to my own blast-radius claim.** I wrote "three char-budget cap sites repo-wide,
+all in one file", and that sentence is true only for the shape I searched. My pattern keyed on
+`+ len(x) > cap` and **structurally cannot see a count cap or a slice reslice.** Re-run for
+those shapes, the loop family has more sites. Triaged all of them:
+
+- `diagnose_route_action.go:359,388,451,466` — `len(out) >= max` → **reports**
+  (`result[codeRequestsDroppedKey]`, `dataRequestsDroppedKey`, plus Warn). `bd003f67a`'s work.
+- `diagnose_read_repo_files_action.go:136` — `len(body) > maxBytes` → **fails LOUD**, returns an
+  error ("refusing to fabricate context"). Correct by design.
+- `diagnose_run_checks_action.go:83`, `diagnose_code_lookup_action.go:359`,
+  `diagnose_load_runtime_action.go:454` — the caps `bd003f67a` cleared; still reporting.
+- **`diagnose_load_runtime_action.go:945` — `matched = matched[:typeCap]`. A GENUINE instance.**
+  Silent reslice, no marker, no count; the heading at `:949` asserts it covers "agent types
+  named in the symptom/hypothesis"; the only log (`:1039`) prints the **already-truncated**
+  slice, so the loss is invisible in the artefact *and* the log. And the source list is
+  `SELECT DISTINCT type … ` with **no `ORDER BY`**, so which survivors are kept is
+  **non-deterministic** — worse than 164, whose tail was at least alphabetical and reproducible.
+
+**`bd003f67a` explicitly cleared this file** — "diagnose_load_runtime already report their
+caps" — which is true of `maxCodeChecks` at `:454`, a *different* cap in the same file. A
+file-granularity clearance over an instance-level check. The same shape as that audit missing
+164, and as 164's audit missing this.
+
+Measured before filing, and the instrument choice mattered: `orchestration_states` retains
+**one day** here (16 symptom-bearing rows) and bounds nothing, so I used the 30-day bundle
+corpus instead, counting the per-type lines the section emits. **The path is live — 72 of 254
+bundles (28%) — and the maximum ever listed is 4 against a cap of 5.** So it is LATENT by one
+agent type, against a population of 185 active types. Filed as **`bugs_open/172`** with that
+framing stated in the file, rather than fixed here: folding a second file into an
+already-approved patch is the scope creep the guardian vetoes, and filing it is exactly what
+the council demanded of the lane that found *164* and declined to file it.

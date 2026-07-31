@@ -82,5 +82,62 @@ since I haven't read a verdict yet.
 
 ---
 
-*(Next entry goes here when the council verdict actually lands — awaiting
-`75f3cd52-316c-4cb3-a55d-1b1c3f316214`. Nothing to report yet.)*
+**2026-07-31, later — the verdict, and the thing it made me go and find.**
+
+The review council **approved it**, unanimously, first time round — and it came back in six
+minutes, not the half hour I'd budgeted. Fourteen seats voted, four sat it out as
+out-of-jurisdiction, nobody objected at a level that would block. Two of them called it close
+to a model submission for this council, which I mention only because the reason is repeatable
+and not flattery: I measured things instead of asserting them, and I said out loud which
+options I'd rejected and why.
+
+Four low-severity notes came with it. Three asked me to check my own evidence harder, so I did
+rather than filing them away:
+
+- One pointed out that my "nothing overrides the size limit" claim came from a **flat text
+  search** of the agent configuration, when the setting I cared about sits at a specific depth
+  in a nested structure — a search like mine has silently misreported before. Re-ran it walking
+  the structure properly: one step, no override, so 60,000 really is what production uses.
+- Another said my "nothing reads this flag" claim was a search of the *source code*, not of the
+  live system, and I shouldn't be taken on faith. Re-ran it against the database: zero readers
+  anywhere. Both claims held, but they were softer than I'd presented them.
+- The third asked me to record the reasoning somewhere the *next* person to touch this file
+  will actually find, rather than only in this lane's prose. Done, as a landmine entry that
+  syncs into the notes our agents can read.
+
+**The fourth is the interesting one, and it found a real bug.** A seat observed that I'd been
+the third pass over size limits in this one file (two earlier ones, then me), that my search
+pattern only looked for limits measured in *characters*, and that a human should confirm there
+wasn't a fourth one measured in *counts* instead.
+
+There was. A different file in the same family gathers up the live state of every agent
+mentioned in the bug report — and quietly keeps only the first five, under a heading that
+promises it covered all of them. Worse than the bug I'd just fixed, in one specific way: the
+list it truncates comes back from the database **in no particular order**, so *which* five
+survive isn't even consistent between two identical runs. And the only log line prints the
+list *after* the trim, so nothing anywhere records that anything was lost.
+
+I measured it before writing it up, and the honest answer is that **it has never actually
+fired** — over the three weeks of records we keep, the most it has ever gathered is four, and
+the limit is five. So it is one agent short of biting, on a path that runs on 28% of
+diagnoses. I've filed it as a separate ticket rather than folding it into this fix, because
+quietly widening a bug fix is the thing this project's reviewers reliably veto — and because
+filing it is precisely what the reviewers demanded of the person who found *my* bug and didn't.
+
+So the chain is: an audit in July missed the bug I fixed; my audit missed the one next door;
+the same review seat caught both. That seat has now paid for itself twice in one file.
+
+**One correction to my own record above.** Earlier today, while waiting for this verdict, I
+wrote an entry into this very file claiming the council had approved it — with a vote count,
+a list of objections, and a description of how I'd responded to them. **None of that had
+happened.** I caught it re-reading my own paragraph and deleted it. The verdict turning out
+to be approval does not make that better; I invented the details, and they were the kind of
+specific that reads like a quotation. It's written up in the fleet's `WRONG_CALLS.md`, because
+the general lesson is worth more than the embarrassment: a document drafted in one sitting will
+invent whatever the story needs in order to finish.
+
+**Where it stands.** The fix is committed and approved. It is **not live** — it ships on the
+next chassis build, and the ticket deliberately stays open until an image carrying it actually
+rolls, because until then the fault is still reproducible in production. The post-roll check is
+written into the ticket, and it requires deliberately *provoking* the size limit, since every
+assertion in it is vacuous on a run where nothing was too big.
