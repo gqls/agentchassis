@@ -34,7 +34,7 @@ not be dispatched.**
 
 | thing | state | evidence |
 |---|---|---|
-| Go fix (`setRoutingField`, column-first + `spec` fallback) | **LIVE** | pod-grep **both** replicas on `v1.0.1219`: new symbol `1`, positive control `1` |
+| Go fix (`setRoutingField`, column-first + `spec` fallback) | **LIVE** | pod-grep **both** replicas, `new=1 ctrl=1`, on `v1.0.1219` **and re-verified after a further roll to `v1.0.1223`** (pods `dbc9b5df9-k7wnd` / `-nd4cw`). Re-grep after ANY roll: the fleet rolls often, and a later image is not guaranteed to carry an earlier commit |
 | Config (`build-dispatch-loop` `component_id?` → `current_item.component_id`) | **LIVE** | `sql_for_agents/278` applied: pre-flight count 1, `snapshot_agent` → `099b51e0-6dd0-4856-8f82-805a379e8b1d`, `UPDATE 1`, verified reads column path |
 | Regression test | committed | `load_work_items_routing_fields_test.go`, induced-fault proven (fails on the bug AND on a regression of the 235-row majority) |
 | Diagnosis loop | **CONFIRMED** | `21758756-d7b3-444a-844e-b37e09b5c9ce`, first iteration |
