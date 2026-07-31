@@ -1,0 +1,564 @@
+<style>
+  :root {
+    --color-primary: #e63946;
+    --color-secondary: #1d3557;
+    --color-accent: #f4a261;
+    --color-background: var(--color-primary);
+    --color-surface: #1a1a1a;
+    --color-text: #f0f0f0;
+    --color-text-muted: #888;
+    --color-border: #2e2e2e;
+    --color-success: #4caf50;
+    --color-warning: #f0c040;
+    --color-info: #4a9eff;
+    --color-cursed: #bf5fff;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  .tool-container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: 'Georgia', serif;
+    min-height: 100vh;
+  }
+
+  .tool-container h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--color-primary);
+    margin-bottom: 0.25rem;
+    font-family: 'Arial Black', 'Arial', sans-serif;
+    text-transform: uppercase;
+  }
+
+  .tool-description {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+    font-family: 'Arial', sans-serif;
+    line-height: 1.6;
+  }
+
+  /* === SECTION HEADERS === */
+  .section-label {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+  }
+
+  /* === SECTION 1: PROVOCATION === */
+  .provocation-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-primary);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+
+  .provocation-text {
+    font-size: 1.35rem;
+    line-height: 1.4;
+    font-weight: 700;
+    color: var(--color-text);
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+
+  .provocation-body {
+    margin-top: 0.85rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    opacity: 0.85;
+    overflow-wrap: anywhere;
+  }
+
+  .provocation-meta {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .provocation-day {
+    background: var(--color-primary);
+    color: var(--color-text);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    font-family: 'Arial', sans-serif;
+  }
+
+  /* === BUTTONS === */
+  .btn-primary {
+    display: inline-block;
+    background: var(--color-primary);
+    color: var(--color-text);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-family: 'Arial Black', 'Arial', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    min-height: 44px;
+    line-height: 1.6;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
+
+  .btn-secondary {
+    display: inline-block;
+    background: transparent;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    padding: 0.75rem 1rem;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    min-height: 44px;
+    line-height: 1.6;
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--color-text-muted);
+    color: var(--color-text);
+  }
+
+  /* === SECTION 2: TAKE IT ON === */
+  .arena-cta-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+
+  .arena-cta-note {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+  }
+
+  /* === SECTION 3: THE LOBBY === */
+  .lobby-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .lobby-card {
+    display: block;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 1rem 1.1rem;
+    text-decoration: none;
+    color: var(--color-text);
+    transition: border-color 0.15s, transform 0.15s;
+    min-width: 0;
+  }
+
+  .lobby-card:hover,
+  .lobby-card:focus-visible {
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+  }
+
+  .lobby-card-tag {
+    display: inline-block;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .lobby-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+
+  .lobby-card-desc {
+    margin-top: 0.45rem;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .lobby-card-stat {
+    display: block;
+    margin-top: 0.6rem;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .lobby-card-icon {
+    width: 18px;
+    height: 18px;
+    fill: var(--color-primary);
+    margin-bottom: 0.4rem;
+    display: block;
+  }
+
+  /* === FOOTER === */
+  .arena-footer {
+    border-top: 1px solid var(--color-border);
+    padding-top: 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .arena-footer p {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+  }
+
+  .arena-footer a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .arena-footer a:hover {
+    text-decoration: underline;
+  }
+
+  .pulse-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--color-primary);
+    border-radius: 50%;
+    margin-right: 0.4rem;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* === DIVIDER === */
+  .section-gap {
+    height: 1px;
+    background: var(--color-border);
+    margin: 2rem 0;
+  }
+
+  /* === EMPTY / OFFLINE STATE === */
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-muted);
+    font-family: 'Arial', sans-serif;
+    font-size: 0.8rem;
+    border: 1px dashed var(--color-border);
+  }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 480px) {
+    .tool-container {
+      padding: 1rem 0.85rem 2.5rem;
+    }
+
+    .tool-container h2 {
+      font-size: 1.5rem;
+    }
+
+    .provocation-text {
+      font-size: 1.1rem;
+    }
+
+    .lobby-cards {
+      grid-template-columns: 1fr;
+    }
+
+    .arena-cta-row {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+  }
+</style>
+
+<div class="tool-container">
+  <h2>The Arena</h2>
+  <p class="tool-description" data-arena-subtitle>Pick a provocation, read the case for it, then take a position into the Gauntlet and defend it against an AI opponent on a twenty-minute clock.</p>
+
+  <!-- SECTION 1: TODAY'S PROVOCATION (rendered from /data/provocations.json) -->
+  <div class="section-label">Today's Provocation</div>
+  <div class="provocation-block">
+    <div class="provocation-text" data-arena-provocation>Loading…</div>
+    <p class="provocation-body" data-arena-provocation-body></p>
+    <div class="provocation-meta">
+      <span class="provocation-day" data-arena-eyebrow hidden></span>
+      <span data-arena-date></span>
+    </div>
+  </div>
+
+  <!-- SECTION 2: TAKE IT ON — a real route into the Gauntlet, never a local submission -->
+  <div class="arena-cta-row">
+    <a class="btn-primary" data-arena-gauntlet-cta href="/tools/gauntlet/index.html">File Your Position</a>
+    <span class="arena-cta-note">Twenty minutes on the clock. Three objectives. One AI verdict.</span>
+  </div>
+
+  <div class="section-gap"></div>
+
+  <!-- SECTION 3: THE LOBBY — every provocation that exists, from the same feed -->
+  <div class="section-label">Every Provocation</div>
+  <div class="lobby-cards" data-arena-cards></div>
+  <div class="arena-cta-row">
+    <a class="btn-secondary" data-arena-archive-cta href="/provocations/index.html">See every provocation</a>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="arena-footer">
+    <p><span class="pulse-dot"></span>The Arena is the lobby — it is where you choose what to argue. The argument itself happens in <a href="/tools/gauntlet/index.html">the Gauntlet</a>, against a live AI opponent that answers back.</p>
+  </div>
+</div>
+
+<script>
+/* The Arena — lobby for vonc.com's daily provocations.
+ *
+ * Fabrication rail (gauntlet_dead_cta, 2026-07-27): no participation metric
+ * exists anywhere in this system, so none appears here. There are no invented
+ * users, no vote tallies, and no simulated activity of any kind. Everything
+ * rendered below comes from /data/provocations.json — the same feed the
+ * homepage, the Gauntlet and the archive read — or it is not shown at all.
+ *
+ * The only control on this page is a link. Nothing stores state, and nothing
+ * changes on screen except as a consequence of that feed loading.
+ *
+ * What this replaced, and why, is recorded in the workstream NOTES rather than
+ * here: naming the removed identifiers in the page source would leave them in
+ * the served HTML, where a scanner cannot tell a comment from live code.
+ */
+(function () {
+  "use strict";
+
+  var FEED = "/data/provocations.json";
+
+  function pick(sel) { return document.querySelector(sel); }
+
+  var el = {
+    subtitle: pick("[data-arena-subtitle]"),
+    prov:     pick("[data-arena-provocation]"),
+    provBody: pick("[data-arena-provocation-body]"),
+    eyebrow:  pick("[data-arena-eyebrow]"),
+    date:     pick("[data-arena-date]"),
+    cta:      pick("[data-arena-gauntlet-cta]"),
+    cards:    pick("[data-arena-cards]"),
+    archive:  pick("[data-arena-archive-cta]")
+  };
+
+  var MONTHS = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+
+  /* The provocation's own date, taken from the feed — not "now". Showing today's
+   * date against a feed generated yesterday would misstate when it was set. */
+  function formatFeedDate(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear();
+  }
+
+  /* The feed is our own authored JSON, so <em> in a headline or title is ours.
+   * Nothing on this page is written by a model or a visitor at runtime, so there
+   * is no untrusted string to escape — but body/desc still go in as text, so that
+   * stays true if the feed ever gains a generated field. */
+  /* THE SEAL (owner ruling 2026-07-31). This block states that today's provocation
+   * is sealed; it never says what it is. One invariant, site-wide: today's is
+   * readable in the Gauntlet, after entry, and nowhere else.
+   *
+   * The seal is enforced in the FEED, not here — the fields this block used to read
+   * no longer exist and the generator refuses to emit them. Do not reintroduce a
+   * read of the day's question to fill this block; if the seal fields are missing it
+   * says so plainly instead. Which fields changed, and the render measurement that
+   * found this page leaking, are in the workstream NOTES rather than in page source
+   * (see this file's header for why).
+   *
+   * Verify by RENDERING, never by grepping: the text arrives after load. */
+  function renderToday(today, generatedAt) {
+    if (!today) return false;
+    if (el.prov) {
+      el.prov.innerHTML = today.seal_headline || "Today's question is sealed.";
+    }
+    if (el.provBody) {
+      if (today.seal_body) {
+        el.provBody.textContent = today.seal_body;
+      } else {
+        el.provBody.remove();
+      }
+    }
+    if (el.eyebrow && today.eyebrow) {
+      el.eyebrow.textContent = today.eyebrow;
+      el.eyebrow.removeAttribute("hidden");
+    }
+    if (el.date) el.date.textContent = formatFeedDate(generatedAt);
+    if (el.cta && today.primary_cta) {
+      if (today.primary_cta.label) el.cta.textContent = today.primary_cta.label;
+      if (today.primary_cta.url) el.cta.setAttribute("href", today.primary_cta.url);
+    }
+    return true;
+  }
+
+  function buildCard(card) {
+    var a = document.createElement("a");
+    a.className = "lobby-card";
+    a.setAttribute("href", card.url);
+
+    if (card.icon) {
+      var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "lobby-card-icon");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("aria-hidden", "true");
+      svg.innerHTML = card.icon;
+      a.appendChild(svg);
+    }
+
+    if (card.tag) {
+      var tag = document.createElement("span");
+      tag.className = "lobby-card-tag";
+      tag.textContent = card.tag;
+      a.appendChild(tag);
+    }
+
+    var title = document.createElement("div");
+    title.className = "lobby-card-title";
+    title.textContent = card.title || "";
+    a.appendChild(title);
+
+    if (card.desc) {
+      var desc = document.createElement("div");
+      desc.className = "lobby-card-desc";
+      desc.textContent = card.desc;
+      a.appendChild(desc);
+    }
+
+    /* card.stat is a label ("Read the case"), never a count — see the rail above. */
+    if (card.stat) {
+      var stat = document.createElement("span");
+      stat.className = "lobby-card-stat";
+      stat.textContent = card.stat;
+      a.appendChild(stat);
+    }
+
+    return a;
+  }
+
+  function renderCards(arena) {
+    if (!el.cards) return;
+    el.cards.textContent = "";
+
+    var cards = (arena && arena.cards) || [];
+    /* A card with no destination is not rendered at all — a card that looks
+     * clickable and goes nowhere is the defect this rebuild removed. */
+    var usable = cards.filter(function (c) { return c && c.url && c.title; });
+
+    if (!usable.length) {
+      var empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "The provocation list is unavailable right now.";
+      el.cards.appendChild(empty);
+      return;
+    }
+
+    usable.forEach(function (card) { el.cards.appendChild(buildCard(card)); });
+
+    if (el.archive && arena.cta) {
+      if (arena.cta.label) el.archive.textContent = arena.cta.label;
+      if (arena.cta.url) el.archive.setAttribute("href", arena.cta.url);
+    }
+  }
+
+  /* Honest degradation: say the list is unavailable, leave the Gauntlet link —
+   * which is static in the markup — working. Never leave "Fetching…" on screen. */
+  function failHonestly() {
+    if (el.prov) {
+      el.prov.textContent = "Today's provocation could not be loaded.";
+    }
+    if (el.provBody) {
+      el.provBody.textContent = "The Gauntlet below still works — it draws its own provocation when you start a round.";
+    }
+    if (el.date) el.date.textContent = "";
+    if (el.cards) {
+      el.cards.textContent = "";
+      var empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "The provocation list is unavailable right now.";
+      el.cards.appendChild(empty);
+    }
+  }
+
+  fetch(FEED, { credentials: "same-origin" })
+    .then(function (r) {
+      if (!r.ok) throw new Error("feed " + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      if (!data) throw new Error("empty feed");
+      if (el.subtitle && data.arena && data.arena.subtitle) {
+        el.subtitle.textContent = data.arena.subtitle;
+      }
+      renderToday(data.today, data.generated_at);
+      renderCards(data.arena);
+    })
+    .catch(failHonestly);
+})();
+</script>
+

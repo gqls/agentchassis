@@ -13,8 +13,42 @@ New in this revision (approved EXPERIENCE_PLAN §3 data contract):
   archive.entries[].detail_body full case text shown in the detail region
 Entries without detail_body render non-openable (Journey B.3). Entry 8 has
 no case written yet — that absence is real, not manufactured.
+
+THE SEAL (owner ruling 2026-07-31, HANDOFF_2026-07-30_C) — READ BEFORE EDITING
+`today` MUST NOT carry `headline` or `body`. One invariant, site-wide:
+
+    today's provocation is readable in the Gauntlet, after entry, and NOWHERE ELSE.
+
+The Gauntlet page seals it on purpose (131-C) — you commit to arguing before you
+know what you are arguing about. This file used to publish the same provocation in
+full, and the home page and the Arena page both painted it, so every normal visitor
+had read the argument before reaching the sealed door. Measured 2026-07-31: 3 of 19
+pages leaked it.
+
+**The seal is enforced HERE, in the data, not in the renderers.** Three pages read
+this feed and any future one will too; a renderer-side fix would have to be repeated
+for each and would silently not apply to the next. The keys are ABSENT rather than
+empty — a renderer reading `today.headline` gets `undefined` and paints nothing.
+
+So: today's provocation text does not exist in this file. `today` carries only the
+SEAL (a statement that it is sealed) plus the route in. What a provocation reads like
+is shown by `sample` — a PAST one, in full, which is safe because it has been argued.
+
+Two things that will bite:
+  * The Gauntlet page does NOT read this feed at all (verified 2026-07-31 by request
+    interception). Its provocation comes from the engine's /round. So removing text
+    from here cannot break the round.
+  * `arena.cards[0]` is the "Today" card and is ALSO a leak surface — it carried
+    today's title and a condensed body. It is now the sealed card. Both the home
+    lobby grid and the Arena lobby read it from here, so fixing it here fixes both
+    with no JS change.
+
+Verify by RENDERING, never by grepping HTML — the text is written into an empty
+shell by JS after load, so a curl grep reports "absent" on the pages that show it:
+  ~/.venvs/vonc_pw/bin/python ../scripts/provocation_leak_sweep.py
 """
 import json
+import sys
 
 ICONS = {
     "layers": '<path d="M12 2L2 7l10 5 10-5-10-5zm0 9L2 16l10 5 10-5-10-5z"/>',
@@ -25,17 +59,19 @@ ICONS = {
     "pulse": '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
 }
 
+# NO `headline`, NO `body` — see THE SEAL in the module docstring. Adding either
+# back re-opens the leak on three pages at once, and the guard at the bottom of this
+# file will refuse to emit.
 TODAY = {
     "eyebrow": "Today's Provocation",
-    "headline": "Nobody actually <em>wants</em> a personalised internet.",
-    "body": (
-        "Every feed is tuned to one person, and every conversation now opens with "
-        "“have you seen” and closes with a shrug. What gets sold as personalisation "
-        "is mostly the quiet removal of whatever you would have had in common with a "
-        "stranger. The engine is not serving you — it is dividing the room so each "
-        "half can be sold separately."
+    "sealed": True,
+    "seal_headline": "Today's question is <em>sealed</em>.",
+    "seal_body": (
+        "You read it when the clock starts, and not before. That is the whole point: "
+        "you commit to arguing before you know what you are arguing about, which is "
+        "the one thing a chat window will never ask of you."
     ),
-    "primary_cta": {"label": "File Your Position", "url": "/tools/gauntlet/index.html"},
+    "primary_cta": {"label": "Take On Today's Provocation", "url": "/tools/gauntlet/index.html"},
     "secondary_cta": {"label": "See All Provocations", "url": "/provocations/index.html"},
     # Facts true by construction of the Gauntlet, not participation metrics.
     "stats": [
@@ -193,6 +229,42 @@ def card_for(e, icon, tag):
 
 by_slug = {e["slug"]: e for e in ENTRIES}
 
+
+def newest_with_case():
+    """The provocation shown in full as the worked sample.
+
+    Deliberately DERIVED, not hardcoded: it is the first entry in ENTRIES that has a
+    case written. ENTRIES is newest-first, so when a finished provocation joins the
+    top of the archive the sample follows it with no edit here. That is as
+    self-maintaining as this file can be until HANDOFF B makes today's provocation
+    roll into the archive automatically — at which point this needs no change either.
+
+    Safe by construction: a past provocation has already been argued, so showing it
+    in full gives nothing away about today's.
+    """
+    for e in ENTRIES:
+        if e.get("detail_body"):
+            return e
+    raise SystemExit("build_provocations: no archive entry has a detail_body, so "
+                     "there is no safe sample to show. Refusing to emit a feed whose "
+                     "home page would have nothing concrete on it.")
+
+
+_sample = newest_with_case()
+
+# The sample is a PAST provocation, shown in full, so a first-time visitor can see
+# what one reads like without being told today's. Only the opening paragraph goes in
+# `body` — the full case is one click away and the home card has room for one idea.
+SAMPLE = {
+    "eyebrow": "A past provocation",
+    "date": _sample["date"],
+    "slug": _sample["slug"],
+    "headline": _sample["title"],
+    "body": _sample["detail_body"].split("\n\n")[0],
+    "cta_label": "Read the full case",
+    "url": "/provocations/index.html?entry=" + _sample["slug"],
+}
+
 ARENA = {
     "eyebrow": "The Arena",
     "title": "Every provocation is <em>open</em> to argue.",
@@ -203,13 +275,18 @@ ARENA = {
     "cta_label": "Not sure where to start? Today's provocation is the one on the clock.",
     "cta": {"label": "See every provocation", "url": "/provocations/index.html"},
     "cards": [
+        # The "Today" card is a LEAK SURFACE — it used to carry today's title and a
+        # condensed body, and both the home lobby grid and the Arena lobby render it
+        # from here. It states that today's is sealed and routes into the round; it
+        # never names it. `title` must stay non-empty: a card with no title is
+        # filtered out by both renderers, which would silently remove the only route
+        # into today's provocation from the lobby.
         {
             "icon": ICONS["layers"],
             "tag": "Today",
-            "title": "Nobody actually wants a personalised internet",
+            "title": "Sealed until you step in",
             "desc": (
-                "What gets sold as personalisation is mostly the quiet removal of whatever "
-                "you'd have had in common with a stranger."
+                "Today's provocation is revealed when the clock starts, not before."
             ),
             "stat": "On the clock in the Gauntlet",
             "url": "/tools/gauntlet/index.html",
@@ -225,8 +302,67 @@ ARENA = {
 feed = {
     "generated_at": "2026-07-26T00:00:00Z",
     "today": TODAY,
+    "sample": SAMPLE,
     "arena": ARENA,
     "archive": {"entries": [entry_out(e) for e in ENTRIES]},
 }
 
+
+def guard(feed):
+    """Refuse to emit a feed that re-opens the leak.
+
+    STRUCTURAL, not textual. A textual guard would need today's provocation written
+    down here to compare against — which is the very thing that must not be in this
+    file — and it would go stale the day the provocation changes. So this asserts the
+    shape the seal depends on instead, which cannot go stale.
+
+    This is a guard on the DATA. The check on the live SITE is a render sweep, because
+    the text is painted by JS into an empty shell and no HTML-level check can see it:
+        ~/.venvs/vonc_pw/bin/python ../scripts/provocation_leak_sweep.py
+    """
+    problems = []
+
+    for key in ("headline", "body"):
+        if key in feed["today"]:
+            problems.append(
+                "today.%s is present. That key is what leaked onto 3 pages; the seal "
+                "is that it does not exist. Put the copy in today.seal_%s instead."
+                % (key, key)
+            )
+
+    if not feed["today"].get("sealed"):
+        problems.append("today.sealed is not true — renderers branch on it to decide "
+                        "whether to paint the seal or a provocation.")
+
+    # The sample must be a PAST provocation, i.e. one that appears in the archive.
+    # A sample that is not in the archive is unverifiable: nobody can tell whether it
+    # has been argued yet, which is the only reason showing it in full is safe.
+    slugs = {e["slug"] for e in feed["archive"]["entries"]}
+    if feed["sample"]["slug"] not in slugs:
+        problems.append("sample.slug %r is not in the archive, so it cannot be shown "
+                        "as a past provocation." % feed["sample"]["slug"])
+
+    # The Today lobby card must route somewhere and must not name a provocation.
+    today_card = feed["arena"]["cards"][0]
+    if today_card.get("tag") != "Today":
+        problems.append("arena.cards[0] is no longer the Today card; the guard below "
+                        "is checking the wrong card.")
+    if not today_card.get("title") or not today_card.get("url"):
+        problems.append("arena.cards[0] needs a title AND a url — both renderers "
+                        "filter out cards missing either, which would remove the only "
+                        "lobby route into today's round.")
+    archive_titles = {e["title"] for e in feed["archive"]["entries"]}
+    if today_card.get("title") in archive_titles:
+        problems.append("arena.cards[0].title names a real provocation. The Today card "
+                        "must state that today's is sealed, not what it is.")
+
+    if problems:
+        sys.stderr.write("build_provocations: REFUSING TO EMIT — the seal would be "
+                         "broken:\n")
+        for p in problems:
+            sys.stderr.write("  * %s\n" % p)
+        raise SystemExit(1)
+
+
+guard(feed)
 print(json.dumps(feed, indent=2, ensure_ascii=False))
