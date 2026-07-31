@@ -532,10 +532,13 @@ Fable 5" is a change to make deliberately, and P0 gains three items **in this
 order** — note DB model config is live immediately (CLAUDE.md), so (i) and (ii)
 come before any lane is pointed at Fable:
 
-1. **Verify org data retention ≥ 30 days.** Fable 5 is not available under zero
-   data retention — a ZDR org gets `400 invalid_request_error` on **every**
-   request, with a payload that looks perfectly valid. **Still open** — this is
-   an account/console setting, not something greppable from the tree.
+1. ~~Verify org data retention ≥ 30 days.~~ **DONE 2026-07-31 — PASSES.** Not
+   greppable from the tree, so verified the only way available: a live probe
+   call to `claude-fable-5` from inside the cluster (`agent-chassis` pod, using
+   the org's own `ANTHROPIC_API_KEY`, via `wget` — no client on the pod).
+   **`HTTP 200`, not the retention-configured `400 invalid_request_error`** —
+   the org's retention already meets the requirement. Full request/response and
+   the exact numbers are in §7c below.
 2. ~~Grep the chassis LLM call layer for temperature/top_p/top_k/budget_tokens/
    thinking config.~~ **DONE 2026-07-29 — CLEAN.** Read `platform/aiservice/
    anthropic.go:89-113`: `temperature` is **already unconditionally dropped** —
@@ -567,6 +570,54 @@ not a crash.
 - The durable story needs no arithmetic at all, and idea.uk's version is the
   model: *a bespoke site, built end to end by an AI pipeline, with a human
   reviewing it before it goes out.*
+
+## 7c. First live Fable-5 measurement — a FLOOR, not a build cost
+
+> **Read the heading before the numbers.** idea.uk's own workstream has already
+> been burned once by exactly this: a real, dated, correctly-measured figure
+> ($0.641) got repeated elsewhere as *"the cost of a report"* when it covered 2
+> of 5 calls. **This is smaller still — one short call, not one page, not one
+> site.** Treat it as a unit-price confirmation, not a pricing input.
+
+**What was done, 2026-07-31.** No Anthropic client exists in this shell and no
+chassis lane is wired to Fable yet (P4/P5), so the only honest way to answer
+"does this org's retention pass, and what does Fable actually cost" was a live
+probe: `kubectl exec` into a running `agent-chassis` pod (which already carries
+`ANTHROPIC_API_KEY` as it must, to do its job), and `wget` — the only HTTP
+client the pod's minimal image has — a single request straight to
+`api.anthropic.com/v1/messages`, `model: "claude-fable-5"`, no `thinking` key
+(omit → adaptive), asking for a short piece of representative website copy (an
+"About Us" paragraph, 120–150 words). Request and response files were removed
+from the pod's `/tmp` immediately after.
+
+**Result: `HTTP 200`.** Retention passes (§7b item 1, now closed). Measured:
+
+| | tokens | rate | cost |
+|---|---:|---:|---:|
+| input | 69 | $10/MTok | $0.000690 |
+| output (incl. 25 thinking) | 282 | $50/MTok | $0.014100 |
+| **total, this one call** | | | **$0.01479** |
+
+Also confirmed live, not just from the skill doc: `stop_reason: "end_turn"`,
+`stop_details: null` (matches the documented *null-unless-refusal* shape);
+`thinking` block present with empty `"thinking":""` text (matches the
+documented default `display:"omitted"` — the reasoning happened and was billed,
+the text is withheld); the exact $10/$50 per-MTok rate the skill quoted, live
+against a real invoice line rather than a cached table.
+
+**What this is NOT.** One short paragraph is not one page, and one page is not
+one site. A real build (§7 P5) runs classification, planning, several pages of
+content, imagery direction, and a verification pass — each its own call, each
+with its own input/output split, several likely far larger than 282 output
+tokens. **Do not multiply this number by anything to get a build price.**
+
+**What it does settle:** the retention blocker (§7b item 1) is closed, the
+$50/MTok output rate — the dominant cost driver, same as idea.uk's finding — is
+confirmed live rather than assumed, and the request shape (no `thinking` key,
+Fable runs adaptive and returns an empty-text thinking block by default) is
+proven against the real API rather than the skill's description of it. **The
+one remaining P0 item is unchanged: a full build, wired through P4/P5, measured
+end to end from `llm_call_log`.**
 
 ---
 

@@ -361,3 +361,60 @@ reading it is satisfying, which is what makes the gap easy to miss.
 
 Org data-retention level (account/console setting, not in the tree) and one
 measured Fable-5 build cost from `llm_call_log`.
+
+---
+
+## 2026-07-31 — first live Fable-5 measurement, and a misstep in getting there
+
+### The misstep, recorded before the result
+
+First `kubectl exec -i "$POD" -- sh -c 'cat > /tmp/fable_probe.json'` with the
+payload piped via `<` reported success, and a **separate** follow-up
+`kubectl exec "$POD" -- sh -c 'wc -c /tmp/fable_probe.json'` read **0 bytes**.
+Combining both into one exec call (`cat > file && wc -c file`) showed 329 bytes
+written correctly. Root cause not fully isolated — plausibly stdin buffering
+across two independent `exec -i` sessions rather than the two pods (there are
+2 replicas, but I pinned the pod name explicitly both times). **The fix that
+matters: write-then-verify in the SAME exec call**, not two. Not yet promoted
+to a landmine — one occurrence, cause not pinned down cleanly enough to state
+as a rule others should trust.
+
+### The probe
+
+No Anthropic client in this shell (`env | grep ANTHROPIC` empty, no `ant` CLI).
+`agent-chassis` pod carries `ANTHROPIC_API_KEY` (confirmed via `printenv`
+before using it), and its image has only BusyBox `wget` — no `curl`, no `jq`
+(checked with `which`, not assumed). Sent one real request, `model:
+"claude-fable-5"`, no `thinking` key, a 120–150 word "About Us" copy prompt,
+`max_tokens: 4096`.
+
+```
+HTTP/1.1 200 OK
+usage: input_tokens=69, output_tokens=282 (thinking_tokens=25 of that),
+       cache_creation=0, cache_read=0
+stop_reason: end_turn, stop_details: null
+```
+
+**Cost:** 69 × $10/MTok + 282 × $50/MTok = $0.000690 + $0.014100 = **$0.01479**.
+
+### What this closes, and what it does not
+
+- **Closes PLAN §7b item 1** (org data retention ≥30 days): `200`, not the
+  retention-configured `400 invalid_request_error`. The org passes.
+- **Confirms, live rather than from the skill doc:** the exact $10/$50 per-MTok
+  rate; `stop_details: null` on a non-refusal turn; a `thinking` block present
+  with empty `"thinking":""` text when `display` is left at its default
+  (`"omitted"`) — the reasoning happened (25 tokens, billed) and the text was
+  withheld, exactly as documented, now seen on the wire rather than read in
+  the doc.
+- **Does NOT close item 3** (measure one real build). This is one short
+  paragraph, not one page, and nowhere near one site. Written up in PLAN §7c
+  with the heading doing the work: *"a FLOOR, not a build cost"* — the exact
+  phrasing this workstream already burned itself on once this week with
+  idea.uk's $0.641 figure. Marked before the number, not after, this time.
+
+### Housekeeping
+
+Removed `/tmp/fable_probe.json`, `/tmp/fable_resp.json`, `/tmp/fable_headers.txt`
+from the pod after reading the response — a production pod's `/tmp` is not a
+scratch space to leave things in, even though it would clear on a restart.

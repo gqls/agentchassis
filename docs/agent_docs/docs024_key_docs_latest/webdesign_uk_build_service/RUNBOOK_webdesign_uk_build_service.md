@@ -83,6 +83,43 @@ session itself ran Fable — the phrase covered the session and an intention, no
 the fleet. DB model config is live on write, so the distinction decides whether
 the pre-flight checks below are still owed.
 
+### Live-probe a model from inside the cluster — no local Anthropic client needed
+
+This shell has no `ANTHROPIC_API_KEY` and no `ant` CLI. Any pod that calls
+Anthropic already carries the key as an env var — reuse it rather than
+provisioning a separate credential for a one-off check:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+
+# write the request body in ONE exec call — a separate exec to `cat` then a
+# second to `wc` can read 0 bytes; combine write+verify in one shell.
+kubectl -n ai-persona-system exec -i "$POD" -- sh -c 'cat > /tmp/probe.json && wc -c /tmp/probe.json' < request.json
+
+kubectl -n ai-persona-system exec "$POD" -- sh -c '
+wget -q -O /tmp/resp.json -S \
+  --header="x-api-key: $ANTHROPIC_API_KEY" \
+  --header="anthropic-version: 2023-06-01" \
+  --header="Content-Type: application/json" \
+  --post-file=/tmp/probe.json -T 120 \
+  https://api.anthropic.com/v1/messages 2>&1
+cat /tmp/resp.json
+'
+
+# clean up — do not leave request/response files on a production pod
+kubectl -n ai-persona-system exec "$POD" -- sh -c 'rm -f /tmp/probe.json /tmp/resp.json'
+```
+
+**Gotcha:** the pod's image has `wget` (BusyBox) and **no `curl`, no `jq`** —
+confirmed via `which curl; which jq; which wget`, don't assume. BusyBox `wget`
+takes `--post-file` (not `--data @file`) and `-S` prints response headers to
+stderr. `-O -` to stdout also works, but stderr/stdout interleave oddly under
+`kubectl exec`; writing to a file and `cat`-ing it back is cleaner.
+
+**This is a spend action against the org's real Anthropic account** — treat it
+with the same care as any other live cluster action, not as read-only
+diagnostics.
+
 ### Fable-5 pre-flight (PLAN §7b) — in this order
 
 1. **Org data retention ≥ 30 days.** A ZDR org gets `400 invalid_request_error`
