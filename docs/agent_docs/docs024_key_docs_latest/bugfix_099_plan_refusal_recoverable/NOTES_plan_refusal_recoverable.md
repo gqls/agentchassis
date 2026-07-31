@@ -550,3 +550,103 @@ routes it to repair instead of discarding it silently. What has **not** yet been
 observed live is a repair round that *completes successfully*, and that is what the
 next roll plus one more induced run should show. **The bug does not close until then**
 — "the routing works" is not the same claim as "a design was saved".
+
+## 2026-07-31 — council round 3: REVISE again, 14 seats, gated by `guidelines`
+
+A *different* seat gated it this time (`guidelines`, not round 1's `llm_reliability`),
+and none of round 1's five objections recurred — so those were accepted as answered.
+`gated_by_truncation: false` again.
+
+### `guidelines` (HIGH, gating) — declare `plan_valid` in `output_contract`
+
+The seat's distinction is right: `plan_valid` is **not** telemetry, it is
+control-flow-determining, because `check_plan_valid` branches on it. So the
+telemetry exemption genuinely does not apply. Measured before answering:
+
+| question | answer |
+|---|---|
+| does `feature-designer` have an `output_contract`? | **no — NULL** |
+| do the other two consumers? | **no — `fix-proposer` NULL, `council-gate` NULL** |
+| fleet adoption | **95 of 185** live agents |
+| is it enforced in Go? | **no** — `OutputContract` (`input_contracts/input_mapping.go:52`) is a type declaration with **zero consumers**; nothing reads it |
+| what granularity is it? | **output_field names**, e.g. `{"produces": ["monitor_loop"]}` |
+
+That last row is the decisive one. The contract lists **output_field names**, not the
+fields inside them. `plan_valid` lives inside `plan_persisted`, which `persist_plan`
+already declared as its `output_field` before this change — **so no new output name is
+introduced and there is nothing this contract format could express about
+`plan_valid`.** Adding a token `{"produces": [...]}` block to satisfy the objection
+would not declare the field in question; it would be cargo-cult.
+
+Recorded rather than actioned, with the measurement, so the next reviewer can disagree
+with the reasoning rather than re-derive the facts.
+
+### `llm_reliability` (MEDIUM ×2) — `ai_service` depth: a `?&` key check can pass at the wrong depth
+
+A fair challenge, and answerable by measurement rather than by a stronger assertion —
+`272` is already applied, so reading the live row is better evidence than a guard that
+would have run at apply time:
+
+```
+repair_plan ai_service = {"model":"claude-sonnet-5","provider":"anthropic",
+                          "max_tokens":32000,"api_key_env_var":"ANTHROPIC_API_KEY"}
+max_tokens as int at that path = 32000
+root ai_service = ABSENT
+```
+
+read at `default_config->'workflow'->'steps'->'repair_plan'->'config'->'ai_service'`,
+which is **exactly** the path `resolveAIServiceConfig` walks (`ai_actions.go:77-87`).
+Value, not key existence; correct depth; no root block to interact with.
+
+### `editquality` — "is the `BEGIN` live, or a stale/commented one?"
+
+Verified, and the seat was right to ask (there is a landmine on precisely this):
+
+```
+272: BEGIN; at line 114, COMMIT; at 355
+273: BEGIN;  at line  73, COMMIT; at 225
+```
+
+Both uncommented, both matched. The dry runs replaced `^COMMIT;$` with `ROLLBACK;`, so
+the transaction was real in both directions.
+
+### `editquality` + `guardian` — prove the `council_decide` refactor is behaviour-preserving
+
+Both asked for independent verification rather than my assertion, on a live file in
+another lane's active area. Fair. The whole diff is two mechanical substitutions:
+same arguments (`corr`, `nullIfEmpty(orchID)`, `"council_report"`, and the metadata
+pair), same SQL, same fail-closed values (`round = 1`, `rejectedCount = 2`), and the
+existing council tests are unmodified and pass. Checked the one thing a reader would
+worry about: the original `Scan(&round)` wrote into a variable pre-set to 1, mine
+assigns `round = n` only on success — identical in every branch, including a
+successful count of 0.
+
+### `bug_historian` (MEDIUM) — ACTED ON
+
+*"A dry-run-clean-but-unapplied SQL file sitting in `docs/` is not itself a safeguard
+against the sibling being forgotten — it is exactly the kind of artifact that reads as
+'handled' in a diff without being handled in production."* That is correct and it is
+the objection I most agree with.
+
+Filed **`bugs_open/162`** and indexed it in `016b` §10. Deliberately a `bugs_open` case
+rather than the `site_work_items` row the seat suggested: a work item that no handler
+serves is a dead queue entry, whereas `bugs_open` is what threads actually grep and is
+this repo's mechanism for "known defect, fix awaiting an owner".
+
+### `guardian` (LOW) — `273`'s operation tag should be `config_change`, not `add`
+
+Right; it is a workflow-JSON edit regardless of whether it has been applied. Cosmetic,
+in the submission text only.
+
+### Decision on further rounds
+
+Every round-3 objection is now either **acted on** (162 filed) or **answered by
+measurement** (contract granularity, `ai_service` depth, live `BEGIN`, the refactor
+diff). Three rounds have each drawn a different gating seat, which is the roster
+working as intended rather than a signal the change is unsound — round 1's five
+objections did not recur.
+
+The gate is **advisory** and cannot block; the commits carry `Council-Submitted`, which
+asserts nothing and resolves at report time. The remaining work that actually closes
+this bug is a roll and one more induced run, so that is the priority over a fourth
+round.
