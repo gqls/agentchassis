@@ -126,3 +126,43 @@ kubectl exec -n ai-persona-system <pod> -- sh -c \
 ```
 Both numbers in **one exec**, per the fleet rule that a roll is not evidence a
 fix shipped (`bugs_open/153`).
+
+## Reading a `complete_invalid` — it usually is NOT your JSON
+
+Round 3 died at `complete_invalid`, which looks exactly like a schema rejection.
+It was not. **Read the failed step before touching the submission:**
+
+```sql
+SELECT collected_data->'__step_error'->>'failed_step',
+       left(collected_data->'__step_error'->>'message', 700)
+FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id'='<SUBMISSION_CORR>'
+ORDER BY updated_at DESC LIMIT 1;
+```
+
+| `failed_step` | what it means | what to do |
+|---|---|---|
+| `persist_submission` | genuine schema death; **no** reviewer ran | fix the JSON |
+| `review_<seat>` | the plan was valid and had already passed `persist_submission`; one seat's call failed and its `error_step` routed the whole round to the terminal | resubmit **unchanged** under `RESUBMIT_CORR` |
+
+Then check whether it is yours or the fleet's, because that decides *when* to
+retry rather than *what* to change:
+
+```sql
+SELECT current_step, updated_at, collected_data->'__step_error'->>'failed_step'
+FROM orchestration_states
+WHERE updated_at > NOW() - INTERVAL '2 hours'
+  AND collected_data->>'__step_error' ILIKE '%usage limits%'   -- or '%AI endpoint unavailable%'
+ORDER BY updated_at DESC;
+```
+
+**2026-07-31 19:05 UTC:** three orchestrations, at two different seats
+(`review_editquality`, `review_tooling_provenance`), all killed by
+`API request failed with status 400 … "You have reached your specified API usage
+limits. You will regain access on 2026-08-01 at 00:00 UTC."`
+
+**That is a HARD window, not latency.** Resubmitting before it lifts fails
+identically and burns a round for nothing — the opposite of the "a missing
+orchestration row is almost always latency, do not retry" rule, and it is
+distinguished by exactly this query. Wait for the stated time, then resubmit
+unchanged under `RESUBMIT_CORR`.
