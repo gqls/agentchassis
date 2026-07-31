@@ -339,3 +339,72 @@ matching `pages.url`) are untouched and remain the right pairing — `bugs_open/
 the same primitive. Candidate 2 (refuse on disagreement) was deliberately NOT taken: it
 would block 316 pages on a disagreement that is expected until each is next deployed.
 The disagreement is logged instead, which also makes the fix observable in the pod.
+
+---
+
+# CLOSED 2026-07-31 — fixed, council-APPROVED at round 2, and LIVE on v1.0.1217
+
+**Council `758f6e62-99b8-4f33-a81b-7143351ecd69`: round 1 REVISE → round 2 APPROVED**
+("approved with 2 advisory objection(s) — none high-severity"; 12 reviewers, 5 abstained,
+0 unreadable). Commits `5dc177f97` (fix), `0a203af54` (round 2), `fb9fcbce5` + `305427012`
+(docs). Lane: `docs024_key_docs_latest/bugfix_125_deploy_path_from_url/`.
+
+**Live, verified at the pod and not at the tag** (`bugs_open/153`: a roll is not evidence).
+`determinePageFilename` and `PageFilePathFromURL` are unexported, so the discriminating
+marker is the log string the change adds, grepped on **every** pod with a negative control
+in the same exec:
+
+```
+agent-chassis-867fc4f77c-9pcww  v1.0.1217   marker 1   fallback-warn 1   NEG CTL 0
+agent-chassis-867fc4f77c-wd2cg  v1.0.1217   marker 1   fallback-warn 1   NEG CTL 0
+agent-chassis-744d68cd7-76s55   v1.0.1215   marker 0   fallback-warn 0   NEG CTL 0   ← draining, now gone
+```
+The old 1215 pod scoring 0/0/0 on the same greps is the control that proves the marker
+discriminates. Both 1215 pods are **gone, not draining** — re-checked after the rollout.
+
+## What the round-2 council left as advisory, and what was done about it
+
+- **`prior_art_librarian` (medium): "deferring scope on an unverified absence is the exact
+  ASSERTED-ABSENCE shape".** Right, and the check found a near-miss worth recording.
+  Verified: the only deletion verb in the git adapter is `delete_repo`
+  (`adapter.go:361`, unimplemented at `:641`); no `delete_file`/`unpublish`/`retract`
+  action exists anywhere in `platform/`, `internal/` or `cmd/`. **But
+  `discovery_checks/check_orphan_pages.go` DOES exist** — and it is not this sweep: it
+  starts from `pages` rows and finds pages with no inbound links, so it structurally
+  cannot see a **file with no `pages` row at all**, which is what this defect produces.
+  The absence claim survives; it is now checked rather than asserted.
+- **`prior_art_librarian` (low): round 2's resolution rested on self-reported grep output.**
+  Re-attached: `grep -rn 'func getPageInfo\|func loadPageInfo' platform/ internal/ cmd/`
+  returns exactly one line — `rerender_single_page_action.go:493 func getPageInfo`.
+- **`bug_historian` + `guardian` (medium): the existing orphan population is uncounted, and
+  after this ships a fixed page has a correct copy AND a stale one.** True, and it stays
+  true — candidate 3/4 are logged on `bugs_open/098` (2026-07-31), not absorbed here.
+  **An attempt to bound the population FAILED and is recorded as a failure, not as a zero:**
+  `SELECT owner_agent_type, count(*) FROM orchestration_states WHERE owner_agent_type IN
+  ('pageflow-builder','page-rebuild','site-work-orchestrator')` → **0 rows across the whole
+  18-day retention window (2026-07-13 → 07-31)** — which **contradicts** the known 07-28
+  `page-rebuild` run that created the finetuning.uk orphan, so the query is not seeing
+  those runs and does **not** bound anything. Anyone doing candidate 4 should start by
+  finding out where those runs are actually recorded. **316/472 is the number of pages
+  EXPOSED, not the number damaged** — the two have been used interchangeably in this file
+  and in the council round, and they are not the same quantity.
+- **`guardian` (low): a defect in the shared helper now fans out to 7 pipelines.** Accepted.
+  That is the intended trade (one definition instead of five), and it is why the helper
+  ships with 60 test cases including a never-empty postcondition.
+- **`guardian` (medium): a pod-grep proves the code shipped, not that the first live build
+  behaved as measured.** Correct, and the acceptance run is still owed — see below.
+
+## STILL OWED (deliberately, and named rather than quietly dropped)
+
+1. **The `bugs_open/087` acceptance re-test**, on a page that is **not**
+   `rebuild_policy=owned`, asserting the **path** and not `success: true`. The sweep
+   handoff says 087 and 125 should ship together; 125 is now live, so 087's re-test is
+   unblocked and would close both. SQL to pick a target is in the lane RUNBOOK.
+2. **Candidates 3 and 4** — the `delete_file` verb and the orphan census. Logged on
+   `bugs_open/098`, which needs the same primitive. **Neither bug has ever counted the
+   orphan population**, and the obvious query does not do it (above).
+
+**Closing on the "fixed AND live" bar**: the defect — a single-page deploy resolving its
+path from the page name — is no longer reproducible on the running binary. What remains
+open is the *consequence* of past occurrences (retraction), which is `098`'s primitive and
+was never in this bug's cause.
