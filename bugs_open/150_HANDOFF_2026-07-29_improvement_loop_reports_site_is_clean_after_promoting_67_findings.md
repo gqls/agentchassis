@@ -256,3 +256,18 @@ pick a site with `passes < 3`, or the run short-circuits before the branch under
 nil → false → **every** run takes the clean branch, including the ones that promote, which
 is strictly worse than the bug. Pinned by `TestConditionOnAPreUpgradeBinaryDoesNotSilentlyInvert`
 as well as by the migration's own banner.
+
+### 2026-07-31 22:3x — a roll happened and it does NOT carry this fix. Step 1 is still owed.
+
+`v1.0.1218` → **`v1.0.1223`** while this lane was working. That is not evidence of anything,
+and here is the measurement rather than the tag (`bugs_open/153`):
+
+```
+agent-chassis-dbc9b5df9-k7wnd   site_dispatchable=0   control=1
+agent-chassis-dbc9b5df9-nd4cw   site_dispatchable=0   control=1
+```
+
+Commit `337fdd9af` is timestamped 22:20:56; `v1.0.1223` was built from an earlier HEAD. The
+control (`TriageDetectedItemsAction: Starting`) is 1 on both replicas, so the grep works and
+the binary is the one being read — the change is simply not in it. **Do not read a tag bump
+as this fix shipping; re-run the two-number grep in § "What is owed".**

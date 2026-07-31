@@ -57,3 +57,13 @@ this" message) rather than the change I made here.
 
 The change has gone to the review council; the verdict lands in about half an hour and I
 will act on it whatever it says.
+
+**Later the same evening**
+
+A new chassis image went out while I was writing this up — v1.0.1218 became v1.0.1223 — and
+it does **not** contain the fix. I checked the running containers rather than the version
+number: the string my change adds is absent from both, while a control string that has been
+there for months is present, so the check itself is sound. The image was simply built from a
+snapshot of the code taken before my commit. Nothing is wrong; it just means the two steps
+owed are still owed, and the next person should not read "there was a roll" as "the fix is
+live". The command that answers it properly is written into the ticket.
