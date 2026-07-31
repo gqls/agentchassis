@@ -1262,3 +1262,33 @@ source document and the entry points at it.
 - **source:** 2026-07-31, gauntlet_dead_cta lane; fix `43492ec94`, council round 2 on
   corr `da3f2d9b-ae6f-492d-ad3b-748323b66367`; `WRONG_CALLS.md` same date
 - **added:** 2026-07-31, gauntlet_dead_cta lane
+
+### The diagnosis loop's `data_request` truncates a large text column at ~10.7KB — so an ABSENCE claim about a big artefact is unconfirmable by it
+
+- **footprint:** `090_TRIGGER_needs_diagnosis_v1.sh`, the diagnose-agent `data_requests`
+  path, any hypothesis citing `page_components.rendered_html`, `html_template`,
+  `content_data` or another wide text column as its artefact
+- **fires when:** your hypothesis turns on something NOT being in a large artefact — no
+  randomness in a tool, no call to a function, no reference to a key — and you ask the loop
+  to verify it
+- **the tell:** the loop reports the column "truncates at the identical point" on repeated
+  fetches and concludes it cannot close the gap. Measured 2026-07-31 on `bugs_open/161`:
+  it read **10,704 of 21,527 characters (49.7%)** of one component, twice, cut at the same
+  offset. Nothing errors; the verdict comes back `UNVERIFIABLE` / `stopped: iteration-cap`,
+  which reads like the loop ran out of thinking when it actually ran out of *bytes*
+- **why it is a landmine:** the truncation lands mid-artefact, so the loop sees enough to
+  cite plausibly and not enough to settle the question. In 161 the tool's doc comment
+  ("geometric distribution…") sat 55 chars INSIDE the cut and `Math.pow` sat 2,343 chars
+  BEYOND it — so the loop could quote the artefact's *description* while never reading its
+  *computation*. A partial read that quotes confidently is worse than a failed one
+- **the check:** for an absence hypothesis, export the column yourself and **assert the
+  exported byte count against the row's own `length()`** before reasoning from it
+  (`SELECT length(rendered_html) …` then `wc -c` the export; watch stderr for
+  `unexpected EOF`). Give the loop the artefact's decisive fragment IN the symptom text
+  rather than pointing at the column, or expect UNVERIFIABLE. And read a
+  `stopped: iteration-cap` verdict for WHICH evidence it kept asking for — the loop names
+  it in `NeededEvidence`, and in 161 every substantive element was corroborated in its
+  first four iterations
+- **source:** 2026-07-31, bugfix lane, running the loop on `bugs_open/161` under the
+  2026-07-31 owner ruling
+- **added:** 2026-07-31, bugfix lane

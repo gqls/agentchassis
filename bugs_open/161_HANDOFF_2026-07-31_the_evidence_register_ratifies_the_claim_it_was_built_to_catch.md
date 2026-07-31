@@ -7,6 +7,62 @@ fix candidates**, so read this before acting on that file.
 **Status: OPEN, unowned. Structural + cross-cutting. The repair is partly an OWNER CALL
 (the register is human-owned by design), so nothing is changed by this filing.**
 
+> ## Diagnosis loop: UNVERIFIABLE at the iteration cap — every substantive element corroborated, blocked by a harness truncation
+>
+> Run per the **owner ruling of 2026-07-31** (a `bugs_open/` file asserting a cross-cutting
+> or structural root cause must go through the loop, or the session must state plainly why
+> it substituted equivalent first-hand verification). Intake
+> `93cc6cef-39c6-42b0-9861-ab80a235740e`, run `08ff91c4-dfa7-4226-a039-e80a08e44cc1`,
+> 5 iterations, ~14 minutes.
+>
+> **Verdict as returned, verbatim and not softened:** `status = UNVERIFIABLE`,
+> `conclusion = NOT CONFIRMED (stopped: iteration-cap)`, `stopped_by = iteration-cap`.
+> **It is not a REFUTED and it is not a CONFIRMED.** Read what it actually established
+> before using either word:
+>
+> **What the loop reached independently, in its own words:**
+> - iteration 2 — *"The mechanism half is directly shown: `numberSupported` (claims.go)
+>   compares only val against `f.Value`/`tolerance`/`context_terms` and **never reads
+>   `Source.Artifact`, `Source.AttestedBy`, or `f.Claim` wording** — an artifact- or
+>   attestation-sourced fact's number is trusted once registered."*
+> - it found the platform's own doc on `EvidenceSource`: *"Artifact: code path or URL
+>   evidence — **checked for presence in the register, not re-proved.**"* And the
+>   corresponding code at `refreshOneSiteEvidence`:
+>   `if query == "" { continue // artifact/attested facts are checked for presence, not re-proved }`
+> - iteration 4 — *"one concrete mismatched fact (gd-trials: claimed '10,000 Monte Carlo
+>   trials', but **the shipped tool's own doc-comment describes a geometric-distribution
+>   closed-form model, not a trial-based simulation**) that was in fact published and
+>   persisted repeatedly."* It cited that doc comment directly: *"Cumulative distribution
+>   modelled via geometric distribution with optional hard pity cap."*
+>
+> So it corroborated the mechanism AND the specific false fact, from the code and the live
+> DB, without being shown this file. That is independent agreement on both halves.
+>
+> **Why it still would not confirm, and this is the transferable part.** Its own iteration-5
+> note: the tuner script *"has now been fetched twice and truncates at the identical point
+> … this looks like a fixed truncation on the `rendered_html` column itself, not a
+> fetch-window problem."* Measured against my complete export: **the loop saw 10,704 of
+> 21,527 characters — 49.7%.** The `geometric distribution` doc comment sits at offset
+> 10,649, fifty-five characters *inside* the cut, which is exactly why it could cite the
+> comment. But `Math.pow` is at 13,047 — **beyond the cut** — so the loop could never read
+> the actual computation, and `Math.random`'s **absence** (the decisive negative evidence)
+> **cannot be established from a half-read column at all.** You cannot prove an absence
+> from a truncated read.
+>
+> **So the loop declined to confirm for a correct reason**, and the gap is one a direct
+> export closes: `psql` with the row's own `length()` asserted against the exported bytes
+> (21,478 in the DB, 21,566 exported including psql's headers; stderr empty, no
+> `unexpected EOF`). That is the substitute this filing relies on, declared as the ruling
+> requires — **not** "first-hand verification instead of the loop", but the loop run, its
+> corroboration recorded, and the one thing it structurally could not read supplied by a
+> method that can.
+>
+> **A harness finding worth its own attention:** any hypothesis turning on the ABSENCE of a
+> symbol in a large artefact column is **unconfirmable by the diagnosis loop today**,
+> because its `data_request` path truncates around ~10.7KB and an absence claim needs the
+> whole column. This is not `bugs_open/012`'s max_tokens truncation — it is on the read
+> path, silent, and reproducible. Now in `LANDMINES.md`.
+
 ---
 
 ## The one-sentence version
