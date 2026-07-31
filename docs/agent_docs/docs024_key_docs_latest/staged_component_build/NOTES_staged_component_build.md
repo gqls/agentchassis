@@ -1103,3 +1103,122 @@ it before anything else runs).
 30 canonical tool components: **12 testable now** (was 9 two days ago), 10 authoring backlog,
 8 neither; 12+10+8 = 30, reconciled. The 10 with no PLAN at all remain honest rather than
 misleading — nothing claims they were tested.
+
+---
+
+## 2026-07-31 (evening, fresh thread) — the Go gate is PROVEN: the running pod printed its own subject_type vocabulary
+
+Picked up `HANDOFF_2026-07-31b_continue_here.md` §3, the single open next action: prove the Go
+half of `subject_type='component'` genuinely shipped rather than merely being in a binary built
+after the commit. It is now proven, in one dispatch, and the proof is stronger than the
+handoff asked for because the failing arm of the probe **prints the vocabulary out of the
+running binary** instead of arguing from a build date.
+
+### The route: an inline workflow override, so NO agent row was written
+
+The handoff recommended seeding a scratch `agent_definitions` row with one `load_doc_context`
+step. I found a smaller route while reading how the dispatch resolves a workflow:
+`selectWorkflow` (`platform/messaging/processor.go:906-1005`) checks **Priority 1: an inline
+workflow override in the message** (`config.workflow`, :922-928) *before* any DB lookup, and
+returns immediately if it finds one. The comment on it says "(for testing)" — which is exactly
+this.
+
+So the whole probe workflow travelled **inside the Kafka message**. Nothing was written to
+`agent_definitions`, so there was nothing to snapshot, nothing to deactivate, and nothing to
+clean up. Confirmed after the run: `SELECT count(*) FROM agent_definitions WHERE type LIKE
+'%probe%'` returns 3, all three `is_active=f` and created 2026-07-24 — another lane's scratch
+agents, none of them mine.
+
+**Why the misfire is inert as well as visible.** If Priority 1 ever stopped taking precedence,
+the fallthrough is Priority 2 (`FindBestGroup` on `config.agent_type`) — and I deliberately
+used `doc-subject-gate-probe`, which does not exist in `agent_definitions` — and then Priority
+3, the pod's own definition. The pod is `AGENT_TYPE=generic`, and `generic`'s entire workflow
+is a single no-op `complete` step (`"description": "No-op — scheduled task pre_query already
+did the work"`, `processing_mode: task`, `timeout_seconds: 10`). So a misfire does nothing at
+all, *and* it is detectable, because `current_step` would read `complete` instead of one of my
+distinctive step names. I wrote that third outcome into the script as a named verdict, **VOID**,
+rather than letting it look like a pass — §7's defect class is a check that reports health it
+never measured, and "the probe did not run" is the way this probe would have done it.
+
+### The design: two steps in one dispatch, and the second one is the control
+
+- `probe_subject` — `load_doc_context` with `subject_type: component`. **The test.**
+- `probe_vocab` — `load_doc_context` with `subject_type: zzz-probe-invalid-$$`. **The control.**
+  It MUST error, and its error message is `docSubjectTypesQuoted()`'s rendering of
+  `validDocSubjectTypes` **as compiled into the running pod**.
+
+The control earns its place twice over: it proves `probe_subject`'s route was *capable* of
+failing (otherwise a green result proves nothing about the gate), and it turns the probe from
+a yes/no into a **read-out** of the live vocabulary. That last part is the thing a grep cannot
+do, and the reason is in the code: the vocabulary entries are short string literals, which Go
+compiles to immediate comparisons that never reach rodata, but the quoted list in the error is
+built **at runtime** by joining the slice.
+
+### RESULT: PASS on every arm
+
+Correlation `8f564028-6fc6-488c-96d2-c2e362b243b2`, pods `v1.0.1215` (both replicas),
+`COMPLETED` at `finish`, inside the first 3-second poll.
+
+| observation | value |
+|---|---|
+| `doc_subject.has_plan` | **true** |
+| `length(doc_subject.plan_body)` | **827** — byte-identical to the body I generated |
+| `doc_subject.criteria_json <> ''` | **t** — the fence extracted |
+| `__step_error.failed_step` | **`probe_vocab`** — the control, not the test |
+
+And the read-out, verbatim from `collected_data->'__step_error'->>'message'`:
+
+```
+step probe_vocab failed: failed to execute action load_doc_context: load_doc_context:
+subject_type must be one of 'tool', 'pipeline', 'experience', 'action',
+'experience-pattern', 'component', 'landmine', got "zzz-probe-invalid-1914600"
+```
+
+Seven types, from the pod itself. So:
+
+1. **`component` is in the running binary's vocabulary** — not inferred from a build date.
+2. `docResolveSubject` accepted it, the PLAN body travelled back through the Go action intact,
+   and `extractCriteriaBlock` found the fence. That is the whole `load_doc_context` path, which
+   is what an S6-for-components dispatch will use.
+3. **`landmine` is in it too** — which independently corroborates the landmine-verifier lane's
+   claim that its dependency (commit `7290433f2`) is live on v1.0.1215. I did not set out to
+   check that; the control printed it.
+4. Both DB CHECKs and the single Go list now demonstrably agree. The split-contract class
+   (`bugs_closed/064`, migrations 163 and 184, and the `landmine` gap found live two days ago)
+   has, for the first time, a **runtime** check rather than a build-time one.
+
+### CORRECTION — the handoff predicted the wrong failure string, and it would have read as inconclusive
+
+`HANDOFF_2026-07-31b` §3 (carried forward verbatim from the previous handoff, so this error is
+two handoffs old) says the FAIL signal would be `unsupported subject_type "component"`. **It
+would not have been.** That wording belongs to `docSubjectGateReason`
+(`doc_subjects_common.go:96`), which is called by exactly one action —
+`persist_diagnosis_note_action.go:83`. The route the handoff recommends, `load_doc_context`,
+goes through `docResolveSubject` (`write_doc_plan_action.go:143-145`), whose message is
+`subject_type must be one of …, got "…"`. A session grepping the step output for the predicted
+string would have found nothing on either a pass or a fail and had to work out why.
+
+The cheap check that would have caught it: **read the function the recommended route actually
+calls, not the one whose name matches the concept.** Logged in `WRONG_CALLS.md`.
+
+**What this does and does not prove about point 4 of the four-enforcement-point checklist.**
+Both gates consult the same package-level `validDocSubjectTypes` through
+`isValidDocSubjectType` — one slice, one file, no second copy — so proving membership in the
+running binary carries to `persist_diagnosis_note` as well. But I did **not** dispatch
+`persist_diagnosis_note` with a component subject, and I am not claiming I did: what was
+watched is the shared list, via one of its two callers. DOC-068's open review question (no test
+asserts that branch specifically) is untouched by this run.
+
+### Cleanup, and the one thing left in the database
+
+The probe PLAN row was written under `source='handoff-goproof'` (dry run first, per RUNBOOK §9:
+827 chars stored = 827 generated, exactly one `criteria` fence, no `:name` interpolation), and
+deleted after the run — `DELETE 1`, then `count(*)=0`, and `doc_plans` is back to 0 component
+rows. **So `SELECT subject_key FROM doc_plans WHERE subject_type='component'` is empty again,
+and DOC-068's `verify-later` about a real component PLAN being written and read by a gate still
+stands.** The capability is proven; a *use* of it is not. Those are different claims and the
+register keeps them separate.
+
+The `orchestration_states` row IS the evidence, and that table is retention-clocked, so the
+read-out is pasted above rather than pointed at. Re-running is cheap:
+`scripts/PROBE_doc_subject_go_gate.sh component teaser-reveal-panel`.

@@ -450,3 +450,73 @@ Worked example: `scripts/RENAME_arena_page_to_function.sql`.
 verdict it inserts an `improve_tool` work item with `handler_agent='tool-improver'`
 (`tool_acceptance_actions.go:711`) — an automated fixer. If the page is `rebuild_policy='owned'`
 or the right remedy is a design decision, hand the dispatch to its owner instead of firing it.
+
+## 12. Prove a `subject_type` is in the RUNNING binary — and read the vocabulary out of it
+
+```bash
+./scripts/PROBE_doc_subject_go_gate.sh component teaser-reveal-panel
+```
+
+Reusable for **any** doc-subject type, not just `component`. `subject_type_addition.md`'s §6
+asks for "a scratch `load_doc_context` step"; this is that step, plus the control half it was
+missing, plus the three ways to read the result.
+
+**Neither a query nor a grep can do this, and both look like they can.**
+
+- **`psql` cannot reach the gate.** `load_doc_context` takes `subject_type` from **step config
+  only** — `docResolveSubject` (`write_doc_plan_action.go:136-145`) reads `config`, never input
+  data. So writing a row by hand exercises the DB CHECK and **nothing in Go**. `\d doc_plans`
+  shows you one of the two enforcement points and is structurally silent about the other.
+- **A pod-grep cannot see it.** The vocabulary entries are short literals (`'component'`,
+  `'landmine'`); Go compiles those to immediate comparisons that never reach rodata, so
+  `grep -ac` on the binary returns a number that means nothing either way. The quoted list in
+  the error message is built **at runtime** by `docSubjectTypesQuoted()` — which is exactly why
+  the failing arm below can print it.
+- **A build date is not a proof.** "The image was built after the commit" is necessary, not
+  sufficient, and it is what this lane had until now.
+
+**The control is the load-bearing half.** The probe runs two `load_doc_context` steps in one
+dispatch: the type under test, then a deliberately invalid type that **must** error. Its error
+message is the running pod's own vocabulary. Without that second step, a green run cannot
+distinguish "the gate accepted it" from "the probe never ran".
+
+**Three verdicts, and the third is why the second step exists:**
+
+| verdict | how it reads |
+|---|---|
+| **PASS** | `doc_subject.has_plan` true (or false with no error against `probe_subject`), `__step_error.failed_step = 'probe_vocab'`, and the read-out lists your type |
+| **FAIL** | `__step_error.failed_step = 'probe_subject'` — the running binary rejects it, and the message names every type it *does* accept |
+| **VOID** | `current_step = 'complete'` and no `probe%` rows in `processing_history` — the inline override did not take and **nothing was tested** |
+
+**No `agent_definitions` row is written.** The workflow travels inline in the message:
+`selectWorkflow`'s Priority 1 (`platform/messaging/processor.go:922-928`) takes
+`config.workflow` ahead of any DB lookup. Nothing to snapshot, nothing to clean up. The
+`agent_type` in the payload is deliberately one that does not exist, so a fallthrough lands on
+the pod's own `generic` definition — whose whole workflow is a no-op `complete` step, making a
+misfire inert as well as visible.
+
+**⚠ THE FAILURE STRING DEPENDS ON WHICH GATE YOU HIT, AND THE TWO ARE EASY TO SWAP.**
+There are two Go gates over one shared list, with **different messages**:
+
+| gate | message | called by |
+|---|---|---|
+| `docResolveSubject` (`write_doc_plan_action.go:143`) | `subject_type must be one of …, got "…"` | `write_doc_plan`, `append_doc_note`, **`load_doc_context`** |
+| `docSubjectGateReason` (`doc_subjects_common.go:96`) | `unsupported subject_type "…" (valid: …)` | `persist_diagnosis_note` **only** |
+
+Two handoffs in a row told the next session to expect the *second* message from a route that
+can only produce the *first*. Grepping for it would have returned nothing on a pass **or** a
+fail. Both gates read the same package-level `validDocSubjectTypes` via
+`isValidDocSubjectType`, so proving membership through either one carries to both — but say
+which one you actually watched.
+
+**Writing the throwaway PLAN it reads:** `scripts/gen_probe_plan_sql.py` (dry run by default,
+`--apply` to commit), then `DELETE FROM doc_plans WHERE source='handoff-goproof';`. The
+generator exists because the body contains a ```` ``` ```` fence and in a double-quoted bash
+string that is command substitution — silently. It asserts `length(body)` against the
+generator's own count, which is also how you prove psql did not interpolate a `:name` inside
+the literal. A PLAN is not strictly required (`has_plan=false` with no error still proves the
+gate), but with one you additionally watch the body travel and the fence extract.
+
+**Record the read-out, don't point at it.** The evidence lives in
+`orchestration_states.collected_data`, and that table is retention-clocked — paste the message
+into NOTES. Worked example with the full output: NOTES, 2026-07-31 evening.

@@ -239,3 +239,55 @@ all, so without that line the write-up would have sat unread — this fleet has 
 that leaving a file in someone's directory is not the same as telling them.
 
 Nothing is now waiting on me for this piece of work.
+
+---
+
+**31 July 2026, later that evening — the last open item on this piece is closed, and the pod
+told us so itself**
+
+One thing was outstanding: we had changed both halves of a rule about what kinds of thing can
+carry a written contract, and we could only prove one of them. The database half we could see
+directly. The program half we could only *argue*: the running program was built after the
+change went in, so it ought to contain it. That is the shape of reasoning this fleet has been
+bitten by repeatedly, and there was a specific reason to distrust it here — the exact same
+mistake has now been made three times on this one rule, and the most recent instance sat
+undetected in production for two days.
+
+**It is now proven, and better than proven — the running program printed its own list of
+accepted types back to us.** The trick was to ask it two questions in one go: first the real
+question, and then a deliberately nonsense one. The nonsense question has to fail, and when it
+fails the program says what it *would* have accepted. So we got a straight answer rather than
+an inference: seven types, `component` among them.
+
+**The second question is the important one, and it is a habit worth naming.** Without it, a
+clean result is ambiguous — it could mean "the check passed" or it could mean "the check never
+ran", and those look identical from the outside. This has been the recurring fault in this
+lane's work all week: something reports health it never actually measured. So the probe now has
+three possible outcomes rather than two, and the third one is called VOID: *nothing was
+tested*. Naming it is what stops it being mistaken for a pass.
+
+Two useful things fell out of it. It confirmed, incidentally, that a different team's fix is
+genuinely live — their list entry was printed in the same read-out, and they had only been able
+to infer it the same weak way. And it did the whole thing **without adding anything to the
+system**: the test travelled inside the message rather than being installed as a new agent, so
+there was nothing to switch off afterwards. The one temporary record it did need was deleted;
+I checked, and the database is back exactly where it started.
+
+**One thing I want to be precise about, because it would be easy to overclaim.** What is proven
+is that the *capability* works. Nothing yet actually *uses* it — there is still no real written
+contract for any component, only the throwaway one I wrote to test with and then removed. Those
+are two different statements and the register keeps them apart deliberately; "we can do this"
+is not "we do this".
+
+**And I found an error in my own handover notes, which had been copied forward twice.** They
+told the next person what a failure would look like, and named the wrong message — there are two
+near-identical checks in the code with different wordings, and I had quoted the one belonging to
+the other route. Anyone following the instructions literally would have searched for text that
+could never appear, on success or failure, and been left unsure whether the test had worked. It
+is corrected in place, and logged in the fleet's list of wrong calls, because the useful part is
+the tally: this is the second time this week a claim was written in the same voice as a measured
+fact when nobody had checked it.
+
+Nothing is waiting on me for the component-contract work. The next piece of real work in this
+lane is wiring a component's test through to the browser the way tool tests already go, which is
+plumbing rather than invention.

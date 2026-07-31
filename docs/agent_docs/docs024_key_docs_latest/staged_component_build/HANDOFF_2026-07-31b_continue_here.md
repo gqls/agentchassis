@@ -1,5 +1,28 @@
 # HANDOFF — staged_component_build, 2026-07-31b (evening)
 
+> **CORRECTED / PARTLY CLOSED 2026-07-31 (later that evening).** Two changes, both in §3:
+>
+> 1. **§3 IS DONE — the Go gate is PROVEN**, and §4 item 1 with it. Correlation
+>    `8f564028-6fc6-488c-96d2-c2e362b243b2` on `v1.0.1215`: `has_plan=true`,
+>    `plan_body`=827 chars, fence extracted, and the control arm printed the running pod's
+>    own vocabulary — `'tool', 'pipeline', 'experience', 'action', 'experience-pattern',
+>    'component', 'landmine'`. Instrument: `scripts/PROBE_doc_subject_go_gate.sh`
+>    (register **DOC-070**, procedure **RUNBOOK §12**, read-out in NOTES). **DOC-068's
+>    `verify-later` is still open on purpose:** the probe PLAN was deleted, so `doc_plans`
+>    holds 0 component rows again — the capability is proven, a *use* of it is not.
+> 2. **§3's predicted FAIL string was WRONG, and had been carried forward through two
+>    handoffs.** `unsupported subject_type "component"` belongs to `docSubjectGateReason`,
+>    whose only caller is `persist_diagnosis_note`. The route §3 recommends,
+>    `load_doc_context`, goes through `docResolveSubject`, which says
+>    `subject_type must be one of …, got "…"`. The predicted string appears on **neither** a
+>    pass nor a fail of that route, so following §3 literally would have left you unsure
+>    whether your own run had worked. Logged in `WRONG_CALLS.md`.
+>
+> Also worth knowing before you follow §3's method: **no scratch `agent_definitions` row is
+> needed.** The workflow travels inline in the message (`selectWorkflow` Priority 1,
+> `processor.go:922-928`), so there is nothing to seed and nothing to clean up. §3's step 2
+> and step 4 are superseded by that.
+
 **This supersedes `HANDOFF_2026-07-31_continue_here.md`** for everything except its §3 (the
 component Go gate), which is reproduced below unchanged because it is still the open item.
 That file's §4 item 1 and §5 "orphan" claim are DONE and REFUTED respectively — it carries a
@@ -51,12 +74,20 @@ superseded-in-scope banner — read it, do not build from it.
   `site_plan_pages.name`, one transaction, scoped by ID. Served page byte-identical, md5
   `4a2d2030e2f6d2630f6497f68705a067` both sides.
 
-**NOT verified, and it is the single next action — unchanged from the previous handoff:**
+**~~NOT verified, and it is the single next action — unchanged from the previous handoff:~~**
+**VERIFIED 2026-07-31 evening — see the banner at the top of this file. Struck through rather
+than deleted, because the ten hours this claim stood is what prompted the probe.**
 
-- **The Go gate has never been exercised with `subject_type='component'`.** The binary carries
+- ~~**The Go gate has never been exercised with `subject_type='component'`.** The binary carries
   the vocabulary *by build date only*; `doc_plans` holds **0** component rows, so nothing has
   ever passed through `docResolveSubject` for this type and `docSubjectGateReason` has never
-  been observed accepting it. **Necessary, not sufficient.**
+  been observed accepting it. **Necessary, not sufficient.**~~
+  → **Now observed, not inferred.** `docResolveSubject` accepted `component` in the running pod
+  and the invalid-type control printed the whole compiled vocabulary. One part of the old
+  wording still stands and is deliberately left standing: `doc_plans` is **back to 0** component
+  rows, and `docSubjectGateReason`'s own caller (`persist_diagnosis_note`) was **not**
+  dispatched — membership carries to it because the slice is single-sourced, but that is an
+  argument, not an observation. Say which gate you watched.
 
 ---
 
@@ -100,8 +131,9 @@ scratch route.
 
 ## 4. Open items, ordered
 
-1. **The Go gate proof** (§3). Nothing else in this lane is blocked on it, but DOC-068's status
-   stays "DB half live, Go gate unexercised" until it is done, and that wording is deliberate.
+1. ~~**The Go gate proof** (§3).~~ **DONE 2026-07-31 evening** — corr `8f564028`, DOC-068 now
+   reads "both halves LIVE and observed; capability proven, NOT yet used", DOC-070 registers the
+   instrument. **THE NEXT ACTION IS NOW ITEM 2.**
 2. **S6 for components.** Dispatch a component's fence to `browser-runner-adapter` the way
    `tool-acceptance-agent` does for tools. **Wiring, not construction** — and now cheaper than
    it was this morning, because `try_fence.go` lets you author and prove a component fence

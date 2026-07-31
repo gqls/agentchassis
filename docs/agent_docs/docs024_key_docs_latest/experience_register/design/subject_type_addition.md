@@ -63,6 +63,24 @@ vice versa — is a split contract; move both together."*
    returning the 184-seeded plan (the 064 proof), and one with `experience-pattern` after
    the first entry is written.
 
+   > **BUILT 2026-07-31 — that "scratch `load_doc_context` step" is now an instrument, and it
+   > needs a second arm this item did not ask for** (DOC-070):
+   > `docs024_key_docs_latest/staged_component_build/scripts/PROBE_doc_subject_go_gate.sh <type> <key>`.
+   > **The step as specified above is not sufficient on its own.** A green `load_doc_context`
+   > cannot be distinguished from a step that never ran, so the probe also fires a
+   > **deliberately invalid** `subject_type` in the same dispatch: that arm must error, and its
+   > message is `docSubjectTypesQuoted()`'s runtime join of `validDocSubjectTypes` — the
+   > vocabulary **as compiled into the pod**, which is the only readable surface (the entries
+   > are short literals Go never puts in rodata, so a pod-grep is nonzero on a binary that does
+   > not support the type, and a build date argues rather than observes).
+   > Two further things this item does not say, both of which cost time on `component`:
+   > (a) **`psql` cannot reach point 3 at all** — `docResolveSubject` reads `subject_type` from
+   > **step config only**, so hand-writing a row proves points 1–2 and nothing else, while
+   > feeling end-to-end; (b) **points 3 and 4 emit DIFFERENT messages** —
+   > `subject_type must be one of …` vs `unsupported subject_type "…"` — so name the gate you
+   > actually watched. Membership carries to both (single-sourced slice), but only one is
+   > dispatched. Worked run: `staged_component_build/RUNBOOK` §12.
+
 ## Sequencing
 
 Ships inside the single P2 council-gate submission (PLAN §5) — image first, then the
