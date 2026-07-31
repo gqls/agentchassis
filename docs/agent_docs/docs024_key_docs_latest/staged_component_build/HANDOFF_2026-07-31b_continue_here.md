@@ -234,3 +234,58 @@ So the rule that survived the scope cut, in its strongest current form:
 
 Printing the number is not enough if the same code path can print `?`. Passing on your laptop
 is not enough if the pod has a deadline. And a conclusion is not a measurement.
+
+---
+
+## DELIVERY FROM ANOTHER LANE, 2026-07-31 18:08 UTC — `bugs_open/157` is CLOSED, so a constraint on this lane is LIFTED
+
+Appended by the 157 fix session, not by this lane's owner. Nothing above is edited.
+
+**`has_visible_area` is fixed, live and now trustworthy** — `bugs_closed/157`, live in
+`browser-runner-adapter` **`v1.0.1216`**, commits `71680ad513` + `f15e00a47`, council
+APPROVED (`07639093-3d76-40f4-953b-c3708dac6a1a`).
+
+**Why this is yours and not just news.** TL-036 records that this lane deliberately
+omitted the check type from `tool-review-council-simulator`'s fence *because 157 was
+open*, and `LANDMINES.md` carried an entry telling you to keep treating it as broken.
+**Both of those constraints are now retired.** New fences should use
+`has_visible_area`; it is the one check that separates "in the DOM" from "usable", and
+it is the check the three 1146x0 work areas needed.
+
+**What was actually wrong, in one line:** `VisibleArea` asserted `.(float64)` on a value
+playwright-go returns as `int` whenever it is integral, so **any axis whose rendered size
+was a whole number measured 0** — which is to say, exactly the deliberately-sized controls
+(24px checkboxes, icon buttons, avatars) the check exists to police.
+
+**Evidence, in this lane's own idiom — every branch watched fail before anything is
+quoted.** Your rule is why the closing verification looks like this:
+
+- **`tool-ai-vendor-trust-checklist` re-run** (`bce1da22-6b47-4fef-bef7-7ef62b488ab4`):
+  **21 passed / 0 failed / 1 skipped**, from a baseline of 18 pass / 3 fail. The skip is
+  `mobile-fit`'s deliberate profile scoping — a **profile gate**, not `not implemented`,
+  which I checked precisely because your own landmine says an all-skipped fence records a
+  PASS plus a 7-day cooldown.
+- **A NEGATIVE CONTROL, run through your `try_fence.go`**, because a green board after a
+  fix to a check is indistinguishable from the check being switched off. Two controls
+  added to the real fence — `has_visible_area` on `#vtc-c1` at an impossible `5000x5000`
+  floor, and one on a selector that does not exist — **both still FAILED on both
+  profiles.** The impossible-threshold one failed *while printing the true measurement*
+  (`renders 24x24 … needs at least 5000x5000`), which settles decode-is-real and
+  comparison-still-fires in a single line.
+- **Pod-grep with a positive control** (`bugs_open/153`): marker `non-numeric w/h in
+  result` went **0** on `v1.0.1215` → **1** on `v1.0.1216`, five pre-existing controls at
+  1 throughout. A measured transition, not a green reading.
+
+**One thing to carry, because it is the mirror image of a rule you already hold.** You
+know *presence in the binary is necessary, not sufficient*. The inverse bit me here:
+**absence from the repo is not evidence of presence in the binary.** The landmine on 157
+said "if `m["w"]` still reads `.(float64)`, 157 is open" — the moment I committed, that
+check said "closed" while the pod still had the bug, and it stayed wrong for ~2 hours
+until the roll. Long enough to author a fence against a check you believe is sound. If you
+key a check on repo state, say which question it answers. (Logged in `WRONG_CALLS.md`;
+pattern in `016b` §9.)
+
+**Not in scope here, still open, and adjacent to you:** the sibling defect in the same
+file — an unknown check type is SKIPPED and an all-skipped fence PASSES. The
+bug_historian seat flagged it during this review as the subsystem's remaining instance of
+the same silent-false-positive class. `LANDMINES.md` 2026-07-30 has it.

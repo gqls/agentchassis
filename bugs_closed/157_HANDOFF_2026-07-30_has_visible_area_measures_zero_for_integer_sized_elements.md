@@ -1,23 +1,46 @@
 # 157 — `has_visible_area` measures 0 on any axis whose rendered size is a whole number, and reports it as "too small to see or click"
 
-> **STATUS 2026-07-31 16:30 BST — FIXED AT HEAD, NOT YET LIVE. The bug is still
-> reproducible in production right now.** Fix candidate 1 taken (broadened to the
-> whole file — see "The fix as shipped" at the bottom): `71680ad513`,
-> `b90990bf4` (gofmt sweep), `f15e00a47` (round 2, answering the council).
-> Council **APPROVED round 1** — `07639093-3d76-40f4-953b-c3708dac6a1a`, 12 seats,
-> 5 abstained, 0 unreadable, not gated by truncation, 1 objecting seat with 3
-> advisory items, **all three closed in `f15e00a47`** (see "What the council
-> caught" below).
+> **CLOSED 2026-07-31 18:08 UTC — FIXED AND LIVE, proven at the artefact and with
+> a negative control.** Live in `browser-runner-adapter` **`v1.0.1216`**.
+> Commits `71680ad513` (fix), `b90990bf4` (gofmt sweep), `f15e00a47` (round 2,
+> answering the council). Council **APPROVED round 1** —
+> `07639093-3d76-40f4-953b-c3708dac6a1a`, 12 seats, 5 abstained, 0 unreadable, not
+> gated by truncation; its 3 advisory objections all closed in `f15e00a47`.
 >
-> **This file stays in `bugs_open/` deliberately.** The closing bar is *fixed AND
-> live*, and this is a Go change: inert until an image is rebuilt and rolled.
-> Measured, not assumed — pod `browser-runner-adapter-78f467dbb7-52bx2` runs
-> `v1.0.1215` (image built ~7h before the fix commit), and a single exec returned
-> the new marker `non-numeric w/h in result` → **0** against three positive
-> controls → **1** each. `has_visible_area` itself IS live in that pod, which is
-> exactly why the defect is still biting. **Whoever rolls the next
-> browser-runner-adapter image closes this** — re-run the verification below,
-> then move the file to `bugs_closed/`.
+> **The three closing checks, in the order the guardian seat asked for them:**
+>
+> 1. **Pod-grep, long marker + positive controls in one exec** (`bugs_open/153`: a
+>    roll is not evidence your fix shipped). On `browser-runner-adapter-fbb78fbbb-rpjl8`
+>    (`v1.0.1216`) the new marker `non-numeric w/h in result` → **1**, with five
+>    pre-existing controls → **1** each. The same marker was **0** on `v1.0.1215`
+>    two hours earlier, so this is a measured transition, not a green reading.
+> 2. **The acceptance re-run, in the cluster, against the deployed binary** —
+>    correlation `bce1da22-6b47-4fef-bef7-7ef62b488ab4`: **21 passed / 0 failed / 1
+>    skipped**, against a pre-fix baseline of **18 passed / 3 failed**. The three
+>    failures became passes and nothing else moved. The single skip is `mobile-fit`
+>    reporting `not run on profile desktop` — a legitimate **profile gate**, not a
+>    `not implemented` skip, which matters because an all-skipped fence records a
+>    PASS plus a 7-day cooldown (`LANDMINES.md` 2026-07-30). The two measurements
+>    that were wrong now read: `#vtc-c1` **24x24** on desktop AND mobile (was
+>    `0x0`), `#vtc-verdict` **386x47** desktop / **143x94** mobile — that mobile
+>    figure being the discriminating one-integral-axis case that read `0x94`.
+> 3. **A NEGATIVE CONTROL, so the fix cannot be confused with the check being
+>    switched off.** Run offline through `try_fence.go`, which calls the fleet's own
+>    evaluator (`RunChecksAction.Execute`) against the live URL, with two controls
+>    added to the real fence: `has_visible_area` on `#vtc-c1` at an impossible
+>    `5000x5000` floor, and one on a selector that does not exist. **Both still
+>    FAILED on both profiles** while the four real checks passed — and the
+>    impossible-threshold control failed while *printing the true measurement*
+>    (`renders 24x24 … needs at least 5000x5000`), which proves in one line that the
+>    decode is real AND the threshold comparison still fires. The absent-element
+>    control returned `no element matches … after settle` rather than a measurement
+>    error, confirming the `{found:false, w:0, h:0}` path the council flagged.
+>
+> **Follow-on done:** work item `975c3be4-a310-4d7c-aece-f837478d084d`
+> (`improve_tool`, "Tier-4 acceptance failed for tool-ai-vendor-trust-checklist")
+> was **cancelled as a false positive** — a ticket this bug manufactured against a
+> tool that was never defective. That is the severity argument in the filing made
+> concrete: this defect did not merely fail to catch things, it *created work*.
 
 **Filed** 2026-07-30. Class: **false NEGATIVE in a live Tier-4 check type** (not a
 missing capability, not a vacuous pass). Found while building

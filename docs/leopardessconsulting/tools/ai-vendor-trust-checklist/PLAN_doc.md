@@ -201,7 +201,18 @@ profiles, and the `interaction` checks in the same run successfully CLICKED
 
 **DO NOT make the checkbox size fractional to turn the gate green.** The `24px`
 is deliberate (WCAG 2.2 target size, in pixels so a site root font-size cannot
-shrink it), and this page is currently the cleanest reproducer of 157.
+shrink it), and this page was the cleanest reproducer of 157.
+
+> **RESOLVED 2026-07-31 18:08 UTC — the platform bug is fixed and this tool needs
+> NO change.** `bugs_closed/157`, live in `browser-runner-adapter` **`v1.0.1216`**.
+> Re-run `bce1da22-6b47-4fef-bef7-7ef62b488ab4` against the same page:
+> **21 passed / 0 failed / 1 skipped** (the skip is still `mobile-fit`'s deliberate
+> profile scoping). `#vtc-c1` now measures **24x24** on desktop and mobile, and
+> `#vtc-verdict` **386x47** / **143x94** — so the tool's own numbers were right all
+> along and the checkbox stays at `24px`. The `improve_tool` work item this
+> manufactured (`975c3be4-a310-4d7c-aece-f837478d084d`) has been **cancelled as a
+> false positive**; if you find another ticket blaming this tool for a `0x0`
+> measurement, it predates `v1.0.1216` and should be cancelled too, not acted on.
 
 ### S3 correction: the JS asset has a native mechanism, and it closes a defect class
 
