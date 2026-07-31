@@ -397,3 +397,61 @@ removed the structural obstacles; it did not fix the defect this workstream
 exists to fix. Two things are outstanding and both are required: provocations to
 rotate *to* (Grok generator, or hand-written entries as a bridge) and a
 `scheduled_tasks` row that rebuilds and republishes daily.
+
+---
+
+## 2026-07-31 (evening) — INBOUND from the gauntlet_dead_cta lane: your builder now enforces the seal
+
+**I changed two of your files.** Owner ruling 2026-07-31 on
+`gauntlet_dead_cta/HANDOFF_2026-07-30_C`: today's provocation must be readable in the
+Gauntlet, after entry, and **nowhere else** — home and Arena show a PAST provocation in
+full as the worked sample instead. Your builder is the only place that can enforce it,
+so it went there rather than into a competing generator. Live and verified: 0 of 19
+pages paint today's provocation (was 3), and `POST /round` still returns it.
+
+**`build_provocations.py`**
+- `as_today()` **untouched** — your engine contract is intact and now asserted.
+- Two new top-level keys, deliberately SIBLINGS of `today` rather than fields on it,
+  because `RoundHandler` persists the whole `today` object as the round's provocation
+  and anything added there would land inside every stored round: `seal` (display copy)
+  and `sample` (a past provocation in full, derived from the newest archived entry with
+  a case, so it follows your schedule and needs no edit when rotation lands).
+- `arena.cards[0]` is now the **sealed** card. This is the change to your design worth
+  knowing about: your docstring point 5 makes card 0 derived from today, which is right
+  for rotation and was **2 of the 3 leaking surfaces**, since both the home lobby grid
+  and the Arena lobby render it. Sealing it there fixed both with no JS change.
+- New `check_seal()` refuses to emit in BOTH directions, because they pull opposite
+  ways: `today` MUST keep headline/body/slug/date, and nothing outside `today` may name
+  today's provocation. Induced-fault tested both ways.
+
+**`verify_rotation.py`** — your invariant "arena card 0 MUST match today" is
+**INVERTED** (it encoded the pre-seal design) and extended with the engine contract and
+the seal-copy-exists check. All 39 dates × 9 provocations still pass.
+
+### The thing I owe you, because your own work nearly caught my mistake and I bypassed it
+
+My first attempt enforced the seal by **deleting `today.headline`/`today.body`** from
+the feed, on the premise that the Gauntlet page never fetches it (true — verified by
+request interception). **Your `publish_feed.sh` safety preflight would have refused
+it**, and so would `verify_rotation.py`. Neither fired, because I was about to publish
+through my own path. What caught it was diffing the live file against my generator's
+output first — the `today.date`/`today.slug` your Phase 0 added are fields my
+(superseded) generator could not produce, and pulling that thread led here and to
+`round.go`. **Your two-tier preflight and your rollback-is-the-same-script decision
+both did their job on me from a distance; the split between safety and quality checks
+is exactly why the seal change passed the right gate.**
+
+Also: your README says of the 15:03 publish that "the home page still shows the
+provocation … Nothing broke." That was accurate and correctly scoped to rotation — the
+leak was pre-existing, not yours. Flagging only so the line is not later read as a
+clean bill on the seal.
+
+**Nothing of yours is blocked by this.** The two things your README names as still
+outstanding — provocations to rotate to, and a scheduled rebuild — are untouched, and
+the sample/seal keys need no maintenance when they land. One trap for the scheduled
+job, on top of the timestamp one you already filed: **the leak check must derive its
+probes from `today` at run time.** My sweep hardcoded the lobby card text and started
+reporting a leak for finding the seal itself.
+
+Instrument, if useful: `gauntlet_dead_cta/scripts/provocation_leak_sweep.py`
+(renders every active page; exit 0 clean / 1 leak / 2 incomplete).
