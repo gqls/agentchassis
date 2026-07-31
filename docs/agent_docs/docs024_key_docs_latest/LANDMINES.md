@@ -726,6 +726,7 @@ source document and the entry points at it.
 - **the check:** before running it, count what you are about to lose —
   `SELECT s.domain, count(*) FROM site_nav_items ni JOIN sites s ON s.id=ni.site_id WHERE ni.status='active' AND (ni.url LIKE '/tools/%' OR ni.url LIKE '/blog/%' OR ni.url LIKE '/guides/%' OR ni.url LIKE '/articles/%' OR ni.url LIKE '/case-studies/%' OR ni.url LIKE '/news/%' OR ni.url LIKE '/resources/%' OR ni.url LIKE '/insights/%') GROUP BY 1;`
   Measured 2026-07-30: **16 rows across 7 domains** would be deleted — leopardess 5, gamesdesign 3, idea.uk 2, dartsonline 2, webdesign 2, fundamentallyai 1, robot-hands 1. Those rows cannot have been created by `populate_nav_tables`, so nothing recreates them
+- **⚠ NARROWED 2026-07-31 (chassis v1.0.1215, council `4486f1a9` APPROVED) — STILL TRUE, but only for a page that declares NO nav flag.** `classifyPagesForNav` now demotes a child-path page to the `utility` group instead of dropping it, **provided `in_header` or `in_footer` is set** — so a rebuild KEEPS such a link where it used to delete it (6 of the 7 affected rows fleet-wide). The trap survives for a child-path nav row whose page has **both flags false**: nothing derives it, so a rebuild still removes it and puts none back. One such row exists today — leopardess `/tools/password-entropy.html`, hand-written into `utility` against a page declaring nothing — and the repair is to set the flag, not to re-add the row. **So the pre-run count below is still the right check; just read a non-zero result as "which of these are unflagged?" rather than "all of these will be lost".** The wider defect this entry recorded (a `nav_drift` item completing having placed nothing) is fixed: `bugs_open/149` A2, concept register NAV-013.
 - **what to use instead:** `nav-link-fixer` refreshes `site_components.rendered_html` from the EXISTING nav tables and has no populate step; then propagate to deployed pages in **assemble mode** (`page-rerender` with NO `spec.reason`). Worked example: `docs/leopardessconsulting/scripts/reconcile_footer_nav.sh` (29/29 pages) and `refresh_owned_page_chrome.sh` for `rebuild_policy='owned'` pages, which the ordinary path cannot touch
 - **two traps inside the replacement:** the assemble branch needs **`page_id`**, not `page_name` (`rerender_single_page` errors `page_id not found in input`; only the section branch resolves a name — `reconcile_headers.sh` sends `page_name` alone and fails on every page, 29/29 here). And do NOT send `reason=section_data_resolved` for a chrome change: that runs `rerender_page_sections`, whose pre-check escalates the WHOLE page to the content-writer on a missing required `source:"llm"` field — **5 of 34 active leopardess pages would escalate**
 - **source:** found 2026-07-30 wiring `tool-ai-vendor-trust-checklist` into the footer; read before running, so nothing was lost
@@ -1367,4 +1368,80 @@ source document and the entry points at it.
   (d) the file that motivated the fix must be clean. Narrowing a detector until only (d)
   passes makes it inert
 - **source:** 2026-07-31, staged_component_build, fixing a false positive on its own check script
+- **added:** 2026-07-31, staged_component_build
+
+### A test asserting a query is NOT issued passes VACUOUSLY against `insertWorkItem` — it swallows the error the mock raises
+- **footprint:** `platform/orchestration/actions/load_work_item_actions.go` (`insertWorkItem`, the two-strike block at :1082-1118, `recurrenceExpected` at :1069), `withWorkItemTx`, and any sqlmock test in `platform/orchestration/actions` covering a work-item insert
+- **fires when:** you pin a NEGATIVE about work-item insertion — "this caller sets `recurrenceExpected`, so the two-strike COUNT must never run", "this path does no lookup first" — by registering only the expectations you do want and letting sqlmock reject the rest. It is the obvious way to test a negative and it is the reason my own guard test shipped green while asserting nothing (2026-07-31)
+- **the tell:** **there is none — the test is GREEN both ways.** sqlmock does raise an error for the unexpected query, and `insertWorkItem` then does `if err == nil && terminalCount > 0 { … }`, so the error is discarded, the branding it guards never happens, execution falls through to the INSERT, and every registered expectation is satisfied. `ExpectationsWereMet()` reports *missing* expectations, not *extra* calls, so it passes too. I set `recurrenceExpected: false` expecting a failure and got `ok … 0.036s`. **The mock environment masks exactly the difference the test exists to detect**, and it does so by way of the production code's own error tolerance
+- **the check:** assert the mechanism's EFFECT, never the absence of a call. Register the query so it SUCCEEDS and returns state that *would* change the outcome (for the two-strike rule: `AddRow(2, 100.0)` — two prior terminal items, newest 100h old so the <3h within-cycle suppression does not also apply), then pin the INSERT's own argument: `ExpectExec(...).WithArgs(args...)` with `sqlmock.AnyArg()` in all 16 positions except `$12` (`status`), which must equal `'triaged'`. A mismatch fails the Exec, which fails the call, which fails the test. Worked example: `nav_rebuild_request_test.go:TestNavRebuildRequestSkipsTheTwoStrikeRule`, with the reasoning in its own doc comment
+- **and:** do NOT then assert `ExpectationsWereMet()` in that test — on the correct path the COUNT query is legitimately never issued, so the expectation is legitimately unused, and requiring it inverts the test. **Verify every such test by breaking the thing it guards and watching it fail.** On this seam green is the default, not the finding
+- **source:** hit 2026-07-31 answering the council's `guardian` objection on `bugs_open/149` A6 (round `4486f1a9`); `WRONG_CALLS.md` same date; concept register NAV-013
+- **added:** 2026-07-31, bugfix_149_nav_membership lane
+
+### `recurrenceExpected` is load-bearing on any repeated-`item_key` REQUEST — drop it and the THIRD one per site is born terminal, looking exactly like a dedup
+- **footprint:** `workItem.recurrenceExpected` (`load_work_item_actions.go:1069`), `insertWorkItem`'s two-strike block (:1082-1118), `RequestNavRebuild` (`nav_rebuild_request.go`), and any new emitter that reuses a per-site or per-page `item_key`
+- **fires when:** you add a work-item emitter with a stable `item_key` — "re-render this page", "rebuild this site's nav", "refresh this feed" — or you copy an existing emitter and trim what looks like an optional field. The flag reads as a tuning knob and is not one
+- **the tell:** **none for the first two items.** `insertWorkItem` brands the THIRD item on a repeated `item_key` as `status = 'unresolved'` and prefixes the summary `[unresolved after N attempts]`. `unresolved` is TERMINAL (`work_items_common.go:29-35`), so the item is never claimed and never dispatched — and the emitter's return value is indistinguishable from the ordinary, correct "an open request already covers this site". So the failure appears only on the third tool (or third rerender) added to a given site, months after the code was written, and reads as successful coalescing
+- **the check:** decide which of the two things you have and say so at the call site. A **DETECTED DEFECT** recurring means the fix is not working — the two-strike branding is right, leave the flag off. An **ACTION REQUEST** recurring means the previous one SUCCEEDED — set `recurrenceExpected: true`. Then pin it with a test that supplies a two-strike history and asserts the INSERT's `status` column (see the landmine directly above; the obvious test does not work). Also give a request its OWN `item_key` prefix rather than reusing a detector's, or it inherits that detector's strike history
+- **why it is worth an entry rather than a comment:** this is `bugs_open/024`'s mechanism — two SUCCESSFUL re-renders poisoned a shared `item_key`, every later re-render on that site was born `unresolved`, and durable template fixes silently stopped reaching the live page for three cycles. The flag exists *because* of that, so a new emitter that omits it re-opens a closed bug rather than writing a new one. It is also `bugs_open/149` A1's "20 of 24 repeat detections born `unresolved`" seen from the writing side
+- **source:** `bugs_open/024`; applied 2026-07-31 in `RequestNavRebuild` (`bugs_open/149` A6, council `4486f1a9` APPROVED — the `guardian` seat raised exactly this as a medium objection); concept register NAV-013
+- **added:** 2026-07-31, bugfix_149_nav_membership lane
+
+### Your pod-grep positive control can be INVALIDATED BY YOUR OWN CHANGE, and then a live deploy reads as a failed one
+- **footprint:** any `kubectl exec … grep -ac "<marker>" /app/<binary>` deploy proof; `bugs_open/153`'s pod-grep discipline; refactors that move or reword a string literal
+- **fires when:** you follow the standing rule — grep a string your change ADDED *plus* a positive control in the same exec — and you pick the control from the same function you just edited. Especially likely when the control is an error-message literal, because those are exactly what a refactor consolidates
+- **the tell:** the control returns **0** on a binary that is unambiguously correct. Measured 2026-07-31 on `v1.0.1214`, both chassis replicas: the two new markers returned 2 and 1, and the chosen control `"staged plan failed validation"` returned **0** — because the change under test had replaced that literal with a runtime-assembled `"%s failed validation: %s"` where `%s` is `"staged plan"`. There is no contiguous string left to match. A single-control check here says "the grep is broken" or "nothing shipped", and both readings are wrong
+- **the check:** pick a control that is **invariant under your own diff** — ideally a symbol or message in a *different* file, or one you can see unchanged in `git diff`. Cheaper still: use **two** controls, so a disagreement between them localises the fault (here `"diagnose_persist_fix_plan"` returned 11 and settled it in one exec). And remember the sibling trap already recorded: Go compiles SHORT string literals to immediate comparisons that never reach rodata, so a short control returns 0 on a binary that fully supports it — a control must be both long and untouched
+- **source:** proving `bugs_open/099` candidate 2 live on `v1.0.1214`, 2026-07-31. Caught by the second control, not by care
+- **added:** 2026-07-31, bugfix_099 lane
+
+
+### Renaming `pages.name` silently removes the page from `check_sectionless_pages` — because that detector joins `site_plan_pages.name = pages.name`
+
+- **footprint:** `pages.name`; `site_plan_pages.name`; `platform/orchestration/actions/discovery_checks/check_sectionless_pages.go:118`; any tool-page rename for acceptance addressability
+- **fires when:** you rename a page so its tool becomes acceptance-testable (`pages.name` must
+  equal the component's `function`, or `'tool-'||function`), having correctly measured that
+  the served filename comes from `pages.url` and that `page_components` keys on `page_id`
+- **the tell:** **there is none.** Every check you would think to run passes: the page still
+  serves byte-identically, nav is unaffected (`nav_label`/`title`, not `name`), no collision,
+  no `site_plan_sections` rows to re-key, and the acceptance lookup now resolves. What is
+  gone is a **detection**: `check_sectionless_pages` joins
+  `site_plan_pages spp ON spp.name = p.name`, so a page renamed on one side of that join
+  drops out of the detector's population entirely — no error, no report, and the page then
+  looks healthy precisely because nothing is examining it. On the arena rename (07-31) that
+  page qualified (0 sections) and was actively reported as item `559cb636`
+- **why it is a landmine:** you are *fixing* an addressability defect, so the frame is
+  "make the checker able to see this tool" — and the same edit makes a different checker
+  unable to see it. Trading a naming defect for a lost detection is the worse deal, and
+  nothing announces the trade
+- **the check:** move **both** name-side rows in one transaction, scoped **by ID** not by
+  name, then **re-run the detector's own join afterwards** and confirm the page is still in
+  its population under the new name:
+  `SELECT p.name FROM pages p JOIN site_plans sp ON sp.site_id=p.site_id AND sp.is_current
+   JOIN site_plan_pages spp ON spp.plan_id=sp.id AND spp.name=p.name
+   WHERE p.site_id=$1 AND (p.sections IS NULL OR p.sections='[]'::jsonb)
+     AND COALESCE(p.status,'')<>'deleted';`
+  Generally: **`git grep` the COLUMN as a join key (`= p.name`, `spp.name`), not just the
+  table** — a rename's blast radius is every equality join on the renamed value.
+- **source:** 2026-07-31, staged_component_build, renaming vonc.com's arena page (worked example: `staged_component_build/scripts/RENAME_arena_page_to_function.sql`)
+- **added:** 2026-07-31, staged_component_build
+
+### A served-page byte baseline goes stale in minutes on this tree — take it immediately before the change, or it attributes someone else's rebuild to you
+
+- **footprint:** any `curl`-and-compare verification of a live page; `pages.rendered_*`; page rerender / rename / republish work
+- **fires when:** you prove a change is visitor-safe by diffing the served page before and after
+- **the tell:** the two figures differ and the difference looks like yours. vonc.com's arena
+  page measured **31,431 bytes** at ~12:50Z and **32,553** at ~15:00Z on 2026-07-31 — its own
+  lane redeployed it at 12:45 between the two fetches. A rename that changed nothing would
+  have "caused" 1,122 bytes if the earlier figure had been used as the baseline
+- **why it is a landmine:** it fails in **both** directions. A stale baseline invents a change
+  you did not make (and sends you hunting), or — worse — a real change of yours lands inside
+  someone else's rebuild and reads as theirs
+- **the check:** fetch the baseline **in the same minute** as the change, keep the **md5** and
+  not just the size, and if they differ afterwards **diff before attributing** — several lanes
+  rebuild the same sites concurrently. Sizes alone cannot distinguish "unchanged" from
+  "changed by the same number of bytes". (`4a2d2030e2f6d2630f6497f68705a067`, identical both
+  sides, is what made the arena rename's claim actually load-bearing.)
+- **source:** 2026-07-31, staged_component_build, arena page rename
 - **added:** 2026-07-31, staged_component_build

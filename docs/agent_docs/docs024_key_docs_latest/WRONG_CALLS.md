@@ -13136,3 +13136,103 @@ This one's logic and name were both correct — the gap was the **environment**,
 of reading the harness would have revealed. Worth separating in future: *does the check
 measure the right thing?* and *does the check measure it where it matters?* are two questions,
 and I have now been caught by each.
+- **I refactored away the string I then used as my deploy control.** Proving `bugs_open/099`
+  candidate 2 live, I greped the pod for two new markers plus the pre-existing
+  `"staged plan failed validation"` as a positive control. The control returned **0**
+  on both replicas of a binary that unambiguously contained the change — because my
+  own refactor had replaced that literal with a runtime-assembled
+  `"%s failed validation: %s"`. Had I used only that control I would have read a
+  successful deploy as a failed one and gone looking for a build problem that did not
+  exist. Saved by having greped a **second** control in the same exec
+  (`diagnose_persist_fix_plan`, 11). **The cheap check: a positive control must be
+  invariant under your own diff** — pick it from a file you did not touch, or use two.
+  Recorded as a landmine too, because it fires prospectively on anyone following the
+  pod-grep rule.
+
+---
+
+## 2026-07-31 — I wrote a guard test for the council's own objection, and it passed while asserting nothing
+
+**Lane:** `bugfix_149_nav_membership` (`bugs_open/149` A2/A6). **Council round
+`4486f1a9` — APPROVED**, with a `guardian` medium objection: *"I can't confirm from SQL
+that `recurrenceExpected` exists on the workItem struct with the semantics claimed; if it
+doesn't … the third rebuild request goes terminal silently, which is exactly the failure
+mode being engineered around."* Fair, and a code fact, so I set out to pin it with a test.
+
+**The claim I wrote down.** In the test file's own header comment:
+*"TestNavRebuildRequestSkipsTheTwoStrikeRule asserts on the mechanism FIRING (no
+two-strike query is issued at all), not merely on a happy return value."* It did not. The
+test registered `ExpectBegin` / `ExpectExec(INSERT)` / `ExpectCommit` and nothing else, on
+the reasoning that sqlmock errors on an unexpected query, so the ABSENCE of the two-strike
+`SELECT COUNT(*)` was the assertion.
+
+**Why it was worthless.** sqlmock does raise the error — and `insertWorkItem` **swallows
+it**: `err := tx.QueryRowContext(...).Scan(...)` then `if err == nil && terminalCount > 0`.
+So on the broken path the query is issued, errors, is discarded, the branding never
+happens, the INSERT proceeds unchanged, and every registered expectation is met.
+`ExpectationsWereMet()` reports *missing* expectations, not *extra calls*, so it passes
+too. **The mock environment masked precisely the difference the test existed to detect, by
+way of the production code's own error tolerance.**
+
+**What caught it.** Doing the thing I had already done once that morning for the other
+test in this same change: setting the flag to `false` and watching for red. I got
+`ok … 0.036s`. It was habit rather than suspicion — I had no reason to doubt this test,
+and if I had trusted it I would have shipped it as the answer to a council objection about
+a silent failure mode, which is a particularly poor place to be quietly wrong.
+
+**The fix.** Assert the mechanism's EFFECT, not the absence of a call: register the COUNT
+query so it SUCCEEDS with a history that *would* brand the item (`AddRow(2, 100.0)`), then
+pin the INSERT's own `status` argument to `'triaged'` via `WithArgs` with `AnyArg()` in the
+other 15 positions. Verified by breaking it: with `recurrenceExpected: false` the INSERT
+carries `unresolved` and the test now fails with a message naming the production
+consequence. `ExpectationsWereMet` is deliberately not asserted there — on the correct path
+that expectation is legitimately unused, and requiring it would invert the test.
+
+**The cheap check, stated generally: you cannot test a negative by declining to expect it,
+if the code under test tolerates errors.** Test the negative's *consequence*. And more
+bluntly: **a guard test is not written until you have watched it fail.** Both landmines are
+filed (`LANDMINES.md`, 2026-07-31), because the trap belongs to `insertWorkItem`'s
+error-swallowing, not to me.
+
+**Tally note — this is the same family as the "quiet-test passes when the RULE is gone"
+entries, and the fourth distinct MECHANISM by which it happens.** Previously: a pattern-set
+test passing vacuously because the pattern was absent; an allow-list silencing the detector
+it was written to feed; prompt text scoring as the behaviour it described. This one is new
+in that the vacuum was created by the **test harness colliding with the subject's error
+handling** — nothing in my test or in `insertWorkItem` is individually wrong. Worth stating
+as its own question: *what does my test do when the thing it drives fails in a way the
+subject ignores?*
+
+## 2026-07-31 — I replicated a Go classifier in SQL by listing its predicates, and got the branch order wrong
+
+**Same lane, earlier the same morning.** To size the blast radius of narrowing
+`classifyPagesForNav` I rebuilt it as a SQL view over `pages` and asked which live
+`site_nav_items` rows the derivation would stop reproducing.
+
+**The claim.** First run reported **two** unreproducible rows, one of them
+`loancalculator.co.uk /legal.html`. I was about to carry that into the council submission
+as part of the regression surface.
+
+**Why it was wrong.** `classifyPagesForNav` tests `legalNames`/`isLegalPage` and
+`continue`s **before** it looks at any nav flag, so a legal page needs no
+`in_header`/`in_footer` at all. My replica applied the flag test universally. `/legal.html`
+is reproduced, by the legal branch, and always was. The true answer is **one** row, and
+it is unreproducible **today as well** — so not a regression at all, which is a materially
+different thing to tell a reviewer.
+
+**What caught it.** Re-reading the function top-to-bottom rather than re-reading my query.
+Nothing in the output looked wrong: **a replica that errs in the same direction as your
+hypothesis returns a plausible number.** I was looking for rows the fix would break, and it
+handed me one.
+
+**The cheap check: replicate a classifier by walking its branches IN ORDER, including every
+`continue`** — a list of its predicates is not its logic. Where the replica is load-bearing,
+state the branch order in the query's own comment so the next reader can check the
+translation rather than only the SQL. (Filed as RUNBOOK R3 in the lane, with the trap
+attached.)
+
+**A second, smaller one from the same hour, same shape:** a per-site nav census filtered
+`sites.status='active'` and returned exactly **one** site. That is not how site liveness is
+recorded here. I noticed only because "one site has nav groups" is absurd — the absurdity
+was luck, and a plausible number would have gone through. *A zero (or a one) from a filter
+you invented is not evidence*, which is already in this file, and I did it anyway.
