@@ -156,7 +156,7 @@ SET pre_query = $q$
       -- as this file's own ROLLBACK note demands. This line is edited so the
       -- declared list matches the live one; TestRegisteredVerifiersMatchClaimTimeoutExclusion
       -- reads THIS FILE, so leaving it stale would make the guard lie.
-      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs')
+      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs', 'content_duplication')
       AND EXISTS (
         SELECT 1 FROM orchestration_states o
         WHERE o.initial_request_data->'input_data'->>'work_item_id' = wi.id::text

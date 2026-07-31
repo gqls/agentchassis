@@ -828,6 +828,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Promote detected discovery items to triaged with target domain",
 		IsLocal:     true,
 	},
+	"remove_duplicate_page_sections": {
+		Handler:     RemoveDuplicatePageSectionsAction,
+		Category:    "maintenance",
+		Description: "Remove content-identical duplicate sections from one page and renumber positions",
+		IsLocal:     true,
+	},
 	"prepare_link_context": {
 		Handler:     PrepareLinkContextAction,
 		Category:    "site",
