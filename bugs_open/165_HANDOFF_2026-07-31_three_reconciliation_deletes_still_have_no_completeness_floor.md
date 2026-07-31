@@ -202,12 +202,42 @@ None of that argues the work should not happen — only that it is its own work.
 > 22:41), and a same-file collision on a shared tree is the one thing no hook can
 > catch.
 
-**How the guardian's question was answered, for whoever repeats it on B and C**
-(`guardian`, medium, round `a54172b6`): config alone cannot decide it —
-`page-build-handler` has `error_step: mark_item_failed`, `page-rerender` and
-`tool-recreation-handler` have none, and three nest the step inside a loop where a
-top-level census cannot see it. **Induce the refusal and read the orchestration
-row's status.** That is the only thing that settles it.
+## The guardian's question, ANSWERED for all six consumers of site A (2026-07-31)
+
+*"Does a failed `save_page_sections` step actually stop the pipeline, or is it
+swallowed and the orchestration marked complete?"* — `guardian`, medium, round
+`a54172b6`. Settled by reading every consumer's step config (extracted by text
+window, because the step-level census misses the loop-nested ones) plus one live
+induction:
+
+| consumer | `error_step` on the save step | what a refusal does |
+|---|---|---|
+| `page-rerender` | none | **orchestration FAILED — proven live 2026-07-31** |
+| `pageflow-builder` | none | fails the orchestration [INFERRED — same engine, same absent `error_step` as page-rerender; not induced] |
+| `page-rebuild` | none | fails the orchestration [INFERRED, as above] |
+| `site-work-orchestrator` | none | fails the orchestration [INFERRED, as above] |
+| `page-build-handler` | `mark_item_failed` → `update_work_item_status` → `complete_error` | work item marked FAILED, and **the orchestration reports COMPLETED** — measured: its one retained run carrying `__step_error` ended `COMPLETED` |
+| `tool-recreation-handler` | `complete_error` → `complete_workflow` | completes; no orchestration failure |
+
+**So the guardian was right that two consumers do not fail — and wrong that this
+makes the refusal a row nobody reads, for a structural reason worth keeping:**
+
+1. **Content is protected in all six, unconditionally.** The floor returns before
+   the DELETE, so nothing is removed whatever the pipeline does with the error.
+   Pipeline error-handling changes the *visibility* of a refusal, never the
+   *protection*.
+2. **The refusal is durable in all six.** The guard writes the `site_work_items`
+   row (`save_refused_incomplete`, `needs_human_review`, severity high) **before**
+   returning the error, so it survives an orchestration that reports COMPLETED and
+   outlives the ~2-day `orchestration_states` retention. That is precisely why the
+   durable surface was built rather than relying on the step status, and this is
+   the evidence that it was the right call.
+
+**What is still worth doing:** induce a refusal on `page-build-handler` or
+`tool-recreation-handler` to confirm the work item lands on the
+COMPLETED-reporting path too. The three `[INFERRED]` rows above are the cheapest
+remaining gap — one induction each would convert them, and the recipe is in the
+lane RUNBOOK.
 
 The same bar 135 was held to: **a green run proves nothing.** The floor is inert
 on healthy input by design. Induce the fault (write a page with a deliberately

@@ -443,3 +443,37 @@ was dirty for the 149 lane. Three hours later B and C were done by a third
 session, and the file I most wanted to edit had changed hands twice. Re-run the
 transcript grep immediately before the Write, not once at the start — I did, and
 it is the only reason this ended as a contribution rather than a collision.
+
+## 9. Closing the guardian's question for all six consumers
+
+The last open item on site A. Answered by extracting each consumer's step config
+(text window — the step-level census misses `pageflow-builder` and `page-rebuild`,
+which nest it in a loop) and checking history:
+
+- **Four have no `error_step`** → the refusal fails the orchestration. Proven live
+  for `page-rerender`; the other three are **[INFERRED]** from the identical
+  config shape and the same engine. Marked as inferred rather than stated flat,
+  because that is the difference between this section and a claim.
+- **Two route on error.** `page-build-handler` → `mark_item_failed` →
+  `complete_error`; `tool-recreation-handler` → `complete_workflow`. Measured:
+  `page-build-handler`'s one retained run carrying `__step_error` ended
+  **COMPLETED**. So the guardian's worry is real for those two — the orchestration
+  status does not reflect the refusal.
+
+**But the conclusion is not "two consumers are unprotected", and the distinction
+matters.** The floor returns *before* the DELETE, so content is protected in all
+six regardless of error handling; and the durable `site_work_items` row is written
+*before* the error is returned, so the refusal survives a run that reports
+COMPLETED and outlives the ~2-day `orchestration_states` retention.
+
+That is the payoff for a decision that looked like belt-and-braces when I made it.
+The refusal's visibility was deliberately NOT left to the step status — 135's
+`recordPruneRefusal` reasoning, carried over — and this is the case that shows why:
+**for a third of the consumers the step status would have been the wrong place to
+look, and nothing in the config would have told a reader that.** Pipeline error
+routing is not something a shared guard can assume; making the guard carry its own
+surface is what makes it independent of six different workflows' opinions.
+
+Remaining gap, stated so it is not mistaken for done: the three `[INFERRED]` rows,
+and confirming the work item lands on the COMPLETED-reporting path. One induction
+each, recipe in the RUNBOOK.
