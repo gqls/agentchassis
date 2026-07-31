@@ -481,6 +481,88 @@ func htmlEscapeAttr(s string) string {
 	return s
 }
 
+// repointIneligibleChromeSlot moves a chrome slot off a component that is no
+// longer eligible chrome — deactivated, a fork, or the wrong component_level —
+// and onto the one the library says should serve it. It returns the name of the
+// component it moved AWAY from, or "" when it did nothing.
+//
+// It is the missing half of bugs_open/166. `deactivated_site_components` has
+// detected this state correctly since 2026-07-17 and routes the repair to
+// `rerender-pages`, which re-renders whatever `component_id` already points at —
+// so the routed repair could never satisfy its own finding, and the items aged to
+// `unresolved` after two strikes. Nothing was wrong with the detection; the
+// repair had no way to change the thing being detected.
+//
+// Three deliberate refusals, each of which would otherwise turn a repair into a
+// different bug:
+//
+//   - It repoints ONLY when an ELIGIBLE alternative exists. Fleet-wide today the
+//     `head` function has none (both candidates are is_active=false), so the 13
+//     head slots are left exactly as they are rather than being churned on every
+//     build for a library gap no site can fix.
+//   - It writes through pageComponentAgentWritableSQL, so a human-locked slot is
+//     skipped. It does NOT file a lock_blocked_change item on that path: the
+//     069 gate below the idempotence exit owns that decision, and filing one here
+//     would claim a writer wanted to change a slot that may never be written.
+//   - It sets build_status='pending' rather than clearing rendered_html. The slot
+//     keeps serving its old chrome until the new render succeeds; blanking it
+//     first would leave a window with no chrome at all, and a failed render would
+//     make that permanent.
+func repointIneligibleChromeSlot(
+	ctx context.Context,
+	db *sql.DB,
+	siteID uuid.UUID,
+	slot string,
+	logger *zap.Logger,
+) string {
+	var currentID, currentName string
+	var eligible bool
+	err := db.QueryRowContext(ctx, `
+		SELECT cc.id::text, cc.name, (`+chromeEligibleSQL("cc.")+`)
+		FROM site_components sc
+		JOIN content_components cc ON cc.id = sc.component_id
+		WHERE sc.site_id = $1 AND sc.slot_name = $2
+	`, siteID, slot).Scan(&currentID, &currentName, &eligible)
+	if err != nil || eligible {
+		// No assignment, no such component, or the assignment is fine. An
+		// unassigned slot is the fallback path's job, not this one's.
+		return ""
+	}
+
+	want, wantEligible, resolveErr := ResolveChromeComponent(ctx, db, ChromeSlotFunction(slot), logger)
+	if resolveErr != nil || !wantEligible || want.ID == currentID {
+		// ResolveChromeComponent has already logged the library gap at ERROR.
+		// Leaving the slot alone is the correct outcome here: there is nothing
+		// better to point it at.
+		return ""
+	}
+
+	res, execErr := db.ExecContext(ctx, `
+		UPDATE site_components
+		SET component_id = $3, build_status = 'pending', updated_at = now()
+		WHERE site_id = $1 AND slot_name = $2 AND `+pageComponentAgentWritableSQL("")+`
+	`, siteID, slot, want.ID)
+	if execErr != nil {
+		logger.Warn("site chrome: failed to repoint an ineligible slot (bugs_open/166)",
+			zap.String("slot", slot), zap.String("from", currentName), zap.Error(execErr))
+		return ""
+	}
+	if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
+		// Locked, or the row vanished. Silent here on purpose — see the header.
+		logger.Info("site chrome: ineligible slot not repointed (locked or absent)",
+			zap.String("slot", slot), zap.String("from", currentName))
+		return ""
+	}
+
+	logger.Warn("site chrome: repointed a slot off an ineligible component (bugs_open/166)",
+		zap.String("slot", slot),
+		zap.String("from", currentName),
+		zap.String("to", want.Name),
+		zap.String("reason", "assigned component is not active, unforked, chrome-level"),
+	)
+	return currentName
+}
+
 func renderAndStoreSiteComponent(
 	ctx context.Context,
 	db *sql.DB,
@@ -494,14 +576,33 @@ func renderAndStoreSiteComponent(
 	// no ELIGIBLE chrome for the slot's function (bugs_open/118). Empty on every
 	// healthy path, including the ones that do no work at all.
 
+	// Retire an INELIGIBLE assignment before the idempotence exit below can
+	// declare the slot finished (bugs_open/166). This has to run first: the exit
+	// asks "does this slot hold HTML?", never "does it hold the RIGHT component's
+	// HTML?", so a slot pointing at a deactivated component reads as done for
+	// ever — which is why the platform's own deactivated_component items have sat
+	// unrepaired since 2026-07-17 while their handler faithfully re-rendered the
+	// deactivated component.
+	//
+	// It repoints ONLY when the library offers an eligible alternative, so the
+	// `head` slots (no active head component exists fleet-wide) are untouched
+	// rather than being re-rendered pointlessly on every build.
+	repointed := repointIneligibleChromeSlot(ctx, db, siteID, slot, logger)
+
 	// Check if already rendered (unless force)
 	if !force {
 		var exists bool
+		// build_status is part of the question, not decoration: a slot that has
+		// just been repointed still holds the OLD component's HTML, so "has
+		// HTML" is true and "is up to date" is false. Without this clause a
+		// repoint — by the line above, by an operator, or by any future writer —
+		// silently never reaches the page.
 		db.QueryRowContext(ctx, `
 			SELECT EXISTS(
 				SELECT 1 FROM site_components
 				WHERE site_id = $1 AND slot_name = $2
 				AND rendered_html IS NOT NULL AND rendered_html != ''
+				AND COALESCE(build_status, '') <> 'pending'
 			)
 		`, siteID, slot).Scan(&exists)
 
@@ -780,7 +881,8 @@ func renderAndStoreSiteComponent(
 
 	logger.Info("Site component rendered and stored",
 		zap.String("slot", slot),
-		zap.Int("html_length", len(renderedHTML)))
+		zap.Int("html_length", len(renderedHTML)),
+		zap.String("repointed_from", repointed))
 
 	return true, false, degraded
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -312,5 +313,159 @@ func TestChromeLookupScanFiresOnASyntheticLine(t *testing.T) {
 	}
 	if len(hits) != 1 || hits[0] != 0 {
 		t.Fatalf("scan matched %v; want exactly the hand-typed lookup (index 0)", hits)
+	}
+}
+
+// ── bugs_open/166: the repair that could never repair ────────────────────────
+//
+// `deactivated_site_components` has detected slots pointing at deactivated
+// components since 2026-07-17 and routes the repair to `rerender-pages`, which
+// re-rendered whatever component_id already pointed at. Nothing was wrong with
+// the detection; the repair had no way to change the thing detected. These pin
+// the three refusals in repointIneligibleChromeSlot, each of which turns the
+// repair into a different bug if it is dropped.
+
+func chromeAssignmentCols() []string { return []string{"id", "name", "chrome_eligible"} }
+
+// An ELIGIBLE assignment must cost exactly one query and no write. Without this,
+// a repointer that fired on every render would rewrite every slot in the fleet
+// on every build — the opposite failure, and a much more expensive one.
+func TestRepointLeavesAnEligibleAssignmentAlone(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM site_components sc").
+		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
+			AddRow("11111111-1111-1111-1111-111111111111", "footer-theme-chrome", true))
+
+	if got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop()); got != "" {
+		t.Errorf("an eligible assignment must not be repointed, got from=%q", got)
+	}
+	// sqlmock fails the test if any unexpected query is issued, so this also
+	// asserts that no resolve and no UPDATE happened.
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the eligible path must issue exactly one query: %v", err)
+	}
+}
+
+// The `head` case, live: the assignment IS ineligible and the library has no
+// eligible alternative. Repointing to a second deactivated component, or
+// clearing the slot, would both be worse than leaving it — and churning it on
+// every build for a library gap no site can fix is worse still.
+func TestRepointRefusesWhenThereIsNoEligibleAlternative(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM site_components sc").
+		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
+			AddRow("22222222-2222-2222-2222-222222222222", "Document Head", false))
+	// ResolveChromeComponent answers with the last-resort row, eligible=false.
+	mock.ExpectQuery("FROM content_components").
+		WithArgs("head").
+		WillReturnRows(sqlmock.NewRows(chromeRowCols()).
+			AddRow("22222222-2222-2222-2222-222222222222", "Document Head", "head",
+				"", "<head></head>", []byte(`{}`), false, false))
+
+	if got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "head", zap.NewNop()); got != "" {
+		t.Errorf("with no eligible alternative the slot must be left alone, got from=%q", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("no UPDATE may be issued when there is nothing better to point at: %v", err)
+	}
+}
+
+// The repair itself, and the two properties that make it safe: the write carries
+// the human-lock predicate (069), and it sets build_status='pending' instead of
+// clearing rendered_html — the slot keeps serving its old chrome until the new
+// render succeeds.
+func TestRepointMovesAnIneligibleAssignmentUnderTheLockPredicate(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM site_components sc").
+		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
+			AddRow("33333333-3333-3333-3333-333333333333", "footer-4-column", false))
+	mock.ExpectQuery("FROM content_components").
+		WithArgs("site-footer").
+		WillReturnRows(sqlmock.NewRows(chromeRowCols()).
+			AddRow("44444444-4444-4444-4444-444444444444", "footer-theme-chrome", "site-footer",
+				"", "<footer></footer>", []byte(`{}`), false, true))
+	// The regexp is the assertion: build_status must go to 'pending', and the
+	// WHERE must carry locked_at. A repoint that skipped either would still pass
+	// a "did it update?" test.
+	mock.ExpectExec(`UPDATE site_components[\s\S]*build_status = 'pending'[\s\S]*locked_at IS NULL`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop())
+	if got != "footer-4-column" {
+		t.Errorf("repoint must report the component it moved AWAY from, got %q", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("%v", err)
+	}
+}
+
+// A locked slot's guarded UPDATE matches zero rows. That must read as "did
+// nothing", not as a successful repoint — and it must NOT file a lock item here,
+// because the 069 gate below the idempotence exit owns that decision.
+func TestRepointReportsNothingWhenTheGuardedUpdateMatchesNoRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM site_components sc").
+		WillReturnRows(sqlmock.NewRows(chromeAssignmentCols()).
+			AddRow("55555555-5555-5555-5555-555555555555", "footer-4-column", false))
+	mock.ExpectQuery("FROM content_components").
+		WithArgs("site-footer").
+		WillReturnRows(sqlmock.NewRows(chromeRowCols()).
+			AddRow("66666666-6666-6666-6666-666666666666", "footer-theme-chrome", "site-footer",
+				"", "<footer></footer>", []byte(`{}`), false, true))
+	mock.ExpectExec("UPDATE site_components").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	if got := repointIneligibleChromeSlot(context.Background(), db, uuid.New(), "footer", zap.NewNop()); got != "" {
+		t.Errorf("a zero-row guarded update is not a repoint, got %q", got)
+	}
+	// No INSERT INTO site_work_items expected: filing here would claim a writer
+	// wanted to change a slot the idempotence exit may never let anyone write.
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the locked path must issue no further statements: %v", err)
+	}
+}
+
+// The idempotence exit must ask whether the slot is UP TO DATE, not merely
+// whether it holds bytes. This is the clause that made a repoint unreachable:
+// a repointed slot still holds the old component's HTML, so "has HTML" is true
+// and "is correct" is false.
+func TestIdempotenceExitIsBuildStatusAware(t *testing.T) {
+	src, err := os.ReadFile("render_site_components_action.go")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	s := string(src)
+	if !strings.Contains(s, "COALESCE(build_status, '') <> 'pending'") {
+		t.Error("the !force EXISTS probe must exclude build_status='pending' — without it a repointed slot " +
+			"reads as already-rendered and the repair never reaches the page (bugs_open/166)")
+	}
+	// And the repoint must run BEFORE that exit, or it can never be reached on
+	// an ordinary unforced render — which is every scheduled chrome rebuild.
+	repointAt := strings.Index(s, "repointIneligibleChromeSlot(ctx, db, siteID, slot, logger)")
+	exitAt := strings.Index(s, "Check if already rendered (unless force)")
+	if repointAt < 0 || exitAt < 0 {
+		t.Fatal("could not locate both the repoint call and the idempotence exit — this test has gone blind")
+	}
+	if repointAt > exitAt {
+		t.Error("the repoint must run BEFORE the idempotence exit; below it, an unforced render returns early and the repair never runs")
 	}
 }
