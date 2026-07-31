@@ -411,6 +411,82 @@ def check_unguarded_migration_insert(files, ref, findings):
             ))
 
 
+# ── runtime-fill marker: one predicate, or say which scope you meant ────────
+#
+# bugs_open/137. The exemption "this control is exempt because it hydrates
+# client-side" was written NINE times as a bare test against whatever the caller
+# passed — so its blast radius followed caller chunking, not the markup: a
+# section-shaped input made it right, a page-shaped input made it exempt every
+# unrelated section. No test pinned it because at each site the line reads as
+# obviously correct.
+#
+# The reason a tenth copy was free is that adding one told nobody. This fires at
+# the moment the author can still choose, and it does NOT judge which scope is
+# right — only the author can. It requires a NAMED predicate so the intent is
+# visible in review:
+#   HasRuntimeFillMarker(html)  "is this SECTION a shell?"      (whole input)
+#   RuntimeFillSpans(html)      "is this CONTROL alive?"        (per element)
+#   InRuntimeFillShell(sel)     the same, for a goquery selection
+#
+# ALLOWLIST = sites deliberately left raw, each with its reason. An entry is a
+# decision on the record; a gate with no escape hatch only pressures the next
+# author into weakening the pattern. Two are WRITERS (they act on what they see,
+# so a wide exemption is fail-safe), the rest ask the section question per row.
+#
+# Matches the SQL spelling too, because four of the copies are SQL strings
+# embedded in Go — a Go-only pattern reported the tree clean while they sat in
+# it, which is this bug's own defect one level up.
+RUNTIME_FILL_MARKER_RE = re.compile(
+    r'(?i)((strings\.)?(Contains|HasPrefix|HasSuffix|Index)\s*\([^)]*"data-runtime-fill"'
+    r"|regexp\.MustCompile\s*\(\s*[`\"][^`\"]*data-runtime-fill"
+    r"|LIKE\s+'%data-runtime-fill%')")
+
+RUNTIME_FILL_OWNER = "platform/orchestration/datahelpers/runtime_fill.go"
+
+RUNTIME_FILL_ALLOWED = {
+    "rerender_single_page_action.go":
+        "section question; the tree's only (?i) test — normalising it would silently "
+        "change the page assembler (bugs_open/137)",
+    "check_empty_sections.go":
+        "section question, per component (Go verdict + its SQL twin)",
+    "render_site_components_action.go":
+        "WRITER — DropDeadURLControls removes the control, so a wide exemption is "
+        "fail-safe; shared chrome, so the safest edit is none",
+    "check_required_fields_missing.go":
+        "SQL, per row: is this component a shell, so missing fields are by design?",
+    "check_component_standards.go":
+        "SQL, per row: is this template a shell, so '<no value>' is the mechanism?",
+    "check_component_template_corrupted.go":
+        "SQL, per row: is this template a shell, so build-time emptiness is intended?",
+}
+
+
+def check_runtime_fill_marker(files, ref, findings):
+    """bugs_open/137 — a raw marker test has no scope in its name; name the predicate."""
+    for path in files:
+        if not path.endswith(".go") or path.endswith("_test.go"):
+            continue
+        if path == RUNTIME_FILL_OWNER:
+            continue          # the predicate's own file owns the literal
+        if os.path.basename(path) in RUNTIME_FILL_ALLOWED:
+            continue
+        content = file_content(path, ref)
+        if not content:
+            continue
+        for i, line in enumerate(strip_comments(content).splitlines(), 1):
+            if RUNTIME_FILL_MARKER_RE.search(line):
+                findings.append((
+                    "runtime-fill-scope", f"{path}:{i}",
+                    f"raw {BOLD}data-runtime-fill{RESET} test — its scope is whatever the caller passed",
+                    "bugs_open/137 — this exemption was written nine times as a bare "
+                    "string test, so a page-shaped input exempted every unrelated section "
+                    "and nothing recorded it. Use a NAMED predicate and say why beside it: "
+                    "HasRuntimeFillMarker (is this SECTION a shell?), RuntimeFillSpans / "
+                    "InRuntimeFillShell (is this CONTROL alive?). If it must stay raw, add "
+                    "it to RUNTIME_FILL_ALLOWED with the reason.",
+                ))
+
+
 def check_append_only_docs(files, ref, findings):
     """Owner directive — SUMMARY snapshots and README_where_we_are are append-only."""
     for path in files:
@@ -896,7 +972,8 @@ def main():
     for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
                   check_unguarded_migration_insert, check_append_only_docs,
                   check_truncation_without_reader, check_logged_model_output,
-                  check_new_capability_surface, check_register_coverage):
+                  check_new_capability_surface, check_register_coverage,
+                  check_runtime_fill_marker):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit
