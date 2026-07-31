@@ -84,6 +84,18 @@ against every live agent definition, reusing WFA-003's `WalkSteps` traversal
 rather than writing a fourth hand-rolled walk. Measured against the live fleet
 (178 agents): exactly the 3 findings the bug documents.
 
+**2026-07-31 addition:** 1 more (**PUB-004**) — round publication on the island's
+`tools-api`: two endpoints and two columns that let a completed gauntlet round
+become a public, linkable record, but **only because the visitor who argued it
+pressed share**. Registered in the same commit that ships the seam, per the
+2026-07-28 ordering ruling. It is tools-api's first public read surface, so the
+entry states the guarantee it adds rather than only the keys: one row class is
+now readable by anyone holding its unguessable slug, gated on `published_at IS
+NOT NULL` in the read query itself. Two things there deliberately for the next
+reader: the public projection is its **own type** so a new column cannot silently
+widen what is served, and the slug alphabet/validator live in **one** place after
+briefly living in two — a drift that fails silently and totally.
+
 And 2 more (**PUB-002, PUB-003**) added 2026-07-29 by the consolidation
 programme, for the two shared packages it built on 07-28 — `platform/httpguard`
 (one client key, one banded limiter, one intake gate) and `platform/mailer` (the

@@ -22,7 +22,12 @@ func CORSMiddleware(pool *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		c.Header("Access-Control-Allow-Origin", origin)
-		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS")
+		// GET added 2026-07-31 for the public round record (GET /round/:slug).
+		// A simple cross-origin GET is not preflighted, so the endpoint would
+		// work without this — but an accurate Allow-Methods is what stops the
+		// next person adding a header to that fetch and hitting a preflight
+		// failure whose cause is three files away.
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type")
 		c.Set("site_id", site.ID)
 		c.Set("site_domain", site.Domain)

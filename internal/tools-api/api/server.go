@@ -57,5 +57,18 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	apiGroup.POST("/defend", handlers.DefendHandler(pool, cfg))
 	apiGroup.OPTIONS("/defend", func(c *gin.Context) {})
 
+	// /publish — POST marks a completed round public and returns its slug.
+	// Idempotent; refuses a round with no verdict (409, not 404).
+	apiGroup.POST("/publish", handlers.PublishHandler(pool))
+	apiGroup.OPTIONS("/publish", func(c *gin.Context) {})
+
+	// /round/:slug — GET serves a PUBLISHED round for the public record page.
+	// Read-only and no LLM call, so it is the only cheap route here.
+	//
+	// Registered AFTER POST /round: gin's tree keeps the static "/round" and the
+	// "/round/:slug" child distinct, so this does not shadow the POST above.
+	apiGroup.GET("/round/:slug", handlers.PublicRoundHandler(pool))
+	apiGroup.OPTIONS("/round/:slug", func(c *gin.Context) {})
+
 	return r
 }
