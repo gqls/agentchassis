@@ -85,3 +85,58 @@ justifies. It's filed on its own.
 The code is committed. It's Go, so nothing changes on any live site until the
 chassis is rebuilt and rolled. I've sent the change to the reviewer council and
 I'm waiting on its verdict before doing anything that would disturb a live run.
+
+---
+
+**2026-07-31, later.**
+
+The council approved it first time round, with four advisory notes. Two of them
+were worth acting on and I'm glad they were raised.
+
+The sharper one said: the half of my fix that reads the *researched* nested shape
+fixes none of the eight sites, so it's extra scope riding along with the real fix.
+Reading it back, that's a fair challenge — and rather than argue the point I went
+looking for evidence. It turns out there's an action in the codebase whose entire
+job is to copy those researched contact details into the site's own record. If it
+ran, my nested half really would be redundant.
+
+**It has never run.** It's wired into zero live agents, and its own header says it
+"should be added as a step in the build flow" — nobody ever added it. So nothing in
+the whole pipeline reads what the research agent writes, which is why a brand new
+site would still come out broken. The half the reviewer wanted removed is the only
+thing reading it. I've kept it and put the measurement in the code next to it, so
+the next person to ask the same fair question finds the answer rather than my
+opinion.
+
+That's also a finding in its own right, and probably the more interesting one: we
+have a mechanism designed exactly to keep these two stores in step, built, and
+never switched on. I haven't switched it on — that's a change to live build
+workflows other lanes own, and it wants a decision rather than a drive-by. It's
+written down where it'll be found.
+
+The other note asked for a proper record of which fields got their value from
+somewhere other than where they claim to, instead of just a log line. Reasonable —
+we've been bitten before by treating logs as an audit trail. Added.
+
+**On closing the ticket.** I've left it open, and I want to be straight about why,
+because you asked me to close it. The code is committed and approved, but it's Go —
+it does nothing on any live site until the chassis is rebuilt and rolled, and until
+then the bug is still reproducible on all fifteen sites. Our own rule is that
+`bugs_open` answers "what is biting production right now", and this still is.
+
+I could have rolled it myself. I didn't, because another session had a council
+review in flight and a roll kills those — one thread lost a whole review that way
+last week. Destroying someone else's work to tick my ticket seemed like the wrong
+trade.
+
+So the file stays where it is, but with a banner at the top that says the cause is
+settled, names the commits, and lists the three checks that close it. Nobody should
+re-diagnose it. Once it rolls, verifying is about ten minutes, and the five sites
+need their contact pages rebuilt to actually show the block.
+
+One thing I deliberately left for you rather than deciding: I fixed this by making
+the reader look in more places. The alternative was to make the research agent
+write where the readers already look. Mine fixes every component at once and needs
+no data migration, but it costs something real — the address a component declares
+is no longer the whole truth about where its value came from. I've written that
+question into the register rather than burying it.

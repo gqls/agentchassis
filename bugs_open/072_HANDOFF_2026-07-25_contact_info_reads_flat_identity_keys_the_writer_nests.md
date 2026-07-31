@@ -4,8 +4,39 @@
 number on 2026-07-24 and it never appeared on the contact page.
 **Severity:** medium-high, silent, fleet-wide. A contact-details block is missing
 from most sites' contact pages and nothing reports it.
-**Status:** OPEN — diagnosed with a fleet-wide discriminator, data worked around
-on one site, contract not fixed.
+**Status:** ~~OPEN — diagnosed with a fleet-wide discriminator, data worked around
+on one site, contract not fixed.~~
+
+> ## FIXED AND APPROVED 2026-07-31 — OPEN ONLY UNTIL THE NEXT CHASSIS ROLL
+>
+> **Do not re-diagnose this. Do not start a competing fix.** The cause is settled
+> and the code is committed; the single remaining step is mechanical.
+>
+> - **Root cause was NOT the flat/nested path mismatch.** Both remedies in the
+>   "Fix candidates" section below fix **0 of the 8 affected sites** — the nested
+>   values are empty on exactly those 8. The resolver could not read the
+>   canonical `sites` row. **Read the RESOLVED section at the bottom of this file
+>   before anything in the middle.**
+> - **Fix:** `ef9e7e999` + `489ae1e7f` (`plan_sections_action.go` —
+>   `resolveSpecAlias`, `ensureSiteRow`), registered **PBP-026**.
+> - **Diagnosis loop: CONFIRMED**, first iteration, corr `0f76987c`.
+> - **Council gate: APPROVED round 1**, corr `dd03a73b`, 4 advisory objections,
+>   none high-severity; the two actionable ones are answered in `489ae1e7f`.
+> - **Why still in `bugs_open/`:** the fix is Go, so the defect remains
+>   reproducible on every live site until an image is rebuilt and rolled. That is
+>   this repo's bar for `bugs_closed/` and it is not met yet. **I did not roll it
+>   myself because another session's council run was in flight, and a roll kills
+>   one.**
+> - **To close it:** rebuild + roll the chassis, then run the three checks in
+>   `docs024_key_docs_latest/bugfix_072_identity_source_resolver/RUNBOOK_identity_source_resolver.md`
+>   §4 — pod-grep `resolved from the canonical sites row` **with a positive
+>   control in the same exec**; rebuild a contact page on **vonc.com** and expect
+>   three components; then confirm **gamesdesign.co.uk** still renders **no**
+>   contact block (the negative control — it has no contact fact in any store and
+>   must keep resolving nothing). Then move this file to `bugs_closed/`.
+> - **Then:** the 5 sites that gain a contact email (oufe, robot-hands,
+>   vetcomparison, vonc, webdesign) need their contact pages rebuilt to pick the
+>   block up.
 
 ## Symptom
 
