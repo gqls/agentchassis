@@ -2,6 +2,8 @@ package browserrunner
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -606,6 +608,91 @@ func TestHasVisibleArea(t *testing.T) {
 			}
 			if tc.wantInMsg != "" && !strings.Contains(got[0].Detail, tc.wantInMsg) {
 				t.Fatalf("detail %q does not contain %q", got[0].Detail, tc.wantInMsg)
+			}
+		})
+	}
+}
+
+// evalNumber is tested DIRECTLY, and it has to be. The browserPage interface
+// already returns float64, so fakePage cannot express the bug — the fault was
+// below the interface, in the decode of playwright's own result. That is exactly
+// why bugs_open/157 shipped with TestHasVisibleArea green: the double lied about
+// the type. playwright-go decodes a JS number by VALUE (js_handle.go:104-113),
+// returning int for a whole number and float64 only for a fractional one, so a
+// 24px checkbox measured 0x0 and was reported as too small to see or click.
+func TestEvalNumberDecodesEveryShapePlaywrightReturns(t *testing.T) {
+	tests := []struct {
+		name string
+		in   interface{}
+		want float64
+		ok   bool
+	}{
+		// The regression: an integral CSS size. This is the case that failed.
+		{name: "int — what playwright returns for a whole number", in: 24, want: 24, ok: true},
+		{name: "float64 — what it returns for a fractional number", in: 47.484375, want: 47.484375, ok: true},
+		{name: "a real zero decodes as zero, and says so", in: 0, want: 0, ok: true},
+		{name: "int64", in: int64(1146), want: 1146, ok: true},
+		{name: "int32", in: int32(390), want: 390, ok: true},
+		{name: "json.Number — the round-trip path", in: json.Number("24.5"), want: 24.5, ok: true},
+		// Not decodable: must report NOT ok so the caller can raise a
+		// measurement error instead of stating a layout verdict of 0.
+		{name: "a string is not a measurement", in: "24", want: 0, ok: false},
+		{name: "nil — the key was absent", in: nil, want: 0, ok: false},
+		{name: "a bool is not a measurement", in: true, want: 0, ok: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := evalNumber(tc.in)
+			if ok != tc.ok {
+				t.Fatalf("evalNumber(%#v) ok = %v, want %v", tc.in, ok, tc.ok)
+			}
+			if got != tc.want {
+				t.Fatalf("evalNumber(%#v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// A measurement that could not be taken must read as a measurement failure, not
+// as a layout verdict of 0. This is the half of 157 that made the wrong answer
+// so confident: the old decode turned "I could not read this value" into "this
+// element is too small to see or click", and named a collapsed flex parent that
+// was not there.
+func TestUnmeasurableAreaReportsMeasurementFailureNotTooSmall(t *testing.T) {
+	fp := &fakePage{status: 200, areaErr: errors.New("non-numeric w/h in result")}
+	doc := criteriaDoc{Checks: []criteriaCheck{{ID: "c", Type: "has_visible_area", Selector: "#c"}}}
+	applicable, _ := splitByProfile(doc, "desktop", "https://example.test/x")
+	got := evaluateOnPage(fp, doc, applicable, "desktop", "https://example.test/x")
+	if len(got) != 1 || got[0].Pass {
+		t.Fatalf("an unmeasurable element must fail, got %+v", got)
+	}
+	if !strings.Contains(got[0].Detail, "could not measure") {
+		t.Fatalf("detail must report a measurement failure, got %q", got[0].Detail)
+	}
+	if strings.Contains(got[0].Detail, "too small to see or click") {
+		t.Fatalf("a bookkeeping failure must not present as a layout verdict: %q", got[0].Detail)
+	}
+}
+
+// The threshold comparison must be reached with the REAL measurement. This is
+// the end-to-end shape of 157: a 24x24 control against the 24x24 default floor
+// passes, and #vtc-verdict's discriminating mobile case (one integral axis, one
+// fractional) is a pass too. Both fail if either axis decodes as 0.
+func TestIntegralSizesClearTheDefaultFloor(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		w, h float64
+	}{
+		{"a 24px checkbox — exactly the default floor", 24, 24},
+		{"one integral axis, one fractional (#vtc-verdict on mobile)", 358, 94.109375},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fp := &fakePage{status: 200, areas: map[string][2]float64{"#c": {tc.w, tc.h}}}
+			doc := criteriaDoc{Checks: []criteriaCheck{{ID: "c", Type: "has_visible_area", Selector: "#c"}}}
+			applicable, _ := splitByProfile(doc, "mobile", "https://example.test/x")
+			got := evaluateOnPage(fp, doc, applicable, "mobile", "https://example.test/x")
+			if len(got) != 1 || !got[0].Pass {
+				t.Fatalf("%.0fx%.0f must pass the 24x24 floor, got %+v", tc.w, tc.h, got)
 			}
 		})
 	}

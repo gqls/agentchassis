@@ -770,9 +770,46 @@ func (c *chromiumPage) VisibleArea(selector string) (float64, float64, bool, err
 		return 0, 0, false, fmt.Errorf("VisibleArea: unexpected result shape %T", v)
 	}
 	found, _ := m["found"].(bool)
-	w, _ := m["w"].(float64)
-	h, _ := m["h"].(float64)
+	w, wOK := evalNumber(m["w"])
+	h, hOK := evalNumber(m["h"])
+	if !wOK || !hOK {
+		return 0, 0, false, fmt.Errorf("VisibleArea: non-numeric w/h in result %#v", m)
+	}
 	return w, h, found, nil
+}
+
+// evalNumber is THE way to read a number out of a page.Evaluate() result in this
+// file. Any new evaluator must use it rather than asserting a concrete type.
+//
+// playwright-go decodes a JS number by its VALUE, not its static type
+// (mxschmitt/playwright-go@v0.6100.0 js_handle.go:104-113 —
+// `if math.Ceil(v)-v == 0 { return int(v) }`): an integral number arrives as
+// `int`, a fractional one as `float64`. So `m["w"].(float64)` with comma-ok
+// discards every whole-number measurement and leaves 0 — which VisibleArea then
+// compared against its threshold and reported as "too small to see or click",
+// accusing correctly-sized 24px controls of being invisible (bugs_open/157).
+// `go build` cannot see it and no test through browserPage can either, because
+// that interface is already typed float64 — the fault is below it, which is why
+// evalNumber is tested directly.
+//
+// The ok bool is load-bearing: a 0 meaning "not decoded" must never be
+// indistinguishable from a 0 meaning "this element really measured zero". A
+// bookkeeping failure must surface as an error, not as a layout verdict.
+func evalNumber(v interface{}) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case json.Number:
+		f, err := n.Float64()
+		return f, err == nil
+	}
+	return 0, false
 }
 
 func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo, error) {
@@ -940,15 +977,13 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 	// clipped only arrives alongside a culprit, so its presence means cut
 	// content was actually found (a clean non-scrolling page returns neither).
 	info.Clipped, _ = m["clipped"].(bool)
-	// JS numbers come back as float64/int; tolerate 2px of rounding.
-	switch n := m["over"].(type) {
-	case float64:
-		return n > 2 || info.Clipped, info, nil
-	case int:
-		return n > 2 || info.Clipped, info, nil
-	default:
-		return info.Clipped, info, nil
+	// JS numbers come back as float64/int (see evalNumber); tolerate 2px of
+	// rounding. An undecodable `over` falls back to the clipped verdict rather
+	// than reading as zero overflow.
+	if over, ok := evalNumber(m["over"]); ok {
+		return over > 2 || info.Clipped, info, nil
 	}
+	return info.Clipped, info, nil
 }
 
 func (c *chromiumPage) Do(step criteriaStep) error {
