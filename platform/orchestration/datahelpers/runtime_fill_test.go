@@ -166,36 +166,49 @@ func TestDeadControlAnchorsOutsideRuntimeFill(t *testing.T) {
 	})
 }
 
-// ── the consumer that must stay byte-identical ─────────────────────────────
+// ── the WRITER, which deliberately keeps whole-input scope ─────────────────
+//
+// bugs_open/137 narrowed the exemption for every JUDGE. RepairPageLinks is not
+// a judge: its unlink arm drops the <a> and keeps the text, and a landmine on
+// this exact function records the consequence — "A dead internal link is
+// REPAIRED into orphaned prose, so the defect you are shown is 'text that
+// should be a link', not a 404". Narrowing a writer therefore makes a
+// DOCUMENTED defect class more common, where narrowing a judge only surfaces
+// more findings for a human.
+//
+// So the direction of safety reverses here, and this test pins that decision so
+// a later "consistency" pass cannot quietly flip it. Raised by the council's
+// editquality (high) and render_guardian seats, round 1 of correlation
+// 4465f655-c6c6-49b4-a9b8-4ca7a5f647df.
 
-func TestRepairPageLinksExemptsPerAnchorNotPerDocument(t *testing.T) {
+func TestRepairPageLinksKeepsWholeInputScopeDeliberately(t *testing.T) {
 	index := NewPageURLIndex([]string{"/real.html"})
 
-	t.Run("a shell no longer suppresses the whole page", func(t *testing.T) {
+	t.Run("a shell anywhere still suppresses the whole page", func(t *testing.T) {
 		html := `<section data-runtime-fill><a href="">shell placeholder</a></section>` +
 			`<section><a href="">Enter the Gauntlet</a></section>`
 		out, repairs := RepairPageLinks(html, index)
-		if len(repairs) != 1 {
-			t.Fatalf("expected the neighbour's empty href to be repaired, got %d: %+v", len(repairs), repairs)
-		}
-		if !strings.Contains(out, `<a href="">shell placeholder</a>`) {
-			t.Errorf("the shell's own placeholder was repaired — the exemption is broken:\n%s", out)
-		}
-		if strings.Contains(out, `<a href="">Enter the Gauntlet</a>`) {
-			t.Errorf("the neighbour was left unrepaired — this is the bug, unfixed:\n%s", out)
+		if len(repairs) != 0 || out != html {
+			t.Fatalf("the writer must NOT have been narrowed to per-anchor: %d repairs\n%s\n\n"+
+				"If this was intentional, the unlink-into-orphaned-prose question has to be "+
+				"answered first — see link_repair.go's header and the landmine it cites.",
+				len(repairs), out)
 		}
 	})
 
-	t.Run("a section whose root is a shell is untouched, byte for byte", func(t *testing.T) {
-		html := `<section data-runtime-fill><a href="">a</a><a href="/ghost.html">b</a></section>`
+	t.Run("a page with no shell repairs exactly as before", func(t *testing.T) {
+		html := `<section><a href="">Enter the Gauntlet</a></section>`
 		out, repairs := RepairPageLinks(html, index)
-		if len(repairs) != 0 || out != html {
-			t.Fatalf("per-section callers must see no change: %d repairs\n%s", len(repairs), out)
+		if len(repairs) != 1 {
+			t.Fatalf("the exemption must not have widened: %d repairs", len(repairs))
+		}
+		if strings.Contains(out, "<a href=\"\">") {
+			t.Errorf("the dead anchor was not unlinked:\n%s", out)
 		}
 	})
 
 	t.Run("clean markup is returned byte-identical", func(t *testing.T) {
-		html := `<section data-runtime-fill><a href="">x</a></section><a href="/real.html">y</a>`
+		html := `<section><a href="/real.html">y</a></section>`
 		out, repairs := RepairPageLinks(html, index)
 		if len(repairs) != 0 || out != html {
 			t.Fatalf("byte-identity broken on a page needing no repair:\n%q", out)

@@ -31,6 +31,8 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func init() {
@@ -242,7 +244,11 @@ func emptySectionVerdict(html string) VerifyResult {
 	if strings.TrimSpace(html) == "" {
 		return VerifyResult{Resolved: false, Detail: "rendered_html is still null/empty"}
 	}
-	if strings.Contains(html, "data-runtime-fill") {
+	// WHOLE-INPUT on purpose (bugs_open/137). This asks "is this SECTION a
+	// shell?", which is a genuine whole-section question — not "is this CONTROL
+	// alive?", which is now element-scoped. The named predicate is what keeps
+	// that a decision rather than a coincidence.
+	if datahelpers.HasRuntimeFillMarker(html) {
 		return VerifyResult{Resolved: true, Detail: "runtime-fill shell — empty by design, filled client-side"}
 	}
 	if len(html) < 50 {

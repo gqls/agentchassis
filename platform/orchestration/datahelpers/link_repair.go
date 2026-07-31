@@ -56,11 +56,40 @@ const (
 	LinkRepairUnlink  = "unlink"  // <a> dropped, inner content kept
 )
 
-// The runtime-fill exemption lives in runtime_fill.go — one marker, one meaning,
-// applied at ELEMENT scope. This file used to hold a second private copy of the
-// constant and a whole-document test beside it; that pairing is what let the
-// exemption's blast radius follow the caller's chunking rather than the markup
-// (bugs_open/137).
+// THE RUNTIME-FILL EXEMPTION HERE STAYS WHOLE-INPUT, DELIBERATELY — and this
+// file is the one place in the bugs_open/137 change where that is true.
+//
+// 137 narrowed the exemption from whole-input to per-element everywhere it
+// governs a JUDGEMENT (check_tool_acceptance's sweep, check_dead_controls,
+// check_phantom_internal_links, check_backend_entry_orphaned, the attribute
+// checks). Narrowing a judge is safe in one direction: it can only surface more
+// findings, and every one of them is escalated to a human.
+//
+// THIS IS NOT A JUDGE, IT IS A WRITER, and the direction reverses. The unlink
+// arm below drops the <a> and keeps the inner content, and there is a landmine
+// on exactly this function: "A dead internal link is REPAIRED into orphaned
+// prose, so the defect you are shown is 'text that should be a link', not a
+// 404" — the stored rendered_html holds a well-formed anchor while the wire
+// shows bare words, and only a DB-against-wire diff can see it. So for a writer
+// the whole-input skip UNDER-repairs, and under-repair is the fail-safe
+// direction: an unrepaired dead link stays visible and stays flagged, while a
+// repaired one becomes prose nobody can find.
+//
+// The platform has already ruled on the underlying question, in
+// check_dead_controls.go's routing: a dead control is filed as
+// needs_human_review with NO handler, because it "can mean 'wire the
+// destination', 'build the missing page', or 'remove the mock'; picking a fixer
+// automatically would guess." Unlinking IS picking a fixer automatically. That
+// tension pre-dates 137 and is not a scope fix's to settle — so this change
+// declines to widen it, and says so rather than leaving the reader to infer it
+// from an absence.
+//
+// WHAT IS STILL OWED (deferred, not forgotten): decide whether unlink is the
+// right repair action at all. If it is replaced by an escalation, this
+// predicate should become element-scoped in the same change, because the
+// fail-safe argument above is the only thing keeping it whole-input.
+// Raised by the council's editquality and render_guardian seats, round 1 of
+// correlation 4465f655-c6c6-49b4-a9b8-4ca7a5f647df.
 
 // LinkRepair records one change made to the markup, so the caller can persist a
 // durable account of what the gate did rather than only what it saw.
@@ -140,19 +169,17 @@ func RepairPageLinks(html string, index PageURLIndex) (string, []LinkRepair) {
 	if html == "" || len(index) == 0 {
 		return html, nil
 	}
+	// Whole-input, and the header explains why this one is not element-scoped:
+	// a writer's exemption fails safe by being too WIDE, because the alternative
+	// to an unrepaired link is prose nobody can find.
+	if HasRuntimeFillMarker(html) {
+		return html, nil
+	}
+
 	matches := repairAnchorRe.FindAllStringSubmatchIndex(html, -1)
 	if len(matches) == 0 {
 		return html, nil
 	}
-
-	// Runtime-fill shells are exempt PER ANCHOR, not per document (bugs_open/137).
-	// The old whole-document skip returned the page untouched as soon as any
-	// section carried the marker, so a hydrating section suppressed the repair of
-	// its statically-linked neighbours: measured live on vonc.com/index, where
-	// lobby-grid's marker skipped gauntlet-cta's two empty hrefs. A section whose
-	// own root carries the marker still exempts everything inside it, so the
-	// per-section caller (save_sections_link_repair) is unaffected.
-	shells := RuntimeFillSpans(html)
 
 	var out strings.Builder
 	var repairs []LinkRepair
@@ -160,9 +187,6 @@ func RepairPageLinks(html string, index PageURLIndex) (string, []LinkRepair) {
 
 	for _, m := range matches {
 		fullStart, fullEnd := m[0], m[1]
-		if shells.Contains(fullStart) {
-			continue // this anchor hydrates client-side: its href is the mechanism
-		}
 		hrefStart, hrefEnd := m[2], m[3]
 		innerStart, innerEnd := m[4], m[5]
 		href := html[hrefStart:hrefEnd]
