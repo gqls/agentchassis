@@ -102,9 +102,9 @@ var mutants = []mutant{
 	// DOM event without the other, so `input`-vs-`change` wiring is not
 	// distinguishable by any fence, and saying so is the honest position.
 	{
-		name: "dead slider: the lever is wired to nothing (BOTH listeners killed — see the note above)",
-		from: "input.addEventListener('input', update);\n        input.addEventListener('change', update);",
-		to:   "input.addEventListener('input', function () {});\n        input.addEventListener('change', function () {});",
+		name:       "dead slider: the lever is wired to nothing (BOTH listeners killed — see the note above)",
+		from:       "input.addEventListener('input', update);\n        input.addEventListener('change', update);",
+		to:         "input.addEventListener('input', function () {});\n        input.addEventListener('change', function () {});",
 		expectFail: []string{"threshold-lever-updates-the-readout"},
 	},
 	{

@@ -24,6 +24,7 @@
 //	    <criteria.json> <url> [more urls...]
 //
 // EXIT: 0 only when every check was EVALUATED and PASSED on every profile.
+//
 //	1 on any failure, any unimplemented-type skip, or any arithmetic
 //	  mismatch. A profile-gated skip is reported and does NOT fail.
 //
