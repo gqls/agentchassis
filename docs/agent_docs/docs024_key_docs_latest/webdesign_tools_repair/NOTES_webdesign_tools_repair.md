@@ -716,3 +716,59 @@ against one site's markup conventions has only been verified against those
 conventions.** The cheap check is to point it at any second site before trusting
 a verdict from it — which is what happened here, by accident, and it cost one run
 to find a fault that had been latent for 63 pages.
+
+### Faults ELEVEN and TWELVE, same day, same root cause as ten
+
+Porting 23 more calculators through the fixed harness turned up two more, and
+both are the *same class of error as fault ten*: *the instrument only looks where
+it was told to look, and what it was told is a guess about how tools are built.*
+
+**Fault 11 — a checkbox was unreachable, so a working tool scored `DEAD`.**
+`toolaudit.py`'s `pick()` chain listed range, number, text, textarea, select,
+colour and contenteditable. Not checkbox, not radio. `damage-checker` on
+`loancalculator.co.uk` has **four checkboxes and no buttons**, so `target` came
+back null, the button fallback found nothing to press, and the verdict was
+"driven and pressed, nothing changed" — a sentence describing something the
+harness never did. Proven working by hand in the same browser: ticking `#dmg-1`
+takes `#damage-verdict` from `display:none` to `display:block`.
+Fixed two ways, because either alone was insufficient: checkbox and radio added
+to the end of the `pick()` chain (last, so a number field still wins), and
+driving one is now `target.click()` — setting `.value` on a checkbox is a no-op,
+which is why the old code could "drive" it and truthfully observe nothing.
+
+**Fault 12 — `snap()` could not see WHICH REGION IS VISIBLE.** It compared a
+fixed selector list (`[id*=output]`, `[id*=result]`, `[id*=preview]`, …).
+`credit-health-check` is a five-step wizard whose script moves a class so a
+different `<div id="step-N">` shows; not one of its ids matches any pattern in
+that list, and no innerHTML anywhere changes. Advancing the wizard was therefore
+byte-identical to a dead tool.
+Fixed by adding a third component to the snapshot: the display state of every
+**id-addressed** element in scope. Keyed on `[id]` and not `*` deliberately —
+these scripts address their regions by id, that is how they are written, and `*`
+would fingerprint every wrapper for no extra signal.
+
+**Drift re-measured after both changes, twice** (same protocol as fault ten:
+original from `git show`, same 4 `webdesign.co.uk` tools, 9 fields each):
+**0 of 36 fields drifted.** One run showed micro-cms `RESPONDS → BROKEN` on
+`ERR_NETWORK_CHANGED` fetching a Cloudflare RUM beacon; it did **not** reproduce
+on two further runs, so it was a network blip and not the change. Worth noting as
+its own small finding: **the harness treats a third-party beacon failure as a
+site defect.** It already exempts `favicon.ico`; analytics beacons deserve the
+same exemption, because they fail for reasons that have nothing to do with the
+tool. Left unfixed here — not this lane's call — but it is a live false-positive
+source.
+
+**What these two faults did to the numbers.** Of 4 non-passing verdicts on the
+ported set, **3 were the harness and 1 was real**:
+
+| tool | first verdict | truth |
+|---|---|---|
+| `mortgages/bridging-loan` | BROKEN, `formatGBP is not defined` | **real, and mine** — my builder rebuilt `<head>` and dropped a `<script src>` that lived there. Fixed, plus a second build assertion so it cannot recur |
+| `loans/damage-checker` | DEAD | harness, fault 11 |
+| `loans/credit-health-check` | DEAD | **real but not mine** — a 5-step wizard whose `.check-step`/`.active` CSS *neither source site ever wrote*, so all five steps rendered at once. Fixed in CSS. The DEAD verdict then persisted as fault 12 |
+| `loans/credit-roadmap` | NO-CONTROL | **correct** — 1,816 bytes, zero controls, zero script. Not a tool at all |
+
+**The rule worth keeping from this:** when a verdict says a tool is dead, the
+first question is whether the harness *did the thing it claims to have done*. In
+three of four cases here it had not. `evalpage.py` answers that in about twenty
+seconds and it is the cheapest step in the whole loop.
