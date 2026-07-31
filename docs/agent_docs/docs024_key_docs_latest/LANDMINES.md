@@ -563,14 +563,29 @@ source document and the entry points at it.
 - **source:** built during `fidelity=locked` verbatim adoption, concept register `ADO-037`, 2026-07-30
 - **added:** 2026-07-30, loancalculator_couk lane
 
-### `snapshot_agent` has two overloads writing to different places, and the backup table keeps the SOURCE row's `created_at` — so "the newest snapshot" ordered by `created_at` is a tie, not a row
-- **footprint:** `snapshot_agent`, `agent_definitions_backup`, `agent_definitions.is_snapshot`, any `sql_for_agents/*.sql` migration with a ROLLBACK block
-- **fires when:** you write the rollback instructions for an agent-config migration. The migration itself is fine — this bites the person restoring, i.e. at the worst possible moment
-- **the tell:** none at write time, and the wrong instruction reads as completely reasonable. Two traps compose. (1) `snapshot_agent(text)` and `snapshot_agent(text, text)` are **two overloads**; the 2-arg form (the one every migration here calls) writes to **`agent_definitions_backup`**, NOT to an `is_snapshot` row in `agent_definitions` — so a rollback told to find "the newest `is_snapshot` row" searches the wrong table and finds nothing, or finds an unrelated row. (2) That backup copies `id`, `created_at` and `updated_at` **verbatim from the source row**, so `ORDER BY created_at DESC` does not order snapshots at all. Measured 2026-07-30: all three `feature-designer` backups share source `created_at` `2026-07-17 18:06:05` — a three-way tie. Only **`snapshot_taken_at`** discriminates, and `snapshot_reason` is what identifies which migration took it
-- **the check:** `SELECT snapshot_taken_at, snapshot_reason FROM agent_definitions_backup WHERE type='<agent>' ORDER BY snapshot_taken_at DESC LIMIT 5;` — if that returns your migration's reason at the top, your rollback block is right. Restore with `UPDATE agent_definitions a SET default_config = b.default_config FROM (SELECT default_config FROM agent_definitions_backup WHERE type='<agent>' AND snapshot_reason='<your reason>' ORDER BY snapshot_taken_at DESC LIMIT 1) b WHERE a.type='<agent>' AND a.deleted_at IS NULL AND COALESCE(a.is_snapshot,false)=false;`. **Also: a dry run does not leave a snapshot** — `snapshot_agent` inside a transaction you `ROLLBACK` is rolled back with everything else, so a clean dry run is not a backup
-- **known-affected:** `272_feature_designer_plan_repair_loop.sql` (corrected 2026-07-30) and `222_feature_designer_one_edit_per_file_per_stage.sql` (**still carries the wrong instruction** — another lane's applied migration, not edited; this entry is the warning)
-- **source:** the council gate's `debug_historian` seat, objecting on corr `f4a4628f-3b90-4054-a875-f2cf72b83e72` that the "snapshotted, verified, reversible" claim was unconfirmed against a documented double-overload trap. It was right, and the first version of 272's rollback block was wrong
-- **added:** 2026-07-30, bugfix_099 lane
+### ~~`snapshot_agent` has two overloads…~~ **DUPLICATE — cut back 2026-07-31 by its own author; read the three originals instead**
+> **This entry should not have been written.** Everything it claimed was ALREADY in
+> this file, in three entries I did not grep for before appending: the overload split
+> (§`snapshot_agent has TWO overloads writing to TWO different tables`), the wrong
+> table (§`snapshot_agent() writes to agent_definitions_backup, NOT an is_snapshot
+> row…`), and the ordering tie (§`agent_definitions_backup keeps the SOURCE row's id
+> and created_at — order by snapshot_taken_at`, which already states that *every*
+> backup row for one agent shares both). My "measurement" of three `feature-designer`
+> backups sharing `created_at 2026-07-17 18:06:05` is a confirming instance of a
+> documented fact, not a finding. **Kept as a stub rather than deleted because this
+> file is append-only, and because a duplicate that is visibly marked is more useful
+> than one silently removed.** Logged in `WRONG_CALLS.md`.
+>
+> The irony worth keeping: the council seat that caught my wrong rollback block cited
+> one of these existing entries *by name*. The information was already delivered to the
+> agents; I just had not read it. CLAUDE.md says the SessionStart hook only matches
+> **path**-shaped footprints and that you must "still grep it yourself for table,
+> command and symbol footprints" — `snapshot_agent` is a symbol, so it was mine to grep.
+- **the two things here that were NOT already recorded**, and the only reason to read on:
+  - **`222_feature_designer_one_edit_per_file_per_stage.sql` still carries the wrong rollback instruction** ("the newest `is_snapshot` row"). Not edited — another lane's applied migration. `272` was corrected 2026-07-31.
+  - **A dry run leaves NO snapshot.** `snapshot_agent` inside a transaction you `ROLLBACK` is rolled back with everything else, so a clean dry run is not a backup. Easy to assume otherwise when the dry run prints `Snapshot captured: …`.
+- **footprint:** `snapshot_agent`, `agent_definitions_backup`, `222_feature_designer_one_edit_per_file_per_stage.sql`
+- **added:** 2026-07-30, bugfix_099 lane · **cut back to a stub 2026-07-31**
 
 ### An SVG viewBox CLIPS, so a label that does not fit reads as CORRUPTED CONTENT, not as a layout bug
 
@@ -1723,3 +1738,13 @@ source document and the entry points at it.
 - **the check:** before "declaring a field in the output_contract", read one. The format is a flat list of **step `output_field` names** — `{"produces": ["monitor_loop"]}` — **not** the individual keys inside that output. So a field like `plan_valid` sitting inside an existing `plan_persisted` output **cannot be expressed in it at all**, and adding a block that omits it while looking thorough is worse than adding nothing. If you genuinely need a downstream-read field to be declared somewhere enforceable, the contract is not that place today — say so rather than writing a decorative block
 - **source:** the council gate's `guidelines` seat raised this as a HIGH gating objection on corr `f4a4628f`, 2026-07-31; the distinction it drew (a control-flow field is not telemetry) is right, but the mechanism it pointed at does not operate at that granularity and is unenforced. Same family as "a dead config key looks exactly like a live one"
 - **added:** 2026-07-31, bugfix_099 lane
+
+### `ReadSymbolBody`'s whole-file branch is ADVERTISED TO AN LLM, so "no producer can reach it" is wrong and "tidy it away" breaks a feature
+- **footprint:** `internal/analysis/symbolbody.go` (`ReadSymbolBody`, `findFile`), `platform/orchestration/actions/diagnose_assemble_bundle_action.go` (`:201` read, `:597` sibling-signature footer, `scopeFromCodeResults`), `pkg/diagnose/loop.go` (`namedScope`, `nextScope`), `pkg/diagnose/verdict_wire.go` (`NextScope`), `route.scope` / `input_data.seed_scope` in `collected_data`
+- **fires when:** you reason about who can put a **bare file path** (no `:Symbol`) into the diagnosis loop's scope, in order to bound what `ReadSymbolBody` may read. The obvious producer is `scopeFromCodeResults`, and it looks safe — `code_symbols.symbol` is `NOT NULL`, so its bare-path branch never fires. **That is the wrong producer.** The scope fallback chain's FIRST and highest-priority source is `route.scope` (`:139-140`), which is `EncodeScope(decision.NextScope)`, which is the **LLM verdicter's own `next_scope` JSON array** — and `namedScope` (`loop.go:409-415`) only trims and dedupes those strings. Nothing validates that an entry is a known path, or a path at all
+- **the tell:** **there isn't one, and the code reads as though the branch were dead.** `bugs_open/145` was filed by the architecture seat — correctly — and still concluded the branch was "currently unreachable by accident of the writer", because it followed the DB-backed producer and stopped. The bundle text at `:597` settles it in the other direction: it prints *"put the bare file path in next_scope to see it whole"* **to the model**. So the branch is a live, advertised capability driven by the least trustworthy producer in the loop
+- **the second trap, which looks like the safety net and is not:** the §7D fuzzy resolver (`diagnose_route_action.go:512-600`) classifies an unknown path-shaped entry as FUZZY and sends it to embedding search — but when nothing clears `resolver_min_similarity` it **fails open to the original string** by explicit contract ("no worse than not resolving"). It is enrichment. A `resolver_budget_seconds` timeout fails open too
+- **the check:** to bound this function, gate on **membership in the analyser `Output`** (`findFile`), never on the `.go` extension and never on which producer you think is live. `Output` IS the analyser's inclusion rule (`analyse.go:80-99`: Go, non-test, minus `vendor/`, `testdata/`, download-duplicates, `excluded()`), so an extension test is a second drifting copy of it that still admits a vendored or excluded file — measured 2026-07-31, `f_test.go`, `vendor/dep/dep.go` and `testdata/sample.go` all leaked pre-fix. And **do not remove the branch**: `145`'s own fix candidate 1 (drop it / move it to an explicit `ReadWholeFile`) would break what `:597` promises the model
+- **and the reason to keep the boundary IN the helper rather than in its caller:** the invariant already existed once. contextkit's `cmd/assembler` resolves `byPath[path]` and skips with "path not found in analysis" **before** calling `ReadSymbolBody`; the chassis port calls it straight off the scope list. A precondition parked in a caller is one port away from gone — which is exactly what the architecture seat meant by "a generic hazard reachable by any future scope-entry producer"
+- **source:** 2026-07-31, `bugs_closed/145` (`docs024/bugfix_145_symbolbody_boundary/`). Pre-fix, a test naming files that exist on disk got all five unanalysed ones back, **plus a file from outside the checkout** (`filepath.Join(root, "../outside.go")` resolves) — so the leak was never bounded by the repo, which the filing did not claim. Consumer renders the result to the verdicter inside a ```go fence under "## In-scope code"
+- **added:** 2026-07-31, bugfix_145 lane

@@ -13554,3 +13554,20 @@ finished until something mechanical checks them.
   only changes at the other session's first commit. **Before a long research phase on a
   bug, grep the live transcripts for the target's code symbols; and treat a
   "modified on disk" notice as a collision to investigate, never as a merge to resolve.**
+- **I filed a fleet-wide landmine that was already there three times over, because I
+  did not grep the file I was appending to.** After the council's `debug_historian`
+  seat caught a wrong rollback block, I wrote a `snapshot_agent` entry in
+  `LANDMINES.md` covering the two overloads, the wrong table, and the `created_at`
+  ordering tie. **All three were already documented** — three separate existing
+  entries, one of which (`agent_definitions_backup keeps the SOURCE row's id and
+  created_at`) already states that *every* backup row for an agent shares both fields,
+  so my "measurement" of a three-way tie was a confirming instance of a known fact
+  dressed up as a finding. Cut back to a marked stub keeping only the two genuinely
+  new details. **The seat that objected had cited one of those existing entries by
+  name** — the information was already delivered to the agents and I had not read it.
+  The cheap check is one grep of the footprint before appending, which CLAUDE.md
+  explicitly requires (`the SessionStart hook only matches PATH-shaped footprints;
+  still grep it yourself for table, command and symbol footprints`) —
+  `snapshot_agent` is a symbol, so the hook was never going to surface it and it was
+  mine to grep. Same "grep before you file" discipline the repo already applies to
+  `/bugs_open/`; I applied it there and not here, on the same day.
