@@ -4,7 +4,10 @@
 > submission `e242e9d3-1e5a-4b14-a16f-fbff9ca86d35`. OPEN until the next chassis
 > roll** — a fix that has not shipped leaves the defect reproducible.
 >
-> `repointIneligibleChromeSlot` moves a slot off an ineligible component onto the
+> `repointRetiredChromeSlot` (**narrowed from `repointIneligibleChromeSlot` at council
+> round 1, `60fd06e68` — the first version would have repointed a site's own ACTIVE FORK;
+> eligibility decides what may be CHOSEN as a default, retirement what may no longer be
+> SERVED**) moves a slot off a RETIRED (`is_active=false`) component onto the
 > one `ResolveChromeComponent` names (`bugs_closed/118` shipped that, so "which one
 > instead?" has exactly one answer), and the `!force` idempotence exit gained
 > `COALESCE(build_status,'') <> 'pending'` so the repoint reaches the page. The

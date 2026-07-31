@@ -67,7 +67,7 @@ this repoint by hand, 21 times.
 | One chrome predicate + `ResolveChromeComponent` + `ChromeSlotFunction` | `component_library.go` | LIVE v1.0.1219, pod-verified both replicas |
 | Two assignment call sites routed through it | `render_site_components_action.go`, `link_site_components_action.go` | LIVE |
 | `GetComponentByFunction` given `ORDER BY name` (answer measured unchanged) | `component_library.go` | LIVE |
-| `repointIneligibleChromeSlot` + build_status-aware idempotence exit | `render_site_components_action.go` | committed `39afbf697`, **inert until a roll** |
+| `repointRetiredChromeSlot` + build_status-aware idempotence exit | `render_site_components_action.go` | committed `39afbf697`, **narrowed at round 1 in `60fd06e68`**, inert until a roll |
 | Tests incl. source-scanning lockstep + ordering assertion | `chrome_selection_test.go` | green, non-vacuity proven by induced fault |
 | Concept register | **CLC-013** in `register/component-lifecycle.md` | includes the 166 extension |
 | §9 pattern + §10 rows for 118/166/167 | `016b_debugging_guide_8_consolidated.md` | done |
@@ -87,7 +87,7 @@ this repoint by hand, 21 times.
    component as site chrome. Deliberately scoped out: fixing it changes chrome markup
    on every page build fleet-wide. **Owner call, and it has not been put to them.**
 3. **No active `head` component exists fleet-wide.** 13 head slots still point at
-   deactivated components and `repointIneligibleChromeSlot` correctly declines rather
+   deactivated components and `repointRetiredChromeSlot` correctly declines rather
    than churn them. Activating one changes every page's `<head>` (the build path falls
    through to `RenderFallbackHead` today), so it wants the same one-site-first
    treatment the footers got. Data call, not code.
@@ -118,7 +118,7 @@ Pod-grep first, with a positive control in the same exec, on **both** replicas:
 
 ```sh
 kubectl -n ai-persona-system exec <pod> -- sh -c '
-  strings /app/agent-chassis | grep -c "repointed a slot off an ineligible component"   # NEW, want >0
+  strings /app/agent-chassis | grep -c "repointed a slot off a RETIRED component"        # NEW, want >0
   strings /app/agent-chassis | grep -c "RenderSiteComponentsAction"                     # control, want >0'
 ```
 

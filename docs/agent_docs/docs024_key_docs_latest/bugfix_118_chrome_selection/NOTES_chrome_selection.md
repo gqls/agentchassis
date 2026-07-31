@@ -181,6 +181,9 @@ neither is visible from reading the check:
    component's bytes.
 
 Fixed both directions (`39afbf697`, council `e242e9d3`): `repointIneligibleChromeSlot`
+> **CORRECTED at council round 1 — renamed `repointRetiredChromeSlot` and NARROWED to
+> `NOT is_active`; see the round-1 entry at the bottom of this file for why the version
+> described in this paragraph was dangerous.**
 moves a slot off an ineligible component onto the one `ResolveChromeComponent` names,
 and the exit gained `COALESCE(build_status,'') <> 'pending'`. The repoint runs ABOVE
 the exit — below it an unforced render returns early, and every scheduled chrome
