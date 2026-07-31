@@ -1,5 +1,14 @@
 # HANDOFF — bugs_open/099 candidate 2: two steps from closing
 
+> **SUPERSEDED 2026-07-31 18:09 — BOTH STEPS ARE DONE AND THE BUG IS CLOSED.**
+> `v1.0.1216` carried the widening (verified both replicas); the induced run
+> `53fff682` refused a plan at 18:08:26 and **persisted a repaired plan at 18:09:31
+> — 3 stages carrying all 3 edits** where the original had 2 stages with one holding
+> 2. All four conditions held. `bugs_open/099` → `bugs_closed/099`; `FIX-057` is
+> `deployed`. Kept for the reasoning and for the "what NOT to redo" section, which
+> still stands — `fix-proposer` (`bugs_open/162`) and the owed landmine verification
+> are the live follow-ups.
+
 **Read this first, then `NOTES` for the reasoning.** Everything is committed. The bug
 is **deliberately still OPEN** and the remaining work is short and specified.
 
