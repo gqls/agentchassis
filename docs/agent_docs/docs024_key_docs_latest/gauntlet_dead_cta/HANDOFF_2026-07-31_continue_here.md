@@ -10,10 +10,15 @@ superseded — B is already TAKEN by another thread.
 
 The visitor-identity fix is **live and proven in production**. The
 content-duplication checker and its deterministic handler are **built, seeded,
-council-reviewed once, and deliberately not enabled**. The chassis roll they were
-waiting for has landed and is verified. Nothing is half-applied. The single next
-action is a decision about enabling the check, and it needs one other lane's
+fixed after a measured false positive, council round 2 submitted, and deliberately
+not enabled**. The chassis roll they were waiting for has landed and is verified.
+Nothing is half-applied. The single next action is reading the round-2 verdict
+(§4.1); enabling the check remains a separate decision that needs one other lane's
 agreement first.
+
+> **Updated ~11:50Z.** Read §3's CORRECTED block before acting on anything about
+> this checker: the rule as originally shipped would have deleted a live section,
+> and both the in-remit definition and my "verified no-op" claim have changed.
 
 ## 1. DONE and verified this session
 
@@ -59,7 +64,8 @@ the wrong shape.
 **Design, which is an owner ruling of 2026-07-31 and must not be quietly widened:**
 
 ```
-IN-REMIT  same page, content-IDENTICAL  -> content_duplication item
+IN-REMIT  same page, SAME SLOT,        -> content_duplication item
+          byte-identical content_data
                                         -> deduplicate-sections
                                         -> remove_duplicate_page_sections
                                            (delete later rows, keep earliest,
@@ -76,7 +82,10 @@ an LLM rewrite copy unguarded.
 
 The remit boundary is not a limitation of the implementation. It is the whole design,
 and it is drawn at **the only place where a repair is provably safe**: two rows on one
-page whose normalised text is byte-identical. There, "which one do I keep?" has a
+page, **in the same slot, whose `content_data` is byte-identical** (narrowed
+2026-07-31 in `43492ec94` — it used to say "whose normalised text is identical", and
+that version would have deleted a live section; see the CORRECTED block below).
+There, "which one do I keep?" has a
 correct answer that needs no judgement — keep the earliest, because the duplicate adds
 nothing a reader could want. Every widening below removes that property, so each one
 is refused **on the same ground**, not on three different grounds:
@@ -109,7 +118,9 @@ by UPDATE (the seed is `ON CONFLICT DO NOTHING`, so re-running it would not have
    would be silently lost**. Now sets `item_key_suffix_field: input_data.page_id`,
    which is a hard error when unresolved rather than a fallback to the colliding key.
 
-**Round 2 has NOT been submitted.** That is the first concrete task below.
+~~**Round 2 has NOT been submitted.**~~ **SUBMITTED 11:40Z** on the same
+correlation, carrying the fix, the corrected figures and measured answers to two
+further HIGH objections. Verdict not yet read — §4.1.
 
 ### The reviewer also re-measured my population claim, and it is now stale
 
