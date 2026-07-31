@@ -32,22 +32,34 @@
 // 7ba5b8c4 trail. So the ratio is step config, 0 disables it entirely, and the
 // refusal text states that remedy rather than leaving the operator to find it.
 //
-// CURRENT CONSUMER: index_code_symbols (code_symbols_actions.go).
-// KNOWN CANDIDATES, deliberately NOT converted here (each is another lane's live
-// territory and each needs its own cohort choice measured, not assumed):
-// populate_nav_tables_action.go:147 (site_nav_items/groups, whole-site DELETE),
-// site_db_actions.go:1474 (link_registry per source page),
-// save_page_sections_action.go:532 (agent-writable page_components per page).
-// Naming them here is the point of putting the rule in its own file: the next
-// thread that touches one of those does not have to re-derive the argument.
+// CONSUMERS (all four reconciliation deletes are now guarded — bugs_open/165
+// closed the list this comment used to hold open):
+//   - index_code_symbols            code_symbols_actions.go        (bugs_closed/135)
+//   - save_page_sections            save_sections_prune_floor.go   (165 site A)
+//   - populate_nav_tables           nav_prune_floor.go             (165 site B)
+//   - extract_and_sync_links        link_registry_prune_floor.go   (165 site C)
+//
+// Each supplies its OWN cohorts. That is the load-bearing part of the design and
+// the one thing a new consumer must not copy: the rule is shared, the partition
+// is not. Both sites that measured before choosing found the partition their own
+// bug file had proposed was wrong on the data — A's per-slot_name (998 of 1,009
+// groups hold one row, so every legitimate single-section removal scores 0%) and
+// B's per-nav-group (the classifier legitimately RE-HOMES a page between groups,
+// so a re-homing reads as a 100% loss of one class). Measure, then partition.
 
 package actions
 
 import (
+	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // defaultPruneFloorRatio is the fraction of a cohort's STORED rows that this run
@@ -208,6 +220,159 @@ func (v pruneFloorVerdict) Detail() []map[string]interface{} {
 
 func round2(f float64) float64 {
 	return float64(int(f*100+0.5)) / 100
+}
+
+// ---------------------------------------------------------------------------
+// The parts every consumer needs and none of which are table-specific.
+//
+// Added 2026-07-31 for bugs_open/165 sites B and C. Site A
+// (save_sections_prune_floor.go) invented both of these inline, and B and C
+// were each about to spell them again. Three spellings of one durable surface
+// is the exact drift class this council reviews for, so they move here.
+//
+// ADDITIVE AND INERT: nothing reaches either function until a caller names it,
+// and no existing consumer's behaviour changes. Under the owner ruling of
+// 2026-07-29 §1 that makes this a normal council-gate change rather than
+// architecture scope — what the shared mechanism GUARANTEES is untouched; only
+// its surface area grows.
+// ---------------------------------------------------------------------------
+
+// pruneFloorStatus is the value reported under "completeness_status". A bare
+// count is ambiguous between "nothing to prune" and "we refused to prune"
+// (bugs_open/165 says this in terms), so the status is always emitted alongside
+// the numbers rather than left to be inferred from them.
+const (
+	pruneStatusPassed   = "passed"
+	pruneStatusDisabled = "floor_disabled"
+	pruneStatusRefused  = "refused"
+)
+
+// pruneFloorDetail renders the standard reporting block for an action result.
+//
+// Emitted on a PASS as well as on a refusal: candidate (3) of bugs_open/135 —
+// "pruned: 4000" as a bare success counter is the alarm presented as output, and
+// the fix is to publish the denominator beside it. `extra` carries the caller's
+// own raw numbers (its projected inserts, its stored rows), which belong in the
+// same block so a reader has the whole measurement in one place.
+func pruneFloorDetail(v pruneFloorVerdict, fromConfig bool, reason string, extra map[string]interface{}) map[string]interface{} {
+	status := pruneStatusPassed
+	switch {
+	case !v.Allowed:
+		status = pruneStatusRefused
+	case v.Disabled:
+		status = pruneStatusDisabled
+	}
+
+	d := map[string]interface{}{
+		"completeness_floor":       v.Floor,
+		"completeness_from_config": fromConfig,
+		"completeness_status":      status,
+		"completeness_reason":      reason,
+		"completeness_cohorts":     v.Detail(),
+	}
+	for k, val := range extra {
+		d[k] = val
+	}
+	return d
+}
+
+// pruneRefusal describes one refusal for the durable surface below. Kept as a
+// struct because the call sites differ in what they can name (a page, a whole
+// site) and a positional signature of six strings is how the wrong one gets
+// passed silently.
+type pruneRefusal struct {
+	SiteID   uuid.UUID
+	PageID   *uuid.UUID // nil for a site-scoped writer with no single page at fault
+	Source   string     // the action, e.g. "populate_nav_tables"
+	Pipeline string     // the pipeline the work item belongs to, e.g. "build"
+	ItemType string     // the work item type, e.g. "prune_refused_incomplete"
+	ItemKey  string     // dedup key — per subject, so repeated refusals collapse to one open item
+	Subject  string     // what was being pruned, for the summary line
+	Summary  string     // the one-line human summary
+	Reason   string     // the floor's own sentence, numbers included
+	Fix      string     // what a human should do about it
+}
+
+// emitPruneRefusalWorkItem is the DURABLE surface for a refusal by a
+// SITE-SCOPED writer. A refusal nobody can see is the 034/076 shape — "no error
+// anywhere" usually means no error surface — and a log line dies with the
+// retention window.
+//
+// site_work_items rather than 135's doc_notes, because a site-scoped writer has
+// the columns site_work_items requires (site_id, pipeline) in hand; 135 fell
+// back to doc_notes only because a repo-wide indexer has no site.
+//
+// Routing mirrors the lock-blocked family: status 'needs_human_review' with NO
+// handler_agent, because whether a corpus genuinely shrank by half is a human
+// judgement (accept it and lower the floor for that step, or find the writer
+// that truncated) and no automated handler can make it.
+//
+// recurrenceExpected IS SET, and the landmine on that flag says to state which
+// of the two cases this is rather than leaving the reader to guess. This is NOT
+// a detected defect handed to a handler that keeps failing — there is no handler,
+// so "the fix is not working" has no referent. Each refusal is a fresh event
+// about a fresh run. Without the flag, insertWorkItem's anti-churn heuristics
+// apply: a refusal arriving within 3h of a terminal predecessor is DROPPED
+// ENTIRELY, and the third is born `unresolved` — terminal, and off the very
+// queue this row exists to reach. Dedup is NOT waived (idx_swi_dedup still
+// refuses a second OPEN item for the same site+item_key), so a site refusing
+// every rebuild still collapses to one open item.
+//
+// Best-effort by design: every failure is logged and callers discard the error
+// with an explicit `_ =`. It is RETURNED only so a test can observe it — an
+// unobservable guard is how the vacuous-mock landmine got written.
+func emitPruneRefusalWorkItem(ctx context.Context, db *sql.DB, r pruneRefusal, logger *zap.Logger) error {
+	if db == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"subject": r.Subject,
+		"source":  r.Source,
+		"reason":  r.Reason,
+		"fix":     r.Fix,
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	summary := r.Summary
+	if len(summary) > 250 {
+		summary = summary[:247] + "..."
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		logger.Warn(r.Source+": begin tx failed for prune refusal item",
+			zap.String("subject", r.Subject), zap.Error(err))
+		return err
+	}
+	if _, err := insertWorkItem(ctx, tx, workItem{
+		siteID:    r.SiteID,
+		pageID:    r.PageID,
+		source:    r.Source,
+		pipeline:  r.Pipeline,
+		itemType:  r.ItemType,
+		severity:  "high",
+		summary:   summary,
+		spec:      string(specJSON),
+		priority:  20,
+		status:    "needs_human_review",
+		createdBy: r.Source,
+		itemKey:   r.ItemKey,
+		// See the note above: no handler_agent, so a repeat is a new event, not
+		// a failed fix.
+		recurrenceExpected: true,
+	}, logger); err != nil {
+		_ = tx.Rollback()
+		logger.Warn(r.Source+": could not record the prune refusal as a work item",
+			zap.String("subject", r.Subject), zap.Error(err))
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		logger.Warn(r.Source+": commit failed for prune refusal item",
+			zap.String("subject", r.Subject), zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // pruneFloorFromConfig reads the floor from step config, tolerating the three

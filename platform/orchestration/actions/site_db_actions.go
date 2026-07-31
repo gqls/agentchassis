@@ -453,6 +453,16 @@ func ExtractAndSyncLinksAction(ctx context.Context, params ActionParams) (interf
 		}, nil
 	}
 
+	// COMPLETENESS FLOOR (bugs_open/165 site C). syncLinksToDB deletes every
+	// link_registry row for this page and re-inserts what the extractor returned.
+	// goquery over truncated or partially-rendered HTML returns a short result
+	// with no error, so this asks — before anything is destroyed — whether this
+	// run saw enough of the page to be reconciling against it.
+	floorDetail, err := enforceLinkRegistryFloor(ctx, params, siteID, pageID, pageName, len(links))
+	if err != nil {
+		return nil, err
+	}
+
 	// Sync links to database
 	syncedCount, err := syncLinksToDB(ctx, params.DB, siteID, pageID, links, params.Logger)
 	if err != nil {
@@ -466,12 +476,18 @@ func ExtractAndSyncLinksAction(ctx context.Context, params ActionParams) (interf
 		}, nil
 	}
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"links_extracted": len(links),
 		"links_persisted": syncedCount,
 		"page_id":         pageID.String(),
 		"persisted":       true,
-	}, nil
+	}
+	// Publish the floor's numbers beside the counts — a bare "links_persisted: 3"
+	// is the alarm presented as output without its denominator.
+	for k, v := range floorDetail {
+		result[k] = v
+	}
+	return result, nil
 }
 
 // ============================================================================

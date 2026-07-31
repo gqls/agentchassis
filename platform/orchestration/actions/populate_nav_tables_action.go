@@ -138,6 +138,18 @@ func PopulateNavTablesAction(ctx context.Context, params ActionParams) (interfac
 		utilityPages = append(overflowPages, utilityPages...)
 	}
 
+	// COMPLETENESS FLOOR (bugs_open/165 site B). The transaction below deletes
+	// every nav row for the site and rebuilds it from the pages loaded above. A
+	// partial page read is silent and success-shaped — loadPagesForNav `continue`s
+	// past a row it cannot scan — so this asks, before anything is destroyed,
+	// whether this run actually saw the corpus it is about to reconcile against.
+	// A refusal returns here, leaving the existing nav untouched.
+	floorDetail, err := enforceNavPruneFloor(ctx, params, siteID,
+		len(pages), len(primaryPages)+len(legalPages)+len(utilityPages))
+	if err != nil {
+		return nil, err
+	}
+
 	// Upsert in a transaction (full rebuild each time)
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -215,13 +227,19 @@ func PopulateNavTablesAction(ctx context.Context, params ActionParams) (interfac
 	// Build navigation structure for downstream (same JSON shape as db_sync.navigation)
 	nav := buildNavStructureFromClassified(primaryPages)
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"success":    true,
 		"site_id":    siteIDStr,
 		"groups":     groupCount,
 		"items":      totalItems,
 		"navigation": nav,
-	}, nil
+	}
+	// Publish the floor's numbers beside the counts. "items: 9" on its own is the
+	// alarm presented as output — the denominator is what makes it readable.
+	for k, v := range floorDetail {
+		result[k] = v
+	}
+	return result, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -241,8 +259,7 @@ func loadPagesForNav(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *
 			COALESCE(in_header, false) as in_header,
 			COALESCE(in_footer, false) as in_footer
 		FROM pages
-		WHERE site_id = $1
-		  AND status IN ('active', 'deployed', 'pending')
+		WHERE ` + navPageScopeSQL + `
 		ORDER BY nav_order ASC, created_at ASC
 	`
 
