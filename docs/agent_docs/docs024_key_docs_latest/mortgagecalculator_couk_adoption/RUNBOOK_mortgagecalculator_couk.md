@@ -117,21 +117,52 @@ absent from the repo, that commit *creates* the directory holding **one file**,
 **The run goes green.** Hence: populate the repo before anything can trigger a
 rerender.
 
-## §6 Adoption pre-flight (not yet run — from handoff §5a)
+## §6 Adoption pre-flight (run 2026-07-31 — clean)
+
+> **CORRECTED 2026-07-31, same session.** This section first carried the handoff's
+> `spec::text ILIKE '%mortgagecalculator%'` phrasing. **Do not use it.** It matched
+> **41 `page_rerender` rows that belong to `loanandmortgagecalculator.co.uk`** —
+> the sibling domain *contains* ours as a substring — and 41 is a plausible page
+> count for our site, so it reads as "another lane is mid-adoption here, stop".
+> Every affected query below is now an exact match or a join. See NOTES and the
+> `LANDMINES.md` entry on nesting domain names.
 
 ```sql
--- another lane already on this domain?
-SELECT item_type, status FROM site_work_items
- WHERE status NOT IN ('complete','cancelled','rejected')
-   AND (spec::text ILIKE '%mortgagecalculator%');
+-- another lane already on this domain? JOIN and match EXACTLY; group by domain so
+-- a foreign site announces itself instead of hiding inside a total.
+SELECT s.domain, w.item_type, w.status, count(*)
+  FROM site_work_items w JOIN sites s ON s.id = w.site_id
+ WHERE w.status NOT IN ('complete','cancelled','rejected')
+   AND s.domain = 'mortgagecalculator.co.uk'
+ GROUP BY 1,2,3;
 
--- exactly ONE ported-page component must exist
+-- exactly ONE ported-page component must exist (matters on the locked path;
+-- checked anyway — a second one is a fleet-wide problem either way)
 SELECT id, name FROM content_components WHERE function='ported-page';
 
--- fidelity must survive the spawn boundary: input_mapping is an ALLOW-LIST
-SELECT default_config->'workflow'->'steps'->'call_adopter'->'config'->'input_mapping'
-  FROM agent_definitions WHERE type='site-adoption-orchestrator' AND is_active;
+-- find YOUR run by payload, exact match, never by the printed id
+SELECT orchestration_id, owner_agent_type, current_step, status,
+       collected_data->'input_data'->>'fidelity' AS fidelity
+  FROM orchestration_states
+ WHERE collected_data->'input_data'->>'destination_domain' = 'mortgagecalculator.co.uk'
+ ORDER BY created_at DESC;
 ```
+
+**Result on 2026-07-31:** our domain had **0 `sites` rows, 0 runs, 0 work items**.
+The `fidelity` plumbing check (migration 274 / the `call_adopter` `input_mapping`
+allow-list) is **moot on this path** — a dropped `fidelity` is indistinguishable
+from `high`, because `082` itself defaults adopt-mode to `high`:
+`FIDELITY="${FIDELITY:-high}"` (line 124). It is worth checking only for `locked`.
+
+**Do not dispatch within ~300s of a chassis pod restart** — the spawn is silently
+dropped. Check for a roll in progress *and* pod age before submitting:
+
+```bash
+kubectl get pods -n ai-persona-system -l app=agent-chassis \
+  -o custom-columns='NAME:.metadata.name,READY:.status.containerStatuses[0].ready,START:.status.startTime'
+```
+
+Two replicaset name prefixes in that output means a roll is in flight; wait for it.
 
 **Under `--fidelity high` the assertion in handoff §5d INVERTS.** It says
 `needs_content_page` + `needs_tool_recreation` must be **zero**. That is the
