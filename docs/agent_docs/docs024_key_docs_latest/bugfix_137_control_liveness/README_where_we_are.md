@@ -133,3 +133,45 @@ made be the evidence for the claim you're about to make about it.
 
 Revised, re-measured, and resubmitted. The numbers hadn't moved in the hour
 between.
+
+---
+
+**2026-07-31, late — approved on the fourth round.**
+
+It went through four rounds. Rounds one to three all came back "revise", and
+**two of the three changed the fix**, which is the part worth telling you. The
+approval is the least interesting thing that happened.
+
+Round one: I'd applied the narrower rule everywhere, including to a bit of code
+that doesn't just *check* pages but *edits* them. Round two: I claimed two files
+had been changed in a way the reviewers couldn't see — having just conceded and
+fixed that exact complaint about a different file, in the same submission. Round
+three was the sharpest. A reviewer pointed out that the automatic check I'd built
+to stop this class of duplication was **itself a duplicate**: we already have a
+tool that runs these checks when you commit, with its own established way of
+recording exceptions, and I'd stood up a second one beside it without looking. It
+was right, and it is exactly the mistake the bug is about — building another copy
+because building another copy was easy. So the check moved into the existing tool
+and mine was deleted.
+
+Then the approval came back with five advisory notes, and I nearly filed them as
+"noted". Three were worth acting on. One said I'd claimed a note was written into
+a file when it wasn't — **and it wasn't**; I'd written "agreed and added" in the
+submission and never added it. Another asked whether I'd checked for an existing
+piece of parsing code before writing my own; I hadn't thought to, checked, and
+there isn't one — but the answer belonged in the file rather than in my head. A
+third pointed at a known trap where a check that skips everything can be read as
+passing, which would have made my main design decision unsafe; I'd *asserted* it
+couldn't happen and hadn't read the code. It can't — but I only know that because
+someone asked.
+
+So: **an approval is not a reason to stop reading the objections.** The ones that
+blocked were not the ones most worth acting on.
+
+**Where it stands.** The code is committed, approved, and builds clean. The bug is
+still open, correctly — it isn't in the running image yet, confirmed by checking
+the binary itself rather than trusting the version number. It closes after the
+next chassis roll, once I've re-run the measurement and confirmed both that the
+new behaviour appears *and* that the old exemption still works. That second check
+matters: it's the difference between narrowing the rule and accidentally deleting
+it.
