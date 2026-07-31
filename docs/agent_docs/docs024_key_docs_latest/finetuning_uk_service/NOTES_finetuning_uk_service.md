@@ -57,6 +57,29 @@ all artefacts persisted by us (B2/Postgres); price for GPU, adjust later.
   `personae-default-secrets` (11 other keys beside it — patch, don't recreate);
   adapter pod running; auth shape `Authorization: Bearer` from client.go:235.
 
+**Licence research (web, 2026-07-31) — shapes the model menu:**
+- **Mistral 7B v0.3 — Apache 2.0.** No flow-down, no naming requirement,
+  derivatives may be closed. Cleanest choice, and a small Mistral already runs
+  on our CPU Ollama. https://mistral.ai/news/announcing-mistral-7b/ ·
+  https://ollama.com/library/mistral:7b/blobs/43070e2d4e53
+- **Phi-3.5-mini (3.8B) — MIT.** Commercial use + modification unrestricted.
+  https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/LICENSE
+- **Qwen 2.5 — Apache 2.0 EXCEPT 3B (and per some sources 72B): those are
+  Qwen-Research licensed.** If offered, use 0.5B/1.5B/7B, never 3B.
+  https://qwenlm.github.io/blog/qwen2.5/ ·
+  https://huggingface.co/Qwen/Qwen2.5-7B/blob/main/LICENSE
+- **Llama 3.2 1B/3B — Llama Community License:** commercial OK, but a
+  distributed derivative **must be named "Llama…"**, ship with a copy of the
+  agreement, and the service must display "Built with Llama". We hand the
+  adapter/GGUF to the customer = distribution, so the obligations flow to them
+  too. https://www.llama.com/llama3_2/license/
+- **Recommended v1 menu: Mistral 7B v0.3 + Phi-3.5-mini + Qwen2.5-1.5B** (all
+  permissive; three sizes ⇒ a real "choice of models"). Skip Llama for v1 — the
+  naming/notice obligations on customer deliverables aren't worth it for a demo.
+- ⚠ Remaining check at Phase 0: read the LICENSE file in the **exact** HF repo
+  (or unsloth mirror) actually downloaded — web summaries are not the licence
+  text, and mirrors occasionally mislabel.
+
 **Marked unverified, carried forward:**
 - [TO MEASURE] small-model training wall/cost; playground cold-start; l40s/a6000
   hourly rates (read /v1/specs once the new token exists).
