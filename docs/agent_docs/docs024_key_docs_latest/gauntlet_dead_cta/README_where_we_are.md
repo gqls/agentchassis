@@ -1438,3 +1438,31 @@ exactly when you want a safety catch installed.
 
 It has gone to the reviewers as its own submission — written plainly this time, after
 their fair jab about my last one reading like a performance. I'll pass on the verdict.
+
+## 1 August, first thing — the safety catch passed review immediately, and the reviewers caught one more thing worth having
+
+The safety catch was approved on its first pass, in five and a half minutes — against
+the three rounds the checker itself took. The difference wasn't better work, it was
+better evidence: every number went in with the query that produced it attached, and I
+wrote it plainly instead of performing it. Worth keeping.
+
+The reviewers raised five quibbles, none blocking. Four were minor or already handled.
+The fifth was a genuinely good catch, and it was another absence question: does the
+cleanup respect the rows a human has *locked*? It didn't. We have a proper locking
+system — a human can pin a section so no automation may touch it, and there are
+forty-seven such pinned sections live right now — and my deletion never looked at it.
+There's even a house rule, written above the lock code, that every automated delete
+must use the one shared lock test. Mine didn't exist when that rule was written, and I
+hadn't gone looking.
+
+Fixed the same day: a pinned row is now never deleted, full stop. If the pinned row is
+the one being kept, its duplicate still gets cleaned up — keeping what a human pinned
+is the whole point. If the *duplicate* is pinned, the cleanup leaves it and says so in
+its report, so a page that stays doubled tells you exactly which row to unlock. That
+fix is with the reviewers now.
+
+An observation from the week, for what it's worth: across three reviews, every real
+thing the council caught was a question about something my plan *didn't* mention —
+who else reads this, does it honour locks. The mistakes I make are apparently not in
+what I write, but in what I don't think to write. Which is a good argument for the
+review existing at all.
