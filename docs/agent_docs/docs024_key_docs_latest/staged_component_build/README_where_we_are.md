@@ -291,3 +291,29 @@ fact when nobody had checked it.
 Nothing is waiting on me for the component-contract work. The next piece of real work in this
 lane is wiring a component's test through to the browser the way tool tests already go, which is
 plumbing rather than invention.
+
+---
+
+**31 July 2026, evening still — one more thing before I stop, and it changes the next step**
+
+I went to start that wiring work and did the thing this lane keeps learning to do: read the
+actual code the plan pointed at before trusting the plan's own description of it. Good thing I
+did. The piece that sends a test to the browser was built for tools, and it assumes something
+that's true for a tool but not true for a component: that the thing being tested lives on
+exactly one page. A tool does. A component doesn't — the one I checked, a teaser panel that
+reveals more text when you click it, sits on five different pages across two different
+websites, because that's the whole point of a shared component. So the existing wiring
+genuinely cannot answer the question "which page do I test this on" for a component the way it
+can for a tool. That's not a bug, it's just never been asked to do this before. It needs a
+small, deliberate decision about how to teach it the new question, which I've written down as
+two options rather than picking one myself.
+
+There's also a step I'd half-forgotten was still outstanding: before any of that wiring
+matters, the panel itself needs an actual written test — a real one, not the throwaway one I
+built and deleted just to prove the plumbing works. That hasn't been written yet either.
+
+Nothing is broken and nothing is urgent. I've written a fresh handoff document
+(`HANDOFF_2026-07-31c_continue_here.md`) that lays out both remaining pieces in order, because
+this chat is getting long and the next piece is genuinely new work rather than a continuation
+of what's above, so it's cleaner to hand it to a fresh conversation than to keep pushing this
+one further.

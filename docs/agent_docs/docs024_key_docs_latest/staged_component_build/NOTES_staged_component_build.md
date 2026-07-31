@@ -1222,3 +1222,63 @@ register keeps them separate.
 The `orchestration_states` row IS the evidence, and that table is retention-clocked, so the
 read-out is pasted above rather than pointed at. Re-running is cheap:
 `scripts/PROBE_doc_subject_go_gate.sh component teaser-reveal-panel`.
+
+---
+
+## 2026-07-31, later still — reconnaissance for item 2 (S6 for components), before starting it
+
+The handoff and the PLAN both call this step "wiring, not construction," citing the
+`smart-contrast` pilot as proof the mechanism works end to end. Read `request_browser_run`
+(`platform/orchestration/actions/tool_acceptance_actions.go:87-152`) before believing that,
+because the pilot's own write-ups (`CONSULT_2026-07-30_next_tool_build.md:72`,
+`PROPOSAL_2026-07-30…:520`) describe it as "11/11 checks asserting real arithmetic" — that is
+a tool, not a component. Nothing in this lane's docs shows a component ever going through this
+action. Worth being precise about what "proven end to end" actually covers.
+
+**What the code does, concretely.** `RequestBrowserRunAction` resolves a single URL to test by:
+1. reading `function` (a string) from `input_data.spec.function` — hard-errors if empty
+   (line 98-100, not config-driven for the fallback path);
+2. looking it up directly against `pages`: `SELECT url FROM pages WHERE site_id=$1 AND name IN
+   ($2, 'tool-'||$2)` (lines 139-145) — i.e. it assumes **one function ⇒ exactly one page**,
+   which is the same three-way identity (`doc_plans.subject_key == pages.name ==
+   content_components.function`) P1a's naming check already polices for tools.
+
+**That identity does not hold for a component, and it is not close.** Checked live:
+`teaser-reveal-panel` (`content_components.id = '22c12251-73aa-4232-bd67-ef9edcfe8061'`) is
+placed via `page_components` on **5 distinct pages across 2 distinct sites**
+(`SELECT count(DISTINCT pc.page_id), count(DISTINCT p.site_id) FROM page_components pc JOIN
+pages p ON p.id=pc.page_id WHERE pc.component_id=...` → `5|2`). A component is fleet-shared by
+design (`content_components` has no `site_id` — RUNBOOK §5 already says this); a tool is not.
+So "the page for this subject" is not a well-formed question for a component the way it is for
+a tool, and `request_browser_run`'s SQL has no way to express "which of the 5" without new
+input.
+
+**What this means for item 2, concretely — not a blocker, but not free either:**
+- `tool-acceptance-agent`'s shape (`ensure_site_record → load_docs → request_run → judge →
+  complete`) is still the right skeleton to copy — `ensure_site_record` already resolves one
+  `site_record` per dispatch, so the existing per-site scoping is compatible with "one site,
+  one placement" if the caller supplies which site/page, rather than the action inferring it
+  from a function name.
+- `request_browser_run` itself needs either (a) a new `page_id_field`/`site_id`-and-`page_id`
+  input path that bypasses the `pages.name` lookup entirely when present, resolving instead via
+  `page_components.component_id = <uuid> AND page_id = <given>`, or (b) a sibling action. (a) is
+  less code and keeps one action's config surface, at the cost of a branch in a function that
+  currently has exactly one path; (b) keeps `request_browser_run` untouched (lower blast radius
+  on a working tool path) at the cost of near-duplicate plumbing (headers, envelope, profiles).
+  Not decided here — a real design choice, not a default.
+- Either way this is a change inside `platform/orchestration/actions/`, which is council-gate
+  scope per CLAUDE.md (the "platform seams" section) — even though it is additive. Per the
+  2026-07-29 owner ruling, it only needs an RFC if it changes what a shared mechanism
+  *guarantees*; adding an opt-in `page_id_field` that nothing calls until a component agent
+  names it does not change `request_browser_run`'s existing guarantee for tools, so the normal
+  council gate (not architecture review) looks like the right one — flagged for whoever builds
+  it to confirm against the actual diff, not asserted in advance of one existing.
+- `teaser-reveal-panel` is a real, live component (confirmed above), not an invented name — the
+  PLAN already picked it as the first real target "because its history is fully written down."
+  Its 5 placements mean the first real dispatch should pick ONE (site_id, page_id) pair
+  explicitly rather than trying to resolve "the" page for it.
+
+Nothing built yet. This is written down before starting so the next thread does not
+re-discover the one-function-one-page assumption the hard way, the way the arena rename and
+the P1a naming check both had to re-discover their own version of "this identity doesn't hold
+the way it looks like it should."
