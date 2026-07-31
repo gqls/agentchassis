@@ -79,3 +79,57 @@ answer.
 
 It's committed and submitted to the council. The code is inert until the next
 chassis build, so the bug stays open until then.
+
+---
+
+**2026-07-31, later the same evening — the council pushed back, and it was right twice.**
+
+The review came back REVISE. Two serious objections, and both of them are things
+I'd have wanted caught.
+
+**The first one is the interesting one.** I'd treated "make the excuse
+element-shaped" as a single idea to apply everywhere. But some of the things
+consulting that excuse are *checkers* — they look, they find, they file it for a
+human. And one of them is a *fixer*: it doesn't just notice a broken link, it
+edits the page, and the way it "fixes" a dead link is to remove the link and
+leave the words behind. There is already a written warning about exactly that:
+you go looking for a broken link, and what you find instead is a sentence that
+should have been a link and isn't, with the database still holding a perfectly
+good version. Only comparing the database against the live page shows it.
+
+So by making the excuse narrower, I'd have made that page-editing behaviour
+happen *more often*. The reviewer's exact complaint was that I'd measured how
+big the change was without ever asking whether that "fix" is the right thing to
+do at all — which was true.
+
+**The answer turned out to be sitting in the codebase already.** Next door, the
+dead-control checker deliberately files its findings for a human with no
+automatic fixer attached, and says why: a dead button might need wiring up, or
+the missing page built, or the whole thing deleted, and choosing between those
+automatically is guessing. That's the same question. So the fixers keep the wide
+excuse — which for a *fixer* is the safe direction, because a link left alone
+stays visible and stays on someone's list, whereas a "fixed" one quietly stops
+looking broken. I wrote the reasoning into the code along with what would have to
+be decided before anyone changes it, rather than just leaving it out.
+
+**The second objection: I hadn't counted properly.** The comment I deleted named
+another file as doing the same thing, and I neither fixed it nor explained why
+not. It turned out to be the same case — another fixer — so it keeps the wide
+excuse too, with the reason written down. Fair hit though: the plan's own
+evidence pointed at something the plan ignored.
+
+**And the part I'm least pleased about.** A reviewer asked for an automatic check
+so nobody can quietly add a ninth copy of this thing in future — a fair ask,
+since the whole problem is that adding one was free and silent. I wrote it. It
+looked for four specific spellings, reported everything clean, and I was about to
+quote its result as proof the job was complete — while one file was doing the
+same test in a fifth way it couldn't see. **A checker that only proves an absence
+for the spellings it happens to look for is precisely the bug I'm fixing**, and I
+nearly shipped one inside the fix for it.
+
+What saved it was going back and counting by hand instead of trusting the tool
+I'd just built. That's the lesson worth keeping: don't let the thing you just
+made be the evidence for the claim you're about to make about it.
+
+Revised, re-measured, and resubmitted. The numbers hadn't moved in the hour
+between.
