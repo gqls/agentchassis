@@ -658,3 +658,61 @@ click. What was missing was not rigour — it was a stage."* Two lanes, one day,
 one finding. Its S2 gate is the one thing neither lane had: **≥1 mutant red per
 assertion class** — prove a check can fail before trusting it to pass. Nine
 harness faults in this workstream are the argument for adopting it.
+
+---
+
+## 2026-07-31 — harness fault TEN, found by pointing `toolaudit.py` at another site
+
+Contributed by the `loanandmortgagecalculator_couk` lane, which borrowed this
+harness to verify 26 calculators it was porting. Recorded here because the fault
+is in the harness, not in that lane's site.
+
+**`toolaudit.py` scored 14 of 14 working calculators `NO-CONTROL`** — "nothing a
+visitor can touch" — on `mortgagecalculator.co.uk`. Every one of those pages has
+number inputs and a Calculate button, and every one computes correctly.
+
+**Cause: every check scoped its query to `main …`, and that site has no `<main>`
+element.** It wraps content in `<div class="container">`. Four sites in the file:
+`DRIVE_JS` (controls + the output snapshot), the `empty_regions` query, and the
+`_responsive` target search. With no `<main>`, `document.querySelectorAll('main
+input, …')` returns `[]`, and an empty control set is reported as a site defect.
+
+This is the **exact fault family the file's own docstring was written about** — a
+harness failure printing in the same column as a site verdict — and it is the
+worst direction to fail in, because it condemns working work. `--all` only ever
+pointed at `webdesign.co.uk`, where every tool page does have `<main>`, so the
+blindness was invisible for 63 pages.
+
+**Fix: a `SCOPE_FN` prelude shared by all four sites.** Root is
+`main` → `[role=main]` → `body`. It is deliberately **asymmetric**: when a
+`<main>` exists, behaviour is unchanged, so no existing verdict can move. Only on
+the `body` fallback is site chrome subtracted (`!e.closest('header,nav,footer')`)
+— without that, a header of links and a nav of buttons would read as "controls"
+and a dead tool inside a well-built shell would score PASS. Writing the fallback
+symmetrically would have traded a false negative for a false positive.
+
+**Both halves measured, not asserted** (S2's rule — prove it can fail, and prove
+it did not break what passed):
+
+| claim | check | result |
+|---|---|---|
+| the fix makes the blind pages visible | 14 pages re-audited | 13 calculators `RESPONDS`; the 14th is the hub page, whose "buttons" are all `<a>`-wrapped navigation, so `NO-CONTROL` is **correct** there |
+| the fix moves nothing that had a `<main>` | original extracted from `git show HEAD:…`, both versions run over the same 4 `webdesign.co.uk` tools, **9 result fields** diffed each | **0 of 36 fields drifted** — verdict, controls, changed, pressed, unresolved, bad_subresources, empty_regions, responsive, console all identical |
+
+The two pages chosen for the control are `fluid-typography` and `micro-cms` — the
+two that motivated this harness's hardest checks — precisely because they are the
+ones a scoping change would be most likely to disturb.
+
+**Real findings on that site, which the blind harness had hidden behind
+`NO-CONTROL`:** six of nine guides link `Home` to `index.html` from inside
+`/guides/`, resolving to `/guides/index.html` → live 404; the homepage links to
+`guides/mortgage-scorecard.html`, but the file is `your-mortgage-scorecard.html`
+→ live 404; two guides are orphans; `sitemap.xml` is 404 while `robots.txt` still
+carries the unfilled placeholder comment `# Sitemap location (replace with your
+actual domain)`; no `favicon.ico`, so every page load logs a 404.
+
+**The transferable rule: `--all` is a single-site sample, and a harness verified
+against one site's markup conventions has only been verified against those
+conventions.** The cheap check is to point it at any second site before trusting
+a verdict from it — which is what happened here, by accident, and it cost one run
+to find a fault that had been latent for 63 pages.

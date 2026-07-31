@@ -225,8 +225,9 @@ class Auditor:
         # Also exempt: anything painted rather than written. svg-patterns'
         # #preview carries a live background-image and no text at all, which is
         # exactly what that tool is for.
-        r["empty_regions"] = json.loads(self._eval(cdp, """JSON.stringify(
-            [...document.querySelectorAll('main [id], main [class]')]
+        r["empty_regions"] = json.loads(self._eval(cdp, """(() => {""" + SCOPE_FN + """
+            return JSON.stringify(
+            __q('[id], [class]')
               .filter(e => !/^(INPUT|TEXTAREA|SELECT|BUTTON|CANVAS|SVG|IMG|LABEL|IFRAME)$/.test(e.tagName))
               .filter(e => !e.isContentEditable && !e.getAttribute('placeholder'))
               // Painted, not written: exclude anything carrying a background
@@ -248,7 +249,8 @@ class Auditor:
                              return b.width > 250 && b.height > 120
                                     && !e.innerText.trim()
                                     && !e.querySelector('input,select,textarea,button,canvas,svg,img,iframe,[contenteditable]'); })
-              .map(e => (e.id ? '#'+e.id : '.'+String(e.className).split(' ')[0])).slice(0,4))""") or "[]")
+              .map(e => (e.id ? '#'+e.id : '.'+String(e.className).split(' ')[0])).slice(0,4));
+        })()""") or "[]")
 
         # --- responsive: the check that would have caught fluid-typography ---
         # Only for pages that actually claim viewport-relative sizing. A tool
@@ -266,8 +268,8 @@ class Auditor:
         page = "\n".join(bodies)
         if "vw" not in page or "clamp(" not in page:
             return None  # makes no scaling claim; nothing to hold it to
-        target = self._eval(cdp, """(() => {
-            const el = [...document.querySelectorAll('main *')]
+        target = self._eval(cdp, """(() => {""" + SCOPE_FN + """
+            const el = __q('*')
               .find(e => (e.getAttribute('style') || '').includes('vw'));
             if (!el) return null;
             if (!el.id) el.id = '__audit_scale_target';
@@ -347,16 +349,45 @@ class Auditor:
             return None
 
 
+# ── the content region, and the fallback that stopped this harness lying ──────
+# Every check used to hardcode `main ...`. A site with no <main> element
+# therefore presented ZERO controls and scored NO-CONTROL — not because anything
+# was broken, but because the harness was looking inside an element that does
+# not exist. mortgagecalculator.co.uk scored 14/14 NO-CONTROL on 2026-07-30 for
+# exactly that reason, with every calculator working; its pages wrap content in
+# <div class="container"> and never declare <main>. Falling for that is worse
+# than missing a defect, because it condemns working work in the same column as
+# a real verdict — the fault family this file's own docstring was written about.
+#
+# The fallback is deliberately ASYMMETRIC: when <main> exists nothing changes at
+# all, so no verdict on any page that has one can move (checked — all 63
+# webdesign.co.uk tool pages have <main>, and none contains a nav/header/footer).
+# Only when it is absent do we fall back to <body>, and there the site chrome
+# MUST be subtracted: a header full of links and a nav full of buttons would
+# otherwise read as "controls the visitor can touch" and a dead tool inside a
+# well-built shell would score PASS. That is the failure this fallback could
+# introduce if written symmetrically, so it is not.
+SCOPE_FN = r"""
+  const __root = document.querySelector('main') || document.querySelector('[role=main]');
+  const __chromeless = !__root;
+  const __q = sel => {
+    let els = [...(__root || document.body).querySelectorAll(sel)];
+    if (__chromeless) els = els.filter(e => !e.closest('header,nav,footer'));
+    return els;
+  };
+"""
+
 DRIVE_JS = r"""
 (() => {
+""" + SCOPE_FN + r"""
   const NOOP = /undo|redo|reset|clear|copy|download|share|print|remove|delete|back|default/i;
   const ACTION = /generate|run|convert|build|calculat|format|minif|compil|analys|analyz|check|creat|make|render|split|extract|optimi|inject|apply/i;
   const label = e => ((e.id||'') + ' ' + (e.className||'') + ' ' + (e.innerText||'') + ' ' +
                       (e.getAttribute('aria-label')||'') + ' ' + (e.placeholder||''));
-  const all = [...document.querySelectorAll('main input, main select, main textarea, main button, main [contenteditable]')];
+  const all = __q('input, select, textarea, button, [contenteditable]');
   const usable = all.filter(e => !e.disabled && !NOOP.test(label(e)));
   const snap = () => {
-    const outs = [...document.querySelectorAll('main pre, main code, main canvas, main output, main [id*=output], main [id*=result], main [id*=preview], main .preview, main #canvas')];
+    const outs = __q('pre, code, canvas, output, [id*=output], [id*=result], [id*=preview], .preview, #canvas');
     return outs.map(o => o.tagName === 'CANVAS' ? (()=>{try{return o.toDataURL().length}catch(e){return 'x'}})()
                                                 : (o.innerHTML||'') + '|' + (o.value||'')).join('~~') +
            '##' + all.map(e => e.value ?? '').join('|');
