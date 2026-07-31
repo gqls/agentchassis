@@ -39,3 +39,32 @@ One honest caveat recorded: taking card payments on the island changes what the
 island was — it was built to hold no important credentials at all. Stripe keys
 are money keys, not keys to our systems, and the cluster stays sealed either
 way; but it is a real change and it is written down as one.
+
+## 31 July 2026, later — everything that doesn't cost money is done
+
+Finished the preparation and committed it. The working documents exist; the
+training script takes a small model as a setting now rather than needing a
+rewrite, with its old behaviour untouched; and the token-replacement steps are
+written out and checked against the live cluster — including the detail that the
+secret holding it carries eleven other providers' keys, so it must be patched
+one key at a time rather than recreated.
+
+The one substantive decision made since this morning is which models we offer,
+and it was settled by reading licences rather than by preference. Three are
+clean and will be the opening menu: Mistral 7B, Phi-3.5-mini and the small Qwen
+— three sizes, all permissive, and a Mistral already runs on our own machines.
+Two things we would plausibly have reached for turned out to be traps. The
+three-billion Qwen carries a research-only licence that its sibling sizes do
+not, which is exactly the sort of thing you find out afterwards. And Meta's
+Llama would require every customer's downloaded model to be renamed
+"Llama-something" and our own site to display "Built with Llama" — obligations
+we would be passing on to a customer for a five-minute demo. Llama is out for
+now.
+
+Deliberately not done: no price, no page. Both wait on the rehearsal run,
+because a price guessed before measuring is just a number we would have to
+defend later.
+
+So it now sits on you: mint the new Thunder Compute token, and the runbook's
+first section has the steps ready to paste. After that the next spend is about a
+pound.
