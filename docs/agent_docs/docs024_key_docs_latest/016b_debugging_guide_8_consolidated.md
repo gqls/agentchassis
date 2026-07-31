@@ -8745,7 +8745,7 @@ Category tags: `duplicated-classifier-drift`, `correct-sibling-is-no-protection`
 `sanitising-into-an-occupied-namespace`, `success-true-wrong-destination`,
 `grep-the-derivation-not-the-symptom`.
 
-### An exemption tested with `strings.Contains` over "whatever the caller passed" has no fixed blast radius — its scope is set by the caller's chunking, and every call site reads as correct (`bugs_open/137`, 2026-07-31)
+### An exemption tested with `strings.Contains` over "whatever the caller passed" has no fixed blast radius — its scope is set by the caller's chunking, and every call site reads as correct (`bugs_closed/137`, 2026-07-31)
 
 **The shape.** A guard excuses some markup from a check — "this section is filled
 in client-side, so its placeholder hrefs are the mechanism, not a defect" — and
@@ -8775,7 +8775,7 @@ and unenforceable, so every other caller kept the bug.
 
 **The second-order symptom, and the one that gets filed.** Two mechanisms that
 consult the same exemption at different input granularities will **disagree about
-the same element**, and each will be individually defensible. `bugs_open/137` was
+the same element**, and each will be individually defensible. `bugs_closed/137` was
 filed as "two disagreeing judges" — the disagreement was real, and it was a
 symptom of the scope, not a dispute about the rule.
 
