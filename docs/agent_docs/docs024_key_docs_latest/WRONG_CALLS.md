@@ -12971,3 +12971,128 @@ was treating the trailer as a citation rather than as an assertion. The earlier 
 caught by a reader; this one by re-reading my own message — **but neither was caught by a
 mechanism**, and `098` reports MISMATCH only for a verdict that contradicts the trailer, not
 for one that is simply about different work.
+
+---
+
+## 2026-07-31 — "no duplicate-row detector exists anywhere, fleet-wide" — a SQL-shaped probe for a claim about ANY detection (bugs_open/156)
+
+**The claim.** `bugs_open/156` asserted, as its durable finding, that a whole class of defect
+had no detector: *"No detector anywhere. There are 60+ discovery checks; none looks for
+duplicate rows."* Filed 2026-07-30 20:40 with a citation that looked like evidence:
+`grep -rn "HAVING count(*) > 1" platform/ internal/ pkg/ scripts/` returns nothing fleet-wide.
+
+**Why it was wrong, even though it was TRUE when written.** The claim was about *detection of
+duplicate rows by any means*. The probe could only find detection implemented as **SQL
+aggregation**. A checker that loads sections and compares them **in Go** — group by
+`(slot_name, bytes)` in a map, which is the natural way to write it — is invisible to that
+grep, and that is exactly how the real one is written (`findIdenticalSamePage`, keyed on
+`datahelpers.SectionIdentityKey`). So the grep never had the power to establish the claim. It
+happened to return the right answer for the wrong reason, which is the worst case: it *reads*
+as a verified negative and it would have read identically had the checker already existed.
+
+**What caught it.** The `090` diagnosis loop, filed against 156's structural claim under the
+owner ruling of 2026-07-31. **The run FAILED** — `call_diagnoser` timed out after 3 retries
+(correlation `8e5594a4-0a15-40eb-bdd9-636d8849dff5`) and produced no graded verdict — but it
+had written five evidence bundles first, and those bundles pulled
+`discovery_checks/registry.go` into scope twice. Reading them by hand surfaced
+`check_content_duplication.go`, which I then found had landed at **2026-07-31 09:08**
+(`ec8ad7959`), 12½ hours after I filed. So the claim was accurate at filing and obsolete by
+the time anyone would read it — but the probe behind it was never sound.
+
+**The cheap check, stated generally: a grep proves an absence only for the SPELLING it
+searches, never for the CAPABILITY you are claiming is missing.** Before writing "nothing does
+X", ask *how would someone implement X if they weren't doing it my way?* — then probe for the
+mechanism's **footprint** rather than its syntax: the table it must read, the registry it must
+appear in, the name it must expose. Here the sound probe was two commands, not one:
+`grep -rl "page_components" platform/orchestration/actions/discovery_checks/` (what could see
+the data at all) and reading `registry.go`'s registered names. Both cheaper than the grep I ran.
+
+**Tally note.** Fourth entry in this file in the "your measurement answers the question you
+ENCODED" family, and the second where **the answer was right and the method could not have
+known it** (cf. the `153` zeros that measured nothing because the markers were unfindable in
+any binary). The pattern worth automating is not this grep — it is the habit of stating an
+absence claim's SCOPE next to it: *"no detector, established by X"*, where X is readable and
+falsifiable. Had I written "established by a grep for SQL aggregation", the gap would have
+been visible in the sentence itself. **A dated absence with a named probe ages honestly; a
+bare "nothing does X" does not.**
+
+## 2026-07-31 — I named a fence check after a guarantee it could not test, and it passed the mutant that should have killed it
+
+**The claim.** In the criteria fence I authored for `tool-review-council-simulator` I wrote a
+check with the id **`threshold-lever-updates-live`**, asserting the PLAN's Behaviour contract:
+*"all live-updating on the `input` event (no calculate button; a slider that needs a button to
+take effect is a broken slider)"*. The check filled the range input and asserted the readout
+text changed. It passed on the live page, on both profiles.
+
+**Why it was false.** It could not have failed for the reason its name gave. The mutant that
+killed the tool's `input` listener left the check **green**, because the component also binds
+`change` and Playwright's `fill()` dispatches **both events**. So the check would pass on a tool
+wired only to `change` — i.e. on a tool whose sliders were exactly as "not live" as the
+contract forbids. It asserted "the lever is wired to something", not "the lever is live".
+
+**What caught it.** `prove_fence_can_fail.go`, on its first run, before the fence was published
+— one of thirteen mutants, and the only one that missed. Nothing else would have: the fence was
+36/36 green against the live URL, and no amount of re-reading the JSON would have revealed which
+DOM event Playwright's `fill()` emits.
+
+**Cost.** None outside the session. The fence was still on disk, so the fix was a rename plus a
+corrected mutant, and both are in the published PLAN with the limitation stated. This is the
+cheapest place in this lane's history that a wrong claim has been caught.
+
+**The cheap check, stated generally: a check's ID is an assertion, and it is the one part of a
+check nothing validates.** The evaluator will faithfully run the wrong test under the right
+name for ever. So ask, of every check you name: *what is the mutation that makes this
+specifically fail?* If you cannot name one that is narrower than "the feature is broken", the
+id is claiming more than the check proves — rename it, or drop it.
+
+**Tally note.** Tenth instance in three days of the class *"a check reports health it never
+measured"*, and the **fourth** I have introduced inside an instrument built to catch that class
+(cf. `has_fence` testing only for a PLAN row, 07-31 morning; the `ok:` line wrapping a failed
+count, same day; the `|| echo 0` false pass, 07-30). The pattern in all four is identical and
+worth stating plainly: **the naming, not the logic, is where this class hides.** `has_fence`
+tested for a row, `has_visible_area` measures a decode, `threshold-lever-updates-live` tested
+an event it cannot isolate — each one's code was correct for what it did, and each one's *name*
+was the lie. **The generalisable check is to mutate against the NAME, not against the code.**
+
+---
+
+## 2026-07-31 — two premises in one plan section, both true when written, both stale when relied on
+
+**The claims.** `webdesign_uk_build_service`'s PLAN §5.3a — the section arguing where
+the fabrication controls live now that the questionnaire is not a gate — rested on two
+cited facts:
+
+1. *"`bugs_open/063`: the hallucinated-email check **fails open** when a site has no
+   contact email."*
+2. *"the entire claims layer is gated on the PRESENCE of [`evidence_base`] —
+   `loadEvidenceBase` returns nil and every lane silently no-ops."*
+
+**Both superseded.** (1) is `bugs_**closed**/063` and the check is now fail-*closed*:
+`validate_page_content.go:980` refuses to publish **any** email on a site with no
+registered contact address. (2) changed with `bugs_open/104`:
+`validate_page_content.go:302-338` now splits the halves on purpose — banned claims scan
+**fleet-wide, register or not**, and only `checkUnregisteredNumbers` stays opt-in on the
+register's presence.
+
+**What caught it.** Planning P4, I needed to know what a `build_queue`-created site gets
+by default, so I read `loadEvidenceBase` and the `sites` upsert at source rather than
+re-quoting §5.3a. The first read contradicted the plan's own sentence in its second line
+of comment (`nil = no register; still scanned below`).
+
+**The cheap check that would have.** `ls bugs_open/063* bugs_closed/063*` — one command,
+decisive, and it says "closed" in the path. For the second: read the function, which is
+seven lines and carries its own explanation.
+
+**The transferable bit — and why this one is not the same as the earlier entries.**
+Both of these were *correctly cited* to *real* sources, and both were *true on the day the
+plan was written* (2026-07-28, three days earlier). This is not the citation-hygiene
+failure of the `EVIDENCE_…` entry above; it is **decay**, and three days was enough. What
+makes it dangerous is that a plan's argument section is exactly where a premise gets
+*used* rather than re-checked — §5.3a spent two paragraphs reasoning from these facts, and
+the reasoning reads as sound whether or not the premises still hold.
+
+**So: a fact cited in support of a DECISION should carry the date it was checked, not just
+its source.** Both corrections were written back into §5.3a in place, with what each
+control actually buys now — because the *conclusion* (the questionnaire's real job is
+fabrication control) survived both corrections, and silently fixing the premises would
+have left a section that looked untouched while resting on different ground.

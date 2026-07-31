@@ -71,6 +71,18 @@ hours on a shared tree.
 
 ## 3. What P4 actually is, when its time comes
 
+> **⚠ SUPERSEDED IN PART, same day — read
+> `PLAN_2026-07-31_p4_order_intake.md` before this section.** P4 was planned
+> out on 2026-07-31 and turned out to be **far smaller than this section
+> implies**: `build_queue`, `seed_build_queue` and a live
+> `build-pipeline-trigger` (firing every 120s, right now) already provide the
+> whole queue → site → work-item → build chain. P4 reduces to **one action +
+> one scheduled task that put a paid order into `build_queue` as one row**.
+> That plan also corrects two of this workstream's own stale premises and
+> flags the one cheap test that must pass before any of it is trusted
+> (`build_queue`'s last real use was 2026-03-22). The list below is kept
+> because its *obligations* (§4) and *landmines* (§5) are unchanged.
+
 From PLAN §4.1 (the trust-boundary ruling, already decided — do not re-litigate
 it): the webdesign.uk box holds paid orders; **the cluster polls outbound to
 collect them.** The box never dials in, never holds a cluster credential. This

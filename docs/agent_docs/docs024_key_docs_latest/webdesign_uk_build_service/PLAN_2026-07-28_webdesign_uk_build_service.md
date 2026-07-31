@@ -285,10 +285,24 @@ where we read nothing we say so rather than filling it in.
 > deleting it is what lets a later thread re-open this with the evidence intact
 > rather than re-deriving it.
 
+> **⚠ TWO PREMISES BELOW WENT STALE — corrected 2026-07-31 by checking them at
+> source, and §5.3a's corrections are the load-bearing ones. Details and the
+> exact code references: `PLAN_2026-07-31_p4_order_intake.md` §3.** In short:
+> `063` is **closed** and the email check is now fail-*closed*, and
+> `evidence_base` absence no longer disables the whole claims layer (banned
+> claims scan fleet-wide since `bugs_open/104`; only the numeric scan is
+> register-gated). The *conclusion* of this section — that the questionnaire's
+> real job is fabrication control — survives both corrections. What changes is
+> which control does what, so read §5.3a's corrected version, not this
+> paragraph's original framing.
+
 The argument, as put:
 
-- `bugs_open/063`: the hallucinated-email check **fails open** when a site has no
-  contact email — *a fabricated address reached production for hours* that way.
+- ~~`bugs_open/063`: the hallucinated-email check **fails open** when a site has
+  no contact email~~ — **superseded: `bugs_closed/063`, fixed.** It is now
+  fail-*closed* (`validate_page_content.go:980`): a site with no registered
+  contact address may publish **no** email at all. The original incident (a
+  fabricated address reaching production for hours) is why the fix exists.
 - `bugs_open/043`: an entire workstream about generated copy inventing
   quantitative claims. This project has shipped invented statistics **twice**.
 - The oufe seed's own preamble bans five specific numbers because they were model
@@ -310,19 +324,30 @@ explicit *"claims you are happy for us to make"* box.
 live site. It is not the only way, and it is not the strongest one.** Ranked by
 what makes the bad state *unrepresentable* rather than merely discouraged:
 
-1. **Emit no contact block at all unless the details were supplied.** Not a
-   placeholder that could ship — **absent**. This is the structural fix, it is
-   cheap, and it removes the failure entirely rather than reducing its odds. Note
-   `bugs_open/063` is precisely a *check* failing open; a field that is never
-   generated cannot fail open.
-2. **Seed `evidence_base` before the first page is written.** The platform already
-   has this mechanism and the oufe seed's own preamble explains it: *the entire
-   claims layer is gated on the PRESENCE of this aspect — `loadEvidenceBase`
-   returns nil and every lane silently no-ops*
-   (`validate_page_content.go:727-746`). For a customer site the evidence base is
-   assembled from the two sources we actually have — **what they told the chat**
-   and **what we read on their existing site** — each attributed. That turns "do
-   not invent" from an instruction into a data structure.
+1. **Emit no contact block at all unless the details were supplied.**
+   **CORRECTED 2026-07-31 — the platform now does this for us, for email.**
+   `bugs_closed/063` shipped a fail-*closed* check: a site with no registered
+   contact address may publish **no** email at all
+   (`validate_page_content.go:980`). So this control is already enforced at the
+   platform level for the highest-risk field, rather than being something this
+   product must build. It still needs building for **telephone, address and
+   accreditations**, which have no equivalent check.
+2. **Seed `evidence_base` before the first page is written.**
+   **CORRECTED 2026-07-31 — still required, for a narrower reason than stated.**
+   ~~The entire claims layer is gated on the PRESENCE of this aspect and every
+   lane silently no-ops without it.~~ That was true pre-`bugs_open/104` and is
+   not now: `validate_page_content.go:302-338` splits the halves deliberately —
+   **banned claims scan FLEET-WIDE with or without a register**, so an unarmed
+   new site is still protected against universal shapes. What a register-less
+   site loses is **`checkUnregisteredNumbers`**, which is strictly opt-in on the
+   register's presence. That check is precisely the one that catches invented
+   figures *about the customer's own business* ("serving 500 clients since
+   2009") — the exact failure this product cannot afford. So: **still seed it,
+   and know that what it buys is the numeric scan, not the whole claims layer.**
+   For a customer site the evidence base is assembled from the two sources we
+   actually have — **what they told the chat** and **what we read on their
+   existing site** — each attributed. That turns "do not invent" from an
+   instruction into a data structure.
 3. **The human pre-release review**, which P3 has anyway.
 
 **The conditional that follows, and it is the one to carry forward:** the
