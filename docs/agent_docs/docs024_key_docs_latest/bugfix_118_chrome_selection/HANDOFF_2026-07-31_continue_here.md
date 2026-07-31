@@ -19,9 +19,11 @@ working tree is clean of this lane's work.
 **Read the council verdict for `e242e9d3-1e5a-4b14-a16f-fbff9ca86d35` and act on it.**
 The code is already on the shared branch under a `Council-Submitted:` trailer, which
 is correct for a pre-verdict commit (098 credits it automatically once approved, no
-amend needed). It was still at `review_guardian` when this was written — the run has
-taken far longer than 118's nine minutes, which is normal fleet-load latency, not a
-dropped dispatch.
+amend needed). **UPDATED 22:0x UTC: round 1 came back REVISE and has been answered; round 2 is
+running on the SAME correlation** (`RESUBMIT_CORR`, so the trail accumulates). What
+is owed is now round 2's verdict. Budget ~30-60 min per round under current load —
+round 1 took ~55 minutes against 118's nine, which is fleet latency, not a dropped
+dispatch.
 
 ```sql
 SELECT current_step, status FROM orchestration_states
@@ -39,7 +41,17 @@ SELECT metadata->>'decision', body FROM diagnosis_artifacts
 - **NEVER** write `Council-Reviewed:` on a verdict you have not read — that is the
   coverage report's dishonesty surface.
 
-**The objection to expect**, because the submission flags it as risk #1 itself:
+**Round 1's outcome, so you do not have to re-read the report: it stopped a
+genuinely damaging change.** My repoint trigger was "not ELIGIBLE chrome", which
+matched three live rows it must not have — `idea.uk`'s section-level header and
+footer, and **`leopardessconsulting.co.uk`'s own ACTIVE FORK**, which my code would
+have replaced with the house header on the next render. Narrowed to `NOT is_active`
+(RETIREMENT), which is exactly what `deactivated_site_components` detects.
+Eligibility decides what may be CHOSEN as a default; retirement decides what may no
+longer be SERVED. **Do not widen it back** — two tests and a source-level assertion
+guard that, and `WRONG_CALLS` 2026-07-31 (late) carries the full account.
+
+**The objection that may still come**, because the submission flags it as risk #1 itself:
 `render_site_components` now REASSIGNS an assigned-but-ineligible slot where before it
 only assigned an UNASSIGNED one. That widens what a shared action promises its
 callers. If the architecture or guardian seat calls that architecture-scope, the

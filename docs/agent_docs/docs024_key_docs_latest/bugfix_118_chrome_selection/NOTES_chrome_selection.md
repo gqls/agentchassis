@@ -213,3 +213,45 @@ deactivation.
   free and I walked past it. The truth: **11 of 206 complete, 195 still `triaged`**,
   oldest stuck item fleet-wide from seven hours before. The chrome repoint will not
   reach a served page until that queue moves, which is `bugs_open/149`'s lane.
+
+## 2026-07-31 (late) — council round 1 on 166: REVISE, and it earned its keep
+
+Gated by `prior_art_librarian`. Nine seats, five abstained. The round is worth
+recording in full because **one objection stopped a genuinely damaging change.**
+
+`debug_historian` objected that "net live change today: ZERO" rested on a
+point-in-time census, citing `WRONG_CALLS`'s history of figures drifting before a
+fix shipped. Re-running it at revision time found **three live rows** my trigger
+would have moved: `idea.uk`'s header and footer (active, unforked, section-level)
+and **`leopardessconsulting.co.uk`'s header — that site's own ACTIVE FORK.** My
+code would have replaced a client's bespoke header with the house one, silently,
+on the next chrome render.
+
+**The root confusion: I reused one predicate for two different questions.**
+`chromeEligibleSQL` answers "which component may be CHOSEN as a library default?",
+where a fork must be excluded. It does not answer "which existing assignment is
+unacceptable?", where a fork is the supported mechanism. Narrowed the trigger to
+`NOT is_active` — which is exactly what `deactivated_site_components` detects, and
+when the right predicate turns out to be the one the existing detector already
+uses, the generalisation was never load-bearing.
+
+The other objections and what each earned:
+
+- `bug_historian` (locked+retired declines silently, then the exit waves it
+  through) — **right, fixed in code**: the refusal is now reported and surfaces in
+  `ineligible_chrome`.
+- `bug_historian` (the sibling audit) — **done, and the answer is do-not-touch**:
+  `getSiteComponents`/`getAreaComponents` share the `rendered_html IS NOT NULL`
+  shape but are READERS; a pending slot still serves its old chrome, so filtering
+  them would blank the page. Pinned by a test.
+- `editquality` (is `pageComponentAgentWritableSQL` even right for this table) —
+  measured: `site_components` carries all four lock columns; 069 put them there so
+  one predicate could guard both.
+- `reuse_agent`/`guardian` (is `link_site_components` already the designated
+  repointer) — measured: it appears in **no** agent that renders chrome, so putting
+  the repair there would make it inert on every path that renders.
+- `prior_art` HIGH (the on-topic landmine was not quoted) — procedurally fair: it
+  is this lane's own entry, written this morning, and I addressed it without ever
+  quoting it. Quoted in round 2.
+
+Round 2 resubmitted on the same correlation so the trail accumulates.
