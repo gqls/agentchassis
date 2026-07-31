@@ -1,15 +1,41 @@
 # RFC 005 — targeted review for the two doc classes that actually feed the fleet back, plus a periodic staleness sweep for `bugs_open/`
 
-**Status: PROPOSED, awaiting owner ruling.** Raised 2026-07-30 out of a live
-discussion (dartsonline.com session), prompted by the owner's question: should
-the council — "especially the architect member" — be in scope for changes to
-`bugs_open/`, `016b_debugging_guide`, and `LANDMINES.md`, since they're "core
-architecture"? This is not retrospective in RFC_002/004's sense — nothing has
-shipped yet. It exists because the owner and the session agreed a full
-comprehensive council was the wrong shape, but a *targeted* one might not be,
-and per the 2026-07-29 seam ruling, a change to what the review mechanism
-*covers* is itself the kind of decision that goes to a ruling, not something a
-session should just wire in because it seems obviously good.
+**Status: RATIFIED 2026-07-31 (owner, three answers below).** Raised 2026-07-30
+out of a live discussion (dartsonline.com session), prompted by the owner's
+question: should the council — "especially the architect member" — be in
+scope for changes to `bugs_open/`, `016b_debugging_guide`, and `LANDMINES.md`,
+since they're "core architecture"? This is not retrospective in RFC_002/004's
+sense — nothing had shipped yet at the time of raising. It exists because the
+owner and the session agreed a full comprehensive council was the wrong
+shape, but a *targeted* one might not be, and per the 2026-07-29 seam ruling,
+a change to what the review mechanism *covers* is itself the kind of decision
+that goes to a ruling, not something a session should just wire in because it
+seems obviously good.
+
+## Owner ruling, 2026-07-31 — three answers
+
+1. **§3.1 (diagnosis-loop discipline for durable `bugs_open/` claims):
+   ADOPTED as a practice norm.** A bug file asserting a cross-cutting or
+   structural root cause is not "filed" until either it has been through
+   `090_TRIGGER_needs_diagnosis`, or the filing session states plainly why it
+   substituted equivalent first-hand verification. First real instance:
+   `bugs_open/155`, run same day, CONFIRMED
+   (`RUN_CORRELATION_ID=0dd9aee4-2982-4b36-9857-0b037c40851e`).
+2. **§3.2 (LANDMINES.md content check): dedicated single-pass verifier
+   agent**, not a mechanical sync-script grep. Costs an LLM call per
+   new/changed entry; catches more than a footprint-exists check would
+   (confirms "the tell" actually matches what "the check" query/command
+   produces, not just that the footprint resolves).
+3. **§3.3 (periodic `bugs_open/` staleness sweep): BUILD, weekly cadence.**
+   Matches this platform's standing scheduled-task rhythm
+   (`build-pipeline-trigger` and siblings). Flags a worklist; never
+   auto-closes — closing still needs the existing fixed-AND-live judgment
+   call.
+
+Implementation of 2 and 3 is tracked as its own workstream (new mechanisms,
+concept-register entries owed on delivery) — see
+`docs/agent_docs/docs024_key_docs_latest/doc_review_mechanisms/` once it
+exists, rather than being improvised inline in the RFC that ratified them.
 
 ---
 
