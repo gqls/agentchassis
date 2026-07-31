@@ -502,6 +502,36 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 // haven't completed. Each item's spec field is a parsed map (not JSON string)
 // so dot-notation access works: current_item.spec.name, current_item.spec.id.
 //
+// FIRST-CLASS ROUTING COLUMNS (bugs_open/154). site_work_items carries
+// component_id, entity_id and affected_url as real columns, but this action
+// used to expose only page_id — so the ONLY path a dispatcher could reference
+// was current_item.spec.<key>, i.e. a copy the creating agent had to remember
+// to duplicate into the spec JSONB. A creator that populated the column and
+// not the blob produced an item that was structurally undispatchable: the
+// dispatch loop's optional "component_id?" mapping silently skipped, and the
+// handler's first query_database died on an unresolved param. That is what
+// killed every tool-auditor-raised improve_tool item at tool-improver's
+// load_tool step, while items from three other creators ran clean.
+//
+// So each of these is exposed top-level and resolved COLUMN FIRST, falling
+// back to spec.<key>. One path — current_item.component_id — is then correct
+// for both populations, which is what lets the dispatch mapping be a single
+// path (input_mapping has no coalesce syntax; see input_contracts).
+//
+// Deliberately NOT applied to page_id, which stays column-only. It is already
+// exposed, so there is no bug to close, and measured 2026-07-31 there are 218
+// rows with a NULL column and a spec.page_id — every one of which would newly
+// gain current_item.page_id. Widening what reaches a handler changes it
+// without editing it; that is a change to make for a reason, not for symmetry.
+//
+// The spec map is NEVER mutated. Backfilling the resolved value into spec was
+// the other candidate and it is unsafe: rerender-pages reads
+// input_data.spec.component_id, and create_rerender_items gates
+// `scoped := (reason == "section_data_resolved" || reason == "image_landed")
+// && componentIDStr != ""` on it — so writing into spec could silently flip a
+// site-wide rerender into a component-scoped one. Top-level exposure leaves
+// every existing spec.* reader reading exactly what it reads today.
+//
 // Data inputs (via ActionInputSpec):
 //   - site_id (required) — resolved from collectedData via path
 //
@@ -510,6 +540,43 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 //     Named item_pipeline to avoid collision with site_record.pipeline
 //   - handler_agent (optional) — filter by handler agent type
 //   - max_items (optional, default 50)
+// setRoutingField exposes one first-class routing column on the item map,
+// resolved COLUMN FIRST and falling back to the same key inside spec.
+//
+// The fallback is what makes a single dispatcher path correct for both
+// populations: input_mapping resolves exactly one source path per destination
+// and has no coalesce syntax, so without this the config would have to choose
+// which half of the fleet's work items it could route (bugs_open/154).
+//
+// A blank column with no spec key writes NOTHING — the key must stay absent
+// rather than become "", because the dispatch mapping marks these optional
+// ("component_id?") and an optional path that RESOLVES to empty is passed on
+// as an empty string, where a path that is MISSING is skipped. Handlers gate on
+// presence (create_rerender_items: `componentIDStr != ""`), so materialising ""
+// would turn "not supplied" into "supplied as empty" for every item that has
+// neither source.
+func setRoutingField(item map[string]interface{}, key, columnValue string, logger *zap.Logger) {
+	if columnValue != "" {
+		item[key] = columnValue
+		return
+	}
+	spec, ok := item["spec"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	// Only strings pass through: these are id/URL fields, and a non-string here
+	// means the spec is carrying something else under the same name.
+	if fromSpec, present := spec[key].(string); present && fromSpec != "" {
+		item[key] = fromSpec
+		return
+	}
+	if raw, present := spec[key]; present {
+		logger.Warn("LoadWorkItemsAction: spec key is not a non-empty string — routing field left unset",
+			zap.String("key", key),
+			zap.String("spec_type", fmt.Sprintf("%T", raw)))
+	}
+}
+
 func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger
 	logger.Info("LoadWorkItemsAction: Starting")
@@ -550,12 +617,13 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 	maxItems := datahelpers.GetIntField(config, "max_items", 50)
 
 	query := `
-		SELECT 
+		SELECT
 			wi.id, wi.site_id, wi.source, wi.pipeline, wi.item_type,
-			wi.severity, wi.summary, wi.spec, wi.page_id, 
+			wi.severity, wi.summary, wi.spec, wi.page_id,
 			wi.priority, wi.handler_agent, wi.status, wi.item_key,
-			wi.batch_id, wi.attempt_count, 
-			COALESCE(wi.approval_mode, 'auto') as approval_mode
+			wi.batch_id, wi.attempt_count,
+			COALESCE(wi.approval_mode, 'auto') as approval_mode,
+			wi.component_id, wi.entity_id, wi.affected_url
 		FROM site_work_items wi
 		WHERE wi.site_id = $1
 		  AND wi.status IN ('triaged', 'approved')
@@ -614,6 +682,9 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			batchID                    *uuid.UUID
 			attemptCount               int
 			approvalMode               string
+			// First-class routing columns — all nullable, hence pointers.
+			componentID, entityID *uuid.UUID
+			affectedURL           sql.NullString
 		)
 		// Nullable in the schema until migration 217 (bugs_closed/078) gave it
 		// NOT NULL DEFAULT ''. Scanned as NullString regardless: a plain string
@@ -628,6 +699,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			&severity, &summary, &specJSON, &pageID,
 			&priority, &handlerAgent, &status, &itemKey,
 			&batchID, &attemptCount, &approvalMode,
+			&componentID, &entityID, &affectedURL,
 		)
 		if err != nil {
 			// Error, not Warn: this branch drops a row that the site selector
@@ -669,6 +741,13 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			"attempt_count": attemptCount,
 			"approval_mode": approvalMode,
 		}
+
+		// First-class routing columns, column-first with a spec.<key> fallback,
+		// so ONE dispatcher path serves both populations. See the header note:
+		// page_id is deliberately excluded, and spec is never written to.
+		setRoutingField(item, "component_id", uuidPtrString(componentID), logger)
+		setRoutingField(item, "entity_id", uuidPtrString(entityID), logger)
+		setRoutingField(item, "affected_url", affectedURL.String, logger)
 
 		if pageID != nil {
 			item["page_id"] = pageID.String()

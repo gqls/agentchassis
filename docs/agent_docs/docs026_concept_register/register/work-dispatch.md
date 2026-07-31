@@ -4,7 +4,8 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-13 concepts, consolidated from 18 raw extractions across units U01, U02, U09.
+14 concepts (13 consolidated from 18 raw extractions across units U01, U02, U09;
+WDS-014 added 2026-07-31, post-freeze, from `bugs_open/154`).
 Absorbed categories: new:dispatch-pipeline, new:work-item-system (their raw material
 was largely re-derivations of the same dispatch-chain/state-machine/two-strike facts
 documented independently by different units; folded in below rather than kept as
@@ -115,3 +116,13 @@ separate register files).
 - **sources:** P1#Side-effects; 003(8)#Cross-Domain-Coordination
 - **relations:** unified build & maintenance (WDS-010); cross-domain coordination; snapshot triggers
 - **verify-later:** rules engine implementation
+
+### WDS-014 — `current_item` exposes the first-class routing columns (`component_id`, `entity_id`, `affected_url`), column-first with a `spec.<key>` fallback
+- **status:** built, shipped in the binary; **the dispatcher config that consumes it is applied separately, AFTER the image** (see the landmine)
+- **status-evidence:** `bugs_open/154` fixed 2026-07-31; census that motivated it, taken the same day: `site_work_items` had **21** rows with `component_id` set on the column, **16 of them with no `spec.component_id`**, against **235** spec-only rows — and `agent_definitions` referencing `current_item.component_id` was **0**, i.e. the path did not exist before this. Regression test `load_work_items_routing_fields_test.go`, induced-fault proven.
+- **what:** `site_work_items` carries `component_id`, `entity_id` and `affected_url` as real columns, but `LoadWorkItemsAction` only ever selected `page_id` among them — so the only path a dispatcher could reference was `current_item.spec.<key>`, a copy the creating agent had to remember to duplicate into the `spec` JSONB. An item populated on the column and not the blob was **structurally undispatchable**: `build-dispatch-loop`'s optional `"component_id?"` mapping skipped silently (`ResolveInputMapping` drops an unresolved `?` path) and the handler's first `query_database` died on a nil param. That is what killed every `tool-auditor`-raised `improve_tool` item at `tool-improver`'s `load_tool` step while three other creators' items ran clean — **the creator that used the schema properly was the one whose items could not be routed.** The three columns are now exposed top-level on the item map by `setRoutingField`, resolved **column first, then `spec.<key>`**, so ONE dispatcher path is correct for both populations. The coalesce has to live in Go: `input_mapping` resolves exactly one source path per destination and has no coalesce syntax.
+- **landmine — TWO, and both look like tidy-ups:** (1) **Do NOT backfill the resolved value into `spec`.** It is the obvious simplification (it needs no config change at all) and it is unsafe: `rerender-pages` reads `input_data.spec.component_id`, and `create_rerender_items_action.go:219` gates `scoped := (reason == "section_data_resolved" || reason == "image_landed") && componentIDStr != ""` on it — so a write into `spec` can silently flip a site-wide rerender into a component-scoped one. `TestSetRoutingField_NeverMutatesSpec` exists to fail if someone does. (2) **Do NOT extend the spec fallback to `page_id` for symmetry.** It is already exposed, so there is no bug to close, and **218** rows have a NULL column with a `spec.page_id` — every one would newly gain `current_item.page_id`, widening what reaches those handlers without editing them. Also: the key is deliberately left **ABSENT** rather than set to `""` when neither source has a value, because an optional mapping path that *resolves* is forwarded while one that is *missing* is skipped, and handlers gate on presence.
+- **open review question:** whether the `page_id` asymmetry should be closed (and the 218 rows' handlers re-checked), or whether `spec.<key>` copies should be deprecated in favour of the columns fleet-wide. Neither is answered here; this change only makes the columns reachable.
+- **sources:** `bugs_open/154` → `bugs_closed/`; `docs024_key_docs_latest/bugfix_154_work_item_routing_columns/`; `platform/orchestration/actions/load_work_item_actions.go` (`setRoutingField`, `LoadWorkItemsAction`)
+- **relations:** dispatch chain (WDS-002); work-item state machine (WDS-001); `input_mapping` optional-`?` semantics (`platform/orchestration/input_contracts/input_mapping.go`)
+- **verify-later:** whether any later creator writes `entity_id`/`affected_url` on the column (both were 0-row when this shipped, so the fallback path for them is untested against real data)

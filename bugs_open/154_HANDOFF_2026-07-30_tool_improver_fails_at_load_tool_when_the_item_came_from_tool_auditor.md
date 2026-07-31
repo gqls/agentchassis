@@ -1,6 +1,51 @@
 # 154 — `tool-improver` dies at its first step on items raised by `tool-auditor`: `input_data.component_id resolved to nil`
 
-**Filed:** 2026-07-30. **Status:** OPEN, unowned.
+**Filed:** 2026-07-30.
+**Status: FIXED IN CODE + REGISTERED, 2026-07-31 (session "bugfix 19"). OPEN only
+until the image rolls AND the config half is applied.** Workstream docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_154_work_item_routing_columns/`.
+
+> **THE `[INFERRED]` BLOCK BELOW WAS RIGHT ABOUT THE SPLIT AND WRONG ABOUT WHERE
+> THE DEFECT LIVES.** It guessed the other creators "carry enough in
+> `spec`/`item_key` for `load_tool` to resolve the tool another way". They do not
+> — they carry `spec.component_id`, the same field, in the other of the two
+> stores. **Neither agent is at fault. The framework drops the value between
+> them:** `site_work_items` has `component_id`, `entity_id` and `affected_url` as
+> real columns, and `LoadWorkItemsAction`'s SELECT listed only `page_id` among
+> them — so `current_item` never carried them and `current_item.spec.<key>` was
+> the only reachable path. The optional `"component_id?"` mapping then skips
+> silently (`ResolveInputMapping`, `input_mapping.go:122-129`) and the nil
+> surfaces two agents later at `query_database`.
+> **So the creator that used the schema properly is the one whose items cannot be
+> dispatched.** The instruction to read both configs before acting is what turned
+> this into a framework fix instead of a patch on `tool-auditor` — it was the
+> right call and it is why this file's own guess did no harm.
+>
+> **Still live at fix time:** `a5d11c86` (robot-hands.com) failed **2026-07-31**,
+> one day after filing. 4/4 `tool-auditor` rows column-only and failed; 16/16
+> rows from three other creators spec-only and fine.
+>
+> **Fix (committed):** `LoadWorkItemsAction` selects the three columns and
+> exposes them top-level via `setRoutingField`, **column first, then
+> `spec.<key>`**, so one dispatcher path serves both populations. Registered as
+> **WDS-014** in the concept register; landmine appended to `LANDMINES.md`.
+> Regression test `load_work_items_routing_fields_test.go`, induced-fault proven.
+> Diagnosis loop `21758756-d7b3-444a-844e-b37e09b5c9ce`; council
+> `10be5ed9-3bd0-45ed-b6bb-4385a887967d`.
+>
+> **REMAINING, and the ONLY reason this is still open — ordering is
+> load-bearing:** the coalesce is in the binary, the path that uses it is in the
+> DB. After the image is live and **pod-grepped on every replica**, apply
+> `"component_id?": "current_item.spec.component_id"` →
+> `"current_item.component_id"` on `build-dispatch-loop`. Flipping it first
+> strands the 235 spec-only rows. Exact statement in the workstream RUNBOOK.
+>
+> **NOT fixed here, deliberately:** the site-scoped `item_key` in the second
+> finding below — a defect in item *creation* with fleet-wide dedup
+> consequences, wanting its own measurement and its own review.
+> **NOT changed, deliberately:** `page_id` keeps its column-only behaviour;
+> **218** rows would newly gain `current_item.page_id` if the fallback were
+> extended to it for symmetry.
 **Found by:** the first `improve_tool` items ever to reach a handler — see
 `bugs_open/083` BY SLUG (`…detected_findings_never_reach_a_handler`), whose
 promoter was run by hand on owner instruction 2026-07-29. Until that run, no
