@@ -1,7 +1,9 @@
 # Concept Index — master register
 
-1,693 concepts across 110 category register files (**re-taken from the grep 2026-07-31
-after CLC-013 landed; the line said 1,692 and the grep said 1,692 before this row was
+1,694 concepts across 110 category register files (**re-taken from the grep 2026-07-31
+after IMG-066 landed; the line said 1,693 and the grep said 1,693 before this row was
+added, i.e. level again — re-taken anyway, per this line's own rule. Earlier that day,
+re-taken after CLC-013 landed; the line said 1,692 and the grep said 1,692 before that row was
 added, i.e. it was level for once — re-taken anyway, per this line's own rule.
 Earlier that day, re-taken after LNK-025 landed; the line said 1,689 and `grep -c "^| [A-Z]*-[0-9]"` said 1,691
 before this row was added, so it had drifted 2 behind from other sessions' rows —
@@ -1533,6 +1535,7 @@ an ID prefix, or a status word.
 | TP-003 | Inline-JS extraction ("Path 1" /tools/assets/<fn>.js) — designed, partly real, never on the live deploy path | partial | The store path's separateInlineJS extracts a bare inline `<script>` into js_content, nominally replaced by a... | tool-pipeline.md |
 | IMG-064 | Imagery work-item economy end-to-end chain | deployed | The umbrella planner→build→deploy→rebuild chain every imagery phase concept composes into. | imagery.md |
 | IMG-065 | Operator asset-amend path (ingest_staged_asset) | built | First human path to replace an asset's bytes: staging BYTEA → validate → S3 new key → in-place assets amend, lock-honouring. | imagery.md |
+| IMG-066 | Brand-head artefact path registry (BrandHeadAssetPaths / IsBrandHeadPurpose) | built | The one declaration of favicon.png / og-card.png — not derivable from the purpose, and DeployedWebPath returns the wrong path for og_card. Built, NOT exercised (its consumer needs the disabled improvement-sweep). | imagery.md |
 | DES-011 | chief-strategist (build-plan LLM) + component placement dedup rules — superseded | superseded | The v1/v2 planning agent that produced sections/component_details build plans before build-site-planner existed. | design-composition.md |
 | DES-008 | Brand designer agent (theme selection) — earliest design decision point (superseded) | superseded | The very first brand/design decision point in the pipeline's history: an LLM agent analysing domain + objective... | design-composition.md |
 | DES-039 | Early "visual identity poles" layout taxonomy (dropped) | superseded | The very first migration draft described layout diversity as nine named "poles" tied to specific reference... | design-composition.md |

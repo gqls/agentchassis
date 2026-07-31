@@ -8690,3 +8690,65 @@ Category tags: `scope-set-by-caller-chunking`, `correct-at-every-call-site`,
 `local-workaround-instead-of-fixing-the-predicate`,
 `two-judges-disagree-is-a-symptom-not-the-bug`, `name-the-old-predicate`,
 `degrade-wider-not-narrower`, `assert-both-directions-of-an-exemption`.
+
+### A detector whose DENOMINATOR is the artefact table can never report a missing artefact — and its "not deployed" test may be reading the wrong table entirely (`bugs_open/142`, 2026-07-31)
+
+**The shape.** A check asks "which of X were generated but never deployed?" and
+implements it as `FROM <artefact table> WHERE NOT EXISTS (<deploy evidence>)`.
+That is two independent failure surfaces stacked, and both are invisible:
+
+1. **The population cannot contain the answer.** A site whose artefact was never
+   generated has **no row**, so it is not merely un-flagged — it is
+   unexaminable. The check reports faithfully on everything that exists and is
+   structurally silent about everything that does not. Live instance: two sites
+   serving 404 for both brand-head files had never produced one finding in the
+   detector's entire history, while it fired on all twelve sites whose files
+   served 200.
+2. **"Deployed" is tested against whichever table the author had in mind.** Here
+   the evidence was `page_components.rendered_html`, but favicon/og:image are
+   injected into the site `<head>`, which lives in `site_components`. So a
+   present, serving artefact could never look deployed and fired for ever.
+
+**Why it survives review.** Each half reads as correct in isolation and the two
+errors have opposite signs, so the output looks busy rather than broken — 96
+findings across 14 of 14 sites is not a shape anyone reads as "this check is
+blind". Nothing in the numbers distinguishes "found a lot" from "found the wrong
+thing everywhere and missed the right thing twice".
+
+**The check.** Before trusting any detector of absence, ask *what row does the
+FROM clause require to exist?* If the answer is "the thing whose absence I am
+detecting", the population is wrong and no predicate fix repairs it — the
+population must be the **expectation** (the purposes/slots/pages that ought to
+exist), joined out to what does. Then separately ask which table the artefact is
+actually referenced from, and confirm it with a query rather than the sibling
+check sitting next to yours.
+
+**Three traps in the repair, all live here.**
+
+- **The obvious "correctness" fix can be the destructive one.** The pattern
+  concatenated `purpose` into a `LIKE`, unescaped. Escaping the `_` is
+  unarguable in review and wrong: `_` is a SQL wildcard, the published filenames
+  are hyphenated (`content-hero`) where the purposes are underscored
+  (`content_hero`), and the wildcard is the only reason it ever matched.
+  Measured 38/38 deployed unescaped, 0/38 escaped. **Diff the verdicts, not the
+  syntax.**
+- **Evidence that is emitted unconditionally is not evidence.** The natural fix
+  was "look for the reference in the head instead". But the head tags are
+  injected unconditionally, so 13 of 14 heads advertise the artefact whether or
+  not it exists — one of them advertises a live 404. The usable evidence was the
+  provenance row written *after* the git commit succeeds: a causal chain, not a
+  correlation, and confirmed on the wire across every site with no exception in
+  either direction.
+- **Do not buy coverage with a false claim.** Tightening the evidence to
+  "a row recording the published path" is causally sound and would have made the
+  check assert *"has never been generated"* about two sites serving the file
+  **200** (their rows carry an unresolved template literal). A detector whose
+  subject is false positives must not emit one. The answer is a **third state** —
+  *observed, filed nothing* — not a better binary predicate. "I cannot tell" is a
+  legitimate output and the only honest one when the evidence is ambiguous.
+
+**Related:** the same "identity reconstructed rather than read" root sits under
+`bugs_open/155` (`deploy_image_asset` resolves by purpose, not `asset_id`) and
+`bugs_open/152` (`asset_url` never rewritten). Reconstructing an artefact's name
+from a category is the recurring move; reading the identity the row already
+carries is the fix in all three.
