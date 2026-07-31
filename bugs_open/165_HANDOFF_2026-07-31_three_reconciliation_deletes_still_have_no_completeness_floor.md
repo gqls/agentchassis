@@ -131,6 +131,17 @@ None of that argues the work should not happen — only that it is its own work.
 
 ## How to verify, when someone does it
 
+**For site A, the acceptance test has an EXTRA question the council raised and
+nobody has answered** (`guardian`, medium, round `a54172b6`): does a failed
+`save_page_sections` step actually stop the six consumers, or do they swallow it
+and mark the orchestration complete? A refusal the pipeline reports as `complete`
+adds a row nobody reads. What is visible from config is not enough to decide —
+`page-build-handler` has `error_step: mark_item_failed`, `page-rerender` and
+`tool-recreation-handler` have none, and the other three nest the step inside a
+loop where a top-level census cannot see it. **The induction below answers it
+empirically: induce the refusal, then check whether the orchestration row reports
+failure or reports complete.** Do that before closing site A.
+
 The same bar 135 was held to: **a green run proves nothing.** The floor is inert
 on healthy input by design. Induce the fault (write a page with a deliberately
 short section set, or point the nav builder at a partial page list), watch the
