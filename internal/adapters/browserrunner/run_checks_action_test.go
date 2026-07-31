@@ -610,3 +610,96 @@ func TestHasVisibleArea(t *testing.T) {
 		})
 	}
 }
+
+// ── CaptureRenders: a look that does not need a failure to justify it ────────
+//
+// The three tests below are one seam's worth of guarantee. The first proves the
+// capability works; the second and third prove it changed NOTHING for anyone who
+// did not ask for it, which is the only reason this could be an additive change
+// to a shared action rather than a renegotiation with its three consumers.
+
+func TestRendersCapturedOnPassWhenRequested(t *testing.T) {
+	ok := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 5, "#result": 1}, texts: map[string]string{"#result": "9"}}
+	a := actionWith(map[string]*fakePage{"desktop": ok})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "r1", URLs: []string{"u"}, Profiles: []string{"desktop"},
+		CriteriaJSON: criteriaDesktopMobile, Function: "tool-x", SiteID: "site-1",
+		CaptureRenders: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok.shotTaken {
+		t.Fatal("CaptureRenders must photograph a PASSING run — the whole point is a look without a failure")
+	}
+	if len(out.Renders) != 1 {
+		t.Fatalf("expected 1 render, got %+v", out.Renders)
+	}
+	if len(out.Screenshots) != 0 {
+		t.Fatalf("a passing render must NEVER land in Screenshots: %+v", out.Screenshots)
+	}
+	r := out.Renders[0]
+	if r.URI == "" || r.ViewURL == "" || r.Profile != "desktop" {
+		t.Errorf("render must carry profile + durable uri + view url: %+v", r)
+	}
+	if len(r.FailingChecks) != 0 {
+		t.Errorf("a render evidences nothing failing, so FailingChecks must be empty: %v", r.FailingChecks)
+	}
+	if len(st.keys) != 1 {
+		t.Errorf("expected exactly one upload, got %d", len(st.keys))
+	}
+}
+
+func TestRendersOffByDefault(t *testing.T) {
+	// The default-off guarantee. If this ever fails, every existing caller of
+	// run_checks silently starts paying for and storing screenshots of pages
+	// that are fine, and the change stops being additive.
+	ok := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 5, "#result": 1}, texts: map[string]string{"#result": "9"}}
+	a := actionWith(map[string]*fakePage{"desktop": ok})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "r2", URLs: []string{"u"}, Profiles: []string{"desktop"},
+		CriteriaJSON: criteriaDesktopMobile, // CaptureRenders deliberately unset
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok.shotTaken || len(out.Renders) != 0 || len(out.Screenshots) != 0 || len(st.keys) != 0 {
+		t.Errorf("without CaptureRenders a clean pass must photograph nothing: taken=%v renders=%d shots=%d saves=%d",
+			ok.shotTaken, len(out.Renders), len(out.Screenshots), len(st.keys))
+	}
+}
+
+func TestFailingRunGoesToScreenshotsEvenWithRendersOn(t *testing.T) {
+	// The consumer-facing guarantee: everything in Screenshots evidences a
+	// failure and names it. tool_acceptance_actions.go attaches that list to
+	// failure work items unfiltered (:650, :704), so a failing run must not be
+	// reclassified as a render, and opting in must not cost a second capture.
+	mobile := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 1, "#result": 1}, overflow: true, texts: map[string]string{"#result": "1"}}
+	a := actionWith(map[string]*fakePage{"mobile": mobile})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "r3", URLs: []string{"u"}, Profiles: []string{"mobile"},
+		CriteriaJSON: criteriaDesktopMobile, Function: "tool-x", SiteID: "site-1",
+		CaptureRenders: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Screenshots) != 1 {
+		t.Fatalf("a failing run must still produce exactly one Screenshots entry, got %+v", out.Screenshots)
+	}
+	if len(out.Renders) != 0 {
+		t.Fatalf("a failing run must not be filed as a render: %+v", out.Renders)
+	}
+	if len(out.Screenshots[0].FailingChecks) == 0 {
+		t.Error("a Screenshots entry must name what it evidences")
+	}
+	if len(st.keys) != 1 {
+		t.Errorf("opting into renders must not double the capture cost of a failing run: %d uploads", len(st.keys))
+	}
+}

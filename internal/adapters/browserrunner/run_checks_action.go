@@ -55,6 +55,21 @@ type RunChecksRequest struct {
 	CriteriaJSON string   `json:"criteria_json"`
 	Function     string   `json:"function"`
 	SiteID       string   `json:"site_id"`
+	// CaptureRenders asks for a full-page screenshot of every (url, profile)
+	// run, not only the failing ones. Default false = prior behaviour exactly.
+	//
+	// It exists because until now NOTHING in the platform rendered a page and
+	// put it in front of anyone unless an assertion had already failed. Every
+	// defect class nobody thought to assert — text flush against a card border,
+	// a row of links off their baseline, chart labels overprinting each other —
+	// therefore lands on a page where every check PASSES, so no screenshot is
+	// taken and no one ever looks. Three such defects reached the owner on
+	// 2026-07-30/31 and all three were found by a human looking at the page.
+	// Renders are for that: a look that does not need permission from a failure.
+	//
+	// Passing runs land in RunChecksResult.Renders, never in Screenshots — see
+	// captureEvidence for why that separation is load-bearing.
+	CaptureRenders bool `json:"capture_renders"`
 }
 
 // CheckResult is one evaluated check on one URL under one profile.
@@ -136,8 +151,16 @@ type RunChecksResult struct {
 	Results []CheckResult `json:"results"`
 	Skipped []CheckResult `json:"skipped"` // not evaluated — never a fake pass
 	// Screenshots is present only when a (url, profile) run had failures AND
-	// object storage is configured — evidence, never load-bearing.
+	// object storage is configured — evidence, never load-bearing. Every entry
+	// here evidences a failure and carries the failing ids in FailingChecks;
+	// that guarantee is what existing consumers rely on, so renders never
+	// appear in this list.
 	Screenshots []ScreenshotRef `json:"screenshots,omitempty"`
+	// Renders holds full-page screenshots of runs that PASSED, and is populated
+	// only when the request set CaptureRenders and object storage is configured.
+	// FailingChecks is empty on every entry, by construction. Never load-bearing:
+	// a render is something to look at, not something to decide by.
+	Renders []ScreenshotRef `json:"renders,omitempty"`
 	Summary     struct {
 		Passed  int `json:"passed"`
 		Failed  int `json:"failed"`
@@ -292,9 +315,14 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 			}
 			res := evaluateOnPage(page, crit, applicable, profile, url)
 			// P3: evidence while the page is still open — a failing verdict
-			// carries what the page actually looked like.
-			if ref, ok := a.captureFailureEvidence(runCtx, page, req, res, profile, url, urlIdx); ok {
-				out.Screenshots = append(out.Screenshots, ref)
+			// carries what the page actually looked like. With CaptureRenders
+			// set, a PASSING run is photographed too, into a separate list.
+			if ref, failing, ok := a.captureEvidence(runCtx, page, req, res, profile, url, urlIdx); ok {
+				if failing {
+					out.Screenshots = append(out.Screenshots, ref)
+				} else {
+					out.Renders = append(out.Renders, ref)
+				}
 			}
 			page.Close()
 			out.Results = append(out.Results, res...)
@@ -318,44 +346,71 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 	return out, nil
 }
 
-// captureFailureEvidence takes and stores a full-page screenshot when this
-// (url, profile) run has at least one failing check. Best-effort by design:
-// no store, a capture error, or an upload error all degrade to a log line —
-// evidence must never fail, slow-fail, or alter the verdict. Navigation
-// failures are excluded: there is no page state worth photographing.
-func (a *RunChecksAction) captureFailureEvidence(ctx context.Context, page browserPage,
-	req RunChecksRequest, results []CheckResult, profile, url string, urlIdx int) (ScreenshotRef, bool) {
+// captureEvidence takes and stores ONE full-page screenshot for this
+// (url, profile) run, and says whether it evidences a failure.
+//
+// Two callers' worth of behaviour, deliberately in one capture so that opting
+// into renders never doubles the screenshot cost of a failing run:
+//
+//   - failing == true  → the run had at least one failing check. Unconditional,
+//     exactly as before. The caller files it under Screenshots.
+//   - failing == false → the run passed and req.CaptureRenders was set. The
+//     caller files it under Renders, NEVER under Screenshots.
+//
+// WHY THE TWO LISTS ARE SEPARATE, AND WHY THAT IS NOT TIDINESS. Three existing
+// consumers in tool_acceptance_actions.go attach `Screenshots` to a work item
+// they are raising BECAUSE something failed, and two of them do so unfiltered
+// (`shotsForSpec(v.Shots, "")` at :650 and :704, the latter commented "what the
+// page looked like when it failed"). Making Screenshots unconditional would put
+// a photograph of a perfectly good page into a failure ticket as its evidence —
+// a change to what that list MEANS for callers who never asked for renders. A
+// second field changes nothing for them: everything in Screenshots still
+// evidences a failure, and Renders is empty unless a caller opts in.
+//
+// Best-effort by design, unchanged: no store, a capture error, or an upload
+// error all degrade to a log line — evidence must never fail, slow-fail, or
+// alter the verdict. Navigation failures are excluded: there is no page state
+// worth photographing.
+func (a *RunChecksAction) captureEvidence(ctx context.Context, page browserPage,
+	req RunChecksRequest, results []CheckResult, profile, url string, urlIdx int) (ref ScreenshotRef, failing bool, ok bool) {
 
 	if a.store == nil || page.NavError() != "" {
-		return ScreenshotRef{}, false
+		return ScreenshotRef{}, false, false
 	}
-	var failing []string
+	var failed []string
 	for _, r := range results {
 		if !r.Pass {
-			failing = append(failing, r.CheckID+"@"+r.Profile)
+			failed = append(failed, r.CheckID+"@"+r.Profile)
 		}
 	}
-	if len(failing) == 0 {
-		return ScreenshotRef{}, false
+	// A passing run is photographed only on request. This is the whole of the
+	// opt-in: with CaptureRenders unset the function behaves exactly as
+	// captureFailureEvidence did.
+	if len(failed) == 0 && !req.CaptureRenders {
+		return ScreenshotRef{}, false, false
 	}
+	isFailure := len(failed) > 0
 
 	png, err := page.Screenshot(true)
 	if err != nil {
-		a.logger.Warn("failure screenshot capture failed — evidence skipped, verdict unaffected",
-			zap.String("url", url), zap.String("profile", profile), zap.Error(err))
-		return ScreenshotRef{}, false
+		a.logger.Warn("screenshot capture failed — evidence skipped, verdict unaffected",
+			zap.String("url", url), zap.String("profile", profile),
+			zap.Bool("failure", isFailure), zap.Error(err))
+		return ScreenshotRef{}, false, false
 	}
 	key := screenshotKey(req.SiteID, req.Function, req.RunID, profile, urlIdx)
 	uri, viewURL, err := a.store.Save(ctx, key, png)
 	if err != nil {
-		a.logger.Warn("failure screenshot upload failed — evidence skipped, verdict unaffected",
-			zap.String("key", key), zap.Error(err))
-		return ScreenshotRef{}, false
+		a.logger.Warn("screenshot upload failed — evidence skipped, verdict unaffected",
+			zap.String("key", key), zap.Bool("failure", isFailure), zap.Error(err))
+		return ScreenshotRef{}, false, false
 	}
-	a.logger.Info("failure screenshot stored",
+	a.logger.Info("screenshot stored",
 		zap.String("uri", uri), zap.String("profile", profile),
-		zap.Strings("failing_checks", failing), zap.Int("bytes", len(png)))
-	return ScreenshotRef{URL: url, Profile: profile, URI: uri, ViewURL: viewURL, FailingChecks: failing}, true
+		zap.Bool("failure", isFailure), zap.Strings("failing_checks", failed),
+		zap.Int("bytes", len(png)))
+	return ScreenshotRef{URL: url, Profile: profile, URI: uri, ViewURL: viewURL, FailingChecks: failed},
+		isFailure, true
 }
 
 // resolveProfiles: desktop always runs unless only mobile is asked for; mobile
