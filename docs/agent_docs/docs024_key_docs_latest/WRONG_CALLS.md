@@ -14228,3 +14228,65 @@ made the leftover `D` line look like somebody else's, every time.
   `output_fields`), and nothing invokes the validator at all — but "survived on
   re-measurement" is not "was right". The cheap check: when claiming an absence
   fleet-wide, grep the **repo root**, or name the scope in the claim itself.
+- **My needle matched the thing I was looking FOR and the thing I was looking AT —
+  and it returned `true` on a healthy artefact.** Checking gaswholesalers' re-rendered
+  footer for a mangled nav label (`Tools/Damage Formula Designer/Index`-shaped), I ran
+  `rendered_html ILIKE '%Tools/%' OR rendered_html ILIKE '%/Index<%'` and got `mangled = t`.
+  The footer was **perfect**. `ILIKE` is case-insensitive, so `%Tools/%` matched the
+  *href* — `/tools/tool-fuel-cost-estimator.html` — on every correctly-built tool link.
+  The check was structurally incapable of returning `false` on the exact page shape it
+  was written to inspect. **Caught within one query, by disbelieving a positive that
+  contradicted three other measurements**, then re-asked against the anchor *text*
+  (`grep -oE '<a...>[^<]*</a>'`), which came back clean. **The cheap check: when the
+  string you are hunting also appears in the surrounding markup, match the FIELD, not the
+  document** — a defect-detector that fires on healthy input is worse than no detector,
+  because a `true` here would have sent me hunting a regression that did not exist.
+  *(Same family as the narrow-filter entries above, but inverted: those chose a filter
+  that hid the answer, this one chose a needle that manufactured one.)*
+- **A liveness query I wrote THAT AFTERNOON to stop an aggregate hiding a dead lane
+  was itself an aggregate hiding a dead lane, and it fooled me on the next session.**
+  RUNBOOK R12 query 4 (`SELECT max(claimed_at) FROM site_work_items`) was added on
+  2026-07-31 after I told a council seat the dispatch lane was healthy, citing a 7-day
+  rate, while it had been dead for two hours. Asked cold at 18:13 the same evening, query
+  4 returned **`mins_since = 1`** and I read it as "the queue recovered". Grouping by
+  `claimed_by` inverted it: the only lane claiming was **`diagnose-dispatch-loop`** —
+  another session's diagnosis run investigating this very outage — while
+  `build-dispatch-loop`, the one that matters, had last claimed **156 minutes** earlier.
+  **The cheap check: `GROUP BY claimed_by`.** And the general lesson, which is why this
+  is worth a row rather than a footnote: **an outage ATTRACTS the activity that poisons
+  the aggregate**, so a fleet-wide `max()` gets *less* trustworthy exactly when the fleet
+  is responding correctly. I caught it only because the handoff I was working from
+  asserted the opposite and I checked which was stale. **Fixing a measurement one level
+  up does not fix its shape** — R12 query 2 was too broad in time, query 4 was too broad
+  in population, and I wrote the second while correcting the first.
+- **I put a prose apology in a schema field that takes a path, and it cost a council
+  round before a single reviewer read the plan.** Submitting the `bugs_open/154` fix
+  (2026-07-31), edit 4 was the half of the change that lives in the DB rather than the
+  repo — the `build-dispatch-loop` `input_mapping`. Wanting to be *honest* that it is
+  not a repo file, I wrote `"file": "agent_definitions/build-dispatch-loop (live DB row,
+  NOT in this commit)"`. The gate rejected the whole submission at `persist_submission`:
+  *"edit 4: file path must be repo-relative with no traversal or whitespace"* —
+  `current_step=complete_invalid`, zero seats run. **The cheap check: the `plan` block is
+  the `fix_plan` artifact schema, validated server-side, so run the fields past that
+  schema before spending a dispatch — a field named `file` takes a path, and prose in it
+  is a parse error wearing a comment's clothing.** The deeper lesson is that the schema
+  was right and I was wrong about the change: a config edit with no file **is not
+  reviewable and cannot be rolled back**, so "it lives in the DB" was a description of a
+  gap, not an excuse for one. Writing it as a real numbered migration
+  (`sql_for_agents/278_…`) made the resubmission valid *and* made the change better —
+  it now carries its own snapshot, a `create_missing=false` guard, an idempotent WHERE,
+  and a rollback. **When a validator refuses your honesty, check whether it is refusing
+  the shape or the substance.**
+- **I nearly justified a design choice with data that would have gone stale, and the
+  structural argument was sitting right next to it.** Same change. I rejected
+  backfilling the resolved `component_id` into the work item's `spec` because
+  `create_rerender_items` gates `scoped := (reason == "section_data_resolved" || reason
+  == "image_landed") && componentIDStr != ""` on it. Then I reassured myself by checking
+  the live rows — both `needs_rerender` items in that shape carry an **empty `reason`**,
+  so `scoped` would be false today anyway — and started writing *that* into the design
+  note. It is a **data-dependent safety argument about a code property**: true this
+  evening, false the first time a rerender is raised with either of those two reasons,
+  and nothing would re-check it. **The cheap check: ask whether the reassurance would
+  survive a row being inserted tomorrow.** Kept the structural reason (top-level exposure
+  cannot reach any `spec.*` reader at all), threw the comforting measurement away, and
+  pinned it with a test that fails if someone "tidies" the backfill back in.

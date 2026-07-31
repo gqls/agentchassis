@@ -30,8 +30,16 @@ until the image rolls AND the config half is applied.** Workstream docs:
 > `spec.<key>`**, so one dispatcher path serves both populations. Registered as
 > **WDS-014** in the concept register; landmine appended to `LANDMINES.md`.
 > Regression test `load_work_items_routing_fields_test.go`, induced-fault proven.
-> Diagnosis loop `21758756-d7b3-444a-844e-b37e09b5c9ce`; council
-> `10be5ed9-3bd0-45ed-b6bb-4385a887967d`.
+>
+> **Diagnosis loop `21758756-d7b3-444a-844e-b37e09b5c9ce`: CONFIRMED**, first
+> iteration, independently re-reading the same functions. It found a contrast
+> pair I had not cited — the same mechanism, both directions, on one site:
+> `a5d11c86` (column set, `spec={}`) **failed** at 13:21:26 today, one second
+> after the `load_tool` "resolved to nil" line; `265f0c41` (column NULL,
+> `spec.component_id` present) **complete**. All four symptom points `[explained]`.
+> Council `10be5ed9-3bd0-45ed-b6bb-4385a887967d` (round 1 was rejected at
+> `persist_submission` for a malformed edit path of mine, before any seat ran —
+> see `WRONG_CALLS.md`; resubmitted under the same correlation).
 >
 > **REMAINING, and the ONLY reason this is still open — ordering is
 > load-bearing:** the coalesce is in the binary, the path that uses it is in the

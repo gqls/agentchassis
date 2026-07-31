@@ -174,3 +174,54 @@ Restored, full `./platform/orchestration/...` suite green.
 - Council gate: `SUBMISSION_CORR=10be5ed9-3bd0-45ed-b6bb-4385a887967d`.
   Committing before the verdict, so the commit carries `Council-Submitted:`,
   never `Council-Reviewed:` on a verdict I have not read.
+
+## 2026-07-31, later — the diagnosis loop CONFIRMED it, and found a better citation than mine
+
+`21758756-…` returned **CONFIRMED** on the first iteration, re-reading
+`LoadWorkItemsAction` independently and quoting the same SELECT and the same
+`item := map[string]interface{}{…}` literal. Worth recording because it did not
+merely agree — it produced a **contrast pair on one site** that is cleaner than
+anything in my own write-up:
+
+| item | column | spec | status |
+|---|---|---|---|
+| `a5d11c86` | set (`121a2f4f…`) | `{}` | **failed** 13:21:26, one second after the `load_tool` "resolved to nil" line |
+| `265f0c41` | NULL | `component_id` present | **complete** |
+
+Same mechanism, both directions, same site, an hour apart. All four symptom
+points came back `[explained]`.
+
+**Lesson:** I had the census (4/4 vs 16/16) and treated that as sufficient. A
+census establishes a correlation across a population; a *matched pair* shows the
+mechanism operating in both directions. Cheaper to read, harder to argue with,
+and I did not think to look for one. This is the second time this lane has been
+reminded that a perfect discriminator across a population is not the same as
+evidence about the mechanism (see the `072` note in memory).
+
+## The council round I wasted, and why the validator was right
+
+Round 1 died at `persist_submission`, before any seat ran:
+`edit 4: file path must be repo-relative with no traversal or whitespace`.
+Edit 4 was the config half, and I had written
+`"file": "agent_definitions/build-dispatch-loop (live DB row, NOT in this commit)"`
+— prose, in a field that takes a path, trying to be honest about the change not
+living in the repo.
+
+The validator was right in a way I did not expect: a config change with **no
+file** is not reviewable and cannot be rolled back. "It lives in the DB" was a
+description of a gap, not an excuse for one. Rewriting it as
+`sql_for_agents/278_dispatch_loop_reads_component_id_column.sql` made the
+submission valid *and* the change better — it now carries a pre-image snapshot,
+`jsonb_set(create_missing=false)` so a drifted mapping fails loud instead of
+growing a second key, an idempotent `WHERE` matching the exact prior value, the
+pod-grep gate with its positive control, and a rollback statement.
+
+Cost: one dispatch, zero reviewer time. Logged in `WRONG_CALLS.md`.
+
+## Status at hand-off
+
+Fix committed (`4667db235`, `9bde2aa14`) and **not live**. Per CLAUDE.md's bar —
+*fixed AND live* — 154 stays in `bugs_open/`: the defect is still reproducible
+until the image ships, and `a5d11c86` reproduced it **today**. What remains is
+the roll, the pod-grep on every replica, then `sql_for_agents/278`. In that
+order, for the reason written at the top of that file.
