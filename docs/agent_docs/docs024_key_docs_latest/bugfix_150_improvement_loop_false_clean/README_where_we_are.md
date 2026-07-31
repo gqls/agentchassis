@@ -67,3 +67,26 @@ there for months is present, so the check itself is sound. The image was simply 
 snapshot of the code taken before my commit. Nothing is wrong; it just means the two steps
 owed are still owed, and the next person should not read "there was a roll" as "the fix is
 live". The command that answers it properly is written into the ticket.
+
+**End of the evening — the review came back approved**
+
+The council approved it, with eight advisory comments and nothing blocking. Four of those
+comments were questions I could answer with a database query rather than an argument, so I
+ran them, and all four came back in the change's favour. One of them was genuinely
+important: a reviewer asked whether the three agents that share the promoting step all file
+their work under the same label — because if they didn't, my new count would quietly miss
+exactly the items it exists to find. They do. But I had taken that on trust from a comment in
+the code instead of checking it, and the reviewer was right to make me.
+
+Two things the reviewers asked for that I had only written down in prose, they wanted as
+proper tickets, and they were right about that too. So there is now a separate ticket for the
+second way this same false "clean" message can appear (the audited-three-times shortcut), and
+a written proposal for the underlying question — should a step that sweeps up everything on a
+site have exactly one owner, rather than three agents racing for it? That one is a decision
+for you rather than for me; the proposal lays out three options with what each costs.
+
+Where it stands: the code is committed and approved, the switch-over is written and held
+back, and the ticket stays open until someone rolls an image and applies it. Both of those
+steps are written into the ticket in order, with the exact commands. I checked the committed
+code builds and its tests pass in isolation, separately from whatever else is half-finished
+in the shared working directory tonight.
