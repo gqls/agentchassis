@@ -770,3 +770,12 @@ source document and the entry points at it.
   One query named `handler_agent`. **Reach for that diff before reading the error message** — a row you built from a partial `SELECT` is missing exactly what you did not look at
 - **source:** FIXTURE 4 regeneration, 2026-07-31. Same family as the existing entry for a hand-made `page_rerender` needing `page_id` in the spec **and** the column
 - **added:** 2026-07-31, robot_hands_gripper_dossier lane
+
+### `curl | grep` twice against the same URL during a deploy reports a regression that never happened
+- **footprint:** any `for u in …; do curl -s "$url" | grep …; curl -s "$url" | grep …; done` verification of a live site, `049b_deploy_single_page.sh`, chrome/footer changes
+- **fires when:** you verify two properties of a page by fetching it twice in the same loop iteration, while a deploy of that page is in flight
+- **the tell:** one property reads present and the other reads **absent on the same page in the same second** — and re-checking by hand shows both present. On 2026-07-31 this reported oufe.com's footer honesty note as MISSING from `/about.html` immediately after a redeploy. It was there. The two `curl`s hit either side of the artefact being replaced
+- **the check:** **fetch ONCE to a file, then grep the file** for every property. Costs nothing and removes the whole class. If you must re-fetch, treat a disagreement between two fetches as a timing artefact until a single saved response contradicts it
+- **why it matters more than it looks:** the property it falsely reported missing was the one that `sql_for_agents/268` exists to protect, and the documented remedy for a missing footer note is a chrome regeneration — which would have *actually* deleted it. A false positive here routes you to a destructive fix
+- **source:** hit 2026-07-31 verifying the oufe tool-2 footer rollout
+- **added:** 2026-07-31, oufe lane
