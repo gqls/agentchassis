@@ -182,6 +182,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Loan Application Tracker
+  function: tool-application-tracker
+  page: tool-application-tracker (/tools/application-tracker.html)
+  description: A browser-local checklist of the documents a UK lender asks for, with a progress bar, free-text notes, and JSON backup and restore.
+  behaviour: |
+    - Checkbox state and notes persist to localStorage under namespaced keys.
+    - Notes save on a debounce; the status line distinguishes pending from saved.
+    - Clear removes only THIS tool's keys, never the whole origin.
+  invariants: |
+    The row MUST be display:flex — this page's original stylesheet made it so and computed display is fingerprinted (the sibling damage-checker needs the opposite; do not harmonise them). Changing storage_check_prefix or storage_notes_key ORPHANS every existing user's saved data silently. 'Securely tracked in your browser' means unencrypted localStorage — do not strengthen that copy.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* BEHAVIOUR PRESERVED from the hand-built original
    (loancalculator.co.uk/tools/application-tracker.html, 2026-07-31): five
    checkboxes and a notes field persisted to localStorage, a progress bar driven

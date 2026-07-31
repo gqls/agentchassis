@@ -135,6 +135,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Compare Loan Offers
+  function: tool-compare-loan-offers
+  page: tool-compare-loan-offers (/tools/compare-loans.html)
+  description: Side-by-side comparison of two loan offers, ranked on TOTAL INTEREST over the life of each loan rather than on monthly payment.
+  behaviour: |
+    - Annuity formula per column; the lower total interest wins and gets .winner.
+    - The verdict names the winner and the amount saved.
+    - Every runtime-chosen string is read from a hidden markup copy bank.
+  invariants: |
+    £10,000 at 7.9%/5y against £10,000 at 9.9%/4y MUST read £202.29 / £2137.14 against £253.15 / £2151.00, A cheaper by £13.86. RANKING ON TOTAL INTEREST IS THE WHOLE POINT — the cheaper option here has the HIGHER monthly payment, and a tool ranking by monthly payment would tell people the opposite of the truth.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/compare-loans.html, 2026-07-31): the standard
    annuity formula applied to each column, compared on TOTAL INTEREST rather than

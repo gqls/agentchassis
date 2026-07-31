@@ -93,6 +93,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Overpayment Impact Tool
+  function: tool-overpayment-impact
+  page: tool-overpayment-impact (/tools/overpayment-calculator.html)
+  description: Shows the total interest saved and months cut from a loan by paying a fixed extra amount each month, by amortising month by month.
+  behaviour: |
+    - Scheduled payment from the annuity formula; then a month-by-month loop at payment + overpayment.
+    - Saving is original total interest less the amortised total interest.
+    - Both outputs are floored at zero.
+  invariants: |
+    £15,000 at 6.5% over 5 years with £50/month MUST read £448.024 saved and 10 months earlier. THE max_months LOOP CAP IS LOAD-BEARING — without it a negative overpayment never terminates and the tab hangs. KNOWN DEFECT, preserved deliberately: toLocaleString omits maximumFractionDigits so it prints THREE decimal places on money. Fix it as its own change with a re-baselined golden.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/overpayment-calculator.html, 2026-07-31).
    The scheduled payment comes from the annuity formula; the saving is found by

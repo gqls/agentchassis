@@ -119,6 +119,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Credit Health Check
+  function: tool-credit-health-check
+  page: tool-credit-health-check (/tools/credit-health-check.html)
+  description: A five-step self-assessment wizard scoring indicative creditworthiness from four questions, showing a banded verdict with a meter.
+  behaviour: |
+    - Each answer adds its data-chc-points to a running total and advances one step.
+    - Step 5 clamps the meter to 10..95% and picks a band from two thresholds.
+    - One delegated listener on the container; no globals, no inline onclick.
+  invariants: |
+    The two CSS rules .chc-step{display:none} / .chc-step.chc-active{display:block} are the whole of the one-step-at-a-time behaviour — without them every step renders at once and the tool scores correctly while looking broken. display is fingerprinted: step-1 block and steps 2-5 none on first paint.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* SCORING PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/credit-health-check.html, 2026-07-31): the running
    total, the 10..95 clamp on the meter, and the two band thresholds. Equivalence

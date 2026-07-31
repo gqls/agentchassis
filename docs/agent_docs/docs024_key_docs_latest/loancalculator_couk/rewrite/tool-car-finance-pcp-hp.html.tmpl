@@ -150,6 +150,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Car Finance: PCP vs HP
+  function: tool-car-finance-pcp-hp
+  page: tool-car-finance-pcp-hp (/tools/car-finance-calculator.html)
+  description: Monthly payment and total interest for a car finance agreement, in Hire Purchase or Personal Contract Purchase mode with an optional final balloon payment.
+  behaviour: |
+    - One annuity formula in balloon form serves both modes; HP is simply balloon = 0.
+    - The balloon field is hidden in HP and revealed in PCP.
+    - Total interest is measured against the CAR PRICE, including the deposit.
+  invariants: |
+    £25,000 less £5,000 deposit at 8.9% over 4 years in HP MUST read £496.75 and £3,844.08. The .cf-balloon display:none / .cf-show pair is BEHAVIOUR — without it a field the arithmetic ignores is visible in HP mode. #balloon-box display is fingerprinted: none on first paint. KNOWN DEFECT: 0% APR computes nothing (the formula divides by zero) and 0% is a real advertised product.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/car-finance-calculator.html, 2026-07-31).
    The annuity formula in its BALLOON form — the present value of the final

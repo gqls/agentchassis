@@ -128,6 +128,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Pay Off Loan or Save?
+  function: tool-loan-vs-savings
+  page: tool-loan-vs-savings (/tools/loan-vs-savings.html)
+  description: Compares one year of interest avoided by clearing debt against one year of net interest earned by saving the same sum, adjusted for the saver's tax band.
+  behaviour: |
+    - Loan side: amount x rate. Savings side: amount x rate x (1 - tax fraction).
+    - The larger side gets the .winner class.
+    - higher_rate_fraction is a FRACTION (0.4), not a percentage.
+  invariants: |
+    £1,000 at 7.5% against 5.0% MUST read £75.00 versus £50.00. On an exact tie the SAVINGS panel wins (the comparison is strict) — recorded behaviour, not a decision. KNOWN DEFECT: the verdict is signalled by COLOUR ALONE, invisible to a colour-blind reader; a badge was written and reverted because it changes the panels' text.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/loan-vs-savings.html, 2026-07-31): one year of
    simple interest on the same sum at each rate, with the savings side reduced by

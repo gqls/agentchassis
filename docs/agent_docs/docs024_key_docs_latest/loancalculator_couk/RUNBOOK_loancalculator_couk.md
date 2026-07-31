@@ -381,3 +381,38 @@ selector rather than emitting steps that drive it differently from the capture.
 >   in-cluster and confirm no `not implemented` in its skips. Watch the **120s
 >   whole-request deadline** (TL-036 hit it at 36 evaluations in-cluster while the
 >   same fence took 10.6s locally); these fences carry three vectors each.
+
+## Loading the components into `content_components` (2026-07-31)
+
+```bash
+cd /home/ant/projects/agentchassis
+LANE=docs/agent_docs/docs024_key_docs_latest/loancalculator_couk
+python3 $LANE/rewrite/load_components.py --check    # validate only, no writes
+python3 $LANE/rewrite/load_components.py --apply    # one transaction
+```
+
+**Safe by ORDERING, and that is the whole design.** A component with no
+`page_components` row is inert — nothing renders it, nothing serves it, and the
+site keeps serving its verbatim pages byte-for-byte. Attaching one to a page is a
+separate, deliberate step. Verified after loading: all 11 stored templates are
+md5-identical to the files on disk, and `/index.html`,
+`/tools/standard-calc.html`, `/tools/consolidation.html` still serve unchanged.
+
+- **It will not overwrite.** An existing `function` is skipped and named; there is
+  no `--force`. A clobber here destroys another lane's component with no diff and
+  no warning. Re-running is a no-op.
+- **Validation runs over ALL of them before the transaction opens**, so a bad
+  template cannot leave a half-loaded set behind.
+- **GOTCHA, and it fired on the first run — prose mentioning a script tag breaks
+  the tag-balance guard.** `tool-early-settlement`'s comment explained the
+  quote-in-JavaScript bug and, in doing so, wrote `<` + `script` + `>` twice in
+  prose. That is 3 opens against 1 close, and it fails not just this loader but
+  `hasUnbalancedStructuralTags` — the platform's own birth-write gate. Say "a
+  script block" in words inside a template comment; never the literal tag.
+- **Every tool needs its tool-doc header before loading** (`add_tool_doc_headers.py`).
+  Without it `check_tool_health` raises an `improve_tool` item per tool, pointing
+  `tool-improver` at the most thoroughly verified tools on the fleet. The header is
+  stripped at deploy assembly so it is output-neutral — proven, not assumed, by
+  re-running `verify_rewrite.py` over all 11 afterwards.
+- These are **novel** components (`forked_from IS NULL`), matching 27 of the 35
+  tool components attached to pages fleet-wide.

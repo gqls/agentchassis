@@ -94,6 +94,20 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Car Return Damage Checker
+  function: tool-return-damage-checker
+  page: tool-return-damage-checker (/tools/damage-checker.html)
+  description: A pre-return inspection checklist for a PCP or HP car handover; ticking any item reveals a warning about likely reconditioning charges.
+  behaviour: |
+    - Four checkboxes; the verdict box is shown when any is ticked and hidden when none is.
+    - The checkbox query is SCOPED TO THIS TOOL, not the page.
+  invariants: |
+    NO ARITHMETIC AT ALL, so computed_values does not apply and the capture emitter correctly refuses it. Its contract is a visibility change: assert it with `interaction` plus `has_visible_area`, and do NOT manufacture a number so a check type fits. The row must NOT be display:flex — that blockifies the checkboxes and computed display is fingerprinted.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* BEHAVIOUR PRESERVED from the hand-built original
    (loancalculator.co.uk/tools/damage-checker.html, 2026-07-31): tick any box and
    the verdict appears; untick them all and it goes away. There is no arithmetic

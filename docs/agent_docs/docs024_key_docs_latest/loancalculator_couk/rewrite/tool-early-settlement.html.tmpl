@@ -89,6 +89,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Early Settlement Estimator
+  function: tool-early-settlement
+  page: tool-early-settlement (/tools/settlement-calculator.html)
+  description: Estimates a UK early-settlement figure: outstanding balance plus simple daily interest over a statutory notice window (the 58-day convention).
+  behaviour: |
+    - Daily rate is APR/days_in_year; extra interest is balance x daily x settlement_days.
+    - Settlement figure is balance + that interest.
+    - The breakdown sentence lives in the MARKUP; the script writes only the number.
+  invariants: |
+    £5,000 at 9.9% MUST read £5,078.66 with £78.66 of charges. NEVER interpolate the breakdown copy into a JS string literal — the fallback contains the phrase 58-day in double quotes and doing so produced a syntax error that killed the whole tool while it still passed every structural check. 58 days is a DEFAULT, not a universal rule.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/settlement-calculator.html, 2026-07-31):
    simple daily interest on the outstanding balance for a fixed number of days,
@@ -121,12 +136,12 @@
    escapes nothing, so that rendered as
        var BREAKDOWN_SUFFIX = " in "58-day" interest charges.";
    — a syntax error that killed the entire script. The tool then displayed £0.00
-   for every input while still shipping a <script> block, still matching every
+   for every input while still shipping a script block, still matching every
    selector and still looking perfectly normal. tool_health passed it, Tier 2
    passed it, and it was caught only by comparing the values it computed.
    The rule that follows, and it applies to every tool: COPY GOES IN THE MARKUP,
    the script writes only the number. render_tool.go now refuses a template that
-   interpolates a quote-bearing field inside a <script>. */
+   interpolates a quote-bearing field inside a script block. */
 (function () {
   var SYM = "{{.currency_symbol}}";
   var LOCALE = "{{.locale}}";

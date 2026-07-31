@@ -171,6 +171,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Debt Consolidation Risk Checker
+  function: tool-consolidation-risk
+  page: tool-consolidation-risk (/tools/consolidation.html)
+  description: Compares the total interest still owed across several existing debts against the total interest of one consolidation loan, warning when consolidating costs more.
+  behaviour: |
+    - Each debt row is amortised separately; the interest still to pay is summed.
+    - The consolidated loan is amortised once over the new term.
+    - Rows can be added and removed; every control has a stable id.
+  invariants: |
+    COMPARES ON TOTAL INTEREST, never on monthly payment — consolidation almost always lowers the monthly payment, so a monthly comparison would recommend it unconditionally, which is the mis-selling risk the page exists to warn about. Existing debts are in MONTHS, the new loan in YEARS — do not harmonise. KNOWN DEFECT: a debt with no rate counts toward the balance but contributes no interest, flattering consolidation.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/consolidation.html, 2026-07-31): each existing debt
    is amortised separately to get the interest still to pay, those are summed, and

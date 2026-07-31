@@ -108,6 +108,21 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Variable Rate Stress Test
+  function: tool-rate-stress-test
+  page: tool-rate-stress-test (/tools/interest-rate-stress-test.html)
+  description: Shows what a variable-rate loan repayment becomes if the rate rises by a configurable number of percentage points, and the extra monthly cost.
+  behaviour: |
+    - Annuity formula applied twice: at the entered APR, and at APR + stress_delta_points.
+    - The difference is reported per month.
+    - stress_delta_points is percentage POINTS, not a multiplier.
+  invariants: |
+    £10,000 at 8.5% over 3 years MUST read £315.68 / £325.02 / 9.35. Formatting is toFixed(2), NOT Intl.NumberFormat — switching would add thousands separators and change every displayed figure. stressed_heading must agree with stress_delta_points; nothing enforces it.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/interest-rate-stress-test.html, 2026-07-31): the
    standard annuity formula applied twice, once at the entered APR and once at

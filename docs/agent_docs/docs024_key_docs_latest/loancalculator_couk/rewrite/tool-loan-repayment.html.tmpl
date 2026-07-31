@@ -137,6 +137,22 @@
 </section>
 
 <script>
+/* === tool-doc ===
+  name: Standard Loan Repayment Calculator
+  function: tool-loan-repayment
+  page: tool-loan-repayment (/tools/standard-calc.html)
+  description: Monthly repayment, total interest and total repayable for a fixed-rate personal loan, using the standard annuity formula with monthly compounding.
+  behaviour: |
+    - User sets amount, APR and term in years; every field recalculates on input.
+    - Monthly payment is the annuity formula on a monthly rate of (APR/100)/12.
+    - Total repayable is monthly x months; total interest is that less the principal.
+    - Runs once on load, so the tool is never blank.
+  invariants: |
+    £10,000 at 7.9% over 5 years MUST read £202.29 / £2,137.40 / £12,137.40. A single divisor error (/12 -> /11) is caught in all three vectors by the computed_values fence. This component also serves /index.html — both pages share one calculator.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/standard-calc.html, 2026-07-31). The standard
    annuity formula. Every line below that computes anything is unchanged, and
