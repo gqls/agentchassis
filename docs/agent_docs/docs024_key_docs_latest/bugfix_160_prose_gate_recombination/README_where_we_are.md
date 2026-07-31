@@ -88,3 +88,27 @@ nothing. That is not a tooling problem, it is what a negative test is: it tells 
 was refused, never *which* rule refused it.
 
 Resubmitted, committed, image built and waiting. Still nothing needed from you.
+
+---
+
+**2026-07-31, done.** Approved on the second round and live.
+
+The reviewers had one more thing, and it was a fair catch: I had written that the permitted-word
+list followed two rules, and the list actually contained a third kind of word. That matters more
+than it sounds — a list whose stated rule does not describe its contents cannot really be
+reviewed by anyone, including me. So I wrote the third rule down honestly and, having done that,
+removed three words that did not fit any of them ("series", "style", "type" all name a product
+family beyond the thing they are attached to, which is exactly what the rule excludes).
+
+Then I proved it on the real thing rather than on test data. The report that was destroyed this
+morning still had its actual text stored in the database, so I pulled it out and ran it through
+the gate both ways: with the fix switched off it fails with the identical error, word for word;
+with the fix on it passes cleanly, and the phrase that caused all this is still in the summary.
+
+It is live on the running system, checked on both machines rather than assumed from the deploy.
+The bug is closed.
+
+One deliberate omission, so it is not mistaken for an oversight: I did not generate a fresh
+report end to end. It would not have proved anything — whether the problem appears depends on
+how the writer happens to phrase that particular run — and it would have published a page on the
+live site that I have no way to remove. The test above is stronger evidence and costs nothing.

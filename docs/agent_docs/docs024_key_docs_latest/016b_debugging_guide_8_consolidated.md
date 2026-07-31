@@ -4446,9 +4446,37 @@ step-level `error_step`, then config-level, then `failWorkflow`, with no branch 
 `next_step`. Degrading to a warning would reopen fabricated model numbers, which is the defect
 class the entire report pipeline exists to prevent.
 
+**RESOLVED 2026-07-31, and the fix's first attempt failed for a reason that belongs in this
+entry** (`bugs_closed/160`, council `926a7bea`, live v1.0.1222). What shipped: a token also
+clears when it splits into a HEAD that traces by the existing routes and a TAIL of qualifier
+words. `modelNumberRe` puts the letter-digit adjacency in segment 0, so the code-bearing part
+is always inside the head — the relaxation is over suffixes, never over whether the model
+number was published.
+
+**The trap that "verify both halves" does NOT catch.** Round 1 admitted a tail segment by
+SHAPE — lower-case, digit-free, ≥2 characters. It passed both halves: every legitimate
+recombination cleared, every invented sibling (`2F-140`, `2F-85-XL`) was still rejected. The
+council gated it at HIGH anyway, because shape is orthographic and the guard's subject is
+semantic: `not` is as lower-case as `or`, so **`IP54-not-rated` cleared a gate whose entire
+purpose is to stop a report asserting what the facts do not say.** The fabrication had simply
+relocated from the model number to the qualifier, into a class the "both halves" test does not
+enumerate. So: **when you relax a strictness guard, the question is not "do my examples still
+behave" but "what is the SPACE of strings my new rule admits, and does every point in it
+assert only what the facts assert".** Round 2 replaced shape with a closed vocabulary under
+three stated admission rules (connectives, strengtheners, attributives).
+
+The corollary, learned three times in that one lane: **a negative test tells you the input was
+rejected, never WHICH rule rejected it.** Two of the negation cases were green while never
+reaching the tail rule — one because a second word in the tail was also unadmitted, one
+because the fixture ran at `ipMin 0`, where `buildFactBlock` never writes the rating the cases
+were built around, so all of them were refused for an untraceable HEAD instead. Only mutating
+the rule and requiring the failure to land on **exactly** the case that names it separates
+"my guard works" from "something else got there first".
+
 Category tags: `classifier-not-gate`, `recombination-is-not-fabrication`,
 `fail-closed-destroys-not-degrades`, `intermittent-because-generated`,
-`verify-both-halves-of-a-strictness-fix`.
+`verify-both-halves-of-a-strictness-fix`, `shape-is-not-meaning`,
+`a-rejection-does-not-name-its-rule`.
 
 ### A nested shape full of nulls passes every SHAPE check — and a perfect discriminator can still be a confound (2026-07-31)
 

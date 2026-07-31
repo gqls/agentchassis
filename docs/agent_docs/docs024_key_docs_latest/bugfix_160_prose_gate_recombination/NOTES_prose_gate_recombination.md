@@ -148,3 +148,35 @@ times in this one lane, and the third was invisible to every other check I ran.
 path-bearing query and invents a stale-index cause for its own blindness, and this entry's
 footprint is a `.go` path. Verifying it would have produced a false negative against the
 corpus, so it is left for `163`'s fixing lane. Recorded rather than silently skipped.
+
+## Round 2 APPROVED, the advisory, and the close
+
+`926a7bea` round 2: **approved**, 11 seats, 1 advisory (editquality, medium) — *"the
+vocabulary list itself exceeds the two-rule taxonomy the rationale claims"*. Correct, and
+answered rather than noted: the list held a third kind of word (`threaded`, `flanged`,
+`mounted`, `class`…) that is neither a connective nor a strengthener. Taxonomy is now three
+rules with the list matching exactly, and `series`/`style`/`type` are **removed** — they name
+a family or category beyond the traced code, which is the attributive rule's own exclusion
+(`2F-85-series` asserts a product line that may not exist). Strictly stricter than the
+approved plan, mutation-pinned by re-admitting `series`.
+
+**The induction — production data, not a fixture.** The failed run retains `report_prose` and
+`scoring` in `collected_data`. Pulled both, plus `request` for the context values (production
+passes the request row's string values, `verify_report_prose_action.go:122-131`), and ran the
+real thing through the gate:
+
+```
+route 3 disabled -> 1 violation: summary_html names model-like token "IP54-or-better"
+                    not in the candidate set or fact block     <- byte-identical to live
+fix in place     -> 0 violations, summary still contains IP54-or-better
+```
+
+Also worth recording: `SELECT … WHERE collected_data::text LIKE '%model-like token%'` — the
+query I used for the blast radius — **now matches my own council orchestration**, because the
+submission text contains the phrase. The original measurement predates the submission so it
+stands, but the query is spent; use `collected_data->'__step_error'->>'message'`.
+
+Rolled v1.0.1222 (chassis only, not `deploy-agents`, which would repoint 13 other services at
+a tag that does not exist in the registry). Both replicas: `3 1` — new symbols present, plus
+the positive control in the same exec. `bugs_open/160` → `bugs_closed/160`, both paths named
+on the commit, verified with `git ls-tree HEAD` rather than `ls`.
