@@ -2136,3 +2136,13 @@ before a customer-facing domain is the one printing it.
   and *"a passing mutation test may mean a SECOND guard absorbed the mutation"*
   (mutation applied, absorbed) — this one is **mutation applied, result unreadable**
 - **added:** 2026-07-31, brochure lane
+
+### `modelNumberRe` only sees tokens whose FIRST hyphen segment mixes letters and digits — and it matches SUB-tokens, so your counterexample may never reach the check you are testing
+
+- **footprint:** `platform/orchestration/actions/verify_report_prose_action.go`, `modelNumberRe`, `skuTokenTraces`, `verifyReportProse`, the `report-builder` agent
+- **fires when:** you change, test or reason about the report prose gate's SKU check, and pick example tokens from the surrounding material — a real candidate name, a bug report's illustration — assuming the check sees them
+- **the tell:** none at all, and that is the trap: an example the regex never matches produces **no violation**, which reads exactly like "the gate correctly allowed it". `bugs_open/160` proposed `EGP-50-X` (against the indexed `Schunk EGP 40-N-S-B`) as the fabricated sibling a careless fix would let through. It is not matched by `modelNumberRe` at all — `EGP` carries no digit, and the regex needs the letter-digit adjacency in the segment **before the first hyphen**. The same is true of the real candidate `Festo EHPS-20-A-LK`. A test built on it passes before *and* after any change, proving nothing. The mirror image: for a paraphrase of `ISO 9409-1-50-4-M6` the regex does **not** match the whole token, it extracts the sub-token **`M6-compatible`** — `\b` starts a fresh match after each hyphen — so the string in the violation message is not the string in the prose
+- **the check:** before using a token as evidence about this gate, confirm the classifier actually returns it: `modelNumberRe.FindAllString(text, -1)`. Every counterexample must begin with a mixed letter-digit segment (`2F-…`, `IP54-…`, `GEP5010IO-…`). Then assert on the **violation text** (`model-like token` plus the token), never on `len(violations)` — the numeric gate at `:307` rejects many of the same strings for a different reason and will absorb your mutation
+- **why it matters:** the gate is fail-closed — a false violation destroys the whole report and 404s its URL — so both directions of a wrong test are expensive: a fix that looks proven and is not, or a guard quietly disarmed by a fix "verified" on examples it never judged
+- **source:** `bugs_open/160`, fixing lane 2026-07-31; both corrections are recorded in the bug file
+- **added:** 2026-07-31, bugfix_160_prose_gate_recombination lane
