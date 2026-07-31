@@ -1012,3 +1012,35 @@ source document and the entry points at it.
 - **source:** 2026-07-31, loancalculator_couk lane, building the acceptance bar for
   the `fidelity=high` decomposition
 - **added:** 2026-07-31, loancalculator_couk lane
+
+### GitHub answers "you may not see this repo" with **404**, never 403 — so token scope looks like a wrong path
+
+- **footprint:** `GITHUB_READ_TOKEN` and the `personae-platform-secrets` secret;
+  `diagnose_read_repo_files_action.go`; any new action reading a repo other than
+  `gqls/agentchassis` (notably `gqls/sites`); `isRepoCloningAgent`
+  (`spawn_actions.go:3066`)
+- **fires when:** you point existing repo-read machinery at a **different repository**
+  than the one it was built for. The code is correct, the token is valid, the request
+  is well-formed, and the answer is `404 Not Found`
+- **the tell:** the platform's read token is a **fine-grained** PAT scoped to selected
+  repositories — measured 2026-07-31: `gqls/agentchassis` → **200**, `gqls/sites` →
+  **404 while authenticated**. It is genuinely authenticated (`x-ratelimit-limit:
+  5000`, not the anonymous 60), so nothing in the response says "permission". The
+  message is literally `Not Found`
+- **why it is a landmine:** 404 is the same answer you get for a typo, a wrong `ref`,
+  a renamed directory or a case-sensitivity slip — so the diagnosis goes to the path,
+  which is the one thing that is fine. The site directory in question
+  (`loancalculator.co.uk/`) **does exist** on `main`
+- **the check:** always fetch a **known-good positive control through the identical
+  code path** — same token, same `Accept: application/vnd.github.raw`, different repo
+  — and compare. One 200 and one 404 from the same credential is scope, full stop.
+  Then check whether the calling agent is even on the `isRepoCloningAgent` gate, which
+  is what injects the token; a non-member gets an empty env var and a different,
+  louder error
+- **the fix is not yours:** widening a fine-grained token's repo list needs GitHub
+  admin, which is not on this machine. Route it to the owner rather than working around
+  it — and note the bytes may already be reachable another way (for adoption they were
+  already in `page_components.rendered_html`, verified byte-exact)
+- **source:** 2026-07-31, loancalculator_couk lane, costing the "adopt from our own
+  files" step before building it
+- **added:** 2026-07-31, loancalculator_couk lane
