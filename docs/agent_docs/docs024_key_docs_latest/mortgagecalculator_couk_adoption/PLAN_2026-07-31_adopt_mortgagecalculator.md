@@ -56,17 +56,69 @@ the CDN's `robots.txt` is not the origin file.
 
 1. **[DONE] Enumerate the bucket and reconcile.** Blocker in the handoff
    (`[UNMEASURED]` — no B2 credentials). Credentials now exist on this machine, so
-   this was measurable rather than inferred.
-2. **[DONE] Get the domain into the deploy repo**, byte-exact, committed.
-3. **[AWAITING OWNER] Push**, and prove the live site is unchanged afterwards.
-   Outward-facing and hard to reverse, so it is not done unasked.
-4. Pre-flight the adoption (ported-page component, chassis path, `input_mapping`
-   allow-list carrying `fidelity`, open work items on the domain).
-5. Decide the orphan/broken-link question — under `high` it changes what is
-   adopted, exactly as under `locked` (handoff §3).
-6. Submit `--fidelity high`, watch the recreate path, and hold the rerender queue.
+   this was measurable rather than inferred. 29 real files + 5 `.bzEmpty`.
+2. **[DONE] Get the domain into the deploy repo**, byte-exact, committed
+   (`65d06ef4e`, 29 files taken from the bucket itself).
+3. **[DONE — LIVE AND VERIFIED] Push.** Run `30668633897` resolved
+   `Changed domains: mortgagecalculator.co.uk`, synced, and **all 29 live files are
+   sha256-identical before and after**. Bucket is now 29 files / 0 `.bzEmpty`, 1:1
+   with the repo. **Handoff §1's outage hazard is closed.**
+4. **[DONE] Orphan/broken-link fixes** (`825a36994`, run `30672002187`, live).
+   Reachability from `index.html` **20/23 → 22/23**, only `404.html` unreachable,
+   which is correct. Verified by recomputing the link graph transitively, not by
+   inspection. Exactly one live file changed; the other 28 byte-identical.
+5. **[DONE] Pre-flight.** Our domain: **0 `sites` rows, 0 orchestration runs, 0 work
+   items**. The 41 `page_rerender` rows a substring query first attributed to us are
+   the sibling's — see NOTES. One `ported-page` component, as required.
+   `fidelity` plumbing (migration 274 / the `input_mapping` allow-list) is **moot on
+   this path**: a dropped `fidelity` is indistinguishable from `high`, since
+   `082` itself defaults adopt-mode to `high` (`FIDELITY="${FIDELITY:-high}"`).
+6. **[NEXT] Submit `--fidelity high`** and watch the recreate path.
 7. Positioning: narrow the identity to mortgage-only authority, mutually coherent
    with the two sibling sites (handoff §6).
+
+## What `high` will actually produce — measured from the URL synthesiser, not assumed
+
+`datahelpers.CanonicalisePage` (`page_canonical.go:106-215`) is deterministic, so the
+resulting URL shape is knowable now rather than after the fact:
+
+| crawled page | role the classifier assigns | URL the rebuild gets |
+|---|---|---|
+| `/index.html` | `index` (or slug `home`/`index`) | **`/index.html` — the SAME URL** |
+| `/repayment.html` | `tool` | `/tools/repayment/index.html` |
+| `/guides/first-time-buyer.html` | `guide` | `/guides/first-time-buyer/index.html` |
+
+So the outcome is **not** uniform, and the homepage is the exception:
+
+1. **The homepage is overwritten in place.** `role=index` returns `/index.html`
+   unconditionally, so the LLM-generated homepage lands on top of the live one.
+2. **Every other page appears at a NEW URL**, and the old file is not deleted by
+   anything — nothing in the platform tracks it. So `/repayment.html` (hand-built,
+   working) and `/tools/repayment/index.html` (LLM-built) both go on serving.
+3. **The old pages become orphaned** the moment the new homepage ships, because the
+   new homepage links the new URLs. They stay live and reachable by direct link and
+   by anything Google has already indexed.
+
+**Directory-index behaviour, measured fleet-wide today** — B2 serves no directory
+index, so the nested shape only works at its full path:
+
+```
+200  https://webdesign.co.uk/tools/image-optimizer/index.html
+404  https://webdesign.co.uk/tools/image-optimizer/
+200  https://gamesdesign.co.uk/guides/index.html
+404  https://gamesdesign.co.uk/guides/
+```
+
+87 pages fleet-wide already use `tools/<slug>/index.html` and 17 use
+`guides/<slug>/index.html`, so this is the platform's normal shape and not a new
+risk — but a bare `/tools/repayment/` will 404, and any link written without the
+trailing `index.html` is dead.
+
+**The consequence to put to the owner:** every indexed URL on this site changes, the
+old ones keep serving stale duplicates, and nothing in the platform reconciles the
+two. If the old URLs should keep working, that is a redirect job to plan
+deliberately — and there is no cross-site or intra-site duplicate-content machinery
+here to notice (handoff §6 established the same absence across sites).
 
 ## Open questions for the owner
 
