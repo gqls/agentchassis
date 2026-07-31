@@ -13096,3 +13096,43 @@ its source.** Both corrections were written back into §5.3a in place, with what
 control actually buys now — because the *conclusion* (the questionnaire's real job is
 fabrication control) survived both corrections, and silently fixing the premises would
 have left a section that looked untouched while resting on different ground.
+
+## 2026-07-31 — I published a fence as a tool's contract on a harness PASS that had never measured the thing which then failed
+
+**The claim.** Having built `try_fence.go` and watched the fence for
+`tool-review-council-simulator` go **36/36 green on the live page across desktop and mobile,
+three consecutive runs**, I wrote it into `doc_plans` as that tool's acceptance contract and
+recorded in the PLAN that it was verified. I also wrote, in the same document, that both
+harnesses "call the platform's own `RunChecksAction`, not a reimplementation" — which is true,
+and which I let stand in for "therefore this is what the cluster will do".
+
+**Why it was false.** The first cluster dispatch **FAILED**: `run_checks: browser open failed
+… [mobile]: context deadline exceeded`. `runDeadline` is 120s for the whole request, and 36
+evaluations do not fit — in-cluster costs ~3-5s per evaluation against ~0.3s locally. **My
+harness runs the same evaluator but not in the same environment, and it does not model the
+deadline at all.** So it could prove the fence CORRECT and was structurally incapable of
+proving it WORKED. Same code path, different budget, and I never asked about the budget.
+
+**What caught it.** Firing the real run — which I only did because I had written "whether a
+cluster-side acceptance run now returns assertions instead of a skip" into the register entry
+as a `verify-later`. Had I not written that line, the fence would have sat in `doc_plans`
+looking verified, and the next thread to fire it would have inherited a timeout with an error
+message that reads as infrastructure.
+
+**Cost.** One wasted dispatch (133s) and a redesign. Nothing reached anyone else: the fix
+(profile-gate the 14 checks whose answer is profile-independent) took the run to 22
+evaluations, **18s, 22 passed / 0 failed / 14 intentional skips** — and lost no assertion.
+
+**The cheap check, stated generally: an offline harness proves CORRECTNESS, never FITNESS.**
+Before treating a local PASS as authority to publish, ask what the production environment
+imposes that your harness does not model — a deadline, a quota, a cold start, a resource
+limit. Then run it there once. **"Same code path" is not "same conditions."**
+
+**Tally note.** Eleventh instance in three days of *"a check reports health it never
+measured"*, and the fifth I have introduced inside an instrument built to catch that class.
+But this one is a genuinely new shape and the previous four do not cover it: those were
+detectors whose LOGIC or NAME was narrower than their claim, all fixable by reading the code.
+This one's logic and name were both correct — the gap was the **environment**, which no amount
+of reading the harness would have revealed. Worth separating in future: *does the check
+measure the right thing?* and *does the check measure it where it matters?* are two questions,
+and I have now been caught by each.

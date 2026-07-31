@@ -1292,3 +1292,53 @@ source document and the entry points at it.
 - **source:** 2026-07-31, bugfix lane, running the loop on `bugs_open/161` under the
   2026-07-31 owner ruling
 - **added:** 2026-07-31, bugfix lane
+
+### A criteria fence can be correct, fast locally, and still fail in the cluster on the 120s run deadline — reporting "browser open failed"
+
+- **footprint:** any criteria fence in `doc_plans.body`; `internal/adapters/browserrunner/run_checks_action.go` (`runDeadline`, `openChromium`); `tool_acceptance_run.sh`
+- **fires when:** you author or extend a fence, verify it offline, and publish it as a tool's contract
+- **the tell:** the error names the **browser**, not your fence —
+  `run_checks: browser open failed for <url> [mobile]: context deadline exceeded
+  (code: run_checks_failed)` — so it reads as infrastructure and invites a retry. It is not.
+  `runDeadline` is **120s for the WHOLE request** (every url x every profile), and
+  `openChromium` returns `ctx.Err()` if the deadline expires during its settle wait, so an
+  oversized fence surfaces as a browser that would not start
+- **why it is a landmine:** offline verification passes with a huge margin and tells you
+  nothing. Measured 2026-07-31 on the same fence: **36 evaluations = 10.6s locally (x3, stable)
+  but FAILED at 133s in-cluster**; profile-gated to 22 evaluations it ran in **18s, 22 passed**.
+  Budget **~3-5s per evaluation in-cluster against ~0.3s locally**. The only other acceptance
+  run in history did ~21 evaluations in 48s
+- **the check:** gate to desktop every check whose answer is profile-independent; keep on
+  mobile only what mobile can answer differently (status, did-the-JS-run, horizontal overflow,
+  console errors). Then **run it once in the cluster before believing it** — an offline PASS
+  proves a fence is CORRECT, never that it FITS. Read the outcome with
+  `collected_data->'request_run'->'response'->'summary'`, and note a failed run reports
+  `status=COMPLETED` with `current_step='complete_error'` and the real message in `__step_error`
+- **source:** 2026-07-31, staged_component_build, first cluster dispatch of `tool-review-council-simulator`'s fence
+- **added:** 2026-07-31, staged_component_build
+
+### "No page found under the name I expected" is not "no page" — and a component's own name may be absent from the page it renders on
+
+- **footprint:** `content_components.function`; `pages.name`; `page_components`; `CHECK_naming_contract.sh`
+- **fires when:** you decide whether a tool/component is an ORPHAN, or whether a component is
+  present on a served page
+- **the tell:** two independent blind spots that both fail towards "absent".
+  (1) A name search tries a guessed convention — `pages.name = <stripped>` or a
+  `%/<stripped>.html` URL — and misses a page named anything else; the URL guess also assumes
+  a `<name>.html` filename, while **vonc.com uses `<name>/index.html`**, so it cannot match.
+  (2) `grep`ping the SERVED html for the component's `function` returns **0** for any
+  component that emits no `data-component` attribute — which is most of them
+- **why it is a landmine:** `tool-arena-interface` was recorded fleet-wide as "an ORPHANED
+  tool component with no page at all — decide whether the component should exist". It is
+  **live, deployed and serving** on vonc.com under a page named `tool-arena`
+  (`/tools/arena/index.html`, `build_status=deployed`). A decision to delete a working tool
+  was one step away, taken on a measurement that never asked the question
+- **the check:** ask PLACEMENT, not naming, and ask it first:
+  `SELECT p.name, s.domain, p.url, pc.slot_name, pc.build_status FROM page_components pc
+   JOIN content_components cc ON cc.id=pc.component_id JOIN pages p ON p.id=pc.page_id
+   JOIN sites s ON s.id=p.site_id WHERE cc.function='<fn>';`
+  To confirm it really renders, diff distinctive tokens from `pc.rendered_html` against the
+  served page — not the function name. (Also: `content_components` has **no `site_id`**;
+  `site_plan_sections` keys on `component_name`/`page_name`, not `function`/`page_id`.)
+- **source:** 2026-07-31, staged_component_build, refuting its own check's orphan verdict
+- **added:** 2026-07-31, staged_component_build

@@ -193,3 +193,40 @@ four self-inflicted instances of the class had correct code and a lying name.
    is live in the running binary but reports 0 for whole-number axes, so it currently accuses
    correct elements of being invisible — deliberately omitted from the first fence, and recorded
    there as an omission rather than left to look like an oversight.
+
+### Correction and completion, same day (2026-07-31, later)
+
+Two items in the list above are now resolved differently from how they were written.
+
+**S6 is PROVEN for a tool, end to end, in the cluster** — not just offline. The fence was
+dispatched via `tool_acceptance_run.sh` and came back `complete` in **18s: 22 passed / 0
+failed / 14 intentional profile-gated skips**, with every skip verified as
+`not run on profile mobile` and none as `not implemented`. That is the stage whose absence
+cost `teaser-reveal-panel` five rounds, now firing and asserting on a real tool.
+
+**But the FIRST dispatch failed, and the reason is a constraint this feature must carry:**
+`runDeadline` is **120 seconds for the whole request** — every url x every profile. An
+oversized fence surfaces as `browser open failed … context deadline exceeded`, which reads as
+infrastructure. Measured: **36 evaluations = 10.6s locally (x3) but FAILED at 133s
+in-cluster**; ~3-5s per evaluation there against ~0.3s locally. Gating the 14
+profile-independent checks to desktop gave 22 evaluations, 18s, and lost no assertion.
+**So a stage gate must be sized for the pod, and the S2 rule needs a companion: an offline
+harness proves a check is CORRECT, never that it FITS.**
+
+**Item 3 above is WITHDRAWN as written.** `tool-arena-interface` is **not** an orphan, and the
+check that said so is the reason it was believed. It is live, deployed and serving on vonc.com
+under a page named `tool-arena` (`/tools/arena/index.html`, `build_status=deployed`,
+redeployed 2026-07-31 12:45); the component's own markup is present in the served page. The
+check had concluded "no page at all" from "no page under the two names I guessed" — and its URL
+guess assumed a `<name>.html` filename convention that this site does not use. **The decision
+in front of a human is therefore not "should this component exist" but "which of the two names
+should move"** — the page-rename side being the safer one, since `function` is the naming
+contract that `page_components.slot_name`, cross-links and `RekeyTravellingDocs`
+(`features_open/028`) all key on. `CHECK_naming_contract.sh` now asks placement before
+concluding absence, and prints that remedy.
+
+**The transferable rule for every future gate in this ladder**, since this is now the second
+distinct way a gate has misled us in two days: a gate must not be able to state a conclusion
+wider than its measurement. "No page under the names I tried" is not "no page"; "passes on my
+machine" is not "passes"; "a PLAN row exists" is not "a fence exists". All three were shipped
+by this lane, and all three were caught by running the thing rather than reading it.

@@ -914,3 +914,98 @@ That is three sessions running in which a figure moved underneath the thread wor
 - **No council submission.** Nothing here touches `platform/`, `internal/` or `pkg/`; the two
   harnesses live under `docs/`, which the gate refuses client-side. Saying so explicitly
   because an absent trailer should be a stated decision, not a silent omission.
+
+## 2026-07-31 (later) — the cluster run: FAILED first on the 120s deadline, then GREEN; and the "orphan" is not an orphan
+
+### The fence was correct and still did not work, which my own harness could not have told me
+
+Dispatched the real acceptance run (`tool_acceptance_run.sh`, correlation
+`211dd1d4-6bfc-4418-83f1-4191f6d1e0c1`). It **FAILED** after 133s:
+
+> `run_checks: browser open failed for https://…/review-council-simulator.html [mobile]:
+> context deadline exceeded (code: run_checks_failed)` — `failed_step: request_run`
+
+**Read that error carefully: it names the browser open and sounds like infrastructure.**
+It is not. `runDeadline` is **120s for the whole request** (all urls x all profiles), and
+`openChromium` returns `ctx.Err()` if the deadline expires during its settle wait. A fence
+that is merely too big therefore presents as a browser that would not start.
+
+`load_docs` and `request_run` both worked — the fence was found and consumed, which was the
+thing I was trying to prove. The failure was budget.
+
+**Measured before redesigning, rather than assuming it was the check count:**
+- locally: 36 evaluations in **10.6s**, three consecutive runs, all PASS;
+- in-cluster: the only other acceptance run in history (`dc952633`, 07-30) did ~21
+  evaluations in **48s** and passed; mine did 36 and blew 120s.
+- So in-cluster is **~3-5s per evaluation against ~0.3s locally**, and 36 was over budget.
+
+**Fix, and it is a design improvement rather than a workaround: assert on mobile only what
+mobile can answer differently.** The tool's arithmetic, presets and readout text are
+profile-independent, so running them on both profiles asserted the same fact twice. Four
+checks stay on both profiles — `page-serves-200` (different request), 
+`roster-is-built-client-side` (the teaser class is per-profile), `no-horizontal-overflow`
+(the whole reason a mobile profile exists) and `no-console-errors` (mobile UA, different JS
+path). The other 14 carry `"profiles": ["desktop"]`. **22 evaluations, down from 36, losing
+no assertion — only duplicate ones.**
+
+**Re-dispatched (`cf6b6e34-3c28-41db-8adf-ee7550bc4224`): `complete`, 18 seconds,
+22 passed / 0 failed / 14 skipped.** Verified the skips are the right kind rather than
+trusting the count — all 14 are `SKIPPED: not run on profile mobile`, zero
+`not implemented`. Desktop 18/18, mobile 4/4. **So BROKEN B is closed in BEHAVIOUR, not
+just in the database: a fired run now asserts 22 things where it previously asserted
+nothing.** 18s against a 120s deadline is also a real margin, which 133s was not.
+
+> **This is the eleventh instance of the class, and it is mine again — but the shape is new
+> and worth stating.** `try_fence.go` proves a fence is **correct**; it cannot prove it
+> **fits**. It runs an order of magnitude faster than the pod and does not model the
+> deadline at all. I published v1 of the fence into `doc_plans` on the strength of a PASS
+> from a harness that had never measured the one thing that then failed. **A fence is not
+> proven until it has completed once in the cluster** — that sentence is now in the PLAN and
+> in the RUNBOOK, and `LANDMINES.md` has the entry.
+
+### `tool-arena-interface` is NOT an orphan — and my own check told me it was
+
+Went to gather evidence for the owner's decision on the last BROKEN-A case, which the
+handoff described as *"no page under either name. An orphaned component… decide whether the
+component should exist."* **That is false, and the check I wrote is the reason it was
+believed.**
+
+Measured, in this order, which is the order that matters:
+- `content_components` has **no `site_id`** — components are fleet-shared, keyed by
+  `function`. (Also: `site_plan_sections` has `component_name`/`page_name`, not
+  `function`/`page_id` — so this lane's own **RUNBOOK §6 query was wrong**, corrected there.)
+- `page_components` join: **1 row.** So it *is* attached to a page.
+- The page: **vonc.com, `pages.name='tool-arena'`, url `/tools/arena/index.html`,
+  `rebuild_policy='owned'`, `build_status='deployed'`, `deployed_at 2026-07-31 12:45`** —
+  redeployed minutes before I looked.
+- The page **serves**: HTTP 200, 31,431 bytes.
+- And the component genuinely renders inside it: every distinctive token matches
+  (`provocation-block` 2/2, `provocation-text` 3/3, `color-cursed` 1/1, `tool-container`
+  5/5 between `pc.rendered_html` and the served page).
+
+**A trap inside the trap:** `grep -c 'tool-arena-interface'` on the served page returns
+**0**, because this component's markup carries no `data-component` attribute (unlike
+review-council-simulator's). So a name grep of the served HTML is not evidence of absence
+either — only the `page_components` join is.
+
+**Why my check got it wrong.** The orphan branch concluded *"no page at all"* from *"no page
+under the two names I guessed"* — `p.name = STRIPPED` or a `%/STRIPPED.html` URL. The URL
+guess additionally assumes a `<name>.html` filename convention; vonc.com uses
+`<name>/index.html`, so it **could not have matched**. Same class as every other entry in
+this file: a conclusion wider than the measurement.
+
+**Fixed.** The branch now joins `page_components` — the authoritative "is this component
+placed anywhere" question — before concluding absence, and prints the page it found with the
+rename remedy. Ran it: BROKEN A is now correctly reported as a **rename case with a live
+page**, not an orphan. (Caught a duplicate `✗` line in my own fix on the first run, because
+I ran it instead of reading it.)
+
+**I did NOT do the rename.** It is another site's live, deployed page, the handoff gave no
+authority for it, and the 07-31 precedent requires measuring blast radius first
+(`site_plan_imagery` rows on the old name, name collisions, and that `pages.url` — not
+`name` — supplies the served filename). The check now prints exactly that remedy. **What
+changed is the premise: the question is no longer "should this component exist" — it plainly
+should, it is serving — but "rename the page, or the component's function?"** The page-rename
+side is the safer one and matches the precedent; the function is the naming contract that
+`page_components.slot_name`, cross-links and `RekeyTravellingDocs` all key on
+(`features_open/028`).

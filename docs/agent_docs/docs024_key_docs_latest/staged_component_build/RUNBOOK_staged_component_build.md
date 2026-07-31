@@ -145,6 +145,17 @@ kubectl exec -n ai-persona-system "$POD" -- sh -c '
   echo "CONTROL:";     grep -ac "in the live DOM after settle"     /app/browser-runner-adapter'
 ```
 
+> **RE-MEASURED 2026-07-31 and the answer FLIPPED: `has_visible_area` IS now in the
+> running pod** — both long markers **1**, on `browser-runner-adapter` built 08:53:36 UTC,
+> with three positive controls also 1. The 07-30 measurement below was correct on 07-30 and
+> is stale now; keeping it because the *method* is what this section teaches.
+> **And a GO from this check is no longer sufficient.** `bugs_open/157` is open and unfixed
+> at HEAD (`run_checks_action.go:773-774` still comma-ok asserts `float64` while
+> playwright-go returns `int` for whole numbers), so the type is present **and wrong**: any
+> integer-sized axis measures 0 and it reports "too small to see or click". Presence in the
+> binary answers "can it run", not "is it right" — **grep `/bugs_open/` for the check type
+> by name as well as grepping the pod.**
+
 **Measured 2026-07-30:** `has_visible_area`'s two long markers **0**; three long
 pre-existing controls **1** each — so TL-034 is committed (`1850acb07`, 15:19) and
 **not in the running pod**. My first attempt grepped the type names themselves and got
@@ -178,11 +189,42 @@ go run docs/agent_docs/docs024_key_docs_latest/brochure_component_library/script
 
 ## 6. Verify a placement is durable (S4), not just present
 
+> **CORRECTED 2026-07-31 — the query below never ran; `site_plan_sections` has neither
+> `function` nor `page_id`.** Its columns are `plan_id, page_name, ordering,
+> component_name, component_version_id, palette_id, layout_id, typography_set_id`.
+> Read the schema before pasting a query out of a RUNBOOK, including this one — the
+> original is kept here struck through because a command that was never executable is
+> itself worth knowing about.
+
+~~`SELECT ordering, function FROM site_plan_sections WHERE page_id = (SELECT id FROM pages WHERE site_id=$1 AND name=$2) ORDER BY ordering;`~~
+
 ```sql
--- a page_components row alone is a RENDER ARTEFACT; site_plan_sections is the PLAN FACT
-SELECT ordering, function FROM site_plan_sections
- WHERE page_id = (SELECT id FROM pages WHERE site_id=$1 AND name=$2) ORDER BY ordering;
+-- a page_components row alone is a RENDER ARTEFACT; site_plan_sections is the PLAN FACT.
+-- It keys on NAMES (plan_id + page_name + component_name), not ids.
+SELECT sps.ordering, sps.component_name
+  FROM site_plan_sections sps
+  JOIN site_plans sp ON sp.id = sps.plan_id
+ WHERE sp.site_id = $1 AND sps.page_name = $2
+ ORDER BY sps.ordering;
+
+-- And to ask the DIFFERENT question "is this component attached to any page at all?",
+-- which is the one that refuted an 'orphan' diagnosis on 2026-07-31 — join through
+-- page_components. content_components has NO site_id: components are fleet-shared and
+-- keyed by `function`.
+SELECT p.name, s.domain, p.url, pc.slot_name, pc.build_status
+  FROM page_components pc
+  JOIN content_components cc ON cc.id = pc.component_id
+  JOIN pages p ON p.id = pc.page_id
+  JOIN sites s ON s.id = p.site_id
+ WHERE cc.function = $1;
 ```
+
+**The gotcha that cost a false conclusion:** "no page found under the name I expected" is
+**not** "no page". `tool-arena-interface` was recorded as an orphaned component with no page;
+it is in fact live and serving on vonc.com under a page named `tool-arena`. Ask the
+placement question above before concluding absence — and note that grepping the SERVED html
+for the component's function name proves nothing either, because many components emit no
+`data-component` attribute (that grep returns 0 on the page this one renders on).
 
 **Gotcha:** `page_components.id` is **not stable across re-renders** — key placement
 edits on `(page_id, function)`. And a page-level placement does not survive a
@@ -289,3 +331,60 @@ COMMIT;
 - **Then read it back out and re-run the fence from the DB copy.** Writing the field is not
   reading the field: the only proof that the platform will run what you meant is to extract
   the fence *from the database* and pass that through the evaluator.
+
+## 10. Fire an acceptance run at ONE tool, and read its result honestly
+
+```bash
+./docs/leopardessconsulting/scripts/tool_acceptance_run.sh <site_id> <domain> <function>
+```
+
+Generic despite living in that lane's directory. Its own header names the three things that
+must line up; `CHECK_naming_contract.sh` checks the first two and `try_fence.go` the third.
+
+```sql
+-- state. NOTE: a FAILED run still reports status=COMPLETED, with current_step='complete_error'.
+SELECT current_step, status, round(extract(epoch from (updated_at-created_at))) AS secs
+  FROM orchestration_states WHERE correlation_id='<CID>';
+
+-- the real error lives in __step_error, NOT in `error`
+SELECT jsonb_pretty(collected_data->'__step_error')
+  FROM orchestration_states WHERE correlation_id='<CID>';
+
+-- the verdict
+SELECT jsonb_pretty(collected_data->'request_run'->'response'->'summary')
+  FROM orchestration_states WHERE correlation_id='<CID>';
+
+-- SKIPS ARE NOT PASSES, and there are two kinds. Read the reason, never the count:
+--   'not run on profile X'      = the fence's own gating. Intentional.
+--   '<type> not implemented'    = the binary has no evaluator. A DEFECT — it reads as PASS
+--                                 upstream and suppresses its own re-check for 7 days.
+SELECT s->>'detail', count(*) FROM orchestration_states o,
+       jsonb_array_elements(o.collected_data->'request_run'->'response'->'skipped') s
+ WHERE o.correlation_id='<CID>' GROUP BY 1 ORDER BY 2 DESC;
+```
+
+### ⚠ THE 120-SECOND RUN DEADLINE — size the fence for the cluster, not for your laptop
+
+`runDeadline = 120 * time.Second` covers **the entire request**: every url x every profile.
+When it expires, `openChromium` returns `ctx.Err()`, so the error you get is
+**`browser open failed for <url> [<profile>]: context deadline exceeded`** — which names the
+browser and reads as infrastructure. **It usually means the fence is too big.**
+
+Measured 2026-07-31, both numbers from real runs:
+
+| | evaluations | wall clock |
+|---|---|---|
+| local (`try_fence.go`) | 36 | **10.6s** (x3 runs, stable) |
+| cluster, v1 of the fence | 36 | **FAILED at 133s** |
+| cluster, v2 (profile-gated) | 22 | **18s, 22 passed / 0 failed** |
+| cluster, the only other run ever (`dc952633`) | ~21 | 48s |
+
+So budget **~3-5s per evaluation in-cluster against ~0.3s locally**, and keep well under 120s.
+The lever that costs nothing: **gate to desktop every check whose answer is
+profile-independent**, and keep on mobile only what mobile can answer differently (status,
+"did the JS run", horizontal overflow, console errors). That halved the run and lost no
+assertion.
+
+**And the limitation to state out loud: `try_fence.go` proves a fence is CORRECT; it cannot
+prove it FITS.** It is an order of magnitude faster than the pod and does not model the
+deadline. **A fence is not proven until it has completed once in the cluster.**

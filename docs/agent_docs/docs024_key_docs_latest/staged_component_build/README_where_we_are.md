@@ -134,3 +134,62 @@ running: the numbers move while I am working. The tool count went from twenty-ni
 mid-session — another team created a tool ten minutes before I ran the check. I reconciled it
 rather than reporting the new figure as if it were mine, and the only reason that was possible
 is that the check prints its own denominator next to its breakdown.
+
+---
+
+**31 July 2026, later the same afternoon**
+
+Two things happened after I wrote the note above, and both are more interesting than the work
+they interrupted.
+
+**The first: the tests I had just attached to the tool did not work when the cluster ran them,
+even though they were right.** I had checked them thoroughly on my own machine — thirty-six
+checks, three times over, all passing in about eleven seconds. When the platform ran the same
+checks itself, it gave up after two minutes and reported that it could not start a browser.
+That error is misleading: there was nothing wrong with the browser. There is a two-minute
+ceiling on the whole exercise, and the cluster is roughly ten times slower at this than my
+machine is, so thirty-six checks simply do not fit. The message you get in that situation
+points at the browser rather than at the size of your test list, which is exactly the sort of
+thing that sends the next person looking in the wrong place.
+
+The fix was better than a workaround. Most of those checks were being run twice — once on a
+desktop screen and once on a phone screen — to test things that cannot differ between the two,
+like whether the arithmetic is right or whether a button selects twenty-six reviewers. Only
+four of them genuinely need both: does the page load, did the interactive part actually start,
+does anything spill off the side of a narrow screen, and are there errors in the browser
+console. So the phone now runs those four and the desktop runs all eighteen. **Twenty-two
+checks instead of thirty-six, no assertion lost — only duplicated ones — and the run now
+finishes in eighteen seconds against a two-minute limit.** It came back twenty-two passed,
+nothing failed. So the tool is now genuinely, demonstrably tested by the platform itself,
+which is what this was all for.
+
+The honest lesson, which I have written into the standing files: **checking something on my
+own machine proves it is correct, not that it works where it has to work.** I had proof of the
+first and treated it as proof of the second.
+
+**The second: the "orphan" is not an orphan, and my own check is why we believed it was.**
+The last outstanding case was a tool component that the handoff described as having no page
+anywhere, with a note saying someone needed to decide whether it should exist at all. I went
+to gather evidence for that decision and found that it is live. It is on vonc.com, at
+`/tools/arena/index.html`, it was redeployed a few minutes before I looked, and it serves
+perfectly — I confirmed the component's own markup is present in the page the public gets.
+
+**We were one step away from deliberating whether to delete a working tool.** The reason is
+that my check asked the wrong question. It looked for a page whose *name* matched one of two
+patterns it guessed at, found neither, and then reported "no page at all" — which is a
+different and much stronger claim than "no page under the two names I tried". The page is
+named `tool-arena` while the component is called `tool-arena-interface`, and the site also
+files its pages as `arena/index.html` rather than `arena.html`, so both guesses missed. There
+was a second trap layered on top: searching the published page for the component's own name
+finds nothing, because this component does not print its name into its markup. Only asking the
+database which page a component is attached to gives the true answer.
+
+I have fixed the check to ask that question first, and it now correctly reports this as a
+naming mismatch on a live page, with the remedy. **I have not made the change itself** — it is
+another site's live page, nobody asked me to touch it, and the sensible order is to measure
+what else depends on that name first, the way the earlier rename on our own site was done. But
+the question has changed shape: it is no longer "should this exist" but "which of the two names
+should move".
+
+Where that leaves things: the misleading-test problem is down to that one page-naming case, and
+it is understood rather than mysterious. Nothing else is outstanding on it.

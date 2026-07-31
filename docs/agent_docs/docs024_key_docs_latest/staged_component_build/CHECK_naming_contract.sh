@@ -150,9 +150,42 @@ else
       echo "      REMEDY: UPDATE pages SET name='$fn' WHERE name='$STRIPPED';"
       echo "      Safe — the deployed filename derives from pages.url, not pages.name."
     else
-      echo "      no page found under '$STRIPPED' either — this is an ORPHANED tool"
-      echo "      component with no page at all, a different defect. Do not rename;"
-      echo "      decide whether the component should exist."
+      # ⚠ CORRECTED 2026-07-31. This branch used to conclude "an ORPHANED tool
+      # component with no page at all" — and that was a CLAIM IT HAD NOT MEASURED.
+      # It had measured "no page under the two names I guessed": `p.name = STRIPPED`
+      # or a `%/STRIPPED.html` URL. Both guesses miss a page named anything else, and
+      # the URL guess additionally assumes a `<name>.html` filename convention —
+      # vonc.com uses `<name>/index.html`, so it could not have matched.
+      #
+      # `tool-arena-interface` was reported as an orphan on that basis and IS NOT ONE:
+      # it is placed, deployed and SERVING on vonc.com at /tools/arena/index.html,
+      # under a page named `tool-arena`. Its handoff note said "decide whether the
+      # component should exist" — a decision that would have been taken on a false
+      # premise about a live tool.
+      #
+      # THE AUTHORITATIVE QUESTION IS PLACEMENT, NOT NAMING: join through
+      # page_components, which is how a component is actually attached to a page.
+      # Ask that BEFORE concluding absence.
+      PLACED=$(q "SELECT p.name || '  (' || s.domain || p.url || ')  slot=' || COALESCE(pc.slot_name,'?')
+                       || '  build=' || COALESCE(pc.build_status,'?')
+                    FROM page_components pc
+                    JOIN content_components cc ON cc.id = pc.component_id
+                    JOIN pages p  ON p.id = pc.page_id
+                    JOIN sites s  ON s.id = p.site_id
+                   WHERE cc.function = '$fn'
+                   ORDER BY p.name LIMIT 3;")
+      if [ -n "$PLACED" ]; then
+        echo "      NOT an orphan — the component IS placed on a live page whose NAME"
+        echo "      matches neither '$fn' nor 'tool-$fn':"
+        printf '        %s\n' "$PLACED"
+        echo "      REMEDY: rename the PAGE to '$fn' (scope by page id, not by name)."
+        echo "      Safe — the deployed filename derives from pages.url, not pages.name;"
+        echo "      measure site_plan_imagery + collisions first, as the 07-31 rename did."
+      else
+        echo "      no page under '$STRIPPED', AND no page_components row anywhere —"
+        echo "      so this really is an ORPHANED tool component. Do not rename;"
+        echo "      decide whether the component should exist."
+      fi
     fi
   done
   # Self-check: the list and the count must agree, or this script is under-reporting.
