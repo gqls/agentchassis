@@ -244,18 +244,18 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"backend_unreachable":              {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
 
 	// ---- creation: "make X exist" ----
-	"needs_page":                 {catCreation, "page existence; 49 of 365 carry page_id"},
-	"needs_content_page":         {catCreation, "page existence; 13 of 196 carry page_id"},
-	"needs_imagery":              {catCreation, "image asset existence"},
-	"needs_content_image":        {catCreation, "image asset existence"},
-	"needs_hero_image":           {catCreation, "image asset existence"},
-	"needs_logo":                 {catCreation, "asset existence"},
+	"needs_page":          {catCreation, "page existence; 49 of 365 carry page_id"},
+	"needs_content_page":  {catCreation, "page existence; 13 of 196 carry page_id"},
+	"needs_imagery":       {catCreation, "image asset existence"},
+	"needs_content_image": {catCreation, "image asset existence"},
+	"needs_hero_image":    {catCreation, "image asset existence"},
+	"needs_logo":          {catCreation, "asset existence"},
 	// Produced by check_undeployed_assets since bugs_open/142 (2026-07-31); the
 	// 12 pre-existing rows were hand-filed by the og-card lane. "Exists" is a
 	// genuinely weak proof here — the artefact can be committed and still be
 	// wrong (illegible favicon source, bugs_open/131) — so this stays catCreation
 	// rather than becoming a verifier.
-	"needs_brand_head_assets": {catCreation, "asset existence; producer is check_undeployed_assets' brand-head half"},
+	"needs_brand_head_assets":    {catCreation, "asset existence; producer is check_undeployed_assets' brand-head half"},
 	"needs_new_component":        {catCreation, "component existence"},
 	"needs_composition":          {catCreation, "composition existence"},
 	"needs_tool_recreation":      {catCreation, "tool existence"},

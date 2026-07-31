@@ -195,8 +195,8 @@ var ImagePurposes = map[string]struct {
 	// geometry as hero (it renders as the article-page header and the card
 	// derivation cover-crops it to 800×450), only the kind/routing differ.
 	"content_hero": {1600, 900, 85, "jpg"},
-	"logo":          {400, 400, 90, "png"},
-	"icon":          {240, 240, 85, "jpg"},
+	"logo":         {400, 400, 90, "png"},
+	"icon":         {240, 240, 85, "jpg"},
 	// Brand head assets derived from the logo (Phase I1): favicon is a small
 	// square PNG; og_card is the 1200×630 social card. The derivation action
 	// (derive_brand_head_assets) writes fixed filenames favicon.png /
@@ -245,6 +245,21 @@ var ImagePurposes = map[string]struct {
 // is left to that file's owning lane — it was being actively edited for
 // bugs_open/143 when this went in, and two sessions in one file is the one
 // collision no hook can prevent.
+//
+// WHY NOT DeployedWebPath (the obvious reuse). It cannot express these paths —
+// measured, not assumed:
+//
+//	DeployedWebPath("og_card", "og_card") == "/assets/images/og_card.png"   underscore, file is og-card.png
+//	DeployedWebPath("",        "og_card") == "/assets/images/og_card.png"   same
+//	DeployedWebPath("og_card", "")        == "/assets/images/og-card.jpg"   right name, wrong extension
+//
+// No argument pair yields "/assets/images/og-card.png". The hyphen-swap in
+// AssetKeyFilename fires only when assetKey differs from purpose, and for these
+// two artefacts it does not. `favicon` comes out right purely because it has no
+// underscore to disagree about. So DeployedWebPath — despite documenting itself
+// as the convention's single source of truth — is silently wrong for exactly one
+// of the two brand-head purposes, which is why these are declared rather than
+// derived. Pinned by TestDeployedWebPathCannotExpressBrandHeadPaths.
 //
 // Keys are `assets.purpose` values; values are site-relative, leading slash
 // included, exactly as they appear in the rendered head.
