@@ -1,0 +1,185 @@
+<style>
+/* tool-loan-repayment — SELF-CONTAINED by design.
+   Every class is namespaced under .tool-loan-repayment-section and every colour,
+   radius and spacing reads a site theme variable with a literal fallback, so the
+   tool restyles itself into any host site and renders correctly on a site whose
+   stylesheet knows nothing about it.
+   That is not cosmetic: on loancalculator.co.uk today, .fca-style-warning,
+   .market-context-box and .status-badge are used by the page and DEFINED NOWHERE
+   (19 such classes, measured 2026-07-31), so the FCA risk warning currently
+   renders as unstyled body text. Defining them here fixes that by construction
+   and cannot regress when a host stylesheet is rewritten.
+   Deliberately does NOT set `display` on #monthly-display, #total-interest,
+   #total-cost or the inputs: those values are part of the equivalence fingerprint
+   (block / inline / inline-block) and overriding them would register as a
+   behavioural change. */
+.tool-loan-repayment-section {
+  color: var(--color-text, #333);
+}
+.tool-loan-repayment-section .lrc-container {
+  max-width: var(--container-max-width, 1100px);
+  margin: 0 auto;
+}
+.tool-loan-repayment-section .lrc-fca-warning {
+  background: var(--color-warning-bg, #fff8e1);
+  border-left: 4px solid var(--color-warning, #f0ad4e);
+  padding: 0.85rem 1.1rem;
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+.tool-loan-repayment-section .lrc-market-context {
+  background: var(--color-surface-alt, #f4f7fb);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 0.85rem 1.1rem;
+  margin: 0 0 1.5rem;
+}
+.tool-loan-repayment-section .lrc-market-context p {
+  margin: 0.25rem 0;
+}
+.tool-loan-repayment-section .lrc-badge {
+  display: inline-block;
+  background: var(--color-accent-soft, #e7f1ff);
+  color: var(--color-accent-dark, #0056b3);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.tool-loan-repayment-section .lrc-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-loan-repayment-section .lrc-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.1rem;
+}
+.tool-loan-repayment-section .lrc-inputs label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  font-size: 0.95rem;
+}
+.tool-loan-repayment-section .lrc-inputs input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+.tool-loan-repayment-section .lrc-results {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  text-align: center;
+}
+.tool-loan-repayment-section .lrc-results h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tool-loan-repayment-section .lrc-headline {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
+  color: var(--color-accent-dark, #0056b3);
+  line-height: 1.1;
+}
+.tool-loan-repayment-section .lrc-results p {
+  margin: 0.4rem 0;
+  color: var(--color-text-muted, #64748b);
+}
+</style>
+
+<section class="tool-loan-repayment-section">
+  <div class="lrc-container">
+
+    <div class="lrc-fca-warning">{{.fca_warning}}</div>
+
+    <div class="lrc-market-context">
+      <p>{{.market_context}}</p>
+      <p><span class="lrc-badge">{{.rate_environment_note}}</span></p>
+    </div>
+
+    <div class="lrc-card">
+      <div class="lrc-inputs">
+        <div>
+          <label for="amount">{{.label_amount}}</label>
+          <input type="number" id="amount" value="{{.default_amount}}" min="0">
+        </div>
+        <div>
+          <label for="interest">{{.label_rate}}</label>
+          <input type="number" id="interest" value="{{.default_rate}}" min="0" step="0.1">
+        </div>
+        <div>
+          <label for="years">{{.label_term}}</label>
+          <input type="number" id="years" value="{{.default_term}}" min="0">
+        </div>
+      </div>
+      <div class="lrc-results">
+        <h3>{{.label_monthly}}</h3>
+        <div class="lrc-headline" id="monthly-display">{{.zero_display}}</div>
+        <p>{{.label_total_interest}} <strong id="total-interest">{{.zero_display}}</strong></p>
+        <p>{{.label_total_repayable}} <strong id="total-cost">{{.zero_display}}</strong></p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/standard-calc.html, 2026-07-31). The standard
+   annuity formula. Every line below that computes anything is unchanged, and
+   equivalence is PROVEN rather than asserted: toolgolden.py compares the values
+   this produces against the golden captured from the original, across three
+   input vectors. £10,000 at 7.9% over 5 years must read £202.29 / £2,137.40 /
+   £12,137.40 — and a single-divisor error (/12 -> /11) is caught in every vector.
+
+   Changed from the original ONLY in how it is bound: the locale and currency now
+   come from the component's input_schema rather than being hardcoded 'en-GB'/'GBP',
+   which is what lets another site reuse this tool. The numeric result is
+   independent of that choice. */
+(function () {
+  var LOCALE = "{{.locale}}";
+  var CURRENCY = "{{.currency_code}}";
+  var ids = ['amount', 'interest', 'years'];
+
+  function calculateLoan() {
+    var P = parseFloat(document.getElementById('amount').value);
+    var APR = parseFloat(document.getElementById('interest').value);
+    var months = parseFloat(document.getElementById('years').value) * 12;
+
+    var r = (APR / 100) / 12;
+
+    if (P > 0 && r > 0 && months > 0) {
+      var x = Math.pow(1 + r, months);
+      var monthly = (P * x * r) / (x - 1);
+      monthly = Math.round((monthly + Number.EPSILON) * 100) / 100;
+
+      var totalRepayable = monthly * months;
+      var totalCostOfCredit = totalRepayable - P;
+
+      var fmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY });
+
+      document.getElementById('monthly-display').innerText = fmt.format(monthly);
+      document.getElementById('total-cost').innerText = fmt.format(totalRepayable);
+      document.getElementById('total-interest').innerText = fmt.format(totalCostOfCredit);
+    }
+  }
+
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calculateLoan);
+  });
+  calculateLoan();
+})();
+</script>

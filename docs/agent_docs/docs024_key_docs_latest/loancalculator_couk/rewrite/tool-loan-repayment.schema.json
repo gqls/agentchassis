@@ -1,0 +1,109 @@
+{
+  "fields": {
+    "fca_warning": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Warning: Late repayment can cause you serious money problems. For help, go to moneyhelper.org.uk.",
+      "llm_guidance": "DO NOT REWRITE. Regulatory risk warning required alongside a consumer credit promotion. source is 'static' deliberately so no content loop can reword, shorten or drop it. Change only on legal instruction, and change the fallback rather than letting a caller override it."
+    },
+    "market_context": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "fallback": "Current Market Average for Personal Loans is 7.9%.",
+      "llm_guidance": "A market figure, so it GOES STALE. Static and per-site by design: never let a model invent or refresh it. If no maintained figure is available, set it to empty and the line renders blank rather than lying."
+    },
+    "rate_environment_note": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "fallback": "This calculator is updated for the 3.75% Base Rate environment.",
+      "llm_guidance": "Also a dated factual claim (see market_context). The original hardcoded '3.75% Base Rate' into the page markup, which is how copy starts lying. Parameterised so it can be corrected in one place per site."
+    },
+    "label_amount": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Amount to Borrow (£)",
+      "llm_guidance": "Label for the principal input. Include the currency symbol matching currency_code."
+    },
+    "label_rate": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Interest Rate (APR %)",
+      "llm_guidance": "Label for the annual percentage rate input."
+    },
+    "label_term": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Term (Years)",
+      "llm_guidance": "Label for the loan term input, in years. The script multiplies by 12 internally."
+    },
+    "label_monthly": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Monthly Repayment",
+      "llm_guidance": "Heading above the headline figure."
+    },
+    "label_total_interest": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Interest:",
+      "llm_guidance": "Prefix for the total cost of credit. Keep the trailing colon."
+    },
+    "label_total_repayable": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Total Repayable:",
+      "llm_guidance": "Prefix for principal plus interest. Keep the trailing colon."
+    },
+    "default_amount": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "10000",
+      "llm_guidance": "Starting value for the principal. Chosen per site to be representative of its audience -- it is what a first-time visitor sees computed. toolgolden.py derives its test vectors by scaling these defaults, so changing one re-baselines that tool's golden values."
+    },
+    "default_rate": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "7.9",
+      "llm_guidance": "Starting APR. Keep consistent with market_context or the page contradicts itself."
+    },
+    "default_term": {
+      "type": "number",
+      "source": "static",
+      "required": true,
+      "fallback": "5",
+      "llm_guidance": "Starting term in years."
+    },
+    "zero_display": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "£0.00",
+      "llm_guidance": "The pre-calculation placeholder in all three output slots. Must match the currency the script formats in, or the page flickers between two currencies on first paint."
+    },
+    "locale": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "en-GB",
+      "llm_guidance": "BCP-47 locale passed to Intl.NumberFormat -- controls thousands separators and symbol placement, NOT the arithmetic. Was hardcoded in the original."
+    },
+    "currency_code": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "GBP",
+      "llm_guidance": "ISO-4217 code passed to Intl.NumberFormat. Was hardcoded in the original. Set with locale, and match zero_display's symbol."
+    }
+  }
+}
