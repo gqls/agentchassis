@@ -102,3 +102,34 @@ down as owed after midnight. And there are nine stale entries in a queue left ov
 the old check, four of which are its own false alarms; I have left them alone because
 another thread is working in that queue right now and yanking rows out from under someone
 is how you create a confusing hour for both of you.
+
+---
+
+## 2026-07-31, last thing — the review came back approved
+
+The spending cap was raised, so the change went back to the reviewer council and this time
+it passed: twelve seats approved, three raised advisory points, none of them serious. The
+seat that had blocked it first time round withdrew its own objection in writing, which is
+about as clean an outcome as that process produces.
+
+I did not just bank it. Three of the seats asked for things that were cheap to check, so I
+checked them. Two wanted the numbers I had quoted verified rather than taken on trust —
+fair, since a reviewer cannot run a database query — so I re-ran them and pasted the raw
+output into the bug file. One asked whether looking at the site header might tread on
+another check's toes, which I had genuinely not thought about; the answer turned out to be
+reassuring in a slightly embarrassing way — *fourteen* other checks already look at it,
+so ours was the odd one out for ignoring it, and ours is actually the fussier of the lot.
+
+The last one was the sharpest and it cost me a new file. I had written that a related,
+harmless-today flaw in a shared piece of code "belongs in its own item". The reviewer
+pointed out that saying that and not creating the item is precisely how such things
+vanish. So it is now filed properly as bug 168, with the measurements showing it affects
+nothing at present, four options for fixing it, and a clear warning that it touches six
+different parts of the system and therefore is not something to slip into a bug patch.
+
+And a small confession for the record: one of my attempts to resubmit did nothing at all,
+silently. I had changed directory earlier in the same command, which broke the path to the
+script, and the error message did not contain any of the words I was watching for. I only
+noticed because I checked the database for the submission rather than trusting what the
+screen said. That is now written down too — a command that printed nothing is not the same
+as a command that worked.
