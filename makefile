@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1206
+IMAGE_TAG ?= v1.0.1218
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1861,6 +1861,39 @@ backup-list-s3: ## List recent backups in S3
 		aws s3 ls s3://personae-prod-uk001-backups/db-backups/ \
 		--endpoint-url https://s3.us-east-005.backblazeb2.com \
 		| tail -10
+
+
+
+#################################
+# bugs_open/ Staleness Sweep (RFC_005 §3.3)
+#################################
+
+.PHONY: deploy-bugs-open-staleness-sweep
+deploy-bugs-open-staleness-sweep: ## Deploy the weekly bugs_open/ staleness sweep CronJob
+	@echo "$(YELLOW)Deploying bugs-open-staleness-sweep CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/bugs-open-staleness-sweep/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob bugs-open-staleness-sweep
+
+.PHONY: bugs-open-staleness-sweep-now
+bugs-open-staleness-sweep-now: ## Trigger an immediate sweep run (creates a Job from the CronJob)
+	@echo "$(YELLOW)Triggering immediate bugs_open staleness sweep...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/bugs-open-staleness-sweep \
+		bugs-open-staleness-sweep-manual-$$(date +%Y%m%d-%H%M%S)
+	@echo "$(GREEN)Job created. Watch with:$(NC)"
+	@echo "  make bugs-open-staleness-sweep-logs"
+
+.PHONY: bugs-open-staleness-sweep-logs
+bugs-open-staleness-sweep-logs: ## Follow logs from the latest sweep job
+	@LATEST=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods \
+		-l app=bugs-open-staleness-sweep --sort-by=.metadata.creationTimestamp \
+		-o jsonpath='{.items[-1].metadata.name}' 2>/dev/null); \
+	if [ -n "$$LATEST" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) logs -f "$$LATEST"; \
+	else \
+		echo "No sweep pods found"; \
+	fi
 
 
 

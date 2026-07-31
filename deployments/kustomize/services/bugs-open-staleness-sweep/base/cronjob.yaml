@@ -1,0 +1,93 @@
+# deployments/kustomize/services/bugs-open-staleness-sweep/base/cronjob.yaml
+#
+# RFC_005 §3.3 (owner-ratified 2026-07-31): weekly cheap-pass staleness sweep
+# over bugs_open/*.md. Flags citations whose evidence has moved; never edits
+# a bug file, never closes one — the fixed-AND-live bar for closing stays a
+# human/thread judgement call.
+#
+# Deliberately NOT a chassis agent_definitions row + scheduled_tasks trigger:
+# there is no generic action to list a repo directory or read an arbitrary
+# non-.go file (the one function that could, ReadSymbolBody's whole-file
+# fallback, was just closed as a hazard — bugs_closed/145), and this pass is
+# meant to be zero-LLM-cost per RFC_005 §3.3 itself. Modelled instead on the
+# database-backup CronJob: postgres:16-alpine (psql already present),
+# connects to Postgres directly (not via kubectl exec — ai-persona-app has
+# no pods/exec RBAC on ai-persona-system, see the RBAC check that ruled this
+# out), reads repo content via the GitHub Contents/Trees API with a
+# read-only token, exactly the same mechanism diagnose_read_repo_files_action.go
+# already uses for the same purpose (see sweep.py's module docstring).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bugs-open-staleness-sweep
+  labels:
+    app: bugs-open-staleness-sweep
+    component: doc-review
+spec:
+  schedule: "0 6 * * 0" # weekly, Sunday 06:00 UTC — RFC_005 §3.3's ruled cadence
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app: bugs-open-staleness-sweep
+            component: doc-review
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: sweep
+              image: postgres:16-alpine
+              env:
+                # SWEEP_REF has NO default in sweep.py itself (refuses rather
+                # than silently falling back to a stale ref — the same
+                # discipline 090_TRIGGER_needs_diagnosis_v1.sh already
+                # learned the hard way). This value is set here, deliberately,
+                # and needs the SAME manual-bump attention as IMAGE_TAG: when
+                # the platform's live working branch changes, update this.
+                - name: SWEEP_REF
+                  value: "087_towards_multiple_domains"
+                - name: SWEEP_REPO_OWNER
+                  value: "gqls"
+                - name: SWEEP_REPO_NAME
+                  value: "agentchassis"
+                - name: PG_CLIENTS_HOST
+                  value: "postgres-clients"
+                - name: GITHUB_READ_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: GITHUB_READ_TOKEN
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/sweep.py
+              volumeMounts:
+                - name: sweep-script
+                  mountPath: /scripts
+                  readOnly: true
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "250m"
+          volumes:
+            - name: sweep-script
+              configMap:
+                name: bugs-open-staleness-sweep-script
+                defaultMode: 0555

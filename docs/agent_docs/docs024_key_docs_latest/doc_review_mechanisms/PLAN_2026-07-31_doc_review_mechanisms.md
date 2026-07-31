@@ -129,6 +129,103 @@ remains unstarted.
 
 ---
 
+**2026-07-31, later — Part B (§3.3) built, NOT a chassis agent.** Started
+from this PLAN's own sketch ("a CronJob-triggered agent, same family as
+build-pipeline-trigger"), but that shape turned out to be blocked: there is
+no generic action to list a repo directory or read an arbitrary non-`.go`
+file, and the one function that could — `ReadSymbolBody`'s whole-file
+fallback — was closed as a hazard the same day, in `bugs_closed/145`
+(unconditional `findFile` now gates the read on the analyser's Go-only
+`Output`). Building this as a chassis agent would have meant either reviving
+that shape or adding new Go code to `diagnose_read_repo_files` and taking it
+through council review before it could run live. Presented both shapes to
+the owner; **chose script + K8s CronJob** (zero new platform Go code, zero
+LLM cost — which is what RFC_005 §3.3 actually asked for in the "cheap
+pass" — and ships without a council-gate wait).
+
+- Modelled directly on `deployments/kustomize/services/database-backup/base/cronjob.yaml`:
+  `postgres:16-alpine` (psql already present, `apk add python3` at runtime —
+  the same "install what you need at runtime" pattern that image already
+  uses for `mysql-client`/`aws-cli`), connects to Postgres **directly**
+  (`PGPASSWORD` + `psql -h postgres-clients`), never `kubectl exec` — checked
+  the RBAC first and `ai-persona-app` has no `pods/exec` grant in
+  `ai-persona-system` (only in `kafka`, for the unrelated topic-cleanup
+  CronJob), so exec-into-psql would have failed at deploy time, not at
+  review time.
+- Repo content comes from the GitHub Contents/Trees API with the existing
+  read-only `GITHUB_READ_TOKEN` (`personae-platform-secrets` — confirmed live
+  in the cluster, not assumed from another deployment's overlay) — the exact
+  same mechanism `diagnose_read_repo_files_action.go` already uses for reads,
+  just called directly with `curl`-equivalent (Python stdlib `urllib`)
+  instead of through the chassis action layer. `git-adapter` was checked and
+  ruled out: it is Kafka-only and write-only (commit/branch/PR), no read
+  endpoint exists to bypass.
+- One `git ls-tree`-equivalent call (`GET .../git/trees/{ref}?recursive=1`)
+  gets the whole repo's path list in one request — confirmed live, not
+  truncated, 9,330 entries, exactly 65 `bugs_open/*.md` files matching the
+  local count. This is what makes bare-filename citations (`agent.go:429`,
+  no directory) resolvable at all: look up the basename against the full
+  tree rather than trying to guess a directory.
+- **A real bug caught by testing locally before deploying, not in
+  production**: built a test harness
+  (`scripts/test-bugs-open-staleness-sweep-local.py` — swaps the GitHub API
+  calls for local `git ls-tree`/`git show` against this working tree, so the
+  citation-extraction and resolution logic runs against real data with zero
+  network/credentials) and ran it against all 65 real `bugs_open/*.md` files.
+  It crashed: `resolve_path`'s exact-path branch returned `kind="exact"` even
+  when the path was missing (with `resolved=None`), but the caller only
+  special-cased `kind == "not-found"` — a missing full-path citation fell
+  through and called `fetch_raw(None, ref)`. Fixed by making `resolve_path`
+  return a consistent three-way (`resolved` / `ambiguous` / `not-found`)
+  where `resolved` is guaranteed non-`None` only for the first. Re-ran clean:
+  65 files, 501 citations, 74 likely-stale + 36 ambiguous + 0 errors.
+- **A design correction made from reading that real output, not guessed in
+  advance**: the first cut lumped every flag into one list. "Ambiguous bare
+  filename, matches 2+ paths" turned out to be the largest category (36 of
+  110) and is a citation-quality signal, not a staleness signal — e.g.
+  `registry.go:819` matches both
+  `platform/orchestration/actions/registry.go` and
+  `.../discovery_checks/registry.go`; neither file moved. Split the report
+  into three labelled sections (likely-stale / ambiguous / check-errors) so a
+  reader's eye goes to genuine staleness first, rather than a flat list where
+  a third of the "flags" are really "this bug cited a bare filename."
+- **Live-verified the actual mechanism before deploying anything**, not just
+  the container recipe on paper: fetched the real `GITHUB_READ_TOKEN` from
+  the live secret and confirmed, against the real GitHub API — ref
+  `087_towards_multiple_domains` resolves (200), a real `bugs_open/155`
+  file's raw content fetches (200), the recursive tree fetch returns 9,330
+  entries untruncated with exactly 65 `bugs_open/*.md` paths. Also confirmed
+  `postgres-clients` resolves as a `ClusterIP` Service in `ai-persona-system`
+  and both `CLIENTS_DB_PASSWORD`/`GITHUB_READ_TOKEN` keys exist on
+  `personae-platform-secrets` live — none of the secretKeyRefs in the
+  manifest are guesses carried over from another service's overlay.
+- Output: **reuses the `pipeline` subject_type** (`subject_key =
+  'bugs-open-staleness'`) — no migration, no `validDocSubjectTypes` change,
+  the same subject_type `diagnose_triage_action.go` already uses for its own
+  fleet-wide sweep report. One `doc_notes` row per run; never edits or closes
+  a `bugs_open/*.md` file.
+- **Ref discipline**: `SWEEP_REF` has no default inside `sweep.py` itself —
+  it refuses (exit 2, writes nothing) if unset or unresolvable on GitHub,
+  matching `090_TRIGGER_needs_diagnosis_v1.sh`'s "never silently fall back to
+  a stale ref" rule. The CronJob manifest pins it explicitly to
+  `087_towards_multiple_domains` (the platform's actual live working branch,
+  not `main`, which this repo's own CLAUDE.md already documents as routinely
+  hundreds of commits behind) — a value a human updates deliberately when the
+  working branch changes, the same manual-bump discipline `IMAGE_TAG` already
+  uses. This is a real, named operational cost, not a solved problem: nobody
+  owns remembering to update it yet.
+- Deliberately **only the cheap pass** — no re-running of each bug's own "how
+  to verify a fix" command, per RFC_005 §3.3's own phasing ("deeper pass,
+  sampled, not every run" is explicitly a later increment).
+- **Not yet deployed to the cluster** — built, tested, live-verified against
+  the real GitHub/Postgres endpoints, but `make deploy-bugs-open-staleness-sweep`
+  has not been run. This is the first NEW K8s compute resource this session
+  has created (Part A only ever touched DB rows), so it's paused for an
+  explicit go-ahead before `kubectl apply`, the same way the Part A chassis
+  image roll was paused for one.
+
+---
+
 **Started 2026-07-31.** Implements the owner ruling on
 `architecture_review/RFC_005_targeted_review_for_docs_that_feed_the_fleet.md`
 (2026-07-31): §3.1 (diagnosis-loop discipline for `bugs_open/`) is already
