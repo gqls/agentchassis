@@ -263,3 +263,36 @@ and re-firing every page. **Convention trap:** the 4 pre-existing non-live rows 
 use `inactive`; `archived` is also excluded by the `= 'active'` filter but would be
 invisible to anyone querying by convention. Evidence, and the wrong turn that found it:
 `traffic_probe/relojistas_rebuild_running_notes.md`, 2026-07-27.
+
+---
+
+## 2026-07-31 — a SECOND caller now needs the same missing primitive (from the bugs_open/125 lane)
+
+Contributed by the bugfix-8 session; **no work started here, this is a cross-reference.**
+
+`bugs_open/125` (`page-rebuild` deployed to a path derived from the page name, ignoring
+`pages.url`) is fixed at source and committed — but its own council round raised, as a
+`guardian` medium and an `architecture` medium, that the fix **stops new orphans and
+retracts none of the existing ones**, and asked that this be *logged as a required
+follow-up rather than silently absorbed*. This is where it is logged.
+
+The two bugs need **one** primitive between them:
+
+- 098: an archived page's file must be **removed** from the deployed site.
+- 125: an orphaned duplicate published to a wrong path must be **removable** at all.
+
+Both are blocked on the same gap — the git adapter has no `delete_file` verb. Its only
+deletion verb is `delete_repo`, which returns *"delete_repo action not yet implemented"*
+(`internal/adapters/git/adapter.go:641`). The 125 filing put it plainly: **the platform
+can publish a page but has no implemented way to unpublish one.** The one live instance
+of 125's orphan had to be deleted by the owner by hand.
+
+So 125's fix candidate 3 (`delete_file` on the git adapter) and this bug's retraction
+path are the same piece of work, and doing it once serves both. 125's candidate 4 (a
+sweep for files in the sites repo with no matching `pages.url`) is what would find the
+existing population for either — nobody has ever enumerated it, and both bugs currently
+assert "orphans exist" without a count.
+
+**Not claiming this bug.** Whoever takes 098 should know 125 is a second caller and that
+its lane docs (`docs024_key_docs_latest/bugfix_125_deploy_path_from_url/`) carry the
+measurement of how many pages were exposed (316 of 472 on 2026-07-31).

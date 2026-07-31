@@ -100,6 +100,20 @@ func TestPageDeployFilename(t *testing.T) {
 		// url. Dropping that is inert — measured 2026-07-31, 0 pages are named
 		// index/home with a non-/index.html url — but pin the new precedence.
 		{"url beats a page named index", "/landing.html", "index", "landing.html"},
+
+		// ── The LANDMINES.md entry for getPageInfo: "a page whose url is /
+		// deploys a file with NO NAME", because the filename was
+		// TrimPrefix(url, "/") and the guard "keys on the page being NAMED
+		// index, so an adopted or hand-made homepage under any other name
+		// (home, landing, main) falls straight through it". Pinned here
+		// because the council gate (corr 758f6e62) asked whether that warning
+		// is absorbed by this call rather than merely absent today. It is: the
+		// empty filename is now unreachable from any input — see also
+		// TestPageDeployFilenameNeverEmpty. ──
+		{"landmine: homepage named 'landing' at the root", "/", "landing", "index.html"},
+		{"landmine: homepage named 'main' at the root", "/", "main", "index.html"},
+		{"landmine: homepage named 'home' with no url", "", "home", "index.html"},
+		{"landmine: an unnamed root page still gets a file", "/", "", "index.html"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
