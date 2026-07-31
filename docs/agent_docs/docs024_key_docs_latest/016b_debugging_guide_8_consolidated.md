@@ -8761,6 +8761,26 @@ assembled page, or a `string_agg` of components is not. Mind that the same
 predicate often has a **SQL-side copy** (`... LIKE '%marker%'`) the Go grep
 cannot see.
 
+**FIRST, ASK WHETHER THE GUARDED CODE REPORTS OR ACTS — the safe direction
+reverses, and this is the half most easily missed.** It is tempting to apply the
+narrower scope everywhere the predicate appears. Do not:
+
+| the guarded code | narrowing the exemption means | safe? |
+|---|---|---|
+| a **judge** (a check, a detector) | it surfaces more findings, each triaged by a human | yes |
+| a **writer** (a repairer, a stripper) | it **acts** on markup it previously left alone | **no** |
+
+For a writer the wide exemption *under*-acts, and under-acting is usually
+fail-safe: an unrepaired defect stays visible and stays flagged, while a
+"repaired" one can stop looking broken. Worked case: the same exemption guards a
+link *repairer* whose repair is to strip the `<a>` and keep the text — so
+narrowing it there would have made a separately-documented defect ("a dead link
+repaired into orphaned prose") *more* common. **The tell was available without a
+reviewer: a neighbouring check had already declined to automate the same
+decision**, routing dead controls to human review with no handler "because
+picking a fixer automatically would guess". When a sibling has refused to
+automate a judgement, that is a ruling on your call site too.
+
 **The fix that closes the door** is to give the predicate its own scope, so the
 caller cannot set it: a shared element-scoped judgement (byte spans over the raw
 HTML for string callers, a `Closest("[marker]")` for DOM callers), derived from
@@ -8785,7 +8805,23 @@ the neighbour is judged *and* that the shell's own contents are still excused �
 then prove both are load-bearing by mutating the predicate each way (whole-document
 span; empty span) and checking which tests fall over.
 
-Category tags: `scope-set-by-caller-chunking`, `correct-at-every-call-site`,
+**And the trap in the ENFORCEMENT, which is this pattern eating its own tail.**
+The natural third step is a source-lockstep test that fails the build for any raw
+marker test outside the predicate's file. Write it — a comment is not an
+enforcement mechanism. But **its first version will be blind to a spelling**: a
+pattern matching `Contains`/`HasPrefix`/`HasSuffix`/`Index` reports the tree clean
+while a call site tests the same marker through `regexp.MustCompile`. A gate that
+proves an absence only for the spellings it searches is the defect it was written
+to prevent. **Verify a new detector's first result by the method it replaces** — a
+literal grep of the marker across the repo — before quoting it as proof of
+completeness. And give the gate an allow-list with a *reason* per entry: a site
+that must stay raw (e.g. the only case-insensitive test in the tree, where
+converting it would silently change behaviour) is a decision to record, not an
+exception to hide, and a gate with no escape hatch just pressures the next author
+into weakening the pattern.
+
+Category tags: `judge-vs-writer-safe-direction`, `a-sibling-that-declined-to-automate-is-a-ruling`,
+`the-gate-is-blind-to-a-spelling`, `scope-set-by-caller-chunking`, `correct-at-every-call-site`,
 `local-workaround-instead-of-fixing-the-predicate`,
 `two-judges-disagree-is-a-symptom-not-the-bug`, `name-the-old-predicate`,
 `degrade-wider-not-narrower`, `assert-both-directions-of-an-exemption`.
@@ -8851,3 +8887,77 @@ check sitting next to yours.
 `bugs_open/152` (`asset_url` never rewritten). Reconstructing an artefact's name
 from a category is the recurring move; reading the identity the row already
 carries is the fix in all three.
+
+### A guard-clause that returns "" on the empty case gives the LEAST instruction to the caller that knows the LEAST — and a `{{if}}` in the consumer turns it into total silence (`bugs_open/092`, 2026-07-31)
+
+**Shape.** A producer builds guidance for a consumer and short-circuits on "nothing to
+say":
+
+```go
+func buildLinkConstraintText(pages []PageInfo, maxLinks int) string {
+	if len(pages) == 0 {
+		return ""          // <- reads as a harmless no-op
+	}
+	...
+}
+```
+
+Downstream, a template guards on truthiness — which is the *correct* thing for a template
+to do:
+
+```
+{{if .link_context.link_constraint_text}}
+## Internal Linking
+{{.link_context.link_constraint_text}}
+{{end}}
+```
+
+The two are individually reasonable and jointly a fail-open. The empty string does not
+produce an empty section; it produces **no section, and no heading**. So the run with the
+least information about the site emits the prompt with the fewest constraints, and the model
+fills the gap by inventing. Measured: `prepare_link_context` returned `""` on **26 of 26**
+`page-content-writer` runs, and of the 15 unique phantom link targets the deploy gate caught
+in its retained window, **15 were pure inventions**.
+
+**Why it survives review.** Every layer looks defensible on its own. The producer "has
+nothing to say". The template "omits an empty optional block". Neither file contains the
+defect; the defect is the composition, and it is invisible unless you read both. It also
+survives *testing*, because the failure mode is producing nothing and returning `nil` — a
+test asserting "no error" passes against the bug.
+
+**The check.** For any producer of guidance, instruction, constraint or policy text, ask
+what the **empty case emits**, then ask what the consumer does with it. If the answer is
+`""` and the consumer has a truthiness guard, you have this bug. The empty case is not the
+edge case here — it is the case where the instruction matters most.
+
+**The fix shape: an empty result must state itself.**
+
+```go
+	if len(pages) == 0 {
+		return "There are NO pages available to link to on this site. " +
+			"Do NOT create any internal links or hyperlinks in this content. ..."
+	}
+```
+
+Now the guard passes, the section renders, and the instruction is both true and the safest
+available. Keep the silent path for the one case that genuinely means it — an **explicit**
+`enabled: false` opt-out, where the workflow has declared it does not want the block.
+
+**The companion trap, and it is the one that hid this for seven weeks.** Distinguish the two
+causes of "empty", because they have opposite remedies and identical symptoms:
+
+| state | means | remedy |
+|---|---|---|
+| the authority was read and returned nothing | the site genuinely has no pages | build some pages |
+| the authority could not be read at all | plumbing is broken | fix the plumbing |
+
+Collapsing them into one empty slice plus a `logger.Warn` is what let a **100% failure rate**
+run unnoticed from 2026-03-28 to 2026-07-31 — it had even been *recorded* as concept-register
+`LNK-017` on 2026-06-12 and still nothing changed, because nothing distinguished a broken run
+from a quiet one. Emit both facts (`degraded`, `db_consulted`, `reason`) and write a durable
+`agent_error_log` row for the second: pod logs roll and `collected_data` is pruned at ~24h, so
+a warning is not a record.
+
+**Related:** the "silent gate has TWO causes with opposite fixes" family; `bugs_closed/063`
+(fail-open on missing config — the protective branch skipped exactly where protection was
+needed); `bugs_open/071` (the same class one stage later: the gate detects, then discards).
