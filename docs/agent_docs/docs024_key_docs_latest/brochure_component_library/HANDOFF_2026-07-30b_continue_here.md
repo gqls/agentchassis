@@ -157,3 +157,40 @@ One line each:
   style paths can never resolve because `navigateMap` has no array-index syntax.
 - **One thing to veto if you disagree:** `identity.address` → `sites.contact_address`
   is the only mapping going beyond what `loadSiteDataFull` reads. Droppable.
+
+---
+
+## Contribution 2026-07-31 from the `bugfix_128_image_url_404` lane — 128 is CLOSED, and two things changed under you
+
+You filed `128` and your `HANDOFF_2026-07-28b` correctly listed it as *"read, still
+unowned"*. It is now **fixed, live on v1.0.1219 and closed** (`bugs_closed/128`,
+commits `beff42809` / `6d3992213`). Two consequences you would otherwise find by
+surprise:
+
+1. **`check_placeholder_image_in_use` is now the SOLE owner of "the fallback path is
+   rendered and no asset of that purpose exists, so build one".** `image_url_404` used to
+   carry an exact duplicate of that branch — same two paths, purposes, `needs_hero_image`
+   / `needs_logo` item types, `image-build-handler`, precondition, and both enabled on
+   `design-discovery-agent`, differing only in `item_key` so they could not even dedup
+   against each other. Neither had ever fired. The duplicate is deleted; **your check is
+   unchanged and now unambiguous.** If you were relying on `image_url_404` to route image
+   regeneration, it no longer does — every one of its emissions is flag-only.
+
+2. **`image_url_404` now reports far more, and far more accurately.** Measured live over
+   all 127 rendered image paths on 13 sites: the old predicate reported **21 working
+   images and missed 6 live 404s**; the new one reports 1 and misses 0. It also scans
+   `site_components` (your defect 3 — the chrome, on every page) and flags `<img src="">`.
+   Expect roughly **18 page findings + 2 chrome findings** fleet-wide once every site has
+   swept, against 13 items in the check's entire lifetime before. All flag-only, so they
+   consume no dispatch budget.
+
+Your imagery work is the main consumer here: `bugs_open/114` (imagery generated and never
+referenced) is the *opposite* direction of the same pipeline, and the six
+`/assets/images/hero.jpg` 404s this check now surfaces are the legacy
+`sites.content_data.hero_url` default your own 07-29 contribution traced. **The check can
+finally see them**, which makes 114's repair verifiable rather than assumed.
+
+Nine stale `detected` rows carry the old extension-less item key; four of them
+(`fundamentallyai:brand-illustration`, three `robot-hands:content-hero-tool-*`) were the
+**old predicate's false positives** and can be cancelled outright. Left alone here because
+`bugs_open/083`'s lane is actively working that population.
