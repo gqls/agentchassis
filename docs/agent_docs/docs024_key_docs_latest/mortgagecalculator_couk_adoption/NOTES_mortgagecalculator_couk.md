@@ -135,3 +135,106 @@ across would have me halt the run at its first correct step. Noted in RUNBOOK §
 Deploy repo populated and committed locally (29 files, pathspec-scoped). **Not
 pushed** — the push triggers the live sync, so it is the owner's call. Nothing has
 touched the cluster or the live site yet.
+
+---
+
+## 2026-07-31 — session 1 continued: the deploy landed, and two more measurement traps
+
+### The mirror push, and why it was rebased rather than merged
+
+Before pushing I found **origin was 30+ commits ahead**, all `Rerender:` commits —
+the platform actively committing into `gqls/sites` while I worked. That is handoff
+§7's "two independent writers" claim, corroborated first-hand rather than inherited.
+
+I rebased my single unpushed commit rather than merging, for a specific reason. The
+workflow computes its target from `git diff --name-only HEAD~1 HEAD`. On a **merge**
+commit, `HEAD~1` is the first parent — my own commit — so the diff would show only
+the *other* domains' rerenders and **my domain would be absent from the changed
+list**. The sync for `mortgagecalculator.co.uk` would silently not run and the job
+would still go green. (Same shape as the fleet lesson "a GREEN run ships NOTHING if
+your push became a merge".) Rebasing keeps my commit as the tip, so `HEAD~1` is the
+previous origin tip and the diff is exactly my 29 files.
+
+**Result, verified in the run log rather than assumed:** `Changed domains:
+mortgagecalculator.co.uk`, sync executed, and all 29 live files sha256-identical
+before and after. The bucket is now 29 files with 0 `.bzEmpty`, 1:1 with the repo —
+the same shape as the sibling. **The outage hazard from handoff §1 is closed.**
+
+### MISSTEP — my local `grep` is ugrep, and it silently disagreed with the workflow
+
+After pushing the link fix I previewed what the workflow would compute:
+
+```bash
+git diff --name-only HEAD~1 HEAD | grep -E '^[^/]+\.[^/]+/' | cut -d'/' -f1 | sort -u
+```
+
+It printed **nothing**. Taken at face value that is alarming: an empty `CHANGED`
+makes `deploy-to-b2.yml` fall through to `ls -d */`, i.e. **sync every domain in the
+repo**. I was one step from "reporting" a deploy-pipeline defect that does not exist.
+
+`git diff` alone returned `mortgagecalculator.co.uk/index.html` correctly, so the
+fault was in the pipe. `type grep` explains it: in this session **`grep` is a shell
+function wrapping `ugrep 7.5.0`**, not GNU grep. It returns **exit 1, zero matches**
+for `^[^/]+\.[^/]+/` against a string GNU grep matches:
+
+```
+printf 'a.b/c\n'                            | grep -E '^[^/]+\.[^/]+/'   -> exit 1
+printf 'mortgagecalculator.co.uk/index.html\n' | grep -E '^[^/]+\.[^/]+/' -> exit 1
+printf 'mortgagecalculator.co.uk/index.html\n' | grep -E '^.+\.[^/]+/'    -> MATCHES
+```
+
+So a greedy negated class that must backtrack across the `\.` fails, while the
+equivalent with `.+` succeeds. **The runner uses real GNU grep and computed the
+domain correctly both times** — confirmed in both run logs, so the workflow was never
+at fault.
+
+**What makes this dangerous rather than annoying:** it fails the way a *true
+negative* looks. Zero matches, exit 1, no error, no stderr. Every instinct says
+"the pattern didn't match because the thing isn't there". Use `command grep` when
+reproducing behaviour that runs elsewhere, and confirm against the real system's own
+log rather than a local re-implementation of its logic. Landmine written.
+
+**Also caught here:** `git pull --rebase` failed with "cannot pull with rebase: You
+have unstaged changes" *inside a chained block*, and because the block had no `set
+-e` the following `git commit` and `git push` ran anyway. They happened to be
+correct — origin had not moved — but the pull silently not happening is exactly the
+kind of thing that produces a merge next time. Chained git blocks need `&&`, not
+`;`.
+
+### MISSTEP — my own pre-flight query could not tell the two domains apart
+
+The pre-flight asked "is another lane working this domain?" as:
+
+```sql
+WHERE spec::text ILIKE '%mortgagecalculator.co.uk%'
+```
+
+It returned **41 `page_rerender` rows in `triaged`** — which reads exactly like
+another lane mid-adoption on our domain, and 41 is a plausible page count.
+
+It is a substring. **`loanandmortgagecalculator.co.uk` contains
+`mortgagecalculator.co.uk`.** Every one of those 41 rows is the sibling lane's, and
+41 is precisely the count its own handoff reports ("Mine caught 41 in one second").
+The same flaw hit the orchestration query: both "recent adoption runs for this
+domain" were the sibling's, and reading `input_data.fidelity` on them returns
+`locked` — the sibling's setting, which I could have mistaken for evidence about our
+run.
+
+Re-measured by joining `sites` and matching `domain =` exactly: our domain has
+**0 sites rows, 0 orchestration runs, 0 work items**. Clean.
+
+**Why this one is worth writing down even though I caught it:** the wrong answer was
+not empty, it was *populated and plausible*. An absence would have made me look
+harder; a confident 41 invited me to act on it. This is the family the index already
+names — "your measurement answers the question you ENCODED" — and the specific
+lesson is that **on this platform, domain names nest**: `loancalculator.co.uk`,
+`mortgagecalculator.co.uk` and `loanandmortgagecalculator.co.uk` are three sites
+where two of the names contain a third. `ILIKE '%domain%'` is never safe here. Join
+on `site_id`, or match `=`.
+
+### Held off dispatching — a chassis roll was in flight
+
+Pre-flight found two replicasets live and one pod not ready: another session was
+mid-roll. Latest pod start `23:10:17Z`, so the ~300s no-dispatch window runs to
+about `23:15:20Z`. Waited rather than firing into it, since that failure mode is a
+silently dropped spawn with no error to read afterwards.

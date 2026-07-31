@@ -2626,3 +2626,40 @@ matters if that domain was chosen to host wildcard subdomains later.
 - **added:** 2026-07-31, bugfix_081 lane. Committed but **NOT LIVE** — inert until
   the next chassis roll, so the type does not exist in production yet and a query
   for it returns zero rows today. That zero is not evidence of anything.
+
+### `grep` in a Claude Code session is a FUNCTION wrapping ugrep, not GNU grep — and it can return exit 1 / zero matches on an ERE that GNU grep matches
+
+- **footprint:** every `grep` call in a Bash tool block on this machine, and especially any attempt to reproduce locally what a CI job, a `.sh` script or a pod does with `grep`; `~/projects/sites/.github/workflows/deploy-to-b2.yml`, `scripts/*.sh`
+- **fires when:** you re-run a pipeline from a workflow or script to preview what it will do. `type grep` shows a shell function that execs `ugrep 7.5.0` with `-G --ignore-files --hidden -I --exclude-dir=…`. **It is a different regex engine**, and greedy negated classes that must backtrack across a following literal do not behave the same:
+
+  ```
+  printf 'a.b/c\n'                              | grep -E '^[^/]+\.[^/]+/'  -> exit 1, NO MATCH
+  printf 'mortgagecalculator.co.uk/index.html\n' | grep -E '^[^/]+\.[^/]+/' -> exit 1, NO MATCH
+  printf 'mortgagecalculator.co.uk/index.html\n' | grep -E '^.+\.[^/]+/'    -> MATCHES
+  command grep -E '^[^/]+\.[^/]+/'  (real GNU grep)                         -> MATCHES
+  ```
+
+- **the tell: none, and it is INDISTINGUISHABLE FROM A TRUE NEGATIVE.** Exit 1, no output, nothing on stderr — exactly what "the thing genuinely isn't there" looks like. The `--ignore-files`/`--exclude-dir` flags add a second silent-miss mode when grepping trees: a file matched by an ignore rule is skipped without comment
+- **what it nearly cost:** previewing `deploy-to-b2.yml`'s changed-domain computation locally printed **nothing**, which in that workflow means `CHANGED` is empty and it falls through to `ls -d */` — *sync every domain in the repo*. That reads as a serious deploy-pipeline defect. The runner uses real GNU grep and had computed `Changed domains: mortgagecalculator.co.uk` correctly on both runs; **the workflow was never at fault, the local reproduction was**
+- **the check:** use **`command grep`** whenever you are reproducing behaviour that executes somewhere else (CI, a pod, a shell script), and then confirm against **that system's own log** rather than your local re-implementation of its logic. If a local preview of remote behaviour disagrees with the remote, suspect the preview first
+- **source:** 2026-07-31, mortgagecalculator.co.uk adoption lane. `mortgagecalculator_couk_adoption/NOTES`
+- **added:** 2026-07-31, mortgagecalculator adoption lane
+
+### Three of this platform's domains NEST inside each other's names, so `ILIKE '%domain%'` silently returns another site's rows — populated and plausible, not empty
+
+- **footprint:** `sites.domain`, `site_work_items.spec::text`, `orchestration_states.collected_data->'input_data'->>'destination_domain'`, any pre-flight "is another lane working this domain?" query; the domains `loancalculator.co.uk`, `mortgagecalculator.co.uk`, `loanandmortgagecalculator.co.uk`
+- **fires when:** you scope a check by domain substring — the natural first phrasing, and the one the adoption runbooks use. **`loanandmortgagecalculator.co.uk` CONTAINS `mortgagecalculator.co.uk`**, and it also contains `loancalculator`… no it does not, but `loancalculator.co.uk` is a substring of nothing here — the trap is specifically the `%mortgagecalculator.co.uk%` pattern, which matches both the short and the long domain
+- **the tell: the wrong answer is POPULATED, which is worse than empty.** Asking whether another lane was mid-adoption on `mortgagecalculator.co.uk` returned **41 `page_rerender` rows in `triaged`** — a plausible page count for that site, and exactly the sort of result that stops you adopting. Every row belonged to the sibling; 41 is the count the sibling's own handoff reports. The same flaw made two `COMPLETED` adoption runs look like ours, and reading `input_data.fidelity` off them returns `locked`, which could easily be mistaken for evidence about *your* run's settings
+- **an absence would have made you look harder; a confident number invites you to act on it.** That asymmetry is the whole reason this is a landmine and not a typo
+- **the check:** join and match exactly, never `ILIKE '%…%'` —
+
+  ```sql
+  SELECT s.domain, w.item_type, w.status, count(*)
+    FROM site_work_items w JOIN sites s ON s.id = w.site_id
+   WHERE s.domain = 'mortgagecalculator.co.uk' AND w.status NOT IN ('complete','cancelled','rejected')
+   GROUP BY 1,2,3;
+  ```
+
+  If you must pattern-match, anchor it: `s.domain = $1`, or at minimum verify by grouping **by `s.domain`** so a foreign site announces itself in the output instead of hiding in a total
+- **source:** 2026-07-31, mortgagecalculator.co.uk adoption pre-flight. `mortgagecalculator_couk_adoption/NOTES` + `RUNBOOK` §6
+- **added:** 2026-07-31, mortgagecalculator adoption lane
