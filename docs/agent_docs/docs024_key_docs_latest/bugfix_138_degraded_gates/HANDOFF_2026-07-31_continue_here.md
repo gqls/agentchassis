@@ -22,7 +22,7 @@ the fix is to give the seat room, and the invitation is to sack it.**
 | 1 — say WHY a round gated | **LIVE, pod-verified twice** (including surviving a fresh build) | FIX-055, commit `3a59b5012` |
 | 2 — alert on the rate | **DONE, running, self-sourcing targets** | FIX-058, `104_REPORT_*` + `104_TASK_*` |
 | 3 — right-size caps | **DONE** — owner closed the last divergence 07-31 | `sql_for_agents/277` |
-| 4 — schema order / length | **reorder REFUTED as a rule; budget on 48 of 51 seats, VERIFIED to work; notes-first where a remit needs it** | FIX-059 `apply-seat-length-budget.py`, FIX-060 `reorder-seat-notes-first.py` |
+| 4 — schema order / length | **DONE.** Reorder refuted as a rule; budget on 48 of 51 seats, verified on one seat and now read fleet-wide with no coverage loss; notes-first where a remit needs it | FIX-059 `apply-seat-length-budget.py`, FIX-060 `reorder-seat-notes-first.py` |
 
 **The bug stays OPEN** for one reason only: candidate 1's `true` branch has never fired
 in production. No post-roll round has been gated *by a truncation*, so the TRUNCATED
@@ -37,7 +37,10 @@ wording is proven by unit test and by the persistence path, not by a live instan
    WHERE kind='council_report' AND metadata->>'gated_by_truncation'='true'
    ORDER BY created_at DESC LIMIT 5;
    ```
-   When it fires, the wording is confirmed and **138 can close**.
+   When it fires, the wording is confirmed and **138 can close**. As of 2026-07-31 19:15
+   the count is **0 all-time** — it has never fired, across every round since the fix
+   rolled. That is the single reason this bug is still open, and it is a waiting game,
+   not a task.
 
 2. **Let the other three seats accumulate a control arm.** `guardian`,
    `improvement_guardian` and `debug_historian` got the length budget at cutover
@@ -53,12 +56,19 @@ wording is proven by unit test and by the persistence path, not by a live instan
      siblings (FIX-060). All three architecture seats report an identical key order.
    - The length budget now covers **48 of 51** seats. 2 refused (hand-authored blocks),
      1 excluded with a printed reason. 099 drift none.
-   **What this creates, and it is new:** 47 seats changed behaviour with no per-seat
-   evidence. Most were never near their cap, so expect no visible change in peaks. **The
-   thing to watch is whether OBJECTION COUNTS fall** — that would mean coverage traded
-   for brevity, which is the failure this rollout can cause and the narrow one could not.
-   Query in `NOTES`, dated 2026-07-31 ~18:20; fleet cutover `18:16:46`–`18:16:53`.
-   Compare rounds either side **by spawn time**.
+   **The risk it created, and the first read on it (2026-07-31 ~19:15, 9 rounds in):**
+   47 seats changed behaviour on one seat's evidence, so the characteristic failure was
+   coverage traded for brevity. **It has not happened.** Replies got ~14% shorter (mean
+   3,854 → 3,307 tokens; p95 76.4% → 61.9% of cap) and objections went **UP** (0.82 →
+   1.04 per review; 47.1% → 53.3% of reviews raising at least one). That is "cut words,
+   never findings" behaving as written.
+   **Do not over-read it.** The peak drop (99.8% → 72.8%) is NOT evidence — a maximum
+   grows with the sample and the before-arm has 349 calls against 113. Objections rising
+   is not evidence of better reviews either; 9 rounds cannot control for what was
+   submitted. The claim that survives is narrow: *the collapse I flagged did not occur.*
+   **Re-check when the after-arm is comparable in size** — read the mean and p95, and
+   the objection rate is the column that must not fall. Fleet cutover
+   `18:16:46`–`18:16:53`; compare **by spawn time**.
 
 ## The result worth carrying forward
 
@@ -146,3 +156,30 @@ not last. Logged in `WRONG_CALLS.md`.
 - `bugs_open/119` is the sibling — `unreadable` (malformed JSON, round voided), not
   `degraded` (well-formed but incomplete, round *decided*). Different field, different
   `decided_by`, different fix.
+
+---
+
+## Addendum, 2026-07-31 ~19:15 — two chassis rebuilds later
+
+**Check FIX-055 after every rebuild; it costs one command.** Two fresh builds landed
+today (replicasets `6fd67d6649` then `59cb674798`) and the fix survived both — markers
+present on both pods with a control non-zero in the same exec. This is `bugs_open/153`'s
+rule asked in the direction people forget: not "did my fix arrive" but **"did someone
+else's build quietly remove it"**. A rebuild from an older ref would do exactly that and
+nothing else would say so.
+
+```bash
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
+  echo -n "$p : "; kubectl -n ai-persona-system exec "$p" -- sh -c \
+    'echo "trunc=$(strings /app/agent-chassis | grep -c "gating TRUNCATED objection from") ctrl=$(strings /app/agent-chassis | grep -c "all reviewers approve")"'
+done
+```
+
+**Nothing else in this lane depends on a chassis build.** The length budget, the caps and
+the alert are all DB config, live the moment they are written — a build neither ships nor
+threatens them. The only build-sensitive thing here is FIX-055, and it is Go.
+
+**State at handoff:** all four candidates answered; 48 of 51 seats carry the budget;
+the alert has run since 2026-07-30 and sourced two of its own targets; the fleet rollout's
+first read shows no coverage loss. **138 remains open on one waiting item only** — the
+`true` branch has never fired.
