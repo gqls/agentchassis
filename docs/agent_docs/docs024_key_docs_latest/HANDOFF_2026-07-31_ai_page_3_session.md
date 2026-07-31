@@ -123,9 +123,17 @@ sibling still rejected.
    near-identical copies; (c) therefore cite this as *"the mechanism exists and is inert"* and
    **never** as *"contracts are enforced narrowly"*, because there is no narrow enforcement,
    there is none. Full working in the gripper NOTES, 07-31.
-3. **`[UNMEASURED]`:** whether bare `.(string)` assertions on LLM-parsed maps recur elsewhere.
-   The evidence originally offered for it was wrong (the file it cited retracts its own
-   headline). **Count before claiming; do not file a bug on the hunch.**
+3. ~~**`[UNMEASURED]`:** whether bare `.(string)` assertions on LLM-parsed maps recur~~
+   **MEASURED 07-31 — REFUTED as stated, no bug filed.** 1,734 `.(string)` occurrences; 40
+   survive a two-value filter; of those, 12 are the safe `x, _ =` form, 4 are comments (**two
+   documenting a bare assertion already REMOVED**), leaving **24** genuinely panicking. Of the
+   24: **10** are `r.Context().Value("user_id").(string)` in `auth-service/project/handlers.go`
+   (middleware-injected, not LLM), ~10 read startup/DB/step config, and only **2** plausibly
+   touch model output — `v3_site_actions.go:3424` and `:3721`, both inside `zap.String(...)`,
+   so a panic would occur while logging. **Residue, a different risk class and not what was
+   asked:** those 10 auth-service assertions panic the handler if middleware is ever reordered
+   or bypassed on that route. Real fragility; **not filed on the strength of a grep.** Method
+   limits and the two filter mistakes are in the gripper NOTES, 07-31.
 4. **Structurally unclosable, stated rather than implied:** `httpguard`'s peer-gate reversion
    needs a connection from a genuine *public* peer. Every address a dev box can bind is
    loopback or RFC1918. **Do not let a future thread "close" it with another unit test.**

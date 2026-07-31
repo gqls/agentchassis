@@ -1531,3 +1531,43 @@ Same family as [[zero-adoption-means-read-the-mechanism]]: ~0% adoption measured
 declared by nobody and their only checker is unwired". **`prior_art` was right to refuse the
 claim as precedent on one reader** — the corrected version supports a different argument than
 the original did.
+
+---
+
+## 2026-07-31 — the last `[UNMEASURED]` marker resolved: the bare `.(string)` hunch is REFUTED as stated
+
+`bug_historian`'s surviving advisory (council `721ac4f7`) suspected that bare `.(string)`
+assertions **on LLM-parsed maps** recur elsewhere unaudited. I had already shown its *premise*
+was wrong (`bugs_closed/076` is a truncation-tolerance mechanism with no shared safe-extraction
+helper, and its headline "113 call sites" is retracted by that file itself to "37 of 118"), but
+left the underlying question marked `[UNMEASURED]` rather than guess. Counted now.
+
+**1,734** `.(string)` occurrences across `platform/`, `internal/`, `cmd/`. Of those, **40**
+survived a two-value-form filter, and of those 40:
+
+| category | n | why it is not the claim |
+|---|---|---|
+| `x, _ = f.(string)` — the SAFE comma-blank form | 12 | my filter missed them because an index expression (`inputFields[i]`) precedes the comma |
+| comments, not code | 4 | and **two of them document a bare `.(string)` being REMOVED** — `thunder_ssh_exec_dispatch.go:234`, `verify_report_prose_action.go:357`. The codebase already hardened this pattern where it bit |
+| **genuinely bare and panicking** | **24** | of which… |
+| ↳ `r.Context().Value("user_id").(string)` in `auth-service/project/handlers.go` | 10 | middleware-injected, not LLM |
+| ↳ startup/DB/step config (`cmd/agent-chassis`, `evolution.go:152`, `ai_actions.go:1099`, `core-manager`, `contentcreator`) | ~10 | config and DB rows, not LLM |
+| ↳ plausibly agent/LLM-derived | **2** | `v3_site_actions.go:3424` (`result["review_mode"]`) and `:3721` (`comp["name"]`) — **both inside `zap.String(...)`**, so a panic would happen while *logging* |
+
+**Verdict: REFUTED as stated.** Bare assertions do recur (24), but the specific claim — on
+**LLM-parsed** maps — does not hold. The dominant cluster is request-context reads in one
+service, and only 2 of 24 arguably touch model output. **No bug filed**, per the standing rule
+that a count comes before a claim.
+
+**Residue worth someone's attention, and it is a different risk class:** the 10
+`r.Context().Value(...).(string)` assertions in `auth-service/project/handlers.go` panic the
+handler if the auth middleware is ever reordered or bypassed on that route. That is a real
+fragility, it is **not** what `bug_historian` asked about, and I am not filing it as one on the
+strength of a grep.
+
+**Method limits, stated because the number is the point:** this is line-based, so it cannot see
+a multi-line assertion or one made inside a helper. My **first** count was also 40 but for the
+wrong reasons — the exclusion list was a guess at variable names (`, ok`, `, _`, `, found`) and
+let `loopVarName, hasVarName := …` through; re-run with a general two-value pattern. Two
+filter mistakes, same total, different membership — [[two-blind-checks-agree-with-each-other]]
+nearly happened to me here.
