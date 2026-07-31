@@ -425,22 +425,24 @@
    * is sealed; it never says what it is. One invariant, site-wide: today's is
    * readable in the Gauntlet, after entry, and nowhere else.
    *
-   * The seal is enforced in the FEED, not here — the fields this block used to read
-   * no longer exist and the generator refuses to emit them. Do not reintroduce a
-   * read of the day's question to fill this block; if the seal fields are missing it
-   * says so plainly instead. Which fields changed, and the render measurement that
-   * found this page leaking, are in the workstream NOTES rather than in page source
-   * (see this file's header for why).
+   * The day's question is STILL in the feed and must be — the engine fetches this
+   * file server-side and needs it to run a round. So the seal is not the absence of
+   * data; it is this block declining to read it. The copy below comes from a sibling
+   * key written for display only. Do not reintroduce a read of the day's question to
+   * fill this block. Which keys those are, and the render measurement that found
+   * this page leaking, are in the workstream NOTES rather than in page source (see
+   * this file's header for why).
    *
    * Verify by RENDERING, never by grepping: the text arrives after load. */
-  function renderToday(today, generatedAt) {
+  function renderToday(today, generatedAt, seal) {
     if (!today) return false;
+    seal = seal || {};
     if (el.prov) {
-      el.prov.innerHTML = today.seal_headline || "Today's question is sealed.";
+      el.prov.innerHTML = seal.headline || "Today's question is sealed.";
     }
     if (el.provBody) {
-      if (today.seal_body) {
-        el.provBody.textContent = today.seal_body;
+      if (seal.body) {
+        el.provBody.textContent = seal.body;
       } else {
         el.provBody.remove();
       }
@@ -450,9 +452,10 @@
       el.eyebrow.removeAttribute("hidden");
     }
     if (el.date) el.date.textContent = formatFeedDate(generatedAt);
-    if (el.cta && today.primary_cta) {
-      if (today.primary_cta.label) el.cta.textContent = today.primary_cta.label;
-      if (today.primary_cta.url) el.cta.setAttribute("href", today.primary_cta.url);
+    var route = seal.cta || today.primary_cta;
+    if (el.cta && route) {
+      if (route.label) el.cta.textContent = route.label;
+      if (route.url) el.cta.setAttribute("href", route.url);
     }
     return true;
   }
@@ -555,7 +558,7 @@
       if (el.subtitle && data.arena && data.arena.subtitle) {
         el.subtitle.textContent = data.arena.subtitle;
       }
-      renderToday(data.today, data.generated_at);
+      renderToday(data.today, data.generated_at, data.seal);
       renderCards(data.arena);
     })
     .catch(failHonestly);

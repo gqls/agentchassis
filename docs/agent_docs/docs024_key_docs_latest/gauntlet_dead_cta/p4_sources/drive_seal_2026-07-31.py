@@ -28,18 +28,39 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 
-# Today's real provocation, held HERE ONLY as the thing that must not appear. It is
-# deliberately absent from build_provocations.py; this file is not published.
-SEALED_TEXT = [
-    "personalised internet",
-    "dividing the room",
-    "quiet removal of whatever",
-    "have you seen",
-]
+def sealed_probes(feed):
+    """The strings that must NOT be painted, DERIVED from the feed itself.
+
+    Today's provocation IS in the feed and must be — the engine reads it server-side
+    (round.go FetchProvocation). The seal is that these display surfaces decline to
+    read it, so the assertion is about rendered output, never about feed contents.
+
+    Derived rather than hardcoded on purpose: a literal list would still pass on the
+    day the schedule rotates, because it would be looking for text the feed no longer
+    contains. A probe that can no longer match is not a passing check, it is an
+    absent one — the shape that put `check_palette_contrast` in LANDMINES.
+    """
+    t = feed["today"]
+    probes = []
+    headline = re.sub(r"<[^>]+>", "", t.get("headline") or "").strip().rstrip(".")
+    if headline:
+        probes.append(headline)
+    body = (t.get("body") or "").strip()
+    if body:
+        # Two windows: the opening clause, and a mid-body phrase, so a renderer that
+        # paints only part of the body is still caught.
+        probes.append(body[:45])
+        if len(body) > 160:
+            probes.append(body[80:140])
+    if not probes:
+        print("sealed_probes: today carries no text to check against — the feed is "
+              "malformed and this harness cannot make a claim")
+        sys.exit(2)
+    return probes
 
 
 def build_feed():
-    out = subprocess.run([sys.executable, str(HERE / "build_provocations.py")],
+    out = subprocess.run([sys.executable, str(HERE / "../../provocation_pipeline/builder/build_provocations.py")],
                          capture_output=True, text=True)
     if out.returncode != 0:
         print("build_provocations.py refused to emit:\n" + out.stderr)
@@ -106,10 +127,10 @@ def main():
     print()
 
     # 1. the seal holds
-    for probe in SEALED_TEXT:
+    for probe in sealed_probes(feed):
         checks += 1
         if probe.lower() in text.lower():
-            failures.append("LEAK: today's provocation text %r is painted" % probe)
+            failures.append("LEAK: today's provocation text %r is painted" % probe[:50])
 
     # 2. the sample is actually shown
     checks += 1
@@ -145,16 +166,33 @@ def main():
     if errors:
         failures.append("page errors: %s" % errors[:3])
 
-    print("--- Arena today block, from the same feed ---")
+    print("--- the feed's own shape ---")
     t = feed["today"]
-    print("  seal_headline    %s" % t.get("seal_headline"))
-    print("  seal_body        %s" % (t.get("seal_body") or "")[:80])
+    seal = feed.get("seal") or {}
+    print("  seal.headline    %s" % seal.get("headline"))
+    print("  seal.body        %s" % (seal.get("body") or "")[:80])
     print("  lobby card[0]    %s | %s" % (feed["arena"]["cards"][0]["title"],
                                           feed["arena"]["cards"][0]["desc"]))
+    print("  today (engine)   %s | headline+body present: %s"
+          % (t.get("slug"), bool(t.get("headline")) and bool(t.get("body"))))
     print()
+
+    # 6. The ENGINE's contract, asserted in the same run as the seal because the two
+    #    pull opposite ways and it is the disagreement that is dangerous.
+    #    round.go's FetchProvocation uses the whole `today` object as the round's
+    #    provocation. An earlier version of THIS check asserted the opposite — that
+    #    today must NOT carry headline/body — which is the design that would have
+    #    served every round a blank question.
+    for key in ("headline", "body"):
+        checks += 1
+        if not t.get(key):
+            failures.append("today.%s is missing — that breaks the round, it does "
+                            "not seal it" % key)
+
+    # 7. ...and the seal copy must exist, or the surfaces have nothing to say.
     checks += 1
-    if "headline" in t or "body" in t:
-        failures.append("feed today still carries headline/body")
+    if not (seal.get("headline") and seal.get("body")):
+        failures.append("feed carries no seal copy")
 
     if failures:
         print("FAILED %d of %d checks:" % (len(failures), checks))

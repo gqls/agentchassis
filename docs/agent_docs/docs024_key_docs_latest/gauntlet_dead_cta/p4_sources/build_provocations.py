@@ -1,5 +1,43 @@
 #!/usr/bin/env python3
-"""Author vonc.com/data/provocations.json for the P4 front-end rebuild.
+"""SUPERSEDED, AND THE SEAL DESIGN BELOW IS WRONG. DO NOT RUN. DO NOT PUBLISH.
+
+Two separate reasons, both found 2026-07-31 after this file had already been
+committed with the seal change. Left in place rather than deleted because
+forward-only, and because the mistake is worth more than the file.
+
+1. SUPERSEDED. The live feed is built by
+   `provocation_pipeline/builder/build_provocations.py` and published by that
+   lane's `publish_feed.sh` (their Phase 0 went live 16:07 on 2026-07-31, four
+   minutes before I committed this). This file last drove the live feed on
+   07-26. I edited it because `gauntlet_dead_cta/RUNBOOK` §8 documents this path
+   — accurate when written, superseded since, and I did not check.
+
+2. THE SEAL-BY-KEY-ABSENCE DESIGN IS UNSAFE AND WOULD HAVE BROKEN THE GAUNTLET.
+   The guard below refuses to emit `today.headline`/`today.body`, on the premise
+   that nothing needs them because the Gauntlet page does not fetch this feed.
+   The PAGE does not. **The ENGINE does, server-side:**
+   `internal/tools-api/handlers/round.go` `FetchProvocation()` fetches
+   `https://{domain}/data/provocations.json`, takes the whole `today` object, and
+   `RoundHandler` persists it as the round's provocation and returns it to the
+   browser. Remove those keys and every round serves an empty provocation — the
+   core feature, killed by a change meant to protect it.
+
+   What saved it was checking the publish target against what the site actually
+   serves BEFORE publishing: the repo file carried `today.date`/`today.slug` that
+   this generator cannot produce, which is what exposed the newer pipeline, whose
+   docstring names round.go. Verifying the target is the check; "I read the
+   runbook" is not.
+
+THE CORRECTED DESIGN lives in the provocation_pipeline builder: `today` keeps its
+engine-facing shape untouched, and the seal is carried by NEW sibling keys the
+engine never reads (`seal`, `sample`) plus a sealed `arena.cards[0]`. So the seal
+is a RENDERER-level invariant, enforced by a checker, not by key absence — and it
+should be described that way, because the provocation is necessarily readable at a
+public URL that the engine has to be able to fetch.
+
+Original docstring follows.
+
+Author vonc.com/data/provocations.json for the P4 front-end rebuild.
 
 Fabrication rail (gauntlet_dead_cta, 2026-07-26): no participation metric
 exists anywhere in this system, so none appears in this file. Every `stat`

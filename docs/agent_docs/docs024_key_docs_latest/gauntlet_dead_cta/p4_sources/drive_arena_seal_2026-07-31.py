@@ -2,7 +2,7 @@ import json, pathlib, subprocess, sys
 from playwright.sync_api import sync_playwright
 HERE = pathlib.Path(__file__).resolve().parent
 SEALED = ["personalised internet","dividing the room","quiet removal of whatever","have you seen"]
-feed = json.loads(subprocess.run([sys.executable, str(HERE/"build_provocations.py")],
+feed = json.loads(subprocess.run([sys.executable, str(HERE/"../../provocation_pipeline/builder/build_provocations.py")],
                                  capture_output=True, text=True, check=True).stdout)
 tpl = (HERE/"arena_template_2026-07-31_seal.html").read_text()
 # The stub MUST precede the template: the template's inline script fetches on parse,

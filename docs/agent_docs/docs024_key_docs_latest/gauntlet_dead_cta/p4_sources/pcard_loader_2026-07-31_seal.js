@@ -13,10 +13,16 @@
  * because it has already been argued. The visitor learns what a provocation reads
  * like, then goes to argue today's without knowing it. The CTA carries the seal.
  *
- * `today.headline` and `today.body` DO NOT EXIST in the feed any more, and the
- * generator refuses to emit them (build_provocations.py `guard`). This file never
- * reads them — do not "restore" them here to fill an empty slot; an empty slot
- * would mean the feed is malformed, and the fallback below handles that honestly.
+ * `today.headline` and `today.body` STILL EXIST in the feed and MUST — the engine
+ * (`internal/tools-api/handlers/round.go`) fetches this file server-side and uses
+ * the whole `today` object as the round's provocation. **This file must simply not
+ * READ them.** That is the seal: a renderer-level invariant, not key absence.
+ * (An earlier attempt removed the keys instead; that would have served every round
+ * an empty question. Do not "simplify" this back to reading `today`.)
+ *
+ * So the display copy lives in SIBLING keys the engine never looks at: `data.seal`
+ * and `data.sample`. The builder's `check_seal` refuses to emit a feed where
+ * anything outside `today` names today's provocation.
  *
  * Verify by RENDERING, never by grepping the HTML — the shell is served empty and
  * filled here, so a curl grep says "absent" on the page that shows it:
@@ -29,7 +35,10 @@
     var section = document.querySelector('[data-component="provocation-card"]');
     if (!section || !data) return;
 
+    /* `t` is read ONLY for the CTA and the stat strip. Its headline/body are the
+     * engine's copy of today's provocation and must never be painted here. */
     var t = data.today || {};
+    var seal = data.seal || {};
     var sample = data.sample;
 
     var eyebrow = section.querySelector(".pc-eyebrow");
@@ -52,17 +61,18 @@
       if (body && sample.body) body.textContent = sample.body;
     } else {
       if (eyebrow && t.eyebrow) eyebrow.textContent = t.eyebrow;
-      if (headline && t.seal_headline) headline.innerHTML = t.seal_headline;
-      if (body && t.seal_body) body.textContent = t.seal_body;
+      if (headline && seal.headline) headline.innerHTML = seal.headline;
+      if (body && seal.body) body.textContent = seal.body;
     }
 
     /* --- primary CTA: into today's SEALED round (anchor keeps its inline SVG) ---
      * This is the one place today's provocation is referred to, and it names the
      * seal rather than the question. */
     var primary = section.querySelector(".pc-btn-primary");
-    if (primary && t.primary_cta) {
-      if (t.primary_cta.url) primary.setAttribute("href", t.primary_cta.url);
-      if (t.primary_cta.label) setButtonLabel(primary, t.primary_cta.label);
+    var route = seal.cta || t.primary_cta;   /* seal wording preferred; same target */
+    if (primary && route) {
+      if (route.url) primary.setAttribute("href", route.url);
+      if (route.label) setButtonLabel(primary, route.label);
     }
 
     /* --- secondary CTA: read the sample's full case if we showed a sample, else

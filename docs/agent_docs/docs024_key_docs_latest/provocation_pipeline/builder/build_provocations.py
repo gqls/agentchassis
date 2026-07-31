@@ -294,18 +294,70 @@ def as_entry(e):
     return out
 
 
+def build_seal():
+    """Display-only copy stating that today's provocation is sealed.
+
+    A SIBLING of `today`, deliberately not inside it: round.go passes the whole
+    `today` object through as the round's provocation and persists it, so anything
+    added there would end up inside every stored round. The engine reads only
+    `today`, so it never sees this key.
+    """
+    return {
+        "headline": "Today's question is <em>sealed</em>.",
+        "body": (
+            "You read it when the clock starts, and not before. That is the whole "
+            "point: you commit to arguing before you know what you are arguing "
+            "about, which is the one thing a chat window will never ask of you."
+        ),
+        "cta": {"label": "Take On Today's Provocation", "url": "/tools/gauntlet/index.html"},
+    }
+
+
+def build_sample(archive):
+    """A PAST provocation, shown in full, as the worked sample (owner ruling
+    2026-07-31 on gauntlet HANDOFF C).
+
+    Safe by construction: `archive` never contains today's entry — the promotion
+    rule keeps an entry out of the archive until a later one takes over — so
+    whatever this returns has already been argued. DERIVED, not hardcoded, so it
+    follows the schedule with no edit here.
+
+    Returns None when no archived entry has a case written; the renderers then
+    fall back to the seal alone rather than showing an empty card.
+    """
+    for e in archive:
+        if e.get("detail_body"):
+            return {
+                "eyebrow": "A past provocation",
+                "date": short_date(e["_date"]),
+                "slug": e["slug"],
+                "headline": e["title"],
+                # Opening paragraph only — the full case is one click away and the
+                # home card has room for one idea.
+                "body": e["detail_body"].split("\n\n")[0],
+                "cta_label": "Read the full case",
+                "url": "/provocations/index.html?entry=" + e["slug"],
+            }
+    return None
+
+
 def build_arena(today, archive):
-    """Card 0 is DERIVED from today — never a hand-copied duplicate."""
+    """Card 0 is the SEALED card. It must not name today's provocation.
+
+    It used to be DERIVED from today's title and blurb, which is correct for
+    rotation and wrong for the seal: both the home lobby grid and the Arena lobby
+    render this card, so it was two of the three surfaces leaking the question the
+    Gauntlet is built to hide (gauntlet HANDOFF C, measured 2026-07-31).
+
+    `title` must stay non-empty and `url` must stay set: both renderers filter out
+    a card missing either, which would silently delete the only lobby route into
+    today's round.
+    """
     cards = [{
         "icon": ICONS["layers"],
         "tag": "Today",
-        "title": today["title"],
-        # `card_desc` exists because the arena blurb and the archive teaser are
-        # different slots with different lengths, and the live site has distinct
-        # copy for each. Deriving both from `teaser` would have silently
-        # reworded a live string — caught by diffing this builder's output
-        # against the served file rather than by reading it.
-        "desc": today.get("card_desc") or today["teaser"],
+        "title": "Sealed until you step in",
+        "desc": "Today's provocation is revealed when the clock starts, not before.",
         "stat": "On the clock in the Gauntlet",
         "url": "/tools/gauntlet/index.html",
     }]
@@ -331,17 +383,101 @@ def build_arena(today, archive):
     }
 
 
+def check_seal(feed, today_entry):
+    """Refuse to emit a feed that either breaks the seal or breaks the engine.
+
+    Both directions matter and they pull opposite ways, which is why this is one
+    function rather than two scattered asserts:
+
+    * `today.headline`/`today.body` MUST be present. round.go's FetchProvocation
+      takes the whole `today` object server-side and RoundHandler persists it as
+      the round's provocation — strip them and every round serves an empty
+      question. A previous attempt at this seal did exactly that, on the premise
+      that the Gauntlet page does not fetch this feed. The page does not; the
+      ENGINE does.
+    * Nothing OUTSIDE `today` may name today's provocation. The display surfaces
+      (home card, both lobby grids, Arena block) read those keys, and the seal is
+      that they show a past provocation instead.
+
+    So the seal here is a RENDERER-level invariant, enforced by a checker — not by
+    key absence, which is impossible while the engine needs a public feed. The live
+    check is the render sweep, because the shells are served empty and filled by
+    JS: gauntlet_dead_cta/scripts/provocation_leak_sweep.py
+    """
+    problems = []
+    t = feed["today"]
+
+    for key in ("headline", "body", "slug", "date"):
+        if not t.get(key):
+            problems.append(
+                "today.%s is missing or empty. round.go reads the whole `today` "
+                "object server-side as the round's provocation — this breaks the "
+                "Gauntlet, it does not seal it." % key
+            )
+
+    # Everything the display surfaces read, checked against today's actual text.
+    today_strings = {s for s in (t.get("headline"), t.get("body"),
+                                 today_entry.get("title"), today_entry.get("teaser"),
+                                 today_entry.get("card_desc")) if s}
+
+    def leaks(value):
+        if not value:
+            return False
+        return any(s.strip().rstrip(".") in value for s in today_strings)
+
+    card0 = feed["arena"]["cards"][0]
+    if card0.get("tag") != "Today":
+        problems.append("arena.cards[0] is no longer the Today card; this check is "
+                        "looking at the wrong card.")
+    if not card0.get("title") or not card0.get("url"):
+        problems.append("arena.cards[0] needs both a title and a url — either "
+                        "missing and both renderers drop the card, removing the "
+                        "only lobby route into today's round.")
+    if leaks(card0.get("title")) or leaks(card0.get("desc")):
+        problems.append("arena.cards[0] names today's provocation. It must state "
+                        "that today's is sealed, not what it is.")
+
+    sample = feed.get("sample")
+    if sample:
+        if sample["slug"] == t["slug"]:
+            problems.append("sample is TODAY's provocation, not a past one.")
+        if not any(e["slug"] == sample["slug"] for e in feed["archive"]["entries"]):
+            problems.append("sample.slug %r is not in the archive, so it cannot be "
+                            "shown as already argued." % sample["slug"])
+        if leaks(sample.get("headline")) or leaks(sample.get("body")):
+            problems.append("sample carries today's text.")
+
+    for e in feed["archive"]["entries"]:
+        if e["slug"] == t["slug"]:
+            problems.append("today's entry %r is ALSO in the archive — the archive "
+                            "page would publish today's case in full." % e["slug"])
+
+    if problems:
+        sys.stderr.write("build_provocations: REFUSING TO EMIT:\n")
+        for p in problems:
+            sys.stderr.write("  * %s\n" % p)
+        raise SystemExit(1)
+
+
 def build(on, generated_at):
     schedule = parse_schedule()
     today, archive = select(schedule, on)
     if today is None:
         raise SystemExit(f"no provocation is published on or before {on} — the schedule starts later")
-    return {
+    feed = {
         "generated_at": generated_at,
         "today": as_today(today),
+        # Display-only siblings of `today`. The engine reads `today` and ignores
+        # these; the display surfaces read these and must not read `today`.
+        "seal": build_seal(),
         "arena": build_arena(today, archive),
         "archive": {"entries": [as_entry(e) for e in archive]},
     }
+    sample = build_sample(archive)
+    if sample:
+        feed["sample"] = sample
+    check_seal(feed, today)
+    return feed
 
 
 def main():

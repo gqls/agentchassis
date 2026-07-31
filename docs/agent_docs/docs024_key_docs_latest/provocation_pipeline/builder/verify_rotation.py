@@ -78,10 +78,52 @@ def main():
             check(e.get("date") == expect,
                   f"{d}: archived {e['slug']} dated {e.get('date')!r}, should be {expect!r}")
 
-        # 3. The arena's first card is derived, so it can never contradict today.
-        check(feed["arena"]["cards"][0]["title"] == _title_of(schedule, today["slug"]),
-              f"{d}: arena card 0 does not match today",
-              feed["arena"]["cards"][0]["title"])
+        # 3. The arena's first card must NOT name today's provocation.
+        #    INVERTED 2026-07-31 (owner ruling on gauntlet HANDOFF C). This used to
+        #    assert card 0 MATCHED today, which was right for rotation and wrong for
+        #    the seal: both the home lobby grid and the Arena lobby render this card,
+        #    so a derived card was two of the three surfaces publishing the question
+        #    the Gauntlet is built to hide.
+        #
+        #    Still an invariant, just the other way up — and it has to check BOTH the
+        #    title and the blurb, because the leak was the blurb on one of the two
+        #    surfaces. It also still has to be a usable card: both renderers drop a
+        #    card with no title or no url, which would silently remove the only lobby
+        #    route into today's round.
+        card0 = feed["arena"]["cards"][0]
+        today_title = _title_of(schedule, today["slug"])
+        check(card0["title"] != today_title,
+              f"{d}: arena card 0 names today's provocation", card0["title"])
+        check(today["headline"] not in card0.get("desc", "")
+              and (today.get("body") or "")[:40] not in card0.get("desc", ""),
+              f"{d}: arena card 0's blurb carries today's text", card0.get("desc"))
+        check(bool(card0.get("title")) and bool(card0.get("url")),
+              f"{d}: arena card 0 is not a usable card", f"{card0.get('title')!r} -> {card0.get('url')!r}")
+
+        # 3b. The engine's contract. round.go's FetchProvocation takes the whole
+        #     `today` object server-side and RoundHandler persists it as the round's
+        #     provocation, so these keys are load-bearing for the GAME, not for the
+        #     display. Asserted here because the seal above creates a standing
+        #     temptation to "seal" today by emptying them, which would serve every
+        #     round a blank question. Sealing is a display concern; this is not.
+        for _k in ("headline", "body", "slug", "date"):
+            check(bool(today.get(_k)),
+                  f"{d}: today.{_k} is empty — that breaks the round, it does not seal it")
+
+        # 3c. The display surfaces must have something real to show instead.
+        #     A blank home card passes every "today's provocation is absent" test
+        #     while being a worse page than the leak was.
+        seal = feed.get("seal") or {}
+        check(bool(seal.get("headline")) and bool(seal.get("body")),
+              f"{d}: feed carries no seal copy, so the display surfaces have nothing "
+              f"to say in place of today's provocation")
+        sample = feed.get("sample")
+        if sample:
+            check(sample["slug"] != today["slug"],
+                  f"{d}: sample is today's provocation, not a past one", sample["slug"])
+            check(sample["slug"] in slugs,
+                  f"{d}: sample {sample['slug']!r} is not in the archive, so it has "
+                  f"not necessarily been argued yet")
 
         # 4. Archive is newest-first and contains exactly the entries published
         #    strictly before today's.

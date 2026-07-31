@@ -35,12 +35,26 @@ HTML-level check says the provocation is nowhere.
 > the one whose stated purpose is choosing what to argue — so the fix surface is
 > **two components plus a shared JSON**, not one home-page block.
 >
-> **(b) "Both fetch `provocations.json`" is WRONG about the gauntlet page, and the
-> error runs the safe way.** The gauntlet page does not request that file at all
-> (verified by request interception) and today's text is **not in its DOM** at all,
-> hidden or otherwise — only `gi-sealed` is. **The seal is a data-level seal, not a
-> paint-level one**, i.e. stronger than this handoff credits it. Weigh that against
-> option 2 below: retiring the seal discards something real, not a facade.
+> **(b) "Both fetch `provocations.json`" is WRONG about the gauntlet PAGE — but the
+> conclusion I first drew from that was also wrong.** The page does not request the
+> file and today's text is **not in its DOM** at all, hidden or otherwise — only
+> `gi-sealed` is. So the seal is not a CSS curtain over text that is already in the
+> browser, and it is genuinely worth keeping.
+>
+> > **CORRECTED an hour later, and this one nearly broke production.** I wrote that
+> > the seal is therefore "a **data-level** seal". It is not, and the difference
+> > matters. `internal/tools-api/handlers/round.go` `FetchProvocation()` fetches
+> > `https://{domain}/data/provocations.json` **server-side**, takes the whole
+> > `today` object, and `RoundHandler` persists it as the round's provocation. So:
+> > **today's provocation must remain in that public file, because the engine reads
+> > it from there** — and anyone who opens `/data/provocations.json` can read it.
+> > The seal is an **experiential seal for a normal visitor**, not a secret.
+> > I had gone as far as committing a generator change that removed
+> > `today.headline`/`today.body` "structurally". That would have served every round
+> > an empty provocation. It never shipped — it landed on a generator superseded
+> > hours earlier, and checking the publish target before publishing is what exposed
+> > both facts. **"The page doesn't fetch it" does not imply "nothing fetches it":
+> > grep the SERVER too.**
 >
 > **(c) Option 3 is NOT blocked on HANDOFF B.** `archive.entries` already holds
 > **8 entries, 7 with a full `detail_body`** (5 Jul back to 29 Jun). A home page
