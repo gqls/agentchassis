@@ -469,3 +469,40 @@ contribute-don't-fix rule exists to stop. So the choice is yours: leave it for t
 pick up, or decide it has waited long enough and route it. It is a live defect in a public
 endpoint rather than a tidy-up, which is the only reason I am raising it rather than
 letting it sit.
+
+---
+
+**2026-07-31, later that morning.** The regenerated gripper report is done and I have looked
+at it. Both things you spotted in the chart are fixed, and I checked them the only way that
+works here — by rendering the page and looking at the picture, side by side with the old one,
+same inputs on both.
+
+The number beside the longest bar used to read `6.42× (Insufficient` and just stop, as though
+the text itself were damaged. It now reads `6.42× (Insufficient data)` in full. The two little
+grey captions under the chart used to be printed on top of each other into something
+unreadable; they are now on two separate lines. And the third thing, which you did not ask for
+but which was the same underlying mistake: the two bars that run off the end of the scale used
+to be drawn exactly as long as each other and exactly as long as an honest three-times bar, so
+you could not tell a capped bar from a real one. They now end in a point, like an arrow,
+and the bar that isn't capped still ends square. So the chart now tells you when it has
+stopped measuring.
+
+Worth saying why this needed a human eye. Nothing automated could see either fault. A clipped
+label is still the correct text in the file — it is the drawing area that cuts it off — so
+every check we have passes while the reader sees a corrupted number in a report full of
+computed figures. The natural conclusion for a reader would have been that our scoring is
+broken. That is the expensive kind of bug and the cheap kind to miss.
+
+One small thing I noticed and have deliberately not touched: on five of the rows the number
+sits on top of one of the dashed vertical guide lines. It is slightly untidy rather than
+misleading, and it was exactly the same on the old page, so it is not something the fix broke.
+Say the word if you want a pass at it, otherwise I will leave it.
+
+The page is `robot-hands.com/reports/bf3765d6-befe-43a8-b1cd-ca5c210f39e9.html`. It took eight
+and a half minutes, against twenty-seven for the first one on Monday.
+
+Two things are now waiting on you and I am not going to move on either unasked. The first is
+the tidy-up: there are now three test pages live on that site plus the test rows behind them,
+and you asked to see them before anything was cleared away — that is now everything on the
+list. The second is unchanged from yesterday: which order you want the shared limiter work
+done in relative to the other thread's distribution work.

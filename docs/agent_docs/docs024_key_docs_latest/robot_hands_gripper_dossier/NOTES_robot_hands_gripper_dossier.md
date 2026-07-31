@@ -1571,3 +1571,48 @@ wrong reasons — the exclusion list was a guess at variable names (`, ok`, `, _
 let `loopVarName, hasVarName := …` through; re-run with a general two-value pattern. Two
 filter mistakes, same total, different membership — [[two-blind-checks-agree-with-each-other]]
 nearly happened to me here.
+
+---
+
+## 2026-07-31 (later) — FIXTURE 4 COMPLETE, and the chart fix is verified ON THE ARTEFACT by eye
+
+Work item `4ccc73d7-c467-480f-9a39-0b327b383870`: **`complete`, attempt 0/2, no error.**
+Queued 08:16:03Z, terminal 08:24:37Z — **8m34s**, against fixture 1's 27 minutes on 07-27.
+Page live: `https://robot-hands.com/reports/bf3765d6-befe-43a8-b1cd-ca5c210f39e9.html`,
+**HTTP 200, 43,546 B** (fixture 1: 43,049 B). No `verify_prose` violation this run, so
+`bugs_open/160` did **not** fire — consistent with it being writer-phrasing-triggered and
+intermittent, and **not** evidence that it is fixed. It is untouched.
+
+**The point of the run was that no automated check can see this defect, so I rendered both
+pages and looked.** Method: `curl` both to `~/gripper_check/`, extract the single `<svg>`, wrap
+at 2× in a plain white page, screenshot with snap chromium, read the images. Same inputs both
+sides — fixture 4 re-ran fixture 1's exact spec under a new `request_id`.
+
+| check | fixture 1 (pre-fix) | fixture 4 (post-fix) |
+|---|---|---|
+| label beside a capped bar | `6.42× (Insufficient` — **clipped mid-word** | `6.42× (Insufficient data)` — **whole** |
+| the two reference captions | both at `y=364`, centres 356.7 / 388.3 → overprinted into illegible `requiremarginal(thr…` | `y=364` and `y=376` — separate lines, both legible |
+| capped bars | plain `rect width=380.0`; 6.42× and 7.60× **identical to each other and to a true 3× bar** | `rect width=298.8` + `path d="M528.8 52.0 L536.8 61.0 L528.8 70.0 Z"` — a **point**; the uncapped 2.45× correctly stays flat |
+
+**Geometry, because it confirms the fix is the gutter and not a fallback.** viewBox `0 0 700 372`
+→ `0 0 700 384` (the extra 12px is the second caption line). Plot area 230→536.8, so 1.0× is
+102.2px and the pointed tip lands at 230 + 3×102.2 = 536.8 **exactly** — the triangle occupies
+the last 8px of the true 3× position rather than being drawn past it. That leaves 163.2px of
+label gutter; the longest label starts at x=542.8 (6px clear of the tip) and is 25 chars at
+font-size 11 ≈ 151px, so it fits inside 700 with ~6px to spare. Pre-fix the same label started
+at **x=616.0** and needed ~151px in the 84px remaining.
+
+**Explicitly checked the landmine from the fix session:** the label is **full text with no
+ellipsis and no truncation** (`6.42× (Insufficient data)`, 25 chars). So the truncation fallback
+is *not* what is making "nothing is clipped" true here — the computed gutter is. That was the
+exact failure mode that made a mutation test read green.
+
+**One residual, cosmetic and PRE-EXISTING — flagged, not filed.** Several value labels sit on
+top of the dashed reference lines (`0.82×`, `1.09×`, `0.70×`, `0.36×`, `0.15×` all have a dashed
+line running through the text). Present identically in fixture 1, so the fix neither caused nor
+addressed it, and it degrades legibility slightly rather than corrupting content. Owner's call
+whether it is worth a pass; **not** filed as a bug unasked.
+
+**Marker discipline that earned its place again:** the verification above is on the **rendered
+artefact**, not on the pod, the tag or the item status. The item said `complete` and `complete`
+is not fetchability (`bugs_open/098`) — the 200 and the pixels are the evidence.

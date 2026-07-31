@@ -1,6 +1,7 @@
 # RESUME HERE — gripper dossier pilot
 
-**Last updated 2026-07-27 19:20Z.** Read this first, then `NOTES_…md` (bottom
+**Last updated 2026-07-31 10:45Z** (body written 07-27; switch positions corrected 07-31
+08:15Z; fixture 4 result 07-31 10:45Z). Read this first, then `NOTES_…md` (bottom
 up) for the technical log and `README_where_we_are.md` for the owner's account.
 Design of record: `DESIGN_2026-07-24_gripper_dossier_pilot.md` — **but read its
 §2 CORRECTION before building anything public-facing.**
@@ -48,6 +49,20 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
   2026-07-31 08:15Z. It re-runs **fixture 1's exact inputs** under a new
   `request_id` so the chart fix is directly comparable — expected page
   `/reports/bf3765d6-befe-43a8-b1cd-ca5c210f39e9.html`.
+  - **UPDATED 2026-07-31 10:45Z — FIXTURE 4 IS `complete` AND THE FIX IS VERIFIED BY EYE.**
+    8m34s end to end (08:16:03 → 08:24:37Z), page **HTTP 200, 43,546 B**, no `verify_prose`
+    violation this run. All three defects gone against fixture 1 on identical inputs: the
+    capped-bar label reads `6.42× (Insufficient data)` **whole** (was clipped mid-word), the
+    two reference captions are on **separate lines** at `y=364`/`y=376` (were overprinted
+    into illegible mush at a shared `y=364`), and both capped bars **end in a point** while
+    the uncapped 2.45× stays flat (pre-fix, 6.42× and 7.60× were flat rects indistinguishable
+    from a true 3× bar). Evidence, geometry and method: NOTES, 07-31 "later" entry.
+    **The label is full text with no ellipsis** — so this is the computed gutter working, not
+    the truncation fallback masking it, which is the distinction that made a mutation test
+    read falsely green during the fix.
+  - **One residual, cosmetic and PRE-EXISTING: value labels overlap the dashed reference
+    lines** on five rows. Identical in fixture 1, so the fix neither caused nor addressed it.
+    Flagged to the owner; deliberately **not** filed as a bug.
 - **Cleanup is still owed** and now covers more: the `manual-test` rows, the two 07-27
   pages, fixture 3's `…edd863e8….json`, and fixture 4's page once the owner has seen
   it. Do not clean up unasked — the owner asked to see them.
