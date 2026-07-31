@@ -15336,3 +15336,21 @@ message containing an unescaped backtick.
   **The other half: a gating objection asking for a guard is not satisfied by anything that
   emits.** I reached for the nearest guard-shaped thing under review pressure. The test for a
   guard is whether anything *reads* it and whether it can *act* — not whether it fires.
+
+### 2026-07-31 — answered two council objections with work I had genuinely done, but did not put it in the edit list
+- **the claim:** round 2 of the `computed_values` submission said the round-1 NOTES
+  request was answered ("written, cited in edit 6") and that the registry search
+  behind the novelty claim had been run.
+- **why it was wrong:** both were true — NOTES §5 was written and committed before
+  resubmitting — but **neither appeared as an edit in the submitted plan**, so no
+  reviewer could check either. Two seats flagged it independently
+  (`editquality` low, `tooling_provenance` low) and a third made the same point
+  about the registry search (`prior_art_librarian` medium).
+- **what caught it:** the council, on the round that approved. Advisory, so it cost
+  nothing this time.
+- **the cheap check that would have:** **if you cite work as answering an
+  objection, put it IN THE EDIT LIST.** A true claim a reviewer cannot verify
+  reads exactly like a false one, and it spends the same credibility. This is the
+  evidence-objection pattern already recorded in council practice, arriving from
+  the other direction: previously I under-measured; here I measured and did not
+  attach.
