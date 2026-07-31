@@ -605,3 +605,19 @@ already named the right signal —
 `llm_call_log.error_message ILIKE '%stop_reason=max_tokens%'`. I had written it down and
 then built the instrument on a different, weaker one. **Reading your own notes is a
 check, and I did not run it.**
+
+**Landmine filed and sent for verification** (corr `f0c23b95-9c89-4ab4-9c02-47ab210ed0c2`,
+`LANDMINES.md#a-truncated-llm-call-has-outputtokens-null-…`). Verdict will land in
+`doc_notes` under `categories ? 'landmine-verification'`; it never edits LANDMINES.md.
+Sent deliberately: the entry makes specific numeric claims (94 vs 4, 51 truncations on
+one seat) and today is not the day to leave my own arithmetic unchecked.
+
+> **Dispatch-order trap, and it fails QUIETLY.** `landmines-verify-dispatch.sh` fires a
+> verifier for each entry that the sync reports as new or changed. I had already run
+> `landmines-sync.py --apply` directly, which **consumes** that state — so the wrapper
+> then printed *"Nothing needs verification (no new or changed entries this run)"*, which
+> reads exactly like success and means the verification was skipped. The wrapper's own
+> header does say to run it *instead of* the plain sync, so this is my miss rather than
+> its defect — but the message it prints when the window has closed is indistinguishable
+> from the message it prints when there is genuinely nothing to do. Recovery is
+> `scripts/trigger-landmine-verifier.sh '<source>'` directly, which is what I did.
