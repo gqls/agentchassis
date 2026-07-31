@@ -94,9 +94,17 @@ satisfies (1) and (2) while the repair loop never fires. Corrected in the bug fi
   while the repair prompt forbids dropping scope, so such a refusal burns its round and
   goes terminal — where the platform already lands. `FIX-057`'s open question.
 
-## Owed
+## Owed — DISCHARGED 2026-07-31
 
-**Landmine verification for four entries.** `landmines-sync.py --apply` (the command
+> **All four fired.** Correlations `8ee2006f` (kind CHECK constraint), `2149e988`
+> (NULL `orchestration_id`), `5ca5b474` (pod-grep control), `46491272`
+> (`output_contract`). The `snapshot_agent` stub was dispatched earlier via
+> `landmines-verify-dispatch.sh`. Verdicts land asynchronously in `doc_notes`
+> (`categories ? 'landmine-verification'`, `subject_key` = the source slug) — read
+> them there; a verdict that **refutes** an entry is a success and should be
+> recorded against the entry, not quietly dropped.
+
+**Original note, kept for the reason it happened.** Landmine verification for four entries. `landmines-sync.py --apply` (the command
 CLAUDE.md names) delivers to `doc_notes` but does **not** verify;
 `landmines-verify-dispatch.sh` is the wrapper that fires the verifier, and sync only
 reports entries new *in that run*, so the window has passed. Fire by hand:
