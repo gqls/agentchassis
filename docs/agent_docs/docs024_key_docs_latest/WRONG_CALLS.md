@@ -13712,3 +13712,169 @@ for history (after 2026-07-20's "verify against the current code silently means 
 every session's uncommitted work", which is also 016b §9). The recurrence says the
 check should not depend on remembering: **`git archive HEAD` is the default way to
 verify on this tree, not the escalation.**
+
+## 2026-07-31 — my dirty tree was the defect another lane diagnosed, and my own ownership checks could not have seen theirs
+
+**Thread:** bugfix 10 session, `bugs_open/143` (asset lock before the git commit).
+
+**Two mistakes, and they are the same mistake seen from both ends.**
+
+### (a) I ran three ownership checks and none of them can see a live session
+
+Before starting I ran `scripts/who-owns.py 143`, grepped `/bugs_open/` and
+`/bugs_closed/` for the mechanism, and queried `site_work_items` for open work on the
+target. All three came back clean, and I had a written handoff besides — the filing
+lane's own notes say "that is `bugs_open/143`'s job". So I wrote the fix.
+
+`go build` then failed with **`assetAgentWritableSQL redeclared in this block`**:
+`platform/orchestration/actions/asset_lock_helpers.go`, **untracked**, citing
+`bugs_open/143` in its header, with a richer version of the helper I had just written,
+and its call-site edits interleaved with mine in one file.
+
+**Every check I ran was correct and none of them could have caught it.**
+`who-owns.py` reads COMMITS (its own docs say so). The queue check reads WORK ITEMS.
+The bug file was untouched. **A session mid-fix with nothing committed is invisible to
+all three.** CLAUDE.md already says "It reads COMMITS, so a session mid-fix is
+invisible — check the tree too", and I read that line and did not act on it, because
+the three checks I *did* run felt like a thorough answer to the same question. They
+were a thorough answer to a *different* question.
+
+**The cheap check, one second, before writing any code:**
+`git status --porcelain <the package dir>` — and for a new file,
+`ls <dir>/*<topic>*` before choosing its name.
+
+### (b) The mirror: my own uncommitted work was diagnosed as a HEAD defect by a third lane
+
+While my `asset_lock_guard.go` was untracked and
+`derive_brand_head_assets_action.go` dirty, the **bugfix 11 lane** (`bugs_open/135`)
+hit `operator ! not defined on got[k] … struct type assetLock`, attributed it to commit
+`a22010eaa` from two days earlier, concluded the whole 130-file `actions` test package
+had been un-runnable at HEAD since 07-29, and **edited another lane's test to "fix" it**.
+Their own entry is immediately above this one. Nothing shipped, because they caught it.
+
+That near-miss was **my** exposure to create, not only theirs to catch. The window
+existed because I changed a function's return type in one file and patched its callers
+and tests over the following several minutes. During that window the tree was
+genuinely, visibly broken in a way that reads exactly like a stale commit.
+
+**What actually shortens the window** (and it is not "be careful"):
+- **Change a signature and its callers and its tests in ONE editing pass, then commit
+  immediately.** A type widening is the highest-risk possible thing to leave half-done
+  on a shared tree, because the compiler blames the innocent file.
+- **`git archive HEAD` into a temp dir and build there before believing anything about
+  HEAD** — in either direction. I did this only *after* committing (HEAD `c7380f57c`:
+  `go build ./platform/...` clean, `actions` suite green). Done at the start it also
+  tells you, for free, whether the breakage you are looking at is yours.
+
+### The third one, caught before it was written down anywhere durable
+
+I nearly recorded `deploy_image_asset` as a sibling instance of 143: it commits bytes to
+a site repo and its `UPDATE assets SET url = … WHERE id = $1` has no `locked_at` guard,
+which is the 143 shape exactly. **It is not the same defect.** It commits bytes the
+named row *already points at*, so deploying a locked asset is publication of the
+approved artefact rather than replacement of it, and guarding that `UPDATE` would leave
+a locked row pointing at an expiring presigned URL — a regression dressed as a fix.
+What caught it: asking what the guard would **do** to a locked row, instead of whether a
+guard was **present**. A false sibling inflates a bug's blast radius, and an inflated
+radius is what earns a scope veto.
+
+**Cost.** ~20 minutes and one duplicated helper file (deleted; the better half of the
+other session's design was folded into the survivor, credited in its header). Nothing
+wrong shipped from my side. The genuine cost was borne by the bugfix 11 lane.
+
+**Tally note.** This is the **third** entry in this file about shared-tree state being
+mistaken for history, and the first written from the *causing* side. The two lessons are
+not the same and both are needed: the reader's is "check the tree before you attribute";
+**the writer's is "a half-applied signature change is a trap you are setting for
+someone else, so land it in one pass".** The recurrence count says neither should
+depend on remembering.
+- **I burned a council round on a validation rule whose exact phrase list is written down
+  in the runbook I had been told to read.** 2026-07-31, bugfix_145 lane. My submission
+  (`bce4caab`) died at `persist_submission` in **five seconds**, before any seat fired:
+  `plan failed validation: edit 4: sketch declares no code change`. Edit 4 was a comment
+  correction, and I had written the words *"No code change in this file."* inside its
+  `sketch`. `noOpEditReason`
+  (`platform/orchestration/actions/diagnose_persist_fix_plan_action.go:547-563`) is a
+  literal `strings.Contains` over the lower-cased sketch against nine phrases, and it does
+  not care whether the rest of the sketch is real. **All of this — the mechanism, the
+  file, the full nine-phrase list, and the advice to put folded documentation in the
+  `rationale` instead because the rationale is not scanned — is already in
+  `fixloop_eg_dartsonline/RUNBOOK_council_gate.md`, at line 241 and again as a titled
+  LANDMINE section at 332-356**, contributed 2026-07-26 by a lane that hit the same wall
+  on a round-3 resubmission. CLAUDE.md points at that runbook by name in the sentence that
+  tells you how to submit. I read the **097 script header** for the schema and stopped
+  there, because the header looked like the schema's home — and the runbook itself says,
+  in the same bullet, *"the plan schema is stricter than the 097 header suggests"*.
+  **The cheap check:** before firing 097, grep your own submission against the blocklist —
+  one line, and I have since put it in this lane's RUNBOOK:
+  `python3 -c "import json,sys; s=json.load(open(sys.argv[1]))['plan']; [print('BANNED',b) for e in s['edits'] for b in ('no code change','no change required','no change is required','no change needed','no change is needed','clarifying note','clarifying comment','add a comment','comment-only') if b in e['sketch'].lower()]" sub.json`
+  **Generalisable, and the reason it is worth a row even though it cost no credits:** the
+  failure was *cheap* (validation refuses before any seat runs, so nothing was paid for)
+  but it was also **silent in the place I was looking** — an invalid run writes **no
+  `diagnosis_artifacts` rows at all**, so polling for the verdict by correlation waits for
+  ever, and `orchestration_states.status` reads a reassuring `COMPLETED`. The reason is
+  only in `collected_data->'__step_error'`. Same family as the `099` landmine already in
+  MEMORY ("a FAILED step shows COMPLETED with `error` NULL — read `__step_error`"): I knew
+  that one, applied it, and got the answer in seconds — the wasted step was upstream, in
+  not reading the runbook's own validation section first. **Two docs described this
+  before I hit it; I read neither. Reading the script that fires a mechanism is not
+  reading the mechanism.** Recovered by resubmitting with `RESUBMIT_CORR` so the trail
+  accumulates under one id — which also meant the `Council-Submitted:` trailer already in
+  commit `691c1817a` stayed correct, since the trail correlation is preserved across a
+  resubmission and only the run envelope changes.
+
+---
+
+## 2026-07-31 — `bugfix_072` identity-source-resolver lane, three wrong calls in one session
+
+**1. "The nested path is the fix" — the filed diagnosis, believed for ten minutes.**
+`bugs_open/072` proved a perfect discriminator (contact-info rendered on exactly
+the sites carrying a flat `identity.email`, no exceptions either direction) and
+proposed repointing the schema at the nested `identity.contact.email`. I confirmed
+the resolver supports the deeper path, and was ready to build it. **Both of the
+bug's remedies fix 0 of the 8 broken sites:** the nested sub-object exists on 14 of
+15 sites and its *values* are empty on exactly the 8 that fail.
+**What caught it:** putting all three candidate stores side by side in one query,
+per site, instead of checking the two the bug file named.
+**The cheap check that would have:** resolve the *proposed* path on the *failing*
+rows before adopting a remedy. One query. `jsonb ? 'contact'` and "the writer
+writes this shape" are both **shape** checks; neither sees whether the shape holds
+a value. Filed as a §9 pattern (`shape-check-is-not-value-check`).
+
+**2. "12 of 29 sites have an email" — a denominator I did not look at.**
+`sites` holds **14 `pool-*.internal` rows** — industry pools with no content —
+alongside the 15 real sites. My first population count included them, which makes
+the defect look three times worse than it is.
+**What caught it:** reading the domain column of my own result set rather than the
+count at the bottom.
+**The cheap check:** `WHERE domain NOT LIKE 'pool-%'` on any `sites` census, and
+print the rows the first time so the population is visible. Same family as the
+existing "a count you KEPT is not a census" row — this one is the other end: a
+count you did not *filter* is not a census either. Caught before it reached any
+document, which is the only reason it is a cheap row.
+
+**3. "This is a new bug, I'll file it" — 74 dead source paths that were already
+diagnosed.** My fleet census found that 74 of 100 distinct `site_specs.*` source
+paths across active components name an aspect existing on **no** site (`nav`,
+`navigation`, `blog`, `legal`, `pricing`, …). I had the next bug number reserved
+and the file half-planned.
+**What caught it:** `grep -rn "site_specs.nav" bugs_open/ bugs_closed/` — the
+literal check CLAUDE.md prescribes, run because it is prescribed and not because I
+suspected anything. `bugs_closed/018` diagnosed the mechanism in July —
+*"these `source:` declarations are **decorative** — nothing resolves them"* — and
+established something my census could not have told me: chrome components run a
+**separate, thinner path where the fallback machinery never runs at all**, unlike
+page sections which do apply static fallbacks.
+**Generalisable:** a *scale* measurement of a known mechanism is a contribution,
+not a discovery. My census would have arrived as a new bug asserting a novel
+fleet-wide finding, and it would have re-derived — less well — something already
+written down, while burning a bug number and a reviewer's attention. **The grep
+cost four seconds and the file it found was closed twelve days ago.** Second time
+this rule has converted a duplicate into a contribution (see 2026-07-19).
+
+**Also worth recording, though not a wrong call:** I nearly built the bug file's
+candidate 3 ("make the silent drop loud"). It is **already done** —
+`plan_sections` always emits `sections_deferred`/`sections_skipped` and
+`persistSectionSkips` writes them durably. A bug file's fix-candidate list is a
+snapshot of what was missing on the filing date; **verify each candidate is still
+missing before building it**, the same way you verify the bug is still valid.
