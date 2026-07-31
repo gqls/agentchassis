@@ -499,14 +499,52 @@ func navLabelForPage(page pageNavInfo) string {
 	// Prefer explicit nav_label from the page — the planner set this
 	// intentionally short for nav display.
 	if page.NavLabel != "" {
+		label := navLabelDropCategoryPrefix(page.NavLabel)
 		// Trust nav_label if it's a reasonable nav length.
 		// Only simplify if the planner set something unreasonably long.
-		if len(page.NavLabel) <= 30 {
-			return page.NavLabel
+		if len(label) <= 30 {
+			return label
 		}
-		return navSimplifyLabel(page.NavLabel, page.URL)
+		return navSimplifyLabel(label, page.URL)
 	}
 	return navSimplifyLabel(page.Title, page.URL)
+}
+
+// navLabelDropCategoryPrefix takes the page's own name out of a planner-authored
+// nav_label shaped `Category / Page Name`, e.g.
+//
+//	"Tools / AI Readiness Quiz" → "AI Readiness Quiz"
+//	"About"                     → "About"          (unchanged)
+//
+// WHY THIS EXISTS, added 2026-07-31 while proving the bugs_open/149 A6 label fix
+// on a second site. navSimplifyLabel's own rule is that **a label containing a
+// slash is never right**, and A6 made that true of every label the derivation
+// COMPUTES. It was never true of the ones the planner AUTHORS: navLabelForPage
+// returns an authored nav_label verbatim when it is ≤30 chars, slash and all.
+// Measured that day: 8 live pages carry a `Tools / …` nav_label, 2 of them short
+// enough to be trusted verbatim, and one had already reached a live nav row —
+// ai-agent-orchestration.com was serving a footer item labelled
+// **"Tools / AI Readiness Quiz"**. So the invariant held on the path that was
+// reviewed and not on the path beside it.
+//
+// The category prefix is redundant in nav regardless of the slash: the item is
+// already inside a nav GROUP, so the label only has to name the page. Taking the
+// last segment (rather than simplifying from the URL) keeps the planner's own
+// capitalisation — deriving "ai-readiness-quiz" from the URL gives
+// "Ai Readiness Quiz", which is worse than what the planner wrote.
+//
+// Order matters: this runs BEFORE the length test, so a long authored label
+// still falls through to navSimplifyLabel and cannot smuggle a 39-character
+// footer item past the guard by shedding its prefix.
+func navLabelDropCategoryPrefix(label string) string {
+	idx := strings.LastIndex(label, "/")
+	if idx < 0 {
+		return label
+	}
+	if tail := strings.TrimSpace(label[idx+1:]); tail != "" {
+		return tail
+	}
+	return label
 }
 
 // buildNavStructureFromClassified creates a NavigationStructure from primary pages.

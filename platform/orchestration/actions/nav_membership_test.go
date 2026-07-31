@@ -261,3 +261,88 @@ func TestNavLabelFlatPagesUnchanged(t *testing.T) {
 		})
 	}
 }
+
+// TestAuthoredNavLabelNeverKeepsItsCategoryPrefix closes the half of the
+// no-slash invariant that the original A6 fix did not reach.
+//
+// navSimplifyLabel guarantees a slash-free label for every label the derivation
+// COMPUTES. navLabelForPage returns a planner-AUTHORED nav_label verbatim when
+// it is ≤30 chars, so the guarantee stopped at the function boundary. Found
+// 2026-07-31 while proving the fix on a second site, by measuring the authored
+// column rather than the derived one:
+//
+//	8 live pages carry a `Tools / …` nav_label; 2 are short enough to be
+//	returned verbatim; ai-agent-orchestration.com was already SERVING a nav
+//	row labelled "Tools / AI Readiness Quiz".
+//
+// Every `nav_label` case below is a real fleet row.
+func TestAuthoredNavLabelNeverKeepsItsCategoryPrefix(t *testing.T) {
+	cases := []struct {
+		name     string
+		navLabel string
+		url      string
+		title    string
+		want     string
+	}{
+		// Short enough to be trusted verbatim — these are the ones that leaked.
+		// The live row this test exists for:
+		{"ai-readiness-quiz", "Tools / AI Readiness Quiz", "/tools/ai-readiness-quiz.html", "AI Readiness Quiz | Tools", "AI Readiness Quiz"},
+		{"ai-agent-roi-estimator", "Tools / AI Agent ROI Estimator", "/tools/ai-agent-roi-estimator.html", "AI Agent ROI Estimator | Tools", "AI Agent ROI Estimator"},
+		// Dropping the prefix takes these under the 30-char trust threshold, so
+		// the planner's own capitalisation survives where the URL fallback would
+		// have flattened it ("Password Entropy", "Review Council Simulator").
+		{"password-entropy", "Tools / Password Strength Physics", "/tools/password-entropy.html", "Password Strength Physics", "Password Strength Physics"},
+		{"review-council-simulator", "Tools / AI Review Council Simulator", "/tools/tool-review-council-simulator.html", "AI Review Council Simulator", "AI Review Council Simulator"},
+		// Still oversized after the prefix goes, so it must FALL THROUGH to
+		// navSimplifyLabel rather than shedding its prefix to sneak a
+		// 39-character item into a footer column. This is the ordering assertion.
+		{"agent-complexity-estimator", "Tools / Agent Architecture Complexity Estimator", "/tools/agent-complexity-estimator.html", "Agent Architecture Complexity Estimator", "Agent Complexity Estimator"},
+		// Controls: no slash, nothing changes. An authored label is still
+		// preferred over the title, and a slash-free long label still simplifies.
+		{"about", "About", "/about.html", "About Our Practice", "About"},
+		{"who-we-serve", "Who We Serve", "/who-we-serve.html", "Who We Serve | Gas Wholesalers", "Who We Serve"},
+		{"services", "Services And Everything They Cover", "/services.html", "Services", "Services"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := navLabelForPage(pageNavInfo{
+				Name:     tc.name,
+				Title:    tc.title,
+				URL:      tc.url,
+				NavLabel: tc.navLabel,
+			})
+			if strings.Contains(got, "/") {
+				t.Fatalf("navLabelForPage(nav_label=%q) = %q — a nav label must never contain a path separator, on the AUTHORED path as well as the derived one; ai-agent-orchestration.com served exactly this",
+					tc.navLabel, got)
+			}
+			if got != tc.want {
+				t.Fatalf("navLabelForPage(nav_label=%q, url=%q) = %q, want %q",
+					tc.navLabel, tc.url, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestNavLabelTitleFallbackUnaffected is the control for the change above: a
+// page with NO authored nav_label must be untouched by it. This is the path
+// gaswholesalers.com's four tool pages take, and the one the second-site proof
+// measured — nav_label NULL, title 26–46 chars, label derived from the URL.
+func TestNavLabelTitleFallbackUnaffected(t *testing.T) {
+	cases := []struct{ url, title, want string }{
+		{"/tools/tool-fuel-cost-estimator.html", "Fuel Cost Estimator | Tools", "Fuel Cost Estimator"},
+		{"/tools/tool-gas-unit-converter.html", "Gas Unit Converter | Tools", "Gas Unit Converter"},
+		{"/tools/tool-breakeven-volume-calculator.html", "Wholesale Break-Even Volume Calculator | Tools", "Breakeven Volume Calculator"},
+		{"/tools/tool-fuel-budget-forecaster.html", "Fuel Budget Forecaster | Tools", "Fuel Budget Forecaster"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.url, func(t *testing.T) {
+			got := navLabelForPage(pageNavInfo{Title: tc.title, URL: tc.url})
+			if got != tc.want {
+				t.Fatalf("navLabelForPage(title=%q, url=%q) = %q, want %q — the authored-label change must not touch the title fallback",
+					tc.title, tc.url, got, tc.want)
+			}
+		})
+	}
+}
