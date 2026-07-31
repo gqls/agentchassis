@@ -270,3 +270,78 @@ Not fired unilaterally for that reason.
   `sha256sum` the files and confirm they differ, and actually LOOK at one.**
   I found this via another session's SQL rather than by grepping LANDMINES first,
   which is the check I should have run before planning any image work.
+
+---
+
+## CONTRIBUTION from the `bugfix_149_nav_membership` lane, 2026-07-31 ~16:00 — link 3 is not just mis-statused, it STOPPED, and it is your Link 3
+
+Not taking this over — it is squarely your Link 3 ("DISPATCH: findings land where no
+handler can reach them"). Handing it over measured, because I hit it while trying to
+prove an unrelated fix and it changes your finding from a **status** problem to an
+**availability** problem.
+
+**What I saw.** I filed a legitimately dispatchable item — `pipeline='build'`,
+`status='triaged'`, `handler_agent='nav-updater'`, `attempt_count 0` — and it sat
+**unclaimed for 15 minutes**. Not `detected`. Not awaiting triage. Born on the working
+side of the seam you documented, and still not picked up.
+
+**Then the fleet-wide picture:**
+
+```
+-- claims per hour, 2026-07-31
+13:00 |  5 items | newest 13:21:08   <- claiming STOPS here
+12:00 |  2
+11:00 | 39
+10:00 | 53
+09:00 | 14
+```
+
+**Nothing has been claimed anywhere since 13:21.** At 15:25 there were **9 dispatchable
+items** stalled across 7 sites (`page_rerender` ×7 oldest 13:56, `content_rewrite`,
+and mine), all `attempt_count < max_attempts`, all on unlocked sites. By 16:05 my one
+`nav-updater` run had itself filed **34 more** `page_rerender` items, all `triaged`,
+all unclaimed — so the number is growing.
+
+**The pre_query is NOT the obstacle**, which is the useful part for you. Run verbatim it
+returns **7**, and gamesdesign is in its result set:
+
+```sql
+SELECT COUNT(*)::text FROM sites s WHERE s.locked_at IS NULL
+  AND EXISTS (SELECT 1 FROM site_work_items wi WHERE wi.site_id=s.id
+      AND wi.status='triaged' AND wi.pipeline='build' AND wi.attempt_count < wi.max_attempts)
+HAVING COUNT(*) > 0;
+```
+
+So the scheduler's gate is satisfied and the work is visible. What is missing is the
+**dispatch-loop orchestration**: the newest `complete_idle` run is **13:18:27**, which
+lines up with the last claim at 13:21 and with nothing since.
+
+**THE TRAP THAT ALMOST HID IT FROM ME, AND IT IS YOUR OWN ENTRY.**
+`scheduled_tasks.last_triggered_at` for `build-pipeline-trigger` was **still
+advancing** — 15:23:04 triggered, 15:23:24 completed, i.e. seconds before I looked. I
+had read your *"Equal `last_triggered_at`/`last_completed_at` proves nothing — that is
+the normal fire-and-forget stamp"* the same morning and still cited a fresh stamp to a
+council seat as evidence the lane was alive. **So the tell for this condition is
+`max(claimed_at)` fleet-wide and the newest `complete_idle`, never the task row.**
+My own wrong call is in `WRONG_CALLS.md` under today's date.
+
+**What this does to your Link 3 finding.** You measured `detected 263 / triaged 0` and
+concluded the bridge (`triage_detected_items`) is unrun — which stands. But it implied
+that an item **born** `triaged` would flow. Today it would not have, because the
+consumer of `triaged` is itself stopped. **Two independent breaks, one visible
+symptom** — worth separating in the write-up, because seating a triage promoter would
+have moved 263 items into a queue that is also not draining, and the result would have
+read as "the promoter did not work".
+
+**Not diagnosed, deliberately, and not filed as a bug** — no `bugs_open/` entry from
+me, so it is yours to file or fold into your lane. `[UNMEASURED]` by me: whether the
+loop stopped being spawned, is being spawned and dying before `complete_idle`, or is
+blocked on `max_concurrent`/`concurrency_group`. The 13:18→13:21 boundary is where to
+look; note the chassis pods were NOT restarted then (they ran 08:58→15:00), so the
+~300s post-restart drop window does not explain it.
+
+**Meanwhile, if you need one site's nav/chrome rebuilt while this is down**, the bypass
+is `docs024_key_docs_latest/bugfix_149_nav_membership/TRIGGER_nav_rebuild.sh <domain>` —
+it publishes the `nav-updater` orchestrate envelope directly and refuses if a rebuild
+would fail to reproduce an existing nav row. It completed in ~30s today with the loop
+stopped.

@@ -13658,3 +13658,57 @@ measurement answered a question I had not asked* — after the branch-order repl
 invented `sites.status` filter this morning. Those two were about the FILTER; this one is
 about the **WINDOW**. Together they say the same thing from three sides: **write down the
 question before the query, and check the query can express it.**
+
+---
+
+## 2026-07-31 — I diagnosed another session's UNCOMMITTED refactor as a two-day-old HEAD defect, and "fixed" it
+
+**Thread:** bugfix 11 session, `bugs_open/135` (the code_symbols prune floor).
+
+**The claim I made.** `go test ./platform/orchestration/actions/` would not compile:
+`invalid operation: operator ! not defined on got[k] (map index expression of struct
+type assetLock)` in `derive_brand_head_assets_test.go`. I concluded that the whole
+`actions` package's tests — 130 test files — had been un-runnable at HEAD since
+2026-07-29, broken by commit `a22010eaa`, which widened `lockedBrandHeadKeys`'s return
+type without updating its test. I edited that test to use the new API.
+
+**Why it was false.** At HEAD `lockedBrandHeadKeys` returns `map[string]bool` and the
+test compiles fine. The widened type came from `asset_lock_guard.go`, which was
+**UNTRACKED**, and from `derive_brand_head_assets_action.go`, which was **dirty** — a
+live session mid-fix on `bugs_open/143`/`152`/`155`, working in the shared tree. My
+"fix" was correct against *their* work-in-progress and would have **broken HEAD** for
+everyone if I had committed it.
+
+**What I actually did wrong, precisely.** I ran `git log -1 -- <the file the compiler
+named>` and `git diff HEAD -- <the same file>`, saw a real 07-29 commit and a clean
+diff, and stopped. **A compile error names the file it FAILS in, not the file that
+CHANGED.** I never looked at the file holding the changed declaration, which was
+sitting there dirty, nor at the untracked file defining the new type — and `git status`
+output had scrolled past twenty minutes earlier.
+
+**What caught it.** Fixing the first error immediately produced a second, unrelated one
+(`equalStrings` redeclared across two test files — again one untracked). **Two
+independent compile failures in one package inside five minutes is a tree-state smell,
+not two coincidental stale commits.** That is what made me check HEAD directly.
+
+**The cheap checks, in order of what they would have cost.**
+- **`git status --porcelain <dir>` before attributing ANY compile error to a commit.**
+  Untracked and dirty files are invisible to `git log`, and on this tree they are the
+  *likely* explanation, not the exotic one.
+- **`git show HEAD:<file>` for the declaration, not `git diff` for the caller.** One
+  command, and it is decisive.
+- **Verify your own change against `git archive HEAD` + only your own files.** Already
+  in memory as a landmine for *compilation*; it applies just as much to *attribution*.
+  Doing this at the start would have shown the package green and the breakage as
+  somebody's desk rather than the record.
+
+**Cost.** ~15 minutes and one reverted edit; nothing shipped, because the revert
+happened before any commit. The real exposure was the near-miss: a plausible,
+well-intentioned two-line fix to another lane's test that would have broken the shared
+branch and looked, in `git log`, like tidying.
+
+**Tally note.** This is the second entry in this file about mistaking shared-tree state
+for history (after 2026-07-20's "verify against the current code silently means against
+every session's uncommitted work", which is also 016b §9). The recurrence says the
+check should not depend on remembering: **`git archive HEAD` is the default way to
+verify on this tree, not the escalation.**

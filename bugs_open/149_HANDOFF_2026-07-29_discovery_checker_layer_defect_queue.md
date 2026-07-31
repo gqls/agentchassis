@@ -1,5 +1,65 @@
 # 149 — the discovery checker layer: defect queue
 
+> **STATUS 2026-07-31 (later) — A2 ✅ LIVE AND PROVEN, A6 ✅, A4's recordable half ✅,
+> C2 ✅ (answered, not a defect). 7 of 12 items resolved; the file STAYS OPEN.**
+> Workstream: `docs024_key_docs_latest/bugfix_149_nav_membership/` (standing five).
+>
+> **PROVEN, not just shipped.** Pod-verified on both replicas of **`v1.0.1215`** (3
+> added strings present, the removed string at **0**, plus a positive and a negative
+> control). Then behaviourally, on the site the evidence came from: gamesdesign.co.uk
+> went from `primary` 5 / `tools` 1 / `utility` 1 to `primary` **5** (unchanged — the
+> control) / `utility` **7**, `tools` group **gone** (self-healed, no migration), with
+> **all six flagged `/tools/` pages placed — including the exact four the 07-29
+> `nav_drift` item completed without placing.** The stored footer carries 7 tool hrefs
+> and the stored header carries **0**, which is the invariant holding.
+>
+> **⚠ NOT visible to visitors yet, and the reason is not this fix.** Propagation to
+> deployed pages needs the build dispatch loop, which **stopped fleet-wide at 13:21 on
+> 2026-07-31** (34 `page_rerender` items for this site alone sitting `triaged`). Handed
+> to the `robot_hands_checker_gaps` lane, measured, with the tell — their own Link 3.
+> Bypass for one site meanwhile: `TRIGGER_nav_rebuild.sh` in the workstream dir.
+>
+> **⚠ THIS FIX BROKE A FUNCTION IT DOES NOT TOUCH, found by post-roll verification.**
+> Routing child pages into nav for the first time fed full URL paths into
+> `navSimplifyLabel`, which had only ever seen flat page names — six live footer labels
+> read `Tools/Damage Formula Designer/Index`. Fixed in `c053bb31f`
+> (`navLabelSegmentFromURL`), and the six labels authored into `pages.nav_label` so the
+> live site is correct **without** waiting for a roll. **`v1.0.1216` is built and
+> pushed but NOT yet rolled** — until it does, one of the 26 new links per site will be
+> mislabelled on any site whose pages have no authored `nav_label`.
+> *The transferable lesson: a change that widens what REACHES a function can break that
+> function without editing it, and a blast-radius query counting ROWS cannot see it.*
+>
+> Commits `1884f1ee8` (fix) · `8c41e3eaf` (objections answered) · `c053bb31f` (label
+> regression). Council `4486f1a9-6d96-4767-9ddd-6ff5e92ba45c` **APPROVED** — 12
+> reviewers, 5 abstained, **0 unreadable**, not truncated, 2 medium objections and no
+> high. Both mediums answered: the `guardian`'s `recurrenceExpected` doubt is a code
+> fact now pinned by a test, and the `bug_historian`'s dispatch-dependency objection
+> turned out **more right than my rebuttal** (I answered it with a 7-day aggregate while
+> the lane was two hours dead — `WRONG_CALLS.md`, and corrected in all three places I
+> had written it). Diagnosis loop
+> `1d8085f0-b596-4cce-9417-f48227ac67d3` — **CONFIRMED, first iteration**, all three
+> observations explained, independently citing the same code line and the same work
+> item row (run because the owner ruling of 2026-07-31 makes it a norm for a
+> structural claim; the escape hatch was available and not used).
+>
+> **The single rule the fix installs, because five of these items were the same
+> defect wearing different clothes:** *`pages.in_header`/`in_footer` DECLARES nav
+> membership. A page's URL shape may decide WHERE it appears. It may never decide
+> WHETHER it appears.* Pinned in `nav_membership_test.go`, which was **watched
+> failing** on the pre-fix code (4 of 5 subtests) rather than merely passing on the
+> new.
+>
+> **A6's remedy was WRONG and is corrected in place below** — writing the nav row at
+> creation time would have left the page as unreachable AND silenced
+> `check_orphan_pages`. Read A6's banner before using it.
+>
+> **Still open: A1, A3, A4 (schema half), A5 (non-child half), B1, B2, B3.** B1/B2/B3
+> are owned live by the `robot_hands_checker_gaps` lane as of 2026-07-31; A4's schema
+> half and A5's remainder want their own council round; A3 is a new route.
+>
+> ---
+>
 > **STATUS 2026-07-30 — 3 of 12 items done and LIVE; the file STAYS OPEN.**
 > **C1 ⚠ (structural half only) · B4 ✅ · C3 ✅ (corrected — it was not a defect)** —
 > **C1 is NOT closed.** The floor now sits on all six persisting agents, but it would
@@ -267,10 +327,35 @@ WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NU
 
 ### C2. `report-builder` explicitly disables claims checking
 
-It is the **only** agent that sets `check_claims: false` on `validate_page_content`.
-Either there is a reason that belongs on the record, or it is a leftover. Find out
-which before switching it on — a report that legitimately restates figures from a
-cited upstream may need different handling, not the same gate.
+> **✅ ANSWERED 2026-07-31 — it is a REASON, it was already on the record, and there is
+> a compensating control. Not a leftover, not an unguarded gap. No code change.**
+>
+> The item's own guess ("a report that legitimately restates figures from a cited
+> upstream may need different handling, not the same gate") was right. The decision is
+> written down, dated 2026-07-24, in
+> `robot_hands_gripper_dossier/DESIGN_2026-07-24_gripper_dossier_pilot.md`:
+>
+> > *"`validate_page_content` check 8 fails ANY number not in `evidence_base` ⇒ run it
+> > with `check_claims:false` and add a purpose-built deterministic
+> > `verify_report_prose` bound to the per-request fact block."*
+>
+> Every figure in a report is per-request, not in the site register, so the generic
+> gate would fail every report — and the replacement is **not a doc comment, it is a
+> step**. Verified live rather than taken on trust:
+>
+> ```
+>  report-builder | validate_page | validate_page_content   (check_claims: false)
+>  report-builder | verify_prose  | verify_report_prose
+> ```
+>
+> So the honest reading of C1+C3's "neither a write-time gate nor a working detector"
+> is that it never covered this agent: it has a different write-time gate.
+>
+> **Do NOT switch `check_claims` back on** — that is the trap this item was right to
+> flag from the other side. The live defect is in the replacement gate, not in its
+> absence: `bugs_open/160` (filed 2026-07-31) has `verify_report_prose` reading a
+> recombined rating as an invented model, and failing closed destroys the report.
+> Route work there.
 
 ### C3. The claims DETECTOR lives in the least-run discovery agent
 
@@ -380,6 +465,45 @@ artefact, not a missing row.
 
 ### A2. `nav_drift` for a `/tools/` URL is structurally unfixable by its own handler
 
+> **✅ FIXED 2026-07-31 — commit `1884f1ee8`, chassis `v1.0.1215`. Diagnosis loop
+> CONFIRMED the mechanism (`1d8085f0`), first iteration.**
+>
+> **This item was RIGHT, and its framing understated what was available.** It says the
+> handler "cannot act". The handler can do everything required: `nav-updater`'s live
+> workflow is `populate_nav_tables → render_site_components → create_rerender_items →
+> get_pages_for_rerender` — derive, re-render chrome, propagate to every deployed
+> page. **It lacked only a page to place.**
+>
+> **The proof, which is stronger than the static count in this item, and its control.**
+> A discovery-raised `nav_drift` for gamesdesign.co.uk naming exactly four `/tools/`
+> pages was `complete` at 17:27:50 on 07-29; all four were still absent from
+> `site_nav_items` on 07-31. Same on ai-agent-orchestration.com
+> (`tool-ai-agent-roi-estimator`, complete 07-25). **And the same check, handler and
+> action DID repair robot-hands.com's `/learning-center.html` and `/news.html`** —
+> which differ only in not sitting under a child prefix. So this is a mechanism, not
+> a cadence story, and the accusation names exactly one predicate.
+>
+> **The fix was an ORDERING, not a policy.** `classifyPagesForNav` held two
+> overlapping notions of "never primary" — one keyed on `page_type` (`blog-post`,
+> `tool`, `entity-page`), which sent such a page to `utility` **if it had declared a
+> flag**, and one keyed on URL shape, which `continue`d out **above it**, before
+> either flag was read. Collapsed into one; the flags now decide presence for both.
+> Nothing about placement was invented: *"Tier 4 (never primary): individual tool
+> pages, blog posts, guide pages, entity pages"* is that function's own doc comment.
+> `section-index` keeps its primary eligibility, keyed on `page_type` not URL,
+> unchanged.
+>
+> **Measured before submission** (`RUNBOOK` R4/R5/R6, re-run them — do not quote):
+> 7 active nav rows fleet-wide are destroy-and-not-recreate under the OLD derivation;
+> **6 of the 7 survive after the fix.** 26 utility items are added across 9 sites,
+> ceiling 5 per site, into groups that already run to 14 live. **No live site changes
+> as a direct result** — chrome is a stored artefact, and the two `tools`/`primary`
+> rows that exist today are in no served header (checked with `curl`).
+>
+> **What this does NOT fix:** a child page with NO nav flag is still omitted — which
+> is correct, it declared nothing — so **A3 still stands** and is the only route by
+> which such a page becomes reachable.
+
 `nav_drift` → `nav-updater` → `populate_nav_tables`, which **skips every URL under
 `/tools/`, `/blog/`, `/guides/`, `/articles/`, `/case-studies/`, `/news/`,
 `/resources/`, `/insights/`** (`populate_nav_tables_action.go:294,339`) on the stated
@@ -400,6 +524,26 @@ enumerates only the tools using one of its two URL conventions
 
 ### A4. `pages.in_header` / `in_footer` **DEFAULT TO TRUE**, and that default does the routing
 
+> **⚠ HALF FIXED 2026-07-31 (commit `1884f1ee8`) — the RECORDABLE half only. The
+> schema half stands and is still architecture scope.**
+>
+> What shipped: `create_tool_component_action.go`'s page INSERT now writes
+> `in_header`/`in_footer` explicitly. What this item did not spell out, and is the
+> sharper form of it: **the action had already computed `inHeader`/`inFooter` from its
+> own step config and used them only to decide whether to touch nav.** So a step
+> configured `in_footer: false` produced a row saying `in_footer = true`. The writer
+> discarded its own decision — worse than inheriting a default, because the intent
+> existed in memory and was thrown away.
+>
+> This was shipped as a **prerequisite** of A2's fix rather than a tidy-up: A2 makes
+> these flags load-bearing (they are what puts a `/tools/` page in the footer), so an
+> inherited default would now silently place pages a config had asked to keep out.
+>
+> **Still open, unchanged:** the columns still `DEFAULT TRUE` at the schema, so any
+> other writer that omits them still records no decision. That is a shared-schema
+> change wanting its own council round, and the fleet still needs sweeping for rows
+> that are only correct by inheriting `true`.
+
 `create_tool_component_action.go:280` omits both columns from its INSERT;
 `deploy_tool_action.go:117` defaults `inHeader := true` in Go. So the nav flag
 records no decision — and `check_orphan_pages` branches on it, sending these pages to
@@ -410,12 +554,63 @@ correct by inheriting `true`.
 
 ### A5. Two nav builders with opposite predicates
 
+> **⚠ HALF ANSWERED 2026-07-31 (commit `1884f1ee8`). "One of the two is wrong; decide
+> which" — the decision is on the record and it was NOT a judgement call.**
+>
+> For **child pages**, `populate_nav_tables` was wrong, and its own doc comment says
+> so: tier 4, *"never primary: individual tool pages"*, with a `utility` branch for
+> exactly the case it was skipping. It now honours the flags, so the two builders
+> agree on child pages: both treat `in_header OR in_footer` as membership.
+>
+> **The non-child half stands.** `buildServicesHTML` still queries `pages` directly
+> with its own name-exclusion list and its own `LIMIT 6` for every other page. Routing
+> it through `GetNavItems` is the structural answer — `nav_tables.go`'s own header
+> lists the eight query-time nav functions it replaced, and this is a ninth that was
+> missed — but it would change the footer's "Our Services" column on every site, so it
+> wants its own measurement and its own round. Not attempted here.
+
 `populate_nav_tables` **excludes** tool pages from nav; `buildServicesHTML`
 (`render_site_components_action.go:950`) **includes** any `in_header OR in_footer`
 page in the chrome footer. Identical rows produce different live sites depending on
 which ran last. One of the two is wrong; decide which.
 
 ### A6. The two tool creators each do half the nav write
+
+> **✅ FIXED 2026-07-31 — commit `1884f1ee8`, chassis `v1.0.1215` — but NOT THE WAY
+> THIS ITEM ASKS. Read this before using the sentence below about creation time.**
+>
+> **CORRECTED: "Fix at creation time — it makes the bad state unrepresentable" is
+> wrong here, and following it would have made things worse.** A nav row is not a
+> link. Chrome is a **stored artefact** (`bugs_open/117`/`118`), so writing
+> `site_nav_items` changes no served page on its own — while `check_orphan_pages`
+> treats the presence of a nav row as reachability (`findOrphanPages`' first two
+> `NOT EXISTS` clauses). A creation-time nav row would therefore have left the page
+> **exactly as unreachable** and **silenced the only check that would have noticed**:
+> the fix's whole observable effect would have been to hide the defect. The
+> unrepresentable-beats-detectable heuristic is sound and it does not apply to a
+> derived row whose meaning is "something already re-rendered".
+>
+> **What shipped instead.** `site_nav_items` is DERIVED and had **two writers**:
+> `populate_nav_tables` (authoritative, `DELETE`+rebuild from `pages`) and
+> `addToolToNav` (hand-written, incremental, into a bespoke `tools` group typed
+> `primary` — the header — for a page type the classifier bars from primary). The
+> authoritative writer could not express what the incremental one wrote, so it
+> destroyed it: **7 active rows fleet-wide are in that state today.** So:
+> - `addToolToNav` is **deleted**. One writer of `site_nav_items`.
+> - Both creators now do the same whole job: record the flags on the page row, then
+>   **request** the rebuild — `RequestNavRebuild` (`nav_rebuild_request.go`), one item
+>   per site, `handler_agent = nav-updater`, `status = triaged`.
+>
+> Two details in the request are load-bearing and both reuse existing machinery:
+> **`recurrenceExpected: true`**, because `insertWorkItem` brands a third item on a
+> repeated `item_key` as `unresolved` — right for a detected defect, wrong for an
+> action request where a completed predecessor means success (`bugs_open/024`), and
+> without it **the third tool added to a site would silently stop reaching the nav**;
+> and a **distinct `item_key`** (`nav_rebuild:<site_id>`, not the detector's
+> `nav_drift:<site_id>`) so the request neither inherits the detector's strike history
+> nor blurs the signal that a recurring `nav_drift` means the repair is not working.
+> That first point is **A1's "born `unresolved`" mechanism seen from the writing
+> side** — worth pairing when A1 is picked up.
 
 `deploy_tool_to_site` sets the flags and writes **no `site_nav_items` row at all**
 (only `populate_nav_tables_action.go` and `create_tool_component_action.go` write

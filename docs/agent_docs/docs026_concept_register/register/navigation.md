@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-12 concepts, consolidated from 28 raw extractions (14 unique blocks, each mechanically duplicated once in the cluster input file — see note in styling-render-pipeline.md) across units U01, U02, U17a, U18, U19, U21, U25.
+13 concepts (NAV-013 added 2026-07-31, post-freeze), consolidated from 28 raw extractions (14 unique blocks, each mechanically duplicated once in the cluster input file — see note in styling-render-pipeline.md) across units U01, U02, U17a, U18, U19, U21, U25.
 
 ### NAV-001 — Nav agent family and the three-tier authority model
 - **status:** partial
@@ -50,6 +50,7 @@
 - **status:** deployed
 - **status-evidence:** "What Was Deployed This Session" (2026-04-17): tiered priority, isChildPageURL, navLabelForPage, quick_links_html + footer template SQL.
 - **what:** `populate_nav_tables` gained a three-tier page priority (core / hubs+conversion / secondary, overflow to utility) replacing arbitrary nav_order truncation; child-page URL prefixes (/tools/, /blog/ …) excluded from all nav groups; nav labels trust `page.NavLabel` up to 30 chars without truncating to two words; footer Quick Links built from primary+utility groups via a new `quick_links_html` variable.
+- **⚠ NARROWED 2026-07-31 — "excluded from all nav groups" is NO LONGER TRUE, and that exclusion turned out to be a defect (`bugs_open/149` A2, chassis v1.0.1215).** A child-path page that has DECLARED nav membership (`in_header`/`in_footer`) now lands in `utility`; only a child page declaring nothing is omitted. The blanket exclusion ran **before** the flags were read, so it silently swallowed the declaration — which made `check_orphan_pages`' `nav_drift` branch unfixable by its own handler (`nav-updater` completed having placed nothing, twice measured, two days apart). The tiering, the label trust and the quick links in this entry are unchanged. See **NAV-013** for the rule that replaced it.
 - **sources:** HANDOFF_2026-04-17_nav_empty_sections_footer(1).md#2-5
 - **relations:** NAV-002 (two nav systems); NAV-008 (tool nav integration)
 - **verify-later:** populate_nav_tables_action.go navPriorityTier/isChildPageURL
@@ -63,6 +64,24 @@
 - **verify-later:** multipage_actions.go lines ~310-318; RenderFallbackHeader callers; whether the fallback-nav code path was ever hardened
 
 ### NAV-008 — Tool nav integration
+> **SUPERSEDED IN PART, 2026-07-31 (commit `1884f1ee8`, chassis `v1.0.1215`, council
+> `4486f1a9` APPROVED). `addToolToNav` — the subject of this entry's `verify-later`
+> — IS DELETED.** It was the second writer of a derived table: it hand-wrote a
+> `site_nav_items` row into a bespoke `tools` group typed `primary` (the header),
+> which `populate_nav_tables`' `DELETE`+rebuild then removed without replacing. Seven
+> active rows fleet-wide were in that destroy-and-not-recreate state.
+>
+> **This entry's open design question is now ANSWERED, and by the platform's own
+> stated rule rather than by a new decision.** "Grouping strategy (single Tools entry
+> vs individual items)" resolves to: individual tool pages appear **individually, in
+> the `utility` group** (footer), never in primary — which is what
+> `classifyPagesForNav`'s tier table always said ("Tier 4 (never primary): individual
+> tool pages"). The parent `/tools/index.html` listing, being a `section-index`, is
+> what represents them in the main menu.
+>
+> Replacement mechanism: **NAV-013**. Label shortening remains open
+> (`navLabelForPage` truncates at 30 chars, and fundamentallyai's live row carries a
+> 46-char label written by the deleted function).
 - **status:** partial
 - **status-evidence:** "Known bug (fixed): addToolToNav used wrong column names … failed silently"; remaining: tools listed individually in primary nav, labels too long (errors-to-fix items 3-5, 18).
 - **what:** `create_tool_component` adds a page, page_component and nav entry per tool; a column-name bug was fixed, but grouping strategy (single "Tools" entry vs individual items) and label shortening remain open design work, feeding the site-design-planner's `navigation.tools_strategy` spec.
@@ -101,3 +120,14 @@
 - **sources:** docs/leopardessconsulting/scripts/L5_nav_and_ctas.sql (header); docs/leopardessconsulting/AUDIT_verified_facts.md#D3
 - **relations:** CTA-graph integrity (LNK-022); link-management
 - **verify-later:** render_site_components_action.go:550; pages.in_header usage
+
+### NAV-013 — The nav-membership contract: one declaration, one writer, and a rebuild REQUEST
+- **status:** deployed
+- **status-evidence:** commit `1884f1ee8` + `8c41e3eaf`, chassis **v1.0.1215**, pod-verified on both replicas. Council `4486f1a9-6d96-4767-9ddd-6ff5e92ba45c` **APPROVED** (12 reviewers, 0 unreadable, 2 medium objections, none high). Diagnosis loop `1d8085f0-b596-4cce-9417-f48227ac67d3` **CONFIRMED** the underlying mechanism, first iteration. `bugs_open/149` A2/A6, A4's recordable half, A5's child half.
+- **what:** The stated rule for nav membership, replacing two overlapping implicit ones: **`pages.in_header`/`in_footer` DECLARES nav membership; a page's URL shape may decide WHERE it appears, never WHETHER it appears.** Three parts. (1) `classifyPagesForNav` (`populate_nav_tables_action.go`) collapsed its two notions of "never primary" — one keyed on `page_type` (`blog-post`/`tool`/`entity-page`), one on URL prefix (`/tools/`, `/blog/`, `/guides/`, `/articles/`, `/case-studies/`, `/news/`, `/resources/`, `/insights/`) — into one. The URL-keyed rule used to `continue` out **before either flag was read**, so a nav-flagged child page was dropped entirely; it now demotes to `utility` (footer) exactly as the `page_type`-keyed rule always did. `section-index`/`blog-index`/`news-index`/`entity-directory` keep primary eligibility, keyed on `page_type` not URL. (2) **`site_nav_items` now has exactly ONE writer** — the derivation. `addToolToNav` (NAV-008) is deleted. (3) `RequestNavRebuild` (`nav_rebuild_request.go`) is how a page-creating action asks for its declaration to become real: one work item per site, `item_type` `nav_drift`, `handler_agent` `nav-updater`, `status` `triaged`, `item_key` `nav_rebuild:<site_id>`, `recurrenceExpected: true`. Called by `create_tool_component` and `deploy_tool_to_site`, which also now record `in_header`/`in_footer` explicitly instead of inheriting the schema default `TRUE`.
+- **why a REQUEST and not a row (the transferable part):** a nav row is not a link. Chrome is a stored artefact (`bugs_open/117`/`118`), so writing `site_nav_items` changes no served page — while `check_orphan_pages` treats the presence of a nav row as reachability. Writing the row at creation time (which is what `bugs_open/149` A6 literally proposed) would have left the page exactly as unreachable **and silenced the only check that would have noticed**. `nav-updater`'s live workflow (`populate_nav_tables → render_site_components → create_rerender_items → get_pages_for_rerender`) is what actually makes a link ship, so the request invokes that.
+- **the evidence, with its control:** a discovery-raised `nav_drift` item for gamesdesign.co.uk naming four `/tools/` pages was `complete` at 17:27:50 on 2026-07-29; all four were still absent from `site_nav_items` on 07-31. The **same** check, handler and action repaired robot-hands.com's `/learning-center.html` and `/news.html` — which differ only in not sitting under a child prefix.
+- **LANDMINES for a caller:** (a) **a third caller from OUTSIDE `platform/orchestration/actions` is an RFC moment** — at that point this is a general on-ramp to the work-item queue and has never been reviewed as one (architecture seat, this round). (b) `recurrenceExpected: true` is load-bearing, not decoration: without it `insertWorkItem`'s two-strike rule brands the **third** request on a repeated `item_key` as `unresolved` — terminal, never dispatched — so the third tool added to a site would silently stop reaching the nav. (c) The `item_key` is **site-scoped**, so a second request while one is open writes nothing at all, including its own spec: read `spec.page_name` as "what prompted this", never "what this will fix". (d) The effect is **inert until a nav rebuild runs** — this ships no visible change on its own.
+- **sources:** `platform/orchestration/actions/nav_rebuild_request.go` (the argument is in the file header); `populate_nav_tables_action.go:classifyPagesForNav`; `nav_membership_test.go`, `nav_rebuild_request_test.go` (both watched failing on the pre-fix code); `docs024_key_docs_latest/bugfix_149_nav_membership/` (standing five, incl. RUNBOOK R1–R12); `bugs_open/149` A2/A4/A5/A6 banners
+- **relations:** NAV-008 (superseded in part — the deleted writer); NAV-002 (two nav systems: this makes the flags authoritative for membership and the tables derived); NAV-010 (the tables); NAV-012 (`pages.in_header` as data); `bugs_open/117`/`118` (chrome is a stored artefact — the reason this is a request); `bugs_open/024` (`recurrenceExpected`'s origin); WRK (work-item integrity)
+- **still open, deliberately:** `bugs_open/149` A3 (nothing keeps a parent listing in sync, so an UNFLAGGED tool page is still invisible), A4's schema half (`in_header`/`in_footer` still `DEFAULT TRUE` — architecture scope), A5's non-child half (`buildServicesHTML` still queries `pages` with its own predicate — a ninth query-time nav function `nav_tables.go` was meant to replace)

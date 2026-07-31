@@ -46,9 +46,21 @@
 //    The 263-detected/0-triaged backlog cited in the submission is the
 //    **`detected` → `triaged` promotion** step, and this request is born `triaged`
 //    precisely to skip it. So the hop downstream is a lane with a perfect record
-//    for this item type, not a second queue. **Re-measure before trusting this
-//    paragraph** — the standing query is RUNBOOK R12 in
-//    docs024_key_docs_latest/bugfix_149_nav_membership/.
+//    for this item type, not a second queue.
+//
+//    **CORRECTED THE SAME DAY, and the seat was more right than my answer.** Every
+//    figure above is true and the conclusion was false: claiming had stopped
+//    FLEET-WIDE at 13:21, two hours before I quoted them, with 9 items stalled. I
+//    found out by filing a real item and watching it sit `triaged` and unclaimed for
+//    15 minutes. A 7-day rate cannot answer "will this be picked up NOW", and
+//    `last_triggered_at` advancing is a fire-and-forget stamp — it proves the
+//    scheduler fired, never that a dispatch-loop orchestration was created. The
+//    liveness tell is `max(claimed_at)` and the loop's own `complete_idle` runs.
+//    **So this request's delivery genuinely does depend on a lane that can stop, and
+//    when it is stopped the bypass is
+//    docs024_key_docs_latest/bugfix_149_nav_membership/TRIGGER_nav_rebuild.sh.**
+//    Re-measure with RUNBOOK R12 before trusting any of this; the numbers above are
+//    a snapshot that was already stale when written.
 //
 // 2. `guardian`, medium: "I can't confirm from SQL that `recurrenceExpected`
 //    exists on the workItem struct with the semantics claimed; if it doesn't …
