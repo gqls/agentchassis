@@ -406,7 +406,12 @@ The customer's built site must land somewhere they can open. Two routes:
 
 - **(i) B2 + wildcard DNS**, the path the 12 static sites use. Requires working
   out the domain→bucket mapping and touching the production static path.
-  **[UNVERIFIED — I have not read how a domain maps to a bucket prefix.]**
+  ~~**[UNVERIFIED — I have not read how a domain maps to a bucket prefix.]**~~
+  > **RESOLVED 2026-07-31 by live measurement — the mapping is the hostname,
+  > verbatim.** `curl https://webdesign.uk` returns a JSON body from a Cloudflare
+  > Worker naming the key it looked for: `"objectKey": "webdesign.uk/index.html"`.
+  > So the prefix is `<host>/`. This did **not** require reading the Worker (see
+  > the landmine below); the live 404 states it. Evidence in NOTES 2026-07-31.
 - **(ii) The same VM serves it.** nginx with a regex `server_name`
   (`~^(?<slug>.+)\.preview\.webdesign\.uk$`), `root /var/www/preview/$slug`, a
   wildcard certificate by DNS-01, and the box pulling `/preview/<slug>/` from the
@@ -430,6 +435,55 @@ not cosmetic, it is required.
 > and a customer will read the URL before they trust it — so it should look like
 > somewhere a real deliverable lives, and it must be a zone we control DNS for
 > (DNS-01 wildcard issuance).
+
+> **NAMED (owner, 2026-07-31): the preview host is `ugg2.com`.** Measured state
+> that day: nameservers **are** Cloudflare's (`alexis`/`leah.ns.cloudflare.com`),
+> so the zone is under our control and the DNS-01 property above is satisfied.
+> But the only A record is `199.59.243.228` — **a registrar parking IP, DNS-only
+> (grey)**, and port 80 times out. So the domain is *delegated*, not *serving*.
+> No AAAA, no MX, no wildcard, no `www`.
+
+### 6a. A third route, opened by the §6(i) measurement — recommended
+
+Now that the domain→bucket mapping is known to be **the hostname verbatim**, a
+route exists that was invisible when this section was written:
+
+- **(iii) Point `*.ugg2.com` at the existing Worker→B2 path.** The Worker derives
+  the object key from the request host, so `acme-ltd.ugg2.com` reads
+  `acme-ltd.ugg2.com/index.html` from the bucket with no per-site configuration.
+  Cloudflare's Universal SSL covers a proxied `*.ugg2.com` (one label deep), so
+  there is **no certbot, no DNS-01, no scoped API token, no renewal timer, no VM,
+  and no nginx regex vhost** — the entire cert-and-vhost workstream in (ii)
+  disappears. "The preview comes down" (§7a's refund mechanism) becomes *delete
+  the objects*, with no box to touch.
+
+**Recommendation: (iii), superseding (ii) — subject to one 10-minute test.**
+
+> The strength of the evidence, stated honestly: the host-derived mapping is
+> proven for **one** host, and that host (`webdesign.uk`) has **no row in
+> `sites`** — which is the informative part, because it shows the Worker
+> constructs a key for an arbitrary hostname rather than consulting an
+> allow-list. That is strong, but it is a single sample and **the Worker's source
+> is not in this repo** (grepped: no match for `objectKey` or `B2 returned
+> error`). So it is `[INFERRED — one live sample, source unread]`, not measured.
+>
+> **The test that settles it**, before any of (iii) is designed in: add one
+> proxied record for `test.ugg2.com` into the Worker path, upload
+> `test.ugg2.com/index.html` to the bucket, and load it. It serves ⇒ (iii) holds
+> and (ii) is dead work. It 404s or errors ⇒ the mapping is gated somewhere and
+> (ii) stands.
+
+Two cautions that survive either way:
+
+- **A wildcard record must be PROXIED (orange)** or Universal SSL does not cover
+  it and every preview URL throws a certificate warning — on the one page whose
+  entire job is to make a stranger trust us enough to accept and pay.
+- **(iii) puts customer previews on the same Worker and bucket as the 12 live
+  production sites.** Keys are host-derived and hostnames are unique, so a
+  collision needs a duplicate hostname — but this is a shared origin, and §4's
+  blast-radius reasoning applies to it. Prefer a separate bucket or a
+  `preview/` prefix if that is cheap; note it for the P3 isolation decision if
+  it is not.
 
 ---
 
@@ -646,6 +700,81 @@ end to end from `llm_call_log`.**
 
 ---
 
+## 7d. The price number — recommendation, and a correction to §11 item 8
+
+> **CORRECTION 2026-07-31 — the price is NOT blocked on the build measurement,
+> and §11 item 8 ("unblocked by nothing but P0's Fable-5 build measurement") was
+> wrong when I wrote it.** It carried an unexamined cost-plus assumption into a
+> ruling that had already rejected cost-plus: §7's own struck-through paragraph
+> was superseded precisely because at a high, quality-based price, model cost
+> stops being a pricing input. I then left the price waiting on a cost figure
+> anyway. The measurement is still owed — it is a **margin** input and it sets
+> P2's free-teaser cap, where per-unit cost times volume *is* the whole story.
+> It cannot move the price. Logged in `WRONG_CALLS.md`.
+
+**Order of magnitude, so the irrelevance is demonstrated rather than asserted.**
+All of the following is `[INFERRED]` — the multiplier from "report" to "website"
+is a guess, not a measurement:
+
+| step | figure | basis |
+|---|---:|---|
+| idea.uk report, all five calls | $1.20–$1.45 | measured, `EVIDENCE_2026-07-27` |
+| a site ≈ 10× a report's output | ~$12–15 | **[INFERRED]** — pages, components, iterations |
+| on Fable 5 instead of Sonnet 5 | ~$60–75 | $50 vs $10/MTok out = **5×** (3.3× after 08-31) |
+| plus retries, checker layers, images | **~$100–200** | **[INFERRED]** pessimistic envelope |
+
+**The conclusion survives being wrong by 3×.** Even at $500 a build, a four-digit
+price is ~95% margin before the owner's time. That is why the measurement cannot
+decide the number — and why it must still happen, because the *thousand-sites*
+direction multiplies it.
+
+**What actually sets the price**, given §7a's rulings:
+
+- **The comparator the customer will reach for** is a UK freelancer (~£500–£3,000
+  for a brochure site) or a small agency (£3k–£15k) — **not** Wix/Squarespace
+  (£0–£300/yr). The human review and the money-back guarantee put this in the
+  "someone made this for me" bracket, not the DIY bracket. Pricing near the DIY
+  band would misfile the product in the buyer's head and *lose* trust, not win it.
+  `[UNVERIFIED — market bands from general knowledge, no primary source sampled.]`
+- **The scarce input is the owner's attention, not compute** (§7's ruling). The
+  price must make his time on a difficult build affordable, because §7a commits
+  us to fixing our own defects free and indefinitely.
+- **The guarantee only signals at a price where a refund hurts.** "Full money
+  back" on £99 is noise; on four figures it is a commitment a competitor cannot
+  cheaply copy. The guarantee is a *pricing* argument, not just a term.
+
+**RECOMMENDED: £1,200, one-off, paid in full up front, fully refundable until
+acceptance.** Round and confident, no `.99` — consistent with "they are buying
+what we are offering". At £1,200 the owner can spend roughly a day on a hard one
+and remain well ahead; it sits mid-band against a freelancer, so it reads as a
+normal purchase rather than a gamble.
+
+Levers, if the owner wants to move it:
+
+| move | to | what it buys | what it costs |
+|---|---:|---|---|
+| up | £1,950 | fewer, better-qualified buyers; more time per build; price itself filters, so fewer refunds | slower demand signal — P1 may need longer to say anything |
+| **hold** | **£1,200** | **recommended** | — |
+| down | £750 | volume, to exercise the pipeline sooner | the owner's own time can no longer be part of the product |
+
+**Two things this still needs from the owner, neither of which blocks P1:**
+
+1. **The correction fee** (§7a's "their changes → paid") needs its own number —
+   per-change or a day rate. Suggest **£150/change** or **£600/day**, stated on
+   the terms page. Unset, the fee boundary is unenforceable in practice.
+2. **VAT.** If registered, the page must state inc- or ex-VAT — B2B buyers
+   reclaim it and consumers do not, so the same number means two different
+   things to the two audiences. `[UNVERIFIED — registration status not known to
+   me; it is a fact about the business, not something to infer.]`
+
+**P1 shows this price in Stripe TEST mode, so nobody pays it** — which makes the
+number safe to commit to now and cheap to revise before P3. But it must be **the
+price we intend to charge**: P1 exists to test demand, the price is the variable
+under test, and a placeholder measures nothing. Too low returns a false positive
+(people click, the economics never worked); too high a false negative.
+
+---
+
 ## 8. Risks that are day-one, not polish
 
 Four, and only the last is exotic:
@@ -785,6 +914,10 @@ here:
    recommendation.
 5. ~~**The preview host (§6).**~~ **DECIDED: a different, shorter domain, to be
    supplied.** Mechanism unchanged; name is a placeholder. Non-blocking until P3.
+   **NAMED 2026-07-31: `ugg2.com`** — Cloudflare NS confirmed live, so the
+   DNS-01/wildcard property holds; currently pointed at a registrar parking IP
+   and serving nothing. **The mechanism is no longer unchanged** — see §6a, where
+   the §6(i) measurement opens a route with no cert and no VM at all.
 6. ~~**§12 — the "thousand sites" figure.**~~ **DECIDED: accepted as-is** —
    *"we're about to do that"*. See §12.
 7. **Builds run on `claude-fable-5`** (§7b) — with three P0 checks that must
@@ -792,9 +925,25 @@ here:
 
 Still open:
 
-8. **The price number itself**, and whether the teaser is free to everyone or
-   gated on an email. Unblocked by nothing but P0's Fable-5 build measurement.
-9. **The preview domain name** (item 5's placeholder).
+8. ~~**The price number itself**, and whether the teaser is free to everyone or
+   gated on an email. Unblocked by nothing but P0's Fable-5 build measurement.~~
+   > **CORRECTED 2026-07-31: the measurement does not gate the price** — see
+   > §7d, which shows the model cost is ~5% of a four-digit price even on a
+   > pessimistic envelope, and logs the cost-plus assumption as a wrong call.
+   > **RECOMMENDED: £1,200 one-off, refundable until acceptance** — awaiting the
+   > owner's number. The teaser-gating half of this item is genuinely still open,
+   > and the build measurement *does* gate it (per-unit × volume is the whole
+   > story for a free tier).
+   > **Still owed by the owner and not blocking P1:** the correction fee (a
+   > number for §7a's "their changes → paid") and the VAT position.
+9. ~~**The preview domain name** (item 5's placeholder).~~ **DECIDED 2026-07-31:
+   `ugg2.com`.** What is now open is not the name but the *mechanism* — §6a's
+   route (iii) versus §6's route (ii), settled by a 10-minute test.
+9a. **`webdesign.uk`'s own DNS is already pointed — at the wrong thing.** It is
+   proxied into the static Worker→B2 path and serves a raw JSON 404. Nothing to
+   do until P1's box exists (a Cloudflare Tunnel writes its own record and would
+   overwrite any work done now), but it must be re-pointed *before* P1 ships, and
+   the holding-page/leak question in §6a's evidence is live today.
 10. **Isolation option (§4.2)**, at P3 — (a) `network_id`, (b) separate DB,
     (c) namespace + DB, (d) dedicated cluster.
 

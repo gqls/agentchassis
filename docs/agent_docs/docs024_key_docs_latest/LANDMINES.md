@@ -2001,3 +2001,81 @@ which carries the same lock columns.
 **and do not identify a page by `url` alone** — `/index.html` exists once per
 site, so `WHERE url='/index.html'` returns 14 unrelated pages and reads as
 duplicate rows. Join `sites`, or key on `pages.id`.
+
+---
+
+## idea.uk is NOT behind Cloudflare — its own runbook says it is, and builds a security plan on that
+
+**footprint:** `docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/RUNBOOK_idea_uk_vm_site.md` · `idea.uk` · `116.203.204.115` · `set_real_ip_from` · `CF-Connecting-IP`
+
+`RUNBOOK_idea_uk_vm_site.md:12` states `FRONT nginx + Let's Encrypt, DNS
+(Cloudflare) → the VM`, and its §4a opens *"idea.uk is behind Cloudflare"* under
+the heading **"Restore the real client IP — nothing else works until this is
+done"**. Measured 2026-07-31: **it is not, and never appears in the request
+path.** `dig +short NS idea.uk` returns three **Hetzner** nameservers, the A
+record is the bare VM (`116.203.204.115`), and the live response header is
+`server: nginx/1.28.3 (Ubuntu)` with **no `cf-ray`**. `relojistas.com`, the other
+VM site, **is** proxied — so the two boxes do not share a front-end shape even
+though the estate docs treat them as one pattern.
+
+This misleads in **both** directions, which is why it is a landmine and not just a
+stale line. Believe the doc and you will (a) do §4a's real-IP work, which is
+unnecessary — nginx already sees true client addresses, so `limit_req` on
+`$binary_remote_addr` is *already correct*; (b) assume a **WAF, Turnstile and DDoS
+layer sit in front of a live money-taking box**, and they do not; (c) follow
+`RUNBOOK:435`'s *"purge the Cloudflare cache for idea.uk"*, a **no-op** — debugging
+a stale page you would purge a cache that isn't there and conclude the purge
+failed. Disbelieve it and copy `setup.sh` to a box you *do* proxy, and you inherit
+a limiter that buckets every visitor into one global counter.
+
+**the check:** never infer the front end from `dig` — an A record cannot tell you
+whether a proxy terminates the request, and Cloudflare NS with a non-Cloudflare A
+record is **grey/DNS-only**: delegated but unproxied, with no WAF and a public
+origin IP. Ask the response:
+
+```bash
+curl -sS -o /dev/null -D- -m 12 https://<domain> 2>&1 | grep -iE '^server|cf-ray'
+# cf-ray present            => proxied, Cloudflare is in the path
+# server: nginx/... , no cf-ray => you are talking to the origin directly
+```
+
+Run it **per domain**. Sharing an owner, a provider or a runbook does not mean
+sharing an ingress: measured the same minute, `idea.uk` had none and
+`relojistas.com` was proxied.
+
+---
+
+## The domain→B2 object-key mapping is in a Cloudflare Worker that is NOT in this repo — grep finds nothing and it looks like config
+
+**footprint:** `sites.domain` · `sites.github_repo` · B2 static deploy path · `webdesign.co.uk`
+
+Ask "how does a domain become a file in the bucket?" and every instinct points at
+the repo or the DB: `sites.deploy_config`, `resolveGitRepoNameDB`, the GitHub
+Action. **The answer is in none of them.** A Cloudflare Worker fronts B2 and
+derives the object key from the request **host, verbatim** — and its source is not
+in this repository (`grep -rn 'objectKey\|B2 returned error'` → no match). So the
+search that should find it returns nothing, and the honest conclusion from an
+empty grep — "this must be configured somewhere else, probably data" — is wrong in
+a way that costs an afternoon. PLAN §6(i) of the webdesign.uk lane carried
+`[UNVERIFIED — I have not read how a domain maps to a bucket prefix]` for three
+days on exactly this basis.
+
+**the check:** ask the live 404, which states the key it looked for. One second,
+no credentials, no source:
+
+```bash
+curl -sS https://<any-domain-on-the-account>
+# {"error":"B2 returned error","objectKey":"<host>/index.html","status":404, ...}
+```
+
+**Two consequences worth knowing before you touch the static path.** (1) The
+mapping is host-derived, not allow-listed — proven by `webdesign.uk`, which has
+**no row in `sites`** at all and still gets a key built for it (one sample; the
+source is unread, so treat as strong inference, not fact). Any hostname you point
+at this path becomes a served prefix with no per-site configuration, which is
+either a free wildcard-hosting mechanism or an accident waiting, depending on what
+you point at it. (2) That JSON is served to anyone visiting **any unpopulated
+domain on the account**, naming the origin technology and the key convention.
+Bucket keys are not credentials, so it is a disclosure rather than a hole — but it
+is free to close with a holding-page object or a redirect rule, and worth doing
+before a customer-facing domain is the one printing it.

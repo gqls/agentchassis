@@ -572,3 +572,127 @@ landmine (`A chassis roll makes a scheduled task look BROKEN for ~5 minutes`).
   collector's conflict clause stateful** — it must read the existing row's
   status rather than blindly `DO NOTHING`, and that is the most important
   single piece of logic in P4.
+
+---
+
+## 2026-07-31 (later) — DNS measured, and a three-day-old claim of mine falsified
+
+Owner asked what he needs to do for webdesign.uk's DNS and the price, and named
+**`ugg2.com`** as the preview host ("set up in cloudflare now"). Before answering
+I ran `dig`. I should have run it on 2026-07-28.
+
+### The claim I had been repeating, and its refutation
+
+The PLAN, the RUNBOOK and the memory file all said **"DNS for webdesign.uk not
+pointed yet (owner)"**, sourced from the owner's own remark on 07-28 (*"I haven't
+pointed the dns yet"*). It was carried for three days and re-stated in three
+places without a check.
+
+```
+$ dig +short NS webdesign.uk
+alexis.ns.cloudflare.com.
+leah.ns.cloudflare.com.
+$ dig +short A webdesign.uk
+172.67.223.216
+104.21.54.51
+```
+
+**Delegated to Cloudflare and proxied** (those are CF anycast addresses; there are
+AAAA records too). Whether it changed after 07-28 or the original remark meant
+something narrower, I cannot tell and **did not need to** — the point is that
+three days of derived planning rested on an unchecked second-hand claim about
+infrastructure, checkable in one second. `WRONG_CALLS.md`.
+
+### The finding that came free with it
+
+```
+$ curl -sS https://webdesign.uk
+{
+  "error": "B2 returned error",
+  "objectKey": "webdesign.uk/index.html",
+  "status": 404,
+  ...<Code>NoSuchKey</Code>...
+}
+```
+
+**PLAN §6(i) carried `[UNVERIFIED — I have not read how a domain maps to a bucket
+prefix]`. The live 404 states the mapping outright: `<host>/index.html`.** The
+question had been marked unverified because it looked like it required reading
+the deploy path; it required visiting the URL.
+
+Cross-check, because a mapping could be table-driven rather than host-derived:
+
+```sql
+SELECT domain FROM sites WHERE domain ILIKE '%webdesign%';
+-- webdesign.co.uk    (one row; NO webdesign.uk row)
+```
+
+**The Worker built an object key for a hostname that has no site row at all** —
+so it derives the key from the request host rather than consulting a list. That
+is the property §6a's route (iii) needs. Marked `[INFERRED]` in the PLAN, not
+measured: **one sample, and the Worker source is not in this repo**
+(`grep -rn 'objectKey\|B2 returned error'` → no match anywhere). The
+`test.ugg2.com` probe settles it.
+
+### ugg2.com — delegated, not serving
+
+```
+$ dig +short NS ugg2.com     -> alexis/leah.ns.cloudflare.com.   (ours)
+$ dig +short A  ugg2.com     -> 199.59.243.228                   (registrar parking)
+$ curl -m 12 http://ugg2.com -> curl: (28) Connection timed out
+```
+
+No AAAA, no MX, no `www`, no wildcard. The A record is **not** a Cloudflare
+address, so the record is **grey (DNS-only)** — Cloudflare holds the zone but is
+not in the request path. The DNS-01/wildcard property PLAN §6 required is
+satisfied by the NS delegation; the serving half is entirely unbuilt.
+
+### The cross-lane finding: idea.uk is NOT behind Cloudflare
+
+Checking what "our" VM pattern actually looks like, to answer whether
+webdesign.uk should be proxied:
+
+```
+$ dig +short NS idea.uk
+oxygen.ns.hetzner.com.  helium.ns.hetzner.de.  hydrogen.ns.hetzner.com.
+$ dig +short A idea.uk
+116.203.204.115                      # the VM itself, bare
+$ curl -sS -o /dev/null -D- https://idea.uk | grep -i '^server\|cf-ray'
+server: nginx/1.28.3 (Ubuntu)        # no cf-ray
+```
+
+**`RUNBOOK_idea_uk_vm_site.md:12` says `DNS (Cloudflare) → the VM`, and its §4a
+opens *"idea.uk is behind Cloudflare"* and builds a remediation on it** — headed
+*"Restore the real client IP — nothing else works until this is done"*. That
+section also asks the reader to *"first confirm whether the DNS record is
+actually proxied (orange) or DNS-only (grey)"*. **Answered: neither. Cloudflare
+is not in idea.uk's path at all.** Consequences, in the order that matters:
+
+1. Its `limit_req` on `$binary_remote_addr` is **already correct** — nginx sees
+   real client addresses. §4a's premise is false and the work is unnecessary.
+2. **More importantly, there is no WAF, no Turnstile and no DDoS layer in front
+   of a live money-taking box**, because §4a assumed Cloudflare was available as
+   "the blocking layer" and it is not. That is the finding worth acting on, and
+   it belongs to that lane, not this one.
+3. `RUNBOOK:435`'s *"purge the Cloudflare cache for idea.uk"* is a **no-op** —
+   someone debugging a stale page would purge a cache that isn't there and
+   conclude the purge had failed.
+
+Relojistas, by contrast, **is** proxied (`server: cloudflare`, CF anycast A
+records). **So the two VM sites do not share a front-end shape**, which the
+estate docs treat as one pattern. Filed as a landmine + a dated correction in
+that lane's runbook; not rewritten, per the who-owns rule.
+
+**Transfer to this lane:** the `CF-Connecting-IP` landmine that PLAN §5.1 and the
+P1 handoff both lead with applies to *relojistas'* shape, not idea.uk's. Copying
+idea.uk's `setup.sh` gets you a rate limiter that is correct **only for as long
+as nothing is proxied in front of it** — and P1 will put something in front of it.
+The failure is silent and reads as a working limiter either way.
+
+### On the price
+
+Recorded in PLAN §7d with the correction to §11 item 8: **the price was never
+blocked on the Fable-5 build measurement**, and saying it was smuggled cost-plus
+back into a decision that had explicitly rejected cost-plus. Recommendation
+£1,200; the measurement is still owed for margin and for P2's free-tier cap,
+where per-unit × volume *is* the whole story.

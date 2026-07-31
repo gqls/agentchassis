@@ -9,7 +9,7 @@ Read `PLAN_idea_uk_vm_site.md` for *why*; this is *how*.
 BOX      Hetzner (Nuremberg)  116.203.204.115        ssh root@116.203.204.115
 TOOL     systemd service `idea`, single Go binary, 127.0.0.1:8080
 ENV      /etc/idea/idea.env          ORDERS  /var/lib/idea/orders.json   (a FILE, no DB)
-FRONT    nginx + Let's Encrypt, DNS (Cloudflare) → the VM
+FRONT    nginx + Let's Encrypt, DNS (Cloudflare) → the VM   [CORRECTED 07-31: NOT Cloudflare — see §4a]
 SITE     idea.uk   site_id 1244516d-014d-421c-88c6-090bb1e9552a
 PSQL     kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db
 ```
@@ -462,6 +462,37 @@ deny or fail2ban jail would ban **Cloudflare, not the spammer**. First confirm w
 is actually proxied (orange) or DNS-only (grey) — that decides whether this is live, and whether
 Cloudflare WAF/Turnstile is even reachable as the blocking layer.
 *(The Go app is unaffected: `clientIP()` takes the first XFF entry, which Cloudflare sets correctly.)*
+
+> **CORRECTED 2026-07-31 by the webdesign.uk lane — the premise of 4a is false.
+> `idea.uk` is NOT behind Cloudflare, and never appears to reach it.** Measured
+> from outside, 19:20 UTC, answering this section's own instruction to "first
+> confirm whether the DNS record is actually proxied (orange) or DNS-only (grey)":
+> **neither — Cloudflare is not in the path at all.**
+>
+> ```
+> $ dig +short NS idea.uk     -> oxygen.ns.hetzner.com. helium.ns.hetzner.de. hydrogen.ns.hetzner.com.
+> $ dig +short A  idea.uk     -> 116.203.204.115                        # the VM itself, bare
+> $ curl -sS -o /dev/null -D- https://idea.uk | grep -i '^server\|cf-ray'
+> server: nginx/1.28.3 (Ubuntu)                                         # and NO cf-ray
+> ```
+>
+> Three consequences, in the order that matters:
+> 1. **The real-IP work in 4a is unnecessary.** nginx already sees true client
+>    addresses, so the `limit_req` zone at `setup.sh:86,226,299` is **already
+>    correct** and `geo`/fail2ban would ban the actual spammer.
+> 2. **There is no WAF, no Turnstile and no DDoS layer in front of a live,
+>    money-taking box** — this section assumed Cloudflare was available as "the
+>    blocking layer" and it is not. That is the finding worth acting on, and it
+>    replaces 4a rather than being a footnote to it.
+> 3. **`RUNBOOK:435`'s "purge the Cloudflare cache for idea.uk" is a no-op.**
+>    Debugging a stale page, you would purge a cache that isn't there and conclude
+>    the purge had failed.
+>
+> `relojistas.com` **is** proxied (`server: cloudflare`, CF anycast A records), so
+> the two VM sites do **not** share a front-end shape, though the estate docs treat
+> them as one pattern. Recorded fleet-wide in `LANDMINES.md` ("idea.uk is NOT
+> behind Cloudflare"). **Left as an appended correction, not a rewrite** — this is
+> another lane's runbook and the call about what to do belongs to its owner.
 
 **4b. Harden `/request`.** `handleRequest` (`service.go:301-310`) has no rate limit, no honeypot, no
 validation beyond presence, and discards `ParseForm`'s error — which is exactly why

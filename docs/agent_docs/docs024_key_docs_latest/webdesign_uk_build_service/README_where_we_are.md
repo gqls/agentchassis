@@ -350,3 +350,103 @@ means surgery on a box that by then is taking real money.
 
 **Still waiting on you:** the short preview domain, the price (unblocked now —
 we know the cost), and DNS for webdesign.uk. None of them block starting P1.
+
+---
+
+**2026-07-31 (evening) — the DNS answer, and one of my own claims falling over**
+
+You asked what you need to do about DNS for webdesign.uk and about the price, and
+told me the preview domain is ugg2.com. Before answering I did the thing I should
+have done three days ago and actually looked.
+
+**webdesign.uk is already pointed.** I had been writing "DNS not pointed yet" in
+the plan, the runbook and my own notes since the 28th, on the strength of your
+remark that you hadn't done it. It's been sitting on Cloudflare's nameservers,
+proxied, this whole time. That's my mistake, not yours — a second-hand claim about
+infrastructure that one command would have checked, repeated for three days into
+work that depended on it. I've logged it where we log those.
+
+**But it's pointed at the wrong thing, and that turned out to be useful.** Type
+webdesign.uk into a browser today and you get a raw error in developer-speak,
+because it's wired into the same path that serves your twelve static sites and
+there's simply no page there for it. The error is chatty, and what it chats about
+is exactly the thing I'd written "I haven't checked this" against in the plan: how
+a domain name turns into a file in storage. It's the domain name itself. So a
+question I'd flagged as needing research answered itself by being visited.
+
+**That matters for ugg2.com far more than it does for webdesign.uk.** The plan had
+previews needing their own web server, a wildcard security certificate, an API
+token, and renewal machinery — a few days' fiddly work. If the mapping really is
+just "the address is the folder name", then previews need none of that: point
+ugg2.com's subdomains at the path the static sites already use, and
+`someclient.ugg2.com` serves itself. Certificates come free. Taking a preview down
+for a refund becomes deleting some files rather than touching a server.
+
+I want to be straight about how solid that is: I've seen it work for one address,
+and the code that does it lives in Cloudflare, not in our repo, so I can't read it.
+It's a strong hint, not a proven fact. **There's a ten-minute test** — point one
+test subdomain at it, upload a file, see if it loads — and if it works, a chunk of
+planned work simply disappears.
+
+**What you actually need to do, in order:**
+
+*ugg2.com* — it's delegated to Cloudflare, which is the important half, but the
+only record on it still points at the registrar's parking page and nothing
+answers. So: delete that record, and decide the mechanism (I'd run the ten-minute
+test first). One trap worth naming — the preview records must be **proxied**, the
+orange cloud, not grey. Grey means every customer gets a browser security warning
+on the one page whose whole job is to make a stranger trust us enough to accept
+and pay.
+
+*webdesign.uk* — **nothing yet, and please don't pre-stage it.** It can't point at
+P1's box until P1's box exists, and the way I'd recommend connecting it writes its
+own DNS record and would overwrite anything set up in advance.
+
+*One thing that isn't obvious and bites late* — order confirmation emails. If they
+send from an @webdesign.uk address without the right records in place they go
+straight to spam, and a confirmation for a four-figure purchase landing in spam is
+the worst possible first impression. It's fifteen minutes of DNS, but it has to
+happen before the first real sale, and customers will reply to that email, so
+there needs to be a mailbox behind it.
+
+**On the price — I got this wrong too, in a more interesting way.** I'd written
+that the price was waiting on us measuring what a build actually costs in model
+spend. That's backwards. You'd already ruled the price is quality-based, not
+cost-plus, and I quietly reintroduced cost-plus by making the number wait for a
+cost figure. Even on a deliberately pessimistic estimate the model spend is
+somewhere near a hundred to two hundred dollars a site — at a four-figure price
+that's a rounding error, and it stays a rounding error even if I'm wrong by
+threefold. The measurement still matters, but for margin tracking and for deciding
+how much free stuff we can give away, not for setting the price.
+
+**So the price isn't blocked. My recommendation is £1,200, paid up front, fully
+refundable until they accept it.** The reasoning: the customer will compare us to
+a freelancer (£500–£3,000) rather than to Wix, because a human reviews it and the
+money is guaranteed. At £1,200 you can afford the best part of a day on an awkward
+one and still be well ahead — and your time is the genuinely scarce ingredient
+here, not compute. And the guarantee only means anything at a price where a refund
+hurts; "money back" on a £99 site is noise. If you want fewer and better customers,
+£1,950 does that and the price itself filters out the ones who'd have been trouble.
+
+**Two smaller things I need from you eventually, neither blocking:** a number for
+the paid corrections after acceptance (I'd suggest £150 a change or £600 a day —
+without one, "their changes are paid" isn't really enforceable), and whether the
+price is quoted with or without VAT, which matters because business buyers reclaim
+it and consumers don't.
+
+Worth knowing: P1 runs Stripe in test mode, so nobody pays this. That makes the
+number safe to commit to now — but it should be the price you actually mean to
+charge, because the whole point of P1 is finding out whether anyone will.
+
+**One thing I found that isn't about webdesign at all, and you should know.** While
+checking what your VM setup normally looks like, I found that **idea.uk is not
+behind Cloudflare** — it's on Hetzner's nameservers pointing straight at the
+machine. Its own runbook says it is, and has a whole section of planned security
+work built on that assumption. Two consequences: the rate limiting on that box is
+actually fine, so that work isn't needed; but there's no firewall, no bot
+protection and no DDoS layer in front of a live site taking real money, which the
+runbook assumed was there. Also, instructions in it that say "purge the Cloudflare
+cache" do nothing at all. Relojistas *is* behind Cloudflare, so the two boxes
+aren't the same shape even though the docs treat them as one pattern. I've written
+it down where the next person to touch that box will see it, and left a dated
+correction in their runbook rather than rewriting someone else's file.

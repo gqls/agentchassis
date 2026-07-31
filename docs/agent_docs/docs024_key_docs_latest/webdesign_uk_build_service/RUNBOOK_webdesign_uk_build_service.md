@@ -143,8 +143,84 @@ dig +short webdesign.uk A
 dig +short webdesign.uk NS
 ```
 
-Empty is **expected** as of 2026-07-28 — the owner has not pointed it yet. Empty
-is therefore not evidence about registration either way.
+~~Empty is **expected** as of 2026-07-28 — the owner has not pointed it yet. Empty
+is therefore not evidence about registration either way.~~
+
+> **CORRECTED 2026-07-31 — `webdesign.uk` IS pointed, and has been for some time.**
+> The line above was carried forward from the owner's 07-28 remark *"I haven't
+> pointed the dns yet"* and then repeated in the PLAN and in memory **for three
+> days without one `dig`**. It cost nothing this time only because the truth turned
+> out to be *more* convenient. Logged in `WRONG_CALLS.md`.
+> **A statement about infrastructure is checkable in one second. Check it.**
+
+### Measured state, 2026-07-31 ~19:20 UTC
+
+**Never quote this table without re-running it** — it is a snapshot of someone
+else's control panel, not a repo fact.
+
+| domain | NS | A | in front | serving |
+|---|---|---|---|---|
+| `webdesign.uk` | Cloudflare (`alexis`/`leah`) | `172.67.223.216`, `104.21.54.51` (+AAAA) | **Cloudflare, proxied** | **JSON 404 from the Worker→B2 static path** |
+| `ugg2.com` | Cloudflare (`alexis`/`leah`) | `199.59.243.228` | **none — grey/DNS-only** | nothing; port 80 **times out** (registrar parking IP) |
+| `webdesign.co.uk` | — | — | Cloudflare, proxied | **200**, `x-amz-*` headers ⇒ B2 origin |
+| `idea.uk` | **Hetzner** | `116.203.204.115` (the VM, bare) | **NONE** | `server: nginx/1.28.3 (Ubuntu)` |
+| `relojistas.com` | Cloudflare | `172.67.199.16`, `104.21.34.62` | **Cloudflare, proxied** | `server: cloudflare` |
+
+```bash
+# the whole table, re-runnable
+for d in webdesign.uk ugg2.com idea.uk relojistas.com; do
+  echo "=== $d ==="; dig +short NS $d; dig +short A $d
+  curl -sS -o /dev/null -D- -m 12 "https://$d" 2>&1 | grep -iE '^server|cf-ray'
+done
+```
+
+**Gotcha — `dig` alone cannot tell you whether Cloudflare is in the path, and the
+A record is the *least* reliable way to ask.** Cloudflare NS with a non-Cloudflare
+A record means **grey/DNS-only**: delegated but unproxied, so no WAF, no
+Turnstile, no rate limiting, and the origin IP is public. `ugg2.com` is in exactly
+that state right now. The discriminator is the **response header** — `cf-ray`
+present ⇒ proxied; `server: nginx/...` ⇒ you are talking to the origin directly.
+
+### The domain→B2 object key — answered by the 404, not by reading anything
+
+```bash
+curl -sS https://webdesign.uk
+# {"error":"B2 returned error","objectKey":"webdesign.uk/index.html","status":404, …}
+```
+
+**The key is the hostname verbatim, `<host>/index.html`.** This resolves PLAN
+§6(i)'s `[UNVERIFIED]` and opens §6a route (iii).
+
+**Gotcha:** `webdesign.uk` has **no row in `sites`** (checked the same minute), and
+the Worker still built a key for it. That is what makes the mapping look
+host-derived rather than allow-listed — but it is **one sample**, and the Worker's
+source is **not in this repo** (`grep -rn 'objectKey\|B2 returned error'` → no
+match). Settle it with the `test.ugg2.com` probe in PLAN §6a before designing on it.
+
+**Second gotcha, security-shaped:** that JSON is served to anyone who visits *any*
+unpopulated domain on the account. It names the origin technology and the
+object-key convention. Harmless alone — bucket keys are not credentials — but it
+is a free disclosure with a one-object fix (publish a holding page) or a
+Cloudflare redirect rule.
+
+### What to create, when P1 has a box
+
+**Do none of this before the box exists.** A Cloudflare Tunnel writes its own DNS
+record and will overwrite anything staged now.
+
+| host | type | value | proxy | why |
+|---|---|---|---|---|
+| `webdesign.uk` | (tunnel-managed) | — | orange | replaces the current Worker→B2 record |
+| `www.webdesign.uk` | CNAME | `webdesign.uk` | orange | people type it |
+| `webdesign.uk` | TXT | SPF | — | order confirmations; **without it they land in spam** |
+| `webdesign.uk` | TXT `_dmarc` | DMARC | — | as above |
+| `webdesign.uk` | MX | a real mailbox | — | customers **reply** to confirmations |
+| `*.ugg2.com` | A/CNAME | Worker path (route iii) or VM (route ii) | **orange, required** | previews; grey ⇒ cert warning on the trust page |
+| `ugg2.com` | A/CNAME | holding page | orange | people trim the URL |
+| `ugg2.com` | MX | `0 .` (null MX) | — | it sends no mail; stops spoofing |
+
+**Gotcha:** a proxied wildcard is covered by Universal SSL for **one label only** —
+`acme.ugg2.com` yes, `a.b.ugg2.com` no. Keep preview slugs single-label.
 
 ## Deploy path facts worth not re-deriving
 

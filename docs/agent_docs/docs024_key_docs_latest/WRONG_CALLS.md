@@ -14696,3 +14696,51 @@ assertion in prose.
   real site and watching it report **COMPLETED while changing nothing**, which is the only
   reason it is not still theoretical. **Reading a handler tells you what it would do; running
   it tells you what its gates let it do.**
+
+### 2026-07-31 — webdesign.uk lane
+
+- **I wrote "DNS for webdesign.uk not pointed yet" into the PLAN, the RUNBOOK and
+  the memory file, and carried it for three days. It was pointed the whole time**
+  — Cloudflare nameservers, proxied A and AAAA records. The source was the owner's
+  own remark on 07-28 (*"I haven't pointed the dns yet"*), which I took as a fact
+  about the system rather than as a report to verify, and then **re-stated in three
+  places without ever running the one command that checks it.** The RUNBOOK even
+  contained `dig +short webdesign.uk NS` with the answer pre-written underneath it
+  ("empty is expected") — I shipped the check and its expected output together,
+  which is worse than not having the check, because a reader sees a verified-looking
+  line. **The cheap check: `dig +short NS <domain>` — one second, no credentials.**
+  What made it feel safe was that it came from the owner and concerned his own
+  infrastructure, so it read as authoritative rather than as a claim. It is a claim.
+  A person describing their own system is reporting intent and memory, on their own
+  timeline; three days is long enough for it to stop being true, and it is not
+  their job to tell me it changed. **Owner-sourced facts about live infrastructure
+  are the ones to date-stamp and re-check, not the ones to exempt.** This is
+  `a-print-statement-is-not-a-config-row` with a human in the place of the print
+  statement.
+
+- **Related, and the reason the above cost more than it should: I marked the
+  domain→bucket mapping `[UNVERIFIED]` in PLAN §6(i) and left it there, when the
+  live 404 states the answer outright.** The note said *"I have not read how a
+  domain maps to a bucket prefix"* — true, and it framed the question as requiring
+  source-reading, so it stayed unverified while the plan built two delivery routes
+  on top of the uncertainty. `curl https://webdesign.uk` returns
+  `"objectKey": "webdesign.uk/index.html"`. **The marker did its job — it stopped
+  me asserting — but a marker is a debt, not a resting place**, and I never asked
+  what the *cheapest* way to discharge it was. **The cheap check: before writing
+  `[UNVERIFIED]`, spend ten seconds on "what is the laziest possible way to find
+  this out?" — here, visiting the URL.** Both wrong calls in this entry are the
+  same shape: a question about a live system answered from documents.
+
+- **I wrote that the price was "unblocked by nothing but P0's Fable-5 build
+  measurement" — smuggling cost-plus back into a decision that had explicitly
+  rejected it.** §7 of the same file already carried the owner's ruling that the
+  price is quality-based, with my own cap-or-tiers recommendation struck through
+  *because* model-cost variance stops being a pricing input at a high price point.
+  I then made the price wait on a cost figure anyway, in §11, and it sat there
+  through two sessions. Model spend is ~$100–200/site on a pessimistic envelope
+  against a four-figure price: **the measurement cannot move the number even if I
+  am wrong by 3×.** **The cheap check: when a decision is blocked on a measurement,
+  state the magnitude the measurement would have to reach to change the answer.**
+  If no plausible value flips it, it is not a blocker — it is a different question
+  wearing the same words. (It is still owed: it gates *margin* tracking and P2's
+  free-tier cap, where per-unit × volume is the whole story.)
