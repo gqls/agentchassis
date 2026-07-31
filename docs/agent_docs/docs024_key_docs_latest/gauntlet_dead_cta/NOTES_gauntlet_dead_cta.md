@@ -2590,3 +2590,56 @@ data declares (handoff §6).
 
 Did NOT do, deliberately: enable the check, fire round 2. Round 2 is unblocked and is
 the next action; the switch waits on `brochure_component_library`.
+
+---
+
+## 2026-07-31 (later) — the share-card gap is CLOSED, and closing it caught one more
+
+Owner authorised the live drive, so the one `[INFERRED]` claim on step 1 is now
+observed. `p4_sources/drive_exchange_card_2026-07-31.py` (`ea9051dfc`) drove **one
+real round on the live page** — real `/round`, real `/position`, real `/defend`,
+pressed the real control, saved the real download:
+
+```
+PASS  the live page is running the NEW card code
+PASS  a real /round started (page unsealed, position box visible)
+PASS  the engine returned a real challenge — 469 chars
+PASS  the judge returned a real verdict — opponent wins
+PASS  the defence textarea STILL holds the defence after /defend returned — 198 chars
+PASS  the challenge element STILL holds the challenge — 469 chars
+PASS  pressing the button produced a PNG — 147606 bytes
+PASS  no page errors during the round
+```
+
+The two middle checks are the whole point of the script: they are the assumption the
+offline harness had to stub. The code reading was right — `submitDefence` never clears
+the textarea — but it was reading, and an empty half on a real card is precisely the
+failure that leaves every offline check green.
+
+**Unplanned bonus evidence for the auto-fit.** This round's challenge came back at
+**469 characters against the 305-character average** — well outside what I designed
+against — and the card fitted it with no overlap. That is the difference the
+drawn-layout binary search makes; the character budget that produced the overlapping
+first mock would have run this one straight through the ruling line.
+
+> **MY OWN MISSTEP, same run, and it is the sharpest one of the session.** The
+> driver's first run printed `SKIP  PIL unavailable for image checks` — and then
+> printed **`ALL LIVE CHECKS PASSED`**. Three of the checks, the *only* three that
+> look at the card itself rather than at the page that made it, had not run at all,
+> and the summary said everything passed. This is exactly
+> `[[a-quiet-test-passes-when-the-rule-is-gone]]`: I wrote the skip branch myself, in
+> a script whose entire purpose was to stop me trusting a green result. Fixed: a
+> missing Pillow is now a FAILED check, not a skip; Pillow installed in
+> `~/.venvs/vonc_pw`. The three assertions were then run against the captured PNG and
+> pass (1200×630, 95/210 sampled rows marked, lowest marked row 609 — so the bottom
+> half is genuinely used, which is the old verdict-only card's signature failure).
+> **The hardened script has NOT been re-run end-to-end**, because that costs another
+> real round; the image block was verified against the saved artefact instead, and
+> that limit is stated rather than papered over.
+
+Two smaller facts for whoever is next: playwright was missing from **every** venv
+while its browsers were still cached in `~/.cache/ms-playwright`, so all of this
+lane's `drive_*.py` harnesses failed at import — restored at `~/.venvs/vonc_pw`
+(now with Pillow). And the classifier blocked writing the driver on the first
+attempt; the right move was to stop and put it to the owner rather than rename the
+file, which would have been a workaround dressed as progress.

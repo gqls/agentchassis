@@ -1093,3 +1093,42 @@ The one thing I'd still like a decision on is unchanged from yesterday — the s
 that presses the real share button on the real page and photographs the result. And
 separately, the checker is ready for its second review round whenever you want me to
 spend the credits.
+
+---
+
+**31 July 2026 (later) — you said go ahead, so the last doubt about the card is gone.**
+
+I drove one real round on the live page: it fetched a real provocation, the engine
+argued back for real, I sent a defence, it judged it, and then I pressed the actual
+share button and saved the actual picture that came out. It's committed alongside the
+code so you can look at it.
+
+That mattered for one specific reason. Everything I'd checked before was either the
+code on its own or the file the site is serving — both fine, both green. What I hadn't
+done was confirm that the two pieces of text the card needs are still sitting on the
+page at the moment you press the button. I could see from reading the code that they
+would be, but reading isn't watching, and if I'd been wrong the card would simply have
+come out with half of it blank while every other check I had stayed green. It wasn't
+wrong: the challenge and the defence were both still there, in full.
+
+A useful accident came out of it too. That round's challenge came back much longer than
+average — 469 characters against a typical 305 — which is bigger than anything I'd
+designed against. The card absorbed it cleanly, because it now sizes the type to fit
+whatever the round actually produced rather than trusting a number I worked out in
+advance. That's the same mistake I made earlier in the week, arriving second time as
+proof the fix works.
+
+I also caught myself out, and this is the bit I'd want you to know about. The first run
+of that script printed "PIL unavailable, skipping image checks" — and then printed "ALL
+LIVE CHECKS PASSED". Three checks, the only three that actually look at the picture
+rather than at the page that made it, hadn't run at all, and my own script cheerfully
+told me everything was fine. In a script written specifically so I'd stop trusting green
+results. I've made a missing library a failure rather than a shrug, installed the
+missing piece, and run those three checks against the saved picture — they pass. I
+haven't re-run the whole thing end to end, because that would spend another round's
+worth of AI calls for no new information, and I'd rather say that plainly than imply a
+cleaner result than I have.
+
+So step one is done and genuinely proven. Step two — the page that holds the whole
+round, and the button rewording that tells people sharing publishes it — is not
+started, and is ready whenever you want it.

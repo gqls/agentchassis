@@ -387,7 +387,26 @@ line of markup; not worth guessing now.
   per-round `og:image` (crawlers do not run JS), so a shared *link* previews
   with the site's generic card. This does not affect the actual plan, where the
   owner posts the PNG and it travels as an image.
-- **Outstanding verification** on step 1: the card has not been pressed on the
+- ~~**Outstanding verification** on step 1: the card has not been pressed on the
   live page (the live driver was blocked by the permission classifier). The
   renderer is proven against a real round offline, and that the required DOM
-  values are present at press time is `[INFERRED]` from the code, not observed.
+  values are present at press time is `[INFERRED]` from the code, not observed.~~
+  **CLOSED 2026-07-31, owner authorised the drive** (`ea9051dfc`). One real round
+  on the live page — real `/round`, `/position`, `/defend`, pressed the real
+  control, captured the real PNG (`p4_sources/live_card_2026-07-31.png`, 147,606
+  bytes, 1200×630). The inputs **are** live at press time: the defence textarea
+  still held all 198 characters and the challenge element all 469 after `/defend`
+  returned. The `[INFERRED]` marker is discharged — it was right, but it was
+  reading, and this was the failure that would have been invisible.
+  - Incidental real-world evidence for the auto-fit: that round's challenge ran
+    to **469 characters against a 305 average** and the card fitted it with no
+    overlap. That is what the drawn-layout binary search buys over the character
+    budget which produced the overlapping first mock.
+  - **Misstep worth keeping**: the driver's first run printed `SKIP  PIL
+    unavailable` for its three image assertions and still ended in **ALL LIVE
+    CHECKS PASSED**. The summary was reporting on a rule that had not run. A
+    missing Pillow is now a *failed* check; Pillow is installed in
+    `~/.venvs/vonc_pw`. The three assertions were run separately against the
+    captured PNG and pass (95/210 sampled rows marked, lowest 609). The hardened
+    script has **not** been re-run end-to-end — that would drive another real
+    round.
