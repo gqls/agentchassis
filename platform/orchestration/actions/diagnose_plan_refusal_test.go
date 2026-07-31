@@ -20,7 +20,47 @@ import (
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
+
+// dbTouchWatcher answers "did planValidationRefusal attempt ANY database call?".
+//
+// IT EXISTS BECAUSE mock.ExpectationsWereMet() IS NOT THAT CHECK, despite reading
+// exactly like it. ExpectationsWereMet reports expectations that were registered and
+// NOT consumed; with none registered it is trivially satisfied, and it never sees an
+// UNEXPECTED call. So "assert no DB touch" written that way is inert.
+//
+// Measured 2026-07-31 (bugs_open/162), not reasoned: with recordPlanRefusal
+// deliberately moved above the opt-in check — the one edit that would silently change
+// a non-opted-in consumer's contract — ALL FOUR of this file's "must not touch the DB"
+// assertions still PASSED. The guard the council's guardian seat asked for would have
+// shipped inert if it had been written the same way.
+//
+// This works because every DB call this function can make is logged when it fails, and
+// with sqlmock holding no expectations every call fails: the artefact insert
+// (logger.Error), the count (logger.Warn), and recordPlanRefusal's own best-effort
+// write (logger.Warn, swallowed — which is precisely why the caller cannot see it).
+func dbTouchWatcher() (*zap.Logger, func() []string) {
+	core, logs := observer.New(zapcore.DebugLevel)
+	markers := []string{
+		"could not record the plan refusal", // the diagnosis_artifacts insert
+		"refusal count failed",              // countRunArtifacts
+		"failed to write finding record",    // recordPlanRefusal's agent_error_log write
+	}
+	return zap.New(core), func() []string {
+		var touched []string
+		for _, e := range logs.All() {
+			for _, m := range markers {
+				if strings.Contains(e.Message, m) {
+					touched = append(touched, e.Message)
+					break
+				}
+			}
+		}
+		return touched
+	}
+}
 
 // invalidStagedPlan is goodStagedPlan with ONE defect: the same file in two edits
 // of one stage — exactly the rule bugs_open/099 was filed about. Built by mutating
@@ -76,10 +116,11 @@ func refusalParams(t *testing.T, cfg map[string]interface{}, orchID string) (Act
 // consumers that are not opted in: no repair_step ⇒ the same error as before, and
 // the DB is never touched (no artefact, no count).
 func TestPlanRefusal_TerminalWithoutRepairStep(t *testing.T) {
-	params, mock, closeDB := refusalParams(t, map[string]interface{}{}, "orch-1")
+	params, _, closeDB := refusalParams(t, map[string]interface{}{}, "orch-1")
 	defer closeDB()
+	logger, touched := dbTouchWatcher()
 
-	res, err := planValidationRefusal(context.Background(), params, zap.NewNop(),
+	res, err := planValidationRefusal(context.Background(), params, logger,
 		"corr-1", "staged plan", invalidStagedPlan(t), []string{"stage 1 edit 2: appears in more than one edit of this stage"})
 
 	if err == nil {
@@ -91,9 +132,10 @@ func TestPlanRefusal_TerminalWithoutRepairStep(t *testing.T) {
 	if !strings.Contains(err.Error(), "more than one edit") {
 		t.Errorf("the error must carry the problems verbatim, got %q", err)
 	}
-	// No ExpectExec/ExpectQuery were registered, so any DB call is a failure.
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("the terminal path must not touch the DB: %v", err)
+	// CORRECTED 2026-07-31 (bugs_open/162): this was mock.ExpectationsWereMet(), which
+	// is inert here — proven by mutation, see dbTouchWatcher.
+	if hits := touched(); len(hits) > 0 {
+		t.Errorf("the terminal path must not touch the DB; attempted: %v", hits)
 	}
 }
 
@@ -187,6 +229,14 @@ func TestPlanRefusal_ExhaustsAndGoesTerminal(t *testing.T) {
 
 // TestPlanRefusal_BookkeepingFailureStillRefuses: a failure in the machinery that
 // RECORDS the refusal must not swallow the refusal. Both halves fail closed.
+//
+// EXTENDED 2026-07-31 (bugs_open/162). Failing closed was only half the contract. Both
+// of these exits used to return with NOTHING operator-facing written, so an agent that
+// had explicitly opted into recoverable refusals lost the plan and every trace of it —
+// which is bugs_open/099's original complaint surviving inside the fix for it. Each
+// case now also asserts the agent_error_log row IS written, via ExpectationsWereMet:
+// asserting only "an error came back" is the quiet-test failure mode, because it keeps
+// passing when the recording is deleted.
 func TestPlanRefusal_BookkeepingFailureStillRefuses(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -194,10 +244,19 @@ func TestPlanRefusal_BookkeepingFailureStillRefuses(t *testing.T) {
 	}{
 		{"insert fails", func(m sqlmock.Sqlmock) {
 			m.ExpectExec("INSERT INTO diagnosis_artifacts").WillReturnError(errors.New("disk full"))
+			m.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(1, 1))
 		}},
 		{"count fails", func(m sqlmock.Sqlmock) {
 			m.ExpectExec("INSERT INTO diagnosis_artifacts").WillReturnResult(sqlmock.NewResult(1, 1))
 			m.ExpectQuery("SELECT count\\(\\*\\) FROM diagnosis_artifacts").WillReturnError(errors.New("gone"))
+			m.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(1, 1))
+		}},
+		// The negative: recordPlanRefusal is best-effort BY DESIGN, so the machinery
+		// that records a refusal failing too must still surface the ORIGINAL validation
+		// error — never the logging error. "Observability never costs a diagnosis."
+		{"error-log write also fails", func(m sqlmock.Sqlmock) {
+			m.ExpectExec("INSERT INTO diagnosis_artifacts").WillReturnError(errors.New("disk full"))
+			m.ExpectExec("INSERT INTO agent_error_log").WillReturnError(errors.New("also gone"))
 		}},
 	}
 	for _, tc := range cases {
@@ -220,6 +279,65 @@ func TestPlanRefusal_BookkeepingFailureStillRefuses(t *testing.T) {
 			if !strings.Contains(err.Error(), "duplicate file") {
 				t.Errorf("the ORIGINAL validation problem must survive, got %q", err)
 			}
+			// bugs_open/162: a missing agent_error_log write now FAILS this test
+			// rather than passing silently.
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("a terminal bookkeeping failure must still be recorded: %v", err)
+			}
+		})
+	}
+}
+
+// TestPlanRefusal_OptedOutNeverRecords is the containment guard the council's guardian
+// seat asked for on bugs_open/162's round (corr 7b1eb170), and it is the load-bearing
+// test of that change rather than a nicety.
+//
+// The whole safety argument for writing agent_error_log on the two bookkeeping-failure
+// exits is that ONLY an opted-in consumer can reach them: a consumer that never named a
+// repair_step returns earlier in the same function and its guarantee ("behaves exactly
+// as it did before 2026-07-30") is untouched. That claim was asserted from line numbers
+// in prose, and the guardian was right that this file has produced order-of-operations
+// surprises before. So it is pinned here: registering NO expectations means sqlmock
+// fails on ANY database call, so the two opted-out shapes cannot reach the new write.
+//
+// Distinct from TestPlanRefusal_TerminalWithoutRepairStep and _ZeroAttemptCapIsTerminal,
+// which assert the same silence for the pre-2026-07-30 reason (nothing to route to).
+// This one exists to fail if a later change ever moves recordPlanRefusal ABOVE the
+// opt-in check — the one edit that would quietly change a non-opted-in consumer's
+// contract, and the exact scope the council declined to let this lane take.
+func TestPlanRefusal_OptedOutNeverRecords(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  map[string]interface{}
+	}{
+		{"no repair_step at all", map[string]interface{}{}},
+		{"repair_step named but a cap of zero", map[string]interface{}{
+			"repair_step": "repair_plan", "max_repair_attempts": 0,
+		}},
+		{"repair_step named but a negative cap", map[string]interface{}{
+			"repair_step": "repair_plan", "max_repair_attempts": -1,
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			params, _, closeDB := refusalParams(t, tc.cfg, "orch-1")
+			defer closeDB()
+			logger, touched := dbTouchWatcher()
+
+			res, err := planValidationRefusal(context.Background(), params, logger,
+				"corr-1", "plan", invalidStagedPlan(t), []string{"duplicate file"})
+
+			if err == nil {
+				t.Fatal("an opted-out consumer must still refuse terminally")
+			}
+			if res != nil {
+				t.Fatalf("want a nil result on the terminal path, got %v", res)
+			}
+			// NOT mock.ExpectationsWereMet() — see dbTouchWatcher for why that check
+			// passes even when this path writes to the database.
+			if hits := touched(); len(hits) > 0 {
+				t.Errorf("an opted-out consumer must not touch the DB at all; attempted: %v", hits)
+			}
 		})
 	}
 }
@@ -229,13 +347,14 @@ func TestPlanRefusal_BookkeepingFailureStillRefuses(t *testing.T) {
 // orchestration_id never satisfies `= $2`, so every attempt would read as the
 // first and the repair loop would never end.
 func TestPlanRefusal_NoOrchestrationIDIsTerminal(t *testing.T) {
-	params, mock, closeDB := refusalParams(t, map[string]interface{}{
+	params, _, closeDB := refusalParams(t, map[string]interface{}{
 		"repair_step":         "repair_plan",
 		"max_repair_attempts": 1,
 	}, "")
 	defer closeDB()
+	logger, touched := dbTouchWatcher()
 
-	res, err := planValidationRefusal(context.Background(), params, zap.NewNop(),
+	res, err := planValidationRefusal(context.Background(), params, logger,
 		"corr-1", "plan", invalidStagedPlan(t), []string{"duplicate file"})
 	if err == nil {
 		t.Fatal("want a terminal refusal with no orchestration id")
@@ -243,8 +362,9 @@ func TestPlanRefusal_NoOrchestrationIDIsTerminal(t *testing.T) {
 	if res != nil {
 		t.Fatalf("want a nil result, got %v", res)
 	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("must not touch the DB when the loop cannot be bounded: %v", err)
+	// CORRECTED 2026-07-31 (bugs_open/162) — see dbTouchWatcher.
+	if hits := touched(); len(hits) > 0 {
+		t.Errorf("must not touch the DB when the loop cannot be bounded; attempted: %v", hits)
 	}
 }
 
@@ -365,19 +485,21 @@ func TestPersistPlan_E2E_TruncatedJSONStaysTerminal(t *testing.T) {
 // TestPlanRefusal_ZeroAttemptCapIsTerminal: repair_step named but a cap of 0 means
 // no repair rounds, so the refusal is terminal and nothing is written.
 func TestPlanRefusal_ZeroAttemptCapIsTerminal(t *testing.T) {
-	params, mock, closeDB := refusalParams(t, map[string]interface{}{
+	params, _, closeDB := refusalParams(t, map[string]interface{}{
 		"repair_step":         "repair_plan",
 		"max_repair_attempts": 0,
 	}, "orch-1")
 	defer closeDB()
+	logger, touched := dbTouchWatcher()
 
-	_, err := planValidationRefusal(context.Background(), params, zap.NewNop(),
+	_, err := planValidationRefusal(context.Background(), params, logger,
 		"corr-1", "plan", invalidStagedPlan(t), []string{"duplicate file"})
 	if err == nil {
 		t.Fatal("want a terminal refusal when the cap is 0")
 	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("must not touch the DB when no repair round is allowed: %v", err)
+	// CORRECTED 2026-07-31 (bugs_open/162) — see dbTouchWatcher.
+	if hits := touched(); len(hits) > 0 {
+		t.Errorf("must not touch the DB when no repair round is allowed; attempted: %v", hits)
 	}
 }
 

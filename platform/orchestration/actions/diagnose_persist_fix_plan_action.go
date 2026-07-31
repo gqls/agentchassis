@@ -291,9 +291,29 @@ const planRefusalNoteKind = "plan_validation_refusal"
 // save_sections_claims_guard.go:97-103: the rows answer different questions, and a
 // shared code makes "which path caught this" unanswerable.
 //
-// Written on BOTH outcomes — the recoverable refusal and the exhausted terminal one
-// — with severity distinguishing them, so the row's absence means "no refusal
-// happened", never "it happened and was repaired quietly".
+// Written on every outcome the BOUNDED path can reach — the recoverable refusal, the
+// exhausted terminal one, and (2026-07-31, bugs_open/162) the two bookkeeping-failure
+// exits that used to return silently — with severity distinguishing them.
+//
+// CORRECTED 2026-07-31. This comment used to end "so the row's absence means 'no
+// refusal happened', never 'it happened and was repaired quietly'". That was false for
+// four of this function's five terminal exits, and it is the sentence an operator
+// relies on when an `error_code='FIX_PLAN_VALIDATION_REFUSED'` query comes back empty.
+// Two exits still write NOTHING, both deliberately:
+//
+//   - repair_step == "" or max_repair_attempts < 1 — the consumer is not opted in
+//     (council-gate, by a documented positive choice). Its guarantee is "behaves
+//     exactly as it did before 2026-07-30", and a new row is a change to it.
+//   - no orchestration id — recordPlanRefusal would write orchestration_id NULL, and
+//     lines 341-344 below record that a refusal row with that column blank was ITSELF
+//     the defect. Fixing this exit that way recreates a defect already fixed.
+//
+// So what the row's absence actually means is: **no refusal reached the bounded path**.
+// It does NOT mean no plan was refused. To ask that question, the population is every
+// consumer of this action — `SELECT type FROM agent_definitions ..., LATERAL
+// jsonb_each(...) WHERE value->>'action'='diagnose_persist_fix_plan'` — and for a
+// consumer with no repair_step the only surviving trace is
+// collected_data->>'__step_error'. LANDMINES.md carries this as a footprinted entry.
 const planRefusalErrorCode = "FIX_PLAN_VALIDATION_REFUSED"
 
 // recordPlanRefusal writes the operator-facing record of a refusal. Best-effort by
@@ -304,29 +324,54 @@ const planRefusalErrorCode = "FIX_PLAN_VALIDATION_REFUSED"
 // Actions write agent_error_log with a direct INSERT rather than through
 // orchestration.LogAgentError, which would be an import cycle (platform/
 // orchestration imports this package). Same column list as the claims floor's.
+// terminalReason is "" for the two ORDINARY outcomes (routed to repair, budget spent)
+// and a short phrase for a refusal that went terminal because the bookkeeping itself
+// failed. It exists because those rows are otherwise indistinguishable from a genuine
+// budget exhaustion, and they mean something very different: not "the producer could
+// not fix its plan" but "this platform could not record that it tried". A caller
+// passing a reason is always terminal, regardless of what it passes for exhausted.
+//
+// attempt < 0 means the round is UNKNOWN — the count is precisely what failed on that
+// exit. It is rendered as null rather than 0, because 0 is a real, reachable value and
+// a sentinel that collides with a legitimate reading is how a silent miscount starts.
 func recordPlanRefusal(
 	ctx context.Context, params ActionParams, logger *zap.Logger,
 	corr, shape string, problems []string, attempt, maxAttempts int, exhausted bool,
+	terminalReason string,
 ) {
 	outcome := "routed to repair"
 	severity := "warning"
-	if exhausted {
+	switch {
+	case terminalReason != "":
+		outcome = "terminal — " + terminalReason
+		severity = "error"
+		exhausted = true
+	case exhausted:
 		outcome = "terminal — repair budget spent"
 		severity = "error"
 	}
 
+	// null, not 0 — see the note on attempt above.
+	var attemptField interface{}
+	attemptText := "unknown"
+	if attempt >= 0 {
+		attemptField = attempt
+		attemptText = fmt.Sprintf("%d", attempt)
+	}
+
 	contextJSON, err := json.Marshal(map[string]interface{}{
-		"outcome":        outcome,
-		"correlation_id": corr,
-		"plan_shape":     shape,
-		"problems":       problems,
-		"problem_count":  len(problems),
-		"repair_attempt": attempt,
-		"max_attempts":   maxAttempts,
-		"exhausted":      exhausted,
-		"note_kind":      planRefusalNoteKind,
-		"rejected_plan":  "diagnosis_artifacts kind=iteration_note, metadata->>'note_kind'=" + planRefusalNoteKind,
-		"bug":            "bugs_open/099 candidate 2",
+		"outcome":         outcome,
+		"correlation_id":  corr,
+		"plan_shape":      shape,
+		"problems":        problems,
+		"problem_count":   len(problems),
+		"repair_attempt":  attemptField,
+		"max_attempts":    maxAttempts,
+		"exhausted":       exhausted,
+		"terminal_reason": terminalReason,
+		"note_kind":       planRefusalNoteKind,
+		"rejected_plan":   "diagnosis_artifacts kind=iteration_note, metadata->>'note_kind'=" + planRefusalNoteKind,
+		"bug":             "bugs_open/099 candidate 2; bookkeeping exits bugs_open/162",
 	})
 	if err != nil {
 		logger.Warn("plan refusal: could not marshal finding context", zap.Error(err))
@@ -347,8 +392,8 @@ func recordPlanRefusal(
 		    (agent_type, step_name, action, error_message, error_code, severity, context, orchestration_id)
 		VALUES ($1, $2, 'diagnose_persist_fix_plan', $3, $4, $5, $6::jsonb, NULLIF($7,''))`,
 		agentType, params.ExecutionContext.StepName,
-		fmt.Sprintf("Fix plan refused (%s): %d structural problem(s), attempt %d of %d — %s",
-			shape, len(problems), attempt, maxAttempts, outcome),
+		fmt.Sprintf("Fix plan refused (%s): %d structural problem(s), attempt %s of %d — %s",
+			shape, len(problems), attemptText, maxAttempts, outcome),
 		planRefusalErrorCode, severity, string(contextJSON),
 		params.ExecutionContext.OrchestrationID,
 	); err != nil {
@@ -424,6 +469,14 @@ func planValidationRefusal(
 	`, corr, orchID, string(planJSON), string(meta), nullIfEmpty(params.AgentType)); err != nil {
 		logger.Error("diagnose_persist_fix_plan: could not record the plan refusal; refusing terminally",
 			zap.String("correlation_id", corr), zap.Error(err))
+		// bugs_open/162: this exit used to return here silently, so an agent that had
+		// asked for recoverable refusals lost the plan AND any operator-facing trace
+		// of it. The write below is to agent_error_log — a DIFFERENT table from the
+		// one that just failed — so it cannot influence the bounding decision the
+		// fail-closed rule protects, and recordPlanRefusal is best-effort and returns
+		// nothing, so a second failure cannot change this outcome either.
+		recordPlanRefusal(ctx, params, logger, corr, shape, problems,
+			-1, maxAttempts, true, "refusal artefact could not be written")
 		return nil, validationErr
 	}
 
@@ -436,13 +489,18 @@ func planValidationRefusal(
 	if err != nil {
 		logger.Warn("diagnose_persist_fix_plan: refusal count failed; refusing terminally",
 			zap.String("correlation_id", corr), zap.Error(err))
+		// bugs_open/162, same reasoning as the insert exit above. attempt is -1 rather
+		// than 0 because the count is exactly what failed: 0 is a reachable value and
+		// would read as a real round.
+		recordPlanRefusal(ctx, params, logger, corr, shape, problems,
+			-1, maxAttempts, true, "refusal count failed")
 		return nil, validationErr
 	}
 	if attempt > maxAttempts {
 		logger.Warn("diagnose_persist_fix_plan: repair attempts exhausted",
 			zap.String("correlation_id", corr),
 			zap.Int("attempts", attempt), zap.Int("cap", maxAttempts))
-		recordPlanRefusal(ctx, params, logger, corr, shape, problems, attempt, maxAttempts, true)
+		recordPlanRefusal(ctx, params, logger, corr, shape, problems, attempt, maxAttempts, true, "")
 		return nil, fmt.Errorf("%s failed validation after %d repair attempt(s) (cap %d): %s",
 			shape, attempt-1, maxAttempts, problemsText)
 	}
@@ -452,7 +510,7 @@ func planValidationRefusal(
 		zap.String("repair_step", repairStep),
 		zap.Int("attempt", attempt), zap.Int("cap", maxAttempts),
 		zap.Int("problems", len(problems)))
-	recordPlanRefusal(ctx, params, logger, corr, shape, problems, attempt, maxAttempts, false)
+	recordPlanRefusal(ctx, params, logger, corr, shape, problems, attempt, maxAttempts, false, "")
 
 	return map[string]interface{}{
 		"persisted":  false,
