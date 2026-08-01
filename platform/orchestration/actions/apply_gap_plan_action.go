@@ -461,31 +461,17 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		// The name is taken. Read what is actually there BEFORE touching it —
-		// the old code never looked, which is why it could overwrite a live page.
+		// The name is taken. Everything from here is one transaction — see
+		// resolveNewPageConflict.
 		pageCreated = false
-		var existingType, existingBuild string
-		if qerr := db.QueryRowContext(ctx, `
-			SELECT id, COALESCE(page_type, ''), COALESCE(build_status, '')
-			FROM pages WHERE site_id = $1 AND name = $2
-		`, siteID, pageName).Scan(&pageID, &existingType, &existingBuild); qerr != nil {
-			return nil, fmt.Errorf("resolve conflicting page %q: %w", pageName, qerr)
+		resolvedID, refusal, rerr := resolveNewPageConflict(ctx, db, siteID, domain,
+			pageName, title, string(sectionsJSON), pageType, originalItemID, logger)
+		if rerr != nil {
+			return nil, rerr
 		}
-
-		if existingBuild == "deployed" && existingType != pageType {
-			return refuseDeployedPageTypeConflict(ctx, db, siteID, domain, pageName,
-				pageID, existingType, pageType, originalItemID, logger)
-		}
-
-		// Either the page has never shipped, or it already holds the type the
-		// plan asked for. Refreshing the plan's own fields is then coherent —
-		// the plan is for this page's actual role — and is what this arm has
-		// always done. page_type is deliberately NOT updated here; see above.
-		if _, uerr := db.ExecContext(ctx, `
-			UPDATE pages SET title = $3, sections = $4::jsonb, updated_at = NOW()
-			WHERE site_id = $1 AND name = $2
-		`, siteID, pageName, title, string(sectionsJSON)); uerr != nil {
-			return nil, fmt.Errorf("refresh existing page %q: %w", pageName, uerr)
+		pageID = resolvedID
+		if refusal != nil {
+			return refusal, nil
 		}
 
 	case err != nil:
@@ -551,28 +537,122 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	}, nil
 }
 
+// resolveNewPageConflict runs the whole read-decide-write for a `new_page` name
+// collision inside ONE transaction, with the conflicting row locked FOR UPDATE.
+//
+// Returns (pageID, nil, nil) when the row was refreshed, and (pageID, refusal,
+// nil) when the collision was refused — bugs_open/081.
+//
+// THE TRANSACTION IS NOT TIDINESS. Two reasons, both raised by the council on
+// correlation ccd4384c:
+//
+//   - the decision reads `pages.build_status` and then writes based on it, and
+//     that column races the sweep that publishes a page. Unlocked, a page in the
+//     middle of a deploy could be read as not-yet-deployed and then overwritten
+//     as it goes live — the exact damage this fix exists to prevent, arriving
+//     through the fix itself. `FOR UPDATE` closes that window.
+//   - the shared work-item creator takes a *sql.Tx, which is the point: it
+//     carries insertWorkItem's two-strike anti-churn and the ON CONFLICT clause
+//     that matches idx_swi_dedup's partial predicate. A hand-rolled bare
+//     `ON CONFLICT DO NOTHING` has neither and silently misbehaves once the
+//     prior row goes terminal.
+//
+// Every statement's error is checked and propagated, deliberately. A discarded
+// Exec error is invisible under sqlmock too, so a swallowed write here would
+// also make the tests that guard this branch unable to see it (LANDMINES.md,
+// "mock.ExpectationsWereMet() is NOT 'no database call happened'").
+func resolveNewPageConflict(
+	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain, pageName,
+	title, sectionsJSON, wantType string,
+	originalItemID *uuid.UUID, logger *zap.Logger,
+) (uuid.UUID, map[string]interface{}, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return uuid.Nil, nil, fmt.Errorf("begin conflict resolution for %q: %w", pageName, err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var pageID uuid.UUID
+	var existingType, existingBuild string
+	if qerr := tx.QueryRowContext(ctx, `
+		SELECT id, COALESCE(page_type, ''), COALESCE(build_status, '')
+		FROM pages WHERE site_id = $1 AND name = $2
+		FOR UPDATE
+	`, siteID, pageName).Scan(&pageID, &existingType, &existingBuild); qerr != nil {
+		return uuid.Nil, nil, fmt.Errorf("resolve conflicting page %q: %w", pageName, qerr)
+	}
+
+	if existingBuild == "deployed" && existingType != wantType {
+		refusal, rerr := refuseDeployedPageTypeConflict(ctx, tx, siteID, domain,
+			pageName, pageID, existingType, wantType, originalItemID, logger)
+		if rerr != nil {
+			return uuid.Nil, nil, rerr
+		}
+		if cerr := tx.Commit(); cerr != nil {
+			return uuid.Nil, nil, fmt.Errorf("commit refusal for %q: %w", pageName, cerr)
+		}
+		committed = true
+		return pageID, refusal, nil
+	}
+
+	// Either the page has never shipped, or it already holds the type the plan
+	// asked for. Refreshing the plan's own fields is then coherent — the plan is
+	// for this page's actual role — and is what this arm has always done.
+	// page_type is deliberately NOT updated here; see applyNewPage.
+	if _, uerr := tx.ExecContext(ctx, `
+		UPDATE pages SET title = $3, sections = $4::jsonb, updated_at = NOW()
+		WHERE site_id = $1 AND name = $2
+	`, siteID, pageName, title, sectionsJSON); uerr != nil {
+		return uuid.Nil, nil, fmt.Errorf("refresh existing page %q: %w", pageName, uerr)
+	}
+	if cerr := tx.Commit(); cerr != nil {
+		return uuid.Nil, nil, fmt.Errorf("commit refresh for %q: %w", pageName, cerr)
+	}
+	committed = true
+	return pageID, nil, nil
+}
+
 // refuseDeployedPageTypeConflict handles the bugs_open/081 case: a gap plan
 // asked for a page under a name a DEPLOYED page already holds under a different
 // page_type.
 //
-// It mutates nothing. Re-typing a live page changes what it serves immediately
-// (render_news_section starts emitting data/news-archive.json for it, and the
-// check that raised the gap stops firing), and 081 established that the choice
-// of WHICH page holds a role cannot be made from the data: on robot-hands.com
-// the real news listing and the gripper-catalog index are byte-identical at
-// sections=["news-listing"], and a third page matching the same shape is
+// It mutates the page not at all. Re-typing a live page changes what it serves
+// immediately (render_news_section starts emitting data/news-archive.json for
+// it, and the check that raised the gap stops firing), and 081 established that
+// the choice of WHICH page holds a role cannot be made from the data: on
+// robot-hands.com the real news listing and the gripper-catalog index are
+// byte-identical at sections=["news-listing"], and a third page of that shape is
 // archived. Guessing wrong breaks a working page, which is worse than the loop.
 //
 // The originating item is BLOCKED rather than completed — mirroring the growth
-// budget branch above, and for the same reason: 'complete' on an item whose
-// defect is untouched is the false-green this estate keeps relearning. Blocked
-// stops the silent re-fire while leaving the item recoverable once a human has
-// re-typed the page.
+// budget branch in applyNewPage, and for the same reason: 'complete' on an item
+// whose defect is untouched is the false-green this estate keeps relearning.
+// Blocked stops the silent re-fire while leaving the item recoverable once a
+// human has re-typed the page.
+//
+// `recurrenceExpected` is deliberately LEFT FALSE, and that is a decision rather
+// than an omission. It exempts an item whose RE-REQUEST is normal; this is a
+// DETECTED DEFECT, not an action request. While the decision is outstanding the
+// row is non-terminal, so idx_swi_dedup blocks a duplicate and the two-strike
+// rule is never reached. If a human DOES resolve it and the same collision
+// returns, that genuinely is "we fixed this and it came back" — which is exactly
+// what the two-strike label is for, so the default behaviour is the wanted one.
+//
+// handlerAgent is empty ON PURPOSE: nothing can resolve this but a person.
+// Measured 2026-08-01 — claim_work_item_action.go:102 and
+// load_work_item_actions.go:632 both claim `status IN ('triaged','approved')`,
+// so a needs_human_review row cannot be picked up by the dispatch loop and
+// re-run through content-gap-planner.
 func refuseDeployedPageTypeConflict(
-	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain, pageName string,
+	ctx context.Context, tx *sql.Tx, siteID uuid.UUID, domain, pageName string,
 	pageID uuid.UUID, existingType, wantType string,
 	originalItemID *uuid.UUID, logger *zap.Logger,
-) (interface{}, error) {
+) (map[string]interface{}, error) {
 	reason := fmt.Sprintf(
 		"page %q is deployed as page_type=%q; the plan wants %q. Re-typing a live page changes what it serves, so it is not done automatically (bugs_open/081)",
 		pageName, existingType, wantType)
@@ -592,38 +672,34 @@ func refuseDeployedPageTypeConflict(
 
 	// Keyed per (site, page, wanted type) so a check that re-fires while the
 	// decision is outstanding dedups onto the open item rather than filing a
-	// second one — the dedup contract in load_work_item_actions.go.
-	itemKey := fmt.Sprintf("mistyped_deployed_page_%s_%s_%s", siteID, pageName, wantType)
-
-	itemRes, ierr := db.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, page_id, priority, status, created_by, item_key, parent_item_id
-		) VALUES ($1, 'content-gap-planner', 'build', 'mistyped_deployed_page', 'medium', $2,
-		          $3::jsonb, $4, 40, 'needs_human_review', 'content-gap-planner', $5, $6)
-		ON CONFLICT DO NOTHING
-	`, siteID, summary, string(spec), pageID, itemKey, originalItemID)
-
-	// bugs_open/091's rule, applied at birth rather than retrofitted: this is an
-	// ON CONFLICT DO NOTHING, so it writes nothing when the decision is already
-	// outstanding. RowsAffected is the only thing that knows, and reporting "no
-	// error" as "a record exists" is how the platform lost findings before.
-	itemCreated := false
+	// second one.
+	itemCreated, ierr := insertWorkItem(ctx, tx, workItem{
+		siteID:   siteID,
+		source:   "content-gap-planner",
+		pipeline: "build",
+		itemType: "mistyped_deployed_page",
+		severity: "medium",
+		summary:  summary,
+		spec:     string(spec),
+		pageID:   &pageID,
+		priority: 40,
+		status:   "needs_human_review",
+		// handlerAgent deliberately empty — see the doc comment.
+		createdBy: "content-gap-planner",
+		itemKey:   fmt.Sprintf("mistyped_deployed_page:%s:%s", pageName, wantType),
+	}, logger)
 	if ierr != nil {
-		// Failing to file the review item must not also lose the refusal — the
-		// block below is what stops the loop, and it is the more important half.
-		logger.Warn("bugs_open/081: could not file mistyped_deployed_page item",
-			zap.String("page_name", pageName), zap.Error(ierr))
-	} else {
-		itemCreated = execWroteARow(itemRes)
+		return nil, fmt.Errorf("file mistyped_deployed_page for %q: %w", pageName, ierr)
 	}
 
 	if originalItemID != nil {
-		db.ExecContext(ctx, `
+		if _, uerr := tx.ExecContext(ctx, `
 			UPDATE site_work_items
 			SET status = 'blocked', error = $2, updated_at = NOW()
 			WHERE id = $1
-		`, *originalItemID, reason)
+		`, *originalItemID, reason); uerr != nil {
+			return nil, fmt.Errorf("block originating item for %q: %w", pageName, uerr)
+		}
 	}
 
 	logger.Warn("ApplyGapPlanAction: new_page refused — deployed page holds this name under a different type",
@@ -631,7 +707,8 @@ func refuseDeployedPageTypeConflict(
 		zap.String("page_name", pageName),
 		zap.String("existing_page_type", existingType),
 		zap.String("wanted_page_type", wantType),
-		zap.String("page_id", pageID.String()))
+		zap.String("page_id", pageID.String()),
+		zap.Bool("item_created", itemCreated))
 
 	return map[string]interface{}{
 		"applied":      false,

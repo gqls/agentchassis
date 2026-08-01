@@ -16,6 +16,23 @@
 // is satisfied by deleting the guard: refusing everything would pass a
 // refusal-only test. So each refusal case has a control that must still take the
 // old path, and the controls assert the `UPDATE pages` refresh actually happens.
+//
+// > **CORRECTED 2026-08-01, and the first version of this file was WRONG.** It
+// > claimed `mock.ExpectationsWereMet()` proved no `UPDATE pages` was issued on
+// > the refusal path. It proves nothing of the kind: that call reports
+// > expectations that were REGISTERED AND NOT CONSUMED — it never sees an EXTRA
+// > call (LANDMINES.md, "mock.ExpectationsWereMet() is NOT 'no database call
+// > happened'"). Proved by induction rather than argued: an `UPDATE pages` was
+// > added to the refusal path and **the test still passed**, because the
+// > production code discarded that Exec's error.
+// >
+// > What makes these tests real now is that `resolveNewPageConflict` CHECKS AND
+// > PROPAGATES every statement's error. An unexpected call inside the
+// > transaction errors, the error reaches `applyNewPage`'s return, and the
+// > `t.Fatalf` below fires. Re-induced after the rewrite: the same added
+// > `UPDATE pages` now FAILS the test. If you change this file, break the thing
+// > it guards and watch it fail — that is the only thing separating a guard from
+// > a decoration.
 package actions
 
 import (
@@ -54,16 +71,20 @@ func TestApplyNewPage_DeployedTypeConflictIsRefused(t *testing.T) {
 
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status"}).
 			AddRow(existingID, "content", "deployed"))
-	// The refusal files a review item and blocks the originator. It must NOT
-	// file a needs_content_page item, and must NOT update `pages`.
+	// insertWorkItem's two-strike probe, then its insert. The refusal must NOT
+	// file a needs_content_page item, and must NOT touch `pages` at all.
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("UPDATE site_work_items").
 		WithArgs(originalItem, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	res, err := applyNewPage(context.Background(), db,
 		newPagePlan("news", "news-index"), uuid.New(), "ai-agent-orchestration.com",
@@ -86,8 +107,12 @@ func TestApplyNewPage_DeployedTypeConflictIsRefused(t *testing.T) {
 		t.Error("page_created = true, but the page already existed and was not touched")
 	}
 
-	// The load-bearing assertion: no UPDATE pages was issued. sqlmock fails an
-	// unexpected call, so an added mutation shows up here.
+	// ExpectationsWereMet only reports UNCONSUMED registrations — it cannot see
+	// an extra call, so it is NOT what proves the page went untouched. What
+	// proves that is the t.Fatalf above: an unexpected statement inside the
+	// transaction errors, resolveNewPageConflict propagates it, and applyNewPage
+	// returns it. This call still earns its place by catching the opposite
+	// mistake — a refusal that never files the item or never blocks.
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
 	}
@@ -108,11 +133,13 @@ func TestApplyNewPage_DeployedSameTypeStillRefreshes(t *testing.T) {
 
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status"}).
 			AddRow(existingID, "news-index", "deployed"))
 	mock.ExpectExec("UPDATE pages").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -150,11 +177,13 @@ func TestApplyNewPage_UndeployedTypeConflictStillRefreshes(t *testing.T) {
 
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status"}).
 			AddRow(existingID, "content", "planned"))
 	mock.ExpectExec("UPDATE pages").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 

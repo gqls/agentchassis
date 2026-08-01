@@ -294,9 +294,28 @@ session widens it back without re-running the query.
 - `platform/orchestration/actions/apply_gap_plan_deployed_conflict_test.go` —
   **1 firing branch + 3 controls.** The pairing is deliberate: a test that only
   proves the refusal fires is satisfied by deleting the guard and refusing
-  everything. The refusal test's load-bearing assertion is
-  `ExpectationsWereMet()` — an unexpected `UPDATE pages` fails it, so "nothing was
-  mutated" is checked, not asserted.
+  everything.
+
+  > **CORRECTED 2026-08-01 — the first version of this line was WRONG, and so was
+  > the test.** It said the load-bearing assertion was `ExpectationsWereMet()`,
+  > "an unexpected `UPDATE pages` fails it, so nothing-was-mutated is checked, not
+  > asserted." `ExpectationsWereMet` reports registrations made and not consumed —
+  > it never sees an EXTRA call. **Induced and confirmed: an `UPDATE pages` added
+  > to the refusal path passed the test.** The claim was a decoration, and I had
+  > written it into this file, 016b, the commit message and the council
+  > submission.
+  >
+  > **Caught by** a `LANDMINES.md` entry another session appended hours earlier
+  > (`bugs_open/162`'s lane) — "`mock.ExpectationsWereMet()` is NOT 'no database
+  > call happened'" — which arrived in this tree inside my own commit
+  > `89e037a31`, because a pathspec commit takes the working tree's copy of a
+  > shared file. I read it because the pre-commit hook flagged that commit for
+  > removing lines from an append-only ledger.
+  >
+  > **Now real, and proved both ways:** the refusal path runs in a transaction
+  > that checks and propagates every statement's error, so the same induced
+  > `UPDATE pages` now FAILS at the caller. Error propagation carries the negative
+  > assertion; the mock's bookkeeping never could.
 - `platform/orchestration/actions/discovery_checks/verifier_coverage_test.go` —
   `mistyped_deployed_page` classified on the way IN. Produced outside that
   package, so neither the sensor (scans that package's source) nor the ratchet
@@ -318,3 +337,61 @@ session widens it back without re-running the query.
 4. **No verifier** for `mistyped_deployed_page`. One is writable
    (`pages.page_type = spec.wanted_type`); recorded as `catMechanical` rather
    than written, so it is a decision on the record.
+5. **The sibling class is filed, not fixed** — `bugs_open/172`. The council's
+   `bug_historian` seat asked whether a third write path shares this shape; the
+   grep says **four more do** (`create_report_page_action.go:164`,
+   `deploy_tool_action.go:376` and `:514`, `create_tool_component_action.go:416`)
+   and a sixth carries the opposite risk (`apply_adoption_plan_action.go:532`
+   re-types on conflict). Deliberately not fixed here: six call sites in one bug
+   patch is the scope creep the guardian seat exists to veto, and the right
+   answer differs per site.
+
+---
+
+# ROUND 2 — the council said REVISE, and what changed
+
+`ccd4384c` came back **REVISE**, gated by the `guidelines` seat at HIGH. Four
+seats (`guidelines` HIGH, `improvement_guardian` HIGH, `guardian` MEDIUM,
+`reuse_agent` MEDIUM) converged on **one** thing and they were right:
+
+**The refusal hand-rolled `INSERT INTO site_work_items ... ON CONFLICT DO
+NOTHING` instead of going through `insertWorkItem`.** A bare `ON CONFLICT DO
+NOTHING` does not match `idx_swi_dedup`'s partial predicate, carries none of the
+two-strike anti-churn, and ignores `recurrenceExpected` — so the dedup this file's
+own rationale claimed ("a re-firing check dedups onto the open decision") was not
+actually guaranteed. Now routed through `insertWorkItem`, which owns that idiom.
+
+That change required a `*sql.Tx`, which **also** discharged the `debug_historian`
+seat's MEDIUM: the read-then-write on `pages.build_status` was unlocked and raced
+the sweep that publishes a page. It is now one transaction with `SELECT ... FOR
+UPDATE`.
+
+**Answered with evidence rather than changed:**
+
+- `recurrenceExpected` (editquality / architecture / guardian): left **false**,
+  deliberately. It exempts items whose re-request is normal; this is a detected
+  defect, not an action request. While the decision is open the row is
+  non-terminal so dedup blocks a duplicate and two-strike is never reached — and
+  if a human resolves it and the collision returns, "we fixed this and it came
+  back" is exactly what the two-strike label is for.
+- `handler_agent` (guardian, HIGH — "a live handler_agent risks the dispatch loop
+  re-claiming this item"): the seat read my abbreviated sketch's `created_by`
+  value as `handler_agent`. It was never set and is empty. **Measured rather than
+  asserted:** `claim_work_item_action.go:102` and `load_work_item_actions.go:632`
+  both claim `status IN ('triaged','approved')`, so a `needs_human_review` row
+  cannot be picked up at all.
+- `applied` consumers (prior_art_librarian, MEDIUM — an unevidenced absence, and
+  a fair hit): **exactly one** active `agent_definition` uses `apply_gap_plan`
+  (`content-gap-planner`), its step is `"next_step": "complete"` unconditionally,
+  and **zero** active definitions reference `applied`/`page_created` anywhere.
+- `pages.build_status` really holds `'deployed'` (editquality, LOW — the sibling
+  landmine says `site_components.build_status` never does): `GROUP BY build_status`
+  over `pages` returns `deployed 453, needs_rebuild 45, planned 17`.
+- `mistyped_deployed_page` never observed live (prior_art_librarian, LOW):
+  `SELECT count(*) ... WHERE item_type='mistyped_deployed_page'` → **0**.
+
+**Not done, and named:** the `tooling_provenance` seat asked for a
+`doc_notes`/`doc_plans` consultation on this subject before editing. The
+workstream docs under `bugfix_081_deployed_mistyped_page/` are the NOTES entry it
+asks be left; the prior-decisions lookup was not run, and that is a real gap
+rather than a discharged one.

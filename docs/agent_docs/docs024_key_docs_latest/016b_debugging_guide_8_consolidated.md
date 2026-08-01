@@ -9337,6 +9337,30 @@ by deleting the guard and refusing everything. Pair every refusal case with a
 control that must still take the old path, and assert the mutation genuinely
 still happens there.
 
+> **AND THE PAIRING IS NOT ENOUGH — CORRECTED 2026-08-01, on this entry's own
+> case.** The first version of this entry said the refusal test's load-bearing
+> assertion was `mock.ExpectationsWereMet()`, "so an added mutation shows up
+> here". **That is false**, and it was false in the commit that introduced it.
+> `ExpectationsWereMet` reports registrations that were made and NOT CONSUMED; it
+> never sees an EXTRA call. Worse, the production code discarded the `Exec`
+> error, so sqlmock's own complaint about the unexpected statement went nowhere.
+> Induced on purpose: an `UPDATE pages` was added to the refusal path and **the
+> test passed**.
+>
+> **What actually makes a "nothing was written" test real is the production code
+> checking and propagating every statement's error.** Once the refusal path ran
+> in a transaction with every error returned, the same induced `UPDATE pages`
+> failed the test at the caller's `t.Fatalf`. So the negative assertion is
+> carried by error propagation, not by the mock's bookkeeping — and a swallowed
+> `Exec` error is therefore not just a production smell, it silently disarms the
+> test that guards it.
+>
+> **The rule: break the thing the test guards and watch it fail.** It costs a
+> minute. Both directions were induced here, and the first one is why this
+> paragraph exists. See `LANDMINES.md`, "`mock.ExpectationsWereMet()` is NOT
+> 'no database call happened'" (`bugs_open/162`'s lane, which found the same
+> thing in four assertions on the same day).
+
 **Related:** §9 *"a `complete` work item is not a repaired artefact"* (the item
 here is `blocked` for exactly that reason); `bugs_open/091` (the reporting half,
 same file, one arm over); `bugs_closed/015` (the sibling repair path, whose
