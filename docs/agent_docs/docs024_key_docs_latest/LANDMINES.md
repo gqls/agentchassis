@@ -2695,3 +2695,64 @@ matters if that domain was chosen to host wildcard subdomains later.
 - **and: use `grep -ic`, or paste the literal out of the source rather than retyping it.** Retyping is where the case is lost. Sibling of the two pod-grep entries already here (non-ASCII splitting a literal; the linker packing constants so anchors misfire) — same command, third distinct way to get a false 0
 - **source:** `bugs_closed/167`, 2026-07-31 — I published the mis-cased command in a RUNBOOK and a closed bug file before catching it; `WRONG_CALLS.md` same date. The lesson "a grep proves an absence only for the SPELLING it searches" was already recorded and did not prevent it
 - **added:** 2026-07-31, bugfix_167_chrome_build_path lane
+
+---
+
+### The idea.uk box has NO catch-all vhost, so it serves the whole shop to any hostname — and the obvious fix (enable Ubuntu's stock `default`) takes the site down at the next reload
+
+- **footprint:** `116.203.204.115`, `/etc/nginx/sites-enabled`, `/etc/nginx/sites-available/default`, `idea.conf`, `default_server`, `docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/box/`, `setup.sh`
+
+Measured 2026-08-01: `sites-enabled/` on the idea.uk box holds **exactly one
+file** (`idea.conf`) and **nothing anywhere claims `default_server`** — Ubuntu's
+stock `default` vhost is present in `sites-available/` but is **not symlinked**.
+So idea.conf's blocks are the de-facto default for `:80` and `:443`, and the
+complete site — **money path included** — is served to every unmatched hostname
+and to requests carrying no name at all:
+
+```bash
+curl -sk -o /dev/null -w '%{http_code}\n' https://116.203.204.115/                         # 200  no SNI
+curl -sk -o /dev/null -w '%{http_code}\n' --resolve fake.example:443:116.203.204.115 \
+     https://fake.example/                                                                 # 200  foreign SNI
+curl -s  -o /dev/null -w '%{http_code}\n' -H 'Host: fake.example' http://116.203.204.115/   # 301  foreign Host
+```
+
+**Why it misleads:** on 2026-07-31 two unrelated domains (`webdesign.uk`,
+`ugg2.com`) briefly pointed here and served **byte-identical** idea.uk content,
+and a real payable order was creatable from the wrong one. That reads as a DNS or
+a CDN problem and it is neither — it is a missing catch-all, and **any** hostname
+pointed at this address reproduces it. The application cannot save you: the Go
+tool never reads `r.Host` (`grep -n 'r\.Host' main.go service.go billing.go` →
+no match) and builds every redirect from `PublicBaseURL`, so a buyer who starts
+checkout under the wrong name is bounced mid-flow to a domain they have never
+visited.
+
+**the check, and the trap inside the fix:** add a catch-all — `box/default-deny.nginx`
+in the idea.uk lane is written for exactly this (`server_name _`, `return 444` on
+:80, `ssl_reject_handshake on` on :443, installed as a NEW file so `idea.conf` is
+never edited and rollback is deleting a symlink). **Do NOT instead symlink
+Ubuntu's stock `sites-available/default`**: it claims `listen 80 default_server`
+too, and two `default_server`s on one address:port is an `nginx -t` **error**, so
+the box keeps serving until someone reloads and then does not come back. Verify
+which files are actually live before adding one:
+`ls -la /etc/nginx/sites-enabled/ && grep -rn default_server /etc/nginx/sites-enabled/`.
+
+Two facts decide whether a catch-all is safe on a box like this, and both must be
+re-checked per box rather than carried across: **(1)** how ACME renews — this box
+is `authenticator = webroot` over port 80 with `Host: idea.uk`
+(`/etc/letsencrypt/renewal/idea.uk.conf`), so renewal matches the named vhost and
+can never fall into the catch-all; a **TLS-ALPN** authenticator would be a
+different answer. **(2)** whether rejecting no-SNI clients costs anything — here
+the only certificate is `SAN: DNS:idea.uk`, so a client arriving without SNI
+*already* fails validation and cannot be a working visitor.
+
+**And you cannot settle it from the logs:** nginx here writes the stock
+`combined` format, which carries **no `$host`**, so the access log cannot tell
+you whether real traffic ever arrives under a foreign hostname. Add `$host` to
+`log_format` first if you need traffic evidence rather than the certificate
+argument — but that is itself a production reload.
+
+⚠ **`setup.sh` re-provisioning removes any fix here** — it rewrites `idea.conf`
+from its own template and runs `ufw --force reset`. A catch-all must go into its
+stage-2 template as well, or the exposure returns silently on the next rebuild.
+
+- **source:** 2026-08-01, `idea_uk_vm_site/RUNNING_NOTES` §X.34 + RUNBOOK §4a-bis; confirms and explains §5 of `idea_uk_vm_site/HANDOFF_2026-07-31_cloudflare_decision.md`
