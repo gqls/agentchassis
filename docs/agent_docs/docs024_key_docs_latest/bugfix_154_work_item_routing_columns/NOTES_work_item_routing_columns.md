@@ -434,3 +434,55 @@ here is the measured window above, not a theory.
 **For `154`:** dispatch is live again as of 08:02Z and the item is still `triaged`
 at rank 2 on its site, so the outstanding observation is finally *possible*.
 Watching now.
+
+## 2026-08-01 08:33Z — dispatch recovered, but the target site is being STARVED
+
+Second watch: 30 polls, 08:03 → 08:33Z. `ee745694` never left `triaged`.
+
+Dispatch is demonstrably working — claims in the 45 minutes after recovery:
+
+| site | claims | window |
+|---|---|---|
+| loancalculator.co.uk | 15 | 08:04–08:14 |
+| finetuning.uk | 5 | 08:07–08:10 |
+| robot-hands.com | 5 | 08:01–08:09 |
+| vetcomparison.uk | 5 | 08:07–08:10 |
+| system.internal | 3 | 08:02–08:19 |
+| **gamesdesign.co.uk** | **0** | **never selected** |
+
+gamesdesign was eligible throughout — re-checked at 08:30: unlocked, `deployed`,
+**0** blocking claims, **36** dispatchable, and `ee745694` still at **rank 2**.
+Five other sites were served repeatedly and this one was not selected once.
+
+**This is the starvation mode the register already documents** (WDS-002:
+`find_dispatchable_site` picks ONE site per tick via `DISTINCT ON` with **no outer
+`ORDER BY`** — "effectively arbitrary among eligible sites, and lowest-UUID sites
+can starve others"). I am naming the match, not diagnosing it: I have not read the
+selection SQL this session, so **`[INFERRED]`** that this instance is that
+mechanism. What is **measured** is the table above.
+
+**Consequence for `154`, stated plainly: waiting is not a terminating strategy.**
+The verification has been queued for ~12 hours across two watches and the site has
+never been picked. It may be picked in the next tick or not this week; nothing in
+the queue's state predicts it, because the selection does not consider queue age
+or depth. So "wait for a natural dispatch" is not a plan, and continuing to sit on
+it would be mistaking patience for progress.
+
+Two honest ways forward, and the choice is the owner's because they differ in
+blast radius, not in confidence:
+
+1. **Fire `build-dispatch-loop` at gamesdesign by hand.** The platform's own
+   mechanism for exactly this (the queue-stalled bypass pattern). **But it is
+   BROADER than what was approved:** the loop loads `max_items: 5`, so it would
+   process up to five of that site's queued items — rank 1 is a `nav_drift`, ranks
+   3+ are `page_rerender`s against a live site — not only mine. Legitimate queued
+   work the platform would do anyway, but not "dispatch one item".
+2. **Close on the mechanism evidence, with the gap stated.** Both halves live and
+   pod-verified across two rolls, mapping reads the column path, induced-fault
+   test covers the exact column-only shape, and all four stuck items' ids satisfy
+   every clause of `load_tool`'s query. The close would say **no live dispatch was
+   observed** — which is honest, and leaves the last step for whoever next sees an
+   `improve_tool` item run.
+
+I am NOT taking option 1 unilaterally: the earlier go-ahead was for one item on
+one site, and five items including live-page rerenders is a different action.
