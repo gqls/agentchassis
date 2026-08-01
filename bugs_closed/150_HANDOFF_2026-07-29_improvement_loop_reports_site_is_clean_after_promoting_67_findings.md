@@ -324,3 +324,65 @@ fix exists to make, and is stated as risk 2 in the submission.
 
 The commits carry `Council-Submitted:` rather than `Council-Reviewed:`, which is correct and
 deliberate: they predate the verdict, and `098` resolves the correlation at report time.
+
+---
+
+## 2026-08-01 — **CLOSED: FIXED, LIVE on v1.0.1225, and BOTH ARMS INDUCED on the same site**
+
+Not a green build, not a tag, not a status. The same site, the same script, one day apart,
+with one variable changed — the binary and the condition it reads.
+
+### The image, gated before anything was applied
+
+```
+agent-chassis-69c6669978-74s6k   v1.0.1225   site_dispatchable=3   control=1
+agent-chassis-69c6669978-hlz8l   v1.0.1225   site_dispatchable=3   control=1
+```
+
+Both replicas, discriminating string and positive control in the same exec. **Only then**
+was migration 281 applied (08:03Z): pre-flight assertion returned the expected `1`,
+`snapshot_agent` captured `source_version=1` into `agent_definitions_backup`, `UPDATE 1`,
+and the verify-before-commit printed
+`improvement-loop | triage_result.site_dispatchable == true | insert_rerender_item | notify_scheduler_clean`.
+Recorded in `schema_migrations` via `--record-only`.
+
+### The before/after, on vetcomparison.uk, from the runs' own `collected_data`
+
+| | **before** — `911ecdd8`, 2026-07-31, v1.0.1218 | **after** — `21669589`, 2026-08-01, v1.0.1225 |
+|---|---|---|
+| a child promoted | 24 (design-audit) + 3 (site-review) | 4 (design-audit) |
+| parent `promoted` | **0** | **0** |
+| parent `has_items` | **false** | **false** |
+| `site_dispatchable` | *(key did not exist)* | **true** |
+| `site_dispatchable_count` | *(key did not exist)* | **42** |
+| `current_step` | **`complete_clean`** | **`complete`** |
+| closing rerender created | **0** | **1** |
+| dispatch spawned | **no** | **yes** |
+
+**The input to the branch is identical in both runs — the parent's own copy promoted
+nothing — and the branch goes the other way.** That is the failing arm and the fixed arm,
+induced, not argued.
+
+The artefacts, not the status:
+
+```
+ id       | item_type      | item_key                              | priority | status  | handler_agent
+ 7afecf63 | needs_rerender | improvement_rerender_vetcomparison.uk |       99 | triaged | rerender-pages
+                                                        created_at 2026-08-01 08:07:31.78Z
+```
+— created at the instant the branch fired (`insert_rerender_item`, 08:07:31), which is the
+priority-99 closing pass § "What is and is not damaged" identified as the one thing nothing
+else guarantees. And `build-dispatch-loop` spawned and ran (`process_item_iter_4_claim`),
+which is the other skipped step.
+
+### What this case leaves behind
+
+- **Code:** `337fdd9af` — `site_dispatchable` / `site_dispatchable_count` on
+  `triage_detected_items`, seven regression tests, register `WDS-015`.
+- **Config:** `sql_for_agents/281`, applied and recorded 2026-08-01.
+- **Council:** `757cc7be` **APPROVED** (8 advisory objections, none high; four were
+  checkable and all four were checked — see the verdict section above).
+- **Still open, deliberately, and neither is a residual of this fix:**
+  `bugs_open/171` (the `check_audit_pass_limit` route to the same false claim — latent,
+  0 of 25 sites at the limit) and `architecture_review/RFC_006` (should a shared
+  "take everything in state X" step have one owner — an owner decision, not a bug).
