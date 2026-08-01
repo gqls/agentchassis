@@ -29,9 +29,15 @@ Two traps this encodes:
     lock-suppressed reports success while changing nothing, so RowsAffected is read
     and asserted, never assumed.
 
-Run:  python3 gate_component_bytes.py             # report only
-      python3 gate_component_bytes.py --repair    # load repo bytes into mismatches
+Run:  python3 gate_component_bytes.py [--domain <d>] [--source <dir>]   # report only
+      python3 gate_component_bytes.py --domain loancash.co.uk --repair  # repair
+
+--domain defaults to this workstream's site; --source defaults to the deploy repo dir
+for that domain (override it only when the byte source is NOT the deploy repo, e.g. the
+mortgagecalculator gemini/02 tree — and then get the domain INTO the repo first, per that
+lane's handoff §1).
 """
+import argparse
 import base64
 import hashlib
 import os
@@ -39,9 +45,17 @@ import re
 import subprocess
 import sys
 
-DOMAIN = "loanandmortgagecalculator.co.uk"
-SITE = os.path.expanduser(f"~/projects/sites/{DOMAIN}")
-REPAIR = "--repair" in sys.argv
+_ap = argparse.ArgumentParser()
+_ap.add_argument("--domain", default="loanandmortgagecalculator.co.uk")
+_ap.add_argument("--source", default=None,
+                 help="byte-source dir (default: ~/projects/sites/<domain>)")
+_ap.add_argument("--repair", action="store_true")
+_args = _ap.parse_args()
+DOMAIN = _args.domain
+SITE = os.path.expanduser(_args.source or f"~/projects/sites/{DOMAIN}")
+REPAIR = _args.repair
+if not os.path.isdir(SITE):
+    sys.exit(f"byte-source dir does not exist: {SITE}")
 
 PSQL = ["kubectl", "-n", "ai-persona-system", "exec", "-i", "postgres-clients-0", "--",
         "psql", "-U", "clients_user", "-d", "clients_db"]
