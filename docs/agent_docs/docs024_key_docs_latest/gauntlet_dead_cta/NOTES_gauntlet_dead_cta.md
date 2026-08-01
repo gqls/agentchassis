@@ -3489,3 +3489,26 @@ parsing line — no other lane's words were rewritten.
 The parser does warn on skipped entries, but only when a human runs it and reads
 the output — and `--apply` prints the count of rows written, which goes UP either
 way. Nothing in the pipeline treats a skipped entry as a failure.
+
+### Lock fix APPROVED (57885d11, 8/4 advisory) — and one objection was checkably wrong
+
+First attempt killed by the 23:10 roll four minutes in (third in 24h; the landmine now
+carries the reaper's FAILED shape and the coin-flip arithmetic). Re-fired unchanged,
+approved in 6½ minutes.
+
+Dispositions in `doc_notes` (2026-08-01b row). Two worth a line here: `guardian`'s
+medium claimed the locked-duplicate test proves no-DELETE "after only ExpectCommit" —
+wrong on the file (five expectations registered; unexpected Exec errors at call time
+in ordered mode; positive invariant asserted besides), and worth noticing that seats
+can be confidently wrong about test mechanics from a sketch, which is one more reason
+the sketch should quote the file. `prior_art_librarian` asked for the import-cycle
+proof rather than the assertion — attached now (`discovery_checks.go:22`, no reverse
+import, predicate unexported), and the asking was correct even though the claim held:
+that is the same standard I was held to yesterday and it caught two real errors then.
+
+`debug_historian`'s pod-grep point is the one carried obligation: nothing here has
+shipped — deploy-time step recorded in doc_notes (grep `lock_skipped` + positive
+control in the same exec at the next chassis roll).
+
+Full trail for the day: checker r3 approved / plan guard r1 approved / lock fix r1
+approved; four commits carrying `Council-Submitted:` all auto-credited by `098`.
