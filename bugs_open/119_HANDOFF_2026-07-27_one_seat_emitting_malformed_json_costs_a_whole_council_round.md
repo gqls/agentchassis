@@ -254,3 +254,134 @@ nowhere the submitter can see, so the first fix is diagnosability — put the
 originating step and its error into the completion artefact. Until then a
 submitter cannot tell "my JSON is bad" from "a seat fell over", which is the
 difference between fixing it and re-running it.
+
+---
+
+## 2026-08-01 — TAKEN, FIXED IN CODE, and this file's headline mechanism could not be reproduced
+
+Picked up by the "bugs_open/119 seat-retry" thread. `who-owns.py` named no owning
+workstream and no active session transcript mentioned 119, so this was unowned as the
+header says. Workstream docs: `docs024_key_docs_latest/bugfix_119_seat_retry/`
+(PLAN / NOTES / RUNBOOK / README_where_we_are).
+
+### 1. The damage is real, recurring, and worse than this file measured
+
+This file measured "2 of the last 18 rounds". The all-history figure, from **all 424**
+`council_report` artifacts (RUNBOOK R1):
+
+| week beginning | rounds | ≥1 unreadable seat | **voided by an unreadable seat** |
+|---|---|---|---|
+| 2026-07-06 | 10 | 0 | 0 |
+| 2026-07-13 | 85 | 0 | 0 |
+| 2026-07-20 | 162 | 17 | **8** |
+| 2026-07-27 | 167 | 21 | **15** |
+
+**23 rounds all-time were decided by a parse failure rather than by a judgement.** Seven
+distinct seats have done it — `editquality` 25, `guidelines` 4, `prior_art` 3, `guardian`
+3, `deferral_honesty` 2, `checkability` 1, `improvement_guardian` 1 — which confirms this
+file's "general emission fragility across the roster", now on a sample of 39 rather than 2.
+
+The cost shape is sharper than "one wasted round": correlation `c5219a69` burned **three
+consecutive rounds** (2026-07-31, 15:32 / 15:37 / 15:42), same seat, same orchestration,
+ten minutes. Nothing re-asked, so every retry was a fresh round of 10-13 seats.
+
+### 2. [MEASURED] The headline mechanism has ZERO live instances — the DEFECT is entirely real
+
+> **Both halves of this matter and they point different ways.** This file's *defect*
+> ("nothing retries the seat") is 100% true of the code and is costing rounds weekly. This
+> file's *mechanism* (a complete review closed one bracket early, leaving a stray `]`)
+> could not be reproduced at all.
+
+Classifying every unreadable seat against its orchestration (RUNBOOK R3): of 39
+instances, **36 orchestrations were already pruned** and all **3** survivors are total
+truncations with an *empty* partial — `{"type":"text","result":"","__truncated":true,
+"__truncated_output_tokens":8000}`. Fleet-wide, across **785** JSON-declared step outputs
+in the live orchestration window (RUNBOOK R6): **782 parsed, 2 unparsable (both
+truncated), 0 complete-but-malformed.**
+
+So the fix below targets the **defect** (any unusable answer), not the filed mechanism —
+which is why its corrective text branches on which failure actually occurred. A fix aimed
+only at the bracket slip would have fired zero times and been reported as a success.
+
+> **CORRECTION to this file's §"How to verify a fix" step 1.** It says to reproduce from
+> the stored artefact and "capture it before ~2026-08-09" because "`orchestration_states`
+> retains 13 days". **That is false.** Rows survive from 07-13, but these specific
+> orchestrations were gone within days, and correlation `dfa6205e`'s is long pruned. The
+> instruction was already unsatisfiable when I read it, four days after it was written.
+> *What caught it:* trying to follow it. Logged in `WRONG_CALLS.md`.
+
+### 3. A second cause, upstream, found while reading — the declared key was DEAD
+
+`getOutputType` (`ai_actions.go`) read **`output_type`**. The fleet writes
+**`output_format`**, and nothing in the LLM path read it. Measured across all 134 active
+`execute_llm_prompt` steps (RUNBOOK R5):
+
+| key | value | steps | agents |
+|---|---|---|---|
+| `output_format` — **never read** | json | **90** | **32** |
+| `output_format` — **never read** | text | 10 | 5 |
+| `output_type` — read | json | 5 | 5 |
+| `output_type` — read | text | 1 | 1 |
+
+**So 90 steps across 32 agents — every council seat included — asked for JSON and were
+never told to produce it**, receiving `getDefaultOutputInstructions()` (which mentions
+JSON nowhere) instead of `getJSONOutputInstructions()`, whose first line is:
+
+> `- Ensure valid JSON syntax (proper quotes, commas, brackets)`
+
+That is, word for word, this file's documented failure. [INFERRED, and deliberately marked
+— I cannot prove the instruction would have prevented the observed stray `]`. What is
+MEASURED is that the seats never received it.] Same class as `bugs_open/134`.
+
+### 4. What shipped — commit `4c1a97874`
+
+Both edits in `platform/orchestration/actions/ai_actions.go`; register entry **WFA-005**.
+
+- **Prevention (this file's candidate 2, cheaply).** `getOutputType` now also reads
+  `output_format`, **allow-listed** to `json|text|html|markdown`. The gate is load-bearing:
+  `query_database` reads the same key name with a *different* vocabulary (`array`/`object`,
+  `database_actions.go:26`).
+- **Recovery (this file's candidate 1, as recommended).** When a step **declared** json and
+  the answer will not parse, re-ask **exactly once**, corrective rather than identical —
+  an identical re-ask reproduces the failure, which `c5219a69` proved three times running.
+  Truncated → same judgement materially shorter; malformed → same content as one valid
+  JSON value with bracket balance spelled out. It gets its own `llm_call_log` row marked
+  `RETRY (bugs_open/119…)`, and on recovery the `__truncated` markers are adopted from the
+  response actually returned, so a consumer cannot degrade on discarded evidence.
+- **Not taken: candidate 3** (loosen the Tier 3 parser). This file recommends against it
+  and is right — that rule is backed by a 5,844-response measurement. Untouched.
+- **019 and 138 are untouched by construction.** If the re-ask also fails, every line
+  below it runs byte-identically: an unreadable seat still blocks an approval, it just
+  gets one chance to be readable first. `salvageTruncatedReview` and the `Degraded` gating
+  rule are not modified.
+
+Restores a symmetry the action lacked: it retried a call that never **arrived** (four
+attempts on 500/502/503/529) and accepted without question a call that arrived
+**unusable**.
+
+**Cost, measured before submitting rather than left for a reviewer:** the retry would have
+fired **twice** across 785 JSON-declared outputs. It can only fire on a path already
+returning a result the consumer cannot use.
+
+### 5. Why this file is still OPEN
+
+**Go changes are inert until an image is built and rolled.** The bar is *fixed AND live*.
+Owed, in order:
+
+1. The chassis roll, then the pod-grep on **every** replica — RUNBOOK R10 carries the
+   discriminating strings **and a negative control** (`bugs_open/153`: a roll is not
+   evidence your fix shipped).
+2. The behavioural check, which outranks the grep:
+   `SELECT count(*) FROM llm_call_log WHERE error_message LIKE 'RETRY (bugs_open/119%';`
+   Non-zero is the mechanism firing; it should stay **small**.
+3. The figure to move, re-measured with RUNBOOK R1: **rounds decided by an unreadable
+   seat — 23 of 424 all-time, 15 in the week to 2026-08-01.**
+
+**Do NOT grade this on a green council round.** The healthy path already works; that is
+not what is broken.
+
+### 6. Council
+
+Submitted as `576832f3-0d39-48b7-af18-97e06297900f`, committed pre-verdict with a
+`Council-Submitted:` trailer per the 2026-07-30 rule. The submission names all 32 affected
+agent types explicitly rather than only counting them (owner ruling 2026-07-29 point 3).
