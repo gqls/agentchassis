@@ -1,4 +1,6 @@
-# 172 — four more `pages` upserts silently drop `page_type` on a name collision, and one does the opposite
+# 175 — (renumbered from 172 on 2026-08-01: another session had already filed a different 172 — the agent-state-cap truncation case. Resolve by slug, per CLAUDE.md.)
+
+# 175 — four more `pages` upserts silently drop `page_type` on a name collision, and one does the opposite
 
 **Filed:** 2026-08-01 by the `bugfix_081` lane, **at the council gate's request**.
 Reviewing `081`'s fix (correlation `ccd4384c-aff9-45ed-80b2-01c3ced573bb`), the

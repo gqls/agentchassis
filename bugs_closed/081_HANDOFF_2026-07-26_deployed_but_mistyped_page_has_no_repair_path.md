@@ -196,16 +196,27 @@ alone will not make it correct.
 
 ---
 
-# CLOSED 2026-07-31 — fixed and committed, **NOT LIVE**
+# CLOSED 2026-08-01 — fixed, council-APPROVED, and **LIVE on v1.0.1225**
 
-> **READ THIS BEFORE CITING THIS FILE AS FIXED.** Go is inert until the chassis
-> image is rebuilt and rolled. The fix is committed so the **next** build carries
-> it; nothing about production has changed yet. The standing bar in CLAUDE.md is
-> *fixed AND live*, and this file is being moved to `bugs_closed/` at the owner's
-> instruction with that gap stated rather than papered over — the same treatment
-> as `bugs_closed/167` (`306130ba3`).
+> **UPDATED 2026-08-01.** This block first said NOT LIVE, correctly: the fix was
+> committed and inert. A roll to **v1.0.1225** has since happened and it carries
+> the commit. **Verified at the running pods, not at the tag** — a roll is not
+> evidence (`bugs_open/153`), so the check greps a string the change ADDED with a
+> positive control in the same exec, on BOTH replicas:
 >
-> **The live verification is scripted and OWED**:
+> ```
+> agent-chassis-69c6669978-74s6k   deployed_page_type_conflict 1 · mistyped_deployed_page 3 · CONTROL content-gap-planner 9
+> agent-chassis-69c6669978-hlz8l   deployed_page_type_conflict 1 ·                          CONTROL content-gap-planner 9
+> ```
+>
+> So this meets the standing `bugs_closed/` bar — **fixed AND live** — rather than
+> the softened one it was first moved under.
+>
+> **STILL OWED, and deliberately NOT run:** the production induction below. See
+> § "Why the live induction was not fired" — it is a stated judgement, not an
+> omission.
+>
+> **The live verification is scripted**:
 > `docs024_key_docs_latest/bugfix_081_deployed_mistyped_page/RUNBOOK_deployed_mistyped_page.md`
 > § "OWED — verify live after the next chassis roll". Both branches, with the
 > `title`/`sections` snapshot taken BEFORE the induction — otherwise "unchanged"
@@ -339,7 +350,7 @@ session widens it back without re-running the query.
 4. **No verifier** for `mistyped_deployed_page`. One is writable
    (`pages.page_type = spec.wanted_type`); recorded as `catMechanical` rather
    than written, so it is a decision on the record.
-5. **The sibling class is filed, not fixed** — `bugs_open/172`. The council's
+5. **The sibling class is filed, not fixed** — `bugs_open/175`. The council's
    `bug_historian` seat asked whether a third write path shares this shape; the
    grep says **four more do** (`create_report_page_action.go:164`,
    `deploy_tool_action.go:376` and `:514`, `create_tool_component_action.go:416`)
@@ -435,10 +446,50 @@ than recorded:
   nothing). **No prior decision on this subject existed to be lost.**
 
 The fourth stands and is already tracked: **`bug_historian` and `architecture`
-both note the census in `bugs_open/172` shows the identical defect at four more
+both note the census in `bugs_open/175` shows the identical defect at four more
 call sites**, and `architecture` asks whether a canonical page-upsert helper
 should exist. That is `172`'s fix candidate 2, and `172` already records it as
 architecture-scope needing the RFC route rather than a bug patch. Nothing further
 owed here beyond not pretending this closed the class — which the file says twice.
 
 **Trailer earned:** `Council-Reviewed: ccd4384c-aff9-45ed-80b2-01c3ced573bb`.
+
+---
+
+# Why the live induction was NOT fired, stated rather than skipped
+
+The RUNBOOK's production induction re-drives the stuck `ai-agent-orchestration.com`
+`missing_news_page` item (`963cef24`, `detected` since 2026-07-24) by flipping it
+to `triaged`. **It was not fired, and this is a judgement with a reason, not an
+omission.**
+
+The item's `handler_agent` is `content-gap-planner`, so re-driving it runs an LLM
+that chooses the plan. Only one of its choices lands on the branch under test:
+
+- plan = `new_page` named `news` → hits the refusal. **This is the verification.**
+- plan = `new_page` named anything else → **creates a second page row on a live
+  commercial site.** That is `bugs_open/080`'s duplicate-row defect, and I would
+  be causing an instance of it in order to test mine.
+- plan = `add_to_page` / `not_actionable` → proves nothing, costs a dispatch.
+
+**The outcome is the model's to choose, not mine, and one of the three branches
+damages a live site.** That is not a cost worth paying for a branch already proven
+two other ways: the markers are in both running binaries, and both branches are
+induced in a test that is demonstrably capable of failing (the same test passed
+with the fault before the round-2 rewrite and fails with it after).
+
+**What would make it safe**, for whoever wants it: pin the plan rather than let
+the model pick — dispatch `apply_gap_plan` directly with a hand-written
+`new_page` plan naming `news`, which exercises the identical code path with no
+model in the loop. That needs a one-off orchestration payload, not a status flip.
+
+**Snapshot taken before deciding, so a future run has its before-value:**
+
+```
+page 4a5758fc-0bde-4236-a7a6-f02211d4f427  ai-agent-orchestration.com / news
+  page_type    content
+  build_status deployed
+  title        AI Agent Orchestration News | AI Agent Orchestration
+  sections     ["hero", "news-listing"]
+  updated_at   2026-07-31 15:33:43.450428+00
+```
