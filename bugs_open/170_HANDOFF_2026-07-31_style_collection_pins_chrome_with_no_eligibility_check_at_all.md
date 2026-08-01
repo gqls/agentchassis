@@ -9,6 +9,87 @@ zero-visible-change fix.
 **Severity:** medium. Nothing errors. Three deployed sites simply render a header
 that the library says is switched off, and have done since it was switched off.
 
+---
+
+> ## STATUS 2026-08-01 — FIXED AND COMMITTED (`e44e6dd06`), **NOT YET LIVE**
+>
+> Worked by the `bugfix_170_chrome_pin_eligibility` lane
+> (`docs024_key_docs_latest/bugfix_170_chrome_pin_eligibility/`). Council submitted:
+> `21bac2a2-2b46-4883-894f-19d7ec5e5b45`.
+>
+> **Stays OPEN** per this repo's bar — a fix committed but inert until the next roll
+> is still reproducible in production. **To close:** roll a chassis image built from
+> `e44e6dd06` or later, pod-verify, then move this file to `bugs_closed/`. The
+> verification command and its positive/negative controls are in
+> **§ How to verify the FIX (2026-08-01)** at the bottom of this file.
+>
+> ### Two corrections to the filing above, both material
+>
+> **1. The count is short. It is three sites on a dead header and FOUR on a dead
+> footer.** `leopardessconsulting.co.uk` — whose header pin is the fleet's one
+> *legitimate* pin — pins the same deactivated `footer-4-column` as the other three.
+> Broadened from `style_collections` rather than `sites`, **four collections** carry
+> pins; `bold-gradient` and `minimal-light` are also pinned to deactivated headers
+> and are used by zero sites.
+>
+> **2. The pin is not only a READ path. It is also a WRITE source, and that is the
+> half that matters.** The filing frames this as "a fourth path that 118's census did
+> not include", which is true of the render path and hides the rest:
+>
+> - **`link_site_components`** (`link_site_components_action.go:79-122`) reads the pin
+>   and calls `ResolveChromeComponent` — 118's eligible-only pool lookup — **only when
+>   the pin is NULL**. A present pin goes straight to `relinkSiteComponent`
+>   (`site_component_lock_guard.go:162`), which upserts it into
+>   `site_components.component_id` **and** sets `rendered_html = NULL,
+>   build_status = 'pending'`. So an unguarded pin does not merely render a deactivated
+>   component — it **overwrites the repair `bugs_closed/166` performed on the same
+>   column, for the same sites, in the same slots**, and forces a rebuild from the
+>   deactivated component. Measured 2026-08-01: all four sites' `site_components`
+>   assignments were already **correct** (repointed 07-31) while all four pins were
+>   wrong. The two stores disagreed in writing and the unguarded one wins.
+>   **[MEASURED] Latent, not firing:** `site-component-linker` is live and dispatchable
+>   (the wired handler for two `check_component_standards` findings) but has no run in
+>   `orchestration_states`, whose entire retention is 2026-07-13 → 2026-08-01.
+>   Armed and revertible, not reverting this week.
+> - **`fork_theme_from_site`** (`fork_theme_from_site_action.go:239`) **copies** the
+>   parent collection's pins into every new collection unconditionally — the
+>   propagation path. Forking `professional-dark` today manufactures a new collection
+>   pinned to two deactivated components. Found by the scan test written for the other
+>   two consumers, not by reading.
+>
+> ### Why candidate 1 shipped without waiting for the owner call this file asks for
+>
+> The file holds candidate 1 back because it "changes served markup on three live
+> sites". Re-read against what `bugs_closed/166` actually shipped, that does not
+> survive: guarding the pin makes those sites fall through to `ResolveChromeComponent`,
+> which returns `header-theme-chrome` / `footer-theme-chrome` — **exactly the components
+> 166 already moved the same sites' `site_components` assignments to, with council
+> approval, and which are live today.** The change decides nothing new about how those
+> sites look; it makes the pin path agree with the answer the platform has already
+> given. Recorded as a judgement, not a licence — and it is in the council submission
+> in those words rather than buried.
+>
+> ### What shipped, and what did NOT
+>
+> Shipped: `chromePinEligibleSQL` (the 167 lane's own predicate, recovered from
+> `2605d3f92`) and `GetChromePinComponent` as the one dereference; all three consumers
+> routed through them; candidate 1b (`deactivated_site_components` extended to pins —
+> **7 items fleet-wide, zero for the legitimate pin**, `needs_human_review` with **no**
+> handler); two mutation-proven static guards (a scan against a fourth unguarded
+> consumer, and a lockstep because `discovery_checks` cannot import `actions`).
+>
+> **NOT done, stated rather than left to be discovered:**
+> - **The four `style_collections` rows are still wrong** — now *ignored* rather than
+>   served, which is precisely what candidate 1b exists to surface. Candidate 2 (repoint
+>   the rows) remains open and is a **decision**: `professional-dark` serves three sites,
+>   so repointing it moves all three at once.
+> - **No live page changes until the next chrome rebuild** — chrome is a stored artefact
+>   and no page re-render regenerates it (`bugs_open/117`).
+> - **The `component_level` clause is INERT today** — all four ineligible pins fail on
+>   `is_active` alone. It is a forward guard against 167's class arriving via a pin.
+> - **`style_collections.header_home_component_id`** is a third pin column, populated on
+>   **0 of 14** collections and read by **no** Go consumer. Left alone deliberately.
+
 ## The defect
 
 `RenderHeader` and `RenderFooter` (`platform/orchestration/actions/component_library.go`)
@@ -177,6 +258,78 @@ The query above. Add `sc.footer_component_id` for the footer half. A collection
 with `header_component_id IS NULL` is **not** affected — it takes the by-function
 branch, which is the one 167 fixed.
 
+## How to verify the FIX (2026-08-01) — what closes this ticket
+
+**1. The fix is in the image.** Not "the tag moved" and not `git log` — grep the running
+binary, on **every** replica, with a positive AND a negative control in the same exec
+(`bugs_open/153`; and `strings` packs literals, so do not anchor the pattern):
+
+```bash
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
+  echo "== $p"
+  kubectl -n ai-persona-system exec $p -- sh -c '
+    strings /app/agent-chassis | grep -c "style collection pins an ineligible header"   # NEW: expect >=1
+    strings /app/agent-chassis | grep -c "no eligible component for function"           # positive control: expect >=1
+    strings /app/agent-chassis | grep -c "Failed to get header component"               # REMOVED-context: see note
+  '
+done
+```
+
+The third is a weak negative — the string survives on the error branch — so the real
+negative control is behavioural, below.
+
+**2. The pin is no longer honoured (behaviour, both branches).** Induce it rather than
+trusting the absence of a symptom:
+
+- *Ineligible pin ⇒ ignored.* Trigger a page build for `finetuning.uk` and confirm the
+  rendered header carries `<!-- HEADER SOURCE: component-db:header-theme-chrome -->`
+  (the **component** name = pool branch), not `component-db:professional-dark` (the
+  **collection** name = pin branch). The source marker is the discriminator; the two
+  branches format it differently, which is the only way to tell which one answered.
+- *Eligible pin ⇒ still honoured.* `leopardessconsulting.co.uk`'s header pin is an active
+  fork and **must keep working** — confirm `component-db:leopardess-dark-gold`. If this
+  one changes, the pin predicate has been collapsed into the pool predicate and a client's
+  bespoke header has just been deleted.
+
+**3. The detector sees pins.** After a discovery sweep:
+
+```sql
+SELECT s.domain, w.item_key, w.status, w.handler_agent, w.summary
+FROM site_work_items w JOIN sites s ON s.id = w.site_id
+WHERE w.item_type = 'deactivated_component' AND w.item_key LIKE 'deactivated_pin_%'
+ORDER BY 1, 2;
+```
+
+Expect **7 rows** (3 header + 4 footer), `status='needs_human_review'`, `handler_agent`
+empty. Zero rows for `leopardessconsulting.co.uk`'s **header**. If a row's `item_key` is
+`deactivated_header` rather than `deactivated_pin_header`, the key collided with the
+assignment item and dedup has swallowed one of the two.
+
+**4. The write path.** The strongest single check, because it is the half that reverts 166:
+
+```sql
+-- pins vs assignments. After a site-component-linker run for any of the three sites,
+-- the assignment must STILL be the *-theme-chrome pair, not the pinned component.
+SELECT s.domain, sc.slot_name, cc.name AS assigned, pin.name AS pinned
+FROM sites s
+JOIN site_components sc ON sc.site_id = s.id AND sc.slot_name IN ('header','footer')
+JOIN content_components cc ON cc.id = sc.component_id
+LEFT JOIN style_collections scol ON s.style_collection_id = scol.id
+LEFT JOIN content_components pin ON pin.id = CASE sc.slot_name
+    WHEN 'header' THEN scol.header_component_id ELSE scol.footer_component_id END
+WHERE s.domain IN ('ai-agent-orchestration.com','finetuning.uk','gaswholesalers.com')
+ORDER BY 1,2;
+```
+
+`assigned` must remain `header-theme-chrome` / `footer-theme-chrome` while `pinned` still
+reads `header-professional-dark` / `footer-4-column`. Before this fix, a linker run made
+`assigned` become `pinned`.
+
+**Then** move this file to `bugs_closed/` — naming **both** paths on the commit
+(`git commit bugs_open/170_… bugs_closed/170_… -m "…"`) and verifying at HEAD, not at the
+tree: `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 170` must return
+exactly one line.
+
 ## Verification standard for this filing
 
 Per the owner ruling of 2026-07-31, a `bugs_open/` file asserting a cross-cutting
@@ -192,6 +345,32 @@ produce. What is **not** claimed: that the deactivated header is *wrong* for tho
 three sites in a design sense — only that the code cannot tell, which is the
 defect. Whether `header-professional-dark` should be reactivated instead of
 repointed is an owner question, not a diagnosis one.
+
+> **ADDENDUM 2026-08-01 — the `090` loop WAS run on the fixing lane's own claim, and it
+> could not answer.** The 2026-07-31 owner ruling makes the loop the default route for a
+> cross-cutting claim, and the write-path finding above is exactly that, so it was filed:
+> intake `a55675a1-ef91-42cb-86bc-a4301d918510`, run
+> `ce9bcd92-7be7-4819-bdf8-f8a57622128f`. It **completed without producing a verdict** —
+> four `bundle` artifacts, no `iteration_note`, no `council_report`, no `doc_note`.
+> Iteration 4 says why: `0 of 1 in-scope symbol(s) rendered with a body`, the omitted
+> symbol being `component_library.go` at **93,905 bytes** against a **60,000-char** bundle
+> body cap. **A file over the cap is invisible to the diagnosis loop**, so for that file
+> the loop is not available as the ruling's verification route and the ruling's own
+> escape hatch is the only one open. Taken explicitly, not silently.
+>
+> What the run DID produce, from a query it wrote itself, was the live state: 3 header +
+> 4 footer ineligible pins — matching the lane's count exactly. Corroboration of the
+> measurement, not of the mechanism.
+>
+> **Substituted first-hand verification:** both new queries `PREPARE`d against the live
+> schema before shipping (`go build` cannot parse SQL); the pin-vs-pool predicate run
+> side by side over all four live pins as a combined positive/negative control; the
+> detector's output previewed fleet-wide (7 rows, none for the legitimate pin) before the
+> check shipped; the anti-recurrence scan proven by an induced fifth consumer that
+> **compiles cleanly** and is caught in both its forms; the lockstep proven by mutating
+> the predicate narrow AND wide, both compiling cleanly, both failing with the reason.
+> Full record: `docs024_key_docs_latest/bugfix_170_chrome_pin_eligibility/NOTES_…md`.
+> The loop-cap finding is now `016b` §9 and a `LANDMINES.md` entry.
 
 ## Related
 
