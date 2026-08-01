@@ -135,3 +135,36 @@ is a decent candidate for a sweep.
   refusal-visibility half of this work is *fixed and inert* until someone rolls — which
   is why 162 closes on the config half, whose defect it actually names, and the Go half
   is recorded as pending a roll rather than claimed as done.
+
+## 2026-08-01, closing out — two more, and the first is the same bug I had just written up
+
+**I printed "build: clean" from a shell line that could not report otherwise.** Final
+verification pass, written as `go build ./... 2>&1 | head -5; echo "build: clean"`. The
+`echo` is unconditional — it runs whether the build succeeded or not. `go build` had in
+fact FAILED, and my own verification step announced the opposite. Caught only because the
+test command on the next line failed loudly and I went looking for why.
+
+This is **the same failure mode as the landmine I had appended twenty minutes earlier**:
+an assertion that cannot fail, sitting where evidence is supposed to be. I wrote the
+entry about `mock.ExpectationsWereMet()` and then made the shell-script version of it in
+my own verification. Recorded because that is the point of WRONG_CALLS — knowing the
+shape does not stop you producing it; only checking the exit code does.
+**The check:** `; echo` is not a verifier. Gate it (`&& echo OK || echo FAILED`) or print
+`${PIPESTATUS[0]}`. A "verified" line that a failure cannot suppress is decoration.
+
+**What it revealed, which was NOT mine:** `go build ./...` fails in the WORKING TREE on
+`apply_gap_plan_action.go:467` — `undefined: resolveNewPageConflict`, the 081 lane's
+uncommitted WIP. **HEAD is clean.** Confirmed properly rather than assumed, by building a
+`git archive HEAD` extraction in a scratch dir: `go build ./...` exit 0, the refusal suite
+green, `./platform/...` green. This matters because `make build-<service>` archives from
+committed HEAD, so an image built now carries my change and not their half-finished
+symbol. A broken working tree is not a broken build here — but the only way to know which
+you have is to build HEAD, not the tree.
+
+**My LANDMINES.md and WRONG_CALLS.md appends were swept into another session's commit**
+(`7f08dbbc5`, a provocation-pipeline commit) between my write and my own commit. Verified
+present at HEAD, so nothing was lost and forward-only holds. Exactly the hazard CLAUDE.md
+names — "committing per task stops you sweeping up others' WIP; it cannot stop a session
+that still runs `git add -A` from sweeping up yours". Noted in the close commit so the
+trail is followable, since a reader looking for those entries in my commit will not find
+them there.
