@@ -220,3 +220,18 @@ site is a civilian champion of the FCA's consumer-credit rules — price cap, af
 duties, CPA and rollover limits, complaint rights, authorised-lender checks, loan-shark
 reporting — so the vulnerable query lands on protection instead of a lender. Register
 entry **L10**; explicitly independent of the FCA on every page.
+
+**P7 (owner ruling, 2026-08-01) — same-TLD twins split by SEAT, and the seat lens applied
+portfolio-wide.** The Tier C claim ("no axis exists within one TLD") held the reader's
+ROLE constant without noticing. The seats — buyer, setter, intermediary, observer,
+referee — are different audiences with different search behaviour, so identical phrases
+can hold genuinely different thick sites. Owner corrections encoded: the archive is a
+SECTION not a seat (no transaction near it); exactly ONE buyer per phrase (two buyer
+sites on one phrase is self-competition, the register's own failure mode); each seat's
+money is named (buyer=affiliate/leads, intermediary=B2B affiliate + adviser lead-gen,
+referee=professional readership, setter/observer=citations); and the authority route is
+policy — professional seats link down to buyer domains, which is where direct revenue
+concentrates. Cleanest spelling = buyer; awkward/hyphenated spellings take the seats.
+Referee = per-vertical casebooks (3–4 thick, never 15 thin). Full map + honest residuals:
+the register's seat-map table. Two domains remain true twins even under seats; they stay
+⚑OWNER.

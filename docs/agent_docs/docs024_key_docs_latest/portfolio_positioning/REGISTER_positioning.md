@@ -128,7 +128,8 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
 - **primary:** whichloan.co.uk · **also:** whatloan.co.uk (⚑OWNER near-twin; angle if
   kept: definitional "what is a…" glossary site vs whichloan's decision-trees),
   borrowing.co.uk (angle: the umbrella authority — every way to borrow, ranked by cost,
-  the "start here" site), loanscentre.co.uk (⚑OWNER generic; hold)
+  the "start here" site), loanscentre.co.uk (**seat: intermediary** per the P7 map — the
+  loan-broker layer)
 - **audience:** the undecided borrower — knows they need money, not which shape · **age:**
   20–45, skewing to first-substantial-borrowing years · **stage:** dreaming→shopping ·
   **size:** £500–£15k · **experience:** novice; this is many visitors' FIRST credit
@@ -230,10 +231,10 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
 
 ### L9 — loan brandables (direction unassigned, deliberately)
 - **domains:** loansy.uk, loanzy.co.uk, loanzy.uk, finance.org.uk, banker.co.uk, banker.uk
-- **status:** HOLD. Brandables carry no intent; assign them to whichever proposition still
-  lacks a good name after the exact-match domains are placed, or to products (an actual
-  comparison tool brand). finance.org.uk is the strongest hold-back — .org.uk carries
-  trust weight worth spending deliberately.
+- **status:** loansy/loanzy remain HOLD (product-brand candidates). **P7 assigned the
+  other two** (see the seat map): `banker.co.uk` = the setter-seat trade title — the
+  estate's industry-facing voice and link engine (`banker.uk` per P5); `finance.org.uk` =
+  the referee/education hub — the .org trust weight spent as the estate's citation anchor.
 
 ## Family: BANKING / SAVINGS / RATES
 
@@ -286,9 +287,11 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
 - **neighbours:** B1 (numbers), pensions/investment ground NOT owned here (out of scope)
 
 ### B5 — interest rates (macro)
-- **primary:** interestrates.co.uk · **also:** moneyrates.co.uk (⚑OWNER generic; angle if
-  kept: all money prices in one place — savings, mortgage, loan, cards),
-  competitiverates.co.uk + ratecomparison.co.uk (⚑OWNER generics; comparison-mode angle)
+- **primary:** interestrates.co.uk · **also (P7 seats — see the map):**
+  moneyrates.co.uk = observer, the cross-product price-of-money tracker;
+  competitiverates.co.uk = setter, how providers benchmark; ratecomparison.co.uk =
+  referee-facing-buyer, how to compare honestly (APR vs AER, the 51% representative-rate
+  rule)
 - **audience:** wants to understand the base rate and what it does to them — arrives from
   a news headline, not a product search · **age:** broad · **stage:** understanding before
   acting; this family's job is to hand informed visitors to the acting sites (M3, M4, B1) ·
@@ -502,14 +505,98 @@ twin is built it gains its own register entry (suffix `u`, e.g. `M7u`) claiming 
 domain out of the parent's claims line — the collision check holds because the mode
 coordinate differs by convention.
 
-**Still ⚑OWNER, unchanged by the ruling:** the ~15 SAME-TLD twins — hyphen and plural
-variants (`savingsrates.co.uk` vs `savings-rates.co.uk` vs `savingrates.co.uk`,
-`poorcreditmortgages` vs `poor-credit-mortgages`, `mortgageextension(s)`,
-`banksrates`/`banks-rates`, `equityreleasecalculator`/`equity-release-calculator`,
-rate/rates and deal/deals within one TLD). The ruling's axis is the TLD; within one TLD
-the two spellings still have no axis at all, and the default for those remains 301 to the
-built sibling until the owner rules per pair. **No lane builds a same-TLD twin without
-this register saying which way the pair went.**
+**OWNER RULING 2026-08-01 (P7) — same-TLD twins are split by SEAT, and the last ⚑OWNER
+defaults are retired.** The register's original claim — "within one TLD the two spellings
+have no axis at all" — held one thing constant without noticing: the reader's **seat at
+the market's table**. Every earlier axis segmented *consumers*. The owner's insight is
+that the same phrase means different things to different SEATS: a shopping list to a
+saver, a pricing decision to the bank setting the rate, a commission structure to a
+broker, a data series to an analyst, a body of rules to a compliance officer. Those are
+different audiences with different search behaviour, so the collision invariant holds.
+
+**The seats:** buyer (consumer — the default everywhere else in this register) · setter
+(provider-side: how the product is priced) · intermediary (brokers, platforms, advisers —
+including commission transparency, which is near-unoccupied ground) · observer (analysts,
+journalists, treasurers — rates as data) · referee (compliance, case law, the rulebook).
+**The archive is a SECTION, not a seat** (owner: "I am still after the money") — history
+pages earn citations cheaply and citations feed the buyer sites' rankings, but a
+standalone archive site has no transaction anywhere near it.
+
+**The money, because every seat must have some** (owner correction applied — commercial
+intent ranks the seats, it does not exclude them): buyer = affiliate/lead-gen, the
+estate's direct revenue; intermediary = B2B affiliate + adviser lead-gen; referee =
+professional readership + adviser/solicitor lead-gen; setter/observer = press citations
+and authority. **And the authority ROUTE is explicit policy:** professional-seat sites
+link contextually down to the buyer domains; buyer sites cite up. The professional sites
+are simultaneously their own B2B money and the estate's link engine.
+
+**One correction to "mainly buyer unless it's hard to differentiate":** for same-PHRASE
+twins it is ALWAYS hard — two buyer sites on one phrase chase the same search results and
+split each other's authority, which is the exact self-competition this register exists to
+prevent. So the operating rule is: **exactly one buyer per phrase; every additional
+spelling takes a different seat or waits.** Different-phrase domains keep buyer as the
+default, unchanged.
+
+**Allocation rule (owner-confirmed):** the cleanest spelling takes the buyer seat, because
+buyers type domains; professional/referee positions are reached by question-search and
+citation links, where memorability barely matters — so hyphens and awkward variants take
+the seats, turning the defect into the asset.
+
+### The seat map (authoritative — supersedes any per-entry ⚑OWNER twin label above)
+
+| domain | seat | the site |
+|---|---|---|
+| `savingsrates.co.uk` | buyer | B1 unchanged — the live consumer table |
+| `savingsrate.co.uk` | setter/observer | "THE savings rate": what banks depend on to set it — base-rate passthrough, swap rates, funding pressure, front-book/back-book gap |
+| `savings-rates.co.uk` | referee | the savings rulebook: FCA cash savings market review + remedies, Consumer Duty fair value on cash, rate-change notification rules, variation-clause case law, ombudsman decisions (per-vertical casebook, owner-chosen shape) |
+| `savingrates.co.uk` | intermediary | acting on SETS of rates: laddering, cash platforms and how they earn, FSCS-spreading for £100k+, the SME/charity/school treasurer's handbook |
+| `highestsavingsrate.co.uk` | buyer-adjacent w/ archive section | the record as a citable series feeding B2; not a standalone archive |
+| `banksrates.co.uk` | buyer | B3 unchanged — big-bank consumer comparison |
+| `banks-rates.co.uk` | observer (institution grain) | passthrough accountability, bank by NAMED bank — distinct from `savingsrate.co.uk`'s market aggregate |
+| `poorcreditmortgages.co.uk` | buyer | M5 unchanged — plain-English adverse-credit |
+| `poor-credit-mortgages.co.uk` | intermediary | the adverse-credit BROKER's criteria handbook — which lender tolerates what, case-placement intelligence |
+| `mortgageextension.co.uk` | buyer | M7 unchanged — extend MY term, the decision |
+| `mortgageextensions.co.uk` | observer/policy | term extensions as a phenomenon — Mortgage Charter, arrears data, maturity creep |
+| `equityreleasecalculator.co.uk` | buyer | M6 unchanged — the consumer calculator |
+| `equity-release-calculator.co.uk` | intermediary/referee | the adviser's compliance toolkit — advised-sale rules, ERC standards, suitability documentation |
+| `fixedmortgagerates.co.uk` | buyer | when to fix, fix-length trade-offs |
+| `fixedinterestmortgagerates.co.uk` | setter | how lenders PRICE a fix off the swap curve — why the 2y/5y move before base |
+| `investmentloan.uk` | buyer | my leverage decision (P5 instrument register) |
+| `investmentloans.uk` | observer | the market overview of investment-lending products |
+| `healthinsurancerates.co.uk` | buyer | market tables (plural = the market) |
+| `healthinsurancerate.co.uk` | setter-facing-buyer | pricing factors: what moves YOUR premium — age curve, postcode, underwriting (singular = yours) |
+| `besthealthinsurancerates.co.uk` | buyer (verdicts) | ranked with methodology |
+| `besthealthinsurancerate.co.uk` | — residual | true twin of the two above even under seats; hold/301 ⚑OWNER |
+| `landlordinsurancerates.co.uk` | buyer | I5 unchanged — the tables |
+| `landlordinsurancerate.co.uk` | setter-facing-buyer | landlord pricing factors — tenant type, unoccupancy, claims history |
+| `landlordinsurancedeal.co.uk` | buyer (switching) | the switching playbook, singular = your move |
+| `landlordinsurancedeals.co.uk` | intermediary | commission transparency: how landlord policies are sold and who earns what |
+| `bestlandlordinsurancerates.co.uk` | buyer (verdicts) | ranked with methodology |
+| `bestlandlordinsurancerate.co.uk` | — residual | hold/301 ⚑OWNER |
+| `bestinsurancerates.co.uk` | buyer (verdicts) | cross-line ranked tables |
+| `bestinsurancerate.co.uk` | setter-facing-buyer | cross-line pricing factors — what drives premiums in every line |
+| `bestinsurancedeal.co.uk` | buyer (switching) | the cross-line switching playbook |
+| `bestinsurancedeals.co.uk` | buyer (offers) | time-boxed offers listing |
+| `loanscentre.co.uk` | intermediary | the loan-broker layer: how brokers earn, whether to use one, commission disclosure — pro-consumer AND trade |
+| `moneyrates.co.uk` | observer (cross-product) | every money price tracked as data — savings, mortgage, loan, cards; the estate's price-of-money tracker |
+| `competitiverates.co.uk` | setter | what makes a rate "competitive" — how providers benchmark and chase the tables |
+| `ratecomparison.co.uk` | referee-facing-buyer | how to compare rates HONESTLY — APR vs AER, the representative-rate rule (only 51% must get the advertised rate), teaser mechanics |
+| `banker.co.uk` | setter (trade title) | the industry-facing brand — the estate's trade voice and link engine; `banker.uk` per P5 |
+| `finance.org.uk` | referee/education hub | the .org trust weight spent deliberately: neutral consumer-finance education, the estate's citation anchor |
+
+**Honest residuals, still ⚑OWNER (hold or 301):** `besthealthinsurancerate.co.uk`,
+`bestlandlordinsurancerate.co.uk` — even five seats cannot make seven members of one
+phrase family distinct; two remain true twins. Plus the product holds (`savingsapp.*`,
+`insuranceapp.*`, `loansy`/`loanzy`, `sportsreviewinsurance.*`) and `bankingequipment.*`
+(different market). **No lane builds a residual without this register changing first.**
+
+**Per-vertical casebooks (owner-chosen):** the referee seat is one substantial casebook
+per vertical — savings law at `savings-rates.co.uk`, the mortgage-side law living inside
+M-family sites until a domain warrants it, insurance claims/ombudsman case law as the
+evaluation layer's depth (`reviewsinsurance.co.uk` already holds the evaluation seat).
+Referee sites are information ABOUT law, never advice, sources cited, solicitor
+signposting — 3–4 thick casebooks beat 15 thin ones, and thin legal content is the
+riskiest thin content there is.
 
 ---
 
