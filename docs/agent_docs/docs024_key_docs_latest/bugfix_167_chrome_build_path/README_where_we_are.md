@@ -128,3 +128,42 @@ as a separate rule, with a test that fails if someone later "tidies" them into o
 library says is switched off. Fixing it changes how they look. Bug 170 has the
 details and the trap. Everything else is done, committed, and waiting on the next
 image roll.
+
+---
+
+**2026-07-31, late — approved on the third go, and the approved version was the smallest one.**
+
+The council passed it: eleven of thirteen reviewers, no serious objections left. The
+three that had pushed back hardest last round all changed to approve.
+
+The thing I'd want you to take from this: **what got approved was the removal.** Round
+one, they said "you've found a fourth problem and shipped without guarding it", so I
+added a guard. Round two, they rejected the guard — four reviewers, four different
+reasons, all fair: it logged an error nobody reads, on every page build, for ever, for
+a problem it couldn't fix, using a home-made check when the platform already had a
+proper one. Round three I deleted it, and that passed.
+
+So I spent two rounds adding something and taking it away. That isn't quite wasted,
+because taking it away is what made me go and look at the platform's existing detector
+— and *that* turned up the genuinely useful thing: the detector we already have for
+"a site is using a switched-off component" only ever looks at one of the two places a
+component can be attached. It's been blind to the other one the whole time, which is
+exactly why those three sites have been quietly wrong with nothing flagging it. That
+finding is worth more than the guard I'd written, and I'd never have found it if the
+reviewers had let the guard through.
+
+There's a small irony worth recording. One reviewer objected that I hadn't addressed a
+warning note about two overlapping checks — a note **I wrote myself, four hours
+earlier, in this same session**. It had been published into the shared corpus the
+reviewers read from, and came back to me as an objection inside the hour. Good sign for
+the machinery, slightly humbling to be on the receiving end of.
+
+**Two honest loose ends, which I'm flagging rather than smoothing over.** One reviewer
+still holds that by deleting the guard I've left those three sites with *no* signal at
+all — just a code comment and a written-up bug. That's true. My reasoning is that a log
+nobody reads was never a signal, and that the proper fix belongs in a subsystem another
+session was actively editing at the time. But it's a judgement call, not a proof, and
+whoever picks up bug 170 should treat that objection as the brief rather than assume
+I settled it.
+
+And the fix still isn't live — it needs the next image roll. Nothing has changed there.

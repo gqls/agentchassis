@@ -346,3 +346,60 @@ the plan.
 
 Round 3 submitted on the same trail (`3a3d4378-ebd6-4b99-9055-f88d9c031dc1`) — a
 removal, leaving only the three edits that were never objected to.
+
+## Council round 3 — APPROVED, on a removal
+
+`d73a4b06-a190-426e-bdf7-18d830d06a9d`, 22:02 UTC 2026-07-31. **11 of 13 seats
+approve; 2 advisory objections, none high.** The three seats that gated or objected
+hardest in earlier rounds — `reuse_agent` (r2's gating seat), `prior_art_librarian`
+(r2 high) and `architecture` (r2 medium ×2) — all flipped to approve.
+
+**The approved change was smaller than the rejected one.** Rounds 1→2 added code;
+round 3 deleted it. Net across the trail: the fix that shipped is the fix that was
+submitted in round 1, and the two rounds in between were spent adding a guard and
+then removing it. That is not wasted — the removal came with the
+`deactivated_site_components`-is-blind-to-pins finding, which is worth more than the
+guard was — but it is worth saying plainly that **my two attempts to satisfy a
+gating objection with code were both wrong, and the thing that satisfied it was
+evidence.**
+
+### The two advisory objections stand, and I am not answering them away
+
+`bug_historian` (medium ×2), paraphrased: removing the diagnostic returns the pin
+path to **zero** signal — a code comment and a filed bug — and candidate 1b is
+specified but not implemented, so three deployed sites stay in the state with
+nothing watching. It names the 016b §9 shape *"One call site of a shared judgement
+gets the rigorous fix; the sibling stays heuristic."*
+
+**Both are true.** The counter-argument is on the record in the submission and in
+`bugs_open/170`, and it is a judgement, not a refutation: a report nobody reads is
+not a signal; `discovery_checks/` is the `bugs_open/149` lane's subsystem and its
+coverage test was dirty in another session's tree; and an item routed to
+`rerender-pages` would be unsatisfiable by construction, i.e. `bugs_open/166` on a
+new item type. A future reader should weigh those, not inherit them.
+
+### The council cited a landmine I wrote four hours earlier
+
+`debug_historian` (medium) objects that round 3 "never engages" the landmine naming
+*"two guard scans with disjoint blind spots and shared vocabulary"* across
+`chrome_build_path_test.go` and `chrome_selection_test.go`.
+
+**That landmine is mine.** I appended it to `LANDMINES.md` and ran
+`landmines-sync.py --apply` earlier in this same session, which pushed it into
+`doc_notes`, which is where the council seats read from. So the corpus round-tripped
+my own warning back at me as an objection inside the hour.
+
+Two things follow. First, **the sync works and the latency is under an hour** —
+useful to know, and not previously written down anywhere I could find. Second, the
+objection is technically right and I am leaving it: the lockstep hazard is real, it
+is recorded where a session will meet it, and merging the two scans would cost the
+118 scan the `component_library.go` exemption that makes it precise. Recording a
+hazard is the mitigation here; there is no code that would improve it.
+
+### Verdict trail, for anyone reading the correlation
+
+| round | decision | gated by | what changed |
+|---|---|---|---|
+| 1 | REVISE | `bug_historian` (high) | — (fourth path unguarded) |
+| 2 | REVISE | `reuse_agent` (high) | +per-render diagnostic |
+| 3 | **APPROVED** | — (2 advisory) | −that diagnostic, +the prior-art finding |

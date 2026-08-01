@@ -38,9 +38,37 @@ ever passed to the section-shaped lookup again.
 
 **The owner call this file asks for was already answered by the data — see the
 correction below.** Both predicates return the same component today, so the fix
-changes no served header or footer byte. Council: `Council-Submitted:
-d73a4b06-a190-426e-bdf7-18d830d06a9d` (verdict pending at commit time; 098 credits
-it automatically on approval).
+changes no served header or footer byte.
+
+**Council: APPROVED at round 3** — `d73a4b06-a190-426e-bdf7-18d830d06a9d`, 11 of 13
+seats approving, 2 advisory objections, none high. The trail is worth reading before
+anyone touches this area again:
+
+- **r1 REVISE** (gated by `bug_historian`): shipping with the fourth chrome path
+  (`bugs_open/170`) unguarded. Five other seats independently asked whether this fix
+  can reach served output at all, given a landmine naming these three functions
+  beside `site_components`' `!force` exit. **Answered by measurement:**
+  `component_library.go` has **0** references to that table and **0** to `force`; the
+  cached path is `renderAndStoreSiteComponent` with **22**. The landmine's *footprint*
+  matched, its *mechanism* did not.
+- **r2 REVISE** (gated by `reuse_agent`): the per-render diagnostic added in r1 was
+  itself the defect — no reader, unbounded noise, a bespoke reporter where a mechanism
+  already existed. **Four seats, four angles, all correct.** Removed, not rate-limited.
+  Checking the prior art then produced the finding that outlived the code: the
+  platform's own `deactivated_site_components` detector **joins `site_components` only
+  and is blind to style-collection pins**, which is why three deployed sites have had
+  no work item. That is now `bugs_open/170` candidate 1b.
+- **r3 APPROVED**, on the removal. `reuse_agent`, `prior_art_librarian` and
+  `architecture` all flipped to approve.
+
+**Two advisory objections stand, and they are honest residuals, not oversights.**
+`bug_historian` (medium ×2): removing the diagnostic returns the pin path to *zero*
+signal — a code comment and a filed bug are all that mark it — and candidate 1b is
+specified but not implemented. Both are true. The counter-argument, on the record: a
+report nobody reads is not a signal, `discovery_checks/` belongs to the `bugs_open/149`
+lane and its test file was dirty in another session's tree, and an item routed to
+`rerender-pages` would be unsatisfiable by construction — `bugs_open/166` on a new item
+type. **Whoever picks up 170 should treat those two objections as the brief.**
 
 **Spun out, not fixed here:** `bugs_open/170` — the style-collection chrome *pin*
 is dereferenced by `GetComponentByID`, which applies **no eligibility predicate at
