@@ -452,3 +452,49 @@ changes only (HEAD `b080cb4ae` at the time).
 4. **The guardian's open question from A applies to B and C too**: does a failed
    step actually stop the consumers, or do they mark the orchestration complete? A
    answered it empirically by inducing. B and C have not.
+
+### Sites B and C — council APPROVED 2026-08-01, and the two rounds it took are the useful part
+
+`c69e935a-7134-45c1-81c3-2f1da7831827`, **round 3 APPROVED** (12 approve, 2
+advisory objections, none high). Rounds 1 and 2 both returned REVISE. Code:
+`983e4b0a2` (B+C), `d1f6a9426` (round-2 attempt), `f4825c9ca` (round-3 revert +
+`bugs_open/173`), `af33969f2` (the contract test). **Still not live, still not
+induced** — see "What is still owed" above, unchanged.
+
+**What round 2 got wrong, recorded because it is the transferable bit.** Measuring
+site C's blast radius showed its only live caller is nested in
+`multipage-website-builder`'s `generate_pages_loop`, which sets no
+`continue_on_error` — so a refusal fails the **whole site build** over one page's
+links. Round 2 answered that by making the action never error: return
+`(detail, bool)` and skip. **Four seats ruled it backwards and they were right.**
+
+> `constitution` (HIGH): *"the plan's own rationale identifies the real cause as
+> the workflow's missing `continue_on_error`/`error_step` … then works around that
+> gap by making the action silently skip (never error) instead of fixing the
+> workflow's error-routing config. This is a fix whose rationale names the
+> mechanism it steps around rather than repairs it."*
+
+Plus `bug_historian` (HIGH — a refusal turned into a success-shaped return whose
+only signal is a queue), `architecture` (a bespoke soft-skip with no shared
+vocabulary, built because the core routing could not carry the load), and the
+observation that **a bool is ignorable where an error is not**.
+
+**The shape to remember: I had diagnosed the real cause correctly and then routed
+around it in the same breath.** The measurement was right; the conclusion drawn
+from it was a workaround wearing the measurement as justification. Round 3
+reverted C to the uniform error contract and filed the routing gap at its own
+layer as **`bugs_open/173`** (loop error routing has no substep granularity), with
+fix candidates and an explicit note on why setting `continue_on_error` on that
+loop is *also* not the answer — it is loop-level, so it would turn a page that
+genuinely failed to build into a silently skipped one.
+
+**Two corrections to seats, recorded because both cut in my favour and should
+still be right.** (1) `bug_historian` cited `bugs_open/033` as showing the
+`needs_human_review` queue is unmonitored; 033's own header says its three display
+bugs are FIXED and LIVE and the queue is visible — what stays open is the *drain*.
+The objection survived without that premise, which is why C was reverted rather
+than defended. (2) My own first answer on the `handler_agent` landmine was wrong
+in the other direction: `count(handler_agent)` counts empty strings, so I read
+"363 of 363 carry a handler" off a column where **265 carry none**. Writing no
+handler is the majority pattern for that status, not an anomaly. Logged in
+`WRONG_CALLS.md`.
