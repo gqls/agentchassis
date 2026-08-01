@@ -385,3 +385,60 @@ not what is broken.
 Submitted as `576832f3-0d39-48b7-af18-97e06297900f`, committed pre-verdict with a
 `Council-Submitted:` trailer per the 2026-07-30 rule. The submission names all 32 affected
 agent types explicitly rather than only counting them (owner ruling 2026-07-29 point 3).
+
+### 7. Council round 1 — REVISE, and it caught a real hole (2026-08-01)
+
+`576832f3` round 1: **REVISE**, gating objection from `debug_historian` (high), 14
+reviewers. Four seats converged on one thing and **they were right**: I had asserted that
+`output_format` sits at a depth `getOutputType` reads, citing a 90-step blast radius, and
+never measured it. The house landmine they cited is real — a step's prompt and its token
+cap sit at *different* depths in `default_config`.
+
+**Measured, both depths walked:** all 101 declarations sit at `config.output_format` — the
+map `params.StepConfig.Config` is — with **zero** under `config.ai_service` and **zero** at
+the step root. The assumption held. But the re-measurement **corrected my own numbers**,
+because my census walked only `workflow.steps` and missed steps nested in a loop's
+`sub_workflow`:
+
+> **135 LLM steps, 101 declaring `output_format`, 91 of them json across 33 agents** —
+> not 90/32. The missed step is `page-content-writer` → `process_sections_loop` →
+> `generate_content`. A census over `agent_definitions` that walks only `workflow.steps`
+> is blind to every nested step; that is what WFA-003 exported `WalkSteps` for, and my
+> SQL did not use it.
+
+**`bug_historian` (medium) was the substantive one** and is answered with code: a re-ask
+lowers the *frequency* of the silent success but not its *shape* — the step still returns
+`{result: text, type: text}` and still SUCCEEDS, which is `bugs_closed/076`'s title and
+the `missingkey=zero` family. Added **`__json_contract_unmet`**, stamped only when json
+was declared AND still not delivered after the re-ask. **A marker, not a hard error:**
+failing loud would convert ~91 currently-succeeding steps into failing ones over content
+they did not author — `bugs_closed/073`'s defect, and the reason this file's own candidate
+2 was declined. Committed `085160a6c`; resubmitted on the same correlation.
+
+### 8. A FOURTH specimen, produced by the review of this very fix
+
+Round 1's own council report carried `unreadable: ["review_llm_reliability.result"]`.
+Captured before pruning:
+
+```json
+{"type":"text","result":"","__truncated":true,"__truncated_output_tokens":8000}
+```
+
+**Four in-retention specimens, four truncations, zero bracket slips.** It also shows the
+cap treadmill in one picture — the live per-seat caps:
+
+```
+16000: review_editquality, review_guidelines, review_prior_art, review_architecture
+ 8000: the other THIRTEEN, incl. review_llm_reliability
+```
+
+The four at 16000 are exactly the four that had previously failed. `bugs_open/138`'s lane
+raised each cap *after* its seat broke, and round 1's failure landed on one of the thirteen
+left behind — which is `platform/aiservice/truncation.go:26-29`'s warning happening in
+real time, and the strongest argument for a re-ask that asks for **brevity** rather than
+headroom.
+
+**Note for whoever closes this:** §2's claim that the filed mechanism is unmeasurable now
+rests on 4 specimens rather than 3, all agreeing. That is still a small sample, and the
+honest reading is "the bracket slip is not what is biting today", **not** "it never
+happens".
