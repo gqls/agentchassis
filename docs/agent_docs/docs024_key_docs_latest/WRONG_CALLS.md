@@ -15733,3 +15733,37 @@ and the surrounding measurements disguised it. The recurring check across both i
   `prompt-text-poisons-its-own-detector` in MEMORY — I had that lesson recorded and still
   walked into it, because there it was an LLM scoring a prompt and here it was SQL scoring a
   symptom, and I did not recognise the shape across the change of medium.
+
+- **I took a five-day-old bug file's root cause as current, and started building against a
+  mechanism with ZERO live instances.** Picking up `bugs_open/119` (a council seat's
+  malformed JSON voids a whole round), I confirmed the *damage* was real and getting worse —
+  23 of 424 rounds all-time decided by "unreadable reviewer(s)", 15 in the last week — and
+  treated that as confirmation of the *mechanism*, which the file states precisely: a review
+  object closed one bracket early, leaving a stray `]`. It is a vivid, specific, verbatim-quoted
+  diagnosis and I believed it. I was drafting the fix against exactly that shape when I ran the
+  classification: of 39 unreadable seat-instances, 36 orchestrations were already pruned and
+  **all 3 survivors were total truncations with an empty partial** — a different failure with a
+  different remedy. Fleet-wide the denominator settled it: of **785** JSON-declared step outputs
+  in the live window, 782 parsed, **2 failed (both truncated), 0 were complete-but-malformed**.
+  Had I not looked, I would have shipped a mechanism that fires on a class with no live
+  instances and reported it as the fix for fifteen lost rounds a week — and it would have looked
+  successful, because the tests I would have written would all have passed.
+  **What caught it:** deciding to re-verify the bug before fixing it, then insisting on a
+  denominator — "0 occurrences" is unreadable without one (`a-count-you-kept-is-not-a-census`).
+  **The cheap check: a bug file's root cause is a claim about the PAST; your fix acts on the
+  PRESENT, and nothing re-measures the gap between them.** Before implementing against a filed
+  mechanism, re-run its own classification with a denominator and date the answer. One query.
+  **The general form, which is what makes this worth an entry:** the *damage* being confirmed
+  is not evidence that the *mechanism* is current — they are separate claims and a bug file
+  presents them as one. Damage is measured from an outcome table that retains for months
+  (`diagnosis_artifacts`); mechanism is measured from evidence that gets pruned in days
+  (`orchestration_states`). So the half that stays visible is the half that cannot tell you
+  what to build, and the half you need decays fastest — which is precisely why re-confirming
+  the symptom *feels* like re-confirming the diagnosis. Sibling of
+  `a-closed-bugs-scope-out-EXPIRES`: there a premise went stale under a model upgrade, here a
+  root cause went stale under a sibling lane's fix. Same shape, opposite direction.
+  **Corollary caught in the same session:** `119`'s own §"How to verify a fix" instructs the
+  next thread to reproduce from the stored artefact and "capture it before ~2026-08-09" because
+  "`orchestration_states` retains 13 days". That retention claim is **false** — rows survive
+  from 07-13, but the specific orchestrations were gone within days. An instruction written on
+  an unchecked retention assumption was already unsatisfiable when I read it, four days later.
