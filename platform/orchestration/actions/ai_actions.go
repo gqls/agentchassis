@@ -921,6 +921,8 @@ and could not be used, so it counted for nothing. This is your one retry.
 
 Give the SAME judgement again, materially SHORTER.
 Keep every finding you believe in: cut words, never findings.
+Keep every citation, quote, id and file:line that supports a finding — a shorter
+answer must not become a less evidenced one. Cut explanation, never evidence.
 Drop preamble, restate nothing back to the author, and shorten prose fields first.
 Output ONLY the single JSON value the prompt asks for: start with { or [, end with
 } or ], no markdown fences, no commentary.`

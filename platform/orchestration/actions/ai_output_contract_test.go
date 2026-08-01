@@ -143,6 +143,17 @@ func TestCorrectiveReaskPromptDiffersByFailureMode(t *testing.T) {
 		!strings.Contains(truncated, "cut words, never findings") {
 		t.Fatal("a truncated re-ask must protect findings while cutting length")
 	}
+	// Round-2 council objection (diagnosis_guardian, medium): "cut words, never
+	// findings" protects the CONCLUSIONS but says nothing about what supports
+	// them. A verdict-emitting step re-asked for brevity could keep its findings
+	// and shed the citations that make them checkable — a shorter answer becoming
+	// a less evidenced one, which is worse than a lost round.
+	if !strings.Contains(truncated, "Keep every citation") {
+		t.Fatal("a truncated re-ask must protect the evidence, not only the findings")
+	}
+	if !strings.Contains(truncated, "Cut explanation, never evidence") {
+		t.Fatal("the re-ask must say WHICH text to cut, or 'shorter' is ambiguous where it matters most")
+	}
 	for _, capTalk := range []string{"max_tokens", "token limit will be raised", "larger budget"} {
 		if strings.Contains(truncated, capTalk) {
 			t.Fatalf("the re-ask must not promise or request a cap change (%q)", capTalk)
