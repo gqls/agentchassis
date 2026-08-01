@@ -211,9 +211,11 @@ alone will not make it correct.
 > `title`/`sections` snapshot taken BEFORE the induction — otherwise "unchanged"
 > and "changed back" are indistinguishable.
 >
-> **Council:** `Council-Submitted: ccd4384c-aff9-45ed-80b2-01c3ced573bb` (running
-> at commit time; no verdict read, so no `Council-Reviewed:` trailer — writing one
-> unread is the `098` MISMATCH surface).
+> **Council: APPROVED at round 2** — `ccd4384c-aff9-45ed-80b2-01c3ced573bb`,
+> 2026-08-01 08:20Z. "approved with 4 advisory objection(s) — none high-severity";
+> 13 seats reviewed, 3 abstained, 0 unreadable. Round 1 was REVISE. The verdict was
+> READ before the `Council-Reviewed:` trailer was written — see § ROUND 2 for what
+> each objection was answered with.
 
 ## Re-validated before any code was written, at BOTH halves
 
@@ -395,3 +397,48 @@ UPDATE`.
 workstream docs under `bugfix_081_deployed_mistyped_page/` are the NOTES entry it
 asks be left; the prior-decisions lookup was not run, and that is a real gap
 rather than a discharged one.
+
+
+---
+
+# ROUND 2 VERDICT — APPROVED, and the four advisories discharged rather than banked
+
+`ccd4384c` round 2, 2026-08-01 08:20Z: **approved with 4 advisory objections, none
+high-severity.** 13 seats, 3 abstained, 0 unreadable. `guidelines` and
+`improvement_guardian` — both of whom raised the round-1 HIGHs — moved to
+**approve** with zero objections, as did `reuse_agent`, `debug_historian`,
+`adoption_guardian`, `render_guardian`, `constitution` and `mission`.
+
+Three of the four advisories were one command each, so they were answered rather
+than recorded:
+
+- **`refuseDeployedPageTypeConflict` changed signature from `*sql.DB` to
+  `*sql.Tx` — any caller outside this file?** (guardian, architecture)
+  `grep -rn "refuseDeployedPageTypeConflict\|resolveNewPageConflict" --include=*.go .`
+  → **every hit is in `apply_gap_plan_action.go`** plus two comment references in
+  its test. Both functions are file-local and unexported. No compile break.
+- **"the plan ASSUMES `insertWorkItem` takes a `*sql.Tx` on the strength of a
+  round-1 remark, not a fresh symbol check"** (prior_art_librarian) — a fair
+  challenge, and the check is one line:
+  `load_work_item_actions.go:1154  func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.Logger) (bool, error)`.
+  Three other call sites already pass a `Tx` (`evidence_citations.go:414`,
+  `seed_build_queue_action.go:165`, `emit_imagery_items_action.go:121`), so this
+  is the established pattern rather than an assumption. It also compiles, which
+  is the strongest available proof of a signature.
+- **The `doc_notes`/`doc_plans` prior-decisions lookup, which round 2 declared NOT
+  DONE** (tooling_provenance, medium; also prior_art_librarian). **Now run**, and
+  it resolves to the benign branch the seat named:
+  `doc_plans` → **0 rows** for `apply_gap_plan`/`content-gap-planner`.
+  `doc_notes` → 6 rows, **all of them this session's own landmine** (synced from
+  `LANDMINES.md`), plus one unrelated entry that merely carries
+  `apply_gap_plan_action.go` in its footprint (`site_specs.audience` is read by
+  nothing). **No prior decision on this subject existed to be lost.**
+
+The fourth stands and is already tracked: **`bug_historian` and `architecture`
+both note the census in `bugs_open/172` shows the identical defect at four more
+call sites**, and `architecture` asks whether a canonical page-upsert helper
+should exist. That is `172`'s fix candidate 2, and `172` already records it as
+architecture-scope needing the RFC route rather than a bug patch. Nothing further
+owed here beyond not pretending this closed the class — which the file says twice.
+
+**Trailer earned:** `Council-Reviewed: ccd4384c-aff9-45ed-80b2-01c3ced573bb`.
