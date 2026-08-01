@@ -768,9 +768,34 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 
+		// The provider client writes usage back into `options`, so re-read it
+		// AFTER the call — these are the re-ask's numbers, not the first
+		// attempt's. Carried explicitly rather than left to default: a row with
+		// NULL output_tokens is invisible to every p95/max/at-the-cap query over
+		// this table, which is exactly the blind spot that made truncations
+		// unmeasurable before (llm_call_log's known trap). A retry that is not
+		// counted cannot be shown to be rare, and "it should stay small" is this
+		// change's whole cost argument.
+		reaskInputTokens, reaskOutputTokens := 0, 0
+		if it, ok := options["__usage_input_tokens"].(int); ok {
+			reaskInputTokens = it
+		}
+		if ot, ok := options["__usage_output_tokens"].(int); ok {
+			reaskOutputTokens = ot
+		}
+		if reaskTruncated && reaskOutputTokens == 0 {
+			// A truncated call may report usage only on the error. Prefer a real
+			// number over a NULL for the reason above.
+			reaskOutputTokens = reaskTruncatedTokens
+		}
+
 		// One call, one forensic row — the same rule the first attempt follows.
 		// Marked in error_message so a census can separate re-asks from first
 		// attempts without joining anything (llm_call_log has no attempt column).
+		// NOTE the marker is present on SUCCESSFUL retries too, so a query that
+		// treats a non-empty error_message as a failure will miscount: filter
+		// failures on `success = false`, and find retries with
+		// `error_message LIKE 'RETRY (bugs_open/119%'`.
 		reaskLogErr := "RETRY (bugs_open/119: first attempt did not parse)"
 		if reaskErr != nil {
 			reaskLogErr = "RETRY (bugs_open/119) FAILED: " + reaskErr.Error()
@@ -789,6 +814,8 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			PromptTemplate:  promptTemplate,
 			PromptRendered:  reaskPrompt,
 			ResponseText:    reaskResult,
+			InputTokens:     reaskInputTokens,
+			OutputTokens:    reaskOutputTokens,
 			LatencyMs:       int(time.Since(reaskStart).Milliseconds()),
 			Success:         reaskErr == nil && !reaskTruncated,
 			ErrorMessage:    reaskLogErr,
@@ -838,6 +865,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			"result": cleanedResult,
 			"type":   "text",
 		}
+		markJSONContractUnmet(out, declaredOutputType)
 		markTruncated(out, truncationTolerated, truncatedTokens)
 		return out, nil
 	}
@@ -908,6 +936,36 @@ finish: every { closed by exactly one }, every [ closed by exactly one ], no str
 or duplicated brackets, no trailing commas, all strings quoted and escaped. Output
 ONLY that JSON value: start with { or [, end with } or ], no markdown fences, no
 commentary before or after.`
+}
+
+// markJSONContractUnmet stamps a step result that DECLARED it needs JSON and,
+// after the corrective re-ask, still has none.
+//
+// Answers the council's standing objection to the retry (bugs_open/119, round 1,
+// seat bug_historian at medium): a re-ask lowers the FREQUENCY of the silent
+// degrade but does not change its SHAPE — the step still returns
+// `{result: <text>, type: "text"}` and still SUCCEEDS, which is
+// `bugs_closed/076`'s title exactly ("truncated LLM responses tolerated at
+// unguarded call sites") and the `missingkey=zero` family: one call site
+// improved, the generic silent-success left intact.
+//
+// The remedy is deliberately a MARKER and not a hard error. Making a declared-
+// json step fail loud would convert ~91 currently-succeeding steps into
+// failing ones on a path they did not author, which is `bugs_closed/073`'s
+// defect (a page became unbuildable for telling the truth) — the same reason
+// 119's own candidate 2 was declined. So: keep the behaviour, end the silence.
+// Same "__" convention as markTruncated/markEnvelopeRecovered, so it cannot
+// collide with a model's own keys, and its ABSENCE is meaningful — it is only
+// ever stamped where a contract was declared AND unmet.
+//
+// What it buys, concretely: this class is currently invisible to everything
+// except a pod log line. With the marker a consumer can refuse, and a census can
+// count it — `collected_data @> '{"<field>":{"__json_contract_unmet":true}}'`.
+func markJSONContractUnmet(out map[string]interface{}, declaredOutputType string) {
+	if declaredOutputType != "json" {
+		return
+	}
+	out["__json_contract_unmet"] = true
 }
 
 // markEnvelopeRecovered stamps how a non-clean response was recovered, so a
@@ -1092,9 +1150,19 @@ var llmOutputVocabulary = map[string]bool{
 //
 // It reads TWO keys, and the second one is a repair rather than a convenience
 // (bugs_open/119). The code has always read `output_type`; the fleet has almost
-// always written `output_format`. Measured 2026-08-01 across all 134 active
-// `execute_llm_prompt` steps: `output_type` is set on **6**, `output_format` on
-// **100** (90 of them "json", across 32 agents — every council seat among them).
+// always written `output_format`. Measured 2026-08-01 across all 135 active
+// `execute_llm_prompt` steps (134 top-level + 1 nested in a loop's
+// `sub_workflow`): `output_type` is set on **6**, `output_format` on **101** —
+// 91 of them "json", across 33 agents, every council seat among them.
+//
+// DEPTH MATTERS HERE and was measured rather than assumed, because the council
+// gated round 1 on exactly this: a step's prompt and its token cap are known to
+// sit at DIFFERENT depths in `default_config`, so a census taken at one depth can
+// silently overstate a fix's reach. All 101 declarations sit at
+// `config.output_format` — the map `params.StepConfig.Config` is — with ZERO
+// under `config.ai_service` and ZERO at the step root. The ai_service fallback
+// below is therefore unexercised today; it is kept because the precedence rule
+// belongs with the key, not because anything uses it.
 //
 // So for as long as this function read one key, ~75% of LLM steps declared an
 // output contract that nothing honoured, and silently received

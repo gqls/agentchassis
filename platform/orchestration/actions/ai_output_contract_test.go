@@ -10,10 +10,18 @@ import (
 // ── Edit A: the declared output key was dead ────────────────────────────────
 //
 // bugs_open/119. The code read `output_type`; the fleet writes `output_format`.
-// Measured 2026-08-01 over all 134 active execute_llm_prompt steps: output_type
-// on 6, output_format on 100 (90 of them "json", across 32 agents — every
-// council seat included). So ~75% of LLM steps declared a contract nothing
-// honoured.
+// Measured 2026-08-01 over all 135 active execute_llm_prompt steps (134
+// top-level + 1 nested in a loop's sub_workflow): output_type on 6,
+// output_format on 101 — 91 of them "json", across 33 agents, every council seat
+// included. So ~75% of LLM steps declared a contract nothing honoured.
+//
+// The DEPTH is the part to keep checked, because the council gated round 1 on it
+// (seat debug_historian at high, guardian and editquality concurring): a step's
+// prompt and its token cap sit at different depths in `default_config`, so a
+// census taken at one depth can overstate a fix's reach. Re-measured across BOTH
+// depths: all 101 declarations sit at `config.output_format` — which is exactly
+// the map `params.StepConfig.Config` is — with ZERO under `config.ai_service` and
+// ZERO at the step root where getOutputType would never see them.
 
 func TestGetOutputTypeReadsTheKeyTheFleetActuallyWrites(t *testing.T) {
 	// The regression this pins: before the fix this returned "" and the step
@@ -151,5 +159,32 @@ func TestCorrectiveReaskPromptDiffersByFailureMode(t *testing.T) {
 	}
 	if strings.Contains(malformed, "SHORTER") {
 		t.Fatal("a malformed answer was not too long — asking for brevity aims at the wrong cause")
+	}
+}
+
+// ── Round-1 council objection: the degrade was still silent ─────────────────
+//
+// Seat bug_historian, medium: a re-ask lowers the FREQUENCY of the silent
+// success but not its SHAPE — the step still returns text and still succeeds.
+// The answer is a marker, not a hard error: failing loud would convert ~91
+// currently-succeeding steps into failing ones on content they did not author,
+// which is bugs_closed/073's defect.
+func TestJSONContractUnmetIsMarkedOnlyWhenDeclaredAndUnmet(t *testing.T) {
+	// Declared json and unmet -> marked, so a consumer can refuse and a census
+	// can count what was previously invisible outside a pod log line.
+	out := map[string]interface{}{"result": "not json", "type": "text"}
+	markJSONContractUnmet(out, "json")
+	if v, ok := out["__json_contract_unmet"].(bool); !ok || !v {
+		t.Fatal("a declared-json step returning text must be marked")
+	}
+
+	// The marker's ABSENCE has to mean something, or it is noise. A step that
+	// never declared json is legitimately returning prose — not a contract breach.
+	for _, declared := range []string{"", "text", "html", "markdown"} {
+		out := map[string]interface{}{"result": "prose", "type": "text"}
+		markJSONContractUnmet(out, declared)
+		if _, present := out["__json_contract_unmet"]; present {
+			t.Fatalf("declared %q returning text is not a breach and must NOT be marked", declared)
+		}
 	}
 }
