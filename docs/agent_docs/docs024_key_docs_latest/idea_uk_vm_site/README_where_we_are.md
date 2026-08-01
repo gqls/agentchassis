@@ -1743,3 +1743,57 @@ descriptions on seven pages that had none). **The thing only you can do:
 register idea.uk in Google Search Console (DNS verification at Hetzner) and ask
 Google to re-read the homepage — that is what kills the "for sale" label.**
 Exact steps are in idea_uk_demand/README_where_we_are.md.
+
+## 1 August — the Cloudflare handoff, checked; and why the wrong domains served our shop
+
+Another team's session left us a note yesterday saying that a security section in
+our runbook was built on a belief that isn't true: it says idea.uk sits behind
+Cloudflare, and it doesn't. I checked that myself this morning rather than take
+their word for it, and **they are right.** idea.uk's DNS is at Hetzner and points
+straight at our own machine. Cloudflare is nowhere in the path. Their other three
+domains — relojistas, webdesign.uk, ugg2 — *are* behind Cloudflare, which is
+probably how the belief got started: the two machines were being talked about as
+one pattern when they were never set up the same way.
+
+**What that means in practice is mostly good news, and one piece of bad.** The
+good news: a chunk of work the runbook says is urgent isn't needed at all. It
+worried that our rate limiter was counting every visitor as one person, and it
+isn't — it sees real visitors and works correctly. The bad news is the flip side:
+there is no Cloudflare in front of us, so there's no firewall, no bot filtering
+and nothing absorbing an attack. A live shop taking card payments is sitting on
+the open internet with one modest rate limit for protection. That was true
+yesterday and the day before; the only thing that changed is that we now know it.
+
+**I also found out *why* the odd thing you saw on 31 July happened** — when you
+briefly pointed webdesign.uk and ugg2.com at this machine and they both served
+the idea.uk shop. It isn't a DNS quirk. Our web server has no "catch-all" — no
+rule saying what to do with a visitor arriving under a name we don't recognise.
+Without one, the first site configured on the machine answers *everything*. So
+any domain name on earth pointed at our address gets our shop, and a stranger
+could take an order through it. I confirmed this is still live: I asked the
+machine for a page using a made-up hostname, and using no hostname at all, and
+both times it handed over the full site.
+
+**I've written the fix and deliberately not applied it.** It's about fifteen
+lines: a catch-all that hangs up on any name that isn't idea.uk. It adds a file
+rather than editing the live one, so undoing it is deleting a link. I checked the
+two things that could have made it risky and both are clear — our certificate
+renewal can't be affected by it, and nothing legitimate reaches us without
+announcing a name. But this is the front door of the machine that takes the
+money, and when I went to install it the safety system in my session stopped me,
+which I think was the right answer. **It's a yes/no from you, and it's a small
+one.**
+
+**The bigger question is yours too, and it's genuinely a choice.** Either we
+leave the machine directly exposed as it is now — costs nothing, changes nothing,
+but we're accepting that we have no protection beyond the rate limit — or we put
+it behind Cloudflare like the other sites. If we do the second, two follow-up
+jobs stop being optional and both fail *silently* if skipped: teaching the server
+to read the visitor's real address (or the rate limiter quietly becomes one giant
+bucket while still looking like it's working), and firewalling the machine so
+nobody can walk round Cloudflare to reach it directly. There's a third option
+worth pricing — a Cloudflare "tunnel", which removes the firewall step entirely
+because nothing can reach the machine at all except through the tunnel.
+
+**I have not touched anything on the machine.** Everything above is from
+read-only checks.

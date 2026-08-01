@@ -1,0 +1,66 @@
+# default-deny.nginx — the catch-all vhost this box never had.
+#
+# Install as /etc/nginx/sites-available/000-default-deny.conf, symlinked into
+# sites-enabled/. It serves NOTHING. Its only job is to stop idea.uk being
+# served to a hostname that is not idea.uk.
+#
+# WHY (2026-08-01, from HANDOFF_2026-07-31_cloudflare_decision.md §5)
+# sites-enabled/ held ONLY idea.conf. Nothing claimed `default_server`, so
+# idea.conf's blocks were the de-facto default for :80 and :443 and every
+# hostname pointed at 116.203.204.115 — plus a bare-IP request with no SNI at
+# all — was served the complete idea.uk site, money path included. Measured
+# before this file existed:
+#
+#     curl -sk -o /dev/null -w '%{http_code}' https://116.203.204.115/      -> 200
+#     curl -sk --resolve fake.example:443:116.203.204.115 https://fake.example/ -> 200
+#     curl -s  -H 'Host: fake.example' http://116.203.204.115/              -> 301
+#
+# On 2026-07-31 the owner briefly pointed webdesign.uk and ugg2.com here; all
+# three domains served byte-identical content and, because the Go tool builds
+# every redirect from PublicBaseURL and never reads r.Host, a real payable
+# order was creatable from webdesign.uk — bouncing the buyer mid-checkout to a
+# domain they had never visited.
+#
+# ⚠ Ubuntu's stock /etc/nginx/sites-available/default ALSO claims
+#   `listen 80 default_server`. It is not symlinked into sites-enabled and must
+#   stay that way: two default_servers on one address:port is an `nginx -t`
+#   error, so enabling it takes the site down at the next reload.
+#
+# ⚠ This closes the hole at the EDGE only. The tool binary still does not
+#   validate Host (`grep -n 'r\.Host' main.go service.go billing.go` -> no
+#   match). Anything that ever puts the binary in front of the public without
+#   this vhost — a re-provision from setup.sh, a port opened past nginx —
+#   brings the exposure straight back.
+
+server {
+    listen      80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    # Belt-and-braces, not the renewal path: certbot renews by webroot with
+    # Host: idea.uk, which matches idea.conf and never reaches this block.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        default_type "text/plain";
+    }
+
+    # 444 closes the connection with no response at all. Deliberately not 403:
+    # an unrecognised host learns nothing about what runs here.
+    location / { return 444; }
+}
+
+server {
+    listen      443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+
+    # Refuse the handshake for any SNI we do not serve, and for a client that
+    # sends no SNI. Presents no certificate, so it needs none (nginx >= 1.19.4;
+    # this box runs 1.28.3).
+    #
+    # Nothing legitimate is lost by rejecting no-SNI clients: the only
+    # certificate on this box is for idea.uk, so a client arriving without SNI
+    # ALREADY fails certificate validation today. Whatever still works that way
+    # is cert-ignoring tooling (curl -k), never a visitor.
+    ssl_reject_handshake on;
+}

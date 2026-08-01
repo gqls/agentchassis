@@ -3298,3 +3298,80 @@ Engineering shipped from THIS lane's machinery:
 Side-finding, parked: /news/index.html shows "Loading latest news..." forever —
 its JS fetches /data/latest-news.json which 404s. Not this lane's fix; noted
 here so it is not re-discovered.
+
+### §X.34 — the Cloudflare handoff re-verified, and the MECHANISM behind its §5 (2026-08-01)
+
+Picked up `HANDOFF_2026-07-31_cloudflare_decision.md` (written by the
+`webdesign_uk_build_service` lane, which correctly left every decision here).
+**Re-measured its central claim rather than inheriting it** — an ingress fact is
+exactly the kind that goes stale, and the writing lane was actively editing
+Cloudflare zones for its own domains while I read it:
+
+```
+idea.uk        NS hetzner (oxygen/helium/hydrogen)   A 116.203.204.115   server: nginx/1.28.3, no cf-ray
+relojistas.com NS cloudflare (leah/alexis)           A 172.67.199.16 …   server: cloudflare, cf-ray present
+webdesign.uk   NS cloudflare                         A 104.21.54.51 …    server: cloudflare, cf-ray present
+ugg2.com       NS cloudflare                         A 172.67.206.32 …   server: cloudflare, 404
+```
+
+**CONFIRMED, 2026-08-01 08:5x UTC.** idea.uk is not behind Cloudflare and the
+other three are. So §4a's premise is false and §4a's prescribed work is
+unnecessary — as the handoff says.
+
+**What I add: the mechanism behind the handoff's §5 `Host` finding, which it
+recorded as a behaviour without naming the cause.**
+
+`sites-enabled/` on this box contains **exactly one file**, `idea.conf`. Nothing
+anywhere claims `default_server` — Ubuntu's stock `default` vhost exists in
+`sites-available/` and is **not symlinked**. So idea.conf's two blocks are the
+de-facto default for `:80` and `:443`, and every unmatched hostname *and every
+request with no name at all* is served the full idea.uk site. Measured:
+
+```
+curl -sk https://116.203.204.115/                              -> 200   (no SNI at all)
+curl -sk --resolve fake.example:443:116.203.204.115 https://…  -> 200   (foreign SNI)
+curl -s -H 'Host: fake.example' http://116.203.204.115/        -> 301   (foreign Host)
+```
+
+That is *why* webdesign.uk and ugg2.com served byte-identical idea.uk content on
+07-31: not a DNS quirk, a missing catch-all. Any hostname pointed here
+reproduces it, which is what makes it worth closing permanently.
+
+**Baseline captured before proposing any change** (all 16 reserved routes
+through https://idea.uk, so a regression is visible rather than argued):
+`/health 200 · /capacity 200 · /audience-check 405 · /subscribe 400 ·
+/request 405 · /confirm 401 · /approve 401 · /decline 401 · /op 404 ·
+/stripe/webhook 400 · /internal/run 401 · /order/success 200 · /order/cancel 200
+· /terms 200 · /refund-policy 200 · /privacy 200`; `http://idea.uk/ -> 301`.
+These are the tool's own codes, i.e. every route still reaches the binary.
+
+**The two facts that decide whether a catch-all is safe here, both checked:**
+1. **ACME renewal is `authenticator = webroot`, `webroot_path=/var/www/letsencrypt`,
+   over port 80 with `Host: idea.uk`** (`/etc/letsencrypt/renewal/idea.uk.conf`).
+   It therefore matches idea.conf's `server_name idea.uk` block and can never
+   fall into a catch-all. Renewal is not at risk. (I still put an
+   `acme-challenge` location in the catch-all as belt-and-braces.)
+2. **Rejecting no-SNI clients costs nothing.** The only certificate on the box
+   has `SAN: DNS:idea.uk` (no `www`), so anything reaching this box without SNI
+   *already* fails certificate validation. Whatever still works that way is
+   cert-ignoring tooling, not a visitor.
+
+> **[UNMEASURED] — and it cannot be measured retrospectively.** nginx here logs
+> the stock `combined` format, which carries **no `$host`**, so the access log
+> cannot tell me whether any real traffic arrives under a foreign or absent
+> hostname. I am reasoning from the certificate argument above, not from
+> observed traffic. If that is not good enough, the honest route is to add
+> `$host` to `log_format`, reload, watch, and *then* decide — a log-only change.
+> I did not do that unasked: it is still a production reload.
+
+**Prepared but NOT applied: `box/default-deny.nginx`** — a `server_name _`
+catch-all returning **444** on :80 and `ssl_reject_handshake on` on :443.
+Additive (a new file plus a new symlink; `idea.conf` is untouched), so rollback
+is `rm` the symlink and reload. The staging command was **refused by this
+session's permission classifier**, which I think is the right outcome: this is
+the front door of a live, card-taking service and it needs the owner to say go.
+Not worked around. Left for the owner's call together with the ingress decision.
+
+⚠ **`setup.sh` un-does this** along with everything else — it rewrites
+`idea.conf` from its own template and does `ufw --force reset`. If the box is
+ever re-provisioned, the catch-all has to go into its stage-2 template too.

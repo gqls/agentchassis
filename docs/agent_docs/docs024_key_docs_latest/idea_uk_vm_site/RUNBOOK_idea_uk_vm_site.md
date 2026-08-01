@@ -494,6 +494,65 @@ Cloudflare WAF/Turnstile is even reachable as the blocking layer.
 > behind Cloudflare"). **Left as an appended correction, not a rewrite** — this is
 > another lane's runbook and the call about what to do belongs to its owner.
 
+**4a-bis. There is no catch-all vhost, so this box answers to EVERY hostname —
+including none. ADDED 2026-08-01 by this lane, confirming and explaining §5 of
+`HANDOFF_2026-07-31_cloudflare_decision.md`.**
+
+`sites-enabled/` holds **exactly one file**, `idea.conf`. Nothing on this box
+claims `default_server` (Ubuntu's stock `default` vhost is present in
+`sites-available/` but **not symlinked**), so idea.conf's blocks are the de-facto
+default for `:80` and `:443` and serve the complete site — money path included —
+to any name at all:
+
+```bash
+curl -sk -o /dev/null -w '%{http_code}\n' https://116.203.204.115/                        # 200  no SNI
+curl -sk -o /dev/null -w '%{http_code}\n' --resolve fake.example:443:116.203.204.115 \
+     https://fake.example/                                                                # 200  foreign SNI
+curl -s  -o /dev/null -w '%{http_code}\n' -H 'Host: fake.example' http://116.203.204.115/  # 301  foreign Host
+```
+
+That is the mechanism behind the 07-31 observation that `webdesign.uk` and
+`ugg2.com` served byte-identical idea.uk content while pointed here — **not a DNS
+quirk, a missing catch-all** — and the Go tool cannot save you: it never reads
+`r.Host` and builds every redirect from `PublicBaseURL`, so a buyer who starts
+checkout on the wrong domain is bounced mid-flow to one they have never seen.
+
+**Fix, written and staged in `box/default-deny.nginx`, NOT YET APPLIED** (owner
+call — it is the front door of a live earning service):
+
+```bash
+scp box/default-deny.nginx root@116.203.204.115:/etc/nginx/sites-available/000-default-deny.conf
+ssh root@116.203.204.115 '
+  grep -c ssl_reject_handshake /etc/nginx/sites-available/000-default-deny.conf   # 1 = the copy you think it is
+  ln -sfn /etc/nginx/sites-available/000-default-deny.conf /etc/nginx/sites-enabled/000-default-deny.conf
+  nginx -t && systemctl reload nginx'
+```
+Rollback is `rm /etc/nginx/sites-enabled/000-default-deny.conf && nginx -t && systemctl reload nginx`
+— it adds a file and a symlink and never edits `idea.conf`.
+
+Two checks that make it safe, both already done, and worth re-doing if the box
+changes: (1) **certbot renews by `webroot` over port 80 with `Host: idea.uk`**
+(`/etc/letsencrypt/renewal/idea.uk.conf`), so renewal matches `idea.conf` and can
+never fall into the catch-all; (2) **the only cert has `SAN: DNS:idea.uk`**, so a
+client arriving with no SNI already fails validation today — rejecting it costs
+nothing real.
+
+> ⚠️ **Do NOT symlink Ubuntu's stock `sites-available/default`** — it also claims
+> `listen 80 default_server`, and two on one address:port is an `nginx -t` error,
+> i.e. the site stays down at the next reload.
+> ⚠️ **[UNMEASURED]:** nginx logs the stock `combined` format, which carries no
+> `$host`, so the access log **cannot** tell you whether real traffic arrives
+> under a foreign hostname. The safety argument above is the certificate one, not
+> an observed-traffic one. To measure instead, add `$host` to `log_format` and
+> reload first.
+
+**AFTER applying, re-run the §3d 16-route loop.** Baseline recorded 2026-08-01,
+so a regression is visible rather than argued: `/health 200 · /capacity 200 ·
+/audience-check 405 · /subscribe 400 · /request 405 · /confirm 401 · /approve 401
+· /decline 401 · /op 404 · /stripe/webhook 400 · /internal/run 401 ·
+/order/success 200 · /order/cancel 200 · /terms 200 · /refund-policy 200 ·
+/privacy 200`.
+
 **4b. Harden `/request`.** `handleRequest` (`service.go:301-310`) has no rate limit, no honeypot, no
 validation beyond presence, and discards `ParseForm`'s error — which is exactly why
 `test/test/test/test@test.com` sails through. The ingredients already exist and are simply unwired:
