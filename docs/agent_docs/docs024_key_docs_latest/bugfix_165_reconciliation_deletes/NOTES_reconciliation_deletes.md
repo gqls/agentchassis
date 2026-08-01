@@ -477,3 +477,58 @@ surface is what makes it independent of six different workflows' opinions.
 Remaining gap, stated so it is not mistaken for done: the three `[INFERRED]` rows,
 and confirming the work item lands on the COMPLETED-reporting path. One induction
 each, recipe in the RUNBOOK.
+
+## 10. The C caveat resolved itself, and the [INFERRED] rows became facts (2026-08-01)
+
+**My staleness caveat closed the right way.** I flagged the site-C row as "already
+stale — re-check it" because another session was mid-refactor of
+`enforceLinkRegistryFloor` from `error` to `bool`. It landed (`d1f6a9426`), the
+council called it a workaround, and they **reverted** it (`f4825c9ca`), filing
+`bugs_open/173` for the underlying disproportion instead. So C is back to `error`
+semantics and my original table stands: **3 of 4 consumers fail the whole action.**
+Worth noting the caveat cost me two lines and saved a wrong row from propagating
+for the twelve hours it was in doubt.
+
+**The three `[INFERRED]` rows are now verified — and NOT by the three inductions I
+had written down as the plan.** Reading the coordinator gave the engine's rule:
+
+```
+step error -> (1) loop iteration + continue_on_error -> SKIP iteration, continue
+           -> (2) error_step (step-level, then config)   -> route
+           -> (3) otherwise                               -> failWorkflow
+```
+
+Exit (1) was the real hazard and I had not considered it: all three consumers nest
+`save_sections` in a loop, so if the loop carried `continue_on_error` a refusal
+would skip one page and let the build report success — the silent outcome the
+guard exists to prevent, arriving through the guard's own error. Measured: the flag
+is UNSET on all three loops, so they take exit (3).
+
+**This is the better verification, and the reason is worth keeping.** Three
+inductions would have produced three green samples and told me nothing about a
+fourth consumer or about tomorrow's config. Establishing the rule covers every
+consumer including ones not yet written, and it would catch a config change that
+three passing inductions would sail past. **Prefer the mechanism to the sample when
+the mechanism is readable** — the sample is only better when the mechanism is not.
+
+### It also found something I was not looking for
+
+Because `continue_on_error` is unset on those loops, a refusal on ONE page fails
+the ENTIRE multi-page build. That is precisely `bugs_open/173`, filed hours earlier
+from site C by the B+C lane — and it is not confined to their loop. Four loops
+across four agents have the shape, not one. Contributed there rather than
+re-diagnosed here.
+
+I also answered the fleet-wide question 173 explicitly listed as *not* done —
+whether any live loop sets `continue_on_error: true` and swallows failures it
+should not. Census: 20 live loops, 10 unset / 9 true / 1 false; all nine `true`
+loops are fan-out dispatch (`call_agent`, `spawn_agent`, `create_work_item`), and
+**none of them wraps any of the four floor-guarded actions.** So no floor refusal
+is being swallowed anywhere today.
+
+**Measurement gotcha that produced a wrong first answer:** a loop's body lives in
+`config.sub_workflow.steps` (18 of 20 loops), not `config.substeps` (2 of 20).
+Counting off the wrong key returns `0` for nine loops and reads exactly like "these
+loops are empty, nothing to worry about" — the same shape as every other entry in
+this file's §2: **the count answered the question my key encoded, not the one I
+asked.**

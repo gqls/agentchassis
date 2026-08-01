@@ -153,3 +153,83 @@ Both branches, or the flag is untested in the direction that matters.
   `platform/orchestration/actions/link_registry_prune_floor.go`.
 - Code: `loop_actions.go:66`, `loop_expansion_handler.go:39,157,480`,
   `loop_error_handler.go:71-87`, `coordinator.go:907,3350-3363`.
+
+---
+
+## CONTRIBUTION 2026-08-01, from the `165` site A lane — the fleet-wide question, answered; and the blast radius is four loops, not one
+
+Two things this file listed as *not* established. Both are measurable, so here
+they are measured. **This is a contribution into the case, not a competing fix —
+nothing in the code was touched.**
+
+### 1. The undone question: does any live loop swallow substep failures it should not?
+
+> *"whether any live workflow is currently mis-shaped because of this (i.e. loops
+> that set `continue_on_error: true` and thereby silently swallow substep failures
+> they should not). That is a fleet-wide question…"*
+
+**Answer: no live loop is currently mis-shaped in that direction.** Census of every
+loop step on every active, non-snapshot agent (2026-08-01):
+
+| `continue_on_error` | loops | agents |
+|---|---|---|
+| `(unset)` | 10 | 8 |
+| `true` | 9 | 9 |
+| `false` | 1 | 1 |
+
+All **nine** `true` loops are fan-out / dispatch loops, and what they run is the
+justification for the flag:
+
+| agent | loop | sub_workflow actions |
+|---|---|---|
+| `area-sweep-orchestrator` | `sweep_loop` | `call_agent` |
+| `business-intel` | `process_batch` | `companies_house_fetch`, `companies_house_search`, `store_ch_enrichment`, `conditional` |
+| `component-quality-auditor` | `create_regen_items` | `create_work_item`, `conditional` |
+| `content-feed-trigger` | `process_sites` | `call_agent`, `spawn_agent` |
+| `internal-linker` | `create_items_loop` | `create_work_item` |
+| `model-directory-trigger` | `process_sites` | `call_agent`, `spawn_agent` |
+| `thunder-training-monitor` | `monitor_loop` | `call_agent`, `spawn_agent` |
+| `tool-auditor` | `create_items_loop` | `create_work_item`, `conditional` |
+| `vet-batch-processor` | `process_batch` | `call_agent` |
+
+**Not one wraps a destructive reconciliation**, and specifically: *zero* of the
+nine contain `save_page_sections`, `populate_nav_tables`, `sync_page_links` or
+`index_code_symbols` — the four actions that now carry a completeness floor. So no
+floor refusal is currently being swallowed by a loop anywhere on the fleet. For
+"spawn a job per site, one site's failure must not stop the batch", `true` is the
+right setting, which is what these all are.
+
+**Measurement gotcha, recorded because it cost a wrong first answer:** a loop's
+body lives in `config.sub_workflow.steps` (18 of 20 loops), **not**
+`config.substeps` (2 of 20). Counting substeps off the wrong key returns `0` for
+nine loops and reads exactly like "these loops are empty, nothing to worry about".
+
+### 2. The blast radius is FOUR loops across four agents, not just `generate_pages_loop`
+
+This file's motivating case was site C inside
+`multipage-website-builder.generate_pages_loop`. **Site A has the identical shape
+in three more loops**, all `continue_on_error` UNSET with no `error_step` on the
+`save_sections` substep:
+
+| agent | loop | substep that can now refuse |
+|---|---|---|
+| `pageflow-builder` | `build_pages_loop` | `save_sections` (`save_page_sections`) |
+| `page-rebuild` | `build_pages_loop` | `save_sections` |
+| `site-work-orchestrator` | `build_items_loop` | `save_sections` |
+
+So a completeness refusal on **one** page fails the **entire multi-page build** in
+each of these — the same disproportion, at the same severity, for a build that may
+have already produced a dozen good pages. That does not change 173's diagnosis; it
+triples the number of live loops that want the missing degree of freedom, and it
+means fixing 173 buys site A as well as site C.
+
+Not fixed here for the reason 173 itself gives: the missing knob is the cause, and
+working around it per-call-site is what the `architecture` and `constitution` seats
+already rejected once.
+
+### What is still not established
+
+Whether the three loops above have ever actually aborted a build this way. The
+floors are new (A live on `v1.0.1223` 2026-07-31; B and C not yet live), so the
+answer today is almost certainly no — but it is unmeasured, and
+`orchestration_states` retention (~2 days) will make it unanswerable in arrears.

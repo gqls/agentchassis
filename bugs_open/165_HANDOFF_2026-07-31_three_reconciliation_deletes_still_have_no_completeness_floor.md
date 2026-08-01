@@ -224,9 +224,9 @@ induction:
 | consumer | `error_step` on the save step | what a refusal does |
 |---|---|---|
 | `page-rerender` | none | **orchestration FAILED — proven live 2026-07-31** |
-| `pageflow-builder` | none | fails the orchestration [INFERRED — same engine, same absent `error_step` as page-rerender; not induced] |
-| `page-rebuild` | none | fails the orchestration [INFERRED, as above] |
-| `site-work-orchestrator` | none | fails the orchestration [INFERRED, as above] |
+| `pageflow-builder` | none | fails the orchestration — **verified by mechanism 2026-08-01** (was `[INFERRED]`) |
+| `page-rebuild` | none | fails the orchestration — **verified by mechanism** (was `[INFERRED]`) |
+| `site-work-orchestrator` | none | fails the orchestration — **verified by mechanism** (was `[INFERRED]`) |
 | `page-build-handler` | `mark_item_failed` → `update_work_item_status` → `complete_error` | work item marked FAILED, and **the orchestration reports COMPLETED** — measured: its one retained run carrying `__step_error` ended `COMPLETED` |
 | `tool-recreation-handler` | `complete_error` → `complete_workflow` | completes; no orchestration failure |
 
@@ -244,11 +244,33 @@ makes the refusal a row nobody reads, for a structural reason worth keeping:**
    durable surface was built rather than relying on the step status, and this is
    the evidence that it was the right call.
 
-**What is still worth doing:** induce a refusal on `page-build-handler` or
-`tool-recreation-handler` to confirm the work item lands on the
-COMPLETED-reporting path too. The three `[INFERRED]` rows above are the cheapest
-remaining gap — one induction each would convert them, and the recipe is in the
-lane RUNBOOK.
+**The three `[INFERRED]` rows are now VERIFIED — by establishing the engine's rule
+rather than by three inductions (2026-08-01).** Reading the coordinator, a step
+error takes exactly one of three exits, in this order:
+
+1. **loop iteration with `continue_on_error`** → skip to the next iteration, the
+   workflow CONTINUES (`coordinator.go:908`, `loop_error_handler.go:71-89`);
+2. else **`error_step`** (step-level, then `config.error_step`) → route there
+   (`coordinator.go:3350-3363`);
+3. else → **`failWorkflow`** (`coordinator.go:3363`).
+
+All three consumers nest `save_sections` inside a loop, so exit (1) was the real
+risk — a refusal skipping one page and letting the build report success would have
+been the silent outcome the guard exists to prevent. Measured: **`continue_on_error`
+is UNSET on all three** (`pageflow-builder.build_pages_loop`,
+`page-rebuild.build_pages_loop`, `site-work-orchestrator.build_items_loop`), and
+none has an `error_step` on the save step. So they take exit (3) and fail.
+
+This is stronger than the three inductions it replaces: it establishes the
+mechanism for *every* consumer including future ones, and it would catch a config
+change that three passing inductions would not. **It also revealed a
+disproportion** — a refusal on one page fails the whole multi-page build in those
+three, which is exactly `bugs_open/173`. That case was filed from site C; the
+census and the widened blast radius (four loops, not one) are contributed there.
+
+**Still worth doing:** induce a refusal on `page-build-handler` or
+`tool-recreation-handler` — the two that route on error — to confirm the work item
+lands on the COMPLETED-reporting path too. Recipe in the lane RUNBOOK.
 
 The same bar 135 was held to: **a green run proves nothing.** The floor is inert
 on healthy input by design. Induce the fault (write a page with a deliberately
