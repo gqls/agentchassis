@@ -362,3 +362,75 @@ FROM t ORDER BY 1,2;
 > improvement_guardian **96.6%** (all of an 8000 cap). The architecture seat's
 > precedent says to expect outputs to get *shorter*, not merely to stay under — if the
 > peaks do not move, the block is being ignored and that is the finding.
+
+## 11. Inducing the TRUNCATED branch — designed, pre-proven, BLOCKED on permission
+
+The `true` branch of FIX-055 has never fired: **0 of 68 rounds** decided by the live code.
+Not because it is unreachable — 3 reviews came back degraded and each was correctly
+excluded (two had a high-severity objection survive the cut, so the round gated on merits;
+one was degraded but approved). The reason it is now *rare* is that the length budget
+removed the pressure: **0 degraded in the last 399 reviews.** So waiting is a weak plan —
+we would be waiting to observe the thing we have been suppressing.
+
+The induction below is fully prepared. `--apply`-equivalent steps were **refused twice by
+the session permission classifier**, so it has NOT been run. Nothing is half-applied: the
+seat still reads `cap=8000` and prompt md5 `94deeb7c39db83a6cd6263102ab2eb3e`, verified
+after the refusal.
+
+### Why this seat, and why the blast radius is near zero
+
+`review_adoption_guardian` on **council-gate**: 38 calls in 14 days, the rarest seat, and
+footprint-gated on `adoption` words — so another session's round only invokes it if their
+edited paths match that footprint. Compare an always-on seat (`editquality`, `guardian`):
+council-gate ran **15 rounds in 12 hours**, so crippling one of those would very likely
+degrade someone else's round.
+
+**And the window is shorter than it looks.** An orchestration keeps the workflow definition
+it loaded **at spawn**, so the config only has to be crippled until *my round spawns* — not
+until it completes. Restore the moment the row appears in `orchestration_states`; every
+later round then loads the healthy config.
+
+### The four conditions the branch needs (all four, or no label)
+
+`degraded` **and** verdict `object` **and** no surviving high-severity objection **and** no
+other seat gating on merits. The third is why the cap goes to **120**, not 500 — this seat's
+p95 output is ~286 tokens, so 500 might not even truncate it, and 120 guarantees the cut
+lands before any objection is written (`len(Objections)==0` → gates as truncated).
+
+### The recipe
+
+```bash
+SCR=<scratchpad>
+# 0. capture EXACTLY, and build+prove the restore BEFORE breaking anything
+#    (run the restore while it is still a no-op; the prompt md5 must be unchanged after)
+# 1. snapshot_agent('council-gate', 'pre-update: INDUCED FAULT …')
+# 2. jsonb_set cap -> 120 AND append the induced-fault paragraph to the prompt
+# 3. fire 097 with a submission whose path matches the adoption footprint
+# 4. poll: SELECT 1 FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '<corr>';
+#    the moment it exists -> RUN THE RESTORE
+# 5. verify restore: cap=8000 AND prompt md5 back to 94deeb7c39db83a6cd6263102ab2eb3e
+# 6. read the verdict:
+#    SELECT metadata->>'gated_by_truncation', body::jsonb->>'decided_by'
+#      FROM diagnosis_artifacts WHERE kind='council_report' AND correlation_id='<corr>';
+```
+
+> **Build and PROVE the restore first.** Writing the undo before the do, and running it
+> while it is still a no-op, is what turns "I can revert this" from a claim into a checked
+> fact. Done here: the no-op restore returned `cap=8000` and left the prompt md5 identical.
+>
+> **The prompt injection is deliberate and must be disclosed.** The seat is told to emit
+> verdict `object` for that round. Without it the verdict is a coin flip (~32% object
+> fleet-wide) and each attempt costs a full round. It makes the induced review NOT a genuine
+> adoption objection — so the correlation must be recorded wherever the artifact is read,
+> or a future reader will mistake a test fixture for a real verdict.
+>
+> **The submission must be a REAL change.** A fabricated plan spends ~10 seats' credits
+> reviewing fiction and pollutes `fix_plan` artifacts. The prepared one expands
+> `repairTruncatedJSON`'s one-line comment in `apply_adoption_plan_action.go` to name its
+> cross-pipeline consumer (`salvageTruncatedReview`) and the `output_tokens IS NULL`
+> logging signal — comment-only, genuinely useful, and its path matches `adoption`.
+>
+> **What it would prove, and what it would not.** It proves the string selection and that
+> the TRUNCATED wording survives persistence. It does NOT prove more than the unit tests
+> about the decision rule itself — the persistence path is already demonstrated 68 times by
+> the `false` branch, which writes the same two fields.
