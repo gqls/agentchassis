@@ -373,3 +373,32 @@ func TestPruneRefusalWorkItemIsANoOpWithoutADB(t *testing.T) {
 		t.Fatalf("nil DB should be a silent no-op, got %v", err)
 	}
 }
+
+// THE REVERTED CONTRACT, pinned. Round 2 of council c69e935a made this guard
+// return (detail, bool) and skip the sync; four seats ruled that a workaround for
+// the loop's missing per-substep error routing (now bugs_open/173) rather than a
+// fix, and round 3 reverted it. The `editquality` seat then noted, fairly, that
+// nothing pinned the revert itself — so this does.
+//
+// Two assertions, and the second is the one that matters. A refusal must return a
+// non-nil ERROR (a bool is ignorable where an error is not), and it must return a
+// NIL detail map, so a caller that ignores the error cannot find usable-looking
+// numbers and carry on. The compile-time signature check is what actually fails if
+// anyone re-introduces the bool.
+func TestLinkRegistryFloorRefusalIsAnErrorNotASkippableFlag(t *testing.T) {
+	// Compile-time: the contract is (map, error), identical to sites A and B.
+	var _ func(context.Context, ActionParams, uuid.UUID, uuid.UUID, string, int) (map[string]interface{}, error) = enforceLinkRegistryFloor
+
+	db, mock := floorMockDB(t)
+	expectLinkMeasurement(mock, 40)
+	expectRefusalItem(mock)
+
+	detail, err := enforceLinkRegistryFloor(context.Background(), floorParams(db, nil),
+		uuid.New(), uuid.New(), "services", 3)
+	if err == nil {
+		t.Fatal("a refusal returned no error — the round-2 skip contract has been reinstated")
+	}
+	if detail != nil {
+		t.Fatalf("a refusal returned a non-nil detail map: a caller ignoring the error would find usable numbers and proceed: %+v", detail)
+	}
+}
