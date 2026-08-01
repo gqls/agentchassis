@@ -210,3 +210,72 @@ ordering exemption, and I claim no ordering constraint.
 - **Round 1 named 32 agents; there are 33.** I named them in full (which the owner ruling
   requires) off a census that was one step short. Naming consumers is only as good as the
   walk that enumerated them.
+
+---
+
+## 2026-08-01 — council round 2: APPROVED, and six objections that were my own handwriting
+
+`576832f3` round 2 → **APPROVED**, 14 reviewers, **0 unreadable**, 8 advisory objections,
+none high-severity. Verdict read and dispositioned rather than filed.
+
+### The one that was a real catch — acted on
+
+`diagnosis_guardian` (medium): my truncation re-ask says *"cut words, never findings"*,
+which protects the **conclusions** and says nothing about what **supports** them. A
+verdict-emitting step re-asked for brevity could keep its findings and shed the citations
+that make them checkable — a shorter answer becoming a **less evidenced** one, which is
+worse than the lost round it was meant to prevent. Added *"Keep every citation, quote, id
+and file:line that supports a finding"* and *"Cut explanation, never evidence"*, with two
+assertions pinning both. I would rather have thought of this myself; "be brief" is exactly
+the instruction that goes wrong at the evidence.
+
+### The one I refuted, by reading rather than arguing
+
+`llm_reliability` (medium): claimed `GenerateText` does not decode `stop_reason`, so a
+truncated re-ask would come back as a normal 200 and slip past my `if reaskErr != nil`
+guard. **Checkable, and false:** `anthropic.go:217-227` decodes it and returns a
+`*TruncatedError`; `gemini.go` and `ollama.go` do the same. The guard is correct, and it is
+the identical shape the first attempt already uses — had the premise been true, the primary
+path would have had the same hole since 019.
+
+### The artefact: six seats objected to a landmine I wrote an hour earlier
+
+`editquality`, `reuse_agent`, `guidelines`, `debug_historian`, `prior_art_librarian` and
+`architecture` — **six of the eight objections** — all said the plan "fails to cite or
+reconcile a live landmine" keyed to `getOutputType`/`output_format`/`llmOutputVocabulary`,
+warning that `output_format` *"now BUYS A SECOND LLM CALL"*.
+
+**That landmine is mine.** I appended it in commit `3af110705` and ran
+`landmines-sync.py --apply`, which publishes to `doc_notes` immediately — and the seats read
+`doc_notes` at review time. So documenting the seam, exactly as CLAUDE.md requires, armed
+six reviewers against the submission that created it.
+
+```bash
+$ git log --oneline -S'output_format` means two different things' -- .../LANDMINES.md
+3af110705 landmine(output_format): one key name, two vocabularies, and it now buys a second LLM call
+```
+
+Nothing was blocked — the round approved. The cost is **signal dilution**: three-quarters
+of the review's advisory capacity spent restating my own documentation back at me, which is
+capacity not spent on the design. And it is **systematic, not bad luck** — the more
+faithfully a thread follows "register the seam in the same commit that ships it", the more
+objections it draws.
+
+Written up as a transferable pattern in `016b` §9, with the `git log -S` check (verified,
+not asserted — the command above is the run) and the unbuilt candidate fix: carry the
+introducing commit on a landmine so a seat can suppress one authored by the submission under
+review. Explicitly **not** fixed by delaying the landmine until after the verdict, which
+would trade a review artefact for an undocumented seam.
+
+> The general shape is one this fleet already knows in its inverse form. MEMORY has
+> `prompt-text-poisons-its-own-detector` and `declaring-a-key-silences-your-own-detector` —
+> both "your own writing enters the corpus your detector reads", and in both the author's
+> text **silenced** a check. Here it **armed** one. I did not recognise it until the sixth
+> seat said the same sentence.
+
+### Status at end of session
+
+Committed `059ae2acd` with `Council-Reviewed: 576832f3-…` — the trailer is earned, the
+verdict was read. **The bug stays OPEN.** Go changes are inert until an image is built and
+rolled, and CLAUDE.md's bar is *fixed AND live*. RUNBOOK R10 has the pod-grep with its
+negative control and the behavioural `llm_call_log` check; neither can run until the roll.

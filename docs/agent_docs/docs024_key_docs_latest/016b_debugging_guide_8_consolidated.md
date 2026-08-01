@@ -4710,6 +4710,68 @@ completes anyway without a conclusion.
 **Cross-references.** `bugs_open/170`, run `ce9bcd92-7be7-4819-bdf8-f8a57622128f`,
 `WRONG_CALLS.md` 2026-08-01, `LANDMINES.md` same date.
 
+### A landmine you wrote in this task scores as an objection AGAINST your task — the review cannot tell a warning ABOUT a change from one written BY it
+
+**Symptom.** A council round returns with several seats independently objecting that your
+plan "fails to cite or reconcile a live landmine keyed to exactly these symbols" — and the
+landmine they quote is the one **you** appended earlier in the same task, to document the
+change under review. Measured on `bugs_open/119` (correlation `576832f3`, round 2,
+2026-08-01): **6 of 8 advisory objections** were this — `editquality`, `reuse_agent`,
+`guidelines`, `debug_historian`, `prior_art_librarian` and `architecture` all citing the
+entry *"`output_format` means two different things, and on an LLM step it now BUYS A SECOND
+LLM CALL"*, which that same submission's author had written and synced to `doc_notes` an
+hour earlier. The round was APPROVED, so nothing was blocked — the cost is **signal
+dilution**: three-quarters of the review's advisory capacity spent restating the
+submitter's own documentation back at them.
+
+**Diagnose.** Two checks, and the second is the one that makes it actionable.
+
+1. Does the quoted landmine's `footprint` name the symbols your edit touches? If yes, ask
+   *who wrote it and when* — not just what it says:
+   ```sql
+   SELECT subject_key, left(body,120), created_at, updated_at
+   FROM doc_notes WHERE categories ? 'landmine' AND subject_key ILIKE '%<your symbol>%';
+   ```
+   ```bash
+   git log --oneline -S'<the landmine title>' -- docs/agent_docs/docs024_key_docs_latest/LANDMINES.md
+   ```
+   A landmine whose introducing commit is **yours, in this task**, is documentation of the
+   change, not evidence against it.
+2. Is the timing causal? `scripts/landmines-sync.py --apply` publishes to `doc_notes`
+   immediately, and seats read `doc_notes` at review time. So **appending a landmine before
+   submitting arms the seats against your own submission** — the tighter you follow
+   CLAUDE.md's "register the seam in the same commit that ships it", the more objections you
+   draw.
+
+**Root cause.** Landmine retrieval is footprint-matched and **provenance-blind**. An entry
+carries `footprint`, body and tags, but nothing the seat sees records *which change
+authored it*, so "a trap that predates you and warns against your design" and "a trap you
+just documented about your design" are the same row. The two demand opposite responses —
+reconsider vs. proceed — and the seats reasonably default to the cautious one.
+
+**Fix.** No code change was made for this; it is recorded so the next thread reads its
+verdict correctly rather than re-litigating a design against its own notes.
+
+- **For a submitter, now:** if a seat cites a landmine, `git log -S` the entry title against
+  `LANDMINES.md` before answering. If the introducing commit is yours, say so in the
+  resubmission — it is a one-line disposition, not a revision. Do **not** delete or soften
+  the landmine to quiet the seats: the entry is correct and outlives the round.
+- **Candidate fix, unbuilt:** carry provenance on the entry (the introducing commit or
+  correlation) so a seat can suppress a landmine authored by the submission under review —
+  the same shape as `D10`'s footprinted-corpus proposal, which already contemplates
+  structured fields beyond `footprint`.
+- **Do NOT** solve it by delaying the landmine until after the verdict. That trades a
+  review artefact for an undocumented seam, and CLAUDE.md's registration rule exists because
+  "later" is how a seam becomes folklore.
+
+**Cross-references.** `bugs_open/119` §9; `bugfix_119_seat_retry/NOTES_seat_retry.md`;
+`architecture_review/PROPOSAL_D9_landmines_as_a_footprinted_corpus.md` (D10);
+`bugs_open/163` (the landmine *verifier*'s own blindness — different mechanism, same corpus).
+Sibling in MEMORY: `prompt-text-poisons-its-own-detector` and
+`declaring-a-key-silences-your-own-detector` — both are "your own writing enters the corpus
+your detector reads". This is the **inverse**: there the author's text silenced a detector,
+here it armed one.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
