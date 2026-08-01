@@ -50,3 +50,16 @@ already tells readers the source always wins over our summary.
 
 **Not done:** DNS/route (owner), live verification, adoption, site_specs. RUNBOOK §4 has
 the order.
+
+## 2026-08-01 — session 1 continued: LIVE, and into the framework
+
+Owner added the Cloudflare zone + route. Verified within minutes (control domain in the
+same breath): `worker-health` answers, **23/24 files byte-identical live** (the 24th is
+`robots.txt` under Cloudflare's Managed robots.txt — the sanctioned exemption), and
+**3/3 tools RESPONDS in real chromium against the live domain**.
+
+Adoption submitted `--fidelity locked` (corr `5da7d1ad`), with the hold poller running
+BEFORE submission per the proven sequence. The byte gate is now parameterised
+(`gate_component_bytes.py --domain loancash.co.uk`) — this site is its second consumer,
+which is what made the flagged parameterisation due; regression on the first domain
+still 41/41 byte-exact.
