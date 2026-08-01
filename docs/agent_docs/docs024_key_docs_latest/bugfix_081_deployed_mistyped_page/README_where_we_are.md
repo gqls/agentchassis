@@ -105,3 +105,79 @@ it so the next build picks it up. After that roll, there is a scripted check tha
 re-runs the failing case against production and confirms the page is genuinely
 left untouched — that is written down and owed, and until it has been run I would
 not call this proven, only committed.
+
+## 2026-08-01, after the review
+
+The review council came back and said **revise**. Two things came out of it, and
+the second one is mine and is worse than theirs.
+
+### What the council caught
+
+Four of the reviewers, independently, pointed at the same thing. When my code
+files that "a human needs to decide this" note, it was writing the note into the
+database by hand instead of going through the platform's shared function for
+creating work items. That shared function does two things my hand-written version
+did not: it stops the same note being filed twice while an earlier one is still
+open, and it notices when something has been filed, resolved, and come back
+repeatedly. So the very thing I claimed in my write-up — "a repeat won't file a
+duplicate" — wasn't actually guaranteed. It is now.
+
+Fixing that had a useful side effect. The shared function insists on being run
+inside a database transaction, and a different reviewer had separately pointed
+out that my code read a page's status and then acted on it without one — meaning
+a page in the middle of being published could be read as "not published yet" and
+overwritten a moment later as it went live. That is the exact damage this whole
+fix exists to prevent, arriving through the fix itself. Both are closed by the
+same change.
+
+The reviewers also asked me to prove several things I had merely asserted. All of
+them checked out, and a couple came out stronger than I had claimed — for
+instance, exactly one thing in the whole platform uses the code I changed, and
+nothing at all reads the field whose value I altered.
+
+### What I got wrong, and how it surfaced
+
+**My test was decoration.** I wrote a test whose stated job was to prove that the
+refusal path does not touch the live page, and I put that claim in five places
+including the commit message and the review submission. The test could not fail.
+The function I was relying on to catch a stray database write only checks that
+the things you *told* it to expect actually happened — it never notices an *extra*
+one. And my code was throwing away the error that would have revealed it.
+
+I did not reason my way to this. I proved it by deliberately adding the exact
+forbidden write to the code and running the test: it passed. After the rewrite,
+the same edit fails, which is what a working guard looks like.
+
+The uncomfortable part is how I found out. It was not the council and it was not
+me reviewing my own work. A safety check on one of my commits complained that I
+had removed lines from a file that is only supposed to be added to. Those lines
+turned out to be another session's tidying, which had ridden along in my commit
+because we share one working copy. While reading that to make sure I had not
+destroyed someone's work, I saw an entry they had written a few hours earlier
+warning about exactly this testing trap — they had hit it the same day, in four
+places, in a different part of the system.
+
+So: an unrelated warning about an unrelated file is the only reason a false claim
+of mine got caught. I have written it up in the shared log of wrong calls, because
+the lesson generalises and it is not a comfortable one: I had written three
+paragraphs *in that same commit* about how to stop tests being vacuous, and the
+technique I described does not detect this. The only thing that does is breaking
+the code on purpose and watching the test fail. It takes a minute.
+
+### One more thing found, and deliberately not fixed
+
+A reviewer asked whether the original mistake appears anywhere else rather than
+assuming it was a one-off. It does: **four more places** in the codebase create
+pages the same way and drop the page's type in the same manner, and a fifth does
+the opposite. I have written that up as its own item (172) with the survey done,
+but I have not fixed it here. Changing six places at once inside a bug fix is
+exactly the sort of sprawl the review process exists to stop, and the right answer
+genuinely differs between them — for one of them, the current behaviour may be
+correct.
+
+### Where it stands
+
+The revision is committed and back with the council. Everything from my earlier
+note still holds: it is **not live** until the chassis is rebuilt, the two
+mislabelled pages are still untouched and still your call, and the production
+check is written down and owed.
