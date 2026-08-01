@@ -1572,8 +1572,18 @@ source document and the entry points at it.
   same class the runbook already records for `complete_invalid` with no
   `council_report`. Wait out the ~300s post-restart window first, or the new spawn is
   silently dropped too
-- **source:** 2026-07-31, gauntlet_dead_cta lane; killed run `45d143e0-8b4c-4f9e-90de-41d453db91d7`,
-  re-fired as `e4f81e61-83f3-4185-83f1-00b0c45dc4d6`
+- **updated 2026-08-01 — the zombie shape EXPIRES after ~4h:** a reaper sweeps stale
+  `EXECUTING_STEP` rows to `status=FAILED` with `error='reaper: stale EXECUTING_STEP
+  for >4h; step=<step>'`. So the SAME kill has two appearances depending on when you
+  look: within 4h it is the zombie described above (EXECUTING_STEP, NULL error);
+  after, it is a FAILED row whose error names the reaper, not the cause. Both mean
+  the same thing — check pod `startTime` against the last `updated_at` before the
+  stall. Also: this fired **three times in 24 hours** (runs `45d143e0`, a 5-min-old
+  run killed by the 23:10 roll, plus the 15:00 kill) — on this tree a >10-minute
+  council has roughly coin-flip odds of surviving any given evening; budget the
+  resubmit as normal cost, not an anomaly
+- **source:** 2026-07-31, gauntlet_dead_cta lane; killed runs `45d143e0` (re-fired as
+  `e4f81e61`, approved) and `0be8c542` (re-fired as `afd50fd4`)
 - **added:** 2026-07-31, gauntlet_dead_cta lane
 
 ### `orchestration_states` has NO `id` column — it is `orchestration_id`, and the wrong name reads as "the dispatch was dropped"
