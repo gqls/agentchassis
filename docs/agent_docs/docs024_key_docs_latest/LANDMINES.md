@@ -2680,3 +2680,18 @@ matters if that domain was chosen to host wildcard subdomains later.
   `git ls-files` (whole index regardless of cwd) is safer than `git ls-tree -r HEAD` (subtree-scoped). **And print `pwd` in the same call as any absence check** — one extra word, and it makes the failure mode visible instead of invisible.
 - **source:** 2026-08-01, provocation_pipeline lane. `provocation_pipeline/NOTES_provocation_pipeline.md`; `WRONG_CALLS.md`
 - **added:** 2026-08-01, provocation_pipeline lane
+
+### A pod-grep POSITIVE control cannot prove your pattern is spelled right — only a NEGATIVE control can, and case is the trap
+
+- **footprint:** `kubectl exec … strings /app/agent-chassis | grep -c`, any deploy proof, `bugs_open/153`, the fleet rule "grep a string your change ADDED plus a positive control in the same exec"
+- **fires when:** you verify a Go change at the pod and your change added **more than one** log line. Go log messages are sentence-cased at the START of the message, so `logger.Warn("No eligible header component…")` is capitalised while `logger.Warn("RenderHead: no eligible head component…")` is not — the same change, two spellings, and a single retyped grep pattern matches one of them. Measured 2026-07-31 on `v1.0.1225`: `header: 0, footer: 0, head: 1` on a binary containing **all three**
+- **the tell: none, and the standing fleet rule actively reassures you.** The positive control returns 1, so `strings | grep` is proven to work on that binary, and a `0` therefore reads as a *genuine absence* — "the roll did not carry my fix". That is exactly the conclusion the control was supposed to prevent, arrived at with the control in place. **A positive control tests the PIPELINE; it is by construction a DIFFERENT string, so it can never test your pattern's spelling**
+- **the check: add a NEGATIVE control — grep for a string your change REMOVED.** It must return **0**, and a 0 there is only possible if the old code is gone, which means the new code is present whatever your other patterns say. Positive control proves the fix ARRIVED; negative control proves the old code LEFT. Run both in the same exec, on every replica:
+  ```
+  strings /app/agent-chassis | grep -c "<literal your change ADDED>"      # expect >0
+  strings /app/agent-chassis | grep -c "<literal your change REMOVED>"    # expect 0
+  strings /app/agent-chassis | grep -c "<unrelated literal known present>" # expect >0
+  ```
+- **and: use `grep -ic`, or paste the literal out of the source rather than retyping it.** Retyping is where the case is lost. Sibling of the two pod-grep entries already here (non-ASCII splitting a literal; the linker packing constants so anchors misfire) — same command, third distinct way to get a false 0
+- **source:** `bugs_closed/167`, 2026-07-31 — I published the mis-cased command in a RUNBOOK and a closed bug file before catching it; `WRONG_CALLS.md` same date. The lesson "a grep proves an absence only for the SPELLING it searches" was already recorded and did not prevent it
+- **added:** 2026-07-31, bugfix_167_chrome_build_path lane

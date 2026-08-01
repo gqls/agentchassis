@@ -15578,3 +15578,22 @@ travelled with credible ones. Corrected to the user in the next message.
   "not harmful" is a different claim from the one I made, and I made mine with more confidence
   than the evidence I had actually gathered supported. Same family as the marker discipline in
   the working-docs rules: the answer was `[UNMEASURED]` and I stated it flat.
+
+- **My verification step printed "build: clean" over a build that had just failed — and it was
+  the same defect I had written up as a landmine twenty minutes earlier.** Final check on
+  `bugs_closed/162`, written as `go build ./... 2>&1 | head -5; echo "build: clean"`. The
+  `echo` is unconditional; `go build` had exited 1. Caught only because the *next* command
+  failed loudly and I went looking for the cause — the verification itself would never have
+  told me.
+  I had that same hour appended a LANDMINES entry about `mock.ExpectationsWereMet()` being an
+  assertion that cannot fail, and then produced the shell version of it inside my own
+  evidence-gathering. **Knowing the shape does not stop you writing it.**
+  **The cheap check:** `; echo "OK"` is not a verifier — nothing about a failure can suppress
+  it. Gate it (`&& echo OK || echo FAILED`) or print `${PIPESTATUS[0]}` and read it. Same
+  family as 016b §9's negative-assertion entry: if no failure mode of the thing you are
+  checking can change what gets printed, you have written a decoration.
+  **Postscript, and the reason this one was cheap:** the failure turned out not to be mine —
+  another lane's uncommitted WIP (`apply_gap_plan_action.go`, `undefined:
+  resolveNewPageConflict`). HEAD was clean, proven by building a `git archive HEAD`
+  extraction rather than by assuming. On this tree "the build is broken" and "my commit is
+  broken" are different claims, and only the HEAD build distinguishes them.

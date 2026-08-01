@@ -138,13 +138,35 @@ kubectl get pods -n ai-persona-system -l app=agent-chassis \
   -o jsonpath='{range .items[*]}{.metadata.name}{"  "}{.spec.containers[0].image}{"\n"}{end}'
 
 kubectl exec -n ai-persona-system <pod> -- sh -c '
-  echo -n "fix present: ";
-  strings /app/agent-chassis | grep -c "no eligible header component in the library";
-  echo -n "positive control: ";
+  echo -n "header (NOTE the capital N): ";
+  strings /app/agent-chassis | grep -c "No eligible header component in the library";
+  echo -n "footer:                      ";
+  strings /app/agent-chassis | grep -c "No eligible footer component in the library";
+  echo -n "head   (lower-case n here!): ";
+  strings /app/agent-chassis | grep -c "RenderHead: no eligible head component in the library";
+  echo -n "NEGATIVE control, old string (must be 0): ";
+  strings /app/agent-chassis | grep -c "No header component found, using fallback";
+  echo -n "POSITIVE control (118): ";
   strings /app/agent-chassis | grep -c "no component serves chrome function"'
 ```
 
-**Gotchas, three of them:**
+Ran on `v1.0.1225`, both replicas, 2026-07-31 23:1x UTC: **1 / 1 / 1 / 0 / 1** — the fix
+is LIVE.
+
+**Gotchas, and the first one bit me on this exact command:**
+- ⚠ **CASE. The three log lines are NOT spelled alike.** `RenderHeader`/`RenderFooter`
+  begin their message with a capital `No eligible …`; `RenderHead` begins with
+  `RenderHead: no eligible …`, lower-case, because the sentence continues after the
+  prefix. My first verification grepped lower-case for all three, and got
+  **`header: 0, footer: 0, head: 1`** on a binary that contained all three. A
+  case-mismatched grep returns a **false absence that is indistinguishable from a
+  genuine one**, and the positive control did NOT catch it because the control tested a
+  *different string* — a control only proves the pipeline works, never that your pattern
+  is spelled right. Use `grep -ic`, or paste the literal from the source.
+- **Add a NEGATIVE control**: grep for a string your change *removed*
+  (`No header component found, using fallback` → must be 0). A positive control proves
+  `strings|grep` works; only a negative control proves the **old code is gone** rather
+  than the new code merely being present alongside it.
 - Run it on **every** replica. `logs deploy/X` and a single `exec` read one pod of N.
 - The positive control must be in the **same exec**. Without it a `0` is ambiguous
   between "not shipped" and "grep is broken" (`bugs_open/153`).

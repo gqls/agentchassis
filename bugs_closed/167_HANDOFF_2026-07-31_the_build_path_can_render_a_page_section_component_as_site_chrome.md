@@ -4,31 +4,33 @@
 
 ## RESOLVED 2026-07-31 — fix candidate 1, committed `8b29404d6`
 
-> **⚠ STATUS: FIXED AND COMMITTED, NOT YET LIVE — and this file has been moved to
-> `bugs_closed/` anyway, at the owner's explicit instruction.** That is a
-> deliberate departure from this repo's stated bar ("fixed AND live — a fix
-> committed but inert until the next roll stays OPEN"), recorded here rather than
-> left for a reader to discover. **Until it rolls, the defect is still
-> reproducible in production.**
+> **✅ STATUS: FIXED, COMMITTED, COUNCIL-APPROVED AND LIVE — pod-verified on both
+> replicas of `v1.0.1225`, 2026-07-31 23:1x UTC.** This file therefore meets the
+> repo's stated bar (*fixed AND live*) on its own terms. It was moved to
+> `bugs_closed/` before the roll, on the owner's explicit instruction, and that
+> gap has now closed.
 >
-> Measured at the running binary, 2026-07-31 21:2x UTC, both replicas on
-> `v1.0.1223` (started 20:20 UTC, an hour *before* the fix commit):
 > ```
-> MY NEW STRING (expect 0): 0
-> POSITIVE CONTROL ("no component serves chrome function"): 1
+> header (No eligible header component in the library) : 1
+> footer (No eligible footer component in the library) : 1
+> head   (RenderHead: no eligible head component …)    : 1
+> NEGATIVE control — the string this fix REMOVED
+>        ("No header component found, using fallback") : 0
+> POSITIVE control — 118's own string                  : 1
 > ```
-> The control is 118's own string, so the grep is proven to work on this binary —
-> the 0 is a real absence, not a broken check (`bugs_open/153`).
 >
-> **To confirm it has shipped**, after the next chassis roll:
-> ```
-> kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
->   'strings /app/agent-chassis | grep -c "no eligible header component in the library"'
-> ```
-> with a positive control in the same exec. Another session had `IMAGE_TAG` at
-> `v1.0.1224` uncommitted and was mid-build when this was written; `make build-*`
-> builds from committed HEAD, so this fix rides that roll — **but that is an
-> expectation, not a verification.**
+> The **negative** control is the load-bearing one: it proves the *old* code is gone,
+> not merely that new code shipped beside it. Both controls in the same exec, both
+> replicas (`agent-chassis-69c6669978-74s6k`, `-hlz8l`), image started 23:09–23:10
+> UTC — after the last fix commit.
+>
+> ⚠ **The verification command first published in this file was WRONG and returned a
+> FALSE ABSENCE.** It grepped `"no eligible header component…"` in lower case; the
+> header and footer literals begin with a **capital** `No`, while only `RenderHead`'s
+> is lower case (the sentence continues after the `RenderHead: ` prefix). The result
+> was `header: 0, footer: 0, head: 1` on a binary containing all three — and **the
+> positive control did not catch it, because a control tests the pipeline, never your
+> pattern's spelling.** Corrected above and in the RUNBOOK; logged in `WRONG_CALLS.md`.
 
 **What shipped:** all three chrome renderers (`RenderHeader`, `RenderFooter`,
 `RenderHead`) now resolve through `ResolveChromeComponent` and use its answer
