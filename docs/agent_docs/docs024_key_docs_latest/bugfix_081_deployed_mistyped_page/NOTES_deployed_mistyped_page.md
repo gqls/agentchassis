@@ -140,3 +140,103 @@ Submitted `ccd4384c-aff9-45ed-80b2-01c3ced573bb` before committing, and committe
 with `Council-Submitted:` rather than holding the code — the tree is shared, so
 holding buys nothing and the 2026-07-29 owner ruling retires the ordering
 exemption that used to justify it. Verdict recorded below when read.
+
+## 2026-08-01 — ROUND 1 VERDICT: REVISE. And the worst finding was mine, not theirs
+
+**Council `ccd4384c` → REVISE**, gated by `guidelines` at HIGH. Approvals from
+`bug_historian`, `architecture` (point_fix), `constitution`, `mission`,
+`render_guardian`; objections from `guidelines`, `improvement_guardian`,
+`guardian`, `reuse_agent`, `editquality`, `debug_historian`,
+`tooling_provenance`, `prior_art_librarian`. 4 abstained.
+
+**Four seats independently named the same defect** and it was a real one: the
+refusal hand-rolled `INSERT INTO site_work_items ... ON CONFLICT DO NOTHING`
+instead of calling `insertWorkItem`. A bare `ON CONFLICT` does not match
+`idx_swi_dedup`'s partial predicate over non-terminal statuses, and carries
+neither the two-strike rule nor `recurrenceExpected`. **So the dedup my own
+rationale advertised — "a re-firing check dedups onto the open decision" — was
+not actually guaranteed.** I had reasoned from the sibling `needs_content_page`
+INSERT in the same function, which is also hand-rolled; local convention is not
+the same as the contract, and `reuse_agent` said exactly that.
+
+Routing through `insertWorkItem` needs a `*sql.Tx`, which discharged
+`debug_historian`'s objection in the same edit: the read-then-write on
+`pages.build_status` was unlocked and raced the sweep that publishes a page. A
+page mid-deploy could be read as not-yet-deployed and overwritten as it went live
+— **this fix causing the damage it exists to prevent.** Now one transaction,
+`SELECT ... FOR UPDATE`.
+
+### The misstep that matters, and no seat caught it
+
+**My round-1 test was a decoration, and I had written its false claim into five
+places.** I asserted that `mock.ExpectationsWereMet()` proved no `UPDATE pages`
+was issued on the refusal path. It does not: it reports registrations made and
+**not consumed**, never an *extra* call. And because my code discarded the `Exec`
+error, sqlmock's own complaint about the unexpected statement went nowhere.
+
+Induced rather than argued:
+
+```
+# round 1: add `UPDATE pages SET title=$2 WHERE id=$1` to the refusal path
+ok  github.com/gqls/agentchassis/platform/orchestration/actions  0.017s      <- PASSED
+# round 2, after every error is checked and propagated: the SAME edit
+--- FAIL: TestApplyNewPage_DeployedTypeConflictIsRefused
+    applyNewPage: induced: ExecQuery: could not match actual sql:
+    "UPDATE pages SET title = $2 WHERE id = $1" with expected regexp "UPDATE site_work_items"
+```
+
+**What is actually load-bearing is the production code propagating errors**, not
+the mock's bookkeeping — which means a swallowed `Exec` error is not merely a
+production smell, it silently disarms the test that guards it.
+
+**How it was caught, which is the uncomfortable part.** Not by me and not by the
+council. My commit `89e037a31` tripped the pre-commit pattern check for *removing
+lines from an append-only ledger* — those lines were another session's
+heading-level edit on `LANDMINES.md`, riding in because a pathspec commit takes
+the working tree's copy of a shared file. Reading that diff to check I had not
+destroyed someone's entry is how I saw the landmine they had appended hours
+earlier: *"`mock.ExpectationsWereMet()` is NOT 'no database call happened'"* —
+`bugs_open/162`'s lane, who found the identical thing in four assertions the same
+day. **A hook firing about an unrelated thing is the only reason this was found.**
+
+I had written, in that same commit, three paragraphs about pairing tests so a
+guard cannot be vacuous. Pairing tells you nothing about whether *either* test can
+fail. Logged in `WRONG_CALLS.md`; `016b` §9 now carries the correction inline.
+
+### Answered with evidence rather than changed
+
+- **`recurrenceExpected`** (editquality, architecture, guardian): left `false`,
+  deliberately. It exempts an item whose *re-request* is normal; this is a
+  detected defect. While the decision is open the row is non-terminal so dedup
+  blocks a duplicate and two-strike is never reached; if a human resolves it and
+  the collision returns, that genuinely *is* "we fixed this and it came back".
+- **`handler_agent`** (guardian, HIGH): the seat read my abbreviated sketch's
+  `created_by` value as `handler_agent`. It was never set. **My sketch's fault**,
+  and the underlying question deserved a measurement anyway:
+  `claim_work_item_action.go:102` and `load_work_item_actions.go:632` both claim
+  `status IN ('triaged','approved')`, so a `needs_human_review` row cannot be
+  picked up by the dispatch loop.
+- **`applied` consumers** (prior_art_librarian): a fair hit — I had marked this
+  `[UNMEASURED]` in this very file and then asserted it in the submission. The
+  query took thirty seconds and made the claim *stronger*: exactly ONE active
+  definition uses `apply_gap_plan`, its step is `"next_step":"complete"`
+  unconditionally, ZERO definitions reference `applied`/`page_created`.
+- **`pages.build_status` really holds `'deployed'`** (editquality, low — the
+  sibling landmine is about `site_components`): `deployed 453, needs_rebuild 45,
+  planned 17`.
+
+### The sibling class — filed as `bugs_open/172`
+
+`bug_historian` asked whether a third write path shares this shape rather than
+assuming it isolated. **Four more do** (`create_report_page_action.go:164`,
+`deploy_tool_action.go:376` and `:514`, `create_tool_component_action.go:416`),
+and a sixth carries the *opposite* risk (`apply_adoption_plan_action.go:532`
+re-types on conflict). Censused and filed, deliberately not fixed: six call sites
+in one bug patch is the scope creep the guardian seat exists to veto, and the two
+failure modes are opposite so one answer would be wrong somewhere.
+
+### Not done, named rather than discharged
+
+`tooling_provenance` asked for a `doc_notes`/`doc_plans` lookup on this subject
+*before* editing. Not run. The workstream docs are the NOTES entry it asks be
+left; the prior-decisions half is a genuine gap.
