@@ -1466,3 +1466,25 @@ thing the council caught was a question about something my plan *didn't* mention
 who else reads this, does it honour locks. The mistakes I make are apparently not in
 what I write, but in what I don't think to write. Which is a good argument for the
 review existing at all.
+
+## 1 August, mid-morning — the lock fix is approved too; the whole chain is now reviewed end to end
+
+The lock fix passed on its first pass, eight in favour, four minor notes. (Its first
+run was killed four minutes in by someone else's deployment — the third review killed
+that way in a day, so I've written up both faces of that failure and stopped treating
+it as bad luck; resubmitting is just part of the cost here.)
+
+One of the four notes claimed my test could pass without proving anything. I checked
+the actual file rather than arguing: the claim is wrong — the test would fail loudly if
+a delete were attempted — but the reviewer was working from my summary sketch, not the
+file, and got the mechanics wrong from there. Fair enough: that's the same standard I
+was held to on Thursday, when being made to attach the real thing instead of my
+description of it caught two genuine mistakes of mine. It cuts both ways and it's still
+the right rule.
+
+So the full chain — checker, plan guard, lock guard — is now built, tested, and
+approved by review, three approvals across five submissions in two days. Everything
+remains switched off, the decision still sits with the other team, and their pick-up
+notes now say all of this. The one obligation carried forward: when the next deployment
+actually ships this code, prove it's in the running binary the proper way, not by
+trusting the build.
