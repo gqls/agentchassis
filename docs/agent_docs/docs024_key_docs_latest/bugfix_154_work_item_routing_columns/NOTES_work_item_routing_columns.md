@@ -383,3 +383,54 @@ a second roll to `v1.0.1223`); the fix is inert-until-exercised, not unproven; t
 outstanding item is one observation, blocked on dispatch scheduling. The bug file
 and the handoff both now say exactly that, and neither claims the observation was
 made.
+
+## 2026-08-01 08:02Z — the discriminator fired: it WAS a real stall, 11.5 hours
+
+Overnight the gap ran to **688 minutes** — far past the ~90-minute maximum I had
+set as the discriminator. So the pre-registered test resolved cleanly, and it
+resolved *against* my third reading:
+
+| reading | verdict |
+|---|---|
+| 1. "alive, slow / intermittent" | wrong |
+| 2. "dead — a real drought" | **directionally right, arrived at wrongly** (local-clock-vs-UTC arithmetic; the 90 min I quoted was really 31) |
+| 3. "bursty; 39 min is within observed range" | wrong — correct about the histogram, wrong about what it predicted |
+
+**The honest reckoning: reading 2 reached the right conclusion from a broken
+measurement, and I retracted it for that reason. Retracting it was still
+correct.** A conclusion that happens to be true, computed from arithmetic that is
+false, is not knowledge — it cannot be relied on, and the next inference drawn
+from it inherits the error rather than the luck. What actually settled this was
+not any of the three readings but the **pre-registered discriminator**: "if the
+gap passes ~90 min and keeps climbing, that is outside observed behaviour."
+Writing that down *before* the data arrived is the only reason this ended in a
+fact instead of a fourth opinion.
+
+**Lesson for the lane:** when a signal has already fooled you twice, stop
+producing readings and publish a falsifiable threshold instead. The threshold
+costs one sentence and it is the only thing here that survived contact.
+
+**Timeline, DB-computed throughout:**
+
+```
+2026-07-31 20:33:49Z   last claim before the stall (19 claims in that hour)
+     ...  11h 29m with ZERO claims fleet-wide, 354-380 items dispatchable ...
+2026-08-01 08:02:45Z   claims resume (3 in the 08:00 hour)
+```
+
+Through all of it `build-pipeline-trigger` stayed enabled, fired every 120s and
+**completed**, and all five reapers stayed enabled — including
+`claimed-item-timeout` at 120s, which I watched clear a stuck row between two
+queries a minute apart. So the stall was **not** a dead scheduler and **not** an
+unreaped claim, and I am recording that as the two hypotheses it rules out —
+nothing more. **The cause is still unknown and is not this lane's to find.**
+
+**Still not diagnosing it, and now with a stronger reason:** several other
+sessions are active on dispatch symbols right now (`693556a1`, `3bec7dd7`,
+`956e5263`, `078d18fd`, `8871a7d4`, `957623aa`), so an 11.5-hour fleet-wide stall
+is very likely already being worked by someone who owns it. The contribution from
+here is the measured window above, not a theory.
+
+**For `154`:** dispatch is live again as of 08:02Z and the item is still `triaged`
+at rank 2 on its site, so the outstanding observation is finally *possible*.
+Watching now.
