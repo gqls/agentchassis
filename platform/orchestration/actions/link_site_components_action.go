@@ -74,26 +74,72 @@ func LinkSiteComponentsAction(ctx context.Context, params ActionParams) (interfa
 		return nil, fmt.Errorf("invalid site_id: %w", err)
 	}
 
-	// Load style collection component IDs for this site
+	// Load style collection component IDs for this site, WITH the eligibility of
+	// each pin decided by the same query that reads it (bugs_open/170).
+	//
+	// The pins used to arrive unqualified, and the `!Valid` fall-through below was
+	// the only gate on them — so a style collection pinning a DEACTIVATED component
+	// was written straight into site_components.component_id, bypassing the one
+	// chrome predicate bugs_open/118 installed and overwriting the repair
+	// bugs_open/166 had performed on the same column. Three deployed sites were
+	// pinned to a deactivated header and four to a deactivated footer on
+	// 2026-08-01, while their assignments were already correct: this action is
+	// what would have undone that.
+	//
+	// chromePinEligibleSQL, not chromeEligibleSQL: a pin naming the site's own
+	// FORK is legitimate and must survive — see the predicate's own comment.
 	var headerCompID, footerCompID, headCompID sql.NullString
+	var headerPinName, footerPinName sql.NullString
+	var headerPinOK, footerPinOK sql.NullBool
 	err = params.DB.QueryRowContext(ctx, `
 		SELECT
 			scol.header_component_id::text,
 			scol.footer_component_id::text,
+			hc.name, (`+chromePinEligibleSQL("hc.")+`),
+			fc.name, (`+chromePinEligibleSQL("fc.")+`),
 			(SELECT cc.id::text FROM content_components cc
 			 JOIN site_components sc ON sc.component_id = cc.id
 			 WHERE sc.site_id = s.id AND sc.slot_name = 'head'
 			 LIMIT 1) as head_component_id
 		FROM sites s
 		LEFT JOIN style_collections scol ON s.style_collection_id = scol.id
+		LEFT JOIN content_components hc ON hc.id = scol.header_component_id
+		LEFT JOIN content_components fc ON fc.id = scol.footer_component_id
 		WHERE s.id = $1
-	`, siteID).Scan(&headerCompID, &footerCompID, &headCompID)
+	`, siteID).Scan(&headerCompID, &footerCompID,
+		&headerPinName, &headerPinOK, &footerPinName, &footerPinOK, &headCompID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load style collection: %w", err)
 	}
 
-	// If the style collection doesn't specify header/footer, resolve the library
-	// default through the ONE chrome predicate (bugs_open/118). These two lookups
+	// An ineligible pin is DISCARDED, which hands the slot to the eligible-only
+	// library lookup below — the same path a collection with no pin at all takes.
+	// Discarding rather than refusing is deliberate: refusing would leave the slot
+	// pointing at whatever it already held, which for these sites is the very
+	// component the pin is wrong about.
+	for _, pin := range []struct {
+		slot string
+		id   *sql.NullString
+		name sql.NullString
+		ok   sql.NullBool
+	}{
+		{"header", &headerCompID, headerPinName, headerPinOK},
+		{"footer", &footerCompID, footerPinName, footerPinOK},
+	} {
+		if pin.id.Valid && !pin.ok.Bool {
+			logger.Warn("link_site_components: style collection pins an ineligible component — falling back to the library (bugs_open/170)",
+				zap.String("slot", pin.slot),
+				zap.String("pinned_component", pin.name.String),
+				zap.String("pinned_component_id", pin.id.String),
+			)
+			*pin.id = sql.NullString{}
+		}
+	}
+
+	// If the style collection doesn't specify header/footer — or specified one that
+	// is no longer eligible chrome, discarded just above (bugs_open/170) — resolve
+	// the library default through the ONE chrome predicate (bugs_open/118). These
+	// two lookups
 	// used to filter on `is_active` alone, which reads as careful and is not: a
 	// FORK carries its parent's `function`, so `header-leopardess` — one client's
 	// forked header — sorted first among active `site-header` rows and is what this

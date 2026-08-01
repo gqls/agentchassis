@@ -203,6 +203,95 @@ func (c *DeactivatedSiteComponentsCheck) Run(dctx DiscoveryCheckContext) (*Check
 		})
 	}
 
+	// --- the same question, asked of the OTHER store (bugs_open/170) ---
+	//
+	// "Which component serves this site's chrome?" has two answers in the schema:
+	// the per-site ASSIGNMENT above (site_components.component_id) and the
+	// collection-level PIN (style_collections.header_component_id /
+	// footer_component_id). The query above joins site_components only, so for its
+	// whole life this check has been blind to half its own subject — which is why
+	// three deployed sites sat pinned to a deactivated header, and four to a
+	// deactivated footer, with no work item, no finding and no alert.
+	//
+	// The pin is guarded in code as of 2026-08-01, so a pinned deactivated
+	// component is no longer SERVED. That does not make the row right: the
+	// collection still names a component that cannot be used, every consumer
+	// silently falls back, and nothing but this check will ever say so.
+	pinRows, err := dctx.DB.QueryContext(dctx.Ctx, `
+		SELECT slot_name, name, id::text, collection FROM (
+			SELECT 'header' AS slot_name, hc.name, hc.id,
+			       scol.name AS collection,
+			       (hc.is_active AND hc.component_level IN ('site','header','footer','head')) AS eligible
+			FROM sites s
+			JOIN style_collections scol ON s.style_collection_id = scol.id
+			JOIN content_components hc ON hc.id = scol.header_component_id
+			WHERE s.id = $1
+			UNION ALL
+			SELECT 'footer', fc.name, fc.id,
+			       scol.name,
+			       (fc.is_active AND fc.component_level IN ('site','header','footer','head'))
+			FROM sites s
+			JOIN style_collections scol ON s.style_collection_id = scol.id
+			JOIN content_components fc ON fc.id = scol.footer_component_id
+			WHERE s.id = $1
+		) pins
+		WHERE NOT eligible
+	`, dctx.SiteID)
+	if err != nil {
+		return nil, fmt.Errorf("deactivated_site_components (pins): %w", err)
+	}
+	defer pinRows.Close()
+
+	for pinRows.Next() {
+		var slotName, componentName, componentID, collection string
+		if err := pinRows.Scan(&slotName, &componentName, &componentID, &collection); err != nil {
+			continue
+		}
+
+		spec, _ := json.Marshal(map[string]interface{}{
+			"slot_name":      slotName,
+			"component_name": componentName,
+			"component_id":   componentID,
+			"collection":     collection,
+			"source":         "style_collections_pin",
+			"fix": fmt.Sprintf("Style collection '%s' pins the %s slot to '%s', which is not eligible "+
+				"chrome (is_active=false, or not a chrome component_level). Every consumer now "+
+				"ignores the pin and falls back to the library, so nothing is broken — but the "+
+				"collection is lying about its own chrome. Repoint style_collections.%s_component_id "+
+				"at an eligible component, or clear it to NULL and let the library decide. "+
+				"See bugs_open/170.", collection, slotName, componentName, slotName),
+			// Deliberately NOT refresh_site_components: re-rendering cannot change a
+			// style_collections row, and an item that cannot be satisfied by its own
+			// handler ages to `unresolved` — bugs_open/166 on a new item type.
+		})
+
+		result.WorkItems = append(result.WorkItems, WorkItemSpec{
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: "build",
+			ItemType: "deactivated_component",
+			Severity: "medium",
+			Summary: fmt.Sprintf("Style collection '%s' pins %s to deactivated component '%s'",
+				collection, slotName, componentName),
+			SpecJSON: string(spec),
+			Priority: 5,
+			// NO handler. rerender-pages is the assignment items' handler and it
+			// re-renders — it has no way to write style_collections, so routing this
+			// at it files an item that is unsatisfiable by construction. Repointing
+			// a SHARED collection is a decision (professional-dark serves three
+			// sites), which is what needs_human_review is for.
+			HandlerAgent: "",
+			Status:       "needs_human_review",
+			CreatedBy:    dctx.AgentType,
+			// deactivated_PIN_, not deactivated_: the assignment item above already
+			// keys on `deactivated_<slot>` for the same slot on the same site, and
+			// dedup is UNIQUE (site_id, item_key) over non-terminal statuses — so a
+			// shared key would silently swallow whichever of the two was filed second.
+			ItemKey: fmt.Sprintf("deactivated_pin_%s", slotName),
+			BatchID: dctx.BatchID,
+		})
+	}
+
 	if len(result.WorkItems) > 0 {
 		result.Findings = append(result.Findings, map[string]interface{}{
 			"check": "deactivated_site_components",

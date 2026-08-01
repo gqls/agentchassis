@@ -232,13 +232,34 @@ func ForkThemeFromSiteAction(ctx context.Context, params ActionParams) (interfac
 		return forkSkipped("theme insert failed: " + err.Error()), nil
 	}
 
-	// Look up parent collection's header/footer if we have one, otherwise null
+	// Look up parent collection's header/footer if we have one, otherwise null.
+	//
+	// The pins are copied ONLY if they are still eligible chrome (bugs_open/170).
+	// This is the propagation path: an unguarded copy inherits the parent's pin
+	// whatever state it is in, so forking `professional-dark` today would have
+	// manufactured a NEW collection pinned to header-professional-dark and
+	// footer-4-column, both is_active=false — creating fresh instances of the
+	// defect rather than merely repeating an old one.
+	//
+	// An ineligible pin arrives NULL, which is the right answer and not a loss: a
+	// collection with no pin takes the by-function branch and gets the library's
+	// eligible chrome. install_site_composition leaves both columns NULL at install
+	// for exactly that reason.
+	//
+	// chromePinEligibleSQL, not chromeEligibleSQL — a pin naming the source site's
+	// own FORK is legitimate, and fork_theme_from_site is the action most likely to
+	// meet one.
 	var headerComponentID, footerComponentID *uuid.UUID
 	if parentCollectionID != nil {
 		var hID, fID sql.NullString
 		err := tx.QueryRowContext(ctx, `
-			SELECT header_component_id::text, footer_component_id::text
-			FROM style_collections WHERE id = $1
+			SELECT
+				CASE WHEN `+chromePinEligibleSQL("hc.")+` THEN hc.id::text END,
+				CASE WHEN `+chromePinEligibleSQL("fc.")+` THEN fc.id::text END
+			FROM style_collections scol
+			LEFT JOIN content_components hc ON hc.id = scol.header_component_id
+			LEFT JOIN content_components fc ON fc.id = scol.footer_component_id
+			WHERE scol.id = $1
 		`, *parentCollectionID).Scan(&hID, &fID)
 		if err == nil {
 			if hID.Valid {

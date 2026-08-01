@@ -268,6 +268,35 @@ func chromeEligibleSQL(alias string) string {
 		alias + "component_level IN (" + chromeComponentLevels + ")"
 }
 
+// chromePinEligibleSQL is THE predicate for a style-collection chrome PIN
+// (`style_collections.header_component_id` / `footer_component_id`). It is
+// deliberately NOT chromeEligibleSQL, and the difference is one clause.
+//
+// A pin OMITS `forked_from IS NULL`. That clause is right for pool SELECTION — a
+// fork carries its parent's `function`, so an active fork of one client's header
+// is otherwise a candidate to become every other site's (bugs_open/118's
+// `header-leopardess` finding) — and it is WRONG for a pin, because naming a
+// site's own fork is exactly what a pin is for. Measured over all four live pins
+// on 2026-07-31, that is the only row where the two predicates disagree, and the
+// pin predicate is the one that gets it right:
+//
+//	ai-agent-orchestration.com  header-professional-dark  inactive        both false
+//	finetuning.uk               header-professional-dark  inactive        both false
+//	gaswholesalers.com          header-professional-dark  inactive        both false
+//	leopardessconsulting.co.uk  header-leopardess         active FORK     pin TRUE, pool false
+//
+// Copying chromeEligibleSQL here would reject the single legitimate pin in the
+// fleet while still catching the three real ones. `component_level` stays,
+// because a pin decides what is SERVED as chrome on every page of every site on
+// the collection, and a page-section component is not that (bugs_open/167).
+//
+// chrome_pin_test.go pins the asymmetry: make the two predicates equal and it
+// goes red with the reason.
+func chromePinEligibleSQL(alias string) string {
+	return alias + "is_active AND " +
+		alias + "component_level IN (" + chromeComponentLevels + ")"
+}
+
 // ChromeSlotFunction maps a site_components.slot_name to the
 // content_components.function that serves it. One definition: the map used to be
 // inline in render_site_components while link_site_components hard-coded the two
@@ -408,6 +437,91 @@ func GetComponentByID(ctx context.Context, db interface{}, id uuid.UUID, logger 
 		LIMIT 1
 	`
 	return queryComponent(ctx, db, query, id, logger)
+}
+
+// GetChromePinComponent dereferences a style-collection chrome PIN and reports
+// whether the pinned component is still fit to serve chrome.
+//
+// This is the ONE way to read `style_collections.header_component_id` /
+// `footer_component_id`. Both consumers — the build path (RenderHeader /
+// RenderFooter) and the assignment path (link_site_components) — go through it,
+// which is the whole point: until 2026-08-01 they each dereferenced the pin with
+// GetComponentByID, whose SQL is `WHERE id = $1` with no predicate of any kind,
+// so a pin bypassed bugs_open/118's predicate on BOTH paths (bugs_open/170).
+//
+// The assignment path is the half that made this urgent. link_site_components
+// writes the pin into `site_components.component_id` and NULLs `rendered_html`,
+// so an unguarded pin does not merely render a deactivated component — it
+// overwrites the repair `repointRetiredChromeSlot` performed (bugs_open/166) and
+// re-creates 118 in the column 118 fixed.
+//
+// It returns the component either way rather than an error, matching
+// ResolveChromeComponent: the caller decides what an ineligible answer means, and
+// both callers use it to fall through to the eligible-only pool lookup. Returning
+// the row keeps that decision at the call site, where the fallback lives.
+//
+// NOT a change to GetComponentByID: that is a general by-id fetch, used by
+// RenderComponentAction to render arbitrary page sections (v3_site_actions.go),
+// where a chrome-level predicate would be wrong.
+func GetChromePinComponent(ctx context.Context, db interface{}, id uuid.UUID, logger *zap.Logger) (*Component, bool, error) {
+	eligible := chromePinEligibleSQL("")
+	query := `
+		SELECT
+			id,
+			name,
+			function,
+			COALESCE(category, '') as category,
+			html_template,
+			input_schema,
+			COALESCE(is_dark_section, false) as is_dark_section,
+			(` + eligible + `) as pin_eligible
+		FROM content_components
+		WHERE id = $1
+		LIMIT 1
+	`
+
+	var comp Component
+	var schemaJSON []byte
+	var category sql.NullString
+	var isEligible bool
+
+	var err error
+	switch d := db.(type) {
+	case *sql.DB:
+		err = d.QueryRowContext(ctx, query, id).Scan(
+			&comp.ID, &comp.Name, &comp.Function, &category,
+			&comp.HTMLTemplate, &schemaJSON, &comp.IsDarkSection, &isEligible,
+		)
+	case *pgxpool.Pool:
+		err = d.QueryRow(ctx, query, id).Scan(
+			&comp.ID, &comp.Name, &comp.Function, &category,
+			&comp.HTMLTemplate, &schemaJSON, &comp.IsDarkSection, &isEligible,
+		)
+	default:
+		return nil, false, fmt.Errorf("unsupported database type: %T", db)
+	}
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// A pin naming a component that no longer exists. The FK makes this
+			// unreachable today; treated as "not eligible, no row" rather than a
+			// hard error so a caller still falls through to the library.
+			return nil, false, fmt.Errorf("chrome pin %s names no component", id)
+		}
+		return nil, false, fmt.Errorf("failed to dereference chrome pin %s: %w", id, err)
+	}
+
+	if category.Valid {
+		comp.Category = category.String
+	}
+	if len(schemaJSON) > 0 {
+		json.Unmarshal(schemaJSON, &comp.InputSchema)
+	}
+
+	// The eligibility flag comes back from the SAME query that fetched the row, so
+	// a caller cannot be told the component is fine by one round trip and the truth
+	// by another. Same construction, and same reason, as ResolveChromeComponent.
+	return &comp, isEligible, nil
 }
 
 // queryComponent executes a component query
@@ -1740,21 +1854,30 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 	// Get header component
 	var comp *Component
 	if coll != nil && coll.HeaderComponentID != nil {
-		comp, err = GetComponentByID(ctx, db, *coll.HeaderComponentID, logger)
-		if err != nil {
-			logger.Warn("Failed to get header component", zap.Error(err))
+		// The pin is dereferenced through GetChromePinComponent, never
+		// GetComponentByID: the latter is `WHERE id = $1` with no predicate, which
+		// is how a deactivated component pinned here rendered anyway on three
+		// deployed sites (bugs_open/170).
+		//
+		// An ineligible pin leaves comp nil and FALLS THROUGH to the by-function
+		// branch below — the eligible-only pool lookup that bugs_open/167 fixed.
+		// Falling through, rather than reporting and rendering it anyway, is what
+		// makes the pin path agree with the assignment path: for the three sites
+		// this affects, the pool answer is the very component bugs_open/166 already
+		// repointed their `site_components` row to.
+		pinned, eligible, pinErr := GetChromePinComponent(ctx, db, *coll.HeaderComponentID, logger)
+		if pinErr != nil {
+			logger.Warn("Failed to get header component", zap.Error(pinErr))
+		} else if !eligible {
+			logger.Warn("site chrome: style collection pins an ineligible header — using the library instead",
+				zap.String("collection", coll.Name),
+				zap.String("pinned_component", pinned.Name),
+				zap.String("component_id", pinned.ID),
+				zap.String("required", "is_active AND component_level IN ("+chromeComponentLevels+")"),
+			)
 		} else {
+			comp = pinned
 			source = fmt.Sprintf("component-db:%s", coll.Name)
-			// NOTE: this pin is NOT eligibility-checked — GetComponentByID is
-			// `WHERE id = $1` with no predicate at all, so a deactivated component
-			// pinned here renders anyway (bugs_open/170, three deployed sites today).
-			// A per-render diagnostic was tried here and removed: the council's
-			// reuse_agent/bug_historian/guardian/architecture seats agreed the render
-			// path is the wrong surface for it — it cannot repair, it has no reader,
-			// and it would fire on every build for ever. The right home is the
-			// existing `deactivated_site_components` discovery check, which files
-			// `deactivated_component` work items and is currently blind to pins
-			// because it joins `site_components` only. 170 carries that remedy.
 		}
 	}
 
@@ -1813,12 +1936,22 @@ func RenderFooter(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 
 	var comp *Component
 	if coll != nil && coll.FooterComponentID != nil {
-		comp, err = GetComponentByID(ctx, db, *coll.FooterComponentID, logger)
-		if err != nil {
-			logger.Warn("Failed to get footer component", zap.Error(err))
+		// See the note in RenderHeader. Four collections — one more than the header
+		// case, because leopardess's header pin is legitimate and its footer pin is
+		// not — pin `footer-4-column`, is_active=false (bugs_open/170).
+		pinned, eligible, pinErr := GetChromePinComponent(ctx, db, *coll.FooterComponentID, logger)
+		if pinErr != nil {
+			logger.Warn("Failed to get footer component", zap.Error(pinErr))
+		} else if !eligible {
+			logger.Warn("site chrome: style collection pins an ineligible footer — using the library instead",
+				zap.String("collection", coll.Name),
+				zap.String("pinned_component", pinned.Name),
+				zap.String("component_id", pinned.ID),
+				zap.String("required", "is_active AND component_level IN ("+chromeComponentLevels+")"),
+			)
 		} else {
+			comp = pinned
 			source = fmt.Sprintf("component-db:%s", coll.Name)
-			// Not eligibility-checked — see the note in RenderHeader (bugs_open/170).
 		}
 	}
 

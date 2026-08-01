@@ -15767,3 +15767,59 @@ and the surrounding measurements disguised it. The recurring check across both i
   "`orchestration_states` retains 13 days". That retention claim is **false** — rows survive
   from 07-13, but the specific orchestrations were gone within days. An instruction written on
   an unchecked retention assumption was already unsatisfiable when I read it, four days later.
+
+---
+
+## 2026-08-01 — bugfix_170_chrome_pin_eligibility — I wrote the same blind check TWICE in one session: its population was "the file", not "the thing"
+
+**The claim, twice.** (1) "`TestNoConsumerDereferencesAChromePinUnguarded` catches any
+unguarded chrome-pin dereference." (2) "`TestChromePinPredicateMatchesTheActionsPackage`
+catches drift between the detector's hand-typed predicate and the shared one." Both were
+false as written, in the same way, and the second was written *after* I had already been
+bitten by the first.
+
+**What caught it.** The first: running it. It named `link_site_components_action.go` — the
+file whose fix I had just finished — as an offender. The sanctioned guarded form injects the
+predicate by Go concatenation, `hc.name, (` + `chromePinEligibleSQL("hc.")` + `),`, so
+`component_level` lives in the glue BETWEEN two string literals and appears inside neither.
+My scan collected backtick literals, so **a correct fix and a completely unguarded read were
+indistinguishable to it**. The second: mutation-testing it. I narrowed the detector's level
+list from `('site','header','footer','head')` to `('site','header')` and it reported only
+`'head'` missing. `'footer'` passed, because that literal appears elsewhere in the same file
+as a **slot name** (`SELECT 'footer', fc.name, …`). It caught that drift by luck, on the one
+level with no homonym — with a different mutation it would have passed clean.
+
+**The cheap check that would have.** For any scan or lockstep, before trusting a PASS:
+**state the population out loud and check it is the thing you mean, not the file that contains
+it.** "Every backtick literal in the file" is not "every query"; "does this file contain
+`'footer'`" is not "does this predicate list `'footer'`". Then mutate — and mutate the case
+that has a *homonym elsewhere in the file*, not the convenient one.
+
+**Why it is worth a row rather than a shrug.** These are the checks whose whole job is to stop
+a defect recurring, so a false PASS from one is silent and permanent — and both of mine
+failed toward PASS on exactly the input they were written for. It is also the second and third
+instance in this file of one shape: a measurement that answers the question you *encoded*
+rather than the one you *asked* (`check-answers-the-question-you-encoded`,
+`narrow-filter-defines-the-conclusion`). What is new here is the **repeat within one session**:
+being burned by it at 10:40 did not stop me writing it again at 11:05, because the second
+instance did not look like the first — one was a string-literal boundary problem and the other
+a homonym problem. The shared cause is only visible if you name the population, which is why
+that, and not "be careful", is the check.
+
+**Fixed both, and re-proved both.** The scan now stitches the Go glue back onto each literal
+(statement-local, not file-wide — "does this file mention the predicate anywhere?" would wave
+through a file that guards one read and leaves another bare). The lockstep is now scoped to the
+`component_level IN (…)` clauses. Re-mutated: the scan catches an induced fifth consumer in
+both its forms, the lockstep catches both a narrowed and a widened list, all mutants COMPILE
+CLEANLY first (a mutant that breaks the build prints the same FAIL as one that was caught), and
+clean is green.
+
+**Second, unrelated, and not my error but recorded because the next thread will hit it:** the
+`090` diagnosis run filed for this bug (`ce9bcd92-7be7-4819-bdf8-f8a57622128f`) **completed
+without producing a verdict** — four `bundle` artifacts, no `iteration_note`, no
+`council_report`, no `doc_note`. Iteration 4 says why: `0 of 1 in-scope symbol(s) rendered with
+a body`, the omitted symbol being `component_library.go` at **93,905 bytes** against a
+**60,000-char** bundle body cap. **A file over the cap is invisible to the diagnosis loop**, so
+for that file the loop is not available as the verification route the 2026-07-31 owner ruling
+names. Four bundles and no verdict reads exactly like a run still in progress; it is not. Also
+in `016b` §9 and `LANDMINES.md`.

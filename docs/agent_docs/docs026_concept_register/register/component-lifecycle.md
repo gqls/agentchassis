@@ -103,8 +103,8 @@
 - **relations:** implements the pre-existing `experience_patterns` row `teaser-detail-deeplink` (kind `micro-journey`) rather than declaring a new shape — the pattern's `section_types` does not yet name it (the experience-register thread's rows to change, proposed not taken); js_snippets delivery lane (NOT `js_content`, `bugs_open/041`); llm_guidance as a steering surface (CLC-010) carries the figure-splitting rule; claims-gate ±70-char context window (`datahelpers/claims.go`); the fine-tuning merge is the same fact-repetition shape as `bugs_open/151`; carousel navigation shares its exact pattern with `hero-card-carousel` (same site) rather than a parallel implementation
 - **verify-later:** whether the planner ever SELECTS it (`features_open/017`, unobserved for every component this workstream has built); whether `teaser-detail-deeplink`'s "detail region must be emptied on close" clause should be narrowed — it is a property of vonc's JS-populated implementation, not of the shape; whether the owner prefers the bounded-body-height default over the alternative (unbounded growth, arrows repositioned live) — stated as a reversible choice, not yet confirmed either way
 
-### CLC-013 — One chrome-eligibility predicate: `ResolveChromeComponent` (and the three answers it replaces)
-- **status:** built, not yet live (committed 2026-07-31; inert until a chassis image rolls). Council submission `5bc232d6-590a-4476-a6b1-4fb6f61751c6`.
+### CLC-013 — One chrome-eligibility predicate: `ResolveChromeComponent` (and the three answers it replaces), plus its PIN sibling `GetChromePinComponent`
+- **status:** LIVE on `v1.0.1225` for the pool/assignment half (`bugs_closed/118`, `166`, `167`). The **pin** half (`GetChromePinComponent`, `chromePinEligibleSQL`, the detector extension) is **built 2026-08-01, not yet live** — inert until a chassis image rolls. Council submissions `5bc232d6-590a-4476-a6b1-4fb6f61751c6` (original), `e242e9d3-1e5a-4b14-a16f-fbff9ca86d35` (repoint), `d73a4b06-a190-426e-bdf7-18d830d06a9d` (build path, APPROVED r3), `21bac2a2-2b46-4883-894f-19d7ec5e5b45` (pin).
 - **status-evidence:** `chromeEligibleSQL` / `ChromeSlotFunction` / `ResolveChromeComponent` in `platform/orchestration/actions/component_library.go`; callers `render_site_components_action.go` (`renderAndStoreSiteComponent`) and `link_site_components_action.go`; `chrome_selection_test.go` green, with the ordering assertions proven non-vacuous by an induced fault (both ORDER BY clauses deleted → 2 red, restored → green).
 - **what:** ONE predicate answering "which library component may serve chrome function F": `is_active AND forked_from IS NULL AND component_level IN ('site','header','footer','head')`, ordered eligible-first then by `name`. It exists because the question had **three** implementations with three different answers, each wrong differently (measured live 2026-07-31): `render_site_components` had no predicate at all and picked `footer-4-column`, `is_active=false`, on every unassigned slot — then INSERTed that choice into `site_components`, where it outlived every attempt to fix chrome by editing the *active* component; `link_site_components` filtered on `is_active` alone, which picks `header-leopardess`, an **active FORK** of one client's header, because a fork carries its parent's `function`; `GetComponentByFunction` filtered correctly but had no `ORDER BY` over a two-member pool and its winner, `site-header`, is `component_level='section'` — a page-section component, not chrome. The resolver returns `(component, eligible, error)` rather than erroring on an ineligible library: `head` has NO eligible component today (both candidates `is_active=false`) and a head slot that goes unrendered also loses `injectBrandHeadTags`, i.e. its favicon and og-card. An ineligible result logs at ERROR and is reported per-slot as `ineligible_chrome` in the action result — a LIBRARY defect, which no site can fix, so hiding it in a log is how it stayed hidden.
 - **EXTENDED 2026-07-31 (same day, `bugs_open/166`): the seam now REPOINTS, not just selects.**
@@ -128,6 +128,65 @@
   none pending-with-HTML, and the only ineligible assignments left are the 13 `head` slots,
   for which no eligible alternative exists so the repointer declines. What it changes is the
   NEXT deactivation.
+- **EXTENDED 2026-08-01 (`bugs_open/170`): the seam now covers the OTHER store — the style-collection PIN — and it needs a SECOND, deliberately different predicate.**
+  Everything above concerns `site_components.component_id`, the per-site *assignment*.
+  "Which component serves this site's chrome?" has a second answer in the schema:
+  `style_collections.header_component_id` / `footer_component_id`, the collection-level
+  **pin**. Until this change the pin had no predicate, no detector and no repair — and it
+  **wins**, on both paths. Three consumers dereferenced it with `GetComponentByID`
+  (`WHERE id = $1`, no predicate of any kind): `RenderHeader`/`RenderFooter` rendered
+  whatever was pinned; **`link_site_components` WROTE it into `site_components.component_id`**
+  and NULLed `rendered_html`, so an unguarded pin silently reverts the repoint the entry
+  above installs; and `fork_theme_from_site` **copied** the parent's pins into every new
+  collection, propagating the bad state to collections that did not have it.
+  - **New shared helper: `GetChromePinComponent(ctx, db, id, logger) (*Component, bool, error)`.**
+    THE one way to dereference a chrome pin. Same `(component, eligible, error)` shape as
+    `ResolveChromeComponent`, and the flag rides on the same query that fetches the row.
+    All three consumers route through it or apply its predicate inline; an ineligible pin
+    falls through to `ResolveChromeComponent`, i.e. the pool path this entry describes.
+  - **`chromePinEligibleSQL` is NOT `chromeEligibleSQL`, and the missing clause is the point.**
+    The pin predicate is `is_active AND component_level IN (…)` — it **omits
+    `forked_from IS NULL`**. Same asymmetry as retirement-vs-eligibility above, one level
+    up: a fork is illegitimate as a library *default* and is the entire point of a *pin*.
+    Measured over all four live pins (2026-08-01) the two predicates disagree on **exactly
+    one row** — `leopardessconsulting.co.uk` → `header-leopardess`, active and forked — and
+    the pin predicate is the one that gets it right. Copying the pool predicate here would
+    delete the single correct pin in the fleet while still catching the three wrong ones.
+  - **What it GUARANTEES, changed, and stated as such:** a pin is no longer unconditionally
+    honoured. `link_site_components` previously linked whatever was pinned and now links the
+    library's eligible chrome when the pin is ineligible (the behaviour a NULL pin already
+    had); `fork_theme_from_site` now inherits only eligible pins and NULL otherwise (what
+    `install_site_composition` already does at install). Consumers named and told in council
+    submission `21bac2a2-2b46-4883-894f-19d7ec5e5b45`.
+  - **The detector was blind to half its own subject.** `deactivated_site_components` joins
+    `site_components` only, which is why three deployed sites sat on a deactivated header and
+    four on a deactivated footer with **no work item, no finding and no alert**. It now also
+    reads pins, filing `deactivated_component` at `needs_human_review` with **no handler**
+    (`rerender-pages` cannot write a `style_collections` row, so routing it there files an
+    item unsatisfiable by construction — `bugs_open/166` on a new item type) and item_key
+    `deactivated_pin_<slot>` (a shared key would be swallowed by dedup's
+    `UNIQUE (site_id, item_key)`). **Measured: 7 items fleet-wide, zero for the legitimate pin.**
+  - **the doors:** `TestNoConsumerDereferencesAChromePinUnguarded` (`chrome_pin_test.go`) — a
+    **third** scan, matching both original forms (the Go `GetComponentByID(… HeaderComponentID)`
+    dereference and a raw SQL pin read), proven by an induced fifth consumer that COMPILES
+    CLEANLY and is caught at both. It deliberately does not fire on `RenderComponentAction`'s
+    general by-id fetch, which renders arbitrary page sections. And
+    `TestChromePinPredicateMatchesTheActionsPackage` (`discovery_checks/`) — a **lockstep**,
+    because `discovery_checks` cannot import `actions` (the dependency runs the other way),
+    so the detector's copy of the predicate is hand-typed and must be guarded rather than
+    forbidden; mutation-proven in both directions (narrowing and widening the level list each
+    compile cleanly and each fail with the reason).
+  - **[UNMEASURED→MEASURED] the `component_level` clause is INERT today:** all four ineligible
+    pins fail on `is_active` alone. It is a forward guard against 167's class arriving through
+    a pin, not a clause doing work now.
+  - **what it does NOT do:** it does not repair the four `style_collections` rows (they still
+    name ineligible components — now ignored rather than served, which is what the detector
+    exists to surface), and it changes no live page until the next chrome rebuild
+    (`bugs_open/117`: chrome is a stored artefact and no page re-render regenerates it).
+  - **third pin column, dormant:** `style_collections.header_home_component_id` is populated on
+    **0 of 14** collections and read by **no** Go consumer — the `StyleCollection` struct does
+    not model it. Left alone deliberately: guarding a column nothing reads would be inventing
+    a consumer.
 - **the landmine:** ~~**correcting the selection does NOT repoint an existing assignment.**~~
   **SUPERSEDED for header/footer 2026-07-31** — it now does, once the above is live; and the
   standing fleet was repointed by hand on the owner's ruling (21 assignments, 28/28 slots
