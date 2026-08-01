@@ -532,3 +532,48 @@ Counting off the wrong key returns `0` for nine loops and reads exactly like "th
 loops are empty, nothing to worry about" — the same shape as every other entry in
 this file's §2: **the count answered the question my key encoded, not the one I
 asked.**
+
+## 9. Sites B and C — council outcome, and an operational datum about the gate itself
+
+**APPROVED at round 3**, `c69e935a-7134-45c1-81c3-2f1da7831827`, 2026-08-01 08:05
+UTC. 12 approve, 2 advisory objections, none high. Rounds 1 and 2 both REVISE.
+
+**Round 1** (gated by `debug_historian`): the floor guards NEW loss and cannot see
+loss that already happened and stabilised — accepted as a standing limit and
+written into `nav_prune_floor.go` rather than argued away. Also `editquality` on
+the "no ratchet" wording, `bug_historian` asking for an independent sweep rather
+than trusting the header's self-authored candidate list (**run: 18 `DELETE FROM`
+statements, exactly 4 are reconciliation deletes, all now guarded — no fifth
+site**), and `guardian` asking which workflows call these and whether they handle
+a failed step (**answered from the DB and the coordinator source: no `error_step`
+anywhere, so `routeToErrorStepOrFail` falls through to `failWorkflow` — the
+orchestration FAILS, it does not mark complete**).
+
+**Round 2** (gated by `bug_historian`) is the one worth reading. See the bug file
+for the full account; the short version is that I had diagnosed site C's real
+problem correctly — its only caller is nested in a loop with no
+`continue_on_error`, so a refusal fails the whole site build — and then **routed
+around it in the same breath** by making the action never error. Four seats
+rejected that. Round 3 reverted to the uniform error contract and filed the gap as
+`bugs_open/173`.
+
+**An operational datum for whoever next budgets for the gate.** Round 3's first
+run **hung 4 hours in `review_prior_art` and was killed by the reaper**
+(`error` column: `reaper: stale EXECUTING_STEP for >4h; step=review_prior_art`),
+producing no verdict. A second lane's run died the same way in the same window
+(`review_debug_historian`, identical stale timestamp — the reaper batch-stamped
+both). A straight resubmit of the *identical* file then completed in ~8 minutes
+and approved. So: **a council run that goes quiet for hours is not necessarily
+deliberating — check `orchestration_states.error` for the reaper string before
+assuming your submission is the problem, and just resubmit.** Note this is a
+different failure from `bugs_open/138`'s truncation (`gated_by_truncation` was
+false on every round here).
+
+**Still owed, unchanged:** the roll, then both branches induced for B. C cannot be
+induced while `link_registry` is empty.
+
+**One loose end left deliberately for this lane rather than raced:**
+`save_sections_prune_floor.go` still spells its own `detail` map inline —
+`pruneFloorDetail` in `prune_floor.go` is the shared one now (sites B and C use
+it). Your `21a3f24b1` retired the duplicate *emitter*; the reporting block is the
+remaining half. Not done here because you were active in that file at the time.
