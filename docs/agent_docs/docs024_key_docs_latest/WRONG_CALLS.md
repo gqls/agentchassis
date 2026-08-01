@@ -15516,3 +15516,65 @@ as I typed it. Filed as a landmine with the full worked case.
 **Also worth noting:** I told the user this in the same message as a genuine
 finding (the cwd was also why a `docs/` listing looked empty), so the false claim
 travelled with credible ones. Corrected to the user in the next message.
+- **Third and final reading of the same signal, same lane: "dispatch is bursty, 39
+  minutes is within normal, there is no reason to suspect a stall" — also false.**
+  The gap ran to **688 minutes** overnight (2026-07-31 20:33:49Z → 2026-08-01
+  08:02:45Z, zero claims fleet-wide with 354+ items dispatchable), so it was a real
+  11.5-hour outage. Three readings of one signal, in three directions, all published:
+  "alive/slow" (wrong), "dead" (right conclusion, **broken arithmetic** — local clock
+  minus a UTC timestamp), "bursty" (wrong). **The cheap check that actually worked
+  was not a fourth reading: it was writing down a FALSIFIABLE THRESHOLD before the
+  data arrived** — *"if the gap passes ~90 min and keeps climbing, that is outside
+  anything observed today"* — which then resolved itself with no judgement required.
+  Two things generalise. (1) **When a signal has already fooled you twice, stop
+  producing interpretations and publish a discriminator.** Each fresh reading of an
+  ambiguous signal is another chance to be confidently wrong, and they do not
+  converge; a threshold costs one sentence and settles it mechanically. (2) **A true
+  conclusion reached from false arithmetic is still not knowledge, and retracting it
+  was still correct** — it could not be relied on, and any inference drawn from it
+  would have inherited the error rather than the luck. Do not let "I was right in the
+  end" relitigate a retraction that was right on the evidence available.
+
+- **I pod-grepped my own fix with the wrong CASE, got `header: 0, footer: 0`, and for a moment
+  believed the roll had not carried it — on a binary that contained all three strings.**
+  Verifying `bugs_closed/167` on `v1.0.1225` I ran the command I had already published in the
+  RUNBOOK and in the closed bug file: `grep -c "no eligible header component in the library"`.
+  It returned **0** for header and footer and **1** for head. The real literals are
+  `No eligible header component in the library…` (capital `N`, because the message starts
+  there) and `RenderHead: no eligible head component…` (lower-case, because the sentence
+  continues after the prefix). **Three log lines in one change, two spellings, and my grep
+  matched only the odd one out.**
+  **The positive control did NOT catch it, and could not have.** I had followed the fleet rule
+  — grep a string your change added *plus a positive control in the same exec* — and the
+  control (`no component serves chrome function`, 118's string) returned 1, correctly proving
+  `strings | grep` worked on that binary. **A control proves the PIPELINE; it can never prove
+  your PATTERN is spelled right**, because it is by construction a different string. So the
+  rule as written produces a confident false negative whenever the error is in the pattern.
+  What actually settled it was a **NEGATIVE control**: grepping for a string my change
+  *removed* (`No header component found, using fallback`) returned **0**, which is impossible
+  if the old code were still there — so the new code had to be present and my pattern had to
+  be wrong. **The cheap checks, in order: `grep -ic` rather than `grep -c`; paste the literal
+  from the source rather than retyping it; and add a negative control, because a positive
+  control proves the fix arrived while only a negative one proves the OLD code left.**
+  Galling detail: `a grep proves an absence only for the SPELLING it searches` is already a
+  line in my own memory index, and I had already logged a near-identical family of pod-grep
+  traps in `LANDMINES.md` this same session. Knowing the rule, having written the rule down,
+  and having a control in place were **all three insufficient** — because none of them touches
+  the one thing that was wrong.
+
+## 2026-08-01 — `bugfix_166`: I characterised a cost I could have read
+
+- **I told the council the new ERROR-level logging "cannot page anyone, nothing alerts on
+  ERROR level".** The alerting half was true and checked. The *cost* half was not: zap emits a
+  **full stacktrace** at ERROR, so every chrome render of a site with no eligible `head`
+  component writes a stacktrace — 13 head slots today, on every build of each. Two seats had
+  raised "new sustained log volume" as a low objection and I answered the question I could
+  answer cheaply (does it page?) rather than the one they asked (what does it cost?).
+  **The cheap check: before characterising the cost of a log line, read one.** I had the
+  emitted format available the entire time — the induced-fault run printed it the next morning,
+  at which point the answer took two seconds. A severity is not a volume, and neither is a
+  count of call sites.
+- **Not harmful, and it self-resolves** when the library gains an active head component — but
+  "not harmful" is a different claim from the one I made, and I made mine with more confidence
+  than the evidence I had actually gathered supported. Same family as the marker discipline in
+  the working-docs rules: the answer was `[UNMEASURED]` and I stated it flat.

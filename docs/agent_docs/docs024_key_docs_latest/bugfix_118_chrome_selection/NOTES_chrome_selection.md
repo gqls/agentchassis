@@ -288,3 +288,47 @@ The code has only the new name and compiles. The lesson is mine, not theirs: the
 sketch is what reviewers read, so a stale sketch spends a round's attention on a
 non-problem — and four seats spending it is the no-silent-rename rule working
 exactly as designed.
+
+## 2026-08-01 — 166 LIVE on v1.0.1225 and proven by induced fault; 118's fallback proven too
+
+Pod-grep first, both replicas, positive control in the same exec: repoint line,
+lock-blocked line and the `build_status` clause all present,
+`RenderSiteComponentsAction` = 6.
+
+**The behavioural proof needed an induced fault**, because yesterday's repoint left
+the fleet clean and a repair with nothing to repair proves nothing.
+`loancalculator.co.uk` was the right subject — created 07-30, **no chrome rows at
+all**, so nothing served was at risk and it gains correct chrome it never had.
+Pinned its footer to `footer-standard` (`is_active=false`) with a marker artefact
+at `build_status='rendered'`, then dispatched an **UNFORCED** render: the exact
+path the detector routes, and the one that pre-fix would have skipped outright.
+
+```
+warn  site chrome: repointed a slot off a RETIRED component (bugs_open/166)
+      slot=footer from=footer-standard to=footer-theme-chrome
+      reason="assigned component is is_active=false"
+```
+
+Footer → `footer-theme-chrome`, `build_status='rendered'`, marker gone, 899 bytes.
+**The same run proved 118's selection fallback on its own failing branch**: the
+unassigned header slot resolved to `header-theme-chrome` where pre-fix it would
+have taken `header-bold-gradient` (deactivated, alphabetically first). Two fixes,
+one experiment, both on the branch that used to fail.
+
+And the reporting half fired, not just the repair: `head` logged at ERROR naming
+the required predicate, and **`"ineligible_chrome":{"head":"Document Head"}`
+travelled into the action result** — answering empirically the council objection
+that the field was claimed but never shown to be threaded.
+
+> **CORRECTION to what I told the council.** I answered the "new ERROR log volume"
+> objection with "nothing alerts on ERROR level, so it cannot page anyone". True,
+> and understated: zap emits a **full stacktrace** at ERROR, so every chrome render
+> of a site with no eligible head component writes one — 13 head slots today. Not
+> harmful, noisier than I implied, and it vanishes when the library gains an active
+> head component. **The check I skipped: read one line of the actual output before
+> characterising its cost.** I had the log format available the whole time.
+
+**The 195 stuck `page_rerender` items have NOT drained** — 13 hours on, still
+`triaged`. Stored chrome is correct fleet-wide and deployed pages still serve the
+old footer. That is `bugs_open/149`'s lane and it is the only thing standing
+between this lane's work and anything a visitor sees.

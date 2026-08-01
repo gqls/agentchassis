@@ -1,6 +1,45 @@
 # 166 — the `deactivated_component` repair re-renders the deactivated component, so the finding can never be satisfied
 
-> **STATUS 2026-07-31 (late): FIXED IN CODE and council-APPROVED at round 2
+> **CLOSED 2026-08-01 — FIXED, LIVE on `v1.0.1225` (both replicas), and PROVEN BY AN
+> INDUCED FAULT on the failing branch.** Commits `39afbf697` → `60fd06e68` (round-1
+> narrowing) → `4ba946e8b` (round-2 answers). Council **APPROVED at round 2**
+> (`e242e9d3-1e5a-4b14-a16f-fbff9ca86d35`), register **CLC-013**.
+>
+> **The proof, because "it deployed" is not one.** Pod-grep first, both replicas,
+> positive control in the same exec: the repoint log line, the lock-blocked line and
+> the `build_status` clause all present, `RenderSiteComponentsAction` = 6.
+> Then the behaviour, on `loancalculator.co.uk` (no chrome rows at all, so nothing
+> served was at risk): its footer slot was pinned to **`footer-standard`
+> (`is_active=false`)** with a marker artefact and `build_status='rendered'`, and an
+> **UNFORCED** render dispatched — the exact path the detector routes, and the one
+> that pre-fix would have skipped outright because the slot held bytes.
+>
+> ```
+> warn  site chrome: repointed a slot off a RETIRED component (bugs_open/166)
+>       slot=footer from=footer-standard to=footer-theme-chrome
+>       reason="assigned component is is_active=false"
+> ```
+>
+> Result: footer → `footer-theme-chrome` (active), `build_status='rendered'`, marker
+> **gone**, 899 bytes of real chrome. The same run also proved `bugs_closed/118`'s
+> selection fallback on its own failing branch — the unassigned header slot resolved
+> to **`header-theme-chrome`**, where pre-fix it would have taken
+> `header-bold-gradient` (deactivated, alphabetically first).
+>
+> **And the reporting half fired, not just the repair.** `head` has no eligible
+> component, so it logged at ERROR naming the required predicate, and
+> **`"ineligible_chrome":{"head":"Document Head"}` travelled into the action result** —
+> which answers empirically the council's editquality objection that the field was
+> claimed but never shown to be threaded.
+>
+> **Correction to my own round-2 answer:** I told the council the new ERROR volume
+> "cannot page anyone, nothing alerts on ERROR level". True, but understated — zap
+> emits a **full stacktrace** at ERROR, so every chrome render of a site with no
+> eligible head component writes one. 13 head slots today. Not harmful, noisier than
+> I implied, and it disappears when the library gains an active head component
+> (candidate 3 below, a data call).
+>
+> ~~**STATUS 2026-07-31 (late): FIXED IN CODE and council-APPROVED at round 2
 > (`e242e9d3-1e5a-4b14-a16f-fbff9ca86d35`). Commits `39afbf697` → `60fd06e68`
 > (round-1 narrowing) → `4ba946e8b` (round-2 answers). OPEN until the next chassis
 > roll** — a fix that has not shipped leaves the defect reproducible.
@@ -10,7 +49,7 @@
 > `leopardessconsulting.co.uk`'s own ACTIVE FORK — the supported way to give one
 > site its own chrome. Narrowed to `NOT is_active`. **Eligibility decides what may
 > be CHOSEN as a library default; retirement decides what may no longer be SERVED.**
-> Round 2 approved with 6 advisory objections, none high.
+> Round 2 approved with 6 advisory objections, none high.~~
 >
 > `repointRetiredChromeSlot` (**narrowed from `repointIneligibleChromeSlot` at council
 > round 1, `60fd06e68` — the first version would have repointed a site's own ACTIVE FORK;
