@@ -161,3 +161,88 @@ compiles cleanly; and the lockstep is proven in both directions.
   working tree does not compile: `ai_actions.go:347 declared and not used:
   declaredOutputType` is another session's in-flight edit (the `bugs_open/119`
   lane). A local `go test` in the shared tree is not a signal either way.
+
+---
+
+## Council round 1 — **APPROVED** (`21bac2a2-2b46-4883-894f-19d7ec5e5b45`)
+
+`approved with 7 advisory objection(s) — none high-severity`. 13 seats reviewed,
+3 abstained, no seat truncated (`gated_by_truncation: false`).
+
+Worth recording that four seats went out of their way to say the grounding was the
+reason: `reuse_agent` — "unusually well-grounded: it reuses the deleted 167-round
+predicate rather than inventing one, explicitly justifies why it is NOT the pool
+predicate, extends the existing detector rather than creating a new one";
+`constitution` — "deferrals are explicitly stated and justified, not smuggled";
+`render_guardian` — "explicitly disclaims using a rerender as proof of live effect
+rather than smuggling a false-green rerender claim"; `bug_historian` — "a strong,
+self-aware instance of the documented pattern rather than a naive one".
+
+### The one theme five seats converged on — and they are right
+
+`architecture`, `reuse_agent`, `editquality`, `debug_historian`,
+`prior_art_librarian` and `guardian` all landed on the same thing from six angles:
+**this is now the third and fourth hand-maintained guard over one chrome-eligibility
+vocabulary**, and a landmine already records two earlier ones with disjoint blind
+spots. The architecture seat put the cost precisely — *"every new pin/eligibility
+consumer now costs one more regex-scanned guard file instead of one import"* — and
+named the remedy: move the predicates into a package both `actions` and
+`discovery_checks` can import, and **delete** the lockstep rather than harden it again.
+
+Accepted, and filed as **`architecture_review/RFC_007`**. It is not actioned in this
+lane: the import-direction fix is a separate change with its own blast radius, and
+the seat itself said "after this ships".
+
+`debug_historian` also noted my own NOTES entry against me, correctly — that both new
+guards passed for the wrong reason on their first version is "evidence this class of
+guard is fragile, not evidence it is now solid". That is a better reading of my own
+missteps than the one I wrote.
+
+### Two objections answered by measurement, after the verdict
+
+Both concern edit 4's `needs_human_review` / no-handler routing.
+
+- **`improvement_guardian` (medium):** the config-only-enablement contract wants a
+  finding inserted at `detected` so the triager promotes it; is a non-`detected`
+  initial status even honoured by the runner? **Verified: yes.**
+  `discovery_checks.go:224-240` passes `wi.Status` straight through to
+  `insertWorkItem` with no override, and live there are **190+ discovery-sourced
+  `needs_human_review` items across 8 item types**, most recent 2026-07-30. It is the
+  established pattern, at scale, not an improvisation.
+- **Dedup, which no seat raised and is the one that would actually have bitten:** the
+  live `idx_swi_dedup` predicate excludes `complete, verified, rejected, wont_fix,
+  failed, unresolved, cancelled` — `needs_human_review` is **not** in that list, so it
+  counts as non-terminal and `deactivated_pin_<slot>` dedupes correctly. One item per
+  site+slot, not a fresh one every sweep. (Checked because of the standing
+  `idx_swi_dedup` ↔ `workItemTerminalStatuses` lockstep landmine.)
+- **`bug_historian` (medium) STANDS and is recorded as a real limitation:**
+  `bugs_open/033` — the human-review queue has no working surface — **is still open**,
+  and those 190+ items are the evidence for it. My 7 join that pile. The alternative
+  is worse: routing at `rerender-pages`, which cannot write a `style_collections` row,
+  reproduces `bugs_open/166` on a new item type. So the routing stays, and the honest
+  statement is that these items are a **durable, queryable record** rather than a
+  worked queue. Written into the bug file, not left to be discovered.
+
+### Answered in passing
+
+- **`debug_historian` (medium), no post-deploy verification step:** there is one — it
+  was in the bug file, not the submission. `bugs_open/170` § "How to verify the FIX"
+  carries the pod-grep with a real negative control and, more importantly, **both
+  branches induced**: an ineligible pin must be ignored AND leopardess's eligible fork
+  pin must still be honoured. The second is the one that catches the only way this fix
+  goes badly wrong.
+- **`prior_art_librarian` (medium), the 167-round history is asserted without a
+  `council_report` lookup:** fair as stated. The evidence I actually used was
+  `git show 2605d3f92` — the commit that deleted `chromePinEligibleSQL` and its three
+  tests, whose message names the four objecting seats. That is stronger than a
+  verdict-note lookup for the specific claim ("the predicate was deleted with the
+  reporter, and the reporter was the objection") but it is not what the seat asked
+  for, and it was not attached to the submission.
+- **`tooling_provenance` (medium), no `doc_notes` write:** partially satisfied without
+  being an edit — `scripts/landmines-sync.py --apply` syncs both new `LANDMINES.md`
+  entries into `doc_notes`, so the pin-vs-pool asymmetry IS readable by seats and
+  agents from the next round on. That was not stated in the submission.
+
+**No amend, and none needed:** the commit carries `Council-Submitted:`, and `098`
+resolves the correlation at report time, so `e44e6dd06` is credited automatically now
+the verdict is approved. Forward-only holds.

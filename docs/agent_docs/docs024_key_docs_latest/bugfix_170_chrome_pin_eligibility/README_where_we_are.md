@@ -97,3 +97,39 @@ I verified everything by hand instead and said so.
 Code written, all tests green against a clean checkout, submitted to the review
 council, committed. It does nothing until the next chassis build goes out. The
 ticket stays open until it's live and I've confirmed it on the running pods.
+
+---
+
+## 2026-08-01, later — the council approved it, first time
+
+Approved at round 1, with seven advisory notes and nothing severe. Thirteen reviewers
+looked; several said in their own words that the reason it passed was the grounding —
+that the predicate was recovered from the earlier lane rather than invented, that the
+things it does *not* fix were stated up front rather than found in review, and that it
+didn't claim a page re-render as proof of anything.
+
+One thing six of them said, from six different directions, is worth passing on because
+they are right and it is not about this bug. Chrome eligibility now has four separate
+hand-written test guards watching for someone breaking the rule, and this change added
+two of them. The architecture reviewer put the cost plainly: every new consumer of this
+rule now costs another guard file instead of one shared import — and the only reason the
+fourth exists is a package-import direction that could simply be fixed, after which that
+guard could be **deleted** rather than maintained. I've written that up as RFC 007 for
+whoever picks it up; I haven't done it here, because it's a separate change with its own
+blast radius and the reviewer explicitly said "after this ships".
+
+The same reviewer also turned my own confession back on me, fairly: I'd written up that
+both of my new guards passed for the wrong reason on their first attempt and I'd fixed
+them. They pointed out that this is evidence the whole *class* of guard is fragile, not
+evidence that mine are now sound. That's a better reading than the one I wrote.
+
+Two notes asked whether the work items I file will ever actually be looked at. I checked:
+the queue they go to is the same one 190-odd other items are already sitting in, and the
+bug about that queue having no working surface (33) is still open. So they will be a
+durable, searchable record rather than something anyone gets nagged about. The
+alternative was worse — pointing them at an automatic handler that has no way to change
+the record in question, which is exactly the trap bug 166 was about — so I've left the
+routing alone and written the limitation into the ticket rather than leaving you to find
+it.
+
+Still not live. That remains the one thing standing between this and a closed ticket.

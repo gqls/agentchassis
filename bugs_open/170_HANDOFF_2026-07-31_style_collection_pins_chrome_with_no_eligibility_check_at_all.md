@@ -89,6 +89,28 @@ that the library says is switched off, and have done since it was switched off.
 >   `is_active` alone. It is a forward guard against 167's class arriving via a pin.
 > - **`style_collections.header_home_component_id`** is a third pin column, populated on
 >   **0 of 14** collections and read by **no** Go consumer. Left alone deliberately.
+> - **The 7 items land in a queue with no working surface.** Council round 1's
+>   `bug_historian` seat raised this and it stands: `bugs_open/033` (human review queue
+>   has no working surface) is **still open**, and live there are already **190+
+>   discovery-sourced `needs_human_review` items across 8 item types**. These 7 join
+>   that pile. **The routing is still right** — `rerender-pages` cannot write a
+>   `style_collections` row, so routing them at it would file items unsatisfiable by
+>   construction, which is `bugs_open/166` on a new item type — but the honest claim is
+>   that they are a **durable, queryable record**, not a worked queue.
+>
+> ### Council round 1: **APPROVED** — `21bac2a2-2b46-4883-894f-19d7ec5e5b45`
+>
+> `approved with 7 advisory objection(s) — none high-severity`; 13 seats, 3 abstained,
+> no seat truncated. Six seats converged on one theme that is **not** about this bug:
+> chrome eligibility now carries four hand-maintained guard scans over one vocabulary,
+> and the fourth exists only because `discovery_checks` cannot import `actions`. The
+> architecture seat's recommendation — move the predicates into a package both can
+> import and **delete** the lockstep rather than harden it — is filed as
+> **`architecture_review/RFC_007`**. Two routing objections were answered by
+> measurement after the verdict (the runner honours a non-`detected` status —
+> `discovery_checks.go:224-240`, plus 190+ live rows; and `idx_swi_dedup` treats
+> `needs_human_review` as non-terminal, so `deactivated_pin_<slot>` dedupes correctly).
+> Full record: the lane's `NOTES_…md`.
 
 ## The defect
 
