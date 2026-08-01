@@ -382,9 +382,11 @@ not what is broken.
 
 ### 6. Council
 
-Submitted as `576832f3-0d39-48b7-af18-97e06297900f`, committed pre-verdict with a
-`Council-Submitted:` trailer per the 2026-07-30 rule. The submission names all 32 affected
-agent types explicitly rather than only counting them (owner ruling 2026-07-29 point 3).
+**APPROVED at round 2** — `576832f3-0d39-48b7-af18-97e06297900f`, 14 reviewers, **0
+unreadable**, 8 advisory objections, none high-severity. `Council-Reviewed:` trailer on
+`059ae2acd`, earned by a verdict that was read. Round 1 was REVISE; see §7. The submission
+names all 33 affected agent types explicitly rather than only counting them (owner ruling
+2026-07-29 point 3).
 
 ### 7. Council round 1 — REVISE, and it caught a real hole (2026-08-01)
 
@@ -442,3 +444,54 @@ headroom.
 rests on 4 specimens rather than 3, all agreeing. That is still a small sample, and the
 honest reading is "the bracket slip is not what is biting today", **not** "it never
 happens".
+
+### 9. Round 2 — APPROVED, with two objections worth the next reader's time
+
+- **ACTED ON, `diagnosis_guardian` (medium).** The brevity re-ask said "cut words, never
+  findings" — which protects the CONCLUSIONS and says nothing about what SUPPORTS them. A
+  verdict-emitting step re-asked for brevity could keep its findings and shed the citations
+  that make them checkable: a shorter answer becoming a *less evidenced* one, which is worse
+  than the lost round it prevents. Now says "Keep every citation, quote, id and file:line"
+  and "Cut explanation, never evidence", pinned by two assertions.
+- **REFUTED, `llm_reliability` (medium).** Claimed `GenerateText` does not decode
+  `stop_reason`, so a truncated re-ask returns as a non-error 200 and slips the
+  `if reaskErr != nil` guard. Checked: `anthropic.go:217-227` decodes it and returns a
+  `*TruncatedError`; `gemini.go` and `ollama.go` likewise. The guard is correct — and were
+  the premise true, the *primary* path would have carried the same hole since `019`.
+- **ARTEFACT — six of the eight objections were this file's own landmine.** `editquality`,
+  `reuse_agent`, `guidelines`, `debug_historian`, `prior_art_librarian` and `architecture`
+  each objected that the plan "fails to cite a live landmine" keyed to
+  `getOutputType`/`output_format`/`llmOutputVocabulary`. That landmine was written by THIS
+  task (`3af110705`) and synced to `doc_notes`, which the seats read at review time. So
+  documenting the seam — exactly as CLAUDE.md requires — armed six reviewers against the
+  submission that created it. Nothing was blocked; the cost is signal dilution, and it is
+  systematic rather than bad luck. Written up as a transferable pattern in **`016b` §9**,
+  with the `git log -S` check that tells the two apart.
+
+---
+
+## STATUS AT HANDOFF (2026-08-01) — FIXED IN CODE, COUNCIL-APPROVED, **NOT LIVE**
+
+**This file stays in `/bugs_open/` deliberately.** The bar is *fixed AND live*; Go changes
+are inert until an image is built and rolled, so the defect is still reproducible in
+production right now. Commits: `4c1a97874`, `085160a6c`, `059ae2acd` (code + tests),
+`3af110705` (landmine), `5511f8589`/`ce28f7db8`/`21bc651ec` (register WFA-005).
+
+**To close it, in order — none of these needs the author:**
+
+1. Wait for any chassis roll that includes `059ae2acd` (`make build-agent-chassis` takes
+   committed HEAD, so any session's build carries it).
+2. **RUNBOOK R10** — pod-grep on **every** replica, with the negative control. A roll is not
+   evidence your fix shipped (`bugs_open/153`).
+3. The behavioural check, which outranks the grep:
+   `SELECT count(*), max(created_at) FROM llm_call_log WHERE error_message LIKE 'RETRY (bugs_open/119%';`
+   Non-zero means the mechanism fired; it should stay **small** (2 per ~785 was the
+   pre-fix rate of the condition that triggers it).
+4. Re-measure the headline with **RUNBOOK R1**: rounds decided by an unreadable seat,
+   **23 of 424 all-time, 15 in the week to 2026-08-01**. That figure falling is the close
+   condition. **Do not grade this on a green council round** — the healthy path already
+   works, which is not what was broken.
+
+**What is NOT claimed:** that the bracket-slip class is fixed. It has 0 of 4 measurable
+live instances, so edit A's link to it is INFERRED. What is measured is that 91 steps asked
+for JSON and were never told to produce it, and that nothing re-asked an unusable answer.
