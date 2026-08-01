@@ -122,3 +122,91 @@ uncommitted edits in this same package, so a green tree is not a green HEAD
 clean dir, overlay **only** my two files, `go build ./platform/... ./internal/...` → exit
 0, and the package tests pass there too. (The `cmd/` link steps failed on `no space left
 on device` — a full `/tmp`, not a compile error. Cleaned up after.)
+
+---
+
+## 2026-08-01 — council round 1: REVISE, and the seats caught a real hole
+
+`576832f3` → **REVISE**, gating objection from `debug_historian` (high). 14 reviewers.
+**They were right and I had not checked the thing they gated on.**
+
+### The gating objection
+
+Four seats converged (debug_historian high, guardian medium, editquality medium): my
+"90 steps across 32 agents" census **assumed** `output_format` sits at a depth
+`getOutputType` actually reads, citing the house landmine that a step's prompt and its
+token cap sit at *different* depths in `default_config`. I had asserted the depth and
+never measured it — the same species of error as this file's first entry, one layer down.
+
+**Measured properly** (RUNBOOK R5, extended to walk `sub_workflow` too):
+
+| depth | LLM steps | `output_format` at `config` | under `config.ai_service` | at step root |
+|---|---|---|---|---|
+| top-level | 134 | 100 | **0** | **0** |
+| nested in `sub_workflow` | 1 | 1 | **0** | **0** |
+
+So the assumption held — **and the re-measurement corrected my numbers anyway**, because
+my first census walked only top-level steps: **135 LLM steps, 101 `output_format`, 91 of
+them json across 33 agents** — not 90/32. The missing one is
+`page-content-writer` → `process_sections_loop` → `generate_content` (verified by query,
+not inferred; I had guessed that name and then checked it).
+
+> **The transferable bit: a census over `agent_definitions` that walks only
+> `workflow.steps` is blind to every step inside a loop's `sub_workflow`.** That is what
+> WFA-003 exported `WalkSteps` for. My SQL did not use it, and a one-step miss here would
+> have been a 91-step miss on a different agent.
+
+### The objection I answered with code rather than argument
+
+`bug_historian` (medium): the re-ask lowers the **frequency** of the silent success but
+not its **shape** — the step still returns `{result: text, type: text}` and still
+SUCCEEDS. That is `bugs_closed/076`'s title and the `missingkey=zero` family, and it was
+a fair hit: I had reduced a rate and called it a fix.
+
+Answered with `__json_contract_unmet`, stamped only when json was **declared** and, after
+the re-ask, still not delivered. **A marker, not a hard error** — making those 91 steps
+fail loud would convert currently-succeeding steps into failing ones over content they
+did not author, which is `bugs_closed/073`'s defect and the exact reason 119's own
+candidate 2 was declined. Keep the behaviour, end the silence.
+
+### A fourth specimen, delivered by the review itself
+
+Round 1's own council report carried `unreadable: ["review_llm_reliability.result"]`. I
+captured it before pruning:
+
+```json
+{"type":"text","result":"","__truncated":true,"__truncated_output_tokens":8000}
+```
+
+**Four in-retention specimens now, four truncations, zero bracket slips.** It also shows
+the treadmill in one picture — the per-seat caps today:
+
+```
+16000: review_editquality, review_guidelines, review_prior_art, review_architecture
+ 8000: the other THIRTEEN, including review_llm_reliability
+```
+
+The four at 16000 are exactly the four that had previously failed. `138`'s lane raised
+each cap *after* its seat broke, and round 1's failure landed on one of the thirteen left
+behind. That is `truncation.go:26-29`'s warning happening in front of me, and it is the
+strongest argument for the re-ask asking for **brevity** rather than headroom.
+
+### One objection I pushed back on, with a reason
+
+`architecture` (medium): a new retry contract on shared plumbing, same shape as
+`bugs_closed/129` shipping without an RFC. Answered rather than conceded, because
+`ExecuteLLMPromptAction` **already** makes up to five calls via the 500/502/503/529
+backoff ladder ~100 lines above the parse. "One step, one call" is not a guarantee that
+exists today, so this extends an existing ladder rather than introducing retries to a
+mechanism that had none. The seam is registered (WFA-005) per condition (2) of the
+ordering exemption, and I claim no ordering constraint.
+
+### Two things I got wrong in the SUBMISSION rather than the code
+
+- **The pod-grep was planned and I never said so.** `debug_historian` (medium) marked
+  verification as "unit tests + mutation only". RUNBOOK R10 had the pod-grep with a
+  negative control from the start; the plan block did not mention it. A reporting gap
+  reads exactly like a missing step, and a reviewer cannot tell them apart.
+- **Round 1 named 32 agents; there are 33.** I named them in full (which the owner ruling
+  requires) off a census that was one step short. Naming consumers is only as good as the
+  walk that enumerated them.

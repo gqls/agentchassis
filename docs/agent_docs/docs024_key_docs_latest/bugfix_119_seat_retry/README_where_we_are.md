@@ -74,3 +74,53 @@ breaking the fix to check the tests actually notice. It's now in front of the re
 council itself, which is a pleasing sort of circularity. **It is not live yet** — Go
 changes only take effect when a new image is built and rolled — so the bug stays open
 until I can prove it's running in the actual pod rather than just in git.
+
+---
+
+**2026-08-01, later. The council said no, and it was right.**
+
+The review came back REVISE, and the objection was a good one: I had claimed the fix
+reaches 90 steps across 32 agents, and four of the reviewers pointed out — correctly —
+that I'd never actually checked the setting sits somewhere the code can see it. They cited
+a known trap here: in these agent definitions, a step's prompt and its token limit live at
+*different* depths, so counting a setting in one place tells you nothing about whether the
+code reads it there.
+
+I hadn't checked. I'd measured the count and assumed the location. So I went and measured
+the location, and two things came out of it.
+
+The good news: the assumption held. Every one of the declarations sits exactly where the
+code looks. The fix does reach what I said it reaches.
+
+The correction: **my count was one short**, because my query only looked at top-level
+steps and missed steps that live *inside a loop*. There's one of those — in the page
+content writer, the step that actually writes the words on our pages. So it's 91 steps
+across 33 agents, not 90 and 32. Small in itself, but the shape of the error is the
+interesting part: a query that walks the obvious level and silently skips the nested one
+would miss a lot more on a different agent.
+
+A second reviewer made a sharper point that I'd rather have thought of myself. My retry
+makes the failure *rarer*; it doesn't change what happens when it still fails. The step
+goes on quietly returning prose to something that asked for structured data, and reporting
+success. Reducing how often a thing silently goes wrong is not the same as fixing that it
+can. So I've added a small flag on that outcome — when a step asked for JSON and, even
+after the retry, didn't get any, that's now recorded on the result. I deliberately stopped
+short of making it a hard failure: that would turn ninety-odd steps that currently limp
+along into steps that break outright, over content they didn't write, and we've been
+bitten by exactly that before. The aim was to end the silence, not to start an outage.
+
+**And the review handed me a gift.** That very round had one of its own reviewers fail in
+exactly the way this bug describes — and because I went and grabbed the evidence
+immediately, before our cleanup deleted it, I now have a fourth example. All four are the
+same thing: the reviewer ran out of room and produced nothing, not the bracket-in-the-
+wrong-place the bug was originally filed about.
+
+It also showed me something I'd have missed otherwise. Someone on another thread has been
+raising the limit for reviewers as they fail — four of them are now on double the budget.
+The other thirteen are still on the original. And this round's failure landed on one of
+the thirteen. That's the whole argument for my approach in one picture: raising the ceiling
+moves the problem to whoever hasn't had theirs raised yet. Asking the reviewer to be
+briefer is the thing that doesn't just relocate.
+
+Resubmitted. The code is committed either way — on this shared setup you can't hold work
+back pending a review — and it's still not live until someone builds and rolls a new image.
