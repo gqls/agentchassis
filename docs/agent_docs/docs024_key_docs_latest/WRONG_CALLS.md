@@ -15680,3 +15680,28 @@ shipping inside a denominator), but the failure is upstream of measurement rathe
 than inside it: there, I measured the wrong thing; here, I did not measure at all
 and the surrounding measurements disguised it. The recurring check across both is
 **mark the claim before you write the paragraph, not after**.
+
+- **I swept another session's uncommitted entries into my own commit, and the hook
+  that exists to tell me had its output piped to `tail -3`.** Commit `4ebae9e14`
+  says it adds one WRONG_CALLS entry (mine, about `site_nav_items`). It actually
+  carries **83 insertions**: mine, plus two entries about `bugs_closed/081` that
+  another session had left uncommitted in the same file. I used an explicit
+  pathspec exactly as CLAUDE.md requires — and a pathspec commit takes that file
+  **from the working tree**, so it takes a same-file passenger with it. That is
+  the one case the guidance says no hook can prevent.
+  **What makes this my error rather than bad luck:** I ran `git status --porcelain`
+  on that path immediately before appending, it printed ` M`, and I appended
+  anyway — I read the output as noise because my own `echo "(empty=clean)"` came
+  after it. And every commit this session was piped through `| tail -3` or
+  `| tail -4`, which **discards the yellow commit-scope block** — the advisory
+  report whose entire purpose is to list what a commit actually contains so you can
+  spot exactly this. I disabled my own smoke alarm for brevity, sixteen times.
+  **The cheap checks, in order of how much they would have saved:** (1) do not pipe
+  `git commit` through `tail` — read the scope block, it is short and it is the
+  point; (2) when `git status` on your target path prints anything at all, stop and
+  read it before writing; (3) for an append-only fleet ledger specifically, expect
+  contention — several sessions append to `WRONG_CALLS.md` and `LANDMINES.md` daily.
+  **Nothing is lost and forward-only holds** — their two entries are in git under my
+  message, which is a review/bisect problem, not a data one. Recorded here so the
+  other session can find their work, and because "I followed the pathspec rule" is
+  not the same as "I checked what the commit contained".
