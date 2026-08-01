@@ -2766,3 +2766,20 @@ from its own template and runs `ufw --force reset`. A catch-all must go into its
 stage-2 template as well, or the exposure returns silently on the next rebuild.
 
 - **source:** 2026-08-01, `idea_uk_vm_site/RUNNING_NOTES` §X.34 + RUNBOOK §4a-bis; confirms and explains §5 of `idea_uk_vm_site/HANDOFF_2026-07-31_cloudflare_decision.md`
+
+### `output_format` means two different things, and on an LLM step it now BUYS A SECOND LLM CALL
+
+- **footprint:** `output_format`, `output_type`, `getOutputType`, `llmOutputVocabulary`, `platform/orchestration/actions/ai_actions.go`, `platform/orchestration/actions/database_actions.go`
+- **fires when:** you add or change `output_format` on a workflow step, or you widen the LLM output vocabulary because "a value is being ignored".
+- **the tell:** everything looks right. The key was ignored for months and the steps still worked — 782 of 785 JSON-declared outputs already parsed — so a wrong value here produces no error, just a wrong instruction set or a silent doubling of that step's LLM spend on its failure path.
+- **the check:** **one key name, two vocabularies, two actions.** On `execute_llm_prompt` it means `json|text|html|markdown` (`getOutputType`, allow-listed). On `query_database` it means `array|object` (`database_actions.go:26`). They are unrelated and must never be merged — widening `llmOutputVocabulary` to accept `array` would let a database step's declaration select an LLM instruction set. Before touching either, confirm which action the step runs:
+  ```sql
+  SELECT ad.type, s.key, s.value->>'action', s.value->'config'->>'output_format'
+  FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s(key,value)
+  WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+    AND s.value->'config' ? 'output_format';
+  ```
+  **And know what you are buying:** since `4c1a97874` (WFA-005), `output_format: json` on an LLM step means BOTH "append the JSON instructions" AND "re-ask once if the answer will not parse". That is correct for a step that genuinely needs JSON and wrong for one that declared it loosely and is happy with prose — the second case pays for a retry it does not want, and nothing will tell you. `output_type` takes precedence over `output_format` when both are non-empty.
+- **the sibling trap:** the reverse of how this was found. `output_format` was written by **100** live steps and read by **nothing** in the LLM path, while `output_type` — the key the code actually read — was written by **6**. A declared-and-inert key is indistinguishable from a live one by inspection, so `grep -rn '"<the key>"' --include=*.go .` before believing any config key does what its name says (`bugs_open/134` is the same class).
+- **source:** `bugs_open/119` §3, `bugfix_119_seat_retry/NOTES_seat_retry.md`, register WFA-005
+- **added:** 2026-08-01, bugs_open/119 seat-retry lane
