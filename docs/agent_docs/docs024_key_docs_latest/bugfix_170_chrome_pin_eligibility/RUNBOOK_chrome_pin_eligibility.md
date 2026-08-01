@@ -95,8 +95,18 @@ cp <only the files you changed> "$T/<same paths>"
 cd "$T" && go build ./... && go test ./platform/...
 ```
 
-**Gotcha:** check `df -h /tmp` first — the archive tree is ~1GB and /tmp is a 16G
-tmpfs that other sessions are also using (it was at 89% on 2026-08-01).
+**Gotcha, and I walked into it AFTER writing this line:** check `df -h /tmp` first
+**and `rm -rf` the tree when you are done** — the archive tree is ~1GB and /tmp is a
+16G tmpfs several sessions share (89% when this lane started, 94% by the end). Two
+trees left lying around took it to full, and the resulting failure is
+`link: mapping output file failed: no space left on device` / `compile: writing
+output: ... no space left on device` **reported as `FAIL <package> [build failed]`** —
+which reads exactly like your change breaking the build at HEAD. It was not. Re-run
+after cleaning up before you believe a HEAD verification failed:
+
+```bash
+rm -rf "$T" && df -h /tmp | tail -1     # before AND after
+```
 
 ## R6 — prove a scan test actually fires (and that a FAIL is an assertion)
 

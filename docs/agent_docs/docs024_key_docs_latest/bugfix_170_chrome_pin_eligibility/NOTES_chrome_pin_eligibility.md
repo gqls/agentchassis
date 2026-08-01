@@ -246,3 +246,18 @@ Both concern edit 4's `needs_human_review` / no-handler routing.
 **No amend, and none needed:** the commit carries `Council-Submitted:`, and `098`
 resolves the correlation at report time, so `e44e6dd06` is credited automatically now
 the verdict is approved. Forward-only holds.
+
+### Misstep 4 — I hit the trap my own RUNBOOK had already written down
+
+The final HEAD verification came back `FAIL github.com/gqls/agentchassis/platform/
+orchestration/actions [build failed]`. The cause was `no space left on device`: I had
+left two ~1GB `git archive` trees in a 16G tmpfs that several sessions share (89% at
+the start of this lane, 94% by the end). RUNBOOK §R5 already said "check `df -h /tmp`
+first". I wrote that line and then did not do it.
+
+Worth recording for the shape rather than the tidiness: **a disk-exhausted build
+reports as `[build failed]`, which is indistinguishable at a glance from your change
+breaking HEAD** — and it arrives at exactly the moment you are looking for that. The
+real output is three lines up (`link: mapping output file failed`). Cleaned up,
+re-ran, HEAD builds clean and every actions test passes at `e4e003f13`. §R5 now says
+to clean up after, not just to look before.
