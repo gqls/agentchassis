@@ -336,9 +336,15 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		zap.String("template_preview", datahelpers.TruncateString(promptTemplate, 300)),
 		zap.String("rendered_preview - renderedPrompt", datahelpers.TruncateString(renderedPrompt, 400)))
 
-	// Append output format instructions based on output_type
-	// Check both step config and ai_service config for output_type
+	// Append output format instructions based on the declared output type
+	// Check both step config and ai_service config
 	renderedPrompt = appendOutputInstructions(renderedPrompt, aiServiceConfig, params.StepConfig.Config, params.Logger)
+
+	// What this step SAID it must produce, resolved by the same single rule the
+	// instructions above use. Captured here so the parse-failure path can tell a
+	// step that needs JSON and did not get it from one that is happy with prose
+	// (bugs_open/119).
+	declaredOutputType := resolveOutputType(params.StepConfig.Config, aiServiceConfig)
 
 	// Prepare AI service options
 	options := make(map[string]interface{})
@@ -696,6 +702,132 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// ship a blank section rather than silently emptying it. See
 	// json_envelope.go and HANDOFF_2026-07-14_article_body_json_envelope.md.
 	parsedResult, provenance, parseErr := ParseLLMJSONWithProvenance(cleanedResult)
+
+	// ── One corrective re-ask when a JSON-declaring step got unusable output ──
+	// bugs_open/119. Until this existed the platform retried a call that never
+	// ARRIVED (the 500/502/503/529 ladder ~100 lines above, four attempts with
+	// backoff) and accepted without question a call that arrived UNUSABLE. That
+	// asymmetry is the whole defect: for a step that declared it needs JSON, a
+	// response that will not parse is not a lesser answer, it is no answer.
+	//
+	// What it costs the council, measured 2026-08-01 over all 424 rounds in
+	// diagnosis_artifacts: 23 were decided by "unreadable reviewer(s)" rather
+	// than by any judgement — 15 of them in the last week alone, across SEVEN
+	// different seats. One submission (correlation c5219a69) burned three
+	// consecutive rounds to the same seat in ten minutes, because nothing
+	// re-asked and every retry was a fresh round of 10-13 seats.
+	//
+	// Scope is deliberately narrow, so this cannot become a general "retry
+	// everything" that doubles fleet cost:
+	//   - only when the step DECLARED output_format/output_type json, so a step
+	//     that legitimately returns prose is untouched;
+	//   - only when the answer failed to parse, i.e. only on a path that is
+	//     already producing a result the consumer cannot use;
+	//   - exactly ONE extra attempt, never a ladder.
+	// Measured cost of that scope: across 785 JSON-declared step outputs in the
+	// live orchestration window, 2 failed to parse. This fires twice, not 785
+	// times.
+	//
+	// The re-ask is CORRECTIVE rather than identical, because an identical
+	// re-ask reproduces the failure — c5219a69 proved that three times running.
+	// Note what it deliberately does NOT do: raise max_tokens. That is not an
+	// oversight, it is aiservice/truncation.go:26-29's stated position —
+	// "whatever the number, the step that writes most approaches it on the work
+	// most worth doing" — so the retry asks for the same judgement SHORTER
+	// instead of buying headroom that the next long review will eat anyway.
+	//
+	// If the re-ask also fails, every line below runs exactly as it did before
+	// this block existed. bugs_open/019's downgrade contract and 138's salvage
+	// path are untouched: an unreadable seat still blocks an approval, it just
+	// gets one chance to be readable first.
+	if parseErr != nil && declaredOutputType == "json" {
+		params.Logger.Warn("LLM response would not parse and this step declared output json — re-asking ONCE before giving up (bugs_open/119)",
+			zap.String("step_name", params.ExecutionContext.StepName),
+			zap.String("agent_type", params.AgentType),
+			zap.Bool("first_attempt_truncated", truncationTolerated),
+			zap.Int("response_len", len(cleanedResult)),
+			zap.Error(parseErr),
+		)
+
+		reaskPrompt := correctiveReaskPrompt(renderedPrompt, truncationTolerated)
+		reaskStart := time.Now()
+		reaskResult, reaskErr := aiClient.GenerateText(ctx, reaskPrompt, options)
+
+		// The re-ask can itself truncate. Honour the same opt-in the first
+		// attempt did — a step that tolerates a partial tolerates it twice, and
+		// one that does not still fails loud.
+		reaskTruncated := false
+		reaskTruncatedTokens := 0
+		if reaskErr != nil {
+			if te, isTrunc := aiservice.IsTruncated(reaskErr); isTrunc &&
+				datahelpers.GetBoolField(params.StepConfig.Config, "tolerate_truncation", false) {
+				reaskResult = te.Partial
+				reaskTruncated = true
+				reaskTruncatedTokens = te.OutputTokens
+				reaskErr = nil
+			}
+		}
+
+		// One call, one forensic row — the same rule the first attempt follows.
+		// Marked in error_message so a census can separate re-asks from first
+		// attempts without joining anything (llm_call_log has no attempt column).
+		reaskLogErr := "RETRY (bugs_open/119: first attempt did not parse)"
+		if reaskErr != nil {
+			reaskLogErr = "RETRY (bugs_open/119) FAILED: " + reaskErr.Error()
+		} else if reaskTruncated {
+			reaskLogErr = "RETRY (bugs_open/119) TRUNCATED and tolerated"
+		}
+		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+			AgentType:       params.AgentType,
+			AgentID:         params.Headers["agent_id"],
+			StepName:        params.ExecutionContext.StepName,
+			OrchestrationID: params.ExecutionContext.OrchestrationID,
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			Model:           modelAlias,
+			ModelResolved:   resolvedModel,
+			Provider:        provider,
+			PromptTemplate:  promptTemplate,
+			PromptRendered:  reaskPrompt,
+			ResponseText:    reaskResult,
+			LatencyMs:       int(time.Since(reaskStart).Milliseconds()),
+			Success:         reaskErr == nil && !reaskTruncated,
+			ErrorMessage:    reaskLogErr,
+			Temperature:     sentTemperature,
+			MaxTokens:       sentMaxTokens,
+			WorkItemID:      flywheelWorkItemID,
+			Vertical:        flywheelVertical,
+			RAGContextUsed:  flywheelRAG,
+			Options:         options,
+		})
+
+		if reaskErr != nil {
+			params.Logger.Warn("bugs_open/119 re-ask failed — falling through to the pre-existing text path",
+				zap.Error(reaskErr))
+		} else {
+			reaskCleaned := stripMarkdownFromResponse(reaskResult)
+			if rp, rprov, rerr := ParseLLMJSONWithProvenance(reaskCleaned); rerr == nil {
+				params.Logger.Info("bugs_open/119 re-ask RECOVERED a parsable response — the round is not lost",
+					zap.String("step_name", params.ExecutionContext.StepName),
+					zap.String("provenance", rprov),
+					zap.Bool("retry_truncated", reaskTruncated),
+				)
+				// Adopt the recovered answer wholesale, including its truncation
+				// state: the marker must describe the response actually returned,
+				// not the one that was thrown away, or a consumer degrades on the
+				// wrong evidence.
+				parsedResult, provenance, parseErr = rp, rprov, nil
+				cleanedResult = reaskCleaned
+				truncationTolerated = reaskTruncated
+				truncatedTokens = reaskTruncatedTokens
+			} else {
+				params.Logger.Warn("bugs_open/119 re-ask still would not parse — falling through to the pre-existing text path",
+					zap.Error(rerr),
+					zap.Int("retry_response_len", len(reaskCleaned)),
+				)
+			}
+		}
+	}
+
 	if parseErr != nil {
 		params.Logger.Warn("LLM response holds no complete JSON value — returning as text (a required-content step will fail loud downstream)",
 			zap.Error(parseErr),
@@ -729,6 +861,53 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	markEnvelopeRecovered(out, provenance)
 	markTruncated(out, truncationTolerated, truncatedTokens)
 	return out, nil
+}
+
+// correctiveReaskPrompt builds the single re-ask sent when a JSON-declaring step
+// got an unusable answer (bugs_open/119).
+//
+// It appends to the ORIGINAL prompt rather than replacing it: the seat still has
+// to answer the same question, and a prompt that carried only "fix your JSON"
+// would ask a reviewer to re-judge a plan it can no longer see. It also does not
+// echo the broken output back — the two failure modes are a response that was cut
+// off (there is nothing useful to quote) and one that is complete but malformed
+// (quoting it invites the model to edit its own mistake rather than re-answer).
+//
+// The corrective text is chosen by WHICH failure occurred, because the two have
+// opposite remedies and a single generic "please return valid JSON" would be
+// useless against a truncation:
+//
+//   - truncated  -> the answer was too LONG and was lost; ask for the same
+//     judgement, materially shorter. Deliberately NOT a token-cap raise; see
+//     platform/aiservice/truncation.go:26-29.
+//   - malformed  -> the answer was complete but not parsable; ask for the same
+//     content as one valid JSON value. This is the case bugs_open/119 documents
+//     verbatim — a review object closed one bracket early, leaving a stray "]".
+func correctiveReaskPrompt(basePrompt string, wasTruncated bool) string {
+	if wasTruncated {
+		return basePrompt + `
+
+── RETRY — YOUR PREVIOUS ANSWER WAS DISCARDED ──
+Your previous response to this exact prompt was CUT OFF at the output token limit
+and could not be used, so it counted for nothing. This is your one retry.
+
+Give the SAME judgement again, materially SHORTER.
+Keep every finding you believe in: cut words, never findings.
+Drop preamble, restate nothing back to the author, and shorten prose fields first.
+Output ONLY the single JSON value the prompt asks for: start with { or [, end with
+} or ], no markdown fences, no commentary.`
+	}
+	return basePrompt + `
+
+── RETRY — YOUR PREVIOUS ANSWER WAS DISCARDED ──
+Your previous response to this exact prompt was NOT VALID JSON and could not be
+parsed, so it counted for nothing. This is your one retry.
+
+Give the SAME answer again as ONE valid JSON value. Check the structure before you
+finish: every { closed by exactly one }, every [ closed by exactly one ], no stray
+or duplicated brackets, no trailing commas, all strings quoted and escaped. Output
+ONLY that JSON value: start with { or [, end with } or ], no markdown fences, no
+commentary before or after.`
 }
 
 // markEnvelopeRecovered stamps how a non-clean response was recovered, so a
@@ -860,16 +1039,25 @@ func getTemplateDataKeys(m map[string]interface{}) []string {
 	return keys
 }
 
-// appendOutputInstructions adds format-specific instructions based on output_type
-// Checks both step config and ai_service config for output_type
-func appendOutputInstructions(prompt string, aiConfig map[string]interface{}, stepConfig map[string]interface{}, logger *zap.Logger) string {
-	// Check step config first (where it's typically defined in workflow)
-	outputType := getOutputType(stepConfig)
-
-	// Fallback to ai_service config
-	if outputType == "" {
-		outputType = getOutputType(aiConfig)
+// resolveOutputType applies the step-then-ai_service precedence in ONE place.
+//
+// Deliberately extracted rather than inlined twice: the parse-failure retry
+// (bugs_open/119) has to ask the same question this function answers — "did this
+// step declare that it needs JSON?" — and two implementations of one resolution
+// rule that must agree is precisely the drift class the council gate exists to
+// catch. One rule, two callers.
+func resolveOutputType(stepConfig, aiConfig map[string]interface{}) string {
+	// Step config first (where it is typically defined in the workflow).
+	if outputType := getOutputType(stepConfig); outputType != "" {
+		return outputType
 	}
+	return getOutputType(aiConfig)
+}
+
+// appendOutputInstructions adds format-specific instructions based on the
+// declared output type (see getOutputType for which config keys that means).
+func appendOutputInstructions(prompt string, aiConfig map[string]interface{}, stepConfig map[string]interface{}, logger *zap.Logger) string {
+	outputType := resolveOutputType(stepConfig, aiConfig)
 
 	if outputType == "" {
 		// No specific output type, use default clean output instructions
@@ -887,10 +1075,47 @@ func appendOutputInstructions(prompt string, aiConfig map[string]interface{}, st
 	return prompt + instructions
 }
 
-// getOutputType extracts output_type from config
+// llmOutputVocabulary is the set of output types this action knows how to write
+// instructions for. It exists to make the output_format fallback below SAFE, and
+// it is load-bearing rather than defensive tidiness: `output_format` is not a
+// name this action owns. `query_database` reads the SAME KEY with a DIFFERENT
+// vocabulary — "array"/"object" (database_actions.go:26) — so a blind
+// pass-through would one day hand getOutputInstructions a value that means
+// something else entirely and select a wrong instruction set. An unrecognised
+// value falls through to the default instructions, which is exactly what it
+// gets today.
+var llmOutputVocabulary = map[string]bool{
+	"json": true, "text": true, "html": true, "markdown": true,
+}
+
+// getOutputType extracts the declared output type from a step or ai_service config.
+//
+// It reads TWO keys, and the second one is a repair rather than a convenience
+// (bugs_open/119). The code has always read `output_type`; the fleet has almost
+// always written `output_format`. Measured 2026-08-01 across all 134 active
+// `execute_llm_prompt` steps: `output_type` is set on **6**, `output_format` on
+// **100** (90 of them "json", across 32 agents — every council seat among them).
+//
+// So for as long as this function read one key, ~75% of LLM steps declared an
+// output contract that nothing honoured, and silently received
+// getDefaultOutputInstructions() — which says nothing whatsoever about JSON. The
+// instruction those 90 steps were missing is "Ensure valid JSON syntax (proper
+// quotes, commas, brackets)", which is the exact failure bugs_open/119 was filed
+// for: a seat closing its review object one bracket early.
+//
+// This is the `bugs_open/134` class — a config key that is declared and inert
+// looks identical to one that is live — and the remedy is to make the key the
+// fleet actually writes mean what it says, not to migrate 100 config rows to a
+// spelling the fleet has never used.
 func getOutputType(config map[string]interface{}) string {
-	if outputType, ok := config["output_type"].(string); ok {
+	if outputType, ok := config["output_type"].(string); ok && outputType != "" {
 		return outputType
+	}
+	// The key the fleet actually writes. Vocabulary-gated — see above.
+	if outputFormat, ok := config["output_format"].(string); ok {
+		if llmOutputVocabulary[strings.ToLower(strings.TrimSpace(outputFormat))] {
+			return strings.ToLower(strings.TrimSpace(outputFormat))
+		}
 	}
 	return ""
 }
