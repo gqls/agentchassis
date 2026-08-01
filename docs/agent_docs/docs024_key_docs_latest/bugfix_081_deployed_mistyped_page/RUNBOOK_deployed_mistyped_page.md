@@ -168,3 +168,65 @@ SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
 WHERE correlation_id='ccd4384c-aff9-45ed-80b2-01c3ced573bb' AND kind='council_report'
 ORDER BY created_at;
 ```
+
+## Prove a "nothing was written" test is not a decoration (do this EVERY time)
+
+**`mock.ExpectationsWereMet()` does NOT mean "no database call happened."** It
+reports expectations that were *registered and not consumed*; it never sees an
+*extra* call. This lane shipped a test asserting the opposite and it was vacuous.
+The only check that distinguishes a guard from a decoration is to break the thing
+it guards:
+
+```bash
+cp platform/orchestration/actions/apply_gap_plan_action.go /tmp/agp.bak
+# insert into refuseDeployedPageTypeConflict, before the block-UPDATE:
+#   tx.ExecContext(ctx, `UPDATE pages SET title = $2 WHERE id = $1`, pageID, "induced")
+go test ./platform/orchestration/actions/ -run 'TestApplyNewPage_DeployedTypeConflictIsRefused'
+# REQUIRED: --- FAIL ... "UPDATE pages SET title = $2 WHERE id = $1" with expected regexp "UPDATE site_work_items"
+# If it says ok, the test is a decoration — fix the TEST, not the expectation.
+cp /tmp/agp.bak platform/orchestration/actions/apply_gap_plan_action.go
+```
+
+**Why it fails now and did not before:** the assertion is carried by the
+production code checking and propagating every statement's error, not by the
+mock. An unexpected statement inside the transaction errors,
+`resolveNewPageConflict` returns it, `applyNewPage` returns it, the test's
+`t.Fatalf` fires. **A discarded `Exec` error therefore disarms the test that
+guards it** — which is a reason to check errors quite apart from production
+correctness.
+
+## Answering the council's standing questions cheaply
+
+These four came back as objections and each is one query. Run them before
+submitting, not after.
+
+```sql
+-- does anything actually consume this action's result fields?
+SELECT type FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND default_config::text LIKE '%apply_gap_plan%';
+-- and does any definition BRANCH on them?
+SELECT type FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND default_config::text ~ '"applied"|page_created';
+
+-- can a needs_human_review row be claimed by the dispatch loop? (grep, not SQL)
+--   claim_work_item_action.go:102  AND status IN ('triaged', 'approved')
+--   load_work_item_actions.go:632  AND wi.status IN ('triaged', 'approved')
+
+-- does pages.build_status really carry the literal 'deployed'?
+-- (site_components.build_status does NOT — it is 'rendered'. Different table.)
+SELECT COALESCE(build_status,'(null)'), count(*) FROM pages GROUP BY 1;
+
+-- is the new item_type genuinely never observed?
+SELECT count(*) FROM site_work_items WHERE item_type='mistyped_deployed_page';
+```
+
+**And the sibling census** — the `bug_historian` seat will ask whether the shape
+recurs, so answer it first:
+
+```bash
+grep -rn "ON CONFLICT (site_id, name)" --include=*.go platform/ internal/
+# then read each DO UPDATE SET and diff its column list against the INSERT's.
+# 2026-08-01: four omit page_type, one includes it. Censused in bugs_open/172.
+```
