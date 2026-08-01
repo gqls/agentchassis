@@ -165,3 +165,38 @@ Acted on rather than filed away: a lockstep drift alarm for the status literals
 **Second sweep of the day:** this LANDMINES append also reached HEAD inside another lane's
 commit (`4c6387139`, the 167 lane) before my own pathspec commit ran. Same as the earlier
 one — nothing lost, recorded rather than repaired.
+
+## 2026-08-01 — live, verified, closed
+
+`v1.0.1225` carries it. Gated in the right order and it mattered: **pod-grep BOTH replicas
+first** (`site_dispatchable`=3, control=1, same exec), **then** apply migration 281. Had the
+grep come back 0 — as it did on `v1.0.1223` the night before, which rolled without the commit
+— applying would have sent every run down the clean branch.
+
+Migration applied 08:03Z: pre-flight `1`, `snapshot_agent` captured `source_version=1` into
+`agent_definitions_backup`, `UPDATE 1`, verify-before-commit printed the new condition,
+`COMMIT`. Then `--record-only` — and the runner **refuses to record a `_HOLD` sidecar**, which
+is the right refusal (a held file is not an applied one), so the rename came off first. That
+ordering is worth remembering: hold with the suffix, apply, drop the suffix, record.
+
+The verification run (`21669589`, same site, same script) is the after half of a matched pair:
+
+```
+before  911ecdd8  v1.0.1218  parent promoted 0, has_items false, no such key -> complete_clean, 0 rerenders
+after   21669589  v1.0.1225  parent promoted 0, has_items false, site_dispatchable true / 42 -> complete, 1 rerender
+```
+
+**The input to the branch is identical in both runs.** I did not have to construct the failing
+condition — the platform produces it every time, which is the whole bug — so the pair is an
+induction, not a demonstration. The artefact: `needs_rerender` /
+`improvement_rerender_vetcomparison.uk` / priority 99 / handler `rerender-pages`, created
+`08:07:31.78Z`, the same second the branch fired. Checked beforehand that no non-terminal
+`improvement_rerender%` row existed on that site, so dedup could not have suppressed it and
+its presence is a clean signal rather than a survivor.
+
+One thing I nearly got wrong: mid-run I read the clock as ~7 minutes elapsed and started
+wondering whether the LLM audit had hung (`bugs_open/029`'s shape). It had been 2.5 minutes. I
+had compared a `date` from one command against an `updated_at` remembered from another.
+**Read both clocks in the same breath** — `SELECT now()` beside the row, or `date -u` in the
+same command — which is already in `WRONG_CALLS.md` from another lane in a different costume.
+Caught before it cost anything, which is the only reason it is here and not there.
