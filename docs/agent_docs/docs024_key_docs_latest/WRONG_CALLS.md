@@ -15597,3 +15597,86 @@ travelled with credible ones. Corrected to the user in the next message.
   resolveNewPageConflict`). HEAD was clean, proven by building a `git archive HEAD`
   extraction rather than by assuming. On this tree "the build is broken" and "my commit is
   broken" are different claims, and only the HEAD build distinguishes them.
+
+- **I wrote "this assertion proves nothing was written to the DB" into four documents, and the
+  assertion proved nothing at all.** Fixing `bugs_closed/081` on 2026-07-31 I added a test whose
+  stated load-bearing claim was that `mock.ExpectationsWereMet()` would fail if the refusal path
+  issued an `UPDATE pages`. I put that claim in the test file's header, in the bug file, in
+  `016b` §9, in the commit message and in the council submission. **It is false.**
+  `ExpectationsWereMet` reports expectations that were REGISTERED AND NOT CONSUMED — it never
+  sees an EXTRA call. And because my production code discarded the `Exec` error, sqlmock's own
+  complaint about the unexpected statement went nowhere either.
+  **Measured, not reasoned:** I added `UPDATE pages SET title=$2 WHERE id=$1` to the refusal
+  path and ran the test. `ok ... 0.017s`. The guard was a decoration, and it was a decoration in
+  the same commit where I wrote three paragraphs about how tests must be paired so a guard
+  cannot be vacuous. **I had the general principle and still shipped the specific instance of
+  it** — pairing the tests told me nothing about whether either test could fail.
+  **Caught by** a `LANDMINES.md` entry another session appended hours earlier (`bugs_open/162`'s
+  lane) saying exactly this about exactly this API. I only read it because the pre-commit
+  pattern check flagged my own commit for removing lines from an append-only ledger — the
+  removal was that session's heading-level edit riding in on my pathspec, so **a hook firing
+  about an unrelated thing is what surfaced the correction.** Nothing about my own work would
+  have.
+  **The cheap check, and it is the whole lesson: break the thing the test guards and watch it
+  fail.** One minute. It is the only thing that distinguishes a guard from a decoration, and no
+  amount of reasoning about the test's structure substitutes for it. The fix was not a better
+  assertion — it was making the production code check and propagate every statement's error, so
+  an unexpected call reaches the caller. Re-induced afterwards: the same edit now fails the test.
+
+- **I claimed "no active agent_definition branches on this field" in a council submission with no
+  query attached, and the `prior_art_librarian` seat called it.** In `081`'s risks I wrote
+  "Checked before writing: no active agent_definition branches on this action's `applied`
+  field" — I had grepped, but I attached nothing, and I had already marked it `[UNMEASURED]` in
+  my own NOTES, which means I knew the difference and submitted it anyway. The seat's objection
+  was that a load-bearing absence claim needs its lookup, because absence is the class of claim
+  that goes stale and cannot be re-derived by a reader.
+  **The check took thirty seconds and made the claim stronger than I had stated it:** exactly
+  ONE active definition uses `apply_gap_plan` (`content-gap-planner`), its step is
+  `"next_step": "complete"` unconditionally, and ZERO active definitions mention `applied` or
+  `page_created`. **An absence worth relying on is worth the query that produced it** — and
+  attaching it would have cost less than the objection did.
+
+---
+
+## 2026-08-01 — I asserted a sibling table inherits a feature, inside a block where everything else was measured
+
+**The claim.** Updating `bugs_open/165` after finishing site A, I wrote that the
+locked-row correction "**applies to B as much as to A — `site_nav_items` carries
+the same lock columns**". It was written as guidance to the next thread: exclude
+locked rows from site B's denominator too.
+
+**What was actually true.** `site_nav_items` has **no lock columns at all**.
+Caught by site B's converter reading `\d site_nav_items` while designing exactly
+the denominator my line was telling them to build. Verified independently here:
+
+```sql
+SELECT table_name, string_agg(column_name,', ') FROM information_schema.columns
+WHERE table_name IN ('site_nav_items','site_nav_groups','page_components')
+  AND (column_name ILIKE '%lock%' OR column_name ILIKE '%owned%' OR column_name ILIKE '%writable%')
+GROUP BY 1;
+-- page_components | locked_at, locked_by, lock_type, lock_expires_at
+-- (site_nav_items and site_nav_groups: no rows)
+```
+
+**Why it is worth an entry rather than a shrug.** Every *other* figure in that
+update block was measured — 998 of 1,009 slot groups, 89 shrinkages, 4 of 2,620
+transitions, 0 of 238 pages. The one unmeasured claim sat among them, in the same
+voice, and **inherited their credibility**. That is precisely the asymmetry
+CLAUDE.md's "mark the UNVERIFIED ones too" exists for: the rule about evidence
+inline makes a checked claim *look* checked and does nothing to make an unchecked
+one look unchecked.
+
+It is also the more dangerous shape of wrong claim: **directive**. It did not just
+state a fact, it told the next thread what to build. Its reader was the one person
+guaranteed to act on it.
+
+**The cheap check that would have caught it:** `\d site_nav_items` — seconds, and
+I had a psql session open throughout. Or simply typing `[ASSUMED]` in front of it,
+which by the standing rule is itself the check, because writing the marker is what
+makes you go and run the query instead.
+
+**Tally note.** Same family as the 2026-07-31 entry above (a filtered count
+shipping inside a denominator), but the failure is upstream of measurement rather
+than inside it: there, I measured the wrong thing; here, I did not measure at all
+and the surrounding measurements disguised it. The recurring check across both is
+**mark the claim before you write the paragraph, not after**.
