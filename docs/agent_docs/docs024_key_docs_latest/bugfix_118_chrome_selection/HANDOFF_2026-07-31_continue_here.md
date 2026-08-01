@@ -1,65 +1,41 @@
 # HANDOFF — bugfix_118_chrome_selection — continue here
 
-**Written 2026-07-31 ~21:50 UTC.** Read this first, then `NOTES_chrome_selection.md`
+**Written 2026-07-31 ~21:50 UTC; UPDATED 2026-08-01 08:15 UTC — the lane closed.**
+Read this first, then `NOTES_chrome_selection.md`
 (the technical log, newest at the bottom) and `SUMMARY_2026-07-31b_chrome_selection.md`
 (current state, written to be read aloud).
 
-## State in one paragraph
+## State in one paragraph — THIS LANE IS DONE
 
-`bugs_closed/118` is **DONE** — one chrome-eligibility predicate, live and
-pod-verified on `v1.0.1219`, council APPROVED at round 1, and the fleet repointed on
-the owner's ruling (21 assignments, 28/28 header+footer slots now render from an
-ACTIVE component). `bugs_open/166` — the repair that could never repair — is **FIXED
-IN CODE and committed** (`39afbf697`), **awaiting a council verdict and a roll**.
-`bugs_open/167` is filed and untouched (owner call). Nothing is half-edited; the
-working tree is clean of this lane's work.
+**Both bugs are CLOSED, LIVE and PROVEN.** `bugs_closed/118` (one chrome-eligibility
+predicate) is live on `v1.0.1219`; `bugs_closed/166` (the repair that could never
+repair) is live on `v1.0.1225`, council-APPROVED at round 2, and proven by an induced
+fault on the failing branch. The fleet was repointed on the owner's ruling — 28 of 28
+header/footer slots render from an active component. `bugs_closed/167` was taken and
+fixed by another lane the same evening. **Nothing in this lane is owed to anyone.**
 
-## THE ONE THING OWED RIGHT NOW — verify 166 at the pod after the next roll
+The one thing still standing between this work and a visitor is not ours: **195
+`page_rerender` items have been stuck at `triaged` since 2026-07-31 19:25 UTC** (13+
+hours), so stored chrome is correct everywhere and deployed pages still serve the old
+footer. That is `bugs_open/149`'s lane. Do not read "28/28 slots active" as "the fleet
+looks right".
 
-**Read the council verdict for `e242e9d3-1e5a-4b14-a16f-fbff9ca86d35` and act on it.**
-The code is already on the shared branch under a `Council-Submitted:` trailer, which
-is correct for a pre-verdict commit (098 credits it automatically once approved, no
-amend needed). **RESOLVED 2026-07-31 ~22:00 UTC: round 1 REVISE → answered → round 2 APPROVED**
-(6 advisory, none high, all answered in `4ba946e8b`). The commit carries
-`Council-Reviewed:`. **Nothing is owed to the council on this lane.**
+## What is left, and none of it is this lane's
 
-What IS owed is the roll: `bugs_open/166` is fixed, approved and **inert** until a
-chassis image ships, which is the only reason it is still in `bugs_open/`.
-
-```sql
-SELECT current_step, status FROM orchestration_states
- WHERE collected_data->'input_data'->>'fix_correlation_id' = 'e242e9d3-1e5a-4b14-a16f-fbff9ca86d35';
-SELECT metadata->>'decision', body FROM diagnosis_artifacts
- WHERE correlation_id='e242e9d3-1e5a-4b14-a16f-fbff9ca86d35' AND kind='council_report'
- ORDER BY created_at DESC LIMIT 1;
-```
-
-- **APPROVED** → answer any medium objections in code where they earn it (that is what
-  the 118 round did: 3 of 5 earned edits), then commit with
-  `Council-Reviewed: e242e9d3-1e5a-4b14-a16f-fbff9ca86d35`.
-- **REVISE** → the objections come back with the reviewers' own checks already
-  answered. Resubmit with `RESUBMIT_CORR=e242e9d3-…` so the trail accumulates.
-- **NEVER** write `Council-Reviewed:` on a verdict you have not read — that is the
-  coverage report's dishonesty surface.
-
-**Round 1's outcome, so you do not have to re-read the report: it stopped a
-genuinely damaging change.** My repoint trigger was "not ELIGIBLE chrome", which
-matched three live rows it must not have — `idea.uk`'s section-level header and
-footer, and **`leopardessconsulting.co.uk`'s own ACTIVE FORK**, which my code would
-have replaced with the house header on the next render. Narrowed to `NOT is_active`
-(RETIREMENT), which is exactly what `deactivated_site_components` detects.
-Eligibility decides what may be CHOSEN as a default; retirement decides what may no
-longer be SERVED. **Do not widen it back** — two tests and a source-level assertion
-guard that, and `WRONG_CALLS` 2026-07-31 (late) carries the full account.
-
-**The objection that may still come**, because the submission flags it as risk #1 itself:
-`render_site_components` now REASSIGNS an assigned-but-ineligible slot where before it
-only assigned an UNASSIGNED one. That widens what a shared action promises its
-callers. If the architecture or guardian seat calls that architecture-scope, the
-answer is **not** to resubmit with better measurements — it is to route it to
-`architecture_review/` on its own merits (CLAUDE.md, "a veto on SCOPE is not answered
-by resubmitting"). The precedent in its favour: the owner ruled today to do exactly
-this repoint by hand, 21 times.
+1. **`bugs_open/170`** — the style-collection PIN (`style_collections.header_component_id`)
+   applies no eligibility predicate at all; three deployed sites are pinned to a
+   deactivated header. Filed by the `bugfix_167_chrome_build_path` lane, who found the
+   path this lane's census missed. **Owner call** (repointing is a visible markup
+   change). ⚠ **`forked_from IS NULL` is RIGHT for pool selection and WRONG for a pin** —
+   pinning a site to its own fork is the intended use, and copying the pool predicate
+   makes the detector's first output a false positive against the only correctly
+   configured site.
+2. **No active `head` component exists fleet-wide.** 13 head slots point at deactivated
+   ones; `repointRetiredChromeSlot` correctly declines rather than churn them, and logs
+   at ERROR **with a full stacktrace** on every render of those sites. Activating one
+   changes every page's `<head>`, so it wants the one-site-first treatment the footers
+   got. **Data call, not code** — and it is what silences the stacktraces.
+3. The stuck rerender queue above.
 
 ## What shipped, so you do not re-derive it
 
@@ -68,7 +44,7 @@ this repoint by hand, 21 times.
 | One chrome predicate + `ResolveChromeComponent` + `ChromeSlotFunction` | `component_library.go` | LIVE v1.0.1219, pod-verified both replicas |
 | Two assignment call sites routed through it | `render_site_components_action.go`, `link_site_components_action.go` | LIVE |
 | `GetComponentByFunction` given `ORDER BY name` (answer measured unchanged) | `component_library.go` | LIVE |
-| `repointRetiredChromeSlot` + build_status-aware idempotence exit | `render_site_components_action.go` | committed `39afbf697`, **narrowed at round 1 in `60fd06e68`**, inert until a roll |
+| `repointRetiredChromeSlot` + build_status-aware idempotence exit | `render_site_components_action.go` | **LIVE v1.0.1225**, both replicas, induced-fault proven |
 | Tests incl. source-scanning lockstep + ordering assertion | `chrome_selection_test.go` | green, non-vacuity proven by induced fault |
 | Concept register | **CLC-013** in `register/component-lifecycle.md` | includes the 166 extension |
 | §9 pattern + §10 rows for 118/166/167 | `016b_debugging_guide_8_consolidated.md` | done |
