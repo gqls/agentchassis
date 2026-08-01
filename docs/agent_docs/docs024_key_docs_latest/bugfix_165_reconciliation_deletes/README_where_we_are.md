@@ -83,3 +83,68 @@ One thing I needed a decision on and got it: the machine's temporary disk was
 completely full — 13GB of leftover scratch from 125 past sessions — and commands
 were failing mid-run. I cleared the ~4GB belonging to sessions that had been
 finished for over six hours, leaving anything recent alone.
+
+---
+
+**2026-08-01, morning.**
+
+The guard is finished, it is running in production, and we have watched it do
+both of the things it is supposed to do. That is the headline; the rest of this
+is what it cost and what it turned up.
+
+Proving it needed a bit of theatre. The whole point of this guard is that it does
+nothing at all when everything is healthy — so a successful run tells you
+absolutely nothing about whether it works. The only real test is to deliberately
+break something and watch it refuse. So I took a page on one of our sites, told
+the system the page was supposed to have twenty sections when it really has
+seven, and asked it to rebuild. It refused, said "35% — 7 of 20", wrote a note for
+a human to look at, and — the important bit — left all seven of the real sections
+completely untouched. Then I put the page back to normal, asked again, and it
+rebuilt happily. Both halves confirmed, and the page is exactly as it was.
+
+The interesting result was *which* half of the guard fired. I built it with two
+independent checks. The obvious one — "are you writing back roughly as much as is
+already there?" — looked at that page and saw seven out of seven and was perfectly
+happy. It was the second check, the one comparing against what the page is
+*supposed* to contain, that caught it. If I had built only the obvious check, that
+run would have sailed straight through. It is rare to get that clean a
+demonstration that the belt-and-braces bit was the bit doing the work.
+
+The review council approved it first time, with seven advisory notes. Four of
+them, independently, spotted the same genuine bug in my code: the note it writes
+for a human would have gone quiet after two occurrences, on precisely the page
+that keeps failing and most needs looking at. They were right, I fixed it, and the
+live test then confirmed the fix.
+
+Meanwhile another session picked up the two remaining places with the same
+problem, and did something better than copying my work — they generalised the
+useful half of it into a shared piece that all four places now use. I threw away my
+private copy in favour of theirs. One nice side effect: the test I wrote to pin
+that four-seat bug now protects all three sites instead of just mine.
+
+Two things I found and did not fix, both deliberate.
+
+The first is a small lie in the refusal message. It ends by telling the operator
+that the leftovers will be cleaned up by a later run. That is true for the original
+case this machinery was built for, and false for three of the four places now using
+it, where the whole operation is refused and nothing gets cleaned up later — an
+operator could easily read it as "this sorts itself out". It does not. The sentence
+lives in the shared piece, so changing it touches all four, and another session had
+that file open. Written up rather than grabbed.
+
+The second is more interesting. Chasing down whether a refusal actually stops the
+work or gets quietly swallowed, I read how the system handles a failing step and
+found there is a setting that would make it skip the failed page and carry on
+reporting success — which would be the exact silent failure this whole project
+exists to stop. It is switched off everywhere it matters, so we are fine. But the
+same fact means a refusal on one page currently aborts an entire multi-page build.
+That is a real disproportion, another session had already filed it as its own
+problem an hour earlier from their end, and I have added the measurements showing
+it affects four places rather than the one they found.
+
+Last thing, and it is a small point about how I work rather than about the code. I
+had planned to prove those last three cases by running three more live tests.
+Reading the code instead told me the general rule in one pass, covered all of them
+plus any future ones, and cost a fraction as much. Three passing tests would have
+proved three things; the rule proves the class. Worth remembering the next time I
+write "induce it" in a plan.
