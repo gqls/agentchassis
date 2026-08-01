@@ -203,3 +203,20 @@ produce **eight** genuinely distinct thick sites; the remainder are twins:
 - Build order across the 42 propositions (traffic/commercial data the owner holds).
 - Anything about serving infrastructure (every new site inherits the
   mortgagecalculator-handoff rule: **into the deploy repo before any adoption**).
+
+## AMENDMENTS
+
+**P5 (owner ruling, 2026-08-01) — cross-TLD twins are split, not 301'd.** Every
+`.co.uk`/`.uk` pair of the same phrase gets both sides built, differentiated on the
+depth-contract/mode axes by one portfolio-wide convention: **`.co.uk` = the authority
+(thick, guide-led), `.uk` = the instrument (tool-first, the 10-second answer)**, cross-
+linked as siblings. This supersedes the Tier C default for cross-TLD pairs; same-TLD
+hyphen/plural twins remain ⚑OWNER with the 301 default. Full text: register rollup.
+
+**P6 (owner ruling, 2026-08-01) — `loancash.co.uk` IS built, as the borrower's FCA
+rulebook.** The register had recommended against building it because the name attracts
+the audience FCA rules protect hardest. The owner inverted the risk into the point: the
+site is a civilian champion of the FCA's consumer-credit rules — price cap, affordability
+duties, CPA and rollover limits, complaint rights, authorised-lender checks, loan-shark
+reporting — so the vulnerable query lands on protection instead of a lender. Register
+entry **L10**; explicitly independent of the FCA on every page.
