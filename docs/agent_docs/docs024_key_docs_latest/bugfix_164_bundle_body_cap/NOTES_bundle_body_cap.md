@@ -209,3 +209,58 @@ agent type, against a population of 185 active types. Filed as **`bugs_open/172`
 framing stated in the file, rather than fixed here: folding a second file into an
 already-approved patch is the scope creep the guardian vetoes, and filing it is exactly what
 the council demanded of the lane that found *164* and declined to file it.
+
+## 2026-08-01 — CLOSED. Live on v1.0.1225, both branches induced in production
+
+Evidence in `bugs_closed/164`'s CLOSED section; the short version and the missteps here.
+
+**Binary:** both replicas grepped in one exec with a positive control (`## In-scope code` = 1,
+`further files omitted` = 1) alongside the four new strings. Not the tag, not git.
+
+**Size branch — INDUCED.** Nothing had tripped the cap since the roll, so waiting would have
+been waiting for nothing. Correlation `d0fb8c27`, iteration 1: `in_scope=2, included=1,
+symbols_omitted_size=1, truncated=t, body_chars=257`. The 203,261-char body was skipped with
+its marker; `assembleIteration` — the alphabetically LATER symbol — rendered **with its body**;
+coverage line read "1 of 2". **Pre-fix this exact input produced `included=0, body_chars=0`**,
+the empty-section artefact seen three times historically.
+
+**Read-failure branch — fired NATURALLY**, unplanned, on the other run (`a15fa289` iter 1):
+12 in scope, 7 rendered, **5 unreadable**, named in the text as a tooling failure, and
+`truncated` correctly **false**. Pre-fix those 5 vanished from the artefact and the log.
+
+**Negative control:** `a15fa289` iterations 2 and 3 (3 and 15 symbols, nothing dropped) carry
+none of the three markers. The ~93% path is unchanged.
+
+### Misstep 5 — the first induction did not induce, and nothing said so
+
+The first run came back `included=7, truncated=false`. I had asked for a 2-symbol scope; it ran
+a 7-symbol one. `seed_scope` never reached the agent: `diagnose-dispatch-loop.call_handler`'s
+`input_mapping` is an **allow-list** that omits it, while `diagnose-orchestrator` behind it
+forwards it — so the two hops disagree and the one in front wins. The scope fell through the
+action's own fallback chain to `code_lookup.code_results`, which supplied a *different,
+plausible* scope with no error anywhere.
+
+**I nearly read that as "the fix doesn't work in production".** What stopped me was checking
+`in_scope` against what I passed before checking anything else. **Filed as `bugs_open/174`**,
+and it is not mine alone: 3 of the 4 intakes that ever carried a seed scope lost it, two being
+other lanes' real diagnoses (`155`'s among them). Workaround for any repeat: `DISPATCH=1`.
+
+Transferable: **a fallback chain converts a lost parameter into a successful run with different
+inputs.** The action cannot distinguish "no seed given" from "seed confiscated in transit", so
+it correctly stays silent — which is why 174's candidate 3 (report which branch of the chain
+supplied the scope) generalises beyond this one bug.
+
+### Misstep 6 — my symptom text poisoned my own instrument, in two opposite directions
+
+The symptom I wrote quotes the marker strings and the heading, and the symptom is embedded at
+the top of every bundle. So `body LIKE '%body omitted%'` matched **my prose** (a false PASS that
+would have "confirmed" the marker even against the pre-fix binary), and
+`position('## In-scope code' in body)` found **my inline mention** instead of the real heading
+(a false FAIL on the true positive I had already read on screen). Caught only because the
+negative control "failed" on a bundle whose metadata said nothing was dropped — the counter and
+the text disagreeing is the only tell there was.
+
+I had already built the right instrument and left it behind: the unit tests use
+`inScopeSection()` *specifically* so an assertion about the code section cannot be satisfied by
+a mention elsewhere. I wrote that helper and its comment, then reached for a naked `LIKE` on
+crossing from Go to SQL. Anchor is `E'\n## In-scope code\n\n'`. → `WRONG_CALLS.md`.

@@ -141,3 +141,62 @@ next chassis build, and the ticket deliberately stays open until an image carryi
 rolls, because until then the fault is still reproducible in production. The post-roll check is
 written into the ticket, and it requires deliberately *provoking* the size limit, since every
 assertion in it is vacuous on a run where nothing was too big.
+
+---
+
+**2026-08-01 — it is live, it is proven, and the proving found another bug.**
+
+A new chassis went to production overnight, so the fix is running. I checked that properly
+rather than trusting the version number: the version tag tells you nothing about what is
+actually inside the binary, so I searched both running copies for text my change introduced,
+alongside a phrase that was already there — if the second one is missing too, my search was
+pointed at the wrong thing and a clean result means nothing. Both copies, all present.
+
+Then the part that matters. Nothing had hit the size limit since the roll, so I deliberately
+provoked it: I asked for a diagnosis of two things, a 204KB file first and a tiny function
+second — the exact arrangement that used to be fatal. The result:
+
+- the big file was **skipped and named**, with its real size and how to ask for it on its own;
+- the tiny function that followed it **rendered in full** — that is the one that used to
+  disappear;
+- and a line at the end saying "1 of 2 rendered with a body".
+
+Before the fix, that identical request produced a heading with **nothing underneath it**.
+
+Better still, the *other* half of the fix proved itself without my arranging anything. On an
+unrelated run the same day, twelve things were requested, seven could be read and **five could
+not** — and the bundle now says so in plain terms, correctly labelled as a tooling failure
+rather than a finding about the code. Before the fix those five simply vanished. As a control,
+two other bundles from that same run dropped nothing and are completely unchanged, which is
+what I wanted: the fix is invisible except when something is actually missing.
+
+**The ticket is closed and moved.**
+
+**Now the awkward part, which is also the useful part.** My first attempt to provoke the limit
+*didn't work, and nothing told me*. I asked for two specific things; the run quietly examined
+seven completely different ones and reported success. The instruction naming what to look at is
+dropped in transit — one component passes it along, the component in front of it doesn't, and
+because the system has a sensible "if nobody said what to look at, go and find something"
+fallback, a lost instruction turns into a perfectly normal-looking run against the wrong
+material.
+
+I nearly read that as "the fix doesn't work". What saved me was checking how many things the
+run had examined against how many I'd asked for, before checking anything else.
+
+**This is not just my problem.** Of the four times anyone has ever aimed a diagnosis at
+specific code, three were dispatched down the path that discards the aim — and two of those
+were other people's real investigations, both of which completed and reported findings drawn
+from material nobody chose. Filed as its own ticket with the measurements.
+
+**And one more self-inflicted one, worth telling because it is embarrassing in a specific
+way.** To check whether the bundle contained the words "body omitted", I searched the bundle
+for the words "body omitted" — forgetting that the *description of the problem I had typed*
+was sitting at the top of that same bundle, containing those exact words. So my test matched my
+own sentence. It got me twice at once, in opposite directions: it would have declared success
+even against the old broken version, and separately it made a genuine success look like a
+failure. I had already written the correct version of this check in the automated tests weeks—
+hours, rather—earlier, and simply didn't carry it across when I switched tools.
+
+Both are written up in the fleet's log of wrong calls. Together with yesterday's fabricated
+verdict, that is three self-inflicted errors on one small fix — and every one of them was
+caught by comparing two things that should have agreed and didn't.

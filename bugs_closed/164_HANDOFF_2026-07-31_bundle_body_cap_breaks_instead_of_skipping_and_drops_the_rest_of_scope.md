@@ -2,11 +2,16 @@
 
 **Filed 2026-07-31 by the `bugfix_145` lane, AT THE COUNCIL'S EXPLICIT REQUEST.**
 
-> **STATUS 2026-07-31 (evening) — FIX COMMITTED, NOT YET LIVE. Still OPEN, and it stays
-> open until a chassis image carrying it rolls** (a fix committed but inert leaves the
-> defect reproducible in production — that is the `/bugs_closed/` bar).
+> **STATUS 2026-08-01 — CLOSED. LIVE on chassis `v1.0.1225`, pod-verified on BOTH replicas,
+> and BOTH branches induced in production** (the size branch deliberately, the read-failure
+> branch naturally on unrelated traffic). Full evidence in the CLOSED section at the bottom
+> of this file — read that, not this header.
 > Owned by `docs024_key_docs_latest/bugfix_164_bundle_body_cap/`.
-> Council `SUBMISSION_CORR 75f3cd52-316c-4cb3-a55d-1b1c3f316214`.
+> Council **APPROVED round 1**, `75f3cd52-316c-4cb3-a55d-1b1c3f316214`.
+> Residuals filed, not hand-waved: **`bugs_open/172`** (the fourth cap site, from this fix's
+> own review) and **`bugs_open/174`** (`seed_scope` dropped on the default dispatch path,
+> found while running this file's own VERIFY — it BLOCKS repeating that verification without
+> `DISPATCH=1`).
 >
 > **The `[UNMEASURED]` marker below is RESOLVED, and the answer is that it has fired
 > repeatedly** — see "MEASURED, 2026-07-31" after the Measured section. The filing was
@@ -271,3 +276,102 @@ this ships** — older rows return NULL, not 0. `COALESCE` or filter on `created
 against the pre-fix code too. That is what makes it a control — it asserts the OLD bytes survive
 for a scope that fits. The other three tests are the ones that fail pre-fix (verified by
 reverting the action to HEAD and re-running).
+
+---
+
+# CLOSED 2026-08-01 — LIVE on chassis v1.0.1225, BOTH branches induced in production
+
+Not "the tests pass" and not "a roll happened". Evidence below, in the order it was taken.
+
+## 1. The binary carries it — both replicas, positive control in the same exec
+
+`bugs_open/153`: a roll is not evidence, and the image carries no provenance.
+
+```
+agent-chassis-69c6669978-74s6k  |  agent-chassis-69c6669978-hlz8l   (v1.0.1225)
+NEW  body-omitted      : 2      |  2
+NEW  body-unavailable  : 2      |  2
+NEW  INCOMPLETE-line   : 1      |  1
+NEW  metadata key      : 1      |  1
+CTRL In-scope code     : 1      |  1     ← positive control: the grep really ran
+CTRL further files omitted: 1   |  1     ← pre-existing sibling marker, still there
+```
+
+## 2. The size branch — INDUCED, because production had not tripped it since the roll
+
+Direct dispatch (see the ⚠ below), seed scope naming a 204KB file FIRST and a small symbol
+second — the exact arrangement the old `break` destroyed. Correlation `d0fb8c27`, iteration 1:
+
+| in_scope | included | symbols_omitted_size | symbols_unreadable | truncated | body_chars |
+|---|---|---|---|---|---|
+| 2 | **1** | **1** | 0 | **t** | 257 |
+
+**Pre-fix this exact input produced `included=0, body_chars=0`** — the empty-section artefact
+seen three times in the historical corpus. The bundle text:
+
+```
+## In-scope code
+
+### platform/orchestration/actions/v3_site_actions.go
+
+_(body omitted — 203261 chars, and 0 of the 60000-char body budget is already spent.
+It was found; it did not fit. Put THIS SYMBOL ALONE in next_scope to read it whole.)_
+
+### platform/orchestration/actions/diagnose_assemble_bundle_action.go:assembleIteration
+```go
+func assembleIteration(collected map[string]interface{}, config map[string]interface{}) int {
+	field := datahelpers.GetStringField(config, "iteration_field", "route.diagnose_state.iteration")
+	return datahelpers.ExtractNestedFieldInt(collected, field) + 1
+}
+```
+
+> **This section is INCOMPLETE.** 1 of 2 in-scope symbol(s) rendered with a body. 1 did not
+> fit under the 60000-char cap (marked "body omitted" above) — re-request them singly in
+> next_scope. Absence of a body here is never evidence that a symbol is irrelevant.
+```
+
+All three assertions the VERIFY demanded: marker present **with the real size**; the
+alphabetically-later symbol **rendered with its body**; oversized body **not** inlined.
+
+## 3. The read-failure branch — fired NATURALLY, unplanned, on the other run
+
+Correlation `a15fa289`, iteration 1: **12 in scope, 7 rendered, 5 could not be read.**
+
+> **This section is INCOMPLETE.** 7 of 12 in-scope symbol(s) rendered with a body. 5 could not
+> be read (marked "body unavailable" above) — that is a tooling failure to report, not a finding.
+
+`truncated` correctly stayed **false** — a read failure is not a truncation, which is the
+distinction `bd003f67a` ruled on and `TestBundleBodyCap_UnreadableSymbolIsNamedAndDistinguished`
+pins. **Pre-fix those 5 symbols vanished with no trace in the artefact or the log.**
+
+## 4. Negative control — same binary, same run
+
+`a15fa289` iterations 2 and 3 (3 and 15 symbols, nothing dropped): **no `body omitted`, no
+`body unavailable`, no coverage line.** The ~93% path is unchanged, so no existing diagnosis's
+baseline moved.
+
+## ⚠ Two traps this verification walked into — read before repeating it
+
+1. **`SEED_SCOPE` is DROPPED on the default dispatch path.** The first induction attempt
+   silently ran against a 7-symbol code-search fallback instead of my 2-symbol scope, and
+   nothing said so. `diagnose-dispatch-loop.call_handler`'s `input_mapping` is an allow-list
+   that omits `seed_scope`, while the orchestrator behind it forwards it — so the knob works
+   only via `DISPATCH=1` (direct publish). **Filed as `bugs_open/174`**, where it is measured:
+   3 of the 4 intakes that ever carried a seed scope lost it, two of them other lanes' real
+   diagnoses. **Until 174 is fixed, any repeat of this verification needs `DISPATCH=1`.**
+2. **My own symptom text poisoned my own instrument, twice.** The symptom I wrote quotes the
+   marker strings and the heading, and the symptom is embedded at the top of every bundle — so
+   `body LIKE '%body omitted%'` matched my prose (a false PASS on the induction, a false FAIL
+   on the control), and `position('## In-scope code' in body)` found the symptom's inline
+   mention rather than the real heading. **Anchor on `E'\n## In-scope code\n\n'` and test the
+   SECTION, never the whole body** — which is exactly what the unit tests' `inScopeSection`
+   helper does, and I did not carry that discipline into SQL. Logged in `WRONG_CALLS.md`.
+
+## Residuals, filed not hand-waved
+
+- **`bugs_open/172`** — the fourth cap site, found by this fix's own council round asking for
+  the shapes my grep could not see. Latent (max 4 against a cap of 5) and non-deterministic.
+- **`bugs_open/174`** — the dropped `seed_scope`/`runtime_page`, found running this VERIFY.
+
+Council **APPROVED round 1**, `75f3cd52-316c-4cb3-a55d-1b1c3f316214`. Workstream:
+`docs024_key_docs_latest/bugfix_164_bundle_body_cap/`.

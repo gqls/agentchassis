@@ -15705,3 +15705,31 @@ and the surrounding measurements disguised it. The recurring check across both i
   message, which is a review/bisect problem, not a data one. Recorded here so the
   other session can find their work, and because "I followed the pathspec rule" is
   not the same as "I checked what the commit contained".
+
+- **I wrote the marker strings into the symptom, then used those same strings as the detector —
+  so my own prose scored as the behaviour it described, twice in one measurement.** Verifying
+  `bugs_closed/164` post-roll, I fired a diagnosis whose symptom text quoted the thing under
+  test: *"must write an inline '(body omitted)' marker … evidence lives under the '## In-scope
+  code' heading"*. The symptom is embedded verbatim at the top of every bundle. So
+  `body LIKE '%body omitted%'` matched **my sentence**, not the renderer's output, and
+  `position('## In-scope code' in body)` found **my inline mention** rather than the real
+  heading — which meant my "extract the section" query returned a fragment of my own symptom.
+  Both errors landed in the same run and pointed in **opposite** directions, which is why
+  neither looked like an error: the whole-body LIKE gave a false PASS on the induction (it
+  would have "confirmed" the marker even against the pre-fix binary), and the mis-anchored
+  section gave a false FAIL on the true positive I had already read with my own eyes on screen.
+  I had the correct instrument and did not carry it across: the unit tests use an
+  `inScopeSection()` helper *precisely* so an assertion about the code section cannot be
+  satisfied by a mention elsewhere in the bundle — I wrote that helper, documented why, and
+  then reached for a naked `LIKE` the moment I moved from Go to SQL.
+  What caught it: the negative control "failing" on a bundle whose metadata said nothing was
+  dropped. The contradiction between the counter and the text is the only reason I looked.
+  **The cheap check: when the thing you are testing is TEXT, never let your test's own text
+  enter the corpus** — phrase the symptom so it cannot contain the token (say "the omission
+  marker", never `body omitted`), and anchor structurally (`E'\n## In-scope code\n\n'`) rather
+  than on a bare substring. The general form, and it is the third entry in this file with this
+  skeleton: **a detector that can match your own instrumentation is measuring the harness, and
+  it fails silently because a matching string looks identical whoever wrote it.** Sibling of
+  `prompt-text-poisons-its-own-detector` in MEMORY — I had that lesson recorded and still
+  walked into it, because there it was an LLM scoring a prompt and here it was SQL scoring a
+  symptom, and I did not recognise the shape across the change of medium.
