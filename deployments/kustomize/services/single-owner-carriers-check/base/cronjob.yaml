@@ -1,0 +1,96 @@
+# deployments/kustomize/services/single-owner-carriers-check/base/cronjob.yaml
+#
+# RFC 006 (owner ruling 2026-08-02), and specifically the council's `architecture`
+# seat objection on corr 60f4b425: the single-owner detector "exits 1 on findings but
+# isn't wired into an existing CI/build gate — confirm it's actually invoked
+# somewhere, or the detector is inert-by-omission the same way the field is
+# inert-by-design". It was inert-by-omission. This is the fix; the owner asked for it
+# directly.
+#
+# WHY A CRONJOB AND NOT A GIT HOOK. Two reasons, and the first is decisive:
+#   1. At commit time a migration has NOT been applied, so live agent_definitions
+#      still look correct — a pre-commit hook would pass the very change that
+#      re-creates the fan-out. And config on this platform is routinely changed
+#      directly in the database with no commit at all, which a repo-side hook cannot
+#      see even in principle.
+#   2. The check needs live DB state. Putting a cluster round-trip in the commit path
+#      of ~30 concurrent sessions is latency and a hang risk on every commit, for a
+#      question that only has a true answer after the change lands.
+#
+# WHY NOT RUN THE GO BINARY (which would remove the mirrored traversal entirely):
+# it would need a git clone (.git is 262M) plus `go mod download` plus a compile,
+# inside a job with uncertain egress to the Go module proxy. A gate that fails for
+# infrastructure reasons gets ignored, and an ignored gate is worse than an honest
+# on-demand script. The two drift risks that choice creates — the declared-action
+# literal and the second traversal — are instead PINNED BY TESTS, see check.py's
+# docstring and cmd/config-key-audit/cron_parity_test.go.
+#
+# Modelled on bugs-open-staleness-sweep (same image, same secret, same doc_notes
+# reporting convention, same "connect to Postgres directly, not via kubectl exec"
+# constraint — ai-persona-app has no pods/exec RBAC in this namespace). Unlike that
+# sweep this needs NO GitHub token: the question is entirely about live DB state.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: single-owner-carriers-check
+  labels:
+    app: single-owner-carriers-check
+    component: config-integrity
+spec:
+  # Daily. The staleness sweep is weekly because repo prose moves slowly; live agent
+  # config on this tree changes many times a day, and the cost of missing a second
+  # carrier is a site being announced as clean while its findings sit in the queue.
+  # 06:20 UTC keeps it clear of database-backup (02:00) and the weekly sweep (06:00).
+  schedule: "20 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Generous but bounded: the whole job is one query plus a walk over ~181
+      # definitions. If it is still going at 5 minutes something is wrong and a
+      # hanging job should not sit in the schedule blocking the next one.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: single-owner-carriers-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: single-owner-carriers-check-script
+                defaultMode: 365
