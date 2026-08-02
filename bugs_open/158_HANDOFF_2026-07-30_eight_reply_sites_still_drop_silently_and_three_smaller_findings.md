@@ -230,3 +230,121 @@ changes, and the choice is whether a shared double is wanted at all.
   its landmine, and the architecture seat's RFC caveat.
 - `016b §9` — "A false claim in a message is a STRING LITERAL reachable without
   its evidence" and the literal-vs-comment marker pattern, both from 133.
+
+---
+
+# 2026-08-03 — re-validated, sized, and the denominator is WRONG in this file's own table
+
+Worked by a bugs-sweep session. Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_158_reply_drop_sizing/`.
+**Still OPEN** — items 1 and 3 remain gated on an RFC and an owner decision
+respectively, and this session did not force either.
+
+## Item 4 is ALREADY FIXED — this file is stale on it
+
+`platform/kafka/mock_producer.go` was completed on 2026-07-31 (`76bd35dc1`, as a
+side effect of "three suites that stopped compiling when the APIs under them
+moved"). It now implements `ProduceWithValidation` and carries a compile-time
+assertion:
+
+```go
+var _ Producer = (*MockProducer)(nil)
+```
+
+with a comment naming exactly the drift this file complained of. **Fix order item 1
+("do it first") is discharged.** The three-doubles observation stands; nothing
+unified them.
+
+## Item 1 — SIZED, as this file asks. The answer is "latent", and the table undercounts
+
+**The limit is real: ~1MB, confirmed first-hand.**
+
+```
+broker message.max.bytes = 1048588   (DEFAULT_CONFIG, no override anywhere)
+topic  system.agent.generic.responses — no dynamic config at all
+```
+
+> ⚠ **This file's suggested command cannot produce that answer, and the way it
+> fails is silent.** There is no Kafka broker in `ai-persona-system` — the cluster
+> is `personae-kafka-cluster-combined-pool-prod-{0,1,2}` in namespace **`kafka`**.
+> A `kubectl exec` at the wrong pod with stderr discarded returns *empty*, which
+> reads exactly like "no topic-level override is set". I made that mistake before
+> catching it. Run it against the right pod, and never with `2>/dev/null`.
+
+**Exposure, measured over `llm_call_log` (47,577 calls):**
+
+| | bytes |
+|---|---|
+| largest response_text ever recorded, fleet-wide | **48,327** |
+| calls above 512KB | **0** |
+| calls above the 1,048,588 broker limit | **0** |
+
+The largest payload the fleet has ever produced is **4.6%** of the limit. The
+services in the table carry LLM output or structured API results, both bounded;
+the one site that carries whole documents is **webscrape**, and webscrape is
+exactly the one already fixed. So this file's own guess is right and is now
+evidence: **"7 latent, 2 exposed"** — the RFC is a consistency argument, not an
+incident report. Size it that way.
+
+## ⚠ The "2 of 9" is really 2 of 13 — the census keyed on ONE log-message spelling
+
+This file's grep was `grep -rn "Failed to produce"`. Four more reply-produce sites
+swallow their error under **different wording**, so a string-keyed census could not
+see them — and they are in the chassis's own messaging spine, not in adapters:
+
+| site | how it swallows | why the grep missed it |
+|---|---|---|
+| `platform/agentbase/agent.go:887` | error **never captured** | no log line at all to match |
+| `platform/messaging/processor.go:2000` | logged, no answer | `"KAFKA_SEND_ERROR: Failed to send message"` |
+| `platform/orchestration/coordinator.go:3663` | logged, no answer | `"Failed to notify parent of success"` |
+| `platform/orchestration/helpers.go:427` | logged, no answer | `"Failed to send timeout response"` |
+
+All four verified by reading them. This **widens the RFC**: it is no longer four
+adapters' failure semantics, it is also `agentbase` and the orchestration
+coordinator, which every agent inherits. Whoever writes it must scope to 11, not 7.
+
+## SHIPPED — the class is closed prospectively, with no behaviour change
+
+`scripts/pattern-check.py` gains `check_silent_reply_drop` (`2091903ab`). It cannot
+fix the eleven — that needs the RFC — but it stops a **twelfth** being written, and
+it makes the population visible without touching any service's semantics, so it
+implicates no ruling.
+
+Catches three shapes, because a version that knew only the first missed 3 of the 4
+sites named above: `if err := …; err != nil { log }` falling through; the same with
+a bare `return`; and the error never captured. It also fires when `DeliverReply`'s
+outcome is assigned to `_` — **this file's own landmine**.
+
+**Controls, both run and both recorded:** the 4 known-bad files fire at the exact
+lines this file names; both adopted webscrape files stay quiet; fleet sweep is
+**8 findings over 777 non-test files** (8 not 11 — one finding per file, and the
+`_ = DeliverReply` arm has no live instance). The sweep also caught three FALSE
+positives the known-bad control never could: `return producer.Produce(...)`
+*propagates* the error, and two produces to **request** topics matched only because
+"response" appeared a few lines away. The reply gate now reads the call's own
+arguments.
+
+## Item 0 (1b's cheap half) — premise confirmed, NOT actioned, and here is the survey
+
+22 live scrape/crawl steps fleet-wide: **3** set `upload_results: true`, **1** sets
+it false, **18 unset** — including `vet-practice-verifier/scrape_website`, exactly
+as this file says. Left alone deliberately: it is another lane's pipeline
+(`bugs_open/100`), the change is inert until a vet page is next scraped (none since
+2026-03-18), and turning it on for someone else's pipeline unannounced is what the
+ownership rule exists to prevent. **The survey is the handover** — the 18 are listed
+in the lane's RUNBOOK.
+
+## Item 2 — its `[UNMEASURED]` is now measured: no consumer found
+
+`grep` for readers of a scrape reply's `storage` across Go, SQL and live
+`agent_definitions` configs finds only `truncation.go`'s own position-independent
+workaround. `storage_actions.go:171,529` reads an *agent config* `storage` block —
+a different thing entirely. On that evidence this file's ranking (lowest value) is
+right and it should stay unfixed until a consumer exists.
+
+## What is still owed
+
+1. **The RFC for item 1**, scoped to **11 sites, not 7**, and argued as consistency
+   rather than incident — the numbers above are the sizing it asked for.
+2. **Item 3** — an owner decision about what a crawl result is for.
+3. **Item 2** — nothing, until a consumer of `storage.pages` exists.
