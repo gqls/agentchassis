@@ -98,3 +98,52 @@ background and built the fix while it ran, rather than blocking on it.
 - Deliberately **no shared "cap and report" helper**, though this family now has six
   marker sites that rhyme. A shared mechanism arriving inside a bug patch is what
   `bugs_closed/124` was vetoed for. The two new helpers are file-local and pure.
+
+## 2026-08-02 — the diagnosis loop came back UNVERIFIABLE, and it was right to
+
+`090` run `13e95253-45aa-440a-826e-7bb6f9e0e5b3` finished: **UNVERIFIABLE** — not
+CONFIRMED and not REFUTED. Recording it as it reads, because a verdict that does
+not go your way is the one worth writing down:
+
+> "this bundle contains neither symbol's body to verify that mechanism, nor any
+> instance where a matched type WITH real, non-zero call history was pushed out of
+> the render by another type's more recent volume (the only kind of row that would
+> demonstrate the mechanism actually firing) … a genuine crowding instance, which
+> has not yet been found (only a genuine-zero instance has)."
+
+Two things follow, and they point in opposite directions:
+
+1. **It did not verify my claim, so it is not evidence for it.** What carries the
+   claim is first-hand work: the artefact census (23 of 23) and the live
+   differential in RUNBOOK §3, where `page-content-writer` holds 18,286 rows and
+   renders nothing. That differential **is** the "genuine crowding instance" the
+   verdicter says was not found — it had only the run's own matched pair to work
+   from (`build-dispatch-loop`, which has zero rows ever, a genuine zero) and
+   correctly declined to generalise from it.
+2. **The run is itself an instance of the problem.** Its verdicter spent a
+   `data_request` on "total calls for build-dispatch-loop" purely to decide whether
+   an absence in the section was real. That is exactly the question the fix answers
+   in the artefact: post-fix the section states `no llm_call_log rows exist for:
+   build-dispatch-loop … (this is an answer, not a cap)`. The loop paid a round trip
+   for a distinction the bundle should have handed it.
+
+**Near-miss, caught while reading the run's own bundle.** My census regex
+`agent_definitions\[([^\]]+)\]: root ai_service` also matches the **source code of
+the function being fixed**, which the bundle quotes verbatim as `agent_definitions
+[%s]`. A bundle about *this file* therefore counts its own code excerpt as rendered
+evidence. Re-ran the census partitioned on whether the body quotes the source: the
+72 historical bundles do **not**, and the 23-of-23 result is unchanged; the 4 that
+do are all from today's own run. **The headline survived, but only because I
+checked — a measurement whose pattern can match the code it measures will
+eventually be run against a corpus containing that code.**
+
+**Two shell missteps in one command, neither costly, both worth the line.** I left a
+stray `cat >> <another lane's file>` with no stdin at the head of a compound
+command; it blocked on stdin for two minutes and the heredoc behind it never ran.
+Then I reached for `pkill -f <pattern>` to clear it and the pattern matched **my own
+shell**, killing the session's command with exit 144 — the same "pkill variant"
+another lane logged today. Nothing was damaged: `>>` cannot truncate and no bytes
+ever arrived, so the other lane's file is byte-for-byte what it was (0 bytes, as it
+already was in the session-start `git status`). **Check what the FIRST command in a
+compound line reads from, and never pattern-kill from inside the process you are
+matching.**
