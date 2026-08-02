@@ -257,6 +257,32 @@ would deploy every page with no head, no nav and no footer — `assemblePage` re
 chrome from this table (`rerender_single_page_action.go:660`). Decomposition must
 populate it. Re-run this before any flip; a non-empty result is the precondition.
 
+> **CORRECTED 2026-08-02 — three rows now exist, and a non-empty result is NOT
+> the precondition after all.** Something (not this lane) wrote head/header/footer
+> at `2026-08-01 08:02:07` and queued a `page_rerender` for all 27 pages five
+> seconds later. Every one completed, and the site did not change by one byte,
+> because `loadVerbatimPageHTML` short-circuits before assembly. So the chrome
+> arrived, was never exercised, and was **wrong in three ways at once**:
+>
+> | what it emitted | reality | consequence when assembled |
+> |---|---|---|
+> | `<link href="/assets/css/styles.css">` | the real file is `style.css` — plural is **404** | every page unstyled |
+> | header `<ul>` with no `<li>` | 12 tools + 13 guides live in `nav.js` | no navigation at all |
+> | `favicon.png`, `og-card.png` | both **404** | dead icon + a social card that 404s |
+>
+> **The lesson is the check, not the incident: "are there rows?" was the wrong
+> question.** It is satisfiable by chrome that would take the site down, and it
+> read as satisfied. Ask instead whether the chrome RESOLVES — fetch every asset
+> it references and require 200, and count the nav links:
+> ```bash
+> for u in $(grep -oE '(href|src)="(/[^"]+)"' <<<"$HEAD$HEADER" | grep -oE '/[^"]+'); do
+>   printf '%-34s %s\n' "$u" "$(curl -s -o /dev/null -w '%{http_code}' https://loancalculator.co.uk$u)"
+> done
+> ```
+> This is the same shape as the fleet landmine about a roll not proving a deploy:
+> the presence of the thing is not the working of the thing. See the next section
+> for what replaced it.
+
 ## The tool-equivalence gate: does a rewrite still COMPUTE the same? (2026-07-31)
 
 `toolaudit.py` cannot answer this — `RESPONDS` is satisfiable by a page with an input
@@ -416,3 +442,117 @@ md5-identical to the files on disk, and `/index.html`,
   re-running `verify_rewrite.py` over all 11 afterwards.
 - These are **novel** components (`forked_from IS NULL`), matching 27 of the 35
   tool components attached to pages fleet-wide.
+
+## Chrome for an assembled site (2026-08-02)
+
+Authored in `chrome/` and loaded by `decompose/load_chrome.py`. Three rows, and
+each one exists to answer a specific way the generic chrome was wrong.
+
+**`head.html`.** Links the REAL stylesheet, drops the two 404 icon links and the
+404 `og:image` (a social card that 404s is worse than no card, so `twitter:card`
+drops to `summary`), and keeps the platform's own injection points intact:
+`<title></title>` and `content=""` must both survive verbatim, because assembly
+rewrites them by literal string match —
+`titleRe.ReplaceAllString` and `strings.Replace(head, 'content="">', …, 1)`.
+Reorder the head so another tag holds the first `content=""` and the page's meta
+description silently lands in the wrong tag.
+
+It also carries the **assembled-layout block**, which is the only CSS the
+decomposition adds:
+```css
+main { max-width: 960px; margin: 0 auto; padding: 20px; }
+main .container { max-width: none; margin: 0; padding: 0; }
+```
+Every original page wrapped its body in one `.container` (960px, 20px padding)
+and decomposition dissolves it, so assembly would otherwise emit a bare `<main>`
+with no width — full-bleed text at a 19px base. Making `main` the container is
+exact. **Giving each section its own `.container` is NOT equivalent**: N
+containers stack N sets of vertical padding, so gaps grow with section count
+where the original had zero. The second rule neutralises the `.container` that
+survives inside a section — thirteen guide pages are one prose block and that
+block is itself `<article class="container">`.
+
+**`header.html`.** The nav LIFTED VERBATIM from `nav.js`, extracted
+programmatically rather than retyped:
+```python
+m = re.search(r"const navHTML = `(.*?)`;", open("nav.js").read(), re.S)
+assert "${" not in m.group(1)   # no interpolation, so it can be lifted as-is
+```
+Server-rendering it is what lets decomposition drop `<script src>` from the page.
+Still a hand-maintained list of 25 links — generating it from `pages` is the next
+step and is deliberately not bundled here.
+
+**`footer.html`.** An ADDITION: the hand-built pages had none. It earns its place
+because `/legal.html` is orphaned — zero inbound links from the 27 pages or from
+`nav.js`. `/tools/standard-calc.html` is the other orphan and is deliberately not
+linked; it duplicates the index calculator, which is a content question.
+
+⚠ **Do not write a literal HTML tag inside a comment in any of these.** The first
+head carried `<div class="container">` inside a CSS comment explaining the rule,
+which is inert to a browser and trips the 5-pair structural balance predicate
+that `load_components.py` and the birth-write guard both use. Same class as
+template braces in a comment. Check before loading:
+```bash
+python3 - <<'PY'
+for f in ("head.html","header.html","footer.html"):
+    s=open(f).read().lower()
+    for op,cl in (("<script","</script>"),("<style","</style>"),("<section","</section>"),
+                  ("<div","</div>"),("<fieldset","</fieldset>")):
+        assert s.count(op)==s.count(cl), (f,op,s.count(op),s.count(cl))
+print("balanced")
+PY
+```
+
+## Proving the decomposition BEFORE writing a row (2026-08-02)
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/decompose
+./prepare_work.sh /tmp/decomp-work            # dump 27 pages, fetch assets, decompose
+export DECOMP_WORK=/tmp/decomp-work
+python3 verify_assembled.py --no-drive        # static only, seconds
+python3 verify_assembled.py                   # + drives all 12 calculators, ~7 min
+python3 verify_assembled.py --keep --pages index   # leave the staged site to look at
+```
+
+`prepare_work.sh` is scripted rather than pasted because the session scratchpad
+does not survive the session and this had to be retyped once already.
+
+**Compare against `octet_length`, never `length()`.** `length()` counts
+CHARACTERS, so every `£` makes the dumped file read one byte long and 20 of the
+27 pages look corrupt when they are byte-perfect.
+
+Six assertions, and what each catches:
+
+| | assertion | the failure it exists for |
+|---|---|---|
+| A | every calculator reproduces its golden across 3 vectors | the components were proven in the ORIGINAL page context; assembly changes the wrapper, the chrome and the document order, so that proof does not carry |
+| B | no visible text lost | a block classified as neither prose nor tool |
+| C | every script target still in the DOM | a calculator computing into an element that was dropped |
+| D | no internal link goes nowhere | the header's hand-maintained link list drifting from `pages` |
+| E | no section silently dropped | `sectionHasVisibleContent` discards any row with ≤10 visible chars, and returns success |
+| F | no prose text ADDED | see below — B alone has a blind side |
+
+**F is the one that earned its place.** The calculator component serves both
+`/tools/standard-calc.html` and `/index.html`, and it carried standard-calc's risk
+warning and two market-rate claims onto a homepage that had never shown them. B
+passed (nothing lost). A passed (none of the three has an id). **A screenshot
+caught it.** Check both directions, and screenshot the result — a fingerprint over
+`[id]` elements is blind to every word that is not inside one.
+
+**"Added" and "moved" are separated, and the distinction is checkable.** A string
+the ORIGINAL held in a `<script>` literal and wrote in at runtime is the same
+words relocated, not new copy — the rewrites moved a lot of copy into markup on
+purpose. So a node absent from the original's text but present in its script text
+is reported as MOVED. Without the split the report is 12 lines of noise and you
+stop reading it; with it, 2 lines that both matter.
+
+⚠ **Strip HTML comments before extracting text nodes.** `re.split(r"<[^>]*>")`
+tears a comment in half at any `>` inside it, and these components quote markup
+in their comments — F reported a paragraph of a component's own commentary as
+page content.
+
+⚠ **Compare with whitespace REMOVED, not collapsed.** The original marks up part
+of a sentence (`…Personal Loans is <strong>7.9%</strong>.`) which collapses to
+`… is 7.9% .`, while the component holds the same sentence as one text node. With
+spaces intact that reads as text lost AND text added simultaneously, and it is
+neither.

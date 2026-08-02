@@ -332,4 +332,9 @@ def main():
           "script target, P5 prose is editable (%d%% frozen), P6 no text lost" % frozen)
 
 
-main()
+# Guarded so the tree walker can be imported. decompose_pages.py re-uses
+# TreeBuilder/split/marked/loose_text rather than forking them: two copies of a
+# splitting rule that must stay identical is exactly the drift class this repo
+# reviews for, and the prover is the thing that certified the rule.
+if __name__ == "__main__":
+    main()

@@ -477,3 +477,73 @@ repository holding the site's source** — that needs someone with GitHub admin.
 And the question from last week is still open: full decomposition here, or the
 cheaper freeze-the-calculators split the neighbouring lane chose. The rewrite did
 not depend on the answer; the next step does.
+
+---
+
+**2026-08-02 — you said full decomposition, so that is what this is.**
+
+Nothing is live yet. Everything below is proven offline and waiting on one
+deliberate step. I want to flag three things before I ship, because two of them
+are changes you should know about and one of them is a near miss.
+
+**The site chrome was already broken, and nobody could see it.** Something outside
+this lane created the site's header, footer and page-head yesterday morning, then
+queued a rebuild of all 27 pages. Every rebuild reported success and the site did
+not change by a single byte — because these pages currently ship their stored
+bytes and skip the assembly step entirely. So the chrome sat there unused and
+wrong: it pointed at a stylesheet that does not exist (a spelling difference, one
+letter), its navigation bar had no links in it at all, and its icon and social-card
+images were both missing. The first page I decomposed would have gone out
+unstyled and unnavigable. I have replaced all three. The navigation is now
+extracted from the existing nav script rather than retyped, so it is the same
+menu, just delivered by the server instead of assembled in the reader's browser —
+which is also better for search engines and removes a visible flicker on load.
+
+My own note in the runbook said the precondition was "chrome exists". That was
+the wrong question. It existed. The right question is whether it *resolves*, and
+I have rewritten that check.
+
+**Two changes to what readers see, both deliberate.** First, every page gains a
+footer. The pages never had one, and I would not add one on a whim — but your
+legal page currently has *zero* links to it from anywhere on the site, which means
+in practice it does not exist for a reader or for Google. The footer fixes that.
+Second, and this one I want to be explicit about: **the homepage gains the "late
+repayment can cause you serious money problems" warning.** It was on the standard
+calculator page but not the homepage. I actually tried to strip it out, in the
+name of changing as little as possible — and the tooling refused me, because when
+I built that component I marked the warning as required and wrote down why: it is
+a regulatory warning that belongs next to a credit promotion, and the homepage is
+one. It was right and I was wrong. If you would rather it were not there, it is a
+one-field change and I will make it.
+
+I did *not* carry the other two lines across — "current market average is 7.9%"
+and "updated for the 3.75% base rate". Those are dated facts, and putting them on
+a second page just doubles the number of places you have to remember to correct.
+
+**The near miss is worth telling you about, because of how it was caught.** All
+six automated checks passed the homepage — the calculator produced identical
+numbers, no text had been lost, no links were broken. Then I looked at a
+screenshot and saw three paragraphs that had never been on that page. Every check
+was asking whether anything had been *lost*; none was asking whether anything had
+been *added*. That check now exists, but it exists because I looked at the page.
+The same lesson keeps recurring in this work and it is worth writing down plainly:
+a test that compares numbers cannot see words, and a test that checks for loss
+cannot see gain.
+
+I also found a real hole in the splitting rule itself. On the homepage it
+classified the calculator's entire results box — the big monthly figure and the
+two totals — as ordinary editable text. The reason is that this one page keeps its
+arithmetic in a shared script file rather than in the page, and the rule only ever
+read scripts written inside the page. So the safety proof passed while quietly
+getting the most important part of the homepage wrong. Fixed, and the rule now
+refuses to run at all if it cannot read a script the page depends on.
+
+Where that leaves us: the 27 pages decompose into editable prose plus a proven
+calculator component, all twelve calculators produce identical numbers in their
+new assembled pages, and a guide page is pixel-identical to today apart from the
+new footer. The next step writes it to the database, one page first — and that
+first page has a job beyond itself, because it is the test of whether my offline
+model of the assembler is actually right. If it disagrees, the other 26 stay put.
+
+The GitHub token still cannot see the repository holding the site's source. That
+one needs someone with GitHub admin and is unchanged.

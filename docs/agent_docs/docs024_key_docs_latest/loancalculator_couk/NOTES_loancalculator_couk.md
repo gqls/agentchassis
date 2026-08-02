@@ -1340,3 +1340,180 @@ so a control that genuinely lost its value still fails. Re-baseline owed on ship
 `damage-checker` legitimately gets no `computed_values` coverage — it has no numeric
 output. Its contract is a visibility change, so its PLAN wants `interaction` +
 `has_visible_area`. **Do not manufacture a number so a check type fits.**
+
+---
+
+## 2026-08-02 — full decomposition, proven offline (owner chose full, not the split)
+
+Owner answered the open question: **full decomposition**. This entry is the
+technical log of getting it to the point where it is provable but not yet shipped.
+
+### The baseline, re-established rather than assumed
+
+27 stored documents dumped from `page_components.rendered_html` and checked
+byte-exact against `octet_length` + `md5`, then three of them checked against the
+LIVE bytes — identical md5. So the DB is the source of truth for what is served,
+and an offline proof against the stored bytes is a proof about production.
+
+> **MISSTEP, caught in 30 seconds and worth the line:** the first check compared
+> file size against `length()` and reported 20 of 27 pages as mismatched by 1–15
+> bytes. `length()` counts CHARACTERS; every `£` is 2 bytes and 1 character, so
+> the deltas were exactly the count of non-ASCII characters per page. Nothing was
+> wrong with the dump. `octet_length` is the operator; this is now in the RUNBOOK
+> and in `prepare_work.sh`.
+
+`decompose_prover.py` re-run over the fresh dump: **ALL PROOFS PASS**, 25% of
+interactive-page text frozen in tool components (the rule's own P5 threshold is
+50%).
+
+### The prover cannot write rows, so `decompose_pages.py`
+
+The prover returns `prose` and `tool` as two lists, each internally ordered and
+mutually unordered. Fine for proving nothing is lost; useless for `position`.
+The new module re-walks the same tree — importing `TreeBuilder`, `marked`,
+`any_marked`, `loose_text` rather than forking them — and emits ONE ordered list.
+`decompose_prover.py` gained an `if __name__ == "__main__"` guard so it can be
+imported; two copies of a splitting rule that must stay identical is the drift
+class this repo reviews for.
+
+### BUG FOUND IN THE RULE: P4 is blind to external scripts
+
+`/index.html` decomposed with its **entire results box classified as editable
+prose** — `#monthly-display`, `#total-interest`, `#total-cost`, the three
+elements the calculator writes into.
+
+Cause: the rule derives "what the tool needs" from the ids that scripts address,
+and only ever read INLINE scripts. On that page the whole of `calculateLoan()`
+lives in `/assets/js/global.js`. Its `getElementById` calls were invisible.
+
+**P4 passed, and could not have failed.** It asks whether every id an inline
+script addresses travels with the tool; index's inline script addresses only the
+three inputs, and all three did travel. The proof was narrower than the risk —
+the definition was right, the input was incomplete.
+
+Fix: `decompose_pages.py` takes `--assets` and folds every `<script src>` the
+page loads into the same id set. A referenced script that cannot be read is a
+**hard failure**, not a warning, because carrying on with the ids it could see is
+precisely the silent-success shape that produced the bug. Post-fix, index emits
+one tool block carrying all six ids.
+
+Added alongside: `stranded_script_targets` — no script target may land in a PROSE
+block, because prose is what a writer agent is licensed to rewrite. Zero on all
+27 after the fix.
+
+### The chrome was already wrong, and "are there rows?" said it was fine
+
+The RUNBOOK's generic-flip precondition was "`site_components` must be non-empty".
+It became non-empty at `2026-08-01 08:02:07`, written by something outside this
+lane, followed five seconds later by 27 `page_rerender` items — all `complete`,
+site unchanged by a byte, because `loadVerbatimPageHTML` returns before assembly.
+
+Chrome that has never been exercised, and wrong three ways: stylesheet
+`styles.css` (**404**, the real one is `style.css`), header `<ul>` with **no
+links** (all 25 live in `nav.js`), and favicon + `og:image` both **404**.
+Assembling any page would have shipped it unstyled and unnavigable.
+
+The correction is recorded in the RUNBOOK where the wrong precondition was
+written. **The check is not "are there rows" but "does the chrome resolve"** —
+fetch every asset it references and require 200. Presence is not function; same
+shape as the fleet landmine that a roll does not prove a deploy.
+
+Replacements authored in `chrome/`: head links the real stylesheet and keeps
+assembly's two literal injection points (`<title></title>`, `content=""`) intact;
+header is the nav **extracted programmatically from `nav.js`'s template literal**,
+not retyped; footer is an addition, justified by `/legal.html` having zero inbound
+links from anywhere.
+
+> **MISSTEP — a literal `<div class="container">` inside a CSS comment.** My first
+> head explained the layout rule by quoting the markup, which is inert to a
+> browser and unbalances the 5-pair structural predicate that `load_components.py`
+> and the birth-write guard both use. Identical in class to the `{{` -in-a-comment
+> trap from 07-31. All three chrome files are now balance-checked before loading.
+
+### The mirror, and why it is a hypothesis rather than an authority
+
+`assemble_mirror.py` reproduces `assemblePage` + `getPageSections` +
+`sectionHasVisibleContent` + `injectPageJSONLD` + `StripToolDocHeader` in Python,
+because the Go assembler is unexported and needs a page id — there is no way to
+ask it "what would you produce?" without writing the rows, and writing the rows
+is the thing being tested.
+
+**A second implementation agrees with the first for the reasons they are both
+wrong**, so the mirror has a scheduled test: the FIRST PAGE SHIPPED gets its real
+rendered output diffed against the mirror's prediction, and the other 26 do not
+move until they match. Two details that would otherwise diverge and be blamed on
+the decomposition: Go's `json.Marshal` escapes `<`, `>`, `&` to `<` etc., and
+sorts map keys at EVERY level (so `description` lands between `@type` and
+`isPartOf`, and `isPartOf` comes out `@type`/`name`/`url`).
+
+### `verify_assembled.py` — six assertions, two of which I got wrong first
+
+A/B/C/D/E/F as tabulated in the RUNBOOK. The two failures were mine:
+
+> **MISSTEP 1 — the text check measured the whole document, and the prover had
+> already written down why not to.** P6's comment says in terms that measuring
+> the whole document made five pages fail by exactly the length of their
+> `<title>`, which is not lost at all. I scoped mine to the document and got 27
+> failures, every one starting with the page title. Now body-only, like P6.
+>
+> **MISSTEP 2, in the same function and worse — the check had silently become
+> vacuous-but-failing.** It split collapsed text on `\s{2,}|\n`, which after
+> collapsing matches nothing, so every page produced ONE run: the entire body.
+> The assertion was "is the whole original body a contiguous substring of the
+> assembled page?", false by construction the moment a header sits between two
+> blocks. **Too strict is not the safe direction** — 27 spurious failures look
+> exactly like a broken check, and the only way to clear them is to weaken until
+> it passes, which is how a real loss gets waved through.
+
+### Check F exists because a screenshot caught what six checks did not
+
+`tool-loan-repayment` serves both `/tools/standard-calc.html` and `/index.html`.
+Built from standard-calc, it carries that page's FCA risk warning and two
+market-rate lines. On the homepage, which never had them, it **added all three**.
+
+Everything passed, each for a good reason: the numeric fingerprint covers `[id]`
+elements and none of the three has an id; the text check asks what was LOST.
+Nothing asked what was ADDED. So F now checks the other direction, per row —
+prose rows adding text is always a failure, tool rows are listed for sign-off.
+
+> **AND MY FIRST FIX FOR IT WAS WRONG, AND MY OWN SCHEMA GUARD REFUSED IT.**
+> "Reproduce the page as it is today" meant blanking all three, and
+> `render_tool.go` rejected the render: `fca_warning` is `required: true`,
+> `source: static`, with `llm_guidance` saying it is a regulatory warning that
+> belongs alongside a consumer credit promotion and must not be dropped. The
+> homepage IS such a promotion. What I had called faithfulness was removing a
+> warning that ought to be there. **The warning stays and the homepage gains it**
+> — a deliberate change, flagged to the owner. Only the two DATED claims (a 7.9%
+> market average, a 3.75% base rate) are blanked, because duplicating a
+> stale-prone figure onto a second page doubles the places it has to be corrected;
+> both are `required: false` and their own guidance says so.
+
+Two further defects in F, both found by reading its output:
+
+> **HTML comments leaked into text extraction.** `re.split(r"<[^>]*>")` tears a
+> comment in half at any `>` inside it, and these components quote markup in their
+> comments — F reported a paragraph of a component's own commentary as content
+> added to the tracker page.
+>
+> **Whitespace-collapsed containment reported a formatting difference as content
+> loss AND content addition at once.** The original marks up part of a sentence
+> (`…Personal Loans is <strong>7.9%</strong>.`), which collapses to `… is 7.9% .`;
+> the component holds it as one node. Compare with whitespace REMOVED.
+
+F also separates **MOVED from ADDED**: a string the original held in a `<script>`
+literal and wrote in at runtime is the same words relocated, which is exactly what
+the rewrites did on purpose. 10 such strings on 5 pages. Without the split the
+report is 12 lines of noise; with it, 2 lines that both matter — and both are
+deliberate (the homepage warning, and the tracker's distinct restore-failure
+message that replaced a success alert firing on a parse failure).
+
+### Result
+
+```
+static checks pass on all 27 page(s): no text lost, no prose text added,
+  no section dropped, no orphaned script target, no dead internal link
+all 12 calculator(s) reproduce their golden values in the ASSEMBLED page
+```
+
+Screenshots confirm it: the guide page is pixel-identical above the fold, plus
+the new footer. Nothing is written to the database yet.

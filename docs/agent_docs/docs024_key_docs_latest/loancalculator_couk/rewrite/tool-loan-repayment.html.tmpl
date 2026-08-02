@@ -103,12 +103,26 @@
 <section class="tool-loan-repayment-section">
   <div class="lrc-container">
 
-    <div class="lrc-fca-warning">{{.fca_warning}}</div>
+    <!-- The three copy blocks below are OPTIONAL, and the guards are the reason
+         one component can serve two pages. This calculator appears on
+         /tools/standard-calc.html AND on /index.html, and only standard-calc
+         carries the risk warning and the market-average lines. Rendered
+         unconditionally they would ADD both to the homepage — including two
+         dated factual claims (a 7.9% market average, a 3.75% base rate) that
+         nobody asked to publish there and that would then need maintaining in
+         two places.
+         Without the guards, blanking the fields is not a fix either: an empty
+         field still renders the styled box, so the homepage would show an empty
+         amber strip and an empty blue panel. So the markup is conditional and
+         the page decides, via content_data, which of the three it wants. -->
+    {{if .fca_warning}}<div class="lrc-fca-warning">{{.fca_warning}}</div>{{end}}
 
+    {{if or .market_context .rate_environment_note}}
     <div class="lrc-market-context">
-      <p>{{.market_context}}</p>
-      <p><span class="lrc-badge">{{.rate_environment_note}}</span></p>
+      {{if .market_context}}<p>{{.market_context}}</p>{{end}}
+      {{if .rate_environment_note}}<p><span class="lrc-badge">{{.rate_environment_note}}</span></p>{{end}}
     </div>
+    {{end}}
 
     <div class="lrc-card">
       <div class="lrc-inputs">

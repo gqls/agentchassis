@@ -1,0 +1,25 @@
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <title></title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <style>
+    /* Assembled-layout block. The hand-built pages wrapped their whole body in
+       one container element, which style.css sizes at 960px with 20px padding.
+       Decomposition splits that wrapper's children into separate sections, so
+       the wrapper is gone; making the main element the container restores the
+       original geometry exactly, with one set of paddings however many sections
+       there are. The second rule neutralises any container that survives inside
+       a section, which is the case on the thirteen guide pages.
+       Full reasoning: loancalculator_couk/RUNBOOK, "Chrome for an assembled site". */
+    main { max-width: 960px; margin: 0 auto; padding: 20px; }
+    main .container { max-width: none; margin: 0; padding: 0; }
+  </style>
+  <script src="/assets/js/snippets.js"></script>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="loancalculator.co.uk">
+  <meta property="og:title" content="loancalculator.co.uk">
+  <meta property="og:url" content="https://loancalculator.co.uk/">
+  <meta name="twitter:card" content="summary">
+</head>
