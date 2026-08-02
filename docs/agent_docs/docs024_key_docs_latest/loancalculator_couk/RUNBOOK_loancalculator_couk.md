@@ -775,6 +775,61 @@ fix, absent, on a page that would still have passed acceptance, because the
 element is present and no number moved. `backfill_content_data.py --check` names
 exactly the fields at risk. Also in the fleet `LANDMINES.md`.
 
+### ⛔ CORRECTION, SAME DAY — `rerender_sections` DOES NOT WORK ON THIS SITE
+
+**Everything below about `spec.reason` is accurate about the platform and USELESS
+here, and it cost this lane a full deploy cycle to find out.** Written before the
+first re-render was fired; the re-render then completed, reported success, and
+changed nothing.
+
+`rerender_sections` resolves each section's component by passing
+`page_components.slot_name` to `loadComponentSchemas`, which matches
+`content_components` **by name or function**. This site's slots are POSITIONAL —
+`prose-0`, `prose-1`, `tool-2` — so nothing resolves, every section takes the
+`component not found, carrying stored HTML` branch, and the run is a no-op that
+looks exactly like a success:
+
+```sql
+SELECT collected_data->'rerender_sections'->>'rerendered',
+       collected_data->'rerender_sections'->>'carried'
+FROM orchestration_states WHERE correlation_id='439489b6-73fa-4755-be37-2f3982a9cef9';
+-- rerendered 0 | carried 4      <- with all four fixes already live in content_components
+```
+
+Measured across the fleet: **63 of 63 slots here**, 78 across 6 sites. Filed as
+`bugs_open/182`. Until that is fixed, **updating `content_components.html_template`
+on this site changes nothing that will ever reach a page.**
+
+### ✅ THE ROUTE THAT WORKS HERE — render offline, write the row, assemble
+
+This is not a workaround bolted on; it is the route all 27 pages were originally
+shipped through, and it is proven byte-exact.
+
+```bash
+cd /home/ant/projects/agentchassis
+LANE=docs/agent_docs/docs024_key_docs_latest/loancalculator_couk
+
+python3 $LANE/decompose/render_tool_row.py --check <function>   # runs a CONTROL first
+python3 $LANE/decompose/render_tool_row.py --apply <function>
+# then an ASSEMBLE-ONLY rerender (spec with NO `reason`) per page, and:
+python3 $LANE/rewrite/defect_vectors.py --live                  # drives the SERVED pages
+```
+
+`--check` re-renders the row from a baseline ref and requires the **currently
+stored bytes** back before it will write anything. If that control fails, the
+offline renderer and the live row disagree and nothing should be written.
+
+⚠ **The locks do NOT need lifting for this route.** `render_tool_row.py` writes by
+SQL (the deliberate act the lock exists to force, not automation), and
+assemble-only `render_page` does not write `page_components` at all. The 2026-08-03
+unlock was unnecessary in hindsight — it was done for the `rerender_sections` route
+that turned out not to work.
+
+⚠ **`render_component`'s cache key must include `rewrite_dir`** (fixed 2026-08-03).
+It did not, so rendering one component from two directories in one process returned
+the first render twice and reported them identical — wrong exactly where a wrong
+answer reads "nothing to do, your fix is already live".
+
 ### The `reason` decides the branch, and the wrong one is expensive
 
 | `spec.reason` | branch | what it does |

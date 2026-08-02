@@ -2040,3 +2040,73 @@ never exercised on this site.
    visible markup. It imports `text/template` (`call_agent.go:12`). Verified
    rather than assumed, because the failure would have been site-wide and
    irreversible in one pass.
+
+### MISSTEP 3, and the biggest one — the documented re-render route does not work here
+
+I wrote the "Changing a LOCKED calculator" RUNBOOK section, checked the two things
+I thought could go wrong (prose byte-stability, `text/template` vs `html/template`),
+unlocked the row, fired the re-render, and got back:
+
+```
+work item b0c2265d  status: complete
+orchestration 439489b6  rerender_sections -> rerendered: 0, carried: 4, skipped: false
+```
+
+**Nothing re-rendered.** `rerender_sections` resolves each section's component by
+passing `page_components.slot_name` to `loadComponentSchemas`, which matches
+`content_components` by **name or function**. This site's slots are positional —
+`prose-0`, `tool-2` — chosen deliberately (`assemble_mirror.py:270-273`) so a
+dropped-section warning names which paragraph vanished. Nothing is called `tool-2`,
+so every section took the `component not found, carrying stored HTML` branch.
+
+The work item said `complete`. The page was byte-identical. **Every signal the
+platform emits was consistent with a successful deploy.** Filed as `bugs_open/182`
+with the fleet measurement (78 slots across 6 sites) and put through the `090`
+diagnosis loop per the 2026-07-31 ruling.
+
+**What I checked, and what I should have checked.** I verified the two ways the
+re-render could DAMAGE the page and neither of the ways it could silently DO
+NOTHING. Both of my checks were about the blast radius of a change that happened;
+neither asked whether the change would happen at all. That asymmetry is the lesson:
+*"what could this break"* and *"could this be a no-op"* are different questions, and
+only the first one feels like diligence.
+
+The tell was available before the deploy and I did not look for it — the whole
+lane knew `slot_name` was positional, and `loadComponentSchemas` takes names.
+
+### MISSTEP 4 — the fix for that found a defect in the mirror, by accident
+
+`render_tool_row.py` renders the row twice: once from the working tree, once from a
+baseline ref, so the second can act as a control. `render_component`'s cache key was
+`(function, overrides)` and **omitted `rewrite_dir`** — harmless while every caller
+passed one directory, wrong the moment two directories are in play. The second
+render returned the first's output and the two compared EQUAL.
+
+It failed for exactly the two tools whose fix touched only JavaScript (unchanged
+overrides ⇒ colliding key) and worked for the two that had gained a schema field.
+**It was wrong precisely where a wrong answer reads "identical — nothing to do,
+your fix is already live".** Fixed; the key is now `(abspath(rewrite_dir), function,
+overrides)`.
+
+Also measured on the way past: `carryStoredSection` → `save_page_sections` is **not
+byte-preserving** — it trims the trailing `\n` after `</script>` (8893 → 8892 on a
+row whose content was untouched). The control names that tolerance explicitly
+rather than comparing loosely.
+
+### Shipped, and proved on the SERVED pages
+
+The route that works here is the one all 27 pages were originally shipped through:
+render offline with the same Go engine, write `rendered_html`, let the
+**assemble-only** branch stitch it.
+
+- `defect_vectors.py --live` drives the real production urls: **8 of 8 pass.**
+- `toolgolden.py --compare` against the live site: **10 of 12 MATCH**; the two that
+  diverge do so only on the intended keys — `save-display` (NUMBER) and four
+  loan-vs-savings `text/display` keys, with `loan-benefit`/`save-benefit`
+  **unmoved**, so no arithmetic moved anywhere on the site.
+- Positive AND negative controls per served page: the string the fix ADDED is
+  present; the string it REMOVED returns **0**.
+- New golden `GOLDEN_2026-08-03_defects_fixed.json`, self-verifying (12/12).
+- All 12 tool rows re-locked. The unlock window was ~20 minutes, nothing wrote to
+  the row, and **in hindsight it was unnecessary**: the working route writes by SQL
+  and assemble-only `render_page` never touches `page_components`.
