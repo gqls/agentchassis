@@ -3,6 +3,45 @@
 **Written 2026-07-31 (end of the opening session). This is the cold-start doc for
 this lane — read it before anything else, then `NOTES` tail and `PLAN` §REVISED.**
 
+> ## ⚠⚠ SUPERSEDED IN ITS CENTRAL CLAIM, 2026-08-02 — THE DECOMPOSITION IS BUILT AND SHIPPED
+>
+> This document is kept because its corrections and evidence are still the best
+> record of how the lane got here, but **its premise — "the decomposition build is
+> outstanding" — is no longer true.** The owner chose FULL decomposition on
+> 2026-08-02 and it is done:
+>
+> **All 27 pages are now 63 `page_components` rows — 51 `ported-prose` + 12 tool,
+> ZERO verbatim.** The holding state is over. Registered as ADO-039 / ADO-040.
+>
+> - **Cold-start now**: `NOTES` tail (2026-08-02 sections), then `RUNBOOK`
+>   §"Chrome for an assembled site", §"Proving the decomposition BEFORE writing a
+>   row" and §"Shipping the decomposition".
+> - **Tooling**: `decompose/prepare_work.sh` → `verify_assembled.py` →
+>   `load_chrome.py` → `load_decomposition.py` → `verify_shipped.py`.
+>   `decompose_pages.py` is the ordered decomposer; `decompose_prover.py` still owns
+>   the splitting RULE and is imported, not forked.
+> - **Reversible per page**: every original row is in
+>   `page_components_bak_20260802_decomp`; `load_decomposition.py --restore <page>`.
+> - **Proven, not asserted**: `assemble_mirror.py` wrote each page's predicted bytes
+>   BEFORE any row was written, and every page rendered so far came back
+>   **byte-identical, same md5**. On the live pages no calculator value moved.
+>
+> **Three of this file's own corrections are now RESOLVED, and one was wrong:**
+>
+> - Correction 3 (`site_components` empty ⇒ a flip ships no chrome) — **resolved**,
+>   three rows authored in `chrome/` and installed behind a refusal that fetches
+>   every referenced asset. But it was also **out of date within a day**: rows
+>   appeared on 2026-08-01 written by another process, and they were broken three
+>   ways (404 stylesheet, a nav with zero links, two 404 images). **"Are there rows"
+>   was never the right question — ask whether the chrome RESOLVES.**
+> - Correction 4 (page-local `<style>` must survive; the homepage tool needs an
+>   external `<script src>`) — **both confirmed, and the second was worse than
+>   stated.** The external script does not merely need carrying: the splitting rule
+>   never READ it, so `/index.html`'s whole results box decomposed as editable prose
+>   while the prover's own P4 passed. Fixed; `--assets` is now mandatory.
+> - Correction 2 (the GitHub read token cannot see `gqls/sites`) — **still true and
+>   still owner-blocked**, and still off the critical path exactly as stated.
+
 > ## ⚠ CORRECTIONS from the second session (2026-07-31, later) — read these first
 >
 > Everything in §2 and §3 below was **re-verified and holds** (27/27 serve 200; 27
