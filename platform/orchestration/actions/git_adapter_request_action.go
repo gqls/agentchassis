@@ -43,10 +43,21 @@ func init() {
 // invoke. Deliberate: a workflow typo must fail here, loudly, not at the
 // adapter's unknown-action branch; and destructive verbs (delete_repo) are
 // NOT reachable through the generic caller at all.
+//
+// `delete_file` IS allowlisted, and the line it sits on the right side of is
+// worth stating because it is not "destructive vs not". `delete_repo` destroys
+// a container the platform cannot rebuild and has no workflow that wants it.
+// `delete_file` is a CONTENT operation: its blast radius is exactly the paths
+// named, every one of them is recoverable from the repo's own history, and it
+// is the counterpart of `commit` — which is already here, already writes
+// content, and can already destroy a page by overwriting it. Refusing the
+// unpublish half while allowing the publish half is what left `bugs_open/098`
+// with no repair path at all.
 var gitAdapterActions = map[string]bool{
 	"commit":              true,
 	"create_branch":       true,
 	"create_pull_request": true,
+	"delete_file":         true,
 }
 
 // GitAdapterRequestAction sends one request to the git-adapter and awaits it.
@@ -59,7 +70,7 @@ func GitAdapterRequestAction(ctx context.Context, params ActionParams) (interfac
 
 	adapterAction, _ := config["adapter_action"].(string)
 	if !gitAdapterActions[adapterAction] {
-		return nil, fmt.Errorf("adapter_action %q is not allowed (want one of: commit, create_branch, create_pull_request)", adapterAction)
+		return nil, fmt.Errorf("adapter_action %q is not allowed (want one of: commit, create_branch, create_pull_request, delete_file)", adapterAction)
 	}
 
 	// Assemble the data payload: literals verbatim + fields resolved from

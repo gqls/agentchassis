@@ -17322,3 +17322,35 @@ silently and commit a message with the output pasted in, or worse.
 all. Write it to a file and use `git commit -F <file>`. That removes the whole class —
 backticks, `$(...)`, `!` history expansion, embedded quotes — rather than remembering to
 escape each one. Used `-F` for the retry and it worked first time.
+
+---
+
+## 2026-08-02 — I justified a design choice with a hazard I had not measured, and it was not happening
+
+**The claim that was wrong:** while building the unpublish primitive (`bugs_open/098`) I
+chose a per-path existence check over one recursive tree listing, and wrote the reason
+into the code comment and the plan as though it described the estate today: *"`GET
+/git/trees/{sha}?recursive=1` on the sites repo can come back `truncated: true`, and a
+truncated listing reports present files as ABSENT."*
+
+Then I measured it. `gqls/sites` recursive at master: **1,847 entries, `truncated:
+false`** — nowhere near GitHub's 100k/7MB limit, and not plausibly near it for years.
+
+**Why it is a wrong call even though the decision was right.** The per-path check *is*
+the right choice — it is what makes the present/absent split reportable at all, which is
+the property the caller actually needs. But that is not what I wrote down. I wrote down
+the scarier reason, unmeasured, in the same voice as the measured ones two paragraphs
+above it (the 422 probe, which I *had* run). A reader — a council seat, or the next
+thread — would have taken it as a finding, because everything around it was one. That is
+the `[INFERRED]`-marker failure in its purest form: the error is not the belief, it is
+stating an unchecked belief in the voice of a checked one.
+
+**What caught it:** running the measurement anyway while gathering blast-radius numbers
+for the submission — i.e. luck dressed as diligence. Nothing in the change would have
+failed if I had left it in.
+
+**The cheap check that would have caught it:** when a comment justifies a choice by
+naming a failure mode, ask *"have I seen this failure mode, in this system?"* If not,
+either measure it (one API call here) or mark it `[UNMEASURED]` inline. The tell is the
+word **"can"** — "can come back truncated", "can grow unbounded", "can race". *Can*
+smuggles a hypothetical into a paragraph of facts, and it costs one query to convert.

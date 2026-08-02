@@ -360,6 +360,8 @@ func (a *GitAdapter) processMessage(msg *kafka.Message) {
 		responsePayload = a.handleCreateRepoAction(req.Body.Data)
 	case "delete_repo":
 		responsePayload = a.handleDeleteRepoAction(req.Body.Data)
+	case "delete_file":
+		responsePayload = a.handleDeleteFileAction(req.Body.Data)
 	case "create_branch":
 		responsePayload = a.handleCreateBranchAction(req.Body.Data)
 	case "create_pull_request":
@@ -463,6 +465,106 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 		"commit_message": commitData.CommitMessage,
 		"timestamp":      time.Now().UTC().Format(time.RFC3339),
 	}
+}
+
+// handleDeleteFileAction removes files from a repo — the UNPUBLISH half of
+// `commit`, and the primitive `bugs_open/098` and `bugs_closed/125` were both
+// blocked on ("the platform can publish a page but has no implemented way to
+// unpublish one").
+//
+// It is deliberately a thin wrapper over CommitToRepo rather than its own
+// GitHub call: a removal IS a tree entry with a null sha, so routing it through
+// the commit path gives it the ref-race retry, the {domain}/{path} prefixing
+// and atomicity with writes, none of which a bespoke Contents-API delete would
+// have. See GitCommitData.Deletions.
+//
+// Absent paths are a SUCCESS. Re-running a retraction must be safe, and "the
+// file is already gone" is the state the caller asked for.
+func (a *GitAdapter) handleDeleteFileAction(data json.RawMessage) interface{} {
+	var deleteData GitDeleteFileData
+	if err := json.Unmarshal(data, &deleteData); err != nil {
+		a.logger.Error("Failed to parse delete_file data", zap.Error(err))
+		return map[string]interface{}{
+			"success": false,
+			"error":   fmt.Sprintf("failed to parse delete_file data: %v", err),
+		}
+	}
+
+	if len(deleteData.Paths) == 0 {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "no paths in delete_file data",
+		}
+	}
+	// Same rule as handleCommitAction: site content is domain-prefixed, a
+	// branch-targeted platform commit is repo-relative and says so by carrying
+	// a branch. Requiring one of the two stops an unscoped deletion at the root
+	// of a shared repo.
+	if deleteData.Domain == "" && deleteData.Branch == "" {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "no domain in delete_file data",
+		}
+	}
+
+	commitMessage := deleteData.CommitMessage
+	if commitMessage == "" {
+		commitMessage = fmt.Sprintf("Retract %d file(s) from %s", len(deleteData.Paths), deleteData.Domain)
+	}
+
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+
+	repoURL, err := a.githubClient.CommitToRepo(ctx, GitCommitData{
+		RepoName:      deleteData.RepoName,
+		Domain:        deleteData.Domain,
+		Deletions:     deleteData.Paths,
+		CommitMessage: commitMessage,
+		Branch:        deleteData.Branch,
+	})
+	if err != nil {
+		a.logger.Error("Failed to delete files from repo",
+			zap.Error(err),
+			zap.String("repo", deleteData.RepoName),
+			zap.Strings("paths", deleteData.Paths),
+		)
+		return map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		}
+	}
+
+	a.logger.Info("Successfully retracted files from repo",
+		zap.String("repo", deleteData.RepoName),
+		zap.String("domain", deleteData.Domain),
+		zap.Strings("paths", deleteData.Paths),
+	)
+
+	return map[string]interface{}{
+		"success":        true,
+		"repo_url":       repoURL,
+		"repo_name":      deleteData.RepoName,
+		"domain":         deleteData.Domain,
+		"paths":          getDeletionPaths(deleteData.Paths, deleteData.Domain),
+		"paths_count":    len(deleteData.Paths),
+		"commit_message": commitMessage,
+		"timestamp":      time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+// getDeletionPaths mirrors getFilePaths: report the paths as they were written
+// in the repo (domain-prefixed), not as the caller spelled them, so a reader of
+// the response can find them.
+func getDeletionPaths(paths []string, domain string) []string {
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if domain != "" {
+			out = append(out, domain+"/"+p)
+		} else {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // handleCreateBranchAction creates (or finds) a branch — F1.1b(c).

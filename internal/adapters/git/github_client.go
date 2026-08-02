@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -55,10 +57,30 @@ func NewGitHubClient(token, org, apiBase string, log *zap.Logger) (*GitHubClient
 	return c, nil
 }
 
-// CommitToRepo is the main function that orchestrates the commit
+// CommitToRepo is the main function that orchestrates the commit.
+//
+// It carries WRITES (data.Files) and REMOVALS (data.Deletions) through the same
+// tree/commit/ref machinery, because in the Git Data API a removal simply IS a
+// tree entry with a null sha. Doing it here rather than in a bespoke Contents-API
+// call is what gives a retraction the ref-race retry below, the domain-prefixing
+// convention, and atomicity with any writes in the same request — see the type
+// comment on GitCommitData.Deletions.
 func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (string, error) {
-	if data.RepoName == "" || len(data.Files) == 0 {
-		return "", fmt.Errorf("repo_name and files are required")
+	if data.RepoName == "" || (len(data.Files) == 0 && len(data.Deletions) == 0) {
+		return "", fmt.Errorf("repo_name and at least one of files/deletions are required")
+	}
+
+	// Deletion paths are validated BEFORE anything is prefixed, and writes are
+	// not. That asymmetry is deliberate: a malformed write path creates a junk
+	// file, which is visible and recoverable by writing again; a malformed
+	// DELETE path destroys someone else's artefact, and `../other-site.com/
+	// index.html` under a domain prefix is a real traversal out of the caller's
+	// own directory. The primitive refuses rather than trusting its callers,
+	// because the chassis-side caller is not the only possible one.
+	for _, p := range data.Deletions {
+		if err := validateDeletionPath(p); err != nil {
+			return "", err
+		}
 	}
 
 	// Files go to {domain}/{filename} — a SITE-CONTENT convention. A branch-
@@ -71,6 +93,15 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 			prefixedFiles[prefixedPath] = content
 		}
 		data.Files = prefixedFiles
+
+		// Deletions take the IDENTICAL prefix from the IDENTICAL field. One
+		// implementation, so a retraction cannot address a path outside the
+		// domain a publish of the same request would have written to.
+		prefixedDeletions := make([]string, 0, len(data.Deletions))
+		for _, path := range data.Deletions {
+			prefixedDeletions = append(prefixedDeletions, data.Domain+"/"+path)
+		}
+		data.Deletions = prefixedDeletions
 	}
 
 	c.log.Info("Committing to repo",
@@ -123,11 +154,12 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		if err != nil {
 			return "", fmt.Errorf("failed to create blob for %s: %w", path, err)
 		}
+		sha := blobSHA
 		treeEntries = append(treeEntries, TreeEntry{
 			Path: path,
 			Mode: "100644", // file
 			Type: "blob",
-			SHA:  blobSHA,
+			SHA:  &sha,
 		})
 	}
 
@@ -156,7 +188,67 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 			}
 		}
 
-		newTreeSHA, err := c.createTree(ctx, repo.Owner.Login, repo.Name, latestSHA, treeEntries)
+		// Removals are resolved INSIDE the loop, unlike blobs. A blob's sha is
+		// content-addressed and stays valid whatever the head moves to; a
+		// removal is a statement ABOUT the head, so a re-base must re-ask. If
+		// the winner of a ref race removed the same path, this attempt now sees
+		// it absent and drops it rather than asking GitHub to delete something
+		// the new base tree no longer holds.
+		//
+		// THE FILTER IS REQUIRED, NOT DEFENSIVE, and this was probed rather
+		// than assumed (gqls/sites, 2026-08-02, POST /git/trees against the
+		// live master tree — a tree object is created unreferenced, so the
+		// probe moves no ref and fires no workflow):
+		//
+		//	null sha, path PRESENT  -> 201, new tree sha
+		//	null sha, path ABSENT   -> 422 GitRPC::BadObjectState
+		//
+		// So without this, re-running a repair FAILS. Being absent is the state
+		// the caller asked for, so it is reported as a success.
+		//
+		// Existence is checked PER PATH rather than from one recursive tree
+		// listing. `GET /git/trees/{sha}?recursive=1` carries a `truncated`
+		// flag, and a truncated listing would report present files as ABSENT —
+		// a real retraction would then skip silently and report success.
+		// MEASURED 2026-08-02: the sites repo is 1,847 entries and
+		// `truncated: false`, i.e. nowhere near the limit today — so this is
+		// headroom, not a live hazard, and it is not the main reason. The main
+		// reason is that a per-path 404 is also what makes the present/absent
+		// split reportable at all.
+		entries := treeEntries
+		var absent []string
+		if len(data.Deletions) > 0 {
+			present, missing, err := c.partitionExistingPaths(ctx, repo.Owner.Login, repo.Name, branch, data.Deletions)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve deletion paths on branch %q: %w", branch, err)
+			}
+			absent = missing
+			// Copy: treeEntries is reused by the next attempt and must not
+			// accumulate one attempt's removals.
+			entries = make([]TreeEntry, 0, len(treeEntries)+len(present))
+			entries = append(entries, treeEntries...)
+			for _, p := range present {
+				entries = append(entries, TreeEntry{
+					Path: p,
+					Mode: "100644",
+					Type: "blob",
+					SHA:  nil, // null => remove this path from the tree
+				})
+			}
+		}
+
+		// Nothing to write and every requested removal already gone. Return
+		// success WITHOUT committing: an empty commit would still push, fire
+		// the deploy workflow and purge a Cloudflare zone for no change at all.
+		if len(entries) == 0 {
+			c.log.Info("CommitToRepo: no-op — every requested deletion is already absent",
+				zap.String("repo", repo.Name),
+				zap.String("branch", branch),
+				zap.Strings("absent", absent))
+			return repo.HTMLURL, nil
+		}
+
+		newTreeSHA, err := c.createTree(ctx, repo.Owner.Login, repo.Name, latestSHA, entries)
 		if err != nil {
 			return "", fmt.Errorf("failed to create tree: %w", err)
 		}
@@ -411,6 +503,99 @@ func (c *GitHubClient) createBlob(ctx context.Context, owner, repo, content, enc
 		return "", err
 	}
 	return blob.SHA, nil
+}
+
+// validateDeletionPath refuses anything that is not a plain repo-relative file
+// path. It rejects rather than sanitises, for the reason
+// datahelpers.PageFilePathFromURL gives about the publish side: silently
+// rewriting a path that was meant to address one thing so that it addresses
+// another is worse than declining it, and a deletion is where that costs most.
+func validateDeletionPath(p string) error {
+	if strings.TrimSpace(p) != p || p == "" {
+		return fmt.Errorf("deletion path %q is empty or padded", p)
+	}
+	if strings.HasPrefix(p, "/") {
+		return fmt.Errorf("deletion path %q must be repo-relative, not absolute", p)
+	}
+	if strings.Contains(p, `\`) {
+		return fmt.Errorf("deletion path %q contains a backslash; GitHub tree paths take it literally", p)
+	}
+	// path.Clean collapses "..", "//" and "./". If cleaning would CHANGE the
+	// path, the path was not what it appeared to be — including the traversal
+	// case, which is the one that matters.
+	if cleaned := path.Clean(p); cleaned != p {
+		return fmt.Errorf("deletion path %q is not canonical (would clean to %q)", p, cleaned)
+	}
+	if p == "." || p == ".." || strings.HasPrefix(p, "../") {
+		return fmt.Errorf("deletion path %q escapes the repository root", p)
+	}
+	return nil
+}
+
+// partitionExistingPaths splits paths into those the branch currently holds and
+// those it does not, preserving the caller's order in both. It is the guard that
+// makes a retraction idempotent — GitHub answers a null-sha entry for a path its
+// base tree does not hold with 422 GitRPC::BadObjectState (probed on the live
+// repo; see the call site), so without this a second run of a repair fails.
+//
+// A non-404 failure is returned as an error rather than being treated as
+// "absent": guessing absent on a 500 or a rate limit would silently skip a
+// removal the caller asked for and report success, which is the failure mode
+// this whole bug is about.
+func (c *GitHubClient) partitionExistingPaths(ctx context.Context, owner, repo, branch string, paths []string) (present, absent []string, err error) {
+	for _, p := range paths {
+		exists, err := c.pathExists(ctx, owner, repo, branch, p)
+		if err != nil {
+			return nil, nil, fmt.Errorf("existence check for %q: %w", p, err)
+		}
+		if exists {
+			present = append(present, p)
+		} else {
+			absent = append(absent, p)
+		}
+	}
+	return present, absent, nil
+}
+
+// pathExists reports whether ref holds path. 404 is the only status that means
+// "no"; every other non-2xx is an error.
+func (c *GitHubClient) pathExists(ctx context.Context, owner, repo, ref, path string) (bool, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/contents/%s?ref=%s",
+		c.apiBase, owner, repo, pathEscapeSegments(path), neturl.QueryEscape(ref))
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	switch {
+	case resp.StatusCode == http.StatusNotFound:
+		return false, nil
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		return true, nil
+	default:
+		return false, fmt.Errorf("github contents API returned %s for %q", resp.Status, path)
+	}
+}
+
+// pathEscapeSegments escapes each path segment but keeps the "/" separators —
+// neturl.PathEscape would turn them into %2F and address a single file whose
+// name contains slashes, which is not a thing.
+func pathEscapeSegments(p string) string {
+	segs := strings.Split(p, "/")
+	for i, s := range segs {
+		segs[i] = neturl.PathEscape(s)
+	}
+	return strings.Join(segs, "/")
 }
 
 func (c *GitHubClient) createTree(ctx context.Context, owner, repo, baseTreeSHA string, entries []TreeEntry) (string, error) {

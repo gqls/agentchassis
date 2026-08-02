@@ -1295,7 +1295,13 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	"git_adapter_request": {
 		Handler:     GitAdapterRequestAction,
 		Category:    "site",
-		Description: "Generic git-adapter caller (allowlisted verbs: commit, create_branch, create_pull_request) with data assembled from config paths/literals; awaits the adapter response; the write credential never leaves the adapter",
+		Description: "Generic git-adapter caller (allowlisted verbs: commit, create_branch, create_pull_request, delete_file) with data assembled from config paths/literals; awaits the adapter response; the write credential never leaves the adapter",
+		IsLocal:     true,
+	},
+	"retract_page_deployment": {
+		Handler:     RetractPageDeploymentAction,
+		Category:    "site",
+		Description: "UNPUBLISH (bugs_open/098): removes the deployed artefacts of pages that must no longer be served, via git-adapter delete_file. Paths are only ever derived from pages.url through the shared PageFilePathFromURL, a path an ACTIVE page also owns is refused, and every refusal is reported rather than swallowed. Does not clear deployed_at",
 		IsLocal:     true,
 	},
 	"select_review_panel": {

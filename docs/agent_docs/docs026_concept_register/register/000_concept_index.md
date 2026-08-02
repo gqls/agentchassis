@@ -1,7 +1,9 @@
 # Concept Index — master register
 
-**1,706 index table rows** across **109** category register files, measured
-2026-08-02 late after STY-051 landed. **The prior headline of 1,711 (recorded the
+**1,708 index table rows** across **109** category register files, re-measured
+2026-08-03 with the command below after DGH-006 (the unpublish primitive) landed;
+the count moved 1,706 → 1,708, i.e. one row besides mine arrived concurrently.
+Previously: 1,706 measured 2026-08-02 late after STY-051 landed. **The prior headline of 1,711 (recorded the
 same day, after VMB-015) did NOT reproduce** — the documented grep returned 1,705
 before STY-051's row was added, so either five rows left the table between the two
 measurements or the 1,711 was itself mis-taken; recorded here per this file's own
@@ -899,6 +901,7 @@ an ID prefix, or a status word.
 | SYS-051 | Sites contact-identity denormalisation | deployed | Identity/contact fields promoted from content_data JSONB to first-class columns | system-architecture.md |
 | TP-005 | deploy_page files_field contract (co-located JS must ship) | deployed | If page deploys use content_field (HTML only), component JS (/tools/assets/*.js) is silently dropped — news... | tool-pipeline.md |
 | DGH-005 | Chassis build/deploy practice (local Makefile builds) | deployed | Images build from local tree, decoupled from commits; verify against the running pod | deployment-github.md |
+| DGH-006 | `delete_file` — the UNPUBLISH primitive (adapter verb + `retract_page_deployment`) | deployed | The platform could publish a page but not unpublish one; a deletion is a null-sha tree entry, so it rides the existing commit path | deployment-github.md |
 | CLC-003 | F1 field-contract guard (reject regens that rename/drop retained fields) | deployed | In StoreGeneratedComponentAction's Layer-1 validation, on isRegeneration the guard diffs old vs new... | component-lifecycle.md |
 | MDL-021 | Code-context retrieval infrastructure (analyser adapter) | deployed | In-cluster code indexing into a pgvector code_symbols table; found stale | model-infrastructure.md |
 | SYS-061 | Child-orchestration timeout monitor | partial | In-memory per-child timeout goroutine; pod-restart recovery was a known gap | system-architecture.md |

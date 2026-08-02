@@ -142,12 +142,41 @@ type ErrorInfo struct {
 // commits plan edits to a fix branch, never to main. When Branch is set, Domain
 // may be empty and file paths are used repo-relative (no domain prefix): Domain
 // is a site-content concept; platform-repo commits are repo-relative.
+//
+// Deletions (optional, bugs_open/098) names paths to REMOVE in the same commit.
+// It is spelled the same way Files is — domain-prefixed by the same code — so a
+// deletion can only ever name a path a publish could have written. Files and
+// Deletions may be populated together: that is a MOVE, and expressing it as one
+// commit is why deletion lives here rather than in a verb of its own (a page is
+// then never absent from both the old path and the new one, which is exactly the
+// half-move that bugs_closed/125's orphans are).
 type GitCommitData struct {
 	RepoName      string                 `json:"repo_name"`
 	Domain        string                 `json:"domain"`
 	Files         map[string]interface{} `json:"files"`
+	Deletions     []string               `json:"deletions,omitempty"`
 	CommitMessage string                 `json:"commit_message"`
 	Branch        string                 `json:"branch,omitempty"`
+}
+
+// GitDeleteFileData is the 'data' field for a 'delete_file' action — the
+// unpublish counterpart of 'commit'. Paths are repo-relative and are prefixed
+// with Domain by exactly the code that prefixes Files, so a retraction can only
+// ever name a path a publish could have written.
+//
+// Branch is normally EMPTY and should stay that way for site content. The
+// deploy repo's branch names do not agree with `sites.github_branch`: gqls/sites
+// carries `master` (its default) and `750start` and has NO `main`, while the
+// column says 'main' for most sites. Deploys work only because the commit path
+// leaves Branch unset and falls back to the repo default — and the B2 workflow
+// triggers on `master`. Passing the column's value here commits to a branch
+// that does not exist, or to one that never deploys.
+type GitDeleteFileData struct {
+	RepoName      string   `json:"repo_name"`
+	Domain        string   `json:"domain"`
+	Paths         []string `json:"paths"`
+	CommitMessage string   `json:"commit_message,omitempty"`
+	Branch        string   `json:"branch,omitempty"`
 }
 
 // GitCreateBranchData is the 'data' field for a 'create_branch' action.
@@ -186,12 +215,19 @@ type GitHubRepo struct {
 	} `json:"owner"`
 }
 
-// TreeEntry is for building the Git tree
+// TreeEntry is for building the Git tree.
+//
+// SHA is a POINTER, and that is load-bearing rather than stylistic: GitHub's
+// tree API expresses "remove this path" as an entry whose `sha` is JSON `null`.
+// A Go `string` would marshal an unset SHA as `""`, which the API rejects — only
+// a nil *string produces the null the deletion path needs. Do not "tidy" this
+// back to a string with omitempty either: omitempty would DROP the key, and a
+// tree entry with no sha at all is not a deletion, it is a malformed entry.
 type TreeEntry struct {
-	Path string `json:"path"`
-	Mode string `json:"mode"`
-	Type string `json:"type"`
-	SHA  string `json:"sha"`
+	Path string  `json:"path"`
+	Mode string  `json:"mode"`
+	Type string  `json:"type"`
+	SHA  *string `json:"sha"`
 }
 
 // ============================================================================
