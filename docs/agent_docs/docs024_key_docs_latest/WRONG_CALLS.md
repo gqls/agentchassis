@@ -16004,3 +16004,139 @@ form "nothing predicts X" is a claim about a FUNCTION, and the function was one
 query away the whole time. Same family as re-running-someone's-SQL blindness:
 I described the selector's behaviour from its observed output (two watches of
 non-selection) without reading its text.
+
+## 2026-08-02 — bugfix_136 (section-editor slug) — I read a census off a LISTING and put the eyeballed totals in a commit message
+
+**The claim (committed at `66998d300`, and in that workstream's PLAN and NOTES):**
+"30 distinct (page, href) internal links in stored `page_components.rendered_html`
+do not resolve … across **7 sites** — 14 rewritable, 16 unlinkable" and "8 of the 30
+live rows sit in tool slots".
+
+**What was false:** every figure except the shape of the finding. Re-run as an
+AGGREGATE the same minute after: **35** unresolved href occurrences, in 13
+components on 13 pages across **6** sites, split **18 rewrite / 17 unlink**, of
+which **7** (not 8) are tool-shaped. The "30" was the number of GROUPED ROWS my
+detail query returned — it grouped by `(domain, page_name, slot_name, href,
+action)`, so it collapsed repeats and was never a count of links. The "7 sites"
+was me counting distinct domain names down a 30-row terminal listing, and I
+miscounted a column I could have asked the database for.
+
+**What caught it:** writing the RUNBOOK. Turning the query into something another
+session could re-run meant giving it a `count(DISTINCT …)`, and the aggregate
+disagreed with the prose I had already committed.
+
+**The cheap check that would have caught it:** if a number is going into a durable
+document, get it from `count(*)` / `count(DISTINCT x)`, never from the shape of a
+result set on screen — and say WHICH count it is ("href occurrences", not "links").
+`psql` prints `(30 rows)` at the foot of any listing and that integer is about the
+GROUP BY, not about the world. Same family as
+[a-count-you-kept-is-not-a-census] and [a-filtered-count-can-ship-inside-a-denominator]:
+the number was real, the noun attached to it was invented.
+
+**The shape worth keeping.** The error survived into a commit message, which
+forward-only makes permanent — so the correction has to live where the claim will
+next be READ (the bug file, the workstream docs), not only where it was made. A
+figure quoted in a commit message deserves the same "is this the aggregate?" pause
+as one quoted in a handoff, and it gets less of one precisely because a commit
+feels like a byproduct rather than a document.
+
+## 2026-08-02 — bugfix_165 sites B+C — TWO mis-spelled checks in one verification pass, and BOTH failed in the direction that says "your change did not ship"
+
+Verifying sites B and C against the running `v1.0.1228` binary, I ran two checks
+that were wrong as spelled, ten minutes apart. Neither errored. Both returned a
+clean, confident, plausible answer, and both answers were the *reassuring-looking*
+kind that is actually alarming — "not present" and "claim contradicted".
+
+**1. The pod grep.** Positive control for the nav loader's shared predicate:
+
+```
+grep -cE "site_id = .1 AND status IN .active., .deployed., .pending." /tmp/s.txt   →  0
+```
+
+I read `0` as "the one-line predicate is not in the binary". It is: the binary has
+`('active', ...` — **two** characters between `IN ` and `active`, the paren and the
+quote — where my pattern allowed one. The corrected pattern returned 4. The other
+symbols in the same batch (`enforceNavPruneFloor`, `enforceLinkRegistryFloor`) had
+already returned 2, which is exactly what made the `0` credible: a batch where most
+lines pass and one fails does not read as "my regex is wrong", it reads as "that one
+thing is missing".
+
+**2. The work-item check.** Verifying another lane's claim that the refusal item
+carries no handler:
+
+```
+SELECT handler_agent IS NULL AS no_handler ...   →  f
+```
+
+Read for two seconds as "their claim is false, a handler IS set". It is not:
+`site_work_items.handler_agent` is `NOT NULL DEFAULT ''` since migration 217
+(`bugs_closed/078`), so the no-handler state is `''` and `IS NULL` is *always*
+false on that column. `claim_work_item_action.go:159` treats `''` and NULL
+identically and on purpose. Their claim was right; my check could not have found it
+true.
+
+**The cheap check that would have caught both:** *print the value, do not test it.*
+`quote_literal(col)` and `length(col)` instead of `IS NULL`; `grep -n` the matching
+line instead of `grep -c`. Both cost one extra column or one extra flag, and both
+turn "0 / f" — which has two causes with opposite meanings — into a literal you can
+read. I had `grep -n` in the very next command and it is what exposed the regex.
+
+**The shape worth keeping, and it is why this is one entry and not two.** A
+verification pass is the *worst* place for this class, because every mis-spelled
+check fails toward "your change is not there", and that is a conclusion you are
+already primed to accept — you are looking for your own work and half-expecting not
+to find it. A false negative during verification does not feel like an error; it
+feels like diligence. This is the fleet landmine
+[a-grep-proves-absence-only-for-its-spelling] and [a-print-statement-is-not-a-config-row]
+meeting in one session, and the tally is the point: I had already logged the
+`count(handler_agent)`-counts-empty-strings trap **earlier in this same task**, and
+still wrote `IS NULL` against the same column an hour later. Knowing the class does
+not protect you; changing the spelling of the check does.
+
+## 2026-08-02 — bugfix_165 — I repeated an inherited "blocked on X" pointer for a case that had closed the same day X was written
+
+**The claim**, written today into `bugs_open/165`, the **016b §10 index row** and the
+**concept register** — three durable, fleet-read documents:
+
+> "Site C remains un-inducible … Blocked on `bugs_open/092`."
+
+**Both halves were wrong.** `092` was not open — it closed **2026-07-31**, fixed and
+live on v1.0.1219 and induced-proven, *the same day* the note I inherited was
+written. And the dependency was never real: `092` closing did not populate
+`link_registry`, which I re-measured today at **still 0 rows**. So I asserted a
+blocker that had already been removed, on a case it never blocked.
+
+**Where it came from, which is the interesting part.** I did not invent it. The B/C
+contributing session wrote *"that is `bugs_open/092`'s territory, not this floor's"*
+in `link_registry_prune_floor.go`'s header, and I carried the sentence — path and
+all — into three documents without once resolving it. It read as a measured claim
+because everything around it in that header **was** measured.
+
+**The cheap check that would have caught it:** `ls bugs_open/092* bugs_closed/092*`,
+or `./scripts/who-owns.py 092`. One command, ~0.3s, no cluster call. I ran
+`who-owns.py` the moment I actually went to work on `092` — and it answered
+instantly. I simply had not run it when I *cited* it, only when I planned to *act*
+on it. **Citing a bug number is acting on it**: every reader who follows the pointer
+inherits the error.
+
+**The shape, and why it is not just staleness.** A cross-reference is the one kind
+of claim that gets *stronger* with each restatement while getting no more true —
+mine now appeared in three places, in two of the documents sessions are told to
+consult *before concluding something does not exist*. And the underlying item had
+no owner at all: `092` said the link-registry question belonged to `165`
+("contributed there rather than competed with"); `165` said it belonged to `092`.
+**Each deferred to the other, so neither owned it, and both then closed.** A
+deferral names a destination and nobody re-checks that the destination accepted it.
+
+**Two rules out of it.** (1) **Resolve a bug number before citing it, not before
+acting on it** — `who-owns.py` or an `ls` of both directories, every time; the
+numbering is one sequence across two directories precisely so a bare number cannot
+tell you which. (2) **When you hand an item to another case, write it into THAT
+case's file**, not only your own — a deferral recorded only at the origin is an
+orphan the moment either file closes.
+
+Related fleet landmines: [prior-art-search-goes-stale],
+[a-closed-bugs-scope-out-expires]. Fixed in `c548dd105`, which also resolves the
+`[UNDETERMINED]` both files had been deferring (`extract_and_sync_links` has never
+executed — the agent never runs). **Not swept: 19 other files still cite
+`bugs_open/092`.**
