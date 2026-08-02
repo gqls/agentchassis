@@ -25,6 +25,18 @@ marker baseline correctly 0.
 | 7 | compliance boundaries | **PASS** | No `<form>` anywhere, no lead-gen, no lender recommendations found. |
 | 8 | markers | mission **0/15** · spec **0 (correct baseline)** | The exact-phrase homepage instruction ("know the rules before you borrow") did NOT survive mission→classifier→writer — not even the fragment "before you borrow". Verbatim elements attenuate through the research chain. |
 
+> **CORRECTED 2026-08-02, ~2h later — dimension 8's mission-marker line is WRONG, by
+> the same mistake §"Measurement corrections" documents two paragraphs down.** The
+> mission's exact phrase IS on the homepage — as its `<title>`: "Lendzy — Know the
+> Rules Before You Borrow", present since attempt 1's first rerender. I measured
+> components; the title lives in assembly-generated head. So: the mission seam DID
+> carry the verbatim phrase, into arguably the highest-value slot on the site, and
+> "verbatim attenuates through the research chain" is falsified for titles (it may
+> still hold for body copy — no body occurrence exists). Same head inspection found
+> two more seam findings: `meta name="description"` is EMPTY on the homepage, and
+> every page references `/assets/images/favicon.png` which was never generated —
+> the built site's ONLY dead internal target after the tool builds landed.
+
 Also: the pipeline imposed **blog-index + blog-post** pages the mission never asked for
 (both unbuilt, parked in review) — the standard site shape leaking past the brief.
 
@@ -65,3 +77,27 @@ by design). 5 items in `needs_human_review` are an OWNER QUEUE: 3 tool builds
 (recommend: hybrid route or fix seam 1 first), 2 blog pages (recommend: reject as
 off-mission). The platform committed the build to the sites repo master — expected
 deployer behaviour, harmless while unreachable; tidy only when the experiment ends.
+
+## Attempt 2 addendum — the tools, built by the pipeline (evening, chassis v1.0.1229)
+
+The owner's ruling ("they should be able to be built fully") executed: 3
+`needs_tool_recreation` items via the parked items' own named route
+(tool-generator/create_tool_component). **All three tools BUILT, rerendered and
+committed to the sites repo in ~15 minutes** (triaged 19:26Z → complete 19:41Z, ~90-150s
+of build each; rerenders fired manually — the tool handler writes the component but
+queues no rerender: a small seam).
+
+**Fixture verdicts from the artefacts (static):** `DAILY_RATE = 0.008`,
+`DEFAULT_FEE_CAP = 15`, `Math.min(uncappedCost, totalCostCap)` ceiling — all present
+with CONC 5A named and the handbook URL beside the result. True-cost:
+`(1+dailyRate)^365 −1` with correct monthly→daily conversion, and the credit-union
+comparator computed from first principles (`(1.03)^12 −1 ≈ 42.58%`) — more precise than
+the benchmark's rounded 42.6. Deadline: `FINAL_RESPONSE_DAYS = 56` citing **DISP
+1.6.2R** — a more specific rule reference than either the mission or the item spec
+supplied ([UNVERIFIED] citation, same class as the benchmark's own facts). In-browser
+click-through of the fixtures remains [UNMEASURED] — needs a served page.
+
+The 24 dead tool links from attempt 1 now resolve; the built site's only remaining dead
+target is `/assets/images/favicon.png`. Blog pages stay parked as the 015-class owner
+call. The #16 site-spec acceptance rebuild (about.html, item `c9852314`) is in flight —
+the spec marker in a regenerated section is the PASS condition.

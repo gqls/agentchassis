@@ -17078,3 +17078,21 @@ same — *make the mechanism say which branch it took*, which is precisely the f
 had just written into `diagnose_assemble_bundle` and did not think to apply to my
 own instrument. `coalesce(..., '-')` is the anti-pattern in miniature: it converts
 "I could not find this" into a value that looks like data.
+
+## 2026-08-02 — I repeated the artefact-vs-components mistake within the hour of documenting it
+
+**The claim.** The lendzy scorecard's dimension 8, committed: "mission marker 0/15 …
+verbatim elements attenuate through the research chain." The phrase is the homepage's
+`<title>` — "Lendzy — Know the Rules Before You Borrow" — present since attempt 1's
+first rerender. I measured `page_components.rendered_html`; titles live in
+assembly-generated head. The SAME scorecard's "Measurement corrections" section, written
+minutes earlier, says "score the artefact" — I applied it to the invariant counts and
+not to the marker count in the same document.
+
+**What caught it.** A built-file marker census run for a different purpose (attempt 2's
+baseline) returned mission:1, contradicting the committed table.
+
+**The cheap check.** Every census in a scorecard runs against the artefact, not a
+convenient table — no exceptions for rows already "measured". And the confirming grep
+then failed too (`grep -o '.{110}MARKER.{80}'` returns nothing when context spans
+newlines — silent, line-bound): locate with python, not grep, when context matters.
