@@ -110,6 +110,19 @@ implied away.
       bug stays open
 - [x] Council gate round 2 (same corr, `RESUBMIT_CORR`) — every objection answered with
       evidence rather than argument
-- [ ] Round-2 verdict read and acted on
-- [ ] Live on a rolled chassis, pod-verified with BOTH controls on BOTH replicas —
-      **only then does 168 move to `bugs_closed/`**
+- [x] Round-2 verdict read and acted on — **REVISE, gated HIGH**: the clobber I twice called
+      unreachable *was* reachable (11 queued items). Guard shipped rather than filed
+- [x] Council round 3 — **APPROVED**, 2 advisory objections, none high. Four of them were
+      checkable and were checked, not filed; `reuse_agent`'s caught a convention I had
+      asserted without looking for, and `bug_historian`'s caught a silent path my own round-1
+      fix had introduced
+- [x] **LIVE on `v1.0.1229`**, pod-verified on BOTH replicas with a NEGATIVE control; all 24
+      brand-head artefacts across 12 sites serve 200
+- [x] `bugs_open/168` → `bugs_closed/168`, register + landmine updated to match
+- [ ] **Owner call, not code:** whether the 11 stale queued items should be re-pointed at
+      `mode=brand_head` (the repair they actually want) rather than merely refused
+- [ ] **`bugs_open/179` finding A** — the `deploy_path` escape hatch, measured empty across
+      three populations, still unguarded. Two seats pressed it at medium
+- [ ] **`RFC_009`'s wider question** — the platform reconstructs an artefact's identity from
+      metadata instead of reading what the writer recorded (shared root of 152 / 155 / 179).
+      Wants designing *with* those lanes

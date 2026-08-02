@@ -431,3 +431,39 @@ claimed doesn't exist"* — both true, both cheap, both fixed.
 
 **Nine guards are now mutation-proven.** The count is not the point; the point is that four of
 the nine exist because a reviewer disagreed with me and I checked instead of arguing.
+
+## LIVE — `v1.0.1229`, both replicas, and the lane closes
+
+The fix went live on a build **another session made**. I did not roll it: `make build-*`
+builds from committed HEAD, so my commits rode out on someone else's tag bump. That is the
+mechanism working exactly as designed — and it is also the concrete demonstration of why the
+ordering exemption's condition (1) was retired on 2026-07-29. I could not have held this back
+if I had wanted to, and the *first* commit went live before the council had finished
+reviewing it.
+
+**The verification, with a negative control, because a positive one cannot tell you your
+binary shipped** (`bugs_open/153`). Same exec, both replicas, after `rollout status` settled:
+
+| control | g7fbt | n8nbj | what it proves |
+|---|---|---|---|
+| positive `deploy_image_asset` | 5 | 5 | the grep pipeline works |
+| **negative `Phase 2E: derived variant deploy path`** | **0** | **0** | the string this change REMOVED is gone ⇒ my binary, not a stale same-tag one |
+| `derived asset deploy path` | 1 | 1 | the unified derivation shipped |
+| `is a brand-head artefact published at` | 1 | 1 | the refusal guard shipped |
+
+⚠ **`grep -c` returns exit 1 with no output when the count is 0**, so a naive
+`$(... | tail -1)` captures an empty string, not `0`. In a loop that reads as "no data" rather
+than "the good answer". Default it (`N=${N:-0}`) or you will misread the one control that
+matters.
+
+**No regression:** all **24** brand-head artefacts (12 sites × `favicon.png` + `og-card.png`)
+serve HTTP 200 after the roll.
+
+⚠ **Verify AFTER `rollout status`, not during.** My first attempt hit a roll in progress and
+three of four pod names came back `NotFound` mid-cycle, with one pod answering. One replica
+answering during a roll is not "both replicas verified" — and the pod list you enumerated
+seconds earlier is already stale.
+
+`bugs_open/168` → `bugs_closed/168`. `bugs_open/179` stays open for the `deploy_path` escape
+hatch, measured empty across three populations including the standing queue that round 2
+taught me to include.

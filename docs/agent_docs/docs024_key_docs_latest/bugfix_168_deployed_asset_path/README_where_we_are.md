@@ -178,3 +178,47 @@ generate against myself.
 
 Round three is with the reviewers now. Both mistakes are written up in the shared log of wrong
 calls, with the cheap check that would have caught each.
+
+## 2026-08-02, evening — approved, live, closed
+
+Three things landed together.
+
+**The reviewers approved it** on the third round, with two remaining comments that were
+advisory rather than blocking. I acted on both anyway, because both were checkable in a couple
+of minutes and one of them was a genuine miss on my part.
+
+That one is worth recording. I had written that my new "refuse and explain" response followed
+the platform's existing convention for a piece of code declining to act. A reviewer asked
+whether that was actually true or whether I'd invented a shape. **I'd invented one.** Searching
+the whole codebase for the key I'd used turned up exactly one occurrence: mine. The real
+convention does exist — it's used by a sibling piece of code in the very same component — and
+it's slightly different. I've switched to it and added a test that fails if anyone reintroduces
+my version. Small thing, but I'd stated it as fact twice without ever looking.
+
+The other comment found a hole in my own earlier fix: the code now refuses to mishandle a
+badly-formed entry, but it refused *silently*, so anyone adding one by mistake would get no
+warning at all. Since that list is written into the source rather than configured at runtime,
+the right answer is to fail the build rather than log a warning — a warning arrives too late to
+help. That's now a test.
+
+**It went live**, on a build made by another session. That's how this repo works: builds come
+from committed code, so my work rode out on someone else's release. I checked it properly —
+both machines, and crucially by looking for a piece of text my change *deleted*, which should
+now read zero. It does, on both. Checking only for something you added proves the search works,
+not that your code shipped. Every favicon and social card across all twelve sites still loads
+correctly afterwards.
+
+**So the ticket is closed** and moved to the resolved pile. That's the house rule satisfied
+honestly: fixed *and* running, not just written.
+
+One last piece of honesty about the timing. The serious problem the reviewers caught in round
+two — where my change could have overwritten a site's real social card — never had a window in
+which it could actually happen, because the risky part and its guard were still unreleased
+together. That was **luck, not planning**. If the first commit had gone out a few hours
+earlier, that would have been a live incident on customer sites rather than a comment in a
+review.
+
+Three things are left, and none of them are mine to decide alone: whether eleven stale queued
+jobs should be redirected rather than simply refused; a second bypass in the same code that I
+measured as unused but did not close; and a bigger question I've written up separately about
+the system guessing where a file went instead of recording it when it wrote it.
