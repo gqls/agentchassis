@@ -9830,3 +9830,36 @@ keeps serving the fabrication until each page rerenders, so the census that
 proves the bug still fails immediately after a correct fix. Judge the template
 against `content_components` and the artefact separately, or you will read a
 working fix as a failed one.
+
+### A regex that reads MARKUP cannot tell markup from a string literal that CONTAINS markup — and both the repair and the audit get it wrong in opposite directions (`bugs_open/180`, 2026-08-02)
+
+Two mechanisms on this platform match `<a …href="…">` with a byte-level regex over a whole
+stored document: the shared link **repair** (`RepairPageLinks`) and any ad-hoc **census** of
+dead links. A tool page's stored HTML contains JavaScript that assembles anchors at runtime:
+
+```js
+'<p>' + statusText + ' <a href="' + q.link + '" target="_blank">See guide section</a>.</p>'
+```
+
+- **The repair reads it as an anchor with an EMPTY href** — the capture `[^"']*` stops at the
+  `'` immediately after `href="` — and unlinks it. That rewrites the *program*: the anchor is
+  gone from the source, the output is still valid JavaScript, the prose still reads, and the
+  feature silently stops working.
+- **The census reads it as a dead link** and inflates the count of real defects.
+
+Same blind spot, opposite consequences: one destroys content, the other invents a finding.
+Neither has a tell, because both produce exactly the output shape you expected.
+
+**The generalisation worth carrying.** A pattern written against a *language* (HTML) applied
+to a document that *embeds another language* (JS, CSS, a templating syntax) will match inside
+the embedded one, and the deeper the embedding the more confident the match looks. This is
+the same family as the `strip_comments` landmine (a stripper for one language corrupting
+another) and the `data-runtime-fill` scope bug (a predicate whose blast radius is set by how
+the caller chunked its input) — every one of them is a tool applied one layer away from where
+its assumptions hold.
+
+**The check.** Before trusting either kind of pass over stored HTML, ask *what else is in this
+document*. If the answer includes `<script>` or `<style>`, the pass needs a span-exclusion, and
+the cheapest proof is to run the real function over a real sample rather than to read the
+regex — reading it is what produced the bug in the first place. For a count, say what you
+counted: "href-shaped byte sequences" is an upper bound, not a number of links.
