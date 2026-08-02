@@ -170,6 +170,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 	// scan_sites_for_maintenance, whose vocabulary is entirely different.
 	var allFindings []interface{}
 	inserted := 0
+	resolved := 0
 	skipped := 0
 	ranChecks := make([]string, 0, len(enabledChecks))
 	unregisteredChecks := []string{}
@@ -248,6 +249,25 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 				skipped++
 			}
 		}
+
+		// Retractions. AFTER the inserts, and only reachable because the
+		// `err != nil` branch above already did `continue` — so a check that
+		// FAILED cannot close anything, which is the property that stops a
+		// blinded check quietly resolving the estate (RFC_010).
+		//
+		// In the same transaction as the inserts: a run that dies half-way must
+		// not leave findings retracted but their replacements unwritten.
+		for _, r := range result.Resolved {
+			n, err := resolveWorkItems(ctx, tx, dctx.SiteID, checkName, batchID, r, logger)
+			if err != nil {
+				logger.Warn("Failed to resolve work items",
+					zap.String("check", checkName),
+					zap.String("item_type", r.ItemType),
+					zap.Error(err))
+				continue
+			}
+			resolved += n
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -275,6 +295,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		zap.Int("findings", len(allFindings)),
 		zap.Int("items_inserted", inserted),
 		zap.Int("items_skipped", skipped),
+		zap.Int("items_resolved", resolved),
 		zap.Int("checks_requested", len(enabledChecks)),
 		zap.Int("checks_ran", len(ranChecks)),
 		zap.Int("checks_failed", len(failedChecks)),
@@ -296,6 +317,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		"findings":            allFindings,
 		"items_inserted":      inserted,
 		"items_skipped":       skipped,
+		"items_resolved":      resolved,
 		"batch_id":            batchID.String(),
 	}, nil
 }

@@ -80,6 +80,65 @@ type CheckResult struct {
 	// The check builds them; the main action inserts them (so the
 	// check doesn't need to know about insertWorkItem).
 	WorkItems []WorkItemSpec
+
+	// Resolved names work items this check has POSITIVELY OBSERVED to be
+	// fixed. The runner closes them; the check does not touch the table.
+	//
+	// WHY THIS EXISTS (RFC_010, owner ruling 2026-08-02 "Decision 1: option 1").
+	// Until this field, 49 of 50 checks were monotonic: each computed the
+	// current truth set on every run, filed what it found, and discarded the
+	// complement — the free information that would let it close items it had
+	// previously raised that no longer reproduce. Items therefore outlived the
+	// predicate that raised them, stayed dispatchable, and could be acted on
+	// months later against code that had moved underneath them. That is not
+	// hypothetical: eleven such items were three days stale and would have
+	// overwritten a live social card once bugs_closed/168 shipped.
+	//
+	// THE SAFETY PROPERTY, and it is why this is a field and not an inference.
+	// A retraction fires ONLY on a positive observation. Nothing anywhere
+	// derives "resolved" from an EMPTY Findings slice, because a check that
+	// errored, or that was silently blinded by a bug, returns exactly that —
+	// an empty result indistinguishable from a healthy site (016b §9: a gate's
+	// 0 findings has two causes with opposite fixes). Deriving retraction from
+	// absence would quietly close real defects fleet-wide, which is a far worse
+	// failure than the one this fixes. The runner additionally skips Resolved
+	// entirely when Run returned an error.
+	//
+	// OPT-IN, with the wide branch behind an explicit flag — per the owner
+	// ruling of 2026-08-02 that new authority on a shared seam ships as a field
+	// with the unsafe default OFF, not as a rule in a doc comment. Populating
+	// nothing retracts nothing, so the other 49 checks are unaffected until
+	// each is edited deliberately.
+	Resolved []ResolvedFinding
+}
+
+// ResolvedFinding names work the check has confirmed is done.
+//
+// Exactly one of ItemKey or AllOfType must be set. Both unset, or both set, is
+// a programming error: the runner refuses the entry and logs loudly rather than
+// guessing, because the two mean very different things and the wide one is not
+// something to arrive at by leaving a field blank.
+type ResolvedFinding struct {
+	// ItemType is the work item type to close. Required.
+	ItemType string
+
+	// ItemKey closes exactly the item carrying this key, for this site.
+	// This is the narrow, ordinary case: the check looked at one specific
+	// thing and found it healthy.
+	ItemKey string
+
+	// AllOfType closes EVERY open item of ItemType for this site. This is the
+	// wide branch, and it is deliberately a separate boolean rather than "leave
+	// ItemKey empty" so that a reviewer reading the CALL SITE sees the breadth
+	// of the claim being made. Only correct when the check's observation covers
+	// the whole item type for the site — e.g. a health probe that succeeded, so
+	// every open "unreachable" item for that site is answered at once.
+	AllOfType bool
+
+	// Reason is recorded on the row in result.reason. Required — an item that
+	// closes itself with no stated cause is indistinguishable later from one a
+	// human closed by hand.
+	Reason string
 }
 
 // DiscoveryCheck is the interface every check implements.

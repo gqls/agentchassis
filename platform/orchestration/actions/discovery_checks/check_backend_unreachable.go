@@ -52,23 +52,33 @@ func (c *BackendUnreachableCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 	reachable, detail := probeBackendHealth(dctx.Ctx, domain)
 
 	if reachable {
-		// Self-clear: resolve any open backend_unreachable item for this site.
-		res, uerr := dctx.TX.ExecContext(dctx.Ctx, `
-			UPDATE site_work_items
-			SET status = 'complete', completed_at = now(), updated_at = now(),
-			    result = COALESCE(result, '{}'::jsonb)
-			             || '{"resolved_by":"backend_unreachable","reason":"health recovered"}'::jsonb
-			WHERE site_id = $1
-			  AND item_type = 'backend_unreachable'
-			  AND status <> ALL (ARRAY['complete','verified','rejected','wont_fix','failed','unresolved'])`,
-			dctx.SiteID)
-		if uerr != nil {
-			return nil, fmt.Errorf("backend_unreachable: self-clear: %w", uerr)
-		}
-		if n, _ := res.RowsAffected(); n > 0 {
-			dctx.Logger.Info("backend_unreachable: cleared recovered alert",
-				zap.String("domain", domain), zap.Int64("items", n))
-		}
+		// Self-clear, through the shared retraction seam rather than an inline
+		// UPDATE (RFC_010, owner ruling 2026-08-02 "Decision 1: option 1").
+		//
+		// This check was the ONE of fifty that could retract a finding, and it
+		// did so with its own query and its own copy of the status vocabulary.
+		// That copy is what generalised: CheckResult.Resolved now carries the
+		// claim and the runner owns the SQL, so the vocabulary cannot drift
+		// fifty ways as other checks adopt it.
+		//
+		// TWO BEHAVIOUR CHANGES, both deliberate and both improvements:
+		//   * the inline query excluded 'unresolved' and 'failed', so an alert
+		//     that had been given up on stayed open for ever even once the host
+		//     recovered. The shared predicate reaches them — the owner's
+		//     Decision 2 ruling that `unresolved` is OPEN, delivered here
+		//     without touching the dedup index it also implies.
+		//   * the retraction is now skipped if this check returns an error,
+		//     which the inline version could not guarantee for itself.
+		//
+		// AllOfType is correct here and is stated rather than implied: a
+		// successful health probe answers the whole item type for this site at
+		// once, which is exactly the breadth the flag exists to make visible at
+		// the call site.
+		result.Resolved = append(result.Resolved, ResolvedFinding{
+			ItemType:  "backend_unreachable",
+			AllOfType: true,
+			Reason:    "health recovered: " + domain + " responded to the backend probe",
+		})
 		return result, nil
 	}
 
