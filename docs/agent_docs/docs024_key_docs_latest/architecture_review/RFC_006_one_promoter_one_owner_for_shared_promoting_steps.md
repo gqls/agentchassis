@@ -22,6 +22,41 @@ pair over the same live fleet, same command, one variable changed:
   `site-review-agent.steps.triage`;
 - **after**: `181 agents decoded, 0 findings`.
 
+**Council `60f4b425`: APPROVED**, "2 advisory objection(s) — none high-severity",
+round 1. Every checkable objection was checked against the live system and
+answered in `286`'s own header rather than in a reply nobody reads. Two are worth
+surfacing here because they change what this file claims:
+
+- **Four seats independently** (`guardian`, `guidelines`, `constitution`,
+  `prior_art_librarian`) asked for the same thing: read the `has_items` landmine
+  keyed to these exact two agents before deleting the step. That convergence was
+  the strongest signal in the round. Checked: every live condition reading a
+  `has_items` — `build-dispatch-loop.check_has_items`,
+  `site-work-orchestrator.check_has_items` and `.check_has_fix_items` — reads its
+  **own loader's** result; **none reads a `triage_result`**, and zero steps in
+  either child still reference `triage_result` at all. The landmine describes the
+  defect being removed, so it corroborates.
+- **`architecture` (low) landed the sharpest practical point and it is CONFIRMED
+  TRUE:** the detector exits 1 on findings but **is not wired into any gate**. A
+  grep over `.githooks/`, `scripts/` and the Makefile finds no gate invoking *any*
+  audit script — `audit-unregistered-actions.sh` (WFA-004) and
+  `audit-config-keys.sh` are on-demand too. So the durable half is durable only
+  when someone runs it. **Deliberately not wired unilaterally**: the check needs
+  live DB state via `kubectl`, and adding a cluster round-trip to every commit on
+  a tree with ~30 concurrent sessions is a latency and hang risk that is an owner
+  decision, not a bug-fix thread's. **This is the one open item this RFC leaves**,
+  and it is shared by the whole audit-script family rather than introduced here.
+
+**Proven at the artefact** (orchestration `9dda4fb1`, vetcomparison.uk, after
+286+288): both children reached `complete` with their step removed — no strand —
+and the loop's own copy promoted **12**, where it had been **0** in every run ever
+observed (`30692439`, `911ecdd8`, `21669589`). **That flip off zero is the proof
+the ownership moved.** Terminal step `complete`, not `complete_clean`.
+`insert_rerender_item` fired and reported `{"deduped": true, "inserted": false}` —
+the 2026-08-01 rerender item is still `triaged` and unclaimed, so it correctly
+declined to duplicate it; the step *firing* is the assertion, a second identical
+row would have been the defect.
+
 **A misstep, recorded here because this file is where the decision lives.** 286
 repointed each child's *success* edge and deleted the step — and missed that
 `design-audit-agent.call_content_auditor` also carried `error_step: "triage"`.

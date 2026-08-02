@@ -242,3 +242,103 @@ COMMIT;
 --
 --   -- and the fleet-wide check must now be silent
 --   ./scripts/audit-single-owner-actions.sh    # expect "none", exit 0
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- COUNCIL: APPROVED, correlation 60f4b425-af47-43af-a0f0-0d078ac65c85
+-- "approved with 2 advisory objection(s) — none high-severity" (round 1).
+-- Answered here rather than in a reply nobody reads. Checkable objections were
+-- CHECKED against the live system 2026-08-02, after applying.
+-- ══════════════════════════════════════════════════════════════════════════
+--
+-- [SEATS guardian + guidelines + constitution + prior_art_librarian, medium]
+-- FOUR seats independently asked for the same thing: read the `has_items`
+-- landmine keyed to design-audit-agent.triage / site-review-agent.triage before
+-- deleting the step, because that landmine sits on the identical symbol and the
+-- submission's blast-radius work did not cite it by name. They were right to —
+-- that convergence is the strongest signal in the round. CHECKED, and it
+-- corroborates rather than contradicts (as `reuse_agent` guessed): the landmine
+-- DESCRIBES the defect being removed. Every live condition reading a `has_items`
+-- after this migration:
+--     build-dispatch-loop.check_has_items      -> pending.has_items == true
+--     site-work-orchestrator.check_has_items   -> work_items.has_items == true
+--     site-work-orchestrator.check_has_fix_items -> fix_items.has_items == true
+-- All three read their OWN loader's result. **None reads a `triage_result`**, so
+-- nothing anywhere assumed the removed step ran. Corroborated from the other
+-- direction: zero steps in either child still reference `triage_result` at all.
+--
+-- [SEAT editquality, medium] "the sketch shows the repoint only for
+-- design-audit-agent; site-review-agent's predecessor may differ and a hardcoded
+-- name would silently fail to repoint it." Correct about the SKETCH — the
+-- submission abridged it — and the file itself has always had both, STEP 3a
+-- (`call_content_auditor`) and STEP 3b (`write_strategic_findings`), which are
+-- indeed different names. The apply proved it rather than the file asserting it:
+-- two separate `UPDATE 1`s, and STEP 4(ii) printed `triage_still_present = f` on
+-- BOTH rows. A good objection that a fuller sketch would have pre-empted.
+--
+-- [SEAT debug_historian, medium] "no separate rollback script named — the
+-- needle-gate discipline wants verify and rollback as their own artefacts."
+-- ACTED ON: `286_one_owner_for_the_site_wide_promoter_ROLLBACK.sql` now exists.
+-- Uppercase suffix, so SIDECAR_RE lists it and `--apply` can never execute it.
+-- Its verify is a `DO` block that RAISEs, not a SELECT — see 288 for why that
+-- distinction is not pedantry.
+--
+-- [SEAT debug_historian, medium] "doesn't name which snapshot_agent overload,
+-- and the two-overload landmine means a wrong call silently backs up nothing
+-- usable." CHECKED, and better than naming it — verified the backup holds the
+-- PRE-change shape, not merely that a row exists:
+--     SELECT type, snapshot_taken_at,
+--            (default_config #> '{workflow,steps}') ? 'triage' AS has_triage_step
+--     FROM agent_definitions_backup WHERE type IN (...) ORDER BY snapshot_taken_at DESC;
+--     -- 2026-08-02 10:27:07.357419+00, has_triage_step = t on BOTH rows.
+-- "A snapshot exists" and "a snapshot holds what you need" are different claims.
+--
+-- [SEAT reuse_agent + prior_art_librarian] "no confirmation an ownership flag
+-- doesn't already exist on ActionInputSpec under another name." CHECKED — the
+-- struct's full field list is Required, Optional, Deprecated, Defaults,
+-- ConfigKeys, CheckConfig, StrictConfig, ConditionalKeys. Nothing ownership- or
+-- exclusivity-shaped. `SingleOwner` sits beside CheckConfig/StrictConfig, which
+-- is the established opt-in-flag pattern for this struct, as the seat observed.
+--
+-- [SEAT guardian, medium] "the workflow-JSON edit must be filed as operation
+-- config_change with the owning pipeline named on the edit itself, not folded
+-- into an 'add' of a new SQL file." ACCEPTED as a process correction: the
+-- submission tagged this edit `add` (it creates a file) when the convention asks
+-- for `config_change` (it mutates agent_definitions). The file's own SURFACE line
+-- above does name the operation and the owning pipeline; the SUBMISSION did not.
+-- Nothing about the change is wrong — the tagging was, and this is the record.
+--
+-- [SEAT architecture, low] "the script exits 1 on findings but isn't shown wired
+-- into a CI/build gate — confirm it's invoked somewhere, or the detector is
+-- inert-by-omission the same way the field is inert-by-design." THE SHARPEST
+-- PRACTICAL POINT IN THE ROUND, and CONFIRMED TRUE: `grep` over `.githooks/`,
+-- `scripts/` and the Makefile finds NO gate invoking any audit script —
+-- `audit-unregistered-actions.sh` (WFA-004) and `audit-config-keys.sh` are both
+-- on-demand too. So this detector is exactly as reachable as its two siblings and
+-- no more. NOT unilaterally wired into `.githooks/pre-commit`: the check needs
+-- live DB state via `kubectl`, and adding a cluster round-trip to every commit on
+-- a tree with ~30 concurrent sessions is a latency and hang risk that is the
+-- owner's call, not a bug-fix thread's. Recorded as an open item on WFA-006 and
+-- as a gap shared by the whole audit-script family, rather than quietly left as
+-- an implied gate.
+--
+-- [SEAT editquality, low] "5 of 7 edits exist solely to guard a recurrence of a
+-- bug edit 7 already removes the only live instance of — worth confirming this
+-- isn't over-scoped." That ratio is the point, not an accident: RFC 006's whole
+-- question was whether to delete the duplicates (a one-off) or close the class.
+-- The owner ruled option (a) knowing the deletion alone leaves the next agent
+-- free to re-create it. The `architecture` seat reached the same place from the
+-- other side in the same round ("the Go half is what makes that recurrence
+-- detectable pre-merge instead of post-incident").
+--
+-- ── PROVEN AT THE ARTEFACT, 2026-08-02 (orchestration 9dda4fb1) ──
+-- Sweep at vetcomparison.uk after applying 286 + 288:
+--   * both children reached `complete` with their step removed — no strand;
+--   * the parent's own copy promoted **12**, where it had been **0** in every
+--     run ever observed (30692439, 911ecdd8, 21669589). That flip off zero IS
+--     the proof the ownership moved;
+--   * terminal step `complete`, NOT `complete_clean`;
+--   * `insert_rerender_item` ran and reported `{"deduped": true, "inserted":
+--     false}` — the 2026-08-01 `improvement_rerender_vetcomparison.uk` item is
+--     still `triaged` and unclaimed, so it correctly declined to duplicate it.
+--     The step firing is the assertion; a second identical row would have been
+--     the defect.

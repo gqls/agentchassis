@@ -3096,3 +3096,32 @@ no script-addressed id may land in a block classified as prose
 - **`database-cleanup`** (`scheduled_tasks`, hourly, enabled) is the likely reaper — named here as the place to look, **not** as a verified mechanism: no Go implementation of it was found by grep, so treat the *behaviour* above as measured and the *cause* as unconfirmed.
 - **source:** 2026-08-02, `bugs_closed/165` / `bugs_closed/092`, retiring `multipage-website-builder`. Sibling of the `bugfix 003` note that history tables are retention-clocked — record a RATE; this is the same family with a specific, much shorter number and a booby-trapped floor.
 - **added:** 2026-08-02, bugfix_165_reconciliation_deletes lane
+
+---
+
+### Two migrations can carry the SAME number — creating the file does not reserve it, and "migration 286" then names two unrelated changes
+
+**footprint:** `docs/agent_docs/sql_for_agents/` · `schema_migrations` · any commit message or doc citing a migration by number
+
+The advice "re-check the highest number immediately before writing the file" is
+necessary and **not sufficient**. Measured 2026-08-02:
+`286_one_owner_for_the_site_wide_promoter.sql` was created at 11:21:29 — the
+number taken by `ls`, then claimed with `touch` in the same command — and
+`286_triage_robot_hands_blocked_crosslink.sql` was created at **11:38:15**, 17
+minutes later, by another session, with the first file already sitting on disk.
+Claiming the name reserves nothing if the other session's number came from an
+earlier read, a plan written an hour ago, or a hardcoded value.
+
+Nothing breaks: `schema_migrations` keys on **filename**, so both record and both
+apply independently. What breaks is the assumption that a number identifies a
+change. It is the same trap `CLAUDE.md` already documents for `/bugs_open/`
+numbers ("several numbers name two unrelated cases … resolve by slug").
+
+**the check:** cite migrations by **slug**, never by bare number —
+`286_one_owner_for_the_site_wide_promoter`, not "286". Before acting on a
+reference to "migration NNN", run `ls docs/agent_docs/sql_for_agents/NNN_*` and
+expect more than one line. And when your own file's number matters to a later
+reader (a rollback sidecar, a correction migration), put the **slug** in that
+file's header too — `288_repoint_the_error_step_286_left_dangling.sql` is
+ambiguous by exactly this trap, and says which 286 it means in its first
+paragraph for that reason.
