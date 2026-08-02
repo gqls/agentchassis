@@ -17096,3 +17096,70 @@ baseline) returned mission:1, contradicting the committed table.
 convenient table — no exceptions for rows already "measured". And the confirming grep
 then failed too (`grep -o '.{110}MARKER.{80}'` returns nothing when context spans
 newlines — silent, line-bound): locate with python, not grep, when context matters.
+
+## 2026-08-02 — I wrote a test for a load-bearing choice, mutated the choice, and the test passed — because a second guard sat underneath it
+
+**The claim.** Fixing `bugs_open/180` I chose NUL rather than a space as the byte that
+masks non-markup regions, wrote `TestMaskFillerCannotManufactureAMatch...` to pin the
+choice, and put "Mutate `maskFiller` to `' '` and this test fails" in the comment above
+it. That sentence was an **assertion about a test I had not run under mutation** — it was
+written from the argument, not from the result.
+
+**What caught it.** Running the mutation. `maskFiller = ' '` and the whole suite still
+passed. The input I had chosen (`<style>.a{}</style>src=""`) does manufacture a match with
+a space filler — but the manufactured match *begins on the mask*, and `dropMatchesInSpans`
+one level down discards any match beginning inside a span. **Two guards in series, and the
+stronger one absorbed the mutation of the weaker.** The comment was confidently wrong in a
+file whose whole point was that a guard must be shown to bite.
+
+**The cheap check.** Two, and the first is nearly free:
+
+1. **Never write "mutate X and this fails" until you have mutated X and watched it fail.**
+   It costs one `sed` and one `go test`. Every claim of that form in a comment is a
+   verifiable prediction, so verify it — an unverified one reads exactly like a verified
+   one to the next person, which is the whole `[UNMEASURED]` problem in miniature.
+2. **When a mutation passes, ask what ELSE guarantees the property** before concluding the
+   test is weak or the code is fine. This lane's own handoff already carried the lesson —
+   "a mutation that PASSES is not automatically a weak test; an identical guard may sit one
+   level down, in SERIES" — from the previous session, about a different function. I read
+   that handoff at the start of this session and still had to rediscover it by hand. The
+   discriminating input is the one where **only** the mutated guard could act: here, a match
+   that begins OUTSIDE the span, which the offset filter cannot see. The test now also
+   asserts its own premise (that `NonMarkupSpans` actually found the element), because the
+   *first* replacement input I tried silently stopped discriminating for a third reason —
+   `scanTagEnd` swallowed the `<style>` into an enclosing tag, so nothing was masked at all
+   and the test passed while measuring nothing.
+
+---
+
+## 2026-08-02 — I measured my own new detector on a tree that already carried the fix, and 0 findings read as "no false positives"
+
+**footprint:** `scripts/pattern-check.py`, and any new detector · bugs_open/175 lane
+
+**The claim.** Closing `bugs_open/175` I added `check_partial_page_upsert` to
+`scripts/pattern-check.py` — a rule that fires on a `pages` upsert naming
+`page_type` in the INSERT and not in the `DO UPDATE SET`. I ran it over the whole
+tree, got **0 findings across 1,120 Go files**, and was about to record that as
+evidence the rule was precise and quiet.
+
+**What caught it.** Asking why the number was so clean. The tree I ran it against
+was a scratch `git archive HEAD` extraction I had **copied my own fixed files
+into** ten minutes earlier, to get around another session's uncommitted compile
+error. Every instance the rule exists to catch had already been removed by my own
+edit, so **0 was the only number that run could have produced**, whether the rule
+worked, was inert, or crashed silently inside the try/except that wraps every
+check in that file. Re-extracted a genuinely pristine HEAD: **4 findings, exactly
+`bugs_open/175`'s census**, and still 0 on the five arms that carry
+`page_type = EXCLUDED.page_type` deliberately.
+
+**The cheap check.** **Run a new detector against a tree that still contains the
+defect BEFORE you run it against the fixed one, and record both numbers.** It is
+one extra extraction. The general form is already in `LANDMINES.md` — "a gate's 0
+findings has TWO causes with opposite fixes" — and in `MEMORY.md` as
+"a silent gate either did not look or approved"; what this row adds is that
+**writing the gate does not inoculate you against it.** I was inside the very file
+whose header says every check in it "was measured against real history before
+being included", and the thing that made my measurement worthless was an
+unrelated convenience twenty minutes earlier. A near-miss in the same session:
+I had also typed "6 hits before the fix" into the rule's comment from counting
+the census by eye rather than running anything — the real number is 4.

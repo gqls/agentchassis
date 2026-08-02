@@ -261,3 +261,74 @@ arm instead and be unlinked too).
    outbound rerender had already corrupted it; the URL 404'd and the check stalled. Running
    the actual function over the actual bytes took two minutes and gave a deterministic
    answer instead of an observation I would have had to interpret.
+
+---
+
+## 2026-08-03 (session 3) — fixing 180: the class, not the spelling
+
+**Reproduced first, in the package, before touching anything.** A throwaway
+`probe_180_test.go` ran the SHIPPING `RepairPageLinks` over six inputs. Five were
+corruptions, and only ONE of them was the spelling 180 was filed for:
+
+| input | shipped output | arm taken |
+|---|---|---|
+| `<script>… '<a href="' + q.link + '">See guide</a>' …</script>` | anchor deleted | `LinkScopeEmpty` → unlink |
+| `` <script>`<a href="${q.link}">See guide</a>`</script> `` | anchor deleted | `LinkScopePage` → **phantom** unlink |
+| `<style>/* <a href="/nope">x</a> */</style>` | CSS bytes rewritten | phantom |
+| `<textarea><a href="/nope">x</a></textarea>` | visible text edited | phantom |
+| `<!-- <a href="/nope">x</a> -->` | comment rewritten | phantom |
+| `<p><a href="/nope">real phantom</a></p>` | **correctly unlinked** | phantom |
+
+That table is the argument against fix candidate 2 (a denylist of `' +` / `${`): one
+cause, four arms. It also shows the bug file's own exposure query was measuring one
+spelling — as the file itself warned.
+
+**The fix (LNK-029).** `NonMarkupSpans` + `MarkupMatches` + `ReplaceAllInMarkup` in
+`datahelpers/markup_spans.go`, off the tag walk `runtime_fill.go` already performs
+(`RuntimeFillSpans` keeps its signature and becomes a caller of a shared `scanSpans`).
+Wired into `RepairPageLinks` — one line — and into `DropDeadURLControls`.
+
+**Two design points that only showed up under a specific input, both now pinned by a test:**
+
+1. **Mask, do not filter.** `<script>var t='<a href="/gone">';</script><a href="/gone">Pricing</a>`
+   — the non-greedy `</a>` closes at the REAL anchor, so ONE match spans both. Filtering
+   matches that start in a span drops the genuine phantom too, and `FindAll` never revisits
+   those bytes. Masking first removes the decoy and leaves the real anchor to be found alone.
+2. **The filler is NUL, not a space.** A whitespace filler MANUFACTURES matches:
+   `\ssrc\s*=\s*""` cannot cross `<style>…</style>` but crosses the spaces that replaced it,
+   and that match begins OUTSIDE the span where the offset filter has no view.
+
+**MISSTEP — my test for (2) passed under its own mutation.** Full account in `WRONG_CALLS.md`.
+Short version: I wrote "mutate `maskFiller` to `' '` and this test fails" as a comment, then
+ran the mutation and the suite stayed green — the manufactured match in my chosen input began
+ON the mask and `dropMatchesInSpans` discarded it one level down. **Two guards in series, and
+this lane's own handoff had already recorded that exact trap from a different function two
+sessions ago.** Reading it did not stop me repeating it. The replacement input needed a match
+beginning OUTSIDE the span; my *first* replacement then failed to discriminate for a THIRD
+reason (`scanTagEnd` swallowed the `<style>` into an enclosing `<img …>` tag, so nothing was
+masked at all), which is why the test now asserts its own premise before asserting the result.
+
+**Six mutations run, all behaving:**
+
+| mutation | failures |
+|---|---|
+| revert the one-line wiring in `RepairPageLinks` | 14 |
+| drop the raw-text span | 15 |
+| drop the comment span | 2 |
+| drop the degrade-wide (abort) arms | 2 (the *unclosed script* case is NOT one of them — it is carried by the raw-text arm, not the abort arm) |
+| remove the mask, filter only | 1 (the decoy test — exactly the case it exists for) |
+| `maskFiller` NUL → space | 1 (after the input was fixed; **0** before) |
+
+**Blast radius, measured at the altitude of the live caller.** Both matchers run over ALL
+**509 assembled pages** (each page's components concatenated in `position` order, which is
+what `repairOutboundPageLinks` receives) across 19 sites: **11** anchor matches begin inside
+a non-markup region, **1** page is destructively rewritten today, **0** legitimate repairs
+are lost. Over the 13 components fleet-wide whose raw-text tags do not balance — the
+population where the degrade-wide arm could cost coverage — **0 and 0**. `DropDeadURLControls`:
+13 + 37 matches fleet-wide, **0** inside a span, so wiring it is byte-identical on today's
+fleet.
+
+**Dumping the corpus had its own gotcha:** `kubectl exec -i … psql -c "COPY … TO STDOUT"`
+truncated the stream at ~2.8MB and exited 1 with `Waiting for server to close stdin failed`.
+Per-site chunking got all 509 rows. A partial dump that exits non-zero is easy to notice; one
+that exits 0 would not be — check the row count against a `count(*)`, not the byte size.

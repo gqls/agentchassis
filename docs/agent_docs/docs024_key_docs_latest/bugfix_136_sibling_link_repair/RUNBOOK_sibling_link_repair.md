@@ -184,3 +184,81 @@ N). The obvious marker "repaired dead internal links" is **vacuous** — 079's l
 contains it, so it greps 1 before anything ships; the discriminating phrase is
 "…before persisting a single component". And `grep -c` is case-sensitive: a mis-cased
 pattern reads exactly like "not shipped".
+
+---
+
+## §8 — measuring a markup-writer's blast radius by RUNNING it, not by approximating it in SQL
+
+Added 2026-08-03 for `bugs_open/180`. The rule (`bugs_open/093`) is that the census must be
+the shipping function over real bytes; SQL can only nominate the population.
+
+**8a. Dump the corpus — PER SITE, and check the ROW COUNT, not the byte count.**
+
+```bash
+# ⚠ A single COPY of the whole fleet TRUNCATED at ~2.8MB and exited 1 with
+#   "Waiting for server to close stdin failed" — a partial dump. Chunk by site.
+# ⚠ Use `-f -` with the SQL on stdin. `exec -i … -c "…"` leaves stdin open and is
+#   what provokes the EOF error above.
+> assembled.csv
+for site in $(kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A -c "SELECT domain FROM sites ORDER BY domain"); do
+  cat > qs.sql <<SQL
+COPY (
+  SELECT jsonb_build_object('cid',p.id::text,'site',s.domain,'page',p.url,
+           'html', string_agg(pc.rendered_html, E'\n' ORDER BY pc.position))::text
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+  WHERE pc.rendered_html IS NOT NULL AND s.domain = '$site'
+  GROUP BY p.id, s.domain, p.url
+) TO STDOUT (FORMAT csv, QUOTE '"', FORCE_QUOTE *);
+SQL
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -t -A -f - < qs.sql >> assembled.csv
+done
+wc -l assembled.csv    # must equal SELECT count(DISTINCT page_id) FROM page_components …
+```
+
+**Assemble by `position`, not per component.** `repairOutboundPageLinks` (LNK-023) is handed
+the ASSEMBLED page, so a per-component census measures a different input — and for a
+span-based guard the difference is real: an unclosed `<script>` in one component reaches
+across every component after it.
+
+**8b. Run the SHIPPING function and the FIXED one over it, in the package**, as a temporary
+`probe_*_test.go` (delete before commit — the permanent tests are the ones that stay). The
+three numbers worth printing, and the third is the one that matters:
+
+| number | what it is | why |
+|---|---|---|
+| matches inside a non-markup span | the risk surface | fleet-wide, all spellings |
+| components/pages the SHIPPED writer mutates | live damage today | the bug's real size |
+| **legit matches LOST by the fix** | **the cost of the guard** | a guard that over-fires stops repairing real defects, silently — this must be **0** |
+
+**8c. Nominate the awkward population in SQL, then run the function over it.** For a
+span-based guard the awkward case is markup the scanner cannot finish reading:
+
+```sql
+SELECT count(*) FILTER (WHERE (length(lower(rendered_html))-length(replace(lower(rendered_html),'<script','')))/7
+                          <> (length(lower(rendered_html))-length(replace(lower(rendered_html),'</script','')))/8) AS unclosed_script,
+       count(*) FILTER (WHERE (length(rendered_html)-length(replace(rendered_html,'<!--','')))/4
+                          <> (length(rendered_html)-length(replace(rendered_html,'-->','')))/3)                   AS unterminated_comment,
+       count(*) AS total
+FROM page_components WHERE rendered_html IS NOT NULL;   -- 2026-08-02: 9 | 0 | 1186
+```
+
+This is an APPROXIMATION (a `</script` inside a JS string counts), which is exactly why its
+only job is to hand a row set to 8b.
+
+## §9 — proving a guard by breaking it, when guards sit in SERIES
+
+```bash
+cp platform/orchestration/datahelpers/markup_spans.go /tmp/ms.bak
+sed -i "s/const maskFiller = 0x00/const maskFiller = ' '/" platform/orchestration/datahelpers/markup_spans.go
+go test ./platform/orchestration/datahelpers/ -count=1 2>&1 | grep -E "^--- FAIL|^ok"
+cp /tmp/ms.bak platform/orchestration/datahelpers/markup_spans.go
+```
+
+**Gotcha, and it cost a wrong comment in this lane (see `WRONG_CALLS.md` 2026-08-02):** a
+mutation that PASSES does not mean the code is fine or the test is weak — it usually means a
+second guard sits underneath. Before rewriting the test, ask *what else guarantees the
+property*, then build an input where **only the mutated guard could act**. And have the test
+assert its own PREMISE (here: that `NonMarkupSpans` actually found the element), or it can
+stop discriminating for a third reason and still pass.

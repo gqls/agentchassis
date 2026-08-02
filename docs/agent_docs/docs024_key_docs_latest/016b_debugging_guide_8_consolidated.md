@@ -9863,3 +9863,31 @@ document*. If the answer includes `<script>` or `<style>`, the pass needs a span
 the cheapest proof is to run the real function over a real sample rather than to read the
 regex — reading it is what produced the bug in the first place. For a count, say what you
 counted: "href-shaped byte sequences" is an upper bound, not a number of links.
+
+> **FIXED 2026-08-02, and the fix taught two things the diagnosis did not** (LNK-029,
+> `datahelpers/markup_spans.go`, commit `07576d4e1`). Both are about the *shape of the
+> exclusion*, and both are traps for anyone writing the same guard elsewhere.
+>
+> **1. MASK the excluded region before matching; do not filter the matches afterwards.**
+> The obvious implementation — match as before, drop the matches that begin inside a
+> `<script>` — is wrong for a reason that only shows on one input:
+> `<script>var t = '<a href="/gone">';</script><a href="/gone">Pricing</a>`. The regex's
+> non-greedy `</a>` closes at the **real** anchor, so ONE match runs from inside the script
+> to the end of a genuine defect. Dropping it drops the real anchor with it, and `FindAll`
+> never revisits those bytes — so the guard against corrupting one link silently stops
+> repairing another. Replacing the span with a same-length filler *before* matching removes
+> the decoy and leaves the real anchor to be found on its own, with offsets that still index
+> the original string.
+>
+> **2. The FILLER byte is load-bearing, and whitespace is the wrong one.** A mask can
+> *manufacture* a match the document never contained: `\ssrc\s*=\s*""` cannot cross
+> `<style>…</style>`, but it crosses the spaces that replaced it, and **that match begins
+> outside the span**, where an offset check has no view — deleting the style element and the
+> attribute together. Use a filler that can begin none of the patterns in play (NUL, for
+> patterns that open with `<` or `\s`). The general rule: a same-length mask preserves
+> offsets, it does **not** preserve the absence of matches, so choose the byte against the
+> patterns you actually run.
+>
+> The class is now closed for the two markup **writers** and deliberately still open for the
+> **detectors** — a false finding costs a human's attention, a false repair costs content, so
+> they are different decisions with different fail-safe directions.

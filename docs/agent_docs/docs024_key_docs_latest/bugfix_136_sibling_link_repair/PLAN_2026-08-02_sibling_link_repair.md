@@ -141,3 +141,39 @@ match.
 3. Council gate submission (advisory) before/alongside the commit.
 4. Pod-grep with a discriminating marker + a positive and a **negative** control after the
    next chassis roll — `bugs_open/153`: a roll is not evidence your fix shipped.
+
+---
+
+## Phase 3 (2026-08-03) — `bugs_open/180`, and why candidate 1 rather than 2 or 3
+
+The bug file listed three unranked candidates. The decision, with the evidence:
+
+- **(1) skip `<script>`/`<style>` spans — CHOSEN, and widened.** Reproducing the defect
+  first showed the class is FIVE symptoms on FOUR arms, not the one spelling the ticket was
+  filed for: `href="' + x + '"` takes the empty-href arm, `href="${x}"` takes the *phantom*
+  arm, and markup quoted in a `<style>` comment, a `<textarea>` and an HTML comment are all
+  rewritten too. So the span set is raw-text elements **and comments** — `textarea`/`title`
+  come free because `runtime_fill.go`'s scanner already had to know them.
+- **(2) denylist concatenation markers — REJECTED on the evidence above.** It addresses one
+  of five symptoms and rots: the ticket's own author flagged that the template-literal form
+  takes a different arm, and reproducing it confirmed that in ninety seconds.
+- **(3) refuse to repair any component containing `<script` — REJECTED.** Costs real repair
+  coverage exactly where phantom links also live, and the measurement makes the cost
+  concrete: it would abandon repair on 161 of 1,186 components to protect 1.
+
+**Decision: the seam is shared, and the sharing is the point.** One notion of "these bytes
+are not markup" (`NonMarkupSpans`), consumed by both markup WRITERS. Two walks over one
+grammar is the defect `bugs_open/137` was filed about, so `RuntimeFillSpans` and
+`NonMarkupSpans` come off ONE walk — with opposite degrade directions, documented at
+`scanSpans`, because one is an exemption for judges and the other a keep-off for writers.
+
+**Scope decision: writers only, deliberately.** The detectors have the same blind spot and
+keep it for now. A false finding costs a human's attention; a false repair costs content.
+Narrowing a JUDGE is `137`'s separate ruling and does not transfer automatically — recorded
+in `bugs_open/180` for the detection lane (`097`/`116`) rather than closed here by assumption.
+
+**Ordering: none claimed.** Per the owner ruling of 2026-07-29, review here is after the
+fact by design — HEAD is shared and any session's build ships this. What is owed and done:
+registration as **LNK-029 in the same commit**, and a council submission alongside it
+(`Council-Submitted: ba199c35-516f-44be-a210-9fd982425eb7`), with the other consumers of
+`RepairPageLinks` named in the submission rather than merely measured.

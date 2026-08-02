@@ -129,3 +129,52 @@ this same repair for tool pages. **That is now the wrong order.** Tool pages are
 where JavaScript builds links, so switching it on there today would quietly delete working
 buttons. The new ticket has to be fixed first. I would rather find that here than in a
 client's inbox.
+
+---
+
+**2026-08-03 — the JavaScript problem is fixed, and fixed once for everything rather than
+once for this case.**
+
+Picking this up from the handoff, the first thing I did was re-run our repair code over six
+different bits of real-looking markup instead of just the one from the ticket. Five of the six
+came back damaged, and only one of them was the case we had written down. A link built with
+JavaScript string-joining gets deleted one way; a link built with the newer backtick syntax
+gets deleted a *different* way; a link written inside a stylesheet comment, inside a text box,
+or inside a commented-out block all get rewritten too. Same single cause, five different faces.
+
+That mattered for the decision. The cheap option was to teach the repair to recognise the
+exact JavaScript spelling from the ticket and skip it. That would have fixed one of the five
+and left the other four, and it would have gone stale the moment someone wrote a link a sixth
+way. So instead I gave the platform one shared answer to the question "which parts of this
+page are not really markup?" — scripts, stylesheets, text boxes, and comments — and pointed
+the two bits of code that *rewrite* pages at it. Both are fixed by one change, and so is any
+future spelling.
+
+**What I checked before believing it.** I ran both the old and the new code over every one of
+our 509 pages, on all 19 sites. Today exactly one page is being damaged (the vet-comparison
+CMA tool, as the ticket said), eleven places across the fleet are at risk, and — the number I
+actually cared about — **zero** genuine repairs are lost by the change. That last one is the
+thing that could have gone wrong: a guard that is too cautious stops fixing real broken links,
+and it would not be obvious. It doesn't.
+
+I also wired the same protection into a second, older function that deletes dead buttons from
+site headers and footers. It has the identical blind spot and its mistake would be worse — it
+deletes the whole button rather than just the link. Nothing on the fleet triggers it today, so
+that half is prevention: measured to change nothing now, and closed before something writes
+the markup that opens it.
+
+**One thing I got wrong, and it is slightly humbling.** I made a deliberate technical choice
+(what to blank the ignored regions *with*), wrote a test to protect that choice, and wrote a
+confident comment saying "change this and the test fails". Then I actually changed it — and
+the test passed. A second safety net further down had quietly caught it, so my test had been
+proving nothing. The previous session in this very lane had written down that exact trap, in
+its handoff, which I had read that morning. Reading it did not stop me doing it. I have logged
+it in the shared mistakes file, because the useful lesson is not "be careful" — it is: never
+write "change this and it breaks" until you have changed it and watched it break. It costs
+about thirty seconds.
+
+**Where this leaves us.** The blocker is gone: switching the link repair on for tool pages —
+the step I said last time we must *not* take — is now safe to take, and that is the next piece
+of work. The change is committed and sent to the review council; it is not live until the next
+chassis image ships, and I will not call the ticket closed until I have proved it on the
+running system rather than in git.
