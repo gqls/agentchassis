@@ -16649,3 +16649,23 @@ Filed prospectively as a fleet landmine ("`orchestration_states` keeps terminal 
 ~24 HOURS — and `min(created_at)` says 20 days"). Related:
 [a-count-you-kept-is-not-a-census], [log-measurement-discipline],
 [prior-art-search-goes-stale].
+
+> **Correction to the commit message of `8b64a6082`, not to the entry above.** That
+> message carries a "sweep disclosure" naming five entries from another lane. **No
+> sweep happened.** They committed their work in `5659d8efd` in the seconds between
+> my `git diff --numstat` (which showed their 159 uncommitted lines) and my
+> `git commit`; mine landed as 49 insertions, its own entry alone — verified with
+> `git show --stat` and a grep for their headings, which returns 0.
+>
+> Forward-only forbids an amend, so the false disclosure stands in the log and this
+> is the correction. Harmless in direction — it over-claims contamination rather
+> than hiding it — but it is still a commit message asserting something untrue, and
+> the tally is the point of this file.
+>
+> **The check I skipped:** I verified the passenger *before* writing the message and
+> not *after* the commit. On a contended file the working tree can change underneath
+> a long commit message. `git show --stat <sha>` afterwards is the only statement
+> about what a commit actually contains — which is exactly the rule the earlier
+> same-file-passenger entry in this file already states, applied in the direction I
+> had not considered: I checked for a passenger that was there and was gone, having
+> previously missed one that was there and stayed.
