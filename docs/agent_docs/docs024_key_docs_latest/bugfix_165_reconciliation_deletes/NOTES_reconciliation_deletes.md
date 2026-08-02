@@ -872,3 +872,60 @@ item is cosmetic in the sense that no delete is unguarded because of it — but 
 *not* cosmetic to the operator it misdirects. **165's closing question is unchanged
 and still an owner call** (§11): whether live + mutation-proven + provably-inert
 clears the bar for site C.
+
+## 15. v1.0.1229 — the last pending fix is live, and a negative control found a third site (2026-08-02 ~18:45 BST)
+
+Pods `agent-chassis-79479769b9-g7fbt` / `-n8nbj`, `v1.0.1229`, started 18:39 UTC.
+Everything §14 listed as outstanding is now in the running binary, **both replicas**:
+
+| | check | result |
+|---|---|---|
+| `56365d86b` aftermath fix | POS `NOTHING was deleted%s` (parameterised format) | 1 |
+| | POS site B's caller clause, `the nav already stored still stands` | 1 |
+| | **NEG** old hardcoded `NOTHING was deleted; the rows this run` | **0** |
+| `cdbe27325` pointer fix | POS `(bugs_closed/165)` | 2 |
+| | **NEG** `(bugs_open/165)` | **1 ← FAILED** |
+
+**The failing negative control is the useful result.** The positives proved
+`cdbe27325` had shipped, so a leftover `(bugs_open/165)` could not be "the commit
+missed the roll" — it had to be an occurrence I never edited. It was:
+`save_sections_prune_floor.go:280`, site A's file, inside the `Fix:` text that
+`emitPruneRefusalWorkItem` persists into `site_work_items.spec`. Fixed in
+`e1300a81c`; all three siblings now agree.
+
+Worth keeping: **a negative control that passes tells you almost nothing — this one
+was only worth running because it could fail, and it did.** I had scoped site A's
+file out for good reasons (another lane's, and the bug was closed), and the scoping
+decision was invisible to me afterwards. The control saw it because it asked about
+the *binary*, which has no notion of whose file a string came from.
+
+### The class is fleet-wide, measured, and deliberately not swept
+
+Of **139** distinct bug numbers cited as `bugs_open/NNN` in Go source, **107 (77%)
+now live in `bugs_closed/`**. Roughly 100 of those citations are inside *string
+literals* — log lines, work-item remedy text, test failure messages — not comments,
+so they reach a human. Reproduce:
+
+```sh
+for n in $(grep -rhoE 'bugs_open/[0-9]+' --include=*.go platform/ internal/ pkg/ \
+           | grep -oE '[0-9]+' | sort -u); do
+  loc=$(git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ \
+        | grep -E "/${n}_" | cut -d/ -f1 | head -1)
+  [ "$loc" = "bugs_closed" ] && echo "STALE $n"
+done
+```
+
+**Not swept, and the reason is not squeamishness.** Those files belong to many lanes;
+a ~100-site edit across contended files is exactly how same-file passengers happen.
+More importantly **a mechanical rewrite is unsafe**: CLAUDE.md records that several
+numbers name *two unrelated cases* (016, 017, 083, 112, 131, 146 …), so a number can
+legitimately exist in **both** directories and "which one did the author mean" is not
+answerable by script. My own loop above uses `head -1` and therefore inherits that
+ambiguity — **[LIMITATION]**, stated rather than glossed: the 107 is an upper bound
+on staleness for the ambiguous numbers and exact for the rest.
+
+The durable fix is a `scripts/pattern-check.py` rule that fires on a changed file
+citing `bugs_open/NNN` where only `bugs_closed/NNN` exists — catching them at the
+point of edit, which is the only place the ambiguity can be resolved by someone who
+knows which case they meant. Left for whoever owns doc hygiene; noted here so the
+measurement does not have to be redone.
