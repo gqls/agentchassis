@@ -552,3 +552,59 @@ The staged **CTA precedence flip** (`ctafields.go`, council trail `2525f980`, th
 decides which fields a build-time resolver **writes**; this decides whether what
 was written, by anyone, at any depth, points at a real page. Complementary, and
 stated in the submission for that round's reviewers.
+
+---
+
+## 2026-08-02 (later) — COUNCIL APPROVED at round 1, and a CORRECTION to the section above
+
+`40c0c14d-636c-4d6f-b3a2-9316267d7367` — **APPROVED**, 12 reviewers, 0 unreadable,
+**4 advisory objections, none high-severity**. `architecture` signal:
+**point_fix**, RFC trigger explicitly does not fire. Trailer on `32e30c6aa`.
+Full dispositions, with the queries, in the workstream NOTES.
+
+> **CORRECTED — the section above says the 52 "clear as a side effect of ordinary
+> operation" and that was asserted from a count, never queried.** The council's
+> `debug_historian` seat caught it and cited the matching `WRONG_CALLS.md`
+> precedent by name (*"'The configs will self-heal once the code ships' — asserted
+> from a count, never queried"*). Measured now: resave cadence across the 11
+> affected pages runs **2 to 23 days** (gaswholesalers' page last written
+> 2026-07-10), and **nothing guarantees a page is ever re-saved**. So convergence
+> is **opportunistic, not scheduled** — direction right, tail unbounded. The fast
+> pages clear within days; a quiet site may sit for weeks. If that is not good
+> enough, the remedy is a dispatch, and it is an owner call, not a silent
+> assumption.
+
+**The lock question came out better than three seats feared.** `guidelines`,
+`guardian` and `debug_historian` independently asked whether the rewrite arm could
+mutate a slot a human had frozen. It cannot: the guard at
+`save_page_sections_action.go:576` discards the **whole rebuilt section** for a
+locked slot — the row is kept out of the DELETE and the insert loop `continue`s —
+so the rewritten `content_data` is thrown away with the rest of the fresh copy.
+And **0 of the 13 affected components are locked** today. (idea.uk/`index` does
+carry 4 locked slots, but its affected slot, `info-card-grid`, is not one of them.)
+
+**A shared property worth recording, which no seat spotted and nor had I:** the
+audit still writes a record for findings in a locked slot's *discarded* copy, so
+it slightly over-reports there. `repairSectionLinks` has done exactly the same
+since LNK-024 — it repairs a locked section's HTML in memory, logs it, and the
+HTML is discarded too. Fixing it for one pass and not the other would manufacture
+the very asymmetry this bug is about, so they move together or not at all.
+
+**The third-error-code objection found a real omission.** The estate already keeps
+a taken-codes list (`TestDiscoveryCheckErrorCodeIsDistinct`) and this change had
+not joined it. `CONTENT_DATA_LINK_AUDIT` is now in that list — so the *next* code
+cannot collide with it — plus a test asserting non-collision **and prefix
+disjointness**, because the estate demonstrably writes `LIKE` queries against this
+column (`tool_crosslink_not_emitted%`, `component_validation_%`).
+
+**`editquality`'s medium was the load-bearing one and is CONFIRMED.** It objected
+that "the rerender path persists through this chokepoint" was asserted from a file
+header rather than evidence — correct, and it is now checked against **live**
+`agent_definitions`: `page-rerender`'s `sections_metadata_field` is
+`rerender_sections.sections_metadata`, the output of the step that rebuilds each
+section from `content_data`. ⚠ **That check also nearly propagated a stale
+figure.** The obvious query returns **3** agents, not the six every doc in this
+family repeats — because `pageflow-builder`, `page-rebuild` and
+`site-work-orchestrator` reach the action through a `loop` step and a
+`->>'action'` filter cannot see them. Six is re-verified correct on 2026-08-02;
+RUNBOOK R8 carries both queries and the reconciliation.
