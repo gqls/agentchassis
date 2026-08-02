@@ -1361,3 +1361,22 @@ lookup still cannot express "which of this component's 5 pages", and that design
 (extend vs. sibling action) is exactly where the previous entry above left it. Also not done:
 old file-based `PLAN_teaser-reveal-panel.md`/`NOTES_teaser-reveal-panel.md` are marked
 superseded with a pointer, per their own stated instruction, but left on disk as history.
+
+## 2026-08-02 (later) — chassis rolled to v1.0.1229; re-checked, unaffected
+
+Owner reported a fresh chassis build. Pod-checked rather than assumed: both `agent-chassis`
+and `browser-runner-adapter` replicas are `v1.0.1229` (up from `v1.0.1219`, started
+2026-08-02 18:39 UTC). `git log --oneline -- platform/orchestration/actions/tool_acceptance_actions.go`
+shows no new commits; the commits between the two tags are unrelated lanes
+(`bugs_closed/165`, `168`, `179`, `097`, portfolio work) — none touch
+`doc_subjects_common.go`, `tool_acceptance_actions.go`, or any component-fence dispatch
+path. Re-verified rather than trusted: `doc_plans` still holds the `teaser-reveal-panel`
+row, `is_current=true`, 19,953 bytes, unchanged; a fresh pod-grep of the compiled binary
+still shows a vocabulary marker present. Nothing in this lane's state moved.
+
+Handing off to a fresh conversation for Part B (S6 dispatch wiring) rather than continuing
+in this one — this thread has already been through the Go-gate proof, the fence build, and
+two doc passes, and Part B is a genuine platform-code design decision plus implementation
+(`platform/orchestration/actions/`, council-gate scope), better started with full budget
+than squeezed into an already-long session. New handoff:
+`HANDOFF_2026-08-02_continue_here.md`.

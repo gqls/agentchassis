@@ -364,3 +364,19 @@ So: the piece of outstanding work from the note above — "the panel itself need
 written test" — is now done. The other piece, the decision about how to point the browser-testing
 machinery at one specific page out of a component's several, is still exactly where it was left:
 written down as two options, not yet chosen.
+
+---
+
+**2 August 2026, later — a fresh build went out, checked it, nothing to worry about**
+
+You mentioned a new build had gone out. Checked rather than took your word for it: yes,
+both parts of the platform moved to a newer version, but for reasons that have nothing to
+do with this project — other teams' fixes. Confirmed the database still has today's work
+in it exactly as written, and the new build still understands what it needs to.
+
+That was the last easy piece of this project. What's left — teaching the automatic testing
+machinery to test one specific page out of several for a shared component — is a real change
+to the platform's own code, in a part of it that goes through a review step before it ships.
+That's a different kind of work to what's been done today, and this conversation has already
+covered a lot of ground, so I've written a fresh handoff and I'd suggest picking it up in a
+new conversation rather than continuing here.
