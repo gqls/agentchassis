@@ -333,3 +333,55 @@ parallel WIP exists."* That is the exact blind spot in my memory file
 works — grepping live `.jsonl` transcripts for the code symbols — before starting.
 Worth stating in the next submission's `grounded_in` rather than leaving a seat to
 flag it as unknowable.
+
+## 2026-08-02 18:4x — LIVE on v1.0.1229, pod-verified on BOTH replicas with a full control set
+
+The roll landed. **The image is not the evidence — the binary is** (`bugs_open/153`:
+a roll is not evidence your fix shipped, and the image carries no provenance).
+
+```
+pods: agent-chassis-79479769b9-g7fbt, -n8nbj   image v1.0.1229
+binary mtime (both): 2026-08-02 18:28:49 UTC
+my commit d78f70bf1:  2026-08-02 10:45:30 UTC   <- binary postdates it by ~7h45m
+```
+
+Same exec, both replicas, identical results:
+
+| grep | g7fbt | n8nbj | what it proves |
+|---|---|---|---|
+| `audited content_data internal links before persist` | **1** | **1** | the new log line is compiled in |
+| `CONTENT_DATA_LINK_AUDIT` | **1** | **1** | the new error code is compiled in |
+| `RepairContentDataLinks` | **4** | **4** | the datahelpers symbol is present |
+| `repaired dead internal links before persist` (LNK-024, live since 1196) | 2 | 2 | **positive control** — the grep pipeline works and this is a real binary |
+| `CONTENT_LINK_REPAIR_DETAIL` (live) | 1 | 1 | second positive control |
+| `CONTENT_DATA_LINK_INVENTED` | **0** | **0** | **negative control** — the grep is not matching everything |
+
+> **The negative control here is INVENTED, and that is weaker than the real thing.**
+> `bugs_open/153`'s rule wants a string the change **removed**, expect 0 — that
+> discriminates a stale image from a fresh one. This change removes nothing (it is
+> purely additive), so no such string exists and an invented control can only prove
+> the grep is not universally matching. What carries the load instead is the
+> **binary mtime vs commit time** comparison above. Stated rather than glossed,
+> because "negative control: 0" reads as stronger evidence than it is here.
+
+> **GOTCHA — `agent_error_log`'s timestamp column is `occurred_at`, not
+> `created_at`.** Two queries failed with a bare `column "created_at" does not
+> exist` before I read `\d agent_error_log`. Schema first, every time.
+
+## 2026-08-02 18:5x — 0 findings after the roll had TWO possible causes, so I induced it
+
+Six minutes after the roll, 12 `page_components` had been written (all
+loancalculator.co.uk, another lane's work) and there were **zero**
+`CONTENT_DATA_LINK_AUDIT` rows — *and* zero `CONTENT_LINK_REPAIR_DETAIL` rows.
+
+That is the memory-file shape *"a gate's 0 findings has TWO causes with opposite
+fixes"*: the pass ran and those pages were clean, or the pass never ran. **An
+absence cannot distinguish them, and waiting for organic traffic would not either**
+— a quiet result would look identical on both hypotheses for as long as I watched.
+
+So: induce, on a page whose defect is already measured. Target chosen for three
+reasons — `gaswholesalers.com/supply-terms-and-eligibility` has 6 known findings
+(2 rewritable `/contact`, 4 phantoms), **zero locked slots**, and was last written
+2026-07-10, so no other lane is in it. (idea.uk was the other candidate and was
+**rejected**: one live session shows 976 mentions of it in the last 90 minutes.
+Checking that before dispatching is the whole point of the transcript grep.)
