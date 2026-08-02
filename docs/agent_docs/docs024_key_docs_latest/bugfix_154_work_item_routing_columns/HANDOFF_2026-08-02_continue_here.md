@@ -81,3 +81,17 @@
      config reaches save_page_sections (one query; the reviewer is right that it
      was asserted not measured).
   5. **Pod-grep step**: name the three-grep verification above in the plan.
+
+## UPDATE 2026-08-02 ~22:15Z — GUARD LIVE on v1.0.1233; restores artefact-proven
+
+- Pod-grep both replicas of **v1.0.1233**: `SECTION SHRINK` **2**,
+  `section_shrink_floor` **1**, control **1**, negative control **0**. Guard is
+  in the running binary. (1230 was skipped; the owner's roll landed as 1233.)
+- Both `restore_287:%` rerenders **complete**; robot-hands rendered
+  generic-text-block verified at the artefact: `ISO 9409-1` AND the
+  `gripper-safety-factor-calculator` anchor both present (4,831 chars). The
+  restore+merge survived a full rerender cycle.
+- STILL OPEN (unchanged): induce a refusal (proves the block fires AND the
+  refusal work item emits — the empirical answer to the council's HIGH
+  objection), then resubmit on `RESUBMIT_CORR=e64f8576-…` with the answers
+  sketched above + the blast-radius measurement.
