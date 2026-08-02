@@ -117,3 +117,27 @@ on the site.
 - 016b §9 *"One responsibility implemented in three agents"* and its 2026-07-31 addendum —
   the pattern both routes belong to: a branch whose no-op path is also its "everything is
   fine" path cannot fail loudly.
+
+---
+
+## 2026-08-02 — FIX APPLIED + CONFIG-LIVE; closure waits on one witnessed run
+
+Migration `sql_for_agents/291` (vigilant_designer_offer_analysis lane, commit `18bdec71f`)
+replaced the 3-pass cap with a convergence gate, addressing both halves of this file:
+
+- **Promotion now runs on every path** — the skip paths jump straight into the single
+  `triage_findings` step (286's sole owner, count re-asserted =1 in the migration guard),
+  so a skipped audit no longer skips the drain.
+- **Skipped ≠ clean** — `audit_state` {fingerprint, audit_due, not_converging} lands in
+  collected_data and both terminal outputs; `complete_clean`'s message no longer claims
+  clean unconditionally.
+- **The cap's honest successor**: 3 audits at an UNCHANGED fingerprint (md5 over rendered
+  page components + composed palette + chrome — NOT content_hash, which is dead: 0/1,183
+  populated) files ONE deferred `capability_gap` roadmap row (`audit_not_converging`)
+  instead of reporting clean. Audit re-arms on any fingerprint change or a 14-day cooldown.
+
+Applied + recorded 2026-08-02; guard proved graph/edges/single-owner/fingerprint-stability
+on a live probe. **Still owed before closing: one witnessed improvement-loop run taking
+the gate** (the guard proves SQL, not the engine's parse of the conditions) — planned as
+the same lane's A0.4 specimen drain. Whoever witnesses it: close this as fixed-and-live,
+citing the orchestration id.
