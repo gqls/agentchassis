@@ -1601,3 +1601,33 @@ All 27 pages are now decomposed: **63 rows, 51 prose + 12 tool, 0 verbatim**,
 with every page's original row preserved in `page_components_bak_20260802_decomp`
 (27 pages covered) and `load_decomposition.py --restore <page>` as the one-command
 way back. 26 rerenders filed and draining.
+
+### Checked: the per-page copy split landed correctly
+
+```
+name                | fca_warning | market_claim | market_context blanked
+index               |      t      |      f       |        t
+tool-standard-calc  |      t      |      t       |        f
+```
+
+Visible text of the index tool row, tags/script/style/comments stripped:
+`Warning: Late repayment … moneyhelper.org.uk. Amount to Borrow (£) Interest Rate
+(APR %) Term (Years) Monthly Repayment £0.00 Total Interest: £0.00 Total
+Repayable: £0.00` — the FCA warning and the calculator, and nothing else. The
+`{{if or …}}` guard removed the market-context block entirely rather than leaving
+an empty styled panel; only its two CSS rules remain.
+
+> **A `LIKE '%3.75%'` probe said the base-rate claim was still on the homepage,
+> and it was not.** The only occurrence is inside the HTML comment I wrote in the
+> template explaining why the guards exist. A substring test over `rendered_html`
+> cannot tell markup from a comment — the check that answers the actual question
+> is to strip `<script>`, `<style>` and `<!-- -->` first and read the visible
+> text, which is what the block above does. Same family as the CSS-fallback
+> landmine: present in the source, inoperative on the page.
+
+**FOLLOW-UP, deliberately NOT done now:** that comment ships in the public page
+source (HTML comments are not stripped — only the tool-doc sentinel block is), and
+one clause of it editorialises rather than explains. `index` was `claimed` — mid
+re-render — when I noticed, so rewriting the component then would have raced a
+live deploy for a cosmetic gain. It rides with the next real touch of
+`tool-loan-repayment`, alongside the queued defect fixes.
