@@ -332,3 +332,35 @@ fleet.
 truncated the stream at ~2.8MB and exited 1 with `Waiting for server to close stdin failed`.
 Per-site chunking got all 509 rows. A partial dump that exits non-zero is easy to notice; one
 that exits 0 would not be — check the row count against a `count(*)`, not the byte size.
+
+### Live result (2026-08-03)
+
+**Missed `v1.0.1231` by ~90 seconds** (commit 22:37:50 BST, pods started 22:39:20) — caught by
+pod-grep, not assumed: `NonMarkupSpans` **0** with controls `RepairPageLinks` **3** /
+`RuntimeFillSpans` **2**, so a real negative rather than a mis-cased pattern. **Live on
+`v1.0.1233`**, both replicas: new symbols 1/2/2/1/2, positive control 3, invented negative 0.
+
+⚠ **The best control here was one that MOVED, and it was free.** `RuntimeFillSpans` went
+**2 → 1** between the two images, because the refactor turned it from a function body into a
+one-line wrapper. `bugs_open/153` asks for a string the change REMOVED; this change removes no
+string, so the usual negative control was unavailable — but a symbol *count that changed for a
+reason this change caused* discriminates just as well, and better than the invented absent
+string I also ran. **Worth looking for on any refactor: what did this make smaller?**
+
+**Induction.** Reason-LESS `page_rerender` on `tool-cma-obligation-checker`, deliberately:
+stored `rendered_html` still HELD the correct anchor, so re-stapling stored HTML and running
+the FIXED outbound repair over it exercises exactly the changed path — a `section_data_resolved`
+rerender would regenerate the very bytes whose survival is the test. Wire result:
+`grep -c 'q\.link'` **0 → 1**, 27,247 → 27,307 bytes, anchor restored verbatim.
+
+**MISSTEP — I nearly read the induction as a failure.** The work item said `complete` and the
+fetched page still said 0. Both signals were wrong in the same direction: Cloudflare serves
+that page `cache-control: max-age=3600` and I had fetched a cached copy. `last-modified:
+22:16:19 GMT` on a cache-busted fetch settled it. **A `complete` status and an unchanged page
+together look exactly like "the fix did not work"** — read `last-modified`/`age` before
+concluding anything from a fetch of a CDN-fronted site.
+
+**MISSTEP — the first council run died and I would not have noticed from the status.** It sat
+at `review_constitution`/`EXECUTING_STEP` looking healthy; the tell was `updated_at` frozen at
+21:38:10, **one minute before the `v1.0.1231` roll replaced the pods**. `EXECUTING_STEP` is not
+a heartbeat. Resubmitted on the same trail (`RESUBMIT_CORR`), and the verdict is still owed.

@@ -1,5 +1,11 @@
 # HANDOFF — 2026-08-02 — `bugfix_136_sibling_link_repair` lane · continue here
 
+> **SUPERSEDED 2026-08-03 — read `HANDOFF_2026-08-03_continue_here.md` instead.**
+> Its §3 below ("do NOT wire the seam into the tool writers yet") is **no longer true**:
+> `bugs_open/180` is fixed, live on `v1.0.1233` and closed, so that block is gone. Kept
+> unedited because the reasoning is the record of why the order was reversed and then
+> reversed back.
+
 Written for a cold start in a new session. **Read this file, then `bugs_open/180`.**
 Everything below is committed; nothing is left dirty in the tree by this lane.
 

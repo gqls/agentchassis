@@ -178,3 +178,25 @@ the step I said last time we must *not* take — is now safe to take, and that i
 of work. The change is committed and sent to the review council; it is not live until the next
 chassis image ships, and I will not call the ticket closed until I have proved it on the
 running system rather than in git.
+
+**Later the same evening — it is live, and the deleted link is back on the site.**
+
+The new chassis went out and I checked it on the running system rather than trusting the
+build: the new code is present on both machines, and — the nicer proof — one existing piece of
+code got *smaller* in exactly the way my change would make it smaller, which is a signal a
+newly-added name cannot give you. (An earlier build had missed my commit by about ninety
+seconds. I caught that the same way, so it cost nothing.)
+
+Then I re-published the one damaged page and watched the link come back: the tool's JavaScript
+now reads `<a href="' + q.link + '">See guide section</a>` again on the live site, where an
+hour earlier it read `See guide section` as plain text. The ticket is closed and filed.
+
+**Two things nearly fooled me at the end, and both are worth knowing.** First, our own system
+reported the re-publish as `complete` while the page still looked broken to me — because
+Cloudflare was serving me an hour-old cached copy. The page had in fact been correct for
+several minutes. Second, the review council run I had submitted looked healthy but had
+actually been killed stone dead by the earlier chassis restart; it was sitting on a step it
+would never leave, and the only tell was a timestamp that had stopped moving. I have
+resubmitted it. **The verdict is still owed and nobody has read it** — that is the one thing
+left outstanding on this piece of work, and I have written it at the top of the handoff rather
+than letting it quietly disappear.
