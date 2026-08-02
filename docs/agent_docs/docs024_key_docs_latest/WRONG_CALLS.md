@@ -16752,3 +16752,44 @@ than keeping it as decoration and writing a comment claiming both were needed.
 removing a `sort` call and orphaning its import. **A broken build is not a red
 test**, and the word FAIL in the output makes it look exactly like one. The check:
 read the line above FAIL. If it names a file and column, you tested nothing.
+
+---
+
+## 2026-08-02 (second entry) — I retired a named risk with a measurement from a different operating point
+
+**The claim, written into NOTES and reported in chat before firing the induction:**
+"Thinking risk retired with evidence: the telemetry columns are NULL and output_tokens
+(202–383) matches the size of a complete visible JSON review — no room for hidden
+thinking tokens. Cap 120 will be a real wire cap on visible text."
+
+**What happened at cap 120:** the seat call spent its whole budget with almost nothing
+to show — attempt: zero visible text; retry: **42 characters** of JSON against
+`output_tokens=120`. ~108 tokens went to server-side thinking. `claude-sonnet-5` thinks
+by default; the chassis neither requests nor records thinking (so the telemetry columns
+are ALWAYS null — their nullness was never evidence), and `output_tokens` counts
+thinking + text. The cut therefore landed before the first closing bracket, the review
+salvaged to `""`, and the induction's target branch was unreachable — the exact discard
+arm my own corrected exit table named, entered for a reason the table's sizing missed.
+
+**The error's shape — and it is the third of one family in this lane, each wearing a
+different coat.** The auto-loaded memory index SAID it plainly: "Claude 5 thinks BY
+DEFAULT and spends max_tokens before visible text." I read it, went looking, and
+measured: at cap 8000, on that seat's routine traffic, output ≈ visible JSON. The
+measurement was true; the retirement was false. **A measurement discharges a risk only
+at the operating point where it was taken.** Cap 8000 with routine prompts and cap 120
+with a fixture demanding verbose output are different operating points twice over — and
+thinking spend is adaptive, so the one variable I changed is one it responds to.
+
+**The cheap check that would have caught it:** rehearse the crippled call once, offline,
+before spending a council round — the exact prompt is in `llm_call_log.prompt_rendered`,
+and one direct call at cap 120 would have shown 42 chars of text. More generally: when a
+plan moves a parameter far outside the measured range, the measurement is a hypothesis
+again, and the marker discipline applies — the NOTES line should have read
+`thinking ~0 [MEASURED at cap 8000; UNMEASURED at 120]`, and typing that marker would
+have sent me to do the rehearsal.
+
+**Cost:** one council round's credits and the window's ~2.5 minutes of risk, spent to
+reach a branch that was arithmetically unreachable from the start. Softened by what the
+round DID witness (tolerate/retry live, the unreadable arm's honest accounting, the veto
+short-circuit) — but those are consolation findings; the thing I paid for was not
+purchasable at that cap.
