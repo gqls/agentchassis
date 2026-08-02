@@ -112,6 +112,14 @@ a live site*, that is said explicitly.
 - **sources:** `docs/agent_docs/sql_for_agents/256_render_audit_agent.sql`; `platform/orchestration/actions/request_render_audit_action.go`; `internal/adapters/browserrunner/render_audit_action.go`; deployment `render-audit-adapter`
 - **relations:** VIZ-010 (the hand-run predecessor), VIZ-011, CLM-001, `bugs_open/122`
 
+### VIZ-013 — `write_render_audit_findings`: the render audit's drain
+- **status:** built + tested (2026-08-02, vigilant_designer_offer_analysis workstream); **inert until an image roll AND the config tail step lands on `render-audit-agent`** (both tracked as that lane's A0.3b — a registered action a workflow never names runs nothing).
+- **status-evidence:** 5 sqlmock tests pin the effects (`write_render_audit_findings_test.go`); not yet observed live.
+- **what:** Chassis action that files a render audit's FIRM findings as routed `site_work_items`: firm contrast failures → `contrast_failure` at `css-patch-agent` (dedup key `contrast_failure:<page-path>#<selector>`; the NEXT render audit is the de-facto verifier); broken images that resolve to an `assets` row → `undeployed_asset` at `asset-deployer`, co-deduping with `check_undeployed_assets` on `undeployed_asset:<asset_id>` (deliberate shared dedup unit). Items are born `detected`, so promotion stays with `improvement-loop.triage_findings` (migration 286's single owner). Deliberately NOT filed, but counted loudly in the result: `over_image` approximations, overflow (no culprit attribution on this path — Tier-4 `no_horizontal_overflow` owns the attributed case), unattributed broken images (source-side planning gap; `check_content_image_missing`'s rail), and findings whose culprit class appears in a LOCKED component's markup. A run filing more than `max_items` (60) reports `findings_capped`.
+- **why it matters:** closes the loop VIZ-012's own landmines section left open ("It does not raise work items from findings") — the design `bugs_open/122` candidate 2 asked for. Until this, the fleet's only browser-measured contrast defects stopped in `collected_data`, the bugs_open/115 shape.
+- **sources:** `platform/orchestration/actions/write_render_audit_findings_action.go`; registry entry `write_render_audit_findings`
+- **relations:** VIZ-012 (the measurement), VIZ-010, `bugs_open/122`, `bugs_open/115`, migration 286
+
 ### VIZ-011 — chart furniture is a graphical object, so the 3.0 threshold applies to it
 - **status:** deployed (applied in VIZ-002 and VIZ-006)
 - **what:** Axis lines, connectors and bars are not decoration: they are required to understand the content, so WCAG's 3.0 non-text contrast minimum applies. On oufe's live stylesheet `--color-border` (#2E3F52) scores **1.66** against the page background and fails it; `--color-accent` scores **6.86**. Both new components therefore draw their furniture in the accent.

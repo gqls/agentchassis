@@ -1181,6 +1181,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Ask the browser-runner adapter to RENDER every deployed page of a site and measure contrast against the effective background, broken images and overflow; awaits the results. Catches the class check_palette_contrast states it cannot see (a component hard-coding an ink over a themed fill).",
 		IsLocal:     true,
 	},
+	"write_render_audit_findings": {
+		Handler:     WriteRenderAuditFindingsAction,
+		Category:    "quality",
+		Description: "File a render audit's firm findings as routed work items: contrast_failure → css-patch-agent, attributed broken images → undeployed_asset/asset-deployer; over_image, overflow and unattributed images are counted, deliberately not filed",
+		IsLocal:     true,
+	},
 	"judge_acceptance_results": {
 		Handler:     JudgeAcceptanceResultsAction,
 		Category:    "tools",
