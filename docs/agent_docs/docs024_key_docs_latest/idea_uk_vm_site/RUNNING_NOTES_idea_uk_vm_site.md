@@ -3426,3 +3426,37 @@ proof → orange → firewall 443/80 to CF ranges → end-to-end checkout incl.
 `/stripe/webhook`. Next step is the Cloudflare zone itself, which needs the
 webdesign lane's tooling or the owner's dashboard — investigating before
 touching anything.
+
+## §X.36 — 2026-08-02: Option B staged to the owner-action boundary; real-IP LIVE early
+
+**Step 2 installed ahead of sequence, deliberately.** The include only trusts
+`CF-Connecting-IP` from the 22 published CF ranges; while the zone is direct
+nothing arrives from them, so it is a no-op — and I proved that rather than
+argued it: post-install, `access.log` still records the probing machine's true
+`2a02:c7e:…` address (no rewrite) and the 16-route loop re-ran identical.
+Ranges were fetched live from cloudflare.com/ips-{v4,v6} this session and are
+**identical** to the estate snapshot (traffic_probe setup.sh:238-264, the
+canonical copy) — so the reuse-not-hand-roll rule and the freshness check both
+held. Pre-installing collapses the orange↔real-IP window (limit_req → one
+global bucket, bugs_open/139's shape) to zero whatever order later steps land.
+
+**Step 5 staged, not run:** `box/ufw-cloudflare-lockdown.sh` — CF allows added
+BEFORE the world-open deletes, refuses to run without a visible SSH allow,
+rollback is two commands. Current ufw read this session: default deny in;
+22/80/443 open v4+v6. `setup.sh`'s `ufw --force reset` un-does it on
+re-provision — warned in the script header.
+
+**IPv6 was the near-miss of the day.** The zone carries an AAAA
+(`2a01:4f8:1c18:7c31::1`) that no doc mentioned — found only by enumerating
+record types. The site serves 200 over v6, the catch-all rejects foreign SNI
+over v6 (exit 35), and both staged artefacts carry the v6 ranges. A
+dashboard zone built from "the A record" alone would have silently dropped v6
+or, worse, left a grey AAAA bypassing the proxy after orange. The checklist
+now names both records exactly.
+
+**Owner-side remainder (no CF API credential exists here — checked: the only
+CF_API_TOKEN is a GitHub Actions purge-scoped secret):** add zone, two grey
+records (A + AAAA), NS change at the registrar (whois: .uk tag DESIGNCONSULT,
+owner-held), verify grey, flip orange. Then me: two-network proof (needs a
+second network by definition — phone on mobile data), lockdown script, 16
+routes + Stripe webhook re-proof.

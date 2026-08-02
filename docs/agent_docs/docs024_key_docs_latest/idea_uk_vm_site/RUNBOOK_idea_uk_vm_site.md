@@ -529,6 +529,46 @@ NB (2026-08-02): this session's setup.sh catch-all patch shifted the third
 `:226` are unchanged. And once step 4 lands, `:435`'s "purge the Cloudflare
 cache" stops being a no-op and becomes a real step again.
 
+**Progress, 2026-08-02 (same session as the decision):**
+
+- **Step 2 is DONE, early and deliberately.** `box/cloudflare-realip.conf`
+  (ranges fetched live 2026-08-02; **identical** to the estate snapshot of
+  07-24) is installed as `/etc/nginx/conf.d/cloudflare-realip.conf`, `nginx -t`
+  pass, reloaded. Provably a no-op while direct: post-install the access log
+  still records the probing machine's true address (a `2a02:c7e:…` ISP prefix,
+  no rewrite) and the 16-route loop re-ran identical. Doing it before the zone
+  even exists collapses the orange-window failure (limit_req → one global
+  bucket) to zero regardless of later ordering.
+- **Step 5 is STAGED, NOT RUN:** `box/ufw-cloudflare-lockdown.sh`. Adds the 22
+  CF allows *before* deleting the world-open 80/443 rules, refuses to run if no
+  SSH allow is visible, prints the two-sided verification. Current ufw state it
+  starts from (read 2026-08-02): default deny incoming; 22, 80, 443 allowed
+  from anywhere, v4+v6. ⚠ `setup.sh`'s full provision runs `ufw --force reset`
+  — after any re-provision of a post-cutover box, re-run the lockdown.
+- **Steps 1 and 4 are OWNER-side** — there is no Cloudflare API credential in
+  this environment (the only `CF_API_TOKEN` is a GitHub Actions secret in the
+  sites repo, scoped to cache purge). Dashboard checklist:
+  1. Add site `idea.uk` (Free plan suffices). After the scan, the zone needs
+     **exactly two records, both grey/DNS-only**: `A idea.uk →
+     116.203.204.115` and `AAAA idea.uk → 2a01:4f8:1c18:7c31::1`. There is
+     nothing else to carry over — **no** MX, TXT, CAA, www or DMARC exists at
+     Hetzner (enumerated 2026-08-02). Delete anything extra the scan invents.
+  2. At the registrar (the `.uk` tag is `DESIGNCONSULT`, owner-held), change
+     the nameservers from Hetzner's helium/hydrogen/oxygen to the two
+     Cloudflare-assigned ones.
+  3. Verify while grey: `dig +short NS idea.uk` → cloudflare; site unchanged;
+     still **no** `cf-ray` header (grey = DNS-only, origin still direct).
+  4. Flip both records orange. From that moment `cf-ray` appears and the
+     already-installed real-IP config becomes load-bearing.
+- **Step 3 (two-network proof) runs right after orange** — it needs a second
+  network by definition: browse from a phone on mobile data AND from this
+  machine, then count distinct client addresses in the access log — expect ≥2
+  distinct, **neither inside the CF ranges**:
+  `awk '{print $1}' /var/log/nginx/access.log | tail -200 | sort -u`
+- **Step 6 after orange:** the §3d 16-route loop, plus a Stripe test event
+  through `/stripe/webhook` — Stripe's calls also traverse the proxy once
+  orange, so the webhook must be re-proven, not assumed.
+
 **4a-bis. There is no catch-all vhost, so this box answers to EVERY hostname —
 including none. ADDED 2026-08-01 by this lane, confirming and explaining §5 of
 `HANDOFF_2026-07-31_cloudflare_decision.md`.**

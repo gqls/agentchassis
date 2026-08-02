@@ -1816,3 +1816,18 @@ addresses, prove it from two different networks, and only then switch the proxy
 on and lock the server down so only Cloudflare can reach it. I'll set up as
 much as I can and come back to you for the bits only you can do (the domain's
 nameserver change at the registrar, most likely).
+
+Later the same day: everything on our side of the Cloudflare move is now done
+or ready. The tricky bit of the sequence — the window where the rate limiter
+silently breaks — has been eliminated entirely: I installed the
+address-restoring config today, while it provably does nothing, so it is
+already in place the moment you switch the proxy on. The firewall script is
+written and safety-checked but deliberately not run (that only happens after
+the proxy is live and proven). What's left needs your Cloudflare account and
+your registrar login, and it is small: add idea.uk as a site on the free plan,
+make sure it has exactly two DNS records both set to "DNS only" (the A record,
+and an IPv6 one nobody had written down — the server does answer on IPv6, so
+it matters), then change the nameservers at the registrar, and once we agree
+it looks right, click both records to "Proxied". After that I take over again:
+prove visitor addresses from two networks, lock the server to Cloudflare only,
+and re-test the shop end to end including a Stripe payment.
