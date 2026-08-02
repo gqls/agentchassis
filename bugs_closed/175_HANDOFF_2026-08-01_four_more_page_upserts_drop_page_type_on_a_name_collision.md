@@ -286,3 +286,37 @@ session's `v1.0.1233` build from the same HEAD before it was applied; both carry
 - **`create_tool_component_action.go:288`** — the tool-page `INSERT` with no `ON CONFLICT`
   at all. Loud and fail-closed, so outside this class; a follow-up if anyone wants
   re-runs to be idempotent.
+
+---
+
+# ADDENDUM 2026-08-02 — the fix shipped with a defect of its own; corrected in HEAD, **not yet live**
+
+**175 stays CLOSED** — the silent partial update it filed is gone and pod-verified. This
+addendum records a defect **the fix itself introduced**, found hours later while sizing
+`RFC_010`'s first question for the owner.
+
+**What was wrong.** `pageHasBeenLive` widened 081's guard by hand to
+`deployed_at IS NOT NULL OR build_status IN ('deployed','needs_rebuild')`. The estate
+already had `datahelpers.NeverDeployedPagePredicate` — shared, three consumers, and a
+test asserting *"predicate must not single out needs_rebuild"*, because singling it out
+had produced a **34-page false-positive class** for the nav lane. Mine singled it out.
+
+**The live cost, measured:** **11 rows** are `needs_rebuild` with no `deployed_at`, no
+`last_built_at` and mostly zero components — never built, never served — including
+**three `lendzy.co.uk` tool pages created 2026-08-02**, i.e. exactly what the tool arm
+collides with. On any of those, the shipped helper **refuses**: files a
+`mistyped_deployed_page` decision nobody needs, and hard-errors the tool deploy.
+
+**Status:** corrected in `023f6624a` — the locking `SELECT` computes
+`NOT (datahelpers.NeverDeployedPagePredicate)`, `pageHasBeenLive` is deleted, and a test
+fails if anyone inlines a restatement (proved by mutation, with the import kept
+referenced so the *assertion* fires and not the compiler). **`v1.0.1233` carries the
+uncorrected version**, so until the next chassis roll the 11-row refusal is live. It is
+narrow (a collision on one of those 11 names is required, and none has been observed)
+and it fails **closed** — a refused deploy and a filed decision, never a mutated page —
+which is why this is an addendum rather than a reopen.
+
+**Why it was missed:** the council's `prior_art_librarian` seat asked whether a page-upsert
+**helper** already existed. I checked, answered, and stopped — the objection named a
+helper, so I searched for a helper. The reusable unit was **one line of SQL**, which is
+what nobody searches for. `WRONG_CALLS.md` carries the full entry.
