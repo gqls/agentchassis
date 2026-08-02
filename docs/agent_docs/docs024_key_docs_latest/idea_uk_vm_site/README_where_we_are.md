@@ -1831,3 +1831,20 @@ it matters), then change the nameservers at the registrar, and once we agree
 it looks right, click both records to "Proxied". After that I take over again:
 prove visitor addresses from two networks, lock the server to Cloudflare only,
 and re-test the shop end to end including a Stripe payment.
+
+Late evening, same day: the nameserver change is done — by machine, through
+Nominet's own registrar interface, using the key you provided. The dry run
+showed exactly the right change, the real run was accepted first time, and the
+internet picked it up within a couple of minutes. The site never blinked: it
+still serves exactly as before, because we deliberately left Cloudflare in
+"pass-through" mode. Cloudflare has confirmed the domain is now active with
+them. Two small things tripped us up on the way and are now fixed in the tool
+for next time (their server refuses strangers in a format ours didn't expect,
+and our machine introduced itself over the newer kind of internet address
+while your allow-list entry named the older kind). Still waiting on you for
+two small things: webzy.uk's nameserver change lives in GoDaddy's dashboard
+(point it at alexis and leah, same as everything else), and before I switch
+the Cloudflare proxy on for idea.uk I need the SSL mode confirmed as "Full
+(strict)" in the dashboard — or a slightly wider token so I can check and set
+it myself. After that: the address proof from two networks, the firewall, and
+a full test purchase.

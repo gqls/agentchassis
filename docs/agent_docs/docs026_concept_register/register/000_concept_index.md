@@ -1715,7 +1715,7 @@ an ID prefix, or a status word.
 | FIX-021 | Reframe step (post-veto) | partial | Unit-tested reframe path never fired live since v4 | fix-loop.md |
 | SPEC-016 | Feasibility / blocked-handler pattern | partial | Unknown handlers block work items; feasibility-recheck promotes them later | site-spec-and-classifier.md |
 | VMB-008 | Dedicated vs shared box policy and VM sizing | deployed | Unknown-traffic experiments get their own box; low-traffic domains share one | vm-backend-sites.md |
-| VMB-015 | Nominet EPP nameserver-change client | built | Stdlib .uk NS-change client, dry-run default; unexercised, blocked on EPP IP allow-list | vm-backend-sites.md |
+| VMB-015 | Nominet EPP nameserver-change client | deployed | Stdlib .uk NS-change client, dry-run default; first apply moved idea.uk to CF NS in minutes | vm-backend-sites.md |
 | BIP-008 | Discovery candidates + promotion pipeline | partial | Unmatched search finds staged as candidates, then promoted into businesses table | business-intelligence-platform.md |
 | HITL-016 | process_approval_decision and rejection routing | deployed | Unpacks approval decision into CollectedData; branches continue/stop/reject | hitl.md |
 | CTS-021 | is_dark_section demoted to catalogue metadata | deployed | Unreliable self-declared flag; styling must derive from what CSS actually paints | contracts-and-standards.md |

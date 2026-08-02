@@ -3523,3 +3523,37 @@ runs locally. Poll armed; on OPEN, the trial is dry-run against idea.uk
 (read-only login + domain:info — the only tag-owned domain whose NS differs
 from target), then --apply for the real cutover. Login failures will NOT be
 retried blind (lockout risk): one failure = stop and ask.
+
+## §X.39 — 2026-08-02 (late): idea.uk NS CHANGED via EPP — delegation live in minutes, site never blinked
+
+**The trial and the real thing turned out to be the same run.** webzy.uk could
+not exercise EPP (GODADDY tag, §X.38), so the trial was the dry-run against
+idea.uk — and it passed, so `--apply` followed. Full sequence, all from the
+workstation once `5.65.164.9` joined the allow-list (~6.5 min to propagate):
+
+1. **Pre-auth failure #1, now legible:** the first run died "closed
+   mid-message" at the greeting. Cause found by surfacing the partial bytes:
+   Nominet's refusals are **UNFRAMED text** — the probe had been eating the
+   first 4 characters of "<ip> is not authorized…" as a length header. Script
+   now prints what actually arrived.
+2. **Pre-auth failure #2, the real lesson:** the refusal named
+   `2a02:c7e:…` — the client had connected over **IPv6** while the allow-list
+   entry was the v4 `5.65.164.9`. Dual-stack prefers v6; a v4-only allow-list
+   refuses an address you never knew you were using. Client now pins AF_INET.
+3. **Dry-run:** login 1000, domain:info 1000, current NS = the three Hetzner
+   hosts (read from the registry itself), diff exactly as intended.
+4. **--apply:** domain:update 1000; verifying domain:info reads
+   **alexis/leah**; `host:create` fallback never fired (CF host objects
+   pre-existed). SUCCESS.
+5. **Propagation:** the .uk parent (`nsa.nic.uk`) published the CF pair within
+   ~2 minutes; 1.1.1.1 and 8.8.8.8 agree. Grey pass-through proven:
+   `dig @alexis.ns.cloudflare.com` returns the origin's own A/AAAA
+   (116.203.204.115 / 2a01:4f8:1c18:7c31::1) and the site serves **200** over
+   the new delegation, `server: nginx` (no cf-ray — correct while grey).
+   **CF zone flipped `pending`→`ACTIVE`** on the nudged activation check
+   (watcher: "ZONE ACTIVE" — see output stamp).
+
+**Remaining, unchanged:** orange flip gated on SSL mode = Full (strict) —
+owner dashboard or a token widened to Zone Settings; then two-network real-IP
+proof, `ufw-cloudflare-lockdown.sh`, 16 routes + Stripe webhook re-proof.
+webzy.uk: owner sets NS at GoDaddy to alexis/leah.

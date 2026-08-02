@@ -531,6 +531,20 @@ cache" stops being a no-op and becomes a real step again.
 
 **Progress, 2026-08-02 (same session as the decision):**
 
+- **Step 1 is DONE (late the same day): the NS change went through Nominet EPP.**
+  `box/nominet-epp-ns-change.py` dry-run then `--apply` from the workstation
+  (once its IP joined the EPP allow-list): every result 1000, the verifying
+  `domain:info` reads alexis/leah, and the `.uk` parent published within ~2
+  minutes — 1.1.1.1 and 8.8.8.8 both answer the Cloudflare pair. Grey
+  pass-through proven: `dig @alexis.ns.cloudflare.com` returns the origin's own
+  A/AAAA and the site serves 200 over the new delegation. CF zone
+  `pending`→`active` is a formality (activation_check nudged, watcher armed).
+  Two traps fixed in the script for reuse: Nominet's pre-auth refusals are
+  **unframed text** (surfaced instead of a bare traceback), and a dual-stack
+  connect **prefers IPv6** — arriving from an address a v4-only allow-list has
+  never heard of. Step 4 (orange) remains gated on SSL mode = Full (strict),
+  which this token cannot read.
+
 - **Step 2 is DONE, early and deliberately.** `box/cloudflare-realip.conf`
   (ranges fetched live 2026-08-02; **identical** to the estate snapshot of
   07-24) is installed as `/etc/nginx/conf.d/cloudflare-realip.conf`, `nginx -t`

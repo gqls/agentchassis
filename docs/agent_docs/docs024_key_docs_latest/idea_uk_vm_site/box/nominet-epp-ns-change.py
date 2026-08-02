@@ -49,7 +49,11 @@ def read_msg(sock) -> str:
     while len(body) < need:
         chunk = sock.recv(need - len(body))
         if not chunk:
-            raise ConnectionError("EPP server closed mid-message")
+            # Nominet's pre-auth refusals are UNFRAMED text ("<ip> is not
+            # authorized to connect…"), so the first 4 text bytes get read as a
+            # bogus length and the read hits EOF. Surface what actually arrived.
+            raise ConnectionError(
+                f"EPP server closed mid-message; received so far: {(hdr + body)!r}")
         body += chunk
     return body.decode()
 
@@ -131,7 +135,11 @@ def main():
 
     target = sorted(h.lower().rstrip(".") for h in a.ns)
     ctx = ssl.create_default_context()
-    with socket.create_connection((a.server, a.port), timeout=30) as raw:
+    # IPv4 only: Nominet's EPP allow-list is registered per-address, and the
+    # entries here are v4. A dual-stack connect prefers v6 and gets refused
+    # under an address the allow-list has never heard of (hit 2026-08-02).
+    v4 = socket.getaddrinfo(a.server, a.port, socket.AF_INET, socket.SOCK_STREAM)[0][4]
+    with socket.create_connection(v4, timeout=30) as raw:
         with ctx.wrap_socket(raw, server_hostname=a.server) as sock:
             print(f"connected to {a.server}:{a.port}")
             read_msg(sock)  # greeting
