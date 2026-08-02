@@ -133,3 +133,32 @@ if someone reintroduced a private copy behind a condition the test does not exer
 broke before was a STRUCTURE — two implementations held together by prose — so the sensor
 reads the source. That is stated in the test itself, so nobody deletes it as "not a real
 test".
+
+## The fourth mutation — the one that actually mattered
+
+Removing `check_image_url_404`'s `IsBrandHeadPurpose` branch made me uneasy: that branch was
+the 128 lane's guard against a **fleet-wide false 404 on the og card and favicon of every
+site**, and "it's redundant now" is exactly the sentence someone says before deleting a load
+-bearing check. Post-commit, I went back and proved the protection transferred rather than
+evaporated.
+
+`TestImageURL404_BrandHeadPathsResolveThroughTheirOwnMap` turns out to be a **behavioural**
+test, not a structural one — it feeds asset rows `{favicon,favicon}`/`{og_card,og_card}` and
+chrome referencing `/assets/images/og-card.png`, and asserts zero findings. So it does not
+care *how* the path is resolved, only that it comes out right. Mutating the helper (deleting
+the brand-head branch from `DeployedAssetPath`, leaving the check exactly as I had rewritten
+it) reproduces the original fleet-wide defect:
+
+```
+--- FAIL: TestImageURL404_BrandHeadPathsResolveThroughTheirOwnMap
+    brand-head assets exist; nothing should be reported, got [image_url_404:og-card.png]
+```
+
+That is the finding this whole family exists to prevent, produced on demand, through the new
+code path. The guard is intact and now sits one level deeper, where it covers all six
+consumers instead of one.
+
+**Generalises:** when a refactor removes a local guard on the grounds that a shared mechanism
+now covers the case, do not argue it — **mutate the shared mechanism and require the local
+test to fail**. If it stays green, the guard did evaporate and the argument was wrong. Cost:
+about ninety seconds.
