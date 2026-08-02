@@ -234,3 +234,45 @@ failed to **compile** — deleting the last use of `datahelpers` left an unused 
 and I nearly recorded that as "the test caught it". It did not; the compiler did. Re-ran
 with the import kept referenced (`_ = datahelpers.NeverDeployedPagePredicate`) and both
 real assertions fired. **A mutation that does not compile is not a mutation test.**
+
+## 2026-08-02, round 2 — the owner's ruling, and a widening that was a decoration
+
+Owner ruled all three RFC_010 questions plus the residue: **opt-in** for ADOPT;
+producer-convergence needs **no RFC** given register disclosure; refusal-becomes-error
+**stands**; and fix `bugs_closed/081`'s guard **now**, not at next touch.
+
+**The opt-in's default is the interesting design choice.** `AdoptUnshippedRows` left
+false could mean two things, and neither is neutral: *refresh without re-typing* is
+literally the partial update `175` filed, and *refuse* costs a spurious decision. It
+refuses — but files **no** work item, because `mistyped_deployed_page` is a decision
+about a LIVE artefact and this row has never been served. The reason string names the
+missing field, so the refusal is diagnosable rather than mysterious. Assertion, not
+argument: `TestUpsertPageForRole_AdoptionIsOptIn` checks `ItemFiled == false` and greps
+the captured SQL for `site_work_items`.
+
+**The two tests I did NOT have to change told me the fixture was wrong.** Making
+adoption opt-in turned both adopt tests red, because `toolPageWrite` did not set the
+field the real arm sets. Fixing the fixture rather than the assertion is the whole point
+— *a fixture that quietly differs from production is a test measuring something nobody
+ships.*
+
+### The misstep worth the most: my widening of 081's guard was a DECORATION
+
+I changed `existingBuild == "deployed"` to the shared predicate, then mutated it back to
+check the tests bit. **Every test in `apply_gap_plan_deployed_conflict_test.go` stayed
+green.** Both predicates agree on every input those tests supply — `deployed`+shipped
+and `planned`+unshipped — so not one of them could see the change. I had "verified" a
+widening no test could distinguish from its predecessor.
+
+The discriminating input is the one where **only** the new predicate can act: a
+`needs_rebuild` page that HAS shipped. `TestApplyNewPage_NeedsRebuildPageIsRefused`
+supplies it; the same mutation is now red. This is the 180 lane's lesson from
+`WRONG_CALLS.md` arriving from the other direction — there, a mutation passed because a
+second guard sat in series; here, because the test inputs could not tell the two
+predicates apart. **Same rule either way: when a mutation passes, ask what input would
+make only the mutated line matter, and go and write it.**
+
+A smaller one from the same pass: mutation A (hand-rolling the predicate) first failed
+to **compile**, because deleting the last use of `datahelpers` left an unused import. A
+compile error is not a test result. Re-run with `_ = datahelpers.NeverDeployedPagePredicate`
+keeping the import alive, and both real assertions fired.
