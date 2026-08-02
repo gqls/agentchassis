@@ -17163,3 +17163,38 @@ being included", and the thing that made my measurement worthless was an
 unrelated convenience twenty minutes earlier. A near-miss in the same session:
 I had also typed "6 hits before the fix" into the rule's comment from counting
 the census by eye rather than running anything — the real number is 4.
+
+---
+
+## 2026-08-02 — my determinism test asserted my own fixture back at me, and a mock cannot see an ORDER BY
+
+**footprint:** any sqlmock/`go-sqlmock` test asserting on ordering, grouping or
+row-allocation · `platform/orchestration/actions/diagnose_*_test.go` · bugs_open/172 lane
+
+**The claim.** Fixing `bugs_open/172` I added `ORDER BY type` to the agent-type
+listing in `gatherAgentState`, so that the cap below it stops slicing a
+plan-dependent tail. I wrote an sqlmock-driven test around the gather, watched it
+pass, and was ready to call the determinism half covered — the ticket asks for
+exactly that: *"a test that runs once cannot see this — assert the ordering
+explicitly."* I believed I had.
+
+**What caught it.** Mutating the fix before trusting the tests. Three of four
+mutations failed correctly. Deleting `ORDER BY type` **passed unchanged.**
+sqlmock replays rows in whatever order the *test* supplies, so the slice my
+assertion read had been ordered by my own fixture, not by the database. The test
+could not have failed for the reason it existed. Had I skipped the mutation I
+would have shipped a suite that looked like it covered the fix's determinism half
+and covered none of it — the exact failure the ticket warned about, one paragraph
+of which I had already quoted into my own plan.
+
+**The cheap check.** **Ask what your test double is supplying, and whether the
+property under test could even survive the round trip.** Ordering, grouping,
+allocation, `DISTINCT`, `LIMIT` distribution — all of these are the *database's*
+behaviour, and a mock hands them back to you pre-decided. Two fixes, and neither
+alone is honest: assert the query TEXT (a mock CAN catch a clause being deleted —
+re-run the mutation to prove it), and verify the property itself against the live
+table, recording that query in the runbook. Then say in the test which of the two
+it is, so the next reader does not read fixture-echo as coverage. Same family as
+"a mock's own bookkeeping cannot assert a NEGATIVE — MUTATE to prove a guard",
+sharpened: here the mock was not merely *unable* to assert it, it was actively
+**supplying the answer** the assertion then checked.
