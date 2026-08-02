@@ -236,3 +236,61 @@ warns against reading a missing agent in a retained bundle as an uninvolved one.
 To finish: roll, then verify at the pod with BOTH controls (positive: a string the
 change added; negative: `ORDER BY created_at DESC$`, expect 0) on **every replica** —
 `bugfix_172_agent_state_cap/RUNBOOK_agent_state_cap.md` §7 has the exact commands.
+
+---
+
+# CLOSED 2026-08-02 — LIVE on `v1.0.1234`, pod-verified on BOTH replicas
+
+Rolled 22:48–22:49Z. `bugs_open/` → `bugs_closed/`.
+
+## Verified at the running pod, both controls, every replica
+
+| check | want | kwzwt | rdzlb |
+|---|---|---|---|
+| `were NOT gathered (agent_state_cap` (added) | ≥1 | 1 | 1 |
+| `PARTITION BY agent_type` (added) | ≥1 | 1 | 1 |
+| `relabelled 2026-07-26` (added) | ≥1 | 1 | 1 |
+| `WHERE deleted_at IS NULL ORDER BY type` (added) | ≥1 | 1 | 1 |
+| **`\t\tLIMIT $2` whole-line (REMOVED)** | **4** | **4** | **4** |
+
+The last row is the negative control that carries the claim: the pre-fix image
+`v1.0.1233` has **5** of that exact line and the new one has **4** — the single
+instance this fix removed, and nothing else. Both images were also differentialled
+before the push, where all four positives return **0** on `1233` and **1** on `1234`;
+that is what proves the patterns are spelled correctly rather than silently missing
+(`bugs_open/153`).
+
+> ⚠ **My first negative control was worthless and I nearly shipped it into the
+> runbook.** `grep -c "ORDER BY created_at DESC$"` expecting 0 returns **15** on the
+> FIXED binary: `strings` splits a Go raw string on newlines, so that clause is a
+> line in fifteen unrelated queries. A control that can never reach 0 reads as "not
+> shipped" for ever. Corrected in `RUNBOOK_agent_state_cap.md` §7.
+
+## Induced in production
+
+- **Negative control — INDUCED LIVE.** Bundle `7aa0dc69`, written 22:50:28Z on the
+  new image, names one type below the cap with no call rows: it renders the ORIGINAL
+  heading and the ORIGINAL `(no llm_call_log rows for the named agent types)`
+  sentence, byte-identical. This is exactly the control this file demanded, observed
+  rather than argued.
+- **Per-type allocation — proven against the live table, not yet observed in a live
+  multi-type bundle.** Stating that split honestly: the differential in RUNBOOK §3
+  runs the old and new queries against the same production `llm_call_log` and shows
+  10-rows-all-`council-gate` becoming 10 each for three named types; the deployed
+  binary is confirmed to carry that query. What is NOT yet in hand is a post-roll
+  bundle whose symptom happens to name two chatty agents. Organic traffic will supply
+  one; it needs no further work, and nothing about the closure rests on it.
+- **The type cap cannot be induced in production at all** — it needs a symptom naming
+  six agent types and the observed maximum is four. That is what the seven sqlmock
+  tests are for, and three of the four mutations they were checked against.
+
+## The residual, and where it went
+
+The `bug_historian` seat's objection — that nothing audits for other instances of
+this shape — produced the audit and the audit produced a fourth site:
+**`bugs_open/181`**, three unreported row caps in `diagnose_code_lookup_action.go`
+whose sibling cap eight lines above does report itself. Filed, not fixed here.
+
+**Every bundle written before 22:48Z today still carries the starvation and they are
+retained ~30 days**, so `LANDMINES.md` now warns against reading a missing agent in a
+retained bundle as an uninvolved one. That entry can be retired around 2026-09.
