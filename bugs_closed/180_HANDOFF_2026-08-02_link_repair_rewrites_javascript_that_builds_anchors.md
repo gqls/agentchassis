@@ -45,12 +45,27 @@ copy. `last-modified` on the fresh fetch reads 22:16:19 GMT, seconds after the r
 `complete` status and an unchanged page together look exactly like "the fix did not work" —
 check `last-modified`/`age` before believing either.**
 
-**Council:** `Council-Submitted: ba199c35-516f-44be-a210-9fd982425eb7`. ⚠ The first run
-**stalled at `review_constitution`, `updated_at` frozen 21:38:10, one minute before the
-`v1.0.1231` roll replaced the pods** — the documented behaviour that a roll kills an in-flight
-council. Resubmitted on the same trail (run `612bc0f9-de7e-4627-a712-a3b226694677`); the
-verdict is **owed and unread**, which is why no `Council-Reviewed:` trailer exists on the fix
-commit and none should be written until someone reads it.
+**Council: APPROVED at round 1**, 22:26:02, `ba199c35-516f-44be-a210-9fd982425eb7` — 12
+reviewers, 3 advisory objections, **none high-severity**, architecture signal **`point_fix`**
+(the seat explicitly ruled it NOT `needs_rfc`: "a pure, deterministic in-process function with
+no DB schema, no wire/message shape, no external namespace… reversible in one revert"). ⚠ The
+FIRST run **stalled at `review_constitution` with `updated_at` frozen at 21:38:10, one minute
+before the `v1.0.1231` roll replaced the pods** — a roll kills an in-flight council, and
+`EXECUTING_STEP` is not a heartbeat. Resubmitted on the same trail as run
+`612bc0f9-de7e-4627-a712-a3b226694677`.
+
+### What the seats objected to, and what was done about each
+
+| seat | sev | objection | disposition |
+|---|---|---|---|
+| `bug_historian` | med | **NUL filler touches a documented platform landmine class** — `bugs_closed/056_…nul_byte_kills_jsonb_persist`: a NUL anywhere in marshalled state kills the whole jsonb persist, silently. Nothing asserted the masked buffer never reaches a caller. | **ACTED ON.** `TestNoMaskByteEverReachesACallersOutput` added, and mutation-proven twice — writing the masked TAIL and writing a masked SEGMENT each fail it. ⚠ Getting there needed three input revisions: the first inputs had no masked region after the last match, so the mutation changed nothing and the test passed while measuring nothing. **The same series-guard trap as the filler test, twice in one session.** |
+| `bug_historian` | med | **The degrade-wide arm is a silent skip** — no log, no metric, no work item. 13/1186 components today, and nothing detects if that population grows, so repair coverage can erode invisibly. | **ACCEPTED, OWED.** Correct and not fixed here: `RepairPageLinks` is a pure function with no logger, so telemetry means changing its return or its signature — a design change, not a bug fix. **Follow-up: return a skipped-because-unparseable count alongside `[]LinkRepair` so the existing callers' log lines carry it.** |
+| `debug_historian` | med | **No remediation plan for the already-corrupted page** — the code fix stops future damage, it does not repair what is already broken. | **ALREADY DISCHARGED, after the review was written.** The induction rerender above restored the anchor on the live page: `q.link` 0 → 1. Mode A (repairable in place) — no SQL surgery needed, because the STORED copy was never corrupted. |
+| `guardian` | med | Ships atomically to all consumers the moment HEAD builds; a consumer-specific edge case outside the 509-page sample would surface across rerender, save and component-edit simultaneously. | **ACKNOWLEDGED, no veto** ("this is the right layer, not one to push upward"; consumers named per the 2026-07-29 ruling). It is also unavoidable on a shared HEAD, per the same ruling. |
+| `editquality` | med | `RuntimeFillSpans`' unchanged behaviour is **asserted, not verified by an edit**. | **Already true, invisible from the plan:** the nine pre-existing `runtime_fill_test.go` tests pin it and pass unchanged, plus the new `TestSharedWalkKeepsTheMarkerInvisibleInsideScripts` pins the shared walk's marker blindness. |
+| `architecture` | low | Exported symbols are a **shared-mechanism seed**; wants a doc-note pointer so a later caller does not adopt it without the same rigour. | **Already done, and in three places:** the `LANDMINES.md` entry (synced into `doc_notes`, so seats and agents can read it), **LNK-029** in the concept register, and `markup_spans.go`'s own header. |
+| `prior_art_librarian` | low | The plan cites "a council seat caught a vacuous-negative shape in this lane's previous round" **from memory, without quoting the report**. | **Fair.** The citation is `HANDOFF_2026-08-02_continue_here.md` §6.2 and `bugs_closed/136`. Recorded here so the next reader has the reference rather than the paraphrase. |
+| `render_guardian` | low | The degrade-wide arm is the one place a render-adjacent writer degrades quietly rather than escalating. | Same item as `bug_historian`'s second, same disposition. |
 
 ## THE DAMAGE IS CONFIRMED ON THE WIRE, not only in a probe (added 2026-08-03)
 

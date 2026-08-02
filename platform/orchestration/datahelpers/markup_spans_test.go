@@ -202,3 +202,49 @@ func TestSharedWalkKeepsTheMarkerInvisibleInsideScripts(t *testing.T) {
 		t.Errorf("want exactly the script span, got %+v", spans)
 	}
 }
+
+// THE MASK MUST NEVER ESCAPE, and the reason is a real prior incident rather than
+// tidiness: `bugs_closed/056_…_nul_byte_kills_jsonb_persist` — a NUL byte anywhere
+// in marshalled state kills the whole jsonb persist, SILENTLY. maskNonMarkup fills
+// protected regions with NUL, and every public function here is required to slice
+// the ORIGINAL string, so no NUL can reach a caller. Nothing in the current code
+// returns the masked buffer; this test exists so that a future refactor which
+// starts doing it fails HERE, in a unit test, rather than downstream of a persist
+// call where the failure has no tell.
+//
+// Raised by the council's bug_historian seat at medium severity, round 1 of
+// correlation ba199c35-516f-44be-a210-9fd982425eb7. It was right: the plan
+// asserted the masked copy is never returned, and asserting is not testing.
+func TestNoMaskByteEverReachesACallersOutput(t *testing.T) {
+	deadAnchor := regexp.MustCompile(`(?is)<a\b[^>]*\shref\s*=\s*(?:""|'')[^>]*>.*?</a>`)
+	inputs := []string{
+		`<script>var s = '<a href="">x</a>';</script><p><a href="/gone">Pricing</a></p>`,
+		`<style>/* <a href="/gone">x</a> */</style><a href="/about">About</a>`,
+		`<!-- <a href="/gone">c</a> --><textarea><a href="">t</a></textarea><a href="">dead</a>`,
+		`<script>var t = "` + livePhantom, // the degrade-wide arm: everything is masked
+		// A masked region AFTER the last match, so the TAIL write is exercised
+		// too — without this the mutation "write the masked tail" changes nothing
+		// for any input above and the test passes while measuring nothing.
+		`<p><a href="/gone">Pricing</a></p><script>var s = '<a href="">x</a>';</script>`,
+		// And a masked region BETWEEN two matches, for the segment writes.
+		`<a href="">a</a><style>/* <a href="/gone">x</a> */</style><a href="">b</a>`,
+		// ReplaceAllInMarkup must MATCH something and still have a masked region
+		// AFTER the last match, or its tail write is never exercised at all.
+		`<a href="">a</a><script>var s = "trailing";</script>`,
+	}
+	for _, in := range inputs {
+		got, _ := RepairPageLinks(in, nonMarkupIndex())
+		if i := strings.IndexByte(got, maskFiller); i >= 0 {
+			t.Errorf("RepairPageLinks leaked a mask byte at offset %d: %q", i, got)
+		}
+		if out := ReplaceAllInMarkup(deadAnchor, in, ""); strings.IndexByte(out, maskFiller) >= 0 {
+			t.Errorf("ReplaceAllInMarkup leaked a mask byte: %q", out)
+		}
+	}
+	// The control: the mask really is being applied, so the absence above is a
+	// property of the OUTPUT path and not of an input that was never masked.
+	masked, spans := maskNonMarkup(inputs[0])
+	if len(spans) == 0 || strings.IndexByte(masked, maskFiller) < 0 {
+		t.Fatalf("premise broken: nothing was masked, so this test proves nothing (spans=%+v)", spans)
+	}
+}
