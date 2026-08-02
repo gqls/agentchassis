@@ -128,9 +128,20 @@ POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.
 kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'refreshed the open work item'"
 # POSITIVE CONTROL — candidate 2's wording, live since v1.0.1177, must stay 1
 kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'an open stale_evidence item already'"
-# NEGATIVE CONTROL — a string this change REMOVED from apply_gap_plan, must reach 0
-kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'create work item: '"
+# NEGATIVE CONTROL — a string this change REMOVED, must reach 0
+kubectl -n ai-persona-system exec "$POD" -- sh -c \
+  "strings /app/agent-chassis | grep -c \"holds this site.s key, and its spec still describes\""
 ```
+
+> **CORRECTED 2026-08-03, before anyone used it.** This block first named
+> `'create work item: '` as the negative control. **It is not one** — that string is
+> an `fmt.Errorf` wrapper in `applyNewPage` which this change deliberately KEEPS, so
+> it greps 1 before and 1 after and would have read as "the fix did not ship" on a
+> perfectly good image. Caught by grepping the post-change source for the control
+> itself, which is the check: **a negative control has to be verified ABSENT from
+> your own working tree before you trust it against a pod.** The control above is
+> verified absent (the sentence was rewritten in `refresh_evidence_base_action.go`)
+> and measured present on the pre-roll image.
 
 Run it on **every** replica, not `deploy/agent-chassis` (that reads one pod of N).
 
