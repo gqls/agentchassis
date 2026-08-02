@@ -56,6 +56,7 @@ Usage:
                                         #   here, the same_pre_and_post ones must not
   python3 defect_vectors.py --both      # both, scored as PROVEN / CONTROL / VACUOUS
   python3 defect_vectors.py --ref <sha> # score against some other point in history
+  python3 defect_vectors.py --live      # drive the PRODUCTION urls (post-deploy)
   python3 defect_vectors.py --keep      # leave the staged site for inspection
 """
 import json
@@ -371,22 +372,37 @@ def check(case, got, pre_fix):
     return bad
 
 
-def run_side(ref, keep):
-    """Drive every case once. `ref` is None for the working tree."""
-    pre_fix = ref is not None
-    label = "%s (baseline)" % ref if pre_fix else "working tree"
-    slugs = [c["slug"] for c in CASES]
-    staged, pages, err = stage(slugs, ref)
-    if err:
-        print("STAGE FAILED  %s: %s" % (label, err))
-        return None
-    httpd, port = VR.serve(staged)
+def run_side(ref, keep, live=False):
+    """Drive every case once.
+
+    `live=True` drives the PRODUCTION urls instead of a staged copy. That is the
+    only run that can state anything about what the public is served: every other
+    mode splices a locally-rendered component into a local copy of the page, which
+    proves the component and says nothing about whether it reached the wire.
+    `ref` is None for the working tree.
+    """
+    pre_fix = ref is not None and not live
+    label = ("LIVE %s" % VR.LIVE if live else
+             "%s (baseline)" % ref if pre_fix else "working tree")
+
+    httpd = None
+    if live:
+        pages = {c["slug"]: VR.SPECS[c["slug"]]["page"] for c in CASES}
+        port = None
+    else:
+        slugs = [c["slug"] for c in CASES]
+        staged, pages, err = stage(slugs, ref)
+        if err:
+            print("STAGE FAILED  %s: %s" % (label, err))
+            return None
+        httpd, port = VR.serve(staged)
     drv = Driver()
 
     print("\n== %s ==" % label)
     results = []
     for case in CASES:
-        url = "http://127.0.0.1:%d/%s" % (port, pages[case["slug"]])
+        url = ("%s/%s" % (VR.LIVE, pages[case["slug"]]) if live
+               else "http://127.0.0.1:%d/%s" % (port, pages[case["slug"]]))
         reads = sorted(set(list(case.get("expect", {}))
                            + list(case.get("expect_contains", {}))
                            + list(case.get("prefix_expect_instead", {}))
@@ -407,15 +423,17 @@ def run_side(ref, keep):
         if got["missing"]:
             print("         could not set: %s" % ", ".join(got["missing"]))
 
-    httpd.shutdown()
+    if httpd is not None:
+        httpd.shutdown()
     try:
         drv.chrome.terminate()
     except Exception:
         pass
-    if keep:
-        print("  staged site kept at %s" % staged)
-    else:
-        shutil.rmtree(staged, ignore_errors=True)
+    if not live:
+        if keep:
+            print("  staged site kept at %s" % staged)
+        else:
+            shutil.rmtree(staged, ignore_errors=True)
     return results
 
 
@@ -423,6 +441,7 @@ def main():
     keep = "--keep" in sys.argv
     both = "--both" in sys.argv
     pre = "--pre-fix" in sys.argv
+    live = "--live" in sys.argv
     ref = PRE_FIX_REF
     if "--ref" in sys.argv:
         ref = sys.argv[sys.argv.index("--ref") + 1]
@@ -467,6 +486,17 @@ def main():
                         "without the fix) and every control is unmoved" if rc == 0
                         else "NOT PROVEN — read the pair above"))
         return rc
+
+    if live:
+        results = run_side(None, keep, live=True)
+        if results is None:
+            return 2
+        failed = [n for n, ok, _, _ in results if not ok]
+        if failed:
+            print("\n%d of %d case(s) FAILED ON THE LIVE SITE" % (len(failed), len(CASES)))
+            return 1
+        print("\nall %d case(s) pass against the SERVED pages" % len(CASES))
+        return 0
 
     results = run_side(ref if pre else None, keep)
     if results is None:
