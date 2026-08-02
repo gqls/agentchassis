@@ -101,3 +101,15 @@ The 24 dead tool links from attempt 1 now resolve; the built site's only remaini
 target is `/assets/images/favicon.png`. Blog pages stay parked as the 015-class owner
 call. The #16 site-spec acceptance rebuild (about.html, item `c9852314`) is in flight —
 the spec marker in a regenerated section is the PASS condition.
+
+## #16 PROVEN — the site-spec seam reaches the writer (19:55Z)
+
+The acceptance rebuild of about.html (item `c9852314`, `pages.content_direction`
+untouched, site-wide baseline 0) regenerated with the spec marker in **3 sections**.
+Hero, verbatim: "An independent guide to your borrowing rights. We explain what
+lenders can and cannot do. **Our guides are checked against the FCA handbook, rule by
+rule.** We name the exact rules…" — the only possible source is the seeded
+`site_specs.content_direction.formatted` (acceptance_marker). The divergence machinery
+this portfolio's differentiation rests on is now END-TO-END PROVEN: register row →
+set_divergence_specs.py → formatted → writer prompt → saved page_components. Rerender
+`50b5e18d` queued to ship the regenerated page. Task #16 closed.

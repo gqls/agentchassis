@@ -192,3 +192,11 @@ the same plan-template page unbuilt fleet-wide. The live 015 retype arm would fl
 blog-index section-index→news-index and hand the blog to the NEWS pipeline — which
 wires ongoing news generation onto a shadow site. OWNER CALL, not a silent wiring;
 blog items left in needs_human_review meanwhile. Tools re-triaged 19:26Z, watcher on.
+
+**19:55Z — #16 PROVEN.** about.html rebuilt post-seed with pages.content_direction
+NULL: spec marker in 3 regenerated sections (hero quotes it verbatim). Site-spec seam →
+writer prompt → saved copy, end to end. Also corrected earlier tonight: the mission
+marker was in the homepage <title> all along (component-level census missed assembly
+chrome — WRONG_CALLS'd, repeat offence). Site: 18/20 built + tools formula-verified;
+remaining: blog (015-class owner call), favicon/meta-description/canonicals/chrome-
+carrier seams, in-browser tool fixtures (needs serving).
