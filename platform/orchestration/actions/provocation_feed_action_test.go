@@ -465,6 +465,11 @@ func TestShrinkingArchiveIsRefusedUnlessAllowed(t *testing.T) {
 // allow_unverified_publish is set (TestUnverifiedPublishDefaultsToRefusing); this
 // function stays permissive because a refusal here would also break a genuine
 // first publish.
+// Layer note, because the name reads like the opposite of the round-2 guard
+// below: this pins the COMPARISON layer only. A nil served feed means "nothing
+// to compare against", so checkAgainstServed neither skips nor errors. The
+// refusal is the FETCH layer's job, gated by allow_unverified_publish — see
+// TestUnverifiedPublishDefaultsToRefusing. Both are true at once.
 func TestMissingServedFeedDoesNotBlockPublishing(t *testing.T) {
 	feed := buildOn(t, testSchedule(), "2026-07-26")
 	next, _ := summariseFeed(feed)

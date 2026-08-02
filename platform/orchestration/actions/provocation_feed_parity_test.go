@@ -24,6 +24,7 @@ package actions
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -133,6 +134,56 @@ func TestParityComparisonCanFail(t *testing.T) {
 
 	if normalise(t, feed) == normalise(t, golden) {
 		t.Fatal("a changed headline still matched the golden — the parity test is vacuous")
+	}
+}
+
+// TestFeedFileKeepsMarkupLiteral pins the ENCODING, which the parity test above
+// structurally cannot see.
+//
+// Both tests read the same nine rows and the same builder. The parity test
+// unmarshals before comparing, so `<em>` and `<em>` are the same value
+// to it, and it passed for a week while the action shipped the escaped form to
+// production. Only a diff of the committed artefact against the oracle's own
+// bytes exposed it. So: assert on the bytes, and prove the assertion has teeth
+// by checking the encoder we replaced still fails it.
+func TestFeedFileKeepsMarkupLiteral(t *testing.T) {
+	schedule := loadPoolFixture(t)
+	feed, _, err := buildProvocationFeed(schedule, day("2026-07-31"), "GOLDEN")
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	payload, err := marshalFeedFile(feed)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	got := string(payload)
+
+	// Built by concatenation, never typed as an escape sequence: a literal
+	// backslash-u-0-0-3-c in a Go source file is decoded by the compiler inside
+	// a double-quoted string, and by more than one editor and tool on the way
+	// in. Both decodings turn this needle into the very character it is meant to
+	// prove absent, which makes the assertion silently vacuous. It happened
+	// while writing this test — the control below is what caught it.
+	escLT := `\` + "u003c"
+	escAmp := `\` + "u0026"
+
+	if strings.Contains(got, escLT) || strings.Contains(got, escAmp) {
+		t.Errorf("feed file contains HTML-escaped markup (%s / %s); headlines carry <em> and must reach the file literally", escLT, escAmp)
+	}
+	if !strings.Contains(got, "<em>") {
+		t.Errorf("feed file contains no literal <em>; the fixture is supposed to carry emphasis markup, so this test is no longer testing anything")
+	}
+
+	// The control. Without it this test only says "the code does what it does":
+	// the encoder we moved away from must actually fail the assertion above,
+	// otherwise the escaping was never happening and the fix is theatre.
+	escaped, err := json.MarshalIndent(feed, "", "  ")
+	if err != nil {
+		t.Fatalf("control marshal: %v", err)
+	}
+	if !strings.Contains(string(escaped), escLT) {
+		t.Fatal("json.MarshalIndent did not escape the markup, so this test cannot detect the regression it was written for")
 	}
 }
 

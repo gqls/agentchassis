@@ -38,6 +38,7 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -529,6 +530,40 @@ func buildProvocationFeed(schedule []provocation, on time.Time, generatedAt stri
 	return feed, today, nil
 }
 
+// marshalFeedFile serialises the feed as it is written to the repo.
+//
+// It exists for one reason: `json.Marshal` HTML-escapes `<`, `>` and `&` by
+// default, so a headline written as "Nobody actually <em>wants</em> …" reaches
+// the file as "<em>wants</em>". Every parser decodes that
+// back, which is exactly why it survived the parity test — that test compares
+// PARSED structures, so this class of difference is invisible to it. It was
+// caught at the artefact, by diffing the first commit this action made
+// (a1bf37d55) against the one the Python oracle made before it.
+//
+// It matters because the file is read and hand-edited by people: the oracle is
+// retained as the manual fallback, and escaped markup in a body of prose is
+// both unreadable and a standing invitation to "fix" it into a literal.
+//
+// What this does NOT fix, deliberately: Go marshals a map with its keys sorted,
+// so the top-level order is `archive, arena, generated_at, …` where the oracle
+// wrote `generated_at, today, …`. That cost is paid ONCE per change of writer,
+// not once per day — Go's ordering is deterministic, so the day after this the
+// diffs are small again. Pinning the order would mean a second, hand-maintained
+// copy of every object's field list living apart from the code that builds it,
+// which is the drift surface this feed already exists to remove.
+func marshalFeedFile(feed map[string]interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(feed); err != nil {
+		return nil, err
+	}
+	// Encode appends a newline; a trailing newline is what a text file should
+	// end with, so it is kept rather than trimmed.
+	return buf.Bytes(), nil
+}
+
 // ---------------------------------------------------------------------------
 // Comparison against what is actually served
 // ---------------------------------------------------------------------------
@@ -758,7 +793,7 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 		}, nil
 	}
 
-	payload, err := json.MarshalIndent(feed, "", "  ")
+	payload, err := marshalFeedFile(feed)
 	if err != nil {
 		return nil, fmt.Errorf("marshal feed: %w", err)
 	}
