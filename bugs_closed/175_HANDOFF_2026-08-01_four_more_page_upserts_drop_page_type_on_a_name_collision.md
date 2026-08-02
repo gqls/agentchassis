@@ -231,3 +231,58 @@ in `WRONG_CALLS.md`, because a check nobody has seen fire is not a check.
   live page (`DeployToolToSiteAction`'s tool page, `CreateReportPageAction`); the
   companion-guide arms stay non-fatal and log. Raised as the open question in the
   council submission and in PBP-027.
+
+---
+
+# CLOSED 2026-08-02 — LIVE on chassis `v1.0.1233`, pod-verified on both replicas, council APPROVED
+
+**Council verdict: APPROVED** — `e78c62e3-7f01-48f1-b083-924eaccd195a`, *"approved with 4
+advisory objection(s) — none high-severity"*, 5 seats abstained (relevance-gated), 12 reviewed.
+
+## Live proof (not the tag, not git — the running binary)
+
+`v1.0.1233`, replicas `agent-chassis-85b6bd9777-8pwxz` and `-r4rhf`, identical results:
+
+| grep | expect | got |
+|---|---|---|
+| `UpsertPageForRole: refused` (ADDED) | >0 | **1 / 1** |
+| `adopted an unshipped page into this role` (ADDED) | >0 | **1 / 1** |
+| `new_page refused` (POSITIVE CONTROL, 081's string) | >0 | **1 / 1** |
+| `url = EXCLUDED.url, title = EXCLUDED.title` (REMOVED — the report arm's own statement) | **0** | **0 / 0** |
+
+The negative control matters and had to be chosen carefully: `ON CONFLICT (site_id, name) DO
+UPDATE SET` still returns **4** in the binary, and that is CORRECT — the five arms that carry
+`page_type = EXCLUDED.page_type` keep the statement deliberately. A negative control has to
+name a string only the removed code had.
+
+The image was also verified **before** the push (`docker run --rm --entrypoint sh …:v1.0.1232`),
+which is cheaper than discovering it after a roll. `v1.0.1232` was superseded by another
+session's `v1.0.1233` build from the same HEAD before it was applied; both carry the commit.
+
+## The four advisory objections, and what was done about each
+
+| seat | objection | disposition |
+|---|---|---|
+| `prior_art_librarian` (med) | *"'exactly one producer and no automated consumer' is sourced from a test docstring, not a live check"* | **Right, and now checked live:** `0` active `agent_definitions` reference `mistyped_deployed_page` in any config column; `0` rows in `site_work_items`. The docstring's claim holds — but it was folklore until this query. |
+| `debug_historian` (med) | *"no post-deploy verification step — nothing confirms the running pod carries `UpsertPageForRole`"* | **Discharged by the table above**, both replicas. On the `git archive` tmpfs concern: the extraction yielded 1,120 `.go` files and a full `go build ./...` succeeded, which a truncated tree cannot do. |
+| `tooling_provenance` (med) | *"no `doc_notes` row keyed to the subject; the next fixer has only a markdown trail"* | **Two `LANDMINES.md` entries added and synced** via `scripts/landmines-sync.py --apply` (the sanctioned path — CLAUDE.md forbids hand-writing landmine rows into `doc_notes`): the `build_status` predicate, and the three-helpers trap below. |
+| `guardian` (med) | *"confirm the other consumers tolerate 3 producers; get explicit sign-off on ADOPT and on refusal-becomes-error, not a risk footnote"* | Consumer check done (row above); `verifier_coverage_test.go`'s description was updated in the shipping commit. The sign-off is **not mine to give** → `architecture_review/RFC_010`. |
+| `architecture` (med, objecting on record, not blocking) | *"this is architecture-scope … the blast-radius/rollback framing belongs in the architecture_review track so the next class-fix has a citable precedent"* | **`architecture_review/RFC_010_who_may_answer_a_page_name_collision.md` filed**, with the three questions costed and a recommendation. |
+| `editquality` (low) | *"`recurrenceExpected` is load-bearing on repeated `item_key`s — three producers could hit the two-strike drop"* | **Checked in the code, and it cannot:** the two-strike probe counts only `status IN ('complete','failed')` rows. A `needs_human_review` decision is non-terminal, so while it is open `idx_swi_dedup` collapses repeats and neither branch fires. And at two strikes the item is still **inserted**, labelled `unresolved` (`load_work_item_actions.go:1190-1198`) — it is a relabel, not a drop. |
+| `reuse_agent` (low) | *"confirm no existing `pattern-check.py` rule already scans `pages` upserts"* | **Checked:** the only other `ON CONFLICT` rule is `check_unguarded_migration_insert`, scoped to migration files. No overlap. |
+| `prior_art_librarian` (low) | *"no check was run for an existing page-upsert helper before building one"* | **Checked, and it found something worth keeping:** `site_db_actions.go:1090 upsertPage` and `cmd/webdesignport/import.go:163 upsertPage` already exist — the plan-sync path, which carries `page_type = EXCLUDED.page_type` and therefore has the **opposite** collision policy. Not a duplicate (its role comes from the plan, not a constant), but a genuine trap → now a `LANDMINES.md` entry. |
+
+## Where everything lives
+
+- **Fix:** `cbbecb021` · **docs:** `9897cb82f` · **016b §9 follow-up:** `588adb6f1`
+- **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_175_page_role_upsert/`
+- **Register:** PBP-027 · **RFC:** `architecture_review/RFC_010` · **Landmines:** two entries, synced
+- **Recurrence check:** `check_partial_page_upsert` in `scripts/pattern-check.py` (4 → 0)
+
+## What is deliberately NOT closed by this
+
+- **`architecture_review/RFC_010` is OPEN** — the ADOPT branch's authority and the
+  producer-set expansion want an owner ruling, not a bug closure.
+- **`create_tool_component_action.go:288`** — the tool-page `INSERT` with no `ON CONFLICT`
+  at all. Loud and fail-closed, so outside this class; a follow-up if anyone wants
+  re-runs to be idempotent.

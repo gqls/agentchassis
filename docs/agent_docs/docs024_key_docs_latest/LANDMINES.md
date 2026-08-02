@@ -3471,3 +3471,33 @@ deliberately:
   `status == "deployed"`); re-measured and widened in `bugs_open/175` / PBP-027,
   where `bugs_closed/081`'s refusal guard had inherited the narrow form
 - **added:** 2026-08-02, bugfix_175_page_role_upsert lane
+
+### There are THREE `pages` upsert helpers and they have OPPOSITE collision policies — picking the familiar name re-types a live page
+
+- **footprint:** `UpsertPageForRole` (`platform/orchestration/actions/page_role_upsert.go`),
+  `upsertPage` (`platform/orchestration/actions/site_db_actions.go:1090`), `upsertPage`
+  (`cmd/webdesignport/import.go:163`), `resolveNewPageConflict`
+  (`apply_gap_plan_action.go`), the `pages` table
+- **fires when:** you are writing a new action that creates a page and you reach for
+  "the page upsert helper"
+- **the tell:** both compile, both return a page id, and both look like the idempotent
+  thing to call. They answer a name collision in **opposite** ways:
+  `site_db_actions.upsertPage` carries `page_type = EXCLUDED.page_type` and will
+  **re-type whatever it collides with** (correct for it — it is the plan-sync path,
+  where the plan is the authority on what a page is);
+  `UpsertPageForRole` **refuses** a live row of another role and files a human decision
+  (correct for it — a constant-role arm has no authority to re-type a served page).
+  Call the wrong one and nothing errors; a live page silently changes what it serves,
+  or a legitimate plan sync starts filing human decisions it should not.
+- **the check:** ask **where your `page_type` comes from**, not which helper is nearest.
+  A role that is a **compile-time constant of your arm** (`'tool'`, `'report'`,
+  `'blog-post'`) → `UpsertPageForRole`. A role that arrives from a **plan, an LLM or a
+  crawl** → the plan-sync path, and do NOT use `UpsertPageForRole`: its ADOPT branch would
+  hand a model-steered arm the authority `bugs_closed/081` deliberately declined.
+  `UpsertPageForRole` rejects a caller that passes its own `page_type` column, so that
+  half is enforced; the LLM-role half is enforced by review only, which is
+  `architecture_review/RFC_010`'s open question.
+- **source:** `bugs_open/175` / PBP-027, 2026-08-02. The third helper was found by the
+  council's `prior_art_librarian` seat asking whether a page-upsert helper already existed
+  before a new one was built — it did, and it is the one with the opposite policy
+- **added:** 2026-08-02, bugfix_175_page_role_upsert lane
