@@ -664,3 +664,84 @@ only live consumer still has no orchestrations. So neither branch is reachable �
 `Stored=0` means the floor cannot refuse, and an action that never runs cannot
 pass. C is **blocked on `bugs_open/092`**, not skipped, and it carries no risk
 meanwhile precisely because it is provably inert.
+
+## 12. The refusal-sentence fix, taken now that its file was released (2026-08-02 ~10:15-10:45 BST)
+
+I had recorded this as blocked: *"not done in this session because `prune_floor.go`
+was another session's live territory at the time (they committed it at 22:33 and
+were still writing at 22:41)"*. Re-checked before assuming that still held —
+`983e4b0a2` is in, the working tree is clean for that file, and the two other live
+sessions with `prune_floor` hits in their transcripts turned out to be an
+auto-loaded memory index line and an unrelated `rebuild_policy` grep. Released.
+
+**The design decision worth recording is REQUIRED vs OPTIONAL.** The obvious
+implementation is a second method, or a default argument, so the four existing
+call sites keep compiling. That reintroduces the exact defect: a consumer that
+says nothing inherits somebody else's aftermath. The failure mode here is **not a
+caller who forgets — it is a default that is silently wrong**, so the parameter is
+required and the compiler asks the question. Empty degrades to the shorter
+`"NOTHING was deleted."`, which is true for every possible consumer; it never
+falls back to a borrowed clause. Ranked by what makes the bad state
+unrepresentable rather than by what is smallest, which is the standing rule for
+ordering fix candidates.
+
+**The census is complete rather than sampled, and that is a property of the code
+not of my diligence:** `Reason` is a method on the *unexported* `pruneFloorVerdict`,
+so it is unreachable outside the package and `grep -rn '\.Reason('` cannot miss a
+consumer. Four call sites, all updated in the one commit, compile-enforced.
+
+**Mutation, from a fresh baseline each time** (the 07-31 lesson about a wrong
+restore path making mutations accumulate while every one "fails as expected"):
+M1 restoring the fixed borrowed clause fails BOTH new tests; M2 making the empty
+case fall back to a consumer's clause fails exactly the empty-case test. Restore
+verified by grep count, package green after. **The negative assertion is the
+load-bearing half of the first test** — asserting only that the caller's own
+clause appears would still pass if the borrowed sentence were appended beside it.
+
+Submitted to the gate as corr `22cdef56-da93-42f7-b9f9-71ff82abcdf6`, committed
+`56365d86b` with `Council-Submitted:` (verdict still in flight at `gate_diagnosis`
+as of 10:42 BST).
+
+### Two process things I got wrong in this round, both cheap and both worth the line
+
+**1. I registered the seam one commit late.** The platform-seam rule asks for
+concept-register registration *in the same commit that ships the seam*; I shipped
+`56365d86b` and registered in `2910f1e0a`. Recorded in the register itself rather
+than backdated — saying so is the entire point of the rule.
+
+**2. The `pre-commit` architecture-signal hook fired, and it is a false positive
+here.** "exported symbol removed/changed — `-func (v pruneFloorVerdict) Reason(op,
+subject, configKey string) string`". `Reason` is a method on an unexported type,
+so nothing outside the package can call it. Worth knowing the heuristic keys on
+the *identifier's* capital letter and not on the receiver's reachability, because
+the advisory reads as an RFC trigger and is not one. (The genuine RFC test, per
+the 2026-07-29 owner ruling, is whether the mechanism's GUARANTEE changed. It did
+not: every allow/refuse outcome, the cohort arithmetic, the clamping and the
+`Stored=0` rule are untouched. This changes what it SAYS.)
+
+### And one I got wrong in the ledger, which became a fleet landmine
+
+Appending to `LANDMINES.md`, I checked my diff was pure-append with
+`git diff | grep -c '^-[^-]'` and got `0`. On the concept-register commit minutes
+earlier the same check said `0` while `--stat` said **1 deletion** — because a
+removed markdown bullet is `-- **thing**` in a diff, two hyphens, which that
+pattern excludes by construction. It fails OPEN, and `0` is exactly what a genuine
+clean append prints, so there is no tell.
+
+Then, writing that up, I grepped the diff for a foreign symbol to prove nothing
+rode along — and counted **context** lines, so an untouched neighbour three lines
+above my append read as a passenger. Same trap, opposite direction (false alarm
+rather than false all-clear), ten minutes apart.
+
+Filed as a landmine rather than a wrong call: nothing had gone wrong yet, and the
+check was being run *because* the work was careful. `LANDMINES.md`, entry
+`git-diff-grep-cannot-see-a-deleted-markdown-bullet…`, synced to `doc_notes`.
+
+**A process gotcha found the hard way while filing it:** entries are `###`, not
+`##` (`HEADING_RE` in `scripts/landmines_lib.py`). A `##` heading is not parsed as
+an entry, so my text was absorbed into the PRECEDING entry and my
+`- **footprint:**` line overwrote *theirs* in `doc_notes` — I briefly corrupted
+another lane's row. Caught by reading the sync's own output instead of trusting
+"applied: 700 rows", fixed by correcting the heading level and re-running
+`--apply`, and verified with `--check` showing that entry back on its own
+footprints.
