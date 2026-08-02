@@ -17449,3 +17449,74 @@ not be reached by a footprint match.
 
 **Damage:** two words in one commit message. Forward-only, so it is corrected in the following
 commit rather than amended. No code affected.
+
+---
+
+## 2026-08-03 — I guessed identifiers into four measurements in one session, and every wrong guess returned a clean, plausible ZERO
+
+**footprint:** any `kubectl exec <pod>`, `WHERE agent_type ILIKE …`,
+`WHERE action IN (…)`, or `body LIKE '%marker%'` census · bugs_open/158 + 172 lanes
+
+**The claim.** Sizing `bugs_open/158` I ran four separate measurements, and in four
+of them the *population* was wrong rather than the finding:
+
+1. `kubectl -n ai-persona-system exec kafka-cluster-dual-role-0 -- kafka-configs.sh
+   … --describe 2>/dev/null` → **empty**. I read it as "no topic-level override is
+   set", which is what the ticket also claims. There is no Kafka broker in that
+   namespace at all — the cluster is in `kafka` — so the command never ran. Stderr
+   was discarded by my own hand.
+2. `WHERE agent_type ILIKE ANY('%reasoning%','%content-creator%',…)` on
+   `llm_call_log` → **0 rows**, which reads as "these services send nothing large".
+   Those labels do not exist in that table.
+3. `WHERE action IN ('scrape_website','firecrawl_crawl','scrape_batch','web_scrape')`
+   → **4 rows**, and the site the ticket names was not among them, which reads as
+   "the ticket is stale". The real vocabulary has 13 actions and the ticket was
+   right; my `IN` list was invented.
+4. (Same session, `172`.) A bundle census filtered on `body LIKE '%[code_check %'`
+   → **0 blocks at the cap**, which reads as "this cap never fires". Zero bundles
+   contained the delimiter at all.
+
+**What caught it.** In (1), asking why an empty result had no header line — a real
+`--describe` prints "Dynamic configs for topic … are:" even when there are none.
+In (2) and (3), enumerating the column *before* filtering on it. In (4), adding
+`count(*)` beside the `count(*) FILTER (…)`.
+
+**The cheap check.** **Select the denominator in the same query as the finding, and
+enumerate an identifier vocabulary before you filter on it.** `count(*)` next to
+`count(*) FILTER (WHERE …)` costs nothing and makes a zero numerator unreadable
+without its population. For shell probes: **never `2>/dev/null` a command whose
+empty output would be the finding** — you are discarding the only thing that
+distinguishes "looked and found nothing" from "never ran". The general form is
+already in `MEMORY.md` ("a gate's 0 findings has TWO causes with opposite fixes")
+and in the row above it about a detector run against a tree with the defect already
+removed; what this row adds is that the failure is **not rare and not clever** — I
+hit it four times in one session, in SQL, in `kubectl`, and in a `LIKE`, and every
+single time the wrong answer arrived looking like a finding worth writing down.
+
+---
+
+## 2026-08-03 — a positive control cannot find a false positive, and my new detector had three
+
+**footprint:** `scripts/pattern-check.py` and any new detector · bugs_open/158 lane
+
+**The claim.** Adding `check_silent_reply_drop` I did what the row above this one
+demands: ran it against the population that still contains the defect. All four
+known-bad files fired, at exactly the lines the ticket names; both files that had
+adopted the fix stayed quiet. Six for six. I was ready to call it precise.
+
+**What caught it.** Running it over all 777 non-test Go files anyway. Ten findings,
+and **three were wrong**: `return producer.Produce(...)` *propagates* the error to
+its caller, which is the opposite of swallowing it; and two produces to **request**
+topics matched only because the word "response" happened to sit within my ±12-line
+context window. A fourth near-miss: an error captured as `produceErr` slipped past a
+`\berr\b` test and was reported as "never checked".
+
+**The cheap check.** **A known-bad control proves a detector FIRES; only a full
+sweep proves it DISCRIMINATES.** They answer different questions and neither
+substitutes for the other — my control set contained no correct code at all, so it
+was structurally incapable of showing a false positive. Run both, record both
+numbers, and when the sweep flags something, **read the flagged line before
+believing your own rule**. The structural fix was to stop matching on a window of
+surrounding lines and match on the call's own arguments instead: a window makes any
+nearby word evidence, which is how "response" three lines away turned a correct
+request-topic produce into a defect.
