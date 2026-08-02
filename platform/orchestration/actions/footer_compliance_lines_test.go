@@ -216,3 +216,35 @@ func TestFooterComplianceWrongTypeDoesNotDestroyFooter(t *testing.T) {
 		t.Fatalf("footer destroyed by a wrong-typed compliance_lines value:\n%s", out)
 	}
 }
+
+// The declared-type guard (council 56ab6e23, bug_historian advisory): a
+// non-array under {{range}} errors the whole template into the silent regex
+// fallback, so the fill is refused instead — the gated block renders absent
+// and the rest of the chrome renders normally. Only array/list are enforced:
+// measured 2026-08-02, every array/list-declared schema field fleet-wide is
+// {{range}}-consumed (53) or unreferenced (16), zero bare-output.
+func TestResolvedValueSatisfiesDeclaredType(t *testing.T) {
+	cases := []struct {
+		declared string
+		value    interface{}
+		want     bool
+	}{
+		{"array", []interface{}{"a", "b"}, true},
+		{"array", []interface{}{}, true},
+		{"array", "not-an-array", false},
+		{"array", map[string]interface{}{"k": "v"}, false},
+		{"array", 3.14, false},
+		{"list", "scalar", false},
+		{"list", []interface{}{"x"}, true},
+		{"text", "anything", true},
+		{"text", []interface{}{"even this"}, true},
+		{"url", "/x.html", true},
+		{"", "untyped fields pass", true},
+		{"unknown-type", 42, true},
+	}
+	for _, c := range cases {
+		if got := resolvedValueSatisfiesDeclaredType(c.declared, c.value); got != c.want {
+			t.Fatalf("declared=%q value=%T: got %v, want %v", c.declared, c.value, got, c.want)
+		}
+	}
+}

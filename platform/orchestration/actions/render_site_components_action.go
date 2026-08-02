@@ -807,6 +807,28 @@ func renderAndStoreSiteComponent(
 					continue
 				}
 				if v, found := resolver.resolve(ctx, source); found && v != nil {
+					// Declared-type guard (council 56ab6e23, bug_historian
+					// advisory). A non-array value reaching a {{range}} errors
+					// the WHOLE template into the silent regex-fallback
+					// renderer — one bad config key degrades the entire slot.
+					// Refusing the fill instead means the gated block renders
+					// ABSENT and the rest of the chrome renders normally.
+					// Enforced only for array/list: measured 2026-08-02,
+					// every array/list-declared field fleet-wide is either
+					// {{range}}-consumed (53) or unreferenced (16), zero are
+					// bare-output — so this can only ever un-degrade a render,
+					// never break a working one.
+					if declared, _ := def["type"].(string); !resolvedValueSatisfiesDeclaredType(declared, v) {
+						logger.Warn("site chrome: resolved value does not satisfy the field's declared type — refusing the fill (gated template renders without it)",
+							zap.String("slot", slot),
+							zap.String("field", name),
+							zap.String("declared_type", declared),
+							zap.String("actual_type", fmt.Sprintf("%T", v)),
+							zap.String("component_id", componentID.String()),
+							zap.String("site_id", siteID.String()))
+						unresolved = append(unresolved, name)
+						continue
+					}
 					renderCtx.ContentData[name] = v
 					continue
 				}
@@ -1163,4 +1185,24 @@ func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 	}
 
 	return strings.Join(parts, "\n                ")
+}
+
+// resolvedValueSatisfiesDeclaredType reports whether a resolved data-source
+// value may be handed to a schema field declaring this type. Deliberately
+// narrow: only the shapes whose mismatch DESTROYS the render are enforced —
+// a non-array under {{range}} errors the whole template into the silent
+// regex-fallback renderer (the bug_historian objection on council corr
+// 56ab6e23). Every other declared type ("text", "url", "number", unknown,
+// absent) is allowed through untouched: enforcing those would change
+// behaviour on ~2,200 live fields on unmeasured ground for no render-safety
+// gain, and a wrong scalar in a bare output slot renders wrong text, not a
+// destroyed slot.
+func resolvedValueSatisfiesDeclaredType(declared string, v interface{}) bool {
+	switch declared {
+	case "array", "list":
+		_, ok := v.([]interface{})
+		return ok
+	default:
+		return true
+	}
 }
