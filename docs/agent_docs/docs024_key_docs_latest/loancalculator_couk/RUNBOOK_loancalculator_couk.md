@@ -651,3 +651,40 @@ content untouched. A `reason` of `section_data_resolved`/`image_landed` takes
 `rerender_sections`, which re-renders every section from `content_data` through
 the CURRENT template; that is safe here (every decomposed row has non-NULL
 `content_data`, checked) but it is not the minimal path.
+
+## Re-baselining the golden after decomposition (owed since the rewrite)
+
+**Do this only when all 12 interactive pages are live and verified**, never
+partially: `toolgolden.py` refuses a partial capture for a reason — the missing
+pages would silently never be compared again.
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/loancalculator_couk
+python3 toolgolden.py --out acceptance/GOLDEN_2026-08-02_decomposed.json \
+  https://loancalculator.co.uk/index.html \
+  https://loancalculator.co.uk/tools/{standard-calc,overpayment-calculator,consolidation,compare-loans,car-finance-calculator,loan-vs-savings,settlement-calculator,interest-rate-stress-test,credit-health-check,damage-checker,application-tracker}.html
+```
+
+**Why the new golden is strictly better than the one it replaces, and it is not
+just freshness.** Three tools — consolidation, credit-health-check,
+application-tracker — had **no numeric acceptance coverage at all**, because their
+controls carried no `id` and the emitter could not name anything to drive. The
+fingerprint keyed those inputs positionally (`input#0 … input#11`), which is
+useless as an assertion: insert a field and every key after it means something
+else. The rewrites gave them ids. So a golden captured now can drive every control
+on every tool, which the 07-31 one structurally cannot.
+
+That is the whole content of the "41 diverging keys" seen on 2026-08-02: 28
+APPEARED (now named), 13 VANISHED (the same controls, formerly positional), and
+**zero changed values**.
+
+⚠ **KEEP `GOLDEN_2026-07-31c` — do not delete or overwrite it.** It is the only
+record of what the HAND-BUILT site computed, and every equivalence claim made
+during the rewrite is stated against it. The new file is the forward baseline; the
+old one is the evidence. Same rule as the summary series.
+
+⚠ **Re-verify before capturing, and capture from a settled site.** A page fetched
+inside its deploy window serves the previous bytes (see the warning above), and a
+golden captured then would pin the OLD page's values as the new baseline — the one
+error in this whole sequence that no later check could catch, because the golden
+IS the reference.
