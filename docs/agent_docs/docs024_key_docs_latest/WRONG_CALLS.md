@@ -16600,3 +16600,52 @@ another is not verification.* The evidence I had was about `curl`; the thing I
 shipped was `urllib`; nothing connected them. This is the HTTP-layer form of the
 "two blind checks agree" family — except here the two clients DISAGREED, and I
 was lucky enough to notice.
+
+## 2026-08-02 — bugfix_165 — I bounded a retention window with `min()` over the whole table, and it lied by a factor of 20
+
+**The claim**, published into a retirement README, `bugs_closed/092`,
+`bugs_closed/165` and the concept register:
+
+> "`multipage-website-builder` has 0 orchestrations in the retained window …
+> `orchestration_states` is retention-clocked (oldest row 2026-07-13), so that is
+> *~20 days*, not *never*."
+
+I thought I was being careful — the whole point of that sentence was to scope an
+absence claim honestly rather than say "never". **The scope was wrong by 20×: it
+is ~24 HOURS.** `COMPLETED` rows are reaped after about a day (2,504 rows, oldest
+**24.7h**; `FAILED` oldest **25.4h**). The whole-table `min(created_at)` reads
+2026-07-13 only because `CANCELLED` (24 rows), `RUNNING` (4) and `INITIALIZED` (2)
+are **not** reaped — statuses my census was not about set its floor.
+
+**What caught it:** a contradiction I could not explain away. I had quoted
+orchestration `dcf88c1c…` at ~09:40 as live evidence; an hour later a query for the
+same id returned nothing. The table had *grown* 2,454 → 2,546 in that hour while
+its oldest row never moved.
+
+**The cheap check:** bound retention **per status**, never with a whole-table
+`min()` — `SELECT status, count(*), min(created_at) FROM orchestration_states GROUP
+BY status`. One `GROUP BY` and the 24h shows up immediately.
+
+**Two things make this worse than an ordinary staleness error.**
+
+1. **It fails in one direction only.** Short retention can manufacture *absence*
+   and never *presence* — so it fails toward the very conclusion I was testing
+   ("this agent never runs"), which is the least likely error to be questioned.
+2. **The scoping sentence made it more credible, not less.** A bare "0
+   orchestrations" invites "over what window?". Mine pre-answered that in the same
+   breath, with a number, so no reader — me included — went back to check it. **A
+   caveat stated with a figure is itself a claim, and inherits none of the caution
+   it advertises.**
+
+**The conclusion survived, the reason did not**, which is the outcome to be least
+comfortable with: `site_specs` has no retention job, goes back to 2026-02-25, and
+across 1,874 rows / 36 sites the only `recommended_builder` ever recorded is
+`pageflow-builder` (1,216 rows). So the agent really was never chosen — but nothing
+I had published said so. **Right answer, wrong reason, and the reason is what a
+reader inherits.** When an absence claim matters, source it from a table with no
+retention job and say which table that is.
+
+Filed prospectively as a fleet landmine ("`orchestration_states` keeps terminal rows
+~24 HOURS — and `min(created_at)` says 20 days"). Related:
+[a-count-you-kept-is-not-a-census], [log-measurement-discipline],
+[prior-art-search-goes-stale].
