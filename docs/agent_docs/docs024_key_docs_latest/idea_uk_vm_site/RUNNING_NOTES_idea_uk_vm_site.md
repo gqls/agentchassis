@@ -3494,3 +3494,32 @@ point me at it (e.g. `~/.config/nominet/epp-password`, mode 600). Then:
 dry-run, `--apply`, `dig NS` until alexis/leah, verify site serves unchanged
 (grey = pass-through), THEN the orange flip — which first needs SSL mode
 confirmed Full (strict) via dashboard or a token widened to Zone Settings.
+
+## §X.38 — 2026-08-02 (late): EPP key landed; webzy.uk trial re-scoped (wrong tag); CF half done; workstation allow-list pending
+
+**Owner dropped the EPP key** (`~/.config/nominet/epp-password`, 16 bytes) and
+asked for a trial: add webzy.uk to Cloudflare and change its NS via EPP.
+
+**The trial as specified cannot exercise EPP, and the reason is worth keeping:
+webzy.uk is on the GODADDY tag** (whois: `GoDaddy.com, LLC. [Tag = GODADDY]`,
+NS ns17/ns18.domaincontrol.com, serving a live page). Nominet EPP only lets a
+tag modify domains it sponsors — DESIGNCONSULT's login has no authority over a
+GODADDY-tag domain. Its NS change happens in GoDaddy's dashboard (or after a
+tag transfer to DESIGNCONSULT, which GoDaddy must initiate). **Check the tag
+BEFORE planning any .uk EPP work; the owner's portfolio spans registrars.**
+
+**CF half of webzy.uk: DONE via API.** The token can create zones: zone
+`aeddc60d…` (pending), assigned NS **alexis/leah** (account-consistent), one
+record replicating the static-site pattern read from webdesign.co.uk's live
+zone — `A webzy.uk → 199.59.243.228 proxied` (the A content is a placeholder;
+serving is the Worker→B2 edge path). Owner action: at GoDaddy, set NS to
+alexis/leah.ns.cloudflare.com.
+
+**EPP access:** VM `116.203.204.115` now gets the greeting (allow-listed);
+workstation `5.65.164.9` still refused. The classifier BLOCKED scp'ing the key
+to the VM — right call, a credential leaving the machine — so the owner chose
+(AskUserQuestion) to whitelist `5.65.164.9` instead: key never moves, everything
+runs locally. Poll armed; on OPEN, the trial is dry-run against idea.uk
+(read-only login + domain:info — the only tag-owned domain whose NS differs
+from target), then --apply for the real cutover. Login failures will NOT be
+retried blind (lockout risk): one failure = stop and ask.

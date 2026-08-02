@@ -794,3 +794,13 @@ Two reasons, the first of which is our own tooling:
 2. P1 is an **anonymous LLM chat** — a spend faucet taking hostile input — on the
    same disk as `/etc/idea/idea.env` (Stripe keys) and `orders.json`. This is §4.2's
    blast-radius argument, arriving earlier than P3 because the DNS made it concrete.
+
+---
+**2026-08-02 (from the idea_uk_vm_site lane, cross-lane courtesy note):** the
+owner had us create a CF zone for **webzy.uk** (`aeddc60d…`, pending, NS
+alexis/leah, one proxied A → 199.59.243.228 copied from webdesign.co.uk's
+pattern) as a new statically-hosted-sites member. NS change is at **GoDaddy**
+(webzy.uk is GODADDY-tag, ns17/ns18.domaincontrol.com — NOT DESIGNCONSULT, so
+Nominet EPP cannot move it), still pending owner action. Zone details in
+idea_uk_vm_site/RUNNING_NOTES §X.38. Worker route/B2 wiring not touched — that
+is your lane's machinery.
