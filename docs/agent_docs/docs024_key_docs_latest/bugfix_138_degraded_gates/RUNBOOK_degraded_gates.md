@@ -393,9 +393,43 @@ later round then loads the healthy config.
 ### The four conditions the branch needs (all four, or no label)
 
 `degraded` **and** verdict `object` **and** no surviving high-severity objection **and** no
-other seat gating on merits. The third is why the cap goes to **120**, not 500 — this seat's
-p95 output is ~286 tokens, so 500 might not even truncate it, and 120 guarantees the cut
-lands before any objection is written (`len(Objections)==0` → gates as truncated).
+other seat gating on merits.
+
+> **CORRECTED 2026-08-02 — the cap rationale below was reasoned on the wrong axis, and the
+> mechanism it named is UNREACHABLE.** It read: *"120 guarantees the cut lands before any
+> objection is written (`len(Objections)==0` → gates as truncated)"*, justified by the seat's
+> p95 (~286). Two errors. (1) `repairTruncatedJSON` scans **backward for the last `}` or `]`
+> and returns `""` when there is none** (`apply_adoption_plan_action.go:991`) — so a cut
+> before the first objection closes discards the WHOLE review, yielding no verdict and no
+> label. The `len(Objections)==0` route cannot be reached by truncating this seat. (2) The
+> binding constraint is not p95 at all; it is **where the cut lands relative to the first
+> objection's `severity` field**, because `severityGates` returns true for `"high"`, *unset*,
+> **or anything unrecognised** (`diagnose_council_decide_action.go:691`) — so an objection
+> whose severity was cut off reads as ungraded and **gates on merits**, taking the `false`
+> branch. Caught by reading both functions before spending the round, not by running it.
+
+**The window is bounded on BOTH sides.** Three landing zones:
+
+| cut lands | repair yields | branch |
+|---|---|---|
+| before any closer (~<60 tok) | `""` — whole review discarded | nothing fires |
+| after a complete **high** objection | one gating objection | `false` — merits |
+| after a complete **low/medium** objection | non-gating objection + `Degraded` | **`true`** ✓ |
+
+So the target is row 3, and **the injection must pin exactly one `severity: "low"` objection**
+— pinning only `verdict: object` (as the first draft did) invites a guardian seat to grade it
+`high`, which lands in row 2 and looks like a successful run while proving nothing.
+
+Cap **120** survives the re-derivation, for the corrected reason: one complete objection is
+~60–70 tokens `[ESTIMATED — not measured]`, and 120 is comfortably under this seat's observed
+floor of **161** output tokens (55 calls/21d; daily floor 161–208, no downward drift since the
+brevity rollout, so the floor is not an artefact of the pre-budget era). 500 was rejected
+because it sits above the p50 and would truncate only sometimes.
+
+**The row-3 fixture is also the FAITHFUL one**, which is the reassuring part: a low-severity
+objection that gates only because the reply was cut is exactly what the code comment describes
+— "would have been approved (or carried advisory objections only) had the seat been read in
+full" (`diagnose_council_decide_action.go:728-731`).
 
 ### The recipe
 
@@ -419,10 +453,12 @@ SCR=<scratchpad>
 > fact. Done here: the no-op restore returned `cap=8000` and left the prompt md5 identical.
 >
 > **The prompt injection is deliberate and must be disclosed.** The seat is told to emit
-> verdict `object` for that round. Without it the verdict is a coin flip (~32% object
-> fleet-wide) and each attempt costs a full round. It makes the induced review NOT a genuine
-> adoption objection — so the correlation must be recorded wherever the artifact is read,
-> or a future reader will mistake a test fixture for a real verdict.
+> verdict `object` **with exactly one objection graded `severity: "low"`** for that round.
+> Without the verdict pin it is a coin flip (~32% object fleet-wide); without the SEVERITY
+> pin the round lands in row 2 of the table above and silently proves nothing. It makes the
+> induced review NOT a genuine adoption objection — so the correlation must be recorded
+> wherever the artifact is read, or a future reader will mistake a test fixture for a real
+> verdict.
 >
 > **The submission must be a REAL change.** A fabricated plan spends ~10 seats' credits
 > reviewing fiction and pollutes `fix_plan` artifacts. The prepared one expands

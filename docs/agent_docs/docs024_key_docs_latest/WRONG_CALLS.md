@@ -15823,3 +15823,53 @@ a body`, the omitted symbol being `component_library.go` at **93,905 bytes** aga
 for that file the loop is not available as the verification route the 2026-07-31 owner ruling
 names. Four bundles and no verdict reads exactly like a run still in progress; it is not. Also
 in `016b` §9 and `LANDMINES.md`.
+
+---
+
+## 2026-08-02 — I sized an induced fault against a percentile, when the mechanism turns on a byte
+
+**The claim, written into `RUNBOOK_degraded_gates.md` §11 and reported to the owner in chat:**
+that a cap of 120 tokens would induce `bugs_open/138`'s never-fired TRUNCATED branch because
+"this seat's p95 output is ~286 tokens, so 500 might not even truncate it, and 120 guarantees
+the cut lands before any objection is written (`len(Objections)==0` → gates as truncated)".
+
+**Both halves were wrong, and the number was right anyway** — which is why it survived a night
+and a summary. The cap I picked (~120) is defensible; the reason I gave for it was not, and the
+mechanism I named **cannot happen at all**.
+
+1. `repairTruncatedJSON` scans **backward for the last `}` or `]` and returns `""` when there is
+   none** (`apply_adoption_plan_action.go:991`). A cut landing before the first objection closes
+   therefore discards the entire review — no verdict, no label, nothing fires. The
+   `len(Objections)==0` route I was aiming for **is unreachable by truncating this seat**.
+2. The binding constraint was never the percentile. It is **where the cut lands relative to the
+   first objection's `severity` field**, because `severityGates` returns true for `"high"`,
+   *unset*, **or anything unrecognised** (`diagnose_council_decide_action.go:691`). An objection
+   whose severity was cut off reads as *ungraded*, which **gates on merits** — the `false`
+   branch, the one already demonstrated 68 times.
+
+**What that would have cost.** The prepared injection pinned `verdict: object` and said nothing
+about severity. A guardian seat told to object grades it `high` far more often than not, so the
+likeliest outcome was a full council round producing a gated verdict down the `false` branch:
+**a run that looks successful and proves nothing.** Not a crash, not an error — a green-looking
+result. The induction was the last unverified item in the lane, so the wrong conclusion would
+have been "138 closes".
+
+**What caught it.** The owner asked "why are we capping at 120?" — a one-line question about a
+number, not a challenge to the design. Answering it properly meant reading the two functions I
+had been reasoning *about* rather than *from*. Both are ~15 lines and I had cited each of them
+by name in the same document.
+
+**The cheap check that would have.** Before sizing a fault to hit a branch, **read the predicate
+chain that selects the branch, and the repair function that builds its input** — end to end,
+both, no matter how well you think you know them. Then state the target as a *bounded window*
+with a named failure mode on each side, not a single threshold. A one-sided "N is below the
+floor so it truncates" is the tell: truncating was never in doubt; *landing* was.
+
+**The shape worth keeping.** This is the same family as the `output_tokens >= max_tokens`
+truncation counter in this lane three days ago (a query that could never match its target), and
+the same family as `a-print-statement-is-not-a-config-row`: **I reasoned about a mechanism from
+its name and its comment instead of its body.** What is new is that the wrong reasoning produced
+a *correct number*, so every sanity check on the output passed. A conclusion that survives
+review because it is right, arrived at by a route that is wrong, is the most durable kind of
+error in this file — it re-fires the moment the inputs shift and nobody re-derives it. Recorded
+as a `[ESTIMATED]`-marked window in the runbook, not a bare threshold, for exactly that reason.
