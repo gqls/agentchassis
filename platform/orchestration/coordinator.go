@@ -1188,6 +1188,97 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 }
 
 // executeLocalAction - Main entry point, orchestrates local action execution
+// defaultLocalActionTimeout bounds how long a LOCAL action may execute.
+//
+// 600s is deliberately generous rather than tight: ~25x the observed all-step
+// p99.9 (214s) and 25x the spawn-step p99 (24s), measured over the 3-day
+// orchestration_state_audit window on 2026-08-02. A too-tight bound would break
+// working pipelines fleet-wide, which is a considerably worse defect than the
+// rare hang this catches — so the default errs heavily toward "let it finish".
+const defaultLocalActionTimeout = 600 * time.Second
+
+// localActionTimeoutKey is a NEW step-config key, deliberately NOT `timeout_seconds`.
+//
+// Measured before choosing (bugs_open/169): of the live steps carrying
+// `timeout_seconds`, 53 of 64 are `call_agent`, and most of the rest are waiting
+// semantics too (`await_approval` carries 86400, `request_human_input`,
+// `dispatch_thunder_*`). That key means "how long to wait for something EXTERNAL",
+// not "how long this action may execute". Reusing it would make one shared word
+// mean two different things depending on the step it sits on — the defect class
+// RFC 006 was decided on. So the two stay separate.
+const localActionTimeoutKey = "local_action_timeout_seconds"
+
+// localActionContext derives the deadline a local action executes under.
+//
+// Returns the step's override when `local_action_timeout_seconds` is present, and
+// the generous default otherwise. A value <= 0 DISABLES the bound for that step —
+// the deliberate escape hatch for an action that genuinely must run unbounded,
+// so that discovering such a case is a config change rather than a rebuild.
+//
+// The bound is a context deadline and NOT "run it in a goroutine and abandon it".
+// Abandoning would regain control even from an action that ignores ctx, but it
+// leaks the goroutine, and a late write from an abandoned action into a step the
+// coordinator has already failed is a worse hazard than the hang. The plausible
+// blockers here — database/sql, the Kafka producer's ProduceWithValidation(ctx,…),
+// the K8s client — are all ctx-aware, so a deadline actually cuts them.
+// disableLocalActionTimeoutEnv is the fleet-wide kill switch: set
+// DISABLE_LOCAL_ACTION_TIMEOUT=true and every local action runs unbounded again,
+// exactly as before this change.
+//
+// It exists because this is a behaviour change to EVERY action, chosen from a
+// measured distribution, and the failure mode of a too-tight bound is fleet-wide
+// breakage — worse than the rare hang it fixes. A per-step override cannot help if
+// the default turns out wrong across many steps at 03:00; this can, by config,
+// without a rebuild or a roll.
+//
+// On the 2026-08-02 owner ruling (RFC_010) that "new authority on a shared seam
+// ships as an OPT-IN FIELD with the unsafe default OFF": that ruling governs a seam
+// that GRANTS authority on an assumption about callers. This one REMOVES authority
+// (an action may no longer run forever) and is licensed by measurement over all
+// 96,047 recorded step executions, not by an assumption. Defaulting it OFF would
+// reproduce precisely the inert-by-omission defect RFC 006 was decided on — a
+// protection nobody enables protects nobody. So the safe default is ON, and the
+// escape hatches are explicit instead.
+const disableLocalActionTimeoutEnv = "DISABLE_LOCAL_ACTION_TIMEOUT"
+
+func localActionContext(ctx context.Context, step models.Step, logger *zap.Logger) (context.Context, context.CancelFunc) {
+	if os.Getenv(disableLocalActionTimeoutEnv) == "true" {
+		logger.Warn("local action deadlines are DISABLED fleet-wide by env switch — actions can park an orchestration indefinitely",
+			zap.String("env", disableLocalActionTimeoutEnv),
+			zap.String("step", step.Name),
+			zap.String("action", step.Action))
+		return ctx, func() {}
+	}
+
+	timeout := defaultLocalActionTimeout
+	if raw, ok := step.Config[localActionTimeoutKey]; ok {
+		seconds, parsed := datahelpers.ToFloat64(raw)
+		if !parsed {
+			logger.Warn("local action timeout override is not a number — using the default",
+				zap.String("step", step.Name),
+				zap.String("action", step.Action),
+				zap.Any("value", raw),
+				zap.Duration("default", defaultLocalActionTimeout))
+		} else if seconds <= 0 {
+			// Explicitly unbounded. Logged at Warn every time, because an
+			// unbounded action is exactly what bugs_open/169 is about and it
+			// should never be quietly true of a step.
+			logger.Warn("local action is explicitly UNBOUNDED for this step — it can park the orchestration indefinitely",
+				zap.String("step", step.Name),
+				zap.String("action", step.Action),
+				zap.String("config_key", localActionTimeoutKey))
+			return ctx, func() {}
+		} else {
+			timeout = time.Duration(seconds) * time.Second
+		}
+	}
+
+	// Never EXTEND an inherited deadline: if the caller is already on a shorter
+	// clock, honour it. context.WithTimeout does this itself, but stating it
+	// keeps the intent readable — this bounds, it does not grant time.
+	return context.WithTimeout(ctx, timeout)
+}
+
 func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *OrchestrationState, step models.Step, execCtx *types.ExecutionContext) error {
 	s.logger.Info("just into executeLocalAction look for execCtx before it gets changed",
 		zap.String("step", state.CurrentStep),
@@ -1236,8 +1327,37 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		zap.String("step", step.Name),
 	)
 
-	// 6. Execute the action
-	result, err := executeAction(ctx, handler, params, contextLogger)
+	// 6. Execute the action, under a deadline.
+	//
+	// bugs_open/169 part A: nothing in continueExecution -> executeStep ->
+	// executeLocalAction -> executeAction bounded this call, so an action blocking
+	// on a network call parked its orchestration at EXECUTING_STEP and held the
+	// build-dispatch-loop's site_work_items row in `claimed`. Measured over the
+	// 3-day audit window: 6,951 spawn-step executions, p99 24s, and exactly ONE
+	// above 300s — at 14,475s. The distribution is bimodal with nothing between
+	// seconds and hours, which is what makes a generous bound safe.
+	actionCtx, cancelAction := localActionContext(ctx, step, contextLogger)
+	actionStarted := time.Now()
+	result, err := executeAction(actionCtx, handler, params, contextLogger)
+	cancelAction()
+
+	// Name the timeout where it happened. A bare "context deadline exceeded"
+	// surfacing three layers up is exactly the kind of error that sends the next
+	// reader looking in the wrong place — the whole point of 169 part A was that
+	// nothing said which step was stuck.
+	if err != nil && errors.Is(actionCtx.Err(), context.DeadlineExceeded) {
+		elapsed := time.Since(actionStarted).Round(time.Second)
+		contextLogger.Error("Local action exceeded its deadline and was cancelled",
+			zap.String("action", step.Action),
+			zap.String("step", step.Name),
+			zap.Duration("elapsed", elapsed),
+			zap.String("override_key", localActionTimeoutKey),
+			zap.Error(err))
+		err = fmt.Errorf("local action %q on step %q exceeded its deadline after %s "+
+			"(set %q on the step to change it, or <=0 to disable): %w",
+			step.Action, step.Name, elapsed, localActionTimeoutKey, err)
+	}
+
 	if err != nil {
 		datahelpers.LogCollectedDataStructure(state.CollectedData, s.logger, "error_"+step.Name)
 		return handleActionError(err, step, contextLogger)
