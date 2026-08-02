@@ -155,3 +155,53 @@ plainly about the whole menu rather than about one member of it.
 > `pageflow-builder`**: it mandates `recommended_builder` and pins it to that name,
 > has written it into 1,216 spec rows, and nothing consumes it — an LLM instructed
 > on every run to fill a field for a consumer that no longer exists.
+
+---
+
+# Second retirement — 2026-08-02 evening: three more builders
+
+**Retired:** `content-site-builder`, `landing-page-builder`, `website-builder`.
+Backup: `BACKUP_2026-08-02_three_unused_builders.json` (3 rows, 43 KB, 13 workflow
+steps each). Same restore semantics as above — the rows are soft-retired, so
+recovery is one `UPDATE`.
+
+**Kept, by owner instruction:** `pageflow-builder` (so
+`domain-research-classifier`'s pinned `recommended_builder` still resolves — no
+prompt change needed).
+
+**KEPT AGAINST THE INSTRUCTION, and this is the finding:** `report-builder`. The
+owner said "retire the others", on my report that no work item had ever named a
+builder. That report was **scoped too narrowly** — it filtered
+`site_work_items.handler_agent LIKE '%-builder'`, which is empty, and I read that
+as "no builder is dispatched". `report-builder` is dispatched by a different
+route:
+
+- **`report-dispatch` is an ENABLED scheduled task on a 90-second tick**, last
+  fired 2026-08-02 21:13. Its `report-dispatch-loop` claims
+  `pipeline='reports' AND item_type='report_request' AND status='awaiting_report'`
+  from `site_work_items` and spawns **the handler named on the item** — its own
+  step description says "(report-builder)".
+- **8 rows in `client_system.agent_instances` reference it via `template_id`**,
+  newest 2026-07-31. That is a live FK, and a hard `DELETE` would fail on it.
+
+The queue is empty *today*, which is why every "has it run" check reads zero. **An
+empty queue plus an enabled dispatcher is not a dead agent — it is a live one with
+nothing to do**, and retiring it would break the loop the moment a report is
+requested. Left active; the owner can decide separately with this in front of them.
+
+## Pre-flight for the three that were retired (all clear)
+
+| check | content-site | landing-page | website |
+|---|---|---|---|
+| `site_work_items.handler_agent` / `.spec` | 0 | 0 | 0 |
+| `site_specs.created_by` / `.data` | 0 | 0 | 0 |
+| `agent_instances.template_id` (FK) | 0 | 0 | 0 |
+| other agent configs naming it | 0 | 0 | 0 |
+| live rows / snapshots / already-deleted | 1 / 0 / 0 | 1 / 0 / 0 | 1 / 0 / 0 |
+
+**One false positive worth recording:** the blast-radius query also matched **15
+`orchestration_states` rows** — all owned by `council-gate`, and all of them my own
+council submissions from earlier today, whose rationale text *names these builders
+while arguing about them*. Text under review scoring as usage of the thing under
+review is the `llm_call_log.prompt_rendered` landmine in a second table. Check the
+`owner_agent_type` before treating a `collected_data` match as evidence of use.

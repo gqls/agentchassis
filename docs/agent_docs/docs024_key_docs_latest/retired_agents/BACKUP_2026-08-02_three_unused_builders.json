@@ -1,0 +1,1064 @@
+[
+    {
+        "id": "d9d58405-8055-42c5-bf66-5263d57afbf5",
+        "type": "content-site-builder",
+        "status": "experimental",
+        "topics": {
+            "error": "system.errors.{type}",
+            "process": "system.agent.{type}.process",
+            "response": "system.responses.{type}"
+        },
+        "command": null,
+        "version": 1,
+        "category": "orchestrator",
+        "env_vars": [
+        ],
+        "image_tag": "v1.0.1229",
+        "is_active": true,
+        "resources": {
+            "limits": {
+                "cpu": "500m",
+                "memory": "512Mi"
+            },
+            "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+            }
+        },
+        "created_at": "2025-12-04T08:42:32.269013+00:00",
+        "deleted_at": null,
+        "updated_at": "2026-08-02T18:38:37.79862+00:00",
+        "description": "Orchestrates the complete content/publishing site build workflow",
+        "domain_tags": [
+        ],
+        "is_snapshot": false,
+        "usage_count": 0,
+        "capabilities": [
+            "orchestration",
+            "site-building",
+            "content-site"
+        ],
+        "display_name": "Content Site Builder",
+        "health_config": {
+            "port": 8080,
+            "liveness_path": "/health",
+            "readiness_path": "/ready",
+            "initial_delay_seconds": 15
+        },
+        "task_workflow": null,
+        "agent_category": null,
+        "default_config": {
+            "workflow": {
+                "steps": {
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Content site build complete"
+                    },
+                    "call_writer": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "content-writer",
+                            "target_role": "writer",
+                            "input_fields": [
+                                "template_data",
+                                "build_plan",
+                                "brief_data",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 300
+                        },
+                        "next_step": "call_assembler",
+                        "output_field": "content_data"
+                    },
+                    "call_wrapper": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "multipage-wrapper",
+                            "target_role": "wrapper",
+                            "input_fields": [
+                                "final_html",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 60
+                        },
+                        "next_step": "call_deployer",
+                        "description": "Create about and contact pages, package as files map",
+                        "output_field": "site_files"
+                    },
+                    "spawn_writer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "writer",
+                            "agent_type": "content-writer"
+                        },
+                        "next_step": "spawn_assembler"
+                    },
+                    "call_deployer": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "site-deployer",
+                            "target_role": "deployer",
+                            "input_fields": [
+                                "site_files",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "complete",
+                        "output_field": "deployment_result"
+                    },
+                    "spawn_wrapper": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "wrapper",
+                            "agent_type": "multipage-wrapper"
+                        },
+                        "next_step": "spawn_deployer"
+                    },
+                    "call_architect": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "content-site-architect",
+                            "target_role": "architect",
+                            "input_fields": [
+                                "build_plan",
+                                "brief_data",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "call_writer",
+                        "output_field": "template_data"
+                    },
+                    "call_assembler": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "html-assembler",
+                            "target_role": "assembler",
+                            "input_fields": [
+                                "content_data",
+                                "template_data",
+                                "brief_data",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "call_wrapper",
+                        "output_field": "final_html"
+                    },
+                    "spawn_deployer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "deployer",
+                            "agent_type": "site-deployer"
+                        },
+                        "next_step": "call_strategist"
+                    },
+                    "call_strategist": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "site-strategist",
+                            "target_role": "strategist",
+                            "input_fields": [
+                                "input_data",
+                                "brief_data"
+                            ],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "call_architect",
+                        "output_field": "build_plan"
+                    },
+                    "spawn_architect": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "architect",
+                            "agent_type": "content-site-architect"
+                        },
+                        "next_step": "spawn_writer"
+                    },
+                    "spawn_assembler": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "assembler",
+                            "agent_type": "html-assembler"
+                        },
+                        "next_step": "spawn_wrapper"
+                    },
+                    "spawn_strategist": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "strategist",
+                            "agent_type": "site-strategist"
+                        },
+                        "next_step": "spawn_architect"
+                    }
+                },
+                "start_step": "spawn_strategist"
+            },
+            "processing_mode": "orchestration",
+            "timeout_seconds": 900
+        },
+        "input_contract": null,
+        "output_contract": null,
+        "image_repository": "docker.io/aqls/agent-chassis",
+        "previous_version_id": null,
+        "idle_timeout_seconds": 0,
+        "orchestrator_workflow": null,
+        "briefing_questionnaire": {
+            "sections": [
+                {
+                    "name": "publication",
+                    "title": "Publication Identity",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "publication_name",
+                            "label": "Publication/Site Name",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "tagline",
+                            "label": "Tagline",
+                            "required": false
+                        },
+                        {
+                            "type": "select",
+                            "field": "editorial_tone",
+                            "label": "Editorial Tone",
+                            "default": "magazine_polished",
+                            "options": [
+                                "news_formal",
+                                "magazine_polished",
+                                "blog_casual",
+                                "technical"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "content_structure",
+                    "title": "Content Structure",
+                    "questions": [
+                        {
+                            "type": "textarea",
+                            "field": "categories",
+                            "label": "Content Categories (one per line)",
+                            "required": true
+                        },
+                        {
+                            "type": "select",
+                            "field": "publishing_frequency",
+                            "label": "Publishing Frequency",
+                            "default": "weekly",
+                            "options": [
+                                "daily",
+                                "weekly",
+                                "occasional"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "monetization",
+                    "title": "Monetization",
+                    "questions": [
+                        {
+                            "type": "select",
+                            "field": "monetization_model",
+                            "label": "Revenue Model",
+                            "default": "advertising",
+                            "options": [
+                                "advertising",
+                                "subscription",
+                                "affiliate",
+                                "none"
+                            ]
+                        },
+                        {
+                            "type": "boolean",
+                            "field": "newsletter_signup",
+                            "label": "Include Newsletter Signup?",
+                            "default": true
+                        }
+                    ]
+                }
+            ]
+        },
+        "delegation_preferences": {
+            "fallback_to_self": true,
+            "prefer_delegation": true
+        },
+        "orchestration_workflow": null
+    },
+    {
+        "id": "86c7e418-3eed-41ef-b678-bc592eabc10c",
+        "type": "landing-page-builder",
+        "status": "experimental",
+        "topics": {
+            "error": "system.errors.{type}",
+            "process": "system.agent.{type}.process",
+            "response": "system.responses.{type}"
+        },
+        "command": null,
+        "version": 1,
+        "category": "orchestrator",
+        "env_vars": [
+        ],
+        "image_tag": "v1.0.1229",
+        "is_active": true,
+        "resources": {
+            "limits": {
+                "cpu": "500m",
+                "memory": "512Mi"
+            },
+            "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+            }
+        },
+        "created_at": "2025-12-04T08:42:32.269013+00:00",
+        "deleted_at": null,
+        "updated_at": "2026-08-02T18:38:37.79862+00:00",
+        "description": "Orchestrates the complete landing page build workflow - spawns specialist agents and coordinates them to build conversion-focused landing pages",
+        "domain_tags": [
+        ],
+        "is_snapshot": false,
+        "usage_count": 0,
+        "capabilities": [
+            "orchestration",
+            "site-building",
+            "landing-page"
+        ],
+        "display_name": "Landing Page Builder",
+        "health_config": {
+            "port": 8080,
+            "liveness_path": "/health",
+            "readiness_path": "/ready",
+            "initial_delay_seconds": 15
+        },
+        "task_workflow": null,
+        "agent_category": null,
+        "default_config": {
+            "workflow": {
+                "steps": {
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Landing page build complete"
+                    },
+                    "call_writer": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "content-writer",
+                            "target_role": "writer",
+                            "input_fields": [
+                                "template_data",
+                                "build_plan",
+                                "brief_data",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 300
+                        },
+                        "next_step": "call_assembler",
+                        "description": "Generate content for template placeholders",
+                        "output_field": "content_data"
+                    },
+                    "call_wrapper": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "multipage-wrapper",
+                            "target_role": "wrapper",
+                            "input_fields": [
+                                "final_html",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 60
+                        },
+                        "next_step": "call_deployer",
+                        "description": "Create about and contact pages, package as files map",
+                        "output_field": "site_files"
+                    },
+                    "spawn_writer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "writer",
+                            "agent_type": "content-writer"
+                        },
+                        "next_step": "spawn_assembler",
+                        "description": "Spawn content writer"
+                    },
+                    "call_deployer": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "site-deployer",
+                            "target_role": "deployer",
+                            "input_fields": [
+                                "site_files",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "complete",
+                        "description": "Deploy to git repository",
+                        "output_field": "deployment_result"
+                    },
+                    "spawn_wrapper": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "wrapper",
+                            "agent_type": "multipage-wrapper"
+                        },
+                        "next_step": "spawn_deployer",
+                        "description": "Spawn multipage wrapper"
+                    },
+                    "call_architect": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "landing-page-architect",
+                            "target_role": "architect",
+                            "input_fields": [
+                                "build_plan",
+                                "brief_data",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "call_writer",
+                        "description": "Assemble page template from components",
+                        "output_field": "template_data"
+                    },
+                    "call_assembler": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "html-assembler",
+                            "target_role": "assembler",
+                            "input_fields": [
+                                "content_data",
+                                "template_data",
+                                "brief_data",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "call_wrapper",
+                        "description": "Assemble final HTML with CSS/JS",
+                        "output_field": "final_html"
+                    },
+                    "spawn_deployer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "deployer",
+                            "agent_type": "site-deployer"
+                        },
+                        "next_step": "call_strategist",
+                        "description": "Spawn deployer"
+                    },
+                    "call_strategist": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "site-strategist",
+                            "target_role": "strategist",
+                            "input_fields": [
+                                "input_data",
+                                "brief_data"
+                            ],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "call_architect",
+                        "description": "Generate build plan from brief",
+                        "output_field": "build_plan"
+                    },
+                    "spawn_architect": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "architect",
+                            "agent_type": "landing-page-architect"
+                        },
+                        "next_step": "spawn_writer",
+                        "description": "Spawn landing page architect"
+                    },
+                    "spawn_assembler": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "assembler",
+                            "agent_type": "html-assembler"
+                        },
+                        "next_step": "spawn_wrapper",
+                        "description": "Spawn HTML assembler"
+                    },
+                    "spawn_strategist": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "strategist",
+                            "agent_type": "site-strategist"
+                        },
+                        "next_step": "spawn_architect",
+                        "description": "Spawn strategist"
+                    }
+                },
+                "start_step": "spawn_strategist"
+            },
+            "processing_mode": "orchestration",
+            "timeout_seconds": 900
+        },
+        "input_contract": null,
+        "output_contract": null,
+        "image_repository": "docker.io/aqls/agent-chassis",
+        "previous_version_id": null,
+        "idle_timeout_seconds": 0,
+        "orchestrator_workflow": null,
+        "briefing_questionnaire": {
+            "sections": [
+                {
+                    "name": "brand",
+                    "title": "Brand & Identity",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "brand_name",
+                            "label": "Brand/Company Name",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "tagline",
+                            "label": "Tagline or Slogan",
+                            "required": false
+                        },
+                        {
+                            "type": "select",
+                            "field": "tone",
+                            "label": "Brand Tone",
+                            "default": "professional",
+                            "options": [
+                                "professional",
+                                "friendly",
+                                "bold",
+                                "playful",
+                                "technical"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "value_proposition",
+                    "title": "Value Proposition",
+                    "questions": [
+                        {
+                            "type": "textarea",
+                            "field": "primary_benefit",
+                            "label": "What is the main benefit for visitors?",
+                            "required": true
+                        },
+                        {
+                            "type": "textarea",
+                            "field": "unique_selling_points",
+                            "label": "What makes you different? (List 3-5 points)",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "target_audience",
+                            "label": "Who is your ideal customer?",
+                            "required": true
+                        }
+                    ]
+                },
+                {
+                    "name": "conversion",
+                    "title": "Conversion Goals",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "primary_cta",
+                            "label": "Primary Call-to-Action (e.g., Sign Up, Buy Now)",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "primary_cta_url",
+                            "label": "Primary CTA Link/Action",
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "field": "secondary_cta",
+                            "label": "Secondary CTA (e.g., Learn More)",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "social_proof",
+                    "title": "Trust & Social Proof",
+                    "questions": [
+                        {
+                            "type": "boolean",
+                            "field": "has_testimonials",
+                            "label": "Do you have customer testimonials?",
+                            "default": false
+                        },
+                        {
+                            "type": "text",
+                            "field": "client_count",
+                            "label": "Number of customers/users (if applicable)",
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "field": "notable_clients",
+                            "label": "Notable clients or partners",
+                            "required": false
+                        }
+                    ]
+                }
+            ]
+        },
+        "delegation_preferences": {
+            "fallback_to_self": true,
+            "prefer_delegation": true
+        },
+        "orchestration_workflow": null
+    },
+    {
+        "id": "bfebf7c8-d181-4b76-b987-26f10e52b916",
+        "type": "website-builder",
+        "status": "experimental",
+        "topics": {
+            "dlq": "system.agent.{type}.dlq",
+            "errors": "system.agent.{type}.errors",
+            "requests": "system.agent.{type}.requests",
+            "responses": "system.agent.{type}.responses"
+        },
+        "command": null,
+        "version": 1,
+        "category": "code-driven",
+        "env_vars": [
+        ],
+        "image_tag": "v1.0.1229",
+        "is_active": true,
+        "resources": {
+            "limits": {
+                "cpu": "500m",
+                "memory": "1Gi"
+            },
+            "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+            }
+        },
+        "created_at": "2025-08-10T16:00:36.520323+00:00",
+        "deleted_at": null,
+        "updated_at": "2026-08-02T18:38:37.79862+00:00",
+        "description": "Orchestrates complete website creation",
+        "domain_tags": [
+        ],
+        "is_snapshot": false,
+        "usage_count": 0,
+        "capabilities": [
+        ],
+        "display_name": "Website Builder",
+        "health_config": {
+            "port": 8080,
+            "liveness_path": "/health",
+            "readiness_path": "/ready",
+            "initial_delay_seconds": 30
+        },
+        "task_workflow": {
+            "steps": {
+                "complete": {
+                    "action": "complete_workflow"
+                },
+                "develop_site": {
+                    "action": "call_agent",
+                    "config": {
+                        "agent_type": "html-developer"
+                    },
+                    "next_step": "complete"
+                },
+                "analyze_domain": {
+                    "action": "call_agent",
+                    "config": {
+                        "agent_type": "domain-analyst"
+                    },
+                    "next_step": "design_architecture"
+                },
+                "create_content": {
+                    "action": "call_agent",
+                    "config": {
+                        "agent_type": "content-creator"
+                    },
+                    "next_step": "develop_site"
+                },
+                "design_architecture": {
+                    "action": "call_agent",
+                    "config": {
+                        "agent_type": "site-architect"
+                    },
+                    "next_step": "create_content"
+                }
+            },
+            "start_step": "analyze_domain"
+        },
+        "agent_category": null,
+        "default_config": {
+            "workflow": {
+                "steps": {
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Website build complete"
+                    },
+                    "deploy_site": {
+                        "action": "call_agent",
+                        "config": {
+                            "target_role": "deployer",
+                            "input_fields": [
+                                "site_files",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "complete",
+                        "description": "Deploy site to hosting",
+                        "output_field": "deployment_result"
+                    },
+                    "develop_site": {
+                        "action": "call_agent",
+                        "config": {
+                            "target_role": "developer",
+                            "input_fields": [
+                                "input_data",
+                                "site_architecture",
+                                "site_content",
+                                "domain_analysis"
+                            ],
+                            "timeout_seconds": 300
+                        },
+                        "next_step": "wrap_multipage",
+                        "description": "Develop the HTML/CSS for the site",
+                        "output_field": "final_html"
+                    },
+                    "spawn_wrapper": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "wrapper",
+                            "agent_type": "multipage-wrapper"
+                        },
+                        "next_step": "spawn_deployer",
+                        "description": "Spawn multipage wrapper agent",
+                        "output_field": "spawned_wrapper"
+                    },
+                    "analyze_domain": {
+                        "action": "call_agent",
+                        "config": {
+                            "target_role": "analyst",
+                            "input_fields": [
+                                "input_data"
+                            ],
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "design_architecture",
+                        "description": "Analyze the domain name and objective",
+                        "output_field": "domain_analysis"
+                    },
+                    "create_content": {
+                        "action": "call_agent",
+                        "config": {
+                            "target_role": "content",
+                            "input_fields": [
+                                "input_data",
+                                "domain_analysis",
+                                "site_architecture"
+                            ],
+                            "timeout_seconds": 300
+                        },
+                        "next_step": "develop_site",
+                        "description": "Create content for all site sections",
+                        "output_field": "site_content"
+                    },
+                    "spawn_deployer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "deployer",
+                            "agent_type": "site-deployer"
+                        },
+                        "next_step": "analyze_domain",
+                        "description": "Spawn site deployer agent",
+                        "output_field": "spawned_deployer"
+                    },
+                    "wrap_multipage": {
+                        "action": "call_agent",
+                        "config": {
+                            "target_role": "wrapper",
+                            "input_fields": [
+                                "final_html",
+                                "input_data"
+                            ],
+                            "timeout_seconds": 60,
+                            "index_html_field": "final_html.final_html"
+                        },
+                        "next_step": "deploy_site",
+                        "description": "Create about and contact pages, package as files map",
+                        "output_field": "site_files"
+                    },
+                    "design_architecture": {
+                        "action": "call_agent",
+                        "config": {
+                            "target_role": "architect",
+                            "input_fields": [
+                                "input_data",
+                                "domain_analysis"
+                            ],
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "create_content",
+                        "description": "Design the site structure and components",
+                        "output_field": "site_architecture"
+                    },
+                    "spawn_domain_analyst": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "analyst",
+                            "agent_type": "domain-analyst"
+                        },
+                        "next_step": "spawn_site_architect",
+                        "description": "Spawn domain analyst agent",
+                        "output_field": "spawned_analyst"
+                    },
+                    "spawn_html_developer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "developer",
+                            "agent_type": "html-developer"
+                        },
+                        "next_step": "spawn_wrapper",
+                        "description": "Spawn HTML developer agent",
+                        "output_field": "spawned_developer"
+                    },
+                    "spawn_site_architect": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "architect",
+                            "agent_type": "site-architect"
+                        },
+                        "next_step": "spawn_content_creator",
+                        "description": "Spawn site architect agent",
+                        "output_field": "spawned_architect"
+                    },
+                    "spawn_content_creator": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "content",
+                            "agent_type": "content-creator"
+                        },
+                        "next_step": "spawn_html_developer",
+                        "description": "Spawn content creator agent",
+                        "output_field": "spawned_content"
+                    }
+                },
+                "start_step": "spawn_domain_analyst"
+            },
+            "ai_service": {
+                "model": "claude-haiku-4-5",
+                "provider": "anthropic"
+            }
+        },
+        "input_contract": null,
+        "output_contract": null,
+        "image_repository": "docker.io/aqls/agent-chassis",
+        "previous_version_id": null,
+        "idle_timeout_seconds": 0,
+        "orchestrator_workflow": null,
+        "briefing_questionnaire": {
+            "sections": [
+                {
+                    "name": "company_info",
+                    "title": "Company Information",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "company_name",
+                            "label": "Company/Brand Name",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "tagline",
+                            "label": "Tagline or Slogan",
+                            "required": false,
+                            "placeholder": "Your memorable one-liner"
+                        },
+                        {
+                            "type": "textarea",
+                            "field": "about_us",
+                            "label": "About Your Company",
+                            "required": true,
+                            "placeholder": "Tell us about your company, mission, and what you do"
+                        },
+                        {
+                            "type": "text",
+                            "field": "industry_type",
+                            "label": "Industry",
+                            "required": false,
+                            "placeholder": "e.g., Technology, Healthcare, Consulting"
+                        }
+                    ]
+                },
+                {
+                    "name": "offerings",
+                    "title": "Services & Products",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "services",
+                            "label": "Services or Products (list of {name, description})",
+                            "required": true,
+                            "placeholder": "[{\"name\": \"Service Name\", \"description\": \"What it does\"}]"
+                        },
+                        {
+                            "type": "textarea",
+                            "field": "key_differentiators",
+                            "label": "What Makes You Different?",
+                            "required": true,
+                            "placeholder": "Your unique value propositions"
+                        }
+                    ]
+                },
+                {
+                    "name": "team",
+                    "title": "Team & Leadership",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "leadership_team",
+                            "label": "Leadership Team (list of {name, title, bio})",
+                            "required": false,
+                            "placeholder": "[{\"name\": \"Jane Doe\", \"title\": \"CEO\", \"bio\": \"Background and expertise\"}]"
+                        }
+                    ]
+                },
+                {
+                    "name": "portfolio",
+                    "title": "Portfolio & Social Proof",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "case_studies",
+                            "label": "Case Studies or Projects (list of {client, challenge, result})",
+                            "required": false,
+                            "placeholder": "[{\"client\": \"Company Name\", \"challenge\": \"Problem solved\", \"result\": \"Outcomes achieved\"}]"
+                        },
+                        {
+                            "type": "text",
+                            "field": "client_count",
+                            "label": "Number of Clients/Customers",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "contact",
+                    "title": "Contact Information",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "contact_email",
+                            "label": "Contact Email",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "contact_phone",
+                            "label": "Phone Number",
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "field": "headquarters",
+                            "label": "Location/Headquarters",
+                            "required": false,
+                            "placeholder": "City, Country"
+                        }
+                    ]
+                },
+                {
+                    "name": "design",
+                    "title": "Design Preferences",
+                    "questions": [
+                        {
+                            "type": "select",
+                            "field": "tone",
+                            "label": "Brand Tone",
+                            "default": "professional",
+                            "options": [
+                                "professional",
+                                "friendly",
+                                "bold",
+                                "innovative",
+                                "traditional",
+                                "playful"
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "field": "color_scheme",
+                            "label": "Preferred Color Scheme",
+                            "required": false,
+                            "placeholder": "e.g., Blue and white, Modern neutrals"
+                        }
+                    ]
+                },
+                {
+                    "name": "features",
+                    "title": "Website Features",
+                    "questions": [
+                        {
+                            "type": "boolean",
+                            "field": "has_blog",
+                            "label": "Include Blog/Insights Section?",
+                            "default": false
+                        },
+                        {
+                            "type": "boolean",
+                            "field": "has_careers",
+                            "label": "Include Careers Page?",
+                            "default": false
+                        },
+                        {
+                            "type": "text",
+                            "field": "primary_cta",
+                            "label": "Primary Call-to-Action",
+                            "required": false,
+                            "placeholder": "e.g., Contact Us, Get Started, Learn More"
+                        },
+                        {
+                            "type": "text",
+                            "field": "primary_cta_url",
+                            "label": "Primary CTA Link",
+                            "required": false,
+                            "placeholder": "/contact or external URL"
+                        }
+                    ]
+                },
+                {
+                    "name": "audience",
+                    "title": "Target Audience",
+                    "questions": [
+                        {
+                            "type": "textarea",
+                            "field": "target_audience",
+                            "label": "Who is your target audience?",
+                            "required": true,
+                            "placeholder": "Describe your ideal visitors/customers"
+                        }
+                    ]
+                }
+            ]
+        },
+        "delegation_preferences": {
+            "fallback_to_self": true,
+            "prefer_delegation": false
+        },
+        "orchestration_workflow": null
+    }
+]
