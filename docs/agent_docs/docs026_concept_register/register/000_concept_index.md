@@ -1,7 +1,7 @@
 # Concept Index — master register
 
 **1,711 index table rows** across **109** category register files, measured
-2026-08-02 after PBP-027 landed (it was 1,701 at LNK-028 earlier the same day —
+2026-08-02 after VMB-015 landed (it was 1,704 at PBP-027 and 1,701 at LNK-028 earlier the same day —
 several threads add rows concurrently, so re-run the command rather than
 trusting this line), with the command written into it as the previous thread
 asked:
