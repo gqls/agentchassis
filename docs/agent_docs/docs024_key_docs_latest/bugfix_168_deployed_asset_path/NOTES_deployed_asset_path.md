@@ -162,3 +162,47 @@ consumers instead of one.
 now covers the case, do not argue it — **mutate the shared mechanism and require the local
 test to fail**. If it stays green, the guard did evaporate and the argument was wrong. Cost:
 about ninety seconds.
+
+## The blast-radius claim I asserted before I measured it — checked afterwards, and it held
+
+In the council submission I wrote that five of the six readers "pass non-brand-head purposes
+(card, sprite_sheet, hero, logo, icon)". Three of those call sites pass a **literal**
+(`"card"` ×2, `"sprite_sheet"`), which I had read. The other three pass a **variable**
+`purpose` scanned out of a query — `plan_sections` ×5, `render_site_components`,
+`queryresolve`'s `HeroPurpose` — and for those I had inferred the value from context rather
+than measured it. That is asserting a blast radius, which the 2026-07-28 ruling says to
+measure yourself rather than hand to the reviewer.
+
+So I measured it. Every variable-purpose site resolves `purpose` from `assets` joined to
+`site_plan_imagery` through the current site plan:
+
+```sql
+SELECT a.purpose, count(*) AS rows,
+       count(*) FILTER (WHERE a.asset_key = a.purpose) AS takes_skip_branch
+  FROM site_plan_imagery spi
+  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
+  JOIN assets a ON a.site_id = sp.site_id AND a.asset_key = spi.key AND a.status='active'
+ GROUP BY 1 ORDER BY 2 DESC;
+```
+```
+ hero         | 82 | 0        illustration | 3 | 0
+ icon         | 77 | 0        sprite_sheet | 1 | 0
+```
+
+**Stronger than what I claimed.** Not only is no brand-head purpose reachable there (a
+`WHERE a.purpose IN ('favicon','og_card')` variant returns 0 rows) — **not one of the 163
+reachable rows takes the skip branch at all**, because every one carries an `asset_key`
+distinct from its `purpose`. `sprite_sheet` is the only underscore purpose that gets there
+and it is keyed `sprite_sheet_main`. So those call sites cannot reach the code I changed,
+by data as well as by type.
+
+⚠ **The zero needed a denominator and I ran one** — the same join without the purpose filter
+returns **163 rows across 4 distinct purposes**. A `0` from a join that returns nothing at
+all would have looked identical and meant nothing.
+
+**One loose word in the submission, corrected here:** I listed `logo` as one of the purposes.
+It is not — at these sites the logo is stored as **`asset_key='logo'` under `purpose='hero'`**
+(10 rows fleet-wide; the same quirk `check_image_url_404_test.go` documents for
+fundamentallyai.com). The claim survives, because `hero` is not brand-head either, but
+"purpose" and "asset_key" are exactly the two things this bug is about and I should not have
+blurred them in a submission about them.
