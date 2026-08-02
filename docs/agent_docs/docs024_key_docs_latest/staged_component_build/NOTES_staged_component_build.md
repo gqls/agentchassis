@@ -1449,3 +1449,15 @@ be corrected. **The real submission, done immediately after and for the record:*
 correlation that actually answers for it. The check that would have caught this before
 committing: run the trigger script FIRST, capture the real correlation, THEN commit — never
 write the trailer as a promise to submit later.
+
+**Stopping point, 2026-08-02: code committed and submitted, deliberately NOT rolled.**
+`f6bfb7e6e` (+ correction `195a169ff`) is on HEAD. Council verdict pending
+(`33d00513-2fd8-4872-ad5a-a19c24a1ae0b`). Per this handoff's own §5 ("do not roll the
+chassis to ship anything — your commit ships on anyone's next roll regardless"), did not
+build/deploy. Baseline recorded so the next roll is detectable: both `agent-chassis`
+replicas on `v1.0.1229`, started `2026-08-02T18:39` — a pod-grep for
+`RequestComponentBrowserRunAction` or `request_component_browser_run` returning empty
+against that image is expected and NOT evidence the code is broken; it just predates the
+commit. Next session (or this one, if the owner wants a roll triggered explicitly): confirm
+a newer image, pod-grep for the marker, then run the S6 dispatch per §3 of the handoff, with
+a negative control (wrong `page_id`) in the same run.
