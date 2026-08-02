@@ -280,9 +280,8 @@ leopardessconsulting 34, finetuning 32, gaswholesalers 28, dartsonline 22,
 fundamentallyai 14; idea.uk 0). Adding seven more would land in the same queue
 and help nothing, and firing rerenders directly at seven other lanes' sites to
 bypass a queue another lane is repairing is the race `bugs_open/085` explicitly
-declined to run. **The contact pages self-correct when that queue drains** — the
-template can no longer fabricate, so no further work is owed on this bug beyond
-waiting and re-running the census.
+declined to run. ~~**The contact pages self-correct when that queue drains**~~ — see the
+CORRECTION below, which was measured within hours and refutes exactly this.
 
 `idea.uk` is the one to watch: 0 queued rerenders, and its stored render carries
 a phone its `content_data` no longer holds, so it corrects only when something
@@ -333,3 +332,73 @@ checked; full dispositions in the workstream NOTES.
 - **editquality, medium — the lint is scope creep.** Disagreed and the council
   approved over it; recorded rather than dismissed, with the argument that would
   justify deleting the lint later if it goes unused.
+
+
+---
+
+## 2026-08-02, afternoon — **CORRECTION: the pages do NOT self-correct on an ordinary rerender.** The queue drained and six contact pages rerendered with the fabrication intact.
+
+> **The claim I made this morning, in this file and in the commit message
+> `8666a83a8`, was WRONG:** *"the contact pages self-correct when that queue
+> drains … no further work is owed beyond waiting."* The queue drained the same
+> afternoon and the pages did not correct. Left struck through above rather than
+> deleted, because the reasoning was plausible and the refutation is the useful
+> part.
+
+**What happened.** The 294 unclaimed `page_rerender` items went to **0**;
+`build-dispatch-loop` claimed and completed the backlog all afternoon (170 items
+across these seven sites, last at 14:11). **Six of the seven ran a COMPLETED
+`page_rerender` on their `contact` page AFTER the fix** — gaswholesalers 10:57,
+ai-agent-orchestration 11:40, dartsonline 11:44, fundamentallyai 12:22,
+leopardessconsulting 12:54 — and **not one contact-info section updated.**
+`ai-agent-orchestration.com`'s section is still stamped `2026-05-02`.
+
+**Why, verified in non-test code** (`create_rerender_items_action.go:219`):
+
+```go
+scoped := (reason == "section_data_resolved" || reason == "image_landed") && componentIDStr != ""
+```
+
+A `page_rerender` is section-scoped only when it carries **both** a qualifying
+`reason` **and** a `component_id`. Every one of those six items had a **NULL
+reason**, so none was scoped: they took the assemble/`render_page` route, which
+re-stitches the page from the section HTML **already stored** and therefore
+preserves the fabrication. The repo already says so, in a test's failure message
+(`tool_render_path_test.go:127`): *"a reason-less item takes render_page and
+**deploys stale HTML**"*.
+
+**And the morning's proof was not the mechanism I attributed it to.** I assumed
+vetcomparison.uk corrected because a rerender picked up the new template. Read at
+the write itself rather than inferred from adjacent work items —
+`page_component_history`, `source = save_page_sections_overwrite` at
+**10:36:54**, alongside a completing `needs_content_page / contact` item — it
+corrected via the **content-writer** path (`save_page_sections`), which
+regenerates a section from its template. That is a different mechanism from the
+one I credited, and it is why one site moved and six did not. **The fix is still
+proven correct; my account of what propagates it was wrong.**
+
+### What this changes
+
+- **`hours` is fabricated on 7 live sites and nothing currently scheduled will
+  clear it.** Waiting is not a remediation — this is the
+  `a-complete-work-item-is-not-a-repaired-artefact` class, and it bit the person
+  who has that landmine in their own memory index.
+- **The remediation is narrow and known:** each of the 7 contact pages needs a
+  **section-level** re-render — a `page_rerender` carrying
+  `reason='section_data_resolved'` **and** the contact-info `component_id`
+  (`0bd72302-e9bf-4dc0-a615-41a9c919bf17`), or any content-writer pass over the
+  page. The scoped path is the narrowest repair available (blast radius: one
+  section, per CGV-001).
+- **NOT DONE, awaiting the owner:** six of those seven sites belong to other
+  lanes. Writing 7 work items is cheap and reversible, but it is still a write
+  against other lanes' live sites, and the morning's version of this decision was
+  declined for a reason that has now evaporated — so the decision deserves to be
+  taken again explicitly rather than inherited.
+
+### The transferable bit
+
+A "complete" rerender is not a re-render of anything in particular. **Before
+concluding a config/template fix will propagate, establish WHICH path regenerates
+the artefact and confirm the queued work actually takes it** — `reason` and
+`component_id` are the discriminator here, they are usually absent, and the
+default is the path that preserves what is already stored.

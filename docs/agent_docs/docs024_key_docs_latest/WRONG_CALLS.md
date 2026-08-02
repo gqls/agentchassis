@@ -16941,3 +16941,59 @@ you have not added a silent failure, and I did not — I was answering an object
 *correctness* and stopped once the value was right. Related: `mutate-the-code-to-prove-the-guard`
 (the mutation I ran proved the branch produced the right path; it did not ask what happened on
 the other arm).
+
+---
+
+## 2026-08-02 — "the pages self-correct when the queue drains" — the queue drained the same afternoon and they did not
+
+**The claim I wrote, in a committed bug file and a commit message
+(`8666a83a8`, `bugs_open/140`):** that having fixed the `contact-info` template at
+source, the seven remaining live sites would repair themselves once the stalled
+`page_rerender` backlog cleared, and that *"no further work is owed on this bug
+beyond waiting and re-running the census."* I had measured the stall carefully —
+294 unclaimed items, 170 of them on those seven sites — and used that measurement
+to justify not acting.
+
+**What caught it:** looking again a few hours later, because the owner asked me
+to. The backlog went to **0**. `build-dispatch-loop` completed all 170. **Six of
+the seven ran a completed `page_rerender` on their `contact` page after the fix,
+and not one contact-info section updated.** `ai-agent-orchestration.com`'s is
+still stamped `2026-05-02`.
+
+**The mechanism, verified in non-test code** (`create_rerender_items_action.go:219`):
+
+```go
+scoped := (reason == "section_data_resolved" || reason == "image_landed") && componentIDStr != ""
+```
+
+A rerender regenerates sections only when it carries **both** a qualifying
+`reason` and a `component_id`. All six items had a NULL reason, so all six took
+the assemble route, which re-stitches the page from the section HTML **already
+stored**. `tool_render_path_test.go:127` says this in as many words — *"a
+reason-less item takes render_page and deploys stale HTML"* — and I had grepped
+that file earlier in the same session for a different reason.
+
+**The second error, inside the first.** My morning "proof" was that
+vetcomparison.uk corrected 28 seconds after the migration. I attributed that to a
+rerender picking up the new template. It was not: reading
+`page_component_history` rather than inferring from adjacent work items shows
+`source = save_page_sections_overwrite` — the **content-writer** path. I had
+credited the right outcome to the wrong mechanism, and that wrong mechanism was
+exactly what made "the others will follow" sound safe. **One site moving is
+evidence about that site's path, not about the fleet's.**
+
+**The cheap check:** before predicting that a config or template fix will
+propagate, ask **which path regenerates the artefact**, and confirm the queued
+work takes that path — here, one query over `spec->>'reason'` on the pending
+items, which I ran for a different purpose and did not think to read this way.
+And when an artefact does correct, read `page_component_history.source` to learn
+what wrote it instead of inferring from whatever completed nearby.
+
+**The transferable error:** I let a well-measured *blocker* stand in for a
+verified *causal path*. Because I had solid numbers on the queue stall, "they are
+waiting on the queue" felt measured — but the measurement established only that
+the queue was stalled, never that draining it would repair anything. **A rigorous
+measurement of the obstacle is not evidence about what happens once the obstacle
+is gone.** This is my own `a-complete-work-item-is-not-a-repaired-artefact`
+landmine, which is in my memory index, walked into while writing a different
+landmine about the same class.
