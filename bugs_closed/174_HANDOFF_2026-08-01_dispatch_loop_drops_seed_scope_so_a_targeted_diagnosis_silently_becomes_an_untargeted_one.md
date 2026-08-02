@@ -254,3 +254,91 @@ default path, and by the standing rule (fixed AND live) this stays in
 `config-key-audit`'s `os.Args` dispatch — `main.go` was held by a concurrent
 session (WFA-006) and committing it would have broken the build at HEAD. The
 audit script refuses to report clean rather than pretending, so the gap is loud.
+
+---
+
+# CLOSED — 2026-08-02 evening — LIVE on chassis v1.0.1229 and PROVEN AT THE ARTEFACT
+
+## 1. The binary, on both replicas (not the tag, not git)
+
+| grep over `/app/agent-chassis` | `-g7fbt` | `-n8nbj` |
+|---|---|---|
+| `This scope was NOT chosen` (**added**) | 1 | 1 |
+| `scope_source` (**added**) | 1 | 1 |
+| `diagnose_assemble_bundle: scope resolved` (**added**) | 1 | 1 |
+| `diagnose_assemble_bundle: no scope` (**positive control**, pre-existing) | 1 | 1 |
+| `This scope was DEFINITELY not chosen` (**negative control**) | **0** | **0** |
+
+The negative control is what makes the three 1s mean something: it proves the
+grep discriminates rather than matching anything.
+
+## 2. The behaviour, through the DEFAULT path — the path that was broken
+
+Fired `090` with a `SEED_SCOPE` and **no `DISPATCH=1`**, so `diagnose-dispatch-loop`
+claimed it. Intake `1a35f000-a95d-46cd-b4ea-8e61bff7bcea`, run
+`12fdf121-04e8-431d-9245-38767971e9ea`.
+
+**Iteration 1 — the seed arm:**
+- `collected_data->'bundle'->>'scope_source'` = **`seed`**
+- `symbol_count` = **2**
+- The bundle artefact's `## In-scope code` contains **exactly** the two symbols
+  named and nothing else:
+  `data_helpers.go:ExtractStringListHelper` and
+  `diagnose_assemble_bundle_action.go:DiagnoseAssembleBundleAction`
+- The fallback warning is **absent**, correctly — the scope was chosen.
+
+Both halves asserted, because they come apart: *field-present* (the seed
+arrived) and *scope-used* (it governed the bundle) are different claims, and the
+fallback chain is exactly what separates them.
+
+**Iteration 2 — the loop-back arm, unasked-for confirmation:** `scope_source` =
+**`route`**, 4 symbols, the verdicter's own revised scope. The seed did not pin
+the loop to iteration 1. That is `TestScopeSource_LoopScopeOutranksSeed`
+confirmed in production.
+
+## 3. GATE 3 CONFIRMED IN PRODUCTION — the config half alone would NOT have fixed this
+
+The live orchestration row for `diagnose-orchestrator`:
+
+```
+jsonb_typeof(collected_data->'input_data'->'seed_scope')  ->  string
+```
+
+**Not `array`.** The jsonb column travelled through `QueryDatabaseAction`'s
+`[]byte`→`string` conversion and reached the agent as JSON *text*, exactly as the
+three-gate analysis predicted. Before this fix `ExtractStringListHelper` returned
+nil for that, so **migration 289 on its own would have dropped the seed a third
+time, in a new place, just as silently.**
+
+This was the one claim in this lane that could not be proven offline — pgx's
+jsonb handling — and it is now measured rather than argued. It also vindicates
+writing the helper to accept **both** `[]byte` and `string`: I did not have to be
+right about the driver, and I was not sure.
+
+An independent confirmation from the same query: the last pre-roll diagnosis
+(`ae9404bd`, 09:25) has `scope_source` NULL, the post-roll one has it populated.
+
+## 4. Not yet observed live, stated rather than implied
+
+**The `code_results` negative control** — an intake with *no* seed must still work
+and fall through to the code search — has **not** been observed post-roll, because
+no unseeded diagnosis has run since v1.0.1229. It is covered offline by
+`TestScopeSource_NoSeedFallsThroughToCodeResults` across 5 input shapes (absent,
+`[]`, non-JSON text, a JSON object, an empty decoded list), and the next ordinary
+unseeded diagnosis will confirm it:
+
+```sql
+SELECT collected_data->'bundle'->>'scope_source'
+  FROM orchestration_states
+ WHERE owner_agent_type='diagnose-agent'
+   AND NOT (collected_data->'input_data' ? 'seed_scope')
+ ORDER BY created_at DESC LIMIT 1;    -- expect 'code_results'
+```
+
+## 5. The class check
+
+`./scripts/audit-relay-gaps.sh` → **0 findings, 0 unmatched, 2 uncovered**, exit 0.
+The two uncovered relays are deliberate and must not be registered unread — see
+the ticket's fix-candidate section and WFA-007's landmine.
+
+**MOVED TO `bugs_closed/`.**

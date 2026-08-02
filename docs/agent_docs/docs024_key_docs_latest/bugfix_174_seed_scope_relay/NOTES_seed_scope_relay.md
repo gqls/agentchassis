@@ -178,3 +178,51 @@ the case CLAUDE.md names as unpreventable — "if two sessions edit one file,
 whoever commits takes both edits, and no hook can prevent that". Recording it
 here because the commit message cannot be amended (forward-only). The `168`
 lane's LANDMINES improvement is in `b34717c18` under my message.
+
+## 2026-08-02 evening — LIVE on v1.0.1229, and gate 3 confirmed in production
+
+Another session rolled the chassis. **Verified at the artefact, not the tag** —
+pod-grep on BOTH replicas (`agent-chassis-79479769b9-g7fbt`, `-n8nbj`):
+
+| grep | count |
+|---|---|
+| `This scope was NOT chosen` (added) | 1 |
+| `scope_source` (added) | 1 |
+| `diagnose_assemble_bundle: scope resolved` (added) | 1 |
+| `diagnose_assemble_bundle: no scope` (**positive control**, pre-existing) | 1 |
+| `This scope was DEFINITELY not chosen` (**negative control**) | **0** |
+
+The negative control matters: it proves the grep discriminates, so the three 1s
+are not an artefact of a pattern that matches anything.
+
+### The behavioural proof, through the DEFAULT path
+
+Fired `090` with a `SEED_SCOPE` and **no `DISPATCH=1`**, so `diagnose-dispatch-loop`
+claimed it — the exact path that was broken. Intake corr
+`1a35f000-a95d-46cd-b4ea-8e61bff7bcea`, run corr `12fdf121-04e8-431d-9245-38767971e9ea`.
+
+```
+owner_agent_type     | seed_scope                                              | jsonb_typeof
+diagnose-dispatch-loop |                                                       |
+diagnose-orchestrator  | "[\"...:ExtractStringListHelper\", \"...:DiagnoseAssembleBundleAction\"]" | string
+```
+
+**The seed arrived** — through both allow-lists that used to drop it.
+
+### And `jsonb_typeof` = `string` is the whole gate-3 argument, confirmed in production
+
+This is the claim I could not prove offline and deliberately marked as unverified:
+that pgx hands back `[]byte` for a jsonb column, `QueryDatabaseAction` stringifies
+it, and the value therefore reaches the agent as JSON **text** rather than an
+array. The live row says `string`, not `array`.
+
+So the config half alone would **not** have fixed this bug. Migration 289 on its
+own delivers a string that `ExtractStringListHelper` would have returned nil for
+— dropping the seed a third time, in a new place, exactly as silently. The
+council's `bug_historian` seat called the deferred `QueryDatabaseAction` fix "a
+known-exploitable generic mechanism"; this row is what that mechanism looks like
+when you watch it operate.
+
+It also vindicates writing the helper to accept **both** `[]byte` and `string`
+rather than picking the one I guessed the driver returned. I did not have to be
+right about pgx, and I was not sure.
