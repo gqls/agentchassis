@@ -1,8 +1,10 @@
 # Concept Index — master register
 
-**1,701 index table rows** across **109** category register files, measured
-2026-08-02 after LNK-028 landed, with the command written into the line
-as the previous thread asked:
+**1,704 index table rows** across **109** category register files, measured
+2026-08-02 after PBP-027 landed (it was 1,701 at LNK-028 earlier the same day —
+several threads add rows concurrently, so re-run the command rather than
+trusting this line), with the command written into it as the previous thread
+asked:
 
 ```
 grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,701  ← THIS is the headline number
@@ -622,6 +624,7 @@ an ID prefix, or a status word.
 | PBP-024 | Deploy-observability bookkeeping gap | partial | Deploy path never writes deploy_commit/last_built_at, weakening change-detection evidence | page-build-pipeline.md |
 | PBP-025 | componentless_pages discovery check (repair half of PBP-023) | built, not enabled | Active+deployed page with sections but ZERO page_components serves chrome only and no check could see it | page-build-pipeline.md |
 | PBP-026 | sourceResolver identity fallback chain (spec-path miss → canonical sites row) | built, inert till roll | plan_sections could not read the sites row's identity columns, so an owner-supplied email was invisible to every component | page-build-pipeline.md |
+| PBP-027 | UpsertPageForRole — one collision seam for constant-role page arms | built, inert till roll | An upsert that omits page_type turns a CREATE into a silent PARTIAL update; the collision is now four explicit outcomes | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
 | STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |

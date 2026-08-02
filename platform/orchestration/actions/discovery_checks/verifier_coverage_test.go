@@ -254,7 +254,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// A verifier IS writable here (pages.page_type = the requested type once a
 	// human has ruled), so this is mechanical rather than judgement: it is the
 	// DECISION that needs a person, not the check that it was carried out.
-	"mistyped_deployed_page": {catMechanical, "pages.page_type = spec.wanted_type for spec.page_name; produced by applyNewPage when a deployed page holds a planned name under a different type (bugs_open/081); never observed live"},
+	"mistyped_deployed_page": {catMechanical, "pages.page_type = spec.wanted_type for spec.page_name; produced by applyNewPage (bugs_open/081) and, since 2026-08-02, by UpsertPageForRole for the constant-role arms — tool-deployer, tool-generator, report-builder (bugs_open/175); read spec.source to tell them apart; never observed live"},
 
 	// ---- creation: "make X exist" ----
 	"needs_page":          {catCreation, "page existence; 49 of 365 carry page_id"},

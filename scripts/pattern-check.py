@@ -591,6 +591,70 @@ def check_unrepaired_component_write(files, ref, findings):
         ))
 
 
+# ── a page upsert that names page_type in the INSERT and not in the SET ─────
+#
+# bugs_open/175, and bugs_closed/081 before it. The statement:
+#
+#   INSERT INTO pages (site_id, name, url, title, page_type, sections, ...)
+#   ...
+#   ON CONFLICT (site_id, name) DO UPDATE SET url = ..., title = ..., sections = ...
+#
+# reads as a create with an idempotent re-run. It is not. On a name collision it
+# is a PARTIAL UPDATE: this arm's content lands under the EXISTING row's role, no
+# error is raised, and `RETURNING id` yields an id either way, so the caller
+# cannot tell which happened. 081 measured one such arm looping for three months.
+#
+# Five arms were written with this shape before anyone noticed, in four files, by
+# different sessions — which is the definition of a class rather than a bug. The
+# fix seam is UpsertPageForRole (platform/orchestration/actions/page_role_upsert.go);
+# this check is what stops a SEVENTH being written, because knowing the pattern is
+# not what fires it — something at the moment of the edit has to.
+#
+# PRECISION: it fires only when page_type is in the INSERT column list AND absent
+# from the SET list. An arm that deliberately carries `page_type =
+# EXCLUDED.page_type` (adoption, blog posts, site sync, verbatim adoption) is a
+# DIFFERENT decision — 175 says explicitly not to make the two camps identical —
+# and is not flagged. MEASURED over all 1,120 .go files at HEAD on 2026-08-02:
+# exactly 4 hits before the 175 fix (create_report_page, create_tool_component,
+# deploy_tool ×2 — 175's census, nothing else), 0 after, and no hit on any of the
+# five arms in the other camp. The first run of this measurement was against a
+# tree that already carried the fix and reported 0/0; a check that has not been
+# seen to FIRE is not a check (LANDMINES — "a gate's 0 findings has two causes").
+PAGE_UPSERT_RE = re.compile(
+    r"INSERT\s+INTO\s+pages\b(?P<insert>[^;`]*?)"
+    r"ON\s+CONFLICT\s*\(\s*site_id\s*,\s*name\s*\)\s*DO\s+UPDATE\s+SET(?P<set>[^;`]*?)"
+    r"(?:RETURNING|$)",
+    re.I | re.S)
+
+
+def check_partial_page_upsert(files, ref, findings):
+    """bugs_open/175 — an upsert that drops page_type turns a CREATE into a partial update."""
+    for path in files:
+        if not path.endswith(".go") or path.endswith("_test.go"):
+            continue
+        content = file_content(path, ref)
+        if not content:
+            continue
+        for m in PAGE_UPSERT_RE.finditer(strip_comments(content)):
+            if not re.search(r"\bpage_type\b", m.group("insert"), re.I):
+                continue          # the arm does not state a role; nothing to drop
+            if re.search(r"\bpage_type\b", m.group("set"), re.I):
+                continue          # deliberately re-types on collision — a different decision
+            findings.append((
+                "partial-page-upsert", path,
+                f"`ON CONFLICT (site_id, name) DO UPDATE` writes the row without "
+                f"{BOLD}page_type{RESET}, which the INSERT names",
+                "bugs_open/175 — on a name collision this is not a create, it is a PARTIAL "
+                "update: your content lands under the existing row's role, nothing errors, "
+                "and RETURNING id gives you an id either way. bugs_closed/081 measured that "
+                "loop running three months. If the role is a constant of this arm, use "
+                "UpsertPageForRole (platform/orchestration/actions/page_role_upsert.go), "
+                "which makes the collision an explicit branch. If re-typing on collision is "
+                "genuinely right here (the adoption paths argue it is), say so by writing "
+                "`page_type = EXCLUDED.page_type` and this stops firing.",
+            ))
+
+
 def check_append_only_docs(files, ref, findings):
     """Owner directive — SUMMARY snapshots and README_where_we_are are append-only."""
     for path in files:
@@ -1077,7 +1141,8 @@ def main():
                   check_unguarded_migration_insert, check_append_only_docs,
                   check_truncation_without_reader, check_logged_model_output,
                   check_new_capability_surface, check_register_coverage,
-                  check_runtime_fill_marker, check_unrepaired_component_write):
+                  check_runtime_fill_marker, check_unrepaired_component_write,
+                  check_partial_page_upsert):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit

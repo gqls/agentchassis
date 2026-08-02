@@ -657,39 +657,26 @@ func refuseDeployedPageTypeConflict(
 		"page %q is deployed as page_type=%q; the plan wants %q. Re-typing a live page changes what it serves, so it is not done automatically (bugs_open/081)",
 		pageName, existingType, wantType)
 
-	spec, _ := json.Marshal(map[string]interface{}{
-		"page_name":     pageName,
-		"existing_type": existingType,
-		"wanted_type":   wantType,
-		"domain":        domain,
-		"source":        "content-gap-planner",
-		"bug":           "bugs_open/081",
-		"resolution":    fmt.Sprintf("If this page should hold the %q role: UPDATE pages SET page_type='%s' WHERE id='%s'. If it should not, the site needs a different page for that role.", wantType, wantType, pageID),
-	})
-
-	summary := fmt.Sprintf("Deployed page %q occupies the %q role under page_type=%q — needs a human decision",
-		pageName, wantType, existingType)
-
 	// Keyed per (site, page, wanted type) so a check that re-fires while the
 	// decision is outstanding dedups onto the open item rather than filing a
 	// second one.
-	itemCreated, ierr := insertWorkItem(ctx, tx, workItem{
-		siteID:   siteID,
-		source:   "content-gap-planner",
-		pipeline: "build",
-		itemType: "mistyped_deployed_page",
-		severity: "medium",
-		summary:  summary,
-		spec:     string(spec),
-		pageID:   &pageID,
-		priority: 40,
-		status:   "needs_human_review",
-		// handlerAgent deliberately empty — see the doc comment.
-		createdBy: "content-gap-planner",
-		itemKey:   fmt.Sprintf("mistyped_deployed_page:%s:%s", pageName, wantType),
+	//
+	// The filing itself lives in page_role_upsert.go (bugs_open/175), shared with
+	// the constant-role arms' refusal path, so both produce ONE item shape and
+	// ONE item_key — a gap-plan refusal and a tool-deploy refusal on the same
+	// page dedupe onto a single open decision instead of two.
+	itemCreated, ierr := fileMistypedLivePageItem(ctx, tx, mistypedPageConflict{
+		SiteID:       siteID,
+		Domain:       domain,
+		PageID:       pageID,
+		PageName:     pageName,
+		ExistingType: existingType,
+		WantedType:   wantType,
+		Source:       "content-gap-planner",
+		Bug:          "bugs_open/081",
 	}, logger)
 	if ierr != nil {
-		return nil, fmt.Errorf("file mistyped_deployed_page for %q: %w", pageName, ierr)
+		return nil, ierr
 	}
 
 	if originalItemID != nil {

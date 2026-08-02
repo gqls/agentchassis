@@ -360,32 +360,42 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			zap.String("published", toolMeta))
 	}
 
-	var pageID uuid.UUID
-	err = params.DB.QueryRowContext(ctx, `
-		INSERT INTO pages (
-			site_id, name, url, title, page_type,
-			nav_label, nav_order, in_header, in_footer,
-			meta_description, sections,
-			build_status, status
-		) VALUES (
-			$1, $2, $3, $4, 'tool',
-			$5, $6, $7, $8,
-			$9, $10::jsonb,
-			'planned', 'active'
-		)
-		ON CONFLICT (site_id, name) DO UPDATE SET
-			url = EXCLUDED.url,
-			title = EXCLUDED.title,
-			sections = EXCLUDED.sections,
-			updated_at = NOW()
-		RETURNING id
-	`, siteID, pageName, pageURL, pageTitle,
-		navSection+" / "+toolDisplayName, maxNavOrder+1, inHeader, inFooter,
-		toolMeta, sectionsJSON,
-	).Scan(&pageID)
+	// bugs_open/175. The DO UPDATE SET here named url, title and sections but NOT
+	// page_type, so deploying a tool onto a name already held by a page of another
+	// role wrote the tool's sections and url into that page and left it typed as
+	// whatever it was — orphaned from every gate that keys on page_type='tool',
+	// while its old content was gone. UpsertPageForRole turns that collision into
+	// an explicit branch; see page_role_upsert.go.
+	toolPage, err := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
+		SiteID:   siteID,
+		Domain:   siteDomain,
+		Name:     pageName,
+		PageType: "tool",
+		Source:   "tool-deployer",
+		Columns: []PageColumn{
+			Col("url", pageURL),
+			Col("title", pageTitle),
+			Col("nav_label", navSection+" / "+toolDisplayName),
+			Col("nav_order", maxNavOrder+1),
+			Col("in_header", inHeader),
+			Col("in_footer", inFooter),
+			Col("meta_description", toolMeta),
+			JSONCol("sections", sectionsJSON),
+			Col("build_status", "planned"),
+			Col("status", "active"),
+		},
+		Refresh: []string{"url", "title", "sections"},
+	}, logger)
 	if err != nil {
 		return nil, fmt.Errorf("create tool page: %w", err)
 	}
+	if toolPage.Refused() {
+		// The tool has been forked already, but nothing was written to the live
+		// page and a human decision is filed. Failing is the honest outcome — the
+		// alternative is the overwrite this bug is about.
+		return nil, fmt.Errorf("tool page %q not created: %s", pageName, toolPage.Reason)
+	}
+	pageID := toolPage.PageID
 
 	logger.Info("DeployToolToSiteAction: Page created",
 		zap.String("page_id", pageID.String()),
@@ -498,30 +508,48 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	guideURL := fmt.Sprintf("/guides/%s.html", guideName)
 	guideTitle := fmt.Sprintf("Understanding %s | Guide", toolDisplayName)
 
-	var guidePageID uuid.UUID
-	err = params.DB.QueryRowContext(ctx, `
-		INSERT INTO pages (
-			site_id, name, url, title, page_type,
-			nav_order, in_header, in_footer,
-			meta_description, sections,
-			build_status, status
-		) VALUES (
-			$1, $2, $3, $4, 'blog-post',
-			200, false, false,
-			$5, '["hero", "article-body", "call-to-action"]'::jsonb,
-			'planned', 'active'
-		)
-		ON CONFLICT (site_id, name) DO UPDATE SET
-			title = EXCLUDED.title,
-			updated_at = NOW()
-		RETURNING id
-	`, siteID, guideName, guideURL, guideTitle,
-		composedGuideMetaDescription(toolDisplayName),
-	).Scan(&guidePageID)
+	// bugs_open/175, and this is the arm with the live exposure: the guide name is
+	// `<tool page name>-guide`, and robot-hands.com carries two DEPLOYED pages —
+	// `gripper-selection-guide` and `selection-guide` — typed `content`. Under the
+	// old upsert, deploying a tool named `gripper-selection` there would have
+	// re-titled a live page and written a companion-guide work item against it,
+	// leaving it typed `content`. It now refuses instead, and says so.
+	//
+	// Refresh is `title` ALONE, deliberately: a guide that has already been
+	// written must not lose its sections to a tool redeploy. That is the existing
+	// behaviour, preserved.
+	guidePage, guideErr := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
+		SiteID:   siteID,
+		Domain:   siteDomain,
+		Name:     guideName,
+		PageType: "blog-post",
+		Source:   "tool-deployer",
+		Columns: []PageColumn{
+			Col("url", guideURL),
+			Col("title", guideTitle),
+			Col("nav_order", 200),
+			Col("in_header", false),
+			Col("in_footer", false),
+			Col("meta_description", composedGuideMetaDescription(toolDisplayName)),
+			JSONCol("sections", `["hero", "article-body", "call-to-action"]`),
+			Col("build_status", "planned"),
+			Col("status", "active"),
+		},
+		Refresh: []string{"title"},
+	}, logger)
 
-	if err != nil {
-		logger.Warn("DeployToolToSiteAction: Failed to create companion guide page (non-fatal)", zap.Error(err))
-	} else {
+	switch {
+	case guideErr != nil:
+		logger.Warn("DeployToolToSiteAction: Failed to create companion guide page (non-fatal)", zap.Error(guideErr))
+	case guidePage.Refused():
+		// Non-fatal, like every other failure on this arm — but no longer silent,
+		// and no longer an overwrite. The decision is filed as a work item.
+		logger.Warn("DeployToolToSiteAction: companion guide refused — a live page holds that name under another role",
+			zap.String("guide_name", guideName),
+			zap.String("existing_page_type", guidePage.ExistingType),
+			zap.String("reason", guidePage.Reason))
+	default:
+		guidePageID := guidePage.PageID
 		// Create work item for the guide article
 		guideSpec, _ := json.Marshal(map[string]interface{}{
 			"page_name":         guideName,

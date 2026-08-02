@@ -148,29 +148,44 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("marshalling report content_data: %w", err)
 	}
 
-	// --- Page row (idempotent re-run: ON CONFLICT updates in place) ---
-	var pageID uuid.UUID
-	err = params.DB.QueryRowContext(ctx, `
-		INSERT INTO pages (
-			site_id, name, url, title, page_type,
-			nav_label, nav_order, in_header, in_footer,
-			meta_description, sections, build_status, status, rebuild_policy
-		) VALUES (
-			$1, $2, $3, $4, 'report',
-			NULL, 999, false, false,
-			'Application-specific gripper selection dossier.', $5::jsonb,
-			'pending', 'active', 'owned'
-		)
-		ON CONFLICT (site_id, name) DO UPDATE SET
-			url = EXCLUDED.url, title = EXCLUDED.title,
-			sections = EXCLUDED.sections, updated_at = NOW()
-		RETURNING id`,
-		siteID, pageName, pageURL, pageTitle,
-		fmt.Sprintf(`["%s"]`, reportComponentFunction),
-	).Scan(&pageID)
+	// --- Page row (idempotent re-run: a same-role collision refreshes in place) ---
+	//
+	// bugs_open/175. This was a blind upsert whose DO UPDATE SET named url, title
+	// and sections but NOT page_type, so a name collision silently turned the
+	// CREATE into a partial update: the dossier's content under whatever role the
+	// existing row held. UpsertPageForRole makes the collision a branch this code
+	// takes deliberately — refresh a fellow report, adopt an unshipped row, refuse
+	// a live page of another type. See page_role_upsert.go.
+	upsert, err := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
+		SiteID:   siteID,
+		Domain:   siteDomain,
+		Name:     pageName,
+		PageType: "report",
+		Source:   "report-builder",
+		Columns: []PageColumn{
+			Col("url", pageURL),
+			Col("title", pageTitle),
+			Col("nav_order", 999),
+			Col("in_header", false),
+			Col("in_footer", false),
+			Col("meta_description", "Application-specific gripper selection dossier."),
+			JSONCol("sections", fmt.Sprintf(`["%s"]`, reportComponentFunction)),
+			Col("build_status", "pending"),
+			Col("status", "active"),
+			Col("rebuild_policy", "owned"),
+		},
+		Refresh: []string{"url", "title", "sections"},
+	}, logger)
 	if err != nil {
 		return nil, fmt.Errorf("creating report page: %w", err)
 	}
+	if upsert.Refused() {
+		// Nothing was mutated and a human decision is filed. Failing here is the
+		// honest outcome: writing the dossier into a live page of another role is
+		// what this bug was.
+		return nil, fmt.Errorf("report page %q not created: %s", pageName, upsert.Reason)
+	}
+	pageID := upsert.PageID
 
 	// --- Dead-internal-link repair (bugs_open/136) ---
 	// renderReportSection escapes every deterministic field, but the four prose

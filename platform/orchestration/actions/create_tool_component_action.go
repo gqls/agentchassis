@@ -400,30 +400,45 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	guideURL := fmt.Sprintf("/guides/%s.html", guideName)
 	guideTitle := fmt.Sprintf("Understanding %s | Guide", displayName)
 
-	var guidePageID uuid.UUID
-	err = params.DB.QueryRowContext(ctx, `
-		INSERT INTO pages (
-			site_id, name, url, title, page_type,
-			nav_order, in_header, in_footer,
-			meta_description, sections,
-			build_status, status
-		) VALUES (
-			$1, $2, $3, $4, 'blog-post',
-			200, false, false,
-			$5, '["hero", "article-body", "call-to-action"]'::jsonb,
-			'planned', 'active'
-		)
-		ON CONFLICT (site_id, name) DO UPDATE SET
-			title = EXCLUDED.title,
-			updated_at = NOW()
-		RETURNING id
-	`, siteID, guideName, guideURL, guideTitle,
-		composedGuideMetaDescription(displayName),
-	).Scan(&guidePageID)
+	// bugs_open/175. Byte-identical to deploy_tool_action's companion-guide upsert
+	// (two files, one statement) and carrying the same defect: `page_type` was in
+	// the INSERT and not in the DO UPDATE SET, so a collision re-titled somebody
+	// else's page and left it typed as it was. Both now go through the one seam —
+	// page_role_upsert.go — which is also what stops the two copies drifting apart
+	// again.
+	//
+	// Refresh is `title` ALONE, deliberately: a guide already written must not lose
+	// its sections to a tool regeneration. That is the existing behaviour, kept.
+	guidePage, guideErr := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
+		SiteID:   siteID,
+		Domain:   siteDomain,
+		Name:     guideName,
+		PageType: "blog-post",
+		Source:   "tool-generator",
+		Columns: []PageColumn{
+			Col("url", guideURL),
+			Col("title", guideTitle),
+			Col("nav_order", 200),
+			Col("in_header", false),
+			Col("in_footer", false),
+			Col("meta_description", composedGuideMetaDescription(displayName)),
+			JSONCol("sections", `["hero", "article-body", "call-to-action"]`),
+			Col("build_status", "planned"),
+			Col("status", "active"),
+		},
+		Refresh: []string{"title"},
+	}, logger)
 
-	if err != nil {
-		logger.Warn("CreateToolComponentAction: Failed to create companion guide page (non-fatal)", zap.Error(err))
-	} else {
+	switch {
+	case guideErr != nil:
+		logger.Warn("CreateToolComponentAction: Failed to create companion guide page (non-fatal)", zap.Error(guideErr))
+	case guidePage.Refused():
+		logger.Warn("CreateToolComponentAction: companion guide refused — a live page holds that name under another role",
+			zap.String("guide_name", guideName),
+			zap.String("existing_page_type", guidePage.ExistingType),
+			zap.String("reason", guidePage.Reason))
+	default:
+		guidePageID := guidePage.PageID
 		// Create work item for the guide article
 		guideSpec, _ := json.Marshal(map[string]interface{}{
 			"page_name":         guideName,
