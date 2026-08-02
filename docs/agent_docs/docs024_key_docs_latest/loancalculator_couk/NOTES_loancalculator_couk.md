@@ -1631,3 +1631,36 @@ one clause of it editorialises rather than explains. `index` was `claimed` — m
 re-render — when I noticed, so rewriting the component then would have raced a
 live deploy for a cosmetic gain. It rides with the next real touch of
 `tool-loan-repayment`, alongside the queued defect fixes.
+
+### End-to-end proof on the LIVE decomposed pages
+
+`verify_shipped.py` over every page rendered so far: **10 of 10 byte-identical to
+the mirror's prediction**, including `index` (5 rows, tool at position 3) and
+`tool-application-tracker` (the structurally hardest tool). Not "close" —
+`cmp` clean, same md5.
+
+Then the calculators driven on the LIVE deployed pages with
+`toolgolden.py --compare` against the golden captured from the hand-built site.
+Raw output says "2 of 2 tools diverged", which is why it was classified rather
+than eyeballed:
+
+```
+distinct diverging keys: 4
+  clear-progress    APPEARED (absent in golden)
+  download-backup   APPEARED (absent in golden)
+  restore-backup    APPEARED (absent in golden)
+  nav-placeholder   VANISHED (gone from live)
+
+keys whose VALUE actually moved: NONE
+```
+
+Three APPEARED — the tracker's backup controls, which had no ids in the original
+and therefore no way to be asserted on; that is the documented `allow_new_keys`
+case and the re-baseline it owes. One VANISHED — the nav placeholder, because the
+nav is server-rendered now. **Nothing computed a different number.**
+
+> **A raw pass/fail from `--compare` would have read as a two-tool regression.**
+> The tool answers "is the fingerprint identical", and the fingerprint legitimately
+> gained and lost keys in this change. The question worth asking is narrower —
+> "did any key that existed in both change its value" — and it has a different
+> answer. Classify divergences by kind before believing a count of them.
