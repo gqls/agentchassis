@@ -239,13 +239,54 @@ six sites comes from `sites.content_data.phone`, is the owner's own number, and
 these are his own portfolio sites. Real datum, correctly propagated. Whether six
 businesses should share one number is an owner question, not a defect.
 
+### PROVEN AT THE ARTEFACT, ON THE WIRE — and the proof arrived unprompted
+
+**`vetcomparison.uk` rerendered at 10:36:53, twenty-eight seconds after the
+migration committed at 10:36:25**, on another lane's rerender rather than one I
+fired. Same page, same data, same binary — the only variable is the template:
+
+| time (UTC) | `fake_hours` | `fake_tel` |
+|---|---|---|
+| before 10:36:25 | **t** | **t** |
+| 10:36:53 (rerendered) | **f** | **f** |
+
+Stored render now carries exactly one card, and the site's real address:
+
+```html
+<div class="contact-grid"> <div class="contact-card"> <h3>Email</h3>
+<a href="mailto:vetcomparison@contactforsales.com">vetcomparison@contactforsales.com</a> </div> </div>
+```
+
+On the wire, cache-busted: **one `<h3>Email</h3>`, zero `tel:`, zero `Monday…`**.
+That is precisely this file's own acceptance criterion — *"check a site supplying
+ONLY email renders exactly one card"* — met on the site that had the worst case
+of the bug (the only one serving BOTH the invented phone and the invented hours).
+
 ### WHAT REMAINS — the closure criteria
 
-- [ ] The 8 pages rerender, and the R2 census in the RUNBOOK returns
-      `fake_hours = f` everywhere. **Until then the fabrication is still SERVED
-      and this file stays OPEN.** Deliberately not patching the rows per-instance
-      (this file's own candidate 3): now the source is fixed they self-correct.
-- [ ] Confirm at the artefact on at least one page, on the wire, not in storage.
+- [x] ~~Confirm at the artefact on at least one page, on the wire.~~ **DONE** —
+      vetcomparison.uk, above.
+- [ ] The other **7** pages rerender and the R2 census returns `fake_hours = f`
+      everywhere. **Until then the fabrication is still SERVED on 7 sites and
+      this file stays OPEN** — `/bugs_closed/README.md`'s bar is that the defect
+      is no longer reproducible on the live fleet, and it still is.
+
+**Why I did NOT force those 7, having measured it:** they are not waiting on
+anything I control. There are **294 `page_rerender` items sitting `triaged` and
+UNCLAIMED across 14 sites, oldest 2026-07-31** — a stalled dispatch, owned by the
+`bugs_open/029` / `169` lanes, both actively worked. The seven sites already hold
+**170 queued rerenders between them** (ai-agent-orchestration 40,
+leopardessconsulting 34, finetuning 32, gaswholesalers 28, dartsonline 22,
+fundamentallyai 14; idea.uk 0). Adding seven more would land in the same queue
+and help nothing, and firing rerenders directly at seven other lanes' sites to
+bypass a queue another lane is repairing is the race `bugs_open/085` explicitly
+declined to run. **The contact pages self-correct when that queue drains** — the
+template can no longer fabricate, so no further work is owed on this bug beyond
+waiting and re-running the census.
+
+`idea.uk` is the one to watch: 0 queued rerenders, and its stored render carries
+a phone its `content_data` no longer holds, so it corrects only when something
+rerenders it.
 - [ ] Read the council verdict for `40de12b0-36fa-4c06-82b4-995dc9098593` and act
       on a REVISE/REJECTED — the code is already on the shared branch.
 - [ ] `library_dummy_phone` / `library_fabricated_hours` are **inert until a

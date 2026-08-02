@@ -313,3 +313,54 @@ If a site supplied ONLY a short address, the gated container could render under
 the assembler's visible-content threshold and be dropped. Not currently
 exercised — `email` is present 8/8 and `address` 0/8 fleet-wide — so it is a
 hypothetical, recorded here rather than guarded against speculatively.
+
+## 2026-08-02, close of session — the artefact proof landed by itself, and why 7 sites stay broken on purpose
+
+**I did not have to induce the proof.** `vetcomparison.uk`'s contact section
+rerendered at **10:36:53**, twenty-eight seconds after the migration committed at
+**10:36:25**, on another lane's rerender. `fake_hours` and `fake_tel` both went
+`t → f`, the stored render now carries exactly one card (the site's real
+`vetcomparison@contactforsales.com`), and the served page shows one
+`<h3>Email</h3>`, zero `tel:`, zero `Monday…`.
+
+That is a stronger proof than the test I was about to construct, for the reason
+`bugs_open/085` records: it is a natural before/after with every other variable
+held constant — same page, same data, same binary, only the template differs. And
+it landed on the worst-affected site, the only one serving BOTH fabrications.
+
+**Then I nearly did the wrong thing.** With the mechanism proven, the obvious next
+step is to fire rerenders at the other seven and close the ticket. I checked the
+queue first (CLAUDE.md: "checking the pod does not check the queue"), and it is
+the reason not to:
+
+```
+294 page_rerender items, status='triaged', claimed_by IS NULL, across 14 sites,
+oldest 2026-07-31.
+```
+
+The seven sites already hold **170 queued rerenders between them** — 40 on
+ai-agent-orchestration, 34 on leopardessconsulting, 32 on finetuning, 28 on
+gaswholesalers, 22 on dartsonline, 14 on fundamentallyai. **They are not waiting
+on me; they are waiting on a stalled dispatch that `bugs_open/029`/`169` own and
+are actively working.** Seven more items would land in the same queue and change
+nothing. Firing rerenders *directly*, bypassing the queue, would mean running
+seven writes at seven other lanes' live sites to get around a defect another lane
+is mid-repair on — which is precisely the race `085`'s post-roll sweep declined
+to run, and it declined for the same reason.
+
+So: **the bug stays OPEN and that is the correct state, not an unfinished one.**
+The source can no longer fabricate; the artefact proof exists; the remaining
+seven self-correct when the queue drains. What is owed is a re-run of the R2
+census, not more work.
+
+> **The misstep I avoided, recorded because the pull was strong:** "close the
+> ticket" was the instruction, and I had a green proof in hand. The bar in
+> `/bugs_closed/README.md` is *no longer reproducible on the live fleet*, and it
+> is reproducible on seven sites right now. A proof on one site is evidence the
+> FIX works; it is not evidence the FLEET is fixed, and closing on the first
+> would have converted a real, measurable "7 sites still serve invented business
+> hours" into a closed ticket nobody re-reads.
+
+`idea.uk` is the one to watch: **0** queued rerenders, and a stored render
+carrying a phone its `content_data` no longer holds, so nothing currently
+scheduled will correct it.
