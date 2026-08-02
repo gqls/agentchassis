@@ -1477,4 +1477,87 @@ What IS true: `makefile`'s `IMAGE_TAG` is `v1.0.1230` on HEAD (`21defe33d`, anot
 has an UNCOMMITTED working-tree diff bumping `newTag` from `v1.0.1222` to `v1.0.1229` — i.e.
 even that file doesn't yet name `v1.0.1230`, and it's not this lane's change to touch or
 commit. Read, not acted on. Asked the owner rather than guessing which of "build not pushed
+yet" / "deploy not applied yet" / "wrong environment" was true.
+
+## 2026-08-02 — P2 CLOSED: real S6 dispatch through `browser-runner-adapter`, with a negative control that proves the placement check, not just routing
+
+Owner rolled `v1.0.1231` and said so. Checked before acting on it, per the same discipline
+as the entry above: `kubectl get pods -l app=agent-chassis` — both replicas on `v1.0.1231`,
+different pod names, started `21:39`, i.e. genuinely new pods this time, not a re-read of the
+same ones. **Pod-grepped both replicas before dispatching anything**, per the fleet-wide
+practice (a roll is not evidence a specific commit shipped): `strings /app/agent-chassis |
+grep -c` for two markers — the exact registry key `request_component_browser_run` (6 hits:
+map key, `RegisterActionInputSpec` call, logger field, several `fmt.Errorf` prefixes — a
+LONG marker, not the short-literal trap D7 warns about) and the distinctive error string `"a
+component can be placed on more than one page"` (1 hit) — both replicas, both positive. A
+sanity negative control (`grep -c` for a nonsense string) returned 0 on both, confirming the
+grep pipeline itself can actually distinguish presence from absence.
+
+Re-verified the placement row before dispatching (the standing landmine: placements move) —
+`teaser-reveal-panel` is still on the same 5 pages, `ebc2c413-...`/`services.html` still
+active. Re-verified the `doc_plans` fence row is still current (19,953 bytes, unchanged).
+
+**Built the dispatch by reading the LIVE `tool-acceptance-agent` workflow from
+`agent_definitions`** (not by guessing from the PROBE script's simpler shape, which uses
+literal `subject_type`/`subject_key` in config rather than the real workflow's
+`subject_key_field` pointer) — `ensure_site_record → load_docs → request_run → judge →
+complete`, `timeout_seconds: 600`. Copied it with two changes: `load_docs.config.subject_type
+= "component"`, and `request_run.action = "request_component_browser_run"` with
+`page_id_field: "input_data.spec.page_id"` added. Sent inline via `config.workflow`
+(`selectWorkflow` Priority 1, no `agent_definitions` row — same technique as
+`PROBE_doc_subject_go_gate.sh`), `agent_type` deliberately nonexistent so a misfire would
+fall through to `generic`'s no-op `complete` rather than silently running the real tool
+workflow.
+
+**Added a `neg_control` step AFTER `judge`, in the SAME dispatch**, per this lane's own
+standing rule that a green run and a run that skipped silently look identical unless
+something is watched to fail. Deliberately did NOT reuse "some UUID that doesn't exist" —
+that would only prove the query returns no rows for a garbage key, which `sql.ErrNoRows`
+handles trivially. Instead picked a REAL, active page on the SAME site
+(`fc505ab2-...`/`faq.html`) that genuinely does not carry `teaser-reveal-panel`, so the test
+actually exercises the `page_components`/`content_components.function` JOIN failing to match
+a row, not merely a page lookup failing to find a page. `page_id_field` for this step points
+at a second, separate input field (`input_data.spec.bad_page_id`) so the real run and the
+negative control use independent inputs in one message. `error_step` on `neg_control` points
+at a step named `neg_control_confirmed_red` — the SAME "the must-fail arm's error IS the
+pass" shape `PROBE_doc_subject_go_gate.sh` already established for the Go-gate probe.
+
+**Result, correlation `e6a258eb-6ba1-44df-b344-16e42443975f`, `COMPLETED` in 31s (well under
+the 120s per-request adapter deadline the fence was already sized for):**
+- `current_step = neg_control_confirmed_red` — the negative control fired and was caught.
+- Real run: `collected_data->'browser_run'->'response'->'summary'` = `{"passed":15,
+  "failed":0,"skipped":9}`. Read the skip reasons, not just the count (D3's own rule): all 9
+  are `"SKIPPED: not run on profile mobile"` — the fence's own intentional gating, none are
+  `"<type> not implemented"` (the defect class that reads as PASS and suppresses re-checks
+  for 7 days). 15+9=24=15 checks × profiles, arithmetic reconciled, matching `try_fence.go`'s
+  offline 15/15 exactly — same evaluator (`RunChecksAction.Execute`), now proven reachable
+  through the cluster dispatch path too.
+- `judge`'s own verdict (`acceptance_verdict`): `all_passed: true`, `failed: 0`,
+  `site_chrome_failures: 0` — confirms `judge_acceptance_results` needed no changes, exactly
+  as predicted (it keys off `function`, never off how the page was resolved).
+- Negative control's actual error, read from `collected_data->'__step_error'` (a FAILED step
+  reports `status=COMPLETED` with the real message here, never in `error` — RUNBOOK §10):
+  `"request_component_browser_run: component \"teaser-reveal-panel\" is not placed on page
+  fc505ab2-a991-4421-85e1-fa856f5b7a39 (or that page is inactive)"` — the EXACT message the
+  new code was written to produce, not a generic SQL or adapter error. This is what makes the
+  control mean something: it proves the JOIN predicate is what's doing the rejecting, not
+  some unrelated failure that happened to land on the same step.
+
+**What this does and does not close.** DOC-068's own verify-later line — "an S6 run citing
+its fence" — is now genuinely closed: a component fence has been dispatched through
+`browser-runner-adapter` in the cluster and passed. **What it does NOT re-prove:** that every
+individual check in the fence CAN fail — that was already established offline, mutation-proven,
+12/12, by `prove_fence_can_fail_teaser_reveal_panel.go` (TL-036), calling the *same*
+`RunChecksAction.Execute` the live dispatch also calls. Re-running that same mutation set
+through the cluster would corroborate, not newly prove, the checks' own falsifiability, and
+would cost real Playwright time (two of those twelve mutants took ~30s each per the earlier
+entry) for no new information. **What today's negative control proves that the offline
+harness could not** is the one thing that WAS new in this session: that
+`RequestComponentBrowserRunAction`'s placement resolution — the part with no offline
+equivalent, since `try_fence.go` never resolves a page ID, it's handed a URL directly — fails
+closed in the real cluster, against the real DB, through the real dispatch path. That is the
+gap this whole P2 phase existed to close.
+
+**P2 is done.** Nothing outstanding in this lane except reading the council verdict
+(`33d00513-2fd8-4872-ad5a-a19c24a1ae0b`) when it lands and acting on it if it's REVISE/REJECTED.
 yet" / "deploy not applied yet" / "wrong environment" is true.

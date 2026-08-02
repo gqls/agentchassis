@@ -370,6 +370,11 @@
   > generalises for free, the mutation half needs a new file per fence family**, and any
   > future component whose behaviour lives partly in a shared asset (most of them, per CLC-001)
   > will need the same asset-override extension, not a fresh reinvention of it.
+  > **FULLY ANSWERED 2026-08-02, later the same day — S6-for-components is now wired
+  > (DOC-072, `request_component_browser_run`) and the fence has run through it in the
+  > cluster**, correlation `e6a258eb-6ba1-44df-b344-16e42443975f`: 15/15 passed, same
+  > result `try_fence.go` already got offline, now proven reachable through the real
+  > dispatch path — see DOC-072 for the full read-out and its own negative control.
 
 ### TL-037 — Tool numeric-equivalence gate (`toolgolden.py`): capture what a tool COMPUTES, so a rewrite can be proved equivalent
 - **status:** **built, exercised, and proven able to fail** 2026-07-31. Golden captured for all 12 interactive pages on loancalculator.co.uk; round-tripped deterministically; caught a deliberately injected arithmetic error.

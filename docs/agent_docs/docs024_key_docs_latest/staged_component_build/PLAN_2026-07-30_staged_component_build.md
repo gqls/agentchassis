@@ -218,6 +218,22 @@ rounds, and it is wiring rather than construction — the mechanism was proven e
 end on 2026-07-29 by the `smart-contrast` pilot. Gate: a deliberately broken
 component makes it go red.
 
+> **P2 DONE, 2026-08-02.** D9 decided sibling action over branch; built as
+> `request_component_browser_run` (DOC-072), `go build`/`vet`/`test` clean, committed
+> `f6bfb7e6e`, council-submitted `33d00513-2fd8-4872-ad5a-a19c24a1ae0b` (verdict pending —
+> read it and act if REVISE/REJECTED). Live on `v1.0.1231`, pod-verified both replicas
+> (positive + sanity-negative controls). **Dispatched for real**, correlation
+> `e6a258eb-6ba1-44df-b344-16e42443975f`: `teaser-reveal-panel`'s fence ran through
+> `browser-runner-adapter` — 15/15 passed, 9 legitimately skipped (mobile gating, not
+> "not implemented"). Gate's own wording ("a deliberately broken component makes it go
+> red") is satisfied by the NEGATIVE CONTROL on page resolution, not a fresh live mutation
+> run: a real, active, wrong page on the same site correctly produced
+> `component "teaser-reveal-panel" is not placed on page ... (or that page is inactive)` —
+> proving the new placement JOIN fails closed. Re-running the checks' own mutation proof
+> through the cluster was judged redundant with TL-036's already-complete offline proof
+> (same `RunChecksAction.Execute`, 12/12 mutants caught) — see NOTES for the full reasoning.
+> Full detail: NOTES "2026-08-02 — P2 CLOSED"; `SUMMARY_2026-08-02b_the_dispatch_gap_is_closed.md`.
+
 **P3 — the remaining gates**, cheapest first, each with its mutation.
 
 **P4 — only then** stage-scoped dynamic generation of gates, and the anti-vacuous

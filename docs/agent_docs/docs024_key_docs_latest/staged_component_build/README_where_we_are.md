@@ -406,3 +406,42 @@ put it through the automated review step this project keeps offering, and then i
 go out in a proper build and actually get tried against the real page in the cluster — with
 a deliberately wrong test thrown in alongside it, so I can be sure a "yes" really means yes.
 That's the next sitting, not this one.
+
+Submitted it for review straight after committing (small correction: I fumbled the trailer
+on the commit itself — wrote a placeholder instead of the real tracking number before I'd
+actually submitted. Harmless, but I've written down exactly what happened so it isn't
+mysterious later, and I can't quietly rewrite the commit to fix it — that's a deliberate rule
+here, not an oversight of mine).
+
+You mentioned a fresh build had gone out. I checked rather than took it on trust, the same
+habit as last time — and this time the pods genuinely hadn't moved: same two, same version,
+158 minutes old. Said so plainly rather than assuming success, and worked out from the build
+tag and an uncommitted file lying around that a build had probably happened somewhere but
+hadn't reached this particular deployment yet. Asked you rather than guessing.
+
+---
+
+**2 August 2026, later still — you rolled it, I checked it, then proved it actually works**
+
+You said you'd rolled a new image. Checked first: two brand-new pods this time, different
+names, right version — a real roll, not the same ones as before. Before trusting that the
+new code was actually inside them, I looked for it directly — searched the compiled program
+on both machines for text that only exists if my change is in there, found it on both, and
+also searched for something that definitely shouldn't be in there at all, to make sure the
+search itself wasn't just rubber-stamping everything. Both came back exactly as expected.
+
+Then I actually ran the real test: sent a request into the cluster asking the panel's page to
+be checked for real, the same way the automatic system will one day do it on its own. All
+fifteen checks that could run passed; the other nine were mobile-only variants correctly
+sitting out because this browser session happened to be a desktop one — not a single one
+silently gave up and pretended to succeed.
+
+Alongside that, in the very same request, I deliberately pointed the machinery at the WRONG
+page — a real page on the same website, just not the one with this panel on it — to make sure
+it would correctly refuse rather than quietly testing the wrong thing. It did refuse, with
+exactly the message I'd written for that situation, which is the part that actually proves
+the safety check is doing its job rather than just happening to look safe.
+
+So: the whole chain now works end to end, for real, in the live system — not just on my own
+machine. The only thing left in this piece of work is reading the verdict from the review
+step once it comes back, and doing whatever it asks if it isn't a clean pass.
