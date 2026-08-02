@@ -147,3 +147,63 @@ ever arrived, so the other lane's file is byte-for-byte what it was (0 bytes, as
 already was in the session-start `git status`). **Check what the FIRST command in a
 compound line reads from, and never pattern-kill from inside the process you are
 matching.**
+
+## 2026-08-02 — council APPROVED, and two of the objections were worth more than the approval
+
+Round 1, **approved**, 4 advisory objections, none high. Acted on all the substantive
+ones rather than banking the approval:
+
+- **`llm_reliability` (medium) found a real defect in my fix.** My new "no rows"
+  marker said "the table holds nothing for them (this is an answer, not a cap)" — a
+  claim about the world. `agent_type` was **relabelled 2026-07-26**, and the data
+  still shows the seam: `experience-planner`, `feature-implementer` and
+  `fix-implementer` all stop before 07-27. A symptom spanning that date would have
+  been handed a confident "made no calls" for an agent with a full history under a
+  former name. **The fix's own wording would have reintroduced the false negative the
+  fix exists to remove.** Reworded to state what is true — nothing under THAT LABEL,
+  budget unspent, so not a cap — and to name the boundary (`c8031e284`).
+- **`bug_historian` (medium) asked why nothing audits for the other instances.** Ran
+  the inventory: three candidates repo-wide, two of them false positives (a
+  `name IN ($2,$3) … LIMIT 1` that picks the best of two aliases for ONE page is a
+  preference, not a shared budget). The true positive is
+  `diagnose_code_lookup_action.go` — **three** row caps with no `n == rowCap` branch,
+  while the same function reports its OTHER cap eight lines above. Filed as
+  **`bugs_open/181`**, not fixed here.
+- `guardian` (low): checked — the only reader of the changed log fields is the log
+  line itself (`grep` across `.go/.py/.sh/.sql`: 2 hits, both the `zap` call).
+  `prior_art_librarian`: `bd003f67a` verified to exist and to say what I quoted.
+
+## 2026-08-02 — the deploy, and a second wrong call caught with one command to spare
+
+Built `v1.0.1234` from committed HEAD (tag passed on the command line — the makefile
+is shared state and another session already has it dirty at 1233; `IMAGE_TAG ?=` means
+an override needs no edit at all).
+
+**Held the roll deliberately for ~6 minutes.** Another session had a council round
+mid-flight (`review_prior_art`, `review_architecture`, seats advancing every ~20s) and
+a chassis roll kills one. Polled until the seats went terminal, then rolled: 22:48–
+22:49Z, both replicas on `v1.0.1234`.
+
+**The second wrong call, and it nearly went into the runbook as gospel.** I wrote the
+negative control as `grep -c "ORDER BY created_at DESC$"` expecting 0, and wrote it
+into RUNBOOK §7 before running it. On the *fixed* binary it returns **15** — `strings`
+emits each LINE of a Go raw-string SQL literal separately, so that clause is a line in
+fifteen unrelated queries and the check could never have returned 0 on any build. Every
+future session following that runbook would have read 15 as "the fix did not ship".
+Replaced with the exact removed line anchored whole-line (`grep -cx`, literal tabs):
+**5 on `v1.0.1233` → 4 on `v1.0.1234`**. Logged in `WRONG_CALLS.md` and folded into
+memory.
+
+The habit that caught it is worth naming: **differential the OLD and NEW images before
+pushing.** It costs one `docker run` on an image nobody has deployed, and it does two
+jobs — a control that does not MOVE between the two is not a control, and the positives
+reading 0 on the old image is the only thing that proves the pattern is spelled right.
+
+## 2026-08-02 — closed
+
+`bugs_closed/172`, verified at HEAD with `git ls-tree` (one line, no copy left behind
+— the `git mv` + pathspec trap). Negative control **induced live**: three post-roll
+bundles (22:48/22:50/22:52Z), all single-type, all rendering the original heading and
+sentence byte-identically. The per-type allocation is proven by the live differential
+and the pod binary; a multi-type bundle needs organic traffic and is not owed to the
+closure. Stated that split in the ticket rather than letting "verified" cover both.
