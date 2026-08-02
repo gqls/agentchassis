@@ -771,3 +771,126 @@ platform** — what invokes it, what else writes where it writes. Both times I h
 reasoned carefully about the inside of the action and not at all about its edges.
 The parity test, the seal checks and the fail-closed guards are all *interior*
 work. Nothing I wrote unprompted looked outward.
+
+---
+
+## 2026-08-02 — the mechanism went live, and the artefact showed what the tests could not
+
+The owner rolled a chassis build. Everything below is verified against the live
+system; the queries are in the RUNBOOK.
+
+### 1. It shipped, and both replicas carry it
+
+`v1.0.1229`, both pods started 18:39Z. Grepped the running binary, not git and
+not the tag:
+
+```
+render_provocation_feed                    1   (added by this lane)
+deploy_image_asset                         5   (positive control — pipeline works)
+render_provocation_feed_NOT_A_REAL_ACTION  0   (negative control — grep discriminates)
+```
+
+**Honest note on the negative control.** The standing rule wants a string the
+change REMOVED, expecting 0. This change was purely additive, so no such string
+exists and I used a synthetic near-miss instead. That proves the grep
+discriminates; it does NOT prove the image postdates the commit the way a
+removed string would. The commit-provenance evidence is separate: all eight of
+this lane's commits are ancestors of HEAD, and the action's symbol is present.
+
+### 2. The first live run — predicted, then confirmed
+
+Before enabling anything I ran the Python oracle for today and diffed it against
+the served feed: **identical apart from `generated_at`**. So a real run today had
+to end in the no-change skip, which made it the safest possible first firing —
+full path exercised, site untouchable.
+
+Enabled the schedule at 18:57. It fired within seconds (both timestamp columns
+were NULL, so it was due immediately) and returned:
+
+```json
+{"today": "nobody-wants-personalised-internet", "committed": false,
+ "reason": "no change since the served feed", "archive_entries": 8}
+```
+
+Selector, builder, fetch, comparison and skip: all live and correct.
+
+### 3. Inducing the half that had never run
+
+`committed: false` means the git writer was still unexercised, and an unexercised
+writer is exactly what this platform gets bitten by. Since the content was
+provably identical today, forcing a commit could only test the git path.
+Temporarily set `force_commit` in the schedule's `input_data`, let it fire,
+removed it again (the row is back to its seeded shape — verified).
+
+It committed: **`a1bf37d55`**, "Update daily provocation —
+nobody-wants-personalised-internet (26 Jul)".
+
+### 4. What the artefact showed — and what every test had missed
+
+The commit was **+119 / −119 lines**. Every line of the file changed to publish a
+timestamp. Two byte-level differences, both of which parse identically:
+
+| | oracle (Python) | action (Go) |
+|---|---|---|
+| markup | `<em>` literal | `backslash-u003c-em-backslash-u003e` (spelled in words — see §6) — 12 escapes |
+| top-level key order | `generated_at, today, seal, …` | `archive, arena, generated_at, …` |
+
+Cause of the first: `encoding/json` HTML-escapes `<`, `>`, `&` by default. Cause
+of the second: Go marshals a map with its keys sorted.
+
+**Why the tests were blind.** `TestGoFeedMatchesThePythonBuilderExactly`
+unmarshals both sides before comparing, so an encoding difference is invisible to
+it *by construction*. It passed the entire time the escaped form was shipping.
+The sharpest part: I had already written, in this very package, that "a test that
+formats dates with the code under test cannot detect a formatting change, it can
+only agree with it" — and applied that reasoning to date formatting while leaving
+the document encoding unexamined. **The insight was present and under-applied,
+which is a different failure from not having it.**
+
+### 5. What I fixed, and what I deliberately did not
+
+`marshalFeedFile` with `SetEscapeHTML(false)` (`59f3c67dd`). Escaped markup
+matters because the oracle is retained as the hand-edited manual fallback, and
+the escaped form (`backslash-u003c-em-backslash-u003e`) sitting in a body of prose is a standing invitation to "correct"
+it into something that then double-escapes.
+
+**Key order left alone, deliberately.** The 119-line diff is a one-off cost of
+changing writer, not a daily one — Go's ordering is deterministic, so tomorrow's
+diff is small. Pinning the order means a second hand-maintained copy of every
+object's field list living apart from the code that builds it, which is precisely
+the drift surface this feed exists to remove. Recorded rather than fixed, with
+the caveat: if the manual Python fallback is ever used, the next Go run rewrites
+the file wholesale again. That ping-pong is the price of keeping two writers.
+
+New test asserts on **bytes**, with a control proving the old encoder fails it.
+
+### 6. Three missteps, all the same trap
+
+- **The `\uXXXX` channel-decode trap fired three times in one session.** It ate
+  the assertion needle in the new test (which asserted the presence of the very
+  character it was meant to prove absent); it ate the before/after pair in
+  `59f3c67dd`'s commit message, whose escaped-vs-literal pair was decoded into
+  two identical sides, so it now says nothing;
+  and it would have eaten the fix again if I had not built the needle by
+  concatenation. It is already in my memory as a landmine and it still caught me
+  three times, because I was writing *about* an escape sequence rather than
+  looking for one. **The test's own control is what caught it** — the assertion
+  and the control failed together, which is a contradiction a single assertion
+  could never have surfaced.
+- **The cwd trap fired again.** A `grep` returned "No such file or directory"
+  because a `cd` into `builder/` five calls earlier was still in effect. Caught
+  instantly this time, because it is a landmine I filed last session after it
+  cost me a false claim in front of twelve council reviewers.
+- Un-gofmt'd code reached a commit; the pre-commit check is advisory and reported
+  it after the fact. Fixed forward in `3e78b0ba9`.
+
+### 7. Where this leaves the lane
+
+The mechanism is **live, enabled, and proven on both paths** — skip and commit.
+Every part of the machine works.
+
+The site is still making a false claim. `provocations.json` says "Today's
+Provocation" over an entry dated 26 Jul, because the pool's newest row is 26 Jul
+and the selector correctly serves the latest one that has arrived. **The
+remaining gap is content and nothing else** — adding provocations is now
+`INSERT`s, no code, no roll. That is the owner's editorial call.

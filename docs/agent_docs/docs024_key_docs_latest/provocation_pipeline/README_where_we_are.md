@@ -474,3 +474,57 @@ myself and stepped in anyway. And for a few minutes I thought I'd broken the tes
 suite, when in fact another team had committed a test file whose other half is
 still half-finished in the shared workspace — worth knowing that around here "the
 tests are failing" isn't automatically about you.
+
+---
+
+## 2 August, evening — it works, and the site is still wrong
+
+You rolled a chassis build, so the feed publisher finally has somewhere to run.
+I checked it was genuinely in the running binary rather than trusting the version
+number, turned the schedule on, and it worked first time.
+
+The first run did nothing, on purpose. Before enabling it I ran the old Python
+script for today's date and compared its output against what the site is actually
+serving — identical. That told me a real run could only conclude "nothing has
+changed" and skip, which made it the safest possible moment to switch the thing
+on: the whole machine gets exercised, and the site cannot move. That is exactly
+what happened, in about a second and a half.
+
+Then I made it do the half that had never run. Skipping is easy; the part that
+writes to the website repo had never once executed, and a writer nobody has
+watched write is the classic way this platform bites us. Since today's content
+was provably identical, I forced a commit — the only thing it could possibly
+change was a timestamp. It committed cleanly.
+
+**And that is where it got interesting.** The commit changed all 119 lines of the
+file to publish one timestamp. Comparing what our new code wrote against what the
+old script used to write, two differences showed up, neither of which breaks
+anything: the Go code was turning the italics markup in your headlines into
+escape codes, and it writes the sections of the file in alphabetical order rather
+than the order a person would choose.
+
+Both of those survive being read by a browser perfectly well, and that is exactly
+why nothing caught them. My test compares the two versions *after* reading them
+in, so as far as it was concerned the two were the same file. It had been passing
+happily the whole time the escaped version was going live. The only thing that
+showed it was looking at the actual published artefact.
+
+I have fixed the escaping. I deliberately have not fixed the ordering: that costs
+one messy commit when we switch writers, not one per day, and pinning it down
+would mean maintaining a second copy of the file's structure that could drift
+from the real one — which is the sort of thing that causes the bugs we spend
+weeks on. It needs your next build to take effect; it is committed and waiting.
+
+The mildly embarrassing part: the trap where an escape code gets silently turned
+back into the character it represents caught me **four separate times** in one
+session, including inside the paragraph where I was writing the warning about it.
+It is already written down in my own notes as a known hazard. Knowing about a
+trap and noticing you are standing in it are apparently different skills.
+
+**Where that leaves us.** Every part of the machine now works and is proven
+working. The site is still telling people it publishes a provocation every day
+while showing them one from 26 July — because the pool has nothing newer than 26
+July. That is now purely a content question. Adding provocations is a database
+insert; no code, no build, no deploy. Nothing further happens on its own until
+there is something new to publish, and I have not written any, because they go
+out as your opinions under your name.

@@ -345,3 +345,105 @@ FROM orchestration_states
 WHERE current_step = 'publish_feed'
 ORDER BY updated_at DESC LIMIT 5;
 ```
+
+---
+
+## §N — going live, and proving both paths (2026-08-02)
+
+### Prove the action is in the running binary (never trust the tag)
+
+```bash
+for p in $(kubectl get pods -n ai-persona-system -l app=agent-chassis -o name); do
+  kubectl exec -n ai-persona-system ${p#pod/} -- sh -c '
+    strings /app/agent-chassis | grep -c "render_provocation_feed"          # expect >0
+    strings /app/agent-chassis | grep -c "deploy_image_asset"               # positive control
+    strings /app/agent-chassis | grep -c "render_provocation_feed_NOT_REAL" # negative, expect 0'
+done
+```
+
+**Gotcha.** This change was purely additive, so there is no string it REMOVED and
+the ideal negative control does not exist. A synthetic near-miss proves the grep
+discriminates but NOT that the image postdates your commit. Get provenance
+separately: `git merge-base --is-ancestor <your-commit> HEAD`.
+
+### Predict the run before you enable it
+
+Run the oracle for today and diff against what is served. If they match apart
+from `generated_at`, a live run must skip — which makes it a safe first firing.
+
+```bash
+python3 docs/.../provocation_pipeline/builder/build_provocations.py --date $(date -u +%F) > /tmp/oracle.json
+curl -s https://vonc.com/data/provocations.json > /tmp/served.json
+python3 -c "
+import json
+a=json.load(open('/tmp/served.json')); b=json.load(open('/tmp/oracle.json'))
+a.pop('generated_at'); b.pop('generated_at'); print('will skip:', a==b)"
+```
+
+**Gotcha.** This comparison is STRUCTURAL — it unmarshals first. It cannot see an
+encoding or key-order difference, which is exactly how the escaped-markup defect
+shipped. To compare what is actually written, diff the bytes:
+`diff <(python3 build_provocations.py --date …) <(gh api …/contents/… --jq .content | base64 -d)`.
+
+### Enable, and watch it fire
+
+```sql
+UPDATE scheduled_tasks SET enabled = true, updated_at = now()
+WHERE name = 'provocation-feed-refresh';
+-- both timestamp columns NULL ⇒ due immediately; it fires within ~60s
+SELECT last_triggered_at, last_completed_at FROM scheduled_tasks
+WHERE name = 'provocation-feed-refresh';
+```
+
+Read what it DID, not that it completed:
+
+```sql
+SELECT jsonb_pretty(collected_data->'complete'->'result'->'publish_feed'), status, error
+FROM orchestration_states
+WHERE collected_data->'input_data'->>'task_name' = 'provocation-feed-refresh'
+ORDER BY created_at DESC LIMIT 1;
+```
+
+`committed: false` + `reason: "no change since the served feed"` is the skip path.
+
+### Induce the commit path deliberately
+
+Only do this on a day the content is provably identical, so the sole possible
+change is the timestamp.
+
+```sql
+UPDATE scheduled_tasks
+SET input_data = input_data || '{"force_commit": true}'::jsonb,
+    last_triggered_at = NULL, last_completed_at = NULL, updated_at = now()
+WHERE name = 'provocation-feed-refresh';
+-- ... wait for it to fire, confirm, then ALWAYS restore:
+UPDATE scheduled_tasks SET input_data = input_data - 'force_commit', updated_at = now()
+WHERE name = 'provocation-feed-refresh';
+SELECT (input_data ? 'force_commit') AS still_set FROM scheduled_tasks
+WHERE name = 'provocation-feed-refresh';   -- must be f
+```
+
+### Verify at the artefact, in the repo
+
+```bash
+gh api "repos/gqls/sites/commits?path=vonc.com/data/provocations.json&per_page=3" \
+  --jq '.[] | "\(.sha[0:9])  \(.commit.author.date)  \(.commit.message | split("\n")[0])"'
+gh api "repos/gqls/sites/commits/<sha>" --jq '.files[] | "\(.filename)  +\(.additions) -\(.deletions)"'
+```
+
+**A +N/−N diff where N is the whole file means the writer changed, not the
+content.** That is the signal that found the encoding defect.
+
+### The monitorable: a refusal is a STALE timestamp, not an error row
+
+`last_completed_at` moves only on the success paths (published, or skipped as
+unchanged). A refusal — unreachable served feed, failed `checkFeed`, shrink guard
+— leaves it where it was. So staleness is the signal; there is no error row to
+look for.
+
+```sql
+SELECT name, enabled, last_triggered_at, last_completed_at,
+       now() - last_completed_at AS since_success
+FROM scheduled_tasks WHERE name = 'provocation-feed-refresh';
+-- interval is 21600s (6h); since_success much beyond that ⇒ it is refusing
+```

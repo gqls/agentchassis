@@ -3261,3 +3261,45 @@ User-Agent** (Cloudflare 403s `Python-urllib`). Working implementation, includin
 the refusal: `loancalculator_couk/decompose/load_chrome.py`. Take the head from
 what the site's OWN pages link, not from the platform default — on
 loancalculator.co.uk the one-letter difference was the whole of the failure.
+
+---
+
+### A structural parity test cannot see an ENCODING — two JSON writers agree while the bytes diverge
+
+**footprint:** `platform/orchestration/actions/provocation_feed_action.go` ·
+`provocation_feed_parity_test.go` · `encoding/json` · any Go action that writes a
+JSON artefact previously written by another tool
+
+Go's `encoding/json` **HTML-escapes `<`, `>` and `&` by default**, and marshals a
+map with its **keys sorted**. Neither is visible to a test that unmarshals before
+comparing — `<em>` and its escaped form are the same value once parsed, and key
+order does not survive a decode at all. So a golden-fixture parity test can pass,
+indefinitely, while the artefact you actually publish differs from the oracle on
+every line.
+
+Measured 2026-08-02: the first live commit of `provocations.json` by
+`render_provocation_feed` was **+119 / −119 lines** — the entire file rewritten to
+publish one timestamp. The parity test was green throughout.
+
+**the check:** when a Go action takes over writing a file some other tool used to
+write, diff the **bytes** of the first artefact it produces against the previous
+version, before you trust any test:
+
+```bash
+gh api "repos/<o>/<r>/commits/<sha>" --jq '.files[] | "\(.filename) +\(.additions) -\(.deletions)"'
+```
+
+A `+N/−N` where N is the whole file means **the writer changed, not the content**.
+Then fix what matters and decide the rest explicitly: `enc.SetEscapeHTML(false)`
+restores literal markup; key order needs a hand-maintained field list per object,
+which is usually a worse trade than one messy commit per change of writer — but
+decide it, do not inherit it. Note the ping-pong if both writers are retained:
+each rewrites the whole file after the other.
+
+**Related, and it fires while you write the fix:** a literal backslash-u-0-0-3-c
+typed into Go source is decoded by the compiler inside a double-quoted string,
+and by several tool channels in transit — so an assertion written to prove that
+sequence ABSENT silently becomes a search for the character it decodes to, which
+is present. Build the needle by concatenation (`` `\` + "u003c" ``) and spell it
+in words in prose. It fired four times in one session, including inside the
+paragraph warning about it.

@@ -16997,3 +16997,42 @@ measurement of the obstacle is not evidence about what happens once the obstacle
 is gone.** This is my own `a-complete-work-item-is-not-a-repaired-artefact`
 landmine, which is in my memory index, walked into while writing a different
 landmine about the same class.
+
+---
+
+**2026-08-02 · provocation_pipeline · "the port is faithful — the parity test proves it"**
+
+*The claim.* I built a Go action to replace a Python builder for
+`vonc.com/data/provocations.json`, and pinned it with a golden-fixture parity
+test asserting the Go output is identical to the Python oracle's from the same
+nine rows. I described that in the council submission and in NOTES as proof the
+port was faithful. It passed every run, including in front of 13 reviewers.
+
+*What was actually true.* The test unmarshals both sides before comparing, so it
+compares **parsed structures**. The published artefact differed from the oracle's
+on every line: Go HTML-escapes `<em>` by default and sorts map keys. The first
+live commit was +119/−119 lines to publish a timestamp.
+
+*What caught it.* Looking at the artefact — diffing the commit the action made
+against the one the oracle had made before it. Nothing in the test suite could
+have; the blindness was structural, not a gap in coverage.
+
+*The cheap check that would have caught it.* Diff the BYTES of one artefact, once,
+the first time the new writer produces one. Ten seconds.
+
+*Why this one stings.* I had already written, in the same package, that "a test
+that formats dates with the code under test cannot detect a formatting change, it
+can only agree with it" — and re-derived `shortDate` in the test for exactly that
+reason. I applied the principle to date formatting and not to the document
+encoding one level up. **The insight was present and under-applied, which is a
+different failure from not having it, and a harder one to detect: the file looks
+like it was written by someone thinking about this.**
+
+*Also logged:* the same session, the `\uXXXX` channel-decode trap fired **four
+times** — it turned the new byte-level test's needle into the character it was
+meant to prove absent (caught only because the test's control failed at the same
+time, a contradiction a lone assertion could not have produced), then ate the
+before/after pair in commit `59f3c67dd`'s message, then did it again in the NOTES
+paragraph describing the trap. It is in MEMORY as a known landmine. Knowing a
+trap and noticing you are in it are different skills; the working defence was a
+control that failed loudly, not recall.
