@@ -26,9 +26,10 @@ from the arithmetic rather than captured from the tool — a captured expectatio
 would just re-record whatever the tool does, including the bug.
 
   ⚠ ITS PASS IS ONLY WORTH SOMETHING BECAUSE THE SAME CASE READS DIFFERENTLY
-  WITHOUT THE FIX. `--pre-fix` renders the components from `git show HEAD:`
-  instead of the working tree, so every case is driven against the code as it was
-  before. `--both` runs the pair and scores each case on whether it
+  WITHOUT THE FIX. `--pre-fix` renders the components from PRE_FIX_REF — a
+  pinned sha, see the note on it — instead of the working tree, so every case is
+  driven against the code as it was before. `--both` runs the pair and scores
+  each case on whether it
   DISCRIMINATES — not on pass/fail, which is a weaker and partly wrong question
   (a case using `prefix_expect_instead` asserts "£448.024 before, £448.02 after",
   and both halves of that are a pass). A defect check nobody has watched read
@@ -51,9 +52,10 @@ asks "did the one thing that SHOULD move actually move". Run both.
 
 Usage:
   python3 defect_vectors.py             # working tree — every case must PASS
-  python3 defect_vectors.py --pre-fix   # HEAD — the defect cases must fail here,
-                                        #   the `same_pre_and_post` controls must not
+  python3 defect_vectors.py --pre-fix   # PRE_FIX_REF — the defect cases must FAIL
+                                        #   here, the same_pre_and_post ones must not
   python3 defect_vectors.py --both      # both, scored as PROVEN / CONTROL / VACUOUS
+  python3 defect_vectors.py --ref <sha> # score against some other point in history
   python3 defect_vectors.py --keep      # leave the staged site for inspection
 """
 import json
@@ -75,6 +77,20 @@ from toolprobe import CDP, start_chrome                     # noqa: E402
 import verify_rewrite as VR                                 # noqa: E402
 
 REPO = os.path.abspath(os.path.join(LANE, "..", "..", "..", ".."))
+
+# The baseline the defect cases are scored AGAINST — the last commit before the
+# 2026-08-03 fixes landed.
+#
+# ⚠ IT IS AN ABSOLUTE SHA, AND NOT `HEAD`, BECAUSE THIS FILE BROKE ITSELF ONCE.
+# The first version read `git show HEAD:`, which was correct for exactly as long
+# as the fixes were uncommitted. The moment they were committed, HEAD carried the
+# fix, both sides of `--both` rendered the SAME component, every case reported
+# VACUOUS — and had the scoring still been the pass/fail version it replaced, they
+# would all have reported PROVEN instead, which is worse: a negative control that
+# silently stops being one while still printing a reassuring word. A baseline must
+# name a commit that cannot move under it. Override with --ref <gitref> to score
+# these cases against any other point in history.
+PRE_FIX_REF = "6e8098022"
 
 # ── the cases ──────────────────────────────────────────────────────────────
 #
@@ -230,8 +246,8 @@ def render_from(tmpl_path, schema_path, out_name):
     return open(out, encoding="utf-8").read(), None
 
 
-def head_sources(tmpdir):
-    """Extract every component template+schema as committed at HEAD.
+def ref_sources(tmpdir, ref):
+    """Extract every component template+schema as committed at `ref`.
 
     THE NEGATIVE CONTROL HAS TO COME FROM SOMEWHERE THAT IS NOT THE WORKING TREE.
     Reverting the files to run the check and reverting them back is the obvious
@@ -244,25 +260,28 @@ def head_sources(tmpdir):
         comp = spec.get("component")
         for ext in (".html.tmpl", ".schema.json"):
             rel = os.path.relpath(os.path.join(HERE, comp + ext), REPO)
-            r = subprocess.run(["git", "show", "HEAD:" + rel],
+            r = subprocess.run(["git", "show", "%s:%s" % (ref, rel)],
                                capture_output=True, text=True, cwd=REPO)
             if r.returncode != 0:
-                return None, "git show HEAD:%s failed: %s" % (rel, r.stderr.strip())
+                return None, "git show %s:%s failed: %s" % (ref, rel, r.stderr.strip())
             dest = os.path.join(tmpdir, comp + ext)
             open(dest, "w", encoding="utf-8").write(r.stdout)
         got[comp] = True
     return got, None
 
 
-def stage(slugs, pre_fix):
-    """Copy the whole site and splice each component into its real page."""
+def stage(slugs, ref):
+    """Copy the whole site and splice each component into its real page.
+
+    `ref` is None for the working tree, or a git ref to render the baseline from.
+    """
     staged = tempfile.mkdtemp(prefix="defect-vectors-")
     shutil.copytree(VR.SITE_SRC, staged, dirs_exist_ok=True)
 
     srcdir = HERE
-    if pre_fix:
-        srcdir = tempfile.mkdtemp(prefix="defect-vectors-head-")
-        _, err = head_sources(srcdir)
+    if ref:
+        srcdir = tempfile.mkdtemp(prefix="defect-vectors-baseline-")
+        _, err = ref_sources(srcdir, ref)
         if err:
             return None, None, err
 
@@ -352,10 +371,12 @@ def check(case, got, pre_fix):
     return bad
 
 
-def run_side(pre_fix, keep):
-    label = "HEAD (pre-fix)" if pre_fix else "working tree"
+def run_side(ref, keep):
+    """Drive every case once. `ref` is None for the working tree."""
+    pre_fix = ref is not None
+    label = "%s (baseline)" % ref if pre_fix else "working tree"
     slugs = [c["slug"] for c in CASES]
-    staged, pages, err = stage(slugs, pre_fix)
+    staged, pages, err = stage(slugs, ref)
     if err:
         print("STAGE FAILED  %s: %s" % (label, err))
         return None
@@ -376,7 +397,7 @@ def run_side(pre_fix, keep):
         if pre_fix and case.get("prefix_missing"):
             absent = [i for i in case["prefix_missing"] if got["read"].get(i) is None]
             if absent:
-                bad = bad or ["elements absent at HEAD: %s" % ", ".join(absent)]
+                bad = bad or ["elements absent at %s: %s" % (ref, ", ".join(absent))]
 
         ok = not bad
         results.append((case["name"], ok, bad, got["read"]))
@@ -402,10 +423,13 @@ def main():
     keep = "--keep" in sys.argv
     both = "--both" in sys.argv
     pre = "--pre-fix" in sys.argv
+    ref = PRE_FIX_REF
+    if "--ref" in sys.argv:
+        ref = sys.argv[sys.argv.index("--ref") + 1]
 
     if both:
-        post = run_side(False, keep)
-        prev = run_side(True, keep)
+        post = run_side(None, keep)
+        prev = run_side(ref, keep)
         if post is None or prev is None:
             return 2
         print("\n== the pair ==")
@@ -444,7 +468,7 @@ def main():
                         else "NOT PROVEN — read the pair above"))
         return rc
 
-    results = run_side(pre, keep)
+    results = run_side(ref if pre else None, keep)
     if results is None:
         return 2
     failed = [n for n, ok, _, _ in results if not ok]
@@ -452,13 +476,13 @@ def main():
         expected_fail = [c["name"] for c in CASES if not c.get("same_pre_and_post")]
         still_passing = [n for n in expected_fail if n not in failed]
         if still_passing:
-            print("\n%d defect case(s) PASS against HEAD — they assert nothing:"
-                  % len(still_passing))
+            print("\n%d defect case(s) PASS against %s — they assert nothing:"
+                  % (len(still_passing), ref))
             for n in still_passing:
                 print("  %s" % n)
             return 1
-        print("\nevery defect case fails at HEAD, as it must for its pass to mean "
-              "anything")
+        print("\nevery defect case fails at %s, as it must for its pass to mean "
+              "anything" % ref)
         return 0
     if failed:
         print("\n%d of %d case(s) FAILED" % (len(failed), len(CASES)))
