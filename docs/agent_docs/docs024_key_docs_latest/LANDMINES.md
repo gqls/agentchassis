@@ -3822,3 +3822,39 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   `classify_and_extract`, which was the truth)
 - **source:** `bugs_open/183`, filed 2026-08-03
 - **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane
+
+### A `PostToolUse` hook that writes to **stderr and exits 0** reaches NOBODY — and the transcript records it in a way that greps like delivery
+
+- **footprint:** `.claude/settings.json`, `.claude/settings.local.json`,
+  `PostToolUse`, `hookSpecificOutput`, `scripts/memory-index.py`,
+  `scripts/landmines-session-start.py`, `.claude/hooks/psql_readonly_gate.py`
+- **fires when:** you write (or trust) a hook that reports something — a budget
+  breach, a lint, a warning — using `sys.stderr.write(...)` + `sys.exit(0)`,
+  usually with a comment saying "advisory: never block". It is wired, it fires on
+  every matching tool call, its logic is correct, and its message is delivered to
+  no one. Nothing anywhere reports an error
+- **the tell:** none from outside. Worse, there is an ANTI-tell: the text IS in
+  the session `.jsonl`, as an `attachment.stderr` record — one per invocation
+  (measured: 65 in a single transcript) — so `grep`ping the transcript for your
+  banner **finds it**, and that reads exactly like proof it was delivered. It was
+  not. Running the hook by hand is also not a test: with no stdin it parses no
+  `file_path`, exits silently, and reads as "not firing at all"
+- **the check:** two facts settle it. (1) On **exit 0** Claude Code parses
+  *stdout* for JSON and, for every event except `UserPromptSubmit`,
+  `UserPromptExpansion` and `SessionStart`, routes it to the debug log; only
+  **exit 2** "shows stderr to Claude". So stderr+exit 0 is the single combination
+  that reaches neither the model nor the transcript. (2) For `PostToolUse` the
+  tool has **already run** — exit 2 cannot block anything, so the safety that
+  motivated exit 0 never existed. Deliver via
+  `{"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "…"}}`
+  on stdout. Verify at the ARTEFACT, never at the hook: feed realistic stdin
+  (`echo '{"tool_input":{"file_path":"…"}}' | python3 hook.py --hook`), then make
+  a real edit and confirm the text arrives in your own context as a system
+  reminder. Use a sibling hook you demonstrably DO receive as the positive
+  control — in this repo, `landmines-session-start.py`
+- **source:** `scripts/memory-index.py` was mute from 2026-07-28 to 2026-08-03;
+  **15 hand-compactions of `MEMORY.md` happened underneath it**, every one a
+  session hand-rolling `wc -c` while the tool computed the exact number for them.
+  Fixed in `3137554ff`. (The harness's own 0.8× nag was NOT mute — what was lost
+  was the earlier 17.1KB trigger, the per-write delta and the section breakdown)
+- **added:** 2026-08-03, auto-memory index lane
