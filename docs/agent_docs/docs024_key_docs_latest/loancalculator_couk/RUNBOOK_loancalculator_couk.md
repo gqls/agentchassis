@@ -580,6 +580,16 @@ python3 verify_shipped.py <page>                           # after the rerender 
 python3 load_decomposition.py --restore <page>             # if it does not
 ```
 
+⚠ **`verify_shipped.py` can report a false mismatch for a page fetched inside its
+deploy window.** The work item goes `complete` when the render and git commit
+succeed; the bytes are still a minute or two behind through the sites-repo Action,
+`b2 sync` and the Cloudflare purge. Seen once: 1 of 18 "did not match", the leading
+hunk was chrome identical on all 27 pages, and a re-run gave 19 of 19 EXACT.
+**When one page in a batch mismatches and the rest pass, re-run before believing
+it** — a real fault is per-page-shape and reproducible, a propagation lag clears.
+Do not put a sleep in the verifier: that hides the distinction instead of showing
+it.
+
 **Prove the chrome load changed nothing before going further.** It is only inert
 while every page still ships verbatim, so this is a real check, not a formality:
 

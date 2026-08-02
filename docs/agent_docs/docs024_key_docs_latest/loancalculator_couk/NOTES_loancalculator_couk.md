@@ -1702,3 +1702,28 @@ unlike the current one, can drive every control on every tool.
 > Six red lines and 41 keys look like a catastrophe and are a rename. Classify
 > divergences by kind — APPEARED / VANISHED / VALUE CHANGED — before believing a
 > count of them, and never before reporting one.
+
+### A `complete` work item is not a propagated deploy — one page, one false mismatch
+
+At 18 pages complete, `verify_shipped.py` reported **1 of 18 did not match**, with
+a 432-line diff whose leading hunk was the header banner comment MISSING from the
+served page — i.e. the page was still serving chrome from before the 10:29 chrome
+write. Re-running the identical command minutes later: **19 of 19 EXACT.**
+
+The page had been fetched inside its deploy window. `page_rerender` flips the work
+item to `complete` when the render and the git commit succeed; the bytes then have
+to go through the sites-repo Action, `b2 sync`, and a Cloudflare purge, which is a
+minute or two behind. So for that window the wire serves the PREVIOUS page while
+the database, the work item and the git commit all say the new one shipped.
+
+**Why it did not become a false regression report:** the verifier prints
+`READ THE DIFF and decide which side is wrong before writing any more rows` rather
+than a bare fail, and prints the diff. The first hunk was chrome that is identical
+for all 27 pages — so "one page lost the header comment" was not a coherent
+failure mode, and the obvious next move was to re-fetch rather than to investigate
+the decomposition. A boolean would have sent me looking for a bug in the page.
+
+**The check:** when ONE page in a batch mismatches and the others pass, re-run
+before believing it. A real decomposition fault is per-page-shape and reproducible;
+a propagation lag is transient and clears on the next fetch. Do not add a sleep to
+the verifier — that hides the distinction rather than reporting it.
