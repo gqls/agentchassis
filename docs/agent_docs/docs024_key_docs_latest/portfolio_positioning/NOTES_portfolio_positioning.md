@@ -258,3 +258,90 @@ Council-Submitted trailer) → apply SQL → propagation item → artefact censu
 lines on every built page, gqls/sites origin/master, strip script/style first —
 NOTE the compliance <style> tag is INSIDE the block, so census the <p> text, then
 separately confirm the div).
+
+### 2026-08-02 late night (cont.) — seam 1 APPLIED + propagating; seam 2 committed; seam 3 rescoped
+
+Seam 1 execution: SQL applied clean (drift guard passed, both DO asserts held);
+propagation item 6c95718a (needs_rerender / rerender-pages / refresh_site_components)
+fired at 22:33:47Z with chassis pods 24 min old. Stored footer chrome re-rendered at
+22:36:11Z (2,593 → 3,008 bytes, FCA line present). **The item read `complete` at
+22:36:17Z with 4/18 pages carrying the block — a `complete` work item is not a
+repaired artefact, again:** the page rerenders trickle through the git-adapter queue
+at ~30s/page ("Rerender:" commits landing one by one on gqls/sites master). Census
+watcher armed; verify 18/18 before claiming the seam closed. Council run for corr
+56ab6e23 live, `review_architecture` executing (the architecture seat is FIRING on
+exactly the class it was seated for).
+
+Seam 2 (canonicals + meta description) DONE as code, INERT until a roll:
+- assemblePage is the single live assembly path (measured: zero live agents carry
+  assemble_page; page-build-handler deploys THROUGH page-rerender). Canonical was
+  emitted by NOTHING on any path (spelling-aware sweep of platform/).
+- injectCanonicalLink mirrors injectPageJSONLD (named skips incl. fragment/query
+  URLs; idempotent; respects an existing canonical either attribute order; identity
+  byte-identical to the JSON-LD @id — asserted IN the test, not assumed).
+- spliceMetaDescription: targeted fill of the ONE fleet-wide blank shape (measured
+  by DISTINCT substring over every stored head), legacy first-empty-content fallback
+  kept (its wart documented + deliberately unasserted), attribute escaping NEW,
+  and correct-or-absent REMOVAL of the blank tag when the page has no description.
+- Misstep, small: my first legacy-fallback test asserted a case (attribute-order-
+  reversed tag) the ORIGINAL code never covered — the failing test corrected my
+  belief about what "legacy behaviour" was. Kept as the documented non-assertion.
+- Tree wouldn't compile mid-run: another session's in-flight edit on
+  page_role_upsert.go (bug-175 lane, mtime seconds before failure). Verified via
+  clean `git archive HEAD` overlay: seam tests + FULL actions package green.
+- Committed 9c7a8e9e4 with Council-Submitted: 4cffcebb-9774-45e9-971c-0f057058f795.
+  OWED after the next chassis roll: pod-grep positive control (e.g. the literal
+  "injectCanonicalLink") AND negative control, then a lendzy rerender + census.
+
+Seam 3 (favicon) RESCOPED by measurement — the platform half is NOT missing:
+discovery's check_undeployed_assets files needs_brand_head_assets → asset-deployer →
+derive_brand_head_assets (derives favicon + OG card FROM the approved logo; 11
+complete fleet-wide). Lendzy's gap is UPSTREAM: no logo asset, sites.logo_url empty
+— nothing to derive from. So seam 3 on lendzy = imagery-lane work (a logo), not a
+platform seam. Open residual: whether discovery sweeps a shadow site at all —
+check before relying on auto-filing.
+
+### 2026-08-02 late night (cont. 2) — both verdicts APPROVED round 1; objections settled
+
+Seam 1 corr 56ab6e23: APPROVED, 5 advisory objections. Settlements:
+- editquality "is_active/forked_from not shown": checked live — e6347680 is_active=t,
+  forked_from NULL, component_level=site, function=site-footer; 14/14 footer slots
+  point at it by component_id (the render path is the slot JOIN, not library
+  selection, so the selection landmine doesn't bite here).
+- editquality "site_id unverified": sites row for 8ff093d5 reads name=lendzy.co.uk
+  (queried before seeding).
+- bug_historian "full-literal UPDATE may revert bugs_closed/111's {{if or .email
+  .phone}}": the new literal was built by python byte-exact old.replace(anchor,
+  block) on the md5-verified live bytes — the wrapper is provably untouched (it is
+  in both test constants).
+- bug_historian "wrong-type → silent whole-template fallback, first operator-config
+  exposure; is the fallback loud?": answered — logger.Warn ONLY, no error row.
+  FIXED beyond the objection: declared-type guard at the gap-fill
+  (resolvedValueSatisfiesDeclaredType, commit 2046b6975) refuses a non-array on an
+  array/list-declared field → block renders ABSENT + named Warn instead of the
+  whole slot degrading. Guard scoped by measurement: 53 array/list fields ranged,
+  16 unreferenced, 0 bare-output → cannot break a working render.
+
+Seam 2 corr 4cffcebb: APPROVED, 4 advisory objections + 1 low note. Settlements:
+- editquality "skip logic only in a comment": implementation is attribute-based
+  Contains(rel="canonical") both quote styles + a reversed-attribute-order TEST.
+- bug_historian "sibling file may duplicate the head-splice": settled decisively —
+  rerender_pages_actions.go's rerenderSinglePage is wrapped by
+  RerenderSitePagesAction which has NO registry entry and NO references outside its
+  own file: unreachable dead code. compile_page_sections (page-content-writer) IS
+  live and renders heads via RenderHead, but its output is split into sections by
+  save_page_sections and the shipped artefact is assembled by assemblePage — the
+  canonical lands at the last writer.
+- bug_historian "other writers of the stored blank-tag shape": irrelevant by
+  design — the splice runs at ASSEMBLY, downstream of every stored-head writer.
+- guardian "changes head bytes fleet-wide": intended; inert until roll; pod-grep +
+  census owed (already recorded).
+- guardian "legacy fallback wart deserves a named TODO": recorded here + documented
+  in the test as a deliberate non-assertion. If it bites, the fix is to delete the
+  fallback and measure who screams — do not extend it.
+- prior_art_librarian "grep absence claim / ugrep silent-zero landmine": the sweep
+  returned 10+ (unrelated) matches, so the tool was demonstrably not in its
+  silent-zero failure mode; the absence claim is about rel= emission among hits.
+
+Register discipline note: both commits landed with Council-Submitted; both corrs
+now APPROVED and read — 098 credits automatically, no amends (forward-only).

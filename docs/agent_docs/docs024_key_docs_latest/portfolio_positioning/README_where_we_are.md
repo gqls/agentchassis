@@ -112,3 +112,43 @@ My honest expectation: content and structure can get most of the way; hand-built
 with exact regulatory constants are the piece the pipeline will do worst, so a hybrid
 (pipeline writes the site, we hand the tools in via the locked-component route) may be
 the realistic ceiling for the tool-led domains. Worth testing rather than assuming.
+
+---
+
+**2 August 2026, late night (fresh session picking up the handoff).** The seam
+backlog is real work now, and the first two seams are done as designs, reviewed
+and shipped.
+
+The big one first: pages can now carry a line that genuinely appears on every
+page. Until tonight nothing owned "on every page" — the writers put the
+independence line on 3 pages of 15 because each page's writer made its own
+choice. The fix rides the footer, which is stamped onto every page when it is
+assembled: the shared footer template now has a slot for "compliance lines"
+that reads from a site's own configuration. A site that sets nothing renders
+exactly as before — we proved that byte-for-byte with an automated test before
+touching anything, because fourteen live sites share this footer. Lendzy's two
+mission lines (does not lend; independent of the FCA) are seeded, and as I
+write the pages are re-rendering one by one and landing in the sites repo with
+the lines in place. The reviewer council approved it, first round, and one of
+its advisory notes was good enough that we hardened the mechanism further the
+same evening: a badly-typed config value now gets refused loudly instead of
+quietly degrading the whole footer.
+
+Second: every page will get a canonical link (the tag that tells search
+engines "this is my real address"), and pages with no description will stop
+shipping an empty description tag. Measured tonight: no page on any of our
+sites emits a canonical at all — the machinery simply never wrote one. The fix
+is code, so unlike the footer change it waits for the next chassis deploy;
+it is committed, tested and council-approved (also first round), and the
+verification steps for after that deploy are written down.
+
+Third, a nice surprise: the "favicon never generated" item on the backlog is
+not a missing platform feature. The machinery to derive a favicon from a
+site's logo exists and runs — lendzy just has no logo yet, so there is nothing
+to derive from. That moves the item from "build something" to "give lendzy a
+logo", which is imagery work, not platform work.
+
+One process note worth saying out loud: I nearly registered the footer
+mechanism as brand new. Reading the register first showed it already existed —
+built on 30 July for the analytics tags — and my work is properly its second
+user, not an invention. The register did exactly what it is for.
