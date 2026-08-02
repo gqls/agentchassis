@@ -277,7 +277,7 @@ func savePageSectionsRefusal(siteID, pageID uuid.UUID, pageName, reason string) 
 			pageName),
 		Reason: reason,
 		Fix: "A page rebuild produced too few sections to be allowed to replace what is stored, " +
-			"so NOTHING was deleted and the existing page still stands (bugs_open/165). Decide: if the " +
+			"so NOTHING was deleted and the existing page still stands (bugs_closed/165). Decide: if the " +
 			"page genuinely shrank, lower prune_floor_ratio on the save_page_sections step (0 disables " +
 			"the floor); otherwise find why the writer returned a short section set — a truncated LLM " +
 			"completion, a partial plan read, or an upstream step that failed without erroring.",
