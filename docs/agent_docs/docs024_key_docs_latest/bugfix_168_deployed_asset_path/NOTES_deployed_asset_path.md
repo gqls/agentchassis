@@ -467,3 +467,52 @@ seconds earlier is already stale.
 `bugs_open/168` → `bugs_closed/168`. `bugs_open/179` stays open for the `deploy_path` escape
 hatch, measured empty across three populations including the standing queue that round 2
 taught me to include.
+
+## The stale items: repaired, and the class filed (owner-directed, 2026-08-02 evening)
+
+**The repair.** All 11 were **false**, not merely stale — every artefact they named serves
+HTTP 200, verified on the wire before touching anything. And the *current* check would raise
+none of them: dartsonline's asset rows record the published paths exactly, so
+`findBrandHeadAssetGaps` is silent; robot-hands' rows record the unresolved template literal
+`/assets/images/input-data.asset-key.jpg`, which hits that function's deliberate **third
+state** — observed as a `brandHeadProvenanceNote`, never filed, because claiming "never
+generated" would be a false claim.
+
+So the repair is `cancelled`, not `complete` (nothing did any work) and not re-derivation
+(nothing needs deriving). Script:
+`SQL_2026-08-02_retire_stale_brand_head_undeployed_items.sql` — dry run, then a guarded
+transaction that **aborts unless exactly 11 rows change**, then verification. Result:
+`NOTICE: OK: 11 stale brand-head undeployed_asset items cancelled`, and the follow-up query
+returns 0 still open.
+
+⚠ **The reason string points at `bugs_open/152`.** robot-hands' `assets.url` is still wrong;
+that defect is real and belongs to the asset-URL rewrite lane. Cancelling the item would
+otherwise have taken the only visible signal of it with it — **retiring a false finding must
+not retire the true one hiding behind it.**
+
+⚠ `\gset` + a `DO $$ … :'var' … $$` guard does **not** work — psql interpolates textually and
+the `$$` quoting collides. Use one `DO $tag$ … GET DIAGNOSTICS n = ROW_COUNT; IF n <> expected
+THEN RAISE EXCEPTION …$tag$` block instead. The guard matters more than it looks: between the
+dry run you read and the update you run, another session can move the population.
+
+**The class → `RFC_010`.** The framework question the owner asked is not "why were these
+stale" but "why can nothing tell you they are". Answer, measured: **49 of 50 discovery checks
+are monotonic** — they compute the current truth set on every run, file what they find, and
+discard the complement that would let them close what no longer reproduces.
+
+**Prior art existed and I nearly missed it.** `check_backend_unreachable` self-clears — and
+gets the safety property right in a way worth copying: **it retracts on a POSITIVE observation
+(the probe succeeded), never on an absence of findings.** A naive "close anything not in this
+run's results" would be catastrophic, because a check that errored or was silently blinded
+returns an empty set indistinguishable from a healthy one — the standing *a gate's 0 findings
+has TWO causes* trap.
+
+**A second, independent defect found while measuring:** `unresolved` is excluded from
+`idx_swi_dedup` **and** from the one self-clearing check. So it is not terminal, not
+deduplicated, and not retractable — 9 of the 11 items were duplicates under 2 `item_key`s for
+exactly this reason. It behaves as a landfill and needs a decision of its own.
+
+**Not implemented, deliberately.** `CheckResult` is shared by 50 checks and the runner sits on
+the dispatch path; changing either from inside a bug lane is the `bugs_closed/124` shape. Filed
+as a design question, with the 909/497/206 measurement stated as a measure of *ignorance* — not
+a claim that 497 items are false.
