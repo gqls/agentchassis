@@ -1517,3 +1517,51 @@ all 12 calculator(s) reproduce their golden values in the ASSEMBLED page
 
 Screenshots confirm it: the guide page is pixel-identical above the fold, plus
 the new footer. Nothing is written to the database yet.
+
+### Shipping, and where it stopped (2026-08-02, later)
+
+Three writes made, in order, each verified before the next:
+
+1. **Chrome replaced** (`load_chrome.py --apply`). Its own validation refused the
+   first run — reporting the two assets as **403** thirty seconds after curl had
+   returned 200 for both. Cause: Cloudflare answers `Python-urllib` with 403
+   regardless of method. Logged in WRONG_CALLS and LANDMINES; the discrimination
+   test is that `style.css` must be 200 and `styles.css` 404 from the same code
+   path. After the fix: all checks pass, chrome written, and **all 27 pages
+   confirmed still byte-identical to their stored bytes** — the inertness claim
+   measured rather than asserted.
+2. **`tool-loan-repayment` updated** (`update_component.py --apply`, old row kept
+   in `content_components_bak_20260802_decomp`). `d2ea795b` → `66a8e45d`.
+3. **`guide-hidden-loan-fees` decomposed** — verbatim row replaced by one
+   `ported-prose` row, in one transaction, after backing up all 27 pages' rows to
+   `page_components_bak_20260802_decomp`. Guide first, deliberately: no calculator,
+   so a mistake costs prose rather than arithmetic.
+
+All 27 pages then dry-ran clean through the loader: **63 rows, no refusals.**
+
+> **BLOCKED, and it is a queue-position problem rather than a fault.** Writing the
+> rows deploys nothing; a render has to run. The `page_rerender` item was filed
+> and — after being promoted out of `detected`, which is a status nothing ever
+> dispatches — sits `triaged` behind **325 older items** across 12 sites. The
+> selector orders `created_at ASC, priority ASC`, so priority only breaks an exact
+> tie and a same-day item is a next-day deploy: items completing at 10:37 today
+> were created 19 hours earlier.
+>
+> `dispatch-queue-depth.sh` says the lane is CLEAR, and it is right. **A clear
+> lane and a 19-hour wait are not contradictory**, and treating this as bug 029 /
+> 030 would be a misdiagnosis — this is depth, not a stall.
+>
+> The documented bypass (`049b_deploy_single_page.sh`, a direct `page-rerender`
+> orchestrate) needs permission to run a kcat pod in the `kafka` namespace, which
+> this session does not have. Escalated to the owner rather than worked around.
+
+> **MISSTEP — `Council-Submitted: pending-see-next-commit`, and the RUNBOOK
+> already calls this out.** §9 of that file records the identical mistake on
+> `e6a8bb63b` ("a placeholder, and a mistake"), and I repeated it on both of
+> today's commits. Worse, it was pointless: every file in both commits is under
+> `docs/`, which the council gate refuses client-side, so **no submission was
+> owed at all** and the right number of trailers was zero. Forward-only forbids an
+> amend, so it stands as a wrong trailer in the log; `098` will not resolve it,
+> and it asserts nothing false, but it is noise in exactly the field that exists
+> to carry signal. The rule I should have applied: the trailer is for
+> `platform/`, `internal/`, `pkg/` — check the pathspec before typing one.

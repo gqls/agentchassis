@@ -556,3 +556,82 @@ of a sentence (`…Personal Loans is <strong>7.9%</strong>.`) which collapses to
 `… is 7.9% .`, while the component holds the same sentence as one text node. With
 spaces intact that reads as text lost AND text added simultaneously, and it is
 neither.
+
+## Shipping the decomposition (2026-08-02)
+
+Three writes, in increasing order of consequence. **Each is verified before the
+next**, and the first two are inert by ordering, so only the third can change a
+live page.
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/decompose
+export DECOMP_WORK=/tmp/decomp-work
+
+python3 load_chrome.py --check            # fetches every referenced asset, requires 200
+python3 load_chrome.py --apply            # then confirm all 27 pages still byte-identical
+
+python3 update_component.py --check tool-loan-repayment
+python3 update_component.py --apply tool-loan-repayment
+
+python3 load_decomposition.py --init                       # prose component + backup of ALL 27
+python3 load_decomposition.py --check <page>
+python3 load_decomposition.py --apply <page>               # THIS changes the page
+python3 verify_shipped.py <page>                           # after the rerender lands
+python3 load_decomposition.py --restore <page>             # if it does not
+```
+
+**Prove the chrome load changed nothing before going further.** It is only inert
+while every page still ships verbatim, so this is a real check, not a formality:
+
+```bash
+while IFS='|' read -r name url; do
+  live=$(curl -s "https://loancalculator.co.uk$url" | md5sum | cut -d' ' -f1)
+  s=$(stat -c%s "$DECOMP_WORK/stored/$name.html"); head -c $((s-1)) "$DECOMP_WORK/stored/$name.html" > /tmp/s
+  [ "$live" != "$(md5sum /tmp/s | cut -d' ' -f1)" ] && echo "DIFFERS $url"
+done < "$DECOMP_WORK/pages.txt"   # expect: nothing
+```
+
+**`update_component.py` is not optional and not cosmetic.** The shipped page is
+built from the file either way, but `content_components.html_template` is what the
+NEXT re-render reads. Leave it stale and the homepage silently regains two dated
+market-rate claims the owner was told it would not carry — invisible until it
+ships.
+
+### Getting the page actually rendered — the queue is ~325 items deep
+
+Writing the rows does not deploy anything. Two routes, and on 2026-08-02 neither
+was quick:
+
+| route | how | why it did not work that day |
+|---|---|---|
+| `page_rerender` work item | insert with `page_id` in **the spec AND the column** | see below |
+| direct orchestrate | `cta_link_integrity/scripts/049b_deploy_single_page.sh <page_id> <site_id> <domain>` | needs permission to `kubectl run` a kcat pod in the `kafka` namespace |
+
+⚠ **A work item filed `status='detected'` is NEVER dispatched.** The dispatcher
+selects `status IN ('triaged','approved')`. Nothing promotes `detected` — 31
+`page_rerender` items filed by `discovery` have sat in it since 2026-07-14. File
+as `triaged`, or promote immediately:
+```sql
+UPDATE site_work_items SET status='triaged' WHERE id='<id>' AND status='detected';
+```
+
+⚠ **`priority` is very nearly dead in the site selector.** `find_dispatchable_site`
+orders `created_at ASC, priority ASC, id ASC`, so priority is consulted only to
+break an exact `created_at` tie. A new item goes to the BACK regardless of
+priority, behind every older one fleet-wide:
+```sql
+SELECT count(*) FROM site_work_items WHERE status IN ('triaged','approved')
+  AND created_at < (SELECT created_at FROM site_work_items WHERE id='<id>');
+```
+On 2026-08-02 that returned **325**, and items being processed had been created
+~19 hours earlier — so a same-day item is a next-day deploy. `dispatch-queue-depth.sh`
+reported the lane CLEAR at the same moment, and it was right: this is queue
+POSITION, not a stall, and the two need different responses. Do not diagnose a
+stall on this evidence.
+
+**Assemble-only is the branch you want.** Fire with NO `reason`: the workflow
+takes `render_page`, which stitches the STORED `rendered_html` — no LLM, authored
+content untouched. A `reason` of `section_data_resolved`/`image_landed` takes
+`rerender_sections`, which re-renders every section from `content_data` through
+the CURRENT template; that is safe here (every decomposed row has non-NULL
+`content_data`, checked) but it is not the minimal path.
