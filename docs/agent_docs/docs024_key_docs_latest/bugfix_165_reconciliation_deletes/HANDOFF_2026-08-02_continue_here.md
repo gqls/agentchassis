@@ -226,3 +226,21 @@ and so did `domain-research-classifier`. The claim came from
 ~24 hours. **I filed that landmine and then reasoned from the same table hours
 later, in the same session.** Knowing the class does not protect you; changing the
 source does. The durable answer took two queries against tables with no reaper.
+
+### 9a. Docs added after this handoff was written (2026-08-02, evening)
+
+- **`SUMMARY_2026-08-02_all_four_guarded_and_the_lane_closes.md`** — the milestone
+  read-out, and the **last** in this lane's series. A NEW file, not an edit of
+  `SUMMARY_2026-08-01_site_a_live_and_proven.md`; the series is the record. Start
+  here if you want the whole story in plain prose.
+- **`RUNBOOK` R-V1** — prove a fix reached the running binary, plus the three check
+  spellings that lied to us (an `-E` pattern one character short reading as "not
+  shipped"; a negative control matching 20 unrelated queries; `IS NULL` on a
+  `NOT NULL DEFAULT ''` column). All three fail toward *"your change is not
+  there"*, which is why they survive a careful reader.
+- **`RUNBOOK` R-V2** — check a bug citation *before* writing it, and why the
+  fleet-wide instance must not be swept by script.
+- `NOTES` §14 and §15 — the post-roll verification tables and the measurement of
+  the stale-citation class.
+
+Nothing above section 9 has been edited at any point.

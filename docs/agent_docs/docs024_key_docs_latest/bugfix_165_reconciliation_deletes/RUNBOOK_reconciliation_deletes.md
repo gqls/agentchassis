@@ -451,3 +451,75 @@ ORDER BY o.created_at DESC LIMIT 3;
 Running `nav-updater` to completion would have re-rendered site components and
 created one rerender work item **per page** — real fleet cost, for weaker
 evidence than the genuine run already recorded. Look before you spend.
+
+## R-V1 — prove a fix reached the running binary (and the three spellings that lie)
+
+Used after every roll in this lane. `R-V1` rather than `R-B3` because the two `R-B2`
+headings above are already a numbering collision between two sessions.
+
+```sh
+PODS=$(kubectl get pods -n ai-persona-system -l app=agent-chassis -o name | cut -d/ -f2)
+for POD in $PODS; do
+  echo "== $POD $(kubectl get pod -n ai-persona-system $POD -o jsonpath='{.spec.containers[0].image}')"
+  kubectl exec -n ai-persona-system $POD -- sh -c 'strings /app/agent-chassis > /tmp/s.txt
+    printf "  POS  <string your change ADDED>    : "; grep -cF "<added>"   /tmp/s.txt || true
+    printf "  NEG  <string your change REMOVED>  : "; grep -cF "<removed>" /tmp/s.txt || true
+    printf "  CTRL <a symbol known live already> : "; grep -c  "<control>" /tmp/s.txt || true'
+done
+```
+
+**Every replica, every time** — `logs deploy/X` and a single `exec` both read ONE
+pod of N.
+
+### The three spellings that produced a wrong answer here, all silently
+
+1. **A regex whose character count is off reads as "not shipped".** Checking for
+   `site_id = $1 AND status IN ('active', ...)` with `grep -cE "... IN .active."`
+   returned **0**. The binary has `('active'` — **two** characters between `IN ` and
+   `active`, the paren *and* the quote. Corrected: 4. **Use `grep -cF` with the
+   literal wherever you can**, and reach for `-E` only when you genuinely need a
+   pattern. When you must, confirm with `grep -n` and *read the line* — that is what
+   exposed this one.
+2. **A negative control that is not unique to your change is not a control.**
+   `^[[:space:]]+AND status IN` returned **20**: twenty other queries open a line
+   that way for other tables. A negative control must name a string only *your* edit
+   could have removed. Prove it first — `git grep -c "<removed>" HEAD` should be 0.
+3. **`IS NULL` on a `NOT NULL DEFAULT ''` column is always false.**
+   `site_work_items.handler_agent` (migration 217, `bugs_closed/078`) — the
+   no-handler state is `''`, and `claim_work_item_action.go:159` treats `''` and NULL
+   identically on purpose. `SELECT handler_agent IS NULL` reads as "a handler IS
+   set". **Print the value, do not test it:**
+   `SELECT quote_literal(handler_agent), length(handler_agent) FROM ...`.
+
+**The direction they all fail in is the trap.** Each returns a clean, plausible,
+*discouraging* answer — "your change is not there", "that claim is false" — which is
+exactly what you are already half-expecting during verification. A false negative
+here does not feel like an error; it feels like diligence.
+
+## R-V2 — check a bug citation before you write it
+
+Bug numbers are one sequence across `bugs_open/` and `bugs_closed/`, so **the
+directory in a citation is a status claim**, not just a path.
+
+```sh
+# before writing bugs_open/NNN anywhere — comment, string, doc or commit message:
+git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep -E "/NNN_"
+```
+
+Audit the files you have touched:
+
+```sh
+for n in $(grep -rhoE 'bugs_open/[0-9]+' --include=*.go <paths> | grep -oE '[0-9]+' | sort -u); do
+  loc=$(git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep -E "/${n}_" | cut -d/ -f1 | head -1)
+  [ "$loc" != "bugs_open" ] && echo "STALE $n -> $loc"
+done
+```
+
+⚠ **`head -1` is a known limitation, not an oversight.** Several numbers name two
+unrelated cases (016, 017, 083, 112, 131, 146 …) and can legitimately exist in
+*both* directories, so this reports an upper bound for those and is exact for the
+rest. That ambiguity is also why the fleet-wide instance of this **must not be swept
+by script** — only the author knows which case they meant.
+
+**And for a claim about an agent, ask the live row, never the seed or a doc:**
+`SELECT is_active, deleted_at IS NOT NULL FROM agent_definitions WHERE type='X' AND COALESCE(is_snapshot,false)=false;`
