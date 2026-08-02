@@ -1,28 +1,56 @@
 # 154 — `tool-improver` dies at its first step on items raised by `tool-auditor`: `input_data.component_id resolved to nil`
 
 **Filed:** 2026-07-30.
-**Status: FIXED, REVIEWED and LIVE — BOTH halves — 2026-07-31 (session "bugfix 19").
-OPEN on ONE unwitnessed step: no dispatch has been observed clearing `load_tool`.**
+**Status: CLOSED 2026-08-02 — fixed, reviewed, live AND witnessed (session "bugfix 19").**
+The one step that kept this open — a live dispatch clearing `load_tool` — was
+observed end-to-end at 09:39–09:41Z today, via a **natural** dispatch (the
+platform picking the site itself, not a hand-fired loop). Evidence below.
 Workstream docs + cold-start:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_154_work_item_routing_columns/`
 (start at `HANDOFF_2026-07-31_continue_here.md`).
+
+> **CLOSING EVIDENCE (2026-08-02, all captured live — `orchestration_states`
+> retention is minutes, so do not expect to re-query it):**
+> - What unblocked the dispatch: the site had been **starved by the selector**,
+>   not ignored by chance — `find_dispatchable_site` was deterministically
+>   lowest-UUID-first and gamesdesign was 14th of 17 (see `sql_for_agents/284`,
+>   WDS-002's fairness lever, owner-directed the same morning). First tick after
+>   284 applied (09:36:35Z) picked gamesdesign — 3½ days unpicked, selected in
+>   under 2 minutes; `ee745694` was rank 2 in that same batch.
+> - `ee745694` (tool-auditor-raised, **column-only** — the exact shape that was
+>   structurally undispatchable): claimed 09:39:56Z by `build-dispatch-loop`,
+>   `complete` 09:40:53Z, `error` NULL, in 57 seconds. The old failure mode died
+>   ~1s after claim with `input_data.component_id resolved to nil` on the row.
+> - Orchestration `76c1a3e1` (`tool-improver`): created 09:40:13Z,
+>   `current_step = complete`, `status = COMPLETED`, `error` NULL,
+>   `collected_data->'__step_error'` EMPTY (checked — the bugfix-099 landmine:
+>   a failed step can hide under COMPLETED), and collected_data holds outputs
+>   for **every** step: `load_tool`, `tool_data`, `check_tool_found`,
+>   `load_brand_context`, `improve_tool`, `improved_html`, `update_component`,
+>   `create_rerender_item`, `compose_note`/`append_note`, `update_result`.
+> - Artefact, not just status (the WDS-004 rule): `content_components`
+>   `c345a76a` (`tool-bayesian-ranking`) rewritten `updated_at 09:40:48.17Z`,
+>   `html_template` 10,520 chars — full shape, not a truncated fragment; and
+>   `section_edit` item `3971205f` created **by tool-improver** at 09:40:48.41Z.
+> - `sql_for_agents/278` (this bug's config half) was applied 2026-07-31 with
+>   snapshot + pre-flight; the bugfix_150 lane's bulk-apply hazard note below is
+>   therefore lapsed — 278 re-runs as a 0-row no-op (guarded WHERE).
 
 > **Both halves are live.** Go: pod-grepped `new=1 ctrl=1` on both replicas of
 > `v1.0.1219` **and** re-verified after a further roll to `v1.0.1223`. Config:
 > `sql_for_agents/278` applied — pre-flight count 1, `snapshot_agent` →
 > `099b51e0-…`, `UPDATE 1`, mapping verified reading `current_item.component_id`.
 >
-> **Why it is still open.** Test item `ee745694` (`tool-bayesian-ranking`,
+> **Why it was still open at the time (SUPERSEDED — closed 2026-08-02, see the
+> closing evidence above).** Test item `ee745694` (`tool-bayesian-ranking`,
 > gamesdesign.co.uk) was reset to `triaged`/attempt 0 on the owner's explicit
-> go-ahead and has **not been picked up in ~50 minutes of watching**. Fleet
-> dispatch has claimed nothing anywhere for **70 minutes** (DB-computed) — a gap
-> comparable to the ~90-minute quiet spell already observed earlier the same day,
-> so **not yet outside known behaviour**, but at the top of it.
-> **This is a statement about dispatch, not about this fix**: the change is in
+> go-ahead and had **not been picked up across ~12 hours of watching**.
+> **This was a statement about dispatch, not about this fix**: the change is in
 > `LoadWorkItemsAction`, which runs *after* a site is selected and cannot prevent
-> a selection. **Do not re-diagnose it from this file** — I read the same
-> measurement wrong twice (see `WRONG_CALLS.md`), and the discriminator is simply
-> whether the gap passes ~90 min and keeps climbing.
+> a selection. The eventual explanation was neither of the two I reached for
+> while watching (see `WRONG_CALLS.md` — I misread the same measurement twice):
+> the site was **deterministically starved** by `find_dispatchable_site`'s
+> UUID-first sort, fixed by `sql_for_agents/284` (WDS-002).
 
 > **THE `[INFERRED]` BLOCK BELOW WAS RIGHT ABOUT THE SPLIT AND WRONG ABOUT WHERE
 > THE DEFECT LIVES.** It guessed the other creators "carry enough in

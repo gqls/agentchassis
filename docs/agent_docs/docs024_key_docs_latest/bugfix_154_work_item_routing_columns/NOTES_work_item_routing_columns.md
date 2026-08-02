@@ -560,3 +560,50 @@ Observed while here, not acted on: the scheduler pre_query gates on
 `find_dispatchable_site` accepts both statuses and ignores locks — an asymmetry
 that can skip a tick for approved-only queues. `[UNMEASURED]` whether any site is
 currently affected; noting, not fixing.
+
+---
+
+## 2026-08-02 — WITNESSED, and CLOSED. The last step happened by itself, 4 minutes after 284 went live
+
+Timeline, all times UTC, all captured live (orchestration retention is minutes):
+
+- 09:36:35 — first tick under the new selector claims gamesdesign's rank-1 item
+  (`2c3a203a`, nav_drift). The site nothing had picked in 3½ days, picked in
+  under 2 minutes.
+- 09:39:56 — `ee745694` claimed (rank 2, same batch). **This is the witness item:
+  tool-auditor-raised, column-only, the exact structurally-undispatchable shape.**
+- 09:40:13 — orchestration `76c1a3e1` (`tool-improver`) starts.
+- 09:40:48.17 — `content_components c345a76a` (`tool-bayesian-ranking`)
+  rewritten: `html_template` 10,520 chars (full shape, not a truncation stub).
+- 09:40:48.41 — `section_edit` item `3971205f` created BY tool-improver.
+- 09:40:53 — work item `complete`, `error` NULL. 57 seconds end-to-end, on the
+  item class that used to die ~1s after claim with `resolved to nil`.
+- Orchestration final state: `current_step=complete`, `COMPLETED`, `error` NULL,
+  `__step_error` EMPTY (checked deliberately — bugfix-099's landmine), outputs
+  present for EVERY step incl. `load_tool`, `improved_html`, `update_component`.
+
+Three verification missteps worth their lines, none fatal:
+1. My watcher's orchestration query used `id` — the column is
+   `orchestration_id`. The watcher still caught the work-item transition; the
+   orchestration evidence came from the manual follow-up. Schema first, even in
+   throwaway watchers: the trap fired twice more in the same session
+   (`scheduled_tasks.name` not `task_name`, `content_components` not
+   `site_components.name`).
+2. My first "batch progress" query filtered `NOT IN (terminal…)` but forgot
+   `needs_human_review` is non-terminal-non-dispatchable — it showed 6 irrelevant
+   rows and none of the ones I wanted. The filter defined the world again.
+3. The component lookup tried `site_components` by two different columns (0 rows
+   both) before asking `information_schema` where `component_id`-shaped things
+   live. Tool components are `content_components` rows; `site_work_items
+   .component_id` points at `content_components.id` for improve_tool items.
+
+**CLOSED**: file moved to `bugs_closed/` in this commit (both paths named — the
+git-mv landmine). The closing bar "fixed AND live" was met 07-31; today adds
+"witnessed", which is what the file said it was waiting for.
+
+Left open deliberately, recorded in WDS-014 and the bug file: the
+`entity_id`/`affected_url` siblings (fix on first failing row), the `page_id`
+asymmetry (218-row blast radius, owner call), tool-auditor's site-scoped
+`item_key` (own measurement wanted), and the scheduler pre_query asymmetry noted
+above (`triaged`-only + `locked_at`, vs the selector's `triaged|approved`, no
+lock check) `[UNMEASURED]`.

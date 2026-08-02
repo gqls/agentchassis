@@ -1,5 +1,12 @@
 # HANDOFF — `bugs_open/154`, continue here
 
+> **CLOSED 2026-08-02 — nothing to continue.** The observation this handoff was
+> waiting for happened at 09:39–09:41Z: `ee745694` dispatched naturally (after
+> `sql_for_agents/284` fixed the dispatcher's UUID-first starvation, WDS-002)
+> and ran end-to-end — past `load_tool`, component rewritten, no step error.
+> File now at `bugs_closed/154_…`; closing evidence in its header and in
+> `NOTES_…` (2026-08-02 entries). This doc is kept as the 07-31 state record.
+
 **Written 2026-07-31 ~22:05 by session "bugfix 19" (`9de5c96a`).**
 Cold-start doc: read this first, then `NOTES_…` for the evidence trail.
 

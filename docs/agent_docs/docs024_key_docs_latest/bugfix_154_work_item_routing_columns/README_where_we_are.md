@@ -171,3 +171,26 @@ have been trying to witness for two days is second in line in that very batch.
 So the last step of this whole bug is now minutes-to-hours away, happening the
 way it should: the platform doing its own work under a fair rule, not us
 poking it by hand.
+
+---
+
+2026-08-02, later the same morning. Done — witnessed, and closed.
+
+Four minutes after the fair-queue rule went live, the platform picked the
+starved site on its own, worked down its queue, and reached our test item. The
+job that used to die on its very first step ran all the way through in under a
+minute: it loaded the tool, improved it, saved the improved version, and queued
+the page update that follows. We checked the actual saved artefact, not just
+the status flag — the tool's component was genuinely rewritten, full-sized, at
+the exact moment the job's log says it saved it.
+
+That was the one thing this ticket was still waiting for: seeing it happen for
+real, not arguing from the code that it should. It happened the right way too —
+the platform doing its own work under the new fair rule, nothing hand-fired.
+
+The ticket is closed and moved to the done pile. A few genuinely separate
+questions stay written down where the next person will find them: two sibling
+fields that would hit the same bug if anyone ever starts using them (fix is
+written down, waiting for a first real case), a question about whether page
+routing should work the same way (touches 218 old items, so it's an owner
+call), and a small labelling defect in how the auditor names its work items.
