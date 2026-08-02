@@ -209,7 +209,8 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 
 	verdict := evaluatePruneFloor(floor, m.Cohorts)
 	reason := verdict.Reason("save_page_sections: overwrite",
-		fmt.Sprintf("page %q", pageName), savePageSectionsFloorKey)
+		fmt.Sprintf("page %q", pageName), savePageSectionsFloorKey,
+		"the whole save was refused, so nothing was written either and the sections already stored still stand")
 
 	if verdict.Clamped {
 		params.Logger.Warn("save_page_sections: prune_floor_ratio out of range — clamped",

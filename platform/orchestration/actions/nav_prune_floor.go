@@ -206,7 +206,8 @@ func enforceNavPruneFloor(ctx context.Context, params ActionParams, siteID uuid.
 	subject := fmt.Sprintf("site %s", domain)
 
 	verdict := evaluatePruneFloor(floor, m.Cohorts)
-	reason := verdict.Reason("populate_nav_tables: rebuild", subject, populateNavFloorKey)
+	reason := verdict.Reason("populate_nav_tables: rebuild", subject, populateNavFloorKey,
+		"the whole rebuild was refused, so nothing was written either and the nav already stored still stands")
 
 	if verdict.Clamped {
 		params.Logger.Warn("populate_nav_tables: prune_floor_ratio out of range — clamped",

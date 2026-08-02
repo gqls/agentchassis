@@ -22,7 +22,7 @@ func TestEvaluatePruneFloorAllowsAHealthyRun(t *testing.T) {
 		{Label: "distinct paths", Confirmed: 530, Stored: 531},
 	})
 	if !v.Allowed {
-		t.Fatalf("healthy run refused: %s", v.Reason("op", "subject", "prune_floor_ratio"))
+		t.Fatalf("healthy run refused: %s", v.Reason("op", "subject", "prune_floor_ratio", "nothing else happened"))
 	}
 	if len(v.Failing) != 0 {
 		t.Fatalf("expected no failing cohorts, got %d", len(v.Failing))
@@ -53,7 +53,8 @@ func TestEvaluatePruneFloorRefusesATruncatedRun(t *testing.T) {
 	if v.Failing[0].Label != "kind=func" {
 		t.Fatalf("expected the worst cohort (kind=func, 38%%) first, got %q", v.Failing[0].Label)
 	}
-	r := v.Reason("index_code_symbols: prune", "gqls/agentchassis at abc12345", "prune_floor_ratio")
+	r := v.Reason("index_code_symbols: prune", "gqls/agentchassis at abc12345", "prune_floor_ratio",
+		"the rows this run did not confirm are retained and a later run that sees the whole corpus will prune them")
 	for _, want := range []string{"REFUSED", "gqls/agentchassis at abc12345", "1160 of 3048",
 		"NOTHING was deleted", "prune_floor_ratio", "0 disables"} {
 		if !strings.Contains(r, want) {
@@ -87,8 +88,8 @@ func TestEvaluatePruneFloorRefusesAWipedKindThatTheTotalWouldHide(t *testing.T) 
 	if len(v.Failing) != 1 || v.Failing[0].Label != "kind=interface" {
 		t.Fatalf("expected exactly kind=interface to fail, got %+v", v.Failing)
 	}
-	if !strings.Contains(v.Reason("op", "s", "k"), "0 of 33") {
-		t.Errorf("refusal must name the numbers; got %s", v.Reason("op", "s", "k"))
+	if !strings.Contains(v.Reason("op", "s", "k", "nothing else happened"), "0 of 33") {
+		t.Errorf("refusal must name the numbers; got %s", v.Reason("op", "s", "k", "nothing else happened"))
 	}
 }
 
@@ -100,7 +101,7 @@ func TestEvaluatePruneFloorNewCohortCannotRefuse(t *testing.T) {
 		{Label: "kind=doc", Confirmed: 0, Stored: 0},
 	})
 	if !v.Allowed {
-		t.Fatalf("an empty cohort refused the prune: %s", v.Reason("op", "s", "k"))
+		t.Fatalf("an empty cohort refused the prune: %s", v.Reason("op", "s", "k", "nothing else happened"))
 	}
 }
 
@@ -114,7 +115,7 @@ func TestEvaluatePruneFloorDisabledIsAllowedAndSaysSo(t *testing.T) {
 	if !v.Disabled {
 		t.Fatal("a disabled floor must report itself as disabled")
 	}
-	r := v.Reason("index_code_symbols: prune", "repo", "prune_floor_ratio")
+	r := v.Reason("index_code_symbols: prune", "repo", "prune_floor_ratio", "the rows this run did not confirm are retained and a later run that sees the whole corpus will prune them")
 	if !strings.Contains(r, "DISABLED") || !strings.Contains(r, "unchecked") {
 		t.Errorf("a disabled guard must say so loudly; got %s", r)
 	}
@@ -161,8 +162,8 @@ func TestEvaluatePruneFloorNoCohortsAllows(t *testing.T) {
 	if !v.Allowed {
 		t.Fatal("an empty corpus refused its first prune")
 	}
-	if !strings.Contains(v.Reason("op", "s", "k"), "nothing stored") {
-		t.Errorf("expected the empty case to say so; got %s", v.Reason("op", "s", "k"))
+	if !strings.Contains(v.Reason("op", "s", "k", "nothing else happened"), "nothing stored") {
+		t.Errorf("expected the empty case to say so; got %s", v.Reason("op", "s", "k", "nothing else happened"))
 	}
 }
 
@@ -171,7 +172,7 @@ func TestPruneFloorCohortListCaps(t *testing.T) {
 	for i := 0; i < 9; i++ {
 		cohorts = append(cohorts, pruneCohort{Label: "kind=k" + string(rune('a'+i)), Confirmed: 0, Stored: 10})
 	}
-	r := evaluatePruneFloor(0.5, cohorts).Reason("op", "s", "k")
+	r := evaluatePruneFloor(0.5, cohorts).Reason("op", "s", "k", "nothing else happened")
 	if !strings.Contains(r, "and 3 more") {
 		t.Errorf("expected the cohort list to cap at 6 and say how many were elided; got %s", r)
 	}
@@ -204,5 +205,70 @@ func TestPruneFloorFromConfig(t *testing.T) {
 				t.Errorf("got (%v, %v), want (%v, %v)", got, present, tc.want, tc.present)
 			}
 		})
+	}
+}
+
+// TestRefusalAftermathIsCallerSuppliedNotBorrowed pins the fix for the defect
+// bugs_open/165 caught live: the refusal sentence used to end with a fixed clause
+// carrying the code-index consumer's aftermath — "a later run that sees the whole
+// corpus will prune them" — which is FALSE for the three consumers that refuse
+// their whole operation. An operator on oufe.com was told on 2026-08-02 to wait
+// for a tidy-up that will never come.
+//
+// The negative assertion is the load-bearing half. Asserting only that the
+// caller's own clause appears would still pass if the borrowed sentence were
+// appended alongside it.
+func TestRefusalAftermathIsCallerSuppliedNotBorrowed(t *testing.T) {
+	v := evaluatePruneFloor(0.5, []pruneCohort{{Label: "nav items", Confirmed: 8, Stored: 24}})
+	if v.Allowed {
+		t.Fatal("test premise broken: 8 of 24 must refuse at a 0.5 floor")
+	}
+
+	r := v.Reason("populate_nav_tables: rebuild", "site oufe.com", "prune_floor_ratio",
+		"the whole rebuild was refused, so nothing was written either and the nav already stored still stands")
+
+	for _, want := range []string{
+		"REFUSED", "site oufe.com", "nav items 33% (8 of 24)",
+		"NOTHING was deleted",
+		"the nav already stored still stands",
+		"0 disables",
+	} {
+		if !strings.Contains(r, want) {
+			t.Errorf("refusal text is missing %q; got:\n%s", want, r)
+		}
+	}
+
+	// The borrowed clause must be GONE, not merely joined by a truer one.
+	for _, forbidden := range []string{
+		"a later run that sees the whole corpus will prune them",
+		"are retained",
+	} {
+		if strings.Contains(r, forbidden) {
+			t.Errorf("a consumer that refuses its whole operation must not promise a later tidy-up; found %q in:\n%s", forbidden, r)
+		}
+	}
+}
+
+// TestRefusalWithNoAftermathDegradesToATrueSentence covers the empty case. It must
+// shorten, not fall back to some consumer's clause: "NOTHING was deleted." alone is
+// true for every possible consumer, and a borrowed clause is not. This is what
+// makes a future fifth consumer's silence safe rather than silently wrong.
+func TestRefusalWithNoAftermathDegradesToATrueSentence(t *testing.T) {
+	v := evaluatePruneFloor(0.5, []pruneCohort{{Label: "kind=func", Confirmed: 1, Stored: 10}})
+	r := v.Reason("some_action: prune", "thing", "prune_floor_ratio", "")
+
+	if !strings.Contains(r, "NOTHING was deleted.") {
+		t.Errorf("the empty aftermath must still assert the invariant; got:\n%s", r)
+	}
+	if strings.Contains(r, "NOTHING was deleted;") {
+		t.Errorf("an empty aftermath must not leave a dangling separator; got:\n%s", r)
+	}
+	if strings.Contains(r, "later run") || strings.Contains(r, "still stands") {
+		t.Errorf("the empty case must borrow NO consumer's aftermath; got:\n%s", r)
+	}
+	// The remedy must survive the shortening — a refusal a reader cannot act on
+	// gets overridden by someone deleting the guard.
+	if !strings.Contains(r, "0 disables") {
+		t.Errorf("the remedy must survive an empty aftermath; got:\n%s", r)
 	}
 }

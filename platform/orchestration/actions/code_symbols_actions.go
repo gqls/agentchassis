@@ -343,7 +343,11 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 			recordPruneRefusal(ctx, params.DB, logger, repo, pruneReason)
 		} else {
 			verdict := evaluatePruneFloor(floor, cohorts)
-			pruneReason = verdict.Reason("index_code_symbols: prune", fmt.Sprintf("%s at %s", repo, shortSHA(commitSHA)), "prune_floor_ratio")
+			// This consumer skips ONLY the prune — the run's own writes stand and
+			// the unconfirmed rows really are tidied by a later full run. It is the
+			// one caller for which that clause is true; see Reason's doc comment.
+			pruneReason = verdict.Reason("index_code_symbols: prune", fmt.Sprintf("%s at %s", repo, shortSHA(commitSHA)), "prune_floor_ratio",
+				"the rows this run did not confirm are retained and a later run that sees the whole corpus will prune them")
 			pruneDetail = verdict.Detail()
 			switch {
 			case !verdict.Allowed:

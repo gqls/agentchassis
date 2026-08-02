@@ -166,7 +166,31 @@ func evaluatePruneFloor(floor float64, cohorts []pruneCohort) pruneFloorVerdict 
 //
 // It always states the numbers and always states the remedy. A refusal a reader
 // cannot act on gets overridden by someone deleting the guard.
-func (v pruneFloorVerdict) Reason(op, subject, configKey string) string {
+//
+// aftermath IS REQUIRED, AND IT IS THE ONE CLAUSE THAT IS NOT A PROPERTY OF THE
+// FLOOR. It says what the caller did with the rows it declined to prune, and the
+// four consumers genuinely differ:
+//
+//   - 135 (index_code_symbols) SKIPS ONLY THE PRUNE. The run's own writes stand,
+//     the unconfirmed rows are kept, and a later run that sees the whole corpus
+//     does tidy them up.
+//   - A, B and C REFUSE THE WHOLE OPERATION — delete and insert are one
+//     transaction, so refusing half would double the rows. Nothing is written,
+//     nothing is tidied later, and the artefact already stored still stands.
+//
+// This used to be a fixed clause carrying 135's aftermath ("the rows this run
+// did not confirm are retained and a later run that sees the whole corpus will
+// prune them"), which made the sentence FALSE for three of the four consumers:
+// it told those operators to wait for a clean-up that will never come. Observed
+// live on oufe.com, 2026-08-02, in the site B induction (bugs_open/165). It is a
+// required parameter rather than an optional one precisely so a fifth consumer
+// cannot inherit somebody else's aftermath by saying nothing — the failure mode
+// here is a default that is silently wrong, not a caller who forgets.
+//
+// An EMPTY aftermath degrades to the shorter sentence rather than to a default,
+// because "NOTHING was deleted." on its own is true for every possible consumer
+// and a borrowed clause is not.
+func (v pruneFloorVerdict) Reason(op, subject, configKey, aftermath string) string {
 	switch {
 	case v.Disabled:
 		return fmt.Sprintf("%s: floor DISABLED by config (%s=0) for %s — pruning whatever this run did not re-confirm, unchecked",
@@ -174,10 +198,14 @@ func (v pruneFloorVerdict) Reason(op, subject, configKey string) string {
 	case v.Allowed:
 		return fmt.Sprintf("%s: floor cleared for %s (%s=%.2f); %s", op, subject, configKey, v.Floor, v.cohortList(v.Cohorts))
 	default:
+		tail := ""
+		if aftermath != "" {
+			tail = "; " + aftermath
+		}
 		return fmt.Sprintf("%s: REFUSED for %s — this run re-confirmed too little of what is stored (%s=%.2f): %s. "+
-			"NOTHING was deleted; the rows this run did not confirm are retained and a later run that sees the whole corpus will prune them. "+
+			"NOTHING was deleted%s. "+
 			"If the shrinkage is genuine, re-run with %s lowered (0 disables the floor entirely).",
-			op, subject, configKey, v.Floor, v.cohortList(v.Failing), configKey)
+			op, subject, configKey, v.Floor, v.cohortList(v.Failing), tail, configKey)
 	}
 }
 

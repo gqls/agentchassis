@@ -165,7 +165,8 @@ func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, 
 	}
 
 	verdict := evaluatePruneFloor(floor, m.Cohorts)
-	reason := verdict.Reason("extract_and_sync_links: resync", subject, linkRegistryFloorKey)
+	reason := verdict.Reason("extract_and_sync_links: resync", subject, linkRegistryFloorKey,
+		"the whole resync was refused, so nothing was written either and the link registry already stored still stands")
 
 	if verdict.Clamped {
 		params.Logger.Warn("extract_and_sync_links: prune_floor_ratio out of range — clamped",
