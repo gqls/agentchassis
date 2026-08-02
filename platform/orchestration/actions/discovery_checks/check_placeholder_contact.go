@@ -1,6 +1,57 @@
 // FILE: platform/orchestration/actions/discovery_checks/check_placeholder_contact.go
 //
 // CHANGE: Added pc.locked_at IS NULL to skip locked components.
+//
+// ---------------------------------------------------------------------------
+// 2026-08-02, bugs_open/140 — THIS CHECK DID NOT KNOW THE PLACEHOLDERS OUR OWN
+// COMPONENT LIBRARY SHIPPED.
+//
+// The check is named for this defect and raises work items titled "Fabricated
+// contact info on page X". Its pattern set was written from the generic
+// placeholder conventions — 555 numbers, example.com, "123 Main St", Lorem
+// ipsum, John Doe — and was never reconciled against the literals the platform's
+// own `contact-info` component substituted when a site's datum was absent:
+//
+//	{{if .phone}}…{{else}}+1234567890{{end}}                  <- tel: href
+//	{{if .phone_display}}…{{else}}+1 (234) 567-890{{end}}
+//	{{if .hours}}{{.hours}}{{else}}Monday – Friday, 9am – 6pm{{end}}
+//
+// Measured over every unlocked page_components row fleet-wide, 2026-08-02:
+// the nine existing patterns COMBINED matched 1 row; the fabricated hours
+// matched 8 and the dummy phone 1, and neither had a pattern. So the detector
+// was blind to 8 of the 9 live fabrications, and the 8 it missed came from our
+// own library. vetcomparison.uk served `tel:+1234567890` and the invented hours
+// on the wire that morning.
+//
+// Migration 287 removed those fallbacks at source (the component's input_schema
+// already declared "on_missing": "skip_field" — the template simply disobeyed
+// it). The patterns below are the backstop for a REINTRODUCTION.
+//
+// WHY A LITERAL ROSTER AND NOT "rendered but absent from content_data".
+// That join looks like the roster-free test and it is UNSOUND here. RenderContext
+// carries top-level `Email` and `Phone` fields (component_library.go, json tags
+// "email"/"phone"), and contextToInterfaceMap derives the scalar half of the
+// template contract from those tags — so a component can legitimately render a
+// phone that its own content_data does not hold, because the value came from site
+// identity. idea.uk is exactly that shape. A content_data join would flag it as
+// fabricated. Do not "improve" this check into that test without first proving
+// every path a contact datum can arrive by; an over-firing guard gets switched
+// off, and then it protects nothing (the calibration lesson in
+// component_write_guard.go's header).
+//
+// COST OF A FALSE POSITIVE, stated: a business that genuinely publishes
+// "Monday – Friday, 9am – 6pm" in exactly that form, en dash and all, raises one
+// work item for a human to dismiss. That is the same trade the 555 patterns
+// already make, and it is cheap. The alternative — matching the SHAPE of business
+// hours — would flag every site that states real ones.
+//
+// THE ROSTER DRIFTS BY CONSTRUCTION, and a script is what stops it: a new
+// component with a new invented default is invisible here until someone adds the
+// literal. scripts/check_placeholder_fallbacks.py reads the LIVE component
+// library and flags any active template whose {{else}} branch asserts a fact
+// rather than a label, so the source of new entries is measured rather than
+// remembered. Run it after any component seed.
+// ---------------------------------------------------------------------------
 
 package discovery_checks
 
@@ -103,8 +154,11 @@ func findPlaceholderContact(dctx DiscoveryCheckContext) ([]placeholderContactFin
 		           WHEN pc.rendered_html ~* 'Lorem ipsum' THEN 'lorem_ipsum'
 		           WHEN pc.rendered_html ~* '\+1[- ]?\(0{3}\)' THEN 'fake_phone_000'
 		           WHEN pc.rendered_html ~* '(?:John|Jane)\s+(?:Doe|Smith)\s' THEN 'placeholder_name'
+		           -- bugs_open/140: the dummies our OWN component library shipped.
+		           WHEN pc.rendered_html ~* '\+?1[- ]?\(?234\)?[- ]?567[- ]?890' THEN 'library_dummy_phone'
+		           WHEN pc.rendered_html ~* 'Monday\s*[-–—]\s*Friday,?\s*9am\s*[-–—]\s*6pm' THEN 'library_fabricated_hours'
 		       END as pattern,
-		       SUBSTRING(pc.rendered_html FROM '(?i)((?:555[- ]?\d{3}[- ]?\d{4}|\(555\)[^<]{0,20}|[\w.]+@example\.(?:com|org|net)|info@(?:company|business|yourdomain|domain)\.\w+|123\s+(?:Main|First|Business)\s+(?:St|Street|Ave|Road)[^<]{0,30}|\[(?:your|insert|company|phone|email|address)[^\]]*\]|Lorem ipsum[^<]{0,30}))') as matched
+		       SUBSTRING(pc.rendered_html FROM '(?i)((?:555[- ]?\d{3}[- ]?\d{4}|\(555\)[^<]{0,20}|[\w.]+@example\.(?:com|org|net)|info@(?:company|business|yourdomain|domain)\.\w+|123\s+(?:Main|First|Business)\s+(?:St|Street|Ave|Road)[^<]{0,30}|\[(?:your|insert|company|phone|email|address)[^\]]*\]|Lorem ipsum[^<]{0,30}|\+?1[- ]?\(?234\)?[- ]?567[- ]?890|Monday\s*[-–—]\s*Friday,?\s*9am\s*[-–—]\s*6pm))') as matched
 		FROM page_components pc
 		JOIN pages p ON pc.page_id = p.id
 		WHERE p.site_id = $1
@@ -120,6 +174,8 @@ func findPlaceholderContact(dctx DiscoveryCheckContext) ([]placeholderContactFin
 		      OR pc.rendered_html ~* 'Lorem ipsum'
 		      OR pc.rendered_html ~* '\+1[- ]?\(0{3}\)'
 		      OR pc.rendered_html ~* '(?:John|Jane)\s+(?:Doe|Smith)\s'
+		      OR pc.rendered_html ~* '\+?1[- ]?\(?234\)?[- ]?567[- ]?890'
+		      OR pc.rendered_html ~* 'Monday\s*[-–—]\s*Friday,?\s*9am\s*[-–—]\s*6pm'
 		  )
 		ORDER BY p.name, pc.position
 	`, dctx.SiteID)
