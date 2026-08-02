@@ -176,3 +176,19 @@ then --apply; formatted 12,519→14,023 bytes, has_positioning=true read back), 
 tool + blog builds are themselves the attempt-2 probes — brand-new pages written with
 seeded specs, against a measured 0/0 marker baseline. Spec marker appearing in any new
 page = the #16 proof, on new writes, no regeneration needed.
+
+**19:26-19:45Z — two missteps and a filed-bug finding during the release.**
+(1) MY OWN hold poller deferred MY OWN three tool items within 20s of insertion — the
+poller v2 window (to 04:17Z) outlived its purpose and its filter included
+needs_tool_recreation. The class is `your-action-silences-your-own-detector`, inverted:
+my guard silenced my release. Poller killed, items re-triaged.
+(2) pkill self-kill AGAIN, new variant: the bracket trick guarded the pkill PATTERN but
+the same command line carried the PLAIN path as a sed operand — pkill matched that,
+exit 144, sed never ran. Rule: a pkill compound must not contain the plain target
+string ANYWHERE in the command line.
+(3) The blog pages are bugs 015-class, with evidence: page-build-handler no-op ("no
+sections ready to build", attempt 2), and a sibling site's /blog/news-post.html shows
+the same plan-template page unbuilt fleet-wide. The live 015 retype arm would flip
+blog-index section-index→news-index and hand the blog to the NEWS pipeline — which
+wires ongoing news generation onto a shadow site. OWNER CALL, not a silent wiring;
+blog items left in needs_human_review meanwhile. Tools re-triaged 19:26Z, watcher on.
