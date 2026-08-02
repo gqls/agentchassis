@@ -1,3 +1,16 @@
+-- ═══ 2026-08-02 CORRECTION — read before re-running anything below ═══
+-- Operative statements in this file are now in line with the LIVE row. Two fixes:
+-- (1) `wi.domain` does not exist on site_work_items (column is `pipeline`, WDS-003
+--     rename). The live row lost the filter via the migration-067 section below,
+--     but the INSERT strings here still carried it — a re-seed would have produced
+--     a trigger erroring at RUNTIME on its first find_dispatchable_site tick, and
+--     the pre_query UPDATE further down would have REINTRODUCED the dead column
+--     into the live scheduler row.
+-- (2) find_dispatchable_site now selects the OLDEST-WAITING site, not the lowest
+--     UUID — see sql_for_agents/284 for the change, rationale and the starvation
+--     measurement (WDS-002 fairness lever, owner-directed 2026-08-02).
+-- The two `-- backup` psql dumps are HISTORY and deliberately untouched.
+
 -- build-pipeline-trigger agent definition
 -- Heartbeat agent that processes the build queue and triggers dispatch loops.
 --
@@ -60,7 +73,7 @@ INSERT INTO agent_definitions (
                          "find_dispatchable_site": {
                              "action": "query_database",
                              "config": {
-                                 "query": "SELECT DISTINCT ON (wi.site_id) wi.site_id::text, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.status IN (''triaged'', ''approved'') AND wi.domain = ''build'' AND wi.attempt_count < wi.max_attempts AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'') ORDER BY wi.site_id, wi.priority ASC LIMIT 1",
+                                 "query": "SELECT wi.site_id::text, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.status IN (''triaged'', ''approved'') AND wi.attempt_count < wi.max_attempts AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'') ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1",
                                  "output_format": "object"
                              },
                              "next_step": "check_has_site",
@@ -228,7 +241,7 @@ INSERT INTO agent_definitions (
                          "find_dispatchable_site": {
                              "action": "query_database",
                              "config": {
-                                 "query": "SELECT DISTINCT ON (wi.site_id) wi.site_id::text, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.status IN (''triaged'', ''approved'') AND wi.domain = ''build'' AND wi.attempt_count < wi.max_attempts AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'') ORDER BY wi.site_id, wi.priority ASC LIMIT 1",
+                                 "query": "SELECT wi.site_id::text, s.domain FROM site_work_items wi JOIN sites s ON s.id = wi.site_id WHERE wi.status IN (''triaged'', ''approved'') AND wi.attempt_count < wi.max_attempts AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status = ''claimed'') ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1",
                                  "output_format": "object"
                              },
                              "next_step": "check_has_site",
@@ -478,15 +491,20 @@ SET max_concurrent = 4, interval_seconds = 60
 WHERE name = 'build-pipeline-trigger';
 
 -- The pre_query only returns 1 site — change to return more
+-- (2026-08-02: brought in line with the LIVE row — wi.domain does not exist on
+-- site_work_items, the column is `pipeline`; the live pre_query also gates on
+-- s.locked_at IS NULL. The old text here would have REINTRODUCED the dead
+-- column if re-run.)
 UPDATE scheduled_tasks
 SET pre_query = '
 SELECT COUNT(*)::text as pending_sites
 FROM sites s
-WHERE EXISTS (
+WHERE s.locked_at IS NULL
+  AND EXISTS (
     SELECT 1 FROM site_work_items wi
     WHERE wi.site_id = s.id
       AND wi.status = ''triaged''
-      AND wi.domain = ''build''
+      AND wi.pipeline = ''build''
       AND wi.attempt_count < wi.max_attempts
 )
 HAVING COUNT(*) > 0

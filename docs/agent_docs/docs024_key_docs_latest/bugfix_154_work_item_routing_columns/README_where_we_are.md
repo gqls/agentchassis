@@ -133,3 +133,41 @@ thing the job did.
 I have not closed the ticket yet, for that reason. Closing it now would mean
 claiming a result I have not seen, and the whole point of that step is that it is
 the one thing nobody has actually witnessed.
+
+---
+
+2026-08-02. The waiting is over, and it ended by fixing the thing that made the
+waiting indefinite rather than by waiting harder.
+
+A correction to my own paragraph above first: I said the dispatcher picks sites
+"fairly arbitrarily" and that gamesdesign "will come up". Both wrong. When we
+finally read the picking query, it always chooses the eligible site whose ID
+sorts lowest — a fixed order, like being 14th in a queue where the first 13
+places are permanently reserved. gamesdesign could only ever be picked if all 13
+sites ahead of it happened to be busy at the same instant. It had the oldest
+waiting work in the entire fleet — three and a half days — and that counted for
+nothing, because the picker never looked at waiting time. It was never going to
+"come up".
+
+The owner looked at this and made two calls: fix the picking rule, and while in
+that file, remove a leftover reference to a database column that no longer
+exists (harmless to the live system, but a trap for anyone rebuilding from the
+seed file — the rebuilt trigger would crash on its first run).
+
+For the picking rule the owner chose, from four options laid out with their
+trade-offs: serve whoever has waited longest. It is the simplest rule that
+guarantees nobody waits forever — new work always joins the back of the queue,
+so old work always gets to the front eventually. Priorities still decide the
+order of jobs within a site, exactly as before; they never worked across sites
+and still don't, deliberately — making them work across sites is a policy
+decision for another day, written down where it can be found.
+
+The change went in just after 9:30 this morning, with the platform's own
+snapshot taken first so it can be undone in one step. Within two minutes, the
+very next scheduling tick picked gamesdesign — the site nothing had picked in
+three and a half days. Its queue is now being worked through, and the item we
+have been trying to witness for two days is second in line in that very batch.
+
+So the last step of this whole bug is now minutes-to-hours away, happening the
+way it should: the platform doing its own work under a fair rule, not us
+poking it by hand.

@@ -15978,3 +15978,29 @@ generated items was the PASS condition for adoption fidelity, and the FAIL condi
 false while I was using its context to imply the claim was true. When a figure is a
 success criterion, say *for which claim* — a number that passes one claim can refute the
 neighbouring one.
+
+## 2026-08-02 — bugfix_154 — I called a deterministic selection "unpredictable" because I had not read the one query that decides it
+
+**The claim (committed into NOTES at `3e6591835`):** gamesdesign "may be picked in
+the next tick or not this week; **nothing in the queue's state predicts it**,
+because the selection does not consider queue age or depth."
+
+**What was false:** the second clause was right (no age/depth term) and I let it
+carry the first, which is wrong. `find_dispatchable_site` is `DISTINCT ON
+(site_id) … ORDER BY wi.site_id … LIMIT 1` — deterministically lowest-UUID-first.
+The queue's state predicts the pick EXACTLY: gamesdesign (14th of 17 by UUID) is
+selected iff all 13 lower-UUID sites are simultaneously busy-or-drained. I had
+even cited WDS-002's "effectively arbitrary" line — which is itself wrong the
+same way, and I repeated it instead of checking it.
+
+**What caught it:** the owner asking "what is starvation mode?" — answering
+honestly required reading the selector, which took one command and refuted both
+my "unpredictable" and the register's "arbitrary" in the same minute.
+
+**The cheap check that would have caught it:** the claim names a mechanism
+("the selection does not consider…") — so read the mechanism before
+characterising it. One `SELECT default_config #>> '{…,query}'`. A sentence of the
+form "nothing predicts X" is a claim about a FUNCTION, and the function was one
+query away the whole time. Same family as re-running-someone's-SQL blindness:
+I described the selector's behaviour from its observed output (two watches of
+non-selection) without reading its text.

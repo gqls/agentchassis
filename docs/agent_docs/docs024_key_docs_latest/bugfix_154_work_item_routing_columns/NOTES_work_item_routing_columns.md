@@ -486,3 +486,77 @@ blast radius, not in confidence:
 
 I am NOT taking option 1 unilaterally: the earlier go-ahead was for one item on
 one site, and five items including live-page rerenders is a different action.
+
+---
+
+## 2026-08-02 — starvation MEASURED, then FIXED: `284` makes dispatch oldest-waiting-first (owner-directed)
+
+Asked "what is starvation mode?", I read the live selector instead of answering
+from the register — and the `[INFERRED]` marker above is discharged, twice over:
+it was starvation, and it was **worse than WDS-002 said**. `DISTINCT ON (site_id)`
+forces `ORDER BY` to lead with `site_id`, so the old order was not "effectively
+arbitrary" — it was **deterministically lowest-UUID-first**. `priority` never
+influenced which site won (it picked each site's representative row and was then
+projected away). Measured: 17 eligible sites; gamesdesign 14th by UUID, holding
+the fleet's OLDEST eligible item (3d10h, double the runner-up); robot-hands
+(1st by UUID) winning every idle tick on a priority-**110** item ahead of a
+priority-**5** item at mortgagecalculator.
+
+> **CORRECTED 2026-08-02:** my 07-31 entry above says "nothing in the queue's
+> state predicts" when gamesdesign would be picked. False — the state predicts it
+> exactly: picked iff all 13 lower-UUID sites are simultaneously busy-or-drained.
+> I wrote "unpredictable" without having read the one query that decides it.
+> Caught by reading `find_dispatchable_site`'s SQL (one command). → WRONG_CALLS.
+
+**Owner ruling (this session): fix the starvation gap, and rid the trigger of the
+dead `wi.domain` column.** Fairness rule chosen by the owner from four costed
+options (FIFO / aging / round-robin / priority-major): **oldest-waiting-first**.
+
+**The fix — `sql_for_agents/284`, applied 2026-08-02 ~09:36Z, config-only (no
+image dependency, live immediately):**
+
+- New selector: `ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC LIMIT 1`,
+  `DISTINCT ON` dropped (redundant under LIMIT 1 — the oldest item's site IS the
+  site whose oldest item is oldest). Output shape unchanged.
+- Starvation-free by construction: a new item's `created_at` ≥ any waiter's, so
+  no future arrival outranks a waiting item indefinitely — bounded wait, not
+  better odds. Tiebreaks are load-bearing: batch inserts share one transaction
+  timestamp, so `created_at` alone is not a total order.
+- Deliberately NOT done: cross-site priority (never existed; priority-major
+  recreates starvation keyed on priority, aging needs an owner-agreed scale) and
+  any change to within-site claim order (still priority ASC, created_at ASC).
+- Known bounded bias, stated up front: within-site claiming is priority-major, so
+  a site keeps its old fairness key until its oldest item drains and can be
+  re-picked whenever idle — bounded by ceil(backlog/5) batches, biased toward the
+  most-starved site, which is the correct direction.
+- Apply evidence: pre-flight count **1** (md5-guarded against the exact old query
+  text), `snapshot_agent` → `bb291e23-…` reason "WDS-002 fairness ORDER BY (284)",
+  `UPDATE 1`, verify shows the new text. Idempotent: the md5 guard makes a re-run
+  (or a bulk `--apply` by another session) a 0-row no-op.
+- **Council: not submitted** — the gate's scope is `platform/`,`internal/`,`pkg/`
+  and refuses docs/config-only submissions client-side; this change has no Go
+  half. Owner authorised directly in-session. Register updated in the same
+  commit (WDS-002 entry, which also corrects its own "effectively arbitrary").
+
+**Verified at the artefact, first tick:** 09:36:35Z, `build-dispatch-loop`
+claimed `2c3a203a` (`nav_drift`) on **gamesdesign.co.uk** — the exact site the
+new ORDER BY test-run predicted, after 3½ days of never being selected. The
+target item `ee745694` is rank 2 in the same batch.
+
+**Second finding, same session — the dead column in seed 052 (owner's first
+instruction).** `site_work_items.domain` was renamed `pipeline` (WDS-003); live
+config lost the filter via migration 067 and the live scheduler pre_query reads
+`wi.pipeline` — but seed `052_build_pipeline_trigger.sql` still carried
+`wi.domain = 'build'` in BOTH operative INSERT strings (a re-seed would produce a
+trigger that errors at RUNTIME on its first tick, not at INSERT time) **and in an
+operative `UPDATE scheduled_tasks` statement that would REINTRODUCE the dead
+column into the live scheduler row if re-run**. All three corrected; the two
+`-- backup` psql dumps and migration-067's own removal machinery keep their
+`wi.domain` text deliberately (history, and the pattern being removed). Fleet
+check: no LIVE `agent_definitions` row references `wi.domain` anywhere.
+
+Observed while here, not acted on: the scheduler pre_query gates on
+`status='triaged'` only (not `approved`) and `s.locked_at IS NULL`, while
+`find_dispatchable_site` accepts both statuses and ignores locks — an asymmetry
+that can skip a tick for approved-only queues. `[UNMEASURED]` whether any site is
+currently affected; noting, not fixing.
