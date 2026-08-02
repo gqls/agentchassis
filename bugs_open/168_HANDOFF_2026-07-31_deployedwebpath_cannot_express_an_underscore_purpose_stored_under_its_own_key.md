@@ -12,7 +12,74 @@ latent, the risk set is empty, and nothing is broken. It becomes Medium the mome
 somebody adds one asset purpose.
 **Class:** a shared helper with an inexpressible case, guarded at each call site
 individually rather than at the helper.
-**Status:** OPEN, unowned. **Do not "fix" this in a bug patch** — see § Scope.
+~~**Status:** OPEN, unowned. **Do not "fix" this in a bug patch** — see § Scope.~~
+
+---
+
+> # STATUS 2026-08-02 — FIXED AT HEAD, NOT LIVE. Still OPEN, deliberately.
+>
+> Taken by the **`bugfix_168_deployed_asset_path`** lane. Fix committed; it is Go, so it
+> is **inert until a chassis image built after that commit is rolled**. By this repo's own
+> bar — *fixed AND live* — the case stays in `bugs_open/` until pod-verified, because the
+> defect is still reproducible in the running fleet until it ships.
+>
+> **Working docs:** `docs/agent_docs/docs024_key_docs_latest/bugfix_168_deployed_asset_path/`
+> · **Register:** IMG-067 · **Council gate:** corr `abd9b119-d274-43bf-a03f-cf45bfb6b881`
+> · **Diagnosis loop:** corr `ae9404bd-dab7-4606-ade3-c439ebda93af` (**REFUTED** — read § below)
+>
+> **What shipped:** `storage.DeployedAssetPath` is now THE derivation, resolved through by
+> the writer (`deploy_image_asset_action`) *and* all six readers, with `BrandHeadAssetPaths`
+> folded in as its **input**. This went beyond fix candidate 1, which fixes only the readers:
+> the derivation had been implemented **twice** — once in the deployer's Phase 2E branch,
+> once in the helper — kept in step by a doc comment claiming to "mirror" the other. They did
+> agree; the defect was that *nothing made them*. `check_image_url_404`'s
+> `IsBrandHeadPurpose` branch is removed as redundant. `IsBrandHeadPurpose` itself is kept:
+> it stays correct for the different question *"which table holds the evidence it is
+> deployed?"*, which is what `check_undeployed_assets` uses it for, unchanged.
+>
+> **To verify after the next roll** (both replicas — `bugs_open/153`): positive control
+> `grep -c "derived asset deploy path"`; **negative control**
+> `grep -c "Phase 2E: derived variant deploy path"`, expect **0**. Then re-run the 128
+> lane's whole-fleet assertion below. Only then move this file to `bugs_closed/`.
+>
+> ## CORRECTION to this file's own § "The mechanism, in four lines of the helper"
+>
+> **The stated mechanism is too broad, and fix candidate 2 below would have made things
+> worse.** This file says an underscore purpose stored with `asset_key = purpose` "yields a
+> path with an underscore where the deployed file has a hyphen". For a file published by
+> `deploy_image_asset` that is **false**: `deploy_image_asset_action.go:185` branches on the
+> *identical* condition (`if assetKey != "" && assetKey != purpose`), so the deployed name
+> **also** carries the underscore. Helper and deployer agree.
+>
+> So **candidate 2 ("apply the `_`→`-` swap unconditionally") is a trap** — it would make the
+> helper disagree with the actual writer for every future underscore purpose, manufacturing
+> the drift this bug exists to remove. It is struck through below rather than deleted.
+>
+> The true mechanism is one level up, and it is what makes this framework-scope: **there are
+> TWO writers**, and `(asset_key, purpose)` cannot express which one published a row —
+> `deploy_image_asset_action` (purpose/asset_key derived) and `derive_brand_head_assets_action`
+> (fixed literals `favicon.png` / `og-card.png`). Every call site therefore had to learn the
+> brand-head exception separately: 016b §9 case 7.
+>
+> ## The diagnosis loop returned REFUTED, and that is recorded rather than buried
+>
+> Filed before asserting a structural cause, per the owner ruling of 2026-07-31. **Its
+> correct and useful point:** `injectBrandHeadTags` hardcodes both literals and never calls
+> `DeployedWebPath` nor reads `assets.url`, so there is **no render-time failure today** —
+> independently corroborating this file's own "Low today, latent" severity. That is why the
+> fix is framed as removing a drift mechanism, not repairing an outage.
+>
+> **Where the loop was wrong, and why REFUTED was not read as "no defect":** it asserted
+> *"DeployedWebPath's only found call site (queryresolve.go)"*. There are **six**, and one of
+> them — `check_image_url_404` — is exactly where the two derivations meet, which is why the
+> 128 lane had to add a brand-head branch there to avoid reporting a 404 for the og card and
+> favicon of every site in the fleet. Its refutation rested on an incomplete census.
+>
+> **Genuine side-finding from the loop, NOT fixed here:** several active `favicon`/`og_card`
+> rows carry `assets.url = '/assets/images/input-data.asset-key.jpg'`, an unresolved template
+> literal. Already documented in `check_undeployed_assets.go` and owned by `bugs_open/152`.
+
+---
 
 ---
 
@@ -70,17 +137,26 @@ one call site guarded, the root mechanism left generic — is 016b §9's case 7.
 
 ## Fix candidates, ordered by what closes the door
 
+> **DONE 2026-08-02 — candidate 1, extended to fold the WRITER in as well.** Candidate 1
+> alone fixes the readers and leaves the deployer as a second implementation of the same
+> rule. Candidate 2 is **struck out as actively harmful** (see the correction banner above).
+> Candidate 3 is not needed once the helper is total. Candidate 4 was the status quo.
+
 1. **Teach `DeployedWebPath` the brand-head map** — return `BrandHeadAssetPaths[purpose]`
    when `IsBrandHeadPurpose(purpose)`. Makes the helper correct for every input, so no
    caller can get it wrong. ⚠ It **inverts** the existing
    `TestDeployedWebPathCannotExpressBrandHeadPaths`, which pins the current behaviour
    deliberately *"so the duplication cannot outlive its reason"* — that test is the 142
    lane's, and its inversion is a conversation with them, not a silent edit.
-2. **Make the inexpressible case unrepresentable**: apply the `_`→`-` swap
+2. ~~**Make the inexpressible case unrepresentable**: apply the `_`→`-` swap
    unconditionally in `DeployedWebPath` rather than only on the else branch, so purpose
    and asset_key are normalised identically. Smaller, but it changes the path for any
    *future* underscore purpose without telling its owner, which is the same class of
-   surprise in the other direction.
+   surprise in the other direction.~~
+   **STRUCK 2026-08-02 — this is worse than the bug.** The deployer skips the swap on the
+   same condition, so doing it unconditionally here makes the helper disagree with the file
+   that is actually committed. It does not "change the path for a future underscore purpose
+   without telling its owner"; it makes the path **wrong**. See the correction banner.
 3. **Refuse the input**: a check (or a DB constraint) forbidding an asset stored with
    `asset_key = purpose` where the purpose contains `_`. Does not fix the helper, but
    turns a silent wrong path into a loud refusal at the only moment anyone is watching.

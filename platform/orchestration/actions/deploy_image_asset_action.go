@@ -168,37 +168,37 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
-	// Phase 2E: derive per-variant deploy path from asset_key when distinct
-	// from purpose. The default path returned by DownloadOptimizeAndPrepare
-	// is purpose-keyed (e.g. assets/images/hero.jpg) — without this, every
-	// hero variant would overwrite the canonical hero file.
+	// Where the file goes. storage.DeployedAssetPath is THE derivation — the
+	// same function the render-time resolvers and the discovery checks call —
+	// so the path this action commits to and the path a page references cannot
+	// drift (bugs_open/168). It subsumes what used to be spelled out here as
+	// the "Phase 2E" branch:
 	//
-	// Convention: lowercase asset_key with underscores → hyphens, in the
-	// same directory and with the same extension as the purpose-derived
-	// default.
-	// Examples:
-	//   asset_key=hero,       purpose=hero → no change (assets/images/hero.jpg)
-	//   asset_key=hero_about, purpose=hero → assets/images/hero-about.jpg
-	//   asset_key=logo,       purpose=logo → no change (assets/images/logo.png)
+	//   asset_key=hero,       purpose=hero    → assets/images/hero.jpg      (unchanged)
+	//   asset_key=hero_about, purpose=hero    → assets/images/hero-about.jpg
+	//   asset_key=logo,       purpose=logo    → assets/images/logo.png      (unchanged)
+	//   asset_key=og_card,    purpose=og_card → assets/images/og-card.png
 	//
+	// The last line is the one behaviour change: brand-head artefacts are
+	// published by derive_brand_head_assets_action under fixed names, and this
+	// action used to derive `og_card.png` for them — a path the site head never
+	// references. Nothing routes brand-head work here today (check_undeployed
+	// _assets excludes those purposes from the generic half and files
+	// needs_brand_head_assets instead), so the change corrects a latent
+	// disagreement rather than moving live traffic.
+	//
+	// DownloadOptimizeAndPrepare has already set Paths to the purpose-derived
+	// default; for every non-brand-head purpose this reproduces it exactly.
 	// The explicit deploy_path override below still wins if set.
-	if assetKey != "" && assetKey != purpose {
-		ext := filepath.Ext(processed.Paths.Filename)
-		pathDir := filepath.Dir(processed.Paths.FilePath)
-		// Shared convention (storage.AssetKeyFilename) so the committed path
-		// and the render-time resolver's DeployedWebPath cannot drift.
-		derivedFilename := storage.AssetKeyFilename(assetKey, ext)
-		derivedPath := filepath.Join(pathDir, derivedFilename)
-		processed.Paths = storage.AssetPaths{
-			FilePath:    derivedPath,
-			RelativeURL: "/" + derivedPath,
-			Filename:    derivedFilename,
-		}
-		logger.Info("Phase 2E: derived variant deploy path",
+	derived := storage.DeployedAssetPath(assetKey, purpose)
+	if derived.FilePath != processed.Paths.FilePath {
+		logger.Info("derived asset deploy path",
 			zap.String("asset_key", assetKey),
 			zap.String("purpose", purpose),
-			zap.String("derived_path", derivedPath))
+			zap.String("default_path", processed.Paths.FilePath),
+			zap.String("derived_path", derived.FilePath))
 	}
+	processed.Paths = derived
 
 	// Allow deploy_path to override the output path.
 	// Purpose still controls resize dimensions; deploy_path controls where the file goes.

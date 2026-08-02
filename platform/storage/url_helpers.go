@@ -158,26 +158,95 @@ func AssetKeyFilename(assetKey, extension string) string {
 	return strings.ReplaceAll(assetKey, "_", "-") + extension
 }
 
-// DeployedWebPath returns the web-accessible path a generated asset is
-// committed to and served from (e.g. /assets/images/hero-home.jpg), derived
-// from its asset_key and purpose. It mirrors deploy_image_asset's path
-// derivation: purpose fixes the directory and extension; asset_key (when it
-// differs from purpose) fixes the filename. Use this — NOT assets.url, which
-// holds an expiring presigned S3 URL — whenever a template needs to reference
-// a deployed generated asset.
+// assetPathsForFilename builds the three path forms for a file published into
+// the shared asset directory. One spelling of the directory join, so the
+// relative URL and the repo file path cannot disagree about the leading slash.
+func assetPathsForFilename(filename string) AssetPaths {
+	filePath := fmt.Sprintf("%s/%s", DefaultAssetBasePath, filename)
+	return AssetPaths{
+		RelativeURL: "/" + filePath,
+		FilePath:    filePath,
+		Filename:    filename,
+	}
+}
+
+// brandHeadAssetPathsFor expands a brand-head purpose's one declared published
+// path (BrandHeadAssetPaths) into the three forms. Derived rather than declared
+// a second time — the map stays the single spelling of the filename.
+func brandHeadAssetPathsFor(purpose string) (AssetPaths, bool) {
+	published, ok := BrandHeadAssetPaths[purpose]
+	if !ok {
+		return AssetPaths{}, false
+	}
+	return assetPathsForFilename(published[strings.LastIndex(published, "/")+1:]), true
+}
+
+// DeployedAssetPath is THE derivation of where a generated asset is committed
+// and served from. It is the one function both halves of the contract resolve
+// through — the writer (deploy_image_asset_action) and every reader — so the
+// path a file is written to and the path a page references cannot drift.
+//
+// WHY IT IS ONE FUNCTION AND NOT TWO THAT MATCH (bugs_open/168). Until
+// 2026-08-02 the deployer implemented this derivation itself and DeployedWebPath
+// implemented it again, kept in step by a doc comment claiming to "mirror" it.
+// They did agree — but agreement maintained by comment is the drift class this
+// repo keeps paying for, and the shape had already produced one near-miss: the
+// 128 lane nearly shipped a check reporting a 404 for the og card and favicon of
+// every site in the fleet.
+//
+// TWO WRITERS, and that is the fact the old signature could not express.
+//
+//   - deploy_image_asset_action publishes most assets. purpose fixes the
+//     directory and extension; asset_key (when it differs from purpose) fixes
+//     the filename, with underscores rendered as hyphens by AssetKeyFilename.
+//   - derive_brand_head_assets_action publishes favicon.png and og-card.png
+//     directly, under its own fixed names — `og_card` publishes as `og-card.png`,
+//     with a hyphen the purpose-derived spelling does not have.
+//
+// A caller holding (asset_key, purpose) cannot tell which writer published the
+// row, so before this the brand-head case had to be learned separately at every
+// call site — 016b §9 case 7, one call site guarded and the root mechanism left
+// generic. It is answered here instead, once.
+//
+// NOT CLOSED, and saying so beats implying otherwise: deploy_image_asset's
+// `deploy_path` input overrides everything below and is invisible from
+// (asset_key, purpose). No Go code sets it and it appears in zero orchestrations
+// in history (audited 2026-07-31, check_image_url_404.go), so it is an unused
+// passthrough — but a caller that starts setting it has left this contract.
+//
+//	DeployedAssetPath("hero_home", "hero").RelativeURL == "/assets/images/hero-home.jpg"
+//	DeployedAssetPath("logo", "logo").RelativeURL      == "/assets/images/logo.png"
+//	DeployedAssetPath("og_card", "og_card").RelativeURL == "/assets/images/og-card.png"
+func DeployedAssetPath(assetKey, purpose string) AssetPaths {
+	if paths, ok := brandHeadAssetPathsFor(purpose); ok {
+		return paths
+	}
+	_, _, _, ext := GetImageConfig(purpose)
+	base := BuildAssetPaths(purpose, ext)
+	if assetKey == "" || assetKey == purpose {
+		return base
+	}
+	// Keep base's directory and extension; swap the purpose-based filename for
+	// the asset_key-based one.
+	dotExt := base.Filename[strings.LastIndex(base.Filename, "."):]
+	return assetPathsForFilename(AssetKeyFilename(assetKey, dotExt))
+}
+
+// DeployedWebPath returns the site-relative path a generated asset is served
+// from (e.g. /assets/images/hero-home.jpg). Use this — NOT assets.url, which
+// for most rows holds an expiring presigned S3 URL — whenever a template or a
+// check needs to reference a deployed generated asset.
+//
+// It is the RelativeURL of DeployedAssetPath; read that function's comment for
+// the contract, including the brand-head case it now answers for you (callers
+// no longer need to branch on IsBrandHeadPurpose to ask "where is this served
+// from?" — that predicate remains correct for the different question of "which
+// table holds the evidence that it is deployed?").
 //
 //	DeployedWebPath("hero_home", "hero") == "/assets/images/hero-home.jpg"
 //	DeployedWebPath("logo", "logo")      == "/assets/images/logo.png"
 func DeployedWebPath(assetKey, purpose string) string {
-	_, _, _, ext := GetImageConfig(purpose)
-	base := BuildAssetPaths(purpose, ext)
-	if assetKey == "" || assetKey == purpose {
-		return base.RelativeURL
-	}
-	// Keep base's directory and extension; swap the purpose-based filename for
-	// the asset_key-based one (same as deploy_image_asset's Phase 2E branch).
-	dotExt := base.Filename[strings.LastIndex(base.Filename, "."):]
-	return "/" + DefaultAssetBasePath + "/" + AssetKeyFilename(assetKey, dotExt)
+	return DeployedAssetPath(assetKey, purpose).RelativeURL
 }
 
 // ImagePurposes defines valid image purposes and their configurations
@@ -246,20 +315,31 @@ var ImagePurposes = map[string]struct {
 // bugs_open/143 when this went in, and two sessions in one file is the one
 // collision no hook can prevent.
 //
-// WHY NOT DeployedWebPath (the obvious reuse). It cannot express these paths —
-// measured, not assumed:
+// CORRECTED 2026-08-02 (bugs_open/168) — this comment used to end by explaining
+// WHY NOT DeployedWebPath, on the ground that the generic helper "cannot express
+// these paths". That was true and is no longer: DeployedAssetPath now consults
+// this map first, so the helper answers the brand-head case correctly and the
+// two are no longer rival answers to one question.
+//
+// The measurement that justified the split is kept, because it is what the
+// helper is now protected against re-deriving. Before the fix:
 //
 //	DeployedWebPath("og_card", "og_card") == "/assets/images/og_card.png"   underscore, file is og-card.png
 //	DeployedWebPath("",        "og_card") == "/assets/images/og_card.png"   same
 //	DeployedWebPath("og_card", "")        == "/assets/images/og-card.jpg"   right name, wrong extension
 //
-// No argument pair yields "/assets/images/og-card.png". The hyphen-swap in
+// No argument pair yielded "/assets/images/og-card.png". The hyphen-swap in
 // AssetKeyFilename fires only when assetKey differs from purpose, and for these
-// two artefacts it does not. `favicon` comes out right purely because it has no
-// underscore to disagree about. So DeployedWebPath — despite documenting itself
-// as the convention's single source of truth — is silently wrong for exactly one
-// of the two brand-head purposes, which is why these are declared rather than
-// derived. Pinned by TestDeployedWebPathCannotExpressBrandHeadPaths.
+// two artefacts it does not; `favicon` came out right purely because it has no
+// underscore to disagree about.
+//
+// So this map is still the one DECLARATION of these filenames — it has to be,
+// because they are not derivable from the purpose — but it is now an INPUT to
+// the shared derivation rather than a parallel one. Pinned by
+// TestDeployedWebPathExpressesBrandHeadPaths (this package) and
+// TestBrandHeadAssetPathsMatchTheDeriver (discovery_checks), which together
+// close the loop on both writers: the deployer shares the function, and the
+// deriver's literals are read out of its source and compared against this map.
 //
 // Keys are `assets.purpose` values; values are site-relative, leading slash
 // included, exactly as they appear in the rendered head.

@@ -357,40 +357,39 @@ func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface
 // resolves through — so the check and the renderers cannot drift: if a writer
 // starts emitting a different path, this predicate moves with it.
 //
-// TWO SOURCES, and the branch between them is load-bearing. Brand-head assets
-// (favicon, og_card) do NOT go through DeployedWebPath: their published filenames
-// are not derivable from the purpose — og_card publishes as og-card.png with a
-// HYPHEN, where DeployedWebPath would return og_card.png with an underscore. That
-// is precisely the drift storage.BrandHeadAssetPaths was added to end
-// (bugs_open/142), and its own doc comment says callers reasoning about "is this
-// deployed?" must branch on storage.IsBrandHeadPurpose. Getting this wrong is not
-// a near miss: it would report a 404 for the og card and the favicon on every
-// site in the fleet, both of which are referenced from the head on every page.
+// UPDATED 2026-08-02 (bugs_open/168). This function used to carry its own
+// `storage.IsBrandHeadPurpose` branch, because the helper could not express
+// og-card.png and would have returned og_card.png with an underscore — reporting
+// a 404 for the og card and the favicon of every site in the fleet, both
+// referenced from the head on every page. That branch is gone: storage.
+// DeployedAssetPath consults storage.BrandHeadAssetPaths itself, so both writers
+// are answered by one call. Having each consumer learn the exception separately
+// was 016b §9 case 7, and this was the call site that nearly got it wrong.
 //
-// HOW FAR THAT DRIFT GOES — audited exhaustively 2026-07-31, because a council
+// HOW FAR THE DRIFT GOES — audited exhaustively 2026-07-31, because a council
 // seat was right to ask whether adopting DeployedWebPath as ground truth inherits
-// a defect patched at one call site and left generic everywhere else. It does not,
-// and here is the whole of the argument, so nobody has to re-derive it:
+// a defect patched at one call site and left generic everywhere else. It did not,
+// and the argument is kept so nobody has to re-derive it:
 //
-//  1. The divergence has exactly ONE mechanism. DeployedWebPath applies
-//     AssetKeyFilename's `_`→`-` swap only when assetKey differs from purpose;
-//     otherwise it returns purpose+ext verbatim. So a wrong path requires a purpose
-//     that CONTAINS an underscore AND an asset stored with assetKey empty or equal
-//     to it.
+//  1. The divergence has exactly ONE mechanism. AssetKeyFilename's `_`→`-` swap
+//     is applied only when assetKey differs from purpose; otherwise the path is
+//     purpose+ext verbatim. So a wrong path requires a purpose that CONTAINS an
+//     underscore AND an asset stored with assetKey empty or equal to it.
 //  2. Over all 267 active asset rows fleet-wide, the rows taking that skip are
-//     favicon x12, og_card x12 (both brand-head, both handled by the branch below),
+//     favicon x12, og_card x12 (both brand-head, both now answered by the helper),
 //     hero x5 and logo x4 — and hero/logo have no underscore to mis-render. Every
 //     other underscore purpose is stored with a distinct key (content_hero x31,
 //     sprite_sheet x1) and therefore takes the swap. The risk set outside brand-head
-//     is EMPTY, and it is empty structurally, not by luck.
-//  3. deploy_image_asset_action.go:185-196 branches on the identical condition
-//     (`if assetKey != "" && assetKey != purpose`), which is why the helper's doc
-//     comment says it mirrors the deployer. The two cannot disagree except where
-//     something OTHER than the deployer publishes the file — which is exactly the
-//     brand-head pair, published directly by derive_brand_head_assets_action.
-//  4. The deploy_path override (deploy_image_asset_action.go:203-220) could produce
-//     a third spelling, but no Go code sets it and it appears in ZERO orchestrations
-//     in history — it is an unused passthrough.
+//     is EMPTY, and it is empty structurally, not by luck. Re-measured 2026-08-02:
+//     the same four groups, the same counts.
+//  3. deploy_image_asset_action no longer implements this derivation at all — it
+//     calls storage.DeployedAssetPath, the same function this check calls. Before
+//     2026-08-02 it branched on the identical condition and the two were kept in
+//     step by a doc comment; that is what bugs_open/168 replaced with one function.
+//  4. The deploy_path override (deploy_image_asset_action.go) could still produce
+//     a third spelling, and is invisible from (asset_key, purpose). No Go code sets
+//     it and it appears in ZERO orchestrations in history — an unused passthrough,
+//     and the one part of this contract that is not closed.
 //  5. Empirically, which is the check that would catch a mechanism nobody thought of:
 //     of the 127 rendered paths measured live, 109 matched this predicate and ALL 109
 //     serve 200. A path this predicate cannot express would show up as a working file
@@ -417,10 +416,6 @@ func loadDeployedAssetPaths(dctx DiscoveryCheckContext) (map[string]bool, error)
 		if assetKey == "" && purpose == "" {
 			// Nothing to derive a path from; such a row cannot back any
 			// reference, and DeployedWebPath("","") would yield "/assets/images/.jpg".
-			continue
-		}
-		if storage.IsBrandHeadPurpose(purpose) {
-			out[storage.BrandHeadAssetPaths[purpose]] = true
 			continue
 		}
 		out[storage.DeployedWebPath(assetKey, purpose)] = true
