@@ -3175,3 +3175,19 @@ flagged as fabricated.
 rendered_html` still contains the fabrication until the page rerenders — fixing the
 template does not regenerate anything. Judge the template with a query against
 `content_components`, and the artefact separately.
+
+### An offline link census built from `pages` MUST use `linkablePageStatusPredicate`, or an ARCHIVED page turns a correct rewrite into an apparent false positive
+- **footprint:** `platform/orchestration/datahelpers/content_data_links.go`, `platform/orchestration/datahelpers/link_repair.go`, `loadValidPagePaths`, `linkablePageStatusPredicate`, `pages`
+- **fires when:** you re-measure the fleet's dead internal links outside the chassis — a SQL census, an offline Go harness, or any "let me check this fix was right" query that builds its own page set.
+- **the tell:** a rewrite that looks WRONG. `robot-hands.com` has `/learning-center.html` (active) **and** `/learning-center/index.html` (**archived**). `NormalizePagePath` maps the second to `/learning-center` — so an index that includes archived pages makes `/learning-center` *resolve*, the finding disappears, and the live fix looks like it is rewriting a link that was already fine. The reverse mistake is worse: a census that is stricter than the runtime invents phantoms that the running code never reports.
+- **the check:** copy the predicate, never retype it — `status NOT IN ('deleted', 'archived')`, the shared constant at `prepare_link_context_action.go:54`, which `loadValidPagePaths` uses and every link consumer inherits. Then confirm your harness and the binary agree on ONE case before trusting the totals. **And prefer running the shipping function over a dump to re-implementing it in SQL** — the SQL has to hand-copy `NormalizePagePath` and `ClassifyLinkScope`, and the two answers differed (51 vs 52) the first time they were compared on 2026-08-02.
+- **source:** `bugs_open/097` / `docs024_key_docs_latest/bugfix_097_content_data_links/RUNBOOK` R1–R2; concept register LNK-028
+- **added:** 2026-08-02, bugfix_097_content_data_links
+
+### `CONTENT_LINK_REPAIR_DETAIL` does NOT include the content_data audit — three codes now answer three different questions
+- **footprint:** `agent_error_log`, `CONTENT_LINK_REPAIR_DETAIL`, `CONTENT_LINK_REPAIR_SKIPPED`, `CONTENT_DATA_LINK_AUDIT`, `writeLinkRepairLog`, `writeContentDataLinkLog`
+- **fires when:** you ask "has the link machinery seen this page?" or "is the repair still running?" with a query written before 2026-08-02.
+- **the tell:** a confident empty result. The old query returns exactly what it always returned — which is now a *subset* of what the platform knows, and nothing in the output says so. A page whose only defect is a phantom link stored in `content_data` produces **no** `CONTENT_LINK_REPAIR_DETAIL` row at all.
+- **the check:** query all three codes, and read the split as three answers, not one: `CONTENT_LINK_REPAIR_DETAIL` = what the pass CHANGED in the markup that shipped · `CONTENT_LINK_REPAIR_SKIPPED` = a pass that declined because the page index was untrustworthy · `CONTENT_DATA_LINK_AUDIT` = what the page's SOURCE still holds (component, field path like `cards[2].link_url`, href, and which arm). The codes are deliberately distinct for the reason `linkRepairErrorCode` is distinct from `validationDetailErrorCode`: merging them would silently change the population every existing query counts.
+- **source:** `bugs_open/097`; concept register LNK-028, LNK-023/024/027
+- **added:** 2026-08-02, bugfix_097_content_data_links
