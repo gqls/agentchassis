@@ -6,8 +6,37 @@ at all.
 **Severity:** Medium. Silent content destruction on a live tool, with `success:true`
 everywhere. Exposure today is **1 component on 1 site** (measured below), but the mechanism
 is fleet-wide and latent in a shared function with three live callers.
-**Status:** OPEN, unowned. **Not 136** — 136 was about which writers CALL the repair; this
-is about what the repair DOES when it is called.
+**Status:** **FIXED IN CODE (`07576d4e1`, LNK-029), NOT YET LIVE — so this file stays OPEN.**
+The bar is fixed AND live: the defect is still reproducible on the fleet until the chassis
+rolls. Missed `v1.0.1231` by ~90 seconds (commit 22:37:50 BST, pods started 22:39:20 BST) and
+that is **verified, not assumed** — pod-grep on both replicas returns `NonMarkupSpans` **0**
+with controls `RepairPageLinks` **3** and `RuntimeFillSpans` **2**, so the pipeline works and
+the answer is a real negative (`bugs_open/153`). **Owed: the next roll, then the pod-grep and
+the induction in § "How to verify a fix" below.** Owned by the
+`bugfix_136_sibling_link_repair` lane. **Not 136** — 136 was about which writers CALL the
+repair; this is about what the repair DOES when it is called.
+
+## THE DAMAGE IS CONFIRMED ON THE WIRE, not only in a probe (added 2026-08-03)
+
+The filing measured `page_components.rendered_html` and reproduced the corruption in a probe.
+Neither shows the visitor's page. Fetched today:
+
+```
+$ curl -s https://vetcomparison.uk/tools/cma-obligation-checker/index.html | grep -c 'q\.link'
+0
+```
+
+and the served bytes at the site of the damage read:
+
+```js
+'<p>' + statusText + ' See guide section.</p>' +
+```
+
+The anchor is **gone from the deployed program** while the STORED `rendered_html` still
+contains it — which is the signature of `repairOutboundPageLinks` (LNK-023), the caller that
+repairs the assembled page on the way out and leaves the DB copy alone. So a DB-only census
+would report this page as healthy for ever. ⚠ **Note the trailing space in `' See guide'` —
+that is the byte the deleted `<a …>` used to sit against**, and it is the only residue.
 
 ## Verification standing (RFC_005 / owner ruling 2026-07-31)
 
@@ -84,7 +113,60 @@ of the class** — it is the size of one spelling of it.
 | `repairComponentHTMLBeforePersist` (LNK-027) | not today — the tool writers do not call it, and this bug is a reason to be careful about wiring them (`bugs_open/136`) | live, dormant |
 | `ValidatePageContentAction` (build gate) | its repaired `clean_html` is structurally discarded (079) | live, inert |
 
-## Fix candidates (unranked)
+## THE FIX AS BUILT (2026-08-03, commit `07576d4e1`, register **LNK-029**)
+
+**Candidate 1, widened — and the widening is the finding.** Before writing anything I ran the
+SHIPPING function over six inputs. **Five were corruptions and only one was the spelling this
+file was filed for**, and they do not share an arm:
+
+| input | shipped output | arm |
+|---|---|---|
+| `<script>… '<a href="' + q.link + '">See guide</a>' …</script>` | anchor deleted | `LinkScopeEmpty` → unlink |
+| `` <script>`<a href="${q.link}">See guide</a>`</script> `` | anchor deleted | `LinkScopePage` → **phantom** |
+| `<style>/* <a href="/nope">x</a> */</style>` | CSS rewritten | phantom |
+| `<textarea><a href="/nope">x</a></textarea>` | visible text edited | phantom |
+| `<!-- <a href="/nope">x</a> -->` | comment rewritten | phantom |
+| `<p><a href="/nope">real phantom</a></p>` | **correctly unlinked** | phantom |
+
+That table is why candidate 2 (a denylist of `' +` / `${`) was rejected: it addresses one of
+five. Candidate 3 was rejected on the measurement — it would abandon repair on 161 of 1,186
+components to protect 1.
+
+**What shipped.** `datahelpers/markup_spans.go`: `NonMarkupSpans` (raw-text elements **and**
+comments, whole), `MarkupMatches`, `ReplaceAllInMarkup`. The span set comes off the tag walk
+`runtime_fill.go` already performs — `RuntimeFillSpans` keeps its signature and becomes a
+caller of a shared `scanSpans`, because two walks over one grammar is `bugs_open/137`'s own
+defect. Wired into `RepairPageLinks` (one line, fixing all three live callers at once) and
+into `DropDeadURLControls`.
+
+**Two things the fix taught that the diagnosis did not**, both pinned by tests:
+
+1. **Mask, do not filter.** `<script>var t='<a href="/gone">';</script><a href="/gone">Pricing</a>`
+   — the non-greedy `</a>` closes at the REAL anchor, so ONE match spans both. Filtering
+   matches that start in a span drops the genuine phantom with the decoy, and `FindAll` never
+   revisits those bytes.
+2. **The filler byte is load-bearing; whitespace is wrong.** `\ssrc\s*=\s*""` cannot cross
+   `<style>…</style>` but crosses the spaces that replaced it, and that match begins
+   **outside** the span where an offset filter has no view. NUL.
+
+**Measured before submitting, at the altitude of the live caller.** Both matchers over all
+**509 assembled pages** / 19 sites: **11** matches inside non-markup, **1** page mutated
+destructively today, **0 legitimate repairs lost**. Over the 13 components fleet-wide with
+unbalanced raw-text tags (where the degrade-wide arm could cost coverage): **0 and 0**.
+`DropDeadURLControls`: 13 + 37 matches fleet-wide, **0** inside a span — byte-identical today.
+
+**Council:** `Council-Submitted: ba199c35-516f-44be-a210-9fd982425eb7` (verdict pending at
+time of writing; read it and act on a REVISE — the code is already on the shared branch).
+
+**STILL OPEN AFTER THIS FIX, deliberately: the DETECTORS.** `links.go`'s phantom scan,
+`check_dead_controls` and `check_phantom_internal_links` still read a JS-built anchor as a
+finding. A false finding costs a human's attention; a false repair costs content, so they are
+different decisions with different fail-safe directions, and narrowing a JUDGE is
+`bugs_open/137`'s separate ruling. It belongs to the detection lane (`bugs_open/097`,
+`bugs_open/116`) and is recorded here rather than closed by assumption. The helper they would
+use already exists (`MarkupMatches`), so it is a one-line adoption when that lane wants it.
+
+## Fix candidates (unranked — kept as filed; candidate 1 was taken, see above)
 
 1. **Skip `<script>` and `<style>` spans before matching.** `datahelpers/runtime_fill.go`'s
    tag scanner already "jumps `script`/`style` contents" (LNK-025) — the capability exists
