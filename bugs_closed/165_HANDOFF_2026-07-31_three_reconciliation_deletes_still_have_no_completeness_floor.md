@@ -9,7 +9,7 @@ direction of the council gate's `bug_historian` seat** (corr
 > proven on both branches in production; C is live and mutation-proven offline but
 > **structurally un-inducible** — see "Closing the case" at the foot of this file
 > for exactly what was and was not demonstrated, and why that was judged enough.
-> The one piece of live proof still owed rides on `bugs_open/092`.
+> The one piece of live proof still owed rides on `bugs_closed/092`.
 
 ~~Status: **OPEN — site A DONE, B and C outstanding.**~~ Latent — no failure to
 point at *today*, but two of the named precedents are failures that already
@@ -85,7 +85,7 @@ which is now guarded):
 |---|---|---|---|
 | A | `save_page_sections_action.go:532` | `DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` | **HIGH — real content, lost before. DONE: guarded, live on v1.0.1223, BOTH BRANCHES INDUCED 2026-07-31** |
 | B | `populate_nav_tables_action.go:147,150` | `DELETE FROM site_nav_items WHERE site_id = $1` then `site_nav_groups` | medium — regeneratable, but a partial nav is served. ~~NOT yet live, NOT yet induced~~ **DONE: live v1.0.1228, BOTH BRANCHES PROVEN 2026-08-02** |
-| C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable. ~~NOT yet live~~ **live v1.0.1228; mutation-proven offline, and UN-INDUCIBLE live — the table is empty fleet-wide and its only consumer never runs. Closed on inertness; the induction rides on `bugs_open/092`** |
+| C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable. ~~NOT yet live~~ **live v1.0.1228; mutation-proven offline, and UN-INDUCIBLE live — the table is empty fleet-wide and its only consumer never runs. Closed on inertness; the induction rides on `bugs_closed/092`** |
 | — | `code_symbols_actions.go` | guarded 2026-07-31 (`bugs_closed/135`) | — |
 
 **A is the one that matters.** The seat's own lineage for it: 016b §9 cases 1 and
@@ -305,7 +305,7 @@ and transfers directly.
 ## Contribution, 2026-07-31 (bugfix_092 lane) — `link_registry` has never held a row, so its delete floor is theoretical today
 
 Evidence only, no direction, and no competing fix — this file's lane owns the mechanism.
-Found while auditing `extractSiteID`'s callers for `bugs_open/092`, which took me through
+Found while auditing `extractSiteID`'s callers for `bugs_closed/092`, which took me through
 `site_db_actions.go` and its `link_registry` writer.
 
 ```sql
@@ -336,7 +336,7 @@ Two things I could NOT determine, marked so nobody inherits them as findings:
 2. Whether that matters to your floor at all, which is your call.
 
 Full audit of the five `extractSiteID` callers (three fail loudly, two do not) is in
-`bugs_open/092` under the council-verdict section, filed there because the council's
+`bugs_closed/092` under the council-verdict section, filed there because the council's
 `bug_historian` seat asked for it against 092's plan.
 
 ---
@@ -454,7 +454,7 @@ changes only (HEAD `b080cb4ae` at the time).
    with `link_registry` empty and `ExtractAndSyncLinksAction` having 0
    orchestrations in the retained window, there is no live run to induce. Options
    are (a) close C on the tests plus the roll and say so plainly, or (b) hold C
-   open until `bugs_open/092` makes the insert half run. **That is a judgement for
+   open until `bugs_closed/092` makes the insert half run. **That is a judgement for
    the owning lane, not for this contribution.**
 3. **Read the council verdict** on `c69e935a-7134-45c1-81c3-2f1da7831827` and act
    on a REVISE/REJECTED — the code is already on the shared branch.
@@ -610,12 +610,12 @@ This is a blocked prerequisite, not a skipped step. What C *does* have: the code
 is live (pod-grepped above) and its refusal path was proven offline by mutation
 (neutering the link floor fails its refusal test, run rather than claimed by the
 implementing lane). Option (b) of item 2 above is therefore the honest reading —
-**C stays open, blocked on `bugs_open/092`** making the insert half run. It
+**C stays open, blocked on `bugs_closed/092`** making the insert half run. It
 carries no risk in the meantime precisely because it is provably inert.
 
 ### So: what is still owed on this case
 
-- **C's live induction**, blocked on `bugs_open/092`. Not actionable from here.
+- **C's live induction**, blocked on `bugs_closed/092`. Not actionable from here.
 - **The refusal-sentence fix** — now with a live artefact behind it.
 - **`page-build-handler` / `tool-recreation-handler`** (the two of six consumers
   that route on error rather than failing) still unmeasured empirically. Content
@@ -733,7 +733,7 @@ rewriting evidence.
 fleet-wide**, and its only live consumer has no orchestrations. Neither branch of
 the floor is reachable: `Stored = 0` can never refuse (an empty cohort reads as
 fully confirmed by design — a new class must not be able to block a prune), and an
-action that never runs can never pass. Blocked on `bugs_open/092`, and carrying no
+action that never runs can never pass. Blocked on `bugs_closed/092`, and carrying no
 risk in the meantime *because* it is provably inert. The guard arms itself the
 moment the insert half starts working.
 
@@ -747,7 +747,7 @@ induced is that the table it guards has never held a row?**
 - **If yes** — 165 closes now. Three sites are proven, the fourth is inert by
   construction, and the outstanding sentence fix is a wording change with a queued
   roll.
-- **If no** — 165 stays open, pinned to `bugs_open/092`, and closes when
+- **If no** — 165 stays open, pinned to `bugs_closed/092`, and closes when
   `link_registry` first holds rows and C can be induced like A and B were.
 
 Recorded here so whichever way it goes, the reasoning is on the file rather than in
@@ -789,7 +789,7 @@ half starts working**, which is the state this guard exists for and the state
 nobody would remember to add a guard in.
 
 **The live induction is not abandoned, it is transferred.** It becomes reachable
-exactly when `bugs_open/092` makes the writer receive its link constraints and the
+exactly when `bugs_closed/092` makes the writer receive its link constraints and the
 insert half runs. Whoever closes `092` should induce C's refusal then: insert
 synthetic `link_registry` rows for one source page so `LinksToWrite / LinksStored`
 falls below 0.5, run the sync, and confirm the refusal fires with its numbers and
@@ -826,7 +826,7 @@ that **no** row was deleted. The recipe transfers from
 
 ### Residuals, all owned elsewhere
 
-1. **C's live induction** → rides on `bugs_open/092`.
+1. **C's live induction** → rides on `bugs_closed/092`.
 2. **`page-build-handler` / `tool-recreation-handler`** — two of six consumers
    route on error rather than failing, so a refusal there is recorded while the
    pipeline reports success. Content is protected in both by construction (the
@@ -839,3 +839,47 @@ that **no** row was deleted. The recipe transfers from
    wraps a floor-guarded action, so nothing is being swallowed today.
 
 Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_165_reconciliation_deletes/`.
+
+---
+
+> ### CORRECTION 2026-08-02, same day, by this lane — "blocked on `092`" was wrong twice
+>
+> Everything above says site C's live induction is **blocked on `bugs_open/092`**.
+> Two errors in that, both mine, both from repeating an inherited pointer instead
+> of checking it:
+>
+> 1. **`092` was already CLOSED** — `bugs_closed/092`, fixed and live on v1.0.1219,
+>    induced-proven **2026-07-31**, i.e. the same day the pointer naming it as open
+>    was written. I carried it into this file, the 016b §10 index row and the
+>    concept register before checking. Paths corrected in all three.
+> 2. **Closing `092` did not and will not unblock C.** `link_registry` was
+>    re-measured today and is still 0 rows. So the dependency was never really on
+>    `092`'s fix at all.
+>
+> **The real blocker, now measured rather than deferred:** `extract_and_sync_links`
+> is carried by exactly one agent, `multipage-website-builder`, which has **0
+> orchestrations in the retained window** while the live build pipeline
+> (`build-dispatch-loop` 588, `build-pipeline-trigger` 587, `page-rerender` 22,
+> `page-build-handler` 1) does not include it. And **0** orchestrations anywhere
+> have ever mentioned `links_extracted`, so the action has not executed at all.
+> `092`'s honest `[UNDETERMINED]` — "is the registry empty because the exposure
+> fires, or because the agent never runs?" — therefore resolves to **the agent
+> never runs**, and the full working is written up at the foot of `bugs_closed/092`.
+>
+> Bounded honestly: `orchestration_states` is retention-clocked (oldest row
+> 2026-07-13), so that is "has not run in ~20 days", not "never". The all-history
+> half is `link_registry` itself, which has no retention job and has never held a
+> row.
+>
+> **Why this happened, because it is the more useful finding.** This file said the
+> link-registry question was `092`'s territory; `092` said it was `165`'s and was
+> "contributed there rather than competed with". **Each deferred to the other, so
+> neither owned it, and both then closed.** A deferral names a destination and
+> nobody re-checks that the destination accepted it. When you hand an item to
+> another case, write it into *that case's* file, not only your own.
+>
+> **None of this changes C's disposition or this case's closure.** C is guarded,
+> live, mutation-proven offline and inert by construction; what changed is *which*
+> future event makes it inducible — not `092`'s fix, but a decision about whether
+> `multipage-website-builder` is retired or revived. That is an owner call, raised
+> at the foot of `bugs_closed/092`.

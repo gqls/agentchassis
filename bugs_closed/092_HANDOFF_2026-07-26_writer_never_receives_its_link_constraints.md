@@ -505,3 +505,79 @@ is gone, because the prompt template supplies `## Internal Linking` on the line 
 nothing degraded, and it confirms the loud arm is not firing spuriously.
 
 **Fixed AND live AND proven ⇒ `bugs_open/` → `bugs_closed/`.**
+
+---
+
+## The `[UNDETERMINED]` above is RESOLVED — 2026-08-02, by the `165` lane
+
+The sibling audit ended on an honest refusal to guess:
+
+> *"I cannot tell from a zero-run window whether the registry is empty because
+> this exposure fires, or because the agent simply never runs. Those are the two
+> causes with opposite fixes."*
+
+**It is the second: the agent never runs.** Measured today, and the discriminator
+is cheap — if the exposure had ever fired, the action must have executed at all,
+and it has not:
+
+```sql
+-- has the action EXECUTED, ever, on any agent?
+SELECT count(*) FROM orchestration_states WHERE collected_data::text LIKE '%links_extracted%';
+-- 0
+
+-- has its only carrier run?
+SELECT count(*) FROM orchestration_states WHERE owner_agent_type='multipage-website-builder';
+-- 0
+
+-- what the live build pipeline actually is, same window:
+--   build-dispatch-loop 588 · build-pipeline-trigger 587 · page-rerender 22 · page-build-handler 1
+--   multipage-website-builder: absent
+```
+
+`extract_and_sync_links` is carried by exactly one agent
+(`multipage-website-builder`, `is_active=true`, two rows), and that agent does not
+appear in the live build pipeline at all while the real builders ran ~1,200 times
+in the same window.
+
+**Scope this honestly — "never" is bounded.** `orchestration_states` is
+retention-clocked: its oldest surviving row is **2026-07-13**, so the true claim
+is *"has not run in the ~20-day retained window"*, not "never in history". What
+IS all-history is the other half: `link_registry` has **0 rows and NULL
+`max(created_at)`** with no retention job on that table, so the registry has never
+held a row since it existed. The two together are what make the conclusion safe —
+the table has never been written, and the only thing that could write it has not
+run in the entire observable window.
+
+**So the exposure at `site_db_actions.go:396` is real code on a dormant path.**
+It should still be fixed — a success-shaped `{"links_extracted": N, "persisted":
+false}` is exactly the shape this bug is made of — but it is not the reason the
+registry is empty, and fixing it will not populate anything.
+
+### And the reference was circular, which is why this sat unowned
+
+This file said *"not filed as a new bug: `bugs_open/165` already owns
+`link_registry` … so the measurement is contributed there rather than competed
+with."* `165`'s site-C section said the opposite: *"that is `bugs_open/092`'s
+territory, not this floor's."* **Each deferred to the other, so neither owned it,
+and both then closed.** The 165 lane repeated the pointer today — writing
+"blocked on `bugs_open/092`" into a bug file, the 016b index and the concept
+register — without checking that 092 had been closed on 2026-07-31, the same day
+the pointer was written. Paths corrected in all three.
+
+The transferable bit: **a deferral names a destination, and nobody re-checks that
+the destination accepted it.** Two "contributed there rather than competed with"
+notes, written in good faith a few hours apart, produced an orphan. When you defer
+an item to another case, say so *in that case's file*, not only in your own.
+
+### What is actually left, and it is an owner call rather than a bug
+
+`multipage-website-builder` is `is_active=true`, carries the only copy of
+`extract_and_sync_links`, and has not run in the observable window while a
+different set of agents does the building. Either it is **retired** (in which case
+the action, its exposure and site C's floor are all dead code, and `is_active`
+is lying) or it is **dormant-but-intended** (in which case the exposure is a live
+landmine waiting for its first run). That is a decision about the platform's
+build path, not a defect to diagnose — raised rather than filed.
+
+Consequence for `bugs_closed/165` site C: its floor cannot be induced live until
+that decision goes one way, and it is inert and risk-free meanwhile.
