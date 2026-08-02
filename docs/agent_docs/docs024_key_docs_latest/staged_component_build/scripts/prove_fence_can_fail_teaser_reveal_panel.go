@@ -80,7 +80,7 @@ type mutant struct {
 // page / asset before this file was written (see NOTES for the grep counts).
 var mutants = []mutant{
 	{
-		name:       "the page stops being served (404)",
+		name:        "the page stops being served (404)",
 		serveStatus: http.StatusNotFound,
 		expectFail:  []string{"page-serves-200"},
 	},
