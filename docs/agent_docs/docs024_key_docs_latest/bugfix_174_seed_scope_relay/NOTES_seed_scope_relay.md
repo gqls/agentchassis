@@ -159,3 +159,22 @@ the diagnose loop — which is what this directory is.
   **mine** to 289 — `git mv` with **both** paths named on the commit, verified at
   HEAD with `git ls-tree` (not `ls`, which cannot tell you: the file is gone from
   disk either way).
+
+## Disclosure — my docs commit carried another session's LANDMINES edit
+
+`b34717c18` reports "2 lines removed from LANDMINES.md" in the pattern check. I
+only appended. The two lines are the `storage.DeployedWebPath` entry's old
+`footprint` and `source` lines, **rewritten in the working tree by the
+`bugs_open/168` lane** while I was working: they added a "Reading the SOURCE at
+HEAD" note, widened the footprint, and recorded that
+`TestDeployedWebPathCannotExpressBrandHeadPaths` had fired and been inverted.
+
+Checked before assuming: the new lines are a strict superset of the old ones.
+**Nothing was lost** — the pattern check reads a replacement as a deletion, which
+is the correct conservative default for an append-only ledger.
+
+But it *is* a same-file passenger, and my commit message did not say so. This is
+the case CLAUDE.md names as unpreventable — "if two sessions edit one file,
+whoever commits takes both edits, and no hook can prevent that". Recording it
+here because the commit message cannot be amended (forward-only). The `168`
+lane's LANDMINES improvement is in `b34717c18` under my message.
