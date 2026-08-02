@@ -91,3 +91,34 @@ The code is committed, so it will go out with the next chassis build (someone el
 rolled one an hour before I finished, so it missed that one). It has been
 submitted to the reviewing council; I will act on whatever comes back, and the
 verdict is what decides whether this is finished or has another round in it.
+
+## 2026-08-02, later — approved, live, and two of the objections were right
+
+The council came back **approved**, with four advisory objections and none of them
+serious. Two of them were right about something and changed what we wrote down,
+which is the point of having them:
+
+- One seat noticed that our claim "this work-item type has one producer and nothing
+  automated consumes it" came from a **comment in a test file**, not from asking the
+  database. Fair hit. Asked properly: no live agent definition mentions it anywhere
+  in its configuration, and there are no rows. The claim was true — but it was
+  folklore until somebody ran the query, and the seat exists precisely to catch
+  comments being quoted as current fact.
+- Another asked whether a page-upsert helper already existed before we built one.
+  One did, on the plan-sync path — and it does the **opposite** thing on a
+  collision: it re-types whatever it hits. That is correct for it (a plan is
+  entitled to say what a page is) and wrong for ours. Nobody would notice picking
+  the wrong one, because both compile and both return a page id. That is now
+  written down as a trap.
+
+Meanwhile another session rolled the chassis, which killed our review run
+mid-flight — a known hazard here, and the reason we resubmitted before rolling
+anything ourselves. Their *next* build picked up our commit, so the fix went live
+on their roll rather than ours; we verified it by looking inside the running binary
+on both replicas rather than trusting the version number.
+
+The one thing not settled: the new code will take over and re-type a page that has
+never been published. Three seats independently flagged that as the widest new
+power in the change, and it is safe only because of a rule a comment states and a
+human enforces. That is now **RFC 010**, for the owner: leave it as is, or make each
+caller opt in explicitly — about four lines. The bug itself is closed.
