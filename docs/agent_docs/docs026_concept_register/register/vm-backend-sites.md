@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-14 concepts, consolidated from 26 raw extractions of new:vm-backend-sites (13
+15 concepts (VMB-015 added 2026-08-02, post-freeze), consolidated from 26 raw extractions of new:vm-backend-sites (13
 unique blocks, each duplicated once in the source cluster file, unit
 U11_traffic_probe), plus this file **absorbed new:backend-service-deployment**
 (10 raw / 5 unique, unit U04_idea_uk) **and new:persistent-service-deployment**
@@ -135,3 +135,11 @@ category ("Cloudflare-in-front option", unit U24c_docs_archive_traffic_probe).
 - **sources:** idea.uk/RUNBOOK_idea_uk_vm_cutover.md; idea.uk/RUNBOOK_idea_uk_chassis_site_and_vm_deploy(25).md (Phase 2); idea.uk/TODO_chassis_and_idea_uk(1).md#P1
 - **relations:** scheme-to-components P0 (the gate); Commit-is-deploy (register/deployment-github.md, DGH-001); idea.uk VM deployment (VMB-012)
 - **verify-later:** live nginx config on the box; whether cutover has since happened
+
+### VMB-015 — Nominet EPP nameserver-change client (stdlib Python, dry-run default)
+- **status:** built, **never exercised** — blocked on the tag's EPP IP allow-list (both candidate IPs refused by the live registry 2026-08-02: workstation egress `5.65.164.9` and the idea.uk VM `116.203.204.115`, over v4 AND v6)
+- **status-evidence:** compiles; TLS + 4-byte EPP framing proven against live `epp.nominet.org.uk:700` — the registry's refusal message was received and parsed through the client's own connect/greeting path, so transport and framing are real, only login onward is untested
+- **what:** ~150-line stdlib-only EPP client for changing a .uk domain's nameservers at Nominet: framed XML over TLS:700, login as the registrar TAG, `domain:info` → diff current-vs-target NS → `domain:update` (with a `host:create` retry if the registry answers 2303 for an unknown host object) → verifying `domain:info`. **Dry-run is the default**; `--apply` executes; password comes from a file or env, never argv. Written for idea.uk's Option B cutover (Hetzner NS → alexis/leah.ns.cloudflare.com) but generic over any domain on the tag — DESIGNCONSULT self-manages its .uk portfolio, so any future NS move can reuse this instead of the Online Services UI.
+- **sources:** `docs024_key_docs_latest/idea_uk_vm_site/box/nominet-epp-ns-change.py`; `idea_uk_vm_site/RUNNING_NOTES` §X.37 (the allow-list probes)
+- **relations:** Cloudflare-proxied-in-front option (VMB-011 — what this change enables for idea.uk); idea.uk VM deployment (VMB-012)
+- **verify-later:** first successful `--apply`; whether Nominet actually needs the `host:create` fallback for out-of-zone NS (written but unexercised); whether an EPP password exists for the tag at all

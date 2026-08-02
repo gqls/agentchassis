@@ -3460,3 +3460,37 @@ records (A + AAAA), NS change at the registrar (whois: .uk tag DESIGNCONSULT,
 owner-held), verify grey, flip orange. Then me: two-network proof (needs a
 second network by definition — phone on mobile data), lockdown script, 16
 routes + Stripe webhook re-proof.
+
+## §X.37 — 2026-08-02 (evening): CF zone verified via token; records flipped GREY; Nominet EPP built and blocked on the allow-list
+
+**The owner reported another thread had "changed the A and AAAA records" and
+dropped a CF token (`~/.config/cloudflare/token`).** Verified rather than
+inherited: public DNS unchanged (Hetzner NS, no cf-ray), so the change lives in
+a **pending** CF zone (`59aded94…`, assigned NS alexis/leah — same pair as the
+account's other zones). Records were exactly right in content (A
+116.203.204.115 + AAAA 2a01:4f8:1c18:7c31::1 — the AAAA made it in) but **both
+ORANGE**, and the token turned out DNS-scoped only: settings reads give 9109,
+so I cannot check whether SSL mode is Flexible (which would redirect-loop
+against our 80→443 the moment NS lands). **Flipped both records grey via the
+API** — grey at delegation is safe under ANY SSL mode, the flip back is one
+PATCH I can do myself, and it restores the staged sequence. If the thread that
+set them orange had a reason, it beats a redirect loop only if SSL mode is
+already Full (strict), which nothing I hold can verify. [Recorded so that
+thread isn't surprised.]
+
+**Nominet EPP: client built (`box/nominet-epp-ns-change.py`, VMB-015), dry-run
+default, and the transport is proven against the live registry — which is how
+we know the real blocker:** `epp.nominet.org.uk:700` answered from both
+candidate source IPs with "… is not authorized to connect to this service" —
+workstation `5.65.164.9` and the VM `116.203.204.115`, forced v4 as well as
+v6 (first probes went v6 by default; re-proving over v4 mattered because
+allow-lists are usually v4-only — here BOTH are refused, so it is genuinely
+the allow-list, not an address-family artefact).
+
+**Blocked on two owner actions in Nominet Online Services:** (1) register an
+EPP IP for the tag — the VM's `116.203.204.115` is the stable choice
+(workstation egress may rotate); (2) set/locate the tag's EPP password and
+point me at it (e.g. `~/.config/nominet/epp-password`, mode 600). Then:
+dry-run, `--apply`, `dig NS` until alexis/leah, verify site serves unchanged
+(grey = pass-through), THEN the orange flip — which first needs SSL mode
+confirmed Full (strict) via dashboard or a token widened to Zone Settings.
