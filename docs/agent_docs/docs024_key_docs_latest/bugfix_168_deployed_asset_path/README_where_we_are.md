@@ -73,3 +73,54 @@ Go code does nothing until someone builds a new image and rolls it out. Until th
 the old behaviour is still what's running. So the bug ticket stays open — the house rule is
 that a bug is only closed when the fix is actually running in production, not when it's
 written — and I'd rather leave it honestly open than tidy it away into the closed pile.
+
+## 2026-08-02, midday — what the review council said
+
+The council came back **REVISE**, which means "not yet, fix these first". Twelve reviewers
+looked at it; eight approved, four objected. That is a good outcome to get, and I want to
+explain why rather than treat it as a setback.
+
+**One of them found a real bug in my fix.** The reviewer that reads for code quality noticed
+that my new function took the stored path for the favicon and the social card, threw away
+everything except the filename, and then rebuilt the path by sticking it under the images
+folder. That works for the two we have, because both live there. It would have been silently
+wrong for the first one that didn't — and it gave the obvious example: lots of sites put
+their favicon at the very top level, `/favicon.ico`, not in an images folder. My own tests
+couldn't have caught it, because they only had the two existing cases to test with. I've
+fixed it so the stored path is taken whole, and added a test that uses a top-level favicon
+specifically. Then I broke the code again on purpose to check the new test actually notices.
+It does.
+
+**The other three objections were not about the code — they were about what I showed them.**
+This is the part worth remembering. One reviewer said I hadn't checked whether the running
+system actually had my change in it. I had — I just hadn't put it in the submission. Another
+said there's a known-traps entry about this exact function that I hadn't accounted for. I had
+account for it; I'd *rewritten* that entry as part of this work. And the reviewer whose job is
+architecture said that although I'd correctly declared this was a big-picture change and
+brought it to the right place, declaring it isn't the same as filing the document that records
+it — so I've now written that document.
+
+So three of the four objections were "you did the right thing and didn't show me", and those
+were graded *more* serious than the one that was an actual defect. That is the right way
+round, I think, and it's a lesson I've written into the notes: the council can only review
+what you hand it. Evidence you have but don't cite is evidence you don't have.
+
+**Two things I found by answering their questions**, which is the real value of being asked.
+First, one reviewer asked whether a future caller could route the social card through the
+deploying code and stamp on the real file. Before my change that would have written a file
+nobody looks at — harmless litter. After my change it writes to the *real* path, so it would
+overwrite the actual social card. Nothing does this today and I measured that, but the nature
+of the failure has changed, and that deserves its own ticket rather than a paragraph in mine.
+I've filed it as bug 179, along with a second escape hatch in the same code that lets a caller
+put a file anywhere it likes with nothing able to predict where.
+
+Second, and I nearly missed it: one of my changes has left a helper function with **no callers
+at all**. It's harmless, but a function nobody calls looks exactly like a job someone finished,
+and the next person to read it will assume it's load-bearing. I've said so out loud in the
+resubmission rather than let someone find it later.
+
+**Still not live.** I checked the running system directly, three different ways to be sure the
+check itself was working, and confirmed the change is not in it — the current build predates my
+commit. So the ticket stays open. It will go live the next time anyone builds and rolls out the
+system, which happens several times a day here, and the verification commands are written down
+ready for whoever does it.
