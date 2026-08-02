@@ -103,3 +103,20 @@ scope to 290 only (single `psql -f` + `--record-only`), never a blanket `--apply
   standing gap (same as acceptance-evidence/), not solved here.
 - Proof owed at A2 time: one real captured sweep on the specimen site (needs the
   browser-runner image roll first — image before config throughout).
+
+## 2026-08-02 — A1.2 shipped (9f8f377b7) + A1.1 APPROVED r1 with advisories answered (b814a3d83)
+
+- A1.2: VisionCapable as an OPTIONAL interface (not a widening — every AIService fake
+  survives); both providers via a shared per-provider generate refactor; wire-BODY tests
+  incl. a pin that GenerateText still sends string content. execute_vision_prompt reuses
+  the sibling's helpers wholesale; v1 fails loud on truncation (no tolerate/re-ask until a
+  real run demonstrates need). MDL-040. Council fee9d810 pending.
+- A1.1 verdict APPROVED r1, 4 advisories: editquality's runDeadline concern REFUTED by
+  fact (no deadline on the render_audit path — 120s is run_checks-internal;
+  adapter.go runs the sweep on lifetime ctx deliberately); bug_historian's
+  logged-and-dropped concern ACCEPTED → renders_failed counter + test; call-site
+  enumeration was already build-proven; the "missing" note (does the critic detect zero
+  renders?) was already answered by A1.2's fail-loud — and the critic seed must ALSO
+  read renders_failed (recorded in HANDOFF for A2).
+- Session ends with Phase 0 (Go half) + Phase 1 complete. HANDOFF_2026-08-02 is the
+  cold-start; image rolls are the next session's first real action.

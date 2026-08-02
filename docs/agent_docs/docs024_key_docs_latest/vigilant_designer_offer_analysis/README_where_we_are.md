@@ -45,3 +45,25 @@ platform deliberately has no automatic path for those yet).
 
 Next up: the plumbing phase — make findings flow at all, fix the counter that falsely reports
 audited-out sites as "clean", and turn the browser audit's measurements into actionable work.
+
+## 2026-08-02 (later) — the plumbing is in, and the platform now argues back usefully
+
+Since the morning entry: the two live-config changes are applied — the sweep points at the
+right lane (still switched off, that flip stays yours), and the dishonest three-audits-
+and-report-clean counter is replaced by an honest gate: audit when something changed or
+enough time passed, always move findings toward workers, and when three audits at an
+unchanged site produce fixes that never land, say so on the roadmap instead of saying
+"clean". Three code pieces are written, tested and committed but dormant until we ship a
+new image: the piece that turns browser measurements into actionable work, whole-site
+screenshot capture (both phone and desktop views), and the "eyes" — the ability to send
+those screenshots to an AI model, built for both Gemini and Claude so your trial is a
+switch, not a rebuild.
+
+The review council looked at the screenshot work and approved it first time, with a
+genuinely good catch: our capture failures were logged but not counted, so the future
+design critic could have been quietly judging half a site without anyone knowing. That
+counter now exists. Two more reviews are still in the queue.
+
+Next session: ship the new images, prove one finding travels all the way from "a browser
+measured it" to "the page changed", and then build the critic itself and run your
+Gemini-versus-Claude comparison.
