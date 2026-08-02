@@ -3375,3 +3375,14 @@ Not worked around. Left for the owner's call together with the ingress decision.
 ⚠ **`setup.sh` un-does this** along with everything else — it rewrites
 `idea.conf` from its own template and does `ufw --force reset`. If the box is
 ever re-provisioned, the catch-all has to go into its stage-2 template too.
+
+**Verifier verdict (2026-08-02, corr `5bd58f4e-4ba4-423d-9517-e641722a4e01`):
+NEEDS_HUMAN_REVIEW** — the RFC_005 §3.2 landmine-verifier landed 08-01 08:12 UTC
+with zero code-index lookups returning data: every footprint on the entry
+(nginx paths, the VM IP, docs-tree paths) is infrastructure outside the
+code-symbol index's scope, so nothing could be mechanically confirmed *or*
+contradicted. Its stated remedy — "SSH access to the box or a broader file-tree
+check is required" — is the read-only probing recorded above (§X.34), so the
+human half of the verification is this section. Expected for any pure-infra
+landmine, worth knowing before dispatching the verifier at the next one: it can
+only grade entries whose footprints are code symbols.
