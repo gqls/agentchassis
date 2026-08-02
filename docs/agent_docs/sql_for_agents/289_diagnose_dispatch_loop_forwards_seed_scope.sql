@@ -1,4 +1,16 @@
--- 285_diagnose_dispatch_loop_forwards_seed_scope.sql
+-- 289_diagnose_dispatch_loop_forwards_seed_scope.sql
+--
+-- RENUMBERED 285 -> 289 on 2026-08-02. Another session committed a different
+-- migration as 285 eight minutes after this one landed
+-- (285_selector_agrees_with_loader_on_dispatchability.sql, commit 212e2d490),
+-- and its commit message names "285" in the subject line where this one does
+-- not — so moving THIS file costs less confusion than moving theirs, and
+-- forward-only forbids rewriting either commit. Resolve by slug, never by
+-- number (CLAUDE.md).
+--
+-- ALREADY APPLIED, under the old name, at 2026-08-02 ~11:15 — snapshot
+-- f4055640-69b4-4471-9e46-79a002e7196b. The content is unchanged by the rename
+-- and every assertion below is idempotent, so re-running is safe and is a no-op.
 --
 -- bugs_open/174 — the diagnosis dispatch loop drops `seed_scope` (and
 -- `runtime_page`), so a diagnosis aimed at chosen symbols silently runs against
@@ -126,7 +138,7 @@ BEGIN;
 -- 1. Snapshot first (two-arg form -> agent_definitions_backup).
 SELECT snapshot_agent(
     'diagnose-dispatch-loop',
-    'pre 285: forward seed_scope + runtime_page from the claimed spec to the handler (bugs_open/174)'
+    'pre 289: forward seed_scope + runtime_page from the claimed spec to the handler (bugs_open/174)'
 ) AS snapshot_id;
 
 -- 2. Assert the snapshot holds the PRE-change config. If it already carries
@@ -143,10 +155,10 @@ BEGIN
     LIMIT 1;
 
     IF snap_has_seed IS NULL THEN
-        RAISE EXCEPTION '285: no snapshot row found for diagnose-dispatch-loop — refusing to change a live agent with no rollback point';
+        RAISE EXCEPTION '289: no snapshot row found for diagnose-dispatch-loop — refusing to change a live agent with no rollback point';
     END IF;
     IF snap_has_seed THEN
-        RAISE NOTICE '285: snapshot already contains seed_scope — this appears to be a re-run; continuing (idempotent)';
+        RAISE NOTICE '289: snapshot already contains seed_scope — this appears to be a re-run; continuing (idempotent)';
     END IF;
 END $$;
 
@@ -219,7 +231,7 @@ BEGIN
       AND deleted_at IS NULL;
 
     IF rows_live <> 1 THEN
-        RAISE EXCEPTION '285: expected exactly 1 live diagnose-dispatch-loop row, found %', rows_live;
+        RAISE EXCEPTION '289: expected exactly 1 live diagnose-dispatch-loop row, found %', rows_live;
     END IF;
 
     SELECT default_config #>> '{workflow,steps,claim_item,config,query}',
@@ -233,18 +245,18 @@ BEGIN
 
     -- (a) the RETURNING projection — replace() is a silent no-op on a miss
     IF q NOT LIKE '%AS seed_scope%' THEN
-        RAISE EXCEPTION '285: claim_item RETURNING does not project seed_scope — the replace() needle did not match';
+        RAISE EXCEPTION '289: claim_item RETURNING does not project seed_scope — the replace() needle did not match';
     END IF;
     IF q NOT LIKE '%AS runtime_page%' THEN
-        RAISE EXCEPTION '285: claim_item RETURNING does not project runtime_page — the replace() needle did not match';
+        RAISE EXCEPTION '289: claim_item RETURNING does not project runtime_page — the replace() needle did not match';
     END IF;
 
     -- (b) the input_mapping keys, read back from the resolved path
     IF (im ->> 'seed_scope?') IS DISTINCT FROM 'claimed.seed_scope' THEN
-        RAISE EXCEPTION '285: call_handler.input_mapping seed_scope? = %, expected claimed.seed_scope', im ->> 'seed_scope?';
+        RAISE EXCEPTION '289: call_handler.input_mapping seed_scope? = %, expected claimed.seed_scope', im ->> 'seed_scope?';
     END IF;
     IF (im ->> 'runtime_page?') IS DISTINCT FROM 'claimed.runtime_page' THEN
-        RAISE EXCEPTION '285: call_handler.input_mapping runtime_page? = %, expected claimed.runtime_page', im ->> 'runtime_page?';
+        RAISE EXCEPTION '289: call_handler.input_mapping runtime_page? = %, expected claimed.runtime_page', im ->> 'runtime_page?';
     END IF;
 
     -- (c) THE INVARIANT, not just the two keys: every key the handler declares it
@@ -264,10 +276,10 @@ BEGIN
     WHERE NOT (im ? d OR im ? (d || '?'));
 
     IF missing IS NOT NULL THEN
-        RAISE EXCEPTION '285: diagnose-orchestrator declares %, which call_handler still cannot forward', missing;
+        RAISE EXCEPTION '289: diagnose-orchestrator declares %, which call_handler still cannot forward', missing;
     END IF;
 
-    RAISE NOTICE '285: OK — claim_item projects seed_scope + runtime_page, call_handler forwards them, and the mapping now covers every key diagnose-orchestrator declares';
+    RAISE NOTICE '289: OK — claim_item projects seed_scope + runtime_page, call_handler forwards them, and the mapping now covers every key diagnose-orchestrator declares';
 END $$;
 
 COMMIT;
