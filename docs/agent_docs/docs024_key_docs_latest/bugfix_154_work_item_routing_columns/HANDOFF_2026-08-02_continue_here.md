@@ -154,3 +154,31 @@
   rodata, unlike `5f00dcba9`.
 - Remaining OPEN on this handoff's list: items 4–6 unchanged (178 root cause /
   177 tool-generator / watch list). The shrink-guard thread of item 2–3 is DONE.
+
+## UPDATE 2026-08-03 ~01:15Z — 98aa9103 APPROVED same night; its advisory implemented, not shelved
+
+- **Council `98aa9103` (refusal wording): APPROVED** first round, 23:26:46Z,
+  2 advisory objections — the queue was empty at this hour, so the 30-min
+  budget was 6 minutes for once. `77b58fd4d` auto-credits via its trailer.
+- **The advisory three seats converged on is IMPLEMENTED** (`0913d5754`, no
+  trailer — it executes the approved round's own instruction): the fail-closed
+  measurement-error path now has `shrinkMeasurementErrorFix`, its own true
+  sentence (nothing shrank; the guard could not measure; floor-tuning is not a
+  remedy; `=0` is an escape hatch, not a fix). Test pins distinctness and the
+  wrong-remedy exclusion. Listed un-reviewed by 098, deliberately — the message
+  says why.
+- tooling_provenance's ask (record the principle where the next consumer finds
+  it): the principle — **a shared refusal helper's Summary/Fix are per-call-site
+  REQUIRED params, never inherited** — lives in `savePageSectionsRefusal`'s doc
+  comment, which IS where the next consumer looks, and the compiler enforces it
+  harder than any note. Declined to hand-write a `doc_notes` row (LANDMINES
+  rule: never hand-write rows the sync owns).
+- **Post-roll greps for the wording commits** (both inert until the next roll):
+  `shrank past the floor` ≥1 (77b58fd4d) and `could not measure the page's
+  existing sections` ≥1 (0913d5754), both replicas, anchored per
+  debug_historian's `grep -c` caution. In-tree build confirmation still owed by
+  whoever lands the other session's `load_work_item_actions.go` edit.
+- **This thread of 178's prevention is now fully closed**: guard live + proven +
+  approved; wording true on all four refusal paths + approved; consolidation
+  deferral tracked. What remains on 178 is the handler root cause (090) and the
+  unguarded sibling writers — the class, not this chokepoint.
