@@ -211,3 +211,50 @@ judgement call from you — whether "live, tested offline, and provably harmless
 because it cannot currently do anything" is good enough for C, or whether it
 waits for the other case to unblock it. That is a decision rather than a
 measurement, which is why I am leaving it with you.
+
+---
+
+**2026-08-02, evening — finished, and the last thing shipped with a proper proof.**
+
+The refusal message fix went live on the new build. This is the one where the
+system used to tell an operator "don't worry, a later run will tidy up the rows we
+left behind" — true for one of the four places it was printed, and false for the
+other three, where the whole operation had been refused and nothing would be tidied
+up later. Each of the four now says what it actually did.
+
+Worth a line on how it was checked, because it is the first time in this job I
+could do it properly. Normally I confirm a change shipped by looking for new text
+in the running program. That only proves something arrived; it cannot prove the old
+thing left. This time the old sentence and the new one were the same piece of text
+in the program, so I could check that the old version reads **zero** — it is gone,
+not merely accompanied. Both copies of the service, positive and negative.
+
+**Where the whole job stands: done.** All four of the risky delete-and-rebuild
+steps now refuse to delete unless they can show they saw enough of what they were
+rebuilding. Three of the four have been caught doing it for real in production —
+deliberately broken, watched to refuse, confirmed nothing was lost, then put back
+and watched to work normally. The fourth is guarded but cannot be tested, because
+the thing it protects has never had any data in it and the agent that would write
+it is the one we retired today.
+
+**Two things I want to leave with you rather than bury.**
+
+The first is that I got something wrong and it is worth knowing why. I wrote, in
+four different documents, that a certain agent had not run "in the last twenty
+days". It was actually the last **twenty-four hours** — the table I read that from
+throws away completed records after about a day, and the way I measured its age was
+fooled by a handful of odd leftover rows. The conclusion turned out to be right
+anyway, for a completely different reason I found later, but the reason I published
+was wrong. The uncomfortable part: I had added that "twenty days" caveat *to be
+careful*, and it was the caveat itself that was false — which made the claim look
+more checked than it was.
+
+The second is the bigger question I have not touched. Retiring that agent showed
+that four of the five remaining site builders have also never been used, and that
+the whole intake path they belong to shows no recent activity — while sites are
+still being created daily. So something else is building sites now. I have
+deliberately not retired the others: the honest reading is that an entire
+subsystem may have been superseded, and that is worth understanding properly rather
+than removing four agents one at a time because a query says nobody picked them.
+
+Handoff for whoever picks this up: `HANDOFF_2026-08-02_continue_here.md`.
