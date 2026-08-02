@@ -940,3 +940,21 @@ Evidence files: `scratchpad/induce178/{orch_evidence,refusal_item_evidence}.json
 A roll to **v1.0.1234** landed mid-session (pods 40–63s old when first checked);
 guard markers re-verified on both new replicas before inducing. The ~300s
 no-dispatch window after a chassis restart was waited out before queueing.
+
+### Found by the induction, not by any reviewer: the refusal item's SUMMARY is the wrong sentence
+
+`ebc1dda8`'s queue-visible summary reads *"beginners" returned too few sections
+to replace what is stored* — `savePageSectionsRefusal` hard-codes the
+completeness floor's wording, and the shrink guard reuses the whole helper. For
+a shrink refusal that sentence is FALSE (all sections were returned; one was
+too small), and an operator triaging the queue is pointed at a count problem
+that does not exist. `spec.reason` carries the correct text, so the detail is
+one click away, but the one-liner is the thing the queue shows. Nine council
+seats across two rounds did not catch this; watching the real item land did —
+which is the induction argument in miniature.
+
+**Deliberately NOT fixed mid-round** (round 2 is in council now; a fix commit
+the round cannot see helps nobody). The fix is small but has one design edge:
+keep `item_type`+`item_key` shared (one open refusal per page is the right
+dedup) and parameterise ONLY the Summary/Fix strings. Fold into a REVISE if one
+comes back; otherwise a follow-up commit after the verdict.
