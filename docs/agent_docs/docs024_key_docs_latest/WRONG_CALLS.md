@@ -16669,3 +16669,44 @@ Filed prospectively as a fleet landmine ("`orchestration_states` keeps terminal 
 > same-file-passenger entry in this file already states, applied in the direction I
 > had not considered: I checked for a passenger that was there and was gone, having
 > previously missed one that was there and stayed.
+
+## 2026-08-02 — bugfix_154 — my recorded prediction was wrong, and the way it was wrong hid a content regression behind a `complete`
+
+**The prediction**, written into `sql_for_agents/286` and the NOTES *before* the
+outcome, precisely so it could not be retrofitted: "5 of 5 previous
+tool_crosslink items failed at validate_page_content. If 93f2a3b7 does the same,
+that is a separate defect in the crosslink path."
+
+**What happened:** it succeeded. `complete`, attempt 0, no error, in ~2 minutes,
+and it added the tool link correctly in all three slots.
+
+**Being wrong was not the error — the shape of my check was.** I had framed the
+outcome as binary, pass or fail, and set myself up to read `complete` as
+vindication. It took a second look to notice that `generic-text-block` had gone
+from 4,439 to 1,806 characters of `content_data`: the item, whose summary is
+*"Add … tool reference to … page"*, had regenerated the whole section and dropped
+five paragraphs of engineering reference (ISO 9409-1 flange integration,
+kinematic requirements, cycle-time trade-offs). Filed as `bugs_open/178`.
+
+**What caught it:** comparing the three slots' lengths against the numbers I had
+queried an hour earlier for a different reason. Two slots grew by ~30–60 chars
+(one anchor); one lost 2,637. **The anomaly was only visible as a ratio between
+siblings** — 1,980 chars is a perfectly healthy-looking number on its own, and
+the HTML closes cleanly, so every structural check passes.
+
+**The cheap check that should have been the plan all along:** capture the
+artefact's size/shape BEFORE dispatching, and diff after. I did exactly this
+discipline for the 154 witness that morning (`component_versions` showed 7944 →
+9158 → 10520, a growth, which is why that verification stands) and then did not
+carry it across to the item I had personally unblocked minutes later.
+
+**The transferable error, and it is not "I predicted wrong":** *a prediction that
+names only a failure mode makes success unexamined.* I wrote down what a failure
+would look like and nothing about what a **correct success** would look like, so
+when the run came back `complete` there was no stated bar left for it to clear.
+The fix is to record the success criterion with the same specificity as the
+failure one — here, "the section's length is unchanged apart from ~90 chars of
+anchor" — because that sentence, written in advance, is what turns `complete`
+into a question instead of an answer. Sibling of
+`a-complete-work-item-is-not-a-repaired-artefact`: I know that rule, cite it, and
+still let a green status stand in for an artefact check on work I had enabled.

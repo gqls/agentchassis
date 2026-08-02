@@ -769,3 +769,61 @@ explicitly untouched and still open. **The lesson stands regardless of the
 outcome:** an instruction from the owner is not a reason to skip prior art, and
 "I was told to do this" would have been no defence if another session had been
 mid-fix on the same query.
+
+---
+
+## 2026-08-02 — the triaged crosslink SUCCEEDED, my prediction was wrong, and the success hid a content regression (`bugs_open/178`)
+
+Claimed 10:38:54 (33 s after `286` committed), `complete` 10:42, attempt 0, no
+error. **It added the link correctly** — one contextual anchor to
+`/tools/gripper-safety-factor-calculator/index.html` in each of the three slots,
+pointing at the right URL, with sensible prose around it. So robot-hands is a
+normal dispatch participant again and the crosslink work is genuinely done.
+
+**My recorded prediction (validate_content failure, on the 0-of-5 record) was
+WRONG.** Recording it in advance was still right — it is why the outcome got a
+second look at all.
+
+**And the second look found the real problem.** Slot lengths against the numbers
+I had queried an hour earlier:
+
+```
+slot                 before   after   delta
+call-to-action         2658    2717     +59   <- one anchor
+hero                   3171    3198     +27   <- one anchor
+generic-text-block     4617    1980   -2637   <- 57% GONE
+```
+
+`content_data` 4439 → 1806. The item's summary is *"Add … tool reference to …
+page"*; it regenerated the whole section, 7 paragraphs → 4, and changed the
+heading. Lost: workpiece-first methodology, kinematic requirements (grip force at
+contact vs actuator force, repeatability), cycle-time vs actuation trade-offs,
+ISO 9409-1 flange integration parameters, closing synthesis. On a page titled
+"Engineer's Reference". Filed `bugs_open/178`; **prior content is recoverable** in
+`page_component_history` (`ecb4b420`, the 4439-char snapshot the writer itself
+took at 10:41:22.93696 immediately before overwriting).
+
+**NOT restored by me.** The naive restore removes the anchor the item was
+legitimately raised to add, so the merge is an editorial act on a live customer
+page — an owner call, and there is no urgency because nothing is lost.
+
+Fleet check, 7 days, `content_data` shrink >25% vs last history snapshot:
+`fundamentallyai /tools/review-council-simulator` -92% (3→3 slots),
+`vonc /about` -50% (12→6), `relojistas /glosario` -48% (3→2),
+`vetcomparison /about` -48% (4→4), `robot-hands` -43% (3→3),
+`gamesdesign /tools/bayesian-ranking` -27% (4→4). **The slot column
+discriminates**: vonc 12→6 is almost certainly `bugs_closed/156`'s legitimate
+duplicate removal. The four with UNCHANGED slot counts match this signature; only
+robot-hands is CONFIRMED (I read both versions), the rest are `[UNVERIFIED]`.
+
+> **Checked, and it clears 154:** the witnessed `tool-improver` run that closed
+> this bug is NOT an instance — `component_versions` for `c345a76a` shows
+> 7944 → 9158 → 10520, i.e. it GREW. The morning's verification stands.
+
+**Lesson, in WRONG_CALLS:** my prediction named only a failure mode, so `complete`
+had no stated bar left to clear and read as vindication. The success criterion
+needed writing down with the same specificity as the failure one — "length
+unchanged apart from ~90 chars of anchor" — because that sentence, written in
+advance, is what turns a green status into a question. I had applied exactly this
+discipline to the 154 witness an hour earlier (hence the `component_versions`
+check above) and did not carry it to the item I had personally unblocked.
