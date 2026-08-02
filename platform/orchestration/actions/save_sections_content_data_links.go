@@ -29,6 +29,16 @@
 // through here. Extending to them is the same call shape component_link_repair.go
 // already established and is deliberately left as a separate change rather than
 // ridden in on this one.
+//
+// THE MAP IS NOT A COPY, and a reader should know it rather than assume it.
+// extractSectionsFromMetadata assigns SectionData.ContentData by type assertion
+// straight off the sections_metadata entry (save_page_sections_action.go:905-907),
+// so the map this pass rewrites is the SAME object still sitting in
+// params.CollectedData. That is the direction you want — a correction made here is
+// what gets persisted at :650 AND what any later step in the same run reads, so
+// the two cannot disagree — but it does mean the rewrite arm is visible outside
+// this function. It is stated here because "the audit works on a copy" is the
+// natural assumption and it is wrong.
 
 package actions
 
