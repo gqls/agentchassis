@@ -131,3 +131,103 @@ the test is a decoration (`LANDMINES.md`, "`mock.ExpectationsWereMet()` is NOT
 - `bugs_open/080` — `new_page` bypassing canonicalisation; same file, and the
   reason a disagreeing name INSERTS a second row instead of colliding at all.
 - Concept register `WII-008`.
+
+---
+
+# FIXED 2026-08-02 — candidate 2, and the exposure this file asked for
+
+**Fixing lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_175_page_role_upsert/`
+(PLAN / NOTES / RUNBOOK / README_where_we_are). **Commit:** `cbbecb021`.
+**Concept register:** PBP-027. **Council:** submitted `e78c62e3-7f01-48f1-b083-924eaccd195a`.
+
+## The exposure, measured — § Exposure's `[UNMEASURED]` is discharged
+
+The query in § Exposure returns 2 rows. Written per-arm — "is a page holding a name
+THIS arm would claim, under a different type?" — it returns **4, every one
+`deployed`**:
+
+| arm | domain | name | page_type | build_status |
+|---|---|---|---|---|
+| guide-arm | robot-hands.com | `gripper-selection-guide` | content | deployed |
+| guide-arm | robot-hands.com | `selection-guide` | content | deployed |
+| report-arm | idea.uk | `report-example` | content | deployed |
+| report-arm | lendzy.co.uk | `report-loan-shark` | content | deployed |
+
+**And the honest qualification, which the row count alone would hide:** a hit is a
+*surface*, not a collision. Tool page names canonicalise to `tool-<slug>`, so the
+guide arm's reachable name is `tool-gripper-selection-guide`; the bare form is
+produced only by `deploy_tool_action`'s `TrimPrefix` branch or a
+`pageNameOverride`. The report arm names pages `report-<uuid>`, so its two rows
+are unreachable. **No collision has been observed on any of the four arms.** The
+shape is confirmed by reading; this fix is prevention, and the severity line at
+the top of this file stands.
+
+## The census here was incomplete (does not change the answer)
+
+Re-grepped 2026-08-02: eleven `ON CONFLICT (site_id, name)` sites, not six. The
+five extra `DO UPDATE` arms — `site_db_actions.go:1141`,
+`create_blog_posts_action.go:219`, `adopt_verbatim.go:470`,
+`cmd/webdesignport/import.go:182` (+ the `seed_content_sources` `DO NOTHING` pair)
+— **all already carry `page_type = EXCLUDED.page_type`**, so they belong to the
+"opposite risk" camp this file describes and § "The sixth is the opposite risk"
+governs them unchanged.
+
+## What was done
+
+Candidate 2, **not** candidate 1, for this file's own stated reason: it is the only
+one that stops a seventh arm. `UpsertPageForRole`
+(`platform/orchestration/actions/page_role_upsert.go`) owns the write for any arm
+whose role is a **compile-time constant**, and answers the collision once:
+
+| collision | outcome |
+|---|---|
+| none | **created** — every declared column |
+| row holds the SAME role | **refreshed** — the caller's declared `Refresh` subset, nothing else |
+| DIFFERENT role, never served | **adopted** — the arm takes the row over completely, `page_type` included |
+| DIFFERENT role, **has been served** | **refused** — nothing mutated, `mistyped_deployed_page` filed `needs_human_review` |
+
+Converted: `create_report_page_action.go`, `deploy_tool_action.go` (both arms),
+`create_tool_component_action.go`. **`apply_gap_plan_action.go` deliberately NOT
+converted** — its role comes from an LLM plan, so the ADOPT branch would hand a
+generic arm the authority `081` declined. What IS shared is the refusal *filing*
+(`fileMistypedLivePageItem`), so both refusal sites now produce one item shape and
+one `item_key` and dedupe onto a single open human decision.
+
+**§ "How to verify a fix" is answered on its own terms.** Both branches induced,
+and each guard broken and watched to fail (five mutations, five red tests,
+unmutated green) — the table is in NOTES. The assertions that catch three of the
+five read the **SQL the helper actually built**, because the defect IS a column
+list and no statement-ordering expectation can see it.
+
+## Two deliberate divergences from `bugs_closed/081`, both measured
+
+1. **"Has been live" is `build_status IN ('deployed','needs_rebuild') OR
+   deployed_at IS NOT NULL`**, wider than 081's `build_status = 'deployed'`.
+   `bugs_closed/037` is an entire case about `needs_rebuild` falling outside that
+   predicate, and 35 of 46 `needs_rebuild` rows carry a non-null `deployed_at`.
+   Now a `LANDMINES.md` entry in its own right.
+2. **ADOPT re-types a never-served row**, where 081 refreshes and leaves the type.
+   081's declined widening was about *repairing existing mistypes* and was declined
+   on a count; this is a different question — a collision on a row nothing has ever
+   served — and leaving the type wrong there is the defect itself.
+
+## Prevention, so this file cannot recur as `bugs_open/2xx`
+
+`scripts/pattern-check.py` → `check_partial_page_upsert`: fires when `page_type` is
+in the INSERT list and absent from the SET list, silent on the `page_type =
+EXCLUDED.page_type` camp. **MEASURED over 1,120 Go files: 4 findings at pristine
+HEAD (exactly this file's census), 0 after the fix.** The first run of that
+measurement was against a tree that already had the fix and reported 0/0 — logged
+in `WRONG_CALLS.md`, because a check nobody has seen fire is not a check.
+
+## Left open, deliberately
+
+- **`create_tool_component_action.go:288`** creates its own tool page with a plain
+  `INSERT` and **no `ON CONFLICT` at all**: a collision raises a unique violation,
+  deletes the component and errors. Loud and fail-closed, so outside this file's
+  silent class. Converting it would make re-runs idempotent — a real behaviour
+  change nobody asked for. **Follow-up candidate, not a defect of this fix.**
+- **Two arms now return an error on refusal** where they previously overwrote a
+  live page (`DeployToolToSiteAction`'s tool page, `CreateReportPageAction`); the
+  companion-guide arms stay non-fatal and log. Raised as the open question in the
+  council submission and in PBP-027.
