@@ -79,9 +79,28 @@
 // makes the conclusion safe.
 //
 // So this floor is inert because its action is dormant, not because a guard is
-// missing. Whether multipage-website-builder should be retired (making this file
-// dead code, and is_active a lie) or is dormant-but-intended (making the exposure
-// a landmine waiting for its first run) is an owner call about the build path.
+// missing.
+//
+// RESOLVED THE SAME DAY, and this comment was stale the moment it was written.
+// The paragraph above used to end "whether multipage-website-builder should be
+// retired ... is an owner call about the build path". It had already been made:
+// the agent was retired at 10:37 UTC on 2026-08-02, hours before this file was
+// edited to pose it as open (see docs024_key_docs_latest/retired_agents/).
+// Verified on the live row, not the seed — `is_active=f, deleted_at NOT NULL`.
+//
+// CURRENT STATE, measured 2026-08-02: **zero active agents carry
+// extract_and_sync_links** (2 carriers exist, both retired). So this file, its
+// action, and the exposure at site_db_actions.go:396 are unreachable — dead code
+// pending a decision about the build path, NOT a guard waiting to arm.
+//
+// DO NOT DELETE IT ON THAT BASIS. Retiring the carrier exposed that four of the
+// five remaining site builders have also never run while sites are still created
+// daily, i.e. an entire intake path may have been superseded rather than these
+// agents being individually dead. If that path is revived or replaced, whatever
+// carries link extraction wants this floor already in place — which is the whole
+// argument for guarding a dormant delete in the first place. The open question is
+// the intake path, not this file; it is section 4 of
+// bugfix_165_reconciliation_deletes/HANDOFF_2026-08-02_continue_here.md.
 
 package actions
 
