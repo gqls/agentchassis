@@ -16140,3 +16140,45 @@ Related fleet landmines: [prior-art-search-goes-stale],
 `[UNDETERMINED]` both files had been deferring (`extract_and_sync_links` has never
 executed — the agent never runs). **Not swept: 19 other files still cite
 `bugs_open/092`.**
+
+## 2026-08-02 — bugfix_154 — I twice filed a fleet-wide dispatch stall as "within known behaviour" because it matched a range I had myself established from the same unexplained gaps
+
+**The claim, written into `bugs_open/154`'s status block and a cold-start handoff:**
+"Fleet dispatch has claimed nothing anywhere for 70 minutes (DB-computed) — a gap
+comparable to the ~90-minute quiet spell already observed earlier the same day,
+**so not yet outside known behaviour**, but at the top of it." And earlier the
+same day, "bursty, within range".
+
+**What was false:** there was no "known behaviour" — there was a recurring
+symptom I had seen twice and had never explained, which I converted into a
+baseline by comparing the second instance to the first. Both instances were one
+mechanism, exactly reproducible: `find_dispatchable_site` and
+`LoadWorkItemsAction` disagree about what "dispatchable" means (the loader adds
+an `approval_mode` clause and a `depends_on` clause), so the selector kept
+handing the dispatch loop a site whose only eligible item the loader refused. The
+loop loaded 0 items and completed successfully, forever. The 08:06→09:36Z gap I
+called normal was **89 minutes of total fleet stall behind a single work item**
+whose dependency sits in `needs_human_review`.
+
+**What caught it:** verifying an unrelated fix (154's witness). I noticed
+`build-dispatch-loop` had run 16 times in 40 minutes while claiming nothing, and
+read `collected_data->'load_items'` instead of the run status — `item_count: 0,
+rows_dropped: 0` on a site that visibly had a queued item.
+
+**The cheap check that would have caught it, both times:** the gap was a claim
+about a MECHANISM ("dispatch is quiet"), and the mechanism writes its reasoning
+down — one query against `orchestration_states.collected_data->'load_items'`
+would have shown `item_count: 0` and pointed straight at the loader. I had
+instead measured the SYMPTOM (time since last claim) more and more precisely,
+three times, without once reading what the dispatcher had actually decided.
+**Measuring a symptom to more decimal places is not investigating it.**
+
+**The transferable error, and it is the reason this entry exists rather than a
+NOTES line:** a range assembled from unexplained instances of the same symptom is
+not a baseline, and "consistent with previously observed behaviour" is not an
+explanation — it is the *absence* of one, phrased so that it sounds like one. The
+second occurrence of an unexplained thing is evidence it is systematic, which is
+the opposite of the reassurance I read into it. Every observation I cited was
+accurate; the inference from them was backwards. Sibling of
+`a-pass-from-a-blind-check-outlives-the-blindness`: here the blind check was my
+own earlier note, and I quoted it as if it were a finding.

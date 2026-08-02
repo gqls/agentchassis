@@ -607,3 +607,95 @@ asymmetry (218-row blast radius, owner call), tool-auditor's site-scoped
 `item_key` (own measurement wanted), and the scheduler pre_query asymmetry noted
 above (`triaged`-only + `locked_at`, vs the selector's `triaged|approved`, no
 lock check) `[UNMEASURED]`.
+
+---
+
+## 2026-08-02 — verifying 284 uncovered a SECOND defect: the selector and the loader disagree about "dispatchable" (`285`)
+
+284 worked, and watching it work is what exposed this. Post-284 the fleet served
+gamesdesign (5 claims, 09:36–09:41) and then **went silent again for 68 minutes**
+while `build-dispatch-loop` ran 16 times and completed cleanly every time.
+
+**The mechanism.** Two queries decide dispatchability and they are not the same
+query:
+
+- SELECTOR — `find_dispatchable_site` — picks the SITE on three predicates.
+- LOADER — `LoadWorkItemsAction` (`load_work_item_actions.go:~624`) — picks the
+  ITEMS, on those three **plus two**: `(COALESCE(approval_mode,'auto')='auto' OR
+  status='approved')` and the `depends_on` unresolved-dependency clause.
+
+So the selector hands the loop a site whose only eligible item the loader
+refuses. The loop loads zero, reports `has_items:false` / `rows_dropped:0`,
+notifies the scheduler and completes **COMPLETED, no error**. No claim → the site
+is still eligible → picked again. The queue never advances and nothing logs a
+failure. `rows_dropped:0` is the tell: not "dropped after loading", but "the SQL
+never matched a row another query calls eligible".
+
+**Measured.** robot-hands.com held exactly one selector-eligible item, `93f2a3b7`
+(content_rewrite, created 07-31 12:27:28 — the fleet's oldest), depending on
+`0733a7a4`, a `needs_content_page` in **`needs_human_review`**: a state no
+automation ever moves to complete/verified. Fleet-wide that was **1 blocked row
+out of 366** across 17 sites — and because it sat at the head, it stalled
+everything.
+
+```
+08:03–08:06  robot-hands drains its last 5 claimable items
+08:06–09:36  ZERO claims fleet-wide (89 min) — lowest-UUID selector picks
+             robot-hands every tick; every loop loads 0
+09:36        284 live → gamesdesign served (starved 3d10h), 5 claims
+09:41–10:14  ZERO claims again (68 min) — robot-hands back at the head, now
+             by AGE, and permanently
+10:14        285 live
+10:16–10:22  relojistas 5, vetcomparison 2, webdesign 1 — exact FIFO order
+```
+
+**Why 284 made it worse, and why the two changes are only safe together.** Under
+lowest-UUID a blocked site held the head only while it happened to sort lowest.
+Under oldest-waiting-first the key is `created_at` — it never changes and only
+ages — so **an unloadable item, once at the head, is at the head for ever.**
+284 without 285 is a permanent fleet stall behind one row. Fairness ordering was
+still the right change; it is just not sufficient on its own, and anyone
+reasoning about either in isolation will get its blast radius wrong.
+
+**The fix (`sql_for_agents/285`, applied 10:14Z).** Give the selector the
+loader's two clauses verbatim. **Strictly narrowing** — every site it removes is
+one where the loop would have loaded 0 items and claimed nothing — so no site
+that would have been served loses service; only the wasted pick that blocks
+everyone behind it goes. Pre-flight 1, snapshot, `UPDATE 1`, verified.
+
+**Proof at the artefact**, before/after on the loop's own output rather than on
+run status (every run was COMPLETED throughout, which is exactly why status is
+useless here):
+
+```
+site              item_count   when
+robot-hands.com   0            10:03, 10:06, 10:08, 10:11, 10:13   <- pre-285
+relojistas.com    5            10:16                                <- post-285
+vetcomparison.uk  5            10:19
+webdesign.co.uk   1            10:21
+```
+
+Negative control, deliberately chosen so a fix that "worked" by simply dispatching
+more could not pass it: `93f2a3b7` must remain `triaged`, unclaimed,
+`attempt_count 0` — it is genuinely undispatchable and the point is that the queue
+stops **waiting** for it, not that it gets dispatched. Confirmed.
+
+**Deliberately NOT fixed, recorded instead:**
+- The loader's dependency subquery is **site-scoped** (`WHERE site_id = $1`), so a
+  cross-site `depends_on` can never resolve. 285 copies that faithfully — the
+  selector's job is to AGREE with the loader, not to be independently right.
+  Fixing it means changing Go and moving both queries together.
+- robot-hands' actual blockage: `0733a7a4` needs a person. That is work-item
+  triage, not a dispatch defect.
+- The loader's optional `item_pipeline`/`handler_agent` filters are NOT mirrored —
+  the live `load_items` config carries neither, so mirroring them would invent a
+  filter the loader does not apply, and re-introduce the dead `domain='build'`
+  clause migration 067 removed.
+
+**Misstep, logged in WRONG_CALLS:** I had twice recorded these gaps as "comparable
+to the ~90-minute quiet spell already observed, so not yet outside known
+behaviour". There was no known behaviour — only a symptom I had seen twice and
+never explained, which I turned into a baseline by comparing the second instance
+to the first. I measured the symptom (time since last claim) three times with
+increasing precision and never once read what the dispatcher had decided; one
+query against `collected_data->'load_items'` would have ended it.

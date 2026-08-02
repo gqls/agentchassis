@@ -194,3 +194,44 @@ fields that would hit the same bug if anyone ever starts using them (fix is
 written down, waiting for a first real case), a question about whether page
 routing should work the same way (touches 218 old items, so it's an owner
 call), and a small labelling defect in how the auditor names its work items.
+
+---
+
+2026-08-02, midday. The fair-queue fix was right, and watching it work uncovered
+a bigger problem sitting underneath it. That is now fixed too.
+
+After the queue became fair, one site was served — and then everything went
+quiet again for over an hour. The dispatcher was running the whole time, every
+couple of minutes, finishing cleanly and reporting no errors. It was simply
+doing nothing, over and over.
+
+The cause: two different parts of the system disagree about what counts as work
+that can be started. The part that chooses which site to work on uses three
+tests. The part that then picks up the actual jobs uses those three plus two
+more — one about approval, one about whether a job is waiting on another job to
+finish first. So the chooser kept handing the worker a site whose only job the
+worker would not touch. The worker looked, found nothing it was allowed to do,
+reported success, and stopped. Nothing was marked as started, so the same site
+was chosen again next time, forever.
+
+The job in question is waiting on another job that needs a human to look at it —
+which will never happen on its own. So one single job, out of 366 across 17
+sites, was holding up the entire fleet. Twice today that produced complete
+standstills, of 89 and 68 minutes.
+
+Worth being straight about two things. First, I had seen those standstills
+before and written them off as "about the same as the last quiet spell, so
+probably normal". That was wrong, and wrong in an avoidable way: I had only ever
+seen the same unexplained thing twice and treated the repetition as
+reassurance, when it was the opposite. Second, the fair-queue change I made this
+morning made this worse, not better — under the old unfair rule a blocked site
+only held things up while it happened to sort first, but under "oldest waits
+first" a job that can never be started sits at the front permanently. The fair
+rule is still right; it just needed this fixed alongside it.
+
+The fix makes the chooser use the same tests as the worker. It is deliberately
+conservative: the only sites it now skips are ones where the worker would have
+found nothing anyway. Within two minutes of going live, three different sites
+were being worked on, in the correct fairest-first order, and the stuck job was
+left alone exactly as it should be — the queue no longer waits for it, and it
+stays there for whoever wants to sort out the human question behind it.

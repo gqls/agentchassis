@@ -9564,3 +9564,59 @@ edit (`scripts/pattern-check.py`, `check_unrepaired_component_write`), not a bet
 And when you build that check, do NOT allow-list the writers you left unfixed: an
 allow-list that absorbs the open cases converts a live debt into a false all-clear, which
 is the same failure as a guard with an exemption for the case that motivated it.
+
+### A component that runs on schedule, completes cleanly and changes nothing is the signature of two queries disagreeing about the same predicate (`bugs_closed/176`, 2026-08-02)
+
+There is no error state in this failure mode, which is why it survives. `build-dispatch-loop`
+ran 16 times in 40 minutes, every run `COMPLETED` with `error` NULL, while 366 work items sat
+`triaged` across 17 sites and **nothing was claimed anywhere in the fleet for 89 minutes**.
+Nothing logged a failure because nothing failed: the loop was told to work a site, found no
+item it was permitted to load, and correctly reported success.
+
+The cause is that **two different queries decide "is this dispatchable", and they are not the
+same query.** `find_dispatchable_site` (picks the SITE) tests three predicates;
+`LoadWorkItemsAction` (picks the ITEMS on that site) tests those three plus two more — an
+`approval_mode` clause and a `depends_on` unresolved-dependency clause. So the selector could
+hand the loop a site whose only eligible item the loader refused; no claim was made, so the
+site stayed eligible and was selected again, for ever.
+
+The generalisation is what to keep. **A dispatcher, a claimer, a validator and a detector each
+carry their own copy of "is this eligible", and drift between those copies produces no error —
+it produces silent no-ops that look like idleness.** The system appears healthy from every
+angle that reports status.
+
+Three practical rules:
+
+- **Diagnose from what the component DECIDED, not from its status.** Here that is
+  `collected_data->'load_items'` on the orchestration row: `item_count: 0` with
+  **`rows_dropped: 0`** is the discriminator. `rows_dropped: 0` does not mean "nothing was
+  dropped after loading" — it means the SQL never matched a row that the *other* query calls
+  eligible. Every run being COMPLETED is precisely why the status column cannot help.
+- **When you find the disagreement, decide which query is authoritative and make the other
+  AGREE — do not independently "fix" both.** The loader's dependency subquery is site-scoped,
+  so a cross-site `depends_on` can never resolve; the fix (`sql_for_agents/285`) copied that
+  behaviour into the selector deliberately rather than correcting it, because a selector that
+  is right about a different predicate than the loader re-creates the bug in a new spelling.
+  Fixing the underlying scope bug means changing both together.
+- **A "strictly narrowing" argument is the one to reach for** when adding predicates to a
+  selector: every site removed is one where the consumer would have done nothing anyway, so
+  no work that would have been served loses service. That is a structural argument and does
+  not decay with the data, unlike "we measured that no rows are affected".
+
+**Two aggravating factors worth recognising in your own case.** First, a dependency in
+`needs_human_review` is a *permanent* block, not a slow one — no automation moves an item out
+of that state, so anything depending on one is undispatchable until a person acts. One such
+row, out of 366, stalled the entire fleet. Second, **a fairness/FIFO ordering converts this
+class of defect from intermittent to permanent**: under an arbitrary order a blocked item
+holds the head only while it happens to sort first, but under oldest-first its key is
+`created_at`, which never changes and only ages, so an unloadable item at the head stays at
+the head. Fair ordering is still correct; it just must ship with selector/loader agreement.
+
+**And the reasoning failure that let it run for a week** (`WRONG_CALLS.md`, 2026-08-02): the
+stalls had been observed twice and written off both times as "comparable to the ~90-minute
+quiet spell already observed, so not yet outside known behaviour". There was no known
+behaviour — only an unexplained symptom seen twice, converted into a baseline by comparing the
+second instance to the first. **A range assembled from unexplained instances of the same
+symptom is not a baseline, and a second occurrence is evidence that something is systematic —
+the opposite of the reassurance it reads as.** The symptom (time since last claim) was measured
+three times with increasing precision while the decision that produced it was never read once.
