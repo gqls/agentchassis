@@ -144,3 +144,57 @@ rm -rf /tmp/claude-*/head-check && mkdir -p /tmp/claude-*/head-check
 git archive HEAD | tar -x -C <that dir>
 cd <that dir> && go build ./... && go test ./platform/orchestration/actions/ -run WorkItem
 ```
+
+## Prove the SQL before the roll — `go build` cannot parse it
+
+Both new statements, PREPAREd against the LIVE schema inside a transaction that
+ends in ROLLBACK (real schema, nothing written, nothing to clean up). Run this
+after any edit to either statement — a typo'd column or a predicate that no longer
+matches the partial index is invisible to the compiler and fatal at runtime.
+
+```sql
+BEGIN;
+PREPARE swi_refresh (uuid, text, text, jsonb) AS
+UPDATE site_work_items
+   SET summary = $3, spec = $4::jsonb, updated_at = NOW()
+ WHERE site_id = $1 AND item_key = $2
+   AND status NOT IN ('complete','failed','verified','rejected','wont_fix','unresolved','cancelled')
+   AND status NOT IN ('claimed','diagnosing');
+
+PREPARE swi_insert_parent (uuid,text,text,text,text,text,text,uuid,uuid,int,text,text,text,text,uuid,uuid[],uuid) AS
+INSERT INTO site_work_items (
+    site_id, source, pipeline, item_type, severity, summary, spec,
+    page_id, component_id, priority, handler_agent, status, created_by,
+    item_key, batch_id, depends_on, parent_item_id
+) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16::uuid[],$17)
+ON CONFLICT (site_id, item_key)
+    WHERE item_key IS NOT NULL
+      AND status NOT IN ('complete','failed','verified','rejected','wont_fix','unresolved','cancelled')
+DO NOTHING;
+ROLLBACK;
+```
+
+**Both returned `PREPARE` on 2026-08-03.** The second one is the load-bearing
+check and it answers the pre-commit hook's `unpaired-change` warning
+("touches `workItemTerminalStatuses` but not `idx_swi_dedup`"): adding
+`parent_item_id` to the column list does **not** disturb partial-index inference —
+the `ON CONFLICT … WHERE` still resolves to `idx_swi_dedup`, so there is no
+SQLSTATE 42P10. The warning is correct to fire (that pairing has bitten the fleet
+before) and is a false positive here, because the terminal list is only READ: the
+new UPDATE interpolates it into a plain `WHERE`, which touches no index predicate
+at all.
+
+## Baseline pod-grep, taken BEFORE the roll (this is what makes the after-grep mean something)
+
+Measured 2026-08-03 on both replicas, image `v1.0.1234`:
+
+```
+NEW  'refreshed the open work item'                    -> 0   (change is NOT live)
+NEG  "holds this site's key, and its spec still describes" -> 1   (the string this change REMOVES)
+POS  'an open stale_evidence item already'             -> 1   (control: grep + binary path work)
+```
+
+After the roll, require **NEW ≥ 1 and NEG = 0 on every replica.** NEW alone is not
+enough — an image can carry a new string and still predate other parts of your
+commit; the negative control is what proves the OLD code is gone rather than
+merely accompanied. (`bugs_open/153`: a roll is not evidence your fix shipped.)
