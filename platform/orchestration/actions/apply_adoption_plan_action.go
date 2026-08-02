@@ -987,27 +987,73 @@ func matchCrawlContent(index map[string]*crawlPageContent, pageURL, domain strin
 	return nil
 }
 
-// repairTruncatedJSON fixes JSON cut off by max_tokens
+// repairTruncatedJSON recovers parseable JSON from a response cut off by
+// max_tokens: it drops everything after the last '}' or ']' that closes a value
+// OUTSIDE a string literal, then closes any brackets still open at that point.
+// Two arms a caller must know about:
+//   - if no such closer exists it returns "" — the caller gets nothing, not a
+//     fragment (a cut inside the first object discards ALL of it);
+//   - the kept prefix ends at a complete value, so trailing fields are silently
+//     ABSENT rather than visibly damaged.
+//
+// Bracket accounting is string-aware. The previous strings.Count version read
+// brackets inside string values as structure, so `"problem": "a[0 unchecked"`
+// drew a spurious ']' and a '}' inside a string could be chosen as the cut
+// point — either way a salvageable fragment became invalid JSON and the review
+// or plan was dropped whole.
+//
+// Consumers: this file's plan parsing (three call sites), and
+// salvageTruncatedReview (diagnose_council_decide_action.go), feeding council
+// degraded-review handling (bugs_open/138). A truncated call is identifiable in
+// llm_call_log ONLY by error_message ILIKE '%stop_reason=max_tokens%' —
+// output_tokens is NULL on a first attempt (and counts invisible thinking on
+// models that think by default), so token-count comparisons cannot find them.
 func repairTruncatedJSON(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
+	// One forward pass: track the open-bracket stack and remember the last
+	// position where a '}' or ']' closed outside a string. After that position
+	// only pushes can occur (a later pop would have moved it), so the first
+	// depthAtLastGood entries of the stack are exactly what is open there.
+	var stack []byte
+	inString, escaped := false, false
 	lastGood := -1
-	for i := len(s) - 1; i >= 0; i-- {
-		if s[i] == '}' || s[i] == ']' {
+	depthAtLastGood := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if inString {
+			switch {
+			case escaped:
+				escaped = false
+			case c == '\\':
+				escaped = true
+			case c == '"':
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '{':
+			stack = append(stack, '}')
+		case '[':
+			stack = append(stack, ']')
+		case '}', ']':
+			if len(stack) > 0 && stack[len(stack)-1] == c {
+				stack = stack[:len(stack)-1]
+			}
 			lastGood = i + 1
-			break
+			depthAtLastGood = len(stack)
 		}
 	}
 	if lastGood <= 0 {
 		return ""
 	}
 	truncated := strings.TrimRight(s[:lastGood], " \t\n\r,")
-	for strings.Count(truncated, "[") > strings.Count(truncated, "]") {
-		truncated += "]"
-	}
-	for strings.Count(truncated, "{") > strings.Count(truncated, "}") {
-		truncated += "}"
+	for i := depthAtLastGood - 1; i >= 0; i-- {
+		truncated += string(stack[i])
 	}
 	return truncated
 }
