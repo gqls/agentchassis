@@ -258,3 +258,33 @@ subsystem may have been superseded, and that is worth understanding properly rat
 than removing four agents one at a time because a query says nobody picked them.
 
 Handoff for whoever picks this up: `HANDOFF_2026-08-02_continue_here.md`.
+
+---
+
+**2026-08-02, evening — the B+C side is finished.**
+
+The chassis rolled twice today. After the first roll I checked the two guards I
+wrote were actually in the running binary rather than just in git, and they were.
+After the second roll the last outstanding piece — the fix to the refusal message,
+which had been telling operators to wait for a tidy-up that never comes — went live
+too. All four of the destructive deletes this whole exercise was about are now
+guarded, live, and three of them have been proven by deliberately breaking them and
+watching the guard refuse.
+
+The interesting part of today was not the guards, though. It was that three separate
+times I wrote a sentence pointing at something whose status had already changed
+underneath me — a bug I said was open had closed two days earlier, a decision I
+called "an owner call" had been made seven hours before I wrote it, and the bug I
+was working on closed while I was typing about it. None of these were wrong
+measurements; every number I checked was right. They were all the same mistake:
+citing a status instead of checking one. I fixed nine of them in the morning, wrote
+up why it happens, and then did it twice more in the afternoon. That is worth
+knowing about how this goes wrong — it is not a knowledge problem, and being told
+about it does not fix it. What fixes it is one query, run at the moment you write
+the claim rather than before or after.
+
+Two things are left and neither belongs to this lane: bug 173 (a missing degree of
+freedom in how loops handle errors) has no owner, and there are roughly a hundred
+citations across the codebase pointing at bug files that have since moved. The
+second one should be a check that runs when you edit a file, not a hundred-file
+sweep — the numbering makes a mechanical rewrite genuinely unsafe.

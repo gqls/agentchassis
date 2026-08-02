@@ -120,3 +120,42 @@ that menu belongs to.
    it.** 092 said the link-registry question was 165's; 165 said it was 092's.
    Neither owned it and both closed. **Write the item into the OTHER case's file,
    not only your own.**
+
+---
+
+## 9. Addendum from the sites B+C lane — post-`v1.0.1229` (appended, nothing above edited)
+
+**Everything this lane owed is live and verified.** `v1.0.1229`, both replicas,
+positive + pipeline + negative controls each time. §14 and §15 of
+`NOTES_reconciliation_deletes.md` carry the tables and the exact grep strings.
+
+Three commits after the roll, all comment/string only, all builds+tests green:
+
+| commit | what |
+|---|---|
+| `cdbe27325` | 9 stale `bugs_open/` pointers in the B+C sources; the `092` ones carried a wrong *answer*, replaced with the measured one |
+| `e1300a81c` | the third sibling, `save_sections_prune_floor.go:280` — site A's file, found by a **failing** negative control |
+| `f6913a1fa` | this lane's own header posed a decided question as open — `multipage-website-builder` was retired 7h before the comment was written |
+
+**Nothing is owed. Two things are left for others, neither this lane's:**
+
+1. **`bugs_open/173`** — per-substep error routing. Still OPEN and **UNOWNED**. It
+   is latent (nothing fails because of it today) but it is what pushed site C into a
+   workaround that four council seats rejected, and §CONTRIBUTION shows it would buy
+   three of site A's loops as well as C's.
+2. **The stale-citation class, measured and deliberately not swept.** 107 of 139 bug
+   numbers cited as `bugs_open/NNN` in Go source now live in `bugs_closed/`; ~100 of
+   those sit in *string literals* that reach a human (log lines, work-item remedy
+   text). Reproduction and the reason a mechanical rewrite is **unsafe** — numbers
+   naming two unrelated cases can legitimately exist in both directories — are in
+   NOTES §15. The durable fix is a `pattern-check.py` rule firing at edit time, not
+   a sweep.
+
+**The one thing I would tell the next session.** This lane's characteristic failure
+was not a wrong measurement — every number checked out. It was **citations asserting
+a status that had already changed**: `092` closed before I pointed at it, `165`
+closed while I was writing about it, the retirement decided before I called it open.
+Three instances in one session, the last two *after* writing the WRONG_CALLS entry
+about the first. Knowing the class did not help. The only thing that worked was
+querying the live row — `git ls-tree` for a bug path, `agent_definitions` for an
+agent — in the same breath as writing the sentence.
