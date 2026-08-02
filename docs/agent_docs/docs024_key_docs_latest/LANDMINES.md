@@ -2370,7 +2370,7 @@ before a customer-facing domain is the one printing it.
 
 ---
 
-## Pointing a new domain at an existing single-vhost box silently serves the OLD site under the NEW name — and idea.uk's engine will take money on it
+### Pointing a new domain at an existing single-vhost box silently serves the OLD site under the NEW name — and idea.uk's engine will take money on it
 
 - **footprint:** `116.203.204.115`, `idea.uk`, `docs024_key_docs_latest/idea.uk/golang_files/service.go`, `setup.sh`, nginx `default_server`
 
@@ -3461,8 +3461,17 @@ deliberately:
   FROM pages GROUP BY 1 ORDER BY 2 DESC;
   -- 2026-08-02: deployed 491/490 · needs_rebuild 46/35 · planned 42/0
   ```
-  Write the guard as `build_status IN ('deployed','needs_rebuild') OR deployed_at
-  IS NOT NULL`. And note the converse trap on the same columns: `deployed_at IS
+  **Do NOT hand-roll it, and do NOT name the status** — use the estate's one
+  definition, `datahelpers.NeverDeployedPagePredicate`
+  (`deployed_at IS NULL AND COALESCE(build_status,'') <> 'deployed'`), negated for
+  "has shipped". **CORRECTED 2026-08-02, hours after this entry was written: its
+  first version said to write `build_status IN ('deployed','needs_rebuild') OR
+  deployed_at IS NOT NULL`, and that is WRONG on 11 live rows** — `needs_rebuild`
+  with no `deployed_at`, no `last_built_at`, mostly zero components, never built.
+  Naming the status is itself the trap: `datahelpers/links_deployment_test.go`
+  forbids it, because singling it out produced a 34-page false-positive class for
+  the nav lane. `deployed_at IS NULL` already catches the 35 that HAVE shipped.
+  And note the converse trap on the same columns: `deployed_at IS
   NOT NULL` means "deployed ONCE", **not** "fetchable now" (`bugs_open/098` —
   archiving does not retract the live page), so it is the right test for *may I
   overwrite this* and the wrong one for *is this reachable today*.
@@ -3502,7 +3511,7 @@ deliberately:
   before a new one was built — it did, and it is the one with the opposite policy
 - **added:** 2026-08-02, bugfix_175_page_role_upsert lane
 
-## A diagnosis bundle's "agent state" section lists an agent with NO llm_call_log lines — that is NOT evidence the agent made no calls
+### A diagnosis bundle's "agent state" section lists an agent with NO llm_call_log lines — that is NOT evidence the agent made no calls
 
 - **footprint:** `diagnosis_artifacts` (`kind='bundle'`), the
   `### agent state (auto-gathered` section, `llm_call_log`,
