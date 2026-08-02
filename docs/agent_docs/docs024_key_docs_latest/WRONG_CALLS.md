@@ -16710,3 +16710,45 @@ anchor" — because that sentence, written in advance, is what turns `complete`
 into a question instead of an answer. Sibling of
 `a-complete-work-item-is-not-a-repaired-artefact`: I know that rule, cite it, and
 still let a green status stand in for an artefact check on work I had enabled.
+
+---
+
+## 2026-08-02 — I wrote two mechanisms guaranteeing one property, so neither could ever be tested (bugs_open/097 / LNK-028)
+
+**The claim I was about to ship:** that `RepairContentDataLinks` returns findings
+in a stable order, guarded by `sort.SliceStable` on the path, and pinned by
+`TestFindingOrderIsStable` (25 runs over a 6-key map — deliberately wide enough
+for Go's map randomisation to show).
+
+**What caught it: the mutation loop, on the guard I was least worried about.** I
+was breaking each guard in turn to watch its test go red. Four did. The ordering
+one did not — I deleted `sort.Strings(keys)` from the walk and **every test still
+passed**.
+
+Cause: I had written the sort **twice**, in two places, without noticing —
+`sort.Strings(keys)` inside the map branch and `sort.SliceStable(findings, …)` at
+the exit. Either alone makes the output deterministic. So each was hiding the
+other's absence, **both could be deleted individually with the suite green**, and
+neither was ever demonstrated to do anything. Two guards, zero coverage.
+
+**The cheap check that would have caught it, and did:** after adding a guard,
+delete it and run the test that is supposed to protect it. If it still passes,
+either the test is vacuous or something else is already doing the job — and both
+are worth knowing before the commit rather than after a reviewer asks.
+
+**Why it is worth a row.** This is `two-blind-checks-agree-with-each-other`
+turned round: that lesson is about two *measurements* that share a blind spot and
+corroborate each other falsely. This is the same shape in the *writing*
+direction — two *implementations* of one guarantee, where the redundancy does not
+add safety, it removes testability. The instinct that redundancy is free is what
+makes it hard to spot: a second sort looks like defensiveness, not like a defect.
+Resolved by **deleting the redundant one**, after which the mutation reproduced
+immediately (`[a b c d e f]` then `[d e f a b c]` on consecutive runs), rather
+than keeping it as decoration and writing a comment claiming both were needed.
+
+**A second, smaller one from the same loop:** two of my five mutation runs printed
+`FAIL` and I nearly logged them as proof. They had failed to **compile** —
+`[build failed]`, once from a `case []int:` that broke type inference, once from
+removing a `sort` call and orphaning its import. **A broken build is not a red
+test**, and the word FAIL in the output makes it look exactly like one. The check:
+read the line above FAIL. If it names a file and column, you tested nothing.
