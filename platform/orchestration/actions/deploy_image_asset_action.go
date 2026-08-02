@@ -130,9 +130,20 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	// that stopped check_undeployed_assets raising them, and nothing sweeps a
 	// queue for items whose defining predicate has since changed.
 	//
-	// A refusal, not an error: the platform's convention for an action that
-	// declines is a completed result carrying the reason, so the work item
-	// resolves instead of retrying for ever.
+	// A refusal, not an error — "refusals-as-results per house style": a refused
+	// action completes the workflow and reports why, so the work item resolves
+	// instead of erroring the orchestration or retrying for ever against a guard
+	// that will never pass it.
+	//
+	// The RESULT SHAPE is the sibling's, not a new one. ingest_staged_asset (the
+	// same asset-deployer agent, fourth mode) refuses with the action's own
+	// success flag false plus a `reason` — `{"ingested": false, ..., "reason": …}`
+	// — and this action already declines the no-storage-URI case as
+	// `{"deployed": false, "skipped": true, "reason": …}`. An earlier draft added
+	// a `"refused": true` key on top; the council's reuse seat asked whether that
+	// matched a convention or invented one, and it invented one — it was the only
+	// occurrence of the key in the platform. Dropped. The reason string is what
+	// distinguishes the two declines, exactly as it does in the sibling.
 	if storage.IsBrandHeadPurpose(purpose) {
 		logger.Warn("refusing to deploy a brand-head purpose — this action is not its writer",
 			zap.String("purpose", purpose),
@@ -142,8 +153,7 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		return map[string]interface{}{
 			"deployed": false,
 			"skipped":  true,
-			"refused":  true,
-			"reason": fmt.Sprintf("purpose %q is a brand-head artefact published at %s by "+
+			"reason": fmt.Sprintf("refused: purpose %q is a brand-head artefact published at %s by "+
 				"derive_brand_head_assets, not by this action; re-derive it (mode=brand_head) "+
 				"instead of deploying over it", purpose, storage.BrandHeadAssetPaths[purpose]),
 		}, nil

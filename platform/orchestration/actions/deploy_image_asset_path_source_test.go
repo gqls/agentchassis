@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/gqls/agentchassis/platform/storage"
 )
 
 // TestDeployImageAssetResolvesThroughTheSharedDerivation is a SOURCE scan, and
@@ -126,13 +128,50 @@ func TestDeployImageAssetRefusesBrandHeadPurposes(t *testing.T) {
 	}
 
 	// A refusal is a RESULT, not an error: the work item must resolve rather
-	// than retry for ever. Check the guard's own return block says so.
+	// than retry for ever. The shape is the sibling's (ingest_staged_asset) and
+	// this action's own no-storage-URI decline — the success flag false plus a
+	// `reason` — NOT a bespoke key. An earlier draft asserted `"refused": true`
+	// here; the council's reuse seat pointed out that key existed nowhere else
+	// in the platform, so both the code and this assertion now pin the
+	// convention instead of a local invention.
 	tail := body[guard:]
 	if end := strings.Index(tail, "\n\t}\n"); end > 0 {
 		block := tail[:end]
-		if !strings.Contains(block, `"refused"`) || !strings.Contains(block, "nil") {
-			t.Errorf("the brand-head branch does not return a refusal result — it must complete " +
-				"with a reason, not error, or the item retries against a guard that will never let it through")
+		for _, want := range []string{`"deployed": false`, `"reason"`, "nil"} {
+			if !strings.Contains(block, want) {
+				t.Errorf("the brand-head branch does not return a house-style refusal: %s missing.\n"+
+					"It must complete with the success flag false and a reason, not error — or the "+
+					"item retries against a guard that will never let it through.", want)
+			}
+		}
+		if strings.Contains(block, `"refused"`) {
+			t.Errorf("the brand-head branch returns a bespoke \"refused\" key. The house style is the " +
+				"action's own success flag set false plus a reason (ingest_staged_asset, same agent); " +
+				"a second vocabulary for the same idea is what the reuse seat objected to.")
+		}
+	}
+}
+
+// TestBrandHeadAssetPathsAreAbsolute closes the round-3 advisory from the
+// bug_historian seat: DeployedAssetPath falls through SILENTLY to the generic
+// purpose/asset_key derivation when a BrandHeadAssetPaths value does not start
+// with "/", so an author who adds a relative entry by mistake gets no signal and
+// the artefact quietly resolves to the wrong place.
+//
+// A runtime log would be the wrong remedy — the map is a compile-time
+// declaration, so the malformed case can be made impossible to ship rather than
+// merely noisy when it runs. This test is that guard: it fails the build, which
+// is the only signal that arrives before the mistake reaches a site.
+func TestBrandHeadAssetPathsAreAbsolute(t *testing.T) {
+	for purpose, published := range storage.BrandHeadAssetPaths {
+		if !strings.HasPrefix(published, "/") {
+			t.Errorf("BrandHeadAssetPaths[%q] = %q, which is not an absolute site path.\n"+
+				"storage.DeployedAssetPath refuses to split such a value and falls through to the "+
+				"generic purpose-derived path SILENTLY, so this artefact would resolve to "+
+				"/assets/images/%s.<ext> and nothing would say so.", purpose, published, purpose)
+		}
+		if strings.HasSuffix(published, "/") || len(published) < 2 {
+			t.Errorf("BrandHeadAssetPaths[%q] = %q has no filename component", purpose, published)
 		}
 	}
 }

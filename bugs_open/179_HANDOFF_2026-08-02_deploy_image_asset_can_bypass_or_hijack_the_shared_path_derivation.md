@@ -39,10 +39,28 @@ because readers only ever see `(asset_key, purpose)`. That is the same shape as 
 168 closed — a writer whose output the readers cannot derive — reintroduced through a
 supported input rather than through duplicated code.
 
-**Measured, 2026-07-31 (128 lane) and unchanged 2026-08-02:** no Go code sets it, and it
-appears in **zero orchestrations in history**. It is declared in the action's input spec and
-in two SQL seeds (`044_asset_deployer.sql`, `107_image_build_handler.sql`) as an optional
-passthrough. So the risk set is empty *today* — and nothing makes it stay empty.
+**Measured 2026-08-02, across THREE populations — and the third is the one whose omission
+caused this file's finding-B error.** Counting only "no Go code sets it" is exactly the kind of
+partial census that made me call finding B unreachable when it was not, so:
+
+| population | count |
+|---|---|
+| work items carrying `deploy_path` in `spec` (**the standing queue**) | **0** |
+| active agent definitions setting a `deploy_path` **value** | **0** |
+| orchestrations with a `deploy_path` **value** | **0** |
+
+⚠ **Match the JSON shape, not the bare word.** `collected_data::text LIKE '%deploy_path%'`
+returns 9 — **all nine are this lane's own council submissions**, because a council run stores
+the submission JSON and its rationale argues about `deploy_path` at length. Use
+`LIKE '%"deploy_path":"%'`. Declared as an optional passthrough in the action's input spec and
+in two SQL seeds (`044_asset_deployer.sql`, `107_image_build_handler.sql`).
+
+So the risk set is empty *today*, on a census that now includes the queue — and nothing makes
+it stay empty. Both the `architecture` and `bug_historian` seats pressed this at medium in
+council round 3 (`abd9b119`, APPROVED), architecture noting pointedly that *"the round already
+proved that 'currently unreachable' measurements on this exact mechanism"* can be wrong.
+**Measuring it empty is not fixing it.** That is why finding A stays open while finding B is
+struck through as done.
 
 ## Finding B — a brand-head purpose routed here now OVERWRITES the deriver's artefact
 

@@ -353,3 +353,81 @@ doing exactly what an adversarial reviewer is for. **A confident measurement is 
 one, and the tell was that I never re-read what the objection was actually about**: guardian
 said *a future caller*, and I kept answering about *current callers*, which is a different
 sentence.
+
+## Council round 3 (`abd9b119`) — **APPROVED**, "with 2 advisory objection(s) — none high-severity"
+
+11 seats approve, 2 object at low/medium (advisory only). The verdict is approved, so nothing
+below blocked the change — but four of the advisories were *checkable*, so they were checked
+rather than filed. That is the whole point of the round: an advisory you discharge is worth
+more than an advisory you record.
+
+**`prior_art_librarian` asked for the load-bearing claim to be re-run before the round closed.**
+Right to ask — the 11-row figure is what set edit 3's severity, and it was 8 hours old.
+Re-run: **2 `detected` + 9 `unresolved` = 11.** Unchanged, so the urgency framing stands.
+
+**`reuse_agent` asked whether "refuse with reason" matched a platform convention or invented
+one. It invented one, and the seat was right.** `grep` for `"refused"` across the platform
+returned **exactly one occurrence: mine.** The actual house style — named as such in
+`ingest_staged_asset_action.go`, the *same asset-deployer agent's* fourth mode — is *"refusals-
+as-results per house style"*: the action's own success flag set false plus a `reason`
+(`{"ingested": false, …, "reason": …}`). And `deploy_image_asset` already declined its
+no-storage-URI case that way. So I had asserted a convention I had not looked for, and then
+added a key on top of the real one. **Fixed:** the bespoke `"refused": true` is dropped, the
+reason string carries the distinction exactly as the sibling does, and the test now *fails* if
+someone reintroduces the key. Mutation-proven.
+
+**`bug_historian` (low) found a real silent-failure hole in my own fix for round 1's catch.**
+`DeployedAssetPath` refuses to split a `BrandHeadAssetPaths` value that does not start with
+`/`, and then **falls through silently** to the generic purpose-derived path — so an author
+adding a relative entry by mistake gets no signal at all. A runtime log would be the wrong
+remedy: the map is a *compile-time declaration*, so the malformed case can be made impossible
+to **ship** rather than merely noisy when it runs.
+`TestBrandHeadAssetPathsAreAbsolute` is that guard; mutation-proven by making the `favicon`
+entry relative. Note the shape — **my round-1 fix introduced a new silent path while closing
+another**, which is exactly why the "refusing beats inventing" branch needed a test and not
+just a comment saying it refuses.
+
+**`guardian` (low) wanted evidence the landmine actually reached `doc_notes`, not just that
+`--check` passed afterwards.** Confirmed by reading the row back:
+`SELECT … FROM doc_notes WHERE categories ? 'landmine' AND body LIKE '%FIXED AT HEAD, NOT YET
+IN THE RUNNING FLEET%'` returns the entry.
+
+**`prior_art_librarian` could not confirm the `IsBrandHeadPurpose` call-site count from a
+declarations-only index and asked a human to grep.** Done:
+`deploy_image_asset_action.go:136` (the refusal) and the definition. **Exactly one production
+caller, and it is the guard** — the predicate 168 had orphaned now has the job the gating
+objection created for it.
+
+**`architecture` + `bug_historian` (both medium): `deploy_path` is tracked, not fixed, and it
+undermines the "ONE derivation" contract.** Architecture put the knife in precisely:
+*"The round already proved that 'currently unreachable' measurements on this exact mechanism
+[can be wrong]."* Fair, and after round 2 I have no standing to wave that away. So I measured
+it **the way I should have measured the clobber** — including the standing-queue population I
+missed last time:
+
+| population | count |
+|---|---|
+| work items carrying `deploy_path` in `spec` | **0** |
+| active agent definitions setting a `deploy_path` **value** | **0** |
+| orchestrations with a `deploy_path` **value** (JSON shape, not bare substring) | **0** |
+
+Zero on all three, including the one whose omission caused round 2's error. It stays OPEN as
+`bugs_open/179` finding A — measuring it empty is not fixing it, and that is the seats' actual
+point.
+
+**`editquality` (low): the ordering test scans source text, so a benign refactor could
+false-fail or false-pass it.** Accepted as a stated trade-off rather than fixed. The property
+being pinned — *the guard precedes the download and the commit* — is positional, and a
+value-level test cannot see position without executing a real download and git commit. The
+test says "repoint this rather than deleting it" for exactly this reason. Recorded as a known
+limitation, not silently dismissed.
+
+### The arc, for whoever reads this lane cold
+
+Round 1: three of four objections were *"you did the right thing and didn't show me"*.
+Round 2: *"you are wrong"* — and it was, about reachability, on a measurement I had defended
+twice. Round 3: *"your fix for round 1 opened a smaller silent path, and the convention you
+claimed doesn't exist"* — both true, both cheap, both fixed.
+
+**Nine guards are now mutation-proven.** The count is not the point; the point is that four of
+the nine exist because a reviewer disagreed with me and I checked instead of arguing.
