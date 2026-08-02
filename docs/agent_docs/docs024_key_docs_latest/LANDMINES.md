@@ -3659,3 +3659,11 @@ deliberately:
   blank-rate consolidation row. The harness then reproduced the same failure in
   itself within the hour — see its `PRE_FIX_REF` note.
 - **added:** 2026-08-03, loancalculator lane
+
+### A scalar written into an array-declared chrome schema field silently destroys the WHOLE slot's render — until v1.0.1231+1 rolls, and loudly-absent after
+- **footprint:** `site_specs` aspect `site_config` values consumed by `content_components.input_schema` fields with `type: array` (e.g. `config.chrome.compliance_lines`, STY-051); `render_site_components_action.go` gap-fill
+- **fires when:** you hand-seed a per-site chrome config value (the STY-050/STY-051 pattern) and write a STRING where the schema declares an ARRAY — e.g. `"chrome": {"compliance_lines": "one line"}` instead of `["one line"]`. Nothing errors: the fill succeeds, `{{range}}` over the string errors the ENTIRE template at exec, and the renderer silently drops to the regex-fallback path — the footer/head/header renders degraded fleet-shape-wise on that site, with only a `logger.Warn` anywhere.
+- **the tell:** the stored `rendered_html` loses its Go-template-rendered structure (fallback output) while the render step reports success. `<!-- FOOTER SOURCE: ... -->` markers may vanish or the gated blocks half-render.
+- **the check:** `jsonb_typeof(data#>'{chrome,compliance_lines}')` must read `array` BEFORE dispatching a chrome re-render. From the first chassis roll after commit `2046b6975`, the gap-fill REFUSES the mismatched fill (named Warn, block renders absent, rest of chrome normal) — but the seed being wrong is still your bug; the guard only contains it.
+- **source:** council corr 56ab6e23 (bug_historian advisory objection on the STY-051 seam), 2026-08-02; guard measured safe against all 69 array/list-declared fields (53 ranged, 16 unreferenced, 0 bare-output)
+- **added:** 2026-08-02, portfolio_positioning lane
