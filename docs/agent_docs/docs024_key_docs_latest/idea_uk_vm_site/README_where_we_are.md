@@ -1848,3 +1848,25 @@ the Cloudflare proxy on for idea.uk I need the SSL mode confirmed as "Full
 (strict)" in the dashboard — or a slightly wider token so I can check and set
 it myself. After that: the address proof from two networks, the firewall, and
 a full test purchase.
+
+## 3 August — idea.uk is fully behind Cloudflare, and the back door is bricked up
+
+The whole plan from Friday's handoff is now done, in the safe order, with each
+step checked before the next. This morning you gave me the wider Cloudflare
+permission and said go: I set the encryption mode to the strictest setting
+(Cloudflare now verifies our server's certificate on every fetch), switched
+the proxy on, and watched the site come through Cloudflare's edge with all
+sixteen pages and endpoints answering exactly as they did before. Then the
+proof that mattered: with two different networks browsing the site, the
+server's log shows the two real visitor addresses — not Cloudflare's — so the
+rate limiter is judging actual people. Finally the firewall: the server now
+refuses web traffic from anywhere except Cloudflare itself. I checked from
+outside — the server's bare address just times out on every port and address
+family, while idea.uk through Cloudflare works perfectly, and our SSH access
+is untouched. One warning worth remembering, now written down everywhere it
+needs to be: switching the DNS back to "grey" is no longer a harmless
+rollback — with the firewall up it would take the site down and quietly break
+certificate renewal too. The firewall comes down first, grey second. The only
+thing left to see in the wild is a real Stripe payment flowing through the
+new front door; the plumbing is proven, the first genuine order confirms it.
+webzy.uk stays parked at GoDaddy until you point it at Cloudflare.

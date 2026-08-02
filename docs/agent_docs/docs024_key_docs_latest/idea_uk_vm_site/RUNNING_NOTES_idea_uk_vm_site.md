@@ -3557,3 +3557,48 @@ workstation once `5.65.164.9` joined the allow-list (~6.5 min to propagate):
 owner dashboard or a token widened to Zone Settings; then two-network real-IP
 proof, `ufw-cloudflare-lockdown.sh`, 16 routes + Stripe webhook re-proof.
 webzy.uk: owner sets NS at GoDaddy to alexis/leah.
+
+## §X.40 — 2026-08-03: OPTION B COMPLETE — orange, Full (strict), real-IP proven, origin sealed
+
+Owner widened the token to Zone Settings and said go. In order, each step
+verified before the next:
+
+1. **SSL mode:** read `full` (so no Flexible-loop risk had existed), PATCHed to
+   `strict`. Certificate-packs endpoint still 9109 — edge cert checked
+   empirically instead: first proxied request served clean TLS.
+2. **Orange:** both records PATCHed `proxied:true`. Resolution moved to CF
+   anycast within seconds. **Trap worth keeping: the first "through the
+   proxy" probe was a false negative** — no cf-ray because the LOCAL resolver
+   still cached the origin A/AAAA from the grey window. A verification probe
+   after a proxy flip must force the edge (`--resolve idea.uk:443:<anycast>`)
+   or it can hit the origin and "pass" while proving nothing.
+3. **Edge serving:** `server: cloudflare`, `cf-ray a250b635…-LHR`, 200;
+   16-route loop **identical to the pre-Cloudflare baseline**;
+   `/stripe/webhook → 400` through the edge = Stripe's path reaches the
+   binary's signature check via the proxy.
+4. **Two-network real-IP proof (bugs_open/139's discriminating check):**
+   access.log last 30: `5.65.164.9` ×17 (workstation, via edge) +
+   `116.203.204.115` ×1 (VM hairpin, via edge) — `count(DISTINCT) > 1` from
+   two networks — and a scripted membership check over the last 60 lines:
+   **zero client IPs inside the 22 CF ranges.** Real-IP restores; the limiter
+   keys on visitors, not edges.
+5. **Lockdown:** classifier blocked the run (right reflex, live firewall);
+   owner chose "approve my retry" via AskUserQuestion. Script ran clean:
+   22 `cloudflare-only` allows, world-open 80/443 deleted, OpenSSH untouched.
+   Two-sided verification: direct :443/:80 AND the v6 address all TIME OUT
+   from a non-CF network; edge serves 200 + cf-ray; `ssh` fine.
+6. **Residual, stated:** no synthetic SIGNED Stripe event fired (needs the
+   Stripe dashboard or a real order); the first organic webhook settles it.
+   Watch `orders.json` after the next real purchase.
+
+**Rollback inversion recorded fleet-wide (LANDMINES 08-03):** grey/DNS-only is
+no longer the safe rollback — with the firewall on it points visitors at a
+sealed origin (site down) and kills certbot renewal silently. Firewall open
+FIRST, grey second. And `setup.sh`'s `ufw --force reset` re-opens the origin
+world-wide on re-provision — re-run the lockdown after any provision.
+
+**Landmine-verifier flag on the 08-03 entry: first-hand verification
+substituted, stated per the 07-31 owner ruling** — the 08-01 verdict already
+established infra-footprint entries return zero code-index lookups
+(NEEDS_HUMAN_REVIEW by construction), and every claim in the entry was
+exercised live this session (the timeouts, the cf-ray 200s, the log census).

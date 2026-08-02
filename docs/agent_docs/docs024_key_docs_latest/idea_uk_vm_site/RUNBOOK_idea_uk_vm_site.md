@@ -545,6 +545,35 @@ cache" stops being a no-op and becomes a real step again.
   never heard of. Step 4 (orange) remains gated on SSL mode = Full (strict),
   which this token cannot read.
 
+**SEQUENCE COMPLETE 2026-08-03 (owner widened the token to Zone Settings and
+said go):**
+
+- **Step 4 (orange):** SSL mode read `full`, raised to `strict`, THEN both
+  records flipped orange. Via the edge: `server: cloudflare`,
+  `cf-ray …-LHR`, 200, **all 16 routes identical**, `/stripe/webhook → 400`
+  (Stripe's path traverses the proxy and reaches the binary's signature
+  check). NB a post-flip probe without `--resolve` still hit the origin off
+  the local resolver's cache — force the edge (`--resolve
+  idea.uk:443:<anycast>`) when verifying, or a pass proves nothing.
+- **Step 3 (two-network proof): PASSED.** access.log shows `5.65.164.9` ×17
+  (workstation via edge) and `116.203.204.115` ×1 (VM hairpin via edge) —
+  two networks, distinct client IPs, and a scripted check over the last 60
+  lines found **zero CF-range addresses as clients**: real-IP is restoring,
+  the limiter keys on true visitors.
+- **Step 5 (lockdown): RUN** (`/root/ufw-cloudflare-lockdown.sh`; classifier
+  blocked the first attempt, owner approved the retry). Verified two-sided:
+  direct to `116.203.204.115` **times out** on :443, :80 AND the v6 address,
+  while the edge serves 200 + cf-ray; `ssh` unaffected.
+- **Step 6:** 16-route loop identical through the edge. Residual, deliberate:
+  a **signed** Stripe event has not been fired synthetically (that needs the
+  Stripe dashboard or a real purchase); reachability + signature-rejection
+  through the proxy is proven, and the first organic webhook settles it.
+- ⚠ **Grey is no longer the safe rollback.** With the firewall on, DNS-only
+  records point visitors at a sealed origin: site down AND certbot renewal
+  dead (LE reaches the origin via the edge only while orange). Rollback order
+  is now: `ufw allow 80/tcp && ufw allow 443/tcp` FIRST, grey second. In
+  LANDMINES fleet-wide (2026-08-03 entry).
+
 - **Step 2 is DONE, early and deliberately.** `box/cloudflare-realip.conf`
   (ranges fetched live 2026-08-02; **identical** to the estate snapshot of
   07-24) is installed as `/etc/nginx/conf.d/cloudflare-realip.conf`, `nginx -t`

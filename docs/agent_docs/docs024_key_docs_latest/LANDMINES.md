@@ -3594,12 +3594,21 @@ deliberately:
   `{{.your_field}}` to its `html_template`, then re-render the pages that use it.
   No symptom precedes this: the schema validates, the template parses, the loader
   accepts it, and the page renders.
-- **the tell:** there is none on the page. The render context is
-  `base ⊕ page_components.content_data ⊕ plan.resolved_data` — **`input_schema` is
-  not in that list at all.** `RenderTemplate` resolves an unknown key to the
-  **empty string** and logs a `Warn`; it does not fail, does not fall back to the
-  schema's `fallback`, and does not mark the page. So the placeholder vanishes and
-  everything around it is correct. It is worse than a visible break, because the
+- **the tell:** there is none on the page, and the one marker that WOULD have made
+  it visible is deliberately removed. Three citations, read at HEAD on 2026-08-03:
+  - `rerender_page_sections_action.go:393-396` — the render context is built by
+    exactly three `mergeIntoRenderContext` calls: `baseData`, `s.contentData`,
+    `plan.ResolvedData`. **`input_schema` is not one of them**, and neither file
+    mentions `fallback` at all.
+  - `call_agent.go:1172` — `Option("missingkey=zero")`. On a
+    `map[string]interface{}` that yields `nil`, which `text/template` renders as
+    the literal `<no value>`.
+  - `component_library.go` (`RenderTemplateReportingMissing`) — then
+    `strings.ReplaceAll(result, "<no value>", "")`. **The artefact is stripped on
+    purpose**, leaving a clean empty string, with a `Warn` naming the fields
+    (`Error`, if the blank landed in an `href=`/`src=` — a dead control).
+
+  So the placeholder vanishes silently and everything around it is correct. It is worse than a visible break, because the
   page still passes structural and numeric acceptance checks: the element is
   present, and no number moved. **Adding a schema field + a template placeholder
   is only TWO THIRDS of a change.**
@@ -3625,7 +3634,19 @@ deliberately:
   element — the whole of that fix, absent, on a page whose acceptance check would
   still have passed — and `tool-consolidation-risk`'s withheld-comparison notice as
   invisible text in two empty inline colours.
-- **added:** 2026-08-03, loancalculator lane
+- **evidential basis, stated because the two differ:** the render path above is
+  READ, at HEAD, and quoted line-for-line. The blank page was never OBSERVED,
+  because the whole point was to backfill before rendering rather than ship one to
+  find out. What IS measured is the gap itself: `backfill_content_data.py --check`
+  found exactly the 4 fields the two schemas had gained and 0 others, on rows whose
+  pages render correctly today — so the schema and the row demonstrably disagree,
+  and only the row is consulted.
+- **added:** 2026-08-03, loancalculator lane. `landmine-verifier` returned
+  NEEDS_HUMAN_REVIEW on the first pass — **not a challenge to the claim**: the code
+  index was last built at `d98010e8` (2026-07-28), so every footprint file returned
+  zero rows and it could not confirm or deny mechanically. It asked a human to
+  confirm no fallback-merging had been added since; the three citations above are
+  that confirmation, taken from the working tree rather than the index.
 
 ---
 
@@ -3667,3 +3688,34 @@ deliberately:
 - **the check:** `jsonb_typeof(data#>'{chrome,compliance_lines}')` must read `array` BEFORE dispatching a chrome re-render. From the first chassis roll after commit `2046b6975`, the gap-fill REFUSES the mismatched fill (named Warn, block renders absent, rest of chrome normal) — but the seed being wrong is still your bug; the guard only contains it.
 - **source:** council corr 56ab6e23 (bug_historian advisory objection on the STY-051 seam), 2026-08-02; guard measured safe against all 69 array/list-declared fields (53 ranged, 16 unreferenced, 0 bare-output)
 - **added:** 2026-08-02, portfolio_positioning lane
+
+### The idea.uk box now answers 80/443 ONLY to Cloudflare — a timeout curling the IP is the FIREWALL, not an outage; and grey/DNS-only records would take the site down AND silently kill cert renewal
+
+- **footprint:** `116.203.204.115`, `2a01:4f8:1c18:7c31::1`, `idea.uk`, `ufw-cloudflare-lockdown.sh`, `/etc/nginx/conf.d/cloudflare-realip.conf`, `proxied`, `59aded94c550f4b20c462bb7619e70c8`
+
+Since 2026-08-03 (Option B complete): idea.uk is orange behind Cloudflare (SSL
+Full strict), nginx restores real client IPs from `CF-Connecting-IP`, and ufw
+allows 80/443 **only from the 22 published CF ranges** (v4+v6; SSH open as
+before). Verified: direct curls to the IP time out on 80, 443 and the v6
+address, while the site serves 200 with a `cf-ray` via the edge; all 16 routes
+identical; two-network real-IP proof passed (5.65.164.9 + 116.203.204.115
+distinct in access.log, zero CF-range client IPs).
+
+**Why it misleads, twice:**
+1. **A timeout curling `116.203.204.115` now looks like the box is down.** It
+   is the firewall doing its job. Test via `https://idea.uk` (expect `cf-ray`),
+   or from the box itself; `ssh` still works and is the real liveness check.
+2. **Flipping the records grey/DNS-only no longer "just bypasses Cloudflare" —
+   it takes the site DOWN**, because visitors then dial the origin directly
+   and the firewall refuses them. **And certbot renewal dies with it** (LE's
+   validators are not in CF ranges; while orange they reach the origin via the
+   edge, which IS allowed). Grey was the safe rollback before the lockdown;
+   now rollback is `ufw allow 80/tcp && ufw allow 443/tcp` FIRST, grey second.
+
+Also: `setup.sh`'s full provision runs `ufw --force reset` — after any
+re-provision, re-run `/root/ufw-cloudflare-lockdown.sh` (copy also in the repo
+at `idea_uk_vm_site/box/`), or the origin is world-open again while DNS still
+says orange, which works and hides it.
+
+- **source:** 2026-08-03, `idea_uk_vm_site/RUNNING_NOTES` §X.40; RUNBOOK §4a "Progress" block
+- **added:** 2026-08-03, idea_uk_vm_site lane ("ideauk sec" session)
