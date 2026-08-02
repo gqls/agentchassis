@@ -621,3 +621,43 @@ one seat) and today is not the day to leave my own arithmetic unchecked.
 > its defect — but the message it prints when the window has closed is indistinguishable
 > from the message it prints when there is genuinely nothing to do. Recovery is
 > `scripts/trigger-landmine-verifier.sh '<source>'` directly, which is what I did.
+
+## 2026-08-02 — induction fired (owner go-ahead), after two corrections the question "why 120?" forced
+
+**The cap rationale was wrong and the number was right** — full entry in WRONG_CALLS
+2026-08-02, correction in RUNBOOK §11. Short form: `repairTruncatedJSON` returns `""`
+with no closing bracket (so `len(Objections)==0` is unreachable by truncation), and
+`severityGates` defaults TRUE on a cut-off severity (so an ungraded objection gates on
+MERITS — the false branch). The injection now pins ONE `severity:"low"` objection and
+demands verbose checks/notes so the reply cannot complete inside 120. Window: >~60
+tokens (discard floor), <161 (seat's observed output floor, 55 calls/21d, stable
+post-budget).
+
+**False drift alarm, 20 minutes lost:** live prompt md5 read `a39c7b70…` against
+yesterday's verified `94deeb7c…`. NOT drift — yesterday's hash was md5(psql-dump file)
+which carries a trailing newline; today's was SQL `md5()` on the raw value. Zero-step
+diff against the 08-01 snapshot proved byte-identity. **Hash one way** (SQL `md5()`),
+and note the backup table's `id` is the AGENT id, identical on every snapshot — a
+snapshot is keyed by `(type, snapshot_taken_at)`.
+
+**Thinking risk retired with evidence:** seat model is `claude-sonnet-5`; the chassis
+logs thinking telemetry (`thinking_reserve_tokens` etc.) and it is NULL on all recent
+calls, with `output_tokens` (202–383) matching visible JSON size — no hidden thinking
+spend, so cap 120 caps visible text.
+
+**Execution timeline (all 2026-08-02 UTC):** scratchpad had been wiped (/tmp cleared) —
+artefacts rebuilt; restore re-proven as a no-op (cap 8000, md5 unchanged) BEFORE the
+cripple · snapshot 10:34:03 (reason "INDUCED FAULT round 2") · cripple committed
+~10:34:05 (cap 120, fixture ×1) · 097 refused round 1 (`plan` must be an OBJECT:
+summary/edits/grounded_in/risks — schema is in the script header) · fired 10:35:5x, corr
+`4d7363d7-63dc-4b01-a912-ac0bb73c3031`, orch `council-gate-orchestrate-0802-1035`,
+spawned 10:35:59 with **frozen_cap=120 + fixture=t in its workflow_plan** (the frozen
+plan is the proof the induction travels with the round despite the restore) · **restored
+10:36, verified** (cap 8000, md5 `a39c7b70…`). Window ≈ 2.5 min.
+
+**Collateral:** `0802-1034` (bugfix_168 lane, storage-shaped edits) spawned 12 s into
+the window and carries frozen_cap=120. The adoption footprint should not fire for
+storage paths — being verified at `llm_call_log` (max_tokens on any
+`review_adoption_guardian` call since 10:30 tells the truth); their lane gets a notice
+if it fired. `0802-1032` spawned 10:32:29, BEFORE the window: clean (frozen_cap=8000,
+fixture=f — verified, not assumed).
