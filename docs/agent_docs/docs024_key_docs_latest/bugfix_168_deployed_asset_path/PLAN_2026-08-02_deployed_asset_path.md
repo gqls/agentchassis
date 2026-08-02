@@ -91,10 +91,25 @@ implied away.
 ## Phasing
 
 - [x] Verify the bug is still live and unowned; census re-run against the live DB
-- [x] File the diagnosis loop **before** asserting a structural cause (corr `ae9404bd`)
+- [x] File the diagnosis loop **before** asserting a structural cause (corr `ae9404bd`, REFUTED
+      — reported, and its own incomplete census corrected)
 - [x] One derivation + brand-head as input; deployer folded in; redundant branch removed
-- [x] Guards proven by mutation, not by a passing run
-- [x] Council gate submission (corr `abd9b119`)
-- [ ] Verdict read and dispositioned
-- [ ] Register entry, LANDMINES update + sync, commit
-- [ ] Live on a rolled chassis, pod-verified — **only then does 168 move to `bugs_closed/`**
+- [x] Guards proven by mutation, not by a passing run — **five**, including one run *after*
+      the fix to prove the removed local guard transferred rather than evaporated
+- [x] Council gate round 1 (corr `abd9b119`) → **REVISE**, gated by `guardian`
+- [x] Verdict read and every objection dispositioned (full record in NOTES)
+- [x] The one real code defect fixed: `brandHeadAssetPathsFor` took the map's value whole
+      instead of reconstructing it under `DefaultAssetBasePath` (`editquality`'s catch)
+- [x] `bugs_open/179` filed — the `deploy_path` escape hatch and the writer's new clobber
+      path, *tracked* rather than disclosed in prose (`bug_historian`'s objection)
+- [x] `RFC_009` filed — the standing artifact (`architecture`'s objection: "declaring it
+      doesn't relocate it")
+- [x] Register entry IMG-067; IMG-066's two now-false sentences corrected and its open
+      `verify-later` answered; LANDMINES entry updated + synced; committed
+- [x] Pod-verified the fix is **NOT** live (3 controls on `v1.0.1228`) — which is *why* the
+      bug stays open
+- [x] Council gate round 2 (same corr, `RESUBMIT_CORR`) — every objection answered with
+      evidence rather than argument
+- [ ] Round-2 verdict read and acted on
+- [ ] Live on a rolled chassis, pod-verified with BOTH controls on BOTH replicas —
+      **only then does 168 move to `bugs_closed/`**
