@@ -15824,6 +15824,41 @@ for that file the loop is not available as the verification route the 2026-07-31
 names. Four bundles and no verdict reads exactly like a run still in progress; it is not. Also
 in `016b` §9 and `LANDMINES.md`.
 
+## 2026-08-02 — `bugfix_164` re-check: I ran the exact doomed grep a three-day-old landmine describes, because the landmine is command-shaped and my recall is path-shaped
+
+**The act.** Re-verifying `bugs_closed/164` on both replicas, I grepped the binary for
+`"body omitted —"` — a fragment of my own marker literal, **em-dash included** — and got
+**0 on both pods**, which reads as "the fix is no longer in the binary". No positive control
+in that exec.
+
+**Why the 0 was manufactured, not measured.** `strings` emits ASCII-only runs, so a non-ASCII
+byte *splits* the literal — the em-dash spelling can never match **any** binary, including one
+that contains the string. Re-run with ASCII-only fragments plus a positive control in the same
+exec: `body omitted` 2, `body unavailable` 2, `This section is INCOMPLETE` 1, control 1 — both
+replicas, fix intact.
+
+**The damning part is that the check existed twice and fired neither time.**
+`LANDMINES.md:459` — *"`strings` splits a Go literal at every non-ASCII byte, so an em-dash
+marker greps to 0 in a binary that contains it"* — was written by another lane on
+2026-07-30, **measured**, three days before I hit it; and MEMORY's fleet banner says positive
+control in the same exec on every deploy-grep. I skipped both: the SessionStart landmine hook
+matches only *paths dirty in the tree*, and this trap's footprint is a **command**
+(`strings /app/agent-chassis`), so it is structurally undeliverable by that hook — the same
+gap `grep-landmines-for-your-symbols` records for shared helpers, and D10's exact case.
+
+**What caught it:** suspicion of my own instrument before the conclusion — the previous day's
+detector-poisoning entry (three rows up) made "my pattern is wrong" the first hypothesis
+instead of "the deploy regressed". That is luck-shaped, not check-shaped.
+
+**The cheap check, both halves mandatory:** before trusting a *command* against an artefact,
+`grep -n <command> LANDMINES.md` — the hook cannot do this for you; and never run a
+deploy-grep without a positive control **in the same exec** — a 0 without a control is not an
+absence, it is an unanswered question (`a-grep-proves-absence-only-for-its-spelling`).
+**Tally note:** second entry in two days where the trap was already written down in a fleet
+file I am instructed to consult and I consulted it only after the misfire. The recurring skip
+is not "read LANDMINES" — it is that both consultations are keyed by *what you touch*, and
+neither delivery path can key on *what you run*.
+
 ---
 
 ## 2026-08-02 — I sized an induced fault against a percentile, when the mechanism turns on a byte
