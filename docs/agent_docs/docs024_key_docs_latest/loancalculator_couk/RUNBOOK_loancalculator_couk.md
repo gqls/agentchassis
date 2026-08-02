@@ -623,11 +623,17 @@ priority, behind every older one fleet-wide:
 SELECT count(*) FROM site_work_items WHERE status IN ('triaged','approved')
   AND created_at < (SELECT created_at FROM site_work_items WHERE id='<id>');
 ```
-On 2026-08-02 that returned **325**, and items being processed had been created
-~19 hours earlier — so a same-day item is a next-day deploy. `dispatch-queue-depth.sh`
-reported the lane CLEAR at the same moment, and it was right: this is queue
-POSITION, not a stall, and the two need different responses. Do not diagnose a
-stall on this evidence.
+On 2026-08-02 that returned **325**. `dispatch-queue-depth.sh` reported the lane
+CLEAR at the same moment, and it was right: this is queue POSITION, not a stall,
+and the two need different responses. Do not diagnose a stall on this evidence.
+
+> ~~items being processed had been created ~19 hours earlier — so a same-day item
+> is a next-day deploy~~ **WRONG, corrected same day: the item completed in about
+> three hours.** The age of the items completing right now is the age of the
+> queue's TAIL, not the wait a new arrival faces — they are the oldest rows by
+> construction, and most of a 325-item backlog belongs to a few sites the
+> dispatcher clears in one visit each. Use the count as a depth signal; do not
+> convert an observed completion age into an ETA.
 
 **Assemble-only is the branch you want.** Fire with NO `reason`: the workflow
 takes `render_page`, which stitches the STORED `rendered_html` — no LLM, authored

@@ -1565,3 +1565,39 @@ All 27 pages then dry-ran clean through the loader: **63 rows, no refusals.**
 > and it asserts nothing false, but it is noise in exactly the field that exists
 > to carry signal. The rule I should have applied: the trailer is for
 > `platform/`, `internal/`, `pkg/` — check the pathspec before typing one.
+
+### THE MIRROR IS VALIDATED — served bytes are byte-identical to the prediction
+
+```
+predicted: 16649 bytes  md5=80ea73c95365fc146953753e196063f0
+served   : 16649 bytes  md5=80ea73c95365fc146953753e196063f0
+cmp → BYTE-IDENTICAL
+```
+
+`assemble_mirror.py` predicted, before a single row was written, the exact bytes
+the Go assembler would later serve for `guide-hidden-loan-fees` — including the
+JSON-LD block's `<` escaping and its alphabetical key order at both levels,
+the newlines around `<main>`, the tool-doc strip, and the chrome. **So the
+offline "27/27 static, 12/12 calculators" can now be read as a result rather than
+as a statement about my model of the assembler.** That was the one thing the
+offline suite structurally could not tell itself.
+
+> **CORRECTED — my queue estimate was wrong, and wrong in the direction that
+> caused an unnecessary escalation.** I measured that items completing at 10:37
+> had been created 19 hours earlier, saw 325 items ahead of mine, and projected a
+> next-day deploy. It completed at **13:37 — about three hours**, not nineteen.
+>
+> The error: I read a single observed age as a queue latency. Items completing at
+> a given moment are the OLDEST in the queue by construction — their age is the
+> depth of the tail, not the wait a new arrival faces, because sites drain in
+> bursts and most of those 325 items belonged to a handful of sites the
+> dispatcher clears in one visit each. **An observed completion age is an upper
+> bound on the backlog, not an estimate of your own wait.** The RUNBOOK section
+> keeps the mechanism (created_at ASC ordering, `detected` never dispatched,
+> priority nearly dead) because those are all true and load-bearing; only the
+> "19 hours ⇒ next-day" projection was wrong, and it is struck through there.
+
+All 27 pages are now decomposed: **63 rows, 51 prose + 12 tool, 0 verbatim**,
+with every page's original row preserved in `page_components_bak_20260802_decomp`
+(27 pages covered) and `load_decomposition.py --restore <page>` as the one-command
+way back. 26 rerenders filed and draining.

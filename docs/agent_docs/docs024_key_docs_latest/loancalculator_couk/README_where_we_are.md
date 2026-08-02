@@ -547,3 +547,43 @@ model of the assembler is actually right. If it disagrees, the other 26 stay put
 
 The GitHub token still cannot see the repository holding the site's source. That
 one needs someone with GitHub admin and is unchanged.
+
+---
+
+**2026-08-02, later — it works, and the check I was most worried about came back clean.**
+
+All 27 pages are now stored as editable pieces rather than as frozen documents:
+51 blocks of ordinary prose and 12 calculators, each a proper component. The first
+page has been rebuilt and is live, and the rest are queued behind it.
+
+The thing I want to report is the check, because it was the one part of this I
+could not honestly claim to have proved.
+
+To test the decomposition without shipping it, I had to write my own copy of the
+platform's page-assembler — the code that stitches the header, the sections and
+the footer into a finished page. That is a slightly uncomfortable thing to do: if
+my copy is wrong in the same way my test is wrong, everything passes and nothing
+is actually verified. So I made my copy write down, in advance, the exact page it
+predicted the real system would produce, and then compared the two once the real
+system had run.
+
+They matched **byte for byte** — 16,649 bytes, identical checksum, down to the
+punctuation of a machine-readable block buried in the page header. So the earlier
+result ("all 27 pages check out, all 12 calculators produce identical numbers")
+can now be read as a fact about the site rather than as a fact about my model of
+the site. That distinction sounds pedantic and it is the whole difference between
+testing something and agreeing with yourself.
+
+The live page looks exactly like the old one, with the footer added.
+
+**A correction to what I told you earlier.** I said the render was stuck behind
+about 325 other jobs and would probably not happen until tomorrow. It took three
+hours. My mistake was reading the age of the jobs finishing at that moment as if
+it were the wait — but those are by definition the oldest jobs in the queue, so
+their age tells you how long the tail is, not how long you will wait. I have
+corrected the runbook. It also means the message I asked you about — permission to
+push a job to the front — was not as necessary as I made it sound. You chose to
+write all 27 anyway, which turned out to be the faster route regardless.
+
+Everything is reversible per page with one command, and every original is backed
+up in the database.
