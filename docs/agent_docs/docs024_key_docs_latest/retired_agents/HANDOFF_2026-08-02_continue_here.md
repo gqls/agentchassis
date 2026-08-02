@@ -83,9 +83,11 @@ inference was wrong, and it nearly cost a live agent.
 
 ## 4. What is next — nothing is blocking, these are choices
 
-1. **Decide `report-builder`.** Left active deliberately. It is wired but its queue
-   has been empty; that is a product question (are reports still a thing?), not a
-   cleanup one.
+1. ~~**Decide `report-builder`.**~~ **DECIDED 2026-08-02 (owner): KEEP IT ACTIVE.**
+   No action taken or needed — it was never retired. Do not re-raise this on the
+   evidence that its queue is empty; that is the §3 trap, and the answer is
+   already recorded. It stays wired: `report-dispatch`, 90-second tick, 8
+   `agent_instances` rows.
 2. ~~**`intake-orchestrator` + `site-classifier`**~~ — **DONE, see §9.** Retired
    2026-08-02 late. The evidence standard in §2 turned out to be *insufficient* for
    these two, and the reason is worth reading before you retire anything else.
