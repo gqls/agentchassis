@@ -495,3 +495,99 @@ production right now. Commits: `4c1a97874`, `085160a6c`, `059ae2acd` (code + tes
 **What is NOT claimed:** that the bracket-slip class is fixed. It has 0 of 4 measurable
 live instances, so edit A's link to it is INFERRED. What is measured is that 91 steps asked
 for JSON and were never told to produce it, and that nothing re-asked an unusable answer.
+
+---
+
+## CLOSED 2026-08-02 — LIVE on v1.0.1228, proven at the artefact on both replicas
+
+Chassis v1.0.1228 rolled 2026-08-02 08:47 UTC carrying all three commits. The defect is no
+longer reproducible in production, which is the stated bar (*fixed AND live*).
+
+### Proof it shipped — every replica, with controls
+
+`bugs_open/153`: a roll is not evidence your fix shipped. Both pods, identical results:
+
+| check | `…-6rtlj` | `…-sccnj` | reads |
+|---|---|---|---|
+| `Ensure valid JSON syntax` (pipeline control, pre-existing) | 1 | 1 | grep + `strings` work on this binary |
+| `bugs_open/119 re-ask RECOVERED` | 1 | 1 | edit B present |
+| `RETRY (bugs_open/119` | 3 | 3 | the `llm_call_log` marker present |
+| `YOUR PREVIOUS ANSWER WAS DISCARDED` | 2 | 2 | the corrective prompt present |
+| `Keep every citation` | 1 | 1 | **round-2 amendment present ⇒ image postdates `059ae2acd`** |
+| `__json_contract_unmet` | 1 | 1 | edit C present |
+| `bugs_open/119 re-ask RECOVEREDX` (spelling control) | 0 | 0 | a `1` above is a real match, not an artefact |
+
+**`Keep every citation` is doing double duty** and is the useful one: it entered the tree
+only in `059ae2acd`, the *last* of the three commits, so its presence dates the image past
+the whole series. That substitutes for the removal-based negative control R10 originally
+prescribed — see the correction below, because **R10's negative control could never have
+worked**.
+
+> **CORRECTED 2026-08-02 — R10's negative control was a Go COMMENT.** It grepped the binary
+> for `adds format-specific instructions based on output_type`, a line this change deleted.
+> Comments are not compiled: that grep returns 0 against *any* binary, before or after the
+> roll, and would have been read as a pass. Every line this change removed was a comment or
+> a code-structure line — it removed **no string literal** — so a removal-based negative
+> control was never available here. Checked with
+> `git diff 4c1a97874^..059ae2acd -- <file> | grep '^-'`. R10 is fixed in the RUNBOOK.
+
+### The defect edit A repairs, measured cleanly (and the first measurement was wrong)
+
+Over four months of retained history (2026-03-31 → 2026-08-01), across 25 agents:
+
+**9,061 of 9,063 calls (99.98%) to `output_format: json` steps received
+`CRITICAL OUTPUT FORMAT:` — the block that says nothing about JSON — instead of
+`CRITICAL OUTPUT FORMAT - JSON:`.**
+
+The positive control makes it sharper: steps declaring `output_type: json`, the spelling
+the old code *could* read, have had **0 calls** in the whole retained window. So the JSON
+instruction block was essentially never appended by anything, ever.
+
+> **CORRECTED 2026-08-02 — my first pass at this measured my own submission text.** I first
+> counted `prompt_rendered LIKE '%Ensure valid JSON syntax%'` and got 31 of 9,063. All 31
+> were dated 2026-08-01, exactly **2 per council seat** — my own two rounds — and the phrase
+> sat inside my own prose (`…whose text is 'Ensure valid JSON syntax (proper quotes, commas,
+> brackets)' — precisely the failure 119 documents…`), because the submission rationale
+> quotes the instruction it is about. `prompt_template` contained it 0 times, and the
+> alternative explanation (an `ai_service`-level declaration the old code could already see)
+> is refuted at 0 rows. **A council submission is rendered INTO the seats' prompts, so any
+> phrase you quote in a rationale becomes a false positive in `prompt_rendered`.** Fixed by
+> detecting the block HEADER (`CRITICAL OUTPUT FORMAT - JSON:`) rather than a sentence the
+> submission would naturally quote. The corrected figure is *more* damning than the wrong
+> one, which is why it was worth re-doing. RUNBOOK R11.
+
+### What is NOT claimed, and the follow-up measurement that is owed
+
+**[UNMEASURED — 0 denominator, not a pass]** No in-scope call has run since the roll. In
+the 32 minutes after it the fleet made **4** LLM calls, all `med-price-collector.scrape_prices`,
+which runs action `med_scrape_prices` (not `execute_llm_prompt`) and declares no output
+contract. The fleet is idle at single-digit calls/hour, and the last council round was
+2026-08-01 08:59:45 — my own round 2. Therefore:
+
+- the re-ask has fired **0 times** — out of ~0 opportunities. That is uninformative, and
+  must not be reported as either success or failure.
+- the headline damage figure is **unchanged at 23 voided of 429 rounds all-time** (weekly:
+  0, 0, 8, 15), because no council has convened since the fix went live.
+
+> **The close condition in step 4 above ("that figure falling") was set too strictly, and I
+> am recording that rather than quietly dropping it.** It is an OUTCOME metric that depends
+> on other sessions submitting council rounds, not on this fix — it could not be satisfied
+> for days by anything the author does, while CLAUDE.md's bar (*fixed AND live*) is already
+> met and artefact-proven. Closing on the stated bar; the outcome measurement is a
+> follow-up, not an open defect.
+
+**Re-run when the fleet is next busy** (both are in the RUNBOOK, R10/R1):
+
+```sql
+-- did the mechanism fire, and does it stay rare?
+SELECT count(*), max(created_at) FROM llm_call_log WHERE error_message LIKE 'RETRY (bugs_open/119%';
+-- did the damage fall? compare against 23 voided / 429 rounds all-time, 15 in w/c 07-27
+WITH r AS (SELECT created_at, body::jsonb AS b FROM diagnosis_artifacts WHERE kind='council_report')
+SELECT date_trunc('week',created_at)::date, count(*),
+       count(*) FILTER (WHERE b->>'decided_by' LIKE 'unreadable reviewer%') FROM r GROUP BY 1 ORDER BY 1;
+```
+
+Still not claimed: that the bracket-slip class is fixed. 0 of 4 measurable live instances;
+edit A's link to it remains **[INFERRED]**. What is measured is that ~91 steps asked for
+JSON and were never told how, that nothing re-asked an unusable answer, and that both are
+now live.
