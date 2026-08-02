@@ -7,39 +7,43 @@ is still accurate about everything it describes except TL-035's status.
 
 ## 1. Where this lane actually is, in one paragraph
 
-TL-035 — *photograph a page that PASSES, not only one that fails* — is **armed end to
-end and not yet demonstrated.** The adapter half went live 07-31. The caller half went
-live tonight on **v1.0.1229** (another session's roll; on a shared HEAD that is normal,
-not a courtesy). The config flag is **set**. What does not yet exist is a **photograph**:
-no acceptance run has completed since the flag was armed, so nothing has been proved at
-the artefact. **Until a `Rendered:` line appears in an `acceptance-run` doc_note, the
-honest claim is "the wire is connected", not "the capability works."** One run is queued
-and waiting in the fleet queue.
+TL-035 — *photograph a page that PASSES, not only one that fails* — is **live and PROVEN
+at the artefact.** The adapter half went live 07-31; the caller half went live tonight on
+**v1.0.1229**; the flag was set by seed `292` in the ordered position. At **19:22** a real
+acceptance run on `tool-review-council-simulator` passed 22/22 checks and filed **two**
+renders (desktop + mobile) as durable `s3://` URIs on its `acceptance-run` note. The
+control is in the data: the *same tool's* 07-31 note has no render line. **What remains is
+not engineering — it is that nobody looks.** See §5.
 
-## 2. The single next action
+> **CORRECTED 19:30 — this section previously said "armed end to end and not yet
+> demonstrated", and §2 was a decision table for an outcome that had not landed.** It was
+> written at 19:10 while the run was still queued and was accurate then. The run completed
+> twenty minutes later. Left visible rather than silently rewritten, because a cold-start
+> doc that quietly changes its own claims teaches the next reader to distrust all of them.
 
-Check whether the queued run has completed and whether its note carries a `Rendered:` line.
+## 2. The artefact proof, and how to re-check it
 
 ```sql
--- the queued run
-SELECT status, claimed_by, attempt_count, left(coalesce(error,'-'),120)
-  FROM site_work_items WHERE id='e8756d1e-1f3d-48ba-9418-88ed70ca1b3b';
-
--- THE ARTEFACT CHECK -- this is the one that matters
-SELECT created_at, subject_key,
-       body LIKE '%Rendered:%' AS has_render_line,
-       substring(body from 'Rendered:.{0,300}') AS the_line
-  FROM doc_notes WHERE categories ? 'acceptance-run'
- ORDER BY created_at DESC LIMIT 3;
+SELECT created_at, subject_key, body LIKE '%Rendered:%' AS has_render_line, length(body)
+  FROM doc_notes WHERE categories ? 'acceptance-run' ORDER BY created_at DESC LIMIT 4;
+--  2026-08-02 19:22 | tool-review-council-simulator  | t | 2176   <- armed
+--  2026-07-31 18:08 | tool-ai-vendor-trust-checklist | f | 1008
+--  2026-07-31 12:59 | tool-review-council-simulator  | f | 1653   <- SAME TOOL, before
+--  2026-07-29 20:51 | smart-contrast                 | f |  521
 ```
 
-**Three outcomes, three different follow-ups — do not conflate them:**
+**Two limits, both stated in the register and worth repeating here.**
 
-| what you see | what it means | what to do |
-|---|---|---|
-| note exists, **has** a `Rendered:` line with `s3://` URIs | TL-035 is proven. | Mark TL-035 proven in the register (`docs026_concept_register/register/tool-lifecycle.md`, the `verify-later` bullet names this as open item (a)); write the lane SUMMARY — one is owed and this is the milestone that earns it. |
-| note exists, **no** `Rendered:` line | The flag did not reach the adapter, **or** object storage rejected the upload. These are different faults. | Read `collected_data->'request_run'->'response'` on the orchestration row — if the request payload shows `capture_renders: true` the chassis did its half and the fault is downstream (adapter or S3). A run that FAILED its checks also legitimately has no render for the failing profile — check the verdict before concluding anything. |
-| no note at all | The run has not completed. | It is queue latency, not a fault — see §4. Do not re-queue; check for a duplicate first. |
+- **The PNGs were never fetched.** The bucket is private and returns **401 for a key that
+  does not exist exactly as for one that does** — verified with a deliberate nonsense key,
+  which is the only reason we know the check is worthless rather than reading 401 as
+  "present but protected". What stands behind the URI is `screenshots.go:48-51` (`Save`
+  returns `("", "", err)` on upload failure) and `extractShotList` (drops any ref with no
+  durable URI). Sound, but an inference. Marked `[UNFETCHED]`.
+- **If you ever see a note WITHOUT a render line**, do not assume the flag broke. Read
+  `collected_data->'request_run'->'response'`: if the payload shows `capture_renders: true`
+  the chassis did its half and the fault is downstream. And a run that FAILED its checks
+  legitimately has no render for the failing profile — check the verdict first.
 
 ## 3. What was done tonight, and the two things that were done differently from plan
 
@@ -100,14 +104,16 @@ ordering is the design working.
 
 ## 5. Open, in the order I would take them
 
-1. **The artefact check above.** Everything else on TL-035 is downstream of it.
-2. **The lane SUMMARY.** Owed since 07-30 and deliberately not written yet — the five
-   headings would have said "the wire is connected" twice running. Once a photograph
-   exists the read-out genuinely changes, and that is the milestone.
-3. **`verify-later` item (c) on TL-035, which is the one that decides whether any of this
-   was worth building: does anyone LOOK?** Renders currently land as `s3://` URIs in a
-   note body. There is no surface that puts them in front of a human. A photograph nobody
-   opens is the same as no photograph. This is a real design question, not a chore.
+1. **NOBODY LOOKS AT THE RENDERS. This is now the top item and it is an owner call.**
+   They land as `s3://` URIs inside a technical note — no page, no digest, nothing that
+   puts an image in front of a person. A photograph nobody opens is worth the same as no
+   photograph, so on the original problem (faults only an eye catches) we have closed the
+   half that needs machinery and none of the half that needs eyes. Options range from a
+   line in a weekly digest to a contact sheet of the last N passing runs to a review page.
+   **Editorial, not technical** — do not pick one unilaterally.
+2. ~~The lane SUMMARY~~ — **written**: `SUMMARY_2026-08-02_the_camera_works_and_nobody_looks_yet.md`.
+3. **Open design question on the camera itself:** a full-page shot at one width is not what
+   a mobile reviewer needs. Should `Renders` carry its viewport? (register `verify-later` (b)).
 4. **Not chosen by the owner but still open from the 07-30b handoff:** `llm-cost-calculator`'s
    two dead CTA blocks; the `/tools/decision-record/index.html` 404 stub and the missing
    `/tools.html` (both stale rows, nothing links to them); a guide page for the

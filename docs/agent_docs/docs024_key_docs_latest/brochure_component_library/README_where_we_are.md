@@ -1407,3 +1407,37 @@ three quarters of an hour, and I've set something to tell me when it does.
 So, plainly: **the wiring is done and the switch is on, but no photograph exists yet.**
 Until I've seen one, all I can honestly claim is that the plumbing is connected. I'll
 know within the hour.
+
+**2 August, 19:25 — it worked. There is a photograph.**
+
+The run I queued came through about twenty minutes later, and the council simulator
+page passed all twenty-two of its checks. Attached to that result there are now two
+full-page screenshots — one desktop, one mobile — of the page exactly as it passed.
+
+The reason I'm confident rather than hopeful is that the same tool passed its checks
+on 31 July as well, and that record has no photograph attached. Same page, same
+checks, two days apart; the only thing that changed is the switch. I didn't have to
+construct a comparison — the old result was already sitting there being the control.
+
+Two honest caveats, because they're the sort of thing that quietly turns into a false
+claim later.
+
+The first: I have not opened the image files. They're in private storage, and when I
+asked for one over the web I got "not authorised" — but I also asked for a filename I
+had invented, which doesn't exist, and got exactly the same "not authorised". So that
+test can't tell the two apart and I'm not going to pretend it did. What I can say is
+that the code physically cannot produce one of those file references unless the upload
+succeeded first. That's a strong argument, but it is an argument, not me looking at a
+picture.
+
+The second, and it's the more interesting one: **nobody looks at these yet.** The
+photographs land as storage references inside a technical note. There's no page, no
+email, nothing that puts them in front of a person. A photograph nobody opens is worth
+the same as no photograph, so the honest position is that we've built the camera and
+not yet built anywhere for the pictures to go. That's a real decision for you rather
+than a chore for me — it could be as small as a link in a weekly digest, or as large
+as a review page.
+
+The thing that started all this was you finding faults by opening pages. We can now
+photograph the pages automatically. The gap that's left is the shortest one, and it's
+the one that decides whether any of it was worth doing.

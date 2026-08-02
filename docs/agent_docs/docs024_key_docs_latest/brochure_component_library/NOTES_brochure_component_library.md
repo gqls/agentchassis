@@ -3995,3 +3995,57 @@ here is the timestamp on the evidence, not an inconsistency to iron out.
 Nothing in the database needs undoing: the config write is idempotent, both guards
 passed, and `capture_renders: true` is set exactly once regardless of what the file
 is called.
+
+### 19:22 — a page that passed has been photographed. TL-035 is proven.
+
+The queued run was claimed 19:22:03 and complete 19:23:06. The note:
+
+```
+subject_key                    | has_render_line | len
+tool-review-council-simulator  | t               | 2176   <- 2026-08-02 19:22
+tool-ai-vendor-trust-checklist | f               | 1008   <- 2026-07-31
+tool-review-council-simulator  | f               | 1653   <- 2026-07-31
+smart-contrast                 | f               |  521   <- 2026-07-29
+```
+
+**The control is in the data, and it is the same tool.** `tool-review-council-simulator`
+passed on 07-31 too, and that note has no render line. Same tool, same page, same
+checks — the only difference is the flag. That is a better control than anything I
+could have constructed, because it is not constructed.
+
+The line itself:
+
+```
+Rendered: full-page screenshot(s) of the page as it passed:
+  s3://personae-prod-uk001-images/acceptance-evidence/<site>/<tool>/<run>_desktop.png (desktop);
+  s3://personae-prod-uk001-images/acceptance-evidence/<site>/<tool>/<run>_mobile.png (mobile)
+Note: a render is a look, not a verdict — nothing here asserts the page is free of
+defects no check covers.
+```
+
+Both profiles, both durable `s3://` URIs, **no presigned link** — that rule survived
+contact with production, which matters because a presigned URL in a `doc_note` body
+ends up in LLM prompt contexts.
+
+**The monitor's own artefact check returned empty and I nearly read that as "no note".**
+My poll used `substring(body from 'Rendered:[^\n]{0,300}')` inside a single-quoted
+`psql -c`, where `\n` is a literal backslash-n, and the whole thing was wrapped in
+`|| true` — so a broken query and a missing note produce the identical empty string.
+Caught only because I re-ran it by hand rather than believing the notification.
+**A poll that swallows errors reports absence for both "not there" and "I could not
+look",** which is the same two-causes-one-symptom shape as the gate-with-0-findings
+entry in the memory index. Same family, different day.
+
+**What I could NOT verify, stated rather than glossed.** I did not fetch the PNGs. The
+bucket is private and returns **401 for a key that does not exist exactly as for one
+that does** — proven with a deliberate nonsense key in the same run, which is the only
+reason I know the check is worthless here rather than reading 401 as "present but
+protected". So the object's existence rests on code, not on observation:
+`screenshots.go:48-51` returns `("", "", err)` on upload failure, so no URI is produced
+unless `Upload` returned nil; and `extractShotList` drops any ref without a durable URI.
+That is a sound chain, and it is still an inference — marked `[UNFETCHED]`.
+
+A footnote on the run itself: 22 passed, 14 skipped, all skips `@mobile` and all of
+them profile-gated by design (TL-036's deadline fix). `no-horizontal-overflow@mobile`
+and `page-serves-200@mobile` did run, so the mobile profile genuinely executed — which
+is what makes the mobile render meaningful rather than a duplicate of the desktop one.
