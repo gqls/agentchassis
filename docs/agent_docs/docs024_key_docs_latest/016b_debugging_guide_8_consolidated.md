@@ -9972,3 +9972,53 @@ counted: "href-shaped byte sequences" is an upper bound, not a number of links.
 > The class is now closed for the two markup **writers** and deliberately still open for the
 > **detectors** — a false finding costs a human's attention, a false repair costs content, so
 > they are different decisions with different fail-safe directions.
+
+### A re-render that resolved NO component carries every section and completes successfully (2026-08-03)
+
+*Added 2026-08-03 from `bugs_open/182` (loancalculator.co.uk). The instance is one
+site's slot-naming; the pattern is the reporting shape, and that is what
+generalises.*
+
+`RerenderPageSectionsAction` resolves each section by passing
+`page_components.slot_name` to `loadComponentSchemas`, which matches
+`content_components` by **name or function**. When a slot name is not a component
+identity — positional names like `prose-0`, `tool-2`, say — nothing resolves, every
+section takes `carryStoredSection`, and the action returns normally with
+`rerendered: 0, carried: N`. `save_sections` writes the carried bytes back,
+`render_page` assembles them, `deploy_page` ships them, the work item goes
+`complete`, and the page is byte-identical because the carried bytes ARE the
+previous good render.
+
+**The generalisable shape: a fallback that is correct per-item becomes a silent
+no-op in aggregate, and nothing in the system distinguishes the two.** Carrying one
+unresolvable section is right — better than rendering a blank. Carrying *all* of
+them is the action failing to do the only thing it exists to do, and it is reported
+identically. The per-section `Warn` exists, but it is one warning among thousands on
+a run whose own status says success.
+
+Three things to take from it:
+
+- **When a change does not appear, ask whether the step ran, not only whether it
+  worked.** `collected_data->'<step>'` carries the counters — `rerendered` vs
+  `carried` here — and they answered in one query what an hour of diffing rendered
+  HTML did not.
+- **Check the no-op case, not only the damage case.** Before firing this, the lane
+  verified the two ways a re-render could *corrupt* the page (prose byte-stability;
+  `text/template` vs `html/template`) and neither of the ways it could *do nothing*.
+  Both checks were about blast radius. "What could this break" and "could this be a
+  no-op" are different questions, and only the first one feels like diligence.
+- **Partial is harder than total.** Measured fleet-wide: 78 unresolvable slots
+  across 6 sites; one site is 100% (a pure no-op) and five have 1–7 slots, so those
+  pages re-render most sections and silently freeze the rest with a perfectly
+  ordinary-looking run. A guard keyed on `rerendered == 0` would clear exactly the
+  cases that are hardest to see; key it on `carried-for-unresolved > 0`.
+
+**Family.** `bugs_closed/095` fixed the same *shape* one layer down — the assembler
+returning empty and reporting COMPLETED — and split it into "rows exist and
+contribute nothing" (fail) versus "no rows at all" (skip). The re-renderer never got
+that treatment. `bugs_closed/041` fixed the *stylistic* half of section→component
+lookup (raw + kebab-normalised); it does not help when the name is positional rather
+than a case variant. See also "A section name is not a component name" above — that
+entry is the inverse failure, an alias resolving to the *wrong* component rather
+than to none. Category tags: `no-op-reports-success`, `fallback-in-aggregate`,
+`name-is-not-identity`, `counters-over-artefacts`.
