@@ -402,3 +402,84 @@ concluding a config/template fix will propagate, establish WHICH path regenerate
 the artefact and confirm the queued work actually takes it** — `reason` and
 `component_id` are the discriminator here, they are usually absent, and the
 default is the path that preserves what is already stored.
+
+---
+
+## 2026-08-02, evening — **CLOSED. Fixed at source and PROVEN AT THE ARTEFACT on all 8 sites, stored and served.**
+
+Seven scoped `page_rerender` items (`reason='section_data_resolved'`, the branch
+the agent's own `check_rerender_mode` router sends to `rerender_page_sections`)
+were queued at 18:53 on the owner's explicit go, after the morning's
+self-correct assumption was refuted. File:
+`bugfix_140_contact_info_fabrication/SQL_2026-08-02_scoped_rerender_seven_contact_pages.sql`.
+
+**All seven completed between 19:09 and 19:30, and the fabrication count fell in
+lockstep with them** — 7 → 6 → 5 → 3 → 2 → 1 → **0**, each decrement following a
+completion. That coupling is the evidence that these items are what repaired the
+pages, not something incidental.
+
+### Stored — all 8 rows
+
+| domain | fake hours | fake tel | fake email | cards |
+|---|---|---|---|---|
+| ai-agent-orchestration.com | f | f | f | 2 |
+| dartsonline.com | f | f | f | 2 |
+| finetuning.uk | f | f | f | **3** |
+| fundamentallyai.com | f | f | f | 2 |
+| gaswholesalers.com | f | f | f | 2 |
+| idea.uk | f | f | f | 2 |
+| leopardessconsulting.co.uk | f | f | f | 2 |
+| vetcomparison.uk | f | f | f | 1 |
+
+### Served — all 8, cache-busted on the wire
+
+```
+ai-agent-orchestration.com : fake_hours=0 fake_tel=0 fake_email=0 | Email Phone
+dartsonline.com            : 0 0 0 | Email Phone
+finetuning.uk              : 0 0 0 | Email Phone Address
+fundamentallyai.com        : 0 0 0 | Email Phone
+gaswholesalers.com         : 0 0 0 | Email Phone
+idea.uk                    : 0 0 0 | Email Phone
+leopardessconsulting.co.uk : 0 0 0 | Email Phone
+vetcomparison.uk           : 0 0 0 | Email
+```
+
+**No Hours card exists anywhere on the fleet**, because no site supplies `hours`
+— which is the whole point. Each card set is exactly what that site's data
+supports, and `vetcomparison.uk` renders the single Email card that was this
+file's stated acceptance criterion.
+
+### Two outcomes better than predicted, checked rather than glossed
+
+- **`finetuning.uk` renders THREE cards** — it supplies `address`, so it now shows
+  the Address card that migration 287 turned on. That field was declared and
+  sourced in `input_schema` and rendered nowhere before; a site that had the datum
+  all along now displays it.
+- **`idea.uk` renders a Phone card and its `content_data` now HOLDS the phone**
+  (it did not before). The re-render repopulated it from site identity, so what
+  was an orphaned stored artefact — the `bugs_open/117` drift this file flagged
+  for that site specifically — is now a data-backed value. **That sub-finding is
+  resolved too**, and by the ordinary path rather than a patch.
+
+No site lost a real datum. The only things removed were never true.
+
+### Closure
+
+Fixed at source (migration 287, live config), council **APPROVED** at round 1
+(`40de12b0-36fa-4c06-82b4-995dc9098593`), and **no longer reproducible on the
+live fleet** — stored and served, all 8 — which is `/bugs_closed/README.md`'s bar.
+**CLOSED 2026-08-02.**
+
+**Still inert, and deliberately not held open for it:** the
+`library_dummy_phone` / `library_fabricated_hours` patterns added to
+`check_placeholder_contact` are Go and need a chassis roll, then a driven
+`quality-discovery-agent` (`bugs_open/149`). They are a **backstop against
+recurrence, not the fix** — the fix is that the template can no longer fabricate,
+and that is live. Pod-grep owed at the next roll (positive AND negative control).
+`scripts/check_placeholder_fallbacks.py` (CGV-029) needs no roll and reports clean
+across 172 active components today.
+
+**Descendant left open on purpose:**
+`architecture_review/RFC_009_the_renderer_should_enforce_input_schema_on_missing.md`
+— this was the SECOND template caught disobeying its own `input_schema`, and
+nothing yet enforces `on_missing` at render time.
