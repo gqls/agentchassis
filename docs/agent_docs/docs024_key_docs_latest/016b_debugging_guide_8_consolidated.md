@@ -2269,6 +2269,50 @@ you. Category tags: `no-durable-surface`, `substring-classification`,
 > Category tags: `duplicated-classifier-drift`, `return-nil-blinds-upstream`,
 > `fixed-the-reporting-site-not-the-acting-site`, `zero-rows-is-not-proof`.
 
+### A census keyed on ONE log-message spelling measures the wording, not the behaviour (2026-08-03)
+
+*Added 2026-08-03 from `bugs_open/158`, whose own table it corrects.*
+
+158 established that "a response that cannot be delivered must become a deliverable
+error, never silence" held at **2 of 9** sites. The 9 came from
+`grep -rn "Failed to produce" --include=*.go internal/ platform/`.
+
+Re-run structurally — find every produce whose *topic argument* is a reply topic,
+then classify how its error is handled — the population is **13**, and the four
+extra sites are not in adapters at all:
+
+| site | swallow shape | why a string grep missed it |
+|---|---|---|
+| `platform/agentbase/agent.go:887` | error never captured | **no log line exists to match** |
+| `platform/messaging/processor.go:2000` | logged, no answer | `"KAFKA_SEND_ERROR: Failed to send message"` |
+| `platform/orchestration/coordinator.go:3663` | logged, no answer | `"Failed to notify parent of success"` |
+| `platform/orchestration/helpers.go:427` | logged, no answer | `"Failed to send timeout response"` |
+
+They are in the chassis's own messaging spine — `agentbase` and the orchestration
+coordinator — which every agent inherits, so the undercount also mis-scoped the
+remedy: an RFC about four adapters is a smaller thing than one about the spine.
+
+**Three generalisations:**
+- **A behaviour has no canonical spelling; a log message is a style choice.** If the
+  defect is "the error goes nowhere", the census must key on the CONTROL FLOW —
+  is the error captured, and does anything downstream answer the caller — not on
+  the sentence someone happened to write beside it. The worst case is the site with
+  **no message at all**, which no message-keyed grep can ever reach.
+- **The population a detector is validated against must contain correct code.** A
+  control set of known-bad files proves the rule FIRES and is structurally
+  incapable of showing a false positive. Only a full sweep discriminates: this
+  check's sweep flagged three correct sites — `return producer.Produce(...)`
+  propagates the error, and two produces to REQUEST topics matched because
+  "response" sat inside a ±12-line window.
+- **Gate on the call's own arguments, not on a window.** A window makes any nearby
+  word evidence. Reading the produce's topic argument is both narrower and more
+  faithful to the rule being enforced.
+
+**Related:** MEMORY's *"a grep proves an absence only for the SPELLING it searches"*
+— this is that rule applied to a CENSUS rather than to a single lookup, where the
+cost is not a missed file but a wrong denominator that then sizes an RFC.
+`scripts/pattern-check.py::check_silent_reply_drop` is the structural version.
+
 ### A budget SHARED across a named set is spent by its busiest member — and a count of rows cannot see the distribution (2026-08-02)
 
 *Added 2026-08-02 from `bugs_open/172`. The ticket named a count-based cap; the
