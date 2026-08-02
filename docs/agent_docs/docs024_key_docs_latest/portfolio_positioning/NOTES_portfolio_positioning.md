@@ -200,3 +200,16 @@ marker was in the homepage <title> all along (component-level census missed asse
 chrome — WRONG_CALLS'd, repeat offence). Site: 18/20 built + tools formula-verified;
 remaining: blog (015-class owner call), favicon/meta-description/canonicals/chrome-
 carrier seams, in-browser tool fixtures (needs serving).
+
+### 2026-08-02 night — blog removed per owner ruling; chassis 1231; lane pausing for handoff
+
+Owner: "I don't want a blog on this site." Executed in one transaction: 2
+site_plan_pages rows DELETED (no soft column exists), 2 pages rows → status='archived'
+(platform idiom, never built, 0 components), 2 items → 'rejected' with the ruling in
+resolution_path. The 015-class finding stays on the seam list. lendzy open work items:
+ZERO. about.html rerender (marker copy) COMPLETE and in the sites repo. Chassis now
+v1.0.1231 (third binary today: 1228 attempt 1 · 1229 attempt 2 · 1231 current).
+⚠ CLEANUP OWED: the acceptance_marker instruction is STILL LIVE in lendzy's seeded
+content_direction — any future rebuild will keep weaving the marker phrase. Before
+lendzy is ever real, strip that key and re-seed. Token load high → handoff written:
+HANDOFF_2026-08-02_continue_here.md.
