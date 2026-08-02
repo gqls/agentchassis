@@ -2269,6 +2269,50 @@ you. Category tags: `no-durable-surface`, `substring-classification`,
 > Category tags: `duplicated-classifier-drift`, `return-nil-blinds-upstream`,
 > `fixed-the-reporting-site-not-the-acting-site`, `zero-rows-is-not-proof`.
 
+### A budget SHARED across a named set is spent by its busiest member — and a count of rows cannot see the distribution (2026-08-02)
+
+*Added 2026-08-02 from `bugs_open/172`. The ticket named a count-based cap; the
+defect that was actually FIRING was three lines below it, and the measurement that
+found it is the transferable part.*
+
+`gatherAgentState` (`diagnose_load_runtime_action.go`) inlines LLM-call evidence for
+every agent type a symptom names. It issued **one** query for **all** of them:
+
+```sql
+WHERE agent_type = ANY($1::text[]) ORDER BY created_at DESC LIMIT $2
+```
+
+Rows are therefore allocated by **global recency across the whole set**, so the
+chattiest member takes the entire budget. Live: naming
+`{page-content-writer, council-gate, diagnose-agent}` returns 10 rows, **all
+council-gate** — `page-content-writer`'s 18,286 rows and `diagnose-agent`'s 324
+render nothing. In the artefact that is indistinguishable from an agent that made
+no LLM calls, and this section exists precisely so a verdicter can decide **which
+agent misbehaved**.
+
+**Three generalisations:**
+- **A shared `LIMIT` over `= ANY(...)` is a per-set budget wearing a per-member
+  name.** If the config key, the heading or the caller's mental model says "n per
+  X", the query must say `ROW_NUMBER() OVER (PARTITION BY X ...)`. This shape hides
+  well because it is correct-looking SQL and correct for one member.
+- **A COUNT cannot see a DISTRIBUTION.** `count(*)` over the rendered lines read as
+  healthy — a full 10, the cap, in 47 of 72 bundles. Only
+  `count(DISTINCT agent_type)` *within* those lines showed all 10 belonged to one
+  agent: 23 of 23 multi-member bundles, every one. **When you cap a set, measure the
+  spread of what survived, not the size.**
+- **An absence rendered by a cap must be worded differently from an absence that is
+  an answer.** "No rows exist for X" (a fact about the table, safe to reason from)
+  and "X's budget filled, older calls not gathered" (a coverage limit) are opposite
+  signals; one silence served for both is what lets a capped listing be read as a
+  complete history.
+
+**Related:** the entry below (the same family, char-based), `bugs_closed/164`,
+`bugs_closed/012`, `bugs_open/171`. Note this instance was missed by THREE prior
+audits of the same file, each narrowing to the shape it happened to grep for
+(`bd003f67a` → `164` → `172`'s own filing) — `172` was filed for the count-based
+cap and still did not see the shared-budget one. **Grep by shape and you will find
+that shape.**
+
 ### A hard cap that silently discards its input's tail rewrites meaning — and the tail is whatever was composed LAST (2026-07-20)
 
 *Added 2026-07-20 from `bugs_open/027` §4b (imagery style-guide palette truncated

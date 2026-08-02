@@ -3501,3 +3501,38 @@ deliberately:
   council's `prior_art_librarian` seat asking whether a page-upsert helper already existed
   before a new one was built — it did, and it is the one with the opposite policy
 - **added:** 2026-08-02, bugfix_175_page_role_upsert lane
+
+## A diagnosis bundle's "agent state" section lists an agent with NO llm_call_log lines — that is NOT evidence the agent made no calls
+
+- **footprint:** `diagnosis_artifacts` (`kind='bundle'`), the
+  `### agent state (auto-gathered` section, `llm_call_log`,
+  `platform/orchestration/actions/diagnose_load_runtime_action.go` (`gatherAgentState`)
+- **fires when:** you are reading a diagnosis bundle — your own run's or a retained one —
+  and reasoning from which agents do or do not appear in its `- llm_call_log [...]` lines.
+  No symptom precedes this: the section looks complete and its heading says
+  "agent types named in the symptom/hypothesis".
+- **the tell:** there isn't one, and that is the trap. Until `v1.0.1232` the gather asked
+  for **one shared `LIMIT`** across every named agent type
+  (`WHERE agent_type = ANY(...) ORDER BY created_at DESC LIMIT n`), so rows went to
+  whichever agent had been busiest — the others rendered **zero lines, with no marker**.
+  Measured over the retained corpus: of 23 bundles naming more than one agent type and
+  returning any rows, **all 23** showed exactly ONE type. A bundle listing four agents
+  under `agent_definitions[...]` and log lines for only one is the DEFAULT shape, not a
+  finding about those agents.
+- **the check:** **every bundle written before `v1.0.1232` is affected, and they are
+  retained ~30 days — so this trap is live in the corpus until ~2026-09.** Do not cite a
+  bundle's agent-state section as evidence an agent was uninvolved. Go to the table:
+  ```sql
+  SELECT agent_type, count(*), max(created_at) FROM llm_call_log
+  WHERE agent_type = ANY('{a,b,c}'::text[]) GROUP BY 1;
+  ```
+  On a POST-`1232` bundle the section states it: `> no llm_call_log rows exist for: X`
+  means the table is genuinely empty for X, and
+  `> the per-type llm_call_log cap of N was reached for: Y` means Y has older calls that
+  were not gathered. **Absent both lines on an old bundle, you know nothing either way.**
+  The same bundles' `### agent state` heading may also over-claim coverage if the symptom
+  named more than `agent_state_cap` (5) types — pre-`1232` that truncation is silent AND
+  the survivors are non-deterministic, so two runs on one symptom can disagree.
+- **source:** `bugs_open/172`, fixed `3761a04ca`, 2026-08-02. Found while sizing the
+  count-based cap the ticket names — which was and remains latent.
+- **added:** 2026-08-02, bugfix_172_agent_state_cap lane
