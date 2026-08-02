@@ -113,3 +113,20 @@ docs). Sharper test: no loan-cash name signal, so the L10 positioning must arriv
 entirely via mission brief + pre-seeded specs (the gap-1 question itself). Still no
 Cloudflare zone → publicly unreachable. Task #20 updated; summary carries the CORRECTED
 marker.
+
+### 2026-08-02 — lendzy.co.uk shadow build FIRED
+
+Submitted fresh (no --from) with MISSION_2026-08-02_lendzy_shadow.md:
+`SUBMISSION_CORR=a62da5d3-3e08-450a-a981-bc002f7ea2cd`, orchestration
+`fac748c0-3fa0-494f-96e0-9137560d7d48`. Queue was QUIET — domain-submitter COMPLETED
+within ~2 min (the ~29-min budget is a ceiling, not a constant). Site
+`8ff093d5-1f19-453b-9439-a10379bbcd76` (active/pending). Submitter wrote `submission`
+(3,175 ch, carries the mission) + `mission_brief` (3,108 ch); one `needs_domain_research`
+item triaged for domain-research-classifier. Hold poller armed 6h on
+needs_content_page/needs_tool_recreation (scratchpad hold_lendzy.sh, defer-on-sight).
+Seeding plan: after classifier/strategist write identity/content_direction, run
+set_divergence_specs.py with a lendzy payload (L10 + SPEC MARKER exact phrase "checked
+against the FCA handbook, rule by rule"; mission marker is "know the rules before you
+borrow" — distinct phrases so output attributes to seam). Baseline-zero grep of
+page_components for BOTH markers before any release. Benchmark scoring =
+RUBRIC_2026-08-02_loancash_benchmark.md.
