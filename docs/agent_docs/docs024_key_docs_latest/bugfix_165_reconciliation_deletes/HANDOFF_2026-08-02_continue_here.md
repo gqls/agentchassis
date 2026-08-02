@@ -197,7 +197,7 @@ agents were shaped for, and it is reached by a work item rather than by a spawn.
 |---|---|
 | `intake-orchestrator` | **0** work items, **0** specs, no `scheduled_tasks` row, no agent config spawns it |
 | `site-classifier` | **0** work items, **0** specs |
-| **the entire `%-builder` menu** | **`SELECT ... FROM site_work_items WHERE handler_agent LIKE '%-builder'` returns ZERO rows, all history.** No work item has *ever* named a builder |
+| **most of the `%-builder` menu** | `SELECT ... WHERE handler_agent LIKE '%-builder'` returns ZERO rows all-history — **but see the correction below: that query is true and the inference drawn from it was NOT**, because `report-builder` is dispatched by a route it does not cover |
 
 So `multipage-website-builder`'s retirement was right, and the remaining five are in
 the *same* position — but on better evidence than was used for it: nothing routes
@@ -244,3 +244,30 @@ source does. The durable answer took two queries against tables with no reaper.
   the stale-citation class.
 
 Nothing above section 9 has been edited at any point.
+
+
+### CORRECTION to the table above, 2026-08-02 late — `report-builder` IS live
+
+Acting on this section, three builders were retired (`content-site-builder`,
+`landing-page-builder`, `website-builder`) and **`report-builder` was held back**,
+because the pre-flight caught what this section had missed.
+
+The query was right; **the inference was wrong**. `handler_agent LIKE '%-builder'`
+really is empty — but that is a statement about the *current queue*, not about
+dispatch. `report-dispatch` is an **enabled scheduled task on a 90-second tick**
+(last fired 21:15 today) whose loop claims
+`pipeline='reports' AND item_type='report_request' AND status='awaiting_report'`
+and spawns **the handler named on the item**; its own step description reads
+"Spawn the handler named on the item (report-builder)". There are also **8
+`client_system.agent_instances` rows** referencing it by `template_id`, so a hard
+`DELETE` would have failed on a live FK.
+
+**An empty queue plus an enabled dispatcher is not a dead agent — it is a live one
+with nothing to do.** Every "has it run" check reads zero in exactly that state,
+which is the same shape as the `thunder-reaper` note in `MEMORY.md` (`enabled` +
+a fresh tick ≠ ever ran) read from the other direction.
+
+**The general check before retiring anything:** an absence of *work* is not an
+absence of *wiring*. Look for a live dispatcher and for FK referrers, not only for
+rows naming the agent. Final live menu: `pageflow-builder` (kept — the classifier's
+pin resolves) and `report-builder`.
