@@ -241,3 +241,44 @@ all.
 > content can never be mutated. The same discard means the audit still RECORDS a
 > finding for copy that was never persisted — a shared property with the markup
 > pass, which does exactly the same thing.
+
+## R10 — Induce the pass on a real page (the only thing that proves it fires)
+
+A quiet result cannot tell "ran and found nothing" from "never ran". Induce.
+
+```sql
+-- handler_agent is REQUIRED: without it the item goes 'blocked' with
+-- "No handler_agent set — item cannot be routed to any agent".
+-- reason MUST be one of image_landed | section_data_resolved | cta_links_stale —
+-- anything else takes the assemble-only branch, which never reads content_data.
+INSERT INTO site_work_items (site_id, item_type, status, priority, source, created_by,
+                             handler_agent, summary, spec, item_key)
+SELECT s.id, 'page_rerender', 'triaged', 1, '<lane>', '<lane>', 'page-rerender', '<why>',
+       jsonb_build_object('domain','<domain>','page_id','<uuid>','filename','<x>.html',
+                          'page_name','<x>','reason','section_data_resolved'),
+       '<unique_item_key>'
+FROM sites s WHERE s.domain='<domain>' RETURNING id, status, handler_agent;
+```
+
+**Before dispatching, capture the pre-state AND write down what SUCCESS looks
+like** — not just the failure mode:
+
+```sql
+SELECT pc.slot_name, md5(pc.content_data::text) FROM page_components pc
+JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='<domain>' AND p.name='<page>' ORDER BY pc.position;
+```
+
+> **GOTCHA — "the links changed" is NOT the check.** The load-bearing control is
+> the slots that did **not** change: a save rewrites every row, so a pass that
+> perturbed everything would look identical unless you hold per-slot hashes from
+> before. 2026-08-02: 5 of 6 byte-identical, 1 changed.
+
+> **GOTCHA — pick the target for absence of competition, not convenience.** Check
+> `locked_at` (a locked slot's rebuilt copy is discarded, so it cannot demonstrate
+> anything), check open `site_work_items`, and grep the live `.jsonl` transcripts:
+> idea.uk was rejected as a target on **976 mentions in one live session** in 90
+> minutes.
+
+> **GOTCHA — no orchestration dispatch lands within ~300s of a chassis pod
+> restart.** After a roll, wait it out or the spawn is silently dropped.

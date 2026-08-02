@@ -385,3 +385,45 @@ reasons — `gaswholesalers.com/supply-terms-and-eligibility` has 6 known findin
 2026-07-10, so no other lane is in it. (idea.uk was the other candidate and was
 **rejected**: one live session shows 976 mentions of it in the last 90 minutes.
 Checking that before dispatching is the whole point of the transcript grep.)
+
+## 2026-08-02 18:49Z — INDUCED. Both arms, in production, exactly as predicted.
+
+Work item `ab409727-4dd3-48b0-8e7c-1a2e3682702d` → `complete`, `error` NULL.
+
+**The prediction was written before the dispatch and the result matched it
+element for element** — 2 rewrites (`cards[4]`, `cards[5]`), 4 phantoms
+(`cards[0..3]`), component `info-card-grid`, paths spelled with array indices.
+Writing the *success* criterion in advance, not just the failure mode, is the
+`WRONG_CALLS.md` lesson from 2026-08-01 (*"a prediction that names only a failure
+mode makes success unexamined"*), and it is why `complete` was a question here
+rather than an answer.
+
+**The control that actually carries the claim is the four slots that did NOT
+move.** All six components were rewritten at 18:49:04, and five are byte-identical
+to their pre-run `md5(content_data)`. Had I only checked "the card links changed",
+a pass that rewrote everything it touched would have looked identical.
+
+**The two representations converged 10 ms apart on the same save:**
+
+```
+18:49:04.587  CONTENT_DATA_LINK_AUDIT     rewritten=2  phantom=4    the source
+18:49:04.597  CONTENT_LINK_REPAIR_DETAIL  rewritten=2  unlinked=4   the markup
+```
+
+Same six links, same split, from one page index — the property the design exists
+for, observed rather than argued. Served page: `7 × href="/contact.html"`, zero
+phantoms. Stored, rendered and served all agree.
+
+**Census 52 → 50, and only the induced domain moved** (gaswholesalers 6 → 4;
+robot-hands 17, idea.uk 12, finetuning 7, ai-agent-orchestration 5, leopardess 4,
+vonc 1 — all flat). That localisation is what makes it evidence: a total that fell
+for some other reason would have moved somewhere else too.
+
+> **An observation I did not expect and am recording rather than acting on:** the
+> `domain` column is **empty** on both rows this run. `repairSectionsBeforePersist`
+> reads it from `site_record.domain` in `CollectedData`, which the page-rerender
+> path apparently does not populate. It affects the pre-existing
+> `CONTENT_LINK_REPAIR_DETAIL` row identically, so it is a **shared property, not
+> something this change introduced** — and fixing it for one writer would
+> manufacture the asymmetry this bug is about. Worth a ticket if anyone tries to
+> group these rows by domain; `site_id` is populated and is the reliable key.
