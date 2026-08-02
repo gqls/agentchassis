@@ -154,3 +154,25 @@ carrier); canonicals 0/15; mission exact-phrase marker 0/15 (verbatim attenuates
 Two of my own counts corrected by the artefact (spelling-scoped grep; CSS in the number
 census) — kept visible in the scorecard. NEXT: attempt 2 = seed L10 specs (they exist as
 classifier rows — supersede) + regenerate ONE page + marker check = the #16 proof.
+
+### 2026-08-02 late — owner ruling: build all 5 parked items fully; attempt 2 armed
+
+Owner: "remove them from needs_human_review, they should be able to be built fully."
+Mechanism read first: `reconcile_site_plan_action.go:37-40` parks tool-role pages BY
+DESIGN (guard rail 1 of the experience loop — the generic builder clobbers owned
+pages), and the parked items' own spec.fix names the sanctioned route:
+tool-generator/create_tool_component. So the release = 3 new `needs_tool_recreation`
+items (handler tool-recreation-handler, live conventions mirrored), blog needs_page ×2
+back to triaged, owned_page_review ×3 closed as handled
+(scratchpad/release_lendzy_items.sql).
+
+**Chassis roll to v1.0.1229 landed mid-experiment** (owner warned). Attempt 1 ran on
+v1.0.1228; everything from here runs on 1229 — a recorded variable, not a controlled
+one. Release deliberately WAITS for roll-complete + 300s (dispatch near a restart is
+silently dropped).
+
+**Experiment design improved by the accident:** L10 specs SEEDED FIRST (gated dry-run,
+then --apply; formatted 12,519→14,023 bytes, has_positioning=true read back), so the
+tool + blog builds are themselves the attempt-2 probes — brand-new pages written with
+seeded specs, against a measured 0/0 marker baseline. Spec marker appearing in any new
+page = the #16 proof, on new writes, no regeneration needed.
