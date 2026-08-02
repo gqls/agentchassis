@@ -116,7 +116,14 @@ type RenderAuditResult struct {
 	// these are renders to look at, not failure evidence (the RunChecksResult
 	// Screenshots-vs-Renders distinction, for the same reason).
 	Renders []ScreenshotRef `json:"renders,omitempty"`
-	Summary struct {
+	// RendersFailed counts captures/uploads that degraded to a log line while
+	// CaptureRenders was on. A downstream consumer reading Renders MUST read
+	// this too: "an unscraped counter reads exactly like a fixed bug" (council
+	// 46640fe2, bug_historian — the bug-062 logged-and-dropped shape), and a
+	// critic fed a partial sweep without knowing it would critique pages it
+	// never saw.
+	RendersFailed int `json:"renders_failed,omitempty"`
+	Summary       struct {
 		Pages         int `json:"pages"`
 		PagesFailed   int `json:"pages_failed"`
 		Contrast      int `json:"contrast"`
@@ -253,14 +260,19 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 		if capture {
 			if ref, ok := a.saveRender(ctx, req, url, "desktop", urlIdx, desktopShot); ok {
 				res.Renders = append(res.Renders, ref)
+			} else {
+				res.RendersFailed++
 			}
 			// Mobile is a second navigation purely for the pixels; a failure
 			// here degrades to a log line, never to a lost measurement.
 			if mobileShot, mErr := a.captureRender(ctx, url, "mobile"); mErr != nil {
 				a.logger.Warn("render_audit: mobile render capture failed",
 					zap.String("url", url), zap.Error(mErr))
+				res.RendersFailed++
 			} else if ref, ok := a.saveRender(ctx, req, url, "mobile", urlIdx, mobileShot); ok {
 				res.Renders = append(res.Renders, ref)
+			} else {
+				res.RendersFailed++
 			}
 		}
 		for _, c := range pa.Contrast {

@@ -229,4 +229,10 @@ func TestRenderCaptureFailureNeverLosesTheMeasurement(t *testing.T) {
 	if len(res.Renders) != 1 || res.Renders[0].Profile != "mobile" {
 		t.Fatalf("want exactly the mobile render, got %+v", res.Renders)
 	}
+	// The degrade must be COUNTED, not only logged (council 46640fe2,
+	// bug_historian): a consumer must be able to tell a partial sweep from a
+	// complete one without reading pod logs.
+	if res.RendersFailed != 1 {
+		t.Fatalf("want renders_failed=1 for the lost desktop shot, got %d", res.RendersFailed)
+	}
 }
