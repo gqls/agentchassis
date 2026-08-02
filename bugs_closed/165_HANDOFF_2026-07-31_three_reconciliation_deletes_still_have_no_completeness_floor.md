@@ -908,3 +908,33 @@ Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_165_reconciliation_de
 > filed: "`orchestration_states` keeps terminal rows ~24 HOURS — and
 > `min(created_at)` says 20 days". **Any other claim resting on an
 > `orchestration_states` census needs re-bounding per status.**
+
+---
+
+## The refusal-sentence fix is LIVE — v1.0.1229, 2026-08-02 evening
+
+Corr `22cdef56` APPROVED; `56365d86b` shipped on the next roll. Pod-grepped on
+**both** replicas, and this one finally had a **same-diff negative control** —
+which sites B and C could not offer, because that commit was purely additive:
+
+```
+POSITIVE  "the whole rebuild was refused, so nothing was written either"   1
+          "the whole save was refused, so nothing was written either"      1
+          "the whole resync was refused, so nothing was written either"    1
+NEGATIVE  "NOTHING was deleted; the rows this run did not confirm"         0   <- the old FUSED literal, gone
+CONTROL   "NOTHING was deleted%s."                                         1   <- the new format string
+          "nav_rebuild_refused_incomplete"                                 2
+```
+
+The negative is the load-bearing line: before this change the invariant clause and
+135's aftermath were **one concatenated string literal**, so its absence proves the
+fusion is gone rather than merely that new text arrived. All four consumers now
+state their own aftermath, and the operator on a site-B refusal is no longer told
+to wait for a tidy-up that never comes.
+
+**This closes the last residual that was actionable from this lane.** What remains
+is owned elsewhere: site C's live induction (moot unless `multipage-website-builder`
+is revived — it was retired 2026-08-02, see
+`docs024_key_docs_latest/retired_agents/`), the two consumers that route on error
+rather than failing (a visibility question, content is protected by construction),
+and `bugs_open/173`.
