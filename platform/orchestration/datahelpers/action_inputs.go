@@ -94,6 +94,41 @@ type ActionInputSpec struct {
 	// crawl). Enforcement stays where it can actually be decided, at execution;
 	// this field is what stops the OFFLINE report claiming a clean bill.
 	ConditionalKeys map[string]string
+
+	// SingleOwner declares that this action's effect is scoped to something
+	// WIDER than the run that calls it — typically "every row on the site in
+	// state X" — so a second live agent carrying the same step is a defect
+	// rather than a duplication.
+	//
+	// It changes NO runtime behaviour. Nothing in the engine reads it; the only
+	// consumer is the offline detector `config-key-audit --single-owner-actions`
+	// (scripts/audit-single-owner-actions.sh), which reports any declared
+	// single-owner action appearing in more than one live definition. This is
+	// deliberate: an action cannot tell at execution time whether a sibling
+	// agent also carries it, so the check has to be offline and fleet-wide —
+	// the same argument recorded on findUnregisteredActions.
+	//
+	// Why it exists (RFC 006, owner ruling 2026-08-02; bugs_closed/150 is the
+	// instance). `triage_detected_items` promotes every `detected` row on a
+	// site. It was a step in THREE live agents, so the first copy to run took
+	// every row and each later copy honestly reported `promoted: 0` — which
+	// improvement-loop's branch read as "nothing to do" and ended the run on
+	// "site is clean" while 67 findings sat in the queue. Two properties make
+	// that class invisible: the action is idempotent BY EMPTYING (a second run
+	// is not an error, it is a success returning zero), and its result
+	// describes what THAT CALL did while the branch wants to know what is now
+	// TRUE. Those two readings coincide only while exactly one caller exists.
+	//
+	// So the declaration is the durable half of the fix. Removing the duplicate
+	// steps once is a tidy-up that the next agent to gain one silently undoes;
+	// a fleet-wide check that fails on the second copy is what closes it.
+	//
+	// Set this ONLY where a second caller would be wrong. An action that is
+	// merely shared — most of them — must leave it false. The check is a
+	// per-action assertion, never a fleet-wide default, for the same reason
+	// ConfigKeys is opt-in: an over-strict detector is a worse bug than the
+	// thing it chases.
+	SingleOwner bool
 }
 
 // frameworkStepConfigKeys are step-config keys the orchestrator itself reads or
@@ -269,6 +304,26 @@ func ListDeclaredConfigKeys() map[string][]string {
 		sort.Strings(keys)
 		out[name] = keys
 	}
+	return out
+}
+
+// ListSingleOwnerActions returns the names of every action whose spec declares
+// SingleOwner, sorted. Read by the offline detector, which cannot ask the
+// registry directly — it joins these names against live agent_definitions.
+//
+// Deliberately NOT gated on checksConfig(): single-ownership is a property of
+// the action's EFFECT, unrelated to whether it has opted into config-key
+// checking. Coupling the two would make a declaration silently inert for every
+// action that has not adopted an unrelated mechanism — the exact "declared but
+// never consulted" shape recorded in WRONG_CALLS.md 2026-07-28.
+func ListSingleOwnerActions() []string {
+	out := make([]string, 0, len(actionInputSpecs))
+	for name, spec := range actionInputSpecs {
+		if spec.SingleOwner {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 

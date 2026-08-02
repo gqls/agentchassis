@@ -78,6 +78,26 @@ var TriageDetectedItemsInputSpec = datahelpers.ActionInputSpec{
 	ConfigKeys: []string{"target_pipeline"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
+
+	// This action promotes EVERY `detected` row on the site — no type filter,
+	// no ownership filter (:108-120). Its blast radius is the site, not the run
+	// that called it, so a second live agent carrying this step is a defect:
+	// whichever copy runs first takes everything and every later copy reports
+	// an honest `promoted: 0`.
+	//
+	// That is not hypothetical. It was a step in improvement-loop
+	// (`triage_findings`), design-audit-agent (`triage`) and site-review-agent
+	// (`triage`); the parent calls both children before its own copy, so its
+	// copy always reported zero and `check_has_findings` ended the run on "No
+	// issues found — site is clean" over a site holding 67 promoted findings
+	// (bugs_closed/150). The two child steps were removed by migration 286
+	// under RFC 006's owner ruling of 2026-08-02 — improvement-loop is the one
+	// owner. This declaration is what stops the fan-out coming back: without
+	// it, the next agent to gain a triage step re-creates the bug and nothing
+	// reports it until a site is wrongly called clean.
+	//
+	// Detector: scripts/audit-single-owner-actions.sh (offline, read-only).
+	SingleOwner: true,
 }
 
 func init() {
