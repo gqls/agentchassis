@@ -167,6 +167,7 @@
     <span data-copy="better-suffix">{{.verdict_better_suffix}}</span>
     <span data-copy="row-name">{{.added_row_name_placeholder}}</span>
     <span data-copy="remove-label">{{.remove_label}}</span>
+    <span data-copy="incomplete-notice">{{.verdict_incomplete_notice}}</span>
   </div>
 </section>
 
@@ -181,7 +182,7 @@
     - The consolidated loan is amortised once over the new term.
     - Rows can be added and removed; every control has a stable id.
   invariants: |
-    COMPARES ON TOTAL INTEREST, never on monthly payment — consolidation almost always lowers the monthly payment, so a monthly comparison would recommend it unconditionally, which is the mis-selling risk the page exists to warn about. Existing debts are in MONTHS, the new loan in YEARS — do not harmonise. KNOWN DEFECT: a debt with no rate counts toward the balance but contributes no interest, flattering consolidation.
+    COMPARES ON TOTAL INTEREST, never on monthly payment — consolidation almost always lowers the monthly payment, so a monthly comparison would recommend it unconditionally, which is the mis-selling risk the page exists to warn about. Existing debts are in MONTHS, the new loan in YEARS — do not harmonise. A debt with a balance but no usable rate or term WITHHOLDS the comparison rather than scoring it: the three interest figures show a dash and the verdict box explains. A rate of exactly 0 with a term is a real interest-free debt and still scores.
   verified: computed_values fence emitted from a captured golden; the rewrite is
     proven identical to the hand-built original across three input vectors
     (see loancalculator_couk/rewrite/verify_rewrite.py).
@@ -194,11 +195,45 @@
    monthly payment, and a tool comparing monthly payments would recommend it
    unconditionally. That is exactly the mis-selling risk the page warns about.
 
-   A DEBT WITH NO RATE OR NO TERM STILL COUNTS TOWARD THE BALANCE but contributes
-   no interest (`else if (p > 0)`). Preserved. It means a half-filled row quietly
-   makes consolidation look better than it is, because the new loan charges
-   interest on a balance whose existing interest was never counted. Recorded as a
-   defect for its own change; fixing it here would move the golden values.
+   FIXED 2026-08-03 — the half-filled debt row, as its own change.
+
+   A debt with a balance but no usable rate or term used to count toward the
+   balance and contribute no interest (`else if (p > 0)`), because
+   `parseFloat('') || 0` cannot tell a BLANK rate from a rate of ZERO. The new
+   loan was then amortised over the full balance, that debt included, while the
+   "current" side omitted its interest entirely — so the two sides of a
+   comparison whose entire purpose is to be like-for-like were computed over
+   different debts.
+
+   > **CORRECTION.** The note this replaces said the effect "quietly makes
+   > consolidation look better than it is". That is BACKWARDS, and its own stated
+   > reason contradicts it in the same sentence. Omitting a debt's existing
+   > interest UNDERSTATES `oldTotalInterest`; `newTotalInterest` still charges the
+   > new rate on the full balance; the verdict tests `newTotalInterest >
+   > oldTotalInterest`. Understating the old side therefore biases the verdict
+   > toward WORSE — the tool talked the reader out of a consolidation that might
+   > have been right for them. Measured, not argued: see defect_vectors.py, which
+   > drives the case and asserts the direction.
+
+   The fix withholds rather than guesses. A blank rate is now distinguished from
+   a zero rate; a row with a balance and no usable rate or term marks the
+   comparison incomplete; the balance — which is a fact, and does not depend on
+   any rate — is still shown, and the three interest figures show a dash with the
+   verdict box saying what is missing.
+
+   WHY WITHHOLD RATHER THAN EXCLUDE THE ROW. Dropping the incomplete debt from
+   the balance too would restore like-for-like arithmetic, and it was the other
+   candidate. It was rejected because it silently answers a DIFFERENT question
+   from the one the reader asked — they would see a confident verdict computed
+   over a subset of their debts, with nothing on the page saying so. This
+   version cannot state a wrong comparison at all; that is the property worth
+   having on a page about mis-selling risk.
+
+   ⚠ THIS FIX IS INVISIBLE TO THE EQUIVALENCE GATE. `toolgolden.py` drives every
+   numeric field to a scaled default, so every row it builds is COMPLETE and the
+   new branch is never entered — `verify_rewrite.py` passes identically before
+   and after. `defect_vectors.py` is what covers it, by blanking a rate on
+   purpose; it fails against the pre-fix component.
 
    ⚠ THIS TOOL COULD NOT BE COVERED BY THE PLATFORM'S NUMERIC CHECK AT ALL until
    this rewrite, and that is why the ids below are new. The debt rows were
@@ -277,19 +312,30 @@
 
     var totalBal = 0;
     var oldTotalInterest = 0;
+    var incomplete = 0;
 
     for (var i = 0; i < bals.length; i++) {
       var p = parseFloat(bals[i].value) || 0;
-      var r = (parseFloat(rates[i].value) || 0) / 100 / 12;
-      var n = parseFloat(months[i].value) || 0;
+      if (p <= 0) continue;          // an untouched row is empty, not incomplete
+      totalBal += p;
 
-      if (p > 0 && r > 0 && n > 0) {
-        totalBal += p;
+      // A BLANK RATE IS NOT A ZERO RATE, and telling them apart is the whole of
+      // this fix. `parseFloat('') || 0` collapsed the two, so a half-typed row
+      // contributed its balance and no interest — see the comment above the IIFE.
+      var rawRate = parseFloat(rates[i].value);
+      var n = parseFloat(months[i].value);
+      if (!isFinite(rawRate) || rawRate < 0 || !isFinite(n) || n <= 0) {
+        incomplete++;
+        continue;
+      }
+
+      var r = rawRate / 100 / 12;
+      if (r > 0) {
         var m = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
         oldTotalInterest += (m * n) - p;
-      } else if (p > 0) {
-        totalBal += p;
       }
+      // A rate of exactly 0 WITH a term is a real interest-free debt: it counts
+      // toward the balance and owes nothing. Same numbers as before the fix.
     }
 
     var newR = (parseFloat(document.getElementById('new-rate').value) || 0) / 100 / 12;
@@ -304,12 +350,28 @@
     }
 
     var gbp = fmt();
+    var verdict = document.getElementById('verdict');
+
+    // The balance is a FACT about what they owe and does not depend on any rate,
+    // so it is shown either way. The three interest figures are the comparison,
+    // and a comparison missing one debt's interest is not a weaker comparison —
+    // it is a wrong one, biased in a direction the reader cannot see. Withhold it.
     document.getElementById('curr-total-bal').innerText = gbp.format(totalBal);
+
+    if (incomplete > 0) {
+      document.getElementById('old-int').innerText = "—";
+      document.getElementById('new-monthly').innerText = "—";
+      document.getElementById('new-int').innerText = "—";
+      verdict.innerText = copy('incomplete-notice');
+      verdict.style.backgroundColor = "{{.verdict_incomplete_bg}}";
+      verdict.style.color = "{{.verdict_incomplete_fg}}";
+      return;
+    }
+
     document.getElementById('old-int').innerText = gbp.format(oldTotalInterest);
     document.getElementById('new-monthly').innerText = gbp.format(newMonthly);
     document.getElementById('new-int').innerText = gbp.format(newTotalInterest);
 
-    var verdict = document.getElementById('verdict');
     if (totalBal > 0 && newN > 0) {
       if (newTotalInterest > oldTotalInterest) {
         verdict.innerText = copy('worse-prefix')

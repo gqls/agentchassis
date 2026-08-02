@@ -1,5 +1,5 @@
 {
-  "_note": "The two result panels are hardcoded rather than driven by an array because they are not a list -- they are two named alternatives with different wording, different semantics (interest AVOIDED versus interest EARNED) and a tax adjustment on only one of them. A {{range}} over two dissimilar things would obscure that, and would also be a shared-vocabulary addition (owner ruling 2026-07-29). A verdict_tag field was written and removed with its markup: see the template's CSS comment for why the accessibility fix is queued rather than folded into the port.",
+  "_note": "The two result panels are hardcoded rather than driven by an array because they are not a list -- they are two named alternatives with different wording, different semantics (interest AVOIDED versus interest EARNED) and a tax adjustment on only one of them. A {{range}} over two dissimilar things would obscure that, and would also be a shared-vocabulary addition (owner ruling 2026-07-29). A verdict_tag field was written and removed with its markup during the port, because an improvement folded into a port leaves neither reviewable. It came back on 2026-08-03 as its own change, named winner_badge_label; the template's CSS comment records why it is a <div> rather than a <span>.",
   "fields": {
     "loan_rate_label": {
       "type": "text",
@@ -112,6 +112,13 @@
       "required": true,
       "fallback": "in interest income per year.",
       "llm_guidance": "Text below the figure. Keep 'per year'."
+    },
+    "winner_badge_label": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Better option",
+      "llm_guidance": "The badge shown inside whichever panel wins. It is the tool's ONLY non-colour signal of its verdict, so it must read as a verdict on its own, out of context and without the highlight -- a screen reader announces it with no colour and no border. Keep it to two or three words; it sits above the panel heading. Do not make it a question or a hedge ('Maybe better'), and do not use a symbol such as a tick in place of words."
     },
     "currency_symbol": {
       "type": "text",

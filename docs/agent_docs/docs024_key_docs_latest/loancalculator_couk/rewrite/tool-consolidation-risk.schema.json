@@ -190,6 +190,27 @@
       "fallback": "#22543d",
       "llm_guidance": "Text colour of the favourable verdict."
     },
+    "verdict_incomplete_notice": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "Add a rate and a remaining term to every debt — until then there is nothing to compare against.",
+      "llm_guidance": "Shown in the verdict box INSTEAD of a verdict when a debt has a balance but no usable rate or term. It replaces a comparison that would otherwise be silently wrong, so it must say that the comparison is being withheld and what would complete it. Do not soften it into a generic hint like 'fill in all fields' -- the reader is looking at a total balance that IS correct and needs to know why the interest figures beside it are dashes."
+    },
+    "verdict_incomplete_bg": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#e2e8f0",
+      "llm_guidance": "Background of the withheld-comparison notice. Deliberately NEUTRAL grey, not the red of verdict_worse_bg: this is not an adverse verdict, it is the absence of one, and colouring it as a warning would make the tool appear to have judged the consolidation badly."
+    },
+    "verdict_incomplete_fg": {
+      "type": "text",
+      "source": "static",
+      "required": true,
+      "fallback": "#2d3748",
+      "llm_guidance": "Text colour of the withheld-comparison notice. Must keep a legible contrast ratio against verdict_incomplete_bg."
+    },
     "disclaimer_title": {
       "type": "text",
       "source": "static",

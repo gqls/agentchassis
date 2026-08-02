@@ -103,7 +103,7 @@
     - Saving is original total interest less the amortised total interest.
     - Both outputs are floored at zero.
   invariants: |
-    £15,000 at 6.5% over 5 years with £50/month MUST read £448.024 saved and 10 months earlier. THE max_months LOOP CAP IS LOAD-BEARING — without it a negative overpayment never terminates and the tab hangs. KNOWN DEFECT, preserved deliberately: toLocaleString omits maximumFractionDigits so it prints THREE decimal places on money. Fix it as its own change with a re-baselined golden.
+    £15,000 at 6.5% over 5 years with £50/month MUST read £448.02 saved and 10 months earlier. THE max_months LOOP CAP IS LOAD-BEARING — without it a negative overpayment never terminates and the tab hangs. The saving is rounded to 2dp for DISPLAY only; the arithmetic is unrounded, so do not read £448.02 back as an input to anything.
   verified: computed_values fence emitted from a captured golden; the rewrite is
     proven identical to the hand-built original across three input vectors
     (see loancalculator_couk/rewrite/verify_rewrite.py).
@@ -112,7 +112,7 @@
    (loancalculator.co.uk/tools/overpayment-calculator.html, 2026-07-31).
    The scheduled payment comes from the annuity formula; the saving is found by
    AMORTISING MONTH BY MONTH at payment-plus-overpayment and comparing total
-   interest. £15,000 at 6.5% over 5 years with £50/month must read £448.024 saved
+   interest. £15,000 at 6.5% over 5 years with £50/month must read £448.02 saved
    and 10 months earlier.
 
    THE 600-MONTH LOOP CAP IS LOAD-BEARING, NOT A TIDY-UP TARGET. It is what stops
@@ -121,15 +121,22 @@
    years, comfortably past any consumer loan. Do not remove it, and do not lower
    it without checking the longest term the inputs allow.
 
-   ⚠ A REAL FORMATTING DEFECT, PRESERVED DELIBERATELY AND FLAGGED FOR FIXING.
-   toLocaleString is called with minimumFractionDigits: 2 and NO
-   maximumFractionDigits. The default maximum is 3, so this prints "£448.024" —
-   three decimal places on a money figure — on the tool's own default inputs.
-   It is preserved because equivalence is the contract: the golden records
-   £448.024 and a rewrite that quietly printed £448.02 would be changing the
-   page's behaviour under cover of a port. Fix it as its own change, add
-   maximumFractionDigits: 2, and re-baseline the golden in the same commit so the
-   correction is visible in the record rather than absorbed into a rewrite. */
+   FIXED 2026-08-03 — the three-decimal money bug, as its own change.
+   toLocaleString was called with minimumFractionDigits: 2 and NO
+   maximumFractionDigits. The default maximum is 3, so it printed "£448.024" —
+   three decimal places on a money figure — on the tool's own default inputs. It
+   survived the rewrite deliberately, because equivalence was the contract then
+   and a port that quietly printed £448.02 would have been changing the page's
+   behaviour under cover of a port.
+
+   maximumFractionDigits: 2 is now set. This MOVES the golden: `save-display`
+   reads £448.02 where GOLDEN_2026-07-31c records £448.024, and that divergence
+   is the intended one — it is what proves the fix reached the page. Any OTHER
+   key moving in the same comparison is a regression, not this change.
+
+   ⚠ Do NOT also round `savedInterest` itself. The rounding is presentational;
+   `time-display` is derived from the same loop and must keep seeing the
+   unrounded balance, or the months figure can move by one at the boundary. */
 (function () {
   var SYM = "{{.currency_symbol}}";
   var LOCALE = "{{.locale}}";
@@ -167,7 +174,8 @@
     var savedMonths = n - months;
 
     document.getElementById('save-display').innerText =
-      SYM + Math.max(0, savedInterest).toLocaleString(LOCALE, { minimumFractionDigits: 2 });
+      SYM + Math.max(0, savedInterest).toLocaleString(
+        LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     document.getElementById('time-display').innerText = Math.max(0, savedMonths);
   }
 

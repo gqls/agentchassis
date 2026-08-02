@@ -62,25 +62,40 @@
   line-height: 1.2;
   margin: 0.35rem 0;
 }
-/* THE VERDICT — and an OPEN DEFECT, deliberately not fixed here.
-   The winning option is signalled by colour and border weight ALONE. That is
-   this tool's entire output, and it is invisible to a colour-blind reader; the
-   two panels are otherwise identical in structure. It wants a second,
-   non-colour signal.
-   A badge reading "Better option" was written, and REVERTED, because it changes
-   the panels' text content and therefore what the page says. The rule this
-   lane holds to is that a port proves equivalence and an improvement is its own
-   change with its own re-baselined golden — the same rule applied to the
-   three-decimal-place money bug in tool-overpayment-impact. Mixing the two
-   would mean neither could be reviewed on its merits.
-   Contrast the page-wide checkbox query fixed inside tool-return-damage-checker:
-   that fix provably cannot change the output, and the gate confirmed it did not.
-   THE LINE IS OBSERVABILITY, not severity. Queued, with the badge markup ready
-   in the lane NOTES. */
+/* THE VERDICT — FIXED 2026-08-03, as its own change with its own re-baseline.
+   The winning option used to be signalled by colour and border weight ALONE.
+   That is this tool's entire output and it was invisible to a colour-blind
+   reader; the two panels are otherwise identical in structure. A badge was
+   written during the port and REVERTED, because a port proves equivalence and an
+   improvement is its own change — the same line that kept the three-decimal
+   money bug in tool-overpayment-impact. This is that change.
+   The badge is real TEXT inside the winning panel, so it survives a stylesheet
+   that drops .winner, it reads aloud, and it is legible in monochrome. The
+   colour stays: it is a second channel, not the only one.
+   ⚠ The badge span is present in BOTH panels at all times and is emptied on the
+   loser rather than removed. Toggling the element in and out of the DOM would
+   move `display` on an [id]-bearing element, which is fingerprinted, so a purely
+   presentational choice would show up as a structural diff on every capture. */
 .tool-loan-vs-savings-section .lvs-panel.winner {
   border-color: var(--color-success, #2f855a);
   background: var(--color-success-bg, #f0fff4);
 }
+/* The badge element is a DIV, not a SPAN carrying `display: block`, precisely so
+   that this rule sets no `display` on an [id] element — see the file header. Its
+   natural block display is what reserves the row, so the panels do not jump as
+   the winner changes; `min-height` holds that row open while the badge is empty.
+   (Tag names are spelled out in this comment on purpose: load_components.py
+   balances start and end tags TEXTUALLY, so an angle-bracketed tag in prose is
+   counted as real markup and fails validation. It caught this comment.) */
+.tool-loan-vs-savings-section .lvs-badge {
+  min-height: 1.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-success, #2f855a);
+}
+.tool-loan-vs-savings-section .lvs-copy { display: none; }
 @media (max-width: 560px) {
   .tool-loan-vs-savings-section .lvs-amount { font-size: 1.6rem; }
 }
@@ -113,17 +128,31 @@
 
   <div class="lvs-panels" id="results">
     <div id="loan-panel" class="lvs-panel">
+      <div class="lvs-badge" id="loan-badge"></div>
       <h3>{{.loan_panel_heading}}</h3>
       <p>{{.loan_panel_lead}}</p>
       <div class="lvs-amount" id="loan-benefit">{{.currency_symbol}}75.00</div>
       <p>{{.loan_panel_trail}}</p>
     </div>
     <div id="save-panel" class="lvs-panel">
+      <div class="lvs-badge" id="save-badge"></div>
       <h3>{{.save_panel_heading}}</h3>
       <p>{{.save_panel_lead}}</p>
       <div class="lvs-amount" id="save-benefit">{{.currency_symbol}}50.00</div>
       <p>{{.save_panel_trail}}</p>
     </div>
+  </div>
+
+  <!-- Copy bank: the badge string as markup text, never as a JS literal — the
+       same idiom as tool-consolidation-risk, and for the same reason (see
+       tool-early-settlement for the calculator a quoted schema value killed).
+       It is NOT rendered into the badges directly, because then a page whose
+       JavaScript failed would show "Better option" on BOTH panels and assert
+       the opposite of nothing. The badges start empty and the script fills
+       exactly one. Outside every [id]-bearing element, so the fingerprint is
+       unaffected. -->
+  <div class="lvs-copy" aria-hidden="true">
+    <span data-copy="winner-badge">{{.winner_badge_label}}</span>
   </div>
 </section>
 
@@ -138,7 +167,7 @@
     - The larger side gets the .winner class.
     - higher_rate_fraction is a FRACTION (0.4), not a percentage.
   invariants: |
-    £1,000 at 7.5% against 5.0% MUST read £75.00 versus £50.00. On an exact tie the SAVINGS panel wins (the comparison is strict) — recorded behaviour, not a decision. KNOWN DEFECT: the verdict is signalled by COLOUR ALONE, invisible to a colour-blind reader; a badge was written and reverted because it changes the panels' text.
+    £1,000 at 7.5% against 5.0% MUST read £75.00 versus £50.00. On an exact tie the SAVINGS panel wins (the comparison is strict) — recorded behaviour, not a decision. The verdict is carried by TWO channels: the .winner highlight and a text badge in the winning panel. Exactly one badge is ever non-empty — if both read "Better option", compare() has not run.
   verified: computed_values fence emitted from a captured golden; the rewrite is
     proven identical to the hand-built original across three input vectors
     (see loancalculator_couk/rewrite/verify_rewrite.py).
@@ -155,7 +184,15 @@
    rather than a rate field. Making the arithmetic cleverer without changing the
    copy would produce a tool that disagrees with its own explanation.
 
-   TWO deliberate changes, neither of which can move a number:
+   THE 2026-08-03 CHANGE — the accessible verdict. The winning panel now carries
+   a text badge as well as the .winner highlight. It moves the fingerprint (two
+   new ids, and their text changes with the verdict), which is why it waited for
+   its own re-baseline instead of riding the port. It cannot move a NUMBER:
+   loanSave, saveEarn and the winner test are untouched, and the equivalence gate
+   run over this change must show `loan-benefit` and `save-benefit` unchanged on
+   every vector. If either of those moved, the badge is not what did it.
+
+   TWO deliberate changes from the port, neither of which can move a number:
    1. No globals and no inline oninput/onchange. `compare` was on window and bound
       through four inline attributes.
    2. The higher-rate fraction is a schema field rather than the literal 0.4
@@ -170,6 +207,11 @@
   var root = document.querySelector('.tool-loan-vs-savings-section');
   if (!root) return;
   var ids = ['loan-rate', 'save-rate', 'spare-cash', 'tax-bracket'];
+
+  function copy(key) {
+    var el = root.querySelector('[data-copy="' + key + '"]');
+    return el ? el.textContent : '';
+  }
 
   function compare() {
     var loanRate = parseFloat(document.getElementById('loan-rate').value) / 100;
@@ -186,13 +228,23 @@
 
     var loanPanel = document.getElementById('loan-panel');
     var savePanel = document.getElementById('save-panel');
+    var loanBadge = document.getElementById('loan-badge');
+    var saveBadge = document.getElementById('save-badge');
+    var badge = copy('winner-badge');
+
     loanPanel.classList.remove('winner');
     savePanel.classList.remove('winner');
-    if (loanSave > saveEarn) {
-      loanPanel.classList.add('winner');
-    } else {
-      savePanel.classList.add('winner');
-    }
+
+    // The winner test is UNCHANGED, tie behaviour included: `>` is strict, so an
+    // exact tie takes the else branch and savings wins. Arguably wrong for a
+    // debt-first tool, but it is the recorded behaviour and changing it is a
+    // different decision from making the verdict readable.
+    var loanWins = loanSave > saveEarn;
+    (loanWins ? loanPanel : savePanel).classList.add('winner');
+
+    // Text, not just colour. Exactly one badge carries the string at any time.
+    loanBadge.innerText = loanWins ? badge : '';
+    saveBadge.innerText = loanWins ? '' : badge;
   }
 
   ids.forEach(function (id) {

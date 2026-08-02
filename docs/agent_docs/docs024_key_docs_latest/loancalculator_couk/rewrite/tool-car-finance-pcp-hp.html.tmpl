@@ -191,12 +191,22 @@
       delegated listener reads it.
    3. Labels, defaults and the currency symbol come from the input_schema.
 
-   ⚠ AN INHERITED LIMITATION, PRESERVED AND WORTH KNOWING. The whole calculation
-   is wrapped in `if (apr > 0)`, so an interest-free deal — 0% APR, which is a
-   real and heavily advertised car finance product — computes NOTHING and the
-   tool silently keeps showing the previous figures. The formula genuinely
-   divides by zero there and needs a separate linear branch. Not fixed here
-   because it changes behaviour; filed as a defect for its own change. */
+   FIXED 2026-08-03 — 0% APR, as its own change. The whole calculation used to
+   be wrapped in `if (apr > 0)`, so an interest-free deal — a real and heavily
+   advertised car finance product — computed NOTHING and the tool silently kept
+   showing the figures from the last rate the user typed. The annuity formula is
+   genuinely 0/0 at r = 0 (`pow` is 1, so the denominator `1 - pow` is 0), so it
+   needs the linear branch below, which is that formula's limit as r → 0:
+   the balance less the balloon, spread evenly over the term, and no interest.
+
+   ⚠ THIS FIX IS INVISIBLE TO THE EQUIVALENCE GATE, and that is the thing to know
+   before you touch it again. `toolgolden.py`'s vectors scale each field's own
+   default (x1, x2, x0.5), and the APR default is 8.9 — so no vector ever reaches
+   0 and the fingerprint does not move at all. A green `verify_rewrite.py` says
+   nothing whatever about this branch. What proves it is `defect_vectors.py`,
+   which drives car-apr to 0 explicitly and asserts the figures against
+   independently-derived values; it FAILS against the pre-fix component, which is
+   the only reason its pass is worth anything. Run it, do not assume it. */
 (function () {
   var root = document.querySelector('.tool-car-finance-pcp-hp-section');
   if (!root) return;
@@ -222,18 +232,31 @@
     var principal = price - deposit;
     var months = years * 12;
 
-    if (apr > 0) {
-      var r = apr;
-      var n = months;
+    var r = apr;
+    var n = months;
+    var monthly;
+
+    if (r > 0) {
       var pow = Math.pow(1 + r, -n);
-      var monthly = (principal * r - balloon * r * pow) / (1 - pow);
-
-      var totalRepaid = (monthly * n) + balloon + deposit;
-      var totalInt = totalRepaid - price;
-
-      document.getElementById('car-monthly').innerText = SYM + monthly.toFixed(2);
-      document.getElementById('car-total-int').innerText = SYM + totalInt.toFixed(2);
+      monthly = (principal * r - balloon * r * pow) / (1 - pow);
+    } else if (r === 0 && n > 0) {
+      // 0% APR: the annuity formula is 0/0 here, so take its limit directly.
+      // The balloon is still deducted — it is simply not discounted, because
+      // there is no rate to discount it at.
+      monthly = (principal - balloon) / n;
+    } else {
+      // Every remaining case (a negative rate, or a zero/blank term) is one the
+      // tool has never computed. Leave the displayed figures untouched rather
+      // than inventing an answer — this is the pre-fix behaviour, preserved
+      // deliberately so the ONLY case this change moves is 0% APR.
+      return;
     }
+
+    var totalRepaid = (monthly * n) + balloon + deposit;
+    var totalInt = totalRepaid - price;
+
+    document.getElementById('car-monthly').innerText = SYM + monthly.toFixed(2);
+    document.getElementById('car-total-int').innerText = SYM + totalInt.toFixed(2);
   }
 
   root.addEventListener('click', function (ev) {
