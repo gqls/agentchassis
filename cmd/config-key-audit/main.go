@@ -23,6 +23,12 @@
 //	  {"<action>": {"required": [...], "optional": [...], "config_keys": [...],
 //	                "deprecated": [...], "opted_in": bool}, ...}
 //
+//	go run ./cmd/config-key-audit --single-owner-actions   < live-workflows.json
+//	  [{"action": "...", "owners": ["<agent>", ...], "paths": [...]}, ...]
+//	  Which action declared SingleOwner is carried by more than one live agent?
+//	  (RFC 006 / bugs_closed/150 — a site-wide promoter with three callers made
+//	  the improvement loop call a busy site clean. Exit 1 on findings.)
+//
 // --specs answers the ADOPTION question rather than the coverage one: not "who has
 // opted in?" but "who is one line away?". An action whose spec already enumerates
 // every key its live steps carry can opt in with `CheckConfig: true` and assert
@@ -128,6 +134,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--unregistered-actions" {
 		emitUnregisteredActions()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--single-owner-actions" {
+		emitSingleOwnerViolations()
 		return
 	}
 	declared := datahelpers.ListDeclaredConfigKeys()
