@@ -127,12 +127,18 @@ func enforceSectionShrinkFloor(ctx context.Context, params ActionParams, siteID,
 		return nil
 	}
 
+	// Locked rows are excluded from the existing side: for a locked slot the
+	// save DISCARDS the incoming copy and the locked row stands (bugs_open/058),
+	// so this save cannot shrink it — and comparing the discarded incoming
+	// against the locked existing is the false-refusal trap the completeness
+	// floor already documented for its own cohort.
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT slot_name,
 		       LENGTH(TRIM(REGEXP_REPLACE(rendered_html, '<[^>]*>', '', 'g')))
 		FROM page_components
 		WHERE page_id = $1
 		  AND rendered_html IS NOT NULL
+		  AND `+pageComponentAgentWritableSQL("")+`
 	`, pageID)
 	if err != nil {
 		// Fail CLOSED, matching the completeness floor: a guard that cannot
