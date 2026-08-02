@@ -122,6 +122,58 @@ multiplying until 22 agents are configured and 2 run anything.
 *What this does NOT mean:* the discarded stages are not disproved, they are unfunded.
 Any of them may return **with evidence** — a case where its absence cost something real.
 
+**D9 — 2026-08-02: P2's dispatch gap closes with a SIBLING action
+(`request_component_browser_run`), not a branch on `request_browser_run`.**
+`HANDOFF_2026-08-02_continue_here.md` §3 left this open as a real tradeoff between
+(a) an opt-in `page_id_field` branch on the existing tool action and (b) a sibling
+action that never touches the tool path. Decided (b), for three reasons:
+
+1. **Blast radius.** `request_browser_run` is the one path every one of the fleet's
+   22+ hosted tools' acceptance runs already depends on (D-something above; measured
+   6/22 unresolvable by name alone, so the other 16 lean on this exact function
+   working unchanged). A branch — even opt-in, even currently dead for every existing
+   caller — adds a second resolution strategy to a function this lane has already
+   shown is easy to misjudge the size of (D5′: "I costed a change by reading one
+   enforcement point... there were two"). A sibling action makes the blast radius
+   *provably* zero rather than *argued* zero: nothing about the tool path's source
+   changes, so there is nothing there to review for regression.
+2. **The two lookups are genuinely different shapes, not a parameterisation of one
+   query.** Tool: `pages.name IN (function, 'tool-'||function)` — the page names
+   itself after the function. Component: `page_components.component_id` (joined via
+   `content_components.function`) `AND page_components.page_id = <given>` — the page
+   doesn't name itself after anything; placement is a many-to-many row, and the given
+   `page_id` is *asserted*, not derived, then checked against that row. Forcing both
+   into one function's control flow would have made the shared function's contract
+   harder to state, not easier — this is not the "three identical copies of
+   `envelopePaths`" case the codebase already has a rule against; it's two distinct
+   resolution predicates that happen to feed the same downstream envelope.
+3. **The council's own precedent runs this way.** CLAUDE.md "Platform seams" and the
+   `bugs_closed/124` guardian veto both read as: a shared mechanism's *existing*
+   guarantee is the thing to protect, and the cheapest way to protect it is not to be
+   the commit that has to prove you didn't change it.
+
+**What IS shared, because duplicating it would recreate exactly the drift class this
+codebase already paid for once (`envelopePaths`'s own doc comment):** everything from
+profile resolution through envelope-build, marshal and produce (existing lines
+~158-270) moves into one unexported helper both actions call. Only the page/URL
+resolution (lines ~120-152, structurally different per above) and each action's own
+`ActionInputSpec` stay separate. This is a behaviour-preserving refactor of the
+existing action — `RequestBrowserRunAction`'s output for every existing caller is
+unchanged; verified by `go build`/`go vet`/existing tests before commit, not assumed
+from the diff being mechanical.
+
+`judge_acceptance_results` needs **no change**: it already keys off
+`input_data.spec.function` via config default, and the S6 dispatch sets that to the
+component's `function` (== `subject_key`) the same way a tool dispatch does — the gap
+was only ever in resolving *which page*, never in judging the results once they
+arrive.
+
+Council-gate read (restated from the handoff, now against the actual diff): a new
+sibling action that nothing calls until a component-fence dispatch names it does not
+change what `request_browser_run` guarantees existing tool callers — normal council
+gate, not an RFC, per the 2026-07-29 owner ruling. Register in the concept register
+(DOC-068 area) in the same commit.
+
 ## Phasing
 
 **P0 — adoption and design (this session).** Standing five created; the blocking

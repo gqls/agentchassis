@@ -1380,3 +1380,60 @@ two doc passes, and Part B is a genuine platform-code design decision plus imple
 (`platform/orchestration/actions/`, council-gate scope), better started with full budget
 than squeezed into an already-long session. New handoff:
 `HANDOFF_2026-08-02_continue_here.md`.
+
+## 2026-08-02 (fresh session) — Part B decided and built, not yet dispatched
+
+Read the standing five in the order `HANDOFF_2026-08-02` §1 names, then the actual
+`request_browser_run` code (`tool_acceptance_actions.go:87-270` as it stood before this
+session) before deciding anything — confirmed by reading, not by trusting the handoff's own
+paraphrase, that the page lookup really is `pages.name IN (function, 'tool-'||function)`
+with nothing that could take a `page_id`.
+
+**Decided (a) vs (b): sibling action, not a branch.** Written up as D9 in the PLAN before
+writing any Go, per the handoff's own instruction. Reasons in full there; short version —
+`request_browser_run` is the one path every existing tool-acceptance run depends on, and
+this lane has already shown once (D5′) that "the smallest possible platform change" is easy
+to under-count. A sibling action makes the tool path's blast radius provably zero (nothing
+in its source changes) rather than argued zero.
+
+Confirmed two things by research before writing code, not assumed from the handoff's own
+phrasing:
+- **The registry**: actions dispatch through `GlobalActionRegistry` in `registry.go`
+  (`GetAction`, ~line 1987), a flat `map[string]ActionDefinition`. `request_browser_run`'s
+  entry sits at line 1166. Adding a new action needs one more map entry there, nothing else.
+- **`content_components.function` is NOT reliably `name`** — checked the aggregate, not just
+  the one row: only 64% of `section`-level components and 7% of `tool`-level rows have
+  `name = function` (tools especially get a site-slug suffix on `name` at fork time). For
+  `teaser-reveal-panel` specifically the two happen to be equal, but the new action resolves
+  by `function` throughout, never by `name`, so this doesn't matter for correctness — noted
+  here so the next session doesn't generalise from the one row that happens to match.
+
+**Built:** `dispatchBrowserRun` — the shared tail (profile resolution through envelope
+build, marshal, produce, and the awaited-response result) extracted out of
+`RequestBrowserRunAction` into its own function, called by both actions. Only the two log/
+error strings that literally said "request_browser_run" changed text (to
+"dispatchBrowserRun") — grepped the repo first for anything that parses those exact
+strings (nothing does; they're log lines, not a wire contract). `RequestComponentBrowserRunAction`
+resolves its page via `page_components JOIN content_components ON content_components.function
+JOIN pages`, scoped by the explicit `page_id` and `pages.status='active'`, keeping the same
+"no fake pass" empty-criteria skip the tool action has. Registered in `registry.go` right
+after the tool entry, and its `ActionInputSpec` registered in `tool_acceptance_actions.go`'s
+existing `init()`, both by the exact pattern the tool action already uses.
+
+**Verified, not assumed:** `go build ./...`, `go vet ./platform/orchestration/actions/...`
+(one pre-existing `unreachable code` warning in `load_component_library_actions.go`,
+confirmed via `git status` to be untouched by this change — not mine to fix here), and
+`go test ./platform/orchestration/actions/...` all clean. Diffed the change against
+`RequestBrowserRunAction`'s pre-change body line by line — its control flow for every
+existing caller is byte-identical except the extraction itself; only the two message
+strings noted above changed, and nothing parses them.
+
+Registered the new action in the concept register as **DOC-072** (own entry — a new
+dispatch path is exactly the "another workstream could call this and wouldn't know it
+exists" bar CLAUDE.md sets), and updated DOC-068's own verify-later line to point at it,
+same commit.
+
+**Not done yet, and this is the whole of what remains:** council submission (this touches
+`platform/orchestration/actions/`, in scope for the advisory gate), an image build/roll,
+pod-grep proof it shipped, and the actual S6 dispatch against `teaser-reveal-panel`'s page
+with a negative control in the same run. None of that can happen before the commit exists.

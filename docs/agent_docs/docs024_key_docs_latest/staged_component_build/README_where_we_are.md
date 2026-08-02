@@ -380,3 +380,29 @@ to the platform's own code, in a part of it that goes through a review step befo
 That's a different kind of work to what's been done today, and this conversation has already
 covered a lot of ground, so I've written a fresh handoff and I'd suggest picking it up in a
 new conversation rather than continuing here.
+
+---
+
+**2 August 2026, later still — picked up the handoff, made the decision, and wrote the code**
+
+Read the handoff and the docs it pointed at before doing anything. The open question was a
+genuine either-or: teach the existing testing machinery a second way to find a page (by
+asking it directly, for a component), or build it a small twin that only components use. I
+went with the twin, mainly because the existing machinery is something every one of our
+tools' automatic tests already leans on, and I'd rather add something new next to it than
+add a branch inside it — if I'm wrong about something, the blast radius is nothing instead
+of everything. Wrote that reasoning down properly before touching any code, as agreed.
+
+Built it, and where the two share real work — building the request and sending it off — I
+had the new one reuse the old one's code rather than copying it, so the two can't quietly
+drift apart later. Checked my checking-out, not just the plan: read the whole of the
+existing testing action before changing anything near it, then diffed my change against it
+line by line afterwards to make sure the part that already works for every existing tool
+still behaves exactly the same. It does. The project builds cleanly and its existing tests
+still pass.
+
+What's not done yet: this is a change to shared platform code, so before I ship it I want to
+put it through the automated review step this project keeps offering, and then it needs to
+go out in a proper build and actually get tried against the real page in the cluster — with
+a deliberately wrong test thrown in alongside it, so I can be sure a "yes" really means yes.
+That's the next sitting, not this one.

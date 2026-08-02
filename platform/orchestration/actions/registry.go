@@ -1169,6 +1169,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Ask the browser-runner adapter to drive a tool's deployed page against its PLAN criteria; awaits the results (no-op skip when the PLAN has no criteria)",
 		IsLocal:     true,
 	},
+	"request_component_browser_run": {
+		Handler:     RequestComponentBrowserRunAction,
+		Category:    "tools",
+		Description: "Ask the browser-runner adapter to drive a section component's deployed page (given explicitly, since a component may be placed on several) against its PLAN criteria; awaits the results (no-op skip when the PLAN has no criteria)",
+		IsLocal:     true,
+	},
 	"request_render_audit": {
 		Handler:     RequestRenderAuditAction,
 		Category:    "quality",

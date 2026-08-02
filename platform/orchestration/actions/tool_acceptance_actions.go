@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/tool_acceptance_actions.go
 //
-// The two actions behind tool-acceptance-agent — the orchestrator that makes
+// The actions behind tool-acceptance-agent — the orchestrator that makes
 // Tier 4 self-driving (RUNBOOK_travelling_docs §0 Stage 6; flow pinned in
 // PLAN_tool_acceptance_runner):
 //
@@ -12,7 +12,20 @@
 //     resolves the tool's deployed URL from pages itself (complexity in Go,
 //     workflow stays flat) and NO-OP SKIPS — without awaiting — when the
 //     criteria are empty: an undocumented tool is Tier-2's needs_criteria
-//     concern, never a fake browser pass.
+//     concern, never a fake browser pass. Resolves the page by NAME:
+//     `pages.name IN (function, 'tool-'||function)` — correct for a tool,
+//     which is placed on exactly one page named after itself.
+//
+//   request_component_browser_run — the same request, for a section
+//     component (DOC-068 / staged_component_build P2). A component's
+//     placement is many-to-many (`page_components`), so there is no name to
+//     resolve by; the target page is given explicitly (page_id_field) and
+//     CHECKED against `page_components`/`content_components.function` rather
+//     than derived. A sibling action rather than a branch on
+//     request_browser_run so the tool path's existing guarantee needs no
+//     re-proving — see PLAN_2026-07-30_staged_component_build.md D9. Shares
+//     dispatchBrowserRun (envelope build + send) with the tool action; only
+//     page resolution differs.
 //
 //   judge_acceptance_results — turns the adapter's reply into the loop's
 //     artifacts: all pass → one acceptance-run doc_note; any fail → an
@@ -20,7 +33,9 @@
 //     criteria as acceptance_test and the failing check ids (the fixer loads
 //     PLAN+NOTES first, per Task 4). Reads the reply through a fallback chain
 //     of paths (003 action-level defense) because awaited-response shapes
-//     vary across the codebase (.response.data vs flattened).
+//     vary across the codebase (.response.data vs flattened). Serves both
+//     request actions unchanged — it keys off `function`, never off how the
+//     page was resolved.
 
 package actions
 
@@ -54,6 +69,20 @@ var RequestBrowserRunInputSpec = datahelpers.ActionInputSpec{
 	},
 }
 
+var RequestComponentBrowserRunInputSpec = datahelpers.ActionInputSpec{
+	Optional: []string{
+		"function_field", "criteria_field", "site_id_field", "domain_field",
+		"page_id_field", "url_field", "profiles",
+	},
+	Defaults: map[string]interface{}{
+		"function_field": "input_data.spec.function",
+		"criteria_field": "doc_context.criteria_json",
+		"site_id_field":  "site_record.site_id",
+		"domain_field":   "site_record.domain",
+		"page_id_field":  "input_data.spec.page_id",
+	},
+}
+
 var JudgeAcceptanceResultsInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
 		"results_field", "function_field", "criteria_field", "site_id_field",
@@ -68,6 +97,7 @@ var JudgeAcceptanceResultsInputSpec = datahelpers.ActionInputSpec{
 
 func init() {
 	datahelpers.RegisterActionInputSpec("request_browser_run", RequestBrowserRunInputSpec)
+	datahelpers.RegisterActionInputSpec("request_component_browser_run", RequestComponentBrowserRunInputSpec)
 	datahelpers.RegisterActionInputSpec("judge_acceptance_results", JudgeAcceptanceResultsInputSpec)
 }
 
@@ -150,6 +180,18 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 	if pageURL == "" {
 		return nil, fmt.Errorf("request_browser_run: no deployed page URL for function %q on site %s", function, siteID)
 	}
+
+	return dispatchBrowserRun(ctx, params, logger, config, function, siteID, domain, pageURL, criteria)
+}
+
+// dispatchBrowserRun builds the run_checks envelope and sends it to the
+// browser-runner adapter — the part of a browser-run request that does not
+// depend on how the target page was resolved. Shared by
+// RequestBrowserRunAction (tool: page resolved by name) and
+// RequestComponentBrowserRunAction (component: page resolved by explicit
+// placement) rather than duplicated, the same reasoning envelopePaths above
+// is already built on: two copies of an envelope builder can only drift.
+func dispatchBrowserRun(ctx context.Context, params ActionParams, logger *zap.Logger, config map[string]interface{}, function, siteID, domain, pageURL, criteria string) (interface{}, error) {
 	fullURL := pageURL
 	if !strings.HasPrefix(fullURL, "http") {
 		fullURL = "https://" + domain + "/" + strings.TrimPrefix(pageURL, "/")
@@ -240,10 +282,10 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 
 	messageBytes, err := json.Marshal(adapterRequest)
 	if err != nil {
-		return nil, fmt.Errorf("request_browser_run: marshal request: %w", err)
+		return nil, fmt.Errorf("dispatchBrowserRun: marshal request: %w", err)
 	}
 
-	logger.Info("request_browser_run: sending to browser-runner adapter",
+	logger.Info("dispatchBrowserRun: sending to browser-runner adapter",
 		zap.String("topic", browserRunnerTopic),
 		zap.String("request_id", newRequestID),
 		zap.String("url", fullURL),
@@ -253,7 +295,7 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 
 	if err := params.Producer.ProduceWithValidation(ctx, browserRunnerTopic, headers,
 		[]byte(params.ExecutionContext.CorrelationID), messageBytes); err != nil {
-		return nil, fmt.Errorf("request_browser_run: send to browser-runner adapter: %w", err)
+		return nil, fmt.Errorf("dispatchBrowserRun: send to browser-runner adapter: %w", err)
 	}
 
 	return &RequestRepoAnalysisResult{ // same await-signal shape as the analyser/webscrape requests
@@ -268,6 +310,84 @@ func RequestBrowserRunAction(ctx context.Context, params ActionParams) (interfac
 			"responses_topic": myResponsesTopic,
 		},
 	}, nil
+}
+
+// ── request_component_browser_run ───────────────────────────────────────────
+
+// RequestComponentBrowserRunAction is request_browser_run's sibling for a
+// section component (DOC-068). A tool's page names itself after the tool
+// (pages.name IN (function, 'tool-'||function)); a component's placement is
+// many-to-many (page_components), so there is no name to resolve by — the
+// target page is given explicitly (page_id_field) and CHECKED against the
+// placement, never derived from function alone. See
+// staged_component_build/PLAN_2026-07-30... D9 for why this is a sibling
+// action rather than a branch on RequestBrowserRunAction.
+func RequestComponentBrowserRunAction(ctx context.Context, params ActionParams) (interface{}, error) {
+	logger := params.Logger.With(zap.String("action", "request_component_browser_run"))
+	config := params.StepConfig.Config
+
+	if params.ExecutionContext != nil && params.ExecutionContext.Action == "initialize" {
+		return map[string]interface{}{"status": "initialized"}, nil
+	}
+
+	function := resolveWithFallbacks(params.CollectedData,
+		datahelpers.GetStringField(config, "function_field", "input_data.spec.function"),
+		"input_data.function")
+	if function == "" {
+		return nil, fmt.Errorf("request_component_browser_run: no function (input_data.spec.function / input_data.function)")
+	}
+
+	criteria := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "criteria_field", "doc_context.criteria_json"))
+	if strings.TrimSpace(criteria) == "" {
+		// Same "no fake pass" rule as the tool action: an undocumented
+		// component is Tier-2's needs_criteria concern, never a fake browser
+		// pass.
+		logger.Info("request_component_browser_run: no criteria in the current PLAN — skipping (no fake pass)",
+			zap.String("function", function))
+		return map[string]interface{}{
+			"skipped": true,
+			"reason":  "needs_criteria",
+		}, nil
+	}
+
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "site_id_field", "site_record.site_id"))
+	domain := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "domain_field", "site_record.domain"))
+	pageID := datahelpers.ExtractNestedFieldString(params.CollectedData,
+		datahelpers.GetStringField(config, "page_id_field", "input_data.spec.page_id"))
+	if pageID == "" {
+		return nil, fmt.Errorf("request_component_browser_run: no page_id (page_id_field) — a component can be placed on more than one page, so the target page cannot be inferred from function alone")
+	}
+
+	// Resolve the deployed URL: explicit config path first, else the
+	// page_components/content_components join. The given page_id is
+	// ASSERTED by the caller and then CHECKED against the real placement row
+	// (a stale or wrong page_id fails closed with an error, not a silent
+	// pass against the wrong page).
+	pageURL := ""
+	if uf := datahelpers.GetStringField(config, "url_field", ""); uf != "" {
+		pageURL = datahelpers.ExtractNestedFieldString(params.CollectedData, uf)
+	}
+	if pageURL == "" && params.DB != nil {
+		err := params.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(p.url, '') FROM pages p
+			JOIN page_components pc ON pc.page_id = p.id
+			JOIN content_components cc ON cc.id = pc.component_id
+			WHERE pc.page_id = $1::uuid AND cc.function = $2::text
+			  AND p.status = 'active'
+			LIMIT 1
+		`, pageID, function).Scan(&pageURL)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, fmt.Errorf("request_component_browser_run: placement lookup failed: %w", err)
+		}
+	}
+	if pageURL == "" {
+		return nil, fmt.Errorf("request_component_browser_run: component %q is not placed on page %s (or that page is inactive)", function, pageID)
+	}
+
+	return dispatchBrowserRun(ctx, params, logger, config, function, siteID, domain, pageURL, criteria)
 }
 
 // ── judge_acceptance_results ────────────────────────────────────────────────
