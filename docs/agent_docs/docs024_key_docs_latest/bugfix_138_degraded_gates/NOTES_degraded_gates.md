@@ -661,3 +661,41 @@ storage paths — being verified at `llm_call_log` (max_tokens on any
 `review_adoption_guardian` call since 10:30 tells the truth); their lane gets a notice
 if it fired. `0802-1032` spawned 10:32:29, BEFORE the window: clean (frozen_cap=8000,
 fixture=f — verified, not assumed).
+
+## 2026-08-02 ~10:46 — induction round complete: true branch NOT fired; two independent causes; zero collateral
+
+**Outcome:** corr `4d7363d7` → **rejected, `decided_by = "veto from editquality"`,
+`gated_by_truncation=false`**. The adoption review appears in the report ONLY as
+`unreadable: ['review_adoption_guardian.result']`.
+
+**Cause 1 — the visible-text budget was not the token budget.** Two seat calls, both
+mine (orch `22a9e7c7`, attempt 10:39:46 + retry 10:39:51 — the bugs_open/119
+TOLERATED/RETRY machinery, now witnessed live). Attempt: response_text EMPTY. Retry:
+**42 chars** — `{"reviewer":"adoption_guardian","verdict":` — with `output_tokens=120`,
+the full cap. ~108 tokens went to server-side thinking: `claude-sonnet-5` thinks by
+default; the chassis neither requests nor records it (telemetry columns NULL), and
+`output_tokens` counts thinking+text. My "thinking risk retired" was measured at cap
+8000 (output 161–383 ≈ visible JSON) and TRANSFERRED to cap 120 — a measurement at one
+operating point carried to another. Cut before any closer → `repairTruncatedJSON` → `""`
+→ salvage fail → **unreadable, honestly accounted, no fabricated verdict** (the discard
+arm of the exit table, now production-witnessed).
+
+**Cause 2 — editquality VETOED the comment-only submission** ("audits/comments are not
+edits ... all edits are no-ops"; 10 of 11 other seats approved). A veto short-circuits
+`decideCouncil` BEFORE rule 3, so no truncation label was computable regardless.
+Corollary nobody had written down: **the true branch requires a submission every
+non-crippled seat approves** — any veto or any merits gate outranks it. It is a
+conjunction of a near-perfect submission and a crippled seat, which is exactly why 68
+organic rounds never showed it.
+
+**Collateral: NONE, proven twice.** 1034's report lists no adoption reviewer and no
+unreadables (footprint gate held for storage paths); both 120-cap calls carry MY
+orchestration id. 1034's `revise` = its own guardian, on merits. bugfix_168 lane needs
+no notice. 1032 pre-window, clean.
+
+**What today DID witness in production, beyond the unit tests:** the tolerate+retry
+path on a truncated seat; the salvage-failure arm (repair `""` → unreadable, round
+decided on the remaining seats); the frozen-plan mechanics (round carried cap 120 +
+fixture after the live row was restored); and the veto short-circuit masking the
+truncation rule. **Still unwitnessed: only the TRUNCATED label string itself**
+(`gated_by_truncation=true` + the decided-by wording) on a real round.
