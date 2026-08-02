@@ -105,3 +105,57 @@ The change is committed and has gone to our review council. It does not take
 effect on the live system until the next time the software is rebuilt and rolled
 out, so the bug stays open until then — that is the rule, and it is the right one:
 until it is actually running, the problem is still reproducible.
+
+## 2026-08-02, evening — it is live, it works, and the ticket is closed
+
+The software was rebuilt and rolled out this evening, so I went and checked it
+properly rather than trusting the version number. The change is genuinely in the
+running programme on both machines — I looked inside the binary for three things
+my change added, two things that were already there (to prove the search itself
+works), and one invented string that should not be there at all. All six answered
+correctly, and the binary was built nearly eight hours after I committed.
+
+Then the real test. Six minutes after the rollout nothing had been reported, and
+that could equally mean "it ran and everything was fine" or "it never ran at all".
+An absence cannot tell you which, and waiting longer would not have helped. So I
+picked a page whose faults I had already catalogued — a gas-wholesale site whose
+card grid pointed at five pages, four of which do not exist — and asked the system
+to rebuild it.
+
+**Before pressing go, I wrote down exactly what success would look like**: two
+links corrected, four reported and left alone, and precisely which cards each. That
+matters more than it sounds. If you only write down what failure looks like, then
+anything that isn't obviously broken reads as a win.
+
+It came back matching, item for item. The two links to `/contact` became
+`/contact.html` in the stored data, and the four pointing at pages that were never
+built were recorded and left untouched — which is the deliberate half of the
+design, because deleting them would throw away what the writer intended.
+
+The detail I'm most pleased with is the one that nearly wasn't checked. All six
+sections of that page were rewritten in that save, and I had taken fingerprints of
+each beforehand. Five came back **identical**. So the new check touched exactly the
+one section that had a problem and left everything else alone — which "the links
+changed" would never have told me.
+
+I also checked it on the actual website, not just in the database: the live page
+now serves seven links to `/contact.html` and none to the four pages that do not
+exist.
+
+Finally, the count. There were 52 of these bad links across the estate. There are
+now 50, and the only site that moved is the one I rebuilt — down by exactly the two
+it should be. Every other site is unchanged. That's the difference between a number
+that fell and a number that fell *for the reason you think*.
+
+The ticket is closed and moved. Four things stay open and each has somewhere to
+live: a handful of other writers that take a different route (already its own
+ticket), a scheduling decision that is genuinely yours to make, an unanswered
+question from an earlier review, and whether a link to a page that was never built
+should be escalated to a person rather than just recorded — that last one is tied
+to an identical unresolved question about the published pages, and the two should
+be decided together rather than one at a time.
+
+The remaining 50 will clear themselves as those pages are next worked on. That
+takes anywhere from two days to three weeks depending on how busy the site is, and
+nothing forces it — so if you'd rather they were all cleared now, that's the
+scheduling decision above.
