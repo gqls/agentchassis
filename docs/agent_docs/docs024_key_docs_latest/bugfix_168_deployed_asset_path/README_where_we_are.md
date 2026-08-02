@@ -124,3 +124,57 @@ check itself was working, and confirmed the change is not in it — the current 
 commit. So the ticket stays open. It will go live the next time anyone builds and rolls out the
 system, which happens several times a day here, and the verification commands are written down
 ready for whoever does it.
+
+## 2026-08-02, early afternoon — the council caught a real one, and I was wrong
+
+The second review round came back **REVISE** again, and this time it was not about
+presentation. Two reviewers, independently, said the same thing: my change made it possible
+for one part of the system to overwrite a site's real social card and favicon, and the
+protection against that was sitting in a *ticket* rather than in the code. I had told them
+twice, with measurements attached, that this could not actually happen.
+
+**They were right and I was wrong**, and the way I was wrong is worth writing down because it
+looked exactly like being right.
+
+I had measured two things. First, that the check which creates this kind of work item no
+longer creates them for the favicon and social card — true, fixed back in July. Second, that
+every part of the system that *reads* an image path only ever deals with heroes, icons and
+illustrations — also true, and I'd been careful to confirm the query wasn't returning nothing
+by accident. Both measurements were sound. **Neither of them could answer the question.** The
+first is about work items created from now on. The second is about readers, and the risk was
+in a writer.
+
+The thing that answers it is the queue of work already sitting there. One query: **eleven
+items** are queued right now asking to deploy the favicon or the social card, and two of them
+are in a state that will get picked up and run. They've been there since mid-July, from
+*before* the check was fixed. Under the old code they were harmless — they'd have written a
+file nobody looks at. Under my change they would have replaced the real thing.
+
+Fixing a check stops new bad items being created. It does nothing about the ones already in
+the queue, and nothing here goes back and tidies those up. I'd leaned on "that was fixed in
+July" without noticing that the fix was only ever true *of the code that was running in July*
+— and I'd just changed the code.
+
+What caught it, in the end, was going to prove the reviewers wrong. I thought they were being
+cautious about something I'd already settled, and ran the query to show it. It came back with
+eleven rows.
+
+**So I've built the guard rather than filing it.** The deploying code now refuses to touch the
+favicon or the social card, and says why — and it refuses *before* it downloads anything or
+commits anything, which matters, because a check that runs after the file has already been
+written isn't a check. I tested that by deliberately moving the guard to later in the function
+to confirm the test notices. It does.
+
+One piece of genuine luck I want to be honest about: none of this is live yet, so the risky
+change and its guard will go out together in the same build. If my earlier work had already
+been rolled out, this would have been a live incident rather than a review comment.
+
+There was a second, smaller error the same hour. Checking whether a particular override
+setting is ever used, I got nine hits — which appeared to contradict something I'd already
+told the reviewers twice. All nine turned out to be **my own review submissions**: the system
+stores the text of what you submit, and I'd written about that setting at length. The real
+answer is zero. The more thoroughly I'd argued the point, the more evidence I appeared to
+generate against myself.
+
+Round three is with the reviewers now. Both mistakes are written up in the shared log of wrong
+calls, with the cheap check that would have caught each.
