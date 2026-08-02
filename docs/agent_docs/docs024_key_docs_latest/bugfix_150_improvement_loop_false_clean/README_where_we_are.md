@@ -119,3 +119,49 @@ because the sweep is switched off and every run so far was one of us firing it b
 "nothing else calls them" is solid (that comes from reading the definitions, not the history),
 but "nothing has ever called them" leans on a short window. It does not change my
 recommendation; it is the sort of thing that should be said out loud rather than buried.
+
+**2026-08-02, later — you chose "one owner", so that is what we did**
+
+The change itself was small and the interesting parts were around it.
+
+What went out: the two child agents no longer do the sweeping-up. Only the
+improvement loop does. That is a database change, applied by hand, with a snapshot
+of both agents taken first so it can be undone.
+
+But deleting the duplicate steps once does not stop the problem coming back — the
+next agent someone adds could easily be given the same step again, and nobody would
+notice until a site was wrongly called clean. So the more important half is a piece
+of code: an action can now *declare* that it is meant to have exactly one owner, and
+there is a check that reads the whole fleet and reports any action that has picked
+up a second one. I ran it before the change and it reported the problem, naming all
+three agents. I ran it after and it reported nothing. Same command, same fleet — that
+pair is the proof, rather than my say-so.
+
+Then I fired a real sweep, because config that looks right and a run that works are
+different claims. Both child agents ran to completion with their step removed, and
+the loop's own count went from **zero — which it had been in every run we have ever
+observed — to twelve**. That number moving off zero is the whole point: the loop is
+now doing the promoting itself instead of finding the cupboard bare and concluding
+there was nothing to do.
+
+**And I made a mistake worth telling you about, because my own safety check caught
+it and I let it through anyway.**
+
+When I deleted the step, I remembered to redirect the normal path that led into it
+and forgot the *error* path — what the agent does if the preceding step fails. That
+left a pointer to a step that no longer existed, which would have stranded any run
+unlucky enough to hit an error there. My migration had a check for exactly this, it
+ran, and it printed exactly the right warning. The transaction then committed
+regardless, because the check was written as a question rather than as a stop:
+the database prints the answer and carries on. I had written "if this returns
+anything, stop" in a comment — which is an instruction to a human, not a mechanism.
+
+Fixed within minutes, and the fix's version of the check genuinely halts. I then
+proved it halts by deliberately re-breaking the thing inside a transaction I threw
+away, rather than assuming. And I widened the same question to the whole fleet: no
+other agent anywhere has a pointer to a step that does not exist, so this was the
+only instance — but nothing had ever asked that question before, which is why it is
+now written down as a standing check.
+
+The error path is the nasty half of this class: it might not fire for months, so a
+successful test run tells you nothing about it.

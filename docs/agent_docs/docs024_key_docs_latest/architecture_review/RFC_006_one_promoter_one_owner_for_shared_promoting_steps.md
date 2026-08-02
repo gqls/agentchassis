@@ -1,6 +1,41 @@
 # RFC 006 — a shared step whose effect is "take everything in state X" needs one owner, or every parent that branches on it is a latent `bugs_open/150`
 
-**Status: RAISED 2026-07-31 by the bugfix_150 lane. Needs an owner decision.**
+## STATUS: **DECIDED — OWNER RULING 2026-08-02: option (a), one promoter, one owner. IMPLEMENTED AND LIVE.**
+
+The owner took the decision after the census in §5 was run (it had been raised as
+the missing fact and is now measured; the answer removed option (a)'s only stated
+cost). What shipped:
+
+| half | what | state |
+|---|---|---|
+| config | migration **286** — removed the `triage` step from `design-audit-agent` and `site-review-agent`; `improvement-loop.triage_findings` is the sole promoter | **APPLIED 2026-08-02**, recorded in the ledger |
+| correction | migration **288** — repointed the `error_step` 286 left dangling (see below) | **APPLIED 2026-08-02** |
+| code | `ActionInputSpec.SingleOwner` (runtime-inert) + `config-key-audit --single-owner-actions` + `scripts/audit-single-owner-actions.sh` | committed `49ecdf4fd`, council `60f4b425` |
+
+**The code half is the one that matters.** Removing two steps is a one-off that
+the next agent to gain a triage step silently undoes; the declaration plus a
+fleet-wide offline check is what makes the second copy loud. Proven as a matched
+pair over the same live fleet, same command, one variable changed:
+
+- **before** the migration: `181 agents decoded, 1 finding` — naming
+  `design-audit-agent.steps.triage`, `improvement-loop.steps.triage_findings`,
+  `site-review-agent.steps.triage`;
+- **after**: `181 agents decoded, 0 findings`.
+
+**A misstep, recorded here because this file is where the decision lives.** 286
+repointed each child's *success* edge and deleted the step — and missed that
+`design-audit-agent.call_content_auditor` also carried `error_step: "triage"`.
+286's own verify block asked exactly the right question and **answered it
+correctly**, returning that one row. It did not stop the migration, because a
+`SELECT` is not an assertion: psql prints the row and proceeds to `COMMIT`, and
+`ON_ERROR_STOP=1` does not help because a non-empty result set is not an error.
+Fixed forward by 288, whose equivalent check is a `DO` block that `RAISE`s —
+mutation-tested by inducing the defect inside a rolled-back transaction and
+confirming it aborts. A fleet-wide census for the same shape then returned **0
+rows**, so this was the only instance. Full write-up: `WRONG_CALLS.md` 2026-08-02.
+
+> **Original status line, kept for the record:**
+> **RAISED 2026-07-31 by the bugfix_150 lane. Needs an owner decision.**
 Raised because the council's `architecture` seat asked for it explicitly, on a
 submission it otherwise approved (`757cc7be`, *"approved with 8 advisory
 objection(s) — none high-severity"*):
@@ -99,6 +134,28 @@ shared step returns both, and that branches read the state-scoped one.
 *Residual:* the whole of it. This is the status quo plus a paragraph, and the honest
 argument for it is that one instance in the fleet's history is a thin basis for a
 refactor with an unmeasured blast radius.
+
+### 3a. What option (a) did NOT settle, and is deliberately left alone
+
+**`site_dispatchable` stays, and stays load-bearing.** With one owner,
+`has_items` would again be a correct signal for `improvement-loop.check_has_findings`
+— but reverting the branch to it would trade a robust reading for a fragile one
+whose correctness depends on the fan-out never coming back. The branch keeps
+reading the site's state; the detector keeps the fan-out from returning. Belt and
+braces, and the braces are the cheap half.
+
+**The `has_items` convention is untouched.** Four live consumers across three
+actions, three of them correct about their own loaders. Option (b) — inverting
+which signal is easy to reach — was not taken, so a future promoter still
+publishes both. That is what the `SingleOwner` declaration now covers: the
+guidance for choosing between them stops being a header comment and becomes a
+check that fails.
+
+**Residual, stated rather than hidden.** If a run dies between a child agent
+completing and `triage_findings`, findings that a child would previously have
+promoted now wait for the next sweep. Nothing is lost — the promoter is greedy,
+so the next run takes everything — it is *latency on an already-failed run*. That
+is the smaller cost against a false "clean" on every healthy run.
 
 ## 4. What is NOT being asked
 

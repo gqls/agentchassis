@@ -2861,3 +2861,211 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
 - **⚠ FAIRNESS ORDERING CONVERTS THIS FROM INTERMITTENT TO PERMANENT — the two changes are only safe together.** Under the old lowest-UUID selector a blocked site held the head only while it happened to sort lowest. Under `284`'s oldest-waiting-first the key is `created_at`, which never changes and only ages, so **an unloadable item, once at the head, is at the head for ever.** If you are reasoning about either change alone you will get its blast radius wrong: `284` without `285` is a permanent fleet stall behind one row.
 - **source:** 2026-08-02, found while verifying `bugs_closed/154`'s fix, fixed by `sql_for_agents/285`, proven at the artefact (0 claims in the 68 min before; relojistas 5 / vetcomparison 2 / webdesign 1 in the 8 min after, in exact FIFO order, with `93f2a3b7` still `triaged` as the negative control). Register WDS-002. It retires a wrong call of mine recorded the same week — twice I logged ~90-minute fleet quiet spells as "comparable to known behaviour, not yet outside it"; **that range WAS this mechanism, and a recurring gap matching a known range is not thereby explained.**
 - **added:** 2026-08-02, bugfix_154_work_item_routing_columns lane
+
+---
+
+### A migration's verify block made of `SELECT`s cannot stop the `COMMIT` — and `ON_ERROR_STOP=1` will not save you
+
+**footprint:** `docs/agent_docs/sql_for_agents/` · `scripts/migration/run-migrations.sh` · any migration with a "VERIFY BEFORE COMMIT" section
+
+The house style for a migration is pre-flight assertion → snapshot → change →
+**verify before commit** → `COMMIT`. The verify step is almost always written as
+`SELECT`s with an expectation in a comment above them (`-- expect ZERO rows`,
+`-- expect exactly one row`). **Those cannot fail.** psql prints the result and
+proceeds to `COMMIT`; a non-empty result set is not an error, so
+`-v ON_ERROR_STOP=1` does not trigger. The transaction commits with the defect
+your own check just found and printed on screen.
+
+This is not hypothetical: migration 286 (2026-08-02) deleted a workflow step, its
+check (iii) correctly reported one surviving reference to that step, and it
+committed regardless — shipping a dangling `error_step` to live config. Fixed
+forward by 288. The wrong result and the right result look identical here: a
+successful-looking run either way, with the finding buried in the middle of the
+output above `COMMIT`.
+
+**the check:** where the assertion must actually hold, make it RAISE, not print:
+
+```sql
+DO $$
+DECLARE bad text;
+BEGIN
+    SELECT string_agg(...) INTO bad FROM ( <the check> ) t;
+    IF bad IS NOT NULL THEN RAISE EXCEPTION 'still wrong: %', bad; END IF;
+END $$;
+```
+
+Then **prove it can fail** before trusting it: induce the defect inside a
+transaction and confirm the block aborts, then `ROLLBACK`. A guard that has only
+ever been run against a clean database is indistinguishable from no guard.
+Keep the `SELECT`s too — they are useful evidence in the output — but do not let
+them carry the weight of a decision.
+
+---
+
+### Deleting a workflow step: the SUCCESS edge is the one you remember, `error_step` is the one that strands a run
+
+**footprint:** `agent_definitions.default_config->workflow->steps` · any migration deleting a step
+
+Repointing a deleted step's predecessor is obvious for `next_step` and easy to
+forget for the other three pointer fields — `error_step`, and a conditional's
+`config.then_step` / `config.else_step`. An error edge is the worst case: it may
+never fire, so the definition carries a stranding bug for weeks with nothing
+reporting it, and a green test run proves nothing because the test took the
+success path.
+
+**the check:** before believing any step deletion is finished, run the
+dangling-reference census over ALL FOUR pointer fields, and fleet-wide rather
+than at the agent you edited (measured 2026-08-02: 0 rows fleet-wide, so a hit is
+real):
+
+```sql
+SELECT ad.type, step.key AS step_name, tgt.target AS points_at
+FROM agent_definitions ad,
+     jsonb_each(ad.default_config->'workflow'->'steps') AS step,
+     LATERAL (VALUES (step.value->>'next_step'), (step.value->>'error_step'),
+                     (step.value->'config'->>'then_step'),
+                     (step.value->'config'->>'else_step')) AS tgt(target)
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND tgt.target IS NOT NULL AND tgt.target <> ''
+  AND NOT (ad.default_config #> '{workflow,steps}') ? tgt.target;
+```
+
+Reading the step's own JSON is not enough — the reference that strands you lives
+in a DIFFERENT step, pointing in. Full form with the enforcing wrapper:
+`docs/agent_docs/sql_for_agents/288_repoint_the_error_step_286_left_dangling.sql`.
+
+### `query_database` STRINGIFIES every jsonb column, so a projected JSON value arrives as text and every shape check on it fails quietly
+
+- **footprint:** `platform/orchestration/actions/database_actions.go` (`QueryDatabaseAction`), `platform/orchestration/datahelpers/data_helpers.go` (`ExtractStringListHelper`, `ExtractNestedField`), `platform/orchestration/input_contracts/input_mapping.go` (`ResolveInputMapping`), any workflow step with `"action": "query_database"` projecting `col->'key'` / `jsonb_agg(...)` / `to_jsonb(...)`, `site_work_items.spec`
+- **fires when:** you add a jsonb column or expression to a `query_database` step's `SELECT`/`RETURNING` so a later step can read structure out of it — a list, an object, anything that is not a scalar. The natural assumption is that `claimed.my_thing` is then a list or a map in `collected_data`. **It is a string.**
+- **the mechanism:** `QueryDatabaseAction` scans every column into `interface{}` and converts any `[]byte` it gets back to `string` — `if b, ok := values[i].([]byte); ok { row[col] = string(b) }`. `database/sql` requires a driver to hand back one of a small set of types, and for a jsonb column pgx hands back bytes, so **every** json/jsonb projection becomes the JSON *text*. Nothing downstream re-types it: `ResolveInputMapping` stores values verbatim (`result[actualDestField] = value`), and the Kafka envelope then marshals a Go string as a JSON string.
+- **the tell: there isn't one, and every observable says it worked.** The column is present. `input_mapping` resolves it and logs "Resolved input mapping". The child receives the key. Only the consumer disagrees, and it does so by returning an empty result that is indistinguishable from "the caller supplied nothing" — which is how `bugs_open/174` cost three lanes' diagnoses their chosen scope with no error anywhere. A type assertion (`val.([]interface{})`), a `len() == 0` guard, and a `ExtractNestedField(x, "a.b")` traversal all fail the same silent way.
+- **the check, before you rely on a projected jsonb value:** do not reason about it — read it back off a real run. `SELECT jsonb_typeof(collected_data->'<output_field>'-><'key'>) FROM orchestration_states WHERE ...` tells you what the DB holds, which is NOT the question; the question is what the Go map holds, so assert on the **effect** (did the consumer use the value?) rather than on the field being present. If the consumer takes a list, `datahelpers.ExtractStringListHelper` handles the JSON-text form since 2026-08-02 (`bugs_open/174`) — for any other shape you must decode it yourself, e.g. through `datahelpers.SafeUnmarshal`.
+- **and the reason this is a landmine rather than a bug to fix:** fixing `QueryDatabaseAction` to decode json/jsonb columns would change the shape every consumer receives. **Measured 2026-08-02: exactly ONE live `query_database` step projects a JSON-TYPED value** (`diagnose-dispatch-loop.claim_item`, added by 174's own fix), so the blast radius today is nil — but the measurement is the point. A loose grep for `->|jsonb_|json_` over the query text returns **14** steps, and 13 of those are `->>` **text casts** (whose consumers already expect text) or arrows inside **WHERE predicates** (not output at all). 174's council submission quoted the 14 as the blast radius; that figure was wrong. **Classify by whether the arrow lands in a projection, not by whether the query mentions json.**
+- **source:** 2026-08-02, `bugs_open/174` (`docs024_key_docs_latest/bugfix_174_seed_scope_relay/`). The `090_TRIGGER_needs_diagnosis_v1.sh:345` comment had recorded the consequence — *"ExtractStringListHelper takes []interface{} or []string only; a bare "a,b" string yields nil and the seed is ignored"* — the whole time, next to the code that wrote the value. Raised as a gating-adjacent objection by the council's `bug_historian` seat on corr `081d98b3`, which required this entry as the minimum acceptable mitigation for the deferred root-cause fix.
+- **added:** 2026-08-02, bugfix_174 lane
+
+### `input_mapping` is an ALLOW-LIST and so is a claim query's RETURNING — a dispatcher has TWO gates, and fixing the one you can see leaves the key dropped
+
+- **footprint:** `agent_definitions` rows `diagnose-dispatch-loop` / `report-dispatch-loop` / `build-pipeline-trigger`, their `claim_item`/`call_handler` steps, `platform/orchestration/input_contracts/input_mapping.go` (`ResolveInputMapping`), `agent_definitions.input_contract`, `cmd/config-key-audit/relaygaps.go`, `scripts/audit-relay-gaps.sh`
+- **fires when:** an optional field an operator sets is not reaching the agent that consumes it, on any pipeline where a dispatch loop stands in front of a handler. You find the `call_agent` `input_mapping`, see the key missing, and add it. **That is half the fix, and the other half is invisible from where you are standing.**
+- **the tell:** none — the added mapping key resolves to nothing and, being optional (`key?`), `ResolveInputMapping` skips it at **Info** level and continues. You get a successful run, a normal-looking result, and the same missing field. `bugs_open/174`'s own filing proposed exactly this fix, having read the mapping and not the claim query.
+- **the check:** read **both** allow-lists and the callee's declared contract, which is the authority neither of them is checked against:
+  ```sql
+  SELECT substring(default_config #>> '{workflow,steps,claim_item,config,query}'
+         from position('RETURNING' in default_config #>> '{workflow,steps,claim_item,config,query}')) AS projected,
+         default_config #>> '{workflow,steps,call_handler,config,input_mapping}' AS forwarded
+    FROM agent_definitions WHERE type='<the dispatch loop>'
+     AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  -- then the authority both must satisfy:
+  SELECT input_contract FROM agent_definitions WHERE type='<the handler>' AND is_active
+     AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+  Or run it fleet-wide: `./scripts/audit-relay-gaps.sh`.
+- **the second trap, for anyone WRITING a check for this class:** the obvious general rule — "every `call_agent` must forward every key its callee declares" — is **not sound**, and measuring it is how you find that out. Live on 2026-08-02 it gave **31** findings from 75 resolvable call sites, and the spot-checked ones were legitimate (`webdesign-agent` carries an `else_step: load_site_context` and loads the key it was not passed). Tightening to "the callee also READS `input_data.<key>`" gave 3 and still could not separate "the caller dropped it" from "the caller never had it". **Worse, both versions were blind to 174 itself**, because `call_handler` resolves its callee at runtime via `agent_type_field: claimed.handler_agent` and a static resolver skips it. A dispatcher is the one case where the question is answerable — its envelope IS the work item spec — which is why the shipped check is a declared registry over 3 relays rather than a fleet-wide rule.
+- **source:** 2026-08-02, `bugs_open/174`. Same mechanism as the `--fidelity` landmine (`input_mapping` dropped `fidelity` until migration 274), one hop further back: 274 only had to fix the mapping because that path had no claim-query projection in front of it.
+- **added:** 2026-08-02, bugfix_174 lane
+
+---
+
+### Cloudflare answers `Python-urllib` with **403**, so a Python health check reports a healthy site as broken
+
+**footprint:** `urllib.request` against any Cloudflare-fronted site in this estate · any Python asset/link/health checker
+
+Measured 2026-08-02 against `https://loancalculator.co.uk/assets/css/style.css`:
+
+| client | result |
+|---|---|
+| `curl` GET, HEAD, with or without a UA | **200** |
+| `urllib` GET and HEAD, default UA | **403** |
+| `urllib` GET with a browser UA | **200** |
+
+So it is the **agent string**, not the method and not the asset. A checker
+written the obvious way (`urllib.request.urlopen`, no headers) marks every asset
+on a perfectly healthy site as unreachable. That is worse than having no checker:
+the output is indistinguishable from the real 404s it was written to catch, and
+the honest human response to "everything is broken" is to stop believing the
+check. It fired on the first run of `decompose/load_chrome.py` and reported the
+two assets that had just been confirmed 200 by curl.
+
+**the check:** set a User-Agent on every `urllib` request, and prove the checker
+can distinguish a good asset from a bad one before trusting a clean run —
+`/assets/css/style.css` must be 200 and `/assets/css/styles.css` (the plural
+typo that was live in this site's chrome) must be 404, from the SAME code path.
+A checker that returns the same status for both has told you nothing. Verifying
+with `curl` and then implementing with `urllib` is exactly how this is missed.
+
+---
+
+### `site_components` having rows does NOT mean the chrome works — and on a verbatim site nothing will ever tell you
+
+**footprint:** `site_components` · `rerender_single_page_action.go (loadVerbatimPageHTML` · any `rebuild_policy='owned'` adopted site
+
+`assemblePage` reads chrome from `site_components`, but it is never reached for a
+page that ships verbatim — `loadVerbatimPageHTML` returns first. So on an adopted
+site the chrome can be written, be completely broken, have a full-site rerender
+run against it, and report 27 successes while changing nothing.
+
+Exactly that happened to loancalculator.co.uk: rows written 2026-08-01 08:02,
+27 `page_rerender` items five seconds later, all `complete`, site byte-identical
+— and the chrome pointed at `/assets/css/styles.css` (**404**; the real file is
+`style.css`), carried a nav `<ul>` with **zero** `<li>`, and linked a 404 favicon
+and a 404 `og:image`. The first page decomposed would have shipped unstyled and
+unnavigable.
+
+**the check:** never ask "are there rows". Ask whether the chrome RESOLVES:
+fetch every `href`/`src` it references and require 200 (with a UA — see the
+landmine above), count the nav links and join them against `pages.url`, and
+confirm the head still contains the two LITERAL strings assembly rewrites by
+exact match — `<title></title>` and `content=""`. Reorder the head so another
+tag holds the first `content=""` and the page's meta description silently lands
+in the wrong tag. Implemented as a refusal in
+`loancalculator_couk/decompose/load_chrome.py`.
+
+---
+
+### A verbatim page is defined by its ROW COUNT, so ADDING a section silently switches the page to assembly
+
+**footprint:** `page_components` on any `rebuild_policy='owned'` site · `loadVerbatimPageHTML`
+
+The condition is `rebuild_policy='owned'` AND **exactly one** component row AND
+that row's `content_data.deploy_mode='verbatim'`. There is no flag to clear.
+
+So attaching a second component to a verbatim page does not "add a section to the
+page" — it flips the whole page from shipping its stored bytes to being
+assembled, and the old row, which holds a COMPLETE document with its own
+`<!DOCTYPE>`, `<head>` and `<body>`, becomes one of the sections. The result is a
+document nested inside a document. The action logs a warning and proceeds.
+
+**the check:** to decompose, REPLACE the verbatim row in the same transaction —
+`DELETE FROM page_components WHERE page_id=…` then insert the new rows — never
+insert alongside. Before believing a page is still verbatim, count:
+`SELECT count(*), count(*) FILTER (WHERE content_data->>'deploy_mode'='verbatim')
+FROM page_components WHERE page_id='…';` — anything other than `1|1` means the
+page assembles, whatever the row's own `deploy_mode` still says.
+
+---
+
+### A splitting/extraction rule that reads only INLINE scripts is blind on any page whose logic is in a `<script src>`
+
+**footprint:** `loancalculator_couk/decompose_prover.py (script_ids` · any tool/widget extraction keyed on `getElementById`
+
+The honest definition of "what a widget needs" is the set of element ids its
+scripts address. The trap is the word *its*: read only the inline `<script>`
+blocks and a page that keeps its arithmetic in a shared `.js` file has script
+targets the rule cannot see, and they get classified as ordinary prose — free for
+a writer agent to rewrite or delete.
+
+On `/index.html` the whole of `calculateLoan()` lives in `/assets/js/global.js`,
+so `#monthly-display`, `#total-interest` and `#total-cost` — the calculator's
+entire results box — decomposed as editable prose. **The rule's own safety proof
+passed and could not have failed**: it asks whether every id an INLINE script
+addresses travels with the tool, and that page's inline script addresses only the
+three inputs, all of which did travel. The proof was narrower than the risk.
+
+**the check:** fold every `<script src>` the page loads into the same id set
+before splitting, and make an unreadable referenced script a HARD FAILURE rather
+than a warning — proceeding with the ids you could see is the silent-success
+shape that causes this. Then assert the narrower property that actually matters:
+no script-addressed id may land in a block classified as prose
+(`stranded_script_targets` in `decompose_pages.py`).

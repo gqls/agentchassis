@@ -200,3 +200,69 @@ had compared a `date` from one command against an `updated_at` remembered from a
 **Read both clocks in the same breath** — `SELECT now()` beside the row, or `date -u` in the
 same command — which is already in `WRONG_CALLS.md` from another lane in a different costume.
 Caught before it cost anything, which is the only reason it is here and not there.
+
+---
+
+## 2026-08-02 — RFC 006 decided (option a), implemented, applied; one self-inflicted defect on the way
+
+**Owner ruled option (a): one promoter, one owner.** Asked to explain the RFC for a
+decision, I first ran the census the RFC itself named as the missing fact — see
+`README_where_we_are.md` and RFC_006 §5 for the numbers. Summary: no other parent
+calls either child (definition scan returns 2 rows, both `improvement-loop`), and
+`agent_run_stats` reads 3/3/3, so neither child has ever run standalone. That was
+option (a)'s entire stated cost, and it evaporated.
+
+**What shipped, in the order it shipped.**
+
+1. **Go half first, committed `49ecdf4fd`, council `60f4b425` submitted alongside.**
+   `ActionInputSpec.SingleOwner` (runtime-inert) + `ListSingleOwnerActions()` +
+   `config-key-audit --single-owner-actions` + `scripts/audit-single-owner-actions.sh`.
+   Reused the existing audit binary's decode and `validation.WalkSteps` traversal
+   rather than writing a second tool — WFA-004's own precedent, and the reuse seats'
+   standing objection to a second binary.
+2. **Detector armed against the LIVE fleet BEFORE changing anything**: `181 agents
+   decoded, 1 declared single-owner action, 1 finding` naming all three carriers.
+   That is the pre-state, measured rather than assumed.
+3. **Migration 286 applied by hand** — pre-flight `rows_to_change_expect_2 = 2` and
+   `owner_still_has_the_step_expect_1 = 1`, snapshots of both children into
+   `agent_definitions_backup`, two `UPDATE 1`s, verify-before-commit.
+4. **Detector re-run: `0 findings`.** Same fleet, same command. A matched pair.
+
+**THE MISSTEP — 286 shipped a dangling `error_step`, and my own check told me so.**
+
+`design-audit-agent.call_content_auditor` carried BOTH `next_step: triage` and
+`error_step: triage`. 286 repointed the success edge and deleted the step; the error
+edge was left pointing at nothing. Check (iii) of 286's own verify block — which I
+wrote precisely to catch this — returned exactly the right row naming exactly the
+right step. **And the transaction committed anyway, because the check was a
+`SELECT`.** psql prints a result set and carries on to `COMMIT`; a non-empty result
+is not an error, so `-v ON_ERROR_STOP=1` never fires. The header said "expect ZERO
+rows … ROLLBACK", which is an instruction to a reader, not a mechanism.
+
+Fixed forward by **288**, whose equivalent check is a `DO` block that `RAISE`s. I
+did not trust it: I induced the exact defect inside a transaction, confirmed the
+block aborts, and rolled back — then re-read the live row to confirm it was still
+`complete`. Then widened the same query fleet-wide with the agent filter dropped:
+**0 rows**, so 286 was the only instance, and nothing in the platform had ever asked
+that question before. The widened form is recorded at the foot of 288 and as a
+LANDMINE.
+
+Both are logged in `WRONG_CALLS.md` (2026-08-02) and both became LANDMINES entries,
+because the second one is prospective: it fires when you TOUCH a step-deleting
+migration, with no symptom.
+
+**One thing that went right and is worth keeping.** I re-checked the migration
+number immediately before writing the file rather than trusting the one I had
+planned — **285 had been taken by two other sessions** in the interim. That habit
+exists because of the 2026-07-31 WRONG_CALLS entry and this is the second time it
+has paid.
+
+**Concurrency, handled rather than swept.** `cmd/config-key-audit/main.go` picked up
+another session's in-flight `--relay-gaps` work while I was editing it, and their
+`relaygaps.go` was still untracked. Committing main.go would have broken HEAD's
+build fleet-wide (`undefined: emitRelayGaps`) — verified by extracting `git archive
+HEAD`, overlaying my file and building. So I moved my detector into its own
+`singleowner.go`, committed everything self-contained, and held back main.go's
+4-line dispatch and the script (which without the dispatch would silently fall
+through to the default mode and print the wrong thing). Both follow once that
+session commits.

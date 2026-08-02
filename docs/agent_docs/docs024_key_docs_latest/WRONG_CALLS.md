@@ -16182,3 +16182,162 @@ the opposite of the reassurance I read into it. Every observation I cited was
 accurate; the inference from them was backwards. Sibling of
 `a-pass-from-a-blind-check-outlives-the-blindness`: here the blind check was my
 own earlier note, and I quoted it as if it were a finding.
+
+---
+
+## 2026-08-02 — I deleted a workflow step, repointed the success edge, and forgot the error edge. My own check caught it and I let it commit anyway.
+
+**The claim that was wrong:** that migration 286 had finished the job of removing
+`triage_detected_items` from `design-audit-agent`. It repointed
+`call_content_auditor.next_step` from `triage` to `complete` and deleted the
+`triage` step — and `call_content_auditor` also carried `error_step: "triage"`,
+which was left pointing at a step that no longer existed. A failing
+content-auditor call would have routed to nothing.
+
+**What caught it:** migration 286's own verify block, check (iii), which asked
+"does anything still POINT at the deleted step" across `next_step`, `error_step`,
+`then_step` and `else_step`. It answered correctly and returned exactly the right
+row, naming `design-audit-agent | call_content_auditor`.
+
+**And it committed anyway — this is the actual lesson.** The check was a `SELECT`.
+psql printed the row and carried straight on to `COMMIT`. `-v ON_ERROR_STOP=1` is
+no help: a non-empty result set is not an error. **A verify block made of SELECTs
+is a report someone has to read, not a guard.** I wrote "expect ZERO rows. Any row
+here means a run will strand: ROLLBACK" in the header — an instruction to a human
+who, in this case, was an agent piping the file into psql and reading the output
+afterwards. Writing the expectation in prose next to a check that cannot enforce
+it is the same class of mistake as a doc comment that enforces nothing.
+
+**The cheap check that would have caught it:** wrap the assertion in a `DO` block
+that `RAISE`s. That is what migration 288 does, and it was mutation-tested — I
+induced the exact defect inside a transaction and confirmed the block aborts
+rather than trusting that it would. Cost: about four lines more than the SELECT.
+
+**Second-order finding, from widening the same check:** run fleet-wide with the
+agent filter dropped, the dangling-step-reference census returns **0 rows**. So
+this was the only instance — but nothing in the platform had ever asked the
+question before, and a dangling edge is invisible until the run that takes it,
+which for an error edge may be never. The widened query is recorded at the foot of
+288 for reuse.
+
+**Related, same day, and it worked:** I re-checked the migration number
+immediately before writing the file rather than trusting the number I had planned
+— 285 had been taken by *two* other sessions in the interim. That check exists
+because of this file's 2026-07-31 entry, and this is the second time it has paid.
+
+## 2026-08-02 — bugfix_165 sites B+C — I wrote "blocked on `bugs_open/092`" into a closed bug's final status, and 092 had been closed for two days
+
+Site C's floor is inert because `link_registry` is empty. Explaining why, I wrote —
+in the source header on 07-31, and again today into `165`'s post-deploy section —
+that the question of *why* it is empty was **`bugs_open/092`'s territory**, and that
+site C was **blocked on** it.
+
+`092` was closed on **2026-07-31** (`bugs_closed/092`, live `v1.0.1219`,
+induced-proven). It was already closed on the day I first wrote the pointer, and I
+repeated it unchecked two days later into the status section of a bug that was about
+to close. The 165 lane caught it (`c548dd105`) while going to pick 092 up.
+
+**The substance was wrong too, not just the path.** Closing 092 would not have
+populated `link_registry` and never will: the real reason is that
+`extract_and_sync_links` is carried by exactly one agent, `multipage-website-builder`,
+which has 0 orchestrations in the retained window and is not in the live build
+pipeline. The question I had marked `[UNDETERMINED]` and handed away was answerable
+in two queries by the person handing it away.
+
+**The cheap check that would have caught it:** one `ls`. Bug numbers are a single
+sequence across `bugs_open/` and `bugs_closed/`, so *the directory in a citation is a
+status claim* — `bugs_open/092` asserts "this is open and someone owns it". Before
+writing that prefix, `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ |
+grep _092_`. Running it across my four source files afterwards found **nine** stale
+pointers, two of them inside the `Fix:` text that gets written into
+`site_work_items.spec` and read by a human triaging a refusal.
+
+**The shape worth keeping — and this is the transferable half.** *A deferral names a
+destination, and nobody re-checks that the destination accepted it.* `165` said the
+link-registry question belonged to `092`; `092` said it belonged to `165`. Each
+deferred to the other, neither owned it, and **both then closed** with the item
+inside them. The asymmetry that makes this invisible: writing the deferral into
+*your own* file costs nothing and feels like diligence, while the only thing that
+would actually transfer ownership — writing it into *their* file — is the step nobody
+takes. **If you hand an item to another case, write it into THAT case's file. An
+item that exists only as a pointer in the file you are closing is not delegated; it
+is abandoned, and it reads as delegated to everyone afterwards.**
+
+---
+
+## 2026-08-02 — I quoted a 14× blast radius to the council that was really 1× (bugfix_174 lane)
+
+**The claim.** `bugs_open/174`'s fix needed a decision about whether to fix the
+deep cause — `QueryDatabaseAction` stringifying every jsonb column — or a leaf
+helper. I chose the leaf helper, and justified it to the council gate in writing:
+
+> *"14 live query_database steps project json/jsonb, and changing the shape their
+> consumers receive is a shared-mechanism change with a blast radius I have not
+> measured consumer-by-consumer."*
+
+**It was wrong.** The 14 came from `re.search(r"->|jsonb_|json_|to_jsonb|::jsonb", q)`
+over the whole query text. That regex matches three different things and I treated
+them as one: a `->>` **text cast** (whose consumer already expects text — not
+affected), an arrow inside a **WHERE predicate** (not output at all — not
+affected), and an actual **JSON-typed projection** (the only affected shape).
+
+**Re-measured properly — by extracting only `-> '...' AS <alias>` and then READING
+all three ambiguous queries in full rather than trusting the tighter filter — the
+real figure is ONE**, and it is the projection 174's own fix added.
+`model-directory-trigger` and `content-feed-trigger` use the arrow in a JOIN
+predicate terminating in `->>::boolean`; `claims-auditor.load_evidence_facts`
+projects `string_agg(...)`, which is text.
+
+**What caught it.** The council's `bug_historian` seat, which did not challenge the
+number — it asked for something the number could not answer: *"a census of the
+other 13 query_database steps projecting json/jsonb: how many consumers expect an
+object rather than a list?"* Going to answer that question is what showed there
+were no other 13.
+
+**The cheap check that would have caught it:** the number was load-bearing for a
+DEFERRAL — the whole argument for not fixing the root cause — and I never ran a
+second, differently-shaped query against it. **A figure you are using to justify
+NOT doing something deserves the same measurement discipline as one justifying
+doing it, and it is the one you are least likely to re-check, because it is
+arguing for the cautious option.** Concretely: classify by where the operator
+LANDS (projection vs predicate vs cast), never by whether the query mentions json.
+
+**The shape worth keeping.** My error was in the *cautious* direction — it made
+the deferral look more necessary than it was, and the council approved. That is
+precisely why it survived: **an over-stated risk gets no adversarial pressure.**
+Every reviewer reading "14 unaudited consumers" had a reason to agree with my
+conclusion and none to check my arithmetic. An inflated risk figure is not a safe
+error; it is an unfalsified one.
+
+---
+
+## 2026-08-02 — I designed a detector twice before testing whether it could see the bug (bugfix_174 lane)
+
+**The claim.** `bugs_open/174` asked for a lockstep check closing the class. I
+wrote the general version — "every `call_agent` must forward every key its callee
+declares" — measured it at 31 findings, judged that too noisy, tightened it to
+"…and the callee actually reads `input_data.<key>`", and got 3. I was about to
+build on the tightened version.
+
+**It could not see 174.** Neither version could. `diagnose-dispatch-loop`'s
+`call_handler` resolves its callee through `agent_type_field:
+claimed.handler_agent` — a runtime value — so a *static* resolver skips that call
+site entirely. Both versions would have shipped a green light that could never
+turn red on the bug that motivated them.
+
+**What caught it.** Printing *which* 3 findings the tightened version returned,
+rather than the count. The count looked like progress (31 → 3). The list did not
+contain the one row the whole exercise existed for.
+
+**The cheap check that would have caught it, on the first version:** run any new
+detector against the state that MOTIVATED it and require it to FIRE, before
+tuning it for noise. I eventually did exactly this — rebuilt the pre-fix config
+from the migration's own snapshot and required exit 1 — but only after two design
+iterations that a five-minute negative control would have short-circuited.
+
+**The shape worth keeping.** Tuning a detector for signal-to-noise and verifying
+it can detect its motivating case are *different activities*, and doing the first
+feels like doing the second. Noise-tuning only ever moves findings OUT of the
+result set, so every iteration takes you further from the case you care about
+while the metric you are watching improves. Related, and now confirmed twice:
+`narrowing-a-detector-can-make-it-inert`.

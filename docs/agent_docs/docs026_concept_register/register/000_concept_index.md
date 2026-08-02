@@ -119,6 +119,16 @@ against every live agent definition, reusing WFA-003's `WalkSteps` traversal
 rather than writing a fourth hand-rolled walk. Measured against the live fleet
 (178 agents): exactly the 3 findings the bug documents.
 
+**2026-08-02 addition:** 1 more (**WFA-006**) — `SingleOwner`, the general form
+of the defect behind `bugs_closed/150`: an action whose effect is "take everything
+on the site in state X" can now DECLARE that a second live carrier is a defect,
+and `config-key-audit --single-owner-actions` reports any that has one. Registered
+in the same commit that ships the seam, per the 2026-07-28 ordering ruling. The
+declaration is runtime-inert; the whole mechanism is the offline check, because
+nothing inside a run can see whether a sibling agent carries the same step.
+Proven as a matched pair over the same fleet: 1 finding before RFC 006's
+migration, 0 after.
+
 **2026-07-31 addition:** 1 more (**PUB-004**) — round publication on the island's
 `tools-api`: two endpoints and two columns that let a completed gauntlet round
 become a public, linkable record, but **only because the visitor who argued it
@@ -307,6 +317,7 @@ an ID prefix, or a status word.
 | WFA-002 | `$ctx.` execution-context parameter namespace for `query_database` | deployed | Any workflow's SQL can bind the identity of the run executing it ($ctx.correlation_id, …), so a claim step can record which run took a queued row. | workflow-authoring.md |
 | WFA-003 | Sub-workflow validation + one shared step traversal | built (inert until roll) | Steps nested in a loop's sub_workflow are validated at last (85 live steps, 18 agents); WalkSteps is exported so audits stop writing their own top-level-only walk. | workflow-authoring.md |
 | WFA-004 | Offline unregistered-action detector (`config-key-audit --unregistered-actions`) | deployed (standalone CLI tool) | Reports, before any message arrives, which live steps name an action that is neither locally registered nor topic-routed — closing `bugs_open/148`. Reuses WFA-003's `WalkSteps`. | workflow-authoring.md |
+| WFA-006 | `SingleOwner`: an action declares that a SECOND live carrier is a defect | deployed (standalone CLI tool) | An action whose effect is site-wide, not run-wide, can now say so; an offline fleet check reports any declared action carried by more than one live agent. Closed the class behind `bugs_closed/150` (RFC 006). | workflow-authoring.md |
 | WFA-005 | `output_format` is a live step contract + one corrective re-ask on unparsable JSON | built (inert until roll) | The key 101 live LLM steps write was read by nothing; now it selects the JSON instructions, buys a single corrective re-ask when the answer will not parse, and marks the result if JSON never arrives. 33 agents inherit it. | workflow-authoring.md |
 | IMP-044 | Defect-cataloguing discipline (enumerate-before-fixing) | deployed | A working method for a real adoption-run defect sweep: group symptoms into lettered families by shared mechanism... | improvement-loop.md |
 | DBG-059 | orchestration_state_audit: temporary attachable trigger for state races | deployed | AFTER UPDATE trigger capturing every transition; explicitly removed after use | debugging.md |
