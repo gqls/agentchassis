@@ -17414,3 +17414,38 @@ write the names instead of the number, and the number falls out correct or the c
 collapses. This is the same family as the `[UNMEASURED]` rule one entry above, with a
 sharper trigger: **a bare cardinal ("four", "several", "most") in a register entry, bug
 file or handoff is the shape to distrust in your own writing.**
+
+---
+
+## 2026-08-03 — I hit the backticks-in-`git commit -m` landmine that was already written down, and lost two words from a commit message (bugfix_168 / RFC_010 lane)
+
+**The claim, implicitly.** I wrote a commit message containing markdown-style code spans —
+``differ by exactly `failed` and `unresolved` `` — inside a double-quoted `-m` argument.
+
+**Bash executed them.** `failed` and `unresolved` were run as commands, and their (empty)
+output was substituted, so the sentence landed at HEAD as *"differ by exactly  and ,"*. The
+shell said so at the time — `failed: command not found`, `unresolved: command not found` —
+but the commit itself **succeeded**, so the only signal was two lines of stderr above a
+successful-looking result.
+
+**This trap is already in the corpus**: `MEMORY.md`'s shell-traps line and
+`shell-tool-traps-committing.md` both say *"backticks in `-m` execute"*. I knew the entry
+existed and did not apply it, because I was writing prose rather than thinking about the
+shell.
+
+**The cheap check:** use `git commit -F <file>` (or `-F -`) for any message longer than a
+line. It removes the entire class — backticks, `$`, `!`, quotes — rather than requiring me to
+notice each one while composing paragraphs. This is what I have switched to.
+
+**The shape worth keeping, and it is the uncomfortable one.** The corpus worked exactly as
+designed: the entry existed, was accurate, and was findable. It failed at the only step that
+matters — being *recalled at the moment of the action*. Landmine entries are indexed by the
+thing you are touching (a file, a table, a symbol), and this one is indexed by a **shell
+construct that appears while writing about something else entirely**. There was no moment
+where I thought "I am now using backticks" and could have grepped. The fix therefore cannot be
+another entry; it has to be a habit that removes the option (`-F`). Worth noting for the
+LANDMINES/D10 discussion: an entry whose trigger is *how you type*, not *what you touch*, will
+not be reached by a footprint match.
+
+**Damage:** two words in one commit message. Forward-only, so it is corrected in the following
+commit rather than amended. No code affected.
