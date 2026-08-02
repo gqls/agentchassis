@@ -1638,13 +1638,26 @@ func ExtractStringListHelper(val interface{}) []string {
 // stringListFromJSON decodes a JSON array of strings. Anything else — a scalar, an
 // object, malformed text, a JSON array of non-strings — yields nil, matching what
 // this helper has always returned for a value it could not read as a list.
+//
+// Decodes through SafeUnmarshal (same package) rather than calling
+// json.Unmarshal directly: that helper already exists precisely to attempt an
+// optional parse without propagating an error, which is exactly this contract.
+// The council's reuse seat raised this on corr 081d98b3 and was right — it was
+// added here as a private json.Unmarshal first.
+//
+// The leading-'[' guard is kept in front of it. SafeUnmarshal into
+// []interface{} would reject a scalar or object anyway, so this is not
+// load-bearing for correctness; it states the contract at the top of the
+// function and keeps the overwhelmingly common case (an ordinary non-JSON
+// string, e.g. every config value the other four callers pass) off the decode
+// path entirely.
 func stringListFromJSON(raw []byte) []string {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || trimmed[0] != '[' {
 		return nil
 	}
 	var decoded []interface{}
-	if err := json.Unmarshal(trimmed, &decoded); err != nil {
+	if !SafeUnmarshal(trimmed, &decoded) {
 		return nil
 	}
 	var result []string

@@ -9608,6 +9608,56 @@ And when you build that check, do NOT allow-list the writers you left unfixed: a
 allow-list that absorbs the open cases converts a live debt into a false all-clear, which
 is the same failure as a guard with an exemption for the case that motivated it.
 
+### A parameter loses its TYPE at a boundary and the consumer's fallback quietly supplies a substitute — nothing errors, and the run answers a different question (`bugs_open/174`, 2026-08-02)
+
+**The shape.** An optional parameter travels through a chain: a DB column, a
+projection, an allow-list mapping, then a consumer. Somewhere on that chain it
+stops being the type the consumer can read — most often because
+`QueryDatabaseAction` scans every column into `interface{}` and stringifies any
+`[]byte`, so a jsonb list becomes the *text* `["a","b"]`. The consumer's coercion
+helper returns nil for a shape it does not recognise. **Returning nil is
+indistinguishable from "the caller supplied nothing"**, so the consumer's fallback
+fires and supplies a different, plausible value. The run succeeds.
+
+**Why it is invisible rather than loud, and why the fallback is not the bug.**
+The fallback is usually correct and worth keeping — a diagnosis with no seed scope
+*should* fall back to a code search. The defect is that the consumer cannot
+distinguish "no value given" (common, correct) from "value confiscated in transit"
+(the bug), and neither can any observable it emits. **A fallback chain converts a
+lost parameter into a successful run with different inputs.** That is what turns a
+one-afternoon bug into a week: `bugs_open/174` silently re-aimed three lanes' real
+diagnoses at code nobody chose, and no author had any way to know.
+
+**The generalisable remedy, which is cheap.** The consumer cannot resolve the
+ambiguity and must not pretend to — but it can **name the arm it took**. Record
+which branch of the fallback chain supplied the value, on the result, on every
+run, so the question becomes a query instead of an investigation. Then render a
+warning into the human-facing artefact **only on the ambiguous arm** — the arm
+where nobody chose the value. Arms that mean "somebody chose this" need no note,
+which also keeps every existing artefact byte-identical so no archived baseline
+moves.
+
+**The trap when you go to fix it: count the gates before you fix one.** 174's own
+filing named one gate (an `input_mapping` allow-list) and there were three. The
+proposed fix would have mapped from a source path that a *second* allow-list — the
+claim query's `RETURNING` projection — never produced; the key being optional, it
+would have been dropped again in silence. **A fix for a silent-drop bug that
+itself drops silently.** Before fixing a lost-parameter bug, walk the value's whole
+path and list every place it is enumerated: SQL projections, `input_mapping`
+blocks, and the type coercion at the far end are each an independent allow-list.
+
+**The check.** Assert the EFFECT, never the field. "The field arrived" and "the
+value was used" come apart precisely because of the fallback, so a test or a
+verification that stops at field-present is satisfied by the bug. Drive the
+consumer with a live fallback ARMED — if there is nothing for the correct value to
+lose to, a passing test also passes against the defect.
+
+**Related.** `bugs_closed/143` (a guard on the row is not a guard on the artefact —
+same "success shape returned by the failing path"); the `--fidelity` landmine
+(`input_mapping` is an allow-list, one hop further forward); `bugs_open/136` (a
+config key declared and inert). Distinct from all three in that here the key is
+present at every hop and only its TYPE is lost.
+
 ### A component that runs on schedule, completes cleanly and changes nothing is the signature of two queries disagreeing about the same predicate (`bugs_closed/176`, 2026-08-02)
 
 There is no error state in this failure mode, which is why it survives. `build-dispatch-loop`

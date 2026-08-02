@@ -143,3 +143,114 @@ a snapshot, not a census. `site_work_items` retains longer, hence the 4-row tabl
 - Family: a parameter accepted, stored, echoed and never applied — see also `bugs_open/136`
   (config says `domain` where the code reads `pipeline`) and MEMORY's *"a dead config key looks
   exactly like a live one"*.
+
+---
+
+# TAKEN AND FIXED — 2026-08-02, `bugfix_174_seed_scope_relay` lane
+
+**Workstream docs:** `docs/agent_docs/docs024_key_docs_latest/bugfix_174_seed_scope_relay/`
+**Council:** corr `081d98b3-75e1-4926-a17a-b0c72e5ccece` — **APPROVED, round 1**, 6 advisory objections, none high-severity.
+**Commits:** `f51acb2bb` (Go + migration), `10789dfe6` (detector + 285→289 renumber).
+
+## CORRECTION to this filing: fix candidate 1 was insufficient, and would have failed SILENTLY
+
+> The ticket names one gate and proposes sourcing the new mapping keys from
+> `claimed.seed_scope` / `claimed.runtime_page`. **Those paths do not exist.**
+> `claim_item`'s SQL `RETURNING` clause is itself an allow-list — it projected
+> nine spec keys, and neither of these was among them. Candidate 1 alone would
+> have added an optional mapping entry resolving to nothing, which
+> `ResolveInputMapping` skips at Info level: **a fix for a silent-drop bug that
+> itself drops silently.**
+
+**There are THREE gates in series, and all three had to move together:**
+
+| # | gate | fixed by |
+|---|---|---|
+| 1 | `claim_item`'s `RETURNING` projection — never produced the keys | migration **289** (config, live) |
+| 2 | `call_handler`'s `input_mapping` allow-list — the gate this ticket named | migration **289** (config, live) |
+| 3 | **type.** `QueryDatabaseAction` stringifies every `[]byte` a column scan returns, so a jsonb value arrives as the *string* `["a","b"]`; `ExtractStringListHelper` returned nil for a string — indistinguishable from "nothing supplied" | `data_helpers.go` (Go, **awaiting roll**) |
+
+Gate 3 means the config fix is **inert on its own**: without the Go half the
+string still reads as nil and the code_results fallback runs exactly as before.
+Applying 289 early therefore cannot half-enable anything.
+
+## What shipped, against this ticket's own fix candidates
+
+- **Candidate 1 — done, and corrected.** Migration `289_diagnose_dispatch_loop_forwards_seed_scope.sql`,
+  applied 2026-08-02 ~11:15 (snapshot `f4055640`). Both allow-lists. Its final
+  assertion checks the **invariant**, not the two keys: every key
+  `diagnose-orchestrator`'s `input_contract` declares must be forwardable.
+  (Numbered 285 at first; renumbered to **289** when another session claimed 285
+  eight minutes later.)
+- **Candidate 2 — done, but NOT as specified.** See below; the general form was
+  measured and rejected.
+- **Candidate 3 — done.** `diagnose_assemble_bundle` now records `scope_source`
+  (`route` | `seed` | `code_results`) on its result every run, and renders a
+  warning into the bundle **only** on the ambiguous `code_results` arm — so
+  seed/route bundles stay byte-identical and no archived baseline moves.
+- **Candidate 4 — correctly NOT done.** `DISPATCH=1` is not documented as a
+  workaround.
+
+## Candidate 2: the general check was measured and REJECTED — read this before rebuilding it
+
+The ticket proposes asserting "every key the orchestrator accepts is forwardable
+by the loop". Generalised to the fleet, that rule is **not sound**, measured live
+2026-08-02:
+
+| version | findings | why rejected |
+|---|---|---|
+| every `call_agent` forwards every key its callee declares | **31** of 75 resolvable call sites | Legitimate. `pageflow-builder.apply_site_design` omits `site_context`; `webdesign-agent` has `else_step: load_site_context` and loads it itself. |
+| …and the callee actually READS `input_data.<key>` | **3** | Still cannot separate "the caller dropped it" from "the caller never had it". |
+| **both** | — | **Blind to THIS bug.** `call_handler` resolves its callee at runtime (`agent_type_field: claimed.handler_agent`), so a static resolver skips the one site the check exists for. |
+
+Shipped instead: **`config-key-audit --relay-gaps`** + `scripts/audit-relay-gaps.sh`
+(concept register **WFA-007**) — a declared registry over the **3** dispatcher-shaped
+relays that exist fleet-wide, where the question is answerable because the caller's
+envelope *is* the work item spec. It reports findings, **unmatched registry entries**
+(an assertion that stopped running — louder than a finding), and **uncovered**
+dispatcher-shaped relays so the registry cannot silently fall behind.
+
+Proven **by firing**: exit 1 against the pre-fix config rebuilt from 289's own
+snapshot, naming both keys in both categories; exit 0 against live; exit 2 on an
+empty export.
+
+## Deliberately not fixed — and the blast-radius figure corrected
+
+`QueryDatabaseAction`'s blanket jsonb stringification is the deeper cause and is
+**not** fixed here.
+
+> **CORRECTED: this lane's own council submission said "14 live query_database
+> steps project json/jsonb". That was measured with a loose regex that also
+> matched `->>` text casts and arrows inside WHERE predicates. The real figure is
+> ONE — the projection this fix added.** Every other one of the 14 is a text cast
+> or a predicate. Logged in `WRONG_CALLS.md`.
+
+So the deferred fix has **zero currently-affected consumers**: a prospective trap,
+not a live defect. Recorded in `LANDMINES.md` (two entries) at the council
+`bug_historian` seat's insistence, which named it the minimum acceptable
+mitigation.
+
+## STATUS: OPEN until the chassis roll
+
+Gates 1 and 2 are **live**. Gate 3 is **committed and inert** until an image
+carrying `f51acb2bb` is rolled — so the defect is still reproducible through the
+default path, and by the standing rule (fixed AND live) this stays in
+`bugs_open/`.
+
+**To close, verify at the artefact — not the tag, not git:**
+
+1. Pod-grep **both** replicas for a string this change adds, plus a negative control:
+   `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "This scope was NOT chosen"'` → 1
+2. Fire `090` **without** `DISPATCH=1` (let the loop claim it) with a `SEED_SCOPE`.
+3. Assert the field arrived **and** that it was used — they come apart, which is
+   the whole bug:
+   `SELECT collected_data->'assembled'->>'scope_source' FROM orchestration_states WHERE correlation_id='<run corr>';` → **`seed`**
+   and the bundle's `## In-scope code` must contain the symbols you named.
+4. Negative control: an intake with **no** seed must still work and still report
+   `scope_source = code_results`.
+5. `./scripts/audit-relay-gaps.sh` → 0 findings, 0 unmatched.
+
+**One follow-up, not a blocker:** `--relay-gaps` is not yet wired into
+`config-key-audit`'s `os.Args` dispatch — `main.go` was held by a concurrent
+session (WFA-006) and committing it would have broken the build at HEAD. The
+audit script refuses to report clean rather than pretending, so the gap is loud.

@@ -119,6 +119,13 @@ against every live agent definition, reusing WFA-003's `WalkSteps` traversal
 rather than writing a fourth hand-rolled walk. Measured against the live fleet
 (178 agents): exactly the 3 findings the bug documents.
 
+**2026-08-02 addition:** 1 more (**WFA-007**) — the relay-envelope gap detector,
+closing the class behind `bugs_open/174`: a dispatcher's two hand-maintained
+allow-lists drifted from its handler's declared contract in lockstep, and nothing
+checked. The general form of the check was measured and REJECTED first (31
+findings, and blind to the motivating bug) — see the entry for why it is a
+declared registry over 3 relays instead.
+
 **2026-08-02 addition:** 1 more (**WFA-006**) — `SingleOwner`, the general form
 of the defect behind `bugs_closed/150`: an action whose effect is "take everything
 on the site in state X" can now DECLARE that a second live carrier is a defect,
@@ -318,6 +325,7 @@ an ID prefix, or a status word.
 | WFA-003 | Sub-workflow validation + one shared step traversal | built (inert until roll) | Steps nested in a loop's sub_workflow are validated at last (85 live steps, 18 agents); WalkSteps is exported so audits stop writing their own top-level-only walk. | workflow-authoring.md |
 | WFA-004 | Offline unregistered-action detector (`config-key-audit --unregistered-actions`) | deployed (standalone CLI tool) | Reports, before any message arrives, which live steps name an action that is neither locally registered nor topic-routed — closing `bugs_open/148`. Reuses WFA-003's `WalkSteps`. | workflow-authoring.md |
 | WFA-006 | `SingleOwner`: an action declares that a SECOND live carrier is a defect | deployed (standalone CLI tool) | An action whose effect is site-wide, not run-wide, can now say so; an offline fleet check reports any declared action carried by more than one live agent. Closed the class behind `bugs_closed/150` (RFC 006). | workflow-authoring.md |
+| WFA-007 | Relay-envelope gap detector (`config-key-audit --relay-gaps`) | deployed (standalone CLI tool; not yet wired into main()'s arg dispatch) | Asserts that a dispatcher can carry every key its handler's `input_contract` declares — across BOTH allow-lists (the claim query's RETURNING and the call_agent input_mapping). Closes the class behind `bugs_open/174`. Proven by firing against the pre-fix config, not by passing. | workflow-authoring.md |
 | WFA-005 | `output_format` is a live step contract + one corrective re-ask on unparsable JSON | built (inert until roll) | The key 101 live LLM steps write was read by nothing; now it selects the JSON instructions, buys a single corrective re-ask when the answer will not parse, and marks the result if JSON never arrives. 33 agents inherit it. | workflow-authoring.md |
 | IMP-044 | Defect-cataloguing discipline (enumerate-before-fixing) | deployed | A working method for a real adoption-run defect sweep: group symptoms into lettered families by shared mechanism... | improvement-loop.md |
 | DBG-059 | orchestration_state_audit: temporary attachable trigger for state races | deployed | AFTER UPDATE trigger capturing every transition; explicitly removed after use | debugging.md |
@@ -1253,6 +1261,7 @@ an ID prefix, or a status word.
 | ADM-001 | Admin dashboard + nginx gateway architecture | deployed | React SPA + nginx gateway to auth-service/core-manager; Sites/Work Items/Pages/Direction views | admin-dashboard-and-api.md |
 | FIX-027 | isRepoCloningAgent spawn gate / token injection | deployed | Read-only GitHub token injected into dedicated pods | fix-loop.md |
 | FIX-002 | fix-proposer agent / constrained edit plan (F1.1a) | deployed | Read-only agent drafts ≤8-edit plans from CONFIRMED diagnoses | fix-loop.md |
+| CGV-029 | Fabricated-fallback lint (a component may not invent a business fact) | built, advisory | Reads the live component library and flags an {{else}} default that asserts a fact (phone/email/address/price/domain/hours), not a label | content-governance.md |
 | DIAG-001 | Read-only, cite-or-abstain diagnosis loop (core concept) | deployed | Read-only agent: hypothesise, gather evidence, cite-or-abstain verdict, re-scope by following evidence | diagnosis-loop.md |
 | DIAG-013 | sqlguard stripQuoted: lint false-positive on quoted literals | partial | Read-only lint was tripped by keywords inside string literals (a slug containing "drop"); fix blanks literals | diagnosis-loop.md |
 | ADP-010 | GitHub read-token scoping / least-privilege adapter secrets | deployed | Read-only repo-scoped PAT injected only for isRepoCloningAgent types | adapters.md |

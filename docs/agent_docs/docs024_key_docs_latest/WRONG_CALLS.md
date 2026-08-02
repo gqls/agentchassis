@@ -16341,3 +16341,103 @@ feels like doing the second. Noise-tuning only ever moves findings OUT of the
 result set, so every iteration takes you further from the case you care about
 while the metric you are watching improves. Related, and now confirmed twice:
 `narrowing-a-detector-can-make-it-inert`.
+
+---
+
+## 2026-08-02 — I nearly implemented a filed fix candidate that would have CAUSED the drift it claims to fix (bugfix_168 lane)
+
+**The claim I was about to act on** — inherited whole from `bugs_open/168`, in its
+own words: *"a purpose that contains an underscore, stored on an asset whose
+`asset_key` is empty or equal to that purpose, yields a path with an underscore
+where the deployed file has a hyphen."* Its fix candidate 2 follows directly:
+apply the `_`→`-` swap unconditionally in `DeployedWebPath`. I had the edit
+half-composed.
+
+**It is false, and inverted.** `deploy_image_asset_action.go:185` branches on the
+*identical* condition the helper does — `if assetKey != "" && assetKey != purpose`
+against the helper's `if assetKey == "" || assetKey == purpose`. So for a file the
+deployer publishes, the committed name **also** carries the underscore. Helper and
+deployer agree. Candidate 2 would have made the helper disagree with the actual
+writer for every future underscore purpose — manufacturing the exact drift the bug
+exists to remove. The real divergence has a different source entirely: a **second
+writer** (`derive_brand_head_assets_action`) that publishes `favicon.png` and
+`og-card.png` as fixed literals.
+
+**What caught it.** Reading the writer before believing the direction of the
+mismatch — specifically `DownloadOptimizeAndPrepare`, which returns
+`BuildAssetPaths(purpose, ext)` verbatim. Two minutes.
+
+**The cheap check:** when a bug file asserts that a reader and a writer disagree,
+**open the writer and read its branch condition** before choosing among the fix
+candidates. A filed root cause is a claim, and the fix candidates ranked beneath it
+inherit its correctness without re-earning it. A helper whose doc comment says it
+"mirrors" another function is asserting a behaviour, not exhibiting one — and here
+the comment was *right* while the bug file's reading of it was wrong, which is the
+harder direction to catch.
+
+**The shape worth keeping.** `bugs_open/` files are written by lanes with real
+evidence and they are still fallible — this one was filed by a careful lane
+discharging a council objection, and its severity, measurement and blast radius
+were all correct. Only the *mechanism* was too broad, and the mechanism is what the
+fix candidates are derived from. **Grep-before-you-file protects against duplicate
+bugs; nothing protects against inheriting a filed mechanism except reading the code
+it names.** Related: `a-citation-is-not-a-read` (quote the deciding arm).
+
+## 2026-08-02 — I built a live-impact story out of a work item's summary text and refuted it from the SQL (bugfix_168 lane)
+
+**The claim.** Four `undeployed_asset` items sat `unresolved after 2 attempts`
+saying *"Asset 'og_card' generated but not deployed to site"*. I assembled a tidy
+causal story: the repair route is `asset-deployer` → `deploy_image_asset`, which
+would write `og_card.png` while the site head references `og-card.png`, so the
+repair can never succeed and the items retry for ever. That would have promoted
+`bugs_open/168` from latent to live-biting, and I would have written it up that way.
+
+**It is wrong.** `check_undeployed_assets.go:256` excludes brand-head purposes from
+the generic half — `AND NOT (COALESCE(a.purpose,'') = ANY($2::text[]))` — and routes
+them to `needs_brand_head_assets`, whose repair is **re-derivation**, not deployment.
+Brand-head never reaches the deployer. The unresolved rows predate the 142 fix.
+
+**What caught it.** Reading the SQL of the check I was about to accuse, instead of
+reasoning from the item's `summary`. The summary is prose written by the finding;
+the predicate is what decides which rows can produce that prose.
+
+**The cheap check:** before inferring a mechanism from a work item's wording, read
+the WHERE clause of the check that files it. A stale item and a live one look
+identical in `status`; only the predicate tells you whether the finding is still
+reachable. Related: `a-complete-work-item-is-not-a-repaired-artefact` — and this is
+its mirror, an *unresolved* item that is not an unrepaired defect.
+
+## 2026-08-02 — bugfix_154 — I skipped the prior-art grep because the owner had asked for the fix directly; another lane had already found it and was waiting on the answer
+
+**What I did:** told to fix the dispatch starvation, I went straight from the
+instruction to the live `agent_definitions` row, measured, designed, applied
+`sql_for_agents/284` and committed — without once grepping `bugs_open/` for the
+mechanism.
+
+**What was already there:** `bugs_open/169` part B, filed 2026-07-31 by the
+dartsonline lane, had found the same defect from the same query, reached the same
+reading ("`ORDER BY wi.site_id, wi.priority` sorts candidate sites by raw UUID …
+there is no age/wait-time ordering across sites"), observed it live on
+dartsonline, and closed by asking for exactly the ruling I was acting on:
+*"should site selection be FIFO by oldest-eligible-item, or priority-weighted
+across sites, rather than UUID order?"* It had also already flagged the
+`wi.domain = 'build'` seed drift I "found" independently the same morning.
+
+**Why it did no harm, which is luck and not process:** the owner's instruction
+*was* the answer 169 was waiting for, so my change completed that thread instead
+of colliding with it. Had the 169 lane been mid-fix, we would have written two
+migrations against one live JSONB row on a shared tree.
+
+**The cheap check:** `grep -rln "find_dispatchable_site\|DISTINCT ON (wi.site_id)"
+bugs_open/ bugs_closed/` — two seconds, and it is the check CLAUDE.md names first
+("Grep before you file", "grep BOTH directories"). I eventually ran it an hour
+later, for an unrelated reason, and that is the only way I found 169 at all.
+
+**The transferable error:** I treated a direct instruction as a substitute for
+prior art. It is not — it is a reason to act, not a reason to skip looking, and
+the two are easy to conflate precisely because the instruction feels like it
+carries the context with it. My own memory file already records three collisions
+from ownership checks that were too weak; this is a fourth from running **no**
+check, and the trigger was the one thing that felt like authority to proceed.
+**An owner asking for X is evidence X is wanted, and no evidence at all about who
+else is already doing it.**
