@@ -163,6 +163,66 @@ Option 1 makes retraction *possible and uniform*; it does not make a stale item 
 because a check only clears what it has positively observed healthy. That residual is worth
 stating in whatever ships, not discovered later.
 
+## OWNER RULINGS, 2026-08-02
+
+**Decision 1 — how the queue learns a finding stopped being true: OPTION 1 NOW, OPTION 2 LATER.**
+A check gains a way to report what it positively observed HEALTHY; the runner performs the
+retraction, uniformly and transactionally. Re-validation at dispatch (option 2) follows later.
+The two compose: option 1 makes retraction *possible*, option 2 makes a stale item *unactionable*.
+
+**Decision 2 — what `unresolved` means: IT IS OPEN.** Not terminal. So retraction and
+deduplication must both be able to reach it, rather than it remaining not-terminal,
+not-deduplicated and not-retractable at the same time.
+
+**Standing condition on both:** retraction fires **only on a positive observation of health,
+never on an absence of findings**. A check that errored or was silently blinded returns an empty
+result indistinguishable from a clean site; getting this backwards would quietly close real
+defects fleet-wide.
+
+## What Decision 2 actually costs — measured 2026-08-02, and it is not an index swap
+
+Making `unresolved` open means removing it from `idx_swi_dedup`'s exclusion list. Two findings
+change the shape of that job, and both were found by pre-flight rather than during it.
+
+**(a) 87 duplicate rows block the index outright.** The new predicate would newly cover rows
+that already violate it:
+
+| | |
+|---|---|
+| colliding `(site_id, item_key)` pairs | **48** |
+| rows involved | **135** |
+| rows that must be collapsed first | **87** |
+
+Concentrated in `undeployed_asset` (47 rows / 20 keys), `needs_internal_links` (15/7),
+`page_rerender` (15/3), `deactivated_component` (14/3), `needs_sprite_css` (10/1). A
+`CREATE UNIQUE INDEX` against this population **fails**. The cleanup is a prerequisite, not a
+follow-up — and it is the same "which copy do I keep, and does discarding the others lose a true
+finding?" judgement the eleven brand-head items needed, at eight times the scale.
+
+**(b) The index and the Go list must move in a specific order, and one order breaks the fleet.**
+`insertWorkItem` interpolates `workItemTerminalStatuses`
+(`platform/orchestration/actions/work_items_common.go:37`) into
+`ON CONFLICT (site_id, item_key) WHERE item_key IS NOT NULL AND status NOT IN (…)`. Postgres
+infers the target index by requiring the `ON CONFLICT` clause to **imply** the index predicate.
+That file's own comment records that this has already broken the fleet once, when migration 157
+added `cancelled`.
+
+Working the implication both ways gives an asymmetry that decides the sequencing:
+
+| order | inference | what happens |
+|---|---|---|
+| **Go first** (drop `unresolved` from the list, index unchanged) | `NOT IN (6)` does **not** imply `NOT IN (7)` — a row could be `unresolved` | ❌ **42P10 on every keyed insert, fleet-wide.** This is the breakage of 157, repeated. |
+| **Index first** (drop `unresolved` from the index, Go unchanged) | `NOT IN (7)` **does** imply `NOT IN (6)` — inference still succeeds | ⚠️ Inference is fine, but Go no longer treats an `unresolved` row as a conflict target, so an insert colliding with one **raises 23505 instead of deduping** |
+
+So Go cannot move first. Index-first is inference-safe but opens a window in which precisely the
+inserts this change exists to fix (a new detection colliding with an `unresolved` row) hard-fail
+instead of upserting — and those are not rare: `undeployed_asset` alone has 20 such keys today.
+
+**Therefore Decision 2 is: collapse the 87 → change the index → roll the binary promptly**, with
+a known and deliberately short window. It is a coupled schema+binary change on the insert path of
+every work item in the estate. It wants the council gate, a migration reviewed on its own terms,
+and someone watching the roll — not an improvised evening.
+
 ## What this RFC deliberately does not do
 
 It does not implement anything. `CheckResult` is shared by 50 checks and the runner is on the
