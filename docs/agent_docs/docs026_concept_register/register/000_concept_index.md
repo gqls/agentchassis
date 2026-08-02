@@ -1100,7 +1100,7 @@ an ID prefix, or a status word.
 | ADO-011 | Adoption fidelity dial (locked/high/medium/low; phases 1-4) | partial | Only Phase 1 implicit-high exists; real per-item dial unbuilt | adoption-pipeline.md |
 | ADO-037 | Verbatim adoption (fidelity=locked) + deploy_mode component key | deployed | Preserves crawled URLs; skips recreate and the restyle cascade. NOT the served bytes — see ADO-038 | adoption-pipeline.md |
 | ADO-038 | Adoption byte gate: prove/repair an adopted component against the deploy repo | deployed | rawHtml is the post-JS DOM, so a locked adoption stores mutated bytes; 0/27 and 0/41 matched | adoption-pipeline.md |
-| ADO-039 | Decompose a verbatim page into editable prose + a proven tool component | built, first page in flight | The verbatim flip is the ROW COUNT — adding a section beside it nests a whole document inside a section | adoption-pipeline.md |
+| ADO-039 | Decompose a verbatim page into editable prose + a proven tool component | LIVE, 27/27 pages | The verbatim flip is the ROW COUNT — adding a section beside it nests a whole document inside a section | adoption-pipeline.md |
 | ADO-040 | `ported-prose` — the editable half of a decomposed page | built, in use on 1 page | Carries NO wrapper geometry on purpose: per-section containers stack padding, so it belongs in the site head | adoption-pipeline.md |
 | SPEC-003 | Fidelity dial (locked/high/medium/low + no-adoption confidence mode) | partial | Only Phase 1 implicit-high fidelity exists at the platform level | site-spec-and-classifier.md |
 | NAV-001 | Nav agent family and the three-tier authority model | partial | Only Tier 1 (strategist, new-build) is fully implemented of the three tiers | navigation.md |
