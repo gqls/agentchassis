@@ -66,3 +66,25 @@ scope to 290 only (single `psql -f` + `--record-only`), never a blanket `--apply
   audit_due=t on a never-audited site). **OWED → A0.4: one witnessed run through the
   gate** — the guard proves SQL, not the engine's parse of `audit_state.audit_due == true`
   or the two-param `record_audit_pass` binding. 171 annotated, closure deferred to that run.
+
+## 2026-08-02 — A0.3 shipped: write_render_audit_findings (commits f2a222964 + 0b112fda4 gofmt)
+
+- Council-Submitted: e49f5935-ae8e-41e7-9385-e7c952d7fcad (verdict owed — read it, ~30 min queue).
+- VIZ-013 registered same commit; contrast_failure classified in verifier coverage.
+- **Deviations from the approved plan, with reasons** (plan said route overflow →
+  responsive_fix and unattributed broken images → needs_imagery):
+  - overflow NOT filed: on the render_audit path OverflowFinding is URL+widths only —
+    culprit attribution (Culprit/Component/Slot) exists only in run_checks_action.go's
+    no_horizontal_overflow. An item that cannot name a component is undispatchable.
+  - unattributed broken images NOT filed: needs_imagery's contract is the imageryplan
+    spec (BuildSpec/ItemKey); minting one without a plan row hands image-build-handler
+    a row it cannot act on. Source-side rail (check_content_image_missing) owns it.
+  - item_key is contrast_failure:<page>#<selector>, NOT the plan's render:contrast:*
+    — workItemKey's prefix==item_type invariant (work_items_common.go).
+- HEAD-archive build green post-commit (pre-existing vet warning in
+  load_component_library_actions.go:207 — not this lane's).
+- Risk flagged to council: css-patch-agent's fit for selector-level contrast specs —
+  check its plan_css_fix prompt when wiring A0.3b; a handler-side tweak may ride it.
+- The two-strike suppression inside insertWorkItem applies to contrast_failure re-files
+  after 2 failed fixes → row flips to unresolved. That IS the escalation path; the
+  fixloop digest reads unresolved rows.
