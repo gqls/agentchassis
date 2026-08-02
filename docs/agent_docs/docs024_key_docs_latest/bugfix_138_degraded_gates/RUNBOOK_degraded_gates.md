@@ -470,3 +470,33 @@ SCR=<scratchpad>
 > the TRUNCATED wording survives persistence. It does NOT prove more than the unit tests
 > about the decision rule itself — the persistence path is already demonstrated 68 times by
 > the `false` branch, which writes the same two fields.
+
+### §11 OUTCOME (2026-08-02) — fired once, true branch NOT reached; read this before designing round 3
+
+Corr `4d7363d7-63dc-4b01-a912-ac0bb73c3031` → `rejected`, `decided_by="veto from
+editquality"`, `gated_by_truncation=false`; adoption review counted `unreadable`.
+Full evidence in NOTES 2026-08-02 and WRONG_CALLS (two entries, same date). The two
+blockers any round 3 must clear:
+
+1. **Size the cap in VISIBLE-TEXT terms, not output_tokens.** `claude-sonnet-5` thinks
+   by default; the chassis neither requests nor records it (`thinking_*` columns are
+   ALWAYS null — not evidence), and `output_tokens` counts thinking+text. At cap 120,
+   ~108 tokens went to thinking and 42 CHARS of JSON came out — under the discard
+   floor. Rehearse the exact crippled call offline first (`prompt_rendered` is in
+   `llm_call_log`), or size generously: cap ~400 with the fixture demanding ≥800 words
+   of notes keeps truncation certain while giving thinking room to finish and the
+   objection room to close.
+2. **The submission must be one that EVERY non-crippled seat approves.** editquality
+   vetoes comment-only plans by explicit rule ("audits/comments are not edits"), and a
+   veto — or any merits gate — short-circuits `decideCouncil` before the truncation
+   rule runs. The true branch is a conjunction: near-perfect submission AND crippled
+   seat. That conjunction is why 68 organic rounds never showed it, and it is the real
+   cost of witnessing the label: a genuine, approvable CODE change must ride along.
+
+What the failed round DID witness live (previously unit-tested only): the
+tolerate+retry machinery on a truncated seat (bugs_open/119), the salvage-failure arm
+(`repairTruncatedJSON` → `""` → honest `unreadable`, no fabricated verdict, round
+decided on the remaining 11 seats), the frozen-plan mechanics, and the veto
+short-circuit. Collateral: none — both 120-cap calls carry the induction round's
+orchestration id; the window round `0802-1034` shows no adoption reviewer and no
+unreadables.
