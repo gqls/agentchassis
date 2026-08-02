@@ -295,3 +295,33 @@ in the last 10 days to compare against.
    `strings /app/agent-chassis | grep -c "Executing local action"`      (control, ≥1)
 3. Re-measure: no run should END at a `*_spawn_handler` step; a step that exceeds its
    deadline must FAIL with an error naming the action and elapsed time.
+
+## Council verdict, and the scope objection it raised (2026-08-02)
+
+**APPROVED** — correlation `2c6800e6-91c5-4344-acc9-50e909894a40`, *"approved with 2
+advisory objection(s) — none high-severity"*, round 1, 8 seats abstained.
+
+Every checkable objection was run rather than argued:
+
+- **`reuse_agent` / `prior_art_librarian`** — is there already a context-deadline wrapper
+  this should extend rather than duplicate? **No.** The package's only
+  `context.WithTimeout` calls are `helpers.go`'s fixed 5s/10s query timeouts and one 60s
+  at `coordinator.go:3972`, **all on `context.Background()`** — deliberately detached, a
+  different pattern. Nothing to extend.
+- **`guardian` (low)** — does an existing test assume no-timeout behaviour? **No.** The
+  only test file referencing `executeLocalAction`/`executeAction` is the new one.
+- **`guardian` (medium) / `architecture`** — has this class been deflected upward before?
+  **No.** The only mention of `executeLocalAction` in `bugs_open/`, `bugs_closed/` or
+  `architecture_review/` is this file.
+- **`debug_historian` (medium)** — no deploy-verification named in the submission. Fair;
+  it is in "What is owed" above. Its operational half is worth repeating: **a chassis roll
+  kills an in-flight council run** — check for one before rolling this.
+
+**The `architecture` seat's scope objection is upheld and routed, not rebutted.** It says
+a new reserved step-config key plus a new fleet-wide env contract on the coordinator's
+step-execution seam is architecture-scope, and that my inline argument for why RFC_010's
+"opt-in, default OFF" ruling does not apply *belongs in an RFC where a human can check
+it*. That is right, and it is the same shape as `bugs_closed/124`. Filed as
+**`architecture_review/RFC_011_a_fleet_wide_execution_deadline_on_the_step_seam.md`**
+with three costed options. Per the 2026-07-28 ruling, a scope objection is not answered
+by better measurements — so nothing here was resubmitted.
