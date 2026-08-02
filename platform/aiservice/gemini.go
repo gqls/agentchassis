@@ -26,6 +26,7 @@ package aiservice
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -271,7 +272,30 @@ func (c *GeminiClient) thinks() bool {
 }
 
 // GenerateText generates text using Gemini
+// GenerateText sends a plain text prompt. The shared request/response path is
+// generate; GenerateWithImages rides the same path with inline_data parts, so
+// the thinking-reserve arithmetic and its telemetry contract exist exactly once.
 func (c *GeminiClient) GenerateText(ctx context.Context, prompt string, options map[string]interface{}) (string, error) {
+	return c.generate(ctx, []map[string]interface{}{{"text": prompt}}, options)
+}
+
+// GenerateWithImages implements VisionCapable: images as inline_data parts
+// before the text part, one user turn, same response handling.
+func (c *GeminiClient) GenerateWithImages(ctx context.Context, prompt string, images []ImageInput, options map[string]interface{}) (string, error) {
+	parts := make([]map[string]interface{}, 0, len(images)+1)
+	for _, img := range images {
+		parts = append(parts, map[string]interface{}{
+			"inline_data": map[string]interface{}{
+				"mime_type": img.MediaType,
+				"data":      base64.StdEncoding.EncodeToString(img.Data),
+			},
+		})
+	}
+	parts = append(parts, map[string]interface{}{"text": prompt})
+	return c.generate(ctx, parts, options)
+}
+
+func (c *GeminiClient) generate(ctx context.Context, parts []map[string]interface{}, options map[string]interface{}) (string, error) {
 	generationConfig := map[string]interface{}{}
 
 	// visibleBudget is what the CALLER asked for: tokens of answer. Gemini's
@@ -336,7 +360,7 @@ func (c *GeminiClient) GenerateText(ctx context.Context, prompt string, options 
 		"contents": []map[string]interface{}{
 			{
 				"role":  "user",
-				"parts": []map[string]string{{"text": prompt}},
+				"parts": parts,
 			},
 		},
 		"generationConfig": generationConfig,

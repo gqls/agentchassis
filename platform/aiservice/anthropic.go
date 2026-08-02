@@ -4,6 +4,7 @@ package aiservice
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -73,15 +74,43 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 }
 
 // GenerateText generates text using Claude
+// GenerateText sends a plain text prompt. The shared request/response path is
+// generate; GenerateWithImages rides the same path with block content, so the
+// hard-won response handling below (truncation, refusal, usage write-back —
+// bugs_open/008/019) exists exactly once.
 func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, options map[string]interface{}) (string, error) {
-	// Build request
+	return c.generate(ctx, prompt, options)
+}
+
+// GenerateWithImages implements VisionCapable: images as base64 source blocks
+// before the text block, one user message, same response handling.
+func (c *AnthropicClient) GenerateWithImages(ctx context.Context, prompt string, images []ImageInput, options map[string]interface{}) (string, error) {
+	content := make([]interface{}, 0, len(images)+1)
+	for _, img := range images {
+		content = append(content, map[string]interface{}{
+			"type": "image",
+			"source": map[string]interface{}{
+				"type":       "base64",
+				"media_type": img.MediaType,
+				"data":       base64.StdEncoding.EncodeToString(img.Data),
+			},
+		})
+	}
+	content = append(content, map[string]interface{}{"type": "text", "text": prompt})
+	return c.generate(ctx, content, options)
+}
+
+func (c *AnthropicClient) generate(ctx context.Context, content interface{}, options map[string]interface{}) (string, error) {
+	// Build request. content is either a plain string (GenerateText) or a
+	// block array (GenerateWithImages) — the Messages API accepts both shapes
+	// in the same field.
 	requestBody := map[string]interface{}{
 		"model":      c.model,
 		"max_tokens": 2048,
-		"messages": []map[string]string{
+		"messages": []map[string]interface{}{
 			{
 				"role":    "user",
-				"content": prompt,
+				"content": content,
 			},
 		},
 	}

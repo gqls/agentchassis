@@ -1181,6 +1181,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Ask the browser-runner adapter to RENDER every deployed page of a site and measure contrast against the effective background, broken images and overflow; awaits the results. Catches the class check_palette_contrast states it cannot see (a component hard-coding an ink over a themed fill).",
 		IsLocal:     true,
 	},
+	"execute_vision_prompt": {
+		Handler:     ExecuteVisionPromptAction,
+		Category:    "ai",
+		Description: "Render a prompt and send it with downloaded screenshots (render-sweep URIs from collected data) to a vision-capable provider (anthropic/gemini); execute_llm_prompt's thin vision sibling",
+		IsLocal:     true,
+	},
 	"write_render_audit_findings": {
 		Handler:     WriteRenderAuditFindingsAction,
 		Category:    "quality",
