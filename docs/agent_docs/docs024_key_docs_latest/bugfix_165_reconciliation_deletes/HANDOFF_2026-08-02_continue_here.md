@@ -63,10 +63,11 @@ And new sites *are* being created — 25 in 30 days — while `intake-orchestrat
 whatever builds sites now, it is **not** the intake→classify→spawn-a-builder path
 that menu belongs to.
 
-> **The honest reading is "this whole subsystem may be superseded", not "four
-> agents are individually dead".** Do not retire the remaining four one at a time
-> on the strength of the census alone — answer the build-path question first. That
-> is an owner call.
+> **CORRECTED — see §10. This section's conclusion was WRONG.** The intake path is
+> not superseded; it was re-plumbed, and its research/brief stages ran today. The
+> "no recent runs" behind this paragraph came from `orchestration_states`, the
+> 24h-reaped table this very handoff warns about in §5. What IS superseded is
+> narrower and better evidenced. Read §10 instead of this paragraph.
 
 ## 5. Landmines this lane produced (all in `LANDMINES.md`, synced to `doc_notes`)
 
@@ -159,3 +160,69 @@ Three instances in one session, the last two *after* writing the WRONG_CALLS ent
 about the first. Knowing the class did not help. The only thing that worked was
 querying the live row — `git ls-tree` for a bug path, `agent_definitions` for an
 agent — in the same breath as writing the sentence.
+
+
+---
+
+## 10. §4 ANSWERED, and §4 was WRONG — the build path, measured 2026-08-02 evening
+
+Asked to check whether the intake path is superseded, before retiring the other
+builders. **It is not superseded. It was re-plumbed**, from an
+orchestrator-spawns-a-builder model to a work-item model.
+
+### What is ALIVE (all of it ran on 2026-08-02)
+
+Evidence is `site_work_items.handler_agent` and `site_specs.created_by` — both
+**durable, no reaper**, unlike `orchestration_states`.
+
+```
+domain-submitter            (entry point: ensure_site_record -> persist mission/roadmap/contact
+                             -> create_research_item -> complete.  It spawns NOTHING; it files a WORK ITEM)
+   -> domain-research-classifier   items 2, specs 58/15 sites, last 2026-08-02
+   -> domain-strategist            items 1,           last 2026-08-02
+   -> vertical-exemplar-researcher items 1,           last 2026-08-02
+   -> site-design-planner          items 1, specs 12, last 2026-08-02
+   -> build-briefing-agent         items 1, specs 15, last 2026-08-02
+   -> build-site-planner           items 1,           last 2026-08-02
+        steps: read_specs -> plan_site -> validate_plan -> reconcile_site_plan
+               -> write_site_plan -> sync_pages -> populate_nav -> emit_design -> emit_imagery
+```
+
+**`build-site-planner` is the builder now.** It does the work the `*-builder`
+agents were shaped for, and it is reached by a work item rather than by a spawn.
+
+### What IS superseded — narrower, and now properly evidenced
+
+| thing | evidence |
+|---|---|
+| `intake-orchestrator` | **0** work items, **0** specs, no `scheduled_tasks` row, no agent config spawns it |
+| `site-classifier` | **0** work items, **0** specs |
+| **the entire `%-builder` menu** | **`SELECT ... FROM site_work_items WHERE handler_agent LIKE '%-builder'` returns ZERO rows, all history.** No work item has *ever* named a builder |
+
+So `multipage-website-builder`'s retirement was right, and the remaining five are in
+the *same* position — but on better evidence than was used for it: nothing routes
+to any of them, ever.
+
+### The finding worth keeping: a vestigial field, faithfully maintained
+
+`domain-research-classifier`'s prompt **mandates** `recommended_builder` and pins it
+(*"should always be `pageflow-builder` for now"*). It has written that value into
+**1,216 spec rows across 14 sites**, and **nothing consumes it** — no work item is
+ever routed to a builder. An LLM is being instructed, on every classification, to
+fill in a field for a consumer that no longer exists.
+
+**Before retiring `pageflow-builder`, fix that prompt** — otherwise the classifier
+keeps emitting a name that resolves to nothing. The other four
+(`content-site-builder`, `landing-page-builder`, `report-builder`,
+`website-builder`) are not named anywhere and can go on the same evidence as
+`multipage-website-builder`, using `retired_agents/` as the pattern.
+
+### How §4 got it wrong, which is the transferable part
+
+§4 said "intake-orchestrator, site-classifier and build-briefing-agent show no
+recent runs". Two of those three were right; **`build-briefing-agent` ran today**
+and so did `domain-research-classifier`. The claim came from
+`orchestration_states` — the table §5 of this very file warns keeps terminal rows
+~24 hours. **I filed that landmine and then reasoned from the same table hours
+later, in the same session.** Knowing the class does not protect you; changing the
+source does. The durable answer took two queries against tables with no reaper.

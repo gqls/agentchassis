@@ -132,10 +132,26 @@ the same standing this agent was retired for. They were left alone because
 retiring them is the owner's call, not a rider on this one; but the decision is
 plainly about the whole menu rather than about one member of it.
 
-Related: new sites *are* being created (25 in the last 30 days, including today),
-yet `intake-orchestrator`, `site-classifier` and `build-briefing-agent` show no
-recent runs — so whatever creates sites now, it is not the intake→classify→spawn-a-builder
-path this menu belongs to. **That is a question about the build path's shape, and
-it is worth answering before retiring anything else in the menu** — the honest
-reading is "this whole subsystem may be superseded", not "these four agents are
-individually dead".
+> **ANSWERED 2026-08-02 evening, and the paragraph that used to sit here was
+> wrong.** It said `intake-orchestrator`, `site-classifier` and
+> `build-briefing-agent` "show no recent runs", concluding the whole subsystem
+> might be superseded. That came from `orchestration_states`, which reaps terminal
+> rows after ~24h — the same trap corrected further up this very file.
+>
+> **The intake path is NOT superseded; it was re-plumbed** to a work-item model.
+> Live and running *today*, evidenced from `site_work_items.handler_agent` and
+> `site_specs.created_by` (both durable, no reaper):
+> `domain-submitter` → work item → `domain-research-classifier` →
+> `domain-strategist` → `vertical-exemplar-researcher` → `site-design-planner` →
+> `build-briefing-agent` → **`build-site-planner`**, which is the builder now
+> (`plan_site`, `sync_pages`, `populate_nav`, `emit_design`).
+>
+> What *is* superseded is narrower: `intake-orchestrator` (0 work items, 0 specs,
+> no scheduled task, nothing spawns it), `site-classifier` (same), and **the whole
+> `%-builder` menu — no work item has EVER named a builder, all history.**
+>
+> So the remaining five can be retired on *better* evidence than this agent was.
+> **But fix `domain-research-classifier`'s prompt first if you retire
+> `pageflow-builder`**: it mandates `recommended_builder` and pins it to that name,
+> has written it into 1,216 spec rows, and nothing consumes it — an LLM instructed
+> on every run to fill a field for a consumer that no longer exists.
