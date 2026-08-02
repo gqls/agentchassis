@@ -238,3 +238,37 @@ the fix.
 > where only the new predicate can act; `TestApplyNewPage_NeedsRebuildPageIsRefused` now
 > supplies it, and the same mutation is red. **When a mutation passes, the test is not
 > confirming the guard — it is failing to see it.**
+
+
+---
+
+## 7. Implementation went through a REVISE, and the gate was right
+
+Round 2 (`e78c62e3`, 2026-08-02 23:11) came back **REVISE**, gated by `editquality`
+[high]:
+
+> *"Rationale claims 'all four current arms declare it' but only deploy_tool_action.go
+> (tool + blog-post) is edited — two arms. Since AdoptUnshippedRows defaults to false, any
+> arm not explicitly edited to set it true will silently flip from adopt to refusal in
+> production."*
+
+**The code had all four; the SUBMISSION showed two.** Two one-line declarations
+(`create_tool_component_action.go`, `create_report_page_action.go`) were folded into prose
+instead of appearing as edits, so no reviewer could confirm the claim. Verified on
+resubmission: `grep -rn 'UpsertPageForRole(ctx'` → exactly 4 call sites; `AdoptUnshippedRows: true`
+→ exactly 4 declarations. No fifth caller exists to flip.
+
+**Recording it because the failure mode generalises, and it is the sharp edge of decision 1.**
+A default-OFF field converts every *unedited* call site into a behaviour change. That is
+what makes the design safe (nothing adopts by accident) and it is exactly what makes an
+incomplete edit list dangerous — the reviewer cannot tell an intentional omission from an
+oversight. **A change whose safety depends on an exhaustive call-site sweep must show the
+sweep, not assert it.**
+
+Three further seats (`bug_historian`, `reuse_agent`, `debug_historian`) asked the same
+medium-severity question — *does another `pages` upsert helper hand-roll its own "is this
+shipped" test?* The audit is now on record: the other three helpers make **no liveness
+judgement at all**. What it did turn up is `bugs_open/181` — ~10 detectors select
+`p.build_status = 'deployed'` and are blind to **28 live pages**. Filed with its census
+rather than fixed in passing, because converging them changes what ten checks report and
+the first consequence of fixing a false-negative is a burst of findings.
