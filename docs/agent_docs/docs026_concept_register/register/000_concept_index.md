@@ -1,8 +1,12 @@
 # Concept Index — master register
 
-**1,711 index table rows** across **109** category register files, measured
-2026-08-02 after VMB-015 landed (it was 1,704 at PBP-027 and 1,701 at LNK-028 earlier the same day —
-several threads add rows concurrently, so re-run the command rather than
+**1,706 index table rows** across **109** category register files, measured
+2026-08-02 late after STY-051 landed. **The prior headline of 1,711 (recorded the
+same day, after VMB-015) did NOT reproduce** — the documented grep returned 1,705
+before STY-051's row was added, so either five rows left the table between the two
+measurements or the 1,711 was itself mis-taken; recorded here per this file's own
+rule rather than diagnosed (earlier the same day: 1,704 at PBP-027, 1,701 at
+LNK-028 — several threads add rows concurrently, so re-run the command rather than
 trusting this line), with the command written into it as the previous thread
 asked:
 
@@ -1683,6 +1687,7 @@ an ID prefix, or a status word.
 | STY-048 | page-rerender mode contract and site-uniformity reconcile pattern | deployed | Two page-rerender modes with different skip semantics; idempotent reconcile scripts | styling-render-pipeline.md |
 | STY-049 | missingkey=zero silent-empty-render root pattern + escalate-not-blank guard | partial | Root cause of the image-landing trap (now recovered separately); one call site guarded live, root template behaviour still generic/unpatched | styling-render-pipeline.md |
 | STY-050 | Per-site chrome config via a gated input_schema field (config.* -> site_specs) | deployed | Puts a per-site value into SHARED chrome without forking it; live on idea.uk (GTM), 8 co-tenant sites byte-identical | styling-render-pipeline.md |
+| STY-051 | Every-page invariants via footer chrome (config.chrome.compliance_lines) | live | Second STY-050 consumer; mission lines on EVERY page via the shared footer, unset sites byte-identical (tested) | styling-render-pipeline.md |
 | RES-006 | Capability watchlist + real-world event watchlist (dual standing research workflows) | aspirational | Two proposed recurring workflows tracking AI capabilities and scheme/event windows | research-agents.md |
 | TL-016 | Composer selector invention & the delivered-reality principle (Option B) | deployed | Two recurring failure classes in machine-written acceptance criteria, and their durable remedies. (1) The... | tool-lifecycle.md |
 | DIAG-026 | Diagnose loop-back plumbing fault class (state threading + scope encoding) | deployed | Two silent producer/consumer field mismatches left guards and re-scope inert while the loop "worked" | diagnosis-loop.md |

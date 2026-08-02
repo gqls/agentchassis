@@ -213,3 +213,48 @@ v1.0.1231 (third binary today: 1228 attempt 1 · 1229 attempt 2 · 1231 current)
 content_direction — any future rebuild will keep weaving the marker phrase. Before
 lendzy is ever real, strip that key and re-seed. Token load high → handoff written:
 HANDOFF_2026-08-02_continue_here.md.
+
+### 2026-08-02 late night (fresh session from the handoff) — seam 1 built: the every-page carrier
+
+Task #21 seam 1 (chrome-level carrier for every-page invariants), designed, measured,
+tested, submitted. Mechanism read end-to-end first: the ONE live assembly path is
+assemblePage (page-build-handler deploys via call_agent→page_renderer→
+rerender_single_page; zero live agents use assemble_page/InjectFooter — measured), and
+chrome is the stored site_components artefact, so the footer is the carrier. THE
+MECHANISM ALREADY EXISTED, REGISTERED: STY-050 (per-site chrome config via gated
+input_schema field, config.* → site_specs site_config; GTM on idea.uk was consumer 1).
+**Near-misstep, caught before shipping:** I had drafted the council submission framing
+this as a NEW seam ("shared_mechanisms" register category that does not exist) — reading
+the register category file before writing the entry surfaced STY-050, whose own
+CORRECTED block records exactly this failure (shipped, then found head-seo-standard had
+the same pattern since 05-13). The check that caught mine: open the category file and
+read the tail before inventing an entry. Submission reframed as consumer 2 + new
+vocabulary key; source switched to the config.* idiom; STY-051 registered (entry +
+index row).
+
+Built and proven tonight:
+- footer_compliance_lines_test.go — 4/4 PASS: unset byte-identical, empty-array
+  byte-identical (navigateMap: empty array = unpopulated), set renders both lines,
+  wrong-type contained (whole template drops to regex fallback, footer survives).
+  Test old-constant md5 == live row (95801d67…), new-constant md5 == SQL literal
+  (eea3fb69…) — the thing tested IS the thing applied.
+- SQL_2026-08-02d_seam1_footer_compliance_carrier.sql — md5-drift-guarded template +
+  input_schema update, lendzy site_config seed (2 mission lines), DO/RAISE asserts
+  (a bare verify SELECT cannot stop a COMMIT), propagation item in section C
+  (needs_rerender / rerender-pages / refresh_site_components — the shape that ran on
+  lendzy today at 16:04Z).
+- Prior-art sweep BEFORE shipping: compliance_lines 0 hits fleet-wide;
+  footer-with-disclaimer_pre_037 active but 0 slots; vetcomparison content_direction
+  asks writers for per-page footer disclaimers in PROSE (demand-side evidence; named
+  in STY-051 as candidate consumer 3). NB my ILIKE '%footer_disclaimer%' matched that
+  prose because _ is a single-char wildcard in LIKE — a lucky accident this time, but
+  the match was NOT the key I searched for; escape underscores when the distinction
+  matters.
+- Concept-index headline did not reproduce: file said 1,711; the documented grep said
+  1,705 pre-STY-051. Recorded in the index header per its own rule, not diagnosed.
+
+NEXT in this session: 097 submit → commit (test + SQL + register + NOTES, pathspec,
+Council-Submitted trailer) → apply SQL → propagation item → artefact census (both
+lines on every built page, gqls/sites origin/master, strip script/style first —
+NOTE the compliance <style> tag is INSIDE the block, so census the <p> text, then
+separately confirm the div).
