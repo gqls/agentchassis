@@ -215,6 +215,29 @@ PAYLOADS["loanandmortgagecalculator.co.uk"] = {
     "positioning": POSITIONING,
 }
 
+# lendzy.co.uk — the L10 BENCHMARK payload applied to the SHADOW domain (owner
+# direction 2026-08-02; SUMMARY_2026-08-02_the_pipeline_should_build_everything.md).
+# Deliberately NOT a register entry, which the rule above would otherwise require: the
+# shadow build tests whether the pipeline can match hand-built loancash.co.uk given the
+# SAME positioning input, so the payload is loancash's L10 by reference, not a copy that
+# could drift. One addition: an acceptance MARKER the writer is instructed to include,
+# so "the spec reaches the writer's prompt" (task #16, bug025 pattern) is proven in
+# passing — grep page_components for the exact phrase, baseline-zero first, and never
+# grep site_specs for it (this row itself carries the phrase).
+# If lendzy.co.uk is ever built FOR REAL: write its own register row first, replace this.
+_l10 = PAYLOADS["loancash.co.uk"]
+PAYLOADS["lendzy.co.uk"] = {
+    "target_audience": _l10["target_audience"],
+    "key_differentiators": list(_l10["key_differentiators"]),
+    "positioning": {
+        **_l10["positioning"],
+        "acceptance_marker": (
+            "Somewhere in the site's written copy include the exact phrase: "
+            "checked against the FCA handbook, rule by rule."
+        ),
+    },
+}
+
 if DOMAIN not in PAYLOADS:
     sys.exit(f"no positioning payload for {DOMAIN} — write its register row first, then "
              f"add the payload here restating it. Known: {', '.join(sorted(PAYLOADS))}")
