@@ -745,3 +745,52 @@ another lane's row. Caught by reading the sync's own output instead of trusting
 "applied: 700 rows", fixed by correcting the heading level and re-running
 `--apply`, and verified with `--check` showing that entry back on its own
 footprints.
+
+## 13. APPROVED — and the medium objection was worth more than the approval (2026-08-02 ~11:00 BST)
+
+Corr `22cdef56`: **approved**, 11 reviewers, 6 abstained, `decided_by: "approved
+with 1 advisory objection(s) — none high-severity"`. Full dispositions in
+`bugs_open/165`; what belongs here is what the objections taught.
+
+**`editquality` (MEDIUM) caught a real weakness in my evidence, not in the code.**
+Its point: my mutation run happened in a package other sessions edit
+concurrently, and there **a mutant that breaks the BUILD reads exactly like one
+correctly caught**. My run was in fact sound — the failures printed the assertion
+messages, not compiler errors — but I had not *established* that, and "it happened
+to be fine" is not the same claim as "it was verified". Re-ran in an isolated
+`git archive HEAD` tree with each mutant compiled before its failure was trusted.
+
+**The genuinely new evidence was the specificity control**, which I had not
+thought to run: mutate the *unrelated* `Disabled` branch and confirm my two tests
+still PASS while only the disabled-branch test fails. M1 and M2 show the tests
+fail when the thing they guard breaks; **only M3 shows they do not fail when
+something else breaks.** Without it "these tests fail on mutation" is compatible
+with "these tests are brittle". That is the shape to reuse: a mutation suite
+needs at least one mutation it should *survive*.
+
+**A false alarm inside that work, recorded because it looked like a regression.**
+The first isolated baseline FAILED — ten `BindSiteExperience`/`DocSubject` tests
+plus a panic. Not a broken HEAD: my `git archive` took only `go.mod go.sum
+platform internal pkg`, and `doc_subjects_common_test.go` reads
+`../../../docs/agent_docs/sql_for_agents` and the experience-register harvest.
+A missing fixture, diagnosed in one read of the panic text. **An isolated tree is
+only isolated from the right things if you archive what the tests read.**
+
+**`editquality` (LOW) — replaced a grep with the compiler.** "Exactly four call
+sites" rested on `grep -rn '\.Reason('`. Better: revert the signature to three
+arguments in the isolated tree and let `go build ./...` enumerate the callers. It
+named four, repo-wide. Scope stated rather than glossed: `go build` does not
+compile `_test.go`, so that covers production callers and the test build covers
+the other nine. **When a claim is "these are all of them", prefer the tool that
+must be exhaustive over the one that must be spelt right.**
+
+**`bug_historian` — and the check I used to answer it was itself wrong first.**
+It asked whether this was a resubmission of an already-adjudicated diff. It is
+not: `git log -G` over the signature line returns exactly two commits ever, 135's
+and mine. But my first attempt used `-S`, which returned **only 135** — because
+`-S` counts *occurrences*, and adding a parameter preserved the searched string,
+so the count never moved. Had I stopped there I would have told the council
+"nothing has ever changed this signature" while looking at my own commit from an
+hour earlier. Third instance today of the same family, now all three on one
+`LANDMINES.md` entry: **a check written in a hurry answers a neighbouring
+question, and the failure is silent exactly when it fails open.**
