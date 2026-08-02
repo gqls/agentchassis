@@ -6,15 +6,51 @@ at all.
 **Severity:** Medium. Silent content destruction on a live tool, with `success:true`
 everywhere. Exposure today is **1 component on 1 site** (measured below), but the mechanism
 is fleet-wide and latent in a shared function with three live callers.
-**Status:** **FIXED IN CODE (`07576d4e1`, LNK-029), NOT YET LIVE — so this file stays OPEN.**
-The bar is fixed AND live: the defect is still reproducible on the fleet until the chassis
-rolls. Missed `v1.0.1231` by ~90 seconds (commit 22:37:50 BST, pods started 22:39:20 BST) and
-that is **verified, not assumed** — pod-grep on both replicas returns `NonMarkupSpans` **0**
-with controls `RepairPageLinks` **3** and `RuntimeFillSpans` **2**, so the pipeline works and
-the answer is a real negative (`bugs_open/153`). **Owed: the next roll, then the pod-grep and
-the induction in § "How to verify a fix" below.** Owned by the
-`bugfix_136_sibling_link_repair` lane. **Not 136** — 136 was about which writers CALL the
-repair; this is about what the repair DOES when it is called.
+**Status:** **CLOSED 2026-08-03 — fixed (`07576d4e1`, LNK-029), LIVE on chassis `v1.0.1233`,
+pod-verified on BOTH replicas, and INDUCED on the damaged page.** Fixed by the
+`bugfix_136_sibling_link_repair` lane, which filed it. **Not 136** — 136 was about which
+writers CALL the repair; this is about what the repair DOES when it is called.
+
+### The close, with its controls
+
+**Live.** Pod-grep, both replicas, one exec each: `NonMarkupSpans` **1**, `ReplaceAllInMarkup`
+**2**, `maskNonMarkup` **2**, `dropMatchesInSpans` **1**, `scanSpans` **2**; positive control
+`RepairPageLinks` **3**; invented negative control **0**. ⚠ **The load-bearing control is a
+real one, not the invented one: `RuntimeFillSpans` went 2 → 1** between `v1.0.1231` and
+`v1.0.1233`, because this change turned it from a function body into a one-line wrapper over
+the shared walk. A count that MOVED for a reason this change caused discriminates in a way a
+newly-added string cannot (`bugs_open/153`).
+
+**It missed one build first, and that was caught rather than assumed.** On `v1.0.1231` the
+same grep returned `NonMarkupSpans` **0** with the controls at 3 and 2 — a real negative, not
+a mis-cased pattern. Commit 22:37:50 BST, those pods started 22:39:20 BST.
+
+**Induced on the damaged page.** A reason-LESS `page_rerender` on
+`tool-cma-obligation-checker` (item_key `page_rerender_..._180_induction`, `complete`) — chosen
+deliberately: the *stored* `rendered_html` still HELD the correct anchor, so re-stapling stored
+HTML and running the FIXED outbound repair over it exercises exactly the changed path
+(`rerender_single_page_action.go:223`), where a `section_data_resolved` rerender would instead
+regenerate the very bytes whose survival is the test. Prediction written before the run;
+result, against the wire:
+
+| | before | after |
+|---|---|---|
+| `curl … \| grep -c 'q\.link'` | **0** | **1** |
+| page bytes | 27,247 | 27,307 |
+| served JS | `' <p>' + statusText + ' See guide section.</p>'` | `'<p>' + statusText + ' <a href="' + q.link + '" target="_blank" rel="noopener">See guide section</a>.</p>'` |
+
+⚠ **The first post-rerender fetch returned 0 and the work item said `complete`.** Neither was
+the truth: Cloudflare serves this page `cache-control: max-age=3600`, so the fetch was a cached
+copy. `last-modified` on the fresh fetch reads 22:16:19 GMT, seconds after the rerender. **A
+`complete` status and an unchanged page together look exactly like "the fix did not work" —
+check `last-modified`/`age` before believing either.**
+
+**Council:** `Council-Submitted: ba199c35-516f-44be-a210-9fd982425eb7`. ⚠ The first run
+**stalled at `review_constitution`, `updated_at` frozen 21:38:10, one minute before the
+`v1.0.1231` roll replaced the pods** — the documented behaviour that a roll kills an in-flight
+council. Resubmitted on the same trail (run `612bc0f9-de7e-4627-a712-a3b226694677`); the
+verdict is **owed and unread**, which is why no `Council-Reviewed:` trailer exists on the fix
+commit and none should be written until someone reads it.
 
 ## THE DAMAGE IS CONFIRMED ON THE WIRE, not only in a probe (added 2026-08-03)
 
