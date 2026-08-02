@@ -410,11 +410,12 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// Refresh is `title` ALONE, deliberately: a guide already written must not lose
 	// its sections to a tool regeneration. That is the existing behaviour, kept.
 	guidePage, guideErr := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
-		SiteID:   siteID,
-		Domain:   siteDomain,
-		Name:     guideName,
-		PageType: "blog-post",
-		Source:   "tool-generator",
+		SiteID:             siteID,
+		Domain:             siteDomain,
+		Name:               guideName,
+		PageType:           "blog-post",
+		Source:             "tool-generator",
+		AdoptUnshippedRows: true,
 		Columns: []PageColumn{
 			Col("url", guideURL),
 			Col("title", guideTitle),

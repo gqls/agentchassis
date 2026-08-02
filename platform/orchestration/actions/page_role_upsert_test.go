@@ -56,15 +56,18 @@ func newCapturingMock(t *testing.T) (*sql.DB, sqlmock.Sqlmock, func() []string) 
 	return db, mock, func() []string { return seen }
 }
 
-// toolPageWrite is the request the tool deployer makes, reused across the tests
-// so a change in the contract shows up once rather than five times.
+// toolPageWrite is the request the tool deployer actually makes, reused across
+// the tests so a change in the contract shows up once rather than five times.
+// It sets AdoptUnshippedRows because the real arm does — a fixture that quietly
+// differs from production is a test measuring something nobody ships.
 func toolPageWrite(name string) PageRoleUpsert {
 	return PageRoleUpsert{
-		SiteID:   uuid.New(),
-		Domain:   "robot-hands.com",
-		Name:     name,
-		PageType: "tool",
-		Source:   "tool-deployer",
+		SiteID:             uuid.New(),
+		Domain:             "robot-hands.com",
+		Name:               name,
+		PageType:           "tool",
+		Source:             "tool-deployer",
+		AdoptUnshippedRows: true,
 		Columns: []PageColumn{
 			Col("url", "/tools/"+name+".html"),
 			Col("title", "Gripper Selection"),
@@ -437,4 +440,55 @@ func lastMatching(queries []string, substr string) string {
 		}
 	}
 	return ""
+}
+
+// TestUpsertPageForRole_AdoptionIsOptIn is the control for the OWNER RULING of
+// 2026-08-02 (architecture_review/RFC_010 decision 1): ADOPT is a declared
+// authority, not a default.
+//
+// The same collision the adopt tests drive — an unshipped row of another role —
+// must be REFUSED when the caller has not set AdoptUnshippedRows. Two things
+// matter and both are asserted: the row is not mutated (no `UPDATE pages`
+// anywhere in the captured SQL), and NO work item is filed, because
+// `mistyped_deployed_page` is a decision about a LIVE artefact and this page has
+// never been served — filing one would put noise in a queue a human reads.
+//
+// If this test goes green with the field deleted, the ruling has been undone.
+func TestUpsertPageForRole_AdoptionIsOptIn(t *testing.T) {
+	db, mock, captured := newCapturingMock(t)
+
+	req := toolPageWrite("tool-price-cap-checker")
+	req.AdoptUnshippedRows = false // the default a new caller inherits
+
+	mock.ExpectQuery("INSERT INTO pages").WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT id, COALESCE").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "status", "shipped"}).
+			AddRow(uuid.New(), "content", "planned", "active", false))
+	mock.ExpectCommit()
+
+	res, err := UpsertPageForRole(context.Background(), db, req, zap.NewNop())
+	if err != nil {
+		t.Fatalf("UpsertPageForRole: %v", err)
+	}
+	if !res.Refused() {
+		t.Fatalf("outcome = %q, want %q — adoption must be declared, not inherited", res.Outcome, PageRoleRefused)
+	}
+	if !strings.Contains(res.Reason, "AdoptUnshippedRows") {
+		t.Errorf("the refusal does not name the missing declaration, so it is undiagnosable: %q", res.Reason)
+	}
+	if res.ItemFiled {
+		t.Error("a work item was filed for a page that has never been served — that queue is for LIVE mistypes")
+	}
+	for _, q := range captured() {
+		if strings.Contains(q, "UPDATE pages") {
+			t.Errorf("the row was mutated despite adoption not being declared:\n%s", q)
+		}
+		if strings.Contains(q, "site_work_items") {
+			t.Errorf("a work item statement was issued:\n%s", q)
+		}
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
 }

@@ -372,6 +372,9 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		Name:     pageName,
 		PageType: "tool",
 		Source:   "tool-deployer",
+		// Declared: the role is this arm's constant, so an unshipped page of
+		// another role holding this name is one this arm may take over (RFC_010).
+		AdoptUnshippedRows: true,
 		Columns: []PageColumn{
 			Col("url", pageURL),
 			Col("title", pageTitle),
@@ -519,11 +522,12 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	// written must not lose its sections to a tool redeploy. That is the existing
 	// behaviour, preserved.
 	guidePage, guideErr := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
-		SiteID:   siteID,
-		Domain:   siteDomain,
-		Name:     guideName,
-		PageType: "blog-post",
-		Source:   "tool-deployer",
+		SiteID:             siteID,
+		Domain:             siteDomain,
+		Name:               guideName,
+		PageType:           "blog-post",
+		Source:             "tool-deployer",
+		AdoptUnshippedRows: true,
 		Columns: []PageColumn{
 			Col("url", guideURL),
 			Col("title", guideTitle),

@@ -73,8 +73,8 @@ func TestApplyNewPage_DeployedTypeConflictIsRefused(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status"}).
-			AddRow(existingID, "content", "deployed"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "shipped"}).
+			AddRow(existingID, "content", "deployed", true))
 	// insertWorkItem's two-strike probe, then its insert. The refusal must NOT
 	// file a needs_content_page item, and must NOT touch `pages` at all.
 	mock.ExpectQuery("SELECT COUNT").
@@ -135,8 +135,8 @@ func TestApplyNewPage_DeployedSameTypeStillRefreshes(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status"}).
-			AddRow(existingID, "news-index", "deployed"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "shipped"}).
+			AddRow(existingID, "news-index", "deployed", true))
 	mock.ExpectExec("UPDATE pages").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
@@ -164,8 +164,20 @@ func TestApplyNewPage_DeployedSameTypeStillRefreshes(t *testing.T) {
 // TestApplyNewPage_UndeployedTypeConflictStillRefreshes is the second control,
 // and it is the one the fleet measurement chose. On 2026-07-31 every mistyped
 // page in production was `deployed` — 0 planned, 0 needs_rebuild — so the guard
-// is scoped to deployed rows and a never-shipped page keeps the old behaviour.
-// If this test starts failing, the guard has been widened past its evidence.
+// is scoped to pages that have SHIPPED, and a never-shipped page keeps the old
+// behaviour. If this test starts failing, the guard has been widened past its
+// evidence.
+//
+// > **UPDATED 2026-08-02 (owner ruling, architecture_review/RFC_010).** The
+// > boundary is unchanged; the PREDICATE that expresses it is not. It was
+// > `build_status = 'deployed'`, which is not "has been served" — a
+// > `needs_rebuild` row is still serving its old artefact (bugs_closed/037; 35
+// > of 46 carry a `deployed_at`). It now asks
+// > `datahelpers.NeverDeployedPagePredicate`, negated, so this row's `shipped`
+// > column is what decides — note the mock supplies it as FALSE here, which is
+// > what the shared predicate returns for a `planned` row with no `deployed_at`.
+// > Re-measured the day of the change: mistyped population still 5, all
+// > deployed, so no live row changed treatment.
 func TestApplyNewPage_UndeployedTypeConflictStillRefreshes(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -179,8 +191,8 @@ func TestApplyNewPage_UndeployedTypeConflictStillRefreshes(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status"}).
-			AddRow(existingID, "content", "planned"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "shipped"}).
+			AddRow(existingID, "content", "planned", false))
 	mock.ExpectExec("UPDATE pages").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
@@ -227,6 +239,70 @@ func TestApplyNewPage_CleanCreateReportsCreated(t *testing.T) {
 	m := res.(map[string]interface{})
 	if created, _ := m["page_created"].(bool); !created {
 		t.Error("page_created = false on a clean insert")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// TestApplyNewPage_NeedsRebuildPageIsRefused is the DISCRIMINATING input for the
+// 2026-08-02 widening, and it exists because the widening was briefly unguarded.
+//
+// > **Mutating `hasShipped && …` back to `existingBuild == "deployed" && …` left
+// > every test in this file GREEN.** Both predicates agree on the inputs the
+// > other three cases supply (`deployed`+shipped, `planned`+unshipped), so none
+// > of them could see the change. A guard no test can distinguish from its
+// > predecessor is a decoration — the lesson `WRONG_CALLS.md` records from the
+// > 180 lane: when a mutation PASSES, find the input where ONLY the mutated
+// > predicate can act.
+//
+// That input is a `needs_rebuild` page: `build_status <> 'deployed'`, so the old
+// guard waved it through and re-typed a page that is STILL SERVING its previous
+// artefact (bugs_closed/037; 35 of 46 such rows carry a `deployed_at`). The
+// shared predicate reports it as shipped, so it must be refused.
+func TestApplyNewPage_NeedsRebuildPageIsRefused(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	existingID := uuid.New()
+	originalItem := uuid.New()
+
+	mock.ExpectQuery("INSERT INTO pages").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectBegin()
+	// needs_rebuild, and the shared predicate says it HAS shipped — which is the
+	// whole point: build_status alone would say the opposite.
+	mock.ExpectQuery("SELECT id, COALESCE").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "shipped"}).
+			AddRow(existingID, "content", "needs_rebuild", true))
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs(originalItem, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	res, err := applyNewPage(context.Background(), db,
+		newPagePlan("news", "news-index"), uuid.New(), "robot-hands.com",
+		&originalItem, zap.NewNop())
+	if err != nil {
+		t.Fatalf("applyNewPage: %v", err)
+	}
+
+	m, ok := res.(map[string]interface{})
+	if !ok {
+		t.Fatalf("result is %T, want map", res)
+	}
+	if applied, _ := m["applied"].(bool); applied {
+		t.Error("applied = true — a needs_rebuild page is still serving its old artefact, so re-typing it is the 037 defect")
+	}
+	if got := m["reason"]; got != "deployed_page_type_conflict" {
+		t.Errorf("reason = %v, want deployed_page_type_conflict", got)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)

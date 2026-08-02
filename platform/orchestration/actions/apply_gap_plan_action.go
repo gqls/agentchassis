@@ -441,12 +441,22 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	// closed: refuse, block the originating item with a message that names the
 	// conflict, and file it for review.
 	//
-	// SCOPE IS DELIBERATELY THE DEPLOYED CASE ONLY. Measured 2026-07-31 against
+	// SCOPE IS DELIBERATELY THE SHIPPED CASE ONLY. Measured 2026-07-31 against
 	// the live DB: all 5 mistyped pages fleet-wide are `deployed` — 0 `planned`,
 	// 0 `needs_rebuild` — so extending the re-type to never-shipped rows would
 	// repair nothing that exists while handing a generic arm broad mutation
 	// authority for free. That widening is 081's fix candidate 1, and it is
 	// declined here on the measurement rather than on taste.
+	//
+	// > **CORRECTED 2026-08-02: "deployed" was the wrong word for the boundary,
+	// > though the boundary itself was right.** The guard tested
+	// > `build_status = 'deployed'`, which is not "has this page been served" —
+	// > a `needs_rebuild` row is still serving its old artefact
+	// > (`bugs_closed/037`; 35 of 46 carry a `deployed_at`). It now asks
+	// > `datahelpers.NeverDeployedPagePredicate`, negated. Re-measured on the day
+	// > of the change: the mistyped population is unchanged at 5 rows, all
+	// > `deployed`, so nothing's treatment changes today — the hole was
+	// > prospective, and so is the fix. See architecture_review/RFC_010.
 	var pageID uuid.UUID
 	pageCreated := true
 	err := db.QueryRowContext(ctx, `
@@ -577,17 +587,34 @@ func resolveNewPageConflict(
 		}
 	}()
 
+	// "Has this page been served?" comes from the estate's ONE definition,
+	// datahelpers.NeverDeployedPagePredicate, negated — never from a status test
+	// spelled out here.
+	//
+	// > **CORRECTED 2026-08-02 (owner ruling, architecture_review/RFC_010).** This
+	// > read `existingBuild == "deployed"`, and bugs_closed/037 is an entire filed
+	// > case about what that misses: a `needs_rebuild` page HAS shipped and is still
+	// > serving its old artefact — 35 of 46 such rows carry a non-null `deployed_at`.
+	// > The guard could therefore re-type a live page it believed was unshipped.
+	// > Measured before changing it: the mistyped population is still 5 rows, all
+	// > `deployed`, so **no live row's treatment changes today** — this closes the
+	// > hole prospectively rather than repairing damage. The predicate deliberately
+	// > does NOT name `needs_rebuild` (its own test forbids that; singling out the
+	// > status produced a 34-page false-positive class for the nav lane) —
+	// > `deployed_at IS NULL` is what carries it.
 	var pageID uuid.UUID
 	var existingType, existingBuild string
+	var hasShipped bool
 	if qerr := tx.QueryRowContext(ctx, `
-		SELECT id, COALESCE(page_type, ''), COALESCE(build_status, '')
+		SELECT id, COALESCE(page_type, ''), COALESCE(build_status, ''),
+		       NOT (`+datahelpers.NeverDeployedPagePredicate+`)
 		FROM pages WHERE site_id = $1 AND name = $2
 		FOR UPDATE
-	`, siteID, pageName).Scan(&pageID, &existingType, &existingBuild); qerr != nil {
+	`, siteID, pageName).Scan(&pageID, &existingType, &existingBuild, &hasShipped); qerr != nil {
 		return uuid.Nil, nil, fmt.Errorf("resolve conflicting page %q: %w", pageName, qerr)
 	}
 
-	if existingBuild == "deployed" && existingType != wantType {
+	if hasShipped && existingType != wantType {
 		refusal, rerr := refuseDeployedPageTypeConflict(ctx, tx, siteID, domain,
 			pageName, pageID, existingType, wantType, originalItemID, logger)
 		if rerr != nil {

@@ -203,6 +203,31 @@ conclusions about the same change in the same round.
 Worked example, with the evidence and the three options costed:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_124_double_dispatch/REVIEW_2026-07-28_ctx_namespace.md`.
 
+### OWNER RULING 2026-08-02 — two narrowings, from `architecture_review/RFC_010`
+
+Raised by the `bugs_open/175` lane after the council's `architecture` seat objected on
+record (not to block) that a new four-outcome collision seam plus a work-item contract
+change belonged in this track rather than in a bug's risks block.
+
+1. **Converging N producers onto ONE `item_type` / `item_key` does NOT need an RFC** —
+   *provided the producer set is named in the concept-register entry and the shared
+   `item_key` shape is stated there.* De-duplication is behaviour this estate wants
+   cheap, and taxing it with an architecture round makes the second producer quietly
+   invent its own key instead. The condition is what keeps it honest: a reader must be
+   able to see who files the type, and how it dedupes, without reading every call site.
+   This narrows the section above — a work-item type with **no automated consumer** is
+   not the kind of shared vocabulary whose *guarantees* change when a producer is added.
+
+2. **New authority on a shared seam ships as an OPT-IN FIELD, not a documented
+   contract.** RFC_010's seam could re-type a never-served page, and was safe only
+   because every caller's role is a compile-time constant — a rule stated in a doc
+   comment and enforced by review. Five council seats independently flagged it. The
+   ruling: when a seam's widest branch is licensed by "callers must all be X", make X a
+   field with the unsafe default OFF. It costs about four lines, it moves the decision
+   to where a reviewer of the CALLER can see it, and it is the only version that
+   survives a session that did not read the helper. **A comment is not a control on a
+   tree this many sessions share.**
+
 ## Diagnosis before debugging (the DEFAULT for any durable claim)
 
 The same loop can diagnose a bug *before* you fix it — read the real code + live

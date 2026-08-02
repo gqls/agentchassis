@@ -157,11 +157,12 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 	// takes deliberately — refresh a fellow report, adopt an unshipped row, refuse
 	// a live page of another type. See page_role_upsert.go.
 	upsert, err := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
-		SiteID:   siteID,
-		Domain:   siteDomain,
-		Name:     pageName,
-		PageType: "report",
-		Source:   "report-builder",
+		SiteID:             siteID,
+		Domain:             siteDomain,
+		Name:               pageName,
+		PageType:           "report",
+		Source:             "report-builder",
+		AdoptUnshippedRows: true,
 		Columns: []PageColumn{
 			Col("url", pageURL),
 			Col("title", pageTitle),

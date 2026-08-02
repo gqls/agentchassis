@@ -1,9 +1,14 @@
 # RFC 010 — Who may answer a `pages(site_id, name)` collision, and with what authority
 
-**Status: OPEN — raised 2026-08-02** by the `bugfix_175_page_role_upsert` lane, **at the
-council gate's `review_architecture` seat's explicit request** on corr
+**Status: RATIFIED 2026-08-02** (owner; the three answers are in §6, and all three are
+implemented — commit `f0…` below). Raised the same day by the `bugfix_175_page_role_upsert`
+lane, **at the council gate's `review_architecture` seat's explicit request** on corr
 `e78c62e3-7f01-48f1-b083-924eaccd195a` (verdict: **approved**, 4 advisory objections, none
 high-severity).
+
+> **§2.1 was WITHDRAWN before the ruling** — it asked the owner to ratify a predicate that
+> should never have been written, because the estate already had one. See that section; the
+> story is in `WRONG_CALLS.md`.
 
 > **THIS RFC IS RETROSPECTIVE, AND THAT IS THE POINT.** The change is committed
 > (`cbbecb021`) and **live** — chassis `v1.0.1233`, both replicas pod-verified. This is the
@@ -187,3 +192,49 @@ Ratify the boundary as built, with one amendment if the owner shares the seats' 
 3. **Rule on the producer-set question generally**: is converging N producers onto one
    `item_type`/`item_key` an architecture-scope act when the type has no automated consumer and
    no rows? The answer decides a class of future work-item changes, not just this one.
+
+
+---
+
+## 6. OWNER RULING 2026-08-02 — three answers, all implemented
+
+**1. ADOPT becomes opt-in, default OFF.** *(§2.2 — the owner took the tightening.)*
+`PageRoleUpsert.AdoptUnshippedRows bool`. The four arms that use it today declare it, so
+behaviour is unchanged where it runs; a future caller inherits `false` and gets a REFUSAL
+instead of a silent re-type. The reasoning the owner endorsed: the current behaviour is
+right for all four callers, but *"the only thing standing between it and 081's rejected
+design is a human reading a comment, and this tree has many sessions."* A field is visible
+to a reviewer of the CALLER; a doc comment in the helper never is.
+
+Left `false`, the branch **refuses and files nothing**. Refusing is the only option that
+cannot corrupt — refreshing-without-retyping is precisely the partial update `bugs_open/175`
+is about, so inheriting a default must not reintroduce it. No work item is filed because
+`mistyped_deployed_page` is a decision about a LIVE artefact, and this row has never been
+served; the refusal reason names the missing declaration instead.
+
+**2. Converging producers onto one `item_type` does NOT need an RFC** — *provided the
+producer set is named in the register entry and the shared `item_key` is stated*, which is
+what PBP-027 does. *(§2.3.)* The alternative taxes every de-duplication improvement with an
+architecture round, and de-duplication is the behaviour this estate wants to make cheap. The
+condition is what keeps it honest: a future reader can see who files the type and how it
+dedupes without reading four call sites.
+
+**3. Refusal-becomes-error stands.** *(§3.)* Two arms hard-error where they previously
+overwrote a live page; the two companion-guide arms log and continue. A visible failure on a
+measured four-page surface beats a silent overwrite, and the filed decision is `item_key`-
+deduped so it cannot flood the queue.
+
+**Plus the residue from the withdrawn §2.1, which the owner asked for now rather than at
+next touch:** `bugs_closed/081`'s guard (`apply_gap_plan_action.go`) no longer reads
+`build_status = 'deployed'` — it asks `NOT (datahelpers.NeverDeployedPagePredicate)` like
+the new seam. Re-measured before changing it: the mistyped population is **still 5 rows, all
+`deployed`**, so **no live row changes treatment today**; the hole was prospective and so is
+the fix.
+
+> **And the widening was briefly a decoration, which is worth more than the fix.** Mutating
+> the guard back to `existingBuild == "deployed"` left every test in `081`'s file GREEN —
+> both predicates agree on the inputs those tests supply (`deployed`+shipped,
+> `planned`+unshipped). The discriminating input is a `needs_rebuild` page that HAS shipped,
+> where only the new predicate can act; `TestApplyNewPage_NeedsRebuildPageIsRefused` now
+> supplies it, and the same mutation is red. **When a mutation passes, the test is not
+> confirming the guard — it is failing to see it.**

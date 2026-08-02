@@ -42,10 +42,20 @@
 //
 // THE FOUR OUTCOMES
 //
-//	no collision                       → CREATE, every declared column
-//	collision, SAME role               → REFRESH the caller's declared subset
-//	collision, DIFFERENT role, ever live → REFUSE: touch nothing, file for a human
-//	collision, DIFFERENT role, never live → ADOPT: take the row over completely
+//	no collision                          → CREATE, every declared column
+//	collision, SAME role                  → REFRESH the caller's declared subset
+//	collision, DIFFERENT role, has shipped → REFUSE: touch nothing, file for a human
+//	collision, DIFFERENT role, unshipped,
+//	    AdoptUnshippedRows declared        → ADOPT: take the row over completely
+//	collision, DIFFERENT role, unshipped,
+//	    NOT declared                       → REFUSE: touch nothing, no item filed
+//
+// The last two are one branch split by a caller's declaration, and it is opt-in
+// with the default OFF by OWNER RULING 2026-08-02
+// (architecture_review/RFC_010 decision 1). Five council seats independently
+// observed that ADOPT was the widest new authority here and was licensed only by
+// a doc comment; a field makes it visible to a reviewer of the CALLER, which a
+// comment in this file never could.
 //
 // "Has shipped" is `NOT (datahelpers.NeverDeployedPagePredicate)` — the estate's
 // ONE definition of "this page has been served", reused rather than restated. It
@@ -163,6 +173,25 @@ type PageRoleUpsert struct {
 	// a redeploy. Empty means "leave a same-role row alone entirely".
 	// Every name must appear in Columns.
 	Refresh []string
+
+	// AdoptUnshippedRows declares that this arm may take over a row that has
+	// NEVER been served but holds a different role — rewriting every declared
+	// column INCLUDING page_type. See the ADOPT branch in the file header.
+	//
+	// OWNER RULING 2026-08-02 (architecture_review/RFC_010, decision 1): this is
+	// opt-in, default OFF, and it is a field rather than a doc comment on
+	// purpose. The behaviour is right for all four arms that use it today, and
+	// the only thing that stood between it and the design bugs_closed/081
+	// deliberately REJECTED — a model-steered arm re-typing pages — was a human
+	// remembering to read a comment. On a tree this many sessions share, that is
+	// not a control. The field puts the authority where a reviewer of the CALLER
+	// can see it.
+	//
+	// Left false, a collision with an unshipped row of another role is REFUSED
+	// rather than silently refreshed. Refreshing is what shipped bugs_open/175 in
+	// the first place; refusing cannot corrupt anything, and the reason names the
+	// missing declaration so it is diagnosable rather than mysterious.
+	AdoptUnshippedRows bool
 
 	// Source is the arm's name, used for the refusal item's source/created_by
 	// ("tool-deployer", "report-builder").
@@ -360,9 +389,10 @@ func resolvePageRoleConflict(ctx context.Context, db *sql.DB, req PageRoleUpsert
 		result = refusal
 		result.PageID = pageID
 
-	default:
-		// Never served, different role: the arm takes the row over completely,
-		// page_type included. A partial adopt would leave a fresh hybrid.
+	case req.AdoptUnshippedRows:
+		// Never served, different role, and this arm has DECLARED the authority:
+		// it takes the row over completely, page_type included. A partial adopt
+		// would leave a fresh hybrid.
 		if uerr := updatePageColumns(ctx, tx, req, columnNames(req.Columns), true); uerr != nil {
 			return PageRoleResult{}, uerr
 		}
@@ -371,6 +401,29 @@ func resolvePageRoleConflict(ctx context.Context, db *sql.DB, req PageRoleUpsert
 			zap.String("page_name", req.Name),
 			zap.String("was_page_type", existingType),
 			zap.String("now_page_type", req.PageType),
+			zap.String("build_status", existingBld),
+			zap.String("source", req.Source))
+
+	default:
+		// Never served, different role, and the arm did NOT declare adoption.
+		// Refuse rather than refresh: a refresh that leaves page_type alone is
+		// exactly the partial update bugs_open/175 is about, and doing it here
+		// because a field was left at its default would reintroduce the bug
+		// through the back door.
+		//
+		// No work item is filed. `mistyped_deployed_page` is a decision about a
+		// LIVE artefact — which page holds a role a visitor can reach — and this
+		// row has never been served, so filing one would put noise in a queue a
+		// human reads. The reason names the missing declaration, which is what
+		// makes this diagnosable instead of mysterious.
+		result.Outcome = PageRoleRefused
+		result.Reason = fmt.Sprintf(
+			"page %q exists as page_type=%q and has never been served; %s wants %q but did not set AdoptUnshippedRows, so the row was left untouched (architecture_review/RFC_010 decision 1)",
+			req.Name, existingType, sourceOrUnknown(req.Source), req.PageType)
+		logger.Warn("UpsertPageForRole: refused — unshipped page of another role, and this arm has not declared AdoptUnshippedRows",
+			zap.String("page_name", req.Name),
+			zap.String("existing_page_type", existingType),
+			zap.String("wanted_page_type", req.PageType),
 			zap.String("build_status", existingBld),
 			zap.String("source", req.Source))
 	}
