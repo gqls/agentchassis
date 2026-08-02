@@ -82,14 +82,77 @@ func TestDeployedAssetPathFormsAreConsistent(t *testing.T) {
 			t.Errorf("DeployedAssetPath(%q,%q): RelativeURL %q is not \"/\"+FilePath %q",
 				c.assetKey, c.purpose, p.RelativeURL, p.FilePath)
 		}
-		if want := DefaultAssetBasePath + "/" + p.Filename; p.FilePath != want {
-			t.Errorf("DeployedAssetPath(%q,%q): FilePath %q does not end in Filename %q under %q",
-				c.assetKey, c.purpose, p.FilePath, p.Filename, DefaultAssetBasePath)
+		// The shared-directory join is asserted only for DERIVED purposes. A
+		// brand-head entry's path comes from the map and is not required to
+		// live under DefaultAssetBasePath — see
+		// TestBrandHeadPathsAreTakenWholeNotReconstructed.
+		if !IsBrandHeadPurpose(c.purpose) {
+			if want := DefaultAssetBasePath + "/" + p.Filename; p.FilePath != want {
+				t.Errorf("DeployedAssetPath(%q,%q): FilePath %q does not end in Filename %q under %q",
+					c.assetKey, c.purpose, p.FilePath, p.Filename, DefaultAssetBasePath)
+			}
 		}
 		if DeployedWebPath(c.assetKey, c.purpose) != p.RelativeURL {
 			t.Errorf("DeployedWebPath(%q,%q) disagrees with DeployedAssetPath().RelativeURL",
 				c.assetKey, c.purpose)
 		}
+	}
+}
+
+// TestDeployedAssetPathAgreesWithTheMapLiteral closes the gap the council's
+// edit-quality seat named on round 1 (`abd9b119`): the forms test above only
+// checks the three forms against EACH OTHER, so a derivation that mangled a
+// brand-head path would still satisfy it as long as it mangled it consistently.
+// This asserts agreement with the map's own literal, which is the thing the
+// deriver actually commits and `injectBrandHeadTags` actually emits.
+func TestDeployedAssetPathAgreesWithTheMapLiteral(t *testing.T) {
+	for purpose, published := range BrandHeadAssetPaths {
+		if got := DeployedWebPath(purpose, purpose); got != published {
+			t.Errorf("DeployedWebPath(%q,%q) = %q but BrandHeadAssetPaths says %q — the derivation "+
+				"has stopped agreeing with the one declaration of this path", purpose, purpose, got, published)
+		}
+		if got := DeployedWebPath("", purpose); got != published {
+			t.Errorf("DeployedWebPath(\"\",%q) = %q but BrandHeadAssetPaths says %q — a row written "+
+				"with no asset_key must resolve the same way", purpose, got, published)
+		}
+	}
+}
+
+// TestBrandHeadPathsAreTakenWholeNotReconstructed pins the fix for the
+// edit-quality seat's round-1 objection.
+//
+// The first version of brandHeadAssetPathsFor lifted the FILENAME out of the
+// map's value and re-joined it under DefaultAssetBasePath. That is correct for
+// both entries that exist today and silently wrong for the first entry that is
+// not served from the shared asset directory — and a favicon at the site root
+// (`/favicon.ico`) is a common enough convention that this was a real trap
+// rather than a hypothetical one. No test then in the change could have caught
+// it, because both existing entries DO live under that directory.
+//
+// So this test adds one that does not. It mutates the package map, which is
+// safe here only because nothing in this package calls t.Parallel(); restore is
+// via t.Cleanup so a failure cannot leak the entry into a later test.
+func TestBrandHeadPathsAreTakenWholeNotReconstructed(t *testing.T) {
+	const purpose, rootPath = "test_root_favicon", "/favicon.ico"
+
+	if _, exists := BrandHeadAssetPaths[purpose]; exists {
+		t.Fatalf("%q is already a real brand-head purpose — pick another probe key", purpose)
+	}
+	BrandHeadAssetPaths[purpose] = rootPath
+	t.Cleanup(func() { delete(BrandHeadAssetPaths, purpose) })
+
+	if got := DeployedWebPath(purpose, purpose); got != rootPath {
+		t.Errorf("DeployedWebPath(%q,%q) = %q, want %q — the derivation is reconstructing the path "+
+			"under %q instead of taking the map's value whole, so any brand-head asset not served "+
+			"from the shared asset directory resolves to a path nothing serves",
+			purpose, purpose, got, rootPath, DefaultAssetBasePath)
+	}
+
+	p := DeployedAssetPath(purpose, purpose)
+	if p.FilePath != "favicon.ico" || p.Filename != "favicon.ico" {
+		t.Errorf("DeployedAssetPath(%q,%q) = {FilePath:%q Filename:%q}, want both \"favicon.ico\" — "+
+			"the deployer commits FilePath, so a wrong split writes the file to the wrong place",
+			purpose, purpose, p.FilePath, p.Filename)
 	}
 }
 
