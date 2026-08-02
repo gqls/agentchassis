@@ -16,12 +16,28 @@ individually rather than at the helper.
 
 ---
 
-> # STATUS 2026-08-02 — FIXED AT HEAD, NOT LIVE. Still OPEN, deliberately.
+> # STATUS 2026-08-02 — **CLOSED: FIXED, LIVE on `v1.0.1229`, POD-VERIFIED ON BOTH REPLICAS.**
 >
-> Taken by the **`bugfix_168_deployed_asset_path`** lane. Fix committed; it is Go, so it
-> is **inert until a chassis image built after that commit is rolled**. By this repo's own
-> bar — *fixed AND live* — the case stays in `bugs_open/` until pod-verified, because the
-> defect is still reproducible in the running fleet until it ships.
+> Taken by the **`bugfix_168_deployed_asset_path`** lane. Council `abd9b119`: **APPROVED at
+> round 3** ("with 2 advisory objection(s) — none high-severity"; 11 seats approve).
+>
+> **The live proof, with a negative control — a positive one cannot tell you your binary
+> shipped** (`bugs_open/153`). Same exec, both replicas, after `rollout status` settled:
+>
+> | control | `79479769b9-g7fbt` | `79479769b9-n8nbj` | meaning |
+> |---|---|---|---|
+> | positive: `deploy_image_asset` | 5 | 5 | the grep pipeline works |
+> | **negative: `Phase 2E: derived variant deploy path`** | **0** | **0** | the string this change **removed** is gone ⇒ it is MY binary, not a stale one |
+> | marker: `derived asset deploy path` | 1 | 1 | the unified derivation shipped |
+> | marker: `is a brand-head artefact published at` | 1 | 1 | the refusal guard shipped |
+>
+> **No regression:** all **24** brand-head artefacts (12 sites × `favicon.png` + `og-card.png`)
+> serve HTTP 200 after the roll — the criterion this file's own § *Verify a fix* asked for.
+>
+> The image was built and rolled by another session; it carries this work because
+> `make build-*` builds from committed HEAD. That is the mechanism working as designed, not
+> luck — but note it also means the *first* commit went live before the council finished, which
+> is the shared-HEAD reality the 2026-07-29 ruling describes rather than a process failure.
 >
 > **Working docs:** `docs/agent_docs/docs024_key_docs_latest/bugfix_168_deployed_asset_path/`
 > · **Register:** IMG-067 · **Council gate:** corr `abd9b119-d274-43bf-a03f-cf45bfb6b881`
