@@ -124,3 +124,11 @@ where this site was a week ago and have **no furniture at all**. If either is
 decomposed without building it first, the platform's fallback links a stylesheet
 neither of them serves and every page goes out unstyled — silently. Both lanes
 have been told, with the measurements.
+
+---
+
+*Addendum, same day, appended rather than rewritten so the state at the time of
+writing is preserved:* **the rollout completed.** 27 of 27 pages live, 27 of 27
+byte-identical to the prediction, 12 of 12 calculators matching, no failures. The
+"where we are now" section above was written mid-rollout and its claims held for
+every remaining page.

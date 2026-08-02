@@ -587,3 +587,36 @@ write all 27 anyway, which turned out to be the faster route regardless.
 
 Everything is reversible per page with one command, and every original is backed
 up in the database.
+
+---
+
+**2026-08-02, end of the day — all twenty-seven pages are live and every check is green.**
+
+```
+pages rebuilt and live      27 of 27
+identical to prediction     27 of 27
+calculators still correct   12 of 12
+failures                    none
+```
+
+The site is now stored as sixty-three editable pieces instead of twenty-seven
+frozen documents. Every block of text can be rewritten on its own, every
+calculator is a proper component that can be restyled or improved, and nothing
+computes a different number than it did this morning.
+
+One point about that last claim, because it is easy to overstate. The final check
+compares the live calculators against a record taken from the live calculators, so
+by itself it only proves the site agrees with itself. What makes it mean something
+is that the new record was compared field-by-field against the one taken from your
+original hand-built site — ninety-four fields present in both, none of them
+changed. Self-consistency and a clean comparison against the original together are
+equivalence. Either one on its own is not, and it would have been easy to report
+the easy half.
+
+Everything is reversible one page at a time, and every original is still in the
+database.
+
+Two things wait on you: the **GitHub token still cannot see the repository holding
+the site's source**, and the site is still marked as ours-to-hold rather than
+ours-to-rebuild — flipping that is what would let the improvement loop start
+touching it, and it is now a real choice rather than a blocked one.

@@ -1764,3 +1764,27 @@ series — the old one being superseded is not the same as it being wrong.
 The re-baseline owed by the three `allow_new_keys` tools since 2026-07-31 is
 therefore **discharged**, and discharged better than it would have been on 07-31:
 captured after decomposition, it names controls that were unnameable before.
+
+### COMPLETE — 27/27 live, and every check green
+
+```
+rerenders                 27/27 complete, 0 failed
+HTTP 200                  27 of 27
+byte-identical to mirror  27 of 27  (verify_shipped.py)
+footer present            27 of 27
+stale #nav-placeholder     0 of 27
+server-rendered nav        27 of 27
+calculators vs new golden  12 of 12 MATCH — "all 12 tools reproduce their golden values exactly"
+```
+
+The last line is the one that took the most work to be able to say honestly. It is
+a comparison against `GOLDEN_2026-08-02_decomposed.json`, captured from the
+decomposed site — so on its own it only proves the site is self-consistent. What
+makes it meaningful is the chain behind it: that golden was diffed key-for-key
+against `GOLDEN_2026-07-31c`, captured from the HAND-BUILT site, and **0 of the 94
+shared keys moved**. Self-consistency plus a clean diff against the original is
+equivalence; either alone is not.
+
+Final state: 27 pages, 63 rows (51 `ported-prose` + 12 tool), 0 verbatim, every
+original preserved in `page_components_bak_20260802_decomp`, restore one command
+per page.
