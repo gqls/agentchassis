@@ -328,14 +328,73 @@ def literal_sql(s):
     return "'" + s.replace("'", "''") + "'"
 
 
+FIXTURE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                       "..", "..", "..", "..", "..",
+                       "platform", "orchestration", "actions", "testdata",
+                       "component_fallback_fixtures.json")
+
+
+def selftest():
+    """Check this implementation against the SHARED fixture.
+
+    The same file is read by component_fallback_guard_test.go. Two implementations
+    of one rule is the drift class this very rule detects, so they are pinned to a
+    single set of cases rather than to each other's good intentions. RFC_009 option
+    B records why both exist: the gate must run in the Go write path with no DB,
+    the lint must read the live library on a schedule.
+    """
+    try:
+        with open(FIXTURE) as fh:
+            cases = json.load(fh)["cases"]
+    except (OSError, ValueError) as exc:
+        print("cannot read the shared fixture %s: %s" % (FIXTURE, exc), file=sys.stderr)
+        return 2
+
+    fired = quiet = 0
+    bad = []
+    for c in cases:
+        got = scan([{"name": c["name"], "function": "", "tpl": c["template"], "fields": {}}])
+        want = c.get("expect")
+        if want is None:
+            quiet += 1
+            if got:
+                bad.append("%s\n     want: allowed (legitimate label)\n     got:  refused as %r"
+                           % (c["name"], got[0][0]))
+        else:
+            fired += 1
+            if not got:
+                bad.append("%s\n     want: refused as %r\n     got:  allowed" % (c["name"], want))
+            elif got[0][0] != want:
+                bad.append("%s\n     want shape %r, got %r" % (c["name"], want, got[0][0]))
+
+    if not fired or not quiet:
+        print("the fixture must exercise BOTH arms; fired=%d quiet=%d" % (fired, quiet),
+              file=sys.stderr)
+        return 1
+    if bad:
+        print("selftest FAILED — this implementation disagrees with the shared fixture,\n"
+              "so it has drifted from the Go birth gate (component_fallback_guard.go):\n")
+        for b in bad:
+            print("  " + b)
+        return 1
+    print("selftest OK — %d must-refuse and %d must-allow cases agree with the shared "
+          "fixture (%s)" % (fired, quiet, os.path.normpath(FIXTURE)))
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--selftest", action="store_true",
+                    help="check this implementation against the shared Go/Python fixture")
     ap.add_argument("--json", help="read components from a file instead of the cluster "
                                    "(same shape as the QUERY above)")
     ap.add_argument("--quiet", action="store_true", help="findings only, no summary")
     ap.add_argument("--report", action="store_true",
                     help="also write a doc_notes row (used by the CronJob)")
     args = ap.parse_args()
+
+    if args.selftest:
+        return selftest()
 
     components = load(args.json)
     findings = scan(components)

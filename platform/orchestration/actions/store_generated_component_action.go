@@ -324,6 +324,36 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			"template leaves a structural tag (<script>/<style>/<section>/<div>/<fieldset>) unterminated — the generation was cut mid-stream")
 	}
 
+	// A template must not SUBSTITUTE A BUSINESS FACT for an absent datum
+	// (RFC_009 option B, owner ruling 2026-08-03). contact-info shipped
+	// {{else}}+1234567890{{end}} and {{else}}Monday – Friday, 9am – 6pm{{end}} from
+	// the library's birth; eight live commercial sites served the invented hours and
+	// one served the invented phone as a tel: link, every render "succeeding"
+	// (bugs_open/140). A fabricated fact is styled identically to a real one, so
+	// nothing downstream — human or machine — can tell them apart.
+	//
+	// It refuses ONLY the fact-shaped fallback. A LABEL default ({{else}}Read
+	// more{{end}}) is legitimate and the library is full of them; the distinction is
+	// input_schema's own (on_missing:"skip_field" for facts, an explicit "fallback"
+	// for labels), and component_fallback_guard.go's header carries the reasoning.
+	//
+	// Calibrated before shipping, per the standing instruction in
+	// component_write_guard.go's header: 0 findings across all 347 recorded writes
+	// (every component_versions row + every content_components row), so it would have
+	// refused nothing in the platform's entire history — while still refusing the
+	// pre-fix contact-info template, recovered from migration 287's before-image and
+	// pinned as a test. Both halves matter: zero-on-the-corpus is also what an inert
+	// guard scores.
+	//
+	// NOTE for whoever hits a refusal on a REGENERATION: a component that already
+	// fabricates cannot be repaired by regenerating it into another fabrication, and
+	// that is deliberate. It CAN be repaired by a regeneration that gates the
+	// element, or by a migration (which is how 140 was fixed). No component is
+	// currently trapped by this — 0 active components fabricate as of 2026-08-03.
+	if issue := fabricatedFallbackIssue(htmlTemplate); issue != "" {
+		blockingIssues = append(blockingIssues, issue)
+	}
+
 	// Regeneration must not break the field-name contract that existing
 	// dependents' content_data is keyed on. content_data is written to
 	// match the component's input_schema field names at build time;
