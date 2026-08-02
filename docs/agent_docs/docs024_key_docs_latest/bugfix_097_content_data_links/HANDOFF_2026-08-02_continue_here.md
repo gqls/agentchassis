@@ -1,6 +1,22 @@
 # HANDOFF — bugs_open/097, content_data link resolution — CONTINUE HERE
 
-**Written 2026-08-02 ~18:55 UTC.** Single resume point. Read this top to bottom and
+**Written 2026-08-02 ~18:55 UTC · SUPERSEDED THE SAME EVENING — the bug is CLOSED.**
+
+> **UPDATE 19:0x — the induction this file was waiting on RAN and PASSED, and
+> `bugs_open/097` is now `bugs_closed/097` (`55b4e118e`).** Item
+> `ab409727-…` completed at 18:49:04Z with `rewritten=2 phantom=4`, matching the
+> prediction below element for element; five of six slots byte-identical to their
+> pre-run md5; the two representations converged 10 ms apart on one save; the
+> served page carries `7 × href="/contact.html"` and zero phantoms; and the census
+> fell **52 → 50** with **only the induced domain moving**. LNK-028 is `deployed`.
+>
+> **This file is kept as written** — the prediction, the pre-state hashes and the
+> "if it stayed triaged" branch are the record of what was owed *before* the
+> answer was known, and rewriting it into a success story would destroy that. Read
+> `bugs_closed/097`'s final section for the outcome, and the alternative-target
+> list below if you ever need to induce this pass again.
+
+Single resume point. Read this top to bottom and
 you can continue without re-reading the directory.
 
 ---
