@@ -483,3 +483,48 @@ across 172 active components today.
 `architecture_review/RFC_009_the_renderer_should_enforce_input_schema_on_missing.md`
 — this was the SECOND template caught disobeying its own `input_schema`, and
 nothing yet enforces `on_missing` at render time.
+
+---
+
+## 2026-08-02, 22:1x UTC — post-roll: the detector patterns are LIVE on v1.0.1233. The last owed item is discharged.
+
+The chassis rolled to **v1.0.1233** (both replicas, started 22:08:42Z and
+22:09:03Z). Pod-grepped the **running binary** on **every replica** — not the tag,
+not git — with a positive control and a negative one, per the standing fleet
+landmine that a roll is not evidence your fix shipped:
+
+| grep | 8pwxz | r4rhf | meaning |
+|---|---|---|---|
+| `library_dummy_phone` (**added**) | 1 | 1 | the change is in the image |
+| `library_fabricated_hours` (**added**) | 1 | 1 | " |
+| `567[- ]?890` (**added** regex) | 3 | 3 | " |
+| `fake_phone_555` (pre-existing) | 2 | 2 | pipeline control — the grep works |
+| `placeholder_contact` (pre-existing) | 4 | 4 | " |
+| `invented_string_xyzzy` (**negative**) | **0** | **0** | the grep discriminates |
+
+Both replicas identical. **The detector now carries the two classes it was blind
+to.**
+
+**No regression from the roll.** All 8 contact-info instances still `fake_hours=f`
+/ `fake_tel=f`, `updated_at` unchanged from the 19:09–19:29 repair (so nothing
+re-rendered them back), and `check_placeholder_fallbacks.py` reports clean across
+**173** active active components.
+
+### What is proven, and what is still not — stated so a later reader does not over-read a green
+
+- **PROVEN: the patterns discriminate on real data.** Run against the live corpus
+  *before* the repair they returned `library_dummy_phone` **1**,
+  `library_fabricated_hours` **8**, negative control **0**. That measurement is
+  what makes them meaningful, and it cannot be repeated now because there is
+  nothing left to match.
+- **NOT PROVEN, and unprovable from a clean fleet: that the check FIRES.** It is
+  hosted by `quality-discovery-agent`, which has raised **0** `placeholder_contact`
+  items all-history (`bugs_open/149` Group B/C). **A 0-finding result from it now
+  is ambiguous** — "looked and found nothing" and "never ran" are
+  indistinguishable, and only the first is good news. Demonstrating the check
+  firing would need an induced fabrication, which is not worth doing on a live
+  site to prove a backstop.
+
+Closure is unaffected either way: the fix is that the template can no longer
+fabricate, and that has been live and artefact-proven since 19:29. The detector is
+a backstop against recurrence, now armed in the binary.
