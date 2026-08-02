@@ -923,8 +923,15 @@ func gatherAgentState(ctx context.Context, db *sql.DB, symptomText string, b *st
 	if strings.TrimSpace(symptomText) == "" {
 		return
 	}
+	// ORDER BY type (bugs_open/172): a bare DISTINCT is returned in whatever order
+	// the plan produces — hash-aggregate order in practice, which moves with
+	// statistics and concurrency. matchAgentTypes preserves this order and the cap
+	// below slices its TAIL, so without the sort two identical diagnosis runs on the
+	// same symptom could gather DIFFERENT agent types, both reporting success, with
+	// nothing in the artefact to tell them apart. Sorting makes the kept set
+	// reproducible, which is what lets the cap notice below be checked at all.
 	typeRows, err := db.QueryContext(ctx,
-		`SELECT DISTINCT type FROM agent_definitions WHERE deleted_at IS NULL`)
+		`SELECT DISTINCT type FROM agent_definitions WHERE deleted_at IS NULL ORDER BY type`)
 	if err != nil {
 		logger.Warn("diagnose_load_runtime: agent_state type listing failed", zap.Error(err))
 		return
@@ -938,15 +945,32 @@ func gatherAgentState(ctx context.Context, db *sql.DB, symptomText string, b *st
 	}
 	typeRows.Close()
 
-	matched := matchAgentTypes(symptomText, allTypes)
-	if len(matched) == 0 {
+	named := matchAgentTypes(symptomText, allTypes)
+	if len(named) == 0 {
 		return
 	}
-	if len(matched) > typeCap {
+	// `typeCap > 0` guard follows this file's own convention for an unset/zero cap
+	// (max_code_checks, :454) — a cap of 0 must not silently empty the section.
+	matched := named
+	var droppedTypes []string
+	if typeCap > 0 && len(matched) > typeCap {
+		droppedTypes = append([]string(nil), matched[typeCap:]...)
 		matched = matched[:typeCap]
 	}
 
-	b.WriteString("\n### agent state (auto-gathered: agent types named in the symptom/hypothesis)\n\n")
+	// The heading asserted "agent types named in the symptom/hypothesis" whatever the
+	// cap had just discarded, so a verdicter could not know an agent it named was
+	// missing — and the whole point of this section is to let it reason about which
+	// agent misbehaved. It stays byte-identical when nothing was dropped (that claim
+	// is then true); when the cap fires, the heading counts and the notice names the
+	// casualties, so the reader can put a dropped type in next_scope and re-ask.
+	if len(droppedTypes) == 0 {
+		b.WriteString("\n### agent state (auto-gathered: agent types named in the symptom/hypothesis)\n\n")
+	} else {
+		fmt.Fprintf(b, "\n### agent state (auto-gathered: %d of %d agent types named in the symptom/hypothesis)\n\n",
+			len(matched), len(named))
+		b.WriteString(cappedTypeNotice(droppedTypes, typeCap))
+	}
 
 	// Root ai_service + top-level max_tokens per matched type.
 	cfgRows, err := db.QueryContext(ctx, `
@@ -1007,19 +1031,39 @@ func gatherAgentState(ctx context.Context, db *sql.DB, symptomText string, b *st
 	// Recent llm_call_log rows for the matched types — the observed tier for any
 	// max_tokens / model / truncation claim (output_tokens == max_tokens is the
 	// silent-truncation signature, 17 live rows as of 2026-07-16).
+	//
+	// PER TYPE, not one shared LIMIT (bugs_open/172, and this half had FIRED).
+	// A single `ORDER BY created_at DESC LIMIT n` over `agent_type = ANY(...)`
+	// allocates rows by GLOBAL recency across the whole named set, so the chattiest
+	// agent takes the entire budget and every quieter agent renders zero lines —
+	// indistinguishable, in the artefact, from an agent that made no LLM calls at
+	// all. Measured 2026-08-02 over the 72 retained bundles carrying this section:
+	// in all 23 that named more than one type AND had any rows, exactly ONE type
+	// appeared (10 bundles named 4, 10 named 3, 3 named 2). Live check on the same
+	// data: naming {page-content-writer, council-gate, diagnose-agent} returned 10
+	// rows, all council-gate — page-content-writer's 18,286 rows and
+	// diagnose-agent's 324 rendered nothing. ROW_NUMBER() PARTITION BY agent_type
+	// gives each named type its own budget, which is what the config key
+	// `agent_call_log_limit` and this section's heading have always implied.
+	// `id` is the ORDER BY tiebreaker so equal timestamps cannot reorder either.
 	logRows, err := db.QueryContext(ctx, `
 		SELECT created_at, agent_type, COALESCE(step_name,''), model,
 		       COALESCE(max_tokens, 0), COALESCE(output_tokens, 0), success
-		FROM llm_call_log
-		WHERE agent_type = ANY($1::text[])
-		ORDER BY created_at DESC
-		LIMIT $2`,
+		FROM (
+			SELECT id, created_at, agent_type, step_name, model, max_tokens, output_tokens, success,
+			       ROW_NUMBER() OVER (PARTITION BY agent_type ORDER BY created_at DESC, id DESC) AS rn
+			FROM llm_call_log
+			WHERE agent_type = ANY($1::text[])
+		) t
+		WHERE rn <= $2
+		ORDER BY agent_type, created_at DESC, id DESC`,
 		toPGTextArrayLiteral(matched), callLogLimit)
 	if err != nil {
 		fmt.Fprintf(b, "(llm_call_log query failed: %v)\n", err)
 		return
 	}
 	n := 0
+	perType := make(map[string]int, len(matched))
 	for logRows.Next() {
 		var created, agent, step, model string
 		var maxTok, outTok int
@@ -1029,14 +1073,74 @@ func gatherAgentState(ctx context.Context, db *sql.DB, symptomText string, b *st
 		}
 		fmt.Fprintf(b, "- llm_call_log [%s] %s/%s model=%s max_tokens=%d output_tokens=%d success=%v\n",
 			created, agent, step, model, maxTok, outTok, success)
+		perType[agent]++
 		n++
 	}
 	logRows.Close()
 	if n == 0 {
+		// Unchanged wording: when NO named type has rows, this sentence is exactly
+		// true and every existing bundle's baseline holds.
 		b.WriteString("(no llm_call_log rows for the named agent types)\n")
+	} else {
+		b.WriteString(callLogCoverageNotice(matched, perType, callLogLimit))
 	}
+	// types_named is the PRE-truncation count. Without it the loss was invisible in
+	// the logs as well as in the artefact, because the only thing logged was the
+	// already-truncated slice.
 	logger.Info("diagnose_load_runtime: agent state auto-gathered",
-		zap.Strings("matched_types", matched), zap.Int("call_log_rows", n))
+		zap.Int("types_named", len(named)),
+		zap.Strings("matched_types", matched),
+		zap.Strings("dropped_types", droppedTypes),
+		zap.Int("call_log_rows", n))
+}
+
+// cappedTypeNotice renders the bundle line for agent types the symptom NAMED but
+// the agent_state cap excluded from the gather — "" when none were dropped.
+//
+// Its own pure function so the marker can be unit-tested without a DB, which is
+// what council-gate eba040a9 asked of the sibling render branch. The wording is
+// deliberately near-verbatim from the workflow-step cap in
+// diagnose_assemble_bundle_action.go:328 — same class of loss, same reader, so it
+// is a reuse of an existing convention rather than a new one. It names the dropped
+// types (the sibling can only count them) because they are known here, and naming
+// them is what lets a verdicter re-ask for one specifically.
+func cappedTypeNotice(dropped []string, typeCap int) string {
+	if len(dropped) == 0 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"> %d further agent type(s) named in the symptom/hypothesis were NOT gathered (agent_state_cap=%d): %s. This listing is capped, not exhaustive; absence here is not evidence an agent was uninvolved.\n\n",
+		len(dropped), typeCap, strings.Join(dropped, ", "))
+}
+
+// callLogCoverageNotice states, for the types that were gathered, where the
+// llm_call_log evidence is thin — "" when every named type is fully covered.
+//
+// Two distinct facts, worded differently on purpose (the distinction bd003f67a
+// drew at the sibling cap): a type with NO rows is a fact ABOUT THE TABLE and is
+// safe to reason from, whereas a type that filled its per-type budget has older
+// calls that were not gathered and is a COVERAGE limit. Collapsing them would let
+// a verdicter read a capped listing as a complete history.
+func callLogCoverageNotice(matched []string, perType map[string]int, limit int) string {
+	var none, atCap []string
+	for _, t := range matched {
+		switch c := perType[t]; {
+		case c == 0:
+			none = append(none, t)
+		case limit > 0 && c >= limit:
+			atCap = append(atCap, t)
+		}
+	}
+	var sb strings.Builder
+	if len(none) > 0 {
+		fmt.Fprintf(&sb, "> no llm_call_log rows exist for: %s — these types WERE gathered and the table holds nothing for them (this is an answer, not a cap).\n",
+			strings.Join(none, ", "))
+	}
+	if len(atCap) > 0 {
+		fmt.Fprintf(&sb, "> the per-type llm_call_log cap of %d was reached for: %s — older calls exist and were NOT gathered; this listing is capped, not exhaustive.\n",
+			limit, strings.Join(atCap, ", "))
+	}
+	return sb.String()
 }
 
 // upstreamDropNotice renders the bundle line for requests the ROUTE's forwarding
