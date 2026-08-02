@@ -93,7 +93,15 @@ same domain risks the pipeline writing over a serving site. The benchmark runs a
 shadow domain (`loancash.uk` — same name signal, unclaimed in the register, no
 Cloudflare zone, so its output can never reach the public), with the L10 register entry
 supplied both as the mission brief and pre-seeded into its specs, and a marker sentence
-planted. Then diff the pipeline's output against the hand-built site dimension by
+planted.
+
+> **CORRECTED 2026-08-02, same day (owner):** the shadow domain is **`lendzy.co.uk`**,
+> not `loancash.uk` — an owner-held domain that appears nowhere in the register or the
+> portfolio list (verified by grep of both), so the experiment touches no claimed
+> proposition. This also sharpens the test: "lendzy" carries no loan-cash name signal,
+> so the L10 positioning must arrive entirely through the mission brief and the
+> pre-seeded specs — which is precisely the gap-1 question the run exists to answer.
+> It stays publicly unreachable the same way: no Cloudflare zone. Then diff the pipeline's output against the hand-built site dimension by
 dimension — nav model, footer disclaimers, fact-with-rule-name density, copy register,
 tools — fix the highest-leverage seam, and re-run. The six gaps above are the candidate
 seams; the diff decides the order. Hand-building is over as a default; if the loop

@@ -106,3 +106,10 @@ confirm what it does on an existing-domain collision, and expect its sites-repo 
 to need tidying afterwards. Benchmark rubric = extract from the hand-built site:
 nav model, every-page footer disclaimers, fact-with-rule-name density per guide, copy
 register, tool correctness fixtures (£15 / 0.8%/day / 100% ceiling).
+
+**Shadow domain corrected by the owner, same day:** `lendzy.co.uk`, not `loancash.uk` —
+owner-held, in neither the register nor PORTFOLIO_domains.txt (grep exit 1 on both, all
+docs). Sharper test: no loan-cash name signal, so the L10 positioning must arrive
+entirely via mission brief + pre-seeded specs (the gap-1 question itself). Still no
+Cloudflare zone → publicly unreachable. Task #20 updated; summary carries the CORRECTED
+marker.
