@@ -3942,3 +3942,40 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   `success:false` for permission and validation failures alike
 - **source:** 2026-08-02, applying the webdesign.uk holding redirect
 - **added:** 2026-08-02, webdesign.uk build-service lane
+
+### Pinning a `site_specs` row does NOT protect it — `write_site_spec` ignores `pinned` and drops it
+
+- **footprint:** `site_specs.pinned`, `write_site_spec`,
+  `platform/orchestration/actions/site_spec_actions.go`
+- **fires when:** you hand-write a spec (positioning, an owner decision, a
+  correction) and set `pinned = true` believing that stops an agent superseding
+  it. The column exists, the write succeeds, and it buys you **nothing** on the
+  path that actually overwrites specs
+- **the tell:** none. The pin is silently ineffective *and* silently lost — the
+  supersede `UPDATE ... SET is_current=false` has no `pinned` check, and the
+  follow-on `INSERT` does not name the column at all, so the replacement row
+  defaults to `pinned=false`. Nothing errors, nothing logs
+- **the check:** `grep -c pinned platform/orchestration/actions/site_spec_actions.go`
+  → **0**. Only two writers honour it (`evidence_citations.go:374`,
+  `refresh_evidence_base_action.go:719`), and both are evidence-base paths — so
+  `pinned` works for `evidence_base` and is inert for `identity`,
+  `content_direction`, `design_intent` and every other aspect. To find a pin that
+  was actually lost, do **not** count `pinned AND NOT is_current` (that is what
+  ordinary versioning looks like when the pin IS carried forward — it returned 35,
+  all but one benign). Ask whether the CURRENT row of a once-pinned stream is
+  still pinned:
+  ```sql
+  WITH ever AS (SELECT DISTINCT site_id, aspect FROM site_specs WHERE pinned)
+  SELECT c.pinned, count(*) FROM ever e
+    JOIN site_specs c USING (site_id, aspect) WHERE c.is_current GROUP BY 1;
+  ```
+  Measured 2026-08-03: 9 streams still pinned, **1 lost** (`vonc.com`/`evidence_base`)
+- **so:** if a hand-written spec must survive, the durable protection is
+  `sites.locked_at` (a real dispatch gate — `load_work_item_actions.go:126-138`
+  returns zero items for a locked site), not `pinned`. Re-check the spec after any
+  agent run that writes the same aspect
+- **evidence strength:** the code gap is verified directly; the empirical harm is
+  **one** case, on `evidence_base`, via a session write — stated here so nobody
+  quotes this entry as "pins get destroyed constantly"
+- **source:** `bugs_open/183` lane (mortgagecalculator.co.uk adoption), 2026-08-03
+- **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane

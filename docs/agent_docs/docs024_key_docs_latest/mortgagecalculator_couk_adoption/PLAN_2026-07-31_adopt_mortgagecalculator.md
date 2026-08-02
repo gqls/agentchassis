@@ -129,3 +129,61 @@ here to notice (handoff §6 established the same absence across sites).
 - `images/mortgagecalculatormono.xcf` is a GIMP source file, publicly fetchable
   (200 live). Kept for now so the first sync is provably content-neutral; removing
   it is a separate, deliberate commit.
+
+---
+
+## Update 2026-08-03 — phases 6 and 7 done; the site is now HELD at the build line
+
+### D3 — positioning goes in `target_audience`, not `divergence_rule` (this lane)
+
+The brief (handoff §6) said to mirror the sibling's `divergence_rule`. **That key has
+no consumer**: no Go, no SQL, no prompt template reads it, and the classifier's
+output schema has no such field, so the next classifier run would drop it. The live
+sibling's divergence is in fact carried in **`identity.target_audience`**, which is
+read (`v3_site_actions.go:1233` step-contract scalar, `component_library.go:116`,
+`contentcreator/agent.go:53`).
+
+So the positioning was written into `identity.target_audience` and
+`content_direction.things_to_avoid` (+ the `formatted` blob, which is the only field
+the content writer reads). Full commands and the verification query: RUNBOOK §8.
+
+The three sites are now mutually coherent, each stating what it is *not*:
+
+| site | scope | sends elsewhere |
+|---|---|---|
+| `mortgagecalculator.co.uk` | secured lending on residential property — mortgages, remortgage, bridging, equity release | unsecured → `loancalculator.co.uk`; spanning → `loanandmortgagecalculator.co.uk` |
+| `loancalculator.co.uk` | personal loans and car finance | — (no explicit boundary yet) |
+| `loanandmortgagecalculator.co.uk` | decisions where unsecured debt and a mortgage interact | single-subject → the two single-subject sites |
+
+**Known weakness, stated rather than hidden:** none of this is protected.
+`site_specs.pinned` does **not** stop `write_site_spec` (it is not read, and is
+dropped from the replacement row — see LANDMINES). So **a future classifier run will
+overwrite `target_audience`.** The durable hold is `sites.locked_at`; the positioning
+must be re-checked after any agent run that writes `identity`.
+
+### D4 — hold the SITE, not the items (this lane)
+
+24 items were being held individually as `deferred`. That does not scale once a
+**chain** is running: `needs_domain_research` → `needs_vertical_research` →
+`needs_strategy` → `needs_briefing` → `needs_site_plan`, each handler creating the
+next item, against a 120-second dispatch tick. You cannot win that race by hand.
+
+`sites.locked_at` is the platform's own switch for this and was unused fleet-wide
+(0 of 37 sites). Set 2026-08-02 23:21 UTC. It gates dispatch, not completion.
+
+**Where the line is:** everything up to `needs_briefing` writes only specs.
+**`build-site-planner` is where pages start being planned** — that is the first step
+that can lead to the live site changing.
+
+### Phase status
+
+6. **[DONE] Submit `--fidelity high`.** Ran 07-31; the classifier half then failed on
+   a platform defect (`bugs_open/183`) and was re-run successfully 2026-08-02 23:16
+   after the cap fix. 23 pages, 4 classifier specs written.
+7. **[DONE] Positioning** — D3 above.
+8. **[NEXT — needs an owner decision] Release the build queue.** 24 items held
+   (`deferred`) plus the site lock. Proposal: release ONE non-homepage page first,
+   inspect the artefact, then decide. The homepage is the only page whose URL does
+   not change, so it is the only one that overwrites live content on rerender.
+9. **[OPEN — owner decision] Redirects.** 22 of 23 URLs move; the old files keep
+   serving and nothing in the platform reconciles them.

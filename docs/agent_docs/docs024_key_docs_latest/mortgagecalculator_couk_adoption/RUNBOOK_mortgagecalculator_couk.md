@@ -217,3 +217,100 @@ is random so the stored section order is arbitrary.
 Schema reminders that cost time otherwise: the JSONB column is **`data`**, not
 `spec_data`; `idx_site_specs_current` is `UNIQUE (site_id, aspect) WHERE is_current`,
 so the supersede must precede the insert.
+
+## §8 Positioning — `divergence_rule` is INERT; use `target_audience` (corrected 2026-08-03)
+
+> **CORRECTION to handoff §6 and to this lane's own plan.** The handoff says the
+> sibling "now carries an explicit `divergence_rule`" and that we should mirror it.
+> **Do not.** `divergence_rule` has **no consumer anywhere in the platform**:
+
+```bash
+grep -rn "divergence_rule" .    # docs + one .py script only — no Go, no SQL, no prompt
+```
+
+Worse, it is *fragile as well as inert*: the only step that serialises a whole
+identity spec into a prompt is the classifier's own `classify_and_extract`
+(`{{.site_specs.specs.identity | toJSON}}`), and the classifier's output schema has
+no such key — so the next classifier run **drops it**.
+
+**What actually carries divergence is `identity.target_audience`**, and that is what
+the live sibling uses. Read it and match its shape:
+
+```sql
+SELECT data->>'target_audience' FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+ WHERE s.domain='loanandmortgagecalculator.co.uk' AND ss.aspect='identity' AND ss.is_current;
+-- "...Not the single-subject researcher. A visitor who only wants a mortgage
+--  repayment figure ... is served better by a single-subject site..."
+```
+
+`target_audience` is a real consumer: a step-contract scalar in
+`v3_site_actions.go:1233`, plus `component_library.go:116` and
+`internal/agents/contentcreator/agent.go:53`.
+
+**Second lever: `content_direction.things_to_avoid`** — reaches `build-site-planner`,
+`tool-recreation-handler`, `blog-content-planner`, `content-gap-planner`.
+
+### GOTCHA — editing `content_direction` by raw SQL silently changes nothing
+
+The content writer reads **one** field: `{{.site_specs.specs.content_direction.formatted}}`.
+`FormatContentDirection` regenerates it only on the **action** path. Raw SQL must
+update the array **and** `formatted` in the same statement, or the spec looks applied
+and steers nothing.
+
+Format is exact and reproducible: `HumaniseKey` replaces `_` with spaces and
+uppercases **only the first character** — so `things_to_avoid` renders as
+`Things to avoid:` followed by `- ` items. Sections join with a blank line, and Go
+map order is random, so **appending a section at the end is a valid output**; there
+is no canonical order to preserve.
+
+The verification that matters is array↔blob agreement, not length:
+
+```sql
+SELECT count(*) AS items, count(*) FILTER (WHERE position(item in fmt) > 0) AS in_formatted
+  FROM (SELECT jsonb_array_elements_text(data->'things_to_avoid') AS item,
+               data->>'formatted' AS fmt
+          FROM site_specs WHERE site_id=(SELECT id FROM sites WHERE domain='mortgagecalculator.co.uk')
+            AND aspect='content_direction' AND is_current) t;
+-- must be N of N   (was 14 of 14 on 2026-08-03)
+```
+
+**GOTCHA — `substring(col from 'literal(.{0,400})')` fails**: Postgres regex
+quantifier bounds cap at **255** ("invalid repetition count(s)"). Use
+`substr(col, position('needle' in col), 320)`. Cost me one query; it is already in
+016b §9.
+
+### Supersede before insert, and do NOT rely on `pinned`
+
+`idx_site_specs_current` is `UNIQUE (site_id, aspect) WHERE is_current`, so the
+supersede must be a **separate statement before** the insert — a data-modifying CTE
+doing both in one statement risks tripping the index. Column is `data`; `source` and
+`created_by` are NOT NULL.
+
+**`pinned` does not protect a spec** — `write_site_spec` never reads it and the
+replacement row defaults to false (see `LANDMINES.md`). The durable hold is
+`sites.locked_at`.
+
+## §9 Holding the whole site — `sites.locked_at`
+
+One reversible switch that stops **all** automated dispatch for a site, honoured by
+the dispatcher (`load_work_item_actions.go:126-138`, returns zero items with
+`skipped_reason: site_locked`) and by the 213 dispatch gate:
+
+```sql
+UPDATE sites SET locked_at=NOW(), locked_by='<lane>: why'
+ WHERE domain='mortgagecalculator.co.uk';
+-- release:
+UPDATE sites SET locked_at=NULL, locked_by=NULL WHERE domain='mortgagecalculator.co.uk';
+```
+
+It gates **dispatch**, not completion — an in-flight orchestration finishes and
+writes its spec; only the follow-on item is held. Preferred over deferring items one
+by one once a **chain** is involved, because each handler creates the next item and
+you cannot win that race at a 120-second tick.
+
+**The build chain, so you know what you are holding back:**
+`needs_domain_research` (classifier) → `needs_vertical_research`
+(vertical-exemplar-researcher) → `needs_strategy` (domain-strategist) →
+`needs_briefing` (build-briefing-agent) → **`needs_site_plan` (build-site-planner)**.
+Everything up to briefing writes only specs. `build-site-planner` is where pages
+start being planned — that is the line to hold if the live site must not change.

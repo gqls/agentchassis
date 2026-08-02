@@ -154,3 +154,87 @@ That's fixable — it's a redirect job — but it's worth deciding deliberately 
 than discovering. I'll show you what actually comes out before anything gets
 published, and we can decide then whether to redirect the old addresses, keep both,
 or something else.
+
+---
+
+**2026-08-03, early hours.**
+
+I came back to read the classifier's output and start the positioning work. The
+classifier had failed — three attempts, all of them, about nine hours earlier.
+
+It turned out not to be anything about your site. The step that does the thinking
+was being cut off mid-sentence because it had been given a budget too small to
+finish the document it is asked to write. It had been running about two hundred
+words under that ceiling for four months, and it finally went over. Two sites hit it
+the same afternoon: yours failed all three attempts, the other one scraped through on
+its second by a couple of hundred words. That is the whole difference between the two.
+
+I checked how big that budget is compared with everything else in the system, and it
+is the smallest of its kind anywhere — every comparable step has at least a third
+more room, most have nearly three times as much. So I raised it, re-ran it, and it
+completed first time. The proof is in the numbers rather than in the green tick: the
+finished document needed about ten per cent more room than the old ceiling allowed,
+which matches exactly how far short the failed attempt fell. I have written the whole
+thing up as a fleet bug because it will have been quietly blocking every site
+adoption, not just ours.
+
+Two things I believed along the way turned out to be wrong, and both were the
+comfortable kind of wrong.
+
+The first was that this was a quirk of *adopted* sites like ours — the classifier is
+told to preserve everything we captured from your existing site, so I assumed it had
+more to write and overran. Neat story, and false: I checked all 54 runs and adopted
+sites actually overrun slightly *less* often. If I had stopped at the neat story I
+would have filed this as our problem instead of everyone's.
+
+The second was more serious. The record showed someone had edited that part of the
+system a few hours earlier, which on this shared setup means "another colleague is
+working here, back off". It was a bulk update that touched 184 things at once — a
+sweep, not a person — and it happened *after* our failures anyway. I very nearly
+stood down from a fix that was mine to make.
+
+Then the positioning. Here I have to correct the brief I was working from, and it is
+worth explaining because it affects the sister sites too.
+
+The brief said to give this site a "divergence rule" — a written statement of what
+the site is *not* — mirroring one the sister site had been given. I went looking for
+where that gets used and **it is used nowhere.** Nothing in the system reads it. It
+is a note in a drawer. Worse, the next time the classifier runs it would throw the
+note away, because it does not know that field exists.
+
+What *does* work is the plain "who is this site for" field, and when I read the
+sister site's version of that, the divergence is already written there in prose:
+*"Not the single-subject researcher. A visitor who only wants a mortgage repayment
+figure ... is served better by a single-subject site."* So the right thing was
+already being done in the field that works — the separate "divergence rule" was
+redundant. I have written ours the same way, so the three sites now each say plainly
+what they cover and where to send the visitor they do not serve. Yours is mortgages
+and property-secured lending; anything about personal loans or car finance points at
+the other two.
+
+I should flag one weakness rather than let you discover it. **None of this is
+protected.** There is a "pin" setting on these records that looks exactly like it
+would stop an automated agent overwriting your decisions, and it does not — the code
+that does the overwriting never looks at it, and quietly discards it. So if the
+classifier runs again it will overwrite the positioning I just wrote. I have recorded
+that, and for now I have used the thing that *does* work.
+
+Which is this: **I have put a hold on the whole site.** There is a proper lock for
+exactly this purpose and, oddly, nothing on the estate was using it. The reason I
+switched from holding the 24 jobs individually to holding the site outright is that
+this is a chain — each stage creates the next one, and the dispatcher picks work up
+every two minutes. Holding items one at a time is a race I would eventually lose,
+usually at three in the morning. One switch, reversible, and nothing on your site can
+move until we decide it should.
+
+For the record, the chain runs: classify → research the market → decide a strategy →
+write a brief → **plan the pages**. Everything before that last step only writes
+notes. Page planning is the first point at which your live site could change, and
+that is where I have drawn the line.
+
+So: the site is intact and untouched, the classifier has finished properly, and the
+positioning is set. What I need from you is the go-ahead on how to release the build.
+My recommendation is to let one page rebuild first — deliberately *not* the homepage,
+because the homepage is the only page that keeps its address and therefore the only
+one that overwrites something live. We look at what comes out, and then you decide
+whether to run the rest.
