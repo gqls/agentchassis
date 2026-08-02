@@ -95,3 +95,40 @@
   refusal work item emits — the empirical answer to the council's HIGH
   objection), then resubmit on `RESUBMIT_CORR=e64f8576-…` with the answers
   sketched above + the blast-radius measurement.
+
+## UPDATE 2026-08-03 ~00:15Z — refusal INDUCED and proven; round 2 resubmitted on e64f8576
+
+- **The induction is done and the HIGH objection is answered empirically.**
+  dartsonline `/blog/beginners.html`: stored article-body inflated to 15,443
+  stripped chars, platform's own dispatcher fired the rerender, and the guard
+  refused TWICE — both orchestrations **FAILED** (not masked) with
+  `article-body 15443→4644 chars (30% kept, floor 50%)` in `error`; refusal item
+  `ebc1dda8` emitted `needs_human_review` (second emit deduped, by design);
+  **zero** writes (md5s, timestamps, 0 history rows, no deploy). Prediction was
+  recorded in NOTES before the outcome. Everything cleaned up and verified
+  (marker grep 0, byte-exact restore, backup table dropped, both items
+  cancelled). Full evidence in NOTES + `scratchpad/induce178/`.
+- **Locked-slot exclusion shipped** (`5f00dcba9`, Council-Submitted trailer):
+  answers prior_art_librarian — locked slots are unreachable by this save
+  (bugs_open/058 discards the incoming copy), so the guard no longer measures
+  them (`pageComponentAgentWritableSQL`). INERT until the next roll (v1.0.1234
+  predates it); the guard itself is live and proven without it.
+- **Blast radius measured**: 6 live agent types invoke `save_page_sections`
+  (page-build-handler, page-rerender, tool-recreation-handler top-level;
+  pageflow-builder, page-rebuild, site-work-orchestrator nested). Zero configs
+  set `section_shrink_floor` — the 0.5 default governs all six.
+- **Round 2 submitted** (`SUBMISSION_2026-08-03_shrink_guard_round2.json`,
+  `RESUBMIT_CORR=e64f8576-…`) answering all 9 objections. **NEXT: read the
+  verdict** (watch armed; find by payload:
+  `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
+  correlation_id LIKE 'e64f8576%' AND kind='council_report' ORDER BY created_at;`).
+  If APPROVED nothing further is owed on this thread of 178's prevention half —
+  the class root-cause (item 4 of the OPEN list above) is still the 178 lane's.
+- After the NEXT roll, verifying `5f00dcba9` is in the pod needs the 165
+  runbook's ancestor method — the commit adds NO new rodata literal (the
+  comment is stripped; the lock predicate string predates it in
+  `lock_helpers.go`, and Sprintf assembles the query at runtime). So: find a
+  commit made AFTER `5f00dcba9` that DID add a grep-able literal, confirm that
+  literal in the pod, and since builds come from committed HEAD, ancestry
+  proves mine is in. A tag postdating the commit proves nothing
+  (`bugs_open/153`).

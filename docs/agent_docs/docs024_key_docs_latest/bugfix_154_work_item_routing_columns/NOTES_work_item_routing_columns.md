@@ -853,3 +853,90 @@ that belong to THIS lane's record:
   `{summary, edits, grounded_in}`, grounded_in INSIDE plan) — cheap (no credits)
   but the same mistake family as 154's malformed edit path. Read the trigger's
   header before writing the JSON, not after the first error.
+
+---
+
+## 2026-08-03 — inducing the shrink-guard refusal (prediction recorded BEFORE the outcome)
+
+Guard verified in the running binary FIRST: a roll to **v1.0.1234** landed minutes
+before this session's check (pods 40–63s old at first look); pod-grep of both new
+replicas: `SECTION SHRINK` 2, `section_shrink_floor` 1, control 1. The guard
+survived the roll.
+
+**Induction lever** (inverse of 165's plan-inflation, same logic): inflate the
+STORED side. dartsonline `/blog/beginners.html` (`5009f5c8`, the fix loop's own
+example site; passes all four gates from the 165 runbook, zero open items, no
+open `save_refused_incomplete` for the site — dedup would swallow the emit).
+Backed up all 3 slots (`tmp_induce_178_backup` + scratchpad), then appended
+~10.8k stripped chars of `INDUCE-178-GUARD-PROOF` marker text to `article-body`'s
+`rendered_html` (md5-guarded UPDATE). Existing side now 15,443 stripped; a
+regeneration from intact content_data should produce ~4,644 → ratio ~0.30 < 0.5
+floor. Page total 20,155 → ~9,356 incoming ≈ 0.46, above the page-total guard's
+0.25, so the run REACHES the shrink guard.
+
+**Prediction — success criteria written in advance, ALL must hold:**
+1. Save REFUSED; step error contains `SECTION SHRINK REFUSED for page "beginners"`
+   with `article-body 15443→~4644` and `floor 50%`. Read `__step_error`
+   (bugfix 099: a FAILED step can show COMPLETED with `error` NULL).
+2. Refusal work item EMITTED: `item_type='save_refused_incomplete'`,
+   `item_key='save_refused_incomplete:beginners'`, `status='needs_human_review'`,
+   spec.reason carrying the SECTION SHRINK text.
+3. NOTHING written: all 3 `page_components` md5s unchanged (article-body = the
+   inflated value), zero new `page_component_history` rows for the page, no
+   deploy commit.
+4. The induction `page_rerender` item ends terminal-failed, NOT complete.
+
+A `complete` item or a changed row = the guard did not protect; STOP and
+investigate before any cleanup. Blast radius (council answer 4, measured): **6
+live agent types invoke `save_page_sections` as an action** — page-build-handler,
+page-rerender, tool-recreation-handler (top-level step `save_sections`) +
+pageflow-builder, page-rebuild, site-work-orchestrator (nested sub-workflow);
+council-gate/diagnose-agent/fix-proposer only MENTION it in footprint maps.
+
+### Outcome — ALL FOUR criteria met; the refusal is NOT masked on the measured path
+
+The guard fired TWICE (the dispatcher retried the failed item once):
+orchestrations `33fded0c` (22:56:00Z) and `085bcb22` (22:58:34Z), both status
+**FAILED** at `save_sections`, `orchestration_states.error` carrying the full
+refusal verbatim: `SECTION SHRINK REFUSED for page "beginners" — article-body
+15443→4644 chars (30% kept, floor 50%)`. The 4644 is exact — the regeneration
+reproduced the pre-inflation stripped length byte-deterministically, which is
+itself evidence the lever measured what it claimed to.
+
+1. ✓ Refusal with the predicted numbers, in `error` — NOT masked green on this
+   path (`__step_error` was `(none)`; the failure surfaced in the real column).
+2. ✓ Refusal item `ebc1dda8` `save_refused_incomplete:beginners`,
+   `needs_human_review`, created 17ms into the FIRST refusal; the second emit
+   collapsed by `idx_swi_dedup` — one open item per site+key, as designed.
+3. ✓ Nothing written: all 3 slots md5+`updated_at` identical to baseline, **0**
+   new `page_component_history` rows, `deploy_page` never reached. The
+   article-body row still carried the marker — the refused save did not touch
+   even the slot it objected to.
+4. ✓ Item never `complete` (it looped `triaged`→claimed→failed; cancelled by me
+   after evidence capture rather than left burning attempts).
+
+Cleanup verified: slot restored byte-exact (md5 `82707c59…` re-checked), marker
+grep across `page_components` = **0**, refusal item + induction item both
+`cancelled`, `tmp_induce_178_backup` dropped (scratchpad copy retained).
+Evidence files: `scratchpad/induce178/{orch_evidence,refusal_item_evidence}.jsonl`
+— captured at the moment, since `orchestration_states` retention is ~24h.
+
+### Round-2 code answer + resubmission (same correlation)
+
+- **Locked-slot exclusion committed** (`5f00dcba9`): prior_art_librarian's round-1
+  objection was CORRECT — for a locked slot the save discards the incoming copy
+  (bugs_open/058), so comparing it against the locked existing is the sibling
+  floor's false-refusal trap. Existing-side query now carries
+  `pageComponentAgentWritableSQL("")`. Verified against `git archive HEAD` + the
+  file — the in-tree build was broken by ANOTHER session's in-flight
+  `load_work_item_actions.go` edit, exactly the shared-tree case the memory
+  warns about; the archive method separated their breakage from my change.
+- **Resubmitted 2026-08-03 with `RESUBMIT_CORR=e64f8576-…`**:
+  `SUBMISSION_2026-08-03_shrink_guard_round2.json` — all 9 round-1 objections
+  answered (HIGH: the induction; blast radius: 6 invoking agent types measured,
+  3 top-level + 3 nested, the footprint-map mentions separated out; pod-grep:
+  run twice, 1233 and 1234). Verdict watch armed.
+
+A roll to **v1.0.1234** landed mid-session (pods 40–63s old when first checked);
+guard markers re-verified on both new replicas before inducing. The ~300s
+no-dispatch window after a chassis restart was waited out before queueing.

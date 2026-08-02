@@ -235,3 +235,32 @@ found nothing anyway. Within two minutes of going live, three different sites
 were being worked on, in the correct fairest-first order, and the stuck job was
 left alone exactly as it should be — the queue no longer waits for it, and it
 stays there for whoever wants to sort out the human question behind it.
+
+---
+
+2026-08-03, after midnight. The new safety catch — the one that stops a rewrite
+from quietly gutting a page section — has now been proven for real, not just in
+tests. I set a deliberate trap on the darts site (our own demonstration site, so
+nobody's customer was involved): I made the system believe one blog article was
+about three times longer than it really is, then asked it to rebuild the page.
+If the safety catch works, the rebuild should be refused — from where the system
+stands, it looks exactly like a rewrite about to throw away two thirds of an
+article. That is precisely what happened. The rebuild was refused, twice (the
+system retries once by itself), the refusal was reported honestly as a failure
+rather than dressed up as success, a "needs a human to look at this" note
+appeared in the work queue within a fraction of a second, and — the part that
+matters most — not a single byte of the page was changed. I wrote down in
+advance exactly what a pass would look like, and all four things happened as
+written. Afterwards I put everything back exactly as it was and checked,
+character for character, that it matched.
+
+The reviewers who looked at this change on Sunday had one serious worry: that
+the refusal might be silently swallowed by the layer above, so the protection
+would exist but nobody would ever hear it fire. The trap answers that with
+evidence rather than argument. They also caught one genuine gap I have now
+fixed: sections a human has locked by hand were being included in the
+comparison, and could in theory have caused the guard to refuse a save it had
+no business refusing — locked sections can't be overwritten anyway, so the
+guard now leaves them out of its sums. I have sent the whole package back to
+the review panel with all nine of their points answered, and I'm waiting on
+their verdict.
