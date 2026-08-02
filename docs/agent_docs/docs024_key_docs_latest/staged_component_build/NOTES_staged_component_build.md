@@ -1437,3 +1437,15 @@ same commit.
 `platform/orchestration/actions/`, in scope for the advisory gate), an image build/roll,
 pod-grep proof it shipped, and the actual S6 dispatch against `teaser-reveal-panel`'s page
 with a negative control in the same run. None of that can happen before the commit exists.
+
+**A mistake, recorded per this file's own rule:** committed (`f6bfb7e6e`) with
+`Council-Submitted: pending` — a placeholder, not a real correlation, written before actually
+submitting. That trailer's whole design is a correlation ID 098 can resolve at report time;
+"pending" resolves to nothing, and forward-only means this specific commit's trailer cannot
+be corrected. **The real submission, done immediately after and for the record:**
+`SUBMISSION_CORR=33d00513-2fd8-4872-ad5a-a19c24a1ae0b`,
+`RUN_ORCH_ID=f458ee92-215b-43d5-84a0-644024a8a4c5`, submitted 2026-08-02. Anyone auditing
+`098`'s coverage report and finding `f6bfb7e6e` unresolved: this is why, and this is the
+correlation that actually answers for it. The check that would have caught this before
+committing: run the trigger script FIRST, capture the real correlation, THEN commit — never
+write the trailer as a promise to submit later.
