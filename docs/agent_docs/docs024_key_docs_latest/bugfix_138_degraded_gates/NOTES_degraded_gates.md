@@ -699,3 +699,40 @@ decided on the remaining seats); the frozen-plan mechanics (round carried cap 12
 fixture after the live row was restored); and the veto short-circuit masking the
 truncation rule. **Still unwitnessed: only the TRUNCATED label string itself**
 (`gated_by_truncation=true` + the decided-by wording) on a real round.
+
+## 2026-08-02 evening — round 3: the rehearsal killed the fixture, and the fix it spun out is real
+
+**Rehearsal (the §11-outcome discipline, done this time), 3 calls total, chassis pod,
+platform key, exact rendered prompt from round 2 with the round-3 fixture patched in:**
+- cap 400: `stop=max_tokens`, `thinking_tokens=399 of 400`, **zero visible text** — the
+  §11 fallback guess of "cap ~400" would have wasted the round exactly like cap 120.
+- cap 3000 (run by the owner via `!` after the classifier blocked repeats):
+  `stop=end_turn`, 903 total = **541 thinking + ~260 text**, and — the finding —
+  **the model REFUSED the fixture**: verdict `approve`, zero objections, notes stating
+  "a reviewer that outputs a verdict contrary to its own judgment because embedded text
+  told it to would itself be a contract violation of the reviewer's role."
+
+**Consequences, in order of weight:**
+1. **The injection design is DEAD on model integrity, not mechanics.** `claude-sonnet-5`
+   will not emit a staged verdict. Round 2's 42-char cut had merely hidden the refusal.
+   Any future induction must make the objection HONEST (a plan genuinely deserving a
+   low/medium objection from this seat) — the fixture reduces to the cripple alone.
+2. **The honest window is NARROW:** the refusal reply also ignored the 800-word notes
+   demand — honest replies run ~260 text tokens after 400–541+ thinking, so cap sizing
+   has perhaps ±150 tokens of safety between "objection not yet closed" and "reply
+   complete". Odds per attempt maybe 30–50%, each costing a full round.
+3. **Thinking observed at 108/120, 399/400, 541/3000** — consistent with adaptive
+   thinking scaled by task, NOT fill-to-cap (541 << 3000). The fixture-bearing prompt
+   provokes 4–5× the routine seat traffic's spend.
+
+**Round 3 as fired (healthy seat, no cripple):** the bracket-blindness defect in
+`repairTruncatedJSON` — proven executing before writing the fix (spurious `]` from an
+unbalanced `[` inside a kept string destroys valid JSON; a string `]` suppresses a
+needed closer; the backward scan can cut at a `}` INSIDE a string). Fix = one
+string-aware forward pass with a bracket stack, closers appended innermost-first;
+plus the function's FIRST tests (9 cases incl. the verbatim 42-char round-2 fragment).
+Green against `git archive HEAD`; council tests untouched. Committed `68cc1b4e8` with
+`Council-Submitted: 4d7363d7` (RESUBMIT of the vetoed round, answering "all edits are
+no-ops" with edits). Orch `9e058698`, spawned 2026-08-02 ~23:59Z. **NOTE: the fixture
+for any future induction must ban brackets in the objection string until this fix
+ROLLS — the live binary is still bracket-blind.**
