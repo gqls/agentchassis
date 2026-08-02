@@ -35,3 +35,20 @@ Append-only, newest at the bottom. Missteps are the point — record them.
 **Decisions:** see PLAN §Owner decisions + §Decision log (2026-08-02).
 
 **Next:** Phase 0.1 (sweep topic migration), then 0.2 (convergence gate), then 0.3 (write tail).
+
+## 2026-08-02 — A0.1: the "dead topic" premise was wrong, caught before it shipped
+
+Wrote migration 290 (improvement-sweep → scheduler lane). The plan's premise, inherited
+from the checker-gaps lane, was "generic.requests is a dead topic nothing consumes".
+**Wrong**: the live chassis deployment consumes it as its MAIN lane (`REQUESTS_TOPIC`);
+`scheduled.requests` is an EXTRA lane from the bugs_open/030 lane-split. The migration is
+still correct — every working scheduled task uses the scheduler lane, and lane separation
+is the stated design — but its header now argues from lane-separation, not topic-death.
+The empirical no-run at generic (oneshot 07-26) stays honestly `[UNRESOLVED]`.
+Check that caught it: read the deployment env (`kubectl get deploy -o jsonpath` on the
+topic env vars) before repeating a topic-liveness claim. Correction appended to the
+checker-gaps NOTES same hour.
+
+Also learned: `run-migrations.sh --apply` takes EVERY pending file, and the tree carries
+OTHER SESSIONS' uncommitted migrations (213/214, bugfix_029 lane). Apply strategy must
+scope to 290 only (single `psql -f` + `--record-only`), never a blanket `--apply`.

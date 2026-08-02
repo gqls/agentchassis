@@ -345,3 +345,22 @@ is `docs024_key_docs_latest/bugfix_149_nav_membership/TRIGGER_nav_rebuild.sh <do
 it publishes the `nav-updater` orchestrate envelope directly and refuses if a rebuild
 would fail to reproduce an existing nav row. It completed in ~30s today with the loop
 stopped.
+
+---
+
+## 2026-08-02 — correction appended by the vigilant_designer_offer_analysis lane (your words above untouched)
+
+**"the default topic nothing consumes" (Link 2, on `system.agent.generic.requests`) is
+imprecise, and it nearly propagated into a migration header today.** The live
+agent-chassis deployment consumes that topic as its MAIN request lane
+(`REQUESTS_TOPIC=system.agent.generic.requests`, checked 2026-08-02 on the deployment
+env), with `system.agent.scheduled.requests` consumed as an EXTRA lane per the
+bugs_open/030 lane-split (see the setupExtraRequestLanes comment in
+platform/agentbase/agent.go — scheduler chores were 93% of the shared lane, hence the
+split). What your measurement DOES establish, and what stands: 18/18 working enabled
+tasks produce to the scheduler lane, and the one recorded fire at generic
+(oneshot-discovery-aao, 07-26) produced no orchestration — mechanism unresolved (a
+stamped `last_triggered_at` is not a delivered message). Migration
+`sql_for_agents/290` moves `improvement-sweep` to the scheduler lane on the
+lane-separation ground, not the dead-topic one. The cheap check that caught this:
+read the deployment env before repeating a topic-liveness claim.
