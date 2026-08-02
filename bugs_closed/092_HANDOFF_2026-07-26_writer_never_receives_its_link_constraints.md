@@ -581,3 +581,28 @@ build path, not a defect to diagnose — raised rather than filed.
 
 Consequence for `bugs_closed/165` site C: its floor cannot be induced live until
 that decision goes one way, and it is inert and risk-free meanwhile.
+
+
+> **CORRECTION 2026-08-02 (later the same day) — the retention figure above is WRONG, and the conclusion needs a different source.**
+>
+> Everything above bounds "0 orchestrations" with *"`orchestration_states` is
+> retention-clocked (oldest row 2026-07-13), so that is ~20 days"*. **It is ~24
+> HOURS.** `COMPLETED` rows are reaped after about a day — measured: 2,504
+> COMPLETED rows, oldest **24.7h**; FAILED oldest **25.4h** — and the whole-table
+> `min(created_at)` reads 2026-07-13 only because `CANCELLED` (24), `RUNNING` (4)
+> and `INITIALIZED` (2) are **not** reaped. A handful of stragglers in statuses the
+> census was not about set a floor twenty times too long. Caught by watching a row
+> I had quoted at 09:40 (`dcf88c1c…`) vanish by 10:40 while the table grew
+> 2,454 → 2,546 and its oldest row never moved.
+>
+> **So the orchestration evidence never supported "the agent never runs" — only
+> "not in the last day".** The conclusion is still correct, but on a different and
+> much stronger source: **`site_specs` has no retention job and goes back to
+> 2026-02-25** (1,874 rows, 36 sites), and across all of it the only
+> `recommended_builder` ever recorded is **`pageflow-builder`** — 1,216 rows, 14
+> sites. `multipage-website-builder` was never chosen, not once, in five months.
+>
+> Right answer, wrong reason, and the reason is what was published. Fleet landmine
+> filed: "`orchestration_states` keeps terminal rows ~24 HOURS — and
+> `min(created_at)` says 20 days". **Any other claim resting on an
+> `orchestration_states` census needs re-bounding per status.**

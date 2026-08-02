@@ -16,17 +16,38 @@ It was the sole carrier of `extract_and_sync_links`, and the question "is
 never runs?" had been deferred between two bug files until neither owned it. The
 answer was **the agent never runs**:
 
-| check | result |
-|---|---|
-| orchestrations for `multipage-website-builder` | **0** in the retained window |
-| orchestrations ever mentioning `links_extracted` | **0** |
-| `link_registry` rows, all-history (no retention job on that table) | **0**, `max(created_at)` NULL |
-| the live build pipeline, same window | `build-dispatch-loop` 588 · `build-pipeline-trigger` 587 · `page-rerender` 22 · `page-build-handler` 1 — this agent absent |
+**THE DURABLE EVIDENCE — `site_specs`, which has no retention job:** across
+**1,874 rows, 36 sites, back to 2026-02-25**, the only value ever recorded for
+`recommended_builder` is **`pageflow-builder`** (1,216 rows, 14 sites, latest
+2026-07-29). `multipage-website-builder` was **never chosen, not once, in five
+months**. That is the finding the retirement rests on.
 
-**Scoped honestly:** `orchestration_states` is retention-clocked (oldest row
-2026-07-13), so "0 orchestrations" means *~20 days*, not *never*. The all-history
-half is `link_registry` itself. It is the **combination** that makes the
-conclusion safe.
+```sql
+SELECT v, count(*) AS rows, count(DISTINCT site_id) AS sites, max(created_at)::date
+FROM site_specs s, LATERAL jsonb_path_query(s.data, '$.**.recommended_builder') AS v
+GROUP BY v ORDER BY rows DESC;
+--  "pageflow-builder" | 1216 | 14 | 2026-07-29     <- the only row
+```
+
+Supporting, and all-history because that table has no retention job either:
+`link_registry` holds **0 rows**, `max(created_at)` NULL — so the action this
+agent uniquely carries has never written anything.
+
+> **CORRECTION, made the same day this file was written.** The first version of
+> this section rested on orchestration counts and said *"0 orchestrations in the
+> retained window … `orchestration_states` is retention-clocked (oldest row
+> 2026-07-13), so that means ~20 days, not never."* **The 20 days was wrong: it is
+> ~24 HOURS.** `COMPLETED` rows are reaped after about a day (measured: 2,504
+> COMPLETED, oldest 24.7h; FAILED oldest 25.4h), and the whole-table
+> `min(created_at)` reads 2026-07-13 only because `CANCELLED`, `RUNNING` and
+> `INITIALIZED` stragglers are *not* reaped — a floor set by the statuses the
+> census was not about. I watched a row I had quoted at 09:40 vanish by 10:40.
+>
+> So the orchestration evidence never supported "never runs"; it supported "not in
+> the last day". The conclusion survived because `site_specs` answers it flatly
+> over five months — **right answer, wrong reason, and the reason is what was
+> published.** Filed fleet-wide in `LANDMINES.md`
+> ("`orchestration_states` keeps terminal rows ~24 HOURS").
 
 ## It was NOT dead code — it was a live menu option
 
@@ -94,3 +115,27 @@ already inert by construction (`Stored=0` cannot refuse); it is now inert becaus
 its only carrier is retired. **Keep the file** — it costs nothing, it is
 mutation-proven, and it arms itself if the agent is ever revived. But its live
 induction is not "pending", it is **moot** unless this retirement is reversed.
+
+## What the same query says about the OTHER builders — likely a bigger decision
+
+The builder menu went 7 → 5 with this retirement (it held
+`multipage-website-builder` **twice**, once per live row, so the classifier and any
+human were being offered the same builder as two separate options). The five that
+remain:
+
+`content-site-builder` · `landing-page-builder` · `pageflow-builder` ·
+`report-builder` · `website-builder`
+
+Run the same durable `site_specs` census against them and only **`pageflow-builder`**
+has ever been chosen. The other four have **never** been selected in five months —
+the same standing this agent was retired for. They were left alone because
+retiring them is the owner's call, not a rider on this one; but the decision is
+plainly about the whole menu rather than about one member of it.
+
+Related: new sites *are* being created (25 in the last 30 days, including today),
+yet `intake-orchestrator`, `site-classifier` and `build-briefing-agent` show no
+recent runs — so whatever creates sites now, it is not the intake→classify→spawn-a-builder
+path this menu belongs to. **That is a question about the build path's shape, and
+it is worth answering before retiring anything else in the menu** — the honest
+reading is "this whole subsystem may be superseded", not "these four agents are
+individually dead".
