@@ -51,3 +51,33 @@
 - Dispatch "quiet spells" are never baseline: read
   `collected_data->'load_items'` (`item_count:0` + `rows_dropped:0` = the 176
   signature), not time-since-last-claim.
+
+## UPDATE 2026-08-02 evening — grep run, guard NOT in v1.0.1229; council REVISE
+
+- **Pod-grep both replicas of v1.0.1229**: marker `SECTION SHRINK` **0**, control
+  `CONTENT REGRESSION BLOCKED` **1**, `section_shrink_floor` **0**. The image was
+  built without `2da3e08e5` (which IS on HEAD — verified merge-base). IMAGE_TAG
+  bumped to **v1.0.1230** (`21defe33d`); the owner runs the build/roll. After the
+  next roll re-run the same three greps expecting ≥1/≥1/≥1.
+- **Council `e64f8576` → REVISE** (gating: debug_historian; 1 high, 5 medium).
+  Resubmit on the SAME correlation (`RESUBMIT_CORR=e64f8576-…`). Answers to embed:
+  1. **HIGH — complete_error masks the refusal as green**: yes it may, exactly like
+     the sibling page-total guard (016b back-catalogue), and that is WHY the guard
+     emits a durable refusal WORK ITEM via emitPruneRefusalWorkItem — the
+     already-council-approved mitigation from the 165 round (approved 07-31
+     19:27). The refusal protects content unconditionally (nothing written);
+     the work item makes it visible regardless of orchestration status. Verify
+     the claim by inducing a refusal post-roll and checking BOTH the step error
+     AND the emitted item.
+  2. **fundamentallyai NULL shape**: cited as class motivation, not a case this
+     guard closes. If the NULLing slot arrives PRESENT-with-empty → this guard
+     fires (0 < floor). If ABSENT → the completeness floor's territory; note the
+     residual gap: dropping 1 of 3 slots = 0.67 cohort ratio, above the 0.5
+     default floor — that gap belongs to the floor's ratio, not to this guard.
+  3. **Other writers unguarded (ApplySectionEditAction etc.)**: true and known —
+     178 stays open for the class; this guards the chokepoint the measured
+     incidents ALL went through (`save_page_sections_overwrite` history rows).
+  4. **Blast radius**: measure before resubmitting — count agent_definitions whose
+     config reaches save_page_sections (one query; the reviewer is right that it
+     was asserted not measured).
+  5. **Pod-grep step**: name the three-grep verification above in the plan.
