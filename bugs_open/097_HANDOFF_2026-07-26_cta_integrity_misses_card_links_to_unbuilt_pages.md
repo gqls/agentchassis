@@ -396,3 +396,159 @@ archiving does not undeploy). A stale section-index page needing a real rebuild 
 1/2 at the CHECK stage), the deploy-path completeness sub-question above, and a
 fleet dispatcher decision for the discovery audit (owner-adjacent: it files rows into
 a queue with no drain — `083`/`033`).
+
+---
+
+## 2026-08-02 — THE HEADLINE HALF IS BUILT. The blind spot was not the component list, it was that every mechanism asked its question of the wrong LEVEL.
+
+**Status: still OPEN** — committed `d78f70bf1`, **inert until the next chassis
+roll**. The bar in CLAUDE.md is *fixed AND live*, and until the image ships the
+defect is reproducible. Council submitted `40c0c14d-636c-4d6f-b3a2-9316267d7367`
+(commit carries `Council-Submitted:`, per the pre-verdict trailer rule).
+
+Workstream: `docs/agent_docs/docs024_key_docs_latest/bugfix_097_content_data_links/`
+(the standing five). Concept register: **LNK-028**. 016b §9 has the transferable
+pattern. `WRONG_CALLS.md` has the two missteps.
+
+### What this file asked for, and the one part of it that was impossible
+
+> *"Fix candidate 1 (resolve rendered hrefs against `pages.url` at the CHECK,
+> reporting findings) remains the open work."*
+
+Candidate 1 says "at the same point the CTA check runs". **That point cannot
+work for these links, and the reason is worth recording rather than working
+around.** `resolve_internal_links` runs *before* the writer. The live
+`input_schema` of `info-card-grid` declares `cards` with `"source": "llm"` — so at
+the moment the CTA resolver runs, the card links **do not exist yet**. No amount
+of widening `ctaFieldNames` reaches a value the LLM has not written.
+
+So candidate 1's *property* was taken (resolve by what a link IS, not by where it
+is declared) and moved to the point where the values exist: the persistence
+chokepoint, beside the markup repair, off the same page index.
+
+### The third representation, which is what nobody had covered
+
+A page has **three** copies of its links, not two:
+
+| copy | resolved by, before this change |
+|---|---|
+| the deployed HTML string | `repairOutboundPageLinks` (LNK-023) |
+| `page_components.rendered_html` | `repairSectionLinks` (LNK-024) + `repairComponentHTMLBeforePersist` (LNK-027) |
+| **`page_components.content_data`** | **nothing** |
+
+`content_data` is not a cache of the other two — it is what
+`rerender_page_sections` **rebuilds each section FROM**. A dead href stored there
+is regenerated on every re-render, silently repaired again on the way out, and
+never once reported. That is this file's own sentence made mechanical:
+*"the repair now deletes a phantom link silently, and the authoring defect that
+wrote it goes unreported."*
+
+`component_link_repair.go`, committed by the **136 lane on the morning of
+2026-08-02**, names the limit and routes it here — so the scope is a handoff
+between lanes, not a guess:
+
+> *"content_data. Same limit as 079's fix … The deployed artefact stays covered by
+> the outbound rerender seam (repairOutboundPageLinks, bugs_open/097)."*
+
+### The measurement — the SHIPPING code over all 885 production rows, not SQL
+
+```
+components audited      : 885
+components with findings: 13
+REWRITE (target exists) : 19
+PHANTOM (report only)   : 33
+TOTAL findings          : 52     across 7 domains, 4 component functions
+```
+
+| component | phantom | rewrite | why BOTH existing mechanisms miss it |
+|---|---|---|---|
+| `info-card-grid` | 21 | 16 | destinations at `cards[N].link_url` — **inside an array's items**; no top-level walker reaches them at any precedence |
+| `case-studies-grid` | 10 | — | five sibling `cardN_link_url` with **no** `cardN_link_label`, so the schema-derived pairing cannot pair them |
+| `tool-cta` | 1 | 3 | component simply not in `ctaFieldNames` |
+| `platform-comparison` | 1 | — | same |
+
+**Not one of the four is covered by `ctaFieldNames` (6 components × 2 top-level
+fields) or by `DeriveCTAURLFields` (top-level `<stem>_url` WITH a label sibling).**
+And the class is not a corner: a fleet census of component schemas found **25
+active component functions declaring a URL field inside an array's `items`**
+(`hero-card-carousel`, `image-hover-card-grid`, `swipeable-insight-carousel`
+`cards[].link_url`; `tool-list`/`guide-list`/`game-list`/`news-listing`/
+`latest-news`/`directory-listing` `items[].url`; `filtered-result-grid`
+`results[].cta_url`; …).
+
+**The split matters more than the total.** 19 of the 52 point at a page that
+**exists** — idea.uk's cards say `/about`, `/report`, `/tools` while the pages are
+at `/about.html`, `/report.html`, `/tools.html`; gaswholesalers says `/contact`
+with `/contact.html` live; robot-hands says `/matchmatrix` with
+`/matchmatrix.html` live. That is exactly the sub-class this file named twice as
+its strongest argument for candidate 1 (`/cases/thames-water`,
+`/matchmatrix/methodology`) — **a link can be broken while its target is built and
+deployed** — and it is now corrected at source rather than unlinked.
+
+### The rule, and why it needs no exclusion list
+
+Nominate a candidate by the field's **NAME**, at any depth, in any container.
+Judge it by the **VALUE**, with the shared `ClassifyLinkScope`. That split is the
+whole design: an `image_url` holds `/images/x.jpg` (`LinkScopeAsset`) and a
+`docs_url` holds `https://…` (`LinkScopeExternal`), so neither is ever considered
+without the code naming either of them.
+
+**Verified rather than asserted:** across all 885 components the pass nominated
+**zero** non-page fields, and left **872 of 885 byte-identical**. The
+872 are the load-bearing half of that result — they are what proves a
+name-based nomination does not fire on prose, assets or off-site links.
+
+### Two arms, deliberately asymmetric — and the phantom arm is a judgement, not an omission
+
+- **REWRITE** (19) when the target exists and the extension was omitted.
+  `RepairPageLinks`' own rule unchanged — same `NormalizePagePath`, `Lookup`,
+  `hrefSuffix` — emitting a **stored** `pages.url`, never one assembled here.
+- **PHANTOM** (33) — **reported, value left alone.** Blanking is the `content_data`
+  analogue of the *unlink* arm, and `link_repair.go`'s own header records that arm
+  as **unsettled** by the editquality and render_guardian seats (corr `4465f655`):
+  *"decide whether unlink is the right repair action at all"*. Widening a disputed
+  repair from the rendered copy to the SOURCE OF TRUTH, where it is unrecoverable,
+  is not a scope fix's to settle. A test pins the non-mutation, so reversing this
+  is a deliberate edit rather than a drift.
+
+The record is a work **RECORD**, not a work ITEM — `writeLinkRepairLog`'s
+precedent verbatim (`083`: nothing drains `detected`; `077`: no items whose
+handler has no remit). New code **`CONTENT_DATA_LINK_AUDIT`**, carrying component
++ field path + href + arm. ⚠ The existing two codes are untouched, so every query
+already written against them returns what it returned before — **and will not show
+this pass**, by design.
+
+### No migration, deliberately
+
+The 52 clear as a side effect of ordinary operation: each page's next save through
+`SavePageSectionsAction` corrects its rewritables at source and records its
+phantoms. A one-off `UPDATE` over production `content_data` would be a larger,
+less reversible act for the same end.
+
+### What is STILL OPEN on this file
+
+1. **The roll**, then the four-way pod-grep on **every** replica (RUNBOOK R5):
+   new markers `audited content_data internal links before persist` and
+   `CONTENT_DATA_LINK_AUDIT` (0 → ≥1), positive control `repaired dead internal
+   links before persist` (must stay 1), invented negative control (must stay 0).
+   Then re-run RUNBOOK R1 and confirm the 52 is **falling** as pages are saved,
+   not static — a static count means the pass is not being reached.
+2. **The single-component `content_data` writers** of `bugs_open/136`. They do not
+   pass through `SavePageSectionsAction`. LNK-027's call shape is the extension;
+   deliberately a separate change.
+3. **A fleet dispatcher for `check_phantom_internal_links`** — unchanged, and still
+   owner-adjacent (`083`/`033`). Not worked around here: building a second
+   undispatched check repeats `093`'s outcome.
+4. **The deploy-path completeness sub-question** from the 07-28 council round
+   (are the two rerender actions plus the build gate the COMPLETE set of paths
+   that ship page HTML?) — still not claimed.
+5. **Whether the phantom arm should escalate rather than only record.** Same open
+   question `link_repair.go` carries for unlink; they should be settled together.
+
+### What did NOT change, and is named so its owners are told rather than left to measure it
+
+The staged **CTA precedence flip** (`ctafields.go`, council trail `2525f980`, the
+`cta_link_integrity` lane, 5 binding constraints from 5 seats) is untouched. It
+decides which fields a build-time resolver **writes**; this decides whether what
+was written, by anyone, at any depth, points at a real page. Complementary, and
+stated in the submission for that round's reviewers.
