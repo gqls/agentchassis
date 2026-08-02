@@ -326,3 +326,105 @@ handoff feared did not happen. It is still broad ("anyone seeking mortgage advic
 and, critically, **says nothing about what this site is NOT**. No `divergence_rule`.
 The classifier will supersede this anyway, so the positioning work happens after it
 lands, not now.
+
+---
+
+## 2026-08-03 — the classifier had already failed, and it was a platform defect, not our site
+
+Picked the lane back up expecting to read the classifier's output and start the
+positioning work. It was `failed`, 3 attempts of 3, at 2026-08-02 13:41 UTC.
+
+```
+step classify_and_extract failed: ... response truncated:
+stop_reason=max_tokens (output_tokens=6000 reached the configured cap,
+26179 chars recovered)
+```
+
+Filed as **`bugs_open/183`**. The full evidence is there; what belongs here is the
+reasoning, including two theories of mine that the measurements killed.
+
+### It writes nothing when it fails — checked, not assumed
+
+`classify_and_extract` is step 6 of 15 and precedes all four `write_*_spec` steps.
+So the adoption-seeded specs were untouched. Confirmed at the rows rather than by
+reading the step graph: every `site_specs` row for this site still carried the
+adoption timestamps (`23:21:49` / `23:23:08` on 07-31), none from 08-02.
+
+### Theory 1: "adopted sites overrun because they echo the adopted specs back" — REFUTED
+
+This felt obviously right. The prompt has a big `{{if .site_specs.specs.site_archetype}}`
+"Adoption Reference" block that tells the model to *preserve* the adopted
+`content_direction` — voice, `writing_rules`, `things_to_avoid`, `example_phrases`.
+More to reproduce ⇒ longer output ⇒ truncation. Ours is an adoption, so the story
+closed neatly.
+
+`llm_call_log` stores `prompt_rendered`, so it was one query instead of an argument:
+
+```sql
+SELECT (prompt_rendered LIKE '%Adoption Reference%') AS is_adoption, count(*),
+       count(*) FILTER (WHERE error_message ILIKE '%stop_reason=max_tokens%') AS truncated
+  FROM llm_call_log WHERE step_name='classify_and_extract' AND prompt_rendered IS NOT NULL
+ GROUP BY 1;
+--  f | 20 | 2   (10.0%)
+--  t | 34 | 3   ( 8.8%)
+```
+
+Adopted sites truncate slightly **less** often. The theory was wrong, and it was
+wrong in the comfortable direction — it would have made this "a quirk of adoption",
+i.e. our problem and nobody else's, when it is in fact every site's problem.
+
+### Theory 2: "another session is editing the classifier" — REFUTED, and this one was nearly costly
+
+`agent_definitions.updated_at` for `domain-research-classifier` read
+`2026-08-02 22:08` — four hours old when I looked. On this tree that reads as an
+active lane, and the right response to an active lane is to back off.
+
+It was a **bulk sweep: 184 rows share that minute**. `version` did not move either,
+so a swept row and a hand-edited row look identical. And it postdates the failures
+by ~8 hours, so it could not have caused them.
+
+The generalisable bit, now in `LANDMINES.md`: **grep transcripts for the STEP name,
+not the agent type.** `domain-research-classifier` matched 9 live sessions — every
+fleet census lists it. `classify_and_extract` matched **0**. The specific string is
+the one that carries information.
+
+### What the numbers actually say
+
+54 calls since 2026-04-02. **Zero truncations until 08-02; five of six that day.**
+Cap 6000 and model `claude-sonnet-4-6` constant throughout (`model_resolved` too —
+not an alias drift). Over the 49 successes: mean 4592, **p95 5551 (92.5% of cap),
+max 5642 (94.0%)**.
+
+So this was never a regression. It is a step that has been running two hundred
+tokens under its ceiling for four months. And **6000 is the only step at that cap in
+the entire fleet** — the modes are 8000 (47 steps) and 16000 (20). It emits one of
+the largest documents in the estate on the lowest cap above 4000.
+
+> **[UNEXPLAINED] — and left that way deliberately.** I could not find what tipped
+> it on 08-02. Cap, model and prompt were unchanged and the one structural theory
+> is refuted above. The honest claim is the *margin*, which needs no trigger. I have
+> written that into `183` explicitly so the next reader does not invent one.
+
+### Fix, and why not the other fixes
+
+Raised the cap to **16000** in the live row (DB config — live on write, no image).
+Two checks before believing it:
+
+1. **`bugs_open/009`'s shadowing interaction** (flagged at `016b:759`): a **root**
+   `ai_service` block makes step-level `max_tokens` dead config. This agent has
+   **no** root block → the step value is live.
+2. Corroboration that does not depend on my reading the JSON right: every
+   pre-change `llm_call_log` row recorded `max_tokens=6000`, exactly the step-level
+   value. If a root block were shadowing it, the log would have shown something else.
+
+I did **not** add a `repairTruncatedJSON` salvage path, though one exists and is
+right for the councils. Here it would be actively harmful: the repair keeps a prefix
+ending at a complete value, so trailing fields go **silently absent**. `design_intent`
+is the last of the four sections, and its 8-slot `palette.reference_values` is what
+the composition pipeline actually reads. Salvage would produce a spec set missing
+exactly the mandatory part and mark the item `complete`.
+
+`platform/aiservice/truncation.go:26-29` says the cap raise is not a class fix, and
+it is right — `experience-planner/compose` truncated at 32,000. I have recorded the
+structural fix (split the step, one bounded generation per spec) as candidate 3 in
+`183` rather than pretending 16000 settles it.
