@@ -3213,3 +3213,51 @@ template does not regenerate anything. Judge the template with a query against
 - **the check, before wiring the repair into any writer:** ask whether that writer's markup can contain a `<script>`, and if so run the real function over a real sample before shipping — three lines in a throwaway `_test.go` against `datahelpers`, which is decisive where reading the regex is not. For an AUDIT, remember the mirror-image version of the same error: a regex over `href="…"` counts href-shaped byte sequences, not links, so any such census is an **upper bound** (mine included one JS fragment in 35).
 - **source:** 2026-08-02, `bugs_open/180`, found by the `bugfix_136_sibling_link_repair` lane while re-running its own census after the v1.0.1229 roll. It reordered that lane's stated next step: wiring the seam into the tool-markup writers must wait for 180, or it will delete working buttons from tools
 - **added:** 2026-08-02, bugfix_136_sibling_link_repair lane
+
+---
+
+### Decomposing an adopted site with NO `site_components` head ships every page unstyled — the fallback hardcodes the wrong stylesheet name
+
+**footprint:** `rerender_single_page_action.go (buildDefaultHead` · `site_components` on any `fidelity=locked` adopted site · `loanandmortgagecalculator.co.uk` · `loancash.co.uk`
+
+`assemblePage` falls back to `buildDefaultHead` when a site has no stored head, and
+that fallback is five lines ending in:
+
+```go
+<link rel="stylesheet" href="/assets/css/styles.css">
+```
+
+**`styles.css`, plural.** That is right for a platform-BUILT site — measured
+2026-08-02, it returns 200 on 15 of 16 deployed sites. It is wrong for an ADOPTED
+one, which brought its own asset names with it. So the fallback is most likely to
+fire exactly where it is most likely to be wrong: an adopted site is the kind that
+has no chrome rows.
+
+Measured the same day, both remaining verbatim-adopted sites:
+
+| site | verbatim rows | `site_components` head | `style.css` | `styles.css` |
+|---|---|---|---|---|
+| loanandmortgagecalculator.co.uk | 41 | **none** | 200 | **404** |
+| loancash.co.uk | 18 | **none** | 200 | **404** |
+
+Both link `style.css` (singular) from every live page. So the first page either one
+decomposes gets a head pointing at a 404, **plus no header and no footer at all**
+(`resolveComponent` returns empty strings), and it will do so silently — the render
+succeeds, the deploy succeeds, and the page is unstyled and unnavigable.
+
+None of this is visible beforehand, because assembly is never reached while a page
+ships verbatim (see the sibling landmine on `site_components` rows not meaning
+working chrome).
+
+**the check:** before decomposing ANY adopted page, confirm the site has all three
+chrome rows AND that every asset they reference resolves — do not accept the
+fallback:
+```sql
+SELECT slot_name, octet_length(rendered_html) FROM site_components
+WHERE site_id='<id>' ORDER BY slot_name;   -- expect head, header, footer
+```
+then fetch every `href`/`src` in them and require 200 **with a browser
+User-Agent** (Cloudflare 403s `Python-urllib`). Working implementation, including
+the refusal: `loancalculator_couk/decompose/load_chrome.py`. Take the head from
+what the site's OWN pages link, not from the platform default — on
+loancalculator.co.uk the one-letter difference was the whole of the failure.
