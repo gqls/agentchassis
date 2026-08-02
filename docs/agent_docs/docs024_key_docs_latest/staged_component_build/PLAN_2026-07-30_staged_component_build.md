@@ -236,6 +236,35 @@ component makes it go red.
 
 **P3 — the remaining gates**, cheapest first, each with its mutation.
 
+> **CORRECTED 2026-08-02 — P3 as written is STALE, and re-checking it before building
+> anything from it is what caught this.** This Phasing section was written 2026-07-30. **D8
+> landed the next day, 2026-07-31**, and cut the ladder from eight gate-types to three funded
+> ones (S1 claim-before-build, S6 visitor-gesture, S2 mutation discipline) — explicitly
+> retiring "build the remaining gates" as a plan: *"the discarded stages are not disproved,
+> they are unfunded. Any of them may return with evidence — a case where its absence cost
+> something real."* P3's own wording ("the remaining gates, cheapest first") is exactly the
+> approach D8 overruled the day after this line was written, and nobody reconciled the two
+> until now — the same class of drift this whole file exists to prevent (D5 got corrected the
+> same way, same session it was written).
+>
+> **No new evidence has surfaced since D8 that would fund S0/S3/S4/S5/S7 for components.**
+> So P3 does not get built as stated. **What P3 actually collapses into: applying the THREE
+> already-funded gate-types to more subjects** — more components/tools getting an authored,
+> mutation-proven fence (S1+S2 discipline) and a dispatched S6 run, the same shape P1+P2 just
+> proved once for `teaser-reveal-panel`. That is the honest next step, and it is the authoring
+> backlog named in `HANDOFF_2026-08-02_continue_here.md` §4 item 3 — not a new phase, the same
+> one under its real name. Re-labelled below.
+
+**P3 (re-labelled 2026-08-02) — the authoring backlog: measure it, then close it one subject
+at a time with S1+S2+S6, cheapest/most-evidenced first.** Concretely: count components/tools
+with no PLAN at all (the honest backlog, not a defect), then for each, author a fence backed
+by real behaviour (read the component before writing checks, per this session's own practice),
+prove it mutation-hard (own harness per component if `prove_fence_can_fail.go`'s hardcoded
+mutant list doesn't fit — check before assuming reuse, twice burned already in this lane), and
+dispatch S6 for real. **Do not wire a PLAN-required check into any birth path as a side
+effect** — this is backlog clearance, not a new gate, per the same reasoning that kept
+`CHECK_naming_contract.sh` out of the birth path after P1a closed.
+
 **P4 — only then** stage-scoped dynamic generation of gates, and the anti-vacuous
 verdict rule (D3), which changes a shared guarantee and therefore goes to the gate and
 plausibly an RFC.
