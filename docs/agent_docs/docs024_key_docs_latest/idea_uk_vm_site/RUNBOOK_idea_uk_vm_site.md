@@ -433,6 +433,8 @@ ssh root@116.203.204.115 '
   ln -sf /etc/nginx/sites-available/idea.uk /etc/nginx/sites-enabled/idea.uk &&
   nginx -t && systemctl reload nginx && echo CUTOVER_RELOADED'
 # purge the Cloudflare cache for idea.uk afterwards
+# [CORRECTED 07-31 / UPDATED 08-02: a no-op while idea.uk is direct-to-origin —
+#  becomes a real step only after the Option B cutover in §4a goes orange]
 ```
 Then re-run 3d in full, plus a **real end-to-end purchase**:
 `/request` → operator `/confirm` → `/approve` → buyer pays → `/stripe/webhook` → order = paid.
@@ -494,6 +496,39 @@ Cloudflare WAF/Turnstile is even reachable as the blocking layer.
 > behind Cloudflare"). **Left as an appended correction, not a rewrite** — this is
 > another lane's runbook and the call about what to do belongs to its owner.
 
+**DECIDED 2026-08-02 (owner, this session): Option B — move idea.uk behind the
+Cloudflare proxy.** So §4a's premise, false when written and corrected above,
+now becomes TRUE deliberately — and its real-IP work becomes necessary again the
+moment records go orange. The sequence is strict, from
+`HANDOFF_2026-07-31_cloudflare_decision.md` §3; do not reorder, because between
+"orange" and "real-IP applied" the rate limiter degrades into one global bucket
+that still looks healthy:
+
+1. **Add the idea.uk zone at Cloudflare, records grey/DNS-only** (A → the box),
+   change NS at the registrar, verify the site still serves unchanged.
+2. **Apply the real-IP nginx config** — `set_real_ip_from` for the published CF
+   ranges + `real_ip_header CF-Connecting-IP`. The estate plan already specifies
+   `cloudflare_realip`
+   (`vm_estate/PLAN_2026-07-25_framework_controlled_vm_estate.md:44`); do not
+   hand-roll a second copy. The `limit_req` zone needs NO key change: both
+   arms of `rate_limit_preamble()` key on `$binary_remote_addr`, which the
+   real-IP module rewrites in place.
+3. **Prove it with the two-network check** — `count(DISTINCT ip) > 1` observed
+   from two different networks (`bugs_open/139`: one test machine cannot tell a
+   constant from a working key).
+4. **Go orange** (proxy on).
+5. **Firewall 443/80 to Cloudflare's ranges only** — the origin IP is public
+   (it was the A record, and was additionally exposed as webdesign.uk/ugg2.com's
+   origin on 07-31); a proxy in front of an open origin is decoration.
+6. **Re-test checkout end to end** through the proxy, including
+   `/stripe/webhook` (Stripe's calls also arrive via the public hostname once
+   proxied — confirm the webhook still verifies).
+
+NB (2026-08-02): this session's setup.sh catch-all patch shifted the third
+`limit_req` citation above — `setup.sh:299` is now `setup.sh:330`; `:86` and
+`:226` are unchanged. And once step 4 lands, `:435`'s "purge the Cloudflare
+cache" stops being a no-op and becomes a real step again.
+
 **4a-bis. There is no catch-all vhost, so this box answers to EVERY hostname —
 including none. ADDED 2026-08-01 by this lane, confirming and explaining §5 of
 `HANDOFF_2026-07-31_cloudflare_decision.md`.**
@@ -517,8 +552,17 @@ quirk, a missing catch-all** — and the Go tool cannot save you: it never reads
 `r.Host` and builds every redirect from `PublicBaseURL`, so a buyer who starts
 checkout on the wrong domain is bounced mid-flow to one they have never seen.
 
-**Fix, written and staged in `box/default-deny.nginx`, NOT YET APPLIED** (owner
-call — it is the front door of a live earning service):
+**Fix: `box/default-deny.nginx` — APPLIED 2026-08-02 ~10:36 UTC, owner-authorised
+this session** (`nginx -t` pass, reload clean; the two `http2` deprecation warns
+are pre-existing in idea.conf). Post-apply, all three probes above flipped to
+denial — no-SNI **handshake rejected** (curl exit 35), foreign SNI **rejected**,
+foreign `Host` on :80 **connection closed with no bytes** (444, curl exit 52) —
+while `https://idea.uk` stayed 200 and the ACME location answered 404-not-444
+under a foreign Host (the webroot location is live). The 16-route §3d loop
+re-ran **identical to the 2026-08-01 baseline**. `setup.sh` now writes and links
+this vhost itself (same commit), so a fresh provision no longer reopens the
+hole; `provision-pullsync.sh` never touches nginx and needs nothing. The
+commands, still exact if it ever needs re-applying:
 
 ```bash
 scp box/default-deny.nginx root@116.203.204.115:/etc/nginx/sites-available/000-default-deny.conf
@@ -551,7 +595,7 @@ so a regression is visible rather than argued: `/health 200 · /capacity 200 ·
 /audience-check 405 · /subscribe 400 · /request 405 · /confirm 401 · /approve 401
 · /decline 401 · /op 404 · /stripe/webhook 400 · /internal/run 401 ·
 /order/success 200 · /order/cancel 200 · /terms 200 · /refund-policy 200 ·
-/privacy 200`.
+/privacy 200`. **Re-run 2026-08-02 post-apply: all 16 identical.**
 
 **4b. Harden `/request`.** `handleRequest` (`service.go:301-310`) has no rate limit, no honeypot, no
 validation beyond presence, and discards `ParseForm`'s error — which is exactly why

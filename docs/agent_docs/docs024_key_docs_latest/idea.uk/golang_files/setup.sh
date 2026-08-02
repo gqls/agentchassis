@@ -242,7 +242,38 @@ server {
 EOF
 }
 write_nginx_http_only
+
+# Catch-all vhost: without one, idea.conf is the de-facto default and this box
+# serves the complete shop to ANY hostname pointed at it (proven 2026-07-31 with
+# webdesign.uk/ugg2.com — byte-identical content, payable orders included; see
+# idea_uk_vm_site/box/default-deny.nginx for the measured evidence). 444 on :80,
+# reject the TLS handshake on :443 (needs no certificate, so it is valid at
+# stage 1 before certbot has run). Never symlink the stock `default` alongside
+# this — two default_servers on one address:port is an nginx -t error.
+write_default_deny() {
+  cat >/etc/nginx/sites-available/000-default-deny.conf <<EOF
+# managed by setup.sh — do not edit by hand; re-run setup.sh to change.
+server {
+    listen      80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    location ^~ /.well-known/acme-challenge/ {
+        root $ACME_WEBROOT;
+        default_type "text/plain";
+    }
+    location / { return 444; }
+}
+server {
+    listen      443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}
+EOF
+}
+write_default_deny
 ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/idea.conf
+ln -sf /etc/nginx/sites-available/000-default-deny.conf /etc/nginx/sites-enabled/000-default-deny.conf
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx

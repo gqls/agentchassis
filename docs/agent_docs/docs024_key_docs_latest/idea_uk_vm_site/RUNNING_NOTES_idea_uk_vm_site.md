@@ -3386,3 +3386,43 @@ check is required" — is the read-only probing recorded above (§X.34), so the
 human half of the verification is this section. Expected for any pure-infra
 landmine, worth knowing before dispatching the verifier at the next one: it can
 only grade entries whose footprints are code symbols.
+
+## §X.35 — 2026-08-02: both decisions taken; the catch-all is LIVE
+
+**The owner decided both open questions this session:** (1) ingress = **Option
+B**, move idea.uk behind the Cloudflare proxy, strict sequence; (2) **apply the
+staged catch-all now** — authorised explicitly, which unblocks what the
+permission classifier rightly refused on 08-01.
+
+**Applied 2026-08-02 ~10:36 UTC**, exactly the §4a-bis commands: scp →
+`grep -c ssl_reject_handshake` = 1 (the copy is the copy) → symlink → `nginx -t`
+pass (two pre-existing http2 deprecation warns from idea.conf:42-43, not mine) →
+reload → `APPLIED`. Pre-checked that `sites-enabled/` still held only
+`idea.conf` before touching anything — the 08-01 reading was a snapshot and
+another lane could have moved.
+
+**Verification, all six checks:**
+- no-SNI `https://116.203.204.115/` → **handshake rejected** (exit 35; was 200)
+- foreign SNI `fake.example` → **handshake rejected** (exit 35; was 200)
+- foreign `Host` on :80 → **closed, zero bytes** (444; exit 52; was 301)
+- `https://idea.uk/` → **200** (positive control)
+- `/.well-known/acme-challenge/<missing>` under foreign Host → **404 not 444**
+  (the belt-and-braces webroot location is live, renewal path double-safe)
+- §3d 16-route loop → **identical to the 2026-08-01 baseline, all 16**
+
+**Made durable:** `setup.sh` (idea.uk/golang_files/) now writes
+`000-default-deny.conf` and symlinks it during stage 1 — `ssl_reject_handshake`
+needs no certificate, so it is valid before certbot has run. NB the patch
+shifted `setup.sh:299` → `:330` (the stage-2 `limit_req` line the RUNBOOK
+cited); `:86`/`:226` unchanged. A setup.sh RE-run never removed the symlink
+(it only rm's `sites-enabled/default`) — the durable gap was a FRESH provision,
+and that is what the patch closes. LANDMINES entry updated in place with a
+dated block; heading left intact so the doc_notes sync identity is stable.
+
+**Option B staged in RUNBOOK §4a as a DECIDED block:** grey → verify → real-IP
+(`cloudflare_realip` per estate plan :44, no key change needed — both arms of
+`rate_limit_preamble()` key on `$binary_remote_addr`) → two-network distinct-IP
+proof → orange → firewall 443/80 to CF ranges → end-to-end checkout incl.
+`/stripe/webhook`. Next step is the Cloudflare zone itself, which needs the
+webdesign lane's tooling or the owner's dashboard — investigating before
+touching anything.

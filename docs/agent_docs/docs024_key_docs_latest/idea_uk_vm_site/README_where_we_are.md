@@ -1797,3 +1797,22 @@ because nothing can reach the machine at all except through the tunnel.
 
 **I have not touched anything on the machine.** Everything above is from
 read-only checks.
+
+## 2 August — decisions made, and the first one is done
+
+You decided both questions from yesterday: idea.uk goes behind Cloudflare
+(option B, the full sequence, nothing skipped), and the catch-all fix goes on
+now. The catch-all is live as of this morning. What that means in plain terms:
+until today, anyone who pointed any domain name at our server got our entire
+shop, working checkout and all — that is how webdesign.uk briefly sold idea.uk
+reports last week. Now the server answers for idea.uk and nothing else: wrong
+names get the door shut in their face with no explanation, and the site itself
+is completely unchanged — I re-checked all sixteen pages and endpoints against
+the list from before, and certificate renewal is proven unaffected. The
+provisioning script has also been fixed so a rebuilt server comes up with this
+protection from the start rather than losing it silently. Cloudflare is next:
+the safe order is join Cloudflare invisibly first, fix how we read visitor
+addresses, prove it from two different networks, and only then switch the proxy
+on and lock the server down so only Cloudflare can reach it. I'll set up as
+much as I can and come back to you for the bits only you can do (the domain's
+nameserver change at the registrar, most likely).

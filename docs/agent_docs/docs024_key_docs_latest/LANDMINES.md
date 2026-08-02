@@ -2721,6 +2721,15 @@ matters if that domain was chosen to host wildcard subdomains later.
 
 - **footprint:** `116.203.204.115`, `/etc/nginx/sites-enabled`, `/etc/nginx/sites-available/default`, `idea.conf`, `default_server`, `docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/box/`, `setup.sh`
 
+> **UPDATED 2026-08-02 (same lane): the catch-all is now LIVE on the box** —
+> applied with owner authorisation (`000-default-deny.conf`, `nginx -t` clean),
+> all three probes below flipped to denial, the 16-route baseline re-ran
+> identical, and `setup.sh` now writes and links the catch-all itself, so a
+> fresh provision no longer reopens the hole. **The trap inside the fix is
+> UNCHANGED and now fires faster:** the live `000-default-deny.conf` claims
+> `default_server`, so symlinking Ubuntu's stock `default` breaks `nginx -t`
+> immediately — everything below stands as the evidence and the per-box checks.
+
 Measured 2026-08-01: `sites-enabled/` on the idea.uk box holds **exactly one
 file** (`idea.conf`) and **nothing anywhere claims `default_server`** — Ubuntu's
 stock `default` vhost is present in `sites-available/` but is **not symlinked**.
@@ -3075,3 +3084,15 @@ than a warning — proceeding with the ids you could see is the silent-success
 shape that causes this. Then assert the narrower property that actually matters:
 no script-addressed id may land in a block classified as prose
 (`stranded_script_targets` in `decompose_pages.py`).
+
+### `orchestration_states` keeps terminal rows ~24 HOURS — and `min(created_at)` says 20 days, because the statuses it reaps are not the ones that set the floor
+
+- **footprint:** `orchestration_states`, `scheduled_tasks` (`database-cleanup`), any "has agent X ever run / 0 orchestrations / never dispatched" claim, `owner_agent_type`, `collected_data`
+- **fires when:** you establish that something never happens by counting `orchestration_states` — "this agent has 0 orchestrations", "the action has never executed", "no run has ever recorded field F" — and then bound it by reading the table's own oldest row.
+- **the trap, and it is TWO traps stacked:** (1) **COMPLETED and FAILED rows are reaped after ~24h.** Measured 2026-08-02: 2,504 COMPLETED rows whose oldest is **24.7h** old, FAILED oldest **25.4h**. (2) **`min(created_at)` over the whole table reads 2026-07-13 — twenty days — because `CANCELLED` (24 rows), `RUNNING` (4) and `INITIALIZED` (2) are NOT reaped.** A handful of stragglers in statuses nobody cleans up set a "retention floor" twenty times longer than the real one, and it is the *successful* runs — the ones your census is about — that vanish.
+- **the tell:** none at query time. I watched a specific COMPLETED row (`dcf88c1c…`, `site-adoption-agent`, created 2026-08-01 09:04) that I had read and quoted at ~09:40 **disappear by ~10:40 the same morning**. The table had grown 2,454 → 2,546 in that hour while its oldest row never moved — growth and reaping at once, which is exactly what a stable-looking table does.
+- **the check, and do it BEFORE you write "never":** never bound retention with a whole-table `min()`. Bound it **per status**, because the reaper is status-selective: `SELECT status, count(*), min(created_at), round(extract(epoch from (now()-min(created_at)))/3600,1) AS oldest_hours FROM orchestration_states GROUP BY status;`. Then, if the claim is durable, **re-source it from a table with no retention job** — `site_specs` goes back to 2026-02-25 (1,874 rows, 36 sites), `site_work_items` and the target table itself persist. A 5-month `site_specs` census answers "which builder was ever chosen" flatly; a 24-hour orchestration census cannot.
+- **why it bites hardest:** an absence claim is exactly what people reach for this table to prove, and the failure is silent and *directional* — short retention can only ever manufacture absence, never presence. So it fails toward the conclusion you were already testing for. Hit 2026-08-02 while retiring an agent: "0 orchestrations in the retained window" was written into a bug file, an 016b index row and the concept register meaning *~20 days*, when it meant *~24 hours*. The conclusion happened to survive on other evidence; the stated reason did not.
+- **`database-cleanup`** (`scheduled_tasks`, hourly, enabled) is the likely reaper — named here as the place to look, **not** as a verified mechanism: no Go implementation of it was found by grep, so treat the *behaviour* above as measured and the *cause* as unconfirmed.
+- **source:** 2026-08-02, `bugs_closed/165` / `bugs_closed/092`, retiring `multipage-website-builder`. Sibling of the `bugfix 003` note that history tables are retention-clocked — record a RATE; this is the same family with a specific, much shorter number and a booby-trapped floor.
+- **added:** 2026-08-02, bugfix_165_reconciliation_deletes lane
