@@ -29,6 +29,15 @@
 //	  (RFC 006 / bugs_closed/150 — a site-wide promoter with three callers made
 //	  the improvement loop call a busy site clean. Exit 1 on findings.)
 //
+//	go run ./cmd/config-key-audit --relay-gaps             < live-workflows.json
+//	  {"findings": [...], "uncovered_relays": [...], "unmatched_registry_entries": [...]}
+//	  Can each DECLARED dispatcher relay still carry every key its handler's
+//	  input_contract names? Checks BOTH allow-lists — the claim query's RETURNING
+//	  projection and the call_agent input_mapping — because a dispatcher has two
+//	  and fixing only the visible one leaves the key dropped (bugs_open/174).
+//	  Needs input_contract in the export. Exit 1 on findings OR on an unmatched
+//	  registry entry, which means an assertion stopped running.
+//
 // --specs answers the ADOPTION question rather than the coverage one: not "who has
 // opted in?" but "who is one line away?". An action whose spec already enumerates
 // every key its live steps carry can opt in with `CheckConfig: true` and assert
@@ -138,6 +147,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--single-owner-actions" {
 		emitSingleOwnerViolations()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--relay-gaps" {
+		emitRelayGaps()
 		return
 	}
 	declared := datahelpers.ListDeclaredConfigKeys()
