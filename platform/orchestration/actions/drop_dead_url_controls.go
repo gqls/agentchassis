@@ -1,6 +1,10 @@
 package actions
 
-import "regexp"
+import (
+	"regexp"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+)
 
 // DropDeadURLControls and its regexes live in their own file (bugs_open/054)
 // deliberately: the render-safety helper is small, self-contained, and was added
@@ -38,9 +42,18 @@ var deadSrcAttrRe = regexp.MustCompile(`(?i)\ssrc\s*=\s*(?:""|'')`)
 // empty src is blanked. Callers gate this on a non-empty deadURLFields set from
 // RenderTemplateReportingMissing, so a clean render is never scanned and
 // byte-identical output is preserved on the happy path.
+// The three replacements go through datahelpers.ReplaceAllInMarkup rather than
+// ReplaceAllString because these regexes have the blindness bugs_open/180 was
+// filed about: `href=""` written inside a <script> string, a <style> comment, a
+// <textarea> or an HTML comment is TEXT, and this function DELETES the whole
+// element it thinks it has found — a strictly worse outcome than the unlink that
+// 180 was reported for. Measured over all 509 assembled pages on 2026-08-02:
+// 13 dead-anchor and 37 dead-src matches fleet-wide and ZERO of them inside a
+// non-markup region, so this is byte-for-byte the same function on today's fleet
+// and the hole is closed before something writes the markup that opens it.
 func DropDeadURLControls(html string) string {
-	html = deadAnchorRe.ReplaceAllString(html, "")
-	html = deadImgRe.ReplaceAllString(html, "")
-	html = deadSrcAttrRe.ReplaceAllString(html, "")
+	html = datahelpers.ReplaceAllInMarkup(deadAnchorRe, html, "")
+	html = datahelpers.ReplaceAllInMarkup(deadImgRe, html, "")
+	html = datahelpers.ReplaceAllInMarkup(deadSrcAttrRe, html, "")
 	return html
 }

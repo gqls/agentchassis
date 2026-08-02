@@ -176,7 +176,13 @@ func RepairPageLinks(html string, index PageURLIndex) (string, []LinkRepair) {
 		return html, nil
 	}
 
-	matches := repairAnchorRe.FindAllStringSubmatchIndex(html, -1)
+	// MarkupMatches, not FindAllStringSubmatchIndex: an <a ...> quoted inside a
+	// <script>, a <style>, a <textarea> or a comment is text, not a link, and
+	// this function's unlink arm would DELETE it (bugs_open/180 — a live tool
+	// lost the anchor it builds at runtime, and the result was still valid
+	// JavaScript). markup_spans.go argues why the fix is a mask rather than a
+	// filter over the matches.
+	matches := MarkupMatches(repairAnchorRe, html)
 	if len(matches) == 0 {
 		return html, nil
 	}

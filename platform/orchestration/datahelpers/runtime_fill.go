@@ -223,6 +223,32 @@ func indexCloseTag(html string, from int, name string) int {
 // over-exemption must not become a source of under-exemption on markup it cannot
 // parse.
 func RuntimeFillSpans(html string) ByteSpanSet {
+	fill, _ := scanSpans(html)
+	return fill
+}
+
+// scanSpans walks html ONCE and answers both span questions the string world
+// asks of this scanner: which bytes lie inside a runtime-fill shell (fill), and
+// which lie inside a region a browser never parses as markup at all (nonMarkup —
+// see markup_spans.go, bugs_open/180). One walk on purpose: two walks over the
+// same grammar is how the eight-copy defect in this file's header began, and the
+// raw-text handling below is already the shared half of both answers.
+//
+// The two sets take OPPOSITE fail-safe directions on markup this cannot parse,
+// and that is not an inconsistency — it follows from who consumes each:
+//
+//	fill      → an EXEMPTION for judges. Degrading wide (a marked element that is
+//	            never closed spans to end of input) means a malformed page falls
+//	            back to the historical whole-input skip, never to a narrower one.
+//	nonMarkup → a KEEP-OFF for writers. Degrading wide (an abort spans to end of
+//	            input) means a writer that cannot understand the rest of the
+//	            document declines to rewrite it, which is link_repair.go's stated
+//	            fail-safe direction: an unrepaired link stays visible and stays
+//	            flagged, a wrongly repaired one becomes prose nobody can find.
+//
+// Both therefore widen under uncertainty; they differ only in what widening
+// protects.
+func scanSpans(html string) (fill, nonMarkup ByteSpanSet) {
 	type frame struct {
 		name   string
 		start  int
@@ -243,14 +269,19 @@ func RuntimeFillSpans(html string) ByteSpanSet {
 		if strings.HasPrefix(rest, "<!--") {
 			e := strings.Index(rest, "-->")
 			if e < 0 {
+				nonMarkup = append(nonMarkup, ByteSpan{i, n})
 				break
 			}
+			// A commented-out anchor is not a link on the page, so a writer must
+			// not rewrite one and a repair count must not include one.
+			nonMarkup = append(nonMarkup, ByteSpan{i, i + e + 3})
 			i += e + 3
 			continue
 		}
 		if strings.HasPrefix(rest, "<!") || strings.HasPrefix(rest, "<?") {
 			g := strings.IndexByte(rest, '>')
 			if g < 0 {
+				nonMarkup = append(nonMarkup, ByteSpan{i, n})
 				break
 			}
 			i += g + 1
@@ -275,6 +306,9 @@ func RuntimeFillSpans(html string) ByteSpanSet {
 
 		tagEnd, selfClosing, ok := scanTagEnd(html, j)
 		if !ok {
+			// An unterminated quote inside a start tag: the rest of the document
+			// cannot be located reliably, so no writer may touch it.
+			nonMarkup = append(nonMarkup, ByteSpan{i, n})
 			break
 		}
 		attrs := html[j : tagEnd-1]
@@ -311,6 +345,10 @@ func RuntimeFillSpans(html string) ByteSpanSet {
 			if marked {
 				spans = append(spans, ByteSpan{i, end})
 			}
+			// The WHOLE element, start tag included: an attribute value can itself
+			// carry markup (`<script data-tpl="<a href='/x'>y</a>">`), and the
+			// close tag can never legitimately open an anchor.
+			nonMarkup = append(nonMarkup, ByteSpan{i, end})
 			i = end
 			continue
 		}
@@ -324,7 +362,7 @@ func RuntimeFillSpans(html string) ByteSpanSet {
 			spans = append(spans, ByteSpan{f.start, n})
 		}
 	}
-	return mergeSpans(spans)
+	return mergeSpans(spans), mergeSpans(nonMarkup)
 }
 
 // mergeSpans sorts and coalesces overlapping ranges so Contains can stop early.
