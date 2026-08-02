@@ -1,0 +1,744 @@
+[
+    {
+        "id": "d8c6adcc-7ce7-4b18-af1b-2f34db616c06",
+        "type": "multipage-website-builder",
+        "status": "experimental",
+        "topics": {
+            "error": "system.errors.{type}",
+            "process": "system.agent.{type}.process",
+            "response": "system.responses.{type}"
+        },
+        "command": null,
+        "version": 1,
+        "category": "orchestrator",
+        "env_vars": [
+        ],
+        "image_tag": "v1.0.1228",
+        "is_active": true,
+        "resources": {
+            "limits": {
+                "cpu": "500m",
+                "memory": "1Gi"
+            },
+            "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+            }
+        },
+        "created_at": "2025-12-06T19:02:26.358753+00:00",
+        "deleted_at": null,
+        "updated_at": "2026-08-02T08:46:43.264577+00:00",
+        "description": "Builds large websites (20+ pages) using batched generation to avoid token limits",
+        "domain_tags": [
+        ],
+        "is_snapshot": false,
+        "usage_count": 0,
+        "capabilities": [
+            "orchestration",
+            "website-builder",
+            "multi-page",
+            "batched-generation"
+        ],
+        "display_name": "Multi-Page Website Builder",
+        "health_config": {
+            "port": 8080,
+            "liveness_path": "/health",
+            "readiness_path": "/ready",
+            "initial_delay_seconds": 30
+        },
+        "task_workflow": null,
+        "agent_category": null,
+        "default_config": {
+            "workflow": {
+                "steps": {
+                    "deploy": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "deployer-agent",
+                            "target_role": "deployer",
+                            "input_mapping": {
+                                "input_data": "input_data",
+                                "site_files": "site_files",
+                                "site_record": "site_record"
+                            },
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "update_timestamps",
+                        "description": "Deploy site to git repository",
+                        "output_field": "deployment_result"
+                    },
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Multipage site build complete"
+                    },
+                    "populate_nav": {
+                        "action": "populate_nav_tables",
+                        "config": {
+                            "input_fields": [
+                                "site_id"
+                            ],
+                            "max_header_items": 8
+                        },
+                        "next_step": "generate_pages_loop",
+                        "description": "Populate navigation tables from page records",
+                        "output_field": "nav_data"
+                    },
+                    "assemble_site": {
+                        "action": "assemble_multipage_site",
+                        "config": {
+                            "pages_field": "all_pages",
+                            "add_navigation": true,
+                            "include_robots_txt": true,
+                            "include_sitemap_xml": true,
+                            "generate_standard_pages": true
+                        },
+                        "next_step": "deploy",
+                        "description": "Assemble pages into complete site with navigation",
+                        "output_field": "site_files"
+                    },
+                    "spawn_deployer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "deployer",
+                            "agent_type": "deployer-agent"
+                        },
+                        "next_step": "call_strategist",
+                        "description": "Spawn deployer agent",
+                        "output_field": "deployer_info"
+                    },
+                    "call_strategist": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "chief-strategist",
+                            "target_role": "strategist",
+                            "input_mapping": {
+                                "input_data": "input_data",
+                                "site_record": "site_record"
+                            },
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "sync_pages_to_db",
+                        "description": "Get page plan from chief strategist",
+                        "output_field": "page_plan"
+                    },
+                    "spawn_strategist": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "strategist",
+                            "agent_type": "chief-strategist"
+                        },
+                        "next_step": "spawn_content_creator",
+                        "description": "Spawn chief strategist agent",
+                        "output_field": "strategist_info"
+                    },
+                    "sync_pages_to_db": {
+                        "action": "sync_pages_to_db",
+                        "config": {
+                            "input_fields": [
+                                "site_record",
+                                "page_plan"
+                            ]
+                        },
+                        "next_step": "populate_nav",
+                        "description": "Sync pages to database and build navigation structure",
+                        "output_field": "db_sync"
+                    },
+                    "update_timestamps": {
+                        "action": "update_site_timestamps",
+                        "config": {
+                            "input_fields": [
+                                "site_record"
+                            ]
+                        },
+                        "next_step": "complete",
+                        "description": "Update site last_built_at and last_deployed_at",
+                        "output_field": "timestamp_update"
+                    },
+                    "ensure_site_record": {
+                        "action": "ensure_site_record",
+                        "config": {
+                            "input_fields": [
+                                "input_data"
+                            ]
+                        },
+                        "next_step": "spawn_strategist",
+                        "description": "Create or retrieve site record from database",
+                        "output_field": "site_record"
+                    },
+                    "generate_pages_loop": {
+                        "action": "loop",
+                        "config": {
+                            "loop_var": "current_page",
+                            "substeps": {
+                                "create_html": {
+                                    "action": "call_agent",
+                                    "config": {
+                                        "agent_type": "html-developer",
+                                        "target_role": "developer",
+                                        "input_mapping": {
+                                            "db_sync": "db_sync",
+                                            "page_plan": "page_plan",
+                                            "input_data": "input_data",
+                                            "current_page": "current_page",
+                                            "page_content": "page_content"
+                                        },
+                                        "timeout_seconds": 180
+                                    },
+                                    "next_step": "extract_links",
+                                    "description": "Convert content to professional HTML page",
+                                    "output_field": "page_html"
+                                },
+                                "extract_links": {
+                                    "action": "extract_and_sync_links",
+                                    "config": {
+                                        "input_fields": [
+                                            "page_html",
+                                            "current_page",
+                                            "site_record"
+                                        ]
+                                    },
+                                    "description": "Extract links from HTML and sync to link registry",
+                                    "output_field": "link_sync"
+                                },
+                                "generate_content": {
+                                    "action": "call_agent",
+                                    "config": {
+                                        "agent_type": "content-creator",
+                                        "target_role": "writer",
+                                        "input_mapping": {
+                                            "page_plan": "page_plan",
+                                            "input_data": "input_data",
+                                            "current_page": "current_page"
+                                        },
+                                        "timeout_seconds": 180
+                                    },
+                                    "next_step": "create_html",
+                                    "description": "Generate content strategy/copy for page",
+                                    "output_field": "page_content"
+                                }
+                            },
+                            "iterate_over": "page_plan.response.plan_data.pages",
+                            "max_iterations": 20
+                        },
+                        "next_step": "assemble_site",
+                        "description": "Generate all pages with content and HTML conversion",
+                        "output_field": "all_pages"
+                    },
+                    "spawn_html_developer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "developer",
+                            "agent_type": "html-developer"
+                        },
+                        "next_step": "spawn_deployer",
+                        "description": "Spawn HTML developer to convert content to pages",
+                        "output_field": "developer_info"
+                    },
+                    "spawn_content_creator": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "writer",
+                            "agent_type": "content-creator"
+                        },
+                        "next_step": "spawn_html_developer",
+                        "description": "Spawn content creator agent for loop iterations",
+                        "output_field": "writer_info"
+                    }
+                },
+                "start_step": "ensure_site_record"
+            },
+            "timeout_seconds": 600
+        },
+        "input_contract": null,
+        "output_contract": null,
+        "image_repository": "docker.io/aqls/agent-chassis",
+        "previous_version_id": null,
+        "idle_timeout_seconds": 0,
+        "orchestrator_workflow": null,
+        "briefing_questionnaire": {
+            "sections": [
+                {
+                    "name": "company_info",
+                    "title": "Company Information",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "company_name",
+                            "label": "Company Name",
+                            "required": true
+                        },
+                        {
+                            "type": "textarea",
+                            "field": "about_us",
+                            "label": "About Us",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "tagline",
+                            "label": "Tagline",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "services",
+                    "title": "Services & Offerings",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "services",
+                            "label": "Services (list of {name, description})",
+                            "required": true
+                        }
+                    ]
+                },
+                {
+                    "name": "team",
+                    "title": "Team & Leadership",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "leadership_team",
+                            "label": "Leadership Team (list of {name, title, bio})",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "portfolio",
+                    "title": "Case Studies & Portfolio",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "case_studies",
+                            "label": "Case Studies",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "contact",
+                    "title": "Contact Information",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "contact_email",
+                            "label": "Email",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "contact_phone",
+                            "label": "Phone",
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "field": "headquarters",
+                            "label": "Location",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "features",
+                    "title": "Site Features",
+                    "questions": [
+                        {
+                            "type": "boolean",
+                            "field": "has_blog",
+                            "label": "Include Blog?",
+                            "default": false
+                        },
+                        {
+                            "type": "boolean",
+                            "field": "has_careers",
+                            "label": "Include Careers?",
+                            "default": false
+                        }
+                    ]
+                }
+            ]
+        },
+        "delegation_preferences": {
+            "fallback_to_self": true,
+            "prefer_delegation": true
+        },
+        "orchestration_workflow": null
+    },
+    {
+        "id": "b28ae126-5ce8-40d7-9dde-03b2ebeaedff",
+        "type": "multipage-website-builder",
+        "status": "experimental",
+        "topics": {
+            "error": "system.errors.{type}",
+            "process": "system.agent.{type}.process",
+            "response": "system.responses.{type}"
+        },
+        "command": null,
+        "version": 2,
+        "category": "orchestrator",
+        "env_vars": [
+        ],
+        "image_tag": "v1.0.1228",
+        "is_active": true,
+        "resources": {
+            "limits": {
+                "cpu": "500m",
+                "memory": "1Gi"
+            },
+            "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+            }
+        },
+        "created_at": "2025-12-21T00:05:48.955281+00:00",
+        "deleted_at": null,
+        "updated_at": "2026-08-02T08:46:43.264577+00:00",
+        "description": "Builds multi-page websites with consistent navigation and header injection",
+        "domain_tags": [
+        ],
+        "is_snapshot": false,
+        "usage_count": 0,
+        "capabilities": [
+            "orchestration",
+            "website-builder",
+            "multi-page",
+            "consistent-navigation"
+        ],
+        "display_name": "Multi-Page Website Builder v2",
+        "health_config": {
+            "port": 8080,
+            "liveness_path": "/health",
+            "readiness_path": "/ready",
+            "initial_delay_seconds": 30
+        },
+        "task_workflow": null,
+        "agent_category": null,
+        "default_config": {
+            "workflow": {
+                "steps": {
+                    "deploy": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "deployer-agent",
+                            "target_role": "deployer",
+                            "input_mapping": {
+                                "input_data": "input_data",
+                                "site_files": "site_files",
+                                "site_record": "site_record"
+                            },
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "update_timestamps",
+                        "description": "Deploy site to git repository",
+                        "output_field": "deployment_result"
+                    },
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Multipage site build complete"
+                    },
+                    "populate_nav": {
+                        "action": "populate_nav_tables",
+                        "config": {
+                            "input_fields": [
+                                "site_id"
+                            ],
+                            "max_header_items": 8
+                        },
+                        "next_step": "generate_pages_loop",
+                        "description": "Populate navigation tables from page records",
+                        "output_field": "nav_data"
+                    },
+                    "assemble_site": {
+                        "action": "assemble_multipage_site",
+                        "config": {
+                            "pages_field": "all_pages",
+                            "input_fields": [
+                                "all_pages",
+                                "db_sync",
+                                "page_plan",
+                                "input_data"
+                            ],
+                            "add_navigation": true,
+                            "include_robots_txt": true,
+                            "include_sitemap_xml": true,
+                            "generate_standard_pages": true
+                        },
+                        "next_step": "deploy",
+                        "description": "Assemble pages into complete site with consistent navigation",
+                        "output_field": "site_files"
+                    },
+                    "spawn_deployer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "deployer",
+                            "agent_type": "deployer-agent"
+                        },
+                        "next_step": "call_strategist",
+                        "description": "Spawn deployer agent",
+                        "output_field": "deployer_info"
+                    },
+                    "call_strategist": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "chief-strategist",
+                            "target_role": "strategist",
+                            "input_mapping": {
+                                "input_data": "input_data",
+                                "site_record": "site_record"
+                            },
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "sync_pages_to_db",
+                        "description": "Get page plan from chief strategist",
+                        "output_field": "page_plan"
+                    },
+                    "spawn_strategist": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "strategist",
+                            "agent_type": "chief-strategist"
+                        },
+                        "next_step": "spawn_content_creator",
+                        "description": "Spawn chief strategist agent",
+                        "output_field": "strategist_info"
+                    },
+                    "sync_pages_to_db": {
+                        "action": "sync_pages_to_db",
+                        "config": {
+                            "input_fields": [
+                                "site_record",
+                                "page_plan"
+                            ]
+                        },
+                        "next_step": "populate_nav",
+                        "description": "Sync pages to database and build navigation structure",
+                        "output_field": "db_sync"
+                    },
+                    "update_timestamps": {
+                        "action": "update_site_timestamps",
+                        "config": {
+                            "input_fields": [
+                                "site_record"
+                            ]
+                        },
+                        "next_step": "complete",
+                        "description": "Update site last_built_at and last_deployed_at",
+                        "output_field": "timestamp_update"
+                    },
+                    "ensure_site_record": {
+                        "action": "ensure_site_record",
+                        "config": {
+                            "input_fields": [
+                                "input_data"
+                            ]
+                        },
+                        "next_step": "spawn_strategist",
+                        "description": "Create or retrieve site record from database",
+                        "output_field": "site_record"
+                    },
+                    "generate_pages_loop": {
+                        "action": "loop",
+                        "config": {
+                            "loop_var": "current_page",
+                            "substeps": {
+                                "create_html": {
+                                    "action": "call_agent",
+                                    "config": {
+                                        "agent_type": "html-developer",
+                                        "target_role": "developer",
+                                        "input_mapping": {
+                                            "db_sync": "db_sync",
+                                            "page_plan": "page_plan",
+                                            "input_data": "input_data",
+                                            "current_page": "current_page",
+                                            "page_content": "page_content"
+                                        },
+                                        "timeout_seconds": 180
+                                    },
+                                    "next_step": "extract_links",
+                                    "description": "Convert content to professional HTML page",
+                                    "output_field": "page_html"
+                                },
+                                "extract_links": {
+                                    "action": "extract_and_sync_links",
+                                    "config": {
+                                        "input_fields": [
+                                            "page_html",
+                                            "current_page",
+                                            "site_record"
+                                        ]
+                                    },
+                                    "description": "Extract links from HTML and sync to link registry",
+                                    "output_field": "link_sync"
+                                },
+                                "generate_content": {
+                                    "action": "call_agent",
+                                    "config": {
+                                        "agent_type": "content-creator",
+                                        "target_role": "writer",
+                                        "input_mapping": {
+                                            "page_plan": "page_plan",
+                                            "input_data": "input_data",
+                                            "current_page": "current_page"
+                                        },
+                                        "timeout_seconds": 180
+                                    },
+                                    "next_step": "create_html",
+                                    "description": "Generate content strategy/copy for page",
+                                    "output_field": "page_content"
+                                }
+                            },
+                            "iterate_over": "page_plan.response.plan_data.pages",
+                            "max_iterations": 20
+                        },
+                        "next_step": "assemble_site",
+                        "description": "Generate all pages with content and HTML conversion",
+                        "output_field": "all_pages"
+                    },
+                    "spawn_html_developer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "developer",
+                            "agent_type": "html-developer"
+                        },
+                        "next_step": "spawn_deployer",
+                        "description": "Spawn HTML developer to convert content to pages",
+                        "output_field": "developer_info"
+                    },
+                    "spawn_content_creator": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "writer",
+                            "agent_type": "content-creator"
+                        },
+                        "next_step": "spawn_html_developer",
+                        "description": "Spawn content creator agent for loop iterations",
+                        "output_field": "writer_info"
+                    }
+                },
+                "start_step": "ensure_site_record"
+            },
+            "timeout_seconds": 600
+        },
+        "input_contract": null,
+        "output_contract": null,
+        "image_repository": "docker.io/aqls/agent-chassis",
+        "previous_version_id": null,
+        "idle_timeout_seconds": 0,
+        "orchestrator_workflow": null,
+        "briefing_questionnaire": {
+            "sections": [
+                {
+                    "name": "company_info",
+                    "title": "Company Information",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "company_name",
+                            "label": "Company Name",
+                            "required": true
+                        },
+                        {
+                            "type": "textarea",
+                            "field": "about_us",
+                            "label": "About Us",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "tagline",
+                            "label": "Tagline",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "services",
+                    "title": "Services & Offerings",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "services",
+                            "label": "Services (list of {name, description})",
+                            "required": true
+                        }
+                    ]
+                },
+                {
+                    "name": "team",
+                    "title": "Team & Leadership",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "leadership_team",
+                            "label": "Leadership Team (list of {name, title, bio})",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "portfolio",
+                    "title": "Case Studies & Portfolio",
+                    "questions": [
+                        {
+                            "type": "json_array",
+                            "field": "case_studies",
+                            "label": "Case Studies",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "contact",
+                    "title": "Contact Information",
+                    "questions": [
+                        {
+                            "type": "text",
+                            "field": "contact_email",
+                            "label": "Email",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "field": "contact_phone",
+                            "label": "Phone",
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "field": "headquarters",
+                            "label": "Location",
+                            "required": false
+                        }
+                    ]
+                },
+                {
+                    "name": "features",
+                    "title": "Site Features",
+                    "questions": [
+                        {
+                            "type": "boolean",
+                            "field": "has_blog",
+                            "label": "Include Blog?",
+                            "default": false
+                        },
+                        {
+                            "type": "boolean",
+                            "field": "has_careers",
+                            "label": "Include Careers?",
+                            "default": false
+                        }
+                    ]
+                }
+            ]
+        },
+        "delegation_preferences": {
+            "fallback_to_self": true,
+            "prefer_delegation": true
+        },
+        "orchestration_workflow": null
+    }
+]
