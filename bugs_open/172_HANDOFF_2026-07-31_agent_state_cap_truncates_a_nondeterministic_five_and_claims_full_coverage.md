@@ -144,3 +144,95 @@ Unknowable — the artefacts are gone.
 - Family: `bugs_open/012`, `bugs_open/171` (an audit-pass limit reporting a capped site clean),
   and MEMORY's *"a `complete` work item is not a repaired artefact"* — every member is a cap
   that reported success.
+
+---
+
+# 2026-08-02 — FIXED (both halves), council APPROVED, awaiting a roll
+
+**Worked by the `bugfix_172_agent_state_cap` lane.** Full account:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_172_agent_state_cap/`.
+Commits `3761a04ca` (fix + tests) and `c8031e284` (a council objection, below).
+Council `d47b826e-6fc6-42ad-a2ef-62b1f1ba0b88` — **APPROVED round 1**, 4 advisory
+objections, none high.
+
+## Everything above is correct. It is also HALF THE DEFECT.
+
+The re-measurement this file asks for holds: **still max 4 types listed against a
+cap of 5** — the count-based cap it names has never fired.
+
+But the same function's **llm_call_log gather has been firing since at least
+2026-07-20**, and this file does not mention it. It issued ONE query for ALL matched
+types under a single shared `ORDER BY created_at DESC LIMIT n`, so rows are allocated
+by **global recency across the whole named set** and the chattiest agent takes the
+entire budget:
+
+| bundles naming | with rows | showing ONE type in the log lines |
+|---|---|---|
+| 4 types | 10 | **10** |
+| 3 types | 10 | **10** |
+| 2 types | 3 | **3** |
+
+**23 of 23.** Reproduced against the live table: `{page-content-writer, council-gate,
+diagnose-agent}` → 10 rows, **all council-gate**; `page-content-writer`'s 18,286 rows
+and `diagnose-agent`'s 324 render nothing, with no marker distinguishing that from an
+agent that made no LLM calls.
+
+**Why this file missed it, recorded because the file itself makes this point:** its
+grep keyed on the count-based shape after 164's grep keyed on the char-based one.
+A shared-budget `LIMIT` is neither. That is the fourth consecutive pass over this
+family narrowing by the shape it happened to search for — and this file's own §"Why
+it is worse than 164 was" §4 is about exactly that failure at file granularity.
+
+**The tell that broke it open:** `count(*)` of the rendered log lines reads HEALTHY —
+a full 10, the cap, in 47 of 72 bundles. Only `count(DISTINCT agent_type)` *within*
+those lines shows all 10 belong to one agent. **A count cannot see a distribution.**
+
+## What shipped
+
+Candidate 1 as written, plus the second half:
+
+- `ORDER BY type` on the DISTINCT listing → the kept set is reproducible.
+- Dropped types are **named** (not just counted — they are known here, unlike the
+  sibling at `diagnose_assemble_bundle_action.go:328` whose wording is otherwise
+  reused near-verbatim); the heading counts kept-vs-named **only when the cap fires**,
+  so the negative control this file asks for stays byte-identical.
+- `ROW_NUMBER() OVER (PARTITION BY agent_type ...)` → a per-type budget, which is what
+  `agent_call_log_limit` and the heading always implied.
+- A gathered type with no rows is **stated**; kept distinct from a type that filled its
+  budget (`bd003f67a`'s coverage-vs-defect distinction).
+- The log gains the **pre-truncation** count; it previously held only the truncated
+  slice, exactly as §3 above says.
+
+Candidate 3 (raise the cap) declined for the reason this file gives.
+
+**Verification.** Seven sqlmock tests induce the cap (it cannot fire in production).
+Four mutations run: three caught; **deleting `ORDER BY type` was NOT** — sqlmock
+replays rows in the test's own order and structurally cannot observe the database's,
+so this file's warning ("a test that runs once cannot see this") applies to the test
+itself. Closed with a strict query-text assertion, plus the live ordering check in the
+lane's RUNBOOK §3. Logged in `WRONG_CALLS.md`.
+
+## Two things the council added, both acted on
+
+- **`llm_reliability` (medium), a real defect in the fix:** my new "no rows" marker
+  said "the table holds nothing for them (this is an answer, not a cap)". `agent_type`
+  was **relabelled 2026-07-26** — `experience-planner`, `feature-implementer` and
+  `fix-implementer` all stop before 07-27 — so a symptom spanning that boundary would
+  be handed a confident "no calls" for an agent with plenty under a former name: the
+  false negative this fix exists to remove, reintroduced by its own wording. Now
+  states what is true and names the boundary (`c8031e284`).
+- **`bug_historian` (medium):** nothing audits for other instances of this shape. The
+  inventory it asked for found a fourth site → **`bugs_open/181`** (three unreported
+  row caps in `diagnose_code_lookup_action.go`, whose sibling cap eight lines above
+  DOES report itself).
+
+## STATUS: still OPEN — fixed and reviewed, NOT yet live
+
+The bar is *fixed AND live*. The chassis has not rolled since the commits, so the
+defect is still reproducible in production. **Every bundle written before it rolls
+carries the starvation, and they are retained ~30 days** — a `LANDMINES.md` entry now
+warns against reading a missing agent in a retained bundle as an uninvolved one.
+
+To finish: roll, then verify at the pod with BOTH controls (positive: a string the
+change added; negative: `ORDER BY created_at DESC$`, expect 0) on **every replica** —
+`bugfix_172_agent_state_cap/RUNBOOK_agent_state_cap.md` §7 has the exact commands.
