@@ -86,9 +86,9 @@ inference was wrong, and it nearly cost a live agent.
 1. **Decide `report-builder`.** Left active deliberately. It is wired but its queue
    has been empty; that is a product question (are reports still a thing?), not a
    cleanup one.
-2. **`intake-orchestrator` + `site-classifier`** — the last two genuinely orphaned
-   agents of the old shape. Same evidence standard as §2. Use `retired_agents/` as
-   the pattern: back up and commit *first*, then `is_active=false, deleted_at=now()`.
+2. ~~**`intake-orchestrator` + `site-classifier`**~~ — **DONE, see §9.** Retired
+   2026-08-02 late. The evidence standard in §2 turned out to be *insufficient* for
+   these two, and the reason is worth reading before you retire anything else.
 3. **`bugs_open/173`** — a refusal on one page aborts a whole multi-page build.
    Owned by the B/C lane; this thread contributed the census.
 4. **Two consumers route on error rather than failing** (`page-build-handler`,
@@ -160,3 +160,77 @@ WHERE d.type = '<agent>';
 - Cases: `bugs_closed/165`, `bugs_closed/135`, `bugs_closed/092`; open: `bugs_open/173`
 - Register: **CTXA-025** in `docs026_concept_register/register/context-assembly.md`
 - Councils, all APPROVED: `a54172b6` (site A), `c69e935a` (B+C), `22cdef56` (aftermath)
+
+---
+
+# 9. UPDATE — 2026-08-02, later: §4.2 is done, and it needed a fourth axis
+
+**Retired:** `intake-orchestrator`, `site-classifier`. `UPDATE 2`, soft
+(`is_active=false, deleted_at=now()`, rows kept). Backup and restore committed
+**before** the DB change, as `5fe6b173a`. Full account in
+`README_multipage-website-builder.md` § "Third retirement";
+restore is `RESTORE_intake_path_orphans.sql` — **they are a pair, restore both or
+neither.**
+
+Post-checks, all clean: gone from an `active_only` lookup · builder menu untouched
+(`pageflow-builder`, `report-builder`) · all 7 live-path agents still active · no
+active config names a retired agent.
+
+## The fourth axis — and §3's lesson has now bitten three times
+
+§3 says *an absence of WORK is not an absence of WIRING*. These two needed one
+more step, because **`intake-orchestrator` is an ENTRY POINT**: it is spawned by
+an operator publishing to `system.agent.generic.requests`, so it has no referrer
+*by definition* and reads as an orphan on every DB axis **whether it is dead or in
+daily use**. Zero rows meant nothing here.
+
+What made it safe was a **file-date comparison in `scripts/`**, not a query:
+`090_new_build/…_intake_orchestrator.sh` last touched **2026-06-21**;
+`020_build_pipeline/082_submit_domain_unified.sh` (**2026-07-30**) routes to
+`domain-submitter` instead. The operator habit **moved**. Filed as a landmine
+(`832c10330`): *an absence of WIRING is not an absence of a CALLER, when the
+caller is a person with a script.*
+
+## Two defects found in the landmine delivery path itself
+
+Found while filing the above — the routine `landmines-sync.py --apply` step.
+
+1. **A `##` heading silently cost TWO entries their delivery.** `HEADING_RE`
+   matched `###` only, so a `##` heading was not a heading: its lines were
+   absorbed into the *preceding* entry and its `**footprint:**` line overwrote
+   that entry's own. Measured: **`UpsertPageForRole` had 0 `doc_notes` rows** —
+   the pages-upsert landmine the 175 lane filed that morning could not reach
+   anyone, because the 172 lane's `##` append hours later swallowed it. Two
+   malformed headings existed; both fixed (`b88cb70f5`), parser hardened and
+   proven by induction (`8781bd811`). 790 → 799 rows.
+2. **`parse()` takes an `on_warn` and both callers passed none**, so every warning
+   it has ever raised went to nobody. Now wired up and partitioned.
+
+### THE FOLLOW-UP THIS LEAVES YOU — 12 landmines that reach nobody
+
+Wiring the warnings up immediately surfaced what the silence was hiding: **12
+entries are SKIPPED for having no `footprint:` line.** They are in `LANDMINES.md`
+and in **no** `doc_notes` row, so no SessionStart hook, no council seat and no
+agent has ever been shown one. See them with `./scripts/landmines-sync.py`:
+
+```
+A migration's verify block made of `SELECT`s cannot stop the `COMMIT`
+Deleting a workflow step: the SUCCESS edge is the one you remember
+Cloudflare answers `Python-urllib` with 403
+`site_components` having rows does NOT mean the chrome works
+A verbatim page is defined by its ROW COUNT
+A splitting/extraction rule that reads only INLINE scripts is blind
+Two migrations can carry the SAME number
+A component template's `{{else}}` can INVENT a business fact
+Decomposing an adopted site with NO `site_components` head
+A structural parity test cannot see an ENCODING
+A `page_rerender` regenerates SECTIONS only when `spec.reason` is set
+Any regex you write against HTML will also match inside `<script>`/`<style>`
+```
+
+**Not fixed here, deliberately:** each needs a `footprint:` written by someone who
+knows what it guards, and guessing would key a landmine to the wrong grep — which
+is worse than the current honest absence. Two of them are load-bearing elsewhere
+(the migration-verify one and the regex-inside-`<script>` one are both cited in
+`MEMORY.md`), so this is not a backlog of stale entries. **A one-off fix is not a
+class fix**: the parser now refuses to be silent, but these 12 predate it.
