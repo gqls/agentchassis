@@ -1607,3 +1607,34 @@ folded in:**
 **Not proceeding to author fences for 111+36 subjects** — that's a real, large undertaking
 or a decision to phase it, not a "carry on" default. Reported the size; next call on scope is
 the owner's.
+
+## 2026-08-02 — checked ownership of the two side items before touching either
+
+**`features_open/028` (rename orphaning).** `who-owns.py` doesn't cover `features_open/` —
+it's scoped to `bugs_open/`/`bugs_closed/` only, confirmed by reading its own output for
+`028` (which resolved to two unrelated `bugs_closed/028` files by the SAME number, a known
+trap, neither relevant). Read the actual file instead: filed 2026-07-30 by this exact lane,
+at the council gate's instruction (`bug_historian` + `architecture` seats, correlation
+`e5673868-...`, same round DOC-068 went through). **Status: FILED, unowned, not designed.**
+It names its own first candidate — a cheap detector query counting orphaned docs per subject
+type — as "start here if only one gets built," but that's a new build, not a check, and
+wasn't what was asked (ownership, not implementation). Left filed and unowned; not picked up.
+
+**`has_visible_area` backfill.** `who-owns.py 157` (the gating bug) resolves cleanly and
+names `staged_component_build` itself as the likely owner — unsurprising, since this lane
+found and fixed 157. But the ITEM in question ("checks owed to every EXISTING fence") is a
+different population than the bug: queried every current fence-carrying PLAN fleet-wide
+(`doc_plans WHERE is_current AND body ~ '```criteria'`) and cross-referenced for
+`has_visible_area` — **30 of 33 fences fleet-wide don't use it**, and the 3 that do are all
+dated 07-30 or later (i.e. authored after the fix, not backfilled into anything older). Those
+30 span many other lanes' own subjects (`gauntlet-round-record`, `vonc-spark-game`,
+`tool-arena-interface`, ...) — editing them unilaterally would be exactly the "compete rather
+than contribute" mistake the ownership-check norm exists to prevent, even though the BUG that
+unblocks this is this lane's own. No existing ticket tracked this (checked `bugs_open/`,
+`bugs_closed/`, `features_open/` by grep first). **Filed as `features_open/029`** rather than
+fixed — same shape as 028 (measured gap, ranked fix candidates, deliberately not designed or
+owned), same precedent this lane already set the same week.
+
+**Neither item picked up for implementation.** Both were genuinely "check before touching,"
+and both checks concluded the honest next step is visibility (filing/leaving-filed), not
+code — consistent with `HANDOFF_2026-08-02`'s own instruction for both.
