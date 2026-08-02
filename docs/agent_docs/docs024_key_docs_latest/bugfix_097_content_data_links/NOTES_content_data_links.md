@@ -143,3 +143,42 @@ not undeploy. Routed there, not worked around here.)
   the field, and ran the shipping function over all 885 production rows. That is
   first-hand verification of the same kind the loop would have performed, on a
   cause the loop has already confirmed once.
+
+## 2026-08-02 — the latent false positive I went looking for, and why I did NOT guard it
+
+After the fix was committed I went back at my own design looking for the thing I
+had reused outside its brief. Found it: `ClassifyLinkScope`'s last arm is
+`default: LinkScopePage`. That is correct for an **href attribute** — anything not
+external, mailto, anchor or asset really is a page link. I feed it a **field
+value**. So in principle a field called `link` holding the words "Read more"
+classifies as a page link and gets reported as a phantom.
+
+This is `016b` §9's own entry from `bugs_open/093`: *a shared predicate written
+for one input shape, reused on another.* Worth measuring before deciding anything.
+
+```
+url-named field values in production: 1299
+  asset      168      external   457      empty     16
+  internal     2      mailto       1      page     655
+
+PAGE-scope values NOT starting with '/'  (the false-positive surface): 0
+```
+
+**All 655 page-scope values begin with `/`.** The surface is empty today, and the
+644 non-page values are removed by the classifier without the code naming any of
+them — which is the same control as the 872-of-885 result, from the other side.
+
+**I did not add a shape guard, and that is a decision rather than an omission.**
+Requiring a leading `/` would change nothing today and would swap a latent false
+POSITIVE for a latent false NEGATIVE: a genuinely relative dead link
+(`about.html`) would go silent. When the whole point of the arm is to *report*,
+under-reporting is the worse failure. The limit is written into the file header
+with the measurement and with the discriminating check (re-run RUNBOOK R1 and look
+at page-scope values that do not start with `/`), so if prose ever does turn up in
+a finding, the evidence for adding the guard arrives with the symptom instead of
+being argued about in the abstract.
+
+**The transferable bit:** "I reused a shared predicate" is not by itself a defect
+and not by itself safe. What settles it is *measuring the input population you are
+actually handing it* — and then writing the measurement down beside the reuse, so
+the next reader inherits the evidence rather than the assumption.

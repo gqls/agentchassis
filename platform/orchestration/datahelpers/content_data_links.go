@@ -60,6 +60,29 @@
 // Fail-open on an empty index, identically to RepairPageLinks: an empty index
 // means "the page set could not be read", never "this site has no pages", and
 // rewriting against one would be rewriting against nothing.
+//
+// THE KNOWN LIMIT, stated because it is a predicate used outside the input shape
+// it was written for — which is a named failure pattern in this estate (016b §9,
+// from bugs_open/093: "a shared predicate written for one input shape, reused on
+// another"). ClassifyLinkScope's final arm is `default: LinkScopePage`, and that
+// is right for an HREF ATTRIBUTE, where anything not external/mailto/anchor/asset
+// really is a page link. Here it is fed a FIELD VALUE, so in principle a field
+// named `link` holding prose ("Read more") would classify as a page link and be
+// reported as a phantom.
+//
+// MEASURED rather than assumed, over every production content_data row on
+// 2026-08-02: of 1,299 url-named field values fleet-wide, 655 classify as page
+// scope and ALL 655 begin with "/" — the false-positive surface is currently
+// EMPTY. The other 644 are removed by the classifier without this file naming any
+// of them: 457 external, 168 asset, 16 empty, 2 anchor, 1 mailto.
+//
+// No shape guard is imposed on top, deliberately. Requiring a leading "/" would
+// change nothing today and would trade a latent false POSITIVE for a latent false
+// NEGATIVE — a genuinely relative dead link ("about.html") would go silent, and
+// under-reporting a dead link is the worse of the two when the report is the whole
+// point. If prose ever does appear in a finding, THAT is the evidence for adding
+// the guard, and the discriminating check is the census in the workstream RUNBOOK
+// (R1): re-run it and look at the page-scope values that do not begin with "/".
 
 package datahelpers
 
