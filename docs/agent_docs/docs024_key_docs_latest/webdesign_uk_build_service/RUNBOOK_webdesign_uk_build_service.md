@@ -181,6 +181,54 @@ Turnstile, no rate limiting, and the origin IP is public. `ugg2.com` is in exact
 that state right now. The discriminator is the **response header** — `cf-ray`
 present ⇒ proxied; `server: nginx/...` ⇒ you are talking to the origin directly.
 
+### Measured state, 2026-08-02 ~23:20 UTC — three of the five rows above have moved
+
+| domain | NS | in front | serving |
+|---|---|---|---|
+| `webdesign.uk` | Cloudflare | **proxied, origin `192.0.2.1`** | **302 → `https://webdesign.co.uk/`** (Page Rule) |
+| `www.webdesign.uk` | — | proxied, `192.0.2.1` | **302**, same rule |
+| `ugg2.com` | Cloudflare | **proxied** (was grey on 07-31) | Worker→B2, `objectKey: ugg2.com/index.html` |
+| `*.ugg2.com` | Cloudflare | **proxied — NEW** | Worker→B2, key per host |
+| `idea.uk` | **Cloudflare** (was Hetzner) | **proxied, SSL `strict`** | **200**; origin cert `CN=idea.uk` (Google Trust WE1) |
+
+**`idea.uk`'s origin is now firewalled** — `116.203.204.115:80` and `:443` are both
+`FILTERED` from a random internet host, while the site serves 200 through
+Cloudflare. That is Option B of the idea.uk handoff, taken and evidently done
+right. Not done by this lane.
+
+> ### ⚠ LANDMINE — your stub resolver's cache makes a live site look DEAD, and `dig @1.1.1.1` will not show you
+>
+> **This cost me a false alarm on 2026-08-02: I told the owner idea.uk was down. It
+> was serving 200 the whole time.**
+>
+> After a domain moves to new nameservers, `systemd-resolved` (127.0.0.53) can hold
+> the **pre-migration** answer for a long time. If the old origin has since been
+> firewalled — which is exactly what a well-executed migration does — then every
+> request from this machine goes to an IP that now silently drops packets, and you
+> get a **total timeout with no HTTP status at all**. There is no error to read.
+>
+> The trap is that the obvious cross-check **agrees with you**: `curl` hangs, and a
+> `dig` looks fine — because `dig +short A x @1.1.1.1` **bypasses the system
+> resolver entirely**. Two tools, two different resolvers, and the disagreement is
+> invisible unless you deliberately ask both:
+>
+> ```bash
+> getent ahosts idea.uk | awk '{print $1}' | sort -u   # what curl ACTUALLY uses
+> dig +short A idea.uk                                  # system resolver
+> dig +short A idea.uk @1.1.1.1                         # authoritative-ish
+> # 08-02: system said 116.203.204.115 (old, firewalled); 1.1.1.1 said the CF anycast pair
+> ```
+>
+> **Before reporting any site down, pin the address and retry:**
+> `curl --resolve host:443:<ip> https://host/` against an IP from `@1.1.1.1`. If
+> that returns 200, the site is up and your resolver is stale —
+> `sudo resolvectl flush-caches`.
+>
+> **The generalisation worth carrying:** a timeout is not evidence about the
+> server. It is evidence about the *path*, and the path starts at your own
+> resolver. `curl` hanging where `openssl s_client -connect <ip>` succeeds is the
+> signature — that pair differ in exactly one step, name resolution.
+
 ### The domain→B2 object key — answered by the 404, not by reading anything
 
 ```bash
@@ -337,3 +385,73 @@ different fixes.
 
 **Gotcha:** Universal SSL covers **one label** — `acme.ugg2.com` is covered,
 `a.b.ugg2.com` is not. Keep preview slugs single-label.
+
+> **DONE 2026-08-02 — and step 2 above was already done before I got there.**
+> The Worker route `*.ugg2.com/*` → `portfolio-sites-router` **already existed**
+> (id `7796166a490d487bbad8583f24e3c7b6`); only the DNS record was missing. I had
+> told the owner both were missing. **`dig` cannot tell a missing DNS record from a
+> missing Worker route — both give you an empty answer.** Ask the API which one it
+> actually is before naming a cause:
+> `GET /zones/{zone}/workers/routes`.
+>
+> Created: `*.ugg2.com` A → `199.59.243.228`, proxied. Proven with two unseen
+> subdomains — see PLAN §6a "RESOLVED". Claim (B) holds; route (ii) is dead work.
+
+## Cloudflare over the API — the token, and what it can and cannot do
+
+**Token: `~/.config/cloudflare/token`** (mode 0600, expires **2026-09-30**). Never
+echo it; read it inline. Every call below is `-H "Authorization: Bearer $TOKEN"`.
+
+```bash
+TOKEN=$(tr -d '\n\r' < ~/.config/cloudflare/token)
+curl -sS https://api.cloudflare.com/client/v4/user/tokens/verify \
+  -H "Authorization: Bearer $TOKEN"          # status:active + expires_on
+```
+
+**It reaches 36 zones** — the whole estate, not just this lane's two. There is no
+per-zone fence, so **name the zone id explicitly in every call** rather than
+looping over `/zones`.
+
+**Measured permissions, 2026-08-02** — the gaps are the useful part:
+
+| endpoint | result |
+|---|---|
+| `/zones`, `/zones/{z}/dns_records` (GET/POST/PATCH) | ✅ works |
+| `/zones/{z}/pagerules` (GET/POST) | ✅ works |
+| `/zones/{z}/workers/routes` (GET) | ✅ works |
+| `/zones/{z}/settings/{ssl,always_use_https}` | ✅ works |
+| `/zones/{z}/rulesets*` — **Redirect Rules** | ❌ `code 10000 Authentication error` |
+
+**So the modern Redirect Rules API is NOT available to this token, but Page Rules
+are — and a Page Rule "Forwarding URL" does the same 302.** That is the workaround;
+it is why the redirect below was created as a Page Rule and not as a Redirect Rule.
+Free plan allows 3 Page Rules per zone. If you need Rulesets, the token needs
+*Zone → Config Rules/Transform Rules → Edit* adding.
+
+**Gotcha:** `comment` on a DNS record is capped at **100 characters** — over it you
+get `code 9313` and the record is **not created**. It reads like a warning; it is a
+hard failure.
+
+### The 302 + holding DNS, as actually applied (2026-08-02)
+
+```bash
+Z=746f81e606d259495b40e40a5316afb7        # webdesign.uk
+# 1. redirect FIRST — closes the exposure before DNS is touched
+curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$Z/pagerules" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data '{
+    "targets":[{"target":"url","constraint":{"operator":"matches","value":"*webdesign.uk/*"}}],
+    "actions":[{"id":"forwarding_url","value":{"url":"https://webdesign.co.uk/","status_code":302}}],
+    "status":"active","priority":1}'
+# 2. then point the origin somewhere unroutable
+curl -sS -X PATCH ".../zones/$Z/dns_records/3f0570fb2f0f45b9979b61779745e8fa" \
+  ... --data '{"type":"A","name":"webdesign.uk","content":"192.0.2.1","proxied":true,"ttl":1}'
+```
+
+**Order matters and the reason is not cosmetic.** Redirect first, DNS second: at no
+point is `webdesign.uk` a hostname that neither redirects nor resolves. Do it the
+other way and there is a window where the domain is simply broken. Doing the
+redirect first also closes the idea.uk exposure *immediately*, since a forwarding
+Page Rule is answered at the edge and the origin is never contacted.
+
+`*webdesign.uk/*` covers the apex, `www`, and every path in one rule — verified on
+`/` and `/checkout`.

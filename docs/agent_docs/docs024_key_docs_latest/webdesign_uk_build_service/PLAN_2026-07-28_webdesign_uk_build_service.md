@@ -490,6 +490,37 @@ route exists that was invisible when this section was written:
 > and (ii) is dead work. It 404s or errors ⇒ the mapping is gated somewhere and
 > (ii) stands.
 
+> **RESOLVED 2026-08-02 — (B) HOLDS. (iii) is adopted; (ii) is dead work.**
+> The owner granted Cloudflare API access and I created the wildcard myself
+> (`*.ugg2.com` A → `199.59.243.228`, proxied, record `6e4c38fde256251edd852370cf2f1ae3`).
+> Two never-before-seen subdomains reached the Worker on the first request:
+>
+> ```
+> https://test.ugg2.com/            -> 404  objectKey: "test.ugg2.com/index.html"
+> https://acme-demo.ugg2.com/some/page.html
+>                                   -> 404  objectKey: "acme-demo.ugg2.com/some/page.html"
+> ```
+>
+> The 404 is the **success** signal, not a failure: it is a genuine B2 `NoSuchKey`
+> for a bucket key named after the host, i.e. the request traversed the whole
+> route and the key derivation of (A) extends to subdomains **and to nested
+> paths**. Nothing was uploaded, so a 200 was never available; a routing miss
+> would have produced no `objectKey` at all.
+>
+> **Universal SSL is confirmed too** — both requests completed over HTTPS with no
+> certificate error, so a proxied `*.ugg2.com` is covered one label deep as
+> predicted. **No box, no certbot, no DNS-01, no scoped token, no renewal timer.**
+>
+> **CORRECTION to the paragraph above, and it cuts against me:** I wrote that both
+> halves (DNS record + Worker route) were missing and told the owner so in chat.
+> Only the DNS half was. The route `*.ugg2.com/*` → script `portfolio-sites-router`
+> **already existed** (route id `7796166a490d487bbad8583f24e3c7b6`). I had measured
+> the *symptom* — no DNS answer for a subdomain — and then asserted a *cause* on
+> both components, when the evidence only ever reached the one. **A missing DNS
+> record and a missing Worker route produce an identical `dig` result**, so the
+> measurement I ran could not have distinguished them; the API listing could, and I
+> had not asked for it. Logged in `WRONG_CALLS.md`.
+
 ### 6a.i Bucket or box? For this product it is ALWAYS the bucket — by construction
 
 The owner's question (2026-07-31): *"where should ugg2.com point — to the s3

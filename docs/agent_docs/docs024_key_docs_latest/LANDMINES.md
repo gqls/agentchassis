@@ -3858,3 +3858,87 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   Fixed in `3137554ff`. (The harness's own 0.8× nag was NOT mute — what was lost
   was the earlier 17.1KB trigger, the per-write delta and the section breakdown)
 - **added:** 2026-08-03, auto-memory index lane
+
+### A stale stub-resolver cache makes a freshly-migrated domain look DOWN — and `dig @1.1.1.1` corroborates the wrong answer
+
+- **footprint:** `curl` / `dig` against any domain whose **nameservers changed
+  recently** · `systemd-resolved` (`127.0.0.53`) · `/etc/resolv.conf` ·
+  `idea.uk` · any origin firewalled to Cloudflare ranges as part of a migration
+- **fires when:** a domain moves nameservers (Hetzner → Cloudflare, registrar →
+  anywhere) **and** the old origin is firewalled in the same change — which is
+  what a *well-executed* migration does. Your resolver still hands out the
+  pre-migration address; that host now silently DROPs packets; every request
+  times out with **no HTTP status, no TLS error, nothing to read**. The site is
+  serving 200 to the rest of the world the entire time
+- **the tell:** none — and there is an **anti-tell that actively confirms the
+  error.** The instinctive cross-check, `dig +short A <host> @1.1.1.1`,
+  **bypasses the system resolver**, so it returns the correct new records. You
+  then hold "DNS is fine" and "the site times out" simultaneously and conclude
+  the server is down. Two tools, two different resolvers, and nothing announces
+  that they disagree. A Cloudflare-fronted host that hangs for **90s** is itself
+  a signal — a genuinely unreachable origin behind Cloudflare returns **522 in
+  ~15s**, so a total hang means you never reached Cloudflare at all
+- **the check:** ask the two resolvers separately and compare, then pin the
+  address before believing any outage:
+  ```bash
+  getent ahosts <host> | awk '{print $1}' | sort -u   # what curl ACTUALLY uses
+  dig +short A <host>                                 # system resolver
+  dig +short A <host> @1.1.1.1                        # differs => you are stale
+  curl --resolve <host>:443:<ip-from-1.1.1.1> https://<host>/   # 200 => site is UP
+  sudo resolvectl flush-caches
+  ```
+  The discriminating signature is **`curl` hanging where
+  `openssl s_client -connect <ip> -servername <host>` succeeds** — those two
+  differ in exactly one step, name resolution. If openssl-by-IP returns 200, the
+  fault is on your side of the wire. **Generalisation: a timeout is evidence
+  about the PATH, not about the server, and the path starts at your own
+  resolver.**
+- **source:** 2026-08-02. I reported `idea.uk` — a live, card-taking site — as
+  down, having run `dig @1.1.1.1` and read its agreement as corroboration. It was
+  serving 200 throughout; `getent` still held the Hetzner address from before the
+  Cloudflare migration. Logged in `WRONG_CALLS.md`;
+  `idea_uk_vm_site/HANDOFF_2026-07-31_cloudflare_decision.md` §7
+- **added:** 2026-08-02, webdesign.uk build-service lane
+
+### `dig` cannot distinguish a missing DNS record from a missing Cloudflare Worker route — both return an empty answer
+
+- **footprint:** `dig +short A <sub>.<zone>` · Cloudflare Worker routes ·
+  `*.ugg2.com/*` · `portfolio-sites-router` · any wildcard-preview scheme
+- **fires when:** you probe a subdomain that should be served by a Worker, get
+  nothing back, and name a cause. A wildcard preview needs **two independent
+  things** — a proxied `*` DNS record **and** a `*.<zone>/*` Worker route — and
+  the absence of *either* produces the identical empty `dig`. So the measurement
+  you just ran cannot support a claim about which one is missing, and it feels
+  like it can
+- **the check:** ask the API, which answers exactly this:
+  `GET /zones/{zone}/workers/routes` (list) — one call, and it names the script
+  bound to each pattern. Then state only what you looked at
+- **source:** 2026-08-02. I measured "no A record for `test.ugg2.com`" and told
+  the owner **both** halves were missing. The route `*.ugg2.com/*` →
+  `portfolio-sites-router` had existed all along; only the DNS record was absent
+- **added:** 2026-08-02, webdesign.uk build-service lane
+
+### The Cloudflare API token reaches all 36 zones, cannot write Redirect Rules, and silently rejects DNS comments over 100 chars
+
+- **footprint:** `~/.config/cloudflare/token` · `api.cloudflare.com/client/v4` ·
+  `/zones/{z}/rulesets` · `/zones/{z}/pagerules` · `/zones/{z}/dns_records`
+- **fires when:** you script a Cloudflare change. Three separate traps.
+  (1) **Scope:** the token is account-wide — **36 zones**, the whole estate, with
+  no per-zone fence. A loop over `/zones` will happily edit someone else's site;
+  name the zone id explicitly.
+  (2) **Rulesets are denied:** `/zones/{z}/rulesets*` returns
+  `code 10000 Authentication error`, so the **modern Redirect Rules API is not
+  available** — while `/pagerules` works fine. A "Forwarding URL" Page Rule
+  delivers the same 301/302 and is the workaround (3 per zone on Free).
+  `code 10000` reads like a bad token; the token is fine, that one product is not
+  in its policy.
+  (3) **DNS `comment` is capped at 100 characters** — over it you get
+  `code 9313` and **the record is NOT created**. It reads like a warning about
+  metadata; it is a hard failure of the whole write
+- **the check:** `GET /user/tokens/verify` proves the token is live but tells you
+  **nothing about which products it can reach** — probe the specific endpoint
+  with a GET before scripting a POST against it. And re-read the response
+  `success` field rather than the HTTP status; Cloudflare returns 200 with
+  `success:false` for permission and validation failures alike
+- **source:** 2026-08-02, applying the webdesign.uk holding redirect
+- **added:** 2026-08-02, webdesign.uk build-service lane

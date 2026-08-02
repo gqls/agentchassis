@@ -17520,3 +17520,62 @@ believing your own rule**. The structural fix was to stop matching on a window o
 surrounding lines and match on the call's own arguments instead: a window makes any
 nearby word evidence, which is how "response" three lines away turned a correct
 request-topic produce into a defect.
+
+---
+
+## 2026-08-02 — webdesign.uk lane, applying Cloudflare records
+
+### I reported a live, card-taking site as DOWN. It was serving 200 the whole time.
+
+**The claim.** Mid-task I re-checked `idea.uk` and found it timing out — 25s, then
+90s, no HTTP status at all. Direct probes to its origin `116.203.204.115:80/443`
+came back `FILTERED`. I wrote "idea.uk is timing out… this is a live earning site"
+and began diagnosing an outage.
+
+**What was actually true.** `idea.uk` was returning **HTTP 200** throughout. It had
+been migrated to Cloudflare since my 07-31 measurement and its origin firewalled to
+Cloudflare ranges — a *correctly executed* migration. My machine's
+`systemd-resolved` still held the pre-migration Hetzner address, so every request
+went to a host that now drops packets on the floor.
+
+**What caught it.** Issuing the request by IP instead of by name: a raw
+`openssl s_client -connect 172.67.132.10 -servername idea.uk` with a hand-written
+`GET` returned `HTTP/1.1 200 OK` immediately. That is the same request `curl` was
+failing to complete, differing in exactly one step — name resolution.
+
+**The cheap check, and why I did not run it.** `getent ahosts idea.uk` — one
+command, and it prints what `curl` actually uses. I skipped it because I *had*
+checked DNS: `dig +short A idea.uk @1.1.1.1` returned the correct new Cloudflare
+records. **That check could not have caught this, because `@1.1.1.1` bypasses the
+system resolver** — so it answered a question about Cloudflare's data, not about my
+machine's. It then read as corroboration. Holding "DNS is fine" and "the host times
+out" together should have been the tell that the two statements were about
+different resolvers; instead I took the conflict as evidence of a server fault.
+
+**The transferable rule.** *A timeout is evidence about the path, not about the
+server, and the path starts at your own resolver.* Before reporting any outage,
+pin the address: `curl --resolve host:443:<ip> https://host/`. Also worth knowing:
+a Cloudflare-fronted host whose origin is genuinely unreachable returns **522 in
+~15 seconds** — my 90-second total hang was itself proof I never reached Cloudflare
+at all, and I read it as "even worse than 522" rather than "a different failure".
+
+### I named a cause for two components when I had measured only one
+
+**The claim.** Told the owner, in chat and in the runbook, that ugg2.com's wildcard
+previews needed **both** a `*` DNS record **and** a `*.ugg2.com/*` Worker route,
+and that neither existed.
+
+**What was actually true.** The Worker route already existed —
+`*.ugg2.com/*` → `portfolio-sites-router`, route id `7796166a...`. Only the DNS
+record was missing.
+
+**What caught it.** `GET /zones/{zone}/workers/routes`, run once I had API access,
+while looking for something else.
+
+**The cheap check.** The same one call. But the deeper error is that **my evidence
+was `dig` returning empty, and a missing DNS record and a missing Worker route
+produce an identical empty `dig`.** The measurement I had was structurally
+incapable of separating the two, and I reported on both anyway. This is the
+`narrow-filter-defines-the-conclusion` shape again: *before naming a cause, ask
+which of the candidate causes your measurement could have ruled out.* If the answer
+is "none of them", the measurement has told you a symptom and nothing more.

@@ -804,3 +804,68 @@ pattern) as a new statically-hosted-sites member. NS change is at **GoDaddy**
 Nominet EPP cannot move it), still pending owner action. Zone details in
 idea_uk_vm_site/RUNNING_NOTES §X.38. Worker route/B2 wiring not touched — that
 is your lane's machinery.
+
+---
+
+## 2026-08-02 ~23:20 UTC — Cloudflare access granted; records applied; §6a claim (B) settled
+
+Owner granted API access (`~/.config/cloudflare/token`, expires 2026-09-30). Applied
+three changes across two zones, and only those two zones — the token reaches all 36.
+
+**Applied.**
+
+| zone | change | id |
+|---|---|---|
+| webdesign.uk | Page Rule `*webdesign.uk/*` → 302 `https://webdesign.co.uk/` | `b8e08b35028315a274b2f5c7fea9154d` |
+| webdesign.uk | apex A `116.203.204.115` → `192.0.2.1`, proxied | `3f0570fb2f0f45b9979b61779745e8fa` |
+| webdesign.uk | **new** `www` A `192.0.2.1`, proxied | — |
+| ugg2.com | **new** `*` A `199.59.243.228`, proxied | `6e4c38fde256251edd852370cf2f1ae3` |
+
+Redirect created **before** the DNS change, deliberately: a forwarding Page Rule is
+answered at the edge, so it closed the idea.uk-under-webdesign.uk exposure
+immediately, and there was no window in which the hostname neither redirected nor
+resolved.
+
+**Verified.**
+```
+https://webdesign.uk/          -> HTTP/2 302  location: https://webdesign.co.uk/
+https://webdesign.uk/checkout  -> HTTP/2 302  location: https://webdesign.co.uk/
+https://www.webdesign.uk/      -> HTTP/2 302  location: https://webdesign.co.uk/
+https://test.ugg2.com/         -> 404  objectKey: "test.ugg2.com/index.html"
+https://acme-demo.ugg2.com/some/page.html
+                               -> 404  objectKey: "acme-demo.ugg2.com/some/page.html"
+```
+
+**§6a claim (B) is settled and holds.** Two never-before-seen subdomains reached the
+Worker on first request, with the object key derived from the host verbatim and the
+nested path passed through. The 404 is the success signal — a genuine B2 `NoSuchKey`
+for a host-named key means the whole route was traversed; a routing miss returns no
+`objectKey` at all. TLS completed with no certificate error on both, confirming
+Universal SSL covers a proxied `*.ugg2.com` one label deep. **Route (ii) — VM,
+certbot, DNS-01, scoped token, renewal timer, nginx regex vhost — is dead work.**
+
+**Two things I got wrong, both logged in `WRONG_CALLS.md`.**
+
+1. I said both halves of the wildcard were missing. The Worker route
+   `*.ugg2.com/*` → `portfolio-sites-router` already existed; only DNS was absent.
+   My evidence was an empty `dig`, which cannot separate those two causes.
+2. **I reported `idea.uk` as down.** It was serving 200 throughout. It has been
+   migrated to Cloudflare and its origin firewalled since 07-31; my
+   `systemd-resolved` still held the old Hetzner address. `dig @1.1.1.1` showed the
+   correct new records and I read that as corroboration — but it bypasses the
+   system resolver, so it was answering a different question. Caught by issuing the
+   request by IP with `openssl s_client`, which returned 200 instantly.
+
+**idea.uk state change, measured not assumed** (recorded fully in that lane's
+handoff §7): NS now Cloudflare, proxied, SSL mode `strict`, origin cert
+`CN=idea.uk` (Google Trust WE1, verify 0), and `116.203.204.115:80/443` **FILTERED**
+from the open internet. Option B taken and its firewall step done properly. The
+real-IP nginx config remains **[UNMEASURED]** — no external probe can distinguish a
+working per-visitor rate limiter from a single global bucket, so it has to be
+checked on the box.
+
+**Token permissions, measured.** DNS, Page Rules, Worker routes (read) and zone
+settings all work. `/zones/{z}/rulesets*` returns `code 10000 Authentication error`
+— the **modern Redirect Rules API is not reachable**, which is why the redirect is a
+Page Rule. Also: DNS record `comment` is capped at 100 chars and returns `code 9313`
+with **no record created** — a hard failure that reads like a metadata warning.

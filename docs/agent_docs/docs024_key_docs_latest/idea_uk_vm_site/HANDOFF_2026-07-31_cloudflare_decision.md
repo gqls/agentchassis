@@ -159,3 +159,68 @@ done
 `cf-ray` present ⇒ proxied. `server: nginx/...` with no `cf-ray` ⇒ you are talking
 to the origin directly. **Run it per domain** — sharing an owner, a provider or a
 runbook does not mean sharing an ingress.
+
+---
+
+## 7. UPDATE 2026-08-02 — §3's decision has been TAKEN: idea.uk is now behind Cloudflare
+
+Measured ~23:20 UTC by the `webdesign_uk_build_service` lane while adding records
+to two other zones. **Not done by this lane, and nothing here was changed by it.**
+This section records what is true now; §1–§6 above are left intact as the state on
+07-31, which is what makes the change readable.
+
+| | 2026-07-31 | 2026-08-02 |
+|---|---|---|
+| NS | Hetzner | **Cloudflare** (`alexis`/`leah`) |
+| A | `116.203.204.115` bare | **CF anycast**, record `116.203.204.115` **proxied** (+ proxied AAAA) |
+| origin `:80`/`:443` from the open internet | reachable | **FILTERED** |
+| zone SSL mode | n/a | **`strict`** |
+| origin certificate | Let's Encrypt | `CN=idea.uk`, issuer Google Trust Services WE1, `Verify return code: 0` |
+
+**So Option B was chosen, and its step 2 — "firewall 443/80 to Cloudflare's ranges
+only" — is done and verified.** The origin IP is no longer directly reachable, so
+the "a proxy in front of an open origin is decoration" failure mode is closed.
+`strict` mode is also correct and is passing, which means the origin certificate is
+valid and trusted rather than self-signed.
+
+### The one follow-up that may still be outstanding — and it fails silently
+
+**§2 step 1, the real-IP configuration, is UNVERIFIED from outside.** [UNMEASURED]
+I cannot read the box's nginx config from here, and **no external probe can tell
+you whether `set_real_ip_from` is configured** — a working rate limiter and a
+globally-bucketed one respond identically to any request you are willing to send.
+
+This is now the *live* risk rather than a hypothetical one. §2 warned that going
+orange without it makes §4a's described failure **actually true**; the zone went
+orange, so if the module was not applied in the same change, `limit_req` is keyed
+on Cloudflare edge addresses today and **still looks like a working rate limiter**.
+
+Check it on the box, not from outside:
+
+```bash
+grep -rn 'set_real_ip_from\|real_ip_header' /etc/nginx/ | head
+# and the discriminating check from §2 — from TWO networks, not one:
+#   awk '{print $1}' /var/log/nginx/access.log | sort -u | wc -l     # must be > 1
+```
+
+`count(DISTINCT ip) > 1` is the whole test. One test machine cannot tell a constant
+from a working key — the `bugs_open/139` landmine, 83/83 identical rows.
+
+### A measurement trap this move creates for everyone else
+
+While confirming the above I **wrongly concluded idea.uk was down** and was about
+to report an outage. It was serving 200 throughout. My machine's `systemd-resolved`
+still held the **pre-migration** address, and that address is now firewalled — so
+every request timed out with no HTTP status to read, while `dig @1.1.1.1` (which
+bypasses the system resolver) showed the correct new records and thereby
+*corroborated* the wrong conclusion.
+
+**Anyone touching this box in the days after the migration will hit this.** Pin the
+address before believing an outage:
+
+```bash
+getent ahosts idea.uk | awk '{print $1}' | sort -u        # what curl really uses
+curl --resolve idea.uk:443:<ip-from-1.1.1.1> https://idea.uk/   # want HTTP 200
+```
+
+Recorded fleet-wide in `LANDMINES.md` and in `WRONG_CALLS.md`.

@@ -542,3 +542,53 @@ the security section that's built on the wrong assumption, and the two sensible
 options with the traps in each. I changed only facts in their documents and left
 every decision alone — it isn't my lane, and pulling someone's security plan out
 of a live earning service from the outside isn't a correction, it's a decision.
+
+---
+
+**2026-08-02, later — the two domains are now actually wired up.**
+
+You gave me Cloudflare access, so I've done the things I'd previously written up as
+instructions for you. Three changes, on webdesign.uk and ugg2.com only.
+
+webdesign.uk now sends everyone to webdesign.co.uk with a temporary redirect, and
+I've pointed it at a dead address on purpose. That second part matters more than it
+sounds: until tonight, webdesign.uk was still serving the idea.uk shop, and because
+that software doesn't check which domain it's being asked for, someone could have
+placed a real order through it. The redirect alone would have hidden that, but it
+would have been the only thing standing in the way. Now if the redirect were ever
+switched off or mis-configured, the domain simply fails instead of quietly selling
+something. I did the redirect first and the address change second, so there was no
+moment where the domain was just broken.
+
+ugg2.com previews now work, and this settles the open question from last week. I
+added the wildcard record, and two made-up subdomains reached the storage bucket on
+the first try, each looking for a file named after itself. That means we can give
+every customer their own preview address with no setup per customer — **no server,
+no certificates, nothing to renew.** A whole chunk of planned work just disappeared.
+
+Two corrections I owe you.
+
+First, I told you ugg2.com needed two things and had neither. It needed one — the
+other half was already in place and had been all along. My evidence couldn't
+actually tell the two apart, and I should have said so rather than naming both.
+
+Second, and worse: partway through I told you idea.uk had gone down. It hadn't. It
+was working perfectly the entire time. What happened is that you've moved idea.uk
+onto Cloudflare since I last looked, and locked the old server so only Cloudflare
+can reach it — which is exactly right, and is the safer option I'd recommended. But
+my machine was still remembering the old address, so everything I sent went to a
+door that's now bricked up. I checked DNS, saw the correct new answers, and took
+that as confirmation the problem was at your end. It wasn't; that check was looking
+somewhere else entirely. I've written the trap down properly because anyone else
+touching that box this week will hit the same thing.
+
+One genuine loose end on idea.uk, and it's the kind that doesn't announce itself.
+When a site moves behind Cloudflare, the server needs a small configuration change
+or it stops being able to tell visitors apart — everyone starts looking like the
+same person, and the anti-abuse limit becomes one shared bucket that still *looks*
+like it's working. I can't check that from outside; nobody can. It needs a look on
+the machine itself. If whoever did the migration also did that step, there's nothing
+to do.
+
+Still yours to decide: the price (I've recommended £1,200), the correction fee, and
+the VAT position.
