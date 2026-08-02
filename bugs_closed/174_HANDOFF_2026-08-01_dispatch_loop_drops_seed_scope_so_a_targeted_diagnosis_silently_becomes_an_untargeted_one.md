@@ -342,3 +342,62 @@ The two uncovered relays are deliberate and must not be registered unread — se
 the ticket's fix-candidate section and WFA-007's landmine.
 
 **MOVED TO `bugs_closed/`.**
+
+---
+
+## ADDENDUM 2026-08-02 19:20 — the verification run's VERDICT says `CONFIRMED`, and it did NOT confirm this bug's mechanism. Do not read it as corroboration.
+
+The verification diagnosis (`12fdf121`) completed at 18:58 with
+`outcome: CONFIRMED`. **That verdict is about a different occurrence**, and a
+future reader who sees "CONFIRMED" on this correlation and stops there will draw
+the wrong conclusion — so it is written down here.
+
+**What it actually confirmed:** a 2026-07-29 request
+(`850b04e2` / `cd05cca6`) that failed *loudly* with
+`diagnose_assemble_bundle: no scope (tried "route.scope.Symbols",
+"input_data.seed_scope", then code_results)` — all three scope sources NULL.
+That is the **hard-error** path, not this bug's silent-substitution path.
+
+**What it explicitly did NOT explain.** Its own `symptom_check` marks all three
+of my symptom clauses `explained: false`, and says why:
+
+- *"A value read from a jsonb column reaches an action as JSON text"* →
+  *"the confirmed occurrence shows the opposite … NULL, not JSON text. This clause
+  describes a stringified-text case this evidence does not exhibit."*
+- *"the column scan stringifies every []byte"* → *"Not tested here —
+  `query_database`'s scan code is not in scope (a code_request for
+  'query_database' matched 0 symbols by name and 0 by content) … **neither
+  confirmed nor refuted by this evidence**."*
+- *"…where that text is turned into a scope or silently discarded"* → *"all three
+  fallback sources were genuinely NULL/absent from the start, so
+  `ExtractStringListHelper` received nil/empty input and correctly returned an
+  empty scope — this is upstream absence, not a present value being mis-coerced."*
+
+**This is the loop behaving well, not badly.** It retrieved historical runtime
+evidence, found that the evidence did not exhibit the mechanism I asserted, and
+said so instead of confabulating agreement. A `CONFIRMED` outcome with
+`explained: false` on every clause of the submitted symptom is a *distinction the
+verdict schema is designed to draw*, and it drew it correctly.
+
+**Why this does not weaken the fix.** The mechanism claim does not rest on this
+verdict and never did — it rests on **direct measurement of this very run**:
+
+```
+jsonb_typeof(collected_data->'input_data'->'seed_scope')  ->  string
+```
+
+The loop could not have reached that: it reads `data_requests` and historical
+orchestration rows, and the only occurrence in its window predates the fix, when
+the key never arrived at all (hence NULL, hence nothing to stringify). Direct
+observation of the live row beats retrieval of a historical row that does not
+contain the phenomenon.
+
+**Two things worth carrying forward.** (1) The symptom I submitted was written as
+a *vehicle for verifying the plumbing* — chosen because it named symbols I could
+assert on — not as a genuine diagnosis request. That is a legitimate use of the
+trigger, but it means the verdict is answering a question I did not really ask,
+and the verdict text says so more clearly than I would have. (2) The loop reports
+`query_database` **matched 0 symbols by name and 0 by content** in the code index.
+If that is true rather than a scoping artefact, the index cannot reach
+`QueryDatabaseAction` — which is worth a look by whoever owns the code index, and
+is unrelated to this bug.

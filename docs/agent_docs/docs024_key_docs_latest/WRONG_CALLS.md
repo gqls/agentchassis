@@ -17036,3 +17036,45 @@ before/after pair in commit `59f3c67dd`'s message, then did it again in the NOTE
 paragraph describing the trap. It is in MEMORY as a known landmine. Knowing a
 trap and noticing you are in it are different skills; the working defence was a
 control that failed loudly, not recall.
+
+---
+
+## 2026-08-02 — my own progress-poller read a field that does not exist, for 30 minutes, and printed "not yet" (bugfix_174 lane)
+
+**The claim.** Verifying `bugs_open/174` live, I backgrounded a poller to watch the
+diagnosis run and tell me when the scope arm resolved:
+
+```bash
+SELECT coalesce(collected_data->'assembled'->>'scope_source','-') ...
+```
+
+**It read the wrong field.** The step is named `assemble_bundle` and its
+`output_field` is **`bundle`** — so the real path is
+`collected_data->'bundle'->>'scope_source'`. My path resolved to NULL on every
+sample, `coalesce` turned that into `-`, and the poller printed `-` **sixty times
+over thirty minutes**, including **38 samples taken after the run had COMPLETED**
+with `scope_source` populated the whole time.
+
+Had I trusted it, I would have reported "the scope arm never resolved" about a run
+where it resolved correctly at 18:46:59, one minute in.
+
+**What caught it.** Not the poller — nothing about its output looked wrong; `-`
+reads exactly like "not yet". I caught it because I separately ran
+`SELECT jsonb_object_keys(collected_data)` to find out where the value lived, saw
+`bundle` and no `assembled`, and queried directly.
+
+**The cheap check that would have caught it:** before polling a path, **assert the
+path exists once** — `jsonb_object_keys(collected_data)`, or simply require the
+first sample to be non-NULL for *some* field you know is populated. A poller with
+no positive control cannot distinguish "not yet" from "wrong path", and it will
+patiently report the first for as long as you let it.
+
+**The shape worth keeping, and the reason this one is embarrassing:** this is the
+**same failure mode as the bug I was fixing**, committed by me while fixing it. In
+174, a lost parameter reads as "the caller supplied nothing"; in my poller, a
+wrong path reads as "the value has not arrived yet". Both are **an absence that is
+indistinguishable from a legitimate state**, and in both cases the remedy is the
+same — *make the mechanism say which branch it took*, which is precisely the fix I
+had just written into `diagnose_assemble_bundle` and did not think to apply to my
+own instrument. `coalesce(..., '-')` is the anti-pattern in miniature: it converts
+"I could not find this" into a value that looks like data.
