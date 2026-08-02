@@ -16793,3 +16793,71 @@ reach a branch that was arithmetically unreachable from the start. Softened by w
 round DID witness (tolerate/retry live, the unreadable arm's honest accounting, the veto
 short-circuit) — but those are consolation findings; the thing I paid for was not
 purchasable at that cap.
+
+---
+
+## 2026-08-02 — I told a council twice that a clobber path was unreachable, having measured two populations that could not answer the question (bugfix_168 lane)
+
+**The claim.** In council rounds 1 and 2 (`abd9b119`) I wrote that my change's one behaviour
+change — `deploy_image_asset` writing to `og-card.png` instead of `og_card.png` for a
+brand-head purpose — was *"measured as currently unreachable"* and *"latent-path correction,
+not live traffic"*. The `guardian` seat objected anyway at medium; on round 2
+`bug_historian` escalated it to **high and gated the whole submission** on it.
+
+**They were right and I was wrong.** Eleven open `undeployed_asset` work items carry
+`purpose IN ('og_card','favicon')` with **`mode` NULL**, two of them at status `detected`,
+which `triage_detect_items` promotes into the build queue. `asset-deployer`'s `check_mode`
+only diverts `mode == "brand_head"`, so those items fall straight through to
+`deploy_image_asset`. Under my change they would have replaced a live site's social card via
+a git commit that runs before any lock or provenance guard.
+
+**Why my measurement could not have found it.** I measured (a) that
+`check_undeployed_assets` no longer *raises* brand-head items — true since `bugs_open/142` —
+and (b) that every variable-purpose *reader* resolves through `site_plan_imagery`, whose
+reachable purposes are `hero`/`icon`/`illustration`/`sprite_sheet`. Both measurements were
+correct, carefully denominatored, and **about the wrong population**. (a) is about items
+created *from now on*; (b) is about *readers*, and the exposure is in a *writer*. Neither
+can see an item that already exists.
+
+**The cheap check that would have caught it, and took one query:** when you change what a
+writer DOES with an input, enumerate **the standing queue of things that already carry that
+input** — not the predicate that decides whether new ones are created. `SELECT ... FROM
+site_work_items WHERE spec->>'purpose' IN (...) AND status NOT IN (terminal)`. A predicate
+change stops the tap; it does not empty the bath, and **nothing in this platform sweeps a
+queue for items whose defining predicate has since moved**.
+
+**The shape worth keeping — a scope-out inherited from a closed bug expires silently.** My
+"unreachable" came from reasoning that 142 had fixed the detector. It had. The items 142's
+fix stopped creating were still sitting there from before it, and `142` had no reason to
+mention them because under the *old* code they were harmless. **A previous fix's "this is now
+safe" is scoped to the code that was live when it was written**; my change moved the code and
+silently un-scoped it. Related and now confirmed a second time:
+`a-model-upgrade-can-invert-a-closed-bugs-premise`.
+
+**What actually caught it:** answering an objection I believed was already refuted. I ran the
+query to *demonstrate* unreachability for round 3 and it returned 11 rows. Had the seats
+accepted my round-1 assurance, this would have shipped.
+
+## 2026-08-02 — my own council submission text became rows in the table I was measuring (bugfix_168 lane)
+
+**The claim.** Checking whether the `deploy_path` override is ever used, I ran
+`SELECT count(*) FROM orchestration_states WHERE collected_data::text LIKE '%deploy_path%'`
+and got **9** — apparently contradicting the 128 lane's "zero orchestrations in history",
+which I had already repeated to the council twice.
+
+**All nine were my own submissions.** A council run stores the submission JSON in
+`collected_data`, and my `rationale` discusses `deploy_path` at length. The correct count of
+orchestrations that actually *set* the field is **zero** (`LIKE '%"deploy_path":"%'` → 0), so
+the inherited claim survived — but for a moment I believed I had falsified it.
+
+**The cheap check:** when measuring a `::text LIKE` over a table that stores agent
+prompts, plans or submissions, **exclude the rows your own action created** — here, any row
+carrying `input_data.fix_correlation_id` or `input_data.symptom`. Better, match the field's
+JSON *shape* (`"key":"value"`) rather than the bare word, so prose about a key cannot score
+as a use of it.
+
+**The shape worth keeping.** This is the mirror of the known trap that prompt text scores as
+the behaviour it describes: here it was *my own review paperwork* polluting the evidence
+table, and the more thoroughly I had argued the point in the submission, the more rows it
+generated. Related: `prompt-text-poisons-its-own-detector`,
+`declaring-a-key-silences-your-own-detector`.

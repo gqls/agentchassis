@@ -65,22 +65,75 @@ a **git commit that runs before any provenance guard** — see LANDMINES.md § *
 asset's provenance UPSERT is not guarding the asset — the git commit already ran"*, and
 `bugs_open/143`.
 
-**Why nothing is broken today — measured, not assumed (2026-08-02):**
+> ## CORRECTED 2026-08-02, hours after filing — FINDING B IS REACHABLE, AND IS NOW FIXED IN CODE
+>
+> **This section originally read "Why nothing is broken today", and it was WRONG.** It is kept
+> below, struck through, because the way it was wrong is the useful part.
+>
+> **What I measured:** (a) that `check_undeployed_assets` no longer *raises* brand-head
+> `undeployed_asset` items, and (b) that every variable-purpose *reader* resolves through
+> `site_plan_imagery`, whose reachable set holds no brand-head purpose. Both true, both
+> irrelevant to the question.
+>
+> **What I failed to measure: the STANDING QUEUE.** The predicate that stops new items being
+> raised says nothing about items raised *before* it changed, and nothing sweeps a queue for
+> items whose defining predicate has since moved.
+>
+> ```sql
+> SELECT status, s.domain, spec->>'mode' AS mode, spec->>'purpose' AS purpose, created_at::date
+>   FROM site_work_items swi JOIN sites s ON s.id = swi.site_id
+>  WHERE item_type='undeployed_asset' AND spec->>'purpose' IN ('og_card','favicon')
+>    AND status NOT IN ('complete','cancelled','rejected');
+> ```
+>
+> **11 rows. `mode` is NULL on every one. Two are at status `detected`, which is
+> dispatchable** — `triage_detect_items` promotes `detected` into the build queue.
+> dartsonline.com ×2 (2026-07-29), robot-hands.com ×9 (2026-07-18/19), all predating the
+> `bugs_open/142` fix.
+>
+> And `asset-deployer`'s `check_mode` step only diverts `input_data.mode == "brand_head"`.
+> These items have no mode, so they **fall through to `deploy_asset` → `deploy_image_asset`
+> with `purpose=og_card`** and `asset_key` NULL. Under the pre-168 code that wrote
+> `og_card.png` — litter. Under 168's unified derivation it writes **`og-card.png`: the live
+> social card, replaced, by a git commit that runs before any lock or provenance guard.**
+>
+> **So the council's `bug_historian` (high) and `guardian` (medium) seats were right, and my
+> round-2 rationale contained a false reachability claim.** The guard is shipped, not
+> deferred: `deploy_image_asset` now REFUSES a brand-head purpose (finding B's candidate 1),
+> before the storage-URI resolution and before any download or commit.
+>
+> **There is no exposure window,** which is the one thing that went right by accident: the
+> path unification is not live either (pod-verified on `v1.0.1228`), so the clobber and its
+> refusal ship in the **same image**.
+
+~~**Why nothing is broken today — measured, not assumed (2026-08-02):**
 `check_undeployed_assets` excludes brand-head purposes from its generic half
 (`AND NOT (COALESCE(a.purpose,'') = ANY($2::text[]))`) and routes them to
 `needs_brand_head_assets`, whose repair is **re-derivation**. And every variable-purpose
 reader resolves through `site_plan_imagery`, whose reachable purpose set is
 `hero`/`icon`/`illustration`/`sprite_sheet` — **163 rows, zero brand-head** (denominator run:
 the same join unfiltered returns those 163). So no live path routes a brand-head purpose to
-this action.
+this action.~~
 
 ## Fix candidates, ordered by what closes the door
 
-1. **Make the deployer refuse a purpose it does not own.** `deploy_image_asset` returns a
-   refusal (not an error) when `storage.IsBrandHeadPurpose(purpose)` and no explicit
-   override is present, naming `derive_brand_head_assets` as the writer. Makes the bad state
-   unrepresentable at the only moment anyone is watching, and gives
-   `IsBrandHeadPurpose` — which 168 left with **zero production callers** — a real job again.
+1. ~~**Make the deployer refuse a purpose it does not own.**~~ **DONE 2026-08-02, shipped in
+   the same commit as the change that made it necessary** (council `abd9b119` round 2, gating
+   objection from `bug_historian`). `deploy_image_asset` returns a refusal — a completed
+   result carrying the reason, not an error, so the item resolves instead of retrying against
+   a guard that will never let it through — when `storage.IsBrandHeadPurpose(purpose)`, before
+   the storage-URI resolution and before any download or commit. Pinned by
+   `TestDeployImageAssetRefusesBrandHeadPurposes`, which asserts the guard EXISTS, that it
+   precedes `DownloadOptimizeAndPrepare` / `sendGitCommitRequest` / `DeployedAssetPath`
+   (a guard that fires after the commit is not a guard), and that it returns a refusal rather
+   than an error. Both properties mutation-proven: deleting the guard fails it, and *moving it
+   after the download* fails it on ordering alone. This also gives `IsBrandHeadPurpose` — which
+   168 had left with **zero production callers** — a real job again, closing the `reuse_agent`,
+   `guardian` and `prior_art_librarian` notes about a dormant predicate.
+   **This leaves the 11 queued items harmless rather than repaired**: they will now resolve
+   with a reason instead of clobbering. Whether they should also be re-pointed at
+   `mode=brand_head` (re-derivation, which is what they actually want) is a data question left
+   for the owner — the code no longer depends on the answer.
 2. **Route `deploy_path` through the derivation instead of around it**: keep the override but
    require it to be *recorded* where readers can see it (`assets.storage_path` /
    `assets.filename` already exist and are populated on 78 of 267 active rows). Then a

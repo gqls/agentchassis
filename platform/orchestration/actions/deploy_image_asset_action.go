@@ -109,6 +109,46 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// REFUSE a brand-head purpose. This action is not the writer for favicon /
+	// og_card: derive_brand_head_assets_action composes them from the site logo
+	// and commits them under fixed names. Deploying an arbitrary image to those
+	// paths would replace a site's real favicon or social card.
+	//
+	// WHY THIS IS A REFUSAL AND NOT A COMMENT (bugs_open/179 finding B). Once
+	// this action resolves paths through storage.DeployedAssetPath, a brand-head
+	// purpose lands on the SAME path the deriver publishes — so what used to be
+	// an inert orphan (`og_card.png`, referenced by nothing) becomes an
+	// overwrite of the live artefact, committed to git before any provenance or
+	// lock guard runs. The path unification is right; shipping it without this
+	// refusal would not be.
+	//
+	// IT IS REACHABLE, which is why it ships in the same image as the change
+	// that makes it dangerous. Measured 2026-08-02: 11 open `undeployed_asset`
+	// items carry purpose favicon/og_card with NO `mode`, two of them at status
+	// `detected`. asset-deployer's `check_mode` only diverts `mode=brand_head`,
+	// so those fall through to this step. They predate the bugs_open/142 fix
+	// that stopped check_undeployed_assets raising them, and nothing sweeps a
+	// queue for items whose defining predicate has since changed.
+	//
+	// A refusal, not an error: the platform's convention for an action that
+	// declines is a completed result carrying the reason, so the work item
+	// resolves instead of retrying for ever.
+	if storage.IsBrandHeadPurpose(purpose) {
+		logger.Warn("refusing to deploy a brand-head purpose — this action is not its writer",
+			zap.String("purpose", purpose),
+			zap.String("asset_key", assetKey),
+			zap.String("published_path", storage.BrandHeadAssetPaths[purpose]),
+			zap.String("writer", "derive_brand_head_assets"))
+		return map[string]interface{}{
+			"deployed": false,
+			"skipped":  true,
+			"refused":  true,
+			"reason": fmt.Sprintf("purpose %q is a brand-head artefact published at %s by "+
+				"derive_brand_head_assets, not by this action; re-derive it (mode=brand_head) "+
+				"instead of deploying over it", purpose, storage.BrandHeadAssetPaths[purpose]),
+		}, nil
+	}
+
 	// Resolve storage URI
 	// Priority: inputs.Get("s3_uri") (from input_fields) → findStorageURI (legacy lookup)
 	storageURI := inputs.Get("s3_uri")
