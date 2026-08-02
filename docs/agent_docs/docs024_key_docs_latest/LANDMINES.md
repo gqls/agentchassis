@@ -3303,3 +3303,45 @@ sequence ABSENT silently becomes a search for the character it decodes to, which
 is present. Build the needle by concatenation (`` `\` + "u003c" ``) and spell it
 in words in prose. It fired four times in one session, including inside the
 paragraph warning about it.
+
+### A migration number is not yours because you named a file — it is yours when the LEDGER says so, and applying by hand never claims it
+
+- **footprint:** `docs/agent_docs/sql_for_agents/NNN_*.sql` · `schema_migrations` ·
+  `scripts/migration/run-migrations.sh` · `--record-only` · `kubectl exec … psql -f`
+- **fires when:** you pick the next number with `ls docs/agent_docs/sql_for_agents/ | sort -n | tail`,
+  write `NNN_your_thing.sql`, and apply it the fast way — piping it straight into
+  `psql` — because `--apply` takes **every** pending file and other threads' halves
+  are sitting in there (67 of them, measured 2026-07-31). Both halves of that are
+  the house-recommended reflex, and together they lose you the number.
+- **why the wrong result looks exactly like the right one:** your SQL committed.
+  The guards passed. The config is correct. Nothing anywhere says *taken*, because
+  the only record of a number being claimed is a `schema_migrations` row keyed on
+  **filename** — and a hand `psql` run writes none. The directory listing you read
+  is shared mutable state with no reservation step, so it answers "what existed a
+  moment ago", never "what is free". Measured 2026-08-02: I created `291_` at
+  18:58, another session created a **different** `291_` at 19:03 and put it through
+  the runner at 19:04:24. Theirs is recorded; mine was pending the whole time. It
+  is not a race I lost by five minutes — **I never entered it.**
+- **the check, before you type the number:** ask the ledger, not the directory, and
+  ask it for the numbers that are *spoken for* rather than the ones on disk —
+  `SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 5;` — then
+  reconcile against `ls`. A number present on disk but absent from the ledger is
+  **unclaimed**, and that includes yours.
+- **the check, after you apply by hand:** record it the same minute, or it stays
+  pending for ever and the next `--apply` replays it:
+  `./scripts/migration/run-migrations.sh --record-only NNN_your_file.sql --note '<what you verified>'`.
+  The `--note` is the point — it is the only place the by-hand provenance survives.
+  A dry run (`./scripts/migration/run-migrations.sh`, no flags) lists your file as
+  pending and probes it; "pending" there means *either* not applied *or* applied
+  and never recorded, and the runner's own footer says so.
+- **do not renumber a file that is already recorded, and do not rewrite transcripts
+  when you renumber one that is not.** Renumbering an unrecorded file is free
+  (`mv` + fix its internal `RAISE`/`snapshot_agent` strings — grep the number, there
+  were five in mine). But error output you already pasted into NOTES was printed
+  under the old number: leave it, and say why. A tidier record that disagrees with
+  what the system actually said is worse than a visible discrepancy.
+- **source:** 2026-08-02, brochure lane, arming TL-035 (`sql_for_agents/292`).
+  Nothing needed undoing — the write was idempotent — which is precisely why this
+  is a landmine and not an incident: the cost is silent and lands on whoever reads
+  two files with the same number later.
+- **added:** 2026-08-02, brochure_component_library lane
