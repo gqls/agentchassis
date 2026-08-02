@@ -88,3 +88,18 @@ scope to 290 only (single `psql -f` + `--record-only`), never a blanket `--apply
 - The two-strike suppression inside insertWorkItem applies to contrast_failure re-files
   after 2 failed fixes → row flips to unresolved. That IS the escalation path; the
   fixloop digest reads unresolved rows.
+
+## 2026-08-02 — A1.1 shipped: whole-site renders (commit cc328626f)
+
+- Deviation from plan: config key is `capture_renders` (not `capture_screenshots`) and the
+  result field is `Renders` — the RunChecks CaptureRenders/Renders doctrine already existed
+  in-file and its comment explains why Screenshots must stay failure-evidence-only (three
+  consumers in tool_acceptance_actions.go attach it to failure tickets). Follow the house
+  doctrine over the plan's naming.
+- Key prefix render-sweep/ (not the plan's design-critique/) — the renders serve any
+  screenshot consumer, and acceptance-evidence/'s contract is "evidences a failure".
+- No profiles config knob: desktop+mobile are the adapter's own two profile constants.
+- Council-Submitted: 46640fe2 (verdict owed). Bucket GC for render-sweep/ flagged as a
+  standing gap (same as acceptance-evidence/), not solved here.
+- Proof owed at A2 time: one real captured sweep on the specimen site (needs the
+  browser-runner image roll first — image before config throughout).
