@@ -9714,6 +9714,54 @@ symptom is not a baseline, and a second occurrence is evidence that something is
 the opposite of the reassurance it reads as.** The symptom (time since last claim) was measured
 three times with increasing precision while the decision that produced it was never read once.
 
+### The mechanism enumerates FIELD NAMES, so the defect just moves one level down — nesting is not a corner case, it is where the fields already are (`bugs_open/097`, 2026-08-02)
+
+**Shape.** A checker or resolver answers "which of this thing's fields are X" by
+holding a list of field names, or by deriving them from the top level of a
+schema. Both read as complete. Both are blind to the same place: a field that
+lives inside an array's `items`, or a numbered sibling that breaks the naming
+convention the derivation pairs on. Adding the missed component to the list fixes
+that component, and the next one reopens the gap — which is why 097's own fix
+ranking says the enumerating candidates "require someone to remember to extend a
+list, which is the shape that produced this bug".
+
+**The measurement that makes it concrete.** The platform had two mechanisms for
+"does this button point at a real page": `ctaFieldNames` (6 components × 2 named
+top-level fields) and its schema-derived successor `DeriveCTAURLFields` (top-level
+`<stem>_url` **with** a `<stem>_label`/`_text`/bare sibling). Fleet-wide on
+2026-08-02, stored `content_data` held **52 internal page links that resolve to no
+page**, in **4** component functions — **none** of them covered by either
+mechanism. 36 sat at `cards[N].link_url`, inside an array; 10 at
+`case-studies-grid`'s `cardN_link_url`, which has no `cardN_link_label` so the
+pairing rule cannot see it. Separately, **25 active component functions declare a
+URL field inside an array's `items`** — so the nested population is not an
+exception, it is the majority of the surface.
+
+**The fix that closes the door: split the question in two, and answer each half
+with a different signal.** Nominate a candidate by the field's NAME, at any depth,
+in any container — deliberately generous, because nomination is free. Judge it by
+the VALUE, with the shared classifier the rest of the platform already uses. That
+split is why the fix needs **no exclusion list**: an `image_url` holds
+`/images/x.jpg` and a `docs_url` holds `https://…`, so the value classifier
+removes them without the code ever naming them. Verified rather than asserted:
+over all 885 production `content_data` rows the pass nominated zero non-page
+fields and left 872 of 885 components byte-identical.
+
+**The tell that you are in this pattern**, before you have a symptom: the
+mechanism's own header says how many things it covers ("covers 5 of the 33
+component functions which actually declare CTA url fields"). A coverage fraction
+written into a comment is an admission that the enumeration is the design, and
+the uncovered remainder is not a backlog — it is the blind spot, and it grows on
+its own every time someone adds a component.
+
+**Sibling patterns, and the distinction that matters.** This is not the
+one-guarded-call-site family (a mechanism made generic then wired at one site) —
+here the mechanism was wired everywhere it was meant to be, and its *question*
+was too narrow. Nor is it the two-branch-router family. The nearest relative is
+"an exemption tested with `strings.Contains` over whatever the caller passed has
+no fixed blast radius": both are about a predicate whose reach is set by
+something other than the property it claims to test.
+
 ### A contract that says "skip when missing" is DOCUMENTATION unless something enforces it — and the template that ignores it fails by succeeding (`bugs_open/140`, 2026-08-02)
 
 `content_components.input_schema` declares, per field, where the datum comes from
