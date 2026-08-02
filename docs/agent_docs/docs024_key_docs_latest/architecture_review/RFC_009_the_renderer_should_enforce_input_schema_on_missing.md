@@ -265,7 +265,108 @@ while being the only option that can break a live page.
   cannot use `kubectl` — `ai-persona-app` has no pods/exec RBAC, a constraint that
   would otherwise have failed in a way that looks like a clean run).
 
-### B — next, and what it has to be
+### B — DONE 2026-08-03 (`87ea0a5e7`), inert until a chassis roll
+
+`store_generated_component` now refuses a template that substitutes a business
+fact for an absent datum. One more predicate in the existing `blockingIssues`
+list, beside the five structural birth checks — so it adds no namespace, no wire
+shape and no shared runtime contract, and it **cannot break a live page**: it only
+ever refuses a write.
+
+**Calibrated before it was written**, per `component_write_guard.go`'s standing
+instruction, in two halves because one is not enough:
+
+1. **0 findings across the FULL recorded write history** — every
+   `component_versions` row plus every `content_components` row, **347 writes**,
+   exported in batches and count-verified 347/347. It would have refused nothing
+   the platform has ever written.
+2. **That number cannot tell "correct" from "inert"** — and worse, by the time it
+   was measured the corpus no longer held the motivating defect, because migration
+   287 had already repaired it. **Your own fix silences your own detector.** The
+   pre-fix template was recovered from the before-image that migration wrote to
+   `migration_backups` and re-tested: **5 findings**, all four literals. Both
+   halves are pinned as tests.
+
+**The parity problem is real and is stated, not hidden.** The rule now has two
+implementations — this Go gate and C's Python lint — which is the drift class the
+rule itself detects. They are pinned to **one shared fixture**
+(`platform/orchestration/actions/testdata/component_fallback_fixtures.json`, 24
+cases, 10 must-refuse / 14 must-allow). The Go test reads it;
+`check_placeholder_fallbacks.py --selftest` reads it; each refuses to pass if the
+fixture stops exercising both arms, because a fixture of only must-allow cases
+would pass against an implementation that never fires. The must-allow arm is the
+larger half on purpose: refusing legitimate work is what gets a guard switched
+off. The one-implementation alternatives were a Go CLI in the CronJob (rejected —
+needs a clone and a compile in a job with uncertain module-proxy egress) or no
+write-path gate at all.
+
+**Wiring is proven, not assumed.** A helper with no callers looks exactly like a
+finished refactor, so a test asserts the call site exists AND that its result
+reaches `blockingIssues` rather than being computed and dropped. Mutation-proven:
+replacing the append with `_ = issue` fails it; restoring passes.
+
+**Known consequence, documented at the call site:** a component that already
+fabricates cannot be repaired by regenerating it into another fabrication. That is
+deliberate — the escape is a gated regeneration or a migration, which is how 140
+itself was fixed. Currently vacuous: 0 of 173 active components fabricate.
+
+**Owed:** pod-grep at the next roll (positive and negative control); read the
+verdict for `19bee790-ea55-46eb-9f39-c985ecf8bd56` and act on a REVISE.
+
+#### B — council APPROVED (11 seats), and the two objections answered with work
+
+`19bee790-ea55-46eb-9f39-c985ecf8bd56` → **approved, 2 advisory objections, none
+high-severity**, 4 abstained.
+
+**bug_historian + guardian, both medium, and they asked the SAME checkable
+question:** is `store_generated_component` really the only writer of
+`html_template`? **It is not, and they were right to ask.** Census taken rather
+than argued (`grep` for INSERT/UPDATE on `content_components`):
+
+| writer | gate |
+|---|---|
+| `store_generated_component` (INSERT + UPDATE) | the **absolute** gate — birth |
+| `update_component_html` (UPDATE) | the **comparative** gate — added answering this objection |
+| `create_tool_component`, `deploy_tool_action` (INSERT) | ungated — tool components |
+| `fix_component_template` ×2, `fix_harcoded_colours`, `fix_forced_text_colours`, `fix_nav_link_templates` (UPDATE) | ungated — narrow, non-LLM style repairs |
+| core-manager admin handler (UPDATE) | ungated — human-driven, deliberately |
+
+So **the write path alone does not close the door, and claiming otherwise would be
+false.** What was added is the sound part: `update_component_html` shares
+`componentRegressionIssues`, so the fabrication check went in there in its
+**COMPARATIVE** form — refusing only a fabrication the replacement INTRODUCES.
+That is not a stylistic choice: an absolute gate on a repair path would refuse
+repairs to exactly the components most likely to need them, trapping an
+already-fabricating component for ever. Pinned by a test that a repair to an
+already-broken component passes, while a NEW fabrication in the same write is
+refused and the message names only the new one.
+
+**Re-calibrated, because `component_write_guard.go`'s header requires it of any
+new check there:** the transition simulation over every consecutive
+`component_versions` pair — **49 transitions, count-verified 49/49** — blocks
+**0**. The remaining ungated writers are covered by the daily lint, which reads
+the LIVE library and therefore sees a fabrication whichever writer introduced it.
+**Gate where it is sound, report everywhere.**
+
+**bug_historian, low: "the parity fixture's protection is only as good as both
+selftests actually running."** Correct, and it was half-true when raised — the Go
+side runs under `go test ./...`, the Python side ran nowhere. Fixed: the fixture
+now ships in the CronJob's ConfigMap and the job runs `--selftest` **before**
+`--report`, so a drifted rule is loud and no result is published measured by a
+rule the write path no longer agrees with. Proven in-cluster with a manual run.
+
+**guardian, low: confirm the CronJob's daily behaviour is unchanged.** It is —
+the edit adds a flag and a preceding selftest line; the reporting path, schedule,
+doc_notes row and exit-code semantics are untouched. Re-proved by a manual
+`--from=cronjob` run after the change.
+
+**A consistency fix made while answering these:** the shared fixture had become a
+second copy in the deployment directory — the exact drift risk deliberately
+avoided for the script. It is now the same arrangement: one real file in the
+kustomize base, symlinked from `platform/orchestration/actions/testdata/`.
+
+### B — the original notes, kept because they set the constraints
+
 
 Refuse, at `store_generated_component`, a template that ships a **fact-shaped
 `{{else}}` literal**. Notes for whoever picks it up:

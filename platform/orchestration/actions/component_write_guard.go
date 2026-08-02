@@ -234,6 +234,15 @@ func componentRegressionIssues(currentHTML, newHTML string) []string {
 	//    attribute, a CSS declaration or a JS literal. This is what separates
 	//    the bugs_open/012 writes (ending "'Epic" and "font-weight: bold;")
 	//    from the legitimate rewrites above (both ending "</section>").
+	// 3a. The replacement INTRODUCES a fabricated business fact (bugs_open/140,
+	//     RFC_009 option B). Comparative like everything else here: a template that
+	//     already fabricates must stay repairable, so only a NEW fabrication is
+	//     refused. Full writer census and the reasoning in
+	//     component_fallback_guard.go's fabricatedFallbackRegression.
+	if issue := fabricatedFallbackRegression(currentHTML, newHTML); issue != "" {
+		issues = append(issues, issue)
+	}
+
 	if endsCleanly(currentHTML) && !endsCleanly(newHTML) {
 		issues = append(issues, fmt.Sprintf(
 			"replacement ends mid-token (%q) where the current template ends on a closed tag — the completion was cut mid-stream",

@@ -1,0 +1,141 @@
+{
+  "_comment": [
+    "SHARED FIXTURE — the fact-vs-label rule has two implementations and this file is",
+    "what stops them drifting. It is read by BOTH:",
+    "  * platform/orchestration/actions/component_fallback_guard_test.go  (the birth gate)",
+    "  * check_placeholder_fallbacks.py --selftest                        (the daily lint)",
+    "A change to either implementation that is not matched in the other fails on one side.",
+    "",
+    "Two implementations exist deliberately, not by accident: the lint must read the LIVE",
+    "component library from the database on a schedule (a Go job there would need a clone",
+    "and a compile — see the CronJob's design note), while the gate must run inside the Go",
+    "write path with no DB. RFC_009 records the choice. This file is the price of it.",
+    "",
+    "'expect' is the fact-shape name, or null when the literal is a legitimate label that",
+    "must NOT be refused. Add a case here FIRST when you change a pattern."
+  ],
+
+  "cases": [
+    {
+      "name": "the motivating case — contact-info's invented phone (bugs_open/140)",
+      "template": "<a href=\"tel:{{if .phone}}{{.phone}}{{else}}+1234567890{{end}}\">x</a>",
+      "expect": "phone"
+    },
+    {
+      "name": "contact-info's invented phone display",
+      "template": "<a>{{if .phone_display}}{{.phone_display}}{{else if .phone}}{{.phone}}{{else}}+1 (234) 567-890{{end}}</a>",
+      "expect": "phone"
+    },
+    {
+      "name": "contact-info's invented opening hours",
+      "template": "<p>{{if .hours}}{{.hours}}{{else}}Monday – Friday, 9am – 6pm{{end}}</p>",
+      "expect": "opening_hours"
+    },
+    {
+      "name": "contact-info's invented email",
+      "template": "<a href=\"mailto:{{if .email}}{{.email}}{{else}}info@example.com{{end}}\">e</a>",
+      "expect": "email"
+    },
+    {
+      "name": "a UK mobile invented as a default",
+      "template": "<p>{{if .phone}}{{.phone}}{{else}}07700 900123{{end}}</p>",
+      "expect": "phone"
+    },
+    {
+      "name": "a freephone number invented as a default",
+      "template": "<p>{{if .phone}}{{.phone}}{{else}}0800 111 2222{{end}}</p>",
+      "expect": "phone"
+    },
+    {
+      "name": "hours WITHOUT a day name — the Python lint's first false NEGATIVE",
+      "template": "<p>{{if .hours}}{{.hours}}{{else}}Weekdays 8am to 5pm{{end}}</p>",
+      "expect": "opening_hours"
+    },
+    {
+      "name": "an invented price",
+      "template": "<p>{{if .price}}{{.price}}{{else}}£49 per month{{end}}</p>",
+      "expect": "price"
+    },
+    {
+      "name": "an invented postal address",
+      "template": "<p>{{if .address}}{{.address}}{{else}}12 Example Street, Leeds{{end}}</p>",
+      "expect": "address"
+    },
+    {
+      "name": "one site's domain as every site's default",
+      "template": "<p>{{if .domain}}{{.domain}}{{else}}fundamentallyai.com{{end}}</p>",
+      "expect": "domain"
+    },
+
+    {
+      "name": "LABEL — a button caption is not a claim about the business",
+      "template": "<a>{{if .cta_text}}{{.cta_text}}{{else}}Read more{{end}}</a>",
+      "expect": null
+    },
+    {
+      "name": "LABEL — Get Started, the library's commonest fallback",
+      "template": "<a>{{if .cta}}{{.cta}}{{else}}Get Started{{end}}</a>",
+      "expect": null
+    },
+    {
+      "name": "LABEL — a section heading",
+      "template": "<h2>{{if .section_title}}{{.section_title}}{{else}}Contact Information{{end}}</h2>",
+      "expect": null
+    },
+    {
+      "name": "LABEL — a no-JS message, which mentions no fact",
+      "template": "<p>{{if .rows}}x{{else}}Enable JavaScript to see the adoption tracker.{{end}}</p>",
+      "expect": null
+    },
+    {
+      "name": "HONEST NON-CLAIM — states no figure, and must stay allowed",
+      "template": "<p>{{if .price}}{{.price}}{{else}}Contact manufacturer for pricing{{end}}</p>",
+      "expect": null
+    },
+    {
+      "name": "HONEST NON-CLAIM — the same shape for contact",
+      "template": "<p>{{if .price}}{{.price}}{{else}}Contact us for pricing{{end}}</p>",
+      "expect": null
+    },
+    {
+      "name": "SAME TEXT BOTH BRANCHES — a builder attribution, the lint's first FALSE POSITIVE",
+      "template": "{{if .built_by_url}}<a href=\"{{.built_by_url}}\">fundamentallyai.com</a>{{else}}fundamentallyai.com{{end}}",
+      "expect": null
+    },
+    {
+      "name": "DESTINATION — a bare path belongs to check_cta_gates.py, not here",
+      "template": "<a href=\"{{if .url}}{{.url}}{{else}}/contact.html{{end}}\">c</a>",
+      "expect": null
+    },
+    {
+      "name": "DESTINATION — a bare fragment",
+      "template": "<a href=\"{{if .url}}{{.url}}{{else}}#{{end}}\">c</a>",
+      "expect": null
+    },
+    {
+      "name": "CSS — a default colour is not a business fact",
+      "template": "<div style=\"{{if .bg}}{{.bg}}{{else}}background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%){{end}}\">x</div>",
+      "expect": null
+    },
+    {
+      "name": "CSS custom property",
+      "template": "<div style=\"{{if .ink}}{{.ink}}{{else}}--hero-ink: var(--color-primary-text){{end}}\">x</div>",
+      "expect": null
+    },
+    {
+      "name": "ATTRIBUTE VALUE — loading=lazy is not a claim",
+      "template": "<img loading=\"{{if .loading}}{{.loading}}{{else}}lazy{{end}}\">",
+      "expect": null
+    },
+    {
+      "name": "NESTED ACTION — not a literal fallback, must be skipped not guessed at",
+      "template": "<p>{{if .a}}x{{else}}{{if .b}}y{{else}}z{{end}}{{end}}</p>",
+      "expect": null
+    },
+    {
+      "name": "NO FALLBACK AT ALL — a gated field is the correct shape and must pass",
+      "template": "<p>{{if .phone}}{{.phone}}{{end}}</p>",
+      "expect": null
+    }
+  ]
+}

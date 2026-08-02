@@ -192,3 +192,67 @@ func TestFabricatedFallbackIsActuallyWiredIn(t *testing.T) {
 			"blockingIssues within the call site; found:\n%s", window)
 	}
 }
+
+// TestFabricatedFallbackRegressionCannotTrapABrokenComponent is the whole reason
+// the update path gets a COMPARATIVE check rather than the absolute one. Raised by
+// the council's bug_historian and guardian seats
+// (19bee790-ea55-46eb-9f39-c985ecf8bd56), both asking whether one gate on one
+// writer is the right shape. It is not — and the answer is not "gate everything",
+// because an absolute gate on a repair path refuses repairs to exactly the
+// components that most need them.
+func TestFabricatedFallbackRegressionCannotTrapABrokenComponent(t *testing.T) {
+	fabricating := `<p>{{if .hours}}{{.hours}}{{else}}Monday – Friday, 9am – 6pm{{end}}</p>`
+
+	t.Run("a repair to an ALREADY fabricating component is allowed through", func(t *testing.T) {
+		// Same fabrication, but the repair changed something else (a colour, a nav
+		// link). The absolute gate would refuse this and trap the component for ever.
+		repaired := `<p style="color:var(--x)">{{if .hours}}{{.hours}}{{else}}Monday – Friday, 9am – 6pm{{end}}</p>`
+		if issue := fabricatedFallbackRegression(fabricating, repaired); issue != "" {
+			t.Errorf("refused a repair that introduced NOTHING new — this traps every "+
+				"already-fabricating component permanently:\n%s", issue)
+		}
+	})
+
+	t.Run("but a NEW fabrication in the same write is refused", func(t *testing.T) {
+		worse := fabricating + `<a href="tel:{{if .phone}}{{.phone}}{{else}}+1234567890{{end}}">x</a>`
+		issue := fabricatedFallbackRegression(fabricating, worse)
+		if issue == "" {
+			t.Fatal("a replacement adding a fabricated phone was allowed through")
+		}
+		if !strings.Contains(issue, "+1234567890") {
+			t.Errorf("the refusal should name the NEW fabrication; got: %s", issue)
+		}
+		if strings.Contains(issue, "9am") {
+			t.Errorf("the refusal should NOT name the pre-existing fabrication — it is "+
+				"not this write's doing, and naming it sends the author to the wrong "+
+				"line; got: %s", issue)
+		}
+	})
+
+	t.Run("REMOVING a fabrication is obviously allowed", func(t *testing.T) {
+		fixed := `<p>{{if .hours}}{{.hours}}{{end}}</p>`
+		if issue := fabricatedFallbackRegression(fabricating, fixed); issue != "" {
+			t.Errorf("refused the FIX: %s", issue)
+		}
+	})
+
+	t.Run("a clean template staying clean is silent", func(t *testing.T) {
+		clean := `<a>{{if .cta}}{{.cta}}{{else}}Read more{{end}}</a>`
+		if issue := fabricatedFallbackRegression(clean, clean); issue != "" {
+			t.Errorf("refused a legitimate label: %s", issue)
+		}
+	})
+}
+
+// TestFabricatedFallbackRegressionIsWiredIntoTheComparativeGate — same reasoning as
+// the birth-gate wiring test: the rule being right proves nothing if nothing calls it.
+func TestFabricatedFallbackRegressionIsWiredIntoTheComparativeGate(t *testing.T) {
+	src, err := os.ReadFile("component_write_guard.go")
+	if err != nil {
+		t.Fatalf("reading the comparative guard: %v", err)
+	}
+	if !strings.Contains(string(src), "fabricatedFallbackRegression(currentHTML, newHTML)") {
+		t.Fatal("componentRegressionIssues does not call fabricatedFallbackRegression — " +
+			"the update path (update_component_html_action) is ungated")
+	}
+}

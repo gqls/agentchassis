@@ -77,6 +77,12 @@ spec:
                   # ungated-skip_field class reports without failing the job, because
                   # 68 of those predate the check and a permanently-red job is a job
                   # everybody learns to ignore.
+                  # Parity FIRST. The fact-vs-label rule has two implementations
+                  # (this one, and the Go birth gate component_fallback_guard.go),
+                  # pinned to the shared fixture mounted beside this script. If they
+                  # have drifted, say so loudly and do NOT report a result that may
+                  # be measured by a rule the write path no longer agrees with.
+                  python3 /scripts/check_placeholder_fallbacks.py --selftest
                   python3 /scripts/check_placeholder_fallbacks.py --report
               env:
                 - name: PG_CLIENTS_HOST

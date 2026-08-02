@@ -328,10 +328,29 @@ def literal_sql(s):
     return "'" + s.replace("'", "''") + "'"
 
 
-FIXTURE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                       "..", "..", "..", "..", "..",
-                       "platform", "orchestration", "actions", "testdata",
-                       "component_fallback_fixtures.json")
+def _fixture_path():
+    """Locate the shared fixture from either place this script runs.
+
+    In the repo it sits under platform/orchestration/actions/testdata/. In the
+    CronJob there is no repo — the ConfigMap mounts the fixture NEXT TO this
+    script, so that the daily run can verify parity rather than merely assert it.
+    Checked in that order; the first that exists wins.
+    """
+    here = os.path.dirname(os.path.realpath(__file__))
+    for cand in (
+        os.path.join(here, "..", "..", "..", "..", "..",
+                     "platform", "orchestration", "actions", "testdata",
+                     "component_fallback_fixtures.json"),
+        os.path.join(here, "component_fallback_fixtures.json"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "component_fallback_fixtures.json"),
+    ):
+        if os.path.exists(cand):
+            return cand
+    return os.path.join(here, "component_fallback_fixtures.json")
+
+
+FIXTURE = _fixture_path()
 
 
 def selftest():

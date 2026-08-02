@@ -253,3 +253,58 @@ func fabricatedFallbackIssue(htmlTemplate string) string {
 			"which is what the schema's on_missing:\"skip_field\" already specifies (bugs_open/140)",
 		len(found), strings.Join(parts, ", "))
 }
+
+// fabricatedFallbackRegression is the COMPARATIVE form, for the update/repair
+// paths — and it is comparative for the same reason every check in
+// component_write_guard.go is: an ABSOLUTE fabrication gate on a repair path would
+// refuse a legitimate repair to exactly the components most likely to need one.
+//
+// A colour fix or a nav-link fix on a template that already fabricates would be
+// blocked by the absolute form, trapping that component permanently — no rewrite
+// could ever land to improve it. So this refuses only what the replacement
+// INTRODUCES: a fabricated fact that the row it replaces did not already carry.
+//
+// Raised by the council's bug_historian and guardian seats on
+// 19bee790-ea55-46eb-9f39-c985ecf8bd56, both asking the same checkable question —
+// is store_generated_component really the only writer of html_template? It is not.
+// The census, taken 2026-08-03 (grep for INSERT INTO / UPDATE content_components):
+//
+//	store_generated_component  INSERT + UPDATE  <- the absolute gate (birth)
+//	update_component_html      UPDATE           <- this comparative gate
+//	create_tool_component      INSERT           } no fabrication gate; tool
+//	deploy_tool_action         INSERT           } components, tracked in RFC_009
+//	fix_component_template     UPDATE x2        } as remaining coverage
+//	fix_harcoded_colours       UPDATE           } (narrow, non-LLM repairs that
+//	fix_forced_text_colours    UPDATE           } rewrite style, not content)
+//	fix_nav_link_templates     UPDATE           }
+//	core-manager admin handler UPDATE           <- human-driven, deliberately ungated
+//
+// So the door is NOT fully closed by the write path alone, and claiming otherwise
+// would be false. The daily lint (CGV-029) is what covers the remainder — it reads
+// the LIVE library, so it sees a fabrication whichever writer introduced it. Gate
+// where it is sound, report everywhere.
+func fabricatedFallbackRegression(currentHTML, newHTML string) string {
+	introduced := fabricatedFallbacks(newHTML)
+	if len(introduced) == 0 {
+		return ""
+	}
+	existing := map[string]bool{}
+	for _, f := range fabricatedFallbacks(currentHTML) {
+		existing[f.Shape+"\x00"+f.Literal] = true
+	}
+
+	var novel []string
+	for _, f := range introduced {
+		if !existing[f.Shape+"\x00"+f.Literal] {
+			novel = append(novel, fmt.Sprintf("%s %q", f.Shape, f.Literal))
+		}
+	}
+	if len(novel) == 0 {
+		return "" // already present before this write — not this write's doing
+	}
+	return fmt.Sprintf(
+		"replacement INTRODUCES %d fabricated business fact(s) the current template does not have — %s; "+
+			"a component must not assert a contact detail, price or address nobody supplied. "+
+			"Gate the element on its own datum ({{if .field}}…{{end}}) instead of substituting a literal (bugs_open/140)",
+		len(novel), strings.Join(novel, ", "))
+}

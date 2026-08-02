@@ -23,6 +23,15 @@ configMapGenerator:
   # If you move this file, move the symlink with it — `python3 scripts/…` is what every
   # runbook says, and a dangling link fails loudly rather than silently, which is the
   # behaviour we want.
+  #
+  # The fixture ships alongside the script for the same reason and by the same
+  # arrangement: it is the real file, and
+  # platform/orchestration/actions/testdata/component_fallback_fixtures.json is a
+  # symlink to it, so the Go birth gate's test and this job read ONE file. Mounting
+  # it here is what lets the daily run verify parity (--selftest) instead of merely
+  # asserting it — the council's bug_historian seat asked for exactly that
+  # confirmation on 19bee790.
   - name: component-fallback-check-script
     files:
       - check_placeholder_fallbacks.py
+      - component_fallback_fixtures.json
