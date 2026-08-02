@@ -74,9 +74,15 @@ Three answers are available and they are genuinely different:
 `design-audit-agent` and `site-review-agent`; the parent owns promotion. Then
 `triage_result` describes the run, and the ambiguity disappears rather than being
 documented.
-*Cost, and it is why 150 did not take it:* both children are independently callable —
-every other parent of either agent must be audited first, and a child fired on its own
-would then promote nothing, which may be a behaviour change somebody depends on.
+*Cost, as stated on 2026-07-31:* both children are independently callable — every other
+parent of either agent must be audited first, and a child fired on its own would then
+promote nothing, which may be a behaviour change somebody depends on.
+> **UPDATED 2026-08-02 after running the census in §5: that cost is now measured, and it
+> is near zero.** There is no other parent (the definition scan returns two rows, both
+> `improvement-loop`) and no standalone run of either child has ever been recorded. The
+> audit that was the barrier is *done*, and it found nothing to audit. What remains is two
+> `jsonb` step deletions and their re-wiring — a config-only change, reversible by
+> `snapshot_agent`, with the caveat in §5 attached.
 *Residual:* none for this class, once done.
 
 **(b) Keep the fan-out; make the site-scoped signal the default and the call-scoped one
@@ -112,12 +118,33 @@ site-scoped field remains correct and simply stops being load-bearing.
   `guidelines` seat's DECLARED CONTRACTS rule is unenforced for the existing key too,
   which is its own small finding and is relevant to (b).
 
-**Not measured, and it decides (a):** which other parents call `design-audit-agent` and
-`site-review-agent`, and whether either is ever fired standalone in a way that relies on
-its triage step. That is a `spawn_agent`/`call_agent` census plus a look at
-`orchestration_states` by `owner_agent_type`. **Whoever takes this RFC should run it
-first** — it is the one fact that turns (a) from a refactor-shaped risk into a costed
-change, and I did not run it because 150 did not depend on it.
+~~**Not measured, and it decides (a):**~~ **MEASURED 2026-08-02** — the census this section
+called for has now been run, at the owner's request, before the decision rather than after.
+It comes back decisively in favour of (a) being cheap:
+
+- **No other parent calls either child.** A scan of every live agent definition for a step
+  naming `design-audit-agent` or `site-review-agent` returns **exactly two rows**, both
+  `improvement-loop` (`spawn_design_audit`, `spawn_site_review`). There is no second parent
+  to audit.
+- **Neither child has ever been fired standalone.** `agent_run_stats` is a cumulative
+  counter (78 agents tracked, oldest entry 2026-07-26) and reads
+  **`improvement-loop` 3 / `design-audit-agent` 3 / `site-review-agent` 3**, identical
+  counts over the identical window (2026-07-29 → 2026-08-01). A standalone child run would
+  break that 1:1:1. Corroborated independently in `orchestration_state_audit` (3-day
+  retention, identified by each agent's distinctive step name): 2 / 2 / 2.
+- **No scheduler fires either child**: 0 rows in `scheduled_tasks` naming either type;
+  `orchestration_requests` is empty.
+- **Neither child branches on its own triage result** — both are
+  `triage → complete` (live config), so removing the step changes no control flow inside
+  them; it changes only whether promotion happens on that path.
+
+`[CAVEAT — stated because it is the one soft edge]` The run counters begin 2026-07-26 and
+the whole fleet's improvement-loop history is 3 runs, because `improvement-sweep` is
+disabled (`bugs_open/083`) and every run so far was hand-fired by a session. So this is
+**"no standalone caller exists today"**, firmly; it is not "no standalone caller has ever
+existed" over the agents' whole life. The design question it answers — *is there a second
+consumer whose behaviour we would change?* — is answered no by the definition scan alone,
+which does not depend on run history at all.
 
 ## 6. Related
 

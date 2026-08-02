@@ -90,3 +90,32 @@ back, and the ticket stays open until someone rolls an image and applies it. Bot
 steps are written into the ticket in order, with the exact commands. I checked the committed
 code builds and its tests pass in isolation, separately from whatever else is half-finished
 in the shared working directory tonight.
+
+**2026-08-02 — you asked to be walked through the proposal, so I ran the one measurement it
+was missing first**
+
+The proposal I left you had a hole in it that I flagged at the time: it said option (a) — give
+the sweeping step exactly one owner — depended on a fact nobody had checked, namely whether
+anything *other* than the improvement loop ever calls the two child agents. I said whoever
+took the proposal should check that before deciding. Since the person taking it is you, I
+checked it.
+
+The answer is that nothing else calls them. Not "probably nothing" — a scan of every live
+agent's definition for anything naming those two children returns exactly two results, and
+both of them are the improvement loop. There is no second caller to break. On top of that,
+the run counters show the three agents have run three times each, the same three times, which
+is what you would see if the children have only ever run as part of a loop run and never on
+their own. And neither child does anything with the result of the shared step — they run it
+and then stop — so taking it away from them changes nothing about how they behave.
+
+That changes the shape of the decision. The reason we did not do the structural fix in the
+first place was that auditing every other caller looked like an open-ended job. The audit is
+now done, and it found nothing to audit. What is left is deleting one step from each of two
+agents, in the database, reversible, with no code change at all.
+
+One honest caveat, because it is the only soft edge: the run counters only go back to
+2026-07-26, and there have only been three loop runs in the fleet's whole recorded history —
+because the sweep is switched off and every run so far was one of us firing it by hand. So
+"nothing else calls them" is solid (that comes from reading the definitions, not the history),
+but "nothing has ever called them" leans on a short window. It does not change my
+recommendation; it is the sort of thing that should be said out loud rather than buried.
