@@ -432,6 +432,16 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// --- Per-slot shrink guard (bugs_open/178) ---
+	// The page-total guard above only refuses a near-wipe (<25% of the page's
+	// text) — a regeneration that guts ONE prose slot passes it because the
+	// loss is diluted by intact siblings. This one compares slot against
+	// same-named slot and refuses a prose slot shrinking past its floor.
+	// See save_sections_shrink_guard.go for scope and the config escape hatch.
+	if shrinkErr := enforceSectionShrinkFloor(ctx, params, siteID, pageID, pageName, sections); shrinkErr != nil {
+		return nil, shrinkErr
+	}
+
 	// --- Interactivity regression guard (Layer 1) ---
 	// The text guard above misses the loss of an interactive tool: the tool is
 	// mostly markup + JS, so tag-stripping leaves little text and a plain-
