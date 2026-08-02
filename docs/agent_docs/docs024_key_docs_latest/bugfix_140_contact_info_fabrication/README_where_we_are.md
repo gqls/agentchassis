@@ -120,3 +120,62 @@ site records, it is your own number, and these are your own portfolio sites, so
 it is real and correctly propagated, not another fabrication. But six businesses
 sharing one number is a thing you may or may not want, and that is a call for you
 rather than a defect for me.
+
+---
+
+## 2026-08-02, evening — it's done, and the middle bit is worth reading
+
+The eight contact pages are clean. No site claims opening hours any more, because
+no site ever told us what its opening hours are. `vetcomparison.uk` no longer
+publishes `+1234567890` as a phone number. I checked all eight on the live web,
+not just in the database, and each page now shows exactly the contact details its
+own records support — nothing more.
+
+**But I got something wrong in the middle of this, and it is the most useful thing
+that happened today.**
+
+This morning I fixed the template and told you the eight existing pages would
+repair themselves as they got rebuilt. That was wrong. The rebuilds happened — a
+backlog of nearly three hundred queued jobs cleared during the afternoon, six of
+the seven contact pages were rebuilt — and every one of them came back with the
+invented hours still on it.
+
+The reason is a genuine trap in how the platform works. A "rebuild" comes in two
+kinds. One regenerates each section of the page from its template. The other just
+re-staples the page together out of the section HTML it already has stored. The
+second kind is the default, and it faithfully preserves whatever was wrong. Our
+own code says so in a test message — *"deploys stale HTML"* — in a file I had
+already looked at earlier in the day for a different reason.
+
+So the pages were never going to fix themselves. I had measured the queue
+carefully and let that stand in for knowing what the queue would actually do,
+which is a different thing and a mistake I have written up.
+
+Once you gave me the go-ahead, the fix was small: seven jobs of the *first* kind,
+one per page. They ran between ten past and half past seven, and the count of
+fabricating pages fell in step with them — seven, six, five, three, two, one,
+none.
+
+**Two things turned out better than I expected**, both of which I checked rather
+than assumed:
+
+- **finetuning.uk now shows a postal address.** The component always had an
+  address field defined but never actually drew it; the site had the data sitting
+  there unused. Turning the field on gave it a real card.
+- **idea.uk's phone number is now backed by real data.** Its page had been showing
+  a number that no longer existed in its records — a stale leftover I flagged as a
+  separate concern in the ticket. The rebuild repopulated it properly from the
+  site's own details, so that worry is resolved too.
+
+No site lost anything real. The only things that disappeared were never true.
+
+**One thing I have left deliberately open**, and it is the sharpest observation
+anyone made today — it came from the review council, twice, from two reviewers
+independently. This is now the *second* time we have caught a component ignoring
+its own declared rules, and both times the repair was to hand-edit that one
+component. Nothing in the system actually enforces those rules, so there is
+nothing stopping a third component doing the same thing. I have written that up as
+a proposal rather than quietly fixing it, because the sensible answer depends on a
+judgement call — whether to enforce the rules when a page is drawn, which is
+thorough but could break existing pages, or when a component is first created,
+which is safe but only helps future ones. That is your call, not mine.
