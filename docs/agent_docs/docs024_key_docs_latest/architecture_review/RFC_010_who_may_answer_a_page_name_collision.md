@@ -67,9 +67,37 @@ narrower and reusable:
 The change answers it with a boundary that has been **served / never served**, and the RFC asks
 the owner to ratify or move that boundary. Three sub-questions, each with the evidence:
 
-### 2.1 Is `deployed_at IS NOT NULL OR build_status IN ('deployed','needs_rebuild')` the right line?
+### 2.1 ~~Is `deployed_at IS NOT NULL OR build_status IN ('deployed','needs_rebuild')` the right line?~~ — **WITHDRAWN 2026-08-02: it was not, and there was nothing to decide**
 
-**Evidence, measured 2026-08-02:**
+> **This question is withdrawn hours after it was raised, and the reason belongs in
+> the RFC rather than in a quiet edit.** It asked the owner to ratify a predicate I
+> had written. While sizing its blast radius to answer the owner's "what am I
+> deciding?", I found `datahelpers.NeverDeployedPagePredicate` — the estate's
+> existing, shared, tested definition, with three consumers and a test asserting
+> that it **must not single out `needs_rebuild`**, because doing so had produced a
+> 34-page false-positive class for the nav lane.
+>
+> Mine singled out `needs_rebuild`. Measured: **11 live rows are `needs_rebuild`
+> with no `deployed_at`, no `last_built_at` and mostly zero components** — never
+> built, never served — three of them `lendzy.co.uk` TOOL pages created that day,
+> i.e. exactly what the tool arm collides with. My version would have refused all
+> eleven. **The code now reads the shared predicate directly** (`NOT
+> (datahelpers.NeverDeployedPagePredicate)`), so there is one definition and it
+> cannot drift; a test fails if anyone inlines a restatement, and that test was
+> proved by mutation (with the import kept referenced, so the assertion fires
+> rather than the compiler).
+>
+> **Nothing is left for the owner here** — "converge on the definition that already
+> exists and is tested" is not a judgement call. What remains, and is genuinely
+> owner-scope, is the one line below.
+>
+> The residue worth ruling on: **`bugs_closed/081`'s guard still carries the narrow
+> `build_status = 'deployed'` form** (`apply_gap_plan_action.go:590`). It is a
+> different arm with a different question, and no live row is currently mistyped in
+> a way that exposes it — so this is "fix at next touch", unless the owner wants it
+> done now.
+
+**Superseded evidence, kept as the record:**
 
 ```
  build_status  | count | ever_deployed
@@ -150,9 +178,10 @@ fix. **The convergence is the RFC-grade decision here, not the row count.**
 
 Ratify the boundary as built, with one amendment if the owner shares the seats' unease:
 
-1. **Ratify** "has been served" = `deployed_at IS NOT NULL OR build_status IN
-   ('deployed','needs_rebuild')` as the estate-wide predicate for *may I mutate this page*, and
-   fix `bugs_closed/081`'s narrower guard to match at the next touch of that file.
+1. **Nothing to ratify — withdrawn, see §2.1.** The code now uses
+   `datahelpers.NeverDeployedPagePredicate`, which already was the estate-wide definition.
+   The only residue is whether `bugs_closed/081`'s still-narrow guard
+   (`apply_gap_plan_action.go:590`) should be converged now or at next touch.
 2. **Ratify or amend** the ADOPT branch. As built it is licensed by the constant-role contract
    in review; the amendment is a per-call-site opt-in field.
 3. **Rule on the producer-set question generally**: is converging N producers onto one

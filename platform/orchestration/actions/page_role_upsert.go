@@ -47,12 +47,32 @@
 //	collision, DIFFERENT role, ever live → REFUSE: touch nothing, file for a human
 //	collision, DIFFERENT role, never live → ADOPT: take the row over completely
 //
-// "Ever live" is `build_status IN ('deployed','needs_rebuild') OR deployed_at IS
-// NOT NULL`, which is deliberately WIDER than 081's `build_status = 'deployed'`.
+// "Has shipped" is `NOT (datahelpers.NeverDeployedPagePredicate)` — the estate's
+// ONE definition of "this page has been served", reused rather than restated. It
+// is wider than 081's `build_status = 'deployed'`, which is the point:
 // bugs_closed/037 is an entire case about `needs_rebuild` falling outside a
-// `= 'deployed'` guard, and the live census on 2026-08-02 says 35 of 46
-// `needs_rebuild` rows carry a non-null `deployed_at` — they have shipped and are
-// being served. A guard that cannot see them is the same guard 037 filed against.
+// `= 'deployed'` guard, and 35 of 46 `needs_rebuild` rows carry a non-null
+// `deployed_at` — they have shipped and are being served. The shared predicate
+// catches them through `deployed_at IS NULL`, not by naming the status.
+//
+// > **CORRECTED 2026-08-02, hours after this file first shipped, and the mistake
+// > is worth more than the fix.** The first version spelled the predicate out
+// > here as `everDeployed || build_status == "deployed" || build_status ==
+// > "needs_rebuild"`. That third clause is WRONG, and it is wrong in the
+// > direction that costs: measured live, **11 rows are `needs_rebuild` with NO
+// > `deployed_at`, no `last_built_at` and mostly zero components** — never built,
+// > never served — and three of them are `lendzy.co.uk` TOOL pages created the
+// > same day, i.e. exactly what the tool arm collides with. The hand-rolled
+// > predicate would have REFUSED all eleven: a filed human decision and a hard
+// > error on the tool arm, for pages nothing has ever served.
+// >
+// > `datahelpers.NeverDeployedPagePredicate` already existed, already had a test
+// > forbidding precisely the clause I added (*"predicate must not single out
+// > needs_rebuild"* — singling it out had produced a 34-page false-positive class
+// > for the nav lane), and already had two other consumers. **I answered the
+// > council's "did a page-upsert HELPER already exist?" objection and never asked
+// > the same question about the PREDICATE.** The predicate is now read from
+// > datahelpers, so the two cannot drift.
 //
 // ADOPT is a WHOLE takeover, not a partial one, and that is a decision rather than
 // convenience. Adopting the type but leaving (say) the url would mint a fresh
@@ -80,6 +100,8 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // PageRoleOutcome names what actually happened, so a caller and a log line can
@@ -289,19 +311,24 @@ func resolvePageRoleConflict(ctx context.Context, db *sql.DB, req PageRoleUpsert
 		}
 	}()
 
+	// "Has this page ever shipped?" is answered by the estate's ONE definition,
+	// datahelpers.NeverDeployedPagePredicate, negated — never by a predicate spelled
+	// out here. See the CORRECTION in the file header: the hand-rolled version this
+	// replaced added `|| build_status == "needs_rebuild"`, which is wrong on the 11
+	// rows that are needs_rebuild and were never built.
 	var (
 		pageID       uuid.UUID
 		existingType string
 		existingBld  string
 		existingStat string
-		everDeployed bool
+		hasShipped   bool
 	)
 	if qerr := tx.QueryRowContext(ctx, `
 		SELECT id, COALESCE(page_type, ''), COALESCE(build_status, ''),
-		       COALESCE(status, ''), deployed_at IS NOT NULL
+		       COALESCE(status, ''), NOT (`+datahelpers.NeverDeployedPagePredicate+`)
 		FROM pages WHERE site_id = $1 AND name = $2
 		FOR UPDATE
-	`, req.SiteID, req.Name).Scan(&pageID, &existingType, &existingBld, &existingStat, &everDeployed); qerr != nil {
+	`, req.SiteID, req.Name).Scan(&pageID, &existingType, &existingBld, &existingStat, &hasShipped); qerr != nil {
 		return PageRoleResult{}, fmt.Errorf("resolve conflicting page %q: %w", req.Name, qerr)
 	}
 
@@ -325,7 +352,7 @@ func resolvePageRoleConflict(ctx context.Context, db *sql.DB, req PageRoleUpsert
 				zap.String("page_type", req.PageType), zap.String("source", req.Source))
 		}
 
-	case pageHasBeenLive(existingBld, everDeployed):
+	case hasShipped:
 		refusal, ferr := refusePageRoleConflict(ctx, tx, req, pageID, existingType, existingBld, logger)
 		if ferr != nil {
 			return PageRoleResult{}, ferr
@@ -353,12 +380,6 @@ func resolvePageRoleConflict(ctx context.Context, db *sql.DB, req PageRoleUpsert
 	}
 	committed = true
 	return result, nil
-}
-
-// pageHasBeenLive is deliberately wider than build_status = 'deployed'. See the
-// file comment and bugs_closed/037.
-func pageHasBeenLive(buildStatus string, everDeployed bool) bool {
-	return everDeployed || buildStatus == "deployed" || buildStatus == "needs_rebuild"
 }
 
 func columnNames(cols []PageColumn) []string {

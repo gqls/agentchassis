@@ -190,3 +190,47 @@ and `git show` on that commit will not show them.
 **Practical note for the next thread:** on the two append-only fleet files, expect
 your lines to land under someone else's commit. Verify at HEAD (`git show
 HEAD:<file> | grep <your marker>`), not at your own commit.
+
+## 2026-08-02, after closure — the correction that answering the owner's question produced
+
+The owner asked me to explain what RFC_010 was asking them to decide. Sizing decision
+1's blast radius for that answer (`grep` for other `build_status = 'deployed'` guards)
+turned up **`datahelpers.NeverDeployedPagePredicate`** — the estate's existing, shared,
+tested definition of "this page has never shipped", with three consumers, and a test
+whose assertion is *"predicate must not single out needs_rebuild"*.
+
+**My widened predicate singled out `needs_rebuild`. It was wrong on 11 live rows:**
+
+| domain | rows | shape |
+|---|---|---|
+| robot-hands.com | 5 | `needs_rebuild`, `deployed_at` NULL, `last_built_at` NULL, 0 components |
+| lendzy.co.uk | 3 | same — and **tool pages created 2026-08-02**, i.e. what the tool arm collides with |
+| dartsonline.com | 2 | same |
+| gaswholesalers.com | 1 | same |
+
+Never built, never served. `pageHasBeenLive` would have **refused** all eleven: a filed
+human decision plus a hard error on the tool deploy, for pages nothing has ever seen.
+The shared predicate gets them right because it keys on `deployed_at IS NULL` rather
+than naming the status — and naming the status is exactly what produced a 34-page
+false-positive class for the nav lane, which is why its test forbids it.
+
+**Fixed:** the locking `SELECT` now computes `NOT (datahelpers.NeverDeployedPagePredicate)`,
+`pageHasBeenLive` is deleted, and a test fails if anyone inlines a restatement.
+Corrected in place, visibly, everywhere the wrong claim was written: the file header,
+PBP-027, `LANDMINES.md` (whose entry recommended the wrong remedy), RFC_010 §2.1
+(withdrawn — there was nothing for the owner to decide), and `WRONG_CALLS.md`.
+
+**Why I missed it, which is the transferable part.** The council's `prior_art_librarian`
+seat objected that I had not checked whether a page-upsert **helper** already existed. I
+checked, answered the objection, and stopped — the objection named a helper, so I
+searched for a helper. **The reusable unit here was one line of SQL**, and a one-line
+constant is precisely what nobody thinks to search for.
+`grep -rn "deployed_at IS NULL" --include=*.go` finds it in seconds. A well-argued
+widening is still a widening: name the rows your version newly captures and *look* at
+them.
+
+**And a second, smaller misstep in the same pass.** My first mutation of the correction
+failed to **compile** — deleting the last use of `datahelpers` left an unused import —
+and I nearly recorded that as "the test caught it". It did not; the compiler did. Re-ran
+with the import kept referenced (`_ = datahelpers.NeverDeployedPagePredicate`) and both
+real assertions fired. **A mutation that does not compile is not a mutation test.**

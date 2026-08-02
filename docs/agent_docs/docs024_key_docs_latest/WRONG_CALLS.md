@@ -17198,3 +17198,49 @@ it is, so the next reader does not read fixture-echo as coverage. Same family as
 "a mock's own bookkeeping cannot assert a NEGATIVE — MUTATE to prove a guard",
 sharpened: here the mock was not merely *unable* to assert it, it was actively
 **supplying the answer** the assertion then checked.
+
+---
+
+## 2026-08-02 — I asked "does this HELPER already exist?" and never asked it about the PREDICATE, so I shipped a worse copy of a tested one
+
+**footprint:** `platform/orchestration/actions/page_role_upsert.go`,
+`datahelpers.NeverDeployedPagePredicate`, `pages.build_status` · bugs_closed/175 lane
+
+**The claim.** Closing `bugs_open/175` I widened `bugs_closed/081`'s guard from
+`build_status = 'deployed'` to `deployed_at IS NOT NULL OR build_status IN
+('deployed','needs_rebuild')`, and argued it well: `bugs_closed/037` is a filed case
+about `needs_rebuild` falling outside the narrow form, and 35 of 46 such rows carry a
+`deployed_at`. The council approved it, the register entry recorded it, and I wrote it
+into `LANDMINES.md` as the remedy other lanes should copy.
+
+**What caught it.** The owner asked me to explain the RFC decisions. Sizing the blast
+radius for that answer, I grepped for other `build_status = 'deployed'` guards — and
+found `datahelpers.NeverDeployedPagePredicate`, already shared, already used by three
+call sites, with a test whose assertion is literally *"predicate must not single out
+needs_rebuild"* — because singling it out had produced a **34-page false-positive
+class** for the nav lane. **My clause was the exact thing that test forbids.** Measured:
+11 live rows are `needs_rebuild` with no `deployed_at`, no `last_built_at` and mostly
+zero components — never built, never served — and three are `lendzy.co.uk` TOOL pages
+created that same day, i.e. precisely what the tool arm collides with. My version would
+have refused all eleven: a filed human decision and a hard error on the tool deploy,
+for pages nothing has ever served.
+
+**The cheap check.** Two, and the second is the one I actually skipped:
+
+1. **When a shared helper does not exist, ask whether the shared PREDICATE does.** The
+   council's `prior_art_librarian` seat objected that I had not checked for an existing
+   page-upsert helper. I checked, answered it, and stopped — the objection named the
+   helper, so I searched for the helper. **The reusable unit here was one line of SQL,
+   not a function**, and one line is exactly what nobody thinks to search for.
+   `grep -rn "deployed_at IS NULL" --include=*.go` would have found it in seconds.
+2. **A well-argued widening is still a widening: name the rows it newly captures and
+   look at them.** I could quote 037 and a 35/46 census, and still never asked "which
+   rows does my version treat differently from the narrow one, and are they *actually*
+   live?" The 11 rows answer it instantly and they are one query away.
+
+**Also caught in the same pass, and worth its own line:** my first mutation test of the
+correction failed to **compile** (removing the last use of a package left an unused
+import) and I nearly recorded that as "the test caught the mutation". It did not — the
+compiler did, and a compile error proves nothing about the assertion. Re-ran it with the
+import kept referenced; the test then failed on both of its real assertions. **A
+mutation that does not compile is not a mutation test.**

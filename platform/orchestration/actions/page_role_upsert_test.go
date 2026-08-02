@@ -34,6 +34,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // newCapturingMock returns a mock that records every statement it is asked to
@@ -222,22 +224,29 @@ func TestUpsertPageForRole_LivePageOfAnotherRoleIsRefused(t *testing.T) {
 	}
 }
 
-// TestUpsertPageForRole_NeedsRebuildCountsAsLive is the test that pins this
-// helper's ONE deliberate widening past bugs_closed/081, which guarded
-// `build_status = 'deployed'` alone.
+// TestUpsertPageForRole_HasShippedComesFromTheSharedPredicate stops this helper
+// re-deriving "has this page been served" in Go.
 //
-// bugs_closed/037 is an entire case about `needs_rebuild` falling outside a
-// `= 'deployed'` guard, and the live census on 2026-08-02 says 35 of 46
-// `needs_rebuild` rows carry a non-null deployed_at — they HAVE shipped and are
-// being served. If someone narrows pageHasBeenLive back to the 081 test, this
-// test goes red and says why.
-func TestUpsertPageForRole_NeedsRebuildCountsAsLive(t *testing.T) {
-	db, mock, _ := newCapturingMock(t)
+// > **It replaced a test that pinned the WRONG rule, and the replacement is the
+// > interesting part.** The first version asserted that `build_status =
+// > 'needs_rebuild'` counts as live ON ITS OWN. Measured live 2026-08-02: 11 rows
+// > are `needs_rebuild` with NO `deployed_at`, no `last_built_at` and mostly zero
+// > components — never built, never served, three of them tool pages created that
+// > same day. The old rule REFUSED all eleven.
+// > `datahelpers.NeverDeployedPagePredicate` already existed, with two other
+// > consumers and a test forbidding exactly the clause that was added here,
+// > because singling out that status had produced a 34-page false-positive class
+// > for the nav lane.
+//
+// So the SQL must carry the shared predicate rather than a Go restatement of it.
+// Inline a hand-rolled version again and this goes red.
+func TestUpsertPageForRole_HasShippedComesFromTheSharedPredicate(t *testing.T) {
+	db, mock, captured := newCapturingMock(t)
 
 	mock.ExpectQuery("INSERT INTO pages").WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "status", "ever"}).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "status", "shipped"}).
 			AddRow(uuid.New(), "content", "needs_rebuild", "active", true))
 	mock.ExpectQuery("SELECT COUNT").
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
@@ -249,23 +258,64 @@ func TestUpsertPageForRole_NeedsRebuildCountsAsLive(t *testing.T) {
 		t.Fatalf("UpsertPageForRole: %v", err)
 	}
 	if !res.Refused() {
-		t.Fatalf("outcome = %q — a needs_rebuild page has been served, so it must be refused like a deployed one (bugs_closed/037)", res.Outcome)
+		t.Fatalf("outcome = %q — this row HAS shipped, so it must be refused", res.Outcome)
+	}
+
+	sel := lastMatching(captured(), "FOR UPDATE")
+	if !strings.Contains(sel, datahelpers.NeverDeployedPagePredicate) {
+		t.Errorf("the locking SELECT does not use datahelpers.NeverDeployedPagePredicate — a SECOND definition of \"has this page shipped\" has been introduced:\n%s", sel)
+	}
+	if strings.Contains(sel, "needs_rebuild") {
+		t.Errorf("the SELECT singles out needs_rebuild, which is the 34-page false-positive class (datahelpers/links_deployment_test.go):\n%s", sel)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
 	}
 }
 
-// TestUpsertPageForRole_DeployedAtAloneCountsAsLive covers the row whose
+// TestUpsertPageForRole_NeedsRebuildButNeverBuiltIsAdopted is the control the
+// deleted test would have FAILED, and it is the one with live rows behind it: 11
+// fleet pages are `needs_rebuild` with no `deployed_at`. Nothing has ever served
+// them, so a constant-role arm colliding with one must ADOPT — not refuse, not
+// file a human decision, and not hard-error the tool deploy.
+func TestUpsertPageForRole_NeedsRebuildButNeverBuiltIsAdopted(t *testing.T) {
+	db, mock, captured := newCapturingMock(t)
+
+	mock.ExpectQuery("INSERT INTO pages").WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectBegin()
+	// shipped=false is what the shared predicate returns for this row.
+	mock.ExpectQuery("SELECT id, COALESCE").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "status", "shipped"}).
+			AddRow(uuid.New(), "content", "needs_rebuild", "active", false))
+	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	res, err := UpsertPageForRole(context.Background(), db, toolPageWrite("tool-price-cap-checker"), zap.NewNop())
+	if err != nil {
+		t.Fatalf("UpsertPageForRole: %v", err)
+	}
+	if res.Outcome != PageRoleAdopted {
+		t.Fatalf("outcome = %q, want %q — this row has never been built, so refusing it files a human decision nobody needs", res.Outcome, PageRoleAdopted)
+	}
+	if update := lastMatching(captured(), "UPDATE pages"); !strings.Contains(update, "page_type") {
+		t.Errorf("ADOPT did not write page_type:\n%s", update)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// TestUpsertPageForRole_DeployedAtAloneCountsAsShipped covers the row whose
 // build_status says nothing useful — 'planned', or empty — but which carries a
-// deployed_at. It has been served; the string column is not the authority.
-func TestUpsertPageForRole_DeployedAtAloneCountsAsLive(t *testing.T) {
+// deployed_at. It has been served; the status string is not the authority. This
+// is the half of the shared predicate that `deployed_at IS NULL` carries.
+func TestUpsertPageForRole_DeployedAtAloneCountsAsShipped(t *testing.T) {
 	db, mock, _ := newCapturingMock(t)
 
 	mock.ExpectQuery("INSERT INTO pages").WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT id, COALESCE").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "status", "ever"}).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "page_type", "build_status", "status", "shipped"}).
 			AddRow(uuid.New(), "content", "planned", "active", true))
 	mock.ExpectQuery("SELECT COUNT").
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
