@@ -121,11 +121,38 @@ def main():
         action="store_true",
         help="exit 1 if the DB does not match the file (no writes)",
     )
+    ap.add_argument(
+        "--verbose-warnings",
+        action="store_true",
+        help="also print the prose-footprint style advisories (~168 on the current corpus)",
+    )
     args = ap.parse_args()
 
-    entries = parse(LANDMINES)
+    # parse() took no on_warn until 2026-08-02, so every warning it raised —
+    # "skipped (no footprint)", malformed headings — went to nobody. A parser that
+    # reports nothing looks exactly like a file with nothing wrong in it.
+    warnings = []
+    entries = parse(LANDMINES, on_warn=warnings.append)
     if not entries:
         sys.exit("no entries parsed — refusing to run (this would delete every owned row)")
+
+    # Partition, or the signal drowns. 'prose footprint' fires ~168 times on the
+    # current corpus — a standing style advisory, not something this run broke.
+    # Printing all of it would bury the two kinds that mean a landmine is NOT
+    # BEING DELIVERED, which is the whole reason warnings were wired up.
+    blocking = [w for w in warnings if not w.startswith("prose footprint")]
+    stylistic = len(warnings) - len(blocking)
+    if blocking:
+        print(f"!! {len(blocking)} warning(s) that cost DELIVERY:")
+        for w in blocking:
+            print(f"    {w}")
+    if stylistic:
+        print(f"(+{stylistic} prose-footprint style advisories — "
+              f"run with --verbose-warnings to see them)")
+    if args.verbose_warnings:
+        for w in warnings:
+            if w.startswith("prose footprint"):
+                print(f"    {w}")
 
     want = {}
     slug_titles = {}  # slug -> [title, title, ...] seen so far, to catch collisions below

@@ -24,7 +24,14 @@ LANDMINES = os.path.join(
 ENTRIES_MARKER = "# Entries"
 
 FIELD_RE = re.compile(r"^-\s+\*\*(?P<label>[a-z ]+):\*\*\s*(?P<value>.*)$")
-HEADING_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$")
+# '###' is the documented entry heading. '##' is ACCEPTED here on purpose, and
+# warned about — not rejected, and not ignored. When this matched '###' only, a
+# '##' heading was not a heading at all: its lines were absorbed into the
+# PRECEDING entry and its '**footprint:**' line overwrote that entry's own, so one
+# malformed heading silently cost TWO entries their delivery. Measured 2026-08-02:
+# `UpsertPageForRole` had 0 doc_notes rows because a '##' entry appended hours
+# after it swallowed it. Nothing errored, and no count looked wrong.
+HEADING_RE = re.compile(r"^(?P<hashes>#{2,3})\s+(?P<title>.+?)\s*$")
 # A footprint opening with a determiner is a description, not a grep target.
 PROSE_FOOTPRINT_RE = re.compile(r"^(the|any|a|an|every|all|some)\s", re.I)
 
@@ -104,6 +111,13 @@ def parse(path=None, on_warn=None):
                 entries.append(cur)
             cur = {"title": m.group("title"), "lines": [], "fields": {}}
             open_field = None
+            if m.group("hashes") == "##" and on_warn:
+                # Not fatal: the entry parses correctly from here. But a '##' that
+                # carries no footprint is a section divider and will be skipped
+                # below, so say which one this is rather than guessing.
+                on_warn(
+                    f"heading uses '##', the format is '###': {m.group('title')[:70]}"
+                )
             continue
         if cur is None:
             continue
