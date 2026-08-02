@@ -5,6 +5,15 @@ each has marked a real inflection — the framework existed (a), the rulings lan
 and now (c) the register is decision-complete and the machine has run its full cycle on
 a brand-new site without a person touching the middle.
 
+> **CORRECTED 2026-08-02 (owner):** "the machine has run its full cycle … without a
+> person touching the middle" is false in the way that matters. The generative pipeline
+> wrote **nothing**: this thread hand-wrote every byte, and the machine only *adopted*
+> the finished site byte-preservingly — zero LLM work items, a figure this very file
+> reports as a success criterion three paragraphs down. What ran end-to-end was the
+> preservation path, not the production line, and the owner's standing intent is that
+> **the pipeline should be building everything.** Caught by the owner asking which of
+> the two did the work. See `SUMMARY_2026-08-02_the_pipeline_should_build_everything.md`.
+
 ## What we are trying to do
 
 Unchanged: ~150 finance and insurance domains as substantial sites in deliberately

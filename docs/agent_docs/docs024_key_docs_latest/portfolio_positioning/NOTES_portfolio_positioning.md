@@ -78,3 +78,31 @@ claims table), `check_register.py` (the overlap guard the platform lacks),
   move a domain between propositions.
 - The claim that "preparing" and "owning" journey stages are underserved is editorial
   judgement, not measured against competitors.
+
+### 2026-08-02 — OWNER CORRECTION: the pipeline should be building everything
+
+The owner asked whether loancash.co.uk was built by the submit-domain trigger or by this
+thread. Answer: entirely by this thread; the trigger ran once, afterwards, in locked
+adoption mode (zero LLM work items — generation structurally excluded). The owner then
+ruled the error: **hand-building is not the method — the pipeline should be building
+everything.** Recorded as `SUMMARY_2026-08-02_the_pipeline_should_build_everything.md`,
+a CORRECTED marker on `SUMMARY_2026-08-01c` (which had credited "the machine" with the
+full cycle), and a WRONG_CALLS entry (a success metric that flipped sign: zero generated
+items passed adoption fidelity and refuted "the machine built it", in the same file).
+
+Consequence for the lane: before any gap-closing, run the fresh-build experiment — one
+cheap domain via `082_submit_domain_unified.sh` (no `--from`), register entry as
+`--mission-file` AND pre-seeded via `set_divergence_specs.py`, marker sentence planted,
+live-origin `verify_site.py`-class checks on the output. The six-gap list (README
+2026-08-02 entry) is the candidate work plan; the experiment decides which gaps bite.
+
+**Same day, sharpened by the owner:** the experiment is not "one cheap domain" — it is
+loancash itself: run the same proposition through the pipeline and fix the pipeline
+until it matches the hand-built site (nav, research, articles, copy). Safety rule: the
+fresh build runs at a SHADOW domain (`loancash.uk` — unclaimed, no Cloudflare zone,
+publicly unreachable), never at loancash.co.uk, whose row is live and locked. Before
+the run: read the LIVE `domain-submitter` agent_definitions row (seed ≠ system) to
+confirm what it does on an existing-domain collision, and expect its sites-repo commits
+to need tidying afterwards. Benchmark rubric = extract from the hand-built site:
+nav model, every-page footer disclaimers, fact-with-rule-name density per guide, copy
+register, tool correctness fixtures (£15 / 0.8%/day / 100% ceiling).
