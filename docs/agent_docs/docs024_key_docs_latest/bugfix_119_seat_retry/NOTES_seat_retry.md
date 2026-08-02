@@ -279,3 +279,74 @@ Committed `059ae2acd` with `Council-Reviewed: 576832f3-…` — the trailer is e
 verdict was read. **The bug stays OPEN.** Go changes are inert until an image is built and
 rolled, and CLAUDE.md's bar is *fixed AND live*. RUNBOOK R10 has the pod-grep with its
 negative control and the behavioural `llm_call_log` check; neither can run until the roll.
+
+---
+
+## 2026-08-02 — post-roll: LIVE, and two measurement errors caught on the way to proving it
+
+**Roll.** Chassis `v1.0.1228`, both replicas started 08:47 UTC, carrying `4c1a97874`,
+`085160a6c`, `059ae2acd`. Confirmed the commits are ancestors of HEAD first
+(`git merge-base --is-ancestor 059ae2acd HEAD`) — HEAD had moved 8 commits ahead under other
+lanes, and my three files were untouched by them.
+
+**Artefact proof, both pods** (RUNBOOK R10, now rewritten). All five added markers present
+1–3×, pipeline control 1, spelling control 0. `Keep every citation` is the load-bearing one:
+it entered the tree only in `059ae2acd`, the last commit of the series, so its presence dates
+the image past the whole series.
+
+**MISSTEP 1 — my own negative control could never have failed.** R10 as written grepped the
+binary for `adds format-specific instructions based on output_type`, "a string this change
+REMOVED". It is a **Go comment**. Comments are not compiled, so it returns 0 against every
+binary ever built and reads as a pass. Checking properly
+(`git diff 4c1a97874^..059ae2acd -- <file> | grep '^-'`) showed this change removed **no
+string literal at all** — only comments and code structure — so the removal-based negative
+control `bugs_open/153` asks for was never available here. Substituted the last-commit marker
+above, which answers the same question (is the image new enough) by a route that can fail.
+**Check a control CAN fail before trusting that it didn't.**
+
+**MISSTEP 2 — I measured my own submission text and nearly filed it as the fleet's
+behaviour.** To show edit A's defect was real I counted, over all calls to
+`output_format: json` steps, how many prompts contained the JSON instruction:
+
+```sql
+count(*) FILTER (WHERE prompt_rendered LIKE '%Ensure valid JSON syntax%')  -- 31 of 9,063
+```
+
+31 looked like a plausible trickle of correctly-instructed calls. It was not: all 31 were
+dated to my two council rounds, at **exactly 2 per seat** across 16 seats, and the phrase sat
+inside my own prose — the submission rationale quotes the instruction it is about, and a
+submission is rendered into every seat's prompt. `prompt_template` matched **0** times, which
+alone falsifies the reading; and the alternative explanation (an `ai_service`-level
+`output_type` the old code could already see) is refuted at **0 rows**.
+
+Re-measured on the block **header**, which no rationale quotes in passing:
+
+| era | calls | `CRITICAL OUTPUT FORMAT - JSON:` | `CRITICAL OUTPUT FORMAT:` (says nothing about JSON) |
+|---|---|---|---|
+| before roll (2026-03-31 → 08-01, 25 agents) | 9,063 | **2** | **9,061** |
+
+Positive control, and it sharpens the finding: steps declaring `output_type: json` — the
+spelling the *old* code could read — have had **0 calls** in the entire retained window. So
+the JSON block was essentially never appended by anything, ever. The corrected figure is more
+damning than the wrong one, which is why it was worth re-doing rather than shipping the 31.
+
+**What the after-column is not.** Empty. `[UNMEASURED — 0 denominator]`: in the 32 minutes
+after the roll the fleet made **4** LLM calls, all `med-price-collector.scrape_prices`, which
+runs `med_scrape_prices` (not `execute_llm_prompt`) and declares no contract — so it is
+correctly absent, not a counter-example. Fleet is idle at single-digit calls/hour and the
+last council round was 2026-08-01 08:59:45, my own round 2. Hence the re-ask has fired 0
+times out of ~0 opportunities, and the damage figure is unchanged at **23 voided of 429**
+(weekly 0/0/8/15). None of that is evidence either way and it is recorded as such.
+
+**A close condition I set too strictly, recorded rather than dropped.** The handoff's step 4
+said the damage figure falling "is the close condition". That is an *outcome* metric gated on
+other sessions convening councils — unsatisfiable by anything this lane does, possibly for
+days — whereas CLAUDE.md's bar (*fixed AND live*) is met and artefact-proven. Closed on the
+stated bar with the outcome measurement written up as an owed follow-up, both queries inline
+in the bug file.
+
+**Landmine verifier still not fired**, same reasoning as 2026-08-01: `bugs_open/163` (OPEN,
+unowned) records that the verifier's symbol lookup cannot answer a path-bearing query and
+invents a stale-index cause for its own blindness. This entry's footprint is path- and
+table-bearing, so a false negative is the likely outcome and banking one would degrade the
+corpus. Synced to `doc_notes` (700 owned rows); flagged `NEEDS_VERIFICATION` and left so.

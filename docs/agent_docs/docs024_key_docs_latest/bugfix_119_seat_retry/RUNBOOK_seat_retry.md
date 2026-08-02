@@ -153,23 +153,91 @@ SELECT body FROM doc_notes WHERE categories ? 'council-gate'
   AND body LIKE '%<SUBMISSION_CORR>%' ORDER BY created_at DESC LIMIT 1;
 ```
 
-## R10 — Post-roll verification (owed; NOT yet run)
+## R10 — Post-roll verification (RUN 2026-08-02; passed on v1.0.1228)
+
+Loop over **every** replica, never `-o jsonpath='{.items[0]...}'` — one pod of N is not the
+deployment (`logs-deploy-reads-one-pod-of-n`).
 
 ```bash
-POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
-# ✓ strings this change ADDS — 0 before the roll, 1 after. Run on EVERY replica.
-kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'bugs_open/119 re-ask RECOVERED'"
-kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'YOUR PREVIOUS ANSWER WAS DISCARDED'"
-# ✓ NEGATIVE control — a string this change REMOVED. Must be 0 after the roll.
-kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'adds format-specific instructions based on output_type'" || true
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{range .items[*]}{.metadata.name} {end}'); do
+  echo "== $POD"
+  kubectl -n ai-persona-system exec "$POD" -- sh -c '
+    B=/app/agent-chassis
+    echo "pipeline ctl (pre-existing, >=1): $(strings $B | grep -c "Ensure valid JSON syntax")"
+    echo "re-ask RECOVERED        (>=1): $(strings $B | grep -c "bugs_open/119 re-ask RECOVERED")"
+    echo "RETRY marker            (>=1): $(strings $B | grep -c "RETRY (bugs_open/119")"
+    echo "Keep every citation     (>=1): $(strings $B | grep -c "Keep every citation")"
+    echo "spelling ctl (near-miss,  =0): $(strings $B | grep -c "bugs_open/119 re-ask RECOVEREDX")"
+  '
+done
 ```
 
-**Gotcha — a positive control proves the pipeline, never the spelling.** Pair it with the
-negative control above; a mis-cased grep reads as "not shipped" (`grep -ic`).
+> **CORRECTED 2026-08-02 — the negative control this section used to prescribe could NEVER
+> have worked.** It grepped for `adds format-specific instructions based on output_type`, a
+> line the change deleted — but that line is a **Go comment**, and comments are not
+> compiled. It returns 0 against every binary ever built, before or after the roll, and
+> reads as a pass. Worse, this change removed **no string literal at all** (check with
+> `git diff <first>^..<last> -- <file> | grep '^-'` — all comments and code structure), so a
+> removal-based negative control was not available here in the first place.
 
-Then the behavioural check, which outranks the grep:
+**So pick controls that can actually fail, and know which question each answers:**
+
+| control | answers |
+|---|---|
+| a pre-existing string (`Ensure valid JSON syntax`) | does `strings`+grep work on this binary at all |
+| a string added by the **LAST** commit of the series (`Keep every citation`) | is the image at least as new as the whole series — the image-age question a removed string would have answered |
+| a deliberate near-miss of your own marker (`…RECOVEREDX`) | does grep return 0 when absent, i.e. is a `1` real |
+
+A positive control proves the pipeline and **never** the spelling; a mis-cased grep reads as
+"not shipped" (`grep -ic`).
+
+Then the behavioural check, which outranks the grep — **with its denominator**, or a `0` is
+unreadable:
 
 ```sql
-SELECT count(*), max(created_at) FROM llm_call_log
-WHERE error_message LIKE 'RETRY (bugs_open/119%';
+SELECT count(*), max(created_at) FROM llm_call_log WHERE error_message LIKE 'RETRY (bugs_open/119%';
+-- ALWAYS pair it with: how many in-scope calls even happened?
+SELECT count(*) FROM llm_call_log WHERE created_at > '<roll ts>';
 ```
+
+**Gotcha — 0 retries out of 4 total calls is not evidence of anything.** On 2026-08-02 the
+fleet ran 4 LLM calls in the 32 min after the roll, none of them an `execute_llm_prompt`
+step with a JSON declaration. Report that as `[UNMEASURED — 0 denominator]`, not as a pass.
+
+## R11 — Did a JSON-declaring step receive the JSON instructions? (edit A's observable)
+
+`prompt_rendered` is assigned **after** `appendOutputInstructions` (ai_actions.go:341 → 473),
+so the logged prompt does show which block was appended.
+
+```sql
+WITH json_steps AS (
+  SELECT DISTINCT ad.type AS agent_type, s.key AS step_name
+  FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s(key,value)
+  WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+    AND s.value->>'action'='execute_llm_prompt' AND s.value->'config'->>'output_format'='json'
+)
+SELECT CASE WHEN l.created_at > '<roll ts>' THEN 'AFTER' ELSE 'BEFORE' END AS era, count(*) AS calls,
+       count(*) FILTER (WHERE l.prompt_rendered LIKE '%CRITICAL OUTPUT FORMAT - JSON:%') AS got_json_block,
+       count(*) FILTER (WHERE l.prompt_rendered LIKE '%CRITICAL OUTPUT FORMAT:%')        AS got_default_block
+FROM llm_call_log l JOIN json_steps j USING (agent_type, step_name) GROUP BY 1;
+```
+
+Baseline before the roll: **9,061 of 9,063 got the DEFAULT block** — 25 agents, four months.
+
+**Gotcha — do NOT detect on a sentence like `Ensure valid JSON syntax`; it matches your own
+submission.** A council submission's rationale is rendered *into* every seat's prompt, so a
+phrase you quote while explaining the bug becomes a false positive in `prompt_rendered`.
+That first cut returned 31 of 9,063, and all 31 were my own two council rounds (exactly 2
+per seat, all on the submission date, `prompt_template` matching 0 times). Detect on the
+block **header** (`CRITICAL OUTPUT FORMAT - JSON:`) — text no rationale would quote in
+passing — and confirm with `prompt_template`, which the appended block never touches.
+
+**Gotcha — `CRITICAL OUTPUT FORMAT:` is not a prefix-match trap, but check it.** The JSON
+block reads `CRITICAL OUTPUT FORMAT - JSON:`, so the two headers are distinguishable; a
+`LIKE '%CRITICAL OUTPUT FORMAT:%'` does not match the JSON one.
+
+**Gotcha — the `(agent_type, step_name)` join silently drops pre-07-26 history.** Council
+seats logged under `agent_type='generic'` until 2026-07-26 and `'council-gate'` after, so
+1,798 older seat calls never join to any `agent_definitions.type`. The denominator is
+therefore conservative and skewed recent — fine for "was the block appended", wrong for any
+absolute historical volume.

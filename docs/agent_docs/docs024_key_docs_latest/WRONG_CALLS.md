@@ -15908,3 +15908,46 @@ a *correct number*, so every sanity check on the output passed. A conclusion tha
 review because it is right, arrived at by a route that is wrong, is the most durable kind of
 error in this file — it re-fires the moment the inputs shift and nobody re-derives it. Recorded
 as a `[ESTIMATED]`-marked window in the runbook, not a bare threshold, for exactly that reason.
+
+---
+
+## 2026-08-02 — I measured my own submission text and called it the fleet's behaviour (`bugs_open/119`)
+
+**The claim.** Verifying that edit A shipped, I measured how many calls to `output_format: json`
+steps had ever received the JSON instruction block, detecting on the sentence the block
+contains: `prompt_rendered LIKE '%Ensure valid JSON syntax%'`. It returned **31 of 9,063**, and
+I was ready to write "31" into the closed bug file as the pre-fix baseline.
+
+**Why it was wrong.** All 31 were mine. They were dated to my two council rounds, at **exactly 2
+per seat** across 16 seats, and the phrase sat inside my own prose — `…whose text is 'Ensure
+valid JSON syntax (proper quotes, commas, brackets)' — precisely the failure 119 documents…`.
+**A council submission's rationale is rendered into every seat's prompt.** So the sentence I
+quoted while *explaining* the missing instruction became a false positive for the instruction
+being *present*, in the exact rows I most cared about. The true figure is 2 — and 9,061 of 9,063
+calls got the wrong block.
+
+**What caught it.** The shape, not the number. "2 per seat" is not how production traffic
+distributes; it is how *two runs* distribute. The give-away was that a four-month window
+produced hits on one day only, and that day was mine.
+
+**The cheap check that would have.** Two, both one line. Detect on the block **header**
+(`CRITICAL OUTPUT FORMAT - JSON:`) rather than a sentence a rationale would naturally quote —
+and cross-check `prompt_template`, which the appended block never touches (it matched **0**
+times, which alone falsifies the reading). Also worth stating as a rule: **before believing a
+`prompt_rendered` measurement, ask what else gets rendered into that prompt.**
+
+**The shape worth keeping.** This is `prompt-text-poisons-its-own-detector` again — a memory I
+already hold — with a new and nastier twist: the poison was *my own bug report*. Documenting a
+defect precisely enough to fix it planted the defect's own vocabulary in the corpus I then used
+to measure it. It is the same root as this lane's other artefact, where the landmine I wrote
+about this change scored as six council objections against it: **on this platform, describing a
+thing puts your description into the systems that observe that thing.** Writing it down is still
+right; measuring afterwards with a detector keyed to what you wrote is not.
+
+**A near-miss in the same hour, same lane.** My own RUNBOOK's post-roll *negative* control
+grepped the binary for `adds format-specific instructions based on output_type` — a line the
+change deleted. It is a **Go comment**. Comments are not compiled, so that grep returns 0
+against any binary ever built and would have been read as a pass. The change removed no string
+literal at all, so a removal-based negative control was never available; `Keep every citation`,
+added by the *last* commit of the series, answered the image-age question instead. **Check that
+a control CAN fail before trusting that it didn't.**
