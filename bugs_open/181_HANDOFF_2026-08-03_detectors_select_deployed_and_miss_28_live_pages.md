@@ -1,4 +1,4 @@
-# 181 — every detector that selects `build_status = 'deployed'` is blind to 28 live pages
+# 181 — every detector that selects `build_status = 'deployed'` is blind to 28 live pages (35 counting archived-but-possibly-served)
 
 **Filed:** 2026-08-03 by the `bugfix_175_page_role_upsert` lane, **at the council gate's
 request** (round 2 on corr `e78c62e3-7f01-48f1-b083-924eaccd195a`, REVISE). Three seats —
@@ -33,13 +33,32 @@ judgement for a different purpose.**
 ## The measurement (live, 2026-08-03)
 
 ```sql
-SELECT count(*) FROM pages
-WHERE COALESCE(build_status,'') <> 'deployed' AND deployed_at IS NOT NULL AND status='active';
---  28
+-- CORRECTED 2026-08-03 — the first version of this census filtered `status='active'`
+-- without ever enumerating that column. Enumerate first, then decide:
+SELECT COALESCE(status,'(null)') AS status, count(*) AS pages,
+       count(*) FILTER (WHERE COALESCE(build_status,'') <> 'deployed'
+                          AND deployed_at IS NOT NULL) AS shipped_but_not_deployed_status
+FROM pages GROUP BY 1 ORDER BY 2 DESC;
+--  active   | 557 | 28
+--  archived |  25 |  7
 ```
 
-**28 active pages have shipped and are being served, yet carry a `build_status` other than
+**28 ACTIVE pages have shipped and are being served, yet carry a `build_status` other than
 `deployed`.** Every query whose WHERE clause is `p.build_status = 'deployed'` skips all 28.
+
+> **CORRECTED 2026-08-03, at the council's `debug_historian` seat's insistence, and the
+> correction is worth more than the number.** The original census read
+> `... AND status='active'` and reported **28** as though that were the whole population. I
+> scoped a blast radius by a status column **without first enumerating its values** — the
+> generalised form of the "`sites.status` is informational, do not scope by it" trap.
+> Enumerated: `pages.status` has two values, and **7 more rows are `archived` AND
+> shipped-but-not-`deployed`**. Whether those 7 belong in the figure is a real question
+> rather than a rounding error: `bugs_open/098` establishes that **archiving does not
+> retract the live page**, so an archived page may well still be served — in which case a
+> detector that skips it is blind to a live artefact, which is this bug. **So: 28 is the
+> number for "pages the platform considers current"; 35 is the number for "pages that may
+> still be on the wire". Both are stated because the difference is a decision (does a
+> detector owe anything to an archived-but-served page?) and not mine to make silently.**
 
 ## The census — which sites make the judgement, and which do not
 

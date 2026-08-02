@@ -276,3 +276,56 @@ A smaller one from the same pass: mutation A (hand-rolling the predicate) first 
 to **compile**, because deleting the last use of `datahelpers` left an unused import. A
 compile error is not a test result. Re-run with `_ = datahelpers.NeverDeployedPagePredicate`
 keeping the import alive, and both real assertions fired.
+
+## 2026-08-03 — round 3 APPROVED, and two advisories that were checks, not opinions
+
+Verdict trail on one correlation: **approved → revise → approved** (`e78c62e3`). Round 3:
+*"approved with 5 advisory objection(s) — none high-severity"*, 6 seats abstained.
+
+Two advisories were **claims of mine that could be checked**, so I checked them, and both
+changed something I had written down.
+
+### `debug_historian` was right: I scoped a blast radius by a status column I never enumerated
+
+`bugs_open/181`'s census read `... AND status='active'` and published **28**. The seat
+called it as the generalised form of the "`sites.status` is informational — do not scope
+blast radius by it" trap. Enumerated: `pages.status` has two values, and **7 further rows
+are `archived` AND shipped-but-not-`deployed`**. That is not a rounding error, because
+`bugs_open/098` says archiving does **not** retract the live page — those 7 may still be on
+the wire, and a detector skipping them is blind to a live artefact, which is the bug. 181
+now states both numbers and says which question each answers. **The habit to keep: run the
+`GROUP BY` on any status column BEFORE you filter on it, not after someone asks.**
+
+### `prior_art_librarian` was right to refuse to take "it is live on v1.0.1233" on trust
+
+That seat has no deployed-binary check tier and said so instead of nodding it through. The
+pod-grep it asked for found the picture had **moved**: `v1.0.1234` is running, and on both
+replicas —
+
+| grep | result | means |
+|---|---|---|
+| old hand-rolled predicate (`IN ('deployed','needs_rebuild')`) | **0 / 0** | the 11-row spurious-refusal defect is **GONE from production** |
+| shared predicate (`deployed_at IS NULL AND COALESCE(build_status…`) | 4 / 4 | the correction **shipped** |
+| `did not set AdoptUnshippedRows` | **0 / 0** | the RFC_010 opt-in round has **not** shipped |
+
+So `v1.0.1234` was built from a commit between `023f6624a` (the correction) and
+`4ee695cc1` (the ruling round). **I had told the owner twice that "nothing from the
+correction onward is live"; that stopped being true when someone else rolled.** The
+statement was accurate when made and stale within the hour — which is the whole reason the
+rule is *grep the running pod*, not *reason from what you committed*. A liveness claim has
+a shelf life measured in minutes on this tree.
+
+### The three advisories I did NOT act on, and why
+
+- `reuse_agent` + `architecture` [medium]: the two constants are still two, cross-referenced
+  by comment rather than merged. Deferred to `bugs_open/181` fix candidate 2 **on purpose** —
+  `queryresolve` documents a deliberate family of three eligibility fragments, and collapsing
+  one of them in a bug-fix round is the "shipped a contract inside a two-day fix" shape the
+  same council flags elsewhere. Their objection strengthens 181's case; it is recorded there.
+- `guardian` [medium]: bundling 081's guard (a different pipeline) into this round widened
+  the blast radius, and dragged three mocks in another lane's closed test file. Fair as
+  architecture criticism — **and it was owner-directed** ("fix the guard"), not opportunistic
+  bundling. Recorded so the provenance is on the record rather than inferred.
+- `editquality` [low]: the `links.go` edit is comment-only and should not count as a covering
+  fix. Correct, and it never claimed to be — it is documentation of a relationship, and the
+  fix is 181.
