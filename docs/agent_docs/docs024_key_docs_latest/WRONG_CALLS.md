@@ -17244,3 +17244,38 @@ import) and I nearly recorded that as "the test caught the mutation". It did not
 compiler did, and a compile error proves nothing about the assertion. Re-ran it with the
 import kept referenced; the test then failed on both of its real assertions. **A
 mutation that does not compile is not a mutation test.**
+
+---
+
+## 2026-08-02 — my deploy negative control could never have reached 0, and I nearly wrote it into the runbook as the check
+
+**footprint:** any `strings <binary> | grep -c` pod verification · multi-line Go SQL
+literals · `RUNBOOK` deploy-verification sections · bugs_open/172 lane
+
+**The claim.** Closing `bugs_open/172` I wrote the pod check the fleet rule demands —
+a positive control (a string the change ADDED) *and* a negative one (a string it
+REMOVED, expect 0), on every replica. For the negative I picked
+`grep -c "ORDER BY created_at DESC$"`, the clause my rewrite had replaced with a
+window function, and wrote it into the lane's runbook as the check before I had run
+it. Then I ran it against the newly built image: **15**.
+
+**What caught it.** Running it on the image before pushing. `strings` emits each LINE
+of a Go raw-string literal separately, so `ORDER BY created_at DESC` is not a
+fingerprint of one query — it is a line in fifteen unrelated ones across the binary.
+The check could not have returned 0 on any build, fixed or unfixed. Had I not run it
+first, the runbook would have told every future session to expect 0, they would have
+seen 15, and the honest reading of that is **"my fix did not ship"** — which is the
+exact false conclusion `bugs_open/153` exists to prevent, manufactured by the control
+that was supposed to prevent it.
+
+**The cheap check.** **Run the negative control against the OLD image and the NEW one
+before you push, and require it to MOVE.** A control that does not change between the
+two is not a control, whatever number it returns. The one that worked was the exact
+removed line anchored whole-line (`grep -cx`, literal tabs): **5 in `v1.0.1233`, 4 in
+`v1.0.1234`** — one instance gone, the one I removed. The same differential does a
+second job for free: the positives returning **0** on the old image is what proves
+the pattern is spelled and cased correctly, which a positive control on the new image
+alone structurally cannot (it passes identically whether the pattern is right or the
+string is simply present for another reason). Distinct from the mock entry above but
+the same family: **a check whose output is fixed in advance by something other than
+the thing you are testing.**
