@@ -577,3 +577,90 @@ induced while `link_registry` is empty.
 `pruneFloorDetail` in `prune_floor.go` is the shared one now (sites B and C use
 it). Your `21a3f24b1` retired the duplicate *emitter*; the reporting block is the
 remaining half. Not done here because you were active in that file at the time.
+
+## 11. Site B induced live — and the pass branch was free (2026-08-02 ~09:20-10:00 BST)
+
+Picked the lane back up. Two things had changed underneath it: `prune_floor.go`
+was committed and the tree clean (`983e4b0a2`), so the other lane's live
+territory was released; and the fleet had rolled to **v1.0.1228**, five tags past
+site A's.
+
+**Pod-grep first, both replicas.** B and C markers present, site A's present,
+`ZZZ_NOT_A_REAL_SYMBOL_ZZZ` at 0. Recorded honestly that `983e4b0a2` is purely
+additive so **no same-diff negative control exists** — the discriminating pair
+(A's marker would survive a stale image, B/C's would not) does that job instead.
+
+### The design work was choosing the lever, and one option turned out not to exist
+
+I assumed both of B's cohorts were inducible. They are not. `pages seen` compares
+the loader's returned rows against a count built from **the same predicate**, and
+every nullable column in that SELECT is `COALESCE`d while `name`/`id` are NOT
+NULL. So no SQL I can write makes a row unscannable: cohort 1 diverges only on a
+genuine driver fault or a race. **That is a property of the design, not a hole in
+the test** — but it is exactly the kind of thing that would have read as "I only
+bothered to test one cohort" if I had not gone and looked. `[VERIFIED]` against
+`information_schema.columns` and the loader's SELECT at
+`populate_nav_tables_action.go:249-282`.
+
+### Two safety properties I checked BEFORE inserting anything
+
+1. In `nav-updater`, `refresh_nav_tables` is step 2 and `render_site_components`
+   — which bakes nav into header/footer HTML — is step 3. A refusal fails the
+   orchestration before anything renders, so synthetic rows **cannot** leak into
+   served HTML through this path.
+2. `site_nav_items` is fully derived. A guard that failed to fire would delete my
+   synthetics and rebuild the correct nav — self-healing, not destructive.
+
+Target chosen on measurement, not convenience: oufe.com had **0 orchestrations in
+24h** and no open nav work item. (Checking the pod does not check the queue.)
+
+### Result — refusal branch, first attempt
+
+`FAILED @ refresh_nav_tables`, `nav items 33% (8 of 24)`, all 8 real rows
+byte-identical to baseline md5s, all 16 synthetics still present, one
+`nav_rebuild_refused_incomplete` item at `needs_human_review` with no handler.
+`pages seen` read 9 of 9 and stayed silent — the cohort that catches a classifier
+collapse fired alone, which is the one the bug file's proposed partition would
+have missed.
+
+Swept for the marker **fleet-wide**, not on the target site — the site A lesson
+about abandoned inductions left inflated.
+
+### The thing I nearly got wrong: paying for a pass branch I already had
+
+My plan said "clear the induction, re-run, watch it pass". That would have run
+`nav-updater` to completion: re-render site components, commit JS, and create one
+rerender work item **per page** — real fleet LLM cost on a live site, for a
+*synthetic* pass.
+
+Before spending it I asked whether the pass had already happened. It had:
+`site-adoption-agent` orchestration `dcf88c1c-…`, COMPLETED 2026-08-01 09:04 on
+loancash.co.uk, `completeness_status: passed`, both cohorts with raw numbers. A
+genuine build clearing the guard is **better** evidence than an induced one —
+it proves the floor is reached and inert on real traffic, which a synthetic run
+cannot.
+
+This is the same move as §10's: prefer the evidence the system already produced
+to the evidence you were about to manufacture. §10 read the mechanism instead of
+inducing three consumers; this read the record instead of inducing a pass. Cost
+one query each time.
+
+### Two findings that came out of the run rather than the plan
+
+- **The misleading refusal sentence is now a production artefact.** oufe's
+  operator-facing text ends *"the rows this run did not confirm are retained and
+  a later run that sees the whole corpus will prune them"* — false for B, where
+  the whole rebuild was refused and nothing is tidied later. Previously filed as
+  reasoning; now demonstrated.
+- **`100% (1 of 0)`** appears on the loancash pass — the `Stored=0`
+  first-appearance case. Correct by design, reads oddly. Cosmetic, recorded so
+  nobody diagnoses it as a bug.
+
+### Site C: the induction is impossible, and that is the finding
+
+Re-measured rather than inherited (the claim was two days old): `link_registry`
+is **still 0 rows, 0 pages, NULL max(created_at)**, all history, fleet-wide. Its
+only live consumer still has no orchestrations. So neither branch is reachable —
+`Stored=0` means the floor cannot refuse, and an action that never runs cannot
+pass. C is **blocked on `bugs_open/092`**, not skipped, and it carries no risk
+meanwhile precisely because it is provably inert.

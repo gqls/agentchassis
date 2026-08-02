@@ -498,3 +498,123 @@ in the other direction: `count(handler_agent)` counts empty strings, so I read
 "363 of 363 carry a handler" off a column where **265 carry none**. Writing no
 handler is the majority pattern for that status, not an anomaly. Logged in
 `WRONG_CALLS.md`.
+
+## SITE B IS LIVE AND PROVEN — both branches, 2026-08-02 (owning lane)
+
+**Supersedes item 1 of "What is still owed", and answers item 4 for B.**
+
+### Live on v1.0.1228, pod-verified on both replicas
+
+```
+save_refused_incomplete          2   <- site A, live since v1.0.1223 (discriminator)
+nav_rebuild_refused_incomplete   2   <- site B
+link_sync_refused_incomplete     2   <- site C
+ZZZ_NOT_A_REAL_SYMBOL_ZZZ        0   <- the grep is honest
+```
+
+**No same-diff negative control was available and that is stated rather than
+papered over**: `983e4b0a2` is purely additive — it removes no string literal, so
+there is nothing that must read 0. The discriminating pair does the same job: a
+stale v1.0.1223 image would show site A's marker and NOT B's or C's.
+
+### The refusal branch — induced on oufe.com, 2026-08-02 10:24 BST
+
+Correlation `323173dd-9fd1-4899-bb61-f835f0516b13`, agent `nav-updater`
+(`ensure_site_record` → `refresh_nav_tables`). Baseline: 9 pages in scope, 8 nav
+items in 3 groups, 0 orchestrations in 24h, no open nav work item.
+
+Induction: **16 marked synthetic rows** (`label LIKE 'INDUCED-165B-%'`) into the
+utility group, taking the stored side to 24 while the write side stayed at 8.
+
+```
+FAILED @ refresh_nav_tables
+
+populate_nav_tables: rebuild: REFUSED for site oufe.com — this run re-confirmed
+too little of what is stored (prune_floor_ratio=0.50): nav items 33% (8 of 24).
+```
+
+- **Nothing was deleted.** All 8 real rows byte-identical to the baseline md5s,
+  and all 16 synthetics still present (24 total) — the refusal returns *before*
+  the transaction opens, exactly as the file header claims.
+- **The right cohort fired, alone.** `pages seen` read 9 of 9 and stayed silent;
+  only `nav items` was below floor. That is the cohort that exists specifically
+  to catch a classifier collapse the page load cannot see.
+- **Durable surface landed**: one `site_work_items` row,
+  `nav_rebuild_refused_incomplete:a0d7f1ae-…`, status `needs_human_review`, no
+  `handler_agent`.
+- Cleanup verified by sweeping for the marker **fleet-wide**, not just on the
+  target: `SELECT count(*) FROM site_nav_items WHERE label LIKE 'INDUCED-165B-%'
+  OR url LIKE '/induced-165b-%'` → 0. oufe.com back to its 8 baseline rows.
+
+**One datum that differs from site A**: for B the refusal reason IS in
+`orchestration_states.error`. On A it was only in the chassis log. Do not
+generalise either way — read both.
+
+### The pass branch — proven by a REAL production run, not an induced one
+
+Not induced, because it did not need to be. `site-adoption-agent` orchestration
+`dcf88c1c-1fc2-4f48-8064-e5a18725c4a6`, **COMPLETED 2026-08-01 09:04**, on
+loancash.co.uk:
+
+```
+"completeness_status": "passed",
+"completeness_reason": "populate_nav_tables: rebuild: floor cleared for site
+  loancash.co.uk (prune_floor_ratio=0.50); pages seen 100% (18 of 18),
+  nav items 100% (1 of 0)"
+```
+
+Both cohorts reported with their raw numbers on a PASSING run, which is the
+"don't present the alarm as the output" property the file was designed for. A
+genuine build clearing the guard is **stronger** evidence than a synthetic pass:
+it proves the floor is reached and inert on real traffic. Note the cosmetic
+oddity `100% (1 of 0)` — the stored=0 first-appearance case, correct by design
+(a class appearing for the first time must never be able to refuse a prune), but
+the sentence reads strangely and is worth a wording pass if the text is ever
+revisited.
+
+### The misleading-refusal-sentence finding is now DEMONSTRATED, not merely reasoned
+
+The oufe refusal above ends with the shared sentence:
+
+> *"NOTHING was deleted; the rows this run did not confirm are retained and a
+> later run that sees the whole corpus will prune them."*
+
+The first clause is true. **The second is false for site B** — nothing is
+"retained pending a later prune"; the entire rebuild was refused, and the next
+healthy run deletes and rebuilds the lot wholesale. An operator reading this is
+told to wait for a tidy-up that will never come. Previously filed as reasoning;
+it is now a production artefact an operator could actually be shown. Unchanged
+in substance: the fix belongs in `prune_floor.go`'s `Reason()` as a
+caller-supplied "what happens next" clause, and wants its own council round —
+**do not simply delete the sentence, "NOTHING was deleted" is load-bearing.**
+
+### Site C — the induction is IMPOSSIBLE today, not merely undone
+
+Re-measured 2026-08-02: `SELECT count(*), count(DISTINCT source_page_id),
+max(created_at) FROM link_registry` → **0, 0, NULL**. Still empty fleet-wide,
+all history. Its only live consumer (`multipage-website-builder`) still has no
+orchestrations. So **neither branch is reachable**: with `Stored=0` every cohort
+is treated as fully confirmed, so the floor cannot refuse, and with the action
+never running there is nothing to pass either.
+
+This is a blocked prerequisite, not a skipped step. What C *does* have: the code
+is live (pod-grepped above) and its refusal path was proven offline by mutation
+(neutering the link floor fails its refusal test, run rather than claimed by the
+implementing lane). Option (b) of item 2 above is therefore the honest reading —
+**C stays open, blocked on `bugs_open/092`** making the insert half run. It
+carries no risk in the meantime precisely because it is provably inert.
+
+### So: what is still owed on this case
+
+- **C's live induction**, blocked on `bugs_open/092`. Not actionable from here.
+- **The refusal-sentence fix** — now with a live artefact behind it.
+- **`page-build-handler` / `tool-recreation-handler`** (the two of six consumers
+  that route on error rather than failing) still unmeasured empirically. Content
+  is protected in both by construction — the floor returns before the DELETE and
+  the work item is written before the error — so this is a *visibility* question,
+  not a data-loss one.
+- **165 does NOT close on B alone.** Both the `bug_historian` and `architecture`
+  seats asked specifically that this case not be closed the moment the
+  high-stakes site was done. A and B are done; C is blocked. Closing it needs an
+  owner ruling on whether "live + mutation-proven + provably inert" clears the
+  bar for C, and that is a decision, not a measurement.

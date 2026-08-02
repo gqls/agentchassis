@@ -355,3 +355,99 @@ GROUP BY 1,2 ORDER BY rows DESC;
 per-`link_type` cohort is site A's rejected per-`slot_name` shape again — every
 cohort is 1 stored, so any legitimate single-link removal scores 0% and refuses.
 Do not add it.
+
+## R-B2 — inducing site B's nav floor live (both branches, 2026-08-02)
+
+Site A's recipe does NOT transfer directly: A inflates a *plan* column
+(`pages.sections`), B has no plan column. The lever here is the stored side.
+
+### Choosing the lever — and why cohort 1 cannot be induced at all
+
+`pages seen` compares `loadPagesForNav`'s returned rows against a count using
+**the same predicate** (`navPageScopeSQL`). Adding a page inflates *both* sides.
+Every nullable column in the loader's SELECT is `COALESCE`d and `pages.name` /
+`pages.id` are `NOT NULL`, so **no data change can make a row unscannable**.
+Cohort 1 therefore only diverges on a genuine driver/scan fault or an insert
+racing the measurement — it is not inducible from SQL, and that is a property of
+the design, not a gap in the test. **Induce cohort 2.**
+
+### Why this induction is safe on this trigger
+
+In `nav-updater`, `refresh_nav_tables` is step 2 and `render_site_components`
+(which bakes nav into header/footer HTML) is step 3. A refusal fails the
+orchestration *before* anything renders, so synthetic rows **cannot** reach
+served HTML. `site_nav_items` is also fully derived — any healthy rebuild deletes
+and regenerates the lot — so the worst case of a guard that fails to fire is
+self-healing. Check both properties before picking a different trigger.
+
+### The recipe
+
+```sql
+-- 1. BASELINE, per row, before touching anything
+SELECT i.id, g.group_key, i.label, i.url, i.position,
+       md5(i.label||i.url||COALESCE(i.metadata::text,'')) AS row_md5
+FROM site_nav_items i JOIN site_nav_groups g ON g.id=i.group_id
+WHERE i.site_id='<site>' ORDER BY g.group_key, i.position;
+
+-- 2. INDUCE: inflate the stored side past the floor. 8 real items, floor 0.50
+--    => need stored > 16, so 16 synthetics gives 8/24 = 33%. MARK THEM.
+INSERT INTO site_nav_items (site_id, group_id, label, url, position, status, metadata)
+SELECT '<site>', '<utility group id>',
+       'INDUCED-165B-' || lpad(n::text,2,'0'),
+       '/induced-165b-' || lpad(n::text,2,'0') || '.html',
+       100 + n, 'active', '{"induced_by":"bugs_open/165 site B"}'::jsonb
+FROM generate_series(1,16) n;
+```
+
+Trigger (payload in the container COMMAND — `kubectl run -i | kcat -P` loses ~4
+of 5 at exit 0; the `PUBLISH_OK` marker is how you know it went):
+
+```bash
+PAYLOAD='{"action":"orchestrate","config":{"agent_type":"nav-updater"},"input_data":{"domain":"<domain>","site_id":"<site>"}}'
+kubectl -n kafka run "kcat-165b-$(date +%s)" --rm --restart=Never \
+  --image=edenhill/kcat:1.7.1 --attach=true --quiet --command -- sh -c \
+  "printf '%s' '$PAYLOAD' | kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+   -t system.agent.generic.requests -H correlation_id=$CORR -H request_id=$REQ \
+   -H message_id=$MSG -H orchestration_id=$ORCH -H orchestration_name=induce-165b \
+   -H step_name=start -H client_id=demo_client -H message_type=request \
+   -H action=orchestrate -H from_agent_type=user -H from_agent_id=cli \
+   -H responses_topic=system.agent.generic.responses && echo PUBLISH_OK"
+```
+
+**Gotcha — `nav-updater` had never run**, all history (0 orchestrations). Do not
+read "no prior runs" as "not dispatchable": it is an active definition and the
+generic envelope reaches it fine. Poll by `correlation_id`, never `created_at`.
+
+**Gotcha — B puts the refusal in `orchestration_states.error`; site A did not**
+(A's was only in the chassis log). Read both, generalise neither.
+
+```sql
+-- 3. PROVE NOTHING WAS DELETED: real rows byte-identical AND synthetics intact
+SELECT count(*) FILTER (WHERE label LIKE 'INDUCED-165B-%') AS synthetic,
+       count(*) FILTER (WHERE label NOT LIKE 'INDUCED-165B-%') AS real_rows
+FROM site_nav_items WHERE site_id='<site>';
+
+-- 4. CLEAN UP, then sweep FLEET-WIDE for the marker, not just the target site
+DELETE FROM site_nav_items WHERE site_id='<site>' AND label LIKE 'INDUCED-165B-%';
+SELECT count(*) FROM site_nav_items
+WHERE label LIKE 'INDUCED-165B-%' OR url LIKE '/induced-165b-%';   -- must be 0
+```
+
+### Do not pay for the pass branch until you have looked for a free one
+
+The pass branch was already sitting in production: a real `site-adoption-agent`
+run had cleared the floor on loancash.co.uk the previous day. One query found it:
+
+```sql
+SELECT o.orchestration_id, o.owner_agent_type, o.status, o.created_at
+FROM orchestration_states o
+WHERE o.collected_data::text LIKE '%completeness_status%'
+  AND o.collected_data::text LIKE '%items_stored%'
+ORDER BY o.created_at DESC LIMIT 3;
+-- then: SELECT k, jsonb_pretty(v) FROM orchestration_states o,
+--       LATERAL jsonb_each(o.collected_data) e(k,v) WHERE ... AND v::text LIKE '%completeness_status%';
+```
+
+Running `nav-updater` to completion would have re-rendered site components and
+created one rerender work item **per page** — real fleet cost, for weaker
+evidence than the genuine run already recorded. Look before you spend.

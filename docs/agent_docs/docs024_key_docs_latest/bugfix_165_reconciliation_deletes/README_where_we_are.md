@@ -148,3 +148,66 @@ Reading the code instead told me the general rule in one pass, covered all of th
 plus any future ones, and cost a fraction as much. Three passing tests would have
 proved three things; the rule proves the class. Worth remembering the next time I
 write "induce it" in a plan.
+
+---
+
+**2026-08-02, late morning — site B is now proven too, and site C turns out to be
+unprovable for a reason worth understanding.**
+
+Quick recap of the shape of this job, because it matters for what follows. Four
+places in the system rebuild something by deleting what was there and writing
+what they just produced. That is fine when the thing producing the new version
+saw everything; it is silent data loss when it only saw half. We are adding a
+check to each one: prove you saw enough before you are allowed to delete.
+
+Site A (page content) was done and proven last week. Today site B (site
+navigation) got the same treatment.
+
+**What I did.** The fleet had rolled, so the code for B and C was actually
+running in production for the first time. I checked that directly against the
+running containers rather than trusting the version number — a roll is not
+evidence that your change is in it.
+
+Then I deliberately broke a site to watch the guard catch it. I picked oufe.com
+because nothing else was touching it, added sixteen obviously-fake navigation
+entries so that a rebuild would look like it was throwing most of the nav away,
+and asked the system to rebuild the navigation. It refused, said exactly why
+("nav items 33% of 24"), left every real navigation entry untouched, and filed a
+note for a human. Then I removed the fakes and checked, across the whole fleet
+rather than just that one site, that none were left behind.
+
+**The bit I want to flag, because it is a small win.** My plan then said: run a
+normal rebuild and watch it succeed, to prove the guard doesn't block ordinary
+work. That would have been expensive — a full nav refresh triggers a re-render of
+every page on the site, which costs real money across the fleet. Before spending
+it, I asked whether the system had already done that on its own. It had: a
+routine build on a different site the previous morning had passed the same check
+and recorded its numbers. A real build passing is better evidence than a staged
+one, and it cost one query instead of a site rebuild.
+
+That is the second time in two days that looking for evidence the system already
+produced beat manufacturing it. I have written the pattern down.
+
+**Site C is a different story, and the answer is "you cannot do this yet".** Site
+C guards the internal link registry. That table is completely empty — no rows,
+ever, on any site — and the only thing that writes to it has never run. So the
+guard cannot be made to refuse (with nothing stored, there is nothing to protect)
+and it cannot be made to pass (nothing runs it). It is not that I ran out of
+time; there is genuinely nothing to point at. The code is live and was tested
+offline by deliberately breaking it and confirming the tests caught it. Why that
+table is empty is a separate open case someone else owns.
+
+**One thing that got better as a side effect.** A while back I flagged that the
+refusal message tells the operator something untrue for three of the four sites —
+it says the leftover rows will be tidied up by a later run, which is only true
+for the original site. Until today that was an argument. Now it is a real message
+that a real operator could be shown, produced by a real refusal. Same fix, much
+better evidence for it.
+
+**Where that leaves things.** A and B are done, live, and proven. C is live but
+blocked. I am not closing the case: the reviewers specifically asked that it not
+be closed the moment the important site was finished, and closing it now needs a
+judgement call from you — whether "live, tested offline, and provably harmless
+because it cannot currently do anything" is good enough for C, or whether it
+waits for the other case to unblock it. That is a decision rather than a
+measurement, which is why I am leaving it with you.
