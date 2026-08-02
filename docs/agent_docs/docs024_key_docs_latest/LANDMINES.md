@@ -3979,3 +3979,51 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   quotes this entry as "pins get destroyed constantly"
 - **source:** `bugs_open/183` lane (mortgagecalculator.co.uk adoption), 2026-08-03
 - **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane
+
+### `sites.locked_at` does NOT hold a site — the live dispatch gate never looks at it
+
+- **footprint:** `sites.locked_at`, `build-pipeline-trigger`, `find_dispatchable_site`,
+  `scripts/../213_dispatch_gate_matches_dispatcher.sql`
+- **fires when:** you lock a site to stop automated work — before a risky build,
+  during a review, while an owner decides. The `UPDATE` succeeds, `locked_by` reads
+  back exactly as you wrote it, and **the site carries on dispatching**
+- **the tell:** none at the lock. The tell is downstream and easy to misread as
+  something else: new `orchestration_states` rows for `build-dispatch-loop` on that
+  site, minutes AFTER the lock. Measured 2026-08-02: locked at 23:21:35, fresh
+  dispatch loops at 23:23:13, 23:25:44, 23:28:13, and a chain ran four handlers deep
+- **why:** three predicates in one chain disagree.
+  `scheduled_tasks.build-pipeline-trigger.pre_query` (**does** check
+  `s.locked_at IS NULL`, but it is a fleet-wide `HAVING COUNT(*)>0` existence test —
+  it decides only *whether to fire at all*, never *which site*), then
+  `agent_definitions.build-pipeline-trigger.workflow.steps.find_dispatchable_site`
+  (**no lock clause** — this is the one that picks the site), then `load_work_items`
+  in Go, which *does* honour it (`load_work_item_actions.go:126-138`) but is reached
+  too late to stop the dispatch
+- **the check:** ask the gate that actually chooses, not the one that fires:
+  ```sql
+  SELECT CASE WHEN default_config->'workflow'->'steps'->'find_dispatchable_site'
+                     ->'config'->>'query' LIKE '%locked_at%'
+              THEN 'HONOURS' ELSE 'IGNORES' END
+    FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active;
+  -- 2026-08-03: IGNORES
+  ```
+- **what to use instead:** the predicate the gate *does* read — item `status`.
+  `deferred` is not in `workItemTerminalStatuses`, so deferring holds the row without
+  freeing its `idx_swi_dedup` slot and release is one `UPDATE`. **But note this only
+  holds items that already EXIST**: in a chain (`needs_domain_research` →
+  `needs_vertical_research` → `needs_strategy` → `needs_briefing` →
+  `needs_site_plan`) each handler creates the next item, so you are racing a
+  120-second tick. What buys you the time is the gate's own claimed-mutex — while
+  any item on the site is `claimed`, the site is not selected
+- **already written, never applied:** `213_dispatch_gate_matches_dispatcher.sql` adds
+  exactly this clause and names the divergence in its header ("A honours
+  sites.locked_at and B does not, so B can dispatch a locked site"). It assessed the
+  gap as **"Inert today (0 of 32 sites locked, ever)"** — true when written, and the
+  first session to actually use the lock makes it live. **A dormant gap's inertness
+  is a property of nobody having used the feature, not of the feature being safe.**
+  Migration is unapplied (`schema_migrations` has no 213 row) and belongs to the
+  active `bugs_open/029` dispatch-gate lane — contribute there, do not apply it as a
+  side effect of your own task
+- **source:** mortgagecalculator.co.uk adoption lane, 2026-08-03 — locked a site,
+  watched it build anyway
+- **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane

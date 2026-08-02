@@ -428,3 +428,54 @@ exactly the mandatory part and mark the item `complete`.
 it is right — `experience-planner/compose` truncated at 32,000. I have recorded the
 structural fix (split the step, one bounded generation per spec) as candidate 3 in
 `183` rather than pretending 16000 settles it.
+
+### The site lock did NOT hold the site — and I only found out because I checked
+
+> **CORRECTION to my own decision D4, written the same hour.** I switched from
+> deferring items one by one to `sites.locked_at`, on the reasoning that a chain
+> beats hand-holding at a 120-second tick. The reasoning was right. **The mechanism
+> does not work.**
+
+Locked at 23:21:35. Fresh `build-dispatch-loop` orchestrations at **23:23:13,
+23:25:44, 23:28:13**, and by the time I looked the chain had run four handlers deep —
+vertical research, strategy, briefing, and `build-site-planner` mid-flight.
+
+Three predicates, none agreeing:
+
+| where | question | checks the lock? |
+|---|---|---|
+| `scheduled_tasks.build-pipeline-trigger.pre_query` | "fire at all?" | yes — **but it is a fleet-wide `HAVING COUNT(*)>0`**, so it never scopes to a site |
+| `agent_definitions...find_dispatchable_site` | **"which site?"** | **NO** |
+| `load_work_items` (Go) | "which items?" | yes (`load_work_item_actions.go:126-138`) — reached too late |
+
+The middle one is the one that chooses, and it has no lock clause.
+
+**This is already written up and never applied.** `213_dispatch_gate_matches_dispatcher.sql`
+adds exactly this clause and names the divergence in its own header. It also assessed
+the gap as *"Inert today (0 of 32 sites locked, ever)"* — which was true, and which I
+falsified simply by being the first to use the feature. **A dormant gap is inert
+because nobody has used the feature, not because the feature is safe.** `schema_migrations`
+has no 213 row; the migration belongs to the active `bugs_open/029` dispatch-gate
+lane, so I did **not** apply it as a side effect of an adoption task.
+
+**What I did instead**, and why it is not just the same hand-holding: a 15-second
+auto-defer loop against a 120-second tick. That is a control I own, scoped to one
+site and one transition. It earned its keep within minutes — `build-site-planner`
+finished and emitted **19 items at once**, including **3 `needs_page` and 1
+`needs_rerender`**, the two types that can reach the live site. All deferred before
+any tick could pick them up.
+
+**Verified at the artefact, not at the queue:** all 29 live files fetched and hashed
+against the repo — **28 identical, 1 differing (`robots.txt`)**, and that one differs
+by exactly the Cloudflare Managed block documented in RUNBOOK §2 before any of this
+started (491 origin vs 2327 served). Nothing this session changed the live site.
+
+Final held state: 43 `deferred`, 11 `owned_page_review` at `needs_human_review`,
+5 research items `complete`, 26 pages all still `build_status='planned'`.
+
+**The lesson I want to keep**: I verified `deferred` was safe by reading
+`workItemTerminalStatuses` in the source, then swapped to a *different* mechanism
+without giving it the same treatment — I read that `locked_at` was checked in
+`LoadWorkItemsAction` and stopped there, satisfied. One grep of the *gate* would have
+shown it. **Checking one reader of a flag is not checking the flag**; the question is
+always which reader decides, and that is rarely the one you find first.
