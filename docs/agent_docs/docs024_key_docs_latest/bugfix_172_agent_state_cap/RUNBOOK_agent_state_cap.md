@@ -119,14 +119,35 @@ verified by §3 above, not by the unit test.
 ## 7. Verify at the running pod (never at git, never at the tag)
 
 ```bash
-POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
-kubectl -n ai-persona-system exec -n ai-persona-system $POD -- sh -c \
-  'strings /app/agent-chassis | grep -c "were NOT gathered (agent_state_cap"'   # positive: >=1
-kubectl -n ai-persona-system exec -n ai-persona-system $POD -- sh -c \
-  'strings /app/agent-chassis | grep -c "ORDER BY created_at DESC$"'            # negative control: expect 0
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
+  echo "== $POD"
+  kubectl -n ai-persona-system exec $POD -- sh -c '
+    echo -n "  cap notice (want >=1):     "; strings /app/agent-chassis | grep -c "were NOT gathered (agent_state_cap"
+    echo -n "  PARTITION BY (want >=1):   "; strings /app/agent-chassis | grep -c "PARTITION BY agent_type"
+    echo -n "  relabel clause (want >=1): "; strings /app/agent-chassis | grep -c "relabelled 2026-07-26"
+    echo -n "  bare LIMIT \$2 (want 4):    "; strings /app/agent-chassis | grep -cx "		LIMIT \$2"'
+done
 ```
 
-**Gotcha:** run BOTH, on EVERY replica. A positive control proves the pipeline; only
-the negative control (a string the change REMOVED) proves the new binary is not the
-old one carrying both. And `grep -c` is case-sensitive — mis-cased patterns read as
-"not shipped" (`bugs_open/153`).
+**Gotcha — and I planted this trap in this very file before catching it.** The first
+negative control written here was `grep -c "ORDER BY created_at DESC$"`, expecting 0.
+**It returns 15**, on the fixed binary. `strings` splits a Go raw string on newlines,
+so every line of every SQL literal in the binary is its own entry, and
+`ORDER BY created_at DESC` is a line in fifteen unrelated queries. A negative control
+that can never reach 0 reads as "not shipped" for ever.
+
+The control that works is the **exact removed line**, anchored whole-line
+(`grep -cx`, with a literal TAB TAB): the old query contributed `\t\tLIMIT $2` and
+the new one does not. Measured on the images: **5 in `v1.0.1233`, 4 in `v1.0.1234`** —
+exactly one instance gone, the one this fix removed.
+
+**Better still, and cheap: differential the two IMAGES before you push.** Run the same
+greps against the currently-live tag and the new one. The positives coming back `0`
+on the old image is what proves your patterns are spelled right — a mis-cased or
+mistyped pattern returns 0 on BOTH and looks exactly like "not shipped"
+(`bugs_open/153`).
+
+```bash
+for T in <live-tag> <new-tag>; do echo "== $T"; docker run --rm --entrypoint sh \
+  aqls/agent-chassis:$T -c 'strings /app/agent-chassis | grep -c "PARTITION BY agent_type"'; done
+```
