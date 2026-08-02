@@ -740,3 +740,54 @@ a small change.
 Where it stands right now: the first of the four pages is queued to rebuild and I
 am waiting on it. When it lands I will check it on the live site, put the lock
 back on, and send the other three the same way.
+
+**3 August 2026, later — all four are live, and the deploy route was the hard part**
+
+All four calculator fixes are on the live site and I have checked them by driving
+the real pages, not a copy: eight test cases, all passing, on production. Nothing
+else on the site moved — ten of the twelve calculators are byte-for-byte what they
+were, and the two that changed did so only in the ways intended. No arithmetic
+anywhere on the site is different except the rounding we set out to fix.
+
+But getting there turned up something bigger than the four bugs, and you should
+know about it because it is not really about this site.
+
+I updated the calculators, followed our own written procedure to rebuild the page,
+and the job came back saying **complete**. The page was unchanged. Not broken —
+unchanged, exactly as before, with the fixes sitting in the database doing nothing.
+
+The cause is a mismatch nobody had reason to notice. When the rebuilder wants to
+know which calculator a slot on the page holds, it looks the slot up **by name**.
+When we took this site apart in July we named its slots by position — "prose-0",
+"tool-2" — deliberately, so that if a paragraph ever went missing the error message
+would say which one. Those names don't match anything, so the rebuilder finds
+nothing, quietly keeps whatever was already there, and reports success. Every
+signal it produces is identical to a job that worked.
+
+That is the part worth escalating. It is not that this site is awkward. It is that
+**a rebuild that did nothing at all is indistinguishable from one that worked** —
+there is no error, no warning that surfaces, no difference in the job's status. I
+have written it up as bug 182 and put it through the diagnosis loop for a second
+opinion. I also counted how far it reaches: six sites, and this one is the extreme
+case at 100%. The other five are more insidious — they rebuild most of a page and
+silently freeze one or two pieces, so nothing looks wrong at all.
+
+There is a working route, and it is not a hack: it is the same route all 27 pages
+were originally published through. Build the calculator with the same engine,
+write it to the page, let the assembler put the page together. I have written it up
+properly with a safety check that refuses to write if it cannot first reproduce
+what is already there.
+
+One more near miss on the way. The tool I wrote to compare "with the fix" against
+"without the fix" was caching its results by which calculator it was building — but
+not by *which version*. So it built the old one, then built the new one, got the
+cached old one back, and told me they were identical. It got the right answer for
+the two fixes that added new text and the wrong answer for the two that only
+changed code — which is to say it was wrong precisely where being wrong reads as
+"nothing to do, your fix is already there". Fixed, and both of those traps are now
+in the fleet-wide landmines file.
+
+Where it stands: four bugs fixed and proved, twelve calculators locked again, a new
+baseline recorded, one platform bug filed. Next on the list is the header's link
+list, which is still hand-maintained and will go stale the first time a page is
+added or removed.
