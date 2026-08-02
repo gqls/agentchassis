@@ -1361,3 +1361,49 @@ content in it at all, and has been serving a "not found" page since 20 July. Not
 links to it, so nobody would have hit it, but it is sitting there marked as a live
 page. Same for a `/tools.html` index that doesn't exist. Both are tidy-ups, not
 faults — say the word and I'll clear them.
+
+---
+
+**2 August, evening — the camera is switched on, and it hasn't taken a picture yet.**
+
+A new build of the main service went out this evening. That was the one thing the
+last piece of work was waiting for, so I've finished it.
+
+Quick reminder of what this is, because it's been a couple of days. Every fault on
+this site that you have found by opening a page — the text jammed against the edge
+of a card, the row of links sitting slightly off each other, the overlapping labels
+on the council simulator — happened on a page where all our automated checks passed.
+The checks only take a photograph when something *fails*, so on a page where nothing
+fails, nothing is ever photographed and there is nothing for anyone to look at
+afterwards. The work was to let it photograph a page that passes too.
+
+I checked the new build was really carrying the change before touching anything else,
+and I want to flag how, because it caught a weak spot in my own instructions. The
+obvious check is to look inside the running program for a word my change added. The
+problem is that finding it proves the search worked, not that the program is new —
+so I also searched for a phrase my change **deleted**. It came back with zero. That
+is the one that can't be explained away by an old build: an old build would still
+have it. Both copies of the service, same answer.
+
+Then the switch itself. I'd planned to do this as a single database edit, and I
+didn't, because a single edit leaves a setting sitting in the system with nothing
+recorded about who turned it on, when, or why. It went in as a numbered, filed change
+instead, with the evidence written into it. It also carries two self-checks, and I
+deliberately broke the change twice first to watch both of them refuse it — a safety
+check that has never once fired isn't a safety check, it's decoration.
+
+**Where it's stuck, and it isn't stuck badly.** To prove the thing actually works I
+need a page to pass its checks while the camera is on. The routine that does this
+only revisits a tool once a week, and all our candidates ran two to four days ago, so
+nothing was going to happen on its own. I queued one up by hand.
+
+It's now sitting in a queue behind nineteen other jobs — most of them other people's
+repair work, including the fix for the pages that were serving invented contact
+details. Those are ahead of mine on purpose: acceptance checks are meant to run
+*after* repairs, so they test the fixed page rather than the broken one. I could push
+mine to the front and I'm deliberately not going to. It should come round in about
+three quarters of an hour, and I've set something to tell me when it does.
+
+So, plainly: **the wiring is done and the switch is on, but no photograph exists yet.**
+Until I've seen one, all I can honestly claim is that the plumbing is connected. I'll
+know within the hour.

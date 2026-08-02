@@ -799,32 +799,101 @@ actually build, which a working-tree `go test` cannot tell you.
 
 ## Turning `capture_renders` on, when the chassis carries it (added 2026-07-31)
 
+> **DONE 2026-08-02 ~19:02 — kept here as the worked procedure, not as pending work.**
+> Two things changed in the doing and both are corrections to what is written below:
+> step 1's control was **weak** (see the negative-control note), and step 2 should
+> never have been a bare `UPDATE` (it became seed `292`). Read the corrections.
+
 The order is load-bearing. **Image first, then the key** — DB config is live
 immediately and the Go half is not, so writing this before the roll gives you a step
 config that reads switched-on while the running binary drops the field.
 
 ```bash
-# 1. Confirm the chassis carries the caller half (control in the same exec):
-kubectl exec -n ai-persona-system <agent-chassis-pod> -- sh -c '
-  grep -c -a "capture_renders" /app/agent-chassis
-  echo "--control--"; grep -c -a "judge_acceptance_results" /app/agent-chassis'
+# 1. Confirm the chassis carries the caller half (controls in the SAME exec, and
+#    on EVERY replica -- `kubectl logs deploy/x` and a single pod both lie by
+#    sampling). What was actually run on 2026-08-02, on both:
+for p in $(kubectl get pods -n ai-persona-system -l app=agent-chassis \
+             -o jsonpath='{.items[*].metadata.name}'); do
+  echo "=== $p ==="
+  kubectl exec -n ai-persona-system "$p" -- sh -c '
+    for s in "capture_renders" "request_browser_run" ".response.data.screenshots"; do
+      printf "%-32s %s\n" "$s" "$(grep -acF -- "$s" /app/agent-chassis)"
+    done'
+done
+# expected: capture_renders 1 | request_browser_run 8 | .response.data.screenshots 0
+```
 
-# 2. Only then, the one key. tool-acceptance-agent is the ONLY live agent
-#    referencing request_browser_run; its steps are
-#    ensure_site_record -> load_docs -> request_run -> judge.
+**CORRECTION to step 1 as first written: `judge_acceptance_results` is a POSITIVE
+control, and a positive control cannot prove your change shipped.** It proves the
+grep works and the binary is readable — it reads identically on an image built
+*before* the caller half. The control that carries the argument is a **negative**
+one: `.response.data.screenshots` was a real concatenated literal in the old binary
+and the refactor deleted it (four hand-built path strings became one
+`envelopePaths(field, key)`), so **0** there is only possible on a post-change
+binary. Use `grep -acF`, not `strings | grep` — `strings` is absent from several
+of these images and returns a confident 0 for target *and* control.
+
+```sql
+-- 2. Only then, the one key. tool-acceptance-agent is the ONLY live agent
+--    referencing request_browser_run; its steps are
+--    ensure_site_record -> load_docs -> request_run -> judge.
+--    DO NOT run this as a bare UPDATE (see the correction below):
+--    it shipped as docs/agent_docs/sql_for_agents/292_acceptance_runs_photograph_a_page_that_passes.sql
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
        '{workflow,steps,request_run,config,capture_renders}', 'true'::jsonb, true)
- WHERE type='tool-acceptance-agent' AND is_active
-   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+ WHERE type='tool-acceptance-agent' AND deleted_at IS NULL;
 
-# 3. Verify at the ARTEFACT, not the config: a passing acceptance run must leave a
-#    "Rendered:" line in its own doc_note. A note with no such line means the flag
-#    did not reach the adapter, or object storage is unconfigured.
+-- 3. Verify at the ARTEFACT, not the config: a passing acceptance run must leave a
+--    "Rendered:" line in its own doc_note. A note with no such line means the flag
+--    did not reach the adapter, or object storage is unconfigured.
 SELECT created_at, left(body, 400) FROM doc_notes
  WHERE subject_type='tool' AND categories ? 'acceptance-run'
  ORDER BY created_at DESC LIMIT 3;
 ```
+
+**CORRECTION to step 2: a bare `UPDATE` was the wrong instrument, and the reason
+generalises.** A DB-only write leaves no record of who set the key, when, against
+which binary, or why — and the next person to read `default_config` finds a key with
+no provenance at all. It shipped as a numbered delta seed instead, following seed
+`147`'s shape (`snapshot_agent` first, `jsonb_set`, a `doc_note`, a `DO`/`RAISE`
+verify block). **Two guards, and the second one is the transferable idea: it asserts
+a NEIGHBOUR key** (147's `profiles`), because a guard that only checks the key it
+just wrote cannot distinguish a surgical write from one that replaced the whole
+`config` object. **Both were induced before the real apply** — mutants built with
+`sed`, `COMMIT` swapped for `ROLLBACK`, each raising its own message. Note the
+mutant must not be self-satisfying: mutating `'true'::jsonb` globally would have
+flipped the guard's expectation too and passed.
+
+## Dispatching an acceptance run by hand (added 2026-08-02)
+
+The natural trigger (`tool_acceptance_due`) has a **7-day cooldown** per subject, so
+after any recent run there is nothing to wait for — you must queue one yourself.
+Insert the work item the discovery check would have emitted; `build-pipeline-trigger`
+(every 120s) picks up anything `status='triaged' AND pipeline='build'` on an
+**unlocked** site.
+
+```sql
+INSERT INTO site_work_items
+  (site_id, source, pipeline, item_type, severity, summary, spec,
+   page_id, component_id, priority, handler_agent, status, created_by, item_key)
+VALUES ('<site_id>', 'operator:brochure_component_library', 'build',
+        'acceptance_run', 'low', '<why you are running it>',
+        '{"function":"<fn>","component_id":"<cc_id>","page_id":"<page_id>",
+          "page_name":"<page>","check":"manual"}'::jsonb,
+        '<page_id>', '<cc_id>', 90, 'tool-acceptance-agent', 'triaged',
+        'operator:brochure_component_library',
+        'acceptance_run:<fn>:<site_id>');
+```
+
+Three things that will bite:
+- **`idx_swi_dedup` is a UNIQUE index on `(site_id, item_key)`** excluding terminal
+  statuses — an existing non-terminal item for the same function rejects the insert.
+  Check first; a collision is the queue telling you a run is already coming.
+- **Check `sites.locked_at IS NULL`.** The trigger's `pre_query` skips locked sites,
+  and a `pre_query` returning no rows **skips silently** — the item just sits.
+- **Priority 90 is deliberate** (after builds/rerenders, so acceptance tests the NEW
+  page). Expect to queue behind any priority-10 rerender another lane has in flight.
 
 **A render is not a verdict.** `Renders` is empty of `failing_checks` by
 construction and must never become signal — if something starts branching on a

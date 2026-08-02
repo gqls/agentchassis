@@ -3865,3 +3865,133 @@ mechanism — an *unstaged* working-tree file taken by a same-file passenger —
 lane has now been bitten by both halves of the shared-tree hazard in one day.
 Logged in `WRONG_CALLS.md` with the check: `git ls-files --error-unmatch <path>`
 before reaching for `add`, and never leave a staged file uncommitted across a think.
+
+---
+
+## 2026-08-02 ~19:00 — the chassis rolled, and TL-035 is armed end to end
+
+**The roll landed without me asking for it**, which is the shared-tree norm rather
+than a surprise: `make build-*` builds committed HEAD, so another session's roll
+carries my commits whether or not either of us knows it. `v1.0.1229`, both replicas
+~9 minutes old when I looked.
+
+### The pod check, and why the control I had written into the RUNBOOK was too weak
+
+The RUNBOOK's step 1 said to grep `capture_renders` with `judge_acceptance_results`
+as a control. That control is **positive** — it proves the grep works and `/app/agent-chassis`
+is readable, and it reads exactly the same on an image built *before* my change. It
+cannot distinguish "my change shipped" from "this binary is fine, just old".
+
+What I ran instead, on **both** replicas, in one exec each:
+
+```
+capture_renders                        1     <- target
+Rendered: full-page screenshot         1     <- target (my added prose)
+request_browser_run                    8     <- POSITIVE control
+.response.data.screenshots             0     <- NEGATIVE control
+```
+
+The negative control is the load-bearing one and it is **not invented**: the caller
+half's r1 objection fix replaced four hand-built path strings with one
+`envelopePaths(field, key)`, so the concatenated literal `".response.data.screenshots"`
+that existed in the old binary is genuinely gone from the new one. `grep -acF` on the
+binary directly, not `strings | grep` — `strings` is absent from several of these
+images and returns a confident 0 for target *and* control (`LANDMINES.md`:503).
+
+Derived it from the diff rather than guessing:
+`git diff 9cc63c775^ 72463f51e -- <file> | grep '^-' | grep -o '"[^"]\{12,\}"' | sort -u`,
+then checked each candidate against HEAD's source before trusting it as a control —
+`criteria_json` showed up in that list and is still present (it moved, it was not
+removed), so it would have been a **false** negative control reading non-zero and
+sending me looking for a problem that was not there.
+
+### A thing I noticed on the way and could not explain
+
+All **184** active agent definitions had `updated_at` bumped at 18:38, nine minutes
+before the pods rolled. No tracked migration ran (`schema_migrations` empty for the
+window) and no `doc_note` explains it, so it was an untracked bulk write by another
+lane. I did **not** chase it — but I did check the one thing that mattered to me:
+seed 147's `profiles: ["desktop","mobile"]` was still intact in the row, so whatever
+it was operated key-level and not by replacing `default_config` wholesale.
+`[INFERRED]` — I reasoned from a surviving key, I never saw the statement.
+
+### The DB write, which became a seed instead
+
+The plan said "one `UPDATE`". I wrote
+`sql_for_agents/292_acceptance_runs_photograph_a_page_that_passes.sql` instead,
+following seed 147's shape. The reason is not ceremony: a bare `UPDATE` leaves a key
+in `default_config` with **no provenance at all** — no who, no when, no against-which-binary,
+no why — and the next reader has no way to learn any of it. It also gave the ordering
+argument somewhere permanent to live, with the actual grep output in the header.
+
+**Two guards, and the second is the transferable part.** Guard 1 asserts the key I
+wrote. Guard 2 asserts a **neighbour** — 147's `profiles` — because a guard that only
+checks its own key cannot tell a surgical `jsonb_set` from a write that flattened the
+whole `config` object.
+
+**Both induced before the real apply**, `COMMIT` swapped for `ROLLBACK`:
+
+```
+m1: ERROR:  291: capture_renders not set (found 0)
+m2: ERROR:  291: 147's profiles key did not survive (found <NULL>)
+```
+
+One trap worth recording: the obvious mutant — sed `'true'::jsonb` → `'false'::jsonb`
+globally — is **self-satisfying**, because it flips the guard's own expectation as
+well as the UPDATE's value, and passes. m1 anchors on the UPDATE's line (`^      'true'::jsonb,$`)
+so the guard keeps looking for `true`. I diffed each mutant against the source before
+running it, for exactly this reason.
+
+Applied clean: `UPDATE 1 / INSERT 0 1 / DO / DO / COMMIT`, and the read-back shows
+`capture_renders: true` sitting alongside 147's profiles and 145's field mappings.
+
+### And then the queue, which is where it still is
+
+The artefact check needs a **passing acceptance run**, and there is nothing to wait
+for: `tool_acceptance_due` has a **7-day cooldown** per subject and every candidate
+ran 2–4 days ago. So I queued one by hand for `tool-review-council-simulator` — my
+own lane's tool, on my own lane's site, known-passing (22 checks, 07-31).
+
+It has not run yet, and the reason is worth writing down because it is not a fault:
+`build-dispatch-loop` takes **one item per run, fleet-wide, strictly by priority**,
+and acceptance runs are deliberately priority **90** so they test the *new* page
+rather than the one about to be replaced. Ahead of mine: 7 page_rerenders at
+priority 10 (the 140 contact-info repair and the 178 content restore) and 12 more at
+80. At roughly one per 120s trigger that is ~45 minutes.
+
+**I am not raising my priority to jump it.** Those are other lanes' repairs to pages
+that are serving wrong content to real visitors; my verification is not more urgent
+than that, and the priority ordering is the design working, not an obstacle.
+
+> **So the honest status is: the wire is connected and the switch is on, and no
+> photograph exists yet.** Until a note carries a `Rendered:` line, TL-035 is a
+> claim about plumbing, not a demonstrated capability. Monitor armed on the item.
+
+### Postscript, 20:05 — the seed number collided, and I lost the race
+
+I wrote the seed as `291_...`. Five minutes later another session wrote a
+**different** `291_improvement_loop_convergence_gate_replaces_pass_cap.sql` and, unlike
+me, put it through `run-migrations.sh` — so **theirs** is the one recorded in
+`schema_migrations` under that filename, at 19:04:24. Mine is now `292_`.
+
+Two things that made this happen, both mine:
+
+1. **I picked the number by `ls | tail`, which is a read of a shared, mutable
+   directory** — the same class as reading `git log` and assuming HEAD is still
+   yours a minute later. There is no reservation step, so on this tree the number
+   is only yours once it is *recorded*, not once you have named a file.
+2. **I applied the SQL by hand with `psql` rather than through the runner**, so
+   nothing was written to `schema_migrations` and the runner still considers my file
+   pending. That is the more consequential half: the ledger is what makes a number
+   *taken*, and by skipping it I never claimed the number at all — the other session
+   didn't jump ahead of me, I simply never got in the queue.
+
+The two `291:` strings in the induced-guard output above are **left as they were
+actually printed**. That output is a transcript of what the system said at the time;
+rewriting it to `292:` would make the record tidier and false. The file's own
+`RAISE` messages now say `292`, so a *future* run prints `292:` — the discrepancy
+here is the timestamp on the evidence, not an inconsistency to iron out.
+
+Nothing in the database needs undoing: the config write is idempotent, both guards
+passed, and `capture_renders: true` is set exactly once regardless of what the file
+is called.
