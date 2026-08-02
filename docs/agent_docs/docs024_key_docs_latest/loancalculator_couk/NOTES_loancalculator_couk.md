@@ -1664,3 +1664,41 @@ nav is server-rendered now. **Nothing computed a different number.**
 > gained and lost keys in this change. The question worth asking is narrower —
 > "did any key that existed in both change its value" — and it has a different
 > answer. Classify divergences by kind before believing a count of them.
+
+### Six live calculators driven: 41 diverging keys, ZERO changed values
+
+`toolgolden.py --compare` against the golden, over the six tool pages live at the
+time. Raw verdict: "6 of 6 tools diverged". Classified:
+
+```
+diverging keys: 41
+  APPEARED (28) debt-1-name … debt-3-remove, add-debt      (consolidation)
+                chc-2-1 … chc-5-3, chc-restart             (credit-health-check)
+                clear-progress, download-backup, restore-backup (application-tracker)
+  VANISHED (13) input#0 … input#11                          (the SAME controls)
+                nav-placeholder                             (chrome, now server-side)
+
+keys whose VALUE moved: NONE
+```
+
+**The APPEARED and VANISHED sets are the same controls seen from two sides.** The
+originals addressed these inputs positionally — the fingerprint keyed them
+`input#0 … input#11` because they had no `id` to name them by. The rewrites gave
+them ids, so they are now named. Nothing gained or lost a value; a naming scheme
+changed. That is precisely the `allow_new_keys` case recorded when the three tools
+were rewritten, and `verify_assembled.py` handles it by pairing renames BY VALUE —
+which is why the offline run reported "+30 new key(s)" and passed while the raw
+tool reports six regressions.
+
+**So the re-baseline that has been owed since the rewrite is now actionable, and
+better than before.** The reason those three tools had no numeric acceptance
+coverage was that their controls could not be named; they can be now. Capture a
+fresh golden from the live decomposed site once all 27 have rendered — that golden,
+unlike the current one, can drive every control on every tool.
+
+> **A pass/fail from `--compare` is the wrong instrument for a change that alters
+> the fingerprint's SHAPE.** It answers "is the fingerprint identical", correctly,
+> and the honest question here is "did any key present in both change its value".
+> Six red lines and 41 keys look like a catastrophe and are a rename. Classify
+> divergences by kind — APPEARED / VANISHED / VALUE CHANGED — before believing a
+> count of them, and never before reporting one.
