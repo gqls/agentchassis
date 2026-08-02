@@ -1,0 +1,360 @@
+[
+    {
+        "id": "175ec7ca-3e4d-43d3-b90e-0324b7614321",
+        "type": "intake-orchestrator",
+        "status": "experimental",
+        "topics": {
+            "error": "system.errors.{type}",
+            "process": "system.agent.{type}.process",
+            "response": "system.responses.{type}"
+        },
+        "command": null,
+        "version": 3,
+        "category": "orchestrator",
+        "env_vars": [
+        ],
+        "image_tag": "v1.0.1233",
+        "is_active": true,
+        "resources": {
+            "limits": {
+                "cpu": "500m",
+                "memory": "512Mi"
+            },
+            "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+            }
+        },
+        "created_at": "2025-12-04T08:42:32.269013+00:00",
+        "deleted_at": null,
+        "updated_at": "2026-08-02T22:08:07.396659+00:00",
+        "description": "Entry point for site creation: classifies project type, runs briefing, spawns appropriate builder agent",
+        "domain_tags": [
+        ],
+        "is_snapshot": false,
+        "usage_count": 0,
+        "capabilities": [
+            "orchestration",
+            "intake",
+            "classification"
+        ],
+        "display_name": "Intake Orchestrator",
+        "health_config": {
+            "port": 8080,
+            "liveness_path": "/health",
+            "readiness_path": "/ready",
+            "initial_delay_seconds": 15
+        },
+        "task_workflow": null,
+        "agent_category": null,
+        "default_config": {
+            "workflow": {
+                "steps": {
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Intake complete - builder has been spawned"
+                    },
+                    "call_briefer": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "briefing-agent",
+                            "target_role": "briefer",
+                            "input_mapping": {
+                                "input_data": "input_data",
+                                "questionnaire": "questionnaire",
+                                "classification": "classification",
+                                "confirmed_type": "confirmed_type"
+                            },
+                            "timeout_seconds": 120
+                        },
+                        "next_step": "hitl_review_brief",
+                        "description": "Run the briefing questionnaire",
+                        "output_field": "brief_data"
+                    },
+                    "call_builder": {
+                        "action": "call_agent",
+                        "config": {
+                            "max_retries": 10,
+                            "target_role": "builder",
+                            "input_mapping": {
+                                "brief_data": "brief_data",
+                                "input_data": "input_data",
+                                "questionnaire": "questionnaire",
+                                "classification": "classification",
+                                "confirmed_type": "confirmed_type",
+                                "reviewed_brief": "reviewed_brief"
+                            },
+                            "timeout_seconds": 7200
+                        },
+                        "next_step": "complete",
+                        "description": "Call the spawned builder to execute the site build",
+                        "output_field": "build_result"
+                    },
+                    "call_rerender": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "rerender-pages",
+                            "target_role": "rerenderer",
+                            "input_mapping": {
+                                "domain": "build_result.response.site_record.domain",
+                                "site_id": "build_result.response.site_record.site_id",
+                                "input_data": "input_data"
+                            },
+                            "timeout_seconds": 900
+                        },
+                        "next_step": "complete",
+                        "description": "Rerender all pages with consistent nav and contact info",
+                        "output_field": "rerender_result"
+                    },
+                    "spawn_briefer": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "briefer",
+                            "agent_type": "briefing-agent"
+                        },
+                        "next_step": "call_classifier",
+                        "description": "Spawn briefing agent",
+                        "output_field": "briefer_agent"
+                    },
+                    "spawn_builder": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "builder",
+                            "input_fields": [
+                                "input_data",
+                                "classification",
+                                "brief_data",
+                                "reviewed_brief"
+                            ],
+                            "agent_type_field": "confirmed_type.recommended_builder"
+                        },
+                        "next_step": "call_builder",
+                        "description": "Spawn the appropriate builder agent with all collected data",
+                        "output_field": "spawned_builder"
+                    },
+                    "spawn_rerender": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "rerenderer",
+                            "agent_type": "rerender-pages"
+                        },
+                        "next_step": "call_rerender",
+                        "description": "Spawn rerender agent to fix navigation consistency",
+                        "output_field": "rerender_agent"
+                    },
+                    "call_classifier": {
+                        "action": "call_agent",
+                        "config": {
+                            "agent_type": "site-classifier",
+                            "target_role": "classifier",
+                            "input_mapping": {
+                                "input_data": "input_data",
+                                "available_builders": "available_builders"
+                            },
+                            "timeout_seconds": 180
+                        },
+                        "next_step": "hitl_confirm_type",
+                        "description": "Classify the site type from domain and objective",
+                        "output_field": "classification"
+                    },
+                    "spawn_classifier": {
+                        "action": "spawn_agent",
+                        "config": {
+                            "role": "classifier",
+                            "agent_type": "site-classifier"
+                        },
+                        "next_step": "spawn_briefer",
+                        "description": "Spawn site classifier agent",
+                        "output_field": "classifier_agent"
+                    },
+                    "hitl_confirm_type": {
+                        "action": "request_human_input",
+                        "config": {
+                            "title": "Confirm Site Type",
+                            "fields": [
+                                {
+                                    "name": "site_type",
+                                    "type": "select",
+                                    "label": "Site Type",
+                                    "options": [
+                                        "landing",
+                                        "content",
+                                        "portfolio",
+                                        "brochure"
+                                    ],
+                                    "default_from": "classification.response.result.site_type"
+                                },
+                                {
+                                    "name": "recommended_builder",
+                                    "type": "dynamic_select",
+                                    "label": "Builder",
+                                    "default_from": "classification.response.result.recommended_builder",
+                                    "options_from": "available_builders.agents",
+                                    "option_label_field": "display_name",
+                                    "option_value_field": "type"
+                                }
+                            ],
+                            "message": "Please confirm or adjust the site classification",
+                            "skip_if": "input_data.hitl_mode == auto",
+                            "request_type": "confirmation",
+                            "timeout_seconds": 86400
+                        },
+                        "next_step": "fetch_questionnaire",
+                        "description": "Human confirms or adjusts the site type classification",
+                        "output_field": "confirmed_type"
+                    },
+                    "hitl_review_brief": {
+                        "action": "request_human_input",
+                        "config": {
+                            "title": "Review Brief",
+                            "message": "Please review and adjust the briefing answers if needed",
+                            "skip_if": "input_data.hitl_mode == auto",
+                            "editable": true,
+                            "data_field": "brief_data",
+                            "request_type": "review",
+                            "timeout_seconds": 86400
+                        },
+                        "next_step": "spawn_builder",
+                        "description": "Human reviews the completed brief",
+                        "output_field": "reviewed_brief"
+                    },
+                    "fetch_questionnaire": {
+                        "action": "fetch_agent_questionnaire",
+                        "config": {
+                            "agent_type_field": "confirmed_type.recommended_builder"
+                        },
+                        "next_step": "call_briefer",
+                        "description": "Fetch the briefing questionnaire for the target builder",
+                        "output_field": "questionnaire"
+                    },
+                    "fetch_available_builders": {
+                        "action": "query_agent_definitions",
+                        "config": {
+                            "fields": [
+                                "type",
+                                "display_name",
+                                "description"
+                            ],
+                            "filter": {
+                                "type_pattern": "%-builder"
+                            }
+                        },
+                        "next_step": "spawn_classifier",
+                        "description": "Discover what builder agents are available",
+                        "output_field": "available_builders"
+                    }
+                },
+                "start_step": "fetch_available_builders"
+            },
+            "processing_mode": "orchestration",
+            "timeout_seconds": 600
+        },
+        "input_contract": null,
+        "output_contract": null,
+        "image_repository": "docker.io/aqls/agent-chassis",
+        "previous_version_id": null,
+        "idle_timeout_seconds": 0,
+        "orchestrator_workflow": null,
+        "briefing_questionnaire": {
+        },
+        "delegation_preferences": {
+            "fallback_to_self": true,
+            "prefer_delegation": true
+        },
+        "orchestration_workflow": null
+    },
+    {
+        "id": "60195d6d-3960-41cb-9e2a-ae51a5aadeb8",
+        "type": "site-classifier",
+        "status": "experimental",
+        "topics": {
+            "error": "system.errors.{type}",
+            "process": "system.agent.{type}.process",
+            "response": "system.responses.{type}"
+        },
+        "command": null,
+        "version": 1,
+        "category": "classification",
+        "env_vars": [
+        ],
+        "image_tag": "v1.0.1233",
+        "is_active": true,
+        "resources": {
+            "limits": {
+                "cpu": "250m",
+                "memory": "256Mi"
+            },
+            "requests": {
+                "cpu": "50m",
+                "memory": "128Mi"
+            }
+        },
+        "created_at": "2025-11-28T10:01:15.964026+00:00",
+        "deleted_at": null,
+        "updated_at": "2026-08-02T22:08:07.396659+00:00",
+        "description": "Analyzes domain and objective to determine site type and recommend appropriate builder group",
+        "domain_tags": [
+        ],
+        "is_snapshot": false,
+        "usage_count": 0,
+        "capabilities": [
+            "classification",
+            "analysis",
+            "llm"
+        ],
+        "display_name": "Site Classifier",
+        "health_config": {
+            "port": 8080,
+            "liveness_path": "/health",
+            "readiness_path": "/ready",
+            "initial_delay_seconds": 15
+        },
+        "task_workflow": null,
+        "agent_category": null,
+        "default_config": {
+            "workflow": {
+                "steps": {
+                    "complete": {
+                        "action": "complete_workflow",
+                        "description": "Return classification result"
+                    },
+                    "classify_site": {
+                        "action": "execute_llm_prompt",
+                        "config": {
+                            "ai_service": {
+                                "model": "claude-sonnet-4-6",
+                                "provider": "anthropic",
+                                "max_tokens": 1500,
+                                "api_key_env_var": "ANTHROPIC_API_KEY"
+                            },
+                            "output_type": "json",
+                            "input_fields": [
+                                "input_data",
+                                "available_builders"
+                            ],
+                            "output_field": "classification_result",
+                            "prompt_template": "Classify this website project and recommend the appropriate builder.\n\nInput:\n- Domain: {{.domain}}\n- Objective: {{.objective}}\n\nAvailable Builders:\n{{range .available_builders.agents}}- {{.type}}: {{.description}}\n{{end}}\n\nClassify the site into ONE of these types based on the objective:\n\n**landing** - Conversion-focused single-purpose sites:\n- Product/service sales pages, SaaS landing pages\n- Lead generation, signups, app downloads\n- Event registration, clear single CTA goal\n\n**content** - Publishing/content sites:\n- News, blogs, magazines, articles\n- Content aggregation, SEO/traffic focused\n- Category navigation, archives\n\n**portfolio** - Showcase/portfolio sites:\n- Creative portfolios, agencies, case studies\n- Visual/image heavy, project galleries\n\n**brochure** - Multi-page business sites:\n- Corporate sites, general business presence\n- Service providers, consultants, professional services\n- About/Services/Contact structure\n\nReturn ONLY valid JSON with this structure:\n{\n  \"site_type\": \"landing|content|portfolio|brochure\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"brief explanation\",\n  \"recommended_builder\": \"builder-type\",\n  \"detected_industry\": \"industry name\",\n  \"detected_signals\": [\"signal1\", \"signal2\", ...]\n}"
+                        },
+                        "next_step": "complete"
+                    }
+                },
+                "start_step": "classify_site"
+            },
+            "processing_mode": "task",
+            "timeout_seconds": 30
+        },
+        "input_contract": null,
+        "output_contract": null,
+        "image_repository": "docker.io/aqls/agent-chassis",
+        "previous_version_id": null,
+        "idle_timeout_seconds": 0,
+        "orchestrator_workflow": null,
+        "briefing_questionnaire": {
+        },
+        "delegation_preferences": {
+            "fallback_to_self": true,
+            "prefer_delegation": true
+        },
+        "orchestration_workflow": null
+    }
+]

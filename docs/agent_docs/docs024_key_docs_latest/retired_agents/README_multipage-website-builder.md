@@ -205,3 +205,94 @@ council submissions from earlier today, whose rationale text *names these builde
 while arguing about them*. Text under review scoring as usage of the thing under
 review is the `llm_call_log.prompt_rendered` landmine in a second table. Check the
 `owner_agent_type` before treating a `collected_data` match as evidence of use.
+
+---
+
+# Third retirement — 2026-08-02 late: the last two of the old shape
+
+**Retired:** `intake-orchestrator`, `site-classifier`. One live row each.
+Backup: `BACKUP_2026-08-02_intake_path_orphans.json` (2 rows, 16 KB).
+Restore: `RESTORE_intake_path_orphans.sql` — **they are a pair, restore both or
+neither**, because `intake-orchestrator`'s workflow spawns `site-classifier` and
+nothing else reaches it.
+
+This finishes the job the section above left open ("the last of the old shape…
+not retired, because nobody asked"). Owner asked. Same evidence standard, plus one
+axis the previous two retirements did not have to think about.
+
+## The axis that was missing: the caller is a HUMAN, and no query can see one
+
+Every check in this directory so far asks the database who references an agent.
+That is sound for an agent spawned by another agent. **`intake-orchestrator` is an
+entry point — it is spawned by an operator publishing to Kafka**, so it would read
+as an orphan on every DB axis whether it were dead or in daily use:
+
+```bash
+# scripts/initial_messages/090_new_build/…/075_new_build_…_intake_orchestrator.sh
+kcat -P -b $BOOTSTRAP -t system.agent.generic.requests …
+{"action":"orchestrate","config":{"agent_type":"intake-orchestrator"}, "input_data":{…}}
+```
+
+So the retirement rests on a **file-date** comparison in `scripts/`, not on a row:
+
+| entry-point script | routes to | last touched |
+|---|---|---|
+| `090_new_build/…_intake_orchestrator.sh` | **`intake-orchestrator`** | **2026-06-21** |
+| `020_build_pipeline/082_submit_domain_unified.sh` | `domain-submitter` / `site-adoption-orchestrator` | **2026-07-30** |
+
+`082` is explicit in its own header that it is "one entry point for FRESH and
+ADOPT submissions", and its comment block draws the live graph
+(`needs_domain_research → domain-research-classifier → … → build-site-planner`).
+The operator path **moved**; it did not lapse. That is what makes these two safe,
+and it is evidence of a kind none of the earlier retirements needed.
+
+> **Generalise this before the next retirement.** §3 of the handoff says *an
+> absence of WORK is not an absence of WIRING* (`report-builder`, saved by a
+> `scheduled_tasks` row). This is the **third** spelling of the same error and the
+> one with no row to find at all: **an absence of WIRING is not an absence of a
+> CALLER, when the caller is a person with a script.** For any agent that looks
+> like an entry point, grep `scripts/` and compare dates — the question is not
+> "does something reference it" but "has the habit moved".
+
+## Pre-flight (all clear)
+
+| check | intake-orchestrator | site-classifier |
+|---|---|---|
+| `site_work_items.handler_agent` / `.spec` text | 0 / 0 | 0 / 0 |
+| `site_specs.created_by` / `.data` text | 0 / 0 | 0 / 0 |
+| `scheduled_tasks` (target **or** named in `input_data`) | 0 | 0 |
+| `client_system.agent_instances.template_id` (FK) | 0 | 0 |
+| `agent_definitions.previous_version_id` (FK) | 0 | 0 |
+| `orchestration_states` (with `owner_agent_type`) | 0 | 0 |
+| other live agent configs naming it | 0 | **1 — `intake-orchestrator` itself** |
+| Go / yaml / TS code | 0 | 0 |
+| live rows / snapshots / already-deleted | 1 / 0 / 0 | 1 / 0 / 0 |
+| **operator scripts** | superseded 2026-07-30 | — |
+
+The single config referrer is the pair bond: they name each other and nothing
+else names either. All repo hits outside `scripts/` are seed SQL under
+`docs/agent_docs/sql_for_agents/`, which is history, not the system.
+
+## How they were retired
+
+```sql
+UPDATE agent_definitions
+SET is_active = false, deleted_at = now(), updated_at = now()
+WHERE type IN ('intake-orchestrator','site-classifier');
+```
+
+Soft, for the reasons given above: reversal stays one `UPDATE`, and `is_active`
+is what actually removes an agent from any `query_agent_definitions` lookup.
+
+## What is now true of the builder menu
+
+`intake-orchestrator` was the **only** consumer of the `%-builder` menu
+(`fetch_available_builders` → `agent_type_field:
+confirmed_type.recommended_builder`). With it retired, **nothing reads that menu
+at all**, which retires the open question in the section above about
+`domain-research-classifier`'s pinned `recommended_builder`: that field was already
+written into 1,216 spec rows for a consumer that no longer existed, and now the
+menu it names has no reader either. `pageflow-builder` must still **resolve** —
+the classifier's prompt mandates the string — but nothing dispatches on it.
+That is a prompt-hygiene item, not a live defect, and it is unchanged by this
+retirement.
