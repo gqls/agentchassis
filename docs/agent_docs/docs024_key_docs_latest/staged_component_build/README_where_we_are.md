@@ -317,3 +317,50 @@ Nothing is broken and nothing is urgent. I've written a fresh handoff document
 this chat is getting long and the next piece is genuinely new work rather than a continuation
 of what's above, so it's cleaner to hand it to a fresh conversation than to keep pushing this
 one further.
+
+---
+
+**2 August 2026 — the panel's real test is written, proven two different ways, and now lives in
+the database**
+
+Picked the page myself, as asked: of the five places this teaser panel appears, I went with the
+one on the Leopardess consulting site, since it had been re-rendered most recently of the five.
+Checked it was actually live and actually showing the panel before writing a single check
+against it.
+
+Read how the component actually behaves before writing its test, rather than guessing from the
+plan document. Turns out the "click to reveal more text" part needs no JavaScript at all — it's
+a native browser feature. What DOES need JavaScript is the bit where opening one card closes
+whichever other one was open, and the bit where you can share a link that opens a specific card
+directly. Both of those live in one shared script file used across the site, not in the panel
+itself.
+
+Wrote twelve checks covering what the panel actually promises: the panel and its cards are
+there, a real click (not a shortcut that fakes a click) actually opens a card, opening a second
+card actually closes the first, the text stays readable and isn't accidentally shrunk to
+nothing, and nothing throws a JavaScript error. All twelve passed against the live page.
+
+Then came the part that's supposed to prove the test isn't just agreeing with itself: deliberately
+break each of the twelve things, one at a time, and confirm the right check goes red. The tool
+this lane already had for that turned out to only work for a *different* component built
+earlier — it was written generically-looking but was actually hardwired to that one tool's own
+code. Rather than assume it would work here, I ran it and watched it fail to find almost
+everything it was supposed to break. So I built a proper version of that tool for this panel
+specifically. All twelve deliberate breaks were caught by exactly the check meant to catch them.
+
+Two of those deliberate breaks — trying to click a card after making it un-clickable — took a
+genuinely long time each, because the browser correctly refuses to let a "click" land on
+something that can't be clicked, and it keeps politely retrying for about thirty seconds before
+giving up. That's the test working as intended, just slow, and it's why this step ran long
+enough to drop into the background rather than finishing in the usual couple of minutes.
+
+Once both proofs were clean, I wrote the panel's test, its history, and today's build log into
+the database properly — not the throwaway version from before, a real one that stays. Then, to
+make sure writing it and reading it back actually agree with each other, I pulled it back out of
+the database and ran the whole test again from that copy. Passed again, byte-for-byte the same
+as what went in.
+
+So: the piece of outstanding work from the note above — "the panel itself needs an actual
+written test" — is now done. The other piece, the decision about how to point the browser-testing
+machinery at one specific page out of a component's several, is still exactly where it was left:
+written down as two options, not yet chosen.

@@ -350,6 +350,23 @@
 - **VERIFIED IN THE CLUSTER 2026-07-31, and the first attempt FAILED — which is the entry's most useful fact.** Dispatch 1 (`211dd1d4`) died at 133s: `run_checks: browser open failed … [mobile]: context deadline exceeded`. `runDeadline` is **120s for the WHOLE request**, and `openChromium` returns `ctx.Err()` from its settle wait, so an oversized fence presents as a browser that would not start. 36 evaluations = **10.6s locally (x3, stable) but over budget in-cluster** at ~3-5s each. Profile-gated to 22 (the 14 profile-independent checks moved to desktop only), dispatch 2 (`cf6b6e34`) returned **`complete` in 18s: 22 passed / 0 failed / 14 skipped**, every skip verified as `not run on profile mobile` and none as `not implemented`. So BROKEN-B is closed in BEHAVIOUR: the run asserts 22 things where it previously asserted nothing.
 - **the second landmine, and it is about THESE HARNESSES:** **an offline harness proves a fence is CORRECT, never that it FITS.** `try_fence.go` runs the real evaluator but not in the real environment and does not model the deadline, so it can return an unqualified PASS on a fence that cannot complete in production. **A fence is not proven until it has completed once in the cluster.** Read the outcome at `collected_data->'request_run'->'response'->'summary'`; a failed run reports `status=COMPLETED` with `current_step='complete_error'` and the real message in `__step_error`.
 - **verify-later:** whether the same harnesses serve a COMPONENT fence (DOC-068) once S6-for-components is wired — nothing has yet run one, and `doc_plans` holds 0 component rows.
+  > **ANSWERED, PARTIALLY, 2026-08-02 (`staged_component_build`, `teaser-reveal-panel`'s fence).**
+  > `try_fence.go` serves a component fence with **zero changes** — it is genuinely generic,
+  > exactly as designed: 15/15 check-evaluations passed, both against the live URL and against
+  > the fence read back out of `doc_plans` (`doc_plans` now holds **1** component row, not 0).
+  > **`prove_fence_can_fail.go` does NOT serve a component fence, or any fence but the one it
+  > was written for** — despite its name and RUNBOOK §8's phrasing both reading as generic.
+  > Its `mutants` slice is hardcoded to `tool-review-council-simulator`'s own source strings;
+  > run as-is against the new fence, 14 of its 17 mutants reported "target string not present."
+  > A sibling file, `prove_fence_can_fail_teaser_reveal_panel.go`, was required — same
+  > architecture, this component's own 12 mutants, plus one genuine extension: an optional
+  > per-mutant **asset override**, because this component's sibling-close/deep-link behaviour
+  > lives in a fleet-shared `/assets/js/snippets.js`, not in the page body, and the original
+  > file's redirect-everything-else-to-origin design has no way to serve a mutated copy of an
+  > external asset. **So: TL-036 as a PAIR is not one generic instrument — the trial half
+  > generalises for free, the mutation half needs a new file per fence family**, and any
+  > future component whose behaviour lives partly in a shared asset (most of them, per CLC-001)
+  > will need the same asset-override extension, not a fresh reinvention of it.
 
 ### TL-037 — Tool numeric-equivalence gate (`toolgolden.py`): capture what a tool COMPUTES, so a rewrite can be proved equivalent
 - **status:** **built, exercised, and proven able to fail** 2026-07-31. Golden captured for all 12 interactive pages on loancalculator.co.uk; round-tripped deterministically; caught a deliberately injected arithmetic error.

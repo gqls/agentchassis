@@ -139,6 +139,19 @@ has to be reconstructed) gets a PLAN with a criteria fence and its NOTES backfil
 from `NOTES_brochure_component_library.md`. Gate: the fence exists, passes the ten-rule
 validator, and every criterion has been watched to pass by hand.
 
+> **P1 DONE, 2026-08-02.** Verdict/image/pod-grep/273 were already done (see NOTES,
+> entry `8f564028-6fc6-488c-96d2-c2e362b243b2`). The remaining item — a real fence for
+> `teaser-reveal-panel` — is done too: 12 checks, `try_fence.go` 15/15 against the live
+> URL, every check watched to FAIL under its own mutant (not just watched to pass — a
+> stronger bar than this line asked for), written into `doc_plans`/`doc_notes` as a real
+> row (not the throwaway probe row this PLAN's own D-something worried would be mistaken
+> for proof), and read back out of the DB to confirm the write round-trips. Detail:
+> NOTES entry "2026-08-02 — P1's tail closed". **The backfill source was actually
+> `NOTES_teaser-reveal-panel.md`** (the component's own file), not
+> `NOTES_brochure_component_library.md` (the lane-wide file this line named) — the
+> component-specific file is the more precise source and itself instructed exactly this
+> port once 273 landed.
+
 **P1a — the three-way naming contract check. NEW, and it jumps the queue** (2026-07-30,
 on the first forward run's measured recommendation). Assert
 `doc_plans.subject_key == pages.name == content_components.function` for every subject

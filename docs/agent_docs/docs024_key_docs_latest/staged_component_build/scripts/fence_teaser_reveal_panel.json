@@ -1,0 +1,111 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.trp[data-component=\"teaser-reveal-panel\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "panel-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.trp[data-component=\"teaser-reveal-panel\"]"
+    },
+    {
+      "id": "first-card-present",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "details.trp__card[data-trp-key=\"orchestration\"]"
+    },
+    {
+      "id": "last-card-present",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "details.trp__card[data-trp-key=\"our-own-sites\"]"
+    },
+    {
+      "id": "closed-card-full-text-stays-in-dom",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": ".trp__card[data-trp-key=\"orchestration\"] .trp__body .trp__body-lead"
+    },
+    {
+      "id": "panel-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.trp[data-component=\"teaser-reveal-panel\"]"
+    },
+    {
+      "id": "card-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": ".trp__card"
+    },
+    {
+      "id": "real-click-opens-first-card",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "details.trp__card[data-trp-key=\"orchestration\"] summary"
+        }
+      ],
+      "expect": {
+        "selector": "details.trp__card[data-trp-key=\"orchestration\"][open]"
+      }
+    },
+    {
+      "id": "real-click-opens-second-card",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "details.trp__card[data-trp-key=\"data-verification\"] summary"
+        }
+      ],
+      "expect": {
+        "selector": "details.trp__card[data-trp-key=\"data-verification\"][open]"
+      }
+    },
+    {
+      "id": "opening-a-sibling-closes-the-first",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "details.trp__card[data-trp-key=\"orchestration\"]:not([open])"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

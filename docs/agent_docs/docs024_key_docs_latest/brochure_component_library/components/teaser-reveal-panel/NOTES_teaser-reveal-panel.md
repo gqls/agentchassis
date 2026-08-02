@@ -1,5 +1,11 @@
 # NOTES — teaser-reveal-panel
 
+> **SUPERSEDED 2026-08-02 — ported to `doc_notes`.** `subject_type='component'` is live
+> (migration 273). This file's history is backfilled into
+> `SELECT body FROM doc_notes WHERE subject_type='component' AND subject_key='teaser-reveal-panel' ORDER BY created_at;`
+> (condensed, not verbatim) plus a new entry for the `staged_component_build` lane's own
+> 2026-08-02 fence build. This file is kept for history only and is no longer updated.
+
 **Travelling doc, per `037_TOOL_DOCS_convention(1).md`.** Append-only, newest at the
 bottom. Every entry: date, what was observed, what was decided, and why — including dead
 ends, because those are what the next maintainer cannot rederive. Tagged with the

@@ -1,18 +1,27 @@
 # PLAN — teaser-reveal-panel
 
+> **SUPERSEDED 2026-08-02 — ported to `doc_plans`, per this file's own instruction below.**
+> Migration 273 landed and was proven live (correlation `8f564028-6fc6-488c-96d2-c2e362b243b2`,
+> `staged_component_build` lane). The canonical PLAN is now
+> `SELECT body FROM doc_plans WHERE subject_type='component' AND subject_key='teaser-reveal-panel' AND is_current;`,
+> which also carries a proven, mutation-tested criteria fence this file never had. This file
+> and `NOTES_teaser-reveal-panel.md` are kept as history only and are no longer updated —
+> do not maintain both, per the rule this file itself stated below while the migration was
+> still pending.
+
 **Travelling doc, per `037_TOOL_DOCS_convention(1).md`.** Two docs per complex component,
 keyed by the component `function`: this PLAN (intent; changes rarely) and
 `NOTES_teaser-reveal-panel.md` (history; append-only).
 
-> **Why these are FILES and not `doc_plans` / `doc_notes` rows.** The platform's
-> travelling-doc tables refuse `subject_type='component'`. Migration
-> `273_doc_subjects_component.sql` and its Go half (`c659e312b`) exist and would allow it;
-> **the migration is not applied** (verified 2026-07-31: `doc_plans_subject_type_check`
-> still lists only tool/pipeline/experience/action/experience-pattern). Convention 037 is
-> a FILE convention and predates those tables, so it is available today and this is it.
-> **When 273 lands, port these two files to the DB keyed by
-> `subject_type='component', subject_key='teaser-reveal-panel'` and leave a pointer here** —
-> do not maintain both. See NOTES, entry 2026-07-31, for what is blocking that.
+> **Why these WERE files and not `doc_plans` / `doc_notes` rows** (historical — see the
+> superseded notice above). The platform's travelling-doc tables refused
+> `subject_type='component'`. Migration `273_doc_subjects_component.sql` and its Go half
+> (`c659e312b`) existed and would allow it; **the migration was not applied** (verified
+> 2026-07-31: `doc_plans_subject_type_check` still listed only
+> tool/pipeline/experience/action/experience-pattern). Convention 037 is a FILE convention
+> and predates those tables, so it was available then and was used. **When 273 landed,
+> these two files were ported to the DB keyed by
+> `subject_type='component', subject_key='teaser-reveal-panel'`** — done 2026-08-02.
 
 ## Aim
 
