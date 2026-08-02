@@ -110,3 +110,19 @@ func screenshotKey(siteID, function, runID, profile string, urlIdx int) string {
 		keySegment(profile, "profile"),
 		suffix)
 }
+
+// renderSweepKey names one whole-site sweep render:
+//
+//	render-sweep/<site_id>/<run_id>/<urlIdx>_<profile>.png
+//
+// A separate prefix from acceptance-evidence/ because these are NOT failure
+// evidence — they are the pixel input for screenshot consumers (the design
+// critic), captured for passing and failing pages alike; run_id groups one
+// sweep's renders together.
+func renderSweepKey(siteID, runID, profile string, urlIdx int) string {
+	return fmt.Sprintf("render-sweep/%s/%s/%d_%s.png",
+		keySegment(siteID, "unknown-site"),
+		keySegment(runID, "unknown-run"),
+		urlIdx,
+		keySegment(profile, "profile"))
+}

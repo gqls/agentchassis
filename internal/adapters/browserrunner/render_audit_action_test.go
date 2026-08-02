@@ -21,7 +21,7 @@ func probeJSON(t *testing.T, body string) interface{} {
 }
 
 func auditWith(page *fakePage) *RenderAuditAction {
-	a := NewRenderAuditAction(zap.NewNop())
+	a := NewRenderAuditAction(zap.NewNop(), nil)
 	a.open = func(context.Context, string, string, *zap.Logger) (browserPage, error) {
 		return page, nil
 	}
@@ -104,7 +104,7 @@ func TestCleanPageProducesNoFindings(t *testing.T) {
 // A page that will not load must be REPORTED, never silently dropped — a dead
 // page passing as clean is the worst possible outcome for a checker.
 func TestUnreachablePageIsReportedNotSkipped(t *testing.T) {
-	a := NewRenderAuditAction(zap.NewNop())
+	a := NewRenderAuditAction(zap.NewNop(), nil)
 	a.open = func(_ context.Context, url string, _ string, _ *zap.Logger) (browserPage, error) {
 		if url == "https://dead.example/" {
 			return nil, errors.New("dial tcp: connection refused")
@@ -144,5 +144,89 @@ func TestNoURLsIsAnError(t *testing.T) {
 	if _, err := auditWith(&fakePage{}).Execute(context.Background(),
 		RenderAuditRequest{}); err == nil {
 		t.Fatal("an empty request must error rather than report a clean run")
+	}
+}
+
+// ── A1.1: whole-site renders (desktop + mobile) ────────────────────────────
+
+func TestCaptureRendersSavesDesktopAndMobilePerPage(t *testing.T) {
+	pages := map[string]*fakePage{
+		"desktop": {status: 200, evalResult: probeJSON(t, `{"contrast":[],"images":[],"overflow":null}`)},
+		"mobile":  {status: 200, evalResult: probeJSON(t, `{"contrast":[],"images":[],"overflow":null}`)},
+	}
+	store := &fakeStore{}
+	a := NewRenderAuditAction(zap.NewNop(), store)
+	a.open = func(_ context.Context, _ string, profile string, _ *zap.Logger) (browserPage, error) {
+		return pages[profile], nil
+	}
+
+	res, err := a.Execute(context.Background(), RenderAuditRequest{
+		RunID: "run-9", SiteID: "site-9", URLs: []string{"https://example.com/"},
+		CaptureRenders: true})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(res.Renders) != 2 {
+		t.Fatalf("want 2 renders (desktop+mobile), got %d: %+v", len(res.Renders), res.Renders)
+	}
+	wantKeys := map[string]bool{
+		"render-sweep/site-9/run-9/0_desktop.png": true,
+		"render-sweep/site-9/run-9/0_mobile.png":  true,
+	}
+	for _, k := range store.keys {
+		if !wantKeys[k] {
+			t.Errorf("unexpected render key %q", k)
+		}
+		delete(wantKeys, k)
+	}
+	if len(wantKeys) != 0 {
+		t.Errorf("missing render keys: %v (saved: %v)", wantKeys, store.keys)
+	}
+	// Renders are pixels to look at, never failure evidence.
+	for _, r := range res.Renders {
+		if len(r.FailingChecks) != 0 {
+			t.Errorf("a sweep render must carry no FailingChecks: %+v", r)
+		}
+	}
+}
+
+func TestCaptureRendersWithNoStoreDegradesToMeasurementOnly(t *testing.T) {
+	page := &fakePage{status: 200, evalResult: probeJSON(t,
+		`{"contrast":[{"cls":"x","tag":"P","fg":"rgb(1,1,1)","bg":"rgb(0,0,0)","ratio":1,"need":4.5,"overImage":false,"px":16}],"images":[],"overflow":null}`)}
+	res, err := auditWith(page).Execute(context.Background(), RenderAuditRequest{
+		URLs: []string{"https://example.com/"}, CaptureRenders: true})
+	if err != nil {
+		t.Fatalf("no store must not error: %v", err)
+	}
+	if len(res.Renders) != 0 {
+		t.Fatalf("nil store must yield no renders, got %+v", res.Renders)
+	}
+	if res.Summary.ContrastFirm != 1 {
+		t.Fatalf("measurement must be untouched by the degrade, got %+v", res.Summary)
+	}
+}
+
+func TestRenderCaptureFailureNeverLosesTheMeasurement(t *testing.T) {
+	pages := map[string]*fakePage{
+		"desktop": {status: 200, shotErr: errors.New("chromium OOM"),
+			evalResult: probeJSON(t, `{"contrast":[{"cls":"y","tag":"P","fg":"rgb(1,1,1)","bg":"rgb(0,0,0)","ratio":1.5,"need":4.5,"overImage":false,"px":16}],"images":[],"overflow":null}`)},
+		"mobile": {status: 200, evalResult: probeJSON(t, `{"contrast":[],"images":[],"overflow":null}`)},
+	}
+	store := &fakeStore{}
+	a := NewRenderAuditAction(zap.NewNop(), store)
+	a.open = func(_ context.Context, _ string, profile string, _ *zap.Logger) (browserPage, error) {
+		return pages[profile], nil
+	}
+	res, err := a.Execute(context.Background(), RenderAuditRequest{
+		RunID: "run-10", SiteID: "site-10", URLs: []string{"https://example.com/"},
+		CaptureRenders: true})
+	if err != nil {
+		t.Fatalf("a failed capture must not fail the audit: %v", err)
+	}
+	if res.Summary.ContrastFirm != 1 {
+		t.Fatalf("the measurement was lost with the picture: %+v", res.Summary)
+	}
+	if len(res.Renders) != 1 || res.Renders[0].Profile != "mobile" {
+		t.Fatalf("want exactly the mobile render, got %+v", res.Renders)
 	}
 }

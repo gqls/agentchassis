@@ -60,6 +60,14 @@ type RenderAuditRequest struct {
 	URLs   []string `json:"urls"`
 	SiteID string   `json:"site_id"`
 	Domain string   `json:"domain"`
+	// CaptureRenders opts into a full-page screenshot per (url, profile) —
+	// desktop AND mobile — filed under Renders. Same doctrine as
+	// RunChecksRequest.CaptureRenders: a render is something to look at (the
+	// design critic's pixel input), never something the audit decides by, and
+	// with no object storage configured the request degrades to measurement
+	// only. Measurement semantics are untouched either way: findings are still
+	// taken from the desktop profile exactly as before.
+	CaptureRenders bool `json:"capture_renders"`
 }
 
 // ContrastFinding is one text element whose contrast is below its threshold.
@@ -102,7 +110,13 @@ type RenderAuditResult struct {
 	// load is a worse finding than one with poor contrast, and silently dropping
 	// it would let a dead page pass as clean.
 	Unreachable []string `json:"unreachable,omitempty"`
-	Summary     struct {
+	// Renders holds full-page screenshots (desktop + mobile per page), present
+	// only when the request set CaptureRenders and object storage is
+	// configured. FailingChecks is empty on every entry by construction —
+	// these are renders to look at, not failure evidence (the RunChecksResult
+	// Screenshots-vs-Renders distinction, for the same reason).
+	Renders []ScreenshotRef `json:"renders,omitempty"`
+	Summary struct {
 		Pages         int `json:"pages"`
 		PagesFailed   int `json:"pages_failed"`
 		Contrast      int `json:"contrast"`
@@ -178,10 +192,13 @@ const auditJS = `() => {
 type RenderAuditAction struct {
 	logger *zap.Logger
 	open   openFunc
+	// store is the render-capture sink; nil means CaptureRenders degrades to
+	// measurement only (the P3 "docs never fail the work" rule).
+	store screenshotStore
 }
 
-func NewRenderAuditAction(logger *zap.Logger) *RenderAuditAction {
-	return &RenderAuditAction{logger: logger.Named("render_audit"), open: openChromium}
+func NewRenderAuditAction(logger *zap.Logger, store screenshotStore) *RenderAuditAction {
+	return &RenderAuditAction{logger: logger.Named("render_audit"), open: openChromium, store: store}
 }
 
 // pageAudit mirrors the probe's return shape.
@@ -215,12 +232,16 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 	}
 	res := &RenderAuditResult{RunID: req.RunID}
 	failedPages := map[string]bool{}
+	capture := req.CaptureRenders && a.store != nil
+	if req.CaptureRenders && a.store == nil {
+		a.logger.Info("render_audit: renders requested but no object storage — measuring only")
+	}
 
-	for _, url := range req.URLs {
+	for urlIdx, url := range req.URLs {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		pa, err := a.auditOne(ctx, url)
+		pa, desktopShot, err := a.auditOne(ctx, url, capture)
 		res.Summary.Pages++
 		if err != nil {
 			a.logger.Warn("render_audit: page unreachable",
@@ -228,6 +249,19 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 			res.Unreachable = append(res.Unreachable, url)
 			failedPages[url] = true
 			continue
+		}
+		if capture {
+			if ref, ok := a.saveRender(ctx, req, url, "desktop", urlIdx, desktopShot); ok {
+				res.Renders = append(res.Renders, ref)
+			}
+			// Mobile is a second navigation purely for the pixels; a failure
+			// here degrades to a log line, never to a lost measurement.
+			if mobileShot, mErr := a.captureRender(ctx, url, "mobile"); mErr != nil {
+				a.logger.Warn("render_audit: mobile render capture failed",
+					zap.String("url", url), zap.Error(mErr))
+			} else if ref, ok := a.saveRender(ctx, req, url, "mobile", urlIdx, mobileShot); ok {
+				res.Renders = append(res.Renders, ref)
+			}
 		}
 		for _, c := range pa.Contrast {
 			res.Contrast = append(res.Contrast, ContrastFinding{
@@ -257,17 +291,17 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 	return res, nil
 }
 
-func (a *RenderAuditAction) auditOne(ctx context.Context, url string) (*pageAudit, error) {
+func (a *RenderAuditAction) auditOne(ctx context.Context, url string, capture bool) (*pageAudit, []byte, error) {
 	// openChromium takes a profile NAME, not dimensions — the viewport sizes are
 	// its own constants, which keeps every browser run on this adapter measuring
 	// the same two profiles. Overflow is only meaningful against a known width.
 	cp, err := a.open(ctx, url, "desktop", a.logger)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer cp.Close()
 	if ne := cp.NavError(); ne != "" {
-		return nil, fmt.Errorf("navigation: %s", ne)
+		return nil, nil, fmt.Errorf("navigation: %s", ne)
 	}
 
 	// Give late images a moment to settle before asking which failed, or a slow
@@ -276,21 +310,66 @@ func (a *RenderAuditAction) auditOne(ctx context.Context, url string) (*pageAudi
 	select {
 	case <-time.After(1500 * time.Millisecond):
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, nil, ctx.Err()
 	}
 
 	v, err := cp.Evaluate(auditJS)
 	if err != nil {
-		return nil, fmt.Errorf("probe: %w", err)
+		return nil, nil, fmt.Errorf("probe: %w", err)
 	}
 	raw, err := json.Marshal(v)
 	if err != nil {
-		return nil, fmt.Errorf("probe marshal: %w", err)
+		return nil, nil, fmt.Errorf("probe marshal: %w", err)
 	}
 	var pa pageAudit
 	if err := json.Unmarshal(raw, &pa); err != nil {
-		return nil, fmt.Errorf("probe unmarshal: %w", err)
+		return nil, nil, fmt.Errorf("probe unmarshal: %w", err)
 	}
-	return &pa, nil
+
+	// The desktop render rides the measurement's own page: no second
+	// navigation, and a capture failure costs the picture, never the numbers.
+	var shot []byte
+	if capture {
+		if shot, err = cp.Screenshot(true); err != nil {
+			a.logger.Warn("render_audit: desktop render capture failed",
+				zap.String("url", url), zap.Error(err))
+			shot = nil
+		}
+	}
+	return &pa, shot, nil
 }
 
+// captureRender opens url under the named profile purely for its pixels.
+func (a *RenderAuditAction) captureRender(ctx context.Context, url, profile string) ([]byte, error) {
+	cp, err := a.open(ctx, url, profile, a.logger)
+	if err != nil {
+		return nil, err
+	}
+	defer cp.Close()
+	if ne := cp.NavError(); ne != "" {
+		return nil, fmt.Errorf("navigation: %s", ne)
+	}
+	select {
+	case <-time.After(1500 * time.Millisecond):
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return cp.Screenshot(true)
+}
+
+// saveRender uploads one captured render; every failure path is a log line,
+// never a lost measurement (evidence, not dependency).
+func (a *RenderAuditAction) saveRender(ctx context.Context, req RenderAuditRequest,
+	url, profile string, urlIdx int, png []byte) (ScreenshotRef, bool) {
+	if len(png) == 0 {
+		return ScreenshotRef{}, false
+	}
+	key := renderSweepKey(req.SiteID, req.RunID, profile, urlIdx)
+	uri, viewURL, err := a.store.Save(ctx, key, png)
+	if err != nil {
+		a.logger.Warn("render_audit: render upload failed",
+			zap.String("url", url), zap.String("profile", profile), zap.Error(err))
+		return ScreenshotRef{}, false
+	}
+	return ScreenshotRef{URL: url, Profile: profile, URI: uri, ViewURL: viewURL}, true
+}

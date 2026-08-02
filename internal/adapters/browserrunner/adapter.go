@@ -126,7 +126,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		producer:      producer,
 		requestsTopic: requestsTopic,
 		runChecks:     NewRunChecksAction(logger, store),
-		renderAudit:   NewRenderAuditAction(logger),
+		renderAudit:   NewRenderAuditAction(logger, store),
 		adapterID:     adapterID,
 		senderType:    senderType,
 		podName:       podName,

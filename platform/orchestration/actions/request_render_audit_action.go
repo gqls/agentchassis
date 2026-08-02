@@ -58,12 +58,13 @@ const renderAuditTopic = "system.adapter.render-audit.requests"
 // RequestRenderAuditInputSpec documents the step config.
 var RequestRenderAuditInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{},
-	Optional: []string{"site_id_field", "domain_field", "max_pages", "page_names", "topic"},
+	Optional: []string{"site_id_field", "domain_field", "max_pages", "page_names", "topic", "capture_renders"},
 	Defaults: map[string]interface{}{
-		"site_id_field": "site_record.site_id",
-		"domain_field":  "site_record.domain",
-		"max_pages":     25,
-		"topic":         renderAuditTopic,
+		"site_id_field":   "site_record.site_id",
+		"domain_field":    "site_record.domain",
+		"max_pages":       25,
+		"topic":           renderAuditTopic,
+		"capture_renders": false,
 	},
 	Deprecated: map[string]string{},
 }
@@ -97,6 +98,7 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	if maxPages <= 0 {
 		maxPages = 25
 	}
+	captureRenders, _ := config["capture_renders"].(bool)
 
 	// Deployed pages only. An undeployed page has no live URL to render, and
 	// asking for one produces a navigation failure that reads like a defect.
@@ -200,6 +202,10 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 				"urls":    urls,
 				"site_id": siteID,
 				"domain":  domain,
+				// Renders (desktop+mobile full-page screenshots) are opt-in per
+				// step config; the adapter degrades to measurement-only when
+				// object storage is absent. See RenderAuditRequest.CaptureRenders.
+				"capture_renders": captureRenders,
 			},
 		},
 	}
