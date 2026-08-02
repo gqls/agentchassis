@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -131,5 +132,34 @@ func TestAuditIgnoresSectionsWithNoContentData(t *testing.T) {
 	}
 	if got := auditSectionContentDataLinks(sections, contentAuditIndex(), true); got != nil {
 		t.Fatalf("expected no findings, got %+v", got)
+	}
+}
+
+// TestContentDataLinkErrorCodeIsDistinct — the estate's existing convention,
+// which this change nearly shipped without following (caught by the council's
+// guardian and reuse_agent seats, corr 40c0c14d, both at low severity on "a
+// third code in this family").
+//
+// It matters in BOTH directions. A code that collides makes "which path caught
+// this" unanswerable — the drift bugs_open/097 exists to keep answerable. And a
+// code that merely SHARES A PREFIX with a live one is caught by any query using
+// LIKE: the estate has two such queries today (`tool_crosslink_not_emitted%`,
+// `component_validation_%`), so prefix-disjointness is a real property, not a
+// stylistic one. CONTENT_DATA_ vs CONTENT_LINK_ diverge at the ninth character.
+func TestContentDataLinkErrorCodeIsDistinct(t *testing.T) {
+	taken := []string{
+		"CONTENT_LINK_REPAIR_DETAIL", "CONTENT_LINK_REPAIR_SKIPPED",
+		"CONTENT_CLAIMS_FLOOR_DETAIL", "CONTENT_VALIDATION_FAILED",
+		"CONTENT_VALIDATION_BLOCKER_DETAIL", "TRUNCATION_DEGRADED_REVIEW",
+		"VALIDATION_ERROR_DROPPED", "UNKNOWN",
+	}
+	for _, other := range taken {
+		if contentDataLinkErrorCode == other {
+			t.Errorf("content_data audit code collides with live code %q", other)
+		}
+		if strings.HasPrefix(contentDataLinkErrorCode, other) || strings.HasPrefix(other, contentDataLinkErrorCode) {
+			t.Errorf("content_data audit code %q shares a prefix with live code %q — a LIKE query would catch both",
+				contentDataLinkErrorCode, other)
+		}
 	}
 }

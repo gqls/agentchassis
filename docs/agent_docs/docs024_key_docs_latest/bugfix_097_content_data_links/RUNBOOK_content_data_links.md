@@ -177,3 +177,67 @@ rm -rf /tmp/headtree && mkdir -p /tmp/headtree && git archive HEAD | tar -x -C /
 for f in <your files>; do cp "$f" "/tmp/headtree/$f"; done
 cd /tmp/headtree && go build ./... && go test ./platform/orchestration/{datahelpers,actions}/ -count=1
 ```
+
+## R8 — Which live agents actually persist through this chokepoint?
+
+**The obvious query under-counts by half, and looks authoritative doing it.**
+
+```sql
+-- ✗ NARROW — returns 3. Misses every agent that reaches the action via a loop step.
+SELECT ad.type, s.key, s.value->>'action'
+FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') AS s(key,value)
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND s.value->>'action' = 'save_page_sections';
+--   page-build-handler | page-rerender | tool-recreation-handler
+```
+
+```sql
+-- ✓ HONEST — text-match the whole config, then look at WHERE each one matched.
+SELECT type FROM agent_definitions
+WHERE default_config::text LIKE '%save_page_sections%'
+  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Nine rows on 2026-08-02. Six are persisters — the three above plus
+`pageflow-builder`, `page-rebuild` and `site-work-orchestrator`, which each reach
+it inside a `build_*_loop` step (`action=loop`). The other three
+(`council-gate`, `diagnose-agent`, `fix-proposer`) match on **prompt text** — a
+footprint map in `select_panel` and a reviewer prompt — and are not persisters.
+
+> **GOTCHA — always look at WHERE the text matched before counting it.** Both
+> mistakes are available here: the narrow query silently drops the loop-dispatched
+> half, and the broad one silently adds three agents that merely *mention* the
+> action in a prompt. The figure "six agent types" that this family's docs repeat
+> is **re-verified correct on 2026-08-02** by doing both and reconciling them.
+
+## R9 — Is the standing debt actually converging, or just sitting there?
+
+The claim "it clears as a side effect of ordinary operation" is only true at the
+cadence the affected pages are actually re-saved. **Query it; do not assert it**
+(the council's `debug_historian` seat caught exactly this, citing the matching
+`WRONG_CALLS.md` precedent).
+
+```sql
+SELECT s.domain, p.name, p.build_status,
+       count(pc.id) AS slots,
+       count(pc.id) FILTER (WHERE pc.locked_at IS NOT NULL) AS locked_slots,
+       max(pc.updated_at)::date AS last_write,
+       (now()::date - max(pc.updated_at)::date) AS days_since
+FROM pages p JOIN sites s ON s.id = p.site_id
+LEFT JOIN page_components pc ON pc.page_id = p.id
+WHERE (s.domain, p.name) IN (('gaswholesalers.com','supply-terms-and-eligibility'), ('idea.uk','about'), ...)
+GROUP BY 1,2,3 ORDER BY days_since DESC;
+```
+
+2026-08-02: **2 to 23 days**, 0 of the 13 affected components locked. So
+convergence is **opportunistic, not scheduled** — the fast pages clear in days,
+gaswholesalers may sit for weeks, and nothing guarantees any page is re-saved at
+all.
+
+> **GOTCHA — a locked slot is NOT a blocker here, and the reason is worth
+> knowing.** `save_page_sections_action.go:576` discards the *whole rebuilt
+> section* for a locked slot (the row is kept out of the DELETE and the insert
+> loop `continue`s), so the audit's rewrite is thrown away with it and frozen
+> content can never be mutated. The same discard means the audit still RECORDS a
+> finding for copy that was never persisted — a shared property with the markup
+> pass, which does exactly the same thing.

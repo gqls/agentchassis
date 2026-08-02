@@ -182,3 +182,154 @@ being argued about in the abstract.
 and not by itself safe. What settles it is *measuring the input population you are
 actually handing it* — and then writing the measurement down beside the reuse, so
 the next reader inherits the evidence rather than the assumption.
+
+## 2026-08-02 — COUNCIL APPROVED at round 1, and the four advisory objections CHECKED rather than dispositioned
+
+`40c0c14d-636c-4d6f-b3a2-9316267d7367` — **approved**, 12 reviewers, 0 unreadable,
+5 abstained, **4 advisory objections, none high-severity**. Approving seats:
+`reuse_agent`, `guidelines`, `compliance`, `render_guardian`, `constitution`,
+`mission`, `prior_art_librarian`, `architecture` (signal: **point_fix**;
+"the RFC trigger test does not fire"). Objecting-but-advisory: `editquality`,
+`bug_historian`, `guardian`, `debug_historian`.
+
+Every objection below was **checked**, not argued with. Two of them found
+something.
+
+### 1. editquality, MEDIUM — "no cited fact shows the rerender path actually calls through SavePageSectionsAction"
+
+Fair, and it is the load-bearing claim: I had asserted it from another file's
+header comment, which is folklore, not evidence. Checked against **live**
+`agent_definitions` (the seed is not the system):
+
+```sql
+SELECT ad.type, s.key AS step_name, s.value->>'action' AS action,
+       s.value->'config'->>'sections_metadata_field'
+FROM agent_definitions ad,
+     LATERAL jsonb_each(ad.default_config->'workflow'->'steps') AS s(key, value)
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND s.value->>'action' = 'save_page_sections';
+```
+
+```
+ page-build-handler      | save_sections | save_page_sections | page_content.response.sections_metadata
+ page-rerender           | save_sections | save_page_sections | rerender_sections.sections_metadata
+ tool-recreation-handler | save_sections | save_page_sections |
+```
+
+**CONFIRMED.** `page-rerender` persists through the same chokepoint, and its
+`sections_metadata_field` is `rerender_sections.sections_metadata` — i.e. the
+output of the very step that rebuilds each section **from `content_data`**. So the
+third-representation claim holds on live config, not on a comment.
+
+**The check also nearly caught me repeating a stale figure.** That first query
+returns **3** agents, and every doc in this family — including my own — says
+**six**. Widening it showed why both are right: `pageflow-builder`, `page-rebuild`
+and `site-work-orchestrator` reach the action through a `loop` step, so they do
+not match on `s.value->>'action'` and are invisible to the obvious query.
+
+```sql
+-- the honest form: text-match the whole config, then look at WHERE it matched
+SELECT type FROM agent_definitions
+WHERE default_config::text LIKE '%save_page_sections%' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Nine rows — the six persisters, plus `council-gate`, `diagnose-agent` and
+`fix-proposer`, whose hits are **prompt text** (a footprint map in `select_panel`,
+and a reviewer prompt), not steps. So **six is re-verified as correct today**,
+2026-08-02, rather than inherited from 2026-07-28. ⚠ **The narrow query
+under-counts by 3 and looks authoritative doing it** — a persister behind a `loop`
+step is exactly the kind of thing a `->>'action'` filter cannot see, which is this
+bug's own shape (a predicate that answers for the level it was written for) turning
+up in the measurement of the fix.
+
+### 2. guidelines + guardian + debug_historian — `page_components.locked_at`
+
+**Three seats reached for the same question independently, which is the strongest
+signal in the round.** *"the rewrite arm would mutate content_data for a slot an
+editor deliberately froze."*
+
+**Checked in code and it cannot happen — but not for the reason I would have
+guessed.** The lock guard sits at `save_page_sections_action.go:576`, and it works
+by *discarding the whole rebuilt section*: the locked row is kept out of the
+DELETE, and the insert loop `continue`s before writing anything. So my rewrite
+lands in `section.ContentData`, and that object is then **thrown away** along with
+the rest of the fresh copy. Nothing frozen is ever mutated.
+
+**And there is a real, small consequence I did not spot and the seats did not
+either:** the audit still writes its `CONTENT_DATA_LINK_AUDIT` record for findings
+in a locked slot's *discarded* copy, so the record slightly over-reports. **This
+is not new and it is not mine to fix unilaterally** — `repairSectionLinks` has the
+identical property (it repairs a locked section's HTML in memory, writes
+`CONTENT_LINK_REPAIR_DETAIL`, and that HTML is discarded too). Fixing it for one
+of the two passes would manufacture exactly the asymmetry this bug is about.
+Recorded as a shared property; if it is worth fixing, both move together.
+
+### 3. debug_historian, MEDIUM — "'clears as a side effect of ordinary operation' is asserted from a count, never queried"
+
+**The sharpest objection in the round, and it was RIGHT.** It cited the matching
+`WRONG_CALLS.md` precedent by name (*"'The configs will self-heal once the code
+ships' — asserted from a count, never queried"*). So I queried it:
+
+| domain / page | locked slots | last component write | days |
+|---|---|---|---|
+| gaswholesalers.com / supply-terms-and-eligibility | 0 | 2026-07-10 | **23** |
+| idea.uk / about | 0 | 2026-07-15 | 18 |
+| leopardess + finetuning / llm-cost-calculator | 0 | 2026-07-24 | 9 |
+| finetuning.uk / index | 0 | 2026-07-27 | 6 |
+| idea.uk / index | **4 of 6** | 2026-07-28 | 5 |
+| robot-hands × 4, ai-agent-orchestration × 1 | 0 | 2026-07-31 | 2 |
+
+> **CORRECTED — "no migration needed, it clears as a side effect of ordinary
+> operation" was too confident.** Direction right, tail unmeasured. Resave cadence
+> across the 11 affected pages runs **2 to 23 days**, and nothing *guarantees* a
+> page is ever re-saved. Convergence is **opportunistic, not scheduled**, and the
+> honest statement is that the fast-moving pages clear within days while
+> gaswholesalers may sit for weeks.
+>
+> The lock half came out better than feared: **zero of the 13 affected components
+> are locked.** idea.uk/index does carry 4 locked slots — `hero`,
+> `brief-explanation`, `tool-list`, `call-to-action` (all from the "home-CTA funnel
+> fix … do not auto-recompute" lock) — but the affected slot there is
+> `info-card-grid`, which is **not** locked. So no finding is behind a lock today.
+
+The re-measure in the bug file's owed list is now the thing that settles this
+rather than an assumption: **the 52 must be FALLING**, and a static count means
+the pass is not being reached.
+
+### 4. guardian + reuse_agent + architecture, LOW — the third `agent_error_log` code
+
+*"asserts existing queries are unaffected but that should be verified against the
+actual shape of `error_code` usage."* Verified by grep over the whole tree: every
+`error_code` predicate is either exact equality on `CONTENT_LINK_REPAIR_*` or a
+`LIKE` on an unrelated prefix (`tool_crosslink_not_emitted%`,
+`component_validation_%`). Nothing catches `CONTENT_DATA_LINK_AUDIT`, and the two
+families diverge at the ninth character (`CONTENT_DATA_` vs `CONTENT_LINK_`).
+
+**And this found a real omission.** The estate already has a convention for
+exactly this — `TestDiscoveryCheckErrorCodeIsDistinct` keeps a list of taken
+codes — and I had not followed it. Fixed: `CONTENT_DATA_LINK_AUDIT` added to that
+list so the *next* code cannot collide with mine, plus
+`TestContentDataLinkErrorCodeIsDistinct` asserting both non-collision **and
+prefix-disjointness**, since the estate demonstrably writes `LIKE` queries against
+this column.
+
+### 5. bug_historian, MEDIUM — "a second confirmed-but-undriven exposure with no owner"
+
+*"nothing in the plan schedules the `bugs_open/136` single-writer follow-up."*
+Checked: it **is** ticketed — `bugs_open/136` is open, and concept-register
+**LNK-027** names the tool-markup writers as the "ranked next candidate", left out
+on collision grounds rather than merit. So the follow-up has a home and a named
+next step. The seat could not see that from the plan text, which is a fair
+criticism of the submission rather than of the change; noted for next time —
+**cite the ticket that owns your scope-out, not just the scope-out.**
+
+### The one thing no seat could check, and it is worth keeping
+
+`reuse_agent`'s `missing`: *"whether any other in-flight lane is independently
+building a content_data walker right now — `code_checks` cannot confirm no
+parallel WIP exists."* That is the exact blind spot in my memory file
+(`who-owns is blind to uncommitted sessions`). I had checked it the only way that
+works — grepping live `.jsonl` transcripts for the code symbols — before starting.
+Worth stating in the next submission's `grounded_in` rather than leaving a seat to
+flag it as unknowable.
