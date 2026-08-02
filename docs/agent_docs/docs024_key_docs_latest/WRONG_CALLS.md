@@ -16441,3 +16441,162 @@ from ownership checks that were too weak; this is a fourth from running **no**
 check, and the trigger was the one thing that felt like authority to proceed.
 **An owner asking for X is evidence X is wanted, and no evidence at all about who
 else is already doing it.**
+
+---
+
+## 2026-08-02 — I nearly reported a builder attribution as a fabricated domain, and my own tool told me to
+
+**The claim I was about to write:** that `about-commercial-block`, a SHARED
+component, hard-codes `fundamentallyai.com` as the fallback domain for every site
+that adopts it. My new lint (`scripts/check_placeholder_fallbacks.py`, `bugs_open/140`)
+reported it on its first live run, next to four genuine `contact-info`
+fabrications, in a list I was about to paste into a bug file and a council
+submission.
+
+**What caught it:** reading the template instead of believing the tool. The line is
+
+```
+{{if .built_by_url}}<a href="{{.built_by_url}}">fundamentallyai.com</a>{{else}}fundamentallyai.com{{end}}
+```
+
+— "designed and built by fundamentallyai.com", rendered as a link when there is a
+URL and as plain text when there is not. **The `{{else}}` is not substituting for
+an absent datum; it is one constant rendered two ways.** Nothing is invented.
+
+**Why it was seductive:** it appeared in a list of four TRUE positives, from a
+tool I had just written for exactly this purpose, and the finding had the right
+shape — one site's domain, in a shared component, as a default. Four correct
+neighbours is not evidence about the fifth, and a tool agreeing with the
+hypothesis that motivated it is the weakest possible corroboration.
+
+**The cheap check:** for any `{{else}}` finding, read the `{{if}}` branch it
+replaces. If the same text appears in both, nothing is being fabricated. That is
+now the rule in the script rather than a habit — a fallback whose flattened text
+occurs in the branch it replaces is skipped.
+
+**The transferable error:** a detector's first run is evidence about the
+DETECTOR, not only about the corpus. I was treating output from a tool I wrote
+twenty minutes earlier, and had never calibrated, as a measurement. Same family
+as "a filter from the question describes a small world" — except here the filter
+was my own fresh code, which is worse, because writing it felt like understanding
+the domain.
+
+---
+
+## 2026-08-02 — narrowing past that false positive nearly made the check inert, and only a control caught it
+
+**The claim I was about to write:** that the fabricated-fallback lint was ready to
+ship, on the evidence that it now reported exactly the 5 genuine `contact-info`
+findings and nothing else — a clean, discriminating result on 172 live components.
+
+**What caught it:** running synthetic controls rather than trusting the live run.
+Control (b) was `{{if .hours}}{{.hours}}{{else}}Weekdays 8am to 5pm{{end}}` — a
+plain fabrication of opening hours. **It did not fire.** My hours pattern was
+anchored on a day-of-week name (`mon|tue|…`), and "Weekdays" is not one. I would
+have shipped a fabrication detector that misses the most natural way of writing
+invented opening hours, while its live run looked perfect.
+
+**The cheap check, and it is the one that already exists in this repo:** four
+controls, not one — (a) a genuine offence fires, (b) a legitimate case stays
+silent, (c) the specific false positive you narrowed for stays silent, (d) the
+case that motivated the whole thing is clean. I had (c) and (d) — the two that a
+clean live run gives you for free — and had not written (a) as anything other
+than the motivating case itself, which is exactly the gap. `strip_comments()` in
+`pattern-check.py` has a LANDMINE entry saying precisely this, and I did not read
+it until afterwards.
+
+**The transferable error:** a clean run after a narrowing measures the narrowing,
+not the rule. The live corpus could not distinguish "correctly ignores the false
+positive" from "no longer fires on anything it has not already seen", because
+every remaining true positive in it was the one I started from. **Only an input
+the corpus does not contain can tell those apart.**
+
+---
+
+## 2026-08-02 — "the checks pass, so the page is faithful" (loancalculator decomposition)
+
+**The claim I was about to write:** that the decomposed homepage reproduced the
+original, on the evidence of six automated checks — the calculator's numeric
+fingerprint identical across three input vectors, no visible text lost, no
+section dropped, no orphaned script target, no dead internal link.
+
+**What caught it:** looking at a screenshot. The homepage had gained three
+paragraphs it had never carried — a risk warning and two market-rate claims —
+because the calculator component is shared with `/tools/standard-calc.html` and
+was built from that page.
+
+**Why every check passed, and each for a good reason.** The fingerprint covers
+elements with an `id`; none of the three has one. The text check asks what was
+LOST. Nothing asked what had been ADDED. The suite was complete in one direction
+and had no counterpart in the other, and a one-directional test reads exactly
+like a two-directional one when it passes.
+
+**The cheap check:** compare the page text in BOTH directions, per row, and
+render the result to an image before believing any of it. Six green checks and a
+screenshot cost about the same; only one of them found this.
+
+**The transferable error:** *a fingerprint over `[id]` elements is blind to every
+word that is not inside one.* The equivalence gate was designed to answer "does
+this calculator still compute the same numbers", it answered that correctly, and
+I read it as "is this page the same page". A gate's silence only covers what it
+looks at, and the boundary is never visible in the passing output.
+
+---
+
+## 2026-08-02 — the same text check, wrong twice, in ways that cancelled out
+
+**The claim I was about to write:** nothing — this one failed loudly. But it
+failed loudly in a way that was one edit away from being waved through.
+
+**What happened:** my "no visible text lost" check reported **all 27 pages** as
+losing text. Two independent bugs: it measured the whole document rather than the
+body (so every failure began with the page `<title>`, which is not lost at all —
+assembly re-injects it), and it split collapsed text on `\s{2,}|\n`, which after
+collapsing matches nothing, so each page produced ONE run: the entire body. The
+assertion had silently become "is the whole original body a contiguous substring
+of the assembled page", false by construction the moment a header sits between
+two blocks.
+
+**What caught it:** 27 of 27 failing. A universal failure is not a finding.
+
+**The cheap check, and it was already written down:** `decompose_prover.py`'s P6
+carries a comment saying in terms that measuring the whole document made five
+pages fail by exactly the length of their `<title>` — "a check that answers a
+slightly different question than the one asked is worse than none, because the 5
+failures looked like real content loss". I had read that file that morning, to
+import three functions out of it.
+
+**The transferable error:** **too strict is not the safe direction.** A check
+that fails everything looks identical to a check that is broken, and the only way
+to clear it is to weaken it until it passes — which is precisely the motion that
+lets a real regression through. I was one "well, let me relax the comparison"
+away from a permanently vacuous check.
+
+---
+
+## 2026-08-02 — verified an asset with curl, then implemented the check in Python
+
+**The claim my checker made:** that `loancalculator.co.uk/assets/css/style.css`
+and `/assets/js/snippets.js` were **404/403** and the chrome must not be
+installed — thirty seconds after I had confirmed both were 200 with `curl`.
+
+**What caught it:** the contradiction with my own measurement a moment earlier.
+Had the checker been written first, or had the two been minutes rather than
+seconds apart, I would have believed it and gone looking for a deploy problem
+that does not exist.
+
+**The cause:** Cloudflare answers `Python-urllib/3.x` with **403**. Not the
+method, not the asset — the agent string. `curl` 200 (GET and HEAD, UA or none),
+`urllib` 403 (GET and HEAD), `urllib` with a browser UA 200.
+
+**The cheap check:** make the checker prove it can tell good from bad before
+trusting a clean run — `/assets/css/style.css` must come back 200 and
+`/assets/css/styles.css` (the plural typo that really was live in this site's
+chrome) must come back 404, **from the same code path**. A checker that returns
+the same status for both has told you nothing.
+
+**The transferable error:** *verifying with one client and implementing with
+another is not verification.* The evidence I had was about `curl`; the thing I
+shipped was `urllib`; nothing connected them. This is the HTTP-layer form of the
+"two blind checks agree" family — except here the two clients DISAGREED, and I
+was lucky enough to notice.

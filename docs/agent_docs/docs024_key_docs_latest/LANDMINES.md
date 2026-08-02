@@ -3125,3 +3125,53 @@ reader (a rollback sidecar, a correction migration), put the **slug** in that
 file's header too — `288_repoint_the_error_step_286_left_dangling.sql` is
 ambiguous by exactly this trap, and says which 286 it means in its first
 paragraph for that reason.
+
+### A component template's `{{else}}` can INVENT a business fact, and every render then "succeeds" — the schema already forbids it and nothing enforces the schema
+
+**footprint:** `content_components.html_template` · `input_schema.fields.*.on_missing` · `scripts/check_placeholder_fallbacks.py` · any component seed or `store_generated_component` write
+
+A template fallback is normally furniture — `{{else}}Read more{{end}}`,
+`{{else}}Get Started{{end}}` — and the library is full of them, correctly. But the
+same construct can substitute a **fact about the business**, and then the platform
+publishes an unsourced claim with no error, no failing status and no truncation:
+
+```
+{{if .phone}}…{{else}}+1234567890{{end}}                        <- a tel: link that is not a phone number
+{{if .hours}}{{.hours}}{{else}}Monday – Friday, 9am – 6pm{{end}}
+```
+
+`bugs_open/140`: **8 live sites served those invented hours**, and vetcomparison.uk
+served `tel:+1234567890` on the wire. It rendered in the same style as the real
+details, so nothing distinguishes the invented line from the true one by eye.
+
+**The trap that makes this landmine rather than a bug report:** the component's own
+`input_schema` ALREADY says `"on_missing": "skip_field"` for those fields, so a
+session reading the schema concludes the behaviour is correct and never opens the
+template. **The schema is documentation; nothing enforces it at render time.**
+`compute_component_quality.go`'s `scoreComponent` does not look at `{{else}}`
+contents, and `component_write_guard.go` is COMPARATIVE by design (is this
+replacement worse than what it replaces) so a birth write carrying a fabricated
+fallback passes it cleanly.
+
+**the check:** before trusting that a component degrades safely, run
+`python3 scripts/check_placeholder_fallbacks.py` (advisory; 0 clean / 1 findings /
+2 no DB) — it reads the LIVE library and separates a fact default from a label
+default, because `content_components` exists only in the database and no
+file-diff linter can see it. Then read the `{{if}}` branch of anything it reports:
+a fallback whose text also appears in the branch it replaces invents nothing (a
+builder attribution rendered as link-or-text is the common shape, and was this
+script's first false positive).
+
+**And do NOT "improve" `check_placeholder_contact` into the roster-free version.**
+The obvious upgrade — flag any rendered contact fact absent from the component's
+`content_data` — is UNSOUND: `RenderContext` carries top-level
+`Email string \`json:"email"\`` and `Phone string \`json:"phone"\``, and
+`contextToInterfaceMap` derives the template contract from those json tags, so a
+component can legitimately render a phone its `content_data` does not hold because
+the value arrived from site identity. `idea.uk` is exactly that shape and would be
+flagged as fabricated.
+
+**Reading the STORED render will also mislead you after a fix.** `page_components.
+rendered_html` still contains the fabrication until the page rerenders — fixing the
+template does not regenerate anything. Judge the template with a query against
+`content_components`, and the artefact separately.

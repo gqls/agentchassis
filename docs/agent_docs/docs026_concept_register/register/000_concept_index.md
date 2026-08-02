@@ -1,14 +1,27 @@
 # Concept Index — master register
 
-1,696 concepts across 110 category register files (**ADO-038 added 2026-07-31 and the
-count left ALONE, deliberately: I could not reproduce 1,696 with any grep, so raising it
-to 1,697 would assert a number I cannot derive.** What I measured, both stated so the
-next thread can pick whichever is the intended one: **1,691 index table rows**
-(`grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`) and **1,727 `^### ` headings across the
-category files**, over **109** category files, not 110. Neither is 1,696, and this
-line's own rule — re-take from the grep — cannot be followed without knowing which grep.
-`102_CHECK_register_coverage.py` does not produce the figure either. **Whoever knows the
-intended measure: write the command into this line, not just the number.** Previously:
+**1,700 index table rows** across **109** category register files, measured
+2026-08-02 after ADO-039 + ADO-040 landed, with the command written into the line
+as the previous thread asked:
+
+```
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,700  ← THIS is the headline number
+cat *.md | grep -c '^### '                                       # 1,738  (headings; always higher)
+ls *.md | grep -vc 000_concept_index                             # 109    (files)
+```
+
+**Why the headline moved from "1,696 across 110" to a number that can be
+reproduced.** The 1,696 was inherited and unreproducible: the previous thread
+tried and said so plainly rather than incrementing a figure it could not derive.
+That was the right call, and leaving the line unreproducible for ever is not — so
+the count is now RE-BASED on the grep this file already documented, and the two
+other measures are kept beside it because they answer different questions. The
+gap between rows (1,700) and headings (1,738) is real and expected: a heading
+exists for entries that were never given an index row, so **a widening gap is
+itself the signal that entries are being written without being indexed.** The
+file count was 109, not 110, on every measurement anyone has recorded.
+
+Do not re-inherit a number. Run the first command. Previously:
 re-taken from the grep 2026-07-31
 after TL-038 landed; the line said 1,695 and the grep said 1,695 before this row was
 added, i.e. level — re-taken from the grep anyway, per this line's own rule, which is
@@ -1069,6 +1082,8 @@ an ID prefix, or a status word.
 | ADO-011 | Adoption fidelity dial (locked/high/medium/low; phases 1-4) | partial | Only Phase 1 implicit-high exists; real per-item dial unbuilt | adoption-pipeline.md |
 | ADO-037 | Verbatim adoption (fidelity=locked) + deploy_mode component key | deployed | Preserves crawled URLs; skips recreate and the restyle cascade. NOT the served bytes — see ADO-038 | adoption-pipeline.md |
 | ADO-038 | Adoption byte gate: prove/repair an adopted component against the deploy repo | deployed | rawHtml is the post-JS DOM, so a locked adoption stores mutated bytes; 0/27 and 0/41 matched | adoption-pipeline.md |
+| ADO-039 | Decompose a verbatim page into editable prose + a proven tool component | built, first page in flight | The verbatim flip is the ROW COUNT — adding a section beside it nests a whole document inside a section | adoption-pipeline.md |
+| ADO-040 | `ported-prose` — the editable half of a decomposed page | built, in use on 1 page | Carries NO wrapper geometry on purpose: per-section containers stack padding, so it belongs in the site head | adoption-pipeline.md |
 | SPEC-003 | Fidelity dial (locked/high/medium/low + no-adoption confidence mode) | partial | Only Phase 1 implicit-high fidelity exists at the platform level | site-spec-and-classifier.md |
 | NAV-001 | Nav agent family and the three-tier authority model | partial | Only Tier 1 (strategist, new-build) is fully implemented of the three tiers | navigation.md |
 | DEV-049 | Schema-before-SQL discipline | convention | Only a live \d schema dump gives real column names and persistence; code names tables, not columns. | development-guide.md |
