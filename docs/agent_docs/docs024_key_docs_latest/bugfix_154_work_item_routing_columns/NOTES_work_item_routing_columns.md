@@ -827,3 +827,29 @@ unchanged apart from ~90 chars of anchor" — because that sentence, written in
 advance, is what turns a green status into a question. I had applied exactly this
 discipline to the 154 witness an hour earlier (hence the `component_versions`
 check above) and did not carry it to the item I had personally unblocked.
+
+---
+
+## 2026-08-02 (afternoon) — restores applied (`287`), per-slot shrink guard shipped (`2da3e08e5`, INERT until roll)
+
+Owner directed: restore all reduced pages + stop the class. Full dispositions in
+`bugs_open/178`'s update block (single source; not duplicated here). Highlights
+that belong to THIS lane's record:
+
+- **Verification before restoring changed two dispositions.** gamesdesign's −27%
+  was a legitimate rewrite (old blob = context dump, new fields purposeful) — NOT
+  restored; restoring on the size signal alone would have REGRESSED a good page.
+  fundamentallyai's live render was intact (32,876) with content_data NULL — the
+  012 class — so it got a content_data restore and deliberately NO rerender.
+- **The guard gap was measured, not assumed**: the existing content regression
+  guard is page-TOTAL with a 25% wipe threshold; 178's case was −57% slot /
+  −24% page. Two independent blindnesses. New per-slot floor (≥500 stripped
+  chars, keep ≥50%, `section_shrink_floor` config, fail closed, refusal work
+  item). Council `e64f8576` pending (~30 min queue); trailer Council-Submitted.
+- **Guard is INERT until an image roll.** Post-roll pod-grep: added marker
+  `"SECTION SHRINK"` ≥1, positive control `"CONTENT REGRESSION BLOCKED"` ≥1,
+  both replicas, same exec.
+- Council schema cost two rejected client-side attempts (plan must be an OBJECT
+  `{summary, edits, grounded_in}`, grounded_in INSIDE plan) — cheap (no credits)
+  but the same mistake family as 154's malformed edit path. Read the trigger's
+  header before writing the JSON, not after the first error.

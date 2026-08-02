@@ -137,3 +137,40 @@ WHERE page_id=<target> AND slot_name='generic-text-block';
 
 Do **not** verify by the work item reaching `complete` — it did that here, and
 that is the whole problem.
+
+---
+
+## UPDATE 2026-08-02 (same session, owner-directed) — RESTORED + guard COMMITTED (inert until roll)
+
+**Restores — `sql_for_agents/287`, applied, every byte from `page_component_history` by row id:**
+- robot-hands `generic-text-block` 1806→**4655** = the 4,439 reference PLUS the
+  tool anchor merged into the workpiece paragraph (both truths kept).
+- fundamentallyai tool slot `content_data` NULL→**32,444** (f321055b). ⚠ its live
+  render was the only good copy — **no rerender queued for it, deliberately**;
+  do not rerender that page until the restored shape is checked vs the renderer.
+- vetcomparison `faq` 2197→**7206**, `about-content` 1882→**3043**. Stated
+  trade-off: three small same-day edits discarded; a re-broken CTA re-detects,
+  lost prose had no detector.
+- **NOT restored**: gamesdesign (−27% was a legitimate rewrite — verified: old
+  blob was a context dump, new fields purposeful); vonc (156 md5-dedup);
+  relojistas glosario (DefinedTermSet slot DELETED and absent site-wide, but
+  history records no slot_name — snapshot `b0e119a4`, 2,816 chars, awaits this
+  bug's fix or an owner slot-name decision).
+- 2 rerender items `restore_287:%` queued; verify at the artefact (ISO 9409-1 +
+  the anchor both present in robot-hands' rendered slot; vet faq ~3×).
+
+**Prevention — fix candidate 2 SHIPPED (commit `2da3e08e5`), INERT until the
+next image roll:** per-slot shrink floor in `SavePageSectionsAction`
+(`save_sections_shrink_guard.go`). The page-total guard's blindness was
+measured twice over (25% wipe threshold; page altitude). New rule: a
+same-named prose slot (≥500 stripped chars) keeping <50% of its text refuses
+the WHOLE save, fails closed, emits a refusal work item. Config
+`section_shrink_floor` (0 disables, clamped ≤0.95). 9-case table test on the
+real numbers. Council `e64f8576` (Council-Submitted trailer; verdict pending).
+Pod-grep marker after the roll: `strings /app/agent-chassis | grep -c
+"SECTION SHRINK"` (expect ≥1) with positive control `"CONTENT REGRESSION
+BLOCKED"` (pre-existing).
+
+**Root cause at the HANDLER is still undiagnosed** — the guard stops the
+damage; nothing yet explains why a link-insertion item regenerates the whole
+section. Candidates 1 (edit-not-regenerate) and 3 (emit the delta) remain open.
