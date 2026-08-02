@@ -16861,3 +16861,20 @@ the behaviour it describes: here it was *my own review paperwork* polluting the 
 table, and the more thoroughly I had argued the point in the submission, the more rows it
 generated. Related: `prompt-text-poisons-its-own-detector`,
 `declaring-a-key-silences-your-own-detector`.
+
+## 2026-08-02 — my watcher announced "SEEDING WINDOW OPEN" on a kubectl auth error
+
+**The claim.** A background watcher for the lendzy.co.uk shadow build printed `SEEDING
+WINDOW OPEN … classifier/strategist specs present` — its success condition. The two
+lines under the headline were `error: You must be logged in to the server
+(Unauthorized)`: the kubeconfig token had expired mid-watch (decoder: expiry 11:20:22Z;
+the false trigger fired at 11:22:10Z, the first poll after).
+
+**What caught it.** Reading the captured output instead of trusting the exit path.
+
+**The cheap check.** The trigger was `[ -n "$OUT" ]` over a `2>&1` capture — "any
+output" is not "a result set". A watcher's success test must match the SHAPE of the
+rows it asked for (here `^(identity|content_direction)\|`), and any capture that folds
+stderr in must handle the known error strings ('Unauthorized' is a standing one on this
+cluster — the token dies every 3 days by design). Same family as `kcat -P` exiting 0
+having sent nothing: the instrument's happy path is not the event's happy path.

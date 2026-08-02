@@ -130,3 +130,12 @@ against the FCA handbook, rule by rule"; mission marker is "know the rules befor
 borrow" — distinct phrases so output attributes to seam). Baseline-zero grep of
 page_components for BOTH markers before any release. Benchmark scoring =
 RUBRIC_2026-08-02_loancash_benchmark.md.
+
+**11:20Z — kubeconfig token EXPIRED mid-experiment** (3-day expiry, owner-only refresh
+from the Rackspace Spot console). Consequences: (1) watcher v1 false-fired on the error
+text — replaced by v2 which matches row shape and waits through outages (misstep in
+WRONG_CALLS); (2) the hold poller is BLIND until refresh — it self-heals (fresh kubectl
+per loop) but while blind nothing defers content items. Mitigating fact: every pre-11:20
+poll returned empty, so identity/content_direction were still unwritten ~64 min after
+submission — the cascade is early and the unguarded window likely not tight. No action
+at the cluster is possible or needed from this side; the platform continues regardless.
