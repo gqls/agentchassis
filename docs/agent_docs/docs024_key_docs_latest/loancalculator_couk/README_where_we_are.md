@@ -620,3 +620,46 @@ Two things wait on you: the **GitHub token still cannot see the repository holdi
 the site's source**, and the site is still marked as ours-to-hold rather than
 ours-to-rebuild — flipping that is what would let the improvement loop start
 touching it, and it is now a real choice rather than a blocked one.
+
+---
+
+**2026-08-02, later still — the site is now ours to rebuild, and the calculators are locked.**
+
+Done as you asked: all twenty-seven pages are flipped from ours-to-hold to
+ours-to-rebuild. The improvement loop can now touch this site.
+
+Before flipping I went and read what that flag was actually holding back, because
+it turned out to be holding back two specific things and both would have landed on
+your calculators. One is the planner, which treats a held page as off-limits and
+files it for a person instead of rebuilding it — without that, a page the plan
+thinks is missing goes to the generic page builder, which is on record for
+producing "a widget-less prose page where an interactive tool belongs". The other
+is the section-saver, which refuses held pages outright, because the way it saves a
+page is to delete all its pieces and put them back.
+
+Three measurements decided what to do about that.
+
+There is **no plan for this site** — none has ever been created — so the planner
+has nothing to act on today. **Nothing is scheduled to walk sites**: of twenty-six
+running scheduled jobs, the only one that touches sites dispatches work that
+already exists rather than creating any. So the flip is not a starting gun; like
+every step before it, it does nothing until something makes work for this site.
+
+And the deciding one: **the section-saver's delete already respects locks.** Its
+delete says "and this piece is not locked". So a locked piece survives, and the
+blocked attempt raises a review item rather than vanishing.
+
+So the twelve calculators now carry a permanent lock and the fifty-one blocks of
+prose do not — text is rewritable, arithmetic is not. I checked that the lock
+actually bites rather than assuming it: on the standard calculator page, all five
+prose blocks come back writable and the calculator comes back not.
+
+The site did not change by a single byte. A policy change is not a rebuild.
+
+One cost worth naming now rather than discovering later. Those four calculator bugs
+still on the list — the three-decimal money, the car finance tool that does nothing
+at zero per cent, the consolidation checker that counts a debt towards the balance
+but not the interest, the verdict told only by colour — now each need an explicit
+unlock before the calculator can be edited. I think that is right. Changing a
+calculator whose arithmetic we have proved should take a deliberate act, and this
+way an attempt to change one shows up instead of just happening.

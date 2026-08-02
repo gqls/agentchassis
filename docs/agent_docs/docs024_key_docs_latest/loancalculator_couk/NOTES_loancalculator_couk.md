@@ -1788,3 +1788,66 @@ equivalence; either alone is not.
 Final state: 27 pages, 63 rows (51 `ported-prose` + 12 tool), 0 verbatim, every
 original preserved in `page_components_bak_20260802_decomp`, restore one command
 per page.
+
+### 2026-08-02 (later) — flipped to `rebuild_policy='generic'`, with the calculators locked
+
+Owner asked for the flip. Done for all 27 pages, in one transaction with a
+permanent lock on the 12 tool rows.
+
+**What the flip actually removes**, read before doing it rather than after — two
+named guard rails, both keyed on `rebuild_policy='owned'`:
+
+1. `reconcile_site_plan_action` (guard rail 1 of the experience loop): an owned
+   page that the plan says is missing or re-composed emits `owned_page_review`
+   (needs_human_review, **no handler**) instead of `needs_page`. Without it the
+   generic page builder rebuilds the page — documented as producing "a widget-less
+   prose page where an interactive tool belongs (TP-004; the vonc arena clobber)".
+2. `save_page_sections_action`: refuses a generic section save outright on an
+   owned page, because that action DELETEs and re-inserts every `page_components`
+   row — "exactly the TL-001 clobber".
+
+**Measured before flipping, and the measurements changed the plan:**
+
+- **`site_plans` for this site: 0 rows.** So guard rail 1 has nothing to guard —
+  the reconciler iterates plan pages and there are none. That risk is LATENT, and
+  becomes real the moment a plan is created (i.e. when the classifier is queued).
+- **No scheduled tick walks sites.** Of 26 enabled `scheduled_tasks`, the only
+  site-touching one is `build-pipeline-trigger`, which dispatches work items that
+  already exist; it does not create them. So the flip, like every step before it,
+  is **inert until something creates work for this site** — it is not a starting
+  gun.
+- **`save_page_sections`'s DELETE carries the lock predicate** —
+  `DELETE FROM page_components WHERE page_id=$1 AND (locked_at IS NULL OR expired)`
+  at line 566. **That is the fact the whole approach turns on.** A locked row
+  survives a generic section save, and the blocked write emits a
+  `lock_blocked_change` item for human review rather than disappearing.
+
+So the tool rows are locked `permanent` (`locked_by =
+'decompose_20260802_proven_calculators'`, matching the fleet convention of a
+free-text reason — the 47 existing locks use e.g. `182_legal_pages`), and the
+prose rows are deliberately left writable, because being editable is the whole
+point of the decomposition.
+
+```
+rebuild_policy   generic  27 pages
+component rows   section  51 rows   0 locked  51 writable
+                 tool     12 rows  12 locked   0 writable
+```
+
+Proved the lock BITES rather than assuming it, using the exact predicate the
+delete carries:
+
+```
+tool-standard-calc  prose-0..prose-3, prose-5  agent_may_delete = t
+tool-standard-calc  tool-4                     agent_may_delete = f
+```
+
+Site byte-unchanged after the flip: **0 of 27** differ from the verified build. A
+policy change is not a render.
+
+**The cost of the lock, stated rather than discovered later:** the queued tool
+defect fixes (overpayment's three-decimal money, car-finance at 0% APR,
+consolidation's rate-less debt, loan-vs-savings' colour-only verdict) now need an
+explicit unlock before the row can be rewritten. That is the intended behaviour,
+not a snag — changing a calculator whose arithmetic is proven should be a
+deliberate act, and the lock makes the attempt visible instead of silent.
