@@ -1125,6 +1125,152 @@ def check_logged_model_output(files, ref, findings):
             ))
             break                                   # one finding per file is enough to act on
 
+def check_silent_reply_drop(files, ref, findings):
+    """016b §9 / bugs_closed/062 + bugs_closed/133 — a reply that cannot be
+    delivered must become a deliverable error, never silence.
+
+    The caller is listening on the reply topic, not reading this pod's logs. A
+    producer error on a REPLY path that is only logged leaves the caller to time
+    out, and the timeout names no cause. `platform/kafka.DeliverReply` (ADP-017)
+    is the built, tested, live mechanism: it answers `FailedUndeliverable` so the
+    site can send its own error response instead.
+
+    Measured 2026-08-03 (bugs_open/158): the rule held at **2 of 9** sites — the
+    two webscrape paths that adopted it — while reasoning, contentcreator (x2),
+    websearch (x2) and thunder (x2) still log-and-return. Widening adoption is an
+    RFC, because it changes four services' caller-observable failure behaviour
+    (council architecture seat, 7478233b). **This check deliberately does NOT
+    change any behaviour** — it makes the remaining sites visible and stops a
+    TENTH being written while that RFC is pending.
+
+    Scoped to REPLY produces on purpose. Producing to a request/work topic and
+    logging the error is a different decision and not this rule; the reply
+    context is what makes silence a broken promise to a waiting caller.
+
+    ⚠ Note for whoever adopts DeliverReply: `FailedUndeliverable` is a RETURN
+    VALUE A CALLER CAN IGNORE. A site that calls it and drops the outcome
+    compiles, passes every platform/kafka test, and reintroduces the silent
+    starve unchanged — so this check also fires when DeliverReply's outcome is
+    assigned to `_`.
+    """
+    go = [f for f in files if f.endswith(".go") and not f.endswith("_test.go")]
+    if not go:
+        return
+
+    produce_re = re.compile(r"\.Produce(WithValidation)?\s*\(")
+    # Reply context. Widened after a positive control caught the first version
+    # missing 3 of the 4 known sites: websearch names it `responseTopic`
+    # (SINGULAR), so a pattern keyed on `responsesTopic` saw nothing.
+    reply_re = re.compile(r"repl(y|ies)|response[s]?Topic|reply_to", re.I)
+    logcall_re = re.compile(r"\.(Error|Warn|Errorf|Warnf)\s*\(")
+    # Something that actually answers the caller, rather than swallowing.
+    answers_re = re.compile(r"DeliverReply|return\s+\S|\.Produce")
+
+    for path in go:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                lines = fh.read().splitlines()
+        except OSError:
+            continue
+
+        adopted = any("DeliverReply" in ln for ln in lines)
+
+        # A site that adopted DeliverReply but threw the outcome away is back to
+        # square one — the landmine bugs_open/158 names explicitly.
+        if adopted:
+            for i, ln in enumerate(lines):
+                if re.search(r"_\s*,\s*\w+\s*:?=\s*\w*\.?DeliverReply\s*\(", ln) or \
+                   re.search(r"^\s*_\s*=\s*\w*\.?DeliverReply\s*\(", ln):
+                    findings.append((
+                        "silent-reply-drop", f"{path}:{i+1}",
+                        f"{BOLD}DeliverReply{RESET}'s outcome is discarded",
+                        "FailedUndeliverable is a return value a caller can ignore — dropping it "
+                        "compiles, passes every platform/kafka test, and reintroduces the silent "
+                        "starve unchanged. Answer it with this service's own error response, and "
+                        "assert that in an ADAPTER-package test (bugs_closed/133's shape), not by "
+                        "trusting platform/kafka's own tests.",
+                    ))
+                    break
+            continue
+
+        for i, ln in enumerate(lines):
+            if not produce_re.search(ln):
+                continue
+            # `return producer.Produce(...)` PROPAGATES the error to the caller.
+            # That is the opposite of swallowing it, and a first version of this
+            # check reported it — caught by the fleet-wide sweep, not by the
+            # positive control, which only ever looks at known-bad files.
+            if ln.lstrip().startswith("return "):
+                continue
+            # Gate on the CALL'S OWN ARGUMENTS, not on a window of surrounding
+            # lines. The window version flagged two produces to REQUEST topics
+            # (DispatchRequestsTopic, childRequestsTopic) purely because the word
+            # "response" appeared a few lines away. Accumulate the call text until
+            # its parens balance.
+            call, depth = [], 0
+            for t in lines[i: min(len(lines), i + 12)]:
+                call.append(t)
+                depth += t.count("(") - t.count(")")
+                if depth <= 0 and len(call) > 0:
+                    break
+            call_text = "\n".join(call)
+            if not reply_re.search(call_text):
+                continue                        # not a reply path — different decision
+            # How is the produce error handled? Three swallowing shapes, all found
+            # in the live tree and all missed by a first version that only looked
+            # for "log then bare return":
+            #   (a) `if err := ...Produce(...); err != nil { log }`  — falls through
+            #   (b) the same with a bare `return`                     — returns nothing
+            #   (c) `a.producer.Produce(...)` with the error not captured at all
+            tail = lines[i: min(len(lines), i + 16)]
+            err_at = None
+            for j, t in enumerate(tail):
+                if "err != nil" in t and t.rstrip().endswith("{"):
+                    err_at = j
+                    break
+            if err_at is None:
+                # (c) — no error check anywhere in this statement. Only report when
+                # the statement plainly does not capture err, so a multi-line call
+                # whose check sits further out is not misread.
+                stmt = " ".join(tail[:6])
+                if not re.search(r"\b\w*[eE]rr\w*\s*:?=", stmt):
+                    findings.append((
+                        "silent-reply-drop", f"{path}:{i+1}",
+                        f"a REPLY produce's error is {BOLD}not checked at all{RESET}",
+                        "016b §9 / bugs_closed/062: the caller is listening on the reply topic, so "
+                        "an undelivered response is a silent timeout with no cause named. This site "
+                        "does not even log it. platform/kafka.DeliverReply (ADP-017) is built, "
+                        "tested and live — answer FailedUndeliverable with this service's own error "
+                        "response. Adoption beyond webscrape is an RFC (bugs_open/158 item 1).",
+                    ))
+                    break
+                continue
+            # Body of the error branch, to the closing brace at the `if`'s indent.
+            indent = len(tail[err_at]) - len(tail[err_at].lstrip())
+            body = []
+            for t in tail[err_at + 1:]:
+                if t.strip() == "}" and (len(t) - len(t.lstrip())) <= indent:
+                    break
+                body.append(t)
+            joined = "\n".join(body)
+            logged = any(logcall_re.search(t) for t in body)
+            answers = answers_re.search(joined) is not None
+            if logged and not answers:
+                findings.append((
+                    "silent-reply-drop", f"{path}:{i+1}",
+                    f"a REPLY produce error is {BOLD}logged and swallowed{RESET}",
+                    "016b §9 / bugs_closed/062: a response that cannot be delivered must become a "
+                    "deliverable error, never silence — the caller is listening on the reply topic, "
+                    "not reading this pod's logs, so it times out with no cause named. "
+                    "platform/kafka.DeliverReply (ADP-017) is built, tested and live; answer "
+                    "FailedUndeliverable with this service's own error response. Adoption beyond "
+                    "webscrape is an RFC (bugs_open/158 item 1) — if this is one of the seven "
+                    "known sites, do not fix it casually; if it is a NEW site, it should not be "
+                    "written this way at all.",
+                ))
+                break                           # one finding per file is enough to act on
+
+
 def main():
     ref = None
     if "--commit" in sys.argv:                      # audit ONE commit in isolation
@@ -1142,7 +1288,7 @@ def main():
                   check_truncation_without_reader, check_logged_model_output,
                   check_new_capability_surface, check_register_coverage,
                   check_runtime_fill_marker, check_unrepaired_component_write,
-                  check_partial_page_upsert):
+                  check_partial_page_upsert, check_silent_reply_drop):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit
