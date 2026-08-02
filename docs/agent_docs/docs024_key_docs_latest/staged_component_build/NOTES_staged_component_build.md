@@ -1461,3 +1461,20 @@ against that image is expected and NOT evidence the code is broken; it just pred
 commit. Next session (or this one, if the owner wants a roll triggered explicitly): confirm
 a newer image, pod-grep for the marker, then run the S6 dispatch per §3 of the handoff, with
 a negative control (wrong `page_id`) in the same run.
+
+**2026-08-02, later — owner reported a fresh chassis build; checked rather than trusted it,
+and it has NOT reached this deployment.** Both `agent-chassis` pods are still `v1.0.1229`,
+still the same two pod names, **158 minutes old** — identical to the baseline above, not
+restarted. `rollout status` reports the existing rollout already settled (`Progressing=True,
+NewReplicaSetAvailable`), no second ReplicaSet, no in-progress rollout. So this is not even
+the familiar "rolled but pod-grep the string, don't trust the roll" case — there is no
+evidence of a roll reaching this namespace at all yet.
+
+What IS true: `makefile`'s `IMAGE_TAG` is `v1.0.1230` on HEAD (`21defe33d`, another lane —
+"v1.0.1229 was built without 2da3e08e5 (shrink guard)"), one ahead of what's running, so a
+**build** may well have happened. But the `agent-chassis` production kustomization overlay
+(`deployments/kustomize/services/agent-chassis/overlays/production/uk_001/kustomization.yaml`)
+has an UNCOMMITTED working-tree diff bumping `newTag` from `v1.0.1222` to `v1.0.1229` — i.e.
+even that file doesn't yet name `v1.0.1230`, and it's not this lane's change to touch or
+commit. Read, not acted on. Asked the owner rather than guessing which of "build not pushed
+yet" / "deploy not applied yet" / "wrong environment" is true.
