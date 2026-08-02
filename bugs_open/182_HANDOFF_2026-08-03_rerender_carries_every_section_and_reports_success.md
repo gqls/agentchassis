@@ -180,10 +180,20 @@ carried anyway proves the deploy, not the fix. Induce it:
 - `bugs_closed/041` — section lookup not normalising, so `snake_case` vanished.
   Fixed by matching raw + kebab-normalised. Does not help here: `tool-2` is already
   kebab-case and is not a stylistic variant of any component name.
-- `bugs_open/024` — a durable tool fix could never re-render, via the
+- `bugs_closed/024` — a durable tool fix could never re-render, via the
   `</section>` truncation guard rejecting tools that end `</script>`. Different
   gate, same consequence, and its fix is why `componentTemplateValid` takes
-  `component_level`.
+  `component_level`. **Closed and live**, so it is not this.
+
+  ⚠ **But it names a SECOND route to the same empty `schemas` map, and that
+  matters for the fix.** Its council submission (corr `7ef4de4e`, edit 5) records
+  that `sectionTemplateValid` "dropped self-contained tool templates from the
+  schemas map, which would have made the exemption a no-op on the very component
+  it was written for". So a component can be absent from the map because its NAME
+  did not match (this bug) **or** because a validity check discarded it (024's
+  edit 5) — and `!haveComp` cannot tell them apart. That is an argument for fix
+  candidate 1 over 2: candidate 2 repairs one route in, candidate 1 makes *every*
+  route in visible. Take both, and take 1 first.
 
 ## Diagnosis loop
 
