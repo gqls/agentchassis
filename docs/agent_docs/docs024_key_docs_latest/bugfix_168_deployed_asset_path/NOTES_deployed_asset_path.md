@@ -206,3 +206,67 @@ It is not — at these sites the logo is stored as **`asset_key='logo'` under `p
 fundamentallyai.com). The claim survives, because `hero` is not brand-head either, but
 "purpose" and "asset_key" are exactly the two things this bug is about and I should not have
 blurred them in a submission about them.
+
+## Council round 1 (`abd9b119`) — REVISE, gated by guardian. What each seat was right about
+
+12 seats fired (relevance-gated). 8 approve, 4 object, gating objection from `guardian`.
+Recording the whole disposition, because "which objections were real" is the part that does
+not survive in a commit message.
+
+**The one real CODE defect — `editquality`, edit 1, low.** `brandHeadAssetPathsFor` lifted the
+*filename* out of the map's value and re-joined it under `DefaultAssetBasePath`. Correct for
+both entries that exist; **silently wrong for the first brand-head artefact not served from
+that directory**, and the seat named the exact realistic case — a favicon at the site root.
+No test in my change could have caught it, because both real entries live under that
+directory, which is why the seat's second sentence mattered more than the first: the forms
+test only checked the three forms *against each other*. Fixed (takes the map's value whole,
+refuses a non-absolute value), plus two new tests. Mutation-proven: restoring the old split
+fails with `/assets/images/favicon.ico, want /favicon.ico`.
+
+**Right about my COMMENT, not my code — `editquality`, edit 2, medium.** It read the map's
+comment as citing `TestBrandHeadAssetPathsMatchTheDeriver`, "a guard that was never built".
+The guard exists and passes — it is the 142 lane's, at
+`check_undeployed_assets_test.go:342`, and I did not need to build it. But the council sees
+only the edit list, so from where it sat the comment cited a test that appears nowhere. **That
+is a defect in the comment, and the seat found it correctly from the evidence it had.** The
+comment now names each writer's pin, its package, and whether this change added or found it.
+*Lesson: when a doc comment cites a guard, say where it lives and whether you wrote it.*
+
+**Right, and I had already done it but not told them — `debug_historian`, medium.** "Never a
+pod-grep of the RUNNING chassis binary." I had run one (three controls, proving NOT live) —
+*after* submitting. It was not in the submission, so the objection was fair on the record.
+
+**Right on principle, with the precedent to prove it — `bug_historian`.** The disclosed
+`deploy_path` exposure needed *tracking*, not prose. `bugs_open/168` exists **only** because
+the 128 lane wrote "its own item" and never created one. Filed `bugs_open/179`.
+
+**The gating one, and the most instructive — `guardian`, high.** "The landmine list carries an
+entry specifically for this symbol that has not been read into this review." I had read it —
+I *rewrote* it in this change — and cited it nowhere in the submission. The seat could not
+tell the difference between "read and handled" and "walked into". **Its note says so
+explicitly: "I need the actual doc_notes body before I can tell whether this plan already
+accounts for it or is walking into it."** Handling a landmine and *showing* you handled it are
+two different deliverables, and only the second is visible to a reviewer.
+
+**A finding I owed them that nobody asked for.** Answering guardian's "is `IsBrandHeadPurpose`
+called anywhere besides `check_image_url_404`?" turned up something worse than the question:
+after my change it has **zero production call sites** — definition, two comments, four test
+references. A helper with no callers looks exactly like a finished refactor. Disclosed in
+round 2 rather than left to be found, kept deliberately (it is still the right predicate for
+"which table holds the evidence?"), and `179` candidate 1 would give it a job again.
+
+**Accepted without argument — `architecture`, medium ×2.** A companion RFC as a *standing
+artifact*, not plan prose. Its sentence is the correction of the round: *"The author's own
+framing is the correct self-assessment — but per the standing rule, **declaring it doesn't
+relocate it**."* I had self-declared architecture scope, brought it to the gate deliberately,
+and still owed a citable document. Filed `RFC_009`.
+
+### The pattern across the four objections that landed
+
+Three of the four were not "you did the wrong thing" but **"you did not show me you did the
+right thing"** — the landmine, the pod-grep, and the RFC were all done or true, and none was
+legible from the submission. The fourth (`editquality`'s path split) was a genuine defect that
+only a careful reader of the *code* would find, and it was rated **low** while the three
+legibility objections were rated medium and high. Worth remembering when writing a
+submission: **the council reviews the artefact you hand it, not the work you did.** Evidence
+you hold and do not cite is evidence you do not have.
