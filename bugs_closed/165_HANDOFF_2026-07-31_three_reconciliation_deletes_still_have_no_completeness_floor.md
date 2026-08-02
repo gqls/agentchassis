@@ -2,9 +2,18 @@
 
 **Filed 2026-07-31** by the `bugfix_135_prune_floor` lane, **at the explicit
 direction of the council gate's `bug_historian` seat** (corr
-`14239fa4-552f-4821-abaf-ea15ccee4ea5`, round 2, severity HIGH). Status: **OPEN —
-site A DONE, B and C outstanding.** Latent — no failure to point at *today*, but
-two of the named precedents are failures that already happened.
+`14239fa4-552f-4821-abaf-ea15ccee4ea5`, round 2, severity HIGH).
+
+> **STATUS: CLOSED 2026-08-02 by OWNER RULING.** All four call sites of the
+> destructive shape are guarded and live on chassis **v1.0.1228**. A and B are
+> proven on both branches in production; C is live and mutation-proven offline but
+> **structurally un-inducible** — see "Closing the case" at the foot of this file
+> for exactly what was and was not demonstrated, and why that was judged enough.
+> The one piece of live proof still owed rides on `bugs_open/092`.
+
+~~Status: **OPEN — site A DONE, B and C outstanding.**~~ Latent — no failure to
+point at *today*, but two of the named precedents are failures that already
+happened.
 
 > **UPDATE 2026-07-31 evening — site A is fixed and committed (`ecf738002`).**
 > `save_page_sections_action.go` now carries a measured completeness floor
@@ -75,8 +84,8 @@ which is now guarded):
 | # | site | delete | stakes |
 |---|---|---|---|
 | A | `save_page_sections_action.go:532` | `DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` | **HIGH — real content, lost before. DONE: guarded, live on v1.0.1223, BOTH BRANCHES INDUCED 2026-07-31** |
-| B | `populate_nav_tables_action.go:147,150` | `DELETE FROM site_nav_items WHERE site_id = $1` then `site_nav_groups` | medium — regeneratable, but a partial nav is served. **CODE DONE 2026-07-31 (`983e4b0a2`), NOT yet live, NOT yet induced** |
-| C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable. **CODE DONE 2026-07-31 (`983e4b0a2`), NOT yet live; cannot be induced — see below** |
+| B | `populate_nav_tables_action.go:147,150` | `DELETE FROM site_nav_items WHERE site_id = $1` then `site_nav_groups` | medium — regeneratable, but a partial nav is served. ~~NOT yet live, NOT yet induced~~ **DONE: live v1.0.1228, BOTH BRANCHES PROVEN 2026-08-02** |
+| C | `site_db_actions.go:1474` | `DELETE FROM link_registry WHERE source_page_id = $1` | medium — regeneratable. ~~NOT yet live~~ **live v1.0.1228; mutation-proven offline, and UN-INDUCIBLE live — the table is empty fleet-wide and its only consumer never runs. Closed on inertness; the induction rides on `bugs_open/092`** |
 | — | `code_symbols_actions.go` | guarded 2026-07-31 (`bugs_closed/135`) | — |
 
 **A is the one that matters.** The seat's own lineage for it: 016b §9 cases 1 and
@@ -683,3 +692,150 @@ occurrence-COUNT based, so it missed my own commit — the edit added a paramete
 while preserving the string `func (v pruneFloorVerdict) Reason(`, leaving the
 count unchanged. `-S` reported only 135 and would have supported a confident
 "nothing has ever changed this signature". Filed in `LANDMINES.md`.
+
+---
+
+## POST-DEPLOY STATUS, 2026-08-02 (the B+C lane, verified at the running artefact)
+
+The owner rolled the chassis to `v1.0.1228`. State of the four call sites, checked
+against both running replicas rather than against git or the tag:
+
+| site | action | code | live | proven |
+|---|---|---|---|---|
+| — | `index_code_symbols` | `bugs_closed/135` | yes | yes |
+| A | `save_page_sections` | `save_sections_prune_floor.go` | yes (`v1.0.1223`) | **both branches** |
+| B | `populate_nav_tables` | `nav_prune_floor.go` | **yes (`v1.0.1228`)** | **refusal induced live; pass observed in a genuine build** |
+| C | `extract_and_sync_links` | `link_registry_prune_floor.go` | **yes (`v1.0.1228`)** | **not possible — see below** |
+
+Verification for B and C was a pod-grep of both replicas with a positive control, a
+pipeline control (site A's symbol, live since `1223`) and a **negative** control (the
+multi-line page-scope predicate the fix deleted → 0 on both). Details and the two
+mis-spelled first attempts: lane `NOTES` §14, `WRONG_CALLS.md` 2026-08-02.
+
+### One item is committed, approved, and NOT live
+
+`56365d86b` — the refusal sentence carried `index_code_symbols`' aftermath ("a later
+run … will prune them"), which is false for A, B and C, all three of which refuse the
+**whole** operation. Committed 09:36 UTC; the pods started 08:47 UTC. Pod-grepped:
+the corrected clause returns **0** on both replicas, the clause it replaces returns
+**1**. It ships on the next roll; nothing needs redoing.
+
+Its one live consequence: the durable work item `bf2e9ad6` (oufe.com, from B's
+induction) still ends with the false sentence, because the text is rendered at write
+time and stored. Future refusals get the corrected wording automatically; that row
+does not. Left in place deliberately — it is the induction's proof artefact, and
+editing a work item's `spec` to make an old refusal read like a new one would be
+rewriting evidence.
+
+### Why site C cannot be proven, restated so it is not read as undone
+
+`link_registry` is **0 rows, 0 pages, `max(created_at)` NULL, all history,
+fleet-wide**, and its only live consumer has no orchestrations. Neither branch of
+the floor is reachable: `Stored = 0` can never refuse (an empty cohort reads as
+fully confirmed by design — a new class must not be able to block a prune), and an
+action that never runs can never pass. Blocked on `bugs_open/092`, and carrying no
+risk in the meantime *because* it is provably inert. The guard arms itself the
+moment the insert half starts working.
+
+### THE CLOSING QUESTION IS A DECISION, NOT A MEASUREMENT — and it is unchanged
+
+Every measurement this bug can produce has been produced. What is left is a
+judgement the repo's own bar does not settle: **does `live + mutation-proven +
+provably-inert` clear "fixed AND live" for site C, when the reason it cannot be
+induced is that the table it guards has never held a row?**
+
+- **If yes** — 165 closes now. Three sites are proven, the fourth is inert by
+  construction, and the outstanding sentence fix is a wording change with a queued
+  roll.
+- **If no** — 165 stays open, pinned to `bugs_open/092`, and closes when
+  `link_registry` first holds rows and C can be induced like A and B were.
+
+Recorded here so whichever way it goes, the reasoning is on the file rather than in
+a session that has ended.
+
+## Closing the case — 2026-08-02, owner ruling
+
+**Closed on: all four call sites guarded, live on v1.0.1228, three of the four
+branch-pairs demonstrated in production, and the fourth provably inert.** The
+owner's call was on site C specifically, which is the only part that does not
+meet the bar this file set itself.
+
+### What is actually proven, stated so nobody has to re-derive it
+
+| site | table | guarded | live | refusal branch | pass branch |
+|---|---|---|---|---|---|
+| A | `page_components` | yes | v1.0.1223 | **induced in production** 2026-07-31 (`planned sections 35% (7 of 20)`, 7 rows byte-identical) | **induced** — rebuilt normally once cleared |
+| B | `site_nav_items` | yes | v1.0.1228 | **induced in production** 2026-08-02 (`nav items 33% (8 of 24)`, 8 rows byte-identical, 16 synthetics intact) | **a genuine production run** — `site-adoption-agent` on loancash.co.uk, both cohorts 100% |
+| C | `link_registry` | yes | v1.0.1228 | **offline only** — mutation-proven; un-inducible live | **un-inducible live** |
+| (135) | `code_symbols` | yes | v1.0.1218 | induced | induced |
+
+### Why C was closed without the live induction this file demanded
+
+Not "we ran out of time" — **there is nothing to point at.** `link_registry` holds
+**0 rows, 0 pages, `max(created_at)` NULL**, all history, fleet-wide (re-measured
+2026-08-02, and the table has no retention job so this is not a window artefact).
+Its only live consumer, `extract_and_sync_links`, is reachable from exactly one
+agent (`multipage-website-builder`) which has no orchestrations in the retained
+window. So **both** branches are unreachable by construction:
+
+- the refusal branch cannot fire, because `Stored=0` is treated as fully confirmed
+  (a class appearing for the first time must never be able to refuse a prune), so
+  the floor allows every prune until the table has rows;
+- the pass branch cannot fire, because the action never runs.
+
+The guard therefore **carries no risk in its un-induced state** — it is inert by
+construction, not merely untested — and it **arms itself the moment the insert
+half starts working**, which is the state this guard exists for and the state
+nobody would remember to add a guard in.
+
+**The live induction is not abandoned, it is transferred.** It becomes reachable
+exactly when `bugs_open/092` makes the writer receive its link constraints and the
+insert half runs. Whoever closes `092` should induce C's refusal then: insert
+synthetic `link_registry` rows for one source page so `LinksToWrite / LinksStored`
+falls below 0.5, run the sync, and confirm the refusal fires with its numbers and
+that **no** row was deleted. The recipe transfers from
+`RUNBOOK_reconciliation_deletes.md` § R-B2.
+
+### What this case established beyond its own fix
+
+- **The cohorts do not transfer, and this file's own suggested partitions were
+  wrong twice** — refuted by measurement for A (998 of 1,009 `(page_id,
+  slot_name)` groups hold exactly one row, so every per-slot cohort is 1 stored
+  and any legitimate single-section removal scores 0%) and for B (`classifyPagesForNav`
+  re-homes pages between groups as a matter of course, so group membership is a
+  classifier OUTPUT, not an independently-losable class). **Two distinct ways a
+  partition can be wrong — too SMALL, and not STABLE — and both were invisible
+  until measured.**
+- **The general test for whether a consumer needs a second, different-unit
+  cohort:** an **AUTHORED** table ratchets (a truncating writer's short output
+  becomes the stored baseline, so the row cohort reads 100% for ever and only an
+  independent unit still sees the loss); a **DERIVED** table self-heals (the
+  numerator is recomputed from the corpus, so a healthy run repairs it). Ask which
+  yours is *before* adding a cohort.
+- **A cohort can be uninducible from the data side, and that is a design property
+  rather than a gap in the test** — B's `pages seen` compares the loader's rows
+  against a count built from the same predicate, every nullable column is
+  `COALESCE`d and `name`/`id` are `NOT NULL`, so only a genuine driver fault makes
+  them diverge. Worth knowing before someone plans an induction for it.
+- **The shared refusal text carried one consumer's aftermath to all four**, false
+  for three of them, telling their operators to wait for a tidy-up that never
+  comes. Fixed as a required caller-supplied clause (`22cdef56`, APPROVED).
+- **A green run proves nothing about any of these guards.** They are inert on
+  healthy input by design. That is the whole reason each branch had to be induced,
+  and the reason C's honest status is "inert", not "fine".
+
+### Residuals, all owned elsewhere
+
+1. **C's live induction** → rides on `bugs_open/092`.
+2. **`page-build-handler` / `tool-recreation-handler`** — two of six consumers
+   route on error rather than failing, so a refusal there is recorded while the
+   pipeline reports success. Content is protected in both by construction (the
+   floor returns before the DELETE and the work item is written before the error),
+   so this is a **visibility** question, not a data-loss one.
+3. **A refusal on one page aborts a whole multi-page build** → `bugs_open/173`
+   (loop error routing has no substep granularity), filed by the B/C lane with
+   this lane's measurements contributed: four loops across four agents, and a
+   fleet census showing 9 of 20 live loops set `continue_on_error` but **none**
+   wraps a floor-guarded action, so nothing is being swallowed today.
+
+Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_165_reconciliation_deletes/`.
