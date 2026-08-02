@@ -56,33 +56,57 @@ func TestResolveWorkItemsRefusesAnUnderspecifiedClaim(t *testing.T) {
 }
 
 // TestResolveWorkItemsClosesTheRightRows pins the SQL's three load-bearing
-// predicates: the status set, the narrow/wide switch, and the batch guard.
+// predicates by asserting they are IN THE QUERY TEXT, not merely that some
+// UPDATE ran.
+//
+// CORRECTED after council round 1 (`846f4f3d`, editquality, medium). The first
+// version matched only `"UPDATE site_work_items"` and checked the arguments,
+// then the submission claimed it "pins the query's three load-bearing
+// predicates". It did not: dropping the status filter, the narrow/wide switch or
+// the batch guard from the SQL would all have left it green, because none of
+// them is an argument. The seat was right, and this is the assertion the claim
+// described.
 func TestResolveWorkItemsClosesTheRightRows(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock.New: %v", err)
-	}
-	defer db.Close()
+	// Every fragment whose removal changes which rows are closed.
+	const wantSQL = `(?s)UPDATE site_work_items.*` +
+		`status NOT IN \('complete','verified','rejected','wont_fix','cancelled'\).*` +
+		`batch_id IS DISTINCT FROM`
 
-	site, batch := uuid.New(), uuid.New()
+	for _, c := range []struct {
+		name    string
+		in      checks.ResolvedFinding
+		wantKey string
+	}{
+		{"wide", checks.ResolvedFinding{ItemType: "backend_unreachable", AllOfType: true, Reason: "recovered"}, ""},
+		{"narrow", checks.ResolvedFinding{ItemType: "undeployed_asset", ItemKey: "undeployed_asset:abc", Reason: "serves 200"}, "undeployed_asset:abc"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock.New: %v", err)
+			}
+			defer db.Close()
 
-	mock.ExpectBegin()
-	mock.ExpectExec("UPDATE site_work_items").
-		WithArgs("backend_unreachable", "health recovered", site, "backend_unreachable", "", batch).
-		WillReturnResult(sqlmock.NewResult(0, 3))
-	tx, _ := db.Begin()
+			site, batch := uuid.New(), uuid.New()
+			mock.ExpectBegin()
+			mock.ExpectExec(wantSQL).
+				WithArgs("chk", c.in.Reason, site, c.in.ItemType, c.wantKey, batch).
+				WillReturnResult(sqlmock.NewResult(0, 3))
+			tx, _ := db.Begin()
 
-	n, err := resolveWorkItems(context.Background(), tx, site, "backend_unreachable", batch,
-		checks.ResolvedFinding{ItemType: "backend_unreachable", AllOfType: true, Reason: "health recovered"},
-		zap.NewNop())
-	if err != nil {
-		t.Fatalf("resolveWorkItems: %v", err)
-	}
-	if n != 3 {
-		t.Errorf("resolved %d, want 3 — the caller counts what actually changed, not what it asked for", n)
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("query did not match: %v", err)
+			n, err := resolveWorkItems(context.Background(), tx, site, "chk", batch, c.in, zap.NewNop())
+			if err != nil {
+				t.Fatalf("resolveWorkItems: %v", err)
+			}
+			if n != 3 {
+				t.Errorf("resolved %d, want 3 — the caller counts what actually changed, not what it asked for", n)
+			}
+			// The narrow/wide switch is the ItemKey argument: empty means the
+			// `$5 = '' OR item_key = $5` disjunct opens to every row of the type.
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("query or args did not match: %v", err)
+			}
+		})
 	}
 }
 

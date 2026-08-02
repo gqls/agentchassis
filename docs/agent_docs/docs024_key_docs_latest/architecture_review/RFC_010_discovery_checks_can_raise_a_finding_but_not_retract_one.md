@@ -223,6 +223,57 @@ a known and deliberately short window. It is a coupled schema+binary change on t
 every work item in the estate. It wants the council gate, a migration reviewed on its own terms,
 and someone watching the roll — not an improvised evening.
 
+## DECISION 1 IS IMPLEMENTED — council `846f4f3d`, APPROVED at round 1
+
+Shipped 2026-08-03: `CheckResult.Resolved`, `resolveWorkItems`, runner wiring,
+`check_backend_unreachable` converted, four guards (five mutation proofs). Registered as
+**WII-009**. Approved "with 5 advisory objection(s) — none high-severity"; four were checkable
+and were checked rather than filed.
+
+**`editquality` (medium) was right about an overstated claim.** My submission said a sqlmock
+test "pins the query's three load-bearing predicates". It did not — it matched only
+`UPDATE site_work_items` and the arguments, so dropping the status filter, the narrow/wide
+switch or the batch guard would all have left it green, none of them being an argument. The
+test now asserts the predicates in the **query text**, and both the status list and the batch
+guard are mutation-proven.
+
+**`prior_art_librarian` (medium) asked for the inventory behind "49 of 50".** Attached, and it
+is now stronger than the claim: at `7efc891f6~1`, **exactly one** of 50 check files contained
+`UPDATE site_work_items` (`check_backend_unreachable.go`); after the conversion, **zero** do —
+every retraction goes through the seam.
+
+**`guardian` (low) asked whether `CheckResult` crosses a wire boundary.** It does not — no
+`json` tags, never marshalled. Worth recording the near-miss the seat's question exposed:
+`internal/adapters/browserrunner/run_checks_action.go` declares an **unrelated type of the same
+name** which *is* serialised (`Results []CheckResult \`json:"results"\``). A future reader
+grepping `CheckResult` will find a wire type that is not this one.
+
+**`guardian` (low) asked for the call-path exposure, and the answer is larger than "one
+check".** Five active agents invoke `run_discovery_checks`: `completeness-discovery-agent`,
+`design-discovery-agent`, `quality-discovery-agent`, and — unexpectedly — `council-gate` and
+`fix-proposer`. The retraction loop runs on all five call paths. Its *data* effect remains nil,
+which is the next finding.
+
+## THE SEAM SHIPS INERT, AND SAYING SO IS THE POINT
+
+Measured 2026-08-03, and it corrects my own framing: I told the council the blast radius was
+"one check", which implies one check will exercise it.
+
+**Zero will.** `backend_unreachable` — the seam's only adopter — is enabled by **0** active
+agent definitions and has produced **0** work items in all history, against 1 VM-target site.
+So nothing retracts anything until a check is enabled or a second one adopts.
+
+That is not a defect: opt-in with an unsafe default OFF is what the owner's ruling asked for,
+and a mechanism with no callers is the *expected* first state of an opt-in seam. But it means
+the honest status is **"built, approved, and undriven"**, not "working" — and this estate has a
+standing lesson that a silent mechanism is usually UNDRIVEN rather than missing, which is
+exactly the trap a future reader would fall into on seeing `items_resolved: 0`.
+
+**So the next step for Decision 1 is adoption, not more mechanism.** The cheapest honest first
+adopter is a check that already computes a positive observation and throws it away. Choosing
+one is a separate piece of work, and it should measure the retraction on a real site before
+claiming the seam works.
+
 ## What this RFC deliberately does not do
 
 It does not implement anything. `CheckResult` is shared by 50 checks and the runner is on the
