@@ -134,11 +134,16 @@ func TestGatherAgentStateNamesStarvedTypes(t *testing.T) {
 		"chatty-agent called quiet-agent", &b, 5, 10, zap.NewNop())
 	got := b.String()
 
-	if !strings.Contains(got, "no llm_call_log rows exist for: quiet-agent") {
+	if !strings.Contains(got, "no llm_call_log rows carry agent_type: quiet-agent") {
 		t.Errorf("a gathered type with no rows must be stated by name; got:\n%s", got)
 	}
-	if !strings.Contains(got, "this is an answer, not a cap") {
-		t.Errorf("an empty-table fact must be distinguished from a capped one; got:\n%s", got)
+	if !strings.Contains(got, "their budget was not spent and this is not a cap") {
+		t.Errorf("an unspent budget must be distinguished from a capped one; got:\n%s", got)
+	}
+	// The council's llm_reliability seat: agent_type was relabelled 2026-07-26, so
+	// "no rows" is a fact about the LABEL and must not read as "made no calls".
+	if !strings.Contains(got, "relabelled 2026-07-26") {
+		t.Errorf("the empty case must name the relabel boundary rather than assert a clean absence; got:\n%s", got)
 	}
 }
 
@@ -212,14 +217,14 @@ func TestCallLogCoverageNotice(t *testing.T) {
 			matched:     []string{"a", "b"},
 			perType:     map[string]int{"a": 4},
 			limit:       10,
-			wantContain: []string{"no llm_call_log rows exist for: b", "this is an answer, not a cap"},
+			wantContain: []string{"no llm_call_log rows carry agent_type: b", "relabelled 2026-07-26"},
 		},
 		{
 			name:        "both facts render, separately",
 			matched:     []string{"a", "b", "c"},
 			perType:     map[string]int{"a": 10, "b": 0, "c": 1},
 			limit:       10,
-			wantContain: []string{"no llm_call_log rows exist for: b", "cap of 10 was reached for: a"},
+			wantContain: []string{"no llm_call_log rows carry agent_type: b", "cap of 10 was reached for: a"},
 		},
 		{
 			name:      "limit<=0 means no cap, so nothing is AT one",

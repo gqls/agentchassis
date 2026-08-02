@@ -1117,10 +1117,19 @@ func cappedTypeNotice(dropped []string, typeCap int) string {
 // llm_call_log evidence is thin — "" when every named type is fully covered.
 //
 // Two distinct facts, worded differently on purpose (the distinction bd003f67a
-// drew at the sibling cap): a type with NO rows is a fact ABOUT THE TABLE and is
-// safe to reason from, whereas a type that filled its per-type budget has older
-// calls that were not gathered and is a COVERAGE limit. Collapsing them would let
-// a verdicter read a capped listing as a complete history.
+// drew at the sibling cap): a type whose budget was NOT spent is not a coverage
+// limit, whereas a type that filled its per-type budget has older calls that were
+// not gathered and is. Collapsing them would let a verdicter read a capped listing
+// as a complete history.
+//
+// The empty case is stated as a fact about the LABEL, not about the world. An
+// earlier draft said "the table holds nothing for them (this is an answer, not a
+// cap)" and the council's llm_reliability seat objected, correctly: `agent_type`
+// was RELABELLED on 2026-07-26 (LANDMINES/MEMORY), so calls a type made under a
+// former name do not match, and a symptom spanning that boundary would have been
+// handed a confident "no calls" that is exactly the false negative this whole fix
+// exists to remove. Naming the boundary costs one clause and keeps the useful half
+// of the distinction intact.
 func callLogCoverageNotice(matched []string, perType map[string]int, limit int) string {
 	var none, atCap []string
 	for _, t := range matched {
@@ -1133,7 +1142,7 @@ func callLogCoverageNotice(matched []string, perType map[string]int, limit int) 
 	}
 	var sb strings.Builder
 	if len(none) > 0 {
-		fmt.Fprintf(&sb, "> no llm_call_log rows exist for: %s — these types WERE gathered and the table holds nothing for them (this is an answer, not a cap).\n",
+		fmt.Fprintf(&sb, "> no llm_call_log rows carry agent_type: %s — these types WERE gathered and nothing came back under THAT LABEL, so their budget was not spent and this is not a cap. It is not proof of no calls either: agent_type was relabelled 2026-07-26, and calls made under a former name will not match.\n",
 			strings.Join(none, ", "))
 	}
 	if len(atCap) > 0 {
