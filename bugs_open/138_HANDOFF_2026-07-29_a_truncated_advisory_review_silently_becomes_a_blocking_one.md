@@ -727,3 +727,38 @@ and cutover times (`18:16:46`–`18:16:53`) in `NOTES`.
 
 **Candidate 4 is now finished.** This bug remains OPEN for one reason and one only:
 candidate 1's `true` branch has never fired in production.
+
+### 2026-08-02 — the `true` branch is being INDUCED (owner-approved); the resulting verdict is a FIXTURE
+
+**Disclosure, load-bearing:** council round correlation
+`4d7363d7-63dc-4b01-a912-ac0bb73c3031` (orchestration
+`council-gate-orchestrate-0802-1035`, spawned 10:35:59Z) is a **deliberately induced test
+round**. Its `review_adoption_guardian` review ran at a crippled cap (**120** tokens,
+frozen into the round's `workflow_plan` at spawn) with a disclosed prompt fixture pinning
+verdict `object` + exactly one `severity: "low"` objection. **Any objection, degraded
+flag, or TRUNCATED-labelled decision on that correlation is a test artefact, not a
+genuine adoption-pipeline judgement.** The submission itself (a comment expansion on
+`repairTruncatedJSON`) is real and useful; only the adoption seat's review of it is
+fixtured.
+
+Why induced rather than waited for: the length budget suppressed the failure it was
+built to label — 0 degraded reviews in the 399 after the rollout, all 3 ever predating
+their seat's budget — so waiting meant observing a thing we were actively suppressing
+(SUMMARY_2026-08-01).
+
+The cap rationale was **corrected before firing** (RUNBOOK §11, corrected 2026-08-02;
+WRONG_CALLS same date): the branch turns on **where the cut lands relative to the first
+objection's `severity`**, not on the seat's p95 — `repairTruncatedJSON` discards a review
+with no closing bracket (`""` arm), and `severityGates` treats a cut-off severity as
+ungraded, which gates on MERITS. Hence the low-severity pin: a surviving low objection
+that gates only because the reply was cut is precisely the mechanism this bug describes.
+
+Procedure: snapshot 10:34:03Z → cripple 10:34:0xZ → 097 fired 10:35:5xZ → round spawned
+10:35:59Z → **seat restored and verified 10:36Z** (cap 8000, prompt md5
+`a39c7b70…`, byte-identical; restore was proven as a no-op before the cripple). The
+crippled window was ~2.5 minutes. **Known collateral risk, being verified at the
+artefact:** `council-gate-orchestrate-0802-1034` (corr `abd9b119…`, submitter
+bugfix_168_deployed_asset_path lane) spawned 12 s into the window and carries the
+crippled config frozen; its edits are storage-shaped, so the adoption footprint should
+not fire the seat for it — being confirmed from `llm_call_log`, and its lane will be
+notified if the seat fired.
