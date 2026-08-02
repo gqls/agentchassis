@@ -4,7 +4,7 @@
 the council gate's **architecture** and **reuse_agent** seats, which reached this
 independently in the same round (`40de12b0-36fa-4c06-82b4-995dc9098593`,
 APPROVED with 7 advisory objections).
-**Status** OPEN — raised, not decided. **Not blocking anything.**
+**Status** **DECIDED 2026-08-03 by the owner: "C now, B next".** C is DONE and live (see the decision record at the foot). B is the next piece of work. A is NOT taken, and the sizing below says why.
 
 > The seat's own verdict on the change that prompted this was **`point_fix`** —
 > *"no new namespace, wire shape, or shared runtime contract is introduced … does
@@ -230,3 +230,56 @@ know whether "routine" means scheduled or wired into the existing discovery swee
 the council dispositions are recorded there) ·
 council correlation `40de12b0-36fa-4c06-82b4-995dc9098593`, seats `architecture`
 and `reuse_agent` · CGV-029 in `docs026_concept_register/register/content-governance.md`
+
+
+---
+
+## DECISION RECORD — owner, 2026-08-03: "C now, B next"
+
+**A (render-time gate) is not taken**, and the sizing above is the reason: ~90% of
+fields declare no `on_missing`, so the gate would be inert for nine fields in ten
+while being the only option that can break a live page.
+
+### C — DONE, live, and proven on the real path
+
+- The lint gained the **second finding class**: a field declaring `skip_field`
+  that the template references but never gates. **68 fields across 20 components**
+  today. It is reported but deliberately does **not** fail the exit code — a
+  blank asserts nothing untrue, 68 of them predate the check, and a permanently
+  red gate is one everybody learns to ignore. Only a FABRICATED FACT exits 1.
+- It now runs **daily at 06:40 UTC** as the `component-fallback-check` CronJob,
+  and writes a `doc_notes` row on **every** run, clean or not.
+- **Deliberately a CronJob and NOT a discovery check.** The obvious home is
+  `discovery_checks/` beside `check_placeholder_contact` — and that is exactly
+  how the defect this lint exists to catch survived from the library's birth:
+  that check's host, `quality-discovery-agent`, has raised **0** items in all
+  history (`bugs_open/149` Group B/C). Measured 2026-08-02, the CronJob and
+  `scheduled_tasks` substrates ARE driven; the discovery-agent one is not. Wiring
+  a working check to a broken carrier is how you get inert-by-omission.
+- `scheduled_tasks` was the other healthy substrate and was rejected for C: a row
+  there fires a Kafka message at an agent type, so it needs a Go action and a
+  chassis roll to carry a rule that already exists and works. That is the right
+  shape for **B**, which has to live in Go anyway.
+- **Proven, not assumed:** a manual `--from=cronjob` run succeeded, printed both
+  classes, and wrote its own `doc_notes` row on the direct-Postgres path (the job
+  cannot use `kubectl` — `ai-persona-app` has no pods/exec RBAC, a constraint that
+  would otherwise have failed in a way that looks like a clean run).
+
+### B — next, and what it has to be
+
+Refuse, at `store_generated_component`, a template that ships a **fact-shaped
+`{{else}}` literal**. Notes for whoever picks it up:
+
+- **It shares the classifier with C.** The fact-vs-label rule is the whole value
+  and it currently exists only in Python. B must either port it to Go or call it;
+  **two implementations of this rule is the drift class the rule itself detects**,
+  so decide that deliberately rather than by default.
+- **Calibrate before shipping**, against the live corpus, the way
+  `component_write_guard.go`'s header describes. The lint's own history is the
+  warning: it had a false positive (a builder attribution rendered link-or-text)
+  and a false negative ("Weekdays 8am to 5pm") before it was fit, and only running
+  four controls found the second.
+- **It cannot break a live page** — it only ever refuses a write — which is what
+  makes it the cheap half of the pair. It also fixes nothing that exists: the 68
+  stay until someone gates them, and that is a separate, larger piece of work
+  nobody has costed.

@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cronjob.yaml
+configMapGenerator:
+  # THE REAL SCRIPT LIVES HERE, and scripts/check_placeholder_fallbacks.py is a symlink
+  # POINTING AT IT — deliberately that way round, and it is worth knowing why before
+  # anyone "tidies" it.
+  #
+  # The script has two entry points: this CronJob, and sessions running it by hand at
+  # the path the concept register (CGV-029) and every runbook name. The obvious
+  # arrangement — real file in scripts/, symlink here — DOES NOT BUILD: kustomize
+  # resolves symlinks and refuses a configMapGenerator source outside the kustomization
+  # root ("security; file ... is not in or below ..."). Verified, not assumed.
+  #
+  # The alternative is a real second copy plus a parity test, which is what
+  # single-owner-carriers-check does for its mirrored Go logic. Rejected here: a copy is
+  # a second hand-maintained original of a rule with a documented history of drifting,
+  # and a test that DETECTS drift is strictly worse than an arrangement that cannot
+  # drift. So: one real file, inside the kustomize root where the generator can read it,
+  # reachable from the familiar path through the link.
+  #
+  # If you move this file, move the symlink with it — `python3 scripts/…` is what every
+  # runbook says, and a dangling link fails loudly rather than silently, which is the
+  # behaviour we want.
+  - name: component-fallback-check-script
+    files:
+      - check_placeholder_fallbacks.py

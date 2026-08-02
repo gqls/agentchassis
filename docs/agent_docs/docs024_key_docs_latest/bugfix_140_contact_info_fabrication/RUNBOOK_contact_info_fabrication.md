@@ -59,17 +59,14 @@ FROM content_components WHERE id='0bd72302-e9bf-4dc0-a615-41a9c919bf17';
 
 ## R4 — Run the standing lint
 
-```bash
-python3 scripts/check_placeholder_fallbacks.py              # live library
-python3 scripts/check_placeholder_fallbacks.py --json fixtures.json   # offline
-```
-Exit 0 clean · 1 findings · 2 could not reach the DB. Run it **after any
-component seed**. Expected today: clean across 172 active components.
-
-**Its controls live in the file header.** If you change a pattern, re-run all
-four (genuine fabrication fires / label silent / constant-rendered-twice silent /
-honest non-claim silent) — narrowing past a false positive is how this check
-would go inert, and it nearly did (see NOTES).
+> **SUPERSEDED 2026-08-03 by R9.** This section described the lint as it shipped
+> on 08-02: one finding class, exit 1 on any finding, by-hand only. After the
+> owner's "C" ruling on RFC_009 it has a **second finding class**, **different
+> exit-code semantics** (ungated-only does NOT exit 1), a **daily CronJob**, and
+> its real file has **moved** — `scripts/check_placeholder_fallbacks.py` is now a
+> symlink. Left standing rather than rewritten because a runbook that quietly
+> changes under you is worse than one that says which account is current.
+> **Use R9.**
 
 ## R5 — Applying ONE migration when 18 other threads have files pending
 
@@ -141,3 +138,58 @@ SELECT current_step, status FROM orchestration_states
 SELECT metadata->>'decision', created_at FROM diagnosis_artifacts
  WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report' ORDER BY created_at;
 ```
+
+## R9 — the fabricated-fallback lint, after RFC_009's "C" ruling
+
+**The real file is `deployments/kustomize/services/component-fallback-check/base/check_placeholder_fallbacks.py`.**
+`scripts/check_placeholder_fallbacks.py` is a **symlink** to it. That way round on
+purpose: kustomize resolves symlinks and refuses a `configMapGenerator` source
+outside its own root, so the real file has to sit inside the kustomize base. Run
+it by the familiar path — the link works.
+
+```bash
+python3 scripts/check_placeholder_fallbacks.py              # live library, human output
+python3 scripts/check_placeholder_fallbacks.py --report     # + one doc_notes row
+python3 scripts/check_placeholder_fallbacks.py --json f.json   # offline, for controls
+```
+
+**Exit codes are not what you would guess.** `0` = clean **or** ungated-only ·
+`1` = a FABRICATED FACT is live · `2` = could not reach the DB. The milder
+ungated-`skip_field` class reports without failing, because 68 of them predate the
+check and a permanently red gate is one everybody learns to ignore.
+
+**GOTCHA — it reaches the database two different ways.** By hand it shells out to
+`kubectl exec`. In the CronJob it CANNOT: `ai-persona-app` has no pods/exec RBAC,
+so it connects to Postgres directly, switched on by `PG_CLIENTS_HOST` being set.
+Test the in-cluster path in-cluster; a local run does not exercise it.
+
+### Running the CronJob on demand (and proving it actually works)
+
+```bash
+kubectl create job -n ai-persona-system cfc-proof --from=cronjob/component-fallback-check
+kubectl logs -n ai-persona-system job/cfc-proof
+kubectl delete job cfc-proof -n ai-persona-system
+```
+
+**Do this after any change to the script.** Deploying a CronJob is not evidence it
+runs — that is the inert-by-omission trap the whole design note is about, and the
+direct-Postgres path is exercised by nothing else. Confirm it wrote its row:
+
+```sql
+SELECT created_at, left(body,90) FROM doc_notes
+ WHERE source='check_placeholder_fallbacks' ORDER BY created_at DESC LIMIT 3;
+```
+
+**GOTCHA — a clean result is written too, deliberately.** A check that only speaks
+when it fails is indistinguishable from one that has stopped running. That
+ambiguity is exactly what hid `140` in the sibling `placeholder_contact` detector
+(0 items all-history, no way to tell which). So a row per run, always.
+
+### If you change a pattern, re-run ALL the controls
+
+Fixtures are cheap and the file's header lists what each proves. The class that
+must fire: a genuine fabrication. The classes that must stay silent: a legitimate
+label, a constant rendered two ways (link-or-text), an honest non-claim
+("Contact us for pricing"), a gated field, a declared-but-unused field, a field
+gated with `{{with}}`. **Narrowing past a false positive is how this check would
+go inert, and it nearly did** — see NOTES.

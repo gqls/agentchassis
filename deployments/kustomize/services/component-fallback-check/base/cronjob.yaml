@@ -1,0 +1,104 @@
+# deployments/kustomize/services/component-fallback-check/base/cronjob.yaml
+#
+# RFC_009, owner ruling 2026-08-02: "C now, B next" — promote the fabricated-fallback
+# lint (CGV-029, shipped with bugs_open/140) from an advisory script somebody remembers
+# to run, into something that runs whether or not anybody remembers.
+#
+# WHY A CRONJOB AND NOT A DISCOVERY CHECK. This is the decisive point and it is
+# evidence, not preference. The obvious home is discovery_checks/ next to
+# check_placeholder_contact — and that is precisely how the defect this lint exists to
+# catch survived from the library's birth. `quality-discovery-agent`, which hosts that
+# check, has raised ZERO placeholder_contact items in all history (bugs_open/149
+# Group B/C: six registered checks are configured in no agent at all). Wiring this into
+# the same substrate would subject a working check to a broken carrier and make it
+# inert-by-omission. Measured 2026-08-02, the scheduler and CronJob substrates ARE
+# driven — scheduled_tasks fire on interval with last_completed_at tracking, and
+# agent-job-cleanup / database-backup / bugs-open-staleness-sweep all run — so this
+# goes where things actually run.
+#
+# WHY NOT scheduled_tasks EITHER (which is also healthy): a scheduled_tasks row fires a
+# Kafka message at an agent type, so it needs a Go action and a chassis roll to carry a
+# rule that already exists and works in Python. That is the right shape for option B
+# (the write-path refusal, which must live in store_generated_component anyway); it is
+# needless for a read-only report.
+#
+# WHY NOT A GIT HOOK: content_components live only in the database. A component is
+# routinely changed by a migration or by hand with no commit at all, so a repo-side hook
+# cannot see the population even in principle — and a cluster round-trip in the commit
+# path of ~30 concurrent sessions is a hang risk on every commit.
+#
+# Modelled on single-owner-carriers-check (same image, same secret, same doc_notes
+# convention, same "connect to Postgres directly, not via kubectl exec" constraint —
+# ai-persona-app has no pods/exec RBAC in this namespace). The script detects that
+# constraint itself: PG_CLIENTS_HOST being set switches it off the kubectl path.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: component-fallback-check
+  labels:
+    app: component-fallback-check
+    component: component-integrity
+spec:
+  # Daily. The component library changes several times a day on this tree (173 active
+  # rows, and two new components appeared during the eight hours bugs_open/140 was being
+  # fixed), so a weekly cadence would let a fabricated default sit live for six days.
+  # 06:40 UTC keeps clear of database-backup (02:00), the weekly staleness sweep (06:00)
+  # and single-owner-carriers-check (06:20).
+  schedule: "40 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query plus a regex walk over ~173 templates. If it is still going at five
+      # minutes something is wrong, and a hanging job must not block tomorrow's run.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: component-fallback-check
+            component: component-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  # --report writes ONE doc_notes row per run, clean or not, so that
+                  # "looked and found nothing" stays distinguishable from "stopped
+                  # running". Exit 1 means a FABRICATED FACT is live; the milder
+                  # ungated-skip_field class reports without failing the job, because
+                  # 68 of those predate the check and a permanently-red job is a job
+                  # everybody learns to ignore.
+                  python3 /scripts/check_placeholder_fallbacks.py --report
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: component-fallback-check-script
+                defaultMode: 365
