@@ -437,31 +437,97 @@ if __name__ == "__main__":
     if a.hook:
         # Runs after every Write/Edit, so it must cost nothing and say NOTHING
         # unless it matters. A hook that chatters gets ignored, and an ignored
-        # hook is worse than none because it looks like coverage. Two filters:
+        # hook is worse than none because it looks like coverage. Three filters:
         #
-        #  1. Only speak if the edit actually touched the memory directory.
+        #  1. Only speak if the edit touched the INDEX itself (or the index is
+        #     already over the hard cap, which is everyone's problem). Writing a
+        #     topic file is the behaviour we want — do not tax it.
         #  2. Only speak for SIZE breaches — the failure that stops the index
         #     loading. Over-length lines are guidance for the full report, not
         #     grounds to interrupt someone editing an unrelated file.
+        #  3. Carry the DELTA this write caused, so the message is a live gauge
+        #     rather than a standing nag. A trim that lands reads as a negative
+        #     number, which is the confirmation a compaction pass otherwise has
+        #     to hand-roll with `wc -c`.
+        #
+        # DELIVERY — THE DEFECT THIS BLOCK WAS WRITTEN WITH (fixed 2026-08-03).
+        # It used to `sys.stderr.write(...)` then `sys.exit(0)`, reasoning
+        # "advisory: never block a write". Both halves of that are wrong for
+        # PostToolUse:
+        #   * The tool has ALREADY RUN, so nothing this hook does can block the
+        #     write. The safety the exit code was buying did not exist.
+        #   * On exit 0 the docs route stdout to the debug log and say nothing
+        #     about stderr; only exit 2 "shows stderr to Claude". So the warning
+        #     reached NOBODY — not the model, not the transcript. It was captured
+        #     in the session .jsonl as an `attachment.stderr` record, which looks
+        #     exactly like delivery and is not.
+        # Measured: 15 hand-compactions of MEMORY.md between this tool being
+        # written (2026-07-28) and the defect being found, every one of them
+        # under an armed, correct, wired, MUTE detector.
+        # The documented path is `hookSpecificOutput.additionalContext`, which is
+        # what the two sibling hooks in this repo already use
+        # (`landmines-session-start.py`, `.claude/hooks/psql_readonly_gate.py`).
+        # Copy them, not this file's history.
         try:
             import json
             payload = json.load(sys.stdin)
             path = str(payload.get("tool_input", {}).get("file_path", ""))
         except Exception:
             path = ""
-        if "/memory/" not in path.replace("\\", "/"):
-            sys.exit(0)
-        total = os.path.getsize(INDEX) / 1024
-        if total <= SOFT_KB:
+        path = path.replace("\\", "/")
+        if "/memory/" not in path:
             sys.exit(0)
         nbytes = os.path.getsize(INDEX)
-        head = ("OVER CAP — the tail is being SILENTLY DROPPED on every load; "
-                "the last entries are already invisible to readers"
-                if nbytes > BYTE_CAP else
-                f"over soft budget; {BYTE_CAP - nbytes:,}B before the TAIL starts "
-                f"being truncated (newest entries go first)")
-        sys.stderr.write(
-            f"\n── memory index {total:.1f}KB: {head} ──\n"
-            "  python3 scripts/memory-index.py   for the section breakdown\n")
-        sys.exit(0)          # advisory: never block a write
+        if nbytes <= SOFT_KB * 1024 or (
+                not path.endswith("/" + INDEX) and nbytes <= BYTE_CAP):
+            sys.exit(0)
+
+        # Delta against the previous snapshot of the index. The sibling hook
+        # commits every write, so history is dense; which of the last two commits
+        # is "before" depends on hook ordering, so pick by content rather than
+        # assuming. Failure here must never cost the warning — hence the bare
+        # except and the empty-string default.
+        delta = ""
+        try:
+            import subprocess
+            shas = subprocess.run(
+                ["git", "log", "-2", "--format=%H", "--", INDEX],
+                cwd=MEM_DIR, capture_output=True, text=True, timeout=5
+            ).stdout.split()
+            sizes = []
+            for s in shas:
+                blob = subprocess.run(["git", "show", f"{s}:{INDEX}"], cwd=MEM_DIR,
+                                      capture_output=True, timeout=5).stdout
+                sizes.append(len(blob))
+            prev = next((z for z in sizes if z != nbytes), None)
+            if prev is not None:
+                delta = f", {nbytes - prev:+,}B from this write"
+        except Exception:
+            pass
+
+        if nbytes > BYTE_CAP:
+            head = (f"OVER CAP by {nbytes - BYTE_CAP:,}B — the tail is being SILENTLY "
+                    f"DROPPED on every load, so the newest entries are already "
+                    f"invisible to every cold start")
+        else:
+            head = (f"{BYTE_CAP - nbytes:,}B of headroom before the TAIL starts being "
+                    f"truncated (newest entries go first, silently)")
+        msg = (
+            f"memory index: MEMORY.md is {nbytes:,}B of {BYTE_CAP:,} "
+            f"({nbytes * 100 // BYTE_CAP}%){delta} — {head}.\n"
+            "The index carries the TRIGGER only: enough to recognise you are in this "
+            "situation. Push the remedy, the numbers and the war story DOWN into the "
+            "topic file — confirm they landed there (`grep -F`) before cutting, because "
+            "a cap-driven trim targets exactly the lines nobody has re-read lately.\n"
+            "`python3 scripts/memory-index.py` for the section breakdown and the list of "
+            "entries that get dropped first."
+        )
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
+                "additionalContext": msg,
+            },
+            "suppressOutput": True,
+        }))
+        sys.exit(0)          # advisory: PostToolUse cannot block — the write is done
     sys.exit(sync(a.apply) if a.sync else rebuild(a.apply) if a.rebuild else check(a.strict))
