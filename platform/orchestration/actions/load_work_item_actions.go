@@ -1351,31 +1351,6 @@ func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy confli
 	return refreshOpenWorkItem(ctx, tx, item, logger)
 }
 
-// refreshOpenWorkItem brings the OPEN item holding this key up to date with the
-// finding that just arrived, and reports whether it actually did.
-//
-// A SEPARATE STATEMENT, not a `DO UPDATE` clause on the insert above, for two
-// reasons that are worth more than the extra round trip:
-//
-//   - the insert every other caller uses stays byte-identical, so this seam
-//     cannot change what happens to the ~20 call sites that never asked for it;
-//   - `DO UPDATE` makes RowsAffected() 1 for an update, so the single bool
-//     insertWorkItem returns would start reading "true" for a write that created
-//     nothing. That is precisely the false report bugs_open/091 was filed about,
-//     arriving through 091's own fix.
-//
-// It updates the DESCRIPTION and nothing else. status, priority, handler_agent
-// and severity may all have been moved by a human on the open row; the arriving
-// finding owns what it observed, not how somebody decided to handle it.
-//
-// THE PREDICATE IS THE CONCURRENCY GUARD. No row is locked between the failed
-// insert and this update, so the item may go terminal in between. It is not
-// re-opened: the same terminal-status list that idx_swi_dedup uses means a
-// terminal row simply does not match, zero rows update, and the caller is told
-// nothing was recorded — which is true, and which the next sweep will fix by
-// inserting cleanly. A row a handler currently HOLDS (claimed, diagnosing) is
-// skipped for the same reason in reverse: changing the spec under a running
-// handler is a different bad state, and this seam must not create one.
 // workItemHeldStatuses is the set of statuses at which a handler has actually
 // TAKEN an item and may be acting on its spec right now. It is the complement of
 // "queued but unowned" — `triaged`, `approved`, `needs_human_review` and
@@ -1416,6 +1391,31 @@ func refreshOpenWorkItemSQL() string {
 	`, sqlInList(workItemTerminalStatuses), sqlInList(workItemHeldStatuses))
 }
 
+// refreshOpenWorkItem brings the OPEN item holding this key up to date with the
+// finding that just arrived, and reports whether it actually did.
+//
+// A SEPARATE STATEMENT, not a `DO UPDATE` clause on the insert above, for two
+// reasons that are worth more than the extra round trip:
+//
+//   - the insert every other caller uses stays byte-identical, so this seam
+//     cannot change what happens to the ~20 call sites that never asked for it;
+//   - `DO UPDATE` makes RowsAffected() 1 for an update, so the single bool
+//     insertWorkItem returns would start reading "true" for a write that created
+//     nothing. That is precisely the false report bugs_open/091 was filed about,
+//     arriving through 091's own fix.
+//
+// It updates the DESCRIPTION and nothing else. status, priority, handler_agent
+// and severity may all have been moved by a human on the open row; the arriving
+// finding owns what it observed, not how somebody decided to handle it.
+//
+// THE PREDICATE IS THE CONCURRENCY GUARD. No row is locked between the failed
+// insert and this update, so the item may go terminal in between. It is not
+// re-opened: the same terminal-status list that idx_swi_dedup uses means a
+// terminal row simply does not match, zero rows update, and the caller is told
+// nothing was recorded — which is true, and which the next sweep will fix by
+// inserting cleanly. A row a handler currently HOLDS (claimed, diagnosing) is
+// skipped for the same reason in reverse: changing the spec under a running
+// handler is a different bad state, and this seam must not create one.
 func refreshOpenWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.Logger) (workItemWrite, error) {
 	if item.itemKey == "" {
 		return workItemWrite{}, nil
