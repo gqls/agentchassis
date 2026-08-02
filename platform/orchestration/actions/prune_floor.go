@@ -1,7 +1,7 @@
 // FILE: platform/orchestration/actions/prune_floor.go
 //
 // A shared FLOOR for reconciliation prunes — the "delete everything this run did
-// not re-write" pattern (bugs_open/135).
+// not re-write" pattern (bugs_closed/135).
 //
 // The pattern itself is correct and load-bearing: a writer re-upserts what it saw
 // and then deletes the remainder, so rows for things that no longer exist do not
@@ -32,7 +32,7 @@
 // 7ba5b8c4 trail. So the ratio is step config, 0 disables it entirely, and the
 // refusal text states that remedy rather than leaving the operator to find it.
 //
-// CONSUMERS (all four reconciliation deletes are now guarded — bugs_open/165
+// CONSUMERS (all four reconciliation deletes are now guarded — bugs_closed/165
 // closed the list this comment used to hold open):
 //   - index_code_symbols            code_symbols_actions.go        (bugs_closed/135)
 //   - save_page_sections            save_sections_prune_floor.go   (165 site A)
@@ -182,7 +182,7 @@ func evaluatePruneFloor(floor float64, cohorts []pruneCohort) pruneFloorVerdict 
 // did not confirm are retained and a later run that sees the whole corpus will
 // prune them"), which made the sentence FALSE for three of the four consumers:
 // it told those operators to wait for a clean-up that will never come. Observed
-// live on oufe.com, 2026-08-02, in the site B induction (bugs_open/165). It is a
+// live on oufe.com, 2026-08-02, in the site B induction (bugs_closed/165). It is a
 // required parameter rather than an optional one precisely so a fifth consumer
 // cannot inherit somebody else's aftermath by saying nothing — the failure mode
 // here is a default that is silently wrong, not a caller who forgets.
@@ -230,7 +230,7 @@ func (v pruneFloorVerdict) cohortList(cs []cohortVerdict) string {
 // Detail renders every cohort for the action result, so the numbers behind a
 // decision survive in orchestration_states rather than only in a log line the
 // retention window eats. Reported on PASS as well as on refusal: candidate (3) of
-// bugs_open/135 — "pruned: 4000" as a bare success counter is the alarm presented
+// bugs_closed/135 — "pruned: 4000" as a bare success counter is the alarm presented
 // as output, and the fix is to publish the denominator beside it.
 func (v pruneFloorVerdict) Detail() []map[string]interface{} {
 	out := make([]map[string]interface{}, 0, len(v.Cohorts))
@@ -253,7 +253,7 @@ func round2(f float64) float64 {
 // ---------------------------------------------------------------------------
 // The parts every consumer needs and none of which are table-specific.
 //
-// Added 2026-07-31 for bugs_open/165 sites B and C. Site A
+// Added 2026-07-31 for bugs_closed/165 sites B and C. Site A
 // (save_sections_prune_floor.go) invented both of these inline, and B and C
 // were each about to spell them again. Three spellings of one durable surface
 // is the exact drift class this council reviews for, so they move here.
@@ -267,7 +267,7 @@ func round2(f float64) float64 {
 
 // pruneFloorStatus is the value reported under "completeness_status". A bare
 // count is ambiguous between "nothing to prune" and "we refused to prune"
-// (bugs_open/165 says this in terms), so the status is always emitted alongside
+// (bugs_closed/165 says this in terms), so the status is always emitted alongside
 // the numbers rather than left to be inferred from them.
 const (
 	pruneStatusPassed   = "passed"
@@ -277,7 +277,7 @@ const (
 
 // pruneFloorDetail renders the standard reporting block for an action result.
 //
-// Emitted on a PASS as well as on a refusal: candidate (3) of bugs_open/135 —
+// Emitted on a PASS as well as on a refusal: candidate (3) of bugs_closed/135 —
 // "pruned: 4000" as a bare success counter is the alarm presented as output, and
 // the fix is to publish the denominator beside it. `extra` carries the caller's
 // own raw numbers (its projected inserts, its stored rows), which belong in the

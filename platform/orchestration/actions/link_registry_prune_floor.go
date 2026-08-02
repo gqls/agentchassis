@@ -1,7 +1,7 @@
 // FILE: platform/orchestration/actions/link_registry_prune_floor.go
 //
 // A COMPLETENESS floor for extract_and_sync_links' reconciliation delete —
-// bugs_open/165 site C, applying the rule shipped by bugs_closed/135
+// bugs_closed/165 site C, applying the rule shipped by bugs_closed/135
 // (prune_floor.go, register CTXA-025).
 //
 // THE DEFECT. syncLinksToDB deletes every link_registry row for the source page
@@ -27,7 +27,7 @@
 // artefact). The insert half has evidently never run to completion on any site.
 //
 // Guessing a partition from the shape of the SQL — per `link_type`, per `scope`
-// — is precisely what bugs_open/165's own PLAN decision 3 warns against ("how a
+// — is precisely what bugs_closed/165's own PLAN decision 3 warns against ("how a
 // guard that fires on legitimate edits gets built, and a guard that cries wolf
 // gets deleted by the first person it blocks"). So this ships the single
 // unpartitioned cohort, which is sound at any distribution, and records what to
@@ -50,13 +50,38 @@
 // itself the moment the insert half starts working — which is the state this
 // guard exists for, and the state nobody will remember to add a guard in.
 //
-// NOT IN SCOPE, and named so it is not inherited as a finding: WHY the table is
-// empty. ExtractAndSyncLinksAction returns a success-shaped
-// {"links_extracted": N, "persisted": false} when site_id does not resolve, and
-// the action runs on exactly one agent (multipage-website-builder) with 0
-// orchestrations in the retained window — so "the exposure fires" and "the agent
-// never runs" are indistinguishable from here. That is bugs_open/092's territory
-// (the extractSiteID caller audit), not this floor's. [UNDETERMINED]
+// WHY THE TABLE IS EMPTY — was [UNDETERMINED] here, RESOLVED 2026-08-02.
+// ExtractAndSyncLinksAction returns a success-shaped {"links_extracted": N,
+// "persisted": false} when site_id does not resolve, and the action runs on
+// exactly one agent (multipage-website-builder). This comment used to say the two
+// causes — "the exposure fires" and "the agent never runs" — were
+// indistinguishable from here, and deferred the question to bugs_open/092.
+//
+// Both halves of that were wrong, and the correction is the useful part:
+//
+//   - 092 was already CLOSED (bugs_closed/092, live v1.0.1219, induced-proven
+//     2026-07-31) on the day this pointer was written. A deferral names a
+//     destination and nobody re-checks that the destination accepted it — so
+//     write the item into the OTHER case's file, not only your own, or it is
+//     owned by neither. 165 and 092 each deferred the link-registry question to
+//     the other and both then closed.
+//   - The question was answerable without 092 anyway, and the answer is THE
+//     AGENT NEVER RUNS: multipage-website-builder has 0 orchestrations in the
+//     retained window, the live build pipeline (build-dispatch-loop,
+//     build-pipeline-trigger, page-rerender, page-build-handler) does not include
+//     it, and 0 orchestrations have ever mentioned links_extracted. The exposure
+//     at site_db_actions.go:396 is real code on a dormant path — worth fixing,
+//     but NOT the reason the table is empty.
+//
+// Scoped honestly: orchestration_states is retention-clocked, so that is "has not
+// run in ~20 days", not "never". The all-history half is link_registry itself —
+// no retention job, 0 rows, NULL max(created_at) — and it is the COMBINATION that
+// makes the conclusion safe.
+//
+// So this floor is inert because its action is dormant, not because a guard is
+// missing. Whether multipage-website-builder should be retired (making this file
+// dead code, and is_active a lie) or is dormant-but-intended (making the exposure
+// a landmine waiting for its first run) is an owner call about the build path.
 
 package actions
 
@@ -76,7 +101,7 @@ const linkRegistryFloorKey = "prune_floor_ratio"
 
 // linkRegistryCompleteness holds one page's measurement, kept as a struct so the
 // raw numbers are reported on a PASSING run too. A bare "links_persisted: 3" is
-// the alarm presented as output — candidate (3) of bugs_open/135.
+// the alarm presented as output — candidate (3) of bugs_closed/135.
 type linkRegistryCompleteness struct {
 	LinksToWrite int // rows this run will insert
 	LinksStored  int // rows the DELETE will remove (its exact complement)
@@ -148,8 +173,10 @@ func measureLinkRegistryCompleteness(ctx context.Context, db *sql.DB, pageID uui
 // nothing is live today either way — which is what makes deferring honest rather
 // than negligent.
 //
-// The surrounding action's OTHER success-shaped failure paths are bugs_open/092's
-// business and are left exactly as they were.
+// The surrounding action's OTHER success-shaped failure paths are left exactly as
+// they were. This used to hand them to bugs_open/092, which was already closed
+// when that was written (bugs_closed/092) — see the header. They are UNOWNED, not
+// delegated, and the honest statement is that nobody is working them.
 func enforceLinkRegistryFloor(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID,
 	pageName string, linksToWrite int) (map[string]interface{}, error) {
 
@@ -213,7 +240,7 @@ func emitLinkRegistryRefusal(ctx context.Context, db *sql.DB, siteID, pageID uui
 		Summary:  fmt.Sprintf("Link resync refused: %s extracted too few links to replace what is stored", subject),
 		Reason:   reason,
 		Fix: "A link extraction returned substantially fewer links than the registry holds for this page, " +
-			"so NOTHING was deleted and the stored links still stand (bugs_open/165). Decide: if the page " +
+			"so NOTHING was deleted and the stored links still stand (bugs_closed/165). Decide: if the page " +
 			"genuinely lost that many links, lower prune_floor_ratio on the extract_and_sync_links step (0 " +
 			"disables the floor); otherwise find why the extractor saw less — truncated or partially " +
 			"rendered HTML reaching goquery is the usual cause.",

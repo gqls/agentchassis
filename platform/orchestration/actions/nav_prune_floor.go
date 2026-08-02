@@ -1,7 +1,7 @@
 // FILE: platform/orchestration/actions/nav_prune_floor.go
 //
 // A COMPLETENESS floor for populate_nav_tables' reconciliation delete —
-// bugs_open/165 site B, applying the rule shipped by bugs_closed/135
+// bugs_closed/165 site B, applying the rule shipped by bugs_closed/135
 // (prune_floor.go, register CTXA-025).
 //
 // THE DEFECT. PopulateNavTablesAction deletes EVERY nav row for the site —
@@ -16,7 +16,7 @@
 // missing half its links, which reads as "those pages were never in the nav".
 //
 // WHY NOT PER-GROUP COHORTS — AND THIS IS THE MEASURED CORRECTION TO WHAT
-// bugs_open/165 PROPOSED. The bug file suggested "per nav group, plus distinct
+// bugs_closed/165 PROPOSED. The bug file suggested "per nav group, plus distinct
 // nav items". The per-group half is wrong on this table, for a reason that does
 // not apply to site A: classifyPagesForNav RE-HOMES pages between groups as a
 // matter of course. Measured 2026-07-31, robot-hands.com holds a `tools` group
@@ -136,7 +136,7 @@ const populateNavFloorKey = "prune_floor_ratio"
 
 // navCompleteness holds one site's measurement, kept as a struct so the raw
 // numbers can be reported on a PASSING run too. A bare "items: 9" is the alarm
-// presented as output — candidate (3) of bugs_open/135 restated for this table.
+// presented as output — candidate (3) of bugs_closed/135 restated for this table.
 type navCompleteness struct {
 	Domain       string // for the human sentence; falls back to the site id
 	PagesLoaded  int    // pages loadPagesForNav actually returned
@@ -257,7 +257,7 @@ func emitNavPruneRefusal(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		Summary:  fmt.Sprintf("Nav rebuild refused: %s saw too little of its page corpus to replace the stored nav", subject),
 		Reason:   reason,
 		Fix: "A nav rebuild would have replaced the stored navigation with substantially fewer items, " +
-			"so NOTHING was deleted and the existing nav still stands (bugs_open/165). Decide: if the site " +
+			"so NOTHING was deleted and the existing nav still stands (bugs_closed/165). Decide: if the site " +
 			"genuinely lost that many pages, lower prune_floor_ratio on the populate_nav_tables step (0 " +
 			"disables the floor); otherwise find why the page read came back short — a scan failure inside " +
 			"loadPagesForNav, pages moved out of active/deployed/pending, or an upstream step that failed " +

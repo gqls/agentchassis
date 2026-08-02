@@ -13,12 +13,12 @@ import (
 )
 
 // Tests for the completeness floors on the two remaining reconciliation deletes
-// (bugs_open/165 sites B and C) and for the shared reporting/refusal surface they
+// (bugs_closed/165 sites B and C) and for the shared reporting/refusal surface they
 // added to prune_floor.go.
 //
 // The load-bearing one, if any are ever cut, is
 // TestNavFloorAllowsAPageReHomedBetweenGroups. It pins the measured correction to
-// what the bug file proposed: bugs_open/165 asked for "per nav group" cohorts, and
+// what the bug file proposed: bugs_closed/165 asked for "per nav group" cohorts, and
 // classifyPagesForNav RE-HOMES pages between groups as a matter of course
 // (robot-hands.com's `tools` group holds a page the current classifier places in
 // `utility`). A per-group cohort scores that legitimate re-homing as a 100% loss
@@ -96,7 +96,7 @@ func TestNavFloorAllowsAHealthyRebuild(t *testing.T) {
 // THE MEASURED CORRECTION TO THE BUG FILE. robot-hands.com stores 17 nav items,
 // one of which sits in a hand-created `tools` group; the current classifier places
 // that same page in `utility`. Totals are unchanged — 17 in, 17 out — and the
-// rebuild must pass. A per-group cohort (which bugs_open/165 asked for) would read
+// rebuild must pass. A per-group cohort (which bugs_closed/165 asked for) would read
 // tools 0/1 = 0% and refuse this for ever.
 func TestNavFloorAllowsAPageReHomedBetweenGroups(t *testing.T) {
 	db, mock := floorMockDB(t)
