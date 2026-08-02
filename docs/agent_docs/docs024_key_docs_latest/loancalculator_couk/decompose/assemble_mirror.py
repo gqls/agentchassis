@@ -234,8 +234,20 @@ def render_component(rewrite_dir, function, overrides=None, cache={}):
     this page's values, rather than by teaching render_tool.go a second input
     format. The output is identical either way — render_tool.go's only source of
     values IS the schema — and it keeps the shipped renderer to one code path.
+
+    ⚠ `rewrite_dir` IS PART OF THE CACHE KEY, and leaving it out was a real defect
+    (fixed 2026-08-03). Every caller passed the same directory until
+    `render_tool_row.py` began rendering the SAME component from two directories in
+    one process — the working tree, and a baseline ref checked out to /tmp — to
+    compare them. With the directory absent from the key, the second render
+    returned the FIRST one's output, and the comparison reported the two as
+    identical. It did that for exactly the two tools whose fix touched only
+    JavaScript (so their overrides were unchanged and the key collided) and got the
+    right answer for the two that had gained a schema field — i.e. it was wrong
+    precisely where a wrong answer said "nothing to do, your fix is already live".
     """
-    key = (function, tuple(sorted((overrides or {}).items())))
+    key = (os.path.abspath(rewrite_dir), function,
+           tuple(sorted((overrides or {}).items())))
     if key in cache:
         return cache[key]
     tmpl = os.path.join(rewrite_dir, function + ".html.tmpl")
