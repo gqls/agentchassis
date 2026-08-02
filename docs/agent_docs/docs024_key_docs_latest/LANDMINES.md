@@ -3536,3 +3536,40 @@ deliberately:
 - **source:** `bugs_open/172`, fixed `3761a04ca`, 2026-08-02. Found while sizing the
   count-based cap the ticket names — which was and remains latent.
 - **added:** 2026-08-02, bugfix_172_agent_state_cap lane
+
+### An ENTRY-POINT agent reads as an orphan on every database axis whether it is dead or in daily use — its caller is a person with a script
+
+- **footprint:** `agent_definitions` (`is_active`, `deleted_at`),
+  `scripts/initial_messages/`, Kafka topic `system.agent.generic.requests`,
+  `{"action":"orchestrate","config":{"agent_type":...}}`,
+  `docs/agent_docs/docs024_key_docs_latest/retired_agents/`
+- **fires when:** you are deciding whether an agent is safe to retire, deprecate or
+  delete, and you are building the case out of queries. No symptom precedes this —
+  the checks are the *right* checks and they all come back clean.
+- **the tell:** there is none, and that is the whole trap. The standard blast-radius
+  battery — `site_work_items.handler_agent`, `site_specs.created_by`,
+  `scheduled_tasks`, `agent_instances.template_id` FK, other agents'
+  `default_config` — asks **which agent references this agent**. An entry point has
+  no such referrer *by definition*: it is spawned by an operator publishing to
+  Kafka, so a live one and a dead one produce **identical zeros**. This is the third
+  spelling of one error in this directory: `report-builder` was saved by a
+  `scheduled_tasks` row (absence of WORK ≠ absence of WIRING); this one has no row
+  to find at all (**absence of WIRING ≠ absence of a CALLER**).
+- **the check:** grep `scripts/` for the agent type and **compare file dates against
+  the script that supersedes it** — the question is not "does anything reference it"
+  but "**has the operator habit moved**":
+  ```bash
+  grep -rIl '<agent-type>' scripts/ | xargs -r ls -la
+  grep -rn 'agent_type' scripts/initial_messages/*/ | grep orchestrate   # who else is an entry point
+  ```
+  A superseded trigger script is positive evidence; a *current* one is a veto. For
+  `intake-orchestrator` the old script was last touched 2026-06-21 and
+  `020_build_pipeline/082_submit_domain_unified.sh` (2026-07-30) routes to
+  `domain-submitter` instead — that date gap, not the zero rows, is what made the
+  retirement safe. Note the corollary when RESTORING: putting the rows back does not
+  put the habit back, and the menu the agent reads may have been gutted meanwhile.
+- **source:** `retired_agents/README_multipage-website-builder.md` § "Third
+  retirement", 2026-08-02. Found while retiring `intake-orchestrator` +
+  `site-classifier`, after the same session's `report-builder` near-miss made the
+  DB-only battery look sufficient.
+- **added:** 2026-08-02, retired_agents lane
