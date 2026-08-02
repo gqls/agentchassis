@@ -590,12 +590,11 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 			titleRe := regexp.MustCompile(`<title>[^<]*</title>`)
 			head = titleRe.ReplaceAllString(head, fmt.Sprintf("<title>%s</title>", page.Title))
 		}
-		// Inject meta description if the page has one and the head has an empty content=""
-		if page.MetaDesc != "" {
-			head = strings.Replace(head,
-				`content="">`,
-				fmt.Sprintf(`content="%s">`, page.MetaDesc), 1)
-		}
+		// Fill the stored head's blank description with this page's, or drop
+		// the blank tag when the page has none — an empty description is not
+		// neutral, it is the page describing itself as nothing (measured
+		// 2026-08-02: every lendzy page shipped one).
+		head = spliceMetaDescription(head, page.MetaDesc)
 	}
 
 	// 5a. Inject per-page JSON-LD (schema.org). Structured data is how an answer
@@ -614,6 +613,12 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	// wrong @type is a false claim about the page, which is worse than no claim.
 	// Richer per-type markup needs page_type plumbed through PageInfo first.
 	head = injectPageJSONLD(head, page, logger)
+
+	// 5a2. Inject the canonical link — the same page identity the JSON-LD block
+	// asserts (@id/url), as the tag engines actually consolidate on. Measured
+	// 2026-08-02: zero canonicals fleet-wide (lendzy 0/15, any-attribute-order
+	// check); nothing in the platform emitted one on any path.
+	head = injectCanonicalLink(head, page, logger)
 
 	// 5b. Inject the CSS for this page's components (bugs_open/072). The site
 	// stylesheet is frozen at the last design run, so a component added since
@@ -924,6 +929,86 @@ func injectPageJSONLD(head string, page *PageInfo, logger *zap.Logger) string {
 	}
 
 	block := fmt.Sprintf("\n<script type=\"application/ld+json\">%s</script>\n", payload)
+	if idx := strings.LastIndex(head, "</head>"); idx >= 0 {
+		return head[:idx] + block + head[idx:]
+	}
+	return head + block
+}
+
+// reEmptyMetaDescription matches the blank description tag with its
+// surrounding line whitespace, so removal does not leave an indented empty
+// line behind. The literal shape is the ONLY one that exists: measured
+// 2026-08-02, DISTINCT substring over every stored head fleet-wide returns
+// exactly `<meta name="description" content="">`, because the site-level head
+// is rendered once per site and the description is a page-scoped blank until
+// assembly fills it.
+var reEmptyMetaDescription = regexp.MustCompile(`[ \t]*<meta name="description" content="">\n?`)
+
+// spliceMetaDescription fills the stored head's blank description with this
+// page's, or REMOVES the blank tag when the page has none. Correct-or-absent
+// (the LNK-005 idiom): shipping content="" is the page describing itself as
+// nothing, which is worse than staying silent. The quote/ampersand escaping is
+// new — the previous splice interpolated the raw value, so a description
+// containing '"' broke out of the attribute.
+func spliceMetaDescription(head, metaDesc string) string {
+	const blank = `<meta name="description" content="">`
+	if metaDesc == "" {
+		return reEmptyMetaDescription.ReplaceAllString(head, "")
+	}
+	escaped := strings.ReplaceAll(strings.ReplaceAll(metaDesc, "&", "&amp;"), `"`, "&quot;")
+	if strings.Contains(head, blank) {
+		return strings.Replace(head, blank, `<meta name="description" content="`+escaped+`">`, 1)
+	}
+	// A head shaped some other way: preserve the legacy behaviour (fill the
+	// first empty content attribute) rather than silently stopping to inject.
+	return strings.Replace(head, `content="">`, `content="`+escaped+`">`, 1)
+}
+
+// injectCanonicalLink adds one <link rel="canonical"> to the head, naming the
+// page's own absolute URL — the SAME identity injectPageJSONLD asserts as
+// @id/url, emitted as the tag engines actually consolidate on. Same discipline
+// as that function: idempotent, and a NAMED no-op when there is nothing
+// truthful to emit, because a wrong canonical is worse than none — engines act
+// on it by pointing authority away from the page it should name.
+func injectCanonicalLink(head string, page *PageInfo, logger *zap.Logger) string {
+	skip := func(reason string) string {
+		if logger != nil && page != nil {
+			logger.Debug("injectCanonicalLink: no canonical emitted",
+				zap.String("reason", reason),
+				zap.String("page", page.Name),
+				zap.String("domain", page.Domain))
+		}
+		return head
+	}
+	if head == "" || page == nil {
+		if logger != nil {
+			logger.Debug("injectCanonicalLink: no canonical emitted", zap.String("reason", "empty head or nil page"))
+		}
+		return head
+	}
+	// Never emit twice, and never fight a head that already declares one.
+	// Attribute order varies across authors, so test for the attribute, not
+	// a full-tag shape.
+	if strings.Contains(head, `rel="canonical"`) || strings.Contains(head, `rel='canonical'`) {
+		return head
+	}
+	if page.Domain == "" {
+		return skip("page has no domain")
+	}
+	if !strings.HasPrefix(page.URL, "/") {
+		return skip("page url is not root-relative")
+	}
+	// A fragment or query is a view of another URL, not a page of its own; a
+	// canonical carrying one is a claim engines are told to ignore, and one
+	// live url is exactly this shape (PageDeployFilename special-cases it).
+	if strings.ContainsAny(page.URL, "#?") {
+		return skip("page url carries a fragment or query")
+	}
+
+	// Bare-domain https origin, byte-identical to injectPageJSONLD's — the
+	// pending fleet-wide www/HTTPS policy decision moves both together.
+	canonical := "https://" + page.Domain + page.URL
+	block := fmt.Sprintf("\n<link rel=\"canonical\" href=\"%s\">\n", canonical)
 	if idx := strings.LastIndex(head, "</head>"); idx >= 0 {
 		return head[:idx] + block + head[idx:]
 	}
