@@ -132,3 +132,25 @@
   literal in the pod, and since builds come from committed HEAD, ancestry
   proves mine is in. A tag postdating the commit proves nothing
   (`bugs_open/153`).
+
+## UPDATE 2026-08-03 ~00:45Z — round 2 APPROVED; wording fix shipped under its own submission
+
+- **Council `e64f8576` round 2: APPROVED** (23:11:38Z, 4 advisory objections,
+  none high; editquality/prior_art/guidelines/provenance and all four guardians
+  clean). The two guard commits carry `Council-Submitted:` and 098 credits them
+  automatically. Advisory threads: (1) three bespoke floors → consolidation
+  deferral now TRACKED in `bugs_open/178` (the fourth-floor trigger rule);
+  (2) debug_historian: pod-grep counts should use anchored matches (`grep -cx`
+  or exact-line), since the Go linker packs literals — adopt in future verifies.
+- **The wrong-summary finding is FIXED and submitted on its own correlation**:
+  `77b58fd4d` — Summary/Fix are now required parameters on
+  `savePageSectionsRefusal` (aftermath-clause design, same cure); completeness
+  wording byte-identical, shrink guard states its own case and names
+  `section_shrink_floor`. Council `98aa9103-05d4-4239-b116-330167bbcaf8`
+  (Council-Submitted trailer). INERT until the next roll. **NEXT SESSION: read
+  that verdict** (payload query as above with the new correlation) and act on a
+  REVISE; after the next roll, pod-grep the NEW literal
+  `shrank past the floor` (expect ≥1, both replicas) — this commit DOES add
+  rodata, unlike `5f00dcba9`.
+- Remaining OPEN on this handoff's list: items 4–6 unchanged (178 root cause /
+  177 tool-generator / watch list). The shrink-guard thread of item 2–3 is DONE.

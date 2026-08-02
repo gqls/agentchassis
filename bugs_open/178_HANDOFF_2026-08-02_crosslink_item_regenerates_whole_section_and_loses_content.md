@@ -174,3 +174,25 @@ BLOCKED"` (pre-existing).
 **Root cause at the HANDLER is still undiagnosed** — the guard stops the
 damage; nothing yet explains why a link-insertion item regenerates the whole
 section. Candidates 1 (edit-not-regenerate) and 3 (emit the delta) remain open.
+
+## UPDATE 2026-08-03 — guard LIVE, PROVEN by induction, council APPROVED; one tracked deferral
+
+- **Prevention half is done.** The guard shipped, went live (v1.0.1233, survived
+  the 1234 roll, pod-grep both replicas), and was **proven by a live induction**
+  on dartsonline with the prediction recorded first: refused twice, orchestration
+  FAILED honestly (not masked), refusal item emitted+deduped, zero bytes written.
+  Council `e64f8576`: round 1 REVISE → round 2 **APPROVED** (2026-08-02 23:11Z,
+  4 advisory objections, none high). Locked slots excluded (`5f00dcba9`); the
+  refusal's queue wording made its own (`77b58fd4d`, council `98aa9103` pending).
+  Evidence: `docs024_key_docs_latest/bugfix_154_work_item_routing_columns/NOTES_…`.
+- **TRACKED DEFERRAL (the council's ask, 4 seats):** `save_page_sections` now
+  carries THREE bespoke content-loss floors — page-total wipe, completeness/drop,
+  per-slot shrink — each with its own key, threshold and blind spot. The
+  architecture seat: "the deferral itself should be tracked so it doesn't recur a
+  fourth time." **The tracking is THIS entry: if you are about to add a FOURTH
+  floor to this chokepoint, stop — that is the trigger for the unified
+  content-loss detector design, as its own submission, not another rider.**
+- **Still open here (unchanged):** root cause at the handler (why does a
+  link-insertion item regenerate the whole section — run 090); candidates 1
+  (edit-not-regenerate) and 3 (emit the delta); relojistas' deleted
+  DefinedTermSet slot; other rendered_html writers unguarded (named above).
