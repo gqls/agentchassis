@@ -270,3 +270,86 @@ only a careful reader of the *code* would find, and it was rated **low** while t
 legibility objections were rated medium and high. Worth remembering when writing a
 submission: **the council reviews the artefact you hand it, not the work you did.** Evidence
 you hold and do not cite is evidence you do not have.
+
+## Council round 2 (`abd9b119`) — REVISE again, and this time the council was right about the CODE
+
+Gated by `bug_historian` at **high**, `guardian` concurring at medium, both on one point:
+*"after this change, routing a brand-head purpose through `deploy_image_asset` no longer
+produces a harmless orphan file but SILENTLY OVERWRITES the deriver's favicon/og-card
+artefact — a git commit with no error, no warning, no failed item"*, and the guard for it was
+**tracked, not shipped**.
+
+I had told them twice it was *"measured as currently unreachable"*. **It is reachable.**
+
+### The measurement error, which is the thing to take from this lane
+
+I measured two populations. Both measurements were correct, both carefully denominatored,
+and **neither could answer the question**:
+
+| what I measured | why it cannot answer |
+|---|---|
+| `check_undeployed_assets` no longer *raises* brand-head items (true since 142) | about items created **from now on** |
+| every variable-purpose **reader** resolves through `site_plan_imagery`, no brand-head purpose in 163 rows | about **readers**; the exposure is in a **writer** |
+
+The population that answers it is the **standing queue**, and it took one query:
+
+```sql
+SELECT status, spec->>'mode', spec->>'purpose' FROM site_work_items
+ WHERE item_type='undeployed_asset' AND spec->>'purpose' IN ('og_card','favicon')
+   AND status NOT IN ('complete','cancelled','rejected');
+```
+
+**11 rows. `mode` NULL on every one. Two at `detected`**, which `triage_detect_items` promotes
+into the build queue. dartsonline ×2, robot-hands ×9, all from before 142's fix. And
+`asset-deployer`'s `check_mode` only diverts `mode == "brand_head"` — so they fall through to
+`deploy_asset` → `deploy_image_asset` with `purpose=og_card`.
+
+**A predicate change stops the tap; it does not empty the bath.** Nothing in this platform
+sweeps a queue for items whose defining predicate has since moved. And the scope-out I was
+leaning on was *inherited from a closed bug*: 142 made those items safe **under the code that
+was live when 142 shipped**. My change moved the code and silently un-scoped them. 142 had no
+reason to mention it, because under the old code they were harmless litter.
+
+**What actually caught it: running the query to PROVE the objection wrong.** I believed the
+seats were being cautious about something I had already established, and went to demonstrate
+it for round 3. It returned 11 rows. Had they accepted my round-1 assurance, this ships.
+
+### The second wrong call in the same hour — my own paperwork as evidence
+
+Answering `prior_art_librarian`'s "I cannot check the `deploy_path` claim from this seat", I
+ran `... WHERE collected_data::text LIKE '%deploy_path%'` over `orchestration_states` and got
+**9** — apparently falsifying the 128 lane's "zero orchestrations in history" that I had by
+then repeated to the council twice. **All nine were my own council submissions**: a council
+run stores the submission JSON in `collected_data`, and my rationale argues about
+`deploy_path` at length. Matching the JSON *shape* (`"deploy_path":"`) returns **zero**, so
+the inherited claim survives — but the harder I had argued the point, the more rows my own
+argument generated. Both wrong calls are in `WRONG_CALLS.md`.
+
+### What shipped, and why it is safe to ship the clobber at all
+
+`deploy_image_asset` now **refuses** a brand-head purpose — a completed result carrying the
+reason, not an error, so the 11 queued items *resolve* instead of retrying for ever against a
+guard that will never pass them. Positioned before the URI resolution, the download and the
+commit.
+
+**There is no exposure window, and that is luck rather than design:** the derivation change is
+not live either (pod-verified, `v1.0.1228`), so the clobber and its refusal go out in the same
+image. Worth stating plainly rather than presenting as planning — if 168 had already rolled,
+this would have been a live incident rather than a council objection.
+
+**Mutation-proven both ways, and the second one is the point.** Deleting the guard fails the
+test. **Moving it after `DownloadOptimizeAndPrepare` fails it too** — position is the property
+here, not presence, because a guard that fires after the git commit is not a guard. That is a
+trap this repo has already paid for once (LANDMINES: *"Guarding an asset's provenance UPSERT
+is not guarding the asset — the git commit already ran"*), and asserting presence alone would
+have reproduced it.
+
+### The through-line across three rounds
+
+Round 1: three of four objections were "you did the right thing and didn't show me".
+Round 2: the gating objection was **"you are wrong"** — and it was right. The seats that kept
+pressing on the same point across two rounds, against my measured-sounding rebuttal, were
+doing exactly what an adversarial reviewer is for. **A confident measurement is not a correct
+one, and the tell was that I never re-read what the objection was actually about**: guardian
+said *a future caller*, and I kept answering about *current callers*, which is a different
+sentence.
