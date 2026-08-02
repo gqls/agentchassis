@@ -1727,3 +1727,40 @@ the decomposition. A boolean would have sent me looking for a bug in the page.
 before believing it. A real decomposition fault is per-page-shape and reproducible;
 a propagation lag is transient and clears on the next fetch. Do not add a sleep to
 the verifier — that hides the distinction rather than reporting it.
+
+### The re-baseline: coverage up 27%, and nothing computed differently
+
+`GOLDEN_2026-08-02_decomposed.json` captured from the live decomposed site, all 12
+interactive pages, no INERT flags and no capture errors. Compared key-for-key
+against `GOLDEN_2026-07-31c` (chrome ids excluded):
+
+| page | id fields | positional controls | shared-key values |
+|---|---|---|---|
+| /tools/consolidation.html | 9 → **19** | **8 → 0** | ok |
+| /tools/credit-health-check.html | 9 → **21** | 0 → 0 | ok |
+| /tools/application-tracker.html | 10 → **13** | 0 → 0 | ok |
+| the other nine | unchanged | 0 → 0 | ok |
+
+```
+id fields: 94 -> 119   shared keys compared: 94   VALUES THAT MOVED: 0
+```
+
+Two claims, both measured rather than argued:
+
+1. **Coverage is up 27%** and the gain is concentrated in exactly the three tools
+   that had no numeric acceptance coverage. Consolidation's eight POSITIONAL
+   controls are the sharpest case: `input#0 … input#7` cannot be asserted on in
+   any durable way, because inserting a field silently renumbers every key after
+   it. All eight are named now.
+2. **Every one of the 94 keys present in both goldens has an identical value.**
+   The decomposition changed how the site is stored and assembled, and changed no
+   number it computes.
+
+`GOLDEN_2026-07-31c` is KEPT, not replaced. It is the only record of what the
+HAND-BUILT site computed, and every equivalence claim made during the rewrite is
+stated against it; the new file is the forward baseline. Same rule as the summary
+series — the old one being superseded is not the same as it being wrong.
+
+The re-baseline owed by the three `allow_new_keys` tools since 2026-07-31 is
+therefore **discharged**, and discharged better than it would have been on 07-31:
+captured after decomposition, it names controls that were unnameable before.
