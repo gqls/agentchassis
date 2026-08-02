@@ -1,5 +1,11 @@
 # RFC 009 — one derivation for a deployed asset's path, and what its guarantee now is
 
+> ⚠ **`RFC_009` IS AMBIGUOUS — two unrelated papers carry it. Cite this one by SLUG.**
+> The other is `RFC_009_the_renderer_should_enforce_input_schema_on_missing.md` (`bugfix_140`
+> lane). Cause and resolution: see the banner in
+> `RFC_010_discovery_checks_can_raise_a_finding_but_not_retract_one.md` and the restored
+> ledger in `PROCESS_architecture_review.md`.
+
 **Filed:** 2026-08-02 by the `bugfix_168_deployed_asset_path` lane.
 **Status:** open. **The change it describes is COMMITTED (`4035455ae`) and NOT LIVE** — Go,
 so inert until the next chassis image is built and rolled. Written *because* the council's

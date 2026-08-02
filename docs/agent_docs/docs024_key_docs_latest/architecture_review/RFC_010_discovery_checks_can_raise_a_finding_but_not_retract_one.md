@@ -1,5 +1,16 @@
 # RFC 010 — a discovery check can raise a finding but not retract one, and the queue has no other way to learn a finding stopped being true
 
+> ⚠ **`RFC_010` IS AMBIGUOUS — two unrelated papers carry it. Cite this one by SLUG.**
+> The other is `RFC_010_who_may_answer_a_page_name_collision.md` (`bugfix_175` lane), which is
+> **RATIFIED** and is the one **`CLAUDE.md`'s OWNER RULING 2026-08-02 refers to**. If you
+> arrived here from that ruling, you want the other paper.
+>
+> Cause, stated because it is the fixable part: the number ledger in
+> `PROCESS_architecture_review.md` had not been appended to since `RFC_002` — eight papers,
+> including both of mine, claimed no number. Ledger restored 2026-08-02. Collisions left in
+> place rather than renumbered, matching the `/bugs_*/` convention: never reassigned, resolve
+> by slug.
+
 **Filed:** 2026-08-02 by the `bugfix_168_deployed_asset_path` lane, at the owner's direction
 ("consider how this can be handled properly in the framework"), after a live near-miss whose
 proximate cause was eleven work items that had been false for three days and were still

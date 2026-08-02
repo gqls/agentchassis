@@ -125,5 +125,44 @@ Sections, all required:
   guardian declined to veto in the same round. The first RFC on this track whose
   subject is a precedent rather than a build.
 
+- `RFC_003_fleetwide_banned_claims_at_the_build_gate.md` — the build gate may
+  refuse a page on a site that never opted in.
+- `RFC_004_a_deploy_action_that_can_refuse.md` — a deploy action that can refuse.
+- `RFC_005_targeted_review_for_docs_that_feed_the_fleet.md` — targeted review for
+  the two doc classes that feed the fleet back, plus a staleness sweep for
+  `bugs_open/`.
+- `RFC_006_one_promoter_one_owner_for_shared_promoting_steps.md` — a shared step
+  whose effect is "take everything in state X" needs one owner.
+- `RFC_007_chrome_eligibility_needs_a_package_both_sides_can_import.md` — the
+  guard-scan count is the meter.
+- `RFC_008_a_mandatory_write_seam_for_page_components_rendered_html.md` — why an
+  advisory lint is the wrong ceiling.
+- **`RFC_009` — AMBIGUOUS, two unrelated papers. Resolve by slug, never by number:**
+  - `RFC_009_one_derivation_for_a_deployed_assets_path.md` (`bugfix_168`, filed 11:50)
+  - `RFC_009_the_renderer_should_enforce_input_schema_on_missing.md` (`bugfix_140`, filed 23:39)
+- **`RFC_010` — AMBIGUOUS, two unrelated papers. Resolve by slug, never by number:**
+  - `RFC_010_discovery_checks_can_raise_a_finding_but_not_retract_one.md` (`bugfix_168`, filed 19:59)
+  - `RFC_010_who_may_answer_a_page_name_collision.md` (`bugfix_175`, filed 23:56) —
+    **this is the one CLAUDE.md's OWNER RULING 2026-08-02 cites**, and it is RATIFIED.
+
+> ## THIS LEDGER STOPPED BEING MAINTAINED AT `RFC_002`, AND ON 2026-08-02 IT COLLIDED TWICE IN ONE DAY
+>
+> Every paper from `RFC_003` to `RFC_010` was filed **without** claiming its number here —
+> including both of mine (`bugfix_168`). The rule below was not disputed or overridden; it was
+> simply never executed by anybody, for eight consecutive papers, so nothing at all stood
+> between two lanes and the same integer. **Restored 2026-08-02 by reading the directory**, so
+> the numbers above are observed, not remembered.
+>
+> The two collisions are left in place rather than renumbered, matching the estate's existing
+> convention for `/bugs_*/` numbers — *never reassigned, several numbers name two unrelated
+> cases, so resolve by slug*. Renumbering would silently break citations in a RATIFIED paper,
+> in `CLAUDE.md`, and in a closed bug file, which is a worse failure than an ambiguous integer
+> that is documented as ambiguous.
+>
+> **So: `grep` this list before claiming a number, and add your line in the same commit as the
+> paper.** A ledger nobody appends to is not a ledger — it is a comment, and this is what a
+> comment enforces.
+
 Claim the next number by adding a line here in the same commit as the RFC —
 the same collision discipline as migrations, and this list is the ledger.
+**The next free number is `RFC_011`.**
