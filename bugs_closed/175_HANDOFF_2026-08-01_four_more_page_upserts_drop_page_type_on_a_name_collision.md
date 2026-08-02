@@ -307,14 +307,26 @@ had produced a **34-page false-positive class** for the nav lane. Mine singled i
 collides with. On any of those, the shipped helper **refuses**: files a
 `mistyped_deployed_page` decision nobody needs, and hard-errors the tool deploy.
 
-**Status:** corrected in `023f6624a` — the locking `SELECT` computes
-`NOT (datahelpers.NeverDeployedPagePredicate)`, `pageHasBeenLive` is deleted, and a test
-fails if anyone inlines a restatement (proved by mutation, with the import kept
-referenced so the *assertion* fires and not the compiler). **`v1.0.1233` carries the
-uncorrected version**, so until the next chassis roll the 11-row refusal is live. It is
-narrow (a collision on one of those 11 names is required, and none has been observed)
-and it fails **closed** — a refused deploy and a filed decision, never a mutated page —
-which is why this is an addendum rather than a reopen.
+**Status: corrected in `023f6624a`, and LIVE — the defect is gone from production.**
+The locking `SELECT` computes `NOT (datahelpers.NeverDeployedPagePredicate)`,
+`pageHasBeenLive` is deleted, and a test fails if anyone inlines a restatement (proved by
+mutation, with the import kept referenced so the *assertion* fires and not the compiler).
+
+**Pod-verified 2026-08-03 on `v1.0.1234`, both replicas** (`agent-chassis-5bd87b555b-kwzwt`
+/ `-rdzlb`), and the greps are chosen so they cannot agree by accident:
+
+| grep | result | reading |
+|---|---|---|
+| the OLD hand-rolled predicate, `IN ('deployed','needs_rebuild')` | **0 / 0** | the 11-row defect is gone |
+| the shared predicate, `deployed_at IS NULL AND COALESCE(build_status…` | 4 / 4 | the correction shipped |
+| `did not set AdoptUnshippedRows` | 0 / 0 | the later RFC_010 round has NOT shipped |
+
+> **This paragraph previously said the defect was live on `v1.0.1233` and inert until the
+> next roll. That was true when written and false within the hour** — another session
+> rolled `v1.0.1234` from a commit between the correction and the RFC_010 round. It is
+> corrected here rather than edited away, because the lesson is the reason the rule exists:
+> a deployment claim is a **measurement with a shelf life of minutes** on this tree, not a
+> fact you carry forward from your own commit log. Logged in `WRONG_CALLS.md`.
 
 **Why it was missed:** the council's `prior_art_librarian` seat asked whether a page-upsert
 **helper** already existed. I checked, answered, and stopped — the objection named a
