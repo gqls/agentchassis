@@ -17579,3 +17579,44 @@ incapable of separating the two, and I reported on both anyway. This is the
 `narrow-filter-defines-the-conclusion` shape again: *before naming a cause, ask
 which of the candidate causes your measurement could have ruled out.* If the answer
 is "none of them", the measurement has told you a symptom and nothing more.
+
+---
+
+## 2026-08-03 — I filtered a blast-radius census on `status='active'` without ever enumerating `status`
+
+**footprint:** `pages.status`, `sites.status`, any `count(*) … WHERE status = '<value>'` used to size a blast radius · bugs_open/181, bugfix_175 lane
+
+**The claim.** Filing `bugs_open/181` I measured how many live pages a
+`build_status = 'deployed'` selector misses, and published **28**, from
+`WHERE COALESCE(build_status,'') <> 'deployed' AND deployed_at IS NOT NULL AND
+status='active'`. The number went into the bug file's headline, its title, a commit
+message and a council submission.
+
+**What caught it.** The council gate's `debug_historian` seat, on the round that approved
+the change: *"scopes by pages.status without first enumerating its distinct values —
+exactly the 'sites.status is informational, don't scope blast-radius by it' trap
+generalized."* Enumerated: `pages.status` has two values, and **7 further rows are
+`archived` AND shipped-but-not-`deployed`**. Those are not obviously excludable —
+`bugs_open/098` establishes that **archiving does not retract the live page**, so an
+archived page may still be served, and a detector skipping it is blind to a live artefact,
+which is the defect being counted. The honest report is two numbers with the question each
+answers, which is what 181 now carries.
+
+**The cheap check.** **`GROUP BY` the status column BEFORE you filter on it — one query,
+and it is the same query that tells you whether the filter is even meaningful.** The
+failure is not that `active` was the wrong filter; it may well be right. The failure is
+that I never looked at what I was excluding, so I could not have said. A filter chosen
+without seeing the distribution is an assumption wearing a WHERE clause — and the estate
+has this exact lesson recorded twice already, for `sites.status` and in
+`narrow-filter-defines-the-conclusion`. Neither entry saved me, because both are phrased
+about *sites* and I was querying *pages*. **A trap recorded against one table is a trap
+against the column shape, not the table.**
+
+**Second, in the same round, and it is the one with teeth:** the same seat's neighbour
+(`prior_art_librarian`) refused to accept my "round 1's defect is live on chassis
+v1.0.1233" on trust, having no deployed-binary check tier, and asked for a pod-grep. The
+grep found **v1.0.1234 running and the defect already gone** — someone had rolled between
+my writing the claim and the review. I had told the owner twice that nothing from the
+correction onward was live. **A deployment claim has a shelf life of minutes on a tree
+this many sessions share; re-grep the pod at the moment you assert it, not once per
+session.**
