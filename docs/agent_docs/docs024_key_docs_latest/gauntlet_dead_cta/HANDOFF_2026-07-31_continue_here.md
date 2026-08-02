@@ -21,6 +21,12 @@ else — every §4 action below is DONE except what §4.2 marks pending.
 > this checker: the rule as originally shipped would have deleted a live section,
 > and both the in-remit definition and my "verified no-op" claim have changed.
 
+> **Updated 2026-08-02.** §0 is superseded on two points: the `6c5d1491` plan
+> guard was APPROVED first round, a lock guard followed (`594b422e7`, corr
+> `57885d11`, also APPROVED), and the whole chain **shipped in chassis
+> v1.0.1231 and is pod-verified on both replicas** — see §7 at the end for the
+> evidence and what (little) remains.
+
 ## 1. DONE and verified this session
 
 | what | state | proof |
@@ -469,3 +475,56 @@ Three were caught only because someone re-checked a number already reported, and
 one reached the owner as an urgent finding with a recommended action. **Re-ground
 every figure before ESCALATING, not before acting on the reply** — urgency is
 exactly when the check gets skipped and exactly when being wrong costs most.
+
+## 7. 2026-08-02 — SHIPPED in v1.0.1231, pod-verified; the chain is closed
+
+Written after the fact by the same thread; appended, nothing above edited.
+
+**What happened after §4.2:** the plan guard (`5c4dc317f`, corr `6c5d1491`) was
+APPROVED first round. Its review raised one real absence question — does the
+repair honour row locks? It did not (47 locked unexpired `page_components` rows
+live). The lock fix (`594b422e7`, corr `57885d11-623a-4008-af6d-95b8917df910`)
+uses `pageComponentAgentWritableSQL` — the canonical predicate every automated
+writer uses (`lock_helpers.go:42-46`) — and was APPROVED first round after one
+roll-kill and an unchanged re-fire. Full dispositions in `doc_notes` under
+`action`/`remove_duplicate_page_sections` (row 2026-08-01b). Three approvals
+across five submissions; every trailer honest (`Council-Reviewed:` only on read
+verdicts).
+
+**Deploy verification (2026-08-02, chassis v1.0.1231, both replicas started
+21:39Z):** per the recorded debug_historian obligation, proven at the binary,
+not the tag —
+
+```
+kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c <p>'
+# identical on agent-chassis-868fb8b697-jxfgn and -lxxww:
+lock_skipped=1  plan_specified_repetition=1  SectionIdentityKey=1
+PlanSpecifiedSectionCounts=2  plan_stores_unreadable=1
+check_content_duplication=1              # positive control, pre-existing
+"content_data::text, '{}')$"  = 2        # OLD spelling — see accounting below
+"content_data::text, '{}'),$" = 2        # NEW spelling (lock-fix query + 1 pre-existing)
+```
+
+The negative control needs its accounting or it reads as a failure: the old
+spelling still matches **2** because `check_content_duplication.go:476,635`
+legitimately end lines with it in current HEAD. A stale (pre-lock-fix) binary
+would show **3** (those two + the removed repair query). 2 = the removed line is
+gone. The NEW spelling's 2 = the lock-fix query + pre-existing
+`check_required_fields_missing.go:61`. Every count reconciles against HEAD.
+
+**Inertness re-checked post-deploy** (the brochure lane was handed to another
+thread today — the switch is theirs, so re-check, don't assume): 0 active
+non-snapshot `agent_definitions` reference `content_duplication` in any of the
+five workflow-bearing columns (`default_config`, `task_workflow`,
+`orchestrator_workflow`, `orchestration_workflow`, `delegation_preferences`);
+0 `site_work_items` of any duplication type. Code live, mechanism off — exactly
+the intended end state.
+
+**What remains open here: nothing that is ours.** The enable decision sits with
+`brochure_component_library` (their cold start
+`HANDOFF_2026-07-30b_continue_here.md` carries the INCOMING section; a thread
+has now picked that lane up). Recorded follow-ups, neither blocking: extract the
+three-store plan walk into `datahelpers` if a third consumer appears; same for
+the lock predicate. If a future session sees `check_content_duplication`
+work items appear, that means the brochure lane enabled it — read their lane
+docs before touching anything.

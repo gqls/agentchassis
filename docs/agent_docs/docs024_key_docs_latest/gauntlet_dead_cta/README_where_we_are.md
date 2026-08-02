@@ -1488,3 +1488,23 @@ remains switched off, the decision still sits with the other team, and their pic
 notes now say all of this. The one obligation carried forward: when the next deployment
 actually ships this code, prove it's in the running binary the proper way, not by
 trusting the build.
+
+---
+
+**2026-08-02 (evening).** That deployment happened tonight, and the proof is done.
+Both copies of the running service now carry all three pieces — the checker's
+corrected identity rule, the plan guard, and the lock guard. I checked by reading
+the actual running binaries for words the new code added and for the one line the
+lock fix removed, and every number came back exactly as the current source predicts.
+One detail worth being honest about: the "removed line" check came back with matches,
+which at first glance looks like the old code is still there — but two other files
+legitimately contain that same spelling, so two matches is precisely what a correct
+deploy shows and three would have meant a stale one. I counted before concluding.
+
+I also re-checked that the checker is still switched off — worth doing rather than
+assuming, since you've just handed the brochure lane to another thread and the switch
+is theirs to flip. It is still off: no agent anywhere references it, and it has filed
+no work. So the end state is exactly what we wanted: the machinery is live in
+production, inert, and waiting on the owning team's decision. Nothing on this thread
+is owed any more — if duplicate-content work items ever start appearing, that means
+the other team turned it on, and their notes are the place to start reading.

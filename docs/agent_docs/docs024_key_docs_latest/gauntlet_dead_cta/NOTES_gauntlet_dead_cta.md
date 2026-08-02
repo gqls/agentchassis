@@ -3512,3 +3512,31 @@ control in the same exec at the next chassis roll).
 
 Full trail for the day: checker r3 approved / plan guard r1 approved / lock fix r1
 approved; four commits carrying `Council-Submitted:` all auto-credited by `098`.
+
+---
+
+**2026-08-02 — v1.0.1231 shipped the chain; pod-verified; obligation discharged.**
+
+Chassis rolled to v1.0.1231, both replicas started 21:39Z. The debug_historian
+obligation from the lock-fix approval executed as recorded — one exec per replica,
+`strings /app/agent-chassis | grep -c`, identical results on `-jxfgn` and `-lxxww`:
+
+- Added strings all present ×1 each: `lock_skipped`, `plan_specified_repetition`,
+  `SectionIdentityKey`, `plan_stores_unreadable`; `PlanSpecifiedSectionCounts` ×2.
+- Positive control `check_content_duplication` = 1 (pre-existing, proves the grep).
+- Negative control: old query spelling `content_data::text, '{}')` at line-end = **2,
+  and 2 is the PASS value, not a failure** — `check_content_duplication.go:476,635`
+  legitimately still end lines with that spelling in HEAD; stale binary would be 3
+  (+ the removed repair query). New spelling `'{}'),` = 2 = lock-fix query +
+  pre-existing `check_required_fields_missing.go:61`. Every count reconciled
+  against HEAD before being read as pass/fail — a raw "expect 0 got 2" would have
+  been misread as a stale image. (The negative-control pattern was not unique to
+  the removed line; the reconciliation is what made it evidence.)
+
+Inertness re-checked post-deploy (brochure lane handed to another thread today, so
+checked rather than assumed): 0 active non-snapshot `agent_definitions` matching
+`content_duplication` across all five workflow-bearing columns; 0 `site_work_items`
+of any duplication type. Code live, mechanism off.
+
+Handoff §7 appended with the full record; §0 superseded-note added. Nothing here
+remains owed except watching for the brochure lane's enable decision.

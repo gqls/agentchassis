@@ -192,3 +192,10 @@ remains unbuilt** — the residue capability_gap items are the population it sho
 clear when it lands. Full design rationale travels with the mechanism:
 `doc_notes` `subject_type='action'`, keys `remove_duplicate_page_sections` /
 `check_content_duplication`.
+
+**UPDATE 2026-08-02 (gauntlet_dead_cta):** candidate 3's code **shipped in chassis
+v1.0.1231 and is pod-verified on both replicas** (added-string, positive-control and
+reconciled negative-control greps — evidence in
+`gauntlet_dead_cta/HANDOFF_2026-07-31_continue_here.md` §7). Still INERT, re-verified
+same day: zero agent references, zero duplication work items. Enabling is now the
+single config step and remains the `brochure_component_library` lane's call.
