@@ -345,3 +345,15 @@ Seam 2 corr 4cffcebb: APPROVED, 4 advisory objections + 1 low note. Settlements:
 
 Register discipline note: both commits landed with Council-Submitted; both corrs
 now APPROVED and read — 098 credits automatically, no amends (forward-only).
+
+### 2026-08-02 ~23:00Z — seam 1 VERIFIED COMPLETE on the artefact
+
+Strict census at gqls/sites origin/master b1d7c98ad, scripts stripped first:
+**18/18 pages carry line 1 (does-not-lend), 18/18 line 2 (FCA independence),
+18/18 the footer-compliance block.** Zero missing. The three tail pages
+(breathing-space, credit-unions, report-loan-shark) drained through their own
+page_rerender items (filed by rerender-pages itself at 22:36:16Z) — the parent
+item reading `complete` at 22:36 while children queued is the known
+a-complete-work-item-is-not-a-repaired-artefact shape; only the artefact census
+closes the claim. Scorecard metric moves 3/15 → 18/18. Seam 1 CLOSED as built:
+carrier live, seeded, propagated, measured.
