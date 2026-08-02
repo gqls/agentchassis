@@ -794,3 +794,81 @@ so the count never moved. Had I stopped there I would have told the council
 hour earlier. Third instance today of the same family, now all three on one
 `LANDMINES.md` entry: **a check written in a hurry answers a neighbouring
 question, and the failure is silent exactly when it fails open.**
+
+## 14. Post-deploy verification of B and C, by the lane that wrote them (2026-08-02, after the owner's roll)
+
+The owner rolled the chassis. This is the **B+C lane** checking its own work at the
+running artefact rather than inheriting §11's read — not because §11 was doubted,
+but because "another session says it shipped" is exactly the class of claim this
+directory keeps writing landmines about.
+
+**Sites B and C are LIVE on `v1.0.1228`, both replicas** (`agent-chassis-f8d46bd4c-6rtlj`,
+`-sccnj`, started 08:47 UTC):
+
+| check | 6rtlj | sccnj |
+|---|---|---|
+| `enforceNavPruneFloor` (added, site B) | 2 | 2 |
+| `enforceLinkRegistryFloor` (added, site C) | 2 | 2 |
+| `enforcePageSectionFloor` (site A — pipeline control) | 2 | 2 |
+| one-line `navPageScopeSQL` predicate (added) | 4 | 4 |
+| **NEGATIVE**: the multi-line `AND status IN ('active', 'deployed', 'pending')` the fix REMOVED | **0** | **0** |
+
+The negative control needed two attempts and the first one is in `WRONG_CALLS.md`:
+`^[[:space:]]+AND status IN` returns **20**, because twenty other queries in the
+codebase open a line that way for other tables. A negative control is only a control
+if the string is unique to *your* change — a broad pattern makes it unfalsifiable in
+the alarming direction.
+
+**§11's induction re-verified independently, and it holds.** oufe.com carries 8 nav
+items and **0** rows matching the induction markers, fleet-wide and not just on the
+target site. One `nav_rebuild_refused_incomplete` item at `needs_human_review`,
+severity high, unroutable.
+
+> **CORRECTION to §5 (line ~132) and to `prune_floor.go`'s own comment, both of
+> which say the refusal item carries `handler_agent` NULL.** It does not, and it
+> cannot: `site_work_items.handler_agent` is `NOT NULL DEFAULT ''` since migration
+> 217 (`bugs_closed/078`). The value is `''`, length 0. The *routing* claim is
+> correct — `claim_work_item_action.go:159` treats `''` and NULL identically and
+> says so — but every verification spelled `handler_agent IS NULL` returns false for
+> every row in the table and reads as "a handler IS set". Caught by printing
+> `quote_literal()` instead of testing for NULL. Footprint added to the existing
+> `LANDMINES.md` entry so a grep on the column finds it.
+
+### The one thing that is NOT live: the refusal-sentence fix
+
+`56365d86b` (§12, APPROVED §13) is **committed, council-approved, and absent from
+the running binary.** Verified, both replicas:
+
+```
+the nav already stored still stands              → 0   (the corrected clause)
+a later run that sees the whole corpus will ...  → 1   (the clause it replaces)
+```
+
+It was committed 09:36 UTC; the pods started 08:47 UTC. **Fifty minutes is the whole
+story** — nothing went wrong, the fix simply missed the roll, and a same-tag pod
+would have looked identical to one carrying it. This is the `bugs_open/153` shape
+arriving benignly: the roll is real, the fix is real, and neither fact establishes
+the other.
+
+Consequence worth stating plainly, because it is the only *live* artefact of this
+bug: the durable work item `bf2e9ad6` on oufe.com still ends with **"the rows this
+run did not confirm are retained and a later run that sees the whole corpus will
+prune them"** — the sentence §12 proved false for site B. Any human triaging that
+row today is told to wait for a tidy-up that will never come. It corrects itself on
+the next roll for *future* refusals; the stored row does not, because the sentence
+was rendered at write time.
+
+**Left alone deliberately, flagged rather than fixed.** The row is §11's proof
+artefact and belongs to the induction, not to me; and an `UPDATE` to a work item's
+`spec` to make an old refusal read like a new one would be rewriting evidence. The
+honest options are the lane's call: resolve it as synthetic now that the nav is
+verified intact, or leave it until the next roll and let it stand as the record of
+what the old sentence looked like in production.
+
+### What this changes about closing
+
+Nothing about A or B. It adds a second item to "pending the next roll", and that
+item is cosmetic in the sense that no delete is unguarded because of it — but it is
+*not* cosmetic to the operator it misdirects. **165's closing question is unchanged
+and still an owner call** (§11): whether live + mutation-proven + provably-inert
+clears the bar for site C.
