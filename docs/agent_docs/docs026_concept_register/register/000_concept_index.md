@@ -1,11 +1,11 @@
 # Concept Index — master register
 
-**1,700 index table rows** across **109** category register files, measured
-2026-08-02 after ADO-039 + ADO-040 landed, with the command written into the line
+**1,701 index table rows** across **109** category register files, measured
+2026-08-02 after LNK-028 landed, with the command written into the line
 as the previous thread asked:
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,700  ← THIS is the headline number
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,701  ← THIS is the headline number
 cat *.md | grep -c '^### '                                       # 1,738  (headings; always higher)
 ls *.md | grep -vc 000_concept_index                             # 109    (files)
 ```
@@ -16,7 +16,7 @@ tried and said so plainly rather than incrementing a figure it could not derive.
 That was the right call, and leaving the line unreproducible for ever is not — so
 the count is now RE-BASED on the grep this file already documented, and the two
 other measures are kept beside it because they answer different questions. The
-gap between rows (1,700) and headings (1,738) is real and expected: a heading
+gap between rows (1,701) and headings (1,739) is real and expected: a heading
 exists for entries that were never given an index row, so **a widening gap is
 itself the signal that entries are being written without being indexed.** The
 file count was 109, not 110, on every measurement anyone has recorded.
@@ -73,7 +73,25 @@ fixed and nobody noticed. **Measured with a stated command, since this file asks
 for one:** `grep -c "^| [A-Z]*-[0-9]" 000_concept_index.md` = **1,701** with that
 row in (1,700 without it). That is the index-table row count, not the 1,696 in
 the headline, and it is offered as evidence rather than as a correction — the
-headline is left alone, per the note above
+headline is left alone, per the note above.
+
+> **CORRECTED 2026-08-02 (LNK-028 thread) — that paragraph's `1,701` is NOT the
+> headline's `1,701`, and the collision is a coincidence of two different
+> commands measured on two different days.** The LNK-027 note used the LOOSE
+> regex `^| [A-Z]*-[0-9]`; the headline uses the STRICT one this file documents,
+> `^\| [A-Z]{2,4}-[0-9]{3} \|`. Measured together, on one tree, today:
+> strict **1,700 → 1,701** with LNK-028's row in; loose **1,706 → 1,707**. So the
+> loose command has read 6 higher than the headline all along — it also matches
+> rows whose id is not a register id — and the two numbers agreeing at 1,701 on
+> different dates means nothing. **State which command produced a figure, in the
+> same breath as the figure**; two counts of "the same thing" that answer to
+> different regexes are two measurements, not a corroboration.
+
+Then 1 more (LNK-028) added 2026-08-02 from the `bugs_open/097` fix — link
+resolution over the STORED `content_data`, the third copy of a page's links and
+the only one nothing resolved, nominating candidates by field NAME at any depth
+and judging them by VALUE so that nesting cannot hide a link and no exclusion
+list is needed. Strict-regex count re-measured with it in: **1,701**
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
@@ -1721,6 +1739,7 @@ an ID prefix, or a status word.
 | LNK-017 | prepare_link_context available_pages gap on the work-item path | deployed | FIXED + LIVE 2026-07-31 (bugs_closed/092, v1.0.1219): reads pages itself under the deploy gate's own predicate; empty list instructs "no internal links" instead of saying nothing. Induced run: 0 -> 27 pages, source=database | link-management.md |
 | LNK-026 | link_constraints.go, the dead second implementation (RETIRED) | deleted | 173-line near-duplicate of prepare_link_context with zero callers, deleted 2026-07-31; retires the "do NOT wire InjectLinkConstraints" landmine | link-management.md |
 | LNK-027 | repairComponentHTMLBeforePersist: single-component link repair for sibling writers | built | Wraps LNK-024's seam with a one-element slice for writers that persist rendered_html outside SavePageSectionsAction; plus a pre-commit check so the next such writer announces itself | link-management.md |
+| LNK-028 | RepairContentDataLinks: link resolution over the STORED content_data | built | The third copy of a page's links — what re-renders are rebuilt FROM — had no resolver; nominates by field NAME at any depth, judges by VALUE, so nesting cannot hide a link and no exclusion list is needed | link-management.md |
 | SYS-026 | site_work_items domain → pipeline column rename | deployed | Work-routing column renamed to eliminate collision with the site's own domain name | system-architecture.md |
 | DEV-079 | Data-path resolution problem (agent vs local action nesting) | superseded | Workflow config referenced CollectedData paths that didn't match where actions actually stored results. | development-guide.md |
 | DEV-028 | Deploy-ordering hard gate for coupled Go action + workflow-config changes | deployed | Workflow jsonb is live instantly; wiring to a not-yet-deployed action breaks every run of the agent. | development-guide.md |
