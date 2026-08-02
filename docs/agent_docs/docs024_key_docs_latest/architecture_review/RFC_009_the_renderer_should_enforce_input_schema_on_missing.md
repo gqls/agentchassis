@@ -69,6 +69,62 @@ Two costs are measured rather than asserted:
 Every one of those is downstream of the template author's decision. None is the
 enforcement point.
 
+## SIZING, measured 2026-08-02 after the RFC was first written — and it changes the picture
+
+The RFC originally argued from two incidents. Here is the corpus, which is a
+better basis for the decision and which nobody had measured.
+
+**1. The contract is mostly ABSENT, not mostly disobeyed.** Across every active
+component's `input_schema.fields`:
+
+| `on_missing` | fields | components |
+|---|---|---|
+| **(not declared at all)** | **1,938** | **116** |
+| `skip_field` | 181 | 56 |
+| `use_fallback` | 21 | 9 |
+| `skip_section` | 15 | 14 |
+| `needs_human_review` | 8 | 6 |
+
+**~90% of fields (1,938 of 2,163) declare no `on_missing` whatsoever.** So a
+render-time gate driven by `on_missing` would be **inert for nine fields in ten**
+on day one. Its reach is not a function of how well it is built; it is a function
+of a declaration most component authors do not make. That is the single most
+important number here and it cuts against option A being a general answer.
+
+**2. The live violation surface is 68 fields across 20 components** — declared
+`skip_field`, referenced by their template, with no `{{if .field}}` gate anywhere:
+
+```
+platform-comparison   15   (row1_platform1_value … row5_spark_value)
+product-specs          8   (spec_1_value … spec_8_value)
+system-stats           8   (stat1_label … stat4_description)
+featured_article       6   hero-tool 5   case-studies-grid 5   Pricing Tiers 4
+archetype-result-card 3   bayesian-ranking-hero-tool_pre_037 3
+about-hero / case-studies-hero / contact-hero / hero / services-hero  1 each (subheadline)
+content-listing 1   portfolio-showcase 1   social_proof 1   about-commercial-block 1
+```
+
+*[APPROXIMATE — this tests for a gate anywhere in the template, not a block-stack
+scope check, so it over-counts a field gated in one place and used bare in
+another. It does not under-count.]*
+
+**3. And these are a DIFFERENT, milder class than `140`.** This is the
+distinction the decision turns on:
+
+- **`140`'s class — ungated AND substituting a literal.** The platform *asserts a
+  false fact*: an invented phone number, invented opening hours. **Fleet-wide
+  count today: 0.** `check_placeholder_fallbacks.py` (CGV-029) covers exactly this
+  and reports clean across 173 active components.
+- **The 68 above — ungated with NO fallback.** The platform renders a *blank*: an
+  empty table cell in `platform-comparison`, an empty spec row in
+  `product-specs`, a missing subheadline. Bad, sometimes visibly so on a spec
+  sheet, but it **asserts nothing untrue**. Nothing currently detects it.
+
+So the harm this RFC would prevent is mostly **blanks, not fabrications** — the
+fabrication class is already closed by a lint that needs no roll and no schema
+declaration. That materially weakens the urgency argument in the section above,
+and it is why the recommendation below has changed to prefer the cheap options.
+
 ## The shape being proposed (not yet designed)
 
 A render-time gate driven by `input_schema.on_missing`, applied **once** at the
@@ -109,13 +165,63 @@ declared `use_fallback` yields its declared `fallback` value.
 - Not that this is urgent. Two instances in eleven weeks, one now closed at
   source, with a standing lint that would surface a third.
 
-## Recommendation
+## THE DECISION — four options, costed
 
-Decide the LAYER question (3 vs 5 above) before anyone writes code. A
-write-path refusal is contained and cheap and only helps future components; a
-render-time gate is general and can break live pages. **They are not the same
-proposal and picking one is a human call**, which is why this is an RFC rather
-than a task.
+Not "should we do this" but "at which layer, and is it worth it". The sizing above
+should be read first; it moved my own recommendation.
+
+**A — Render-time gate.** `executeGoTemplate` reads `on_missing` and enforces it:
+`skip_field` + absent ⇒ nothing, whatever the template says.
+*Reach:* every render, all 173 components. *Fixes:* all 68 blank-field violations
+at once, and any future one, without touching a template.
+*Cost:* the schema is not in scope at execution — plumbing first. Can BREAK LIVE
+PAGES: any of the 173 templates whose current output depends on a bare
+`{{.field}}` rendering empty changes behaviour on the roll, and the ones most
+likely to are the 20 already in violation. *And it is inert for ~90% of fields*,
+which do not declare `on_missing` at all. Highest power, highest risk, worst
+reach-per-unit-effort.
+
+**B — Write-path refusal.** `store_generated_component` refuses a new/updated
+template that leaves a declared `skip_field` ungated, or that gives a fact-shaped
+`{{else}}` literal.
+*Reach:* new and rewritten components only. *Fixes:* nothing that exists today.
+*Cost:* low, contained, cannot break a live page — it only ever refuses a write.
+Needs calibration against the real corpus or it will refuse legitimate work (the
+lesson `component_write_guard.go`'s header is built around).
+Closes the door at birth; leaves the 68 where they are.
+
+**C — Promote the lint (CGV-029) from advisory to routine.** It already exists,
+needs no roll, no schema declaration, and is the only defence that does not depend
+on `on_missing` being declared. Extend it to also report the 68 ungated
+`skip_field` fields, and run it on a schedule or from the existing sweep rather
+than by hand.
+*Reach:* the whole live library, both classes. *Fixes:* nothing automatically —
+it reports. *Cost:* hours, not days. Cannot break anything.
+
+**D — Do nothing further.** The fabrication class is closed and measured at 0
+fleet-wide. The remaining 68 are blanks, not false claims. Accept that a third
+incident, if it comes, is caught by the lint and fixed per-component as the first
+two were.
+
+### Recommended: **C now, B next, A only on evidence**
+
+The sizing inverted my original instinct. **A is the architecturally satisfying
+answer and the poorest value**: it is the only option that can break live pages, it
+requires plumbing the schema into the renderer, and after all that it is inert for
+nine fields in ten because the declaration it depends on is usually missing. **The
+`on_missing` contract is too sparsely populated to be load-bearing**, and making it
+load-bearing is a bigger cultural change (get 1,938 fields declared) than a
+technical one.
+
+C is cheap, safe, already built, and covers the class A cannot (undeclared
+fields). B closes the door for new components at low risk. A becomes worth
+revisiting **if** the declaration rate rises, or **if** a third *fabrication*
+incident occurs despite the lint — which would be evidence the lint is the wrong
+layer. Neither is true today.
+
+**What I would want from you:** just the C/B/A/D call. If C, I would also want to
+know whether "routine" means scheduled or wired into the existing discovery sweep
+— the second is more useful and slightly more invasive.
 
 ## Sources
 
