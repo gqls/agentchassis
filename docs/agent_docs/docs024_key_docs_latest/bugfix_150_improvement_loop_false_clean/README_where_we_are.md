@@ -165,3 +165,40 @@ now written down as a standing check.
 
 The error path is the nasty half of this class: it might not fire for months, so a
 successful test run tells you nothing about it.
+
+**2026-08-02, later — you asked for the check to run automatically, so it does**
+
+It now runs itself once a day, against the live system, and records what it found each
+time.
+
+The reviewer's point that prompted this was the best one of the round: the check
+existed, worked, and reported problems — but nothing ever ran it. I confirmed that was
+true of every other audit script here too, not just mine.
+
+One design choice worth explaining, because the obvious answer is wrong. The natural
+place to put a check is "when someone commits code". That would not work here: when
+somebody writes a database change, the change has not been applied yet at the moment
+they commit it, so the check would look at the live system, see everything in order,
+and wave it through — passing the exact change that causes the problem. And a good deal
+of configuration here gets changed directly in the database without any commit at all,
+which a commit-time check cannot see even in principle. So it runs on a clock against
+the live system instead.
+
+It writes a note every time it runs, including when it finds nothing. That is
+deliberate: if it only wrote when something was wrong, silence would mean either "all
+clear" or "the job is broken and has not run for a month", and those must not look
+alike.
+
+I proved it works in both directions rather than just watching it pass: a real run
+checked 179 live agents and found nothing, and then I deliberately fed it a question it
+should fail — without touching any real configuration — and confirmed it fails loudly
+and records the failure. I removed that deliberate false alarm afterwards so nobody
+reads it later as a real one.
+
+The honest weak spot: the scheduled job runs a small Python copy of the check rather
+than the original, because running the real one inside the job would mean downloading
+and compiling the whole codebase every night — and a check that breaks for plumbing
+reasons is one people learn to ignore, which puts us back where we started. A copy can
+drift from the original, so there are now two tests that compare them and fail if they
+ever disagree, and I verified those tests genuinely catch a difference rather than
+assuming they would.

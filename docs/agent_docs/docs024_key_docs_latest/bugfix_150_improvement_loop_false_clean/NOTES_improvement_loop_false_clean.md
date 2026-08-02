@@ -266,3 +266,56 @@ HEAD`, overlaying my file and building. So I moved my detector into its own
 4-line dispatch and the script (which without the dispatch would silently fall
 through to the default mode and print the wrong thing). Both follow once that
 session commits.
+
+---
+
+## 2026-08-02, later — the detector now runs on a clock (owner directive)
+
+The council `architecture` seat's low-severity objection turned out to be the most
+useful thing in the round: the detector exited 1 on findings and **nothing ran it**.
+Confirmed before acting — `grep` over `.githooks/`, `scripts/` and the Makefile found
+no gate invoking *any* audit script; `audit-unregistered-actions.sh` (WFA-004) and
+`audit-config-keys.sh` are on-demand too. The owner directed it wired.
+
+**Chose a CronJob over a pre-commit hook, and the first reason is the decisive one:**
+at commit time a migration has not been applied, so live `agent_definitions` still look
+correct — a pre-commit hook would cheerfully pass the very change that re-creates the
+fan-out. And config on this platform is routinely changed straight in the database with
+no commit at all, which a repo-side hook cannot see even in principle. The latency
+argument (a cluster round-trip in ~30 sessions' commit path) is real but secondary; had
+it been the only objection I would have path-scoped a hook instead.
+
+`deployments/kustomize/services/single-owner-carriers-check`, modelled on
+`bugs-open-staleness-sweep` — same image, same secret, same `doc_notes` convention,
+same "connect to Postgres directly, not via kubectl exec" constraint. Daily rather than
+weekly: live agent config changes many times a day here. Needs no GitHub token.
+
+**The deliberate trade, stated because it is the weak point.** The job cannot run the
+Go binary: that needs a clone of a 262M repo plus `go mod download` plus a compile with
+uncertain egress, and **a gate that fails for infrastructure reasons gets ignored** —
+which would leave us exactly where we started, with a mechanism that exists and does
+not protect. So the job carries a Python mirror, buying two drift risks:
+(a) the declared-action literal, (b) a second `WalkSteps`. **(b) is the `bugs_open/144`
+shape and I am not pretending otherwise.**
+
+Both are pinned by `cmd/config-key-audit/cron_parity_test.go`, and — the part that
+matters — **both guards were proven able to fail**:
+- swapping the literal → `TestCronCheckDeclaredListMatchesTheRegistry` fails;
+- deleting the nested-descent line → `TestCronCheckAgreesWithTheGoDetector` fails on
+  exactly the `nested` and `both shapes` fixtures, and on nothing else.
+
+**Parity on the live fleet, and specifically on a NON-EMPTY result.** Both agreed on
+`[]` over the real export, which proves almost nothing — two blind checks agree. So I
+injected a second carrier into the real 1.09MB export (one top-level, one nested inside
+a loop's `substeps`) and got byte-identical findings and exit 1 from both.
+
+**The gate itself proven in both directions.** A real run walked 179 live definitions,
+reported 0 violations, completed, wrote its row. Then a fail-proof run — mutating only
+the *check's own* declared list to include `complete_workflow`, never touching a live
+agent definition — came back **`Failed`** with the full violation report. I deleted
+that run's `doc_notes` row afterwards, since it was a deliberately false finding and
+leaving it would have misled the next reader.
+
+Note the count moved: my local run saw 181 live definitions, the job saw 179, minutes
+apart. Not an error — other sessions change the fleet continuously. Worth remembering
+before treating any such count as a fixture.

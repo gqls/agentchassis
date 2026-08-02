@@ -36,16 +36,36 @@ surfacing here because they change what this file claims:
   **own loader's** result; **none reads a `triage_result`**, and zero steps in
   either child still reference `triage_result` at all. The landmine describes the
   defect being removed, so it corroborates.
-- **`architecture` (low) landed the sharpest practical point and it is CONFIRMED
-  TRUE:** the detector exits 1 on findings but **is not wired into any gate**. A
-  grep over `.githooks/`, `scripts/` and the Makefile finds no gate invoking *any*
-  audit script — `audit-unregistered-actions.sh` (WFA-004) and
-  `audit-config-keys.sh` are on-demand too. So the durable half is durable only
-  when someone runs it. **Deliberately not wired unilaterally**: the check needs
-  live DB state via `kubectl`, and adding a cluster round-trip to every commit on
-  a tree with ~30 concurrent sessions is a latency and hang risk that is an owner
-  decision, not a bug-fix thread's. **This is the one open item this RFC leaves**,
-  and it is shared by the whole audit-script family rather than introduced here.
+- **`architecture` (low) landed the sharpest practical point** — the detector "exits 1
+  on findings but isn't wired into an existing CI/build gate … or the detector is
+  inert-by-omission the same way the field is inert-by-design". It was, and no other
+  audit script in the repo was wired either. **CLOSED 2026-08-02 on the owner's
+  direction:** `deployments/kustomize/services/single-owner-carriers-check` — a daily
+  CronJob, live in `ai-persona-system`.
+  **Why a CronJob and not a git hook, first reason decisive:** at commit time a
+  migration has *not been applied*, so live definitions still look correct — a
+  pre-commit hook would pass the very change that re-creates the fan-out. Config here
+  is also routinely changed straight in the database with no commit at all, which a
+  repo-side hook cannot see even in principle. (Second reason: it would put a cluster
+  round-trip in ~30 sessions' commit path.)
+  **The trade it buys, and how that is contained.** The job cannot run the Go binary —
+  that needs a clone of a 262M repo plus `go mod download` plus a compile with
+  uncertain egress, and *a gate that fails for infrastructure reasons gets ignored*. So
+  it carries a Python mirror, which risks (a) a stale declared-action literal and (b) a
+  second traversal — **the exact `bugs_open/144` shape**. Both are pinned by tests in
+  `cmd/config-key-audit/cron_parity_test.go`, and both were **proven able to fail** by
+  mutation: swapping the literal fails (a); deleting the nested-descent line fails (b)
+  on precisely the nested and both-shapes fixtures.
+  **Parity checked on the live fleet, and on a NON-EMPTY result** — because two checks
+  agreeing on `[]` proves nothing. Injecting a second carrier into the real 1.09MB
+  export (one top-level, one nested inside a loop's `substeps`) yields byte-identical
+  findings and exit 1 from both.
+  **The gate itself proven in both directions**: a real run walked 179 live definitions,
+  reported 0 violations and completed; a fail-proof run — mutating only the *check's own*
+  declared list, never a live agent definition — came back **`Failed`** with the full
+  violation report and a `doc_notes` row. It writes ONE row per run *including on a
+  clean result*, so a missing row means the job did not run, which is not the same as
+  "nothing is wrong" and must not look like it.
 
 **Proven at the artefact** (orchestration `9dda4fb1`, vetcomparison.uk, after
 286+288): both children reached `complete` with their step removed — no strand —
