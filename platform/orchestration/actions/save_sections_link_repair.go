@@ -35,6 +35,16 @@
 // have already diverged once (016b §9, "fix applied to one, other left stale").
 // After this change the outbound pass is belt-and-braces on the body sections,
 // which is the correct relationship between a gate and a persistence guard.
+//
+// THE THIRD REPRESENTATION (bugs_open/097, 2026-08-02). A page has three copies
+// of its links, not two: the deployed string, the stored rendered_html, and the
+// content_data the platform RE-RENDERS FROM. This file's repair covers the
+// second; every pass above covers the first. Nothing covered the third, so a
+// dead href was regenerated from source on every re-render, silently repaired
+// again on the way out, and never reported as the authoring defect it is.
+// repairSectionsBeforePersist now runs both halves off ONE page index — see
+// save_sections_content_data_links.go for the rule and for why its phantom arm
+// reports rather than blanks.
 
 package actions
 
@@ -134,6 +144,34 @@ func repairSectionsBeforePersist(
 		return
 	}
 
+	origin := linkRepairOrigin{
+		AgentType:  params.AgentType,
+		StepName:   stepName,
+		ActionName: "save_page_sections",
+		PageName:   pageName,
+		PageURL:    pageURL,
+	}
+
+	// The content_data half (bugs_open/097), on the SAME index this pass uses.
+	// Loading it twice would be two chances for the markup repair and the
+	// source-data audit to disagree about what a real page is, which is the
+	// divergence validate_page_content.go:272-277 already refuses between its
+	// own check and repair. Run BEFORE the markup repair so a rewritten source
+	// field and the anchor rendered from it are corrected in the same save
+	// rather than one save apart. See save_sections_content_data_links.go.
+	contentFindings := auditSectionContentDataLinks(sections, index, indexOK)
+	if len(contentFindings) > 0 {
+		cdRewritten, cdPhantom := countContentDataLinkFindings(contentFindings)
+		// Distinctive compiled string: the pod-grep marker for this half.
+		logger.Info("SavePageSectionsAction: audited content_data internal links before persist",
+			zap.String("page_name", pageName),
+			zap.String("domain", domain),
+			zap.Int("rewritten", cdRewritten),
+			zap.Int("phantom", cdPhantom))
+		writeContentDataLinkLog(ctx, params, siteID.String(), domain, origin,
+			contentFindings, cdRewritten, cdPhantom, logger)
+	}
+
 	rewritten, unlinked, repairs := repairSectionLinks(sections, index, indexOK)
 	if len(repairs) == 0 {
 		return
@@ -152,14 +190,7 @@ func repairSectionsBeforePersist(
 	// established. A new code would break every query already written against
 	// CONTENT_LINK_REPAIR_DETAIL and would make "which path stopped repairing"
 	// unanswerable, which is the question 097 exists to keep answerable.
-	writeLinkRepairLog(ctx, params, siteID.String(), domain,
-		linkRepairOrigin{
-			AgentType:  params.AgentType,
-			StepName:   stepName,
-			ActionName: "save_page_sections",
-			PageName:   pageName,
-			PageURL:    pageURL,
-		},
+	writeLinkRepairLog(ctx, params, siteID.String(), domain, origin,
 		repairs, rewritten, unlinked, logger)
 }
 
