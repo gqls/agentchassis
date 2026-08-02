@@ -16878,3 +16878,66 @@ rows it asked for (here `^(identity|content_direction)\|`), and any capture that
 stderr in must handle the known error strings ('Unauthorized' is a standing one on this
 cluster — the token dies every 3 days by design). Same family as `kcat -P` exiting 0
 having sent nothing: the instrument's happy path is not the event's happy path.
+
+---
+
+## 2026-08-02 — I told a council twice that my result shape "follows the platform convention", having never grepped for it (bugfix_168 lane)
+
+**The claim.** My new refusal branch in `deploy_image_asset` returned
+`{"deployed": false, "skipped": true, "refused": true, "reason": …}`, and I described it in
+two council submissions as *"the platform's convention for an action that declines"*.
+
+**There was no such convention for the key I used.** The council's `reuse_agent` seat asked
+whether it matched an existing shape or invented one. One grep:
+
+```
+grep -rn '"refused"' --include=*.go platform/ | grep -v _test
+→ platform/orchestration/actions/deploy_image_asset_action.go:145
+```
+
+**Exactly one occurrence in the platform, and it was mine.** The real house style — named as
+such in `ingest_staged_asset_action.go`, the *same asset-deployer agent's* fourth mode — is the
+action's own success flag set false plus a `reason`: `{"ingested": false, …, "reason": …}`.
+`deploy_image_asset` already declined its no-storage-URI case exactly that way, four lines from
+where I was working.
+
+**What caught it:** a reviewer asking "convention or invention?", which I could only answer by
+running the grep I should have run before writing the sentence.
+
+**The cheap check:** **before writing "this follows the existing convention", grep for the
+convention.** It is one command, and the sentence is unfalsifiable to a reader who trusts you —
+a council seat cannot grep, which is precisely why it asked. Reuse-before-recreate is a stated
+platform rule, so "I matched the convention" is a *compliance claim*, and compliance claims
+need the evidence attached like any other.
+
+**The shape worth keeping.** The failure was not writing a slightly different map key; that is
+trivial. It was that I *asserted conformance* to a norm I had never looked up, in a document
+whose whole purpose is to let reviewers check my claims — and the more confident the phrasing,
+the less likely anyone re-derives it. Note also where the precedent lived: **the sibling mode of
+the same agent**, i.e. the first place to look. Related: `a-citation-is-not-a-read`.
+
+## 2026-08-02 — my own fix for one silent failure introduced a second one (bugfix_168 lane)
+
+**The claim, implicitly.** Round 1 of the council caught that my brand-head path helper
+reconstructed a path under the shared asset directory instead of taking the declared value
+whole. I fixed it by refusing any map value that is not an absolute site path — and wrote in
+the code comment that "refusing beats inventing one", as though refusing were self-evidently
+safe.
+
+**The refusal was silent.** `DeployedAssetPath` returned `(AssetPaths{}, false)` and then fell
+straight through to the generic purpose-derived path. An author adding a relative brand-head
+entry by mistake would get **no signal at all** — the artefact would quietly resolve to
+`/assets/images/<purpose>.<ext>` and serve nothing. Caught by the `bug_historian` seat on round
+3, at low severity, in the very fix that had closed the round-1 objection.
+
+**The cheap check:** when you add a defensive branch, **ask what the caller sees when it
+fires**. "Refuses" and "refuses *audibly*" are different guarantees, and a comment saying it
+refuses describes neither. Here the right remedy was not a runtime log but a **test**, because
+the map is a compile-time declaration — a build failure is the only signal that arrives before
+the mistake reaches a site.
+
+**The shape worth keeping.** A fix for a silent-failure defect is exactly the place to check
+you have not added a silent failure, and I did not — I was answering an objection about
+*correctness* and stopped once the value was right. Related: `mutate-the-code-to-prove-the-guard`
+(the mutation I ran proved the branch produced the right path; it did not ask what happened on
+the other arm).
