@@ -728,3 +728,118 @@ exactly that, a per-slot shrink guard in the writer.)
 If the predictions are gone, regenerate them — `prepare_work.sh` then
 `load_decomposition.py --check --all` rewrites `predicted/` without touching the
 database.
+
+## Changing a LOCKED calculator (2026-08-03)
+
+The 12 tool rows carry `lock_type='permanent'`. The lock is real: `save_page_sections`
+guards its writes with `pageComponentAgentWritableSQL`, which is
+`locked_at IS NULL OR (lock_type='timed' AND lock_expires_at < NOW())`, and
+`rerender_page_sections` routes through `save_sections` as **the only writer of
+`rendered_html`**. So a locked row's re-render is computed and thrown away.
+
+Six steps. Steps 1–3 are inert while the row stays locked, which is what makes
+step 4 the only consequential one.
+
+```bash
+cd /home/ant/projects/agentchassis
+LANE=docs/agent_docs/docs024_key_docs_latest/loancalculator_couk
+
+# 1. PROVE IT OFFLINE, BOTH WAYS. Neither run alone is sufficient.
+python3 $LANE/rewrite/verify_rewrite.py            # nothing moved that should not have
+python3 $LANE/rewrite/defect_vectors.py --both     # the thing that SHOULD move, did
+
+# 2. Validate what is about to be stored, then store it (still inert).
+python3 $LANE/rewrite/load_components.py --check
+python3 $LANE/decompose/update_component.py --check <function>
+python3 $LANE/decompose/update_component.py --apply <function>
+
+# 3. ⛔ BACKFILL ANY NEW SCHEMA FIELD, or it renders EMPTY. See below.
+python3 $LANE/decompose/backfill_content_data.py --check <function>
+python3 $LANE/decompose/backfill_content_data.py --apply <function>
+
+# 4. Unlock + file the re-render in ONE transaction, to keep the window shut.
+#    reason=section_data_resolved is REQUIRED — see the branch note below.
+# 5. Verify against the SERVED page.
+# 6. Re-lock, and re-baseline the golden.
+```
+
+### ⛔ A NEW SCHEMA FIELD RENDERS EMPTY UNTIL `content_data` CARRIES IT
+
+`input_schema` carries a `fallback` per field and **the renderer never consults
+it.** The render context is `base ⊕ page_components.content_data ⊕ resolved_data`;
+`RenderTemplate` resolves an unknown key to the **empty string** and logs a `Warn`.
+
+So schema + template is only two thirds of a change. On 2026-08-03 this would have
+shipped the loan-vs-savings accessibility badge as an empty element — the whole
+fix, absent, on a page that would still have passed acceptance, because the
+element is present and no number moved. `backfill_content_data.py --check` names
+exactly the fields at risk. Also in the fleet `LANDMINES.md`.
+
+### The `reason` decides the branch, and the wrong one is expensive
+
+| `spec.reason` | branch | what it does |
+|---|---|---|
+| *(none)* | `render_page` | **assemble-only** — stitches the STORED `rendered_html`. This is what the decomposition rollout used. It will NOT pick up a template change. |
+| `section_data_resolved` / `image_landed` | `rerender_sections` → `save_sections` → `render_page` | re-renders EVERY section from `content_data` through the CURRENT template. **This is the one a template fix needs.** |
+| `cta_links_stale` | as above + CTA recompute | not this. |
+
+**Before firing `rerender_sections` at a decomposed page, check the prose is
+byte-stable** — it re-renders all 51 prose rows too, not just your tool:
+
+```sql
+SELECT count(*) AS prose_rows,
+       count(*) FILTER (WHERE pc.rendered_html =
+         '<section class="ported-prose" data-component="ported-prose">' ||
+         (pc.content_data->>'content') || '</section>') AS reproduces_exactly
+FROM page_components pc
+JOIN pages p ON p.id=pc.page_id JOIN content_components cc ON cc.id=pc.component_id
+WHERE p.site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26' AND cc.function='ported-prose';
+-- 2026-08-03: 51 / 51. If these ever diverge, STOP — a rerender would rewrite prose.
+```
+
+`{{.content}}` is not escaped: `executeGoTemplate` imports `text/template`
+(`call_agent.go:12`). Worth re-checking if that import ever changes — `html/template`
+would turn all 51 prose sections into visible markup in a single pass.
+
+### Unlock and file, in one transaction
+
+```sql
+BEGIN;
+UPDATE page_components pc SET locked_at=NULL, locked_by=NULL, lock_type=NULL
+FROM pages p, content_components cc
+WHERE pc.page_id=p.id AND cc.id=pc.component_id
+  AND p.site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26' AND cc.function='<the tool>';
+
+INSERT INTO site_work_items
+  (id, site_id, page_id, item_type, status, source, pipeline, severity, priority,
+   handler_agent, created_by, summary, spec, created_at, updated_at)
+VALUES
+  (gen_random_uuid(), '0162cde4-633e-45e9-8ca6-87a6b2fe1d26', '<page_id>',
+   'page_rerender', 'triaged', 'decompose-loancalculator', 'build', 'low', 80,
+   'page-rerender', '<your tag>', '<why>',
+   '{"domain":"loancalculator.co.uk","page_id":"<page_id>","filename":"tools/x.html",
+     "page_name":"<page name>","reason":"section_data_resolved"}'::jsonb,
+   now(), now());
+COMMIT;
+```
+
+⚠ **`page_id` goes in the spec AND the column.** ⚠ **File `triaged`, never
+`detected`** — the dispatcher selects `('triaged','approved')` and nothing
+promotes `detected`.
+
+### Re-lock as soon as it is verified
+
+The window between unlock and re-lock is real exposure: the site is
+`rebuild_policy='generic'` and open to the improvement loop for text.
+
+```sql
+UPDATE page_components pc
+   SET locked_at=now(), locked_by='decompose_20260802_proven_calculators',
+       lock_type='permanent'
+FROM pages p, content_components cc
+WHERE pc.page_id=p.id AND cc.id=pc.component_id
+  AND p.site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26' AND cc.function='<the tool>';
+```
+
+Then **re-capture the golden**, or the next comparison reports your own fix as a
+regression.

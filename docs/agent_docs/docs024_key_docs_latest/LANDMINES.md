@@ -3582,3 +3582,80 @@ deliberately:
   `site-classifier`, after the same session's `report-builder` near-miss made the
   DB-only battery look sufficient.
 - **added:** 2026-08-02, retired_agents lane
+
+---
+
+## A component's `input_schema` fallback is NEVER consulted at render time — a new field renders EMPTY and the deploy reports success
+
+- **footprint:** `content_components.input_schema`, `page_components.content_data`,
+  `platform/orchestration/actions/rerender_page_sections_action.go`,
+  `RenderTemplate` / `executeGoTemplate`
+- **fires when:** you add a field to a component's `input_schema` and a
+  `{{.your_field}}` to its `html_template`, then re-render the pages that use it.
+  No symptom precedes this: the schema validates, the template parses, the loader
+  accepts it, and the page renders.
+- **the tell:** there is none on the page. The render context is
+  `base ⊕ page_components.content_data ⊕ plan.resolved_data` — **`input_schema` is
+  not in that list at all.** `RenderTemplate` resolves an unknown key to the
+  **empty string** and logs a `Warn`; it does not fail, does not fall back to the
+  schema's `fallback`, and does not mark the page. So the placeholder vanishes and
+  everything around it is correct. It is worse than a visible break, because the
+  page still passes structural and numeric acceptance checks: the element is
+  present, and no number moved. **Adding a schema field + a template placeholder
+  is only TWO THIRDS of a change.**
+- **the check:** before re-rendering, diff the schema's field list against every
+  consuming row's `content_data` keys — a field missing from ANY row is a field
+  that will render empty on that page:
+  ```sql
+  SELECT p.name,
+         (SELECT string_agg(k, ', ' ORDER BY k)
+            FROM jsonb_object_keys(cc.input_schema->'fields') k
+           WHERE NOT (pc.content_data ? k)) AS will_render_empty
+  FROM page_components pc
+  JOIN pages p ON p.id = pc.page_id
+  JOIN content_components cc ON cc.id = pc.component_id
+  WHERE cc.function = '<the component>';
+  ```
+  Backfill before you render — and merge `patch || stored`, **not**
+  `stored || patch`, so a live value edited by the writer loop or a human beats a
+  fallback. `loancalculator_couk/decompose/backfill_content_data.py` does exactly
+  this with `--check`/`--apply`.
+- **source:** loancalculator.co.uk, 2026-08-03, caught one step before it shipped.
+  It would have served the `tool-loan-vs-savings` accessibility badge as an EMPTY
+  element — the whole of that fix, absent, on a page whose acceptance check would
+  still have passed — and `tool-consolidation-risk`'s withheld-comparison notice as
+  invisible text in two empty inline colours.
+- **added:** 2026-08-03, loancalculator lane
+
+---
+
+## `toolgolden.py` only ever drives NEIGHBOURHOODS OF THE SHIPPED DEFAULTS, so a boundary defect is invisible to a green equivalence gate
+
+- **footprint:** `loancalculator_couk/toolgolden.py` (`VECTORS`),
+  `loancalculator_couk/rewrite/verify_rewrite.py`,
+  `webdesign_tools_repair/toolprobe.py`
+- **fires when:** you change a calculator and read a green `verify_rewrite.py` /
+  `toolgolden.py --compare` as evidence that the change works. It is strong
+  evidence that nothing *regressed*; it is frequently **no evidence at all** that
+  your fix is present.
+- **the tell:** none — the gate prints `MATCHES` and an id-field count, which reads
+  as coverage. `VECTORS = [("defaults", 1.0), ("double", 2.0), ("half", 0.5)]`
+  scales each numeric field's **own default**. That is a good policy (it keeps
+  every value in its intended domain for any tool, with no per-tool config) and it
+  means the driver never leaves the neighbourhood of the shipped defaults. Any
+  defect at a boundary is unreachable: **0** is not a scaling of an APR default of
+  8.9, and a **blank** field is not a scaling of anything, because the driver fills
+  every numeric input it can find. Measured on this lane: two fixes reported
+  `MATCHES` both **before and after**, having asserted nothing about either.
+- **the check:** write a case that drives the defect condition itself, and prove
+  the case can FAIL — render the component from a pinned pre-fix sha
+  (`git show <sha>:<path>`, never `HEAD`, which stops being a control the moment
+  you commit) and require the same case to READ DIFFERENTLY, not merely to fail.
+  Scoring on pass/fail is weaker and partly wrong: a case asserting "£448.024
+  before, £448.02 after" passes on both sides and is the most exactly specified
+  case you have. `loancalculator_couk/rewrite/defect_vectors.py --both` is the
+  worked implementation; it scores each case PROVEN / CONTROL / VACUOUS.
+- **source:** loancalculator.co.uk, 2026-08-03, fixing 0%-APR car finance and a
+  blank-rate consolidation row. The harness then reproduced the same failure in
+  itself within the hour — see its `PRE_FIX_REF` note.
+- **added:** 2026-08-03, loancalculator lane

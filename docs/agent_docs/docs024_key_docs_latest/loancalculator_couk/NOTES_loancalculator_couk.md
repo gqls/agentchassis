@@ -1875,3 +1875,168 @@ is now proven stable across two chassis images.
 
 The earlier roll counts too: the chassis rolled at `18:39:14Z` mid-rollout, 26 of
 27 pages rendered after it and 1 before, all matching the same predictions.
+
+---
+
+## 2026-08-03 — the four queued calculator defects
+
+Taken in the order the 08-02 handoff set. All four are *deliberate* behaviour
+changes, which is why they were kept out of the port: equivalence was the
+contract then, and a port that quietly printed £448.02 would have been changing
+the page under cover of a rewrite.
+
+| tool | defect | fix |
+|---|---|---|
+| `tool-overpayment-impact` | `£448.024` — `toLocaleString` with no `maximumFractionDigits`, whose default max is 3 | `maximumFractionDigits: 2` |
+| `tool-car-finance-pcp-hp` | 0% APR computed nothing; the tool kept showing the last rate's figures | a linear branch at `r === 0`, the annuity formula's limit |
+| `tool-consolidation-risk` | a debt with a balance but no rate counted toward the balance and contributed no interest | a blank rate is distinguished from a zero rate; an incomplete row WITHHOLDS the comparison |
+| `tool-loan-vs-savings` | the verdict was carried by the `.winner` colour alone | a text badge in the winning panel, exactly one non-empty at a time |
+
+### The finding worth carrying off this lane: HALF THESE FIXES ARE INVISIBLE TO THE GATE
+
+`toolgolden.py` derives its vectors by scaling each numeric field's **own
+default** (×1, ×2, ×0.5). That is a good default policy and it has a consequence
+that is easy not to notice: **the gate only ever visits neighbourhoods of the
+shipped defaults.** Two of these four defects live outside every such
+neighbourhood —
+
+- car finance breaks at APR **0**, and the APR default is 8.9. No scaling of 8.9
+  is 0.
+- consolidation breaks on a **blank** rate, and the driver fills every numeric
+  field it can find, so every row it builds is complete.
+
+Measured, not reasoned: `verify_rewrite.py` reports **MATCHES** for both tools
+before *and* after the fix. A green gate said nothing whatever about either.
+
+So `rewrite/defect_vectors.py` was written to drive the defect conditions
+explicitly, with every expected value derived **by hand from the arithmetic** —
+capturing them from the tool would only re-record the bug. It renders the
+components from a pinned git sha as a negative control and scores each case on
+whether it **DISCRIMINATES**, not on pass/fail.
+
+Result: **4 PROVEN, 3 CONTROL, 0 vacuous.** And the equivalence gate answers the
+complementary question — 9 of 11 tools MATCH; the two that diverge do so only on
+the intended keys (`save-display`, and four `text/display` keys on
+loan-vs-savings with `loan-benefit`/`save-benefit` **unmoved**, so no number
+changed).
+
+### MISSTEP 1 — my own arithmetic was wrong, and the harness caught it
+
+The consolidation control case expected `£1,688.83` for £5,000 at 20% over 36
+months. The tool said `£1,689.45`. **The tool was right.** I had rounded the
+monthly payment to 185.80 before multiplying by 36; at full precision it is
+185.817917 and the interest is 1689.445.
+
+The lesson is not "be careful with arithmetic" — it is that an expectation
+derived independently is worth writing precisely *because* it can disagree with
+the code, and the disagreement has to be adjudicated rather than assumed in
+either direction. Had I captured the expectation from the tool, this case would
+have "passed" while asserting nothing.
+
+### MISSTEP 2 — the negative control stopped being one the moment I committed
+
+`defect_vectors.py` first read its baseline from `git show HEAD:`. That is
+correct for exactly as long as the fixes are uncommitted. One commit later, HEAD
+carried the fix, both sides of `--both` staged the *same* component, and every
+case reported VACUOUS.
+
+**It was only caught because the scoring had already been changed to compare
+readings rather than pass/fail.** The earlier pass/fail version would have called
+that same run **PROVEN** — a negative control that silently stops being one while
+still printing a reassuring word. That is the exact failure this file exists to
+argue against, reproduced by the file itself within an hour of writing it.
+
+Fixed by pinning `PRE_FIX_REF = 6e8098022` (absolute sha, `--ref` to override).
+**A baseline must name a commit that cannot move under it.**
+
+### CORRECTION — the rate-less debt biased the verdict the OTHER way
+
+The `tool-consolidation-risk` template carried this note:
+
+> a half-filled row quietly makes consolidation look **better** than it is,
+> because the new loan charges interest on a balance whose existing interest was
+> never counted.
+
+**That is backwards, and its own stated reason contradicts it in the same
+sentence.** Omitting a debt's existing interest *understates* `oldTotalInterest`;
+`newTotalInterest` still charges the new rate on the full balance; the verdict
+tests `newTotalInterest > oldTotalInterest`. Understating the old side biases the
+verdict toward **WORSE** — the tool talked the reader out of a consolidation that
+might have been right for them.
+
+Measured rather than argued. Driven at the pinned pre-fix sha, a £5,000 debt with
+a blank rate produces:
+
+```
+old-int  £0.00
+new-int  £1,359.36
+verdict  "⚠️ Term Extension Risk: Consolidating will cost you £1,359.36 MORE in total interest."
+```
+
+What made this catchable was reading the reason clause against the conclusion,
+not re-deriving the arithmetic: a sentence whose "because" does not support its
+claim is worth stopping on, in your own writing and anyone else's.
+
+### The design call on consolidation, stated because it was a call
+
+Two candidates for a rate-less row:
+
+- **exclude the row** from the balance too, restoring like-for-like arithmetic;
+- **withhold the comparison** until the row is complete.
+
+Withholding was chosen. Excluding silently answers a *different* question from
+the one the reader asked — they would see a confident verdict computed over a
+subset of their debts with nothing on the page saying so. Withholding cannot
+state a wrong comparison at all, which is the property worth having on a page
+about mis-selling risk. The balance is still shown (it is a fact, independent of
+any rate); the three interest figures show `—`; the verdict box says what is
+missing. **This is a judgement call, not a forced move** — if the owner prefers
+exclusion it is a small change.
+
+### THE TRAP THAT NEARLY SHIPPED: a new schema field renders EMPTY
+
+Caught one step before it would have gone live, and it would have looked exactly
+like success.
+
+`content_components.input_schema` carries a `fallback` for every field and it is
+natural to assume the renderer consults it. **It does not.** The render context in
+`rerender_page_sections_action.go` is
+
+```
+base ⊕ page_components.content_data ⊕ plan.resolved_data
+```
+
+and `input_schema` is not in that list at all. `RenderTemplate` resolves an
+unknown key to the **empty string** and logs a `Warn` — it does not fail, does not
+fall back, and does not mark the page.
+
+So adding a required field to a schema and a `{{.field}}` to a template is only
+**two thirds** of a change. Without the backfill this would have shipped:
+
+- `tool-loan-vs-savings` with an **empty accessibility badge** — the entire fix,
+  rendering to nothing, on a page that would still have passed its acceptance
+  check, because the element is present and no number moved;
+- `tool-consolidation-risk` with an invisible notice in two empty inline colours.
+
+`decompose/backfill_content_data.py` closes it: it adds schema fields the row does
+not carry, using the schema's own fallback, and it merges `patch || stored` so it
+can only ADD — a live value edited by the writer loop or a human must beat a
+fallback, and the tool cannot tell an intentional edit from a stale one. Applied:
+**4 fields across 2 rows**, exactly the 4 the schemas gained.
+
+### Two things checked before firing `rerender_sections`, which had never run here
+
+The decomposition shipped through the *assemble-only* branch (`render_page`, no
+`reason`). These fixes need `reason=section_data_resolved`, which takes
+`rerender_sections` and re-renders **every** section from `content_data` — a path
+never exercised on this site.
+
+1. **Is the prose re-render byte-stable?** The `ported-prose` template is
+   `<section class="ported-prose" data-component="ported-prose">{{.content}}</section>`.
+   All **51 of 51** prose rows reproduce their stored `rendered_html` exactly from
+   `content_data.content` through it (checked in SQL, not inferred).
+2. **Does the engine escape?** If `executeGoTemplate` used `html/template`,
+   `{{.content}}` would be HTML-escaped and all 51 prose sections would turn into
+   visible markup. It imports `text/template` (`call_agent.go:12`). Verified
+   rather than assumed, because the failure would have been site-wide and
+   irreversible in one pass.
