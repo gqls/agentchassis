@@ -79,8 +79,10 @@ func assertNewPageInsert(t *testing.T, plan map[string]interface{}, wantName, wa
 			sqlmock.AnyArg(), // in_footer
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(pageID))
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	res, err := applyNewPage(context.Background(), db, plan, uuid.New(), "example.com", nil, zap.NewNop())
 	if err != nil {

@@ -35,6 +35,12 @@ func newInsertMock(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 // expectInsertWithSummaryAndStatus asserts the row is written with a specific
 // summary ($6) and status ($12) — the two fields the anti-churn block rewrites.
 // Everything else is positional noise for this test's purposes.
+//
+// The arg COUNT is load-bearing even though most args are AnyArg: sqlmock fails
+// on a length mismatch. That is why insertWorkItem appends parent_item_id ($17)
+// only for the callers that set one — an unconditional column failed twenty
+// tests in eight files that had nothing to do with the change
+// (bugs_open/091 candidate 1, 2026-08-02).
 func expectInsertWithSummaryAndStatus(mock sqlmock.Sqlmock, summary, status string) {
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WithArgs(

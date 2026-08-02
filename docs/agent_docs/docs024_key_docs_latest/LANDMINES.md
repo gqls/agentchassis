@@ -3719,3 +3719,106 @@ says orange, which works and hides it.
 
 - **source:** 2026-08-03, `idea_uk_vm_site/RUNNING_NOTES` §X.40; RUNBOOK §4a "Progress" block
 - **added:** 2026-08-03, idea_uk_vm_site lane ("ideauk sec" session)
+
+---
+
+### A keyed work item whose KEY is coarser than its FINDING drops every finding after the first — and the happy path is identical either way, so nothing tells you
+
+- **footprint:** `platform/orchestration/actions/load_work_item_actions.go` (`insertWorkItem`, `writeWorkItem`), `site_work_items`, `idx_swi_dedup`, `item_key`, `refreshOnConflict`, `platform/orchestration/actions/refresh_evidence_base_action.go`, `platform/orchestration/actions/evidence_citations.go`, `platform/orchestration/actions/directory_claims.go`
+
+`insertWorkItem`'s dedup is correct and does what it says: one OPEN row per
+`(site_id, item_key)`. What it does NOT do is keep the FINDING. When the key is
+per SITE and the finding is per FACT/PAGE/CITATION, the second, **different**
+finding hits `ON CONFLICT DO NOTHING` and is gone, and the open row goes on
+describing the first thing it ever saw — for as long as a human leaves it open.
+
+**Why nothing prompts you to check:** the happy path is byte-identical. An insert
+that succeeds behaves the same whether or not the key is granular enough, so the
+defect is invisible in every test, every green build, and every log line except
+one `inserted=false` in a pod that will be replaced. Measured 2026-08-02 on
+`stale_evidence`: **four of five open items named the wrong facts** — one naming a
+completely different fact from the one that had moved, one describing drift that
+no longer existed. Nothing had errored, ever.
+
+**the check:** for any keyed detector, ask **"is this item's `item_key` as
+granular as its finding?"** If the `spec` carries a LIST that will differ next
+run while the key does not, it is dropping findings today. Prove it against the
+live DB — compare what the open item SAYS against what the last run FOUND:
+
+```sql
+SELECT s.domain, swi.spec->'<the list>' AS what_the_record_says, swi.created_at
+  FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+ WHERE swi.item_type='<your type>' AND swi.status NOT IN
+       ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled');
+```
+
+From 2026-08-03 the remedy exists and is opt-in per caller:
+`writeWorkItem(ctx, tx, item, refreshOnConflict, logger)` refreshes the open row's
+`summary`/`spec` instead of discarding the finding (BATCH-005). **It is OFF by
+default and switching a caller on is a judgement, not a formality** —
+`needs_human_review` is deliberately not a "held" status, so a refresh CAN change
+an item under a human who is reading it. Three call sites are in this shape and
+have NOT been switched: `evidence_citations.go` (`citation_unverified:<site>`),
+and `directory_claims.go` twice (`directory_citation_unverified`,
+`stale_directory_claim`).
+
+- **source:** `bugs_open/091`; `docs024_key_docs_latest/bugfix_091_workitem_conflict_refresh/`
+- **added:** 2026-08-03, bugs-sweep lane (bugfix_091)
+
+---
+
+### The anti-churn probe SWALLOWS its own error, so no sqlmock test in `platform/orchestration/actions` can detect a change to `recurrenceExpected`
+
+- **footprint:** `platform/orchestration/actions/load_work_item_actions.go` (`insertWorkItem` two-strike block), `recurrenceExpected`, `platform/orchestration/actions/work_item_recurrence_test.go`, `github.com/DATA-DOG/go-sqlmock`
+
+The two-strike block runs `SELECT COUNT(*) …` and then reads it as
+`if err == nil && terminalCount > 0` — **deliberately**, so a probe failure
+degrades to "no history" rather than blocking the insert. The side effect is that
+a sqlmock test which does not `ExpectQuery` that probe **still passes**: the
+unexpected query returns an error, the error is discarded, and the insert
+proceeds. `ExpectationsWereMet()` does not save you either — it reports
+*unfulfilled* expectations, not *unexpected* calls.
+
+**Why it misleads:** flipping `recurrenceExpected` on a caller changes whether the
+probe runs at all, i.e. whether that caller's items can be suppressed within 3h or
+branded `unresolved` after two strikes — the exact regression `bugs_open/024`
+recorded on the tool fix loop. A full green suite is **not evidence** that you
+have not done it. Found on 2026-08-03 by mutation: clearing the flag failed one
+direct unit test and left three behavioural tests passing.
+
+**the check:** cover `recurrenceExpected` with a **direct assertion on the built
+`workItem`**, never with a behavioural test that drives the action. And when you
+mutate-test anything in this package, remember the observer may be deaf: if a
+mutation does not fail a test, find out whether the guard held or whether nothing
+was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
+
+- **source:** `bugs_open/091`; `docs024_key_docs_latest/bugfix_091_workitem_conflict_refresh/NOTES` 01:10
+- **added:** 2026-08-03, bugs-sweep lane (bugfix_091)
+
+### `agent_definitions.updated_at` is bumped by BULK SWEEPS — a fresh timestamp is not another session working on your agent
+
+- **footprint:** `agent_definitions`, `agent_definitions.updated_at`
+- **fires when:** you check "is anyone else in this agent?" before editing a
+  definition, and read a recent `updated_at` as a person. It reads exactly like
+  an active lane, and the correct response to that (back off, go and find the
+  owner) is expensive and wrong
+- **the tell:** none on the row itself. `version` does not move either — bulk
+  updates are in-place, so a swept row and a hand-edited row are byte-identical
+  in their metadata
+- **the check:** ask whether the timestamp is *shared*. A sweep stamps the same
+  minute across the fleet:
+  ```sql
+  SELECT date_trunc('minute', updated_at) AS minute, count(*)
+    FROM agent_definitions WHERE updated_at > now() - interval '24 hours'
+   GROUP BY 1 ORDER BY 1;
+  ```
+  Measured 2026-08-02: **184 rows at 22:08**, 3 at 21:16, 2 at 22:37. A count in
+  the dozens-to-hundreds is a sweep; a count of 1–3 is someone's hands. Then
+  confirm against the thing that actually matters — diff the **field you care
+  about** against its seed, don't infer from the timestamp. And grep live
+  `.jsonl` transcripts for the **step name**, not the agent type: agent types
+  appear in every fleet census, so they return hits from sessions doing nothing
+  to you (9 sessions matched `domain-research-classifier`; **0** matched
+  `classify_and_extract`, which was the truth)
+- **source:** `bugs_open/183`, filed 2026-08-03
+- **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane

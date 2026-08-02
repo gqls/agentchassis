@@ -239,16 +239,8 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 		summary := fmt.Sprintf("Add content to %s: %s", pageName, truncate(reasoning, 80))
 		itemKey := fmt.Sprintf("gap_plan_add_%s_%s", pageName, siteID)
 
-		_, err = db.ExecContext(ctx, `
-			INSERT INTO site_work_items (
-				site_id, source, pipeline, item_type, severity, summary,
-				spec, page_id, priority, handler_agent, status, created_by,
-				item_key, parent_item_id
-			) VALUES ($1, 'content-gap-planner', 'build', 'content_rewrite', 'medium', $2,
-			          $3::jsonb, $4, 35, 'page-build-handler', 'triaged', 'content-gap-planner',
-			          $5, $6)
-			ON CONFLICT DO NOTHING
-		`, siteID, summary, string(specJSON), pageID, itemKey, originalItemID)
+		_, err = withWorkItemTx(ctx, db, logger, gapPlanWorkItem(
+			siteID, "content_rewrite", summary, string(specJSON), &pageID, 35, itemKey, originalItemID))
 
 		if err != nil {
 			logger.Warn("Failed to create work item for page",
@@ -504,26 +496,15 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 
 	itemKey := fmt.Sprintf("gap_plan_new_%s_%s", pageName, siteID)
 
-	itemRes, err := db.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, page_id, priority, handler_agent, status, created_by,
-			item_key, parent_item_id
-		) VALUES ($1, 'content-gap-planner', 'build', 'needs_content_page', 'medium', $2,
-		          $3::jsonb, $4, 40, 'page-build-handler', 'triaged', 'content-gap-planner',
-		          $5, $6)
-		ON CONFLICT DO NOTHING
-	`, siteID, summary, string(specJSON), pageID, itemKey, originalItemID)
-
+	// bugs_open/091, same shape as the filed case: the write is dedup-guarded, so
+	// it writes nothing when an OPEN item already holds this key — and this used
+	// to report `"item_created": true` regardless, i.e. "no error" rather than
+	// "a record exists". insertWorkItem's own boolean is the thing that knows.
+	itemCreated, err := withWorkItemTx(ctx, db, logger, gapPlanWorkItem(
+		siteID, "needs_content_page", summary, string(specJSON), &pageID, 40, itemKey, originalItemID))
 	if err != nil {
 		return nil, fmt.Errorf("create work item: %w", err)
 	}
-
-	// bugs_open/091, same shape as the filed case: the INSERT is ON CONFLICT DO
-	// NOTHING, so it writes nothing when an item already holds this key — and
-	// this used to report `"item_created": true` regardless, i.e. "no error"
-	// rather than "a record exists". RowsAffected is the only thing that knows.
-	itemCreated := execWroteARow(itemRes)
 
 	// Mark original as complete
 	markOriginalComplete(ctx, db, originalItemID)
@@ -736,24 +717,48 @@ func refuseDeployedPageTypeConflict(
 	}, nil
 }
 
-// execWroteARow reports whether an INSERT actually wrote, for the
-// ON CONFLICT DO NOTHING statements whose callers report a creation
-// (bugs_open/091).
+// gapPlanWorkItem builds the work item every gap-plan arm raises, so all three
+// arms describe the same thing the same way.
 //
-// A driver that does not support RowsAffected returns an error rather than a
-// count; treating that as "written" preserves the previous, optimistic answer
-// rather than inventing a pessimistic one, so an unsupported driver degrades to
-// the old behaviour instead of reporting a false negative. lib/pq does support
-// it, so this is a defensive branch rather than a live one.
-func execWroteARow(res sql.Result) bool {
-	if res == nil {
-		return true
+// WHY THIS EXISTS AT ALL (bugs_open/091, council correlation a5b70424). All three
+// arms used to hand-roll `INSERT INTO site_work_items … ON CONFLICT DO NOTHING`
+// against a *sql.DB, which two seats objected to: the `guidelines` seat because a
+// bare conflict target does not match idx_swi_dedup's partial predicate, and
+// `reuse_agent` because these should inherit insertWorkItem's semantics rather
+// than reimplement half of them. Both were right, and the REASON the fork
+// existed is the interesting part: these items set `parent_item_id`, and the
+// shared `workItem` struct had no field for it — so the shared door was unusable
+// to anyone who needed a parent, and three call sites walked round it. The field
+// exists now; this routes through the door.
+//
+// recurrenceExpected is set DELIBERATELY, and it is what makes this adoption
+// behaviour-preserving rather than a behaviour change riding in on a bug patch.
+// A gap plan asking for a page to be built is an ACTION REQUEST: a completed
+// predecessor means the request SUCCEEDED. Without the flag, adoption would newly
+// suppress an item within 3h of a terminal predecessor and brand it `unresolved`
+// after two — the exact regression bugs_open/024 recorded on the tool fix loop.
+// Dedup itself is NOT waived: idx_swi_dedup still refuses a second OPEN row.
+func gapPlanWorkItem(
+	siteID uuid.UUID, itemType, summary, spec string, pageID *uuid.UUID,
+	priority int, itemKey string, parentItemID *uuid.UUID,
+) workItem {
+	return workItem{
+		siteID:             siteID,
+		source:             "content-gap-planner",
+		pipeline:           "build",
+		itemType:           itemType,
+		severity:           "medium",
+		summary:            summary,
+		spec:               spec,
+		pageID:             pageID,
+		priority:           priority,
+		handlerAgent:       "page-build-handler",
+		status:             "triaged",
+		createdBy:          "content-gap-planner",
+		itemKey:            itemKey,
+		parentItemID:       parentItemID,
+		recurrenceExpected: true,
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return true
-	}
-	return n > 0
 }
 
 // ============================================================================
@@ -913,22 +918,12 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 	summary := fmt.Sprintf("Build re-typed page: %s (now %s) — %s", pageName, targetType, truncate(reasoning, 60))
 	itemKey := fmt.Sprintf("gap_plan_retype_%s_%s", pageName, siteID)
 
-	retypeItemRes, err := db.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, page_id, priority, handler_agent, status, created_by,
-			item_key, parent_item_id
-		) VALUES ($1, 'content-gap-planner', 'build', 'needs_content_page', 'medium', $2,
-		          $3::jsonb, $4, 40, 'page-build-handler', 'triaged', 'content-gap-planner',
-		          $5, $6)
-		ON CONFLICT DO NOTHING
-	`, siteID, summary, string(specJSON), candidateID, itemKey, originalItemID)
+	// bugs_open/091, third site of the same shape — see gapPlanWorkItem.
+	itemCreated, err := withWorkItemTx(ctx, db, logger, gapPlanWorkItem(
+		siteID, "needs_content_page", summary, string(specJSON), &candidateID, 40, itemKey, originalItemID))
 	if err != nil {
 		return nil, fmt.Errorf("create build work item for re-typed page: %w", err)
 	}
-
-	// bugs_open/091, third site of the same shape — see execWroteARow.
-	itemCreated := execWroteARow(retypeItemRes)
 
 	markOriginalComplete(ctx, db, originalItemID)
 

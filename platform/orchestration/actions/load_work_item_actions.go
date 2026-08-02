@@ -1128,6 +1128,18 @@ type workItem struct {
 	batchID      uuid.UUID
 	dependsOn    []uuid.UUID
 
+	// parentItemID links this item to the item that caused it to be raised.
+	//
+	// It exists because its ABSENCE is why three call sites walked round the
+	// shared door. `apply_gap_plan_action.go` needs `parent_item_id` on the items
+	// it raises, this struct had no field for it, so all three hand-rolled their
+	// own `INSERT … ON CONFLICT DO NOTHING` — inheriting none of the anti-churn,
+	// none of the honest boolean, and a bare conflict target that does not match
+	// idx_swi_dedup's partial predicate. Two council seats on correlation
+	// a5b70424 objected to exactly that (bugs_open/091). A missing field on a
+	// shared helper is not a small gap: it is a standing invitation to fork it.
+	parentItemID *uuid.UUID
+
 	// recurrenceExpected marks an item whose RE-REQUEST is normal, rather than
 	// evidence that previous handlers failed to fix something.
 	//
@@ -1151,7 +1163,67 @@ type workItem struct {
 	recurrenceExpected bool
 }
 
+// conflictPolicy decides what happens when a keyed item arrives and an OPEN item
+// already holds that key.
+//
+// It is a PARAMETER of writeWorkItem rather than a field on workItem, and that is
+// deliberate. As a field, a caller could set it and still call insertWorkItem —
+// whose single bool cannot express a refresh, so the caller would silently be told
+// "nothing happened" about a write that did happen. As a parameter, the old
+// function cannot receive it and the mistake does not compile.
+type conflictPolicy int
+
+const (
+	// dropOnConflict is today's behaviour, unchanged and the default: the open
+	// item wins and the arriving finding is discarded. Right when the second
+	// finding SAYS THE SAME THING as the first — which is the common case, and
+	// why this is the default.
+	dropOnConflict conflictPolicy = iota
+
+	// refreshOnConflict brings the open item's DESCRIPTION up to date instead of
+	// discarding the finding. For a detector keyed per SITE rather than per
+	// finding, a second, DIFFERENT finding arriving while an item is open is not
+	// a duplicate — dropping it leaves a durable record that describes something
+	// that is no longer true, and the human who opens it is sent to the wrong
+	// place (bugs_open/091: four of five open stale_evidence items named the
+	// wrong facts on 2026-08-02).
+	//
+	// The row stays SINGLE — dedup is not waived, and this is not a route to
+	// filling the needs_human_review queue (bugs_open/033's owner ruling).
+	refreshOnConflict
+)
+
+// workItemWrite is the honest outcome of a work-item write. It exists because a
+// bool cannot carry it: `ON CONFLICT … DO UPDATE` affects a row, so RowsAffected
+// would read "true" for a write that created nothing — reintroducing, inside
+// 091's own fix, the exact dishonesty 091 was filed about.
+//
+// Recorded() is what a caller usually wants ("does a durable record now describe
+// my finding?"). Inserted is what a field NAMED "created" must be set from.
+type workItemWrite struct {
+	// Inserted: a NEW row was written.
+	Inserted bool
+	// Refreshed: an existing OPEN row's summary/spec were brought up to date.
+	// Only reachable under refreshOnConflict.
+	Refreshed bool
+}
+
+// Recorded reports whether a durable record now describes this finding, however
+// it got there.
+func (w workItemWrite) Recorded() bool { return w.Inserted || w.Refreshed }
+
+// insertWorkItem writes a work item and reports whether a NEW ROW was created.
+// It is the entry point for every caller that does not care about refreshes,
+// which is all of them but one; its behaviour is byte-identical to before the
+// conflict policy existed.
 func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.Logger) (bool, error) {
+	w, err := writeWorkItem(ctx, tx, item, dropOnConflict, logger)
+	return w.Inserted, err
+}
+
+// writeWorkItem is insertWorkItem with the conflict policy made explicit and the
+// outcome told in full. See conflictPolicy for why the policy is a parameter.
+func writeWorkItem(ctx context.Context, tx *sql.Tx, item workItem, policy conflictPolicy, logger *zap.Logger) (workItemWrite, error) {
 	var batchIDPtr *uuid.UUID
 	if item.batchID != uuid.Nil {
 		batchIDPtr = &item.batchID
@@ -1182,7 +1254,7 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 					zap.String("item_key", item.itemKey),
 					zap.Float64("age_hours", newestAge),
 				)
-				return false, nil
+				return workItemWrite{}, nil
 			}
 
 			// Two strikes: handler had 2 chances and the issue persists.
@@ -1217,31 +1289,47 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 		dependsOnStr = &ids
 	}
 
+	args := []interface{}{
+		item.siteID, item.source, item.pipeline, item.itemType, item.severity,
+		item.summary, item.spec,
+		item.pageID, item.componentID, item.priority, item.handlerAgent, item.status, item.createdBy,
+		itemKeyPtr, batchIDPtr, dependsOnStr,
+	}
+
+	// parent_item_id is appended as $17 ONLY when a parent was given, so a caller
+	// that never asked for it sends the identical statement with the identical
+	// sixteen arguments it always sent. That is not tidiness — WIDENING A SHARED
+	// STATEMENT BREAKS CALLERS NOBODY EDITED. Adding the column unconditionally
+	// failed twenty tests across eight files in lanes other sessions are working
+	// right now (sqlmock matches the argument COUNT), none of which had anything
+	// to do with this change. A seam whose cost lands on people who did not opt
+	// into it is the drift this repo's council exists to refuse.
+	parentCols, parentVals := "", ""
+	if item.parentItemID != nil {
+		parentCols, parentVals = ", parent_item_id", ", $17"
+		args = append(args, *item.parentItemID)
+	}
+
 	insertSQL := fmt.Sprintf(`
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity, summary, spec,
 			page_id, component_id, priority, handler_agent, status, created_by,
-			item_key, batch_id, depends_on
+			item_key, batch_id, depends_on%s
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7::jsonb,
 			$8, $9, $10, $11, $12, $13,
-			$14, $15, $16::uuid[]
+			$14, $15, $16::uuid[]%s
 		)
 		ON CONFLICT (site_id, item_key)
 			WHERE item_key IS NOT NULL
 			  AND status NOT IN (%s)
 		DO NOTHING
-	`, sqlInList(workItemTerminalStatuses))
+	`, parentCols, parentVals, sqlInList(workItemTerminalStatuses))
 
-	result, err := tx.ExecContext(ctx, insertSQL,
-		item.siteID, item.source, item.pipeline, item.itemType, item.severity,
-		item.summary, item.spec,
-		item.pageID, item.componentID, item.priority, item.handlerAgent, item.status, item.createdBy,
-		itemKeyPtr, batchIDPtr, dependsOnStr,
-	)
+	result, err := tx.ExecContext(ctx, insertSQL, args...)
 
 	if err != nil {
-		return false, fmt.Errorf("insert failed for %s: %w", item.itemKey, err)
+		return workItemWrite{}, fmt.Errorf("insert failed for %s: %w", item.itemKey, err)
 	}
 
 	rows, _ := result.RowsAffected()
@@ -1252,8 +1340,109 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 			zap.String("status", item.status),
 			zap.Int("priority", item.priority),
 		)
+		return workItemWrite{Inserted: true}, nil
 	}
-	return rows > 0, nil
+
+	// Nothing was inserted: an OPEN item already holds this key. Under the
+	// default policy that is the end of it — and the FINDING is gone with it.
+	if policy != refreshOnConflict {
+		return workItemWrite{}, nil
+	}
+	return refreshOpenWorkItem(ctx, tx, item, logger)
+}
+
+// refreshOpenWorkItem brings the OPEN item holding this key up to date with the
+// finding that just arrived, and reports whether it actually did.
+//
+// A SEPARATE STATEMENT, not a `DO UPDATE` clause on the insert above, for two
+// reasons that are worth more than the extra round trip:
+//
+//   - the insert every other caller uses stays byte-identical, so this seam
+//     cannot change what happens to the ~20 call sites that never asked for it;
+//   - `DO UPDATE` makes RowsAffected() 1 for an update, so the single bool
+//     insertWorkItem returns would start reading "true" for a write that created
+//     nothing. That is precisely the false report bugs_open/091 was filed about,
+//     arriving through 091's own fix.
+//
+// It updates the DESCRIPTION and nothing else. status, priority, handler_agent
+// and severity may all have been moved by a human on the open row; the arriving
+// finding owns what it observed, not how somebody decided to handle it.
+//
+// THE PREDICATE IS THE CONCURRENCY GUARD. No row is locked between the failed
+// insert and this update, so the item may go terminal in between. It is not
+// re-opened: the same terminal-status list that idx_swi_dedup uses means a
+// terminal row simply does not match, zero rows update, and the caller is told
+// nothing was recorded — which is true, and which the next sweep will fix by
+// inserting cleanly. A row a handler currently HOLDS (claimed, diagnosing) is
+// skipped for the same reason in reverse: changing the spec under a running
+// handler is a different bad state, and this seam must not create one.
+// workItemHeldStatuses is the set of statuses at which a handler has actually
+// TAKEN an item and may be acting on its spec right now. It is the complement of
+// "queued but unowned" — `triaged`, `approved`, `needs_human_review` and
+// `detected` are all waiting for someone, so none of them is held.
+//
+// Used by refreshOpenWorkItem (bugs_open/091): a repeat finding may bring an open
+// item's description up to date, but never one that is being worked, because the
+// handler read the spec when it claimed the row and would not see the change.
+//
+// This is NOT interchangeable with workItemTerminalStatuses and must never be
+// folded into it: a held item is emphatically not done, and adding it there would
+// take it out of idx_swi_dedup's predicate and permit a second OPEN row for the
+// same key — the very thing the dedup exists to stop.
+//
+// ⚠ IT BELONGS IN work_items_common.go, beside workItemTerminalStatuses and
+// workItemDispatchableStatuses, and it is here only because that file had another
+// session's uncommitted work in it when this landed (2026-08-03) and a pathspec
+// commit cannot leave a same-file passenger behind. Move it when that file is
+// clean; the lists are easier to keep in lockstep when they are visible together.
+var workItemHeldStatuses = []string{
+	"claimed",
+	"diagnosing",
+}
+
+// refreshOpenWorkItemSQL is a function rather than an inline string so the test
+// that asserts the two guard clauses can read the STATEMENT THAT RUNS, instead of
+// re-deriving its own copy and agreeing with itself.
+func refreshOpenWorkItemSQL() string {
+	return fmt.Sprintf(`
+		UPDATE site_work_items
+		   SET summary    = $3,
+		       spec       = $4::jsonb,
+		       updated_at = NOW()
+		 WHERE site_id  = $1
+		   AND item_key = $2
+		   AND status NOT IN (%s)
+		   AND status NOT IN (%s)
+	`, sqlInList(workItemTerminalStatuses), sqlInList(workItemHeldStatuses))
+}
+
+func refreshOpenWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.Logger) (workItemWrite, error) {
+	if item.itemKey == "" {
+		return workItemWrite{}, nil
+	}
+
+	result, err := tx.ExecContext(ctx, refreshOpenWorkItemSQL(),
+		item.siteID, item.itemKey, item.summary, item.spec)
+	if err != nil {
+		return workItemWrite{}, fmt.Errorf("refresh failed for %s: %w", item.itemKey, err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		logger.Info("writeWorkItem: nothing inserted and nothing refreshed — the open item "+
+			"went terminal or a handler holds it",
+			zap.String("item_key", item.itemKey),
+			zap.String("item_type", item.itemType),
+		)
+		return workItemWrite{}, nil
+	}
+
+	logger.Info("writeWorkItem: refreshed the open work item with a newer finding",
+		zap.String("item_key", item.itemKey),
+		zap.String("item_type", item.itemType),
+		zap.Int64("rows", rows),
+	)
+	return workItemWrite{Refreshed: true}, nil
 }
 
 // normalizePageType applies the same kebab-case normalization used for

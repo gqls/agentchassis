@@ -140,8 +140,10 @@ func TestApplyNewPage_DeployedSameTypeStillRefreshes(t *testing.T) {
 	mock.ExpectExec("UPDATE pages").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	res, err := applyNewPage(context.Background(), db,
 		newPagePlan("news", "news-index"), uuid.New(), "webdesign.co.uk", nil, zap.NewNop())
@@ -196,8 +198,10 @@ func TestApplyNewPage_UndeployedTypeConflictStillRefreshes(t *testing.T) {
 	mock.ExpectExec("UPDATE pages").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	res, err := applyNewPage(context.Background(), db,
 		newPagePlan("news", "news-index"), uuid.New(), "example.com", nil, zap.NewNop())
@@ -227,8 +231,10 @@ func TestApplyNewPage_CleanCreateReportsCreated(t *testing.T) {
 
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	res, err := applyNewPage(context.Background(), db,
 		newPagePlan("news", "news-index"), uuid.New(), "dartsonline.com", nil, zap.NewNop())

@@ -28,21 +28,39 @@ import (
 	"go.uber.org/zap"
 )
 
-// TestExecWroteARow covers the helper the two apply_gap_plan sites now use.
-// The ON CONFLICT DO NOTHING case — 0 rows affected — is the one that used to be
-// reported as a creation.
-func TestExecWroteARow(t *testing.T) {
-	if !execWroteARow(sqlmock.NewResult(0, 1)) {
-		t.Error("a row WAS written and execWroteARow said no")
+// 2026-08-02, candidate 1: the three hand-rolled INSERTs are gone and all three
+// arms now route through insertWorkItem, so execWroteARow (and its unit test)
+// went with them. What replaces that test is the assertion that matters more —
+// that the adoption did not quietly change behaviour.
+//
+// gapPlanWorkItem MUST set recurrenceExpected. Routing through the shared door
+// brings the two-strike anti-churn with it, and a gap plan asking for a page to
+// be built is an ACTION REQUEST, not a redetected defect: a completed
+// predecessor means the request SUCCEEDED. Without the flag, adoption would
+// newly suppress an item within 3h of a terminal predecessor and brand it
+// 'unresolved' after two — bugs_open/024's regression, re-created by a fix for
+// a different bug. This is cheap to assert and impossible to notice in review.
+func TestGapPlanWorkItem_IsRecurrenceExpected(t *testing.T) {
+	item := gapPlanWorkItem(uuid.New(), "needs_content_page", "s", "{}", nil, 40, "k", nil)
+	if !item.recurrenceExpected {
+		t.Error("gap-plan items must be recurrence-expected: they are action requests, " +
+			"so a COMPLETE predecessor is a success, not a strike (bugs_open/024)")
 	}
-	if execWroteARow(sqlmock.NewResult(0, 0)) {
-		t.Error("ON CONFLICT DO NOTHING wrote nothing and execWroteARow said yes — " +
-			"this is the bugs_open/091 report shape")
+	if item.itemKey == "" {
+		t.Error("a gap-plan item without an item_key is not deduped at all")
 	}
-	// Defensive branch: a driver that cannot answer degrades to the previous,
-	// optimistic answer rather than inventing a false negative.
-	if !execWroteARow(nil) {
-		t.Error("a nil Result should degrade to the previous behaviour, not report a false negative")
+}
+
+// The parent link is the reason all three arms forked away from the shared
+// helper in the first place — workItem had no field for it. If it silently stops
+// being carried, the fork's whole justification comes back and nobody notices,
+// because a dropped parent_item_id breaks nothing that errors.
+func TestGapPlanWorkItem_CarriesTheParentLink(t *testing.T) {
+	parent := uuid.New()
+	item := gapPlanWorkItem(uuid.New(), "needs_content_page", "s", "{}", nil, 40, "k", &parent)
+	if item.parentItemID == nil || *item.parentItemID != parent {
+		t.Errorf("parentItemID = %v, want %v — the shared helper must carry the parent link, "+
+			"which is the ONLY thing the hand-rolled INSERTs had that it did not", item.parentItemID, parent)
 	}
 }
 
@@ -58,9 +76,14 @@ func TestApplyNewPage_ReportsItemCreatedFalseWhenDeduped(t *testing.T) {
 
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
-	// 0 rows affected — an item already holds this key.
+	// The item now goes through withWorkItemTx -> insertWorkItem, so it has its
+	// own transaction. No anti-churn probe is expected: gap-plan items are
+	// recurrence-expected, and sqlmock fails the test if one is issued.
+	mock.ExpectBegin()
+	// 0 rows affected — an OPEN item already holds this key.
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectCommit()
 
 	res, err := applyNewPage(context.Background(), db,
 		newPagePlan("recovery-waterfall", ""), uuid.New(), "example.com", nil, zap.NewNop())
@@ -89,8 +112,10 @@ func TestApplyNewPage_ReportsItemCreatedTrueWhenWritten(t *testing.T) {
 
 	mock.ExpectQuery("INSERT INTO pages").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	res, err := applyNewPage(context.Background(), db,
 		newPagePlan("recovery-waterfall", ""), uuid.New(), "example.com", nil, zap.NewNop())
@@ -126,9 +151,11 @@ func TestApplyRetypeExisting_ReportsItemCreatedFalseWhenDeduped(t *testing.T) {
 	mock.ExpectExec("UPDATE pages").
 		WithArgs(uuid.MustParse(retypeCandidateID), "news-index", sqlmock.AnyArg(), siteID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	// 0 rows affected — a build item already holds this key.
+	// 0 rows affected — a build item already holds this key. Own transaction now.
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectCommit()
 	// markOriginalComplete
 	mock.ExpectExec("UPDATE site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 1))

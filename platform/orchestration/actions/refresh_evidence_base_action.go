@@ -101,15 +101,19 @@ type evidenceFactRefresh struct {
 
 // siteRefreshResult is one site's outcome.
 type siteRefreshResult struct {
-	SiteID          string                `json:"site_id"`
-	Domain          string                `json:"domain"`
-	FactsChecked    int                   `json:"facts_checked"`
-	FactsUpdated    int                   `json:"facts_updated"`
-	Drifted         int                   `json:"drifted"`
-	Errors          int                   `json:"errors"`
-	WriterBlock     string                `json:"writer_block_action"` // regenerated | unmanaged | unchanged
-	WorkItemCreated bool                  `json:"work_item_created"`
-	Facts           []evidenceFactRefresh `json:"facts"`
+	SiteID          string `json:"site_id"`
+	Domain          string `json:"domain"`
+	FactsChecked    int    `json:"facts_checked"`
+	FactsUpdated    int    `json:"facts_updated"`
+	Drifted         int    `json:"drifted"`
+	Errors          int    `json:"errors"`
+	WriterBlock     string `json:"writer_block_action"` // regenerated | unmanaged | unchanged
+	WorkItemCreated bool   `json:"work_item_created"`
+	// WorkItemRefreshed is a SEPARATE field rather than a widening of
+	// WorkItemCreated. A refresh is not a creation, and the whole subject of
+	// bugs_open/091 is a reported field that meant something other than its name.
+	WorkItemRefreshed bool                  `json:"work_item_refreshed"`
+	Facts             []evidenceFactRefresh `json:"facts"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -372,19 +376,21 @@ func refreshOneSiteEvidence(
 		// reported the write anyway. The only trace of the truth was a log line
 		// carrying inserted=false, in a pod that was replaced four minutes later.
 		//
-		// This does NOT fix the dedup dropping the finding (candidate 1) — that
-		// changes a helper every detector in the fleet calls and belongs to the
-		// work_item_completion_integrity workstream. It makes the report honest
-		// while that is decided, which is true under either answer.
-		inserted, err := createStaleEvidenceItem(ctx, db, siteID, domain, res, params.AgentType, logger)
+		// Candidate 1 (2026-08-02) then closed the door the report had been left
+		// pointing at: the write now uses refreshOnConflict, so the open item's
+		// description is brought up to date instead of the finding being dropped.
+		// The two reported fields stay distinct — a refresh is not a creation.
+		write, err := createStaleEvidenceItem(ctx, db, siteID, domain, res, params.AgentType, logger)
 		if err != nil {
 			logger.Warn("refresh_evidence_base: failed to create stale_evidence item", zap.Error(err))
 		}
-		res.WorkItemCreated = inserted
-		if err == nil && !inserted {
-			logger.Warn("refresh_evidence_base: drift found but NO work item written — an open "+
-				"stale_evidence item already holds this site's key, and its spec still describes "+
-				"the EARLIER drift (bugs_open/091)",
+		res.WorkItemCreated = write.Inserted
+		res.WorkItemRefreshed = write.Refreshed
+		if err == nil && !write.Recorded() {
+			logger.Warn("refresh_evidence_base: drift found but NO work item written or refreshed — "+
+				"an open stale_evidence item already holds this site's key and could not be updated "+
+				"(it went terminal, or a handler holds it), so its spec still describes the EARLIER "+
+				"drift (bugs_open/091)",
 				zap.String("site_id", siteID.String()),
 				zap.String("domain", domain),
 				zap.Int("drifted", res.Drifted))
@@ -732,14 +738,17 @@ func writeRefreshedEvidenceBase(
 // handler is the human-review pseudo-handler, matching claims_unverified —
 // changing published copy because a number moved is a human decision (spec
 // open question 3), even when the site is merely under-claiming.
-// createStaleEvidenceItem returns whether a row was actually WRITTEN, not merely
-// whether the attempt errored (bugs_open/091). The item is keyed per site, so a
-// second drift arriving while an earlier item is open dedups to nothing — and
-// the caller must be able to tell that apart from success.
+// createStaleEvidenceItem returns what was actually WRITTEN, not merely whether
+// the attempt errored (bugs_open/091). The item is keyed per site while the
+// finding is per fact, so a second, DIFFERENT drift arriving while an earlier
+// item is open used to dedup to nothing — the finding lost and the open record
+// left describing the earlier drift. It now refreshes that record instead, and
+// the outcome distinguishes the three cases (created / refreshed / neither),
+// because a field named `work_item_created` must not be set from a refresh.
 func createStaleEvidenceItem(
 	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain string,
 	res *siteRefreshResult, agentType string, logger *zap.Logger,
-) (bool, error) {
+) (workItemWrite, error) {
 	drifted := make([]evidenceFactRefresh, 0, res.Drifted)
 	for _, f := range res.Facts {
 		if f.Outcome == "drifted" {
@@ -757,18 +766,25 @@ func createStaleEvidenceItem(
 			"number has already been re-synced to the live query — the COPY is what needs a human ruling.",
 	})
 	if err != nil {
-		return false, fmt.Errorf("marshal stale_evidence spec: %w", err)
+		return workItemWrite{}, fmt.Errorf("marshal stale_evidence spec: %w", err)
 	}
 
 	summary := fmt.Sprintf("Evidence freshness (%s): %d fact(s) drifted outside tolerance", domain, len(drifted))
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("begin tx: %w", err)
+		return workItemWrite{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	inserted, err := insertWorkItem(ctx, tx, workItem{
+	// refreshOnConflict, because this item is keyed per SITE and the finding is
+	// per FACT. A second, different fact drifting while the first item is open is
+	// not a duplicate — under the default policy it was dropped, and the durable
+	// record went on describing drift that had since been re-synced. Measured
+	// 2026-08-02: four of five open stale_evidence items named the wrong facts,
+	// including one that named a completely different fact from the one that had
+	// moved, and one describing drift that no longer existed at all.
+	write, err := writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "scheduled",
 		pipeline:     "content",
@@ -781,19 +797,20 @@ func createStaleEvidenceItem(
 		status:       "needs_human_review",
 		createdBy:    agentType,
 		itemKey:      "stale_evidence:" + siteID.String(),
-	}, logger)
+	}, refreshOnConflict, logger)
 	if err != nil {
-		return false, fmt.Errorf("insert stale_evidence item: %w", err)
+		return write, fmt.Errorf("insert stale_evidence item: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return false, fmt.Errorf("commit stale_evidence item: %w", err)
+		return workItemWrite{}, fmt.Errorf("commit stale_evidence item: %w", err)
 	}
 
 	logger.Warn("refresh_evidence_base: evidence drift raised for human review",
 		zap.String("site_id", siteID.String()),
 		zap.Int("drifted", len(drifted)),
-		zap.Bool("inserted", inserted))
-	return inserted, nil
+		zap.Bool("inserted", write.Inserted),
+		zap.Bool("refreshed", write.Refreshed))
+	return write, nil
 }
 
 func loadSiteDomain(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {

@@ -11,6 +11,111 @@ absent-record — which is the class `074` itself belongs to.
 `027a8f9e3`, council APPROVED (`a5b70424-b2b5-4d58-aa61-978e8bcf1234`, 11 reviewers,
 0 unreadable, 3 advisory objections), inert until the next chassis roll.
 
+> ## STATUS 2026-08-03 (bugs-sweep lane) — **CANDIDATE 1 BUILT.** And the severity in the header above is too low: the record is wrong on 4 of 5 sites TODAY
+>
+> **Workstream:** `docs024_key_docs_latest/bugfix_091_workitem_conflict_refresh/`
+> **Council:** `Council-Submitted: 8e7357ae-9f8d-49bf-81c0-669d9a97a205`
+> **Still OPEN** — Go code, so it is inert until the next chassis image. Do not close
+> it on the commit; the defect stays reproducible until the roll (`bugs_closed/` bar).
+>
+> ### The header says "Medium … a delay, not a loss". Measured today, that undersells it
+>
+> `evidence-freshness` is **enabled** and ran at **2026-08-02 18:36:07Z**. Comparing what
+> each open `stale_evidence` item SAYS drifted against what that run FOUND (query in the
+> workstream RUNBOOK — note `orchestration_states` keeps ~24h, so this is only
+> reproducible on the day):
+>
+> | site | item filed | the item says | the live run found | correct? |
+> |---|---|---|---|---|
+> | leopardessconsulting.co.uk | 07-26 | `C4-orchestration-state-records` | `C4-agent-definitions-catalogue` | **NO — a different fact** |
+> | fundamentallyai.com | 07-26 | F11, F12, F13 | F9, F10, F11, F12, F13 | **NO — 2 drifts invisible** |
+> | ai-agent-orchestration.com | 07-26 | 3 facts | 2 (one re-synced) | **NO — over-reports** |
+> | vonc.com | 08-01 | `vonc-tools` | *(nothing)* | **NO — describes drift that is gone** |
+> | oufe.com | 07-27 | 12 × CIT-* | the same 12 | yes |
+>
+> **Four of five open items are factually wrong.** The handler is `human-review`, so the
+> only consumer is a person — and on leopardess that person is sent to a fact that never
+> moved. "A delay" is true of the FINDING; it is not true of the RECORD, and the record is
+> the artefact. Candidate 2 is visible working in the same run: all four drifting sites
+> reported `work_item_created: false`, honestly, while dropping 20 facts between them.
+>
+> ### What was built — candidate 1, with three deliberate deviations from this file
+>
+> `conflictPolicy` on the shared writer: `dropOnConflict` (default, byte-identical to
+> today) and `refreshOnConflict`, which updates the open row's `summary`/`spec`. One
+> caller opts in. Registered as **BATCH-005** in the concept register, with its two
+> landmines, in the same commit that ships it.
+>
+> **1. NOT `ON CONFLICT … DO UPDATE`, which this file proposes — it would have re-created
+> candidate 2's defect inside candidate 1's fix.** `DO UPDATE` affects a row, so
+> `RowsAffected()` returns 1, and `insertWorkItem` returns `rows > 0`, which is what
+> `work_item_created` is set from. The literal fix makes the run start reporting a
+> creation that never happened again. Instead: a separate `UPDATE` in the conflict branch
+> (the shared INSERT stays byte-identical for ~20 callers) and a three-state outcome,
+> `workItemWrite{Inserted, Refreshed}`. `work_item_created` still means *created*;
+> `work_item_refreshed` is a new, separate field.
+>
+> **2. NOT a `workItem` field, which this file also proposes.** As a field, a caller can
+> set it and still call `insertWorkItem`, whose single bool cannot express a refresh — a
+> silent wrong answer at the call site most likely to be copied. It is a **parameter of
+> `writeWorkItem`**, so the old function cannot receive it and the mistake does not
+> compile.
+>
+> **3. The refresh has TWO guards this file does not mention**, both in the UPDATE's own
+> predicate, which is also how the unlocked gap between the two statements is lost safely:
+> a row that went terminal in between does not match (never resurrected), and a row a
+> handler HOLDS (`claimed`, `diagnosing`) is skipped (its spec is not changed underneath a
+> running handler). Only `summary` and `spec` are written — `status`, `priority`,
+> `handler_agent`, `severity` may all have been moved by a human.
+>
+> ### The two council objections this file records as owed are both answered
+>
+> `apply_gap_plan_action.go`'s three hand-rolled `INSERT … ON CONFLICT DO NOTHING`
+> statements now route through `insertWorkItem` (the `guidelines` and `reuse_agent` seats
+> on `a5b70424`). **The reason they forked is the finding worth keeping:** they set
+> `parent_item_id` and the shared `workItem` struct had no field for it, so the shared
+> door was unusable to anyone needing a parent. The field exists now. They adopt with
+> `recurrenceExpected: true`, which is what makes the adoption behaviour-PRESERVING: a gap
+> plan asking for a page to be built is an action request, and without the flag adoption
+> would newly suppress items within 3h of a terminal predecessor and brand them
+> `unresolved` after two — `bugs_open/024`'s regression, re-created by an unrelated fix.
+>
+> ### Candidate 3 stays refused, and the reason is now sharper
+>
+> One row per fact would multiply into `needs_human_review`, which `bugs_open/033`'s owner
+> ruling says must not fill. Re-measured 2026-08-02: **368** parked rows (this file
+> recorded 380 on 07-27). The refresh keeps the row count at exactly one per site.
+>
+> ### Guards are MUTATION-PROVEN, not merely present
+>
+> Four mutations run, each confirmed to fail the suite: policy check removed (2 tests),
+> held-status clause dropped (1), a refresh reporting `Inserted: true` (1),
+> `recurrenceExpected` cleared (1). **The fourth exposed a harness blind spot worth more
+> than the mutation:** the anti-churn probe discards its own error
+> (`if err == nil && terminalCount > 0`), so a sqlmock test that does not expect the probe
+> still passes — **no behavioural test in this package can see a change to
+> `recurrenceExpected`**. Filed as a landmine; it is why that adoption is covered by a
+> direct assertion on the built item.
+>
+> ### What is still owed on this file
+>
+> - **The roll**, then this file's own §"How to verify a fix" — induce a second, different
+>   drift on a site with an open item and require the open item's `spec->'drifted'` to name
+>   the NEW fact while `work_item_created` reads false and `work_item_refreshed` reads
+>   true. **A clean sweep proves nothing.** Pod-grep markers are in the workstream RUNBOOK.
+> - **The council verdict** on `8e7357ae`, and the one judgement I want challenged:
+>   `needs_human_review` is deliberately NOT a held status, so a refresh CAN change an item
+>   under a human who is reading it. It is a queue, not a claim, and the alternative is
+>   leaving the record false — but that is a judgement, not a measurement.
+> - **THREE SIBLING CALL SITES IN EXACTLY THIS SHAPE, DELIBERATELY NOT SWITCHED.** All
+>   HITL-terminal, all carrying a list in `spec` that will differ next run:
+>   `evidence_citations.go:426` (`citation_unverified:<site>`, spec `rejected[]`);
+>   `directory_claims.go:333` (`directory_citation_unverified`, constant key);
+>   `directory_claims.go:575` (`stale_directory_claim`, constant key — its summary even
+>   carries a count of the findings it is about to drop). Each needs the same judgement
+>   made on its own evidence. Building the capability and switching one caller is not the
+>   same as fixing the class, and this list is the honest statement of what is left.
+
 > ## STATUS 2026-07-27 (bugs thread) — the report is honest **and LIVE on v1.0.1177**; the finding is still dropped
 >
 > **Rolled 19:22:02Z.** Verified in the running pod:

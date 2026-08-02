@@ -66,8 +66,10 @@ func TestApplyRetypeExisting_HappyPath(t *testing.T) {
 		WithArgs(uuid.MustParse(retypeCandidateID), "news-index", sqlmock.AnyArg(), siteID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
+	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	// markOriginalComplete
 	mock.ExpectExec("UPDATE site_work_items").
