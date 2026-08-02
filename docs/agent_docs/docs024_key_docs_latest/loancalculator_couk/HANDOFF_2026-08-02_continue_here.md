@@ -36,7 +36,15 @@ DECOMP_WORK=<work> python3 decompose/load_decomposition.py --restore <page-name>
 
 ## 2. Do this first
 
-**a. Finish the post-roll check.** A fresh chassis was deployed at
+**a. ~~Finish the post-roll check.~~ DONE — the new chassis renders identically.**
+`tool-standard-calc` (6 rows, tool at position 4) was re-rendered by the
+`21:39:20Z` image at `21:53:41Z` and came back **EXACT** against a prediction
+written before the roll, and its calculator still MATCHES the golden. So the
+assembly path is now proven stable across **two** chassis images, empirically
+rather than by reading the diff. Original instructions kept below in case a later
+roll needs the same check.
+
+**a-original.** A fresh chassis was deployed at
 `2026-08-02T21:39:20Z`. All 27 served pages were re-verified after it and are
 still byte-exact — but nothing had re-rendered, so that proves the site is
 unchanged, **not** that the new binary renders the same. A work item is in flight

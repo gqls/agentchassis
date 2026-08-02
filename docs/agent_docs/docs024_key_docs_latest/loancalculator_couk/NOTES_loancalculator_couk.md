@@ -1851,3 +1851,27 @@ consolidation's rate-less debt, loan-vs-savings' colour-only verdict) now need a
 explicit unlock before the row can be rewritten. That is the intended behaviour,
 not a snag — changing a calculator whose arithmetic is proven should be a
 deliberate act, and the lock makes the attempt visible instead of silent.
+
+### Post-roll: the new chassis renders identically, proved rather than inferred
+
+A fresh chassis was deployed at `2026-08-02T21:39:20Z` (previous pods `18:39:14Z`).
+
+Two checks, and the distinction between them is the point:
+
+1. **All 27 served pages re-verified: byte-exact.** This proves the SITE did not
+   change. It does **not** prove the new binary renders the same, because nothing
+   had re-rendered — the wire was still holding output from the old image.
+2. **So one page was re-rendered on the new image and checked.**
+   `tool-standard-calc` (6 rows, tool at position 4 — the most structurally
+   representative page) rendered at `21:53:41Z` and came back **EXACT** against a
+   prediction written before the roll, with its calculator still MATCHING the
+   golden.
+
+The renderer source was also unchanged by this roll (`git log` since the previous
+pods' start over `rerender_single_page_action.go`, `rerender_link_repair.go`,
+`tool_doc_header.go` → empty), so EXACT was expected. **Expected is not measured**,
+and the whole method here has been to prefer the measurement — the assembly path
+is now proven stable across two chassis images.
+
+The earlier roll counts too: the chassis rolled at `18:39:14Z` mid-rollout, 26 of
+27 pages rendered after it and 1 before, all matching the same predictions.
