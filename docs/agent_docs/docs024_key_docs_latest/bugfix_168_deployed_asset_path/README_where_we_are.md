@@ -222,3 +222,65 @@ Three things are left, and none of them are mine to decide alone: whether eleven
 jobs should be redirected rather than simply refused; a second bypass in the same code that I
 measured as unused but did not close; and a bigger question I've written up separately about
 the system guessing where a file went instead of recording it when it wrote it.
+
+## 2026-08-02, later — the two choices in RFC_010, explained, and the owner's rulings
+
+Appended at the owner's request. The explanation first, then what he decided.
+
+### Why there was anything to decide
+
+A work item is a claim — "this site's social card isn't deployed" — that was true at the moment
+it was written. Nothing ever goes back and re-checks it. The danger isn't the stale claim
+itself. It's that **what a handler does with that claim can change underneath it.** That is
+exactly what nearly bit us: an item that meant "write a harmless junk file" in July meant
+"overwrite the live social card" in August, and nothing re-read it in between.
+
+### Decision 1 — how the queue learns a finding stopped being true
+
+**Option 1: let a check say what it saw healthy.** A check gains a way to report "I positively
+observed X to be fine", and the runner closes matching items in one place. This is copying what
+one existing check already does, promoted from a one-off query into a proper contract. Cost:
+one field on a shared structure, one runner change, then each check adopts at its own pace. It
+makes retraction *possible* and keeps the closing logic in one place instead of reinvented
+fifty times. What it does *not* do is stop a stale item being dispatched — a check only clears
+what it actively confirmed healthy.
+
+**Option 2: re-check the item at the moment it's dispatched.** Before a handler acts, re-run
+the test that raised the item and drop it if it no longer holds. This is the only option where
+a stale item can never be *acted on*, which is the actual harm. It costs more: the checks
+aren't written as reusable standalone tests today, and it puts a live check on the dispatch
+path.
+
+**Option 3: version-stamp the detectors.** Honest and general, but it depends on a human
+remembering to bump a version, and an un-bumped version is silently wrong.
+
+**Option 4: expire anything old.** Simple, and I advised against it — it turns "stale finding"
+into "silently dropped real defect", which is worse. Nearly 500 of our open items are over a
+fortnight old and nobody knows how many are genuine.
+
+**Option 5: keep repairing by hand.** What I did for the eleven. Doesn't scale to 909, and each
+manual repair is a fresh chance to cancel the wrong rows.
+
+The honest summary I gave: option 1 is cheap and makes the problem *tractable*; option 2 is
+expensive and makes it *safe*. They compose.
+
+> **OWNER RULING: option 1 now, option 2 later.**
+
+### Decision 2 — what `unresolved` actually means
+
+Smaller, and a live bug rather than a design question. `unresolved` currently sits in a
+contradiction: it is not terminal, not deduplicated, not retractable, but is excluded from most
+dispatch. So items pile up invisibly — that is why nine of our eleven were duplicate copies of
+just two findings. Either it is terminal (and belongs in the dedup and completed indexes) or it
+is open (and retraction and dedup must both be able to reach it). It is currently neither,
+which is not defensible either way.
+
+> **OWNER RULING: `unresolved` is OPEN** — so retraction and deduplication must both be able to
+> reach it.
+
+### The one condition attached to all of it
+
+**Retraction must only ever fire on a positive observation of health, never on "the check found
+nothing".** A check that errored, or that was silently blinded by a bug, returns an empty
+result that looks identical to a clean site. Getting that backwards would quietly close real
+defects across the whole fleet — the opposite failure, and a much more expensive one.
