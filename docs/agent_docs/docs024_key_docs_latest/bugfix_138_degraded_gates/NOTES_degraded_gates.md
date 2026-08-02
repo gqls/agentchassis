@@ -736,3 +736,29 @@ Green against `git archive HEAD`; council tests untouched. Committed `68cc1b4e8`
 no-ops" with edits). Orch `9e058698`, spawned 2026-08-02 ~23:59Z. **NOTE: the fixture
 for any future induction must ban brackets in the objection string until this fix
 ROLLS — the live binary is still bracket-blind.**
+
+## 2026-08-02 23:08Z — round 3 APPROVED; advisories answered; one check now OWED post-roll
+
+`decided_by = "approved with 2 advisory objection(s) — none high-severity"`; 0 unreadable;
+editquality APPROVE (the r2 veto answered on its own terms); **adoption_guardian present,
+healthy, APPROVE on merits**. Commit `68cc1b4e8` already carries `Council-Submitted:
+4d7363d7` — 098 credits it automatically; no amend (forward-only).
+
+Advisories, answered inline:
+- **guardian (low): was the r2 veto only about no-op edits?** Yes — its notes said so
+  verbatim: "Veto on 'all edits are no-ops', not on the reasoning behind wanting better
+  documentation." Quoted in full in bugs_open/138's round-2 section.
+- **debug_historian (medium): no committed post-roll verification step.** Fair, and now
+  owed here: after the next chassis roll, per bugs_open/153 practice, same exec, EVERY
+  replica: positive `strings /app/agent-chassis | grep -c depthAtLastGood` (expect ≥1,
+  new symbol) AND negative `grep -c "repairTruncatedJSON fixes JSON cut off"` (expect 0
+  — the old comment text this change REMOVED). Then re-run TestRepairTruncatedJSON's
+  bracket case against the LIVE binary path indirectly by checking the next salvaged
+  bracket-bearing review survives.
+- **prior_art (low): "first-ever tests" absence claim.** Verified pre-submission:
+  `grep -rln repairTruncatedJSON --include=*_test.go platform/` exited 1 (no matches)
+  before `repair_truncated_json_test.go` was created.
+- **prior_art (low): does salvageTruncatedReview reuse this helper rather than inline
+  repair?** Yes — `diagnose_council_decide_action.go:203`:
+  `repaired := repairTruncatedJSON(string(rb))`; its own doc comment says "reusing
+  repairTruncatedJSON".

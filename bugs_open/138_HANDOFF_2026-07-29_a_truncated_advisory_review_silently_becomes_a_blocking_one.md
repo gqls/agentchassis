@@ -817,3 +817,13 @@ suppresses THIS bug's salvage path on exactly the reviews most likely to contain
 fragments. Fixed string-aware with the function's first tests: commit `68cc1b4e8`,
 resubmitted on trail `4d7363d7` (answers the round-2 veto with real edits), inert until
 a roll.
+
+### 2026-08-02 23:08Z — round 3 APPROVED (trail `4d7363d7`: rejected r2 → approved r3)
+
+The string-aware `repairTruncatedJSON` fix passed 11 seats healthy — editquality
+approving the plan its own veto shaped, and `adoption_guardian` reviewing at full cap on
+merits. 4 low + 1 medium advisories, all answered in the lane NOTES; the one owed action
+is the post-roll pod-grep (positive `depthAtLastGood` ≥1, negative "fixes JSON cut off"
+= 0, every replica, same exec). Commit `68cc1b4e8` (`Council-Submitted`) is credited by
+098 automatically on this approval. **The fix stays inert until a chassis image rolls —
+until then, salvage still dies on bracket-bearing objection strings.**
