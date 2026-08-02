@@ -177,20 +177,20 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			severity = "high"
 		}
 		spec := map[string]interface{}{
-			"page_url":        c.URL,
-			"page_path":       pagePath,
-			"selector":        selector,
-			"fg":              c.FG,
-			"bg":              c.BG,
-			"ratio":           c.Ratio,
-			"need":            c.Need,
-			"font_px":         c.FontPx,
-			"text_sample":     truncateString(c.Text, 120),
-			"fix_type":        "contrast_fix",
-			"current_value":   fmt.Sprintf("%s on %s measures %.2f:1 (needs %.1f:1)", c.FG, c.BG, c.Ratio, c.Need),
-			"acceptance_test": fmt.Sprintf("elements matching %s on %s render at or above %.1f:1 contrast on the next render audit", selector, pagePath, c.Need),
+			"page_url":         c.URL,
+			"page_path":        pagePath,
+			"selector":         selector,
+			"fg":               c.FG,
+			"bg":               c.BG,
+			"ratio":            c.Ratio,
+			"need":             c.Need,
+			"font_px":          c.FontPx,
+			"text_sample":      truncateString(c.Text, 120),
+			"fix_type":         "contrast_fix",
+			"current_value":    fmt.Sprintf("%s on %s measures %.2f:1 (needs %.1f:1)", c.FG, c.BG, c.Ratio, c.Need),
+			"acceptance_test":  fmt.Sprintf("elements matching %s on %s render at or above %.1f:1 contrast on the next render audit", selector, pagePath, c.Need),
 			"max_fix_attempts": 2,
-			"run_id":          payload.RunID,
+			"run_id":           payload.RunID,
 		}
 		specJSON, mErr := json.Marshal(spec)
 		if mErr != nil {
@@ -289,15 +289,15 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 	}
 
 	result := map[string]interface{}{
-		"inserted":             inserted,
-		"deduped":              deduped,
-		"skipped_locked":       skippedLocked,
-		"over_image_reported":  overImage,
-		"overflow_reported":    len(payload.Overflow),
-		"unattributed_images":  unattributedImages,
-		"findings_capped":      dropped > 0,
-		"findings_dropped":     dropped,
-		"run_id":               payload.RunID,
+		"inserted":            inserted,
+		"deduped":             deduped,
+		"skipped_locked":      skippedLocked,
+		"over_image_reported": overImage,
+		"overflow_reported":   len(payload.Overflow),
+		"unattributed_images": unattributedImages,
+		"findings_capped":     dropped > 0,
+		"findings_dropped":    dropped,
+		"run_id":              payload.RunID,
 	}
 	logger.Info("write_render_audit_findings: complete",
 		zap.Int("inserted", inserted), zap.Int("deduped", deduped),
