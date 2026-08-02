@@ -791,3 +791,29 @@ an owner call on whether that residual is worth another round.
 Zero collateral: both 120-cap calls carry the induction round's orchestration id;
 window round `0802-1034` (bugfix_168 lane) shows no adoption reviewer and no
 unreadables — the footprint gate held.
+
+### 2026-08-02 (late) — round 3: the injection route is CLOSED by the model itself; a real fix fell out
+
+The pre-fire rehearsal (the discipline round 2 taught) returned the decisive fact:
+**`claude-sonnet-5` refuses an instructed verdict.** Given room to finish, the seat
+answered the fixture with `approve`, zero objections, and notes stating that obeying an
+embedded verdict instruction would itself violate the reviewer's role. Round 2's 42-char
+cut had merely hidden this refusal. So the TRUNCATED label cannot be staged by
+injection on this model family — a fact worth having on record, and a reassuring one
+about the council's integrity.
+
+What CAN still witness the label: an **honest-objection** induction — a submission with
+a genuine minor adoption-contract wrinkle (low/medium both work; neither gates) that
+every other seat approves, plus the cripple, cap sized by fresh rehearsal
+(observed thinking + ~250; honest replies are ~260 text tokens, so the window is
+±150). Estimated 30–50% per attempt, one round each. RUNBOOK §11 addendum has the
+recipe. **Whether that residual is worth those odds is an owner decision; the lane's
+recommendation is to accept the aggregate evidence instead.**
+
+Round 3 as fired became the real deliverable: `repairTruncatedJSON` was **bracket-blind
+inside string literals** (proven executing — a `[` in a problem string destroys a
+salvageable review; the backward scan can cut inside a string), which directly
+suppresses THIS bug's salvage path on exactly the reviews most likely to contain code
+fragments. Fixed string-aware with the function's first tests: commit `68cc1b4e8`,
+resubmitted on trail `4d7363d7` (answers the round-2 veto with real edits), inert until
+a roll.
