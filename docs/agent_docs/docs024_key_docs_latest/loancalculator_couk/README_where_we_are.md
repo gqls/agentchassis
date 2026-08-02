@@ -663,3 +663,80 @@ but not the interest, the verdict told only by colour — now each need an expli
 unlock before the calculator can be edited. I think that is right. Changing a
 calculator whose arithmetic we have proved should take a deliberate act, and this
 way an attempt to change one shows up instead of just happening.
+
+---
+
+**3 August 2026 — the four calculator bugs, and the check that nearly wasn't one**
+
+Took the four bugs that were left on the list. The money printed to three decimal
+places; the car finance tool did nothing at all if you told it the deal was
+interest-free; the consolidation checker counted a debt towards what you owe but
+not towards what it costs you; and the "better option" verdict was told by colour
+alone, so a colour-blind reader got nothing. All four are now fixed and proved.
+
+The thing worth telling you is what happened when I went to check them.
+
+We have a harness that drives every calculator and compares the answers against a
+recorded baseline. It has been the backbone of this whole lane. I fixed the four
+bugs, ran it, and it came back green. And for two of the four, **that green meant
+nothing at all** — it would have been green whether I had fixed them or not.
+
+The reason is simple once you see it. The harness works out what to type into
+each box by taking the number already in it and scaling it — the same, double,
+half. That is a sensible way to drive any calculator without hand-writing a
+script for each one. But it means it never types anything far from what the page
+already shows. The car finance bug only appears at zero per cent, and no doubling
+or halving of 8.9 ever gets you to zero. The consolidation bug only appears when
+a box is left *empty*, and the harness fills every box it can find. So neither
+bug was ever reachable, and the harness had been reporting a confident pass over
+both of them all along.
+
+So I wrote a second, smaller check that types the awkward values on purpose. And
+because a check nobody has watched fail is worth very little, it also rebuilds
+each calculator **as it was before the fix** and requires the same test to come
+out differently. All four now do. Three deliberate "nothing should change here"
+cases confirm I did not break the working paths.
+
+Then the same trap caught me again, within the hour. That before-and-after check
+originally rebuilt the old version from "the latest commit". Which was correct
+right up until I committed the fix — after which "the latest commit" *contained*
+the fix, both sides became identical, and the check quietly stopped being a check.
+I only noticed because I had already changed it to compare the actual readings
+rather than just pass/fail; the earlier version would have reported all four as
+proven. It now points at a fixed, named commit that cannot move underneath it.
+
+One correction to something we had written down. The note on the consolidation
+bug said it made consolidating look *better* than it really was. It is the other
+way round — leaving a debt's interest out understates what your current debts
+cost, so the tool overstates how bad consolidating looks. It was talking people
+out of consolidations that might have suited them. I did not work that out by
+argument; I ran the old version and read what it said.
+
+And one near miss I want on the record, because it would have looked exactly like
+success. Two of the fixes needed a new piece of text — the "Better option" badge,
+and the message explaining why a comparison is being withheld. Each component
+carries a list of its fields with a default value for each, and I assumed the page
+would fall back to that default. **It does not.** The renderer only ever looks at
+what is stored against the page itself; a field it has not been given comes out as
+an empty string, with no error. The badge would have shipped as an empty box. The
+page would have rendered, the numbers would have been right, and every automatic
+check we have would have passed — while the entire accessibility fix was simply
+absent. Caught it one step before it went out, and wrote a small tool that fills
+those gaps in and refuses to overwrite anything already there.
+
+Both of those traps are now written into the fleet-wide landmines file, because
+neither is about this site.
+
+On the consolidation fix there was a real choice to make and I want to flag it
+rather than bury it. If you half-fill a debt row, the tool could either quietly
+leave that debt out of the sums, or refuse to give you a verdict until you finish
+filling it in. I chose to refuse: it still shows you the total you owe, which is a
+fact and does not depend on any rate, but the three interest figures become
+dashes and the verdict box tells you what is missing. Leaving the debt out would
+answer a different question from the one you asked without saying so, and this is
+a page about being mis-sold. If you would rather it just excluded the row, that is
+a small change.
+
+Where it stands right now: the first of the four pages is queued to rebuild and I
+am waiting on it. When it lands I will check it on the live site, put the lock
+back on, and send the other three the same way.
