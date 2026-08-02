@@ -1560,4 +1560,50 @@ gap this whole P2 phase existed to close.
 
 **P2 is done.** Nothing outstanding in this lane except reading the council verdict
 (`33d00513-2fd8-4872-ad5a-a19c24a1ae0b`) when it lands and acting on it if it's REVISE/REJECTED.
-yet" / "deploy not applied yet" / "wrong environment" is true.
+
+## 2026-08-02 — re-checked P3 before building it; it was stale, and measured what it collapses into
+
+Owner asked to carry on to the next items, asking specifically for a re-check of P3 first.
+Good instinct: **P3 ("the remaining gates, cheapest first") was written 2026-07-30, and D8 —
+which retired exactly that approach — landed the next day, 2026-07-31.** Nobody reconciled
+the two. Read D8's own words again rather than trust my memory of them: *"the discarded
+stages are not disproved, they are unfunded. Any of them may return with evidence."* No such
+evidence has surfaced since. So P3 as written does not get built. Corrected in the PLAN
+(`6944902b1`) and re-labelled: P3 actually collapses into the authoring backlog (apply the
+three FUNDED gate-types — S1 fence, S2 mutation-proof, S6 dispatch — to more subjects), which
+is a real next step under its honest name rather than a fourth invented one.
+
+**Measured the backlog rather than guessed at its size**, joining `content_components` against
+`doc_plans` on `subject_key = function`, split by the subject_type each level actually maps to
+(`tool` for `component_level='tool'`, `component` for everything else this ladder has touched,
+i.e. `section` — DOC-068's own scope, not the other levels, see caveat below):
+
+| population | active | with a current PLAN | with none |
+|---|---|---|---|
+| tools (`component_level='tool'`) | 49 | 13 | **36** |
+| section components (`component_level='section'`) | 112 | 1 (`teaser-reveal-panel`) | **111** |
+
+(Inactive rows exist too — 24 tools, 17 sections — deliberately excluded from the headline:
+authoring a contract for a component nobody serves isn't backlog, it's waste.)
+
+**Two things this measurement surfaced that are NOT part of the answer, flagged rather than
+folded in:**
+1. **15 `doc_plans` rows with `subject_type='tool'` have NO matching `content_components.function`
+   at all** (`animated-favicon`, `smart-contrast`, `mind-map`, ... — full list in the query
+   above). Checked two by name-similarity in case this was rename drift (features_open/028's
+   own failure shape) — `smart-contrast` matches nothing even partially, `favicon` only matches
+   `tool-favicon-generator`, not `animated-favicon`. **[UNVERIFIED]** whether these are
+   framework-level dev tools tracked outside `content_components` entirely (plausible — the
+   portfolio lane's memory mentions a separate "framework tool-build pipeline") or something
+   else. Not chased further — out of scope for "measure the backlog," and worth a deliberate
+   look later rather than a guess now.
+2. **`component_level` has three other values this ladder has never addressed** (`header`,
+   `footer`, `site`, `head`, `element` — 19 rows total, active+inactive). DOC-068's own `what:`
+   line says it extends the substrate to *section* components specifically; whether `header`/
+   `footer`/`site`-level components should also get `subject_type='component'` PLANs is an open
+   question this measurement surfaces but does not answer. Excluded from the backlog table
+   above rather than silently assumed in or out.
+
+**Not proceeding to author fences for 111+36 subjects** — that's a real, large undertaking
+or a decision to phase it, not a "carry on" default. Reported the size; next call on scope is
+the owner's.
