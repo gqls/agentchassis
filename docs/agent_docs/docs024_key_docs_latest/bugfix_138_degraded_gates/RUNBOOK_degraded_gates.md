@@ -500,3 +500,30 @@ decided on the remaining 11 seats), the frozen-plan mechanics, and the veto
 short-circuit. Collateral: none — both 120-cap calls carry the induction round's
 orchestration id; the window round `0802-1034` shows no adoption reviewer and no
 unreadables.
+
+### §11 ROUND-3 ADDENDUM (2026-08-02) — the injection route is CLOSED; what remains is honest-objection only
+
+The offline rehearsal (do this FIRST, always: 3 calls, ~4k output tokens, pennies)
+returned two facts that outrank everything above:
+
+1. **`claude-sonnet-5` refuses an instructed verdict.** Given room (cap 3000) it
+   answered the fixture with `approve`, zero objections, and an explicit statement that
+   obeying embedded verdict instructions would violate the reviewer's role. **No cap
+   sizing fixes this; do not retry the injection design on this model family.**
+2. **Rehearse in the pod, read `output_tokens_details.thinking_tokens`.** Observed
+   spends on the same prompt: 399 (cap 400 — all thinking, zero text), 541 (cap 3000,
+   completed). Routine seat traffic thinks far less (~108 at cap 120; near zero at
+   8000). Thinking is task-adaptive, not fill-to-cap — but the fixture-free honest
+   reply is SHORT (~260 text tokens), so any truncation window is ±150 tokens wide.
+
+**The only induction design left standing:** a submission whose adoption-seat objection
+is HONEST — a plan with a genuine, minor (low/medium — both non-gating) adoption-contract
+wrinkle, every other seat approving — plus the cripple, cap ≈ observed-thinking + ~250,
+sized by a fresh rehearsal on the ACTUAL rendered prompt. Estimated 30–50% per attempt;
+each miss costs a full round. Also: **ban brackets from the expected objection string
+until the 68cc1b4e8 repair fix ROLLS** — the live binary's repair is still bracket-blind
+and would destroy the salvage this design depends on.
+
+Round 3 as actually fired = the real fix (no cripple): string-aware
+`repairTruncatedJSON` + first tests, commit `68cc1b4e8`, resubmitted on trail
+`4d7363d7`, orch `9e058698`.
