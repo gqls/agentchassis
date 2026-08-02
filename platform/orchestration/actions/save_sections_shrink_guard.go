@@ -147,7 +147,7 @@ func enforceSectionShrinkFloor(ctx context.Context, params ActionParams, siteID,
 		params.Logger.Error(reason)
 		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason,
 			fmt.Sprintf("Page save refused: the section shrink guard could not measure %q's existing sections", pageName),
-			shrinkRefusalFix), params.Logger)
+			shrinkMeasurementErrorFix), params.Logger)
 		return fmt.Errorf("%s", reason)
 	}
 	defer rows.Close()
@@ -196,3 +196,13 @@ const shrinkRefusalFix = "A save would have shrunk a prose section past the conf
 	"lower section_shrink_floor on the save_page_sections step (0 disables the guard); otherwise find " +
 	"why the writer regenerated the whole section instead of editing it — the reason field names the " +
 	"slot and the exact before/after sizes."
+
+// shrinkMeasurementErrorFix is the fail-closed path's OWN sentence — the 98aa9103
+// council round approved the split with three seats objecting to this path
+// borrowing the violation sentence: nothing shrank here, the guard could not
+// MEASURE, and 'lower the floor' is not a remedy for a query that failed.
+const shrinkMeasurementErrorFix = "The shrink guard could not measure the page's existing sections, so it failed " +
+	"closed and NOTHING was written; the existing page still stands. This is usually a transient " +
+	"database error — the save retries with the queue. If it recurs on this page, inspect its " +
+	"page_components rows rather than tuning any floor; section_shrink_floor=0 bypasses the guard " +
+	"entirely and is the deliberate escape hatch, not a fix."

@@ -451,6 +451,26 @@ func TestShrinkRefusalDoesNotBorrowTheCompletenessSentence(t *testing.T) {
 	}
 }
 
+// The 98aa9103 round's advisory, made a rule: the fail-closed measurement-error
+// path is a DIFFERENT cause and may not wear the violation path's sentence —
+// nothing shrank, and "lower the floor" is not a remedy for a failed query.
+func TestMeasurementErrorFixIsItsOwnSentence(t *testing.T) {
+	if shrinkMeasurementErrorFix == shrinkRefusalFix {
+		t.Fatal("the measurement-error path reuses the violation sentence verbatim — the defect class this helper's signature exists to kill")
+	}
+	if strings.Contains(shrinkMeasurementErrorFix, "shrunk a prose section") {
+		t.Errorf("the measurement-error fix claims a shrink happened; it did not: %q", shrinkMeasurementErrorFix)
+	}
+	if strings.Contains(shrinkMeasurementErrorFix, "lower section_shrink_floor") {
+		t.Errorf("the measurement-error fix advises floor-tuning for a failed measurement: %q", shrinkMeasurementErrorFix)
+	}
+	for _, must := range []string{"NOTHING was written", "transient"} {
+		if !strings.Contains(shrinkMeasurementErrorFix, must) {
+			t.Errorf("the measurement-error fix must state %q; got %q", must, shrinkMeasurementErrorFix)
+		}
+	}
+}
+
 // The floor honours step config, so a workflow that knows its pages shrink can
 // resolve it without anyone editing Go.
 func TestPageSectionFloorHonoursConfiguredRatio(t *testing.T) {
