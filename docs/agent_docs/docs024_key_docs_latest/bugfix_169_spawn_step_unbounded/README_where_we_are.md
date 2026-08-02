@@ -1,0 +1,54 @@
+# Where we are — bugs_open/169 part A
+
+Plain prose, append-only, newest at the bottom.
+
+## 2026-08-02 — why a build sometimes stopped for 40 minutes, and what has changed
+
+You asked me to pick up 169. Part B of it — the one about some sites never getting
+their turn — was already fixed by another session a day earlier. Part A was untouched:
+a build job that got stuck for over half an hour doing nothing, holding a piece of work
+so nothing else could pick it up.
+
+**The cause is simpler than it looked, and it is general.** When the platform runs one
+of its own built-in steps, it does so with no time limit at all. None. If that step
+makes a network call — to the database, to the message bus, to Kubernetes — and that
+call never comes back, the whole job sits there for ever. Nothing complains, because
+from the outside it looks like a step that is still working.
+
+There is a setting called `timeout_seconds` that looks exactly like it should prevent
+this. It does not. It is read, stored, and handed to the step — and then no step in the
+entire codebase actually looks at it. I checked all 271 of them.
+
+**What I have changed.** Built-in steps now run under a time limit. The default is ten
+minutes, chosen from measurement rather than taste: over the last three days the
+platform ran 6,951 of these spawn steps, 99% of them finished within 24 seconds, and
+exactly one exceeded five minutes — the broken one, which ran for four hours. So ten
+minutes catches the broken case with an enormous margin and touches nothing healthy.
+
+There are three ways to escape it, because this changes behaviour for every step in the
+platform and I would rather you had levers than certainty: any individual step can set
+its own limit, any individual step can turn it off entirely, and there is a single
+switch that turns the whole thing off across the fleet without needing a rebuild.
+
+**One thing I want to flag.** A time limit only works on calls that agree to be
+interrupted. Most do — database, message bus, Kubernetes all respect it. A step that
+deliberately sleeps does not. So this makes the common case survivable; it is not a
+guarantee that nothing can ever stick.
+
+**Something I found on the way that is worth knowing.** Jobs that got stuck were
+eventually clearing themselves after almost exactly four hours. That is a safety net
+that already existed — but it only notices when a new message happens to arrive, it
+marks the job failed rather than rescuing it, and it never actually stops the stuck
+work. It explains why this was survivable rather than catastrophic, and it is not a fix.
+
+**Where it stands.** The change is committed and reviewed but **not yet live** — it is
+program code, so it does nothing until someone builds and deploys a new image. The
+ticket stays open until then, with the exact verification steps written into it. I did
+not close it, because "committed" and "working in production" are different claims and
+this project's own rule is that only the second one closes a ticket.
+
+**Two mistakes of mine, both recorded.** I committed the change one commit before its
+register entry, when the rule says they must be together — a small window, but the rule
+exists because "I'll do it next commit" is how the entry ends up never written. And I
+wrote a commit message containing backticks, which the shell executed; it failed loudly
+and cost nothing, but the safe habit is to put long messages in a file instead.

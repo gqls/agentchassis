@@ -188,3 +188,110 @@ SELECT s.domain, count(*) FROM site_work_items wi JOIN sites s ON s.id=wi.site_i
 - `docs/agent_docs/sql_for_agents/052_build_pipeline_trigger.sql` — the SEED file is
   stale relative to the live `agent_definitions` row (see part B); don't trust it as
   documentation of current behaviour without checking live.
+
+---
+
+# PART A — ROOT CAUSE FOUND AND FIXED IN CODE, 2026-08-02 (session "bugfix 27")
+
+> **STATUS: STILL OPEN.** The fix is committed (`fe34fd04f`) and **inert until a
+> chassis image is built past it and rolled**. This repo's bar for `/bugs_closed/` is
+> **fixed AND live**, so part A stays here until the roll and the post-roll check
+> below. Part B remains fixed and live (`sql_for_agents/284`, `bugs_closed/176`).
+
+## The cause: a local action has no deadline, anywhere
+
+Nothing in the chain bounds the handler call:
+
+```
+continueExecution → executeStep → executeLocalAction → executeAction → handler(ctx, params)
+                                                        coordinator.go:1563
+```
+
+`executeAction` recovers panics and bounds nothing; no caller wraps the context. So an
+action that blocks on a network call parks its orchestration at `EXECUTING_STEP`
+indefinitely, and for `build-dispatch-loop` holds its `site_work_items` row in
+`claimed` until the 120s `claimed-item-timeout` reaper expires it. That is exactly the
+shape you observed: `process_item_iter_4_spawn_handler`, `since_s` climbing, item stuck
+`claimed`, right up against the documented timeout.
+
+**`timeout_seconds` looks like the bound and is not.** It is parsed
+(`coordinator.go:1348-1353`) into `execCtx.TimeoutSeconds` with the comment *"leave it
+for the action to set a default"* — and **no action reads it as a deadline on its own
+execution** (checked across all 271 action files).
+
+## Your instance, re-checked
+
+- orchestration `9da39de8` is gone (terminal rows are reaped ~24h).
+- item `b286f2f5` is now **`failed` at `attempt_count=3`** — it retried and exhausted.
+- so the instance cannot be re-examined; the class was measured instead.
+
+## The class, measured (`orchestration_state_audit`, 2026-07-31 → 08-02)
+
+| measure | value |
+|---|---|
+| distinct runs entering a `*_spawn_handler` step | **165** |
+| runs that ENDED at one | **1** (status `FAILED`) |
+| `spawn_*` step executions | **6,951** |
+| p50 / p95 / p99 | **0s / 18s / 24s** |
+| executions above 300s | **exactly 1**, at 14,475s |
+
+Bimodal with nothing in between: healthy spawns finish in seconds, the pathological one
+ran four hours. So the class is real, rare, and a generous bound catches it without
+touching anything healthy.
+
+## A thing worth knowing that is NOT a fix
+
+Five orchestrations across three days each stalled for almost exactly **4h01m**. That is
+`coordinator.go:831`'s `maxAge = WorkflowPlan.TimeoutSeconds × 3` stale-orchestration
+guard. It is an *orchestration-age* check inside the message-handling path: it fires only
+when a message next arrives, marks the row failed, and **never interrupts the blocked
+goroutine**. It is why these eventually clear, and it is not a step timeout.
+
+## The fix (`fe34fd04f`, register **RSH-004**, council `2c6800e6`)
+
+`executeLocalAction` derives a deadline and passes it to the handler. Default **600s**
+(~25× the measured all-step p99.9 and 25× the spawn p99); per-step override
+`local_action_timeout_seconds`; **`<=0` = explicitly unbounded**, logged Warn every time;
+`DISABLE_LOCAL_ACTION_TIMEOUT=true` is a fleet-wide kill switch restoring the previous
+behaviour with no rebuild. A malformed value falls back to the **default**, never to
+unbounded. A `DeadlineExceeded` is wrapped to name the action, step and elapsed time,
+then routed through the existing `handleActionError` path so `error_step` is unchanged.
+
+**Deliberately NOT wired to `timeout_seconds`** — 53 of the 64 live steps carrying that
+key are `call_agent` and most of the rest are waiting semantics (`await_approval` carries
+86400). It means "how long to wait for something EXTERNAL"; conflating the two is the
+class RFC 006 was decided on, and would hand `await_approval` a 24-hour execution
+deadline. **Deliberately NOT goroutine-abandonment** — it would regain control from a
+ctx-ignoring action but leaks the goroutine, and a late write into an already-failed step
+is a worse hazard than the hang.
+
+## On your instruction to run 090 first — done, and here is what it returned
+
+Filed as you asked: `RUN_CORRELATION_ID=3ca53d45-4826-4935-96a3-a0af4d194d91`. It ran
+five iterations and **produced five `bundle` artifacts and no diagnosis** — no `fix_plan`,
+no `council_report`, nothing under its correlation, and the work item completed. (Note
+for anyone repeating this: there is **no `verdict` artifact kind** — the kinds that exist
+are `fix_plan`, `council_report`, `bundle`, `escalation`, `iteration_note`. Waiting on
+`kind='verdict'` waits for ever.)
+
+So, per CLAUDE.md's owner ruling of 2026-07-31, stating plainly what was substituted:
+**the root cause above rests on first-hand verification, not on the loop's verdict** —
+the call chain was read end to end, every one of the 271 action files was checked for a
+reader of `TimeoutSeconds`, and the distribution was measured over all 96,047 recorded
+step executions. The loop's bundles corroborate the surrounding facts (every other
+`build-dispatch-loop` run in the window completed in 20–50s) but did not deliver a
+verdict.
+
+**That the diagnosis loop completed without producing one is itself worth a look, and is
+NOT claimed here as a defect** — one run is not a rate, and no other diagnosis run exists
+in the last 10 days to compare against.
+
+## What is owed before this can close
+
+1. A chassis image built past `fe34fd04f`, rolled.
+2. Pod-grep both replicas for a string this change ADDED and one it did not, in the same
+   exec (a roll is not evidence — `bugs_open/153`):
+   `strings /app/agent-chassis | grep -c local_action_timeout_seconds`  (expect ≥1)
+   `strings /app/agent-chassis | grep -c "Executing local action"`      (control, ≥1)
+3. Re-measure: no run should END at a `*_spawn_handler` step; a step that exceeds its
+   deadline must FAIL with an error naming the action and elapsed time.
