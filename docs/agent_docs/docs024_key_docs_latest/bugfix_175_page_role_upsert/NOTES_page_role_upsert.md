@@ -169,3 +169,24 @@ violation, deletes the just-created component and returns an error — loud and
 fail-closed, so it is outside 175's silent-partial-update class. Converting it
 would make re-runs idempotent, which is a real behaviour change nobody asked for.
 Recorded in the bug file as a follow-up.
+
+## The two fleet-wide files were swept into another lane's commit — nothing lost
+
+I appended to `LANDMINES.md` and `WRONG_CALLS.md`, then named both on my `git
+commit` pathspec. The commit took **4 files, not 6**: between my append and my
+commit, the `bugfix_136_sibling_link_repair` lane committed `c734dbc98`
+("docs(180): …"), which carried both files — my two entries included — into its
+own message.
+
+Verified intact in HEAD rather than assumed: `git show HEAD:…/LANDMINES.md | grep
+"bugfix_175_page_role_upsert lane"` and the closing lines of my `WRONG_CALLS`
+entry are both present and complete. So this is the CLAUDE.md case working exactly
+as documented — "committing per task stops *you* sweeping up *others'* WIP; it
+cannot stop a session that still runs `git add -A` from sweeping up yours" — and
+the remedy is the one already written down: nothing is lost, forward-only holds,
+say so and move on. Recorded because my own commit message claims those two files
+and `git show` on that commit will not show them.
+
+**Practical note for the next thread:** on the two append-only fleet files, expect
+your lines to land under someone else's commit. Verify at HEAD (`git show
+HEAD:<file> | grep <your marker>`), not at your own commit.

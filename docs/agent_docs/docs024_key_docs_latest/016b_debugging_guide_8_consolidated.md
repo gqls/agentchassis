@@ -9569,6 +9569,43 @@ with no owner in the first place — **two guards can each be individually corre
 and leave an unowned intersection between them**, which is also `bugs_open/098`'s
 shape).
 
+> **FOLLOW-UP 2026-08-02 (`bugs_open/175`, PBP-027) — this entry's own advice
+> "just add the column is often wrong" was right, and the entry still under-scoped
+> twice. Recorded here because the entry is what the next session will read.**
+>
+> **(1) It was five arms, not one.** The council seat that reviewed 081 asked
+> whether siblings had been audited; they had not. Four more arms carried the
+> identical shape in three other files, written by different sessions
+> (`create_report_page_action`, `deploy_tool_action` ×2,
+> `create_tool_component_action`). **When you find this pattern, the census is
+> part of the fix:** `grep -rn "ON CONFLICT (site_id, name)" --include=*.go` costs
+> seconds. And a per-instance repair leaves the sixth to be written next month —
+> the seam is `UpsertPageForRole` (`platform/orchestration/actions/page_role_upsert.go`),
+> and what actually stops recurrence is the mechanical check
+> `check_partial_page_upsert` in `scripts/pattern-check.py`, which fires at the
+> moment of the edit on "page_type in the INSERT, absent from the SET".
+>
+> **(2) "Scope the refusal on a measurement" above scoped it on the WRONG
+> measurement.** The guard reads `build_status = 'deployed'`. That is not "this
+> page is live": `needs_rebuild` rows have been deployed and are still being
+> served — **35 of 46 carry a non-null `deployed_at`** (measured 2026-08-02) — and
+> `bugs_closed/037` is an entire filed case about exactly that predicate missing
+> them. The count in 081 ("0 needs_rebuild rows are mistyped") answered *how many
+> pages need repairing today*, and was then used to scope *which pages may be
+> mutated*, which is a different question whose answer does not follow from it.
+> The shared seam uses `build_status IN ('deployed','needs_rebuild') OR
+> deployed_at IS NOT NULL`. **The transferable check: when a count justifies a
+> guard, state which question the count answered, and check that it is the
+> question the guard asks.**
+>
+> **(3) The refusal is only half an answer for an arm whose role is a CONSTANT.**
+> 081 refuses on a live row and refreshes-without-retyping on an unshipped one —
+> correct there, because its `page_type` comes from an LLM plan. An arm that owns
+> its role by construction (the tool deployer always writes `tool`) can do better
+> on the unshipped row: take it over completely, `page_type` included. Leaving the
+> type wrong on a page nothing has ever served preserves the defect for no safety
+> gain. **The discriminator is where the role comes from, not how the arm feels.**
+
 ### A guard placed before ONE of an action's persist sites is bypassed by the other, and both return the same success shape (`bugs_open/136` section-editor, 2026-08-02)
 
 **The pattern, one level down from "one guarded call site".** §9 already records the
