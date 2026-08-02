@@ -608,3 +608,123 @@ family repeats — because `pageflow-builder`, `page-rebuild` and
 `site-work-orchestrator` reach the action through a `loop` step and a
 `->>'action'` filter cannot see them. Six is re-verified correct on 2026-08-02;
 RUNBOOK R8 carries both queries and the reconciliation.
+
+---
+
+## 2026-08-02 18:49Z — FIXED, LIVE on v1.0.1229, BOTH ARMS INDUCED IN PRODUCTION. Closing.
+
+### 1. Live at the binary, both replicas, with controls
+
+`v1.0.1229`, pods `agent-chassis-79479769b9-g7fbt` / `-n8nbj`. Binary mtime
+**18:28:49Z** vs commit `d78f70bf1` at **10:45:30Z** — the binary postdates the
+commit by ~7h45m, which is what makes the tag irrelevant (`bugs_open/153`).
+
+```
+audited content_data internal links before persist  1 / 1    NEW
+CONTENT_DATA_LINK_AUDIT                             1 / 1    NEW
+RepairContentDataLinks                              4 / 4    NEW
+repaired dead internal links before persist         2 / 2    POSITIVE control (LNK-024, live since 1196)
+CONTENT_LINK_REPAIR_DETAIL                          1 / 1    POSITIVE control
+CONTENT_DATA_LINK_INVENTED                          0 / 0    negative — INVENTED, weaker; see NOTES
+```
+
+### 2. Induced on a real page, against a prediction written BEFORE the run
+
+`gaswholesalers.com/supply-terms-and-eligibility` — chosen for 6 known findings,
+**zero locked slots**, and last written 2026-07-10 so no lane was in it. Work item
+`ab409727-4dd3-48b0-8e7c-1a2e3682702d`, `reason='section_data_resolved'`,
+`complete`, `error` NULL.
+
+**Predicted, in writing, before dispatch:** 2 rewrites (`cards[4]`, `cards[5]`:
+`/contact` → `/contact.html`), 4 phantoms reported and left untouched, one audit
+row naming `info-card-grid`. **Observed, exactly:**
+
+```
+CONTENT_DATA_LINK_AUDIT | save_page_sections | rewritten=2 | phantom=4 | supply-terms-and-eligibility
+  cards[0].link_url /eligibility  phantom      cards[4].link_url /contact -> /contact.html  rewrite
+  cards[1].link_url /pricing      phantom      cards[5].link_url /contact -> /contact.html  rewrite
+  cards[2].link_url /delivery     phantom
+  cards[3].link_url /products     phantom
+```
+
+**BOTH ARMS PROVEN AT THE ARTEFACT, not at the status.** Stored `content_data` now:
+
+```
+card 0 /eligibility   card 1 /pricing   card 2 /delivery   card 3 /products    <- phantom arm: UNTOUCHED
+card 4 /contact.html  card 5 /contact.html                                     <- rewrite arm: CORRECTED AT SOURCE
+```
+
+**The strongest control is the four slots that did not move.** All six components
+were rewritten at 18:49:04, and five of the six are **byte-identical** to their
+pre-run `md5(content_data)`:
+
+```
+hero               2f773e4e…  UNCHANGED     info-card-grid  45215dac… -> 2614909f…  CHANGED
+generic-text-block 1dae897b…  UNCHANGED     generic-text-block 5aeee5f7…  UNCHANGED
+faq                5f6b87f7…  UNCHANGED     call-to-action  fcee6d17…  UNCHANGED
+```
+
+So the pass touched exactly the one slot with findings and perturbed nothing else,
+on a save that rewrote every row.
+
+### 3. The two representations converged, and the wire agrees
+
+The markup pass fired **10 ms later on the same save**, and the two agree exactly —
+same six links, same 2/4 split:
+
+```
+18:49:04.587  CONTENT_DATA_LINK_AUDIT     rewritten=2  phantom=4    <- the source
+18:49:04.597  CONTENT_LINK_REPAIR_DETAIL  rewritten=2  unlinked=4   <- the markup
+```
+
+That is the "one index, two representations, cannot disagree" property working as
+designed. Stored `rendered_html` for that slot now carries **only** `/contact.html`,
+and the **served page** — the wire, not the DB — carries `7 × href="/contact.html"`
+and **zero** `/eligibility`, `/pricing`, `/delivery`, `/products`.
+
+### 4. The standing count is FALLING, and the drop is localised to the mechanism
+
+The bug file's own bar was that a **static** count means the pass is not being
+reached. Re-ran the census with the shipping function:
+
+| domain | before | after |
+|---|---|---|
+| robot-hands.com | 17 | 17 |
+| idea.uk | 12 | 12 |
+| finetuning.uk | 7 | 7 |
+| ai-agent-orchestration.com | 5 | 5 |
+| leopardessconsulting.co.uk | 4 | 4 |
+| **gaswholesalers.com** | **6** | **4** |
+| vonc.com | 1 | 1 |
+| **total** | **52** | **50** |
+
+Rewrites 19 → 17. **Only the induced site moved, and by exactly the 2 the
+mechanism accounts for.** (The corpus also grew 885 → 979 components in the
+interval, from other lanes' work, adding no new findings — worth noting, though it
+is not by itself evidence about link quality.)
+
+### What is discharged, and what is deliberately routed elsewhere
+
+**Discharged:** the headline — *"`ctaFieldNames` … still enumerates named CTA
+fields and walks no `content_data` arrays … Fix candidate 1 … remains the open
+work."* Links are now found at any nesting, in any component, judged against real
+`pages.url`, corrected where the target exists and reported where it does not.
+
+**Not this file's, and each has a home:**
+
+1. The single-component `content_data` writers — **`bugs_open/136`**, open, owned.
+2. A fleet dispatcher for `check_phantom_internal_links` — **owner call**
+   (`bugs_open/083`/`033`). Building a second undispatched check would repeat
+   `093`'s outcome.
+3. The deploy-path completeness sub-question from the 07-28 round — never claimed,
+   and still not claimed here.
+4. Whether the phantom arm should **escalate** rather than record — the same open
+   question `link_repair.go`'s header carries for its unlink arm. They should be
+   settled together, not separately.
+
+**Standing debt at close: 50 findings, 6 domains.** No migration: each clears on
+its page's next save. Cadence measured at **2–23 days**, so this is opportunistic,
+not scheduled — if that is not good enough, item 2 above is the lever.
+
+Council `40c0c14d-636c-4d6f-b3a2-9316267d7367` **APPROVED** round 1 · register
+**LNK-028** · workstream `docs024_key_docs_latest/bugfix_097_content_data_links/`.
