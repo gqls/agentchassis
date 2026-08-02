@@ -172,6 +172,20 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("creating report page: %w", err)
 	}
 
+	// --- Dead-internal-link repair (bugs_open/136) ---
+	// renderReportSection escapes every deterministic field, but the four prose
+	// sections are embedded RAW (`%s` on summary_html / candidates_html /
+	// integration_html / vendor_questions_html), so an invented internal href in
+	// verified prose reaches rendered_html verbatim. The provenance anchors are
+	// external manufacturer URLs, which RepairPageLinks does not touch.
+	//
+	// Placed after the pages row exists, so this report's own URL is in the
+	// index, and before the instance-row write, so what is repaired is what is
+	// persisted. It also flows into the result's `rendered_html`, which is what
+	// the downstream validate_page_content step reads.
+	sectionHTML = repairComponentHTMLBeforePersist(ctx, params, siteID,
+		siteDomain, pageName, pageURL, "create_report_page", sectionHTML, logger)
+
 	// --- Instance row, keyed by (page_id, slot_name) lookup ---
 	var existingPC uuid.UUID
 	lookupErr := params.DB.QueryRowContext(ctx, `

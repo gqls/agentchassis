@@ -322,14 +322,13 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// --- Apply the edit ---
-	var newHTML string
-	var newContentData map[string]interface{}
+	var outcome sectionEditOutcome
 
 	switch editType {
 	case "content_edit":
-		newHTML, newContentData, err = applyContentEdit(ctx, params.DB, siteID, pcData, editCtx, inputs, logger)
+		outcome, err = applyContentEdit(ctx, params.DB, siteID, pcData, editCtx, inputs, logger)
 	case "component_swap":
-		newHTML, newContentData, err = applyComponentSwap(ctx, params.DB, siteID, pcData, editCtx, inputs, logger)
+		outcome, err = applyComponentSwap(ctx, params.DB, siteID, pcData, editCtx, inputs, logger)
 	default:
 		return nil, fmt.Errorf("unknown edit_type: %s (expected: content_edit, component_swap)", editType)
 	}
@@ -347,29 +346,47 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("edit failed (%s): %w", editType, err)
 	}
 
-	// --- Update page_components row ---
-	// Note: component_swap already updates the row (including component_id),
-	// but content_edit needs this separate update
-	if editType == "content_edit" {
-		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, newHTML, newContentData)
-		if errors.Is(err, errComponentLocked) {
-			return map[string]interface{}{
-				"success": true,
-				"skipped": true,
-				"locked":  true,
-				"reason":  fmt.Sprintf("component %s (%s) is locked — unlock via the admin dashboard to edit it", pcIDStr, slotName),
-			}, nil
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to update page_component: %w", err)
-		}
+	domain, _ := pageData["domain"].(string)
+	pageURL := getStringVal(pageData, "url")
+
+	// --- Dead-internal-link repair (bugs_open/136) ---
+	// ONE call, before ONE persist switch. This action is where an LLM rewrites
+	// a single section and the result goes straight to
+	// page_components.rendered_html — the same freedom to invent /pricing that
+	// produced 079's evidence, on the path CLAUDE.md itself points sessions at
+	// for targeted edits. Before this, the swap branch persisted inside
+	// applyComponentSwap and the content_edit branch persisted here, so a repair
+	// at either point would have left the other open — this bug's own shape, one
+	// level in. The swap's UPDATE moved out to the switch below so that cannot
+	// be true again.
+	outcome.HTML = repairComponentHTMLBeforePersist(ctx, params, siteID,
+		domain, pageName, pageURL, "apply_section_edit", outcome.HTML, logger)
+
+	// --- Persist the page_components row ---
+	switch editType {
+	case "content_edit":
+		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, outcome.HTML, outcome.ContentData)
+	case "component_swap":
+		err = updatePageComponentSwap(ctx, params.DB, pcID,
+			outcome.ComponentID, outcome.SlotName, outcome.HTML, outcome.ContentData)
+	}
+	if errors.Is(err, errComponentLocked) {
+		return map[string]interface{}{
+			"success": true,
+			"skipped": true,
+			"locked":  true,
+			"reason":  fmt.Sprintf("component %s (%s) is locked — unlock via the admin dashboard to edit it", pcIDStr, slotName),
+		}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to persist section edit (%s): %w", editType, err)
 	}
 
 	logger.Info("ApplySectionEditAction: Updated page_component",
 		zap.String("page_component_id", pcIDStr),
 		zap.String("edit_type", editType),
 		zap.String("slot_name", slotName),
-		zap.Int("new_html_length", len(newHTML)),
+		zap.Int("new_html_length", len(outcome.HTML)),
 	)
 
 	// --- Reassemble full page ---
@@ -403,8 +420,6 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 			"page %q reassembled to nothing after the section edit — %s",
 			pageInfo.Name, assembly.describe())
 	}
-
-	domain, _ := pageData["domain"].(string)
 
 	logger.Info("ApplySectionEditAction: Page reassembled",
 		zap.String("page_name", pageInfo.Name),
@@ -602,6 +617,23 @@ func buildRenderContextFromDB(
 //
 // After updating content_data, loads the component template and builds a
 // full RenderContext from DB state, then calls RenderTemplate.
+// sectionEditOutcome is what an edit PRODUCED, before anything is written.
+//
+// The two edit types used to differ in where they persisted — content_edit
+// returned its HTML for the caller to write, component_swap wrote its own row
+// and returned the HTML as well. That gave the action two persist sites, so any
+// guard placed before one of them left the other open (bugs_open/136). Both now
+// return this, and ApplySectionEditAction repairs once and persists once.
+//
+// ComponentID and SlotName are set by component_swap only; content_edit leaves
+// them zero because it changes neither.
+type sectionEditOutcome struct {
+	HTML        string
+	ContentData map[string]interface{}
+	ComponentID uuid.UUID
+	SlotName    string
+}
+
 func applyContentEdit(
 	ctx context.Context,
 	db *sql.DB,
@@ -610,7 +642,7 @@ func applyContentEdit(
 	editCtx map[string]interface{},
 	inputs *datahelpers.ActionInputs,
 	logger *zap.Logger,
-) (string, map[string]interface{}, error) {
+) (sectionEditOutcome, error) {
 
 	// --- Build updated content_data ---
 	existingContentData := make(map[string]interface{})
@@ -632,10 +664,10 @@ func applyContentEdit(
 			updates = v
 		case string:
 			if err := json.Unmarshal([]byte(v), &updates); err != nil {
-				return "", nil, fmt.Errorf("field_updates must be valid JSON object: %w", err)
+				return sectionEditOutcome{}, fmt.Errorf("field_updates must be valid JSON object: %w", err)
 			}
 		default:
-			return "", nil, fmt.Errorf("field_updates must be a JSON object, got %T", fieldUpdates)
+			return sectionEditOutcome{}, fmt.Errorf("field_updates must be a JSON object, got %T", fieldUpdates)
 		}
 		for k, v := range updates {
 			existingContentData[k] = v
@@ -654,24 +686,24 @@ func applyContentEdit(
 		case string:
 			var parsed map[string]interface{}
 			if err := json.Unmarshal([]byte(v), &parsed); err != nil {
-				return "", nil, fmt.Errorf("replacement_content_data must be valid JSON object: %w", err)
+				return sectionEditOutcome{}, fmt.Errorf("replacement_content_data must be valid JSON object: %w", err)
 			}
 			existingContentData = parsed
 			logger.Info("applyContentEdit: Full content_data replacement (from JSON string)",
 				zap.Int("field_count", len(parsed)))
 		}
 	} else {
-		return "", nil, fmt.Errorf("content_edit requires either 'field_updates' or 'replacement_content_data' parameter")
+		return sectionEditOutcome{}, fmt.Errorf("content_edit requires either 'field_updates' or 'replacement_content_data' parameter")
 	}
 
 	// --- Get component template ---
 	componentData, _ := editCtx["component"].(map[string]interface{})
 	if componentData == nil {
-		return "", nil, fmt.Errorf("no component template available — cannot re-render (component_id may be NULL)")
+		return sectionEditOutcome{}, fmt.Errorf("no component template available — cannot re-render (component_id may be NULL)")
 	}
 	htmlTemplate, _ := componentData["html_template"].(string)
 	if htmlTemplate == "" {
-		return "", nil, fmt.Errorf("component template is empty — cannot re-render")
+		return sectionEditOutcome{}, fmt.Errorf("component template is empty — cannot re-render")
 	}
 
 	// --- Build render context from DB ---
@@ -692,13 +724,13 @@ func applyContentEdit(
 
 	renderCtx, err := buildRenderContextFromDB(ctx, db, siteID, pageInfoForRender, existingContentData, logger)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to build render context: %w", err)
+		return sectionEditOutcome{}, fmt.Errorf("failed to build render context: %w", err)
 	}
 
 	// --- Render ---
 	rendered := RenderTemplate(htmlTemplate, renderCtx, logger)
 	if rendered == "" {
-		return "", nil, fmt.Errorf("template rendering produced empty output")
+		return sectionEditOutcome{}, fmt.Errorf("template rendering produced empty output")
 	}
 
 	logger.Info("applyContentEdit: Re-rendered component from template",
@@ -706,12 +738,17 @@ func applyContentEdit(
 		zap.Int("content_data_fields", len(existingContentData)),
 	)
 
-	return rendered, existingContentData, nil
+	return sectionEditOutcome{HTML: rendered, ContentData: existingContentData}, nil
 }
 
 // applyComponentSwap changes the component template for this section.
 // Looks up the new component, then re-renders with existing content_data
 // using full site context from DB.
+//
+// It does NOT write the row. It used to (bugs_open/136): the swap persisted
+// itself here while content_edit persisted in the caller, which gave the action
+// two persist sites and made any single pre-persist guard bypassable by the
+// other branch. The caller now performs both writes, after one repair pass.
 func applyComponentSwap(
 	ctx context.Context,
 	db *sql.DB,
@@ -720,11 +757,11 @@ func applyComponentSwap(
 	editCtx map[string]interface{},
 	inputs *datahelpers.ActionInputs,
 	logger *zap.Logger,
-) (string, map[string]interface{}, error) {
+) (sectionEditOutcome, error) {
 
 	newFunction := inputs.Get("new_component_function")
 	if newFunction == "" {
-		return "", nil, fmt.Errorf("component_swap requires 'new_component_function' parameter")
+		return sectionEditOutcome{}, fmt.Errorf("component_swap requires 'new_component_function' parameter")
 	}
 
 	// Normalize per naming contract
@@ -733,11 +770,11 @@ func applyComponentSwap(
 	// Look up the new component
 	comp, err := GetComponentWithFallback(ctx, db, newFunction, logger)
 	if err != nil {
-		return "", nil, fmt.Errorf("component %q not found: %w", newFunction, err)
+		return sectionEditOutcome{}, fmt.Errorf("component %q not found: %w", newFunction, err)
 	}
 
 	if comp.HTMLTemplate == "" {
-		return "", nil, fmt.Errorf("component %q has no HTML template", newFunction)
+		return sectionEditOutcome{}, fmt.Errorf("component %q has no HTML template", newFunction)
 	}
 
 	// Determine content_data to render with.
@@ -778,12 +815,12 @@ func applyComponentSwap(
 
 	renderCtx, err := buildRenderContextFromDB(ctx, db, siteID, pageInfoForRender, contentData, logger)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to build render context for swap: %w", err)
+		return sectionEditOutcome{}, fmt.Errorf("failed to build render context for swap: %w", err)
 	}
 
 	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if rendered == "" {
-		return "", nil, fmt.Errorf("template rendering produced empty output after swap")
+		return sectionEditOutcome{}, fmt.Errorf("template rendering produced empty output after swap")
 	}
 
 	logger.Info("applyComponentSwap: Swapped and re-rendered component",
@@ -793,20 +830,16 @@ func applyComponentSwap(
 		zap.Int("output_length", len(rendered)),
 	)
 
-	// Update component_id, slot_name, rendered_html, content_data in DB
+	// component_id, slot_name, rendered_html and content_data are written by the
+	// caller (updatePageComponentSwap), after the link repair.
 	compID, _ := uuid.Parse(comp.ID)
-	err = updatePageComponentSwap(ctx, db,
-		mustParseUUID(getStringVal(pcData, "id")),
-		compID,
-		comp.Function,
-		rendered,
-		contentData,
-	)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to update page_component for swap: %w", err)
-	}
 
-	return rendered, contentData, nil
+	return sectionEditOutcome{
+		HTML:        rendered,
+		ContentData: contentData,
+		ComponentID: compID,
+		SlotName:    comp.Function,
+	}, nil
 }
 
 // ===========================================================================

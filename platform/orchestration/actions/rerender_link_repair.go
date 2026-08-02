@@ -23,7 +23,6 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -47,21 +46,21 @@ func repairOutboundPageLinks(ctx context.Context, params ActionParams, siteID uu
 		// the index failed to load must be findable a day later. Best-effort,
 		// like the repair log itself — the skip record must not fail the deploy
 		// it describes.
-		if params.DB != nil {
-			skipCtx, _ := json.Marshal(map[string]string{"page_name": pageName, "page_url": pageURL})
-			if _, err := params.DB.ExecContext(ctx, `
-				INSERT INTO agent_error_log
-				    (site_id, domain, agent_type, step_name, action,
-				     error_message, error_code, severity, context)
-				VALUES (NULLIF($1,'')::uuid, NULLIF($2, ''), 'page-rerender', $3, 'rerender_page',
-				        $4, 'CONTENT_LINK_REPAIR_SKIPPED', 'warning', $5::jsonb)`,
-				siteID.String(), domain, skipStepName(params),
-				"Rerender link repair SKIPPED — page index unavailable; page deployed unrepaired",
-				string(skipCtx),
-			); err != nil {
-				logger.Warn("rerender link repair: failed to write skip record", zap.Error(err))
-			}
-		}
+		//
+		// The INSERT itself moved to writeLinkRepairSkipLog
+		// (component_link_repair.go) when bugs_open/136 added a third writer;
+		// the row is unchanged — same 'page-rerender' agent_type, same
+		// 'rerender_page' action, same message, same context.
+		writeLinkRepairSkipLog(ctx, params, siteID.String(), domain,
+			linkRepairOrigin{
+				AgentType:  "page-rerender",
+				StepName:   skipStepName(params),
+				ActionName: "rerender_page",
+				PageName:   pageName,
+				PageURL:    pageURL,
+			},
+			"Rerender link repair SKIPPED — page index unavailable; page deployed unrepaired",
+			logger)
 		return html
 	}
 	repaired, repairs := datahelpers.RepairPageLinks(html, pageIndex)

@@ -487,6 +487,103 @@ def check_runtime_fill_marker(files, ref, findings):
                 ))
 
 
+# A writer of page_components.rendered_html with no link repair (bugs_open/136).
+#
+# bugs_open/079 put the dead-internal-link repair at the full-page section save,
+# which is where LLM-authored body prose normally enters. The council's
+# bug_historian seat objected that this was never shown to be the ONLY writer of
+# the column — only the only one with a 'save_page_sections' STEP NAME — and the
+# check it asked for found four more. Between the filing and the fix a FIFTH
+# appeared (adopt_verbatim.go), which is the argument for a mechanical check
+# rather than a list in a bug file: the set grows, and it grows in files nobody
+# is thinking about link repair in.
+#
+# This does NOT assert that every writer must repair. Two of them must not —
+# byte-preserving adoption would be corrupted by it. It asserts that a writer
+# either repairs or is NAMED here with the reason, so the decision is visible at
+# the moment of the edit instead of being rediscovered by a council round.
+COMPONENT_HTML_WRITE_RE = re.compile(
+    r"(?is)(INSERT\s+INTO\s+page_components\b[^`\"]{0,400}?rendered_html"
+    r"|UPDATE\s+page_components\b[^`\"]{0,400}?SET[^`\"]{0,400}?rendered_html\s*=)")
+
+# The GUARD is searched for as a CALL on a NON-COMMENT line of the RAW body, and
+# both halves of that are a landmine (LANDMINES.md, 2026-07-31, strip_comments):
+#
+#   - not the stripped body, because strip_comments can DELETE a guard and
+#     manufacture a finding. Its docstring's "can only ever suppress" holds for a
+#     check searching for the OFFENCE; this one also searches for the guard.
+#   - not the raw body either, because a comment merely MENTIONING the seam would
+#     then silence the check on a genuinely unguarded writer — control (c) of that
+#     landmine's own four, and the one that catches a detector narrowed into
+#     inertness. Hence: a real call, on a line that is not a comment.
+COMPONENT_REPAIR_SEAM_RE = re.compile(
+    r"(?:repairComponentHTMLBeforePersist|repairSectionsBeforePersist|repairOutboundPageLinks)\s*\(")
+
+
+def _calls_repair_seam(raw):
+    for line in raw.splitlines():
+        bare = line.lstrip()
+        if bare.startswith("//") or bare.startswith("*"):
+            continue                      # prose about the seam is not a call to it
+        if COMPONENT_REPAIR_SEAM_RE.search(line):
+            return True
+    return False
+
+# Reasons, not exemptions. Each says why repairing this writer would be WRONG —
+# not that it was inconvenient. A writer whose reason is "not done yet" belongs
+# in the bug file and in this check's output, NOT in here: an allow-list that
+# absorbs the open cases silences the detector on exactly what it was written to
+# catch (the tool-markup writers are deliberately absent for that reason).
+COMPONENT_WRITE_ALLOWED = {
+    "adopt_verbatim.go":
+        "byte-preserving adoption (--fidelity locked) — the stored bytes ARE the "
+        "crawled document; repairing links would break the contract the file exists for",
+    "import.go":
+        "one-off port CLI, same byte-preservation reasoning as adopt_verbatim",
+    "fix_harcoded_colours_action.go":
+        "colour-only rewrite of existing html — cannot introduce an href",
+    "fix_forced_text_colours_action.go":
+        "colour-only rewrite of existing html — cannot introduce an href",
+    "rebuild_blog_listing_action.go":
+        "hrefs come from pages.url (blogPostsQuery -> articles[].url) and the live "
+        "content-listing template carries exactly one anchor, href=\"{{.url}}\" — the "
+        "same table the repair index is built from, so repair could only no-op "
+        "(measured 2026-08-02)",
+    "page_admin_handlers.go":
+        "human-driven admin API — a person edited this deliberately",
+}
+
+
+def check_unrepaired_component_write(files, ref, findings):
+    """bugs_open/136 — a writer of rendered_html that never repairs its links."""
+    for path in files:
+        if not path.endswith(".go") or path.endswith("_test.go"):
+            continue
+        if os.path.basename(path) in COMPONENT_WRITE_ALLOWED:
+            continue
+        content = file_content(path, ref)
+        if not content:
+            continue
+        # OFFENCE in the stripped body (a comment describing an UPDATE is not one),
+        # GUARD in the raw body via _calls_repair_seam — see its note above.
+        if not COMPONENT_HTML_WRITE_RE.search(strip_comments(content)):
+            continue
+        if _calls_repair_seam(content):
+            continue
+        findings.append((
+            "unrepaired-component-write", path,
+            f"writes {BOLD}page_components.rendered_html{RESET} with no dead-internal-link repair",
+            "bugs_open/136 — 079's repair guards the full-page section save; a sibling "
+            "writer that persists rendered_html on its own bypasses it, and an invented "
+            "/pricing ships as a 404 with a green status. Call "
+            "repairComponentHTMLBeforePersist(...) immediately before the write (it wraps "
+            "the same seam, fail-open, same CONTENT_LINK_REPAIR_DETAIL record). If repair "
+            "would be WRONG for this writer, add it to COMPONENT_WRITE_ALLOWED with the "
+            "reason — and if the honest reason is 'not yet', leave it here and say so in "
+            "the bug file instead.",
+        ))
+
+
 def check_append_only_docs(files, ref, findings):
     """Owner directive — SUMMARY snapshots and README_where_we_are are append-only."""
     for path in files:
@@ -973,7 +1070,7 @@ def main():
                   check_unguarded_migration_insert, check_append_only_docs,
                   check_truncation_without_reader, check_logged_model_output,
                   check_new_capability_surface, check_register_coverage,
-                  check_runtime_fill_marker):
+                  check_runtime_fill_marker, check_unrepaired_component_write):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit

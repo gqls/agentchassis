@@ -40,7 +40,6 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -122,7 +121,16 @@ func repairSectionsBeforePersist(
 	if !indexOK {
 		logger.Warn("SavePageSectionsAction: link repair SKIPPED — page index unavailable; persisting unrepaired",
 			zap.String("page_name", pageName))
-		writeSaveSectionsRepairSkipLog(ctx, params, siteID, domain, stepName, pageName, pageURL, logger)
+		writeLinkRepairSkipLog(ctx, params, siteID.String(), domain,
+			linkRepairOrigin{
+				AgentType:  componentRepairAgentType(params),
+				StepName:   stepName,
+				ActionName: "save_page_sections",
+				PageName:   pageName,
+				PageURL:    pageURL,
+			},
+			"Section link repair SKIPPED — page index unavailable; sections persisted unrepaired",
+			logger)
 		return
 	}
 
@@ -155,60 +163,19 @@ func repairSectionsBeforePersist(
 		repairs, rewritten, unlinked, logger)
 }
 
-// writeSaveSectionsRepairSkipLog records that sections were persisted WITHOUT
-// repair because the page index could not be trusted.
-//
-// A pod log line is not a record (071 gap 3): a page that shipped unrepaired
-// must be findable a day later, and pod logs roll. Best-effort — like the
-// repair log itself, a logging failure must never fail the save it describes.
-//
-// This is a deliberate near-twin of the insert in rerender_link_repair.go:52-63
-// rather than a shared extraction. Merging them would edit a live, proven
-// rerender path for a tidiness gain inside a change about the save path; the
-// two should be folded together on their own merits, not as a passenger here.
-func writeSaveSectionsRepairSkipLog(
-	ctx context.Context,
-	params ActionParams,
-	siteID uuid.UUID,
-	domain, stepName, pageName, pageURL string,
-	logger *zap.Logger,
-) {
-	if params.DB == nil {
-		return
-	}
-	skipCtx, err := json.Marshal(map[string]string{"page_name": pageName, "page_url": pageURL})
-	if err != nil {
-		logger.Warn("SavePageSectionsAction: failed to marshal link repair skip context", zap.Error(err))
-		return
-	}
-	agentType := params.AgentType
-	if agentType == "" {
-		agentType = "unknown"
-	}
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, 'save_page_sections',
-		        $5, 'CONTENT_LINK_REPAIR_SKIPPED', 'warning', $6::jsonb)`,
-		siteID, domain, agentType, stepName,
-		"Section link repair SKIPPED — page index unavailable; sections persisted unrepaired",
-		string(skipCtx),
-	); err != nil {
-		logger.Warn("SavePageSectionsAction: failed to write link repair skip record", zap.Error(err))
-	}
-}
+// The skip record this path writes now lives in component_link_repair.go as the
+// ONE writeLinkRepairSkipLog. It used to be a deliberate near-twin of the insert
+// in rerender_link_repair.go, disclosed and deferred in 079's council round on
+// the ground that merging them would edit a live, proven rerender path for a
+// tidiness gain. bugs_open/136 ticketed that extraction, and 136's own fix is
+// what forces it: a third writer would have meant a third copy. The row this
+// path writes is unchanged — same agent_type, same 'save_page_sections' action,
+// same message, same context.
 
 // saveSectionsStepName names the workflow step for the durable record,
 // degrading to a stable label when the execution context is absent (unit tests,
 // odd adoptions). Distinct from skipStepName, whose fallback label is
-// "rerender".
+// "rerender" and whose chain has no CurrentStep rung.
 func saveSectionsStepName(params ActionParams) string {
-	if params.ExecutionContext != nil && params.ExecutionContext.StepName != "" {
-		return params.ExecutionContext.StepName
-	}
-	if params.CurrentStep != "" {
-		return params.CurrentStep
-	}
-	return "save_sections"
+	return componentRepairStepName(params, "save_sections")
 }
