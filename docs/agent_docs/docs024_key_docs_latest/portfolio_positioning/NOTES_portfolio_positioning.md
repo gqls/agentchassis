@@ -139,3 +139,18 @@ per loop) but while blind nothing defers content items. Mitigating fact: every p
 poll returned empty, so identity/content_direction were still unwritten ~64 min after
 submission — the cascade is early and the unguarded window likely not tight. No action
 at the cluster is possible or needed from this side; the platform continues regardless.
+
+### 2026-08-02 evening — attempt 1 BUILT ITSELF during the outage; scored
+
+Token restored ~18:26Z; the entire cascade had already run in the blind window (research
+→ … → 20 pages planned, 15 built + committed to sites repo master, imagery, rerenders).
+Hold plan doubly moot: outage AND wrong item type — live pipeline creates `needs_page`,
+not the `needs_content_page` in 082's header. So attempt 1 = mission seam only; spec
+marker baseline 0 as required. Full scoring in SCORECARD_2026-08-02_lendzy_attempt1.md.
+Headlines: nav PASS (exact mission labels, deep-link help); facts-with-rules STRONG and
+number test clean in prose; tools NOT BUILT (×3 "needs owner-aware build, not the
+generic builder" — 24 dead links shipped); every-page invariants 3/15 (no chrome
+carrier); canonicals 0/15; mission exact-phrase marker 0/15 (verbatim attenuates).
+Two of my own counts corrected by the artefact (spelling-scoped grep; CSS in the number
+census) — kept visible in the scorecard. NEXT: attempt 2 = seed L10 specs (they exist as
+classifier rows — supersede) + regenerate ONE page + marker check = the #16 proof.
