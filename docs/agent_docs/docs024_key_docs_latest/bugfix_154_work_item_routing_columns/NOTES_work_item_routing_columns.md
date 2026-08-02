@@ -699,3 +699,73 @@ never explained, which I turned into a baseline by comparing the second instance
 to the first. I measured the symptom (time since last claim) three times with
 increasing precision and never once read what the dispatcher had decided; one
 query against `collected_data->'load_items'` would have ended it.
+
+---
+
+## 2026-08-02 — triage of the blocked pair (`286`), and the generator defect behind it (`bugs_open/177`)
+
+Owner asked for the blocked item to be triaged. Findings, in the order they
+changed the disposition:
+
+1. **`0733a7a4` is SPURIOUS, not slow.** tool-generator built the tool page, its
+   component and its `page_components` row, then raised "write content for this
+   page" **45 ms later** (component 12:27:28.312 → page .326 → slot .342 → item
+   .387). The page is `deployed` with `deployed_at` set and a 10,336-char tool
+   component.
+2. **One slot IS the finished shape of a tool page** — the measurement that makes
+   it spurious rather than early: of 141 tool pages fleet-wide, **116 have exactly
+   1 slot**; all five deployed robot-hands tool pages have 1. So page-build-handler
+   found nothing to build because there is nothing to build, and its refusal to
+   report success is WDS-004 working, not failing.
+3. **8 of 8 `tool_content:%` items ever created are in needs_human_review**, each
+   at attempt 1, byte-identical error, 07-14 → 07-31, 4 sites. 0% success over the
+   class's entire history ⇒ `bugs_open/177`.
+4. **`93f2a3b7` is REAL work**: verified none of the 3 `page_components` on
+   `/how-to-specify-a-gripper.html` contains `gripper-safety-factor-calculator`.
+   It is also the FIRST `tool_crosslink` ever to carry a `depends_on` (the other
+   5 have none) — so the coupling is new and spreading.
+
+**The disposition trap, and it is the durable lesson here: a dependency can only
+be released by `complete`/`verified`.** The loader's clause is `dep_id NOT IN
+(SELECT id … WHERE status IN ('complete','verified'))`, so `wont_fix`,
+`rejected`, `cancelled` and `failed` ALL leave the dependent blocked for ever.
+There is no "dismissed" state a blocker can reach. That makes `complete` the
+*convenient* disposition for any awkward blocker — which is exactly why it must
+be refused when no work was done. Marking `0733a7a4` complete would have been the
+silent-completion pathology (WDS-004) committed by hand, by me, for convenience.
+
+So: `0733a7a4` → **`wont_fix`** (true statement: should never have been raised),
+original handler error preserved inside the new reason string; `93f2a3b7` →
+**`depends_on` cleared**, left `triaged` to be attempted on merit. Neither
+fabricates a success; neither abandons real work. `286`, 5 pre-flight assertions
+all true, `UPDATE 1` + `UPDATE 1`, verified before commit.
+
+**Prediction recorded BEFORE the outcome, so it cannot be retrofitted:** 5 of 5
+previous `tool_crosslink` items failed at `validate_page_content`. If `93f2a3b7`
+does the same, that is a separate defect in the crosslink path — **do not
+re-diagnose it as a dependency problem**, which is the trap now that the
+dependency is the thing I just touched.
+
+**Not swept, deliberately:** the other 7 `tool_content` rows. They block nothing
+(only `0733a7a4` ever had a dependent), so there is no urgency, and sweeping 7
+rows across 4 sites is a different action from triaging the one that stalled the
+fleet. Their disposition belongs with 177's fix.
+
+### And a prior-art check I should have run before writing a line of 284
+
+`bugs_open/169` part B, filed 2026-07-31 by the dartsonline lane, **had already
+found the UUID starvation** — same query, same reading, same conclusion — and
+closed by explicitly asking for the owner ruling ("should site selection be FIFO
+by oldest-eligible-item, or priority-weighted across sites?"). It also already
+flagged the `wi.domain` seed drift. I found neither, because I went from the
+owner's instruction straight to the live config without grepping `bugs_open/` for
+the mechanism — the check CLAUDE.md puts first and that my own memory file
+records me getting wrong before.
+
+It cost nothing this time, and only by luck: the owner's answer *was* the ruling
+169 was waiting for, so the work was the completion of that thread rather than a
+duplicate of it. 169 is now updated — part B fixed, part A (the spawn hang)
+explicitly untouched and still open. **The lesson stands regardless of the
+outcome:** an instruction from the owner is not a reason to skip prior art, and
+"I was told to do this" would have been no defence if another session had been
+mid-fix on the same query.

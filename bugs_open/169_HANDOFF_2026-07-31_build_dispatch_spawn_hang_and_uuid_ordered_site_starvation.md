@@ -1,5 +1,44 @@
 # 169 — a `build-dispatch-loop` spawn hung 38+ min mid-step, and separately, `build-pipeline-trigger`'s site-selection query starves sites by raw UUID order, not by wait time
 
+> **PART B IS FIXED AND LIVE — 2026-08-02 (session "bugfix 19"). PART A IS
+> UNTOUCHED AND THIS BUG STAYS OPEN FOR IT.**
+>
+> **Your part B was right in every particular, and the owner ruling you asked for
+> was given on 2026-08-02: FIFO by oldest-eligible-item.** Shipped as
+> `sql_for_agents/284` — `ORDER BY wi.created_at ASC, wi.priority ASC, wi.id ASC`,
+> `DISTINCT ON` dropped as redundant under `LIMIT 1`. Cross-site priority stays
+> deliberately unimplemented (a priority-major order just re-keys the starvation
+> from UUID to priority; an aging scheme needs an owner-agreed scale constant).
+>
+> Two refinements to your write-up, both in your favour:
+> - It is **not** "possibly working as designed": the order is not merely
+>   unfair-by-accident but **deterministic**. `DISTINCT ON (site_id)` FORCES the
+>   sort to lead with `site_id`, and `priority` is projected away before any
+>   cross-site comparison, so lowest-UUID wins every tick and priority could never
+>   influence which SITE was chosen. Starvation was certain, not possible.
+> - Your dartsonline observation reproduced exactly: gamesdesign.co.uk, 14th of 17
+>   by UUID, held the fleet's oldest eligible item for **3 days 10 hours** and was
+>   selected zero times. First tick after 284 picked it.
+>
+> **You also flagged the `wi.domain = 'build'` seed drift** in
+> `sql_for_agents/052`. Fixed the same day — and it was worse than a stale
+> comment: one *operative* `UPDATE scheduled_tasks` in that file would have
+> written the non-existent column back into the LIVE scheduler `pre_query` if
+> re-run.
+>
+> **A defect your part B could not have seen, found while verifying the fix:** the
+> selector and `LoadWorkItemsAction` disagree about what "dispatchable" means (the
+> loader adds `approval_mode` and `depends_on` clauses), so the selector could
+> hand the loop a site whose only item the loader refused — loop loads 0,
+> completes cleanly, claims nothing, site stays eligible, picked again for ever.
+> **FIFO ordering converts that from intermittent to permanent**, so 284 alone was
+> a fleet stall. Both are fixed; see `bugs_closed/176`. If you are reading part B
+> to understand dispatch, read 176 alongside it — neither change is safe alone.
+>
+> **PART A (the 38-minute spawn hang) has NOT been investigated by this session**
+> and no part of the above bears on it. It remains exactly as you left it,
+> including your instruction to run `090` before committing to a cause.
+
 **Filed 2026-07-31, ~21:00 UTC (dartsonline.com site-fix session).** **Status: OPEN,
 UNDIAGNOSED — this file is a handoff, not a root-cause claim.** Per this repo's own
 owner ruling (CLAUDE.md, "Diagnosis before debugging"), a bugs_open file asserting a
