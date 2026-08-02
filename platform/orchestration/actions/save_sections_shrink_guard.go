@@ -145,7 +145,9 @@ func enforceSectionShrinkFloor(ctx context.Context, params ActionParams, siteID,
 		// measure must not wave the write through on the strength of that.
 		reason := fmt.Sprintf("save_page_sections: REFUSED for page %q — the section shrink guard could not measure existing slots (%v), so nothing was deleted or written", pageName, err)
 		params.Logger.Error(reason)
-		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason), params.Logger)
+		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason,
+			fmt.Sprintf("Page save refused: the section shrink guard could not measure %q's existing sections", pageName),
+			shrinkRefusalFix), params.Logger)
 		return fmt.Errorf("%s", reason)
 	}
 	defer rows.Close()
@@ -178,6 +180,19 @@ func enforceSectionShrinkFloor(ctx context.Context, params ActionParams, siteID,
 		zap.String("page_name", pageName),
 		zap.Float64("floor", floor),
 		zap.Int("violations", len(violations)))
-	_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason), params.Logger)
+	_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason,
+		fmt.Sprintf("Page save refused: a prose section of %q shrank past the floor", pageName),
+		shrinkRefusalFix), params.Logger)
 	return fmt.Errorf("%s", reason)
 }
+
+// shrinkRefusalFix is the shrink guard's own aftermath sentence. The first
+// induced refusal surfaced in the queue wearing the completeness floor's
+// summary ("returned too few sections") — false for a shrink, where every
+// section came back and one was too small — so this guard now states its own
+// case instead of borrowing its sibling's.
+const shrinkRefusalFix = "A save would have shrunk a prose section past the configured floor, so NOTHING was " +
+	"written and the existing page still stands (bugs_open/178). Decide: if the shrink is intended, " +
+	"lower section_shrink_floor on the save_page_sections step (0 disables the guard); otherwise find " +
+	"why the writer regenerated the whole section instead of editing it — the reason field names the " +
+	"slot and the exact before/after sizes."

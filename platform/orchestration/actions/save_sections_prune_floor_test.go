@@ -418,9 +418,36 @@ func TestPageSectionRefusalSurvivesATwoStrikeHistory(t *testing.T) {
 	mock.ExpectCommit()
 
 	if err := emitPruneRefusalWorkItem(context.Background(), db,
-		savePageSectionsRefusal(uuid.New(), uuid.New(), "services", "refused: too few sections"),
+		savePageSectionsRefusal(uuid.New(), uuid.New(), "services", "refused: too few sections",
+			completenessRefusalSummary("services"), completenessRefusalFix),
 		zap.NewNop()); err != nil {
 		t.Fatalf("the third refusal on a page did not reach site_work_items as needs_human_review: %v", err)
+	}
+}
+
+// A shared refusal helper may not put one consumer's prose in another
+// consumer's mouth: the first induced shrink refusal (2026-08-02, ebc1dda8)
+// reached the queue summarised as "returned too few sections" — the
+// completeness floor's sentence, false for a shrink. The NEGATIVE assertions
+// are the load-bearing half: asserting only the shrink wording would still
+// pass if the borrowed sentence were concatenated alongside it.
+func TestShrinkRefusalDoesNotBorrowTheCompletenessSentence(t *testing.T) {
+	r := savePageSectionsRefusal(uuid.New(), uuid.New(), "beginners", "refused: slot shrank",
+		"Page save refused: a prose section of \"beginners\" shrank past the floor", shrinkRefusalFix)
+
+	for _, forbidden := range []string{"too few sections", "prune_floor_ratio"} {
+		if strings.Contains(r.Summary, forbidden) || strings.Contains(r.Fix, forbidden) {
+			t.Errorf("a shrink refusal must not carry the completeness floor's wording; found %q in summary=%q fix=%q",
+				forbidden, r.Summary, r.Fix)
+		}
+	}
+	if !strings.Contains(r.Fix, sectionShrinkFloorKey) {
+		t.Errorf("the shrink refusal's fix must name its own escape hatch %q; got %q", sectionShrinkFloorKey, r.Fix)
+	}
+	// The dedup contract is shared on purpose — one OPEN refusal per page,
+	// whichever guard fired first.
+	if r.ItemType != "save_refused_incomplete" || r.ItemKey != "save_refused_incomplete:beginners" {
+		t.Errorf("shrink refusals must keep the shared item_type/item_key dedup contract; got %q / %q", r.ItemType, r.ItemKey)
 	}
 }
 

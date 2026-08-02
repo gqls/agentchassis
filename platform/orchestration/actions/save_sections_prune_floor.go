@@ -203,7 +203,8 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 	if err != nil {
 		reason := fmt.Sprintf("save_page_sections: REFUSED for page %q — the completeness floor could not be measured (%v), so nothing was deleted or written", pageName, err)
 		params.Logger.Error(reason)
-		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason), params.Logger)
+		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason,
+			completenessRefusalSummary(pageName), completenessRefusalFix), params.Logger)
 		return nil, fmt.Errorf("%s", reason)
 	}
 
@@ -238,7 +239,8 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 			zap.Int("sections_projected", projected),
 			zap.Int("writable_rows", m.WritableRow),
 			zap.Int("planned_sections", m.Planned))
-		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason), params.Logger)
+		_ = emitPruneRefusalWorkItem(ctx, params.DB, savePageSectionsRefusal(siteID, pageID, pageName, reason,
+			completenessRefusalSummary(pageName), completenessRefusalFix), params.Logger)
 		return nil, fmt.Errorf("%s", reason)
 	case verdict.Disabled:
 		detail["completeness_status"] = "floor_disabled"
@@ -262,8 +264,19 @@ func enforcePageSectionFloor(ctx context.Context, params ActionParams, siteID, p
 //
 // recurrenceExpected is set BY the shared emitter, and the test that pins it
 // (TestPageSectionRefusalSurvivesATwoStrikeHistory) now points at the shared
-// function, so it guards all three call sites rather than only this one.
-func savePageSectionsRefusal(siteID, pageID uuid.UUID, pageName, reason string) pruneRefusal {
+// function, so it guards all four call sites rather than only this one.
+//
+// Summary and Fix are REQUIRED caller-supplied parameters, not defaults: the
+// shrink guard reuses this helper, and the first induced shrink refusal
+// (2026-08-02, item ebc1dda8) landed in the queue summarised as "returned too
+// few sections" — the completeness floor's sentence, false for a shrink, where
+// every section came back and one was too small. Same defect class, same cure,
+// as the prune-floor aftermath clause reviewed on 2026-08-02: a shared refusal
+// helper may not put one consumer's prose in another consumer's mouth, and a
+// required parameter means a new caller is asked the question instead of
+// silently inheriting an answer. ItemType and ItemKey stay SHARED deliberately —
+// one OPEN refusal per page is the dedup contract, whichever guard fired first.
+func savePageSectionsRefusal(siteID, pageID uuid.UUID, pageName, reason, summary, fix string) pruneRefusal {
 	pID := pageID
 	return pruneRefusal{
 		SiteID:   siteID,
@@ -273,13 +286,21 @@ func savePageSectionsRefusal(siteID, pageID uuid.UUID, pageName, reason string) 
 		ItemType: "save_refused_incomplete",
 		ItemKey:  fmt.Sprintf("save_refused_incomplete:%s", pageName),
 		Subject:  pageName,
-		Summary: fmt.Sprintf("Page rebuild refused: %q returned too few sections to replace what is stored",
-			pageName),
-		Reason: reason,
-		Fix: "A page rebuild produced too few sections to be allowed to replace what is stored, " +
-			"so NOTHING was deleted and the existing page still stands (bugs_closed/165). Decide: if the " +
-			"page genuinely shrank, lower prune_floor_ratio on the save_page_sections step (0 disables " +
-			"the floor); otherwise find why the writer returned a short section set — a truncated LLM " +
-			"completion, a partial plan read, or an upstream step that failed without erroring.",
+		Summary:  summary,
+		Reason:   reason,
+		Fix:      fix,
 	}
 }
+
+// completenessRefusalSummary/Fix are the completeness floor's own sentences —
+// true for a save returning too few sections, and only for that.
+func completenessRefusalSummary(pageName string) string {
+	return fmt.Sprintf("Page rebuild refused: %q returned too few sections to replace what is stored",
+		pageName)
+}
+
+const completenessRefusalFix = "A page rebuild produced too few sections to be allowed to replace what is stored, " +
+	"so NOTHING was deleted and the existing page still stands (bugs_closed/165). Decide: if the " +
+	"page genuinely shrank, lower prune_floor_ratio on the save_page_sections step (0 disables " +
+	"the floor); otherwise find why the writer returned a short section set — a truncated LLM " +
+	"completion, a partial plan read, or an upstream step that failed without erroring."
