@@ -1597,16 +1597,61 @@ func ExtractSectionNamesHelper(sectionsRaw interface{}) []string {
 	return names
 }
 
+// ExtractStringListHelper coerces a value to []string. It accepts the two decoded
+// list shapes ([]interface{} of strings, []string) and — see below — a []byte or
+// string holding a JSON array.
+//
+// bugs_open/174: the JSON-text arms are not a convenience. A jsonb column does NOT
+// survive the orchestration data path as a list. QueryDatabaseAction scans every
+// column into interface{} and stringifies any []byte it gets back
+// (database_actions.go, "if b, ok := values[i].([]byte)"), so `spec->'seed_scope'`
+// arrives in collected_data as the STRING `["a","b"]`, not as a slice. Nothing in
+// input_mapping re-types it — ResolveInputMapping passes values through unchanged —
+// so it reaches the action still a string. Before this change every such value
+// returned nil here: indistinguishable from "the caller supplied nothing", which is
+// what made 174's lost seed_scope invisible for three lanes rather than an error.
+//
+// This is deliberately WIDENING only. A string previously yielded nil, so no
+// existing caller can be relying on a different answer; a string that is not a JSON
+// array still yields nil. It is also why the fix is correct whichever shape the
+// driver hands back — pgx may decode a jsonb column or may not, and neither the
+// callers nor this helper have to know which.
 func ExtractStringListHelper(val interface{}) []string {
 	var result []string
-	if arr, ok := val.([]interface{}); ok {
-		for _, item := range arr {
+	switch v := val.(type) {
+	case []interface{}:
+		for _, item := range v {
 			if str, ok := item.(string); ok {
 				result = append(result, str)
 			}
 		}
-	} else if arr, ok := val.([]string); ok {
-		result = arr
+	case []string:
+		result = v
+	case []byte:
+		return stringListFromJSON(v)
+	case string:
+		return stringListFromJSON([]byte(v))
+	}
+	return result
+}
+
+// stringListFromJSON decodes a JSON array of strings. Anything else — a scalar, an
+// object, malformed text, a JSON array of non-strings — yields nil, matching what
+// this helper has always returned for a value it could not read as a list.
+func stringListFromJSON(raw []byte) []string {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || trimmed[0] != '[' {
+		return nil
+	}
+	var decoded []interface{}
+	if err := json.Unmarshal(trimmed, &decoded); err != nil {
+		return nil
+	}
+	var result []string
+	for _, item := range decoded {
+		if str, ok := item.(string); ok {
+			result = append(result, str)
+		}
 	}
 	return result
 }

@@ -136,19 +136,38 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	// diagnose_route on a loop-back iteration; (2) the caller's seed scope on the
 	// first iteration; (3) lookup_code_symbols' code_results on the first
 	// iteration when no seed was given. First non-empty wins.
+	//
+	// bugs_open/174: the chain's own strength is what made a lost parameter
+	// invisible. When diagnose-dispatch-loop's input_mapping confiscated
+	// seed_scope in transit, branch (2) found nothing and branch (3) quietly
+	// supplied a DIFFERENT, plausible scope — no error, no warning, and a bundle
+	// that looked entirely normal. The action genuinely cannot tell "the caller
+	// gave no seed" from "the seed was dropped between the caller and here", so it
+	// must not pretend to; what it CAN do is say which branch it took, which is
+	// enough for the operator who knows what they passed. scopeSource is recorded
+	// on the result unconditionally (queryable off orchestration_states without
+	// re-reading the bundle) and rendered into the bundle ONLY on branch (3) —
+	// see the note at the "## In-scope code" header for why that asymmetry.
 	loopScopeField := datahelpers.GetStringField(config, "loop_scope_field", "route.scope")
+	scopeSource := "route" // (1) the loop's own revision on a loop-back iteration
 	scope := datahelpers.ExtractStringListHelper(datahelpers.ExtractNestedField(params.CollectedData, loopScopeField))
 	if len(scope) == 0 {
+		scopeSource = "seed" // (2) the scope the caller actually asked for
 		scope = datahelpers.ExtractStringListHelper(datahelpers.ExtractNestedField(params.CollectedData, scopeField))
 	}
 	if len(scope) == 0 {
+		scopeSource = "code_results" // (3) whatever the code search happened to return
 		crField := datahelpers.GetStringField(config, "code_results_field", "code_lookup.code_results")
 		scope = scopeFromCodeResults(params.CollectedData, crField)
 	}
 	if len(scope) == 0 {
+		scopeSource = "none"
 		return nil, fmt.Errorf("diagnose_assemble_bundle: no scope (tried %q, %q, then code_results)",
 			loopScopeField, scopeField)
 	}
+	logger.Info("diagnose_assemble_bundle: scope resolved",
+		zap.String("scope_source", scopeSource),
+		zap.Int("scope_size", len(scope)))
 
 	// Current hypothesis: the revised one on a loop-back, else the seed symptom.
 	// It goes at the TOP of the bundle so the verdict step reads a SELF-CONTAINED
@@ -195,6 +214,20 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		fmt.Fprintf(&b, "## Hypothesis under test\n\n%s\n\n", hypothesis)
 	}
 	b.WriteString("## In-scope code\n\n")
+	// bugs_open/174. Rendered ONLY on the code_results branch, and the asymmetry is
+	// deliberate twice over. (a) It follows this file's existing rule — 164's
+	// incomplete-section note is written only when something was in fact dropped, so
+	// a normal bundle stays byte-identical and no existing diagnosis's baseline
+	// moves. (b) It is the only branch that is AMBIGUOUS: "route" and "seed" both
+	// mean the scope is the one somebody chose, whereas "code_results" means nobody
+	// chose it — which reads identically whether the caller passed no seed (correct,
+	// by design) or passed one that was confiscated in transit (174, three lanes'
+	// diagnoses silently re-aimed). Naming the branch does not resolve that, and
+	// must not claim to; it puts the question in front of the one reader who knows
+	// the answer.
+	if scopeSource == "code_results" {
+		b.WriteString("> **This scope was NOT chosen — it is the code-search fallback.** No revised scope from a previous iteration and no `seed_scope` from the caller reached this step, so the symbols below are whatever the symbol search returned for the symptom text. That is correct and expected when the intake named no seed scope. **If you DID pass a `SEED_SCOPE`, it did not arrive** — see `bugs_open/174` — and this diagnosis is answering a question about different code than the one you aimed it at.\n\n")
+	}
 	total, truncated := 0, false
 	included := 0
 	// bugs_open/164. Both of this loop's discard paths used to leave the verdicter
@@ -387,6 +420,13 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 		"bundle":       bundle,
 		"symbol_count": included,
 		"truncated":    truncated,
+		// bugs_open/174: which arm of the scope fallback chain supplied `scope`
+		// — "route" | "seed" | "code_results". Recorded on EVERY run (unlike the
+		// bundle note, which fires only on the ambiguous arm) so the question
+		// "did my seed_scope actually arrive?" is a query against
+		// orchestration_states rather than a re-read of the bundle prose:
+		//   collected_data->'assembled'->>'scope_source'
+		"scope_source": scopeSource,
 	}, nil
 }
 
