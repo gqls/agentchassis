@@ -3602,3 +3602,10 @@ substituted, stated per the 07-31 owner ruling** — the 08-01 verdict already
 established infra-footprint entries return zero code-index lookups
 (NEEDS_HUMAN_REVIEW by construction), and every claim in the entry was
 exercised live this session (the timeouts, the cf-ray 200s, the log census).
+
+**Same-file passenger in `c7f04e8e2`, identified and benign:** the commit's
+LANDMINES.md diff shows 7 lines removed — they are the loancalculator lane's
+own in-flight REWRITE of their `input_schema` entry (7 lines replaced by a
+richer version with HEAD citations), swept from the shared working tree by my
+pathspec commit exactly as CLAUDE.md warns no hook can prevent. Verified
+coherent and complete before concluding; nothing of theirs was lost.
