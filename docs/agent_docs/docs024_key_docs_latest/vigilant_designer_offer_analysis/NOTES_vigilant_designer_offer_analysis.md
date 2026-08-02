@@ -52,3 +52,17 @@ checker-gaps NOTES same hour.
 Also learned: `run-migrations.sh --apply` takes EVERY pending file, and the tree carries
 OTHER SESSIONS' uncommitted migrations (213/214, bugfix_029 lane). Apply strategy must
 scope to 290 only (single `psql -f` + `--record-only`), never a blanket `--apply`.
+
+## 2026-08-02 — A0.2 shipped (291): convergence gate live, one proof owed
+
+- `page_components.content_hash` is a DEAD COLUMN (0/1,183 populated) — the plan's
+  fingerprint input; caught by counting before building. Function hashes
+  md5(rendered_html) instead.
+- `enrich_news_feed` carries its error edge INSIDE config (`config.error_step`) — a fifth
+  edge shape 288's dangling-edge checker does not cover. 291's guard covers all five.
+- No `restore_agent_snapshot()` exists (checked pg_proc) — rollback recipe restores from
+  the snapshot row directly.
+- 291 applied alone + recorded; guard passed on live probe (fingerprint stable,
+  audit_due=t on a never-audited site). **OWED → A0.4: one witnessed run through the
+  gate** — the guard proves SQL, not the engine's parse of `audit_state.audit_due == true`
+  or the two-param `record_audit_pass` binding. 171 annotated, closure deferred to that run.
