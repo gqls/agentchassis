@@ -195,3 +195,90 @@ Measured on `agent-chassis-f8d46bd4c-6rtlj` **before** the build:
 Run all three in one exec, on **every** replica. The obvious marker "repaired dead internal
 links" is **vacuous** — 079's live string contains it and greps 1 before anything ships.
 Then re-run the RUNBOOK §2 census and confirm the stock is not growing.
+
+---
+
+## CLOSED 2026-08-02 — LIVE on v1.0.1229, pod-verified on both replicas with a negative control
+
+**Bar met: fixed AND live.** Moved to `bugs_closed/`.
+
+### The proof, one exec per replica, both replicas
+
+| grep | before (v1.0.1228, taken 2026-08-02 ~11:00) | after (v1.0.1229) |
+|---|---|---|
+| `repaired dead internal links before persisting a single component` (new) | 0 | **1** |
+| `Component link repair SKIPPED` (new) | 0 | **1** |
+| `failed to update page_component for swap` (**negative control** — removed by this change) | 1 | **0** |
+| `failed to persist section edit` (the replacement wording) | 0 | **1** |
+| `SavePageSectionsAction: repaired dead internal links before persist` (079, **positive control**) | 1 | **1** |
+
+Pods `agent-chassis-79479769b9-g7fbt` and `-n8nbj`, identical on both.
+
+**The negative control is what makes this evidence rather than a hopeful grep.** A new
+string appearing proves only that *something* shipped; a string this change DELETED going
+1 → 0, under the identical pattern that returned 1 an hour earlier, proves the binary is
+this code. `bugs_open/153` exists because a roll is not evidence.
+
+### The live-path regression check, which the pod-grep cannot give you
+
+This change edited `rerender_link_repair.go` — a live, proven path — to route its skip
+record through the extracted `writeLinkRepairSkipLog`. Post-roll:
+
+```sql
+SELECT action, count(*) FILTER (WHERE occurred_at > '2026-08-02 10:30:00+00') AS since_roll,
+       max(occurred_at) FROM agent_error_log WHERE error_code LIKE 'CONTENT_LINK_REPAIR%' GROUP BY 1;
+-- rerender_page | 21 | 2026-08-02 14:25:07+00
+```
+
+**21 rows since the roll, `agent_type='page-rerender'`, `step_name='render_page'`, action
+`rerender_page`** — correctly shaped, no blank or `unknown` labels. The rerender seam is
+running on the new binary and still writing the rows every query downstream expects.
+
+⚠ **Stated rather than glossed: the extracted `writeLinkRepairSkipLog` itself is NOT
+exercised in production.** Those 21 rows are `CONTENT_LINK_REPAIR_DETAIL`, written by
+`writeLinkRepairLog`, which this change did not touch. `CONTENT_LINK_REPAIR_SKIPPED` has
+**zero** rows in the retained window — it only fires when the page-index read fails, which
+has not happened. The extraction is covered by unit tests and by the fact that its three
+callers compile against it; it is not covered by live traffic. A future thread should not
+read "the refactor is proven" as covering that branch.
+
+### What the newly-guarded call sites have done since going live: nothing, as predicted
+
+Zero `CONTENT_LINK_REPAIR_*` rows for `apply_section_edit` or `create_report_page`. Both
+paths remain dormant (still 0 `pages` with `page_type='report'`, still no `section-editor`
+or `tool-improver` orchestrations). **This closed as prevention, not as a bleed stopped**,
+and the file should be read that way.
+
+### One thing the re-run of the census turned up, and it became its own bug
+
+The census went 35 → 36 between the morning and the roll. The new row was
+`vetcomparison.uk` / `tool-cma-obligation-checker`, `href="' + q.link + '"` — **not an
+anchor at all**, but a JavaScript string concatenation that BUILDS one at runtime. Running
+the shipping `RepairPageLinks` over those exact bytes deletes the anchor from the JS and
+returns still-valid JavaScript:
+
+```
+IN : ' <a href="' + q.link + '" target="_blank" rel="noopener">See guide section</a>.</p>'
+OUT: ' See guide section.</p>'
+```
+
+Filed as **`bugs_open/180`**. It is a defect in the shared repair, not in this fix — but it
+matters to this file's own "next candidate", because the tool-markup writers are exactly
+where JS-built anchors live. **Wiring the seam into `create_tool_component_action.go` /
+`deploy_tool_action.go` must wait for 180, or it will delete working links from tools.**
+That is now the ranked order: 180 first, then the tool writers.
+
+Two consequences for the census figure itself, both corrections to my own earlier claim:
+- the "35" includes at least one non-anchor, so it is an **upper bound** on real dead links,
+  not a count of them;
+- and the query's `href="..."` extraction cannot tell markup from a string literal, which is
+  the same class of error as the repair's own regex.
+
+### Still owed, and now living elsewhere
+
+1. **`bugs_open/180`** — the JS-anchor corruption, and a prerequisite for item 2.
+2. **The tool-markup writers** — 7 of the 35 hrefs sit in tool-shaped slots. Deliberately
+   NOT allow-listed in `check_unrepaired_component_write`, so it keeps firing on them.
+3. **`architecture_review/RFC_008`** — candidate 3, the mandatory write seam.
+4. **The standing stock** — 18 unlinkable hrefs are still live 404s; detection is
+   `bugs_open/116`'s, which has never run on any site.

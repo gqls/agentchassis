@@ -205,3 +205,59 @@ states the case AGAINST as well: two of the ten writers must never repair, so a 
 seam needs an opt-out parameter, which is an allow-list wearing a type signature. What
 settles it is a measurement nobody has taken — whether advisory `pattern-check` findings
 are read and acted on at all.
+
+## 2026-08-02 ~15:30 BST — LIVE on v1.0.1229, closed, and the census re-run found a different bug
+
+**The roll happened (another session's build) and the fix is live.** Both replicas, one exec
+each: new marker 0→1, `Component link repair SKIPPED` 0→1, **negative control
+`failed to update page_component for swap` 1→0**, positive control 1→1. The negative control
+is the one that made this evidence: the same pattern returned 1 on v1.0.1228 an hour before,
+so a 0 now cannot be a mis-spelled grep. `bugs_open/136` → `bugs_closed/136`.
+
+**The live-path regression check the pod-grep cannot give you.** This change edited
+`rerender_link_repair.go`, a live proven path. Post-roll it wrote **21
+`CONTENT_LINK_REPAIR_DETAIL` rows** (`page-rerender` / `render_page` / `rerender_page`,
+newest 14:25Z) — correctly labelled, nothing blank. But the honest boundary: those rows come
+from `writeLinkRepairLog`, which I did **not** touch. The function I *extracted*,
+`writeLinkRepairSkipLog`, has **zero** rows all-window because it only fires on a failed
+page-index read. So "the refactor is proven by live traffic" would be an overclaim, and the
+bug file says so explicitly.
+
+### The census went 35 → 36, and the new row was not a link
+
+`vetcomparison.uk` / `tool-cma-obligation-checker`, `href="' + q.link + '"`. That is a
+**JavaScript string concatenation** that builds an anchor at runtime, sitting inside a
+`<script>` block in the stored HTML. My census regex extracts `href="…"` from anywhere in
+the document and cannot tell markup from a string literal.
+
+**And then the important part.** I ran the shipping `RepairPageLinks` over those exact bytes:
+
+```
+repairs=1  action=unlink href=""
+IN : ' <a href="' + q.link + '" target="_blank" rel="noopener">See guide section</a>.</p>'
+OUT: ' See guide section.</p>'
+```
+
+The href capture `[^"']*` cannot cross the `'` immediately after `href="`, so it captures
+EMPTY, takes the `LinkScopeEmpty` arm, and deletes the anchor from the JavaScript. The output
+is still valid JS and still reads sensibly — the visitor just cannot click. Filed as
+**`bugs_open/180`**, with the probe, the measured exposure (1 component, 1 site, not
+protected by any runtime-fill marker on its page) and the honest caveat that the exposure
+query catches only ONE SPELLING (a template literal `href="${url}"` would take the *phantom*
+arm instead and be unlinked too).
+
+**Three lessons I want the next thread to have:**
+
+1. **My own census figure is an UPPER BOUND, not a count.** It includes at least one
+   non-anchor. The correction is not that the number is wrong by one — it is that a regex
+   over `href="…"` answers "how many href-shaped byte sequences are there", which is a
+   different question from the one I asked. Same family as the `(30 rows)` mistake earlier
+   today: twice in one day I let a query's answer wear the noun I wanted.
+2. **The ranked "next candidate" flipped.** This file and the bug both said: wire the seam
+   into the tool-markup writers next. That is now **wrong until 180 is fixed** — tool markup
+   is precisely where JS-built anchors live, so wiring the repair there would delete working
+   links from tools. 180 first, then the tool writers.
+3. **A probe beats a fetch.** My first instinct was to curl the live page to see whether the
+   outbound rerender had already corrupted it; the URL 404'd and the check stalled. Running
+   the actual function over the actual bytes took two minutes and gave a deterministic
+   answer instead of an observation I would have had to interpret.

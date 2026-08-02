@@ -96,3 +96,36 @@ do nothing until a new chassis image is built and rolled out, and I have recorde
 before-and-after checks to prove it when that happens: one string my change adds, one string
 my change removes, and one from the older fix that must stay put. Until then the bug stays
 open, because the defect is still reproducible on the running system.
+
+## 2026-08-02, afternoon — it is live, it is closed, and it found something else on the way out
+
+Someone else's build went out as v1.0.1229 and carried this fix. I proved it three ways on
+both running copies of the service: a phrase my change adds is now present, a phrase my
+change deletes is now gone, and an older phrase that had to survive is still there. The
+middle one is the one that matters — a new phrase appearing only tells you *something*
+shipped, whereas a deleted phrase disappearing tells you it is *this* code.
+
+I also checked that the live path I had to touch on the way through is still behaving: it
+has written 21 correctly-formed records since the roll. One caveat I have written into the
+ticket rather than glossed: the specific piece of shared plumbing I extracted only runs when
+a database read fails, which has not happened, so it is proven by tests and by the fact that
+three callers compile against it — not by real traffic.
+
+The ticket is closed and moved.
+
+**On the way out it turned up a different bug, and this one is worth explaining.** Re-running
+my count of broken links, one new entry had appeared on a veterinary site. It was not a
+broken link. It was a piece of JavaScript that *builds* a link while the visitor uses the
+tool — the code contains the text `href="' + q.link + '"`, which to a human is obviously a
+program and to our repair's pattern-matching looks like a link with an empty address. So the
+repair "fixes" it by deleting the link from the program. The result is still valid
+JavaScript, the page still reads correctly, and the button simply stops being clickable.
+
+I proved it by running our real repair code over the real stored bytes and watching the link
+vanish, then filed it as its own ticket (180). Exposure today is one component on one site.
+
+The consequence I care about most: I had written that the obvious next step was to switch on
+this same repair for tool pages. **That is now the wrong order.** Tool pages are exactly
+where JavaScript builds links, so switching it on there today would quietly delete working
+buttons. The new ticket has to be fixed first. I would rather find that here than in a
+client's inbox.
