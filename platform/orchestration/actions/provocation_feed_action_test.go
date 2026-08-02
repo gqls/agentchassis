@@ -39,7 +39,7 @@ func testSchedule() []provocation {
 	return []provocation{
 		// Historical: archive-shape only, no case. Exercises both fallbacks.
 		{Slug: "no-case", PublishOn: day("2026-06-28"),
-			Title: "Group chats replaced friendship maintenance",
+			Title:  "Group chats replaced friendship maintenance",
 			Teaser: "Presence without effort."},
 		// Historical: case written, no today-shape.
 		{Slug: "case-only", PublishOn: day("2026-06-29"),
@@ -50,7 +50,7 @@ func testSchedule() []provocation {
 			DetailBody: "A novel teaches you to expect that events connect.\n\nAgainst that: fiction helps."},
 		// Fully authored, both shapes.
 		{Slug: "full", PublishOn: day("2026-07-26"),
-			Title: "Nobody actually wants a personalised internet",
+			Title:    "Nobody actually wants a personalised internet",
 			Teaser:   "Personalisation removes what you'd have shared with a stranger.",
 			CardDesc: "What gets sold as personalisation is the quiet removal of common ground.",
 			Headline: "Nobody actually <em>wants</em> a personalised internet.",
