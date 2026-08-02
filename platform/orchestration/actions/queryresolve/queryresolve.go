@@ -231,6 +231,13 @@ const DeployedPageEligibilitySQL = `
 // and weaker than ListedPageEligibilitySQL (does not require `sections`, since
 // tool pages legitimately have none). The three are deliberately distinct; each
 // comment says why, so the split does not read as accidental drift.
+//
+// RELATED (bugs_open/181): this expression is exactly
+// NOT(datahelpers.NeverDeployedPagePredicate) with an alias prefix — the same
+// "has this page shipped" judgement, in a second package. The split is deliberate
+// (see the family of three above), but neither constant used to name the other,
+// which is how a deliberate split becomes accidental drift. Change one, read the
+// other. Merging them is bugs_open/181's fix candidate 2.
 const FetchablePageEligibilitySQL = `
 		  AND (p.deployed_at IS NOT NULL OR p.build_status = 'deployed')`
 

@@ -129,3 +129,34 @@ which is fragile across binaries — so prefer checking the image tag is one bui
 **after** the fix commit, and the positive control on **every replica**: a roll
 can leave two ReplicaSets running (there were four chassis pods on two different
 tags at 22:30 on 2026-08-02).
+
+## Post-roll verification for the RFC_010 round (owed — the fix is committed, not live)
+
+Round 1 is live on `v1.0.1233`. **The RFC_010 round and the predicate correction are
+not** — they ship on the next chassis roll, and until then `v1.0.1233` carries the
+11-row spurious-refusal surface. Run this on **every replica** once a build later than
+commit `4ee695cc1` rolls:
+
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"  "}{.spec.containers[0].image}{"\n"}{end}'
+
+for p in <every replica>; do
+  kubectl exec -n ai-persona-system $p -- sh -c '
+    echo -n "ADDED opt-in refusal   = "; strings /app/agent-chassis | grep -c "did not set AdoptUnshippedRows"
+    echo -n "ADDED shared predicate = "; strings /app/agent-chassis | grep -c "deployed_at IS NULL AND COALESCE(build_status"
+    echo -n "POSITIVE CONTROL       = "; strings /app/agent-chassis | grep -c "UpsertPageForRole: refused"
+    echo -n "REMOVED (expect 0)     = "; strings /app/agent-chassis | grep -c "adopted an unshipped page into this role.*needs_rebuild"'
+done
+```
+
+**Gotchas, both learned the hard way:**
+
+- **The generic `ON CONFLICT (site_id, name) DO UPDATE SET` grep is NOT a negative
+  control** — it returns 4 and that is correct, because five arms keep the statement
+  deliberately. A negative control must name a string only the removed code had.
+- **`grep -c` exits 1 on zero matches**, so a `set -e` loop dies on the very result you
+  are trying to record. The loop above tolerates it; if you rewrite it, keep that.
+- The predicate string is a compile-time constant embedded in the binary, so it greps
+  cleanly — that is why it is the check for "did the correction ship", rather than
+  inferring from the image tag (`bugs_open/153`).
