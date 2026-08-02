@@ -364,3 +364,26 @@ concluding anything from a fetch of a CDN-fronted site.
 at `review_constitution`/`EXECUTING_STEP` looking healthy; the tell was `updated_at` frozen at
 21:38:10, **one minute before the `v1.0.1231` roll replaced the pods**. `EXECUTING_STEP` is not
 a heartbeat. Resubmitted on the same trail (`RESUBMIT_CORR`), and the verdict is still owed.
+
+### Council: APPROVED round 1 — and the trap fired a THIRD time
+
+12 reviewers, 3 advisory objections, none high, architecture signal `point_fix` (the seat
+explicitly ruled it NOT `needs_rfc`). Dispositions are tabled in `bugs_closed/180`.
+
+The one worth acting on immediately: `bug_historian` noticed the **NUL filler touches
+`bugs_closed/056`'s landmine class** — a NUL byte in marshalled state kills a jsonb persist,
+silently — and that the plan *asserted* the masked buffer never escapes rather than testing it.
+Correct, and cheap to close: `TestNoMaskByteEverReachesACallersOutput`.
+
+⚠ **MISSTEP, third time today, same family.** That test passed under its first mutation
+("return the masked tail"), and then under its second. Neither meant the code was safe: every
+input I had chosen either produced **no match at all** in `ReplaceAllInMarkup` (so it returned
+early and the mutated line never ran) or had **no masked region after the last match** (so the
+tail write copied an empty string). The mutation was running over nothing. It took three
+input revisions — one with a match AND trailing masked bytes, one with masked bytes BETWEEN two
+matches — before either mutation could fail. **Twice this session I concluded too quickly from
+a passing mutation, and both times the cause was the input, not the guard.** The general form:
+*a mutation proves nothing until you have confirmed the mutated line executes for your input.*
+
+**Note on ordering:** this test landed after the `v1.0.1233` build. A `_test.go` file is not in
+the binary, so no rebuild is owed and the live claim above is unaffected.

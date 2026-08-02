@@ -13,7 +13,9 @@ on the page it was damaging** — the anchor it had deleted is back on the wire.
 GONE:** wiring the repair into the tool-markup writers was unsafe *because of 180*, and 180 is
 fixed. That is now the ranked next step, as originally planned.
 
-The one thing genuinely outstanding is a **council verdict nobody has read** — see §4.
+Council **APPROVED at round 1** (12 reviewers, 3 advisory objections, none high, architecture
+signal `point_fix`); every objection's disposition is tabled in `bugs_closed/180`. One was acted
+on immediately (a NUL-leak test), one is **accepted and owed** — see §4.1.
 
 ## 2. What shipped (live on v1.0.1233)
 
@@ -41,17 +43,15 @@ header, `LANDMINES.md` and 016b §9:
 
 ## 4. What is still open, ranked
 
-1. **READ THE COUNCIL VERDICT — it is owed and unread.** `Council-Submitted:
-   ba199c35-516f-44be-a210-9fd982425eb7`. The first run **stalled at `review_constitution`,
-   `updated_at` frozen 21:38:10, one minute before the `v1.0.1231` roll replaced the pods**
-   (a roll kills an in-flight council). Resubmitted on the same trail as run
-   `612bc0f9-de7e-4627-a712-a3b226694677`. **Act on a REVISE — the code is already live.**
-   ```sql
-   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-   WHERE correlation_id='ba199c35-516f-44be-a210-9fd982425eb7' AND kind='council_report' ORDER BY created_at;
-   ```
-   Then `Council-Reviewed:` may be written on a LATER commit — never retro-fitted, never on an
-   unread verdict.
+1. **The degrade-wide arm is a SILENT skip — the council's one accepted-and-unfixed objection.**
+   When markup cannot be parsed, the writer stops repairing the remainder: no log, no metric,
+   no work item. 13 of 1,186 components today, and **nothing detects if that population grows**,
+   so repair coverage can erode invisibly if markup quality falls. Raised at medium by
+   `bug_historian` and at low by `render_guardian`, and it is right. Not fixed here because
+   `RepairPageLinks` is a pure function with no logger, so telemetry means changing its return —
+   a design change, not a bug fix. **The shape: return a skipped-because-unparseable count
+   alongside `[]LinkRepair`, so the callers' existing log lines carry it.**
+
 2. **The tool-markup writers — now UNBLOCKED.** `create_tool_component_action.go` and
    `deploy_tool_action.go` should receive `repairComponentHTMLBeforePersist` (LNK-027). 7 of
    the 35 census hrefs sit in tool-shaped slots, and they are deliberately NOT allow-listed in
