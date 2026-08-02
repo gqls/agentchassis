@@ -618,3 +618,68 @@ carries no risk in the meantime precisely because it is provably inert.
   high-stakes site was done. A and B are done; C is blocked. Closing it needs an
   owner ruling on whether "live + mutation-proven + provably inert" clears the
   bar for C, and that is a decision, not a measurement.
+
+## The refusal-sentence fix: APPROVED, and both objections answered with work (2026-08-02)
+
+Council `22cdef56-da93-42f7-b9f9-71ff82abcdf6` — **APPROVED**, 11 reviewers,
+6 abstained, `decided_by: "approved with 1 advisory objection(s) — none
+high-severity"`. Code `56365d86b` (carries `Council-Submitted:`; 098 credits it
+automatically now the correlation is approved — no amend, forward-only).
+
+Both objections were acted on rather than filed, because both were right.
+
+### editquality, MEDIUM — "presents mutation evidence as proof rather than a best-effort local run"
+
+The objection: the mutation run happened in `platform/orchestration/actions`, a
+package other sessions edit concurrently, where **a mutant that breaks the build
+reads the same as one correctly caught** and a restore can collide with someone
+else's edit. Fair, and the fix is cheap.
+
+**Re-run in an isolated `git archive HEAD` tree** (`go.mod go.sum platform
+internal pkg` + the two fixture dirs the package tests read — the first attempt
+failed the baseline because `doc_subjects_common_test.go` reads
+`docs/agent_docs/sql_for_agents` and the experience-register harvest, which is a
+missing-fixture failure, *not* a broken HEAD). Baseline green in isolation, then
+each mutant applied to a **fresh** copy and **compiled before being trusted**:
+
+| mutation | compiles | result | predicted |
+|---|---|---|---|
+| M1 restore the fixed borrowed clause | yes | both aftermath tests FAIL | both |
+| M2 empty falls back to a consumer clause | yes | only the empty-case test FAILS | only that one |
+| **M3 specificity control** — break the unrelated DISABLED branch | yes | only `TestEvaluatePruneFloorDisabledIsAllowedAndSaysSo` fails; **my two PASS** | my two pass |
+
+M3 is evidence the first run did not have, and it is the one that answers the
+objection properly: it shows the two new tests fail on *their own* mutation and
+not on any change to `Reason`. Restore verified by grep count; isolated baseline
+green afterwards.
+
+### editquality, LOW — "'exactly four call sites' rests on a grep, not verified"
+
+Replaced the grep with a mechanical enumeration: **revert the signature to three
+arguments in the isolated tree and let the compiler list the callers.**
+
+```
+platform/orchestration/actions/code_symbols_actions.go:350:5:      too many arguments in call to verdict.Reason
+platform/orchestration/actions/link_registry_prune_floor.go:169:3: too many arguments in call to verdict.Reason
+platform/orchestration/actions/nav_prune_floor.go:210:3:           too many arguments in call to verdict.Reason
+platform/orchestration/actions/save_sections_prune_floor.go:213:3: too many arguments in call to verdict.Reason
+```
+
+Four, repo-wide, from `go build ./...`. **Scope stated honestly:** `go build`
+does not compile `_test.go`, so that enumeration covers production callers; the
+nine test call sites are covered by the package test build passing.
+
+### bug_historian — "cannot confirm this is not a resubmission of an already-adjudicated diff"
+
+It is not, and the check is exact. `git log -G "func \(v pruneFloorVerdict\)
+Reason\("` over `prune_floor.go` returns **two** commits ever: `10524a03c`
+(bugs_closed/135, which created the method) and `56365d86b` (this change). The
+three council correlations in that file's history are `14239fa4` (135, created
+it), `c69e935a` (sites B+C, which used the rule **unchanged**) and `22cdef56`
+(this one). No prior round adjudicated a signature change.
+
+**Use `-G`, not `-S`, and this bit me while answering it.** `git log -S` is
+occurrence-COUNT based, so it missed my own commit — the edit added a parameter
+while preserving the string `func (v pruneFloorVerdict) Reason(`, leaving the
+count unchanged. `-S` reported only 135 and would have supported a confident
+"nothing has ever changed this signature". Filed in `LANDMINES.md`.
