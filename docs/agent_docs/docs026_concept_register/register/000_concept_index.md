@@ -51,7 +51,16 @@ path that had it; and 1 more (ADO-037) added 2026-07-30 for verbatim adoption �
 `fidelity=locked` plus the `deploy_mode` component key — which made doc 028's
 long-inert fidelity dial (ADO-011) read by something for the first time; and 1 more (STY-050) added 2026-07-30 for the per-site
 chrome-config seam that finally gave `bugs_open/018`'s schema-driven fill a real
-consumer
+consumer; and 1 more (LNK-027) added 2026-08-02 from the
+`bugs_open/136` (section-editor slug) fix — the single-component form of the
+dead-link repair for writers that persist `rendered_html` outside
+`SavePageSectionsAction`, plus the pre-commit check that makes the next such
+writer announce itself, because one appeared between that bug being filed and
+fixed and nobody noticed. **Measured with a stated command, since this file asks
+for one:** `grep -c "^| [A-Z]*-[0-9]" 000_concept_index.md` = **1,701** with that
+row in (1,700 without it). That is the index-table row count, not the 1,696 in
+the headline, and it is offered as evidence rather than as a correction — the
+headline is left alone, per the note above
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
@@ -1676,6 +1685,7 @@ an ID prefix, or a status word.
 | CGV-005 | Human direction channels and the pinned direction spec | partial | Work-item / direction-update / reference-suggestion channels; direction resets audit pass | content-governance.md |
 | LNK-017 | prepare_link_context available_pages gap on the work-item path | deployed | FIXED + LIVE 2026-07-31 (bugs_closed/092, v1.0.1219): reads pages itself under the deploy gate's own predicate; empty list instructs "no internal links" instead of saying nothing. Induced run: 0 -> 27 pages, source=database | link-management.md |
 | LNK-026 | link_constraints.go, the dead second implementation (RETIRED) | deleted | 173-line near-duplicate of prepare_link_context with zero callers, deleted 2026-07-31; retires the "do NOT wire InjectLinkConstraints" landmine | link-management.md |
+| LNK-027 | repairComponentHTMLBeforePersist: single-component link repair for sibling writers | built | Wraps LNK-024's seam with a one-element slice for writers that persist rendered_html outside SavePageSectionsAction; plus a pre-commit check so the next such writer announces itself | link-management.md |
 | SYS-026 | site_work_items domain → pipeline column rename | deployed | Work-routing column renamed to eliminate collision with the site's own domain name | system-architecture.md |
 | DEV-079 | Data-path resolution problem (agent vs local action nesting) | superseded | Workflow config referenced CollectedData paths that didn't match where actions actually stored results. | development-guide.md |
 | DEV-028 | Deploy-ordering hard gate for coupled Go action + workflow-config changes | deployed | Workflow jsonb is live instantly; wiring to a not-yet-deployed action breaks every run of the agent. | development-guide.md |

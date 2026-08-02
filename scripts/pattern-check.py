@@ -536,8 +536,15 @@ def _calls_repair_seam(raw):
 # catch (the tool-markup writers are deliberately absent for that reason).
 COMPONENT_WRITE_ALLOWED = {
     "adopt_verbatim.go":
-        "byte-preserving adoption (--fidelity locked) — the stored bytes ARE the "
-        "crawled document; repairing links would break the contract the file exists for",
+        "byte-preserving adoption — MEASURED, not assumed (council editquality seat, "
+        "corr 0275f9c2, asked for the citation): it writes content.RawHTML verbatim "
+        "(:514, :533) and stores sha256(RawHTML) in content_data (:487), so a repair "
+        "would silently invalidate the hash the file exists to keep. It is reachable "
+        "ONLY under a strict binary — apply_adoption_plan_action.go:426, "
+        "`if fidelity := adoptionFidelity(...); fidelity == fidelityLocked` — so there "
+        "is no milder mode in which this writer emits LLM-authored prose "
+        "(cf. the '--fidelity high is not a milder locked' landmine, which is about "
+        "which PATH runs, not about what this file writes)",
     "import.go":
         "one-off port CLI, same byte-preservation reasoning as adopt_verbatim",
     "fix_harcoded_colours_action.go":

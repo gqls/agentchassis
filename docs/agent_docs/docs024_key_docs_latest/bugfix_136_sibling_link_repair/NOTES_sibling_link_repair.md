@@ -107,3 +107,101 @@ The locked-component semantics are preserved exactly: `errComponentLocked` was a
 handled for both branches at the call site (the swap propagated it out of
 `applyComponentSwap` into the `errors.Is` check at line 338), and after the move both
 branches return through the same check.
+
+## 2026-08-02 ~11:40 BST — the fix is committed (`66998d300`), and the census figures in it are WRONG
+
+Committed with `Council-Submitted: 0275f9c2-035f-4c9e-8a50-83836dfeffd9` (submitted
+~11:20, verdict pending — CLAUDE.md's trailer for exactly this case, so 098 credits the
+commit automatically once approval lands).
+
+> **CORRECTION — the numbers in that commit message and in the § census entry above are
+> wrong.** I wrote "30 distinct (page, href) … 7 sites … 14 rewritable, 16 unlinkable"
+> and "8 of the 30 in tool slots". The aggregate says:
+>
+> | | href occurrences | components | pages | sites |
+> |---|---|---|---|---|
+> | rewrite | 18 | 8 | — | 5 |
+> | UNLINK | 17 | 8 | — | 5 |
+> | **total** | **35** | **13** | **13** | **6** |
+> | of which tool-shaped | 7 | 5 | 5 | 3 |
+>
+> Where the wrong numbers came from: my detail query ended `GROUP BY 1,2,3,4,5` (domain,
+> page, slot, href, action) and printed `(30 rows)`. I read that footer as "30 links" — it
+> is 30 *groups*, and repeats collapse into one. The "7 sites" was worse: I counted
+> distinct domain names by eye down the listing and got it wrong by one.
+>
+> **What caught it:** writing `RUNBOOK_sibling_link_repair.md`. Making the query re-runnable
+> meant giving it `count(DISTINCT …)`, and the aggregate contradicted prose I had already
+> committed. Logged in `WRONG_CALLS.md` (2026-08-02, "I read a census off a LISTING").
+>
+> **What does not change:** the direction of the finding, the fix, and the tool-writer
+> ranking. 7 of 35 in tool slots is still the reason those two files are the next candidate,
+> and 17 unlinkable hrefs are still live 404s on real pages.
+
+Two more things from the commit itself, both worth the next thread's time:
+
+1. **The `logged-model-output` pattern-check finding on `create_report_page_action.go:428`
+   is a false positive, and not mine.** Line 428 is
+   `fmt.Fprintf(&b, `<div class="report-prose">…%s</div>`, esc(sec.heading), body)` — a
+   write into a `strings.Builder` that IS the page, not a log call. It was already there
+   (`5eb433e47`); it surfaced only because my edit put the file in the changed set. Left
+   alone deliberately: "don't embed the prose" would break the report. If that check gets
+   tightened, `fmt.Fprintf(&builder, …)` is the shape to exclude.
+2. **`HEAD` compiles from a clean archive**, not just in this tree:
+   `git archive HEAD | tar -x -C <tmp> && go build ./...` → clean. On a shared tree a green
+   local build can be green because of somebody else's uncommitted work.
+
+## 2026-08-02 ~12:10 BST — APPROVED at round 1, and the objection that was a genuine catch
+
+`0275f9c2-035f-4c9e-8a50-83836dfeffd9` → **approved**, *"approved with 5 advisory
+objection(s) — none high-severity"*, 14 seats reporting (4 abstained). Dispositions are
+tabulated in the bug file; three are worth recording here as method rather than outcome.
+
+**1. The `guidelines` seat caught a vacuous negative, and it was right.** It flagged, from
+the PLAN alone — it never saw the test — that `TestRepairComponentHTML_ConfigLeverOffDoesNothingAtAll`
+might prove inertness via `mock.ExpectationsWereMet()` with no expectations registered.
+That is exactly what it did. Two independent reasons it could not fail:
+
+- with nothing registered, `ExpectationsWereMet()` returns nil unconditionally — it reports
+  on expectations that WERE registered, not on calls that were not expected;
+- the other assert (`got != in`) could not catch it either, because the fail-open path also
+  returns the input unchanged. A lever-less version would have returned identical HTML.
+
+Fixed by inverting the assertion: **register the call that must not happen, then require it
+to go UNMATCHED.** Mutation C (`if false` in place of the lever check) now fails it on both
+lines. The same treatment went on the clean-component test's "and silent" claim.
+
+**And the mutation that DIDN'T fail, which taught me more than the ones that did.**
+Mutation D removed the `len(repairs) == 0` early return in the seam and the clean-component
+test still passed. My first read was "the test is weak". Wrong: `writeLinkRepairLog` has the
+identical guard internally, so behaviour was unchanged and a passing test was *correct*.
+Mutation D' removed the inner guard instead — still passed, because the outer one now
+short-circuits. Only mutation E, removing **both**, fails the test. The two guards are in
+**series**, not alternatives, so no single mutation can disprove the silence claim.
+**A mutation that passes is not automatically a weak test — check whether you actually
+changed the behaviour before you believe your own mutation.**
+
+**2. Two seats asked for lookups behind assertions, and both were one command away.**
+`applyComponentSwap` has exactly one caller (`section_editor_actions.go:331`; the other
+grep hits are the definition and five log/comment strings) — that had been asserted in the
+submission as "grep confirms", which is not evidence, it is a claim that a grep exists.
+And `adopt_verbatim.go` first wrote `page_components` in `e6a8bb63b`, **2026-07-30** —
+which confirms "a new writer appeared between the filing (07-28) and the fix" as a dated
+fact rather than a story I liked.
+
+**3. The `editquality` seat found the weakest link in the allow-list, from a landmine.** It
+noticed `adopt_verbatim.go` was excluded on prose while the blog listing was excluded on
+measurement, and cited the `--fidelity high` landmine as reason to distrust the assumption.
+The answer holds, but it needed citing rather than asserting: the file writes
+`content.RawHTML` (`:514`, `:533`) and stores `sha256(RawHTML)` in `content_data` (`:487`),
+so repairing would invalidate its own hash, and it is reachable only under
+`fidelity == fidelityLocked` (`apply_adoption_plan_action.go:426`, a strict binary). The
+landmine is about which PATH runs, not what that file writes. Allow-list comment rewritten
+with the line numbers so the next reader does not have to re-derive it.
+
+**4. Filed RFC 008** for the mandatory-write-seam question, because four seats converged on
+"advisory is the wrong ceiling" and `bug_historian` asked for a ticket by name. The RFC
+states the case AGAINST as well: two of the ten writers must never repair, so a mandatory
+seam needs an opt-out parameter, which is an allow-list wearing a type signature. What
+settles it is a measurement nobody has taken — whether advisory `pattern-check` findings
+are read and acted on at all.

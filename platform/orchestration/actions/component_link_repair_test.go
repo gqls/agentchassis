@@ -31,6 +31,15 @@ func pageIndexRows(urls ...string) *sqlmock.Rows {
 
 // A component whose links all resolve must come back byte-identical, and no
 // agent_error_log row may be written: a clean write is not an event.
+//
+// HOW THE NEGATIVE IS ASSERTED, because the obvious way is vacuous. Registering
+// no expectation and checking ExpectationsWereMet() proves nothing — it only
+// reports on expectations that WERE registered, so a stray INSERT would sail
+// past it (and this function swallows a failed log write by design, so the
+// return value would not move either). The council's guidelines seat flagged
+// exactly this shape in the sibling test below (corr 0275f9c2), and there is a
+// standing landmine on it. So: register the INSERT we must NOT see, then require
+// ExpectationsWereMet to FAIL naming it.
 func TestRepairComponentHTML_CleanComponentIsUntouchedAndSilent(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -39,6 +48,8 @@ func TestRepairComponentHTML_CleanComponentIsUntouchedAndSilent(t *testing.T) {
 	defer db.Close()
 	mock.ExpectQuery(regexp.QuoteMeta(linkablePageStatusPredicate)).
 		WillReturnRows(pageIndexRows("/index.html", "/contact.html"))
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1)) // must stay UNMATCHED
 
 	in := `<section><a href="/contact.html">Talk to us</a></section>`
 	got := repairComponentHTMLBeforePersist(context.Background(),
@@ -48,8 +59,12 @@ func TestRepairComponentHTML_CleanComponentIsUntouchedAndSilent(t *testing.T) {
 	if got != in {
 		t.Errorf("clean component was perturbed:\n got %q\nwant %q", got, in)
 	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("unexpected database traffic on a clean component: %v", err)
+	err = mock.ExpectationsWereMet()
+	if err == nil {
+		t.Fatal("a clean component wrote an agent_error_log row — a no-op repair is not an event")
+	}
+	if !strings.Contains(err.Error(), "ExpectedExec") {
+		t.Errorf("the page index was never loaded, so this test proved nothing about silence: %v", err)
 	}
 }
 
@@ -147,12 +162,24 @@ func TestRepairComponentHTML_UntrustworthyIndexShipsUnrepairedAndRecordsTheSkip(
 // The reversal lever. DB config is live-immediately, so this is what withdraws
 // the behaviour fleet-wide without waiting for an image roll — and it must cost
 // nothing when off: no index query, no log row.
+//
+// CORRECTED after the council's guidelines seat read the plan (corr 0275f9c2):
+// its first version registered NO expectations and asserted
+// ExpectationsWereMet() == nil, which is the vacuous-negative pattern this
+// platform has a landmine for — "a mock's own bookkeeping cannot assert a
+// NEGATIVE". With nothing registered that call returns nil unconditionally, and
+// the html assert could not catch it either, because the fail-open path returns
+// the input unchanged too. It would have passed with the lever deleted. Now the
+// index query is REGISTERED and required to go UNMATCHED, which is a positive
+// assertion that it never ran. Mutation-checked: deleting the lever fails it.
 func TestRepairComponentHTML_ConfigLeverOffDoesNothingAtAll(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
 	}
 	defer db.Close()
+	mock.ExpectQuery(regexp.QuoteMeta(linkablePageStatusPredicate)).
+		WillReturnRows(pageIndexRows("/index.html")) // must stay UNMATCHED
 
 	in := `<p><a href="/pricing">see pricing</a></p>`
 	got := repairComponentHTMLBeforePersist(context.Background(),
@@ -166,8 +193,8 @@ func TestRepairComponentHTML_ConfigLeverOffDoesNothingAtAll(t *testing.T) {
 	if got != in {
 		t.Errorf("the disabled lever still changed the html: %q", got)
 	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("the disabled lever still touched the database: %v", err)
+	if err := mock.ExpectationsWereMet(); err == nil {
+		t.Fatal("the disabled lever still loaded the page index — 'off' must cost nothing")
 	}
 }
 

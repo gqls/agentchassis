@@ -1,0 +1,98 @@
+# Where we are — the sibling link-repair bug (`bugs_open/136`, section-editor)
+
+Plain prose, append-only, newest at the bottom. No jargon where I can avoid it.
+
+---
+
+## 2026-08-02, morning — what this is and why I picked it
+
+I went looking for an open bug nobody else was working on. That check is worth describing,
+because it changed my answer twice.
+
+The obvious pick was a bug about images being deployed wrongly (155): high severity, cause
+already proven, fix already sketched. Then I searched the live transcripts of the other
+sessions running on this machine and found one of them had mentioned that bug 119 times in
+the last few hours. It is being fixed as I write. The repo's own ownership script did not
+know — it reads commits, and a session halfway through a fix has not committed anything yet.
+A second candidate (093) turned out to be waiting on a scheduler that has been switched off
+since May, so there was no code to write.
+
+What I settled on is this. When we generate a page, a writer sometimes invents a link to a
+page that does not exist — "see our pricing" pointing at `/pricing` on a site that has no
+pricing page. Visitors click it and get a 404. A while ago we built a repair for that: if
+the target really exists under a slightly different address we fix the address, and if it
+does not exist at all we keep the words and drop the link. The repair was wired into the
+place where a whole page's sections are saved.
+
+The complaint that became this bug came from our own review council: nobody had checked
+whether that was the *only* place a page's HTML gets saved. It was not. There are several
+other pieces of code that write the same column, and none of them repaired anything. So the
+more carefully you followed our own documentation — which tells you to use the targeted
+"edit one section" path — the more reliably you skipped the protection.
+
+## What I actually changed
+
+Two of those writers now repair their links: the targeted section-editor, and the report
+generator. They both call one new shared function, which is a thin wrapper around the repair
+that already existed — deliberately, so there is one set of rules and one place to get them
+wrong, rather than two copies that drift apart.
+
+While doing it I found the section editor saved its work in two different places depending
+on which kind of edit you asked for. That is the same trap one level down: put the guard
+before one of them and the other still slips past. So the two saves are now one save, with
+the repair in front of it. Nothing can reach the database from that action without going
+through it.
+
+I also added a check to the script that runs when anyone commits. If a future change writes
+that column and does not repair links, the author gets told at the moment they do it. This
+matters more than the two fixes: between the day this bug was filed and today, somebody added
+a *new* writer of that column, and nobody noticed. A list in a bug file cannot keep up; a
+check at the moment of the edit can.
+
+## What I deliberately did not do, and why
+
+- **The blog listing.** It is on the bug's list of unprotected writers, and I nearly "fixed"
+  it for consistency. Then I looked: every link it emits comes from our own page table — the
+  same table the repair checks against — so the repair could never find anything to do. It
+  would have been a database query per rebuild for a guaranteed nothing. Left alone, with the
+  measurement written down so the next person does not re-argue it.
+- **The two tool-page writers.** These genuinely do have the problem, and they hold the
+  largest share of the live damage. I left them out because several other sessions are
+  editing those exact files right now, and our commit rules cannot stop two sessions'
+  changes to one file getting mixed together. They are named as the next job, and the new
+  commit-time check will keep pointing at them until somebody does it.
+- **The big structural version** — making every one of the nine writers physically unable to
+  save without repairing. That is a change to a shared mechanism, which by our own rules is
+  an architecture-review decision rather than something to slip inside a bug fix.
+
+## The honest size of it
+
+I measured what is actually broken out there today: **35 links in stored page HTML that
+point at pages which do not exist**, spread over 13 components on 6 sites. Seventeen of them
+would simply be removed as dead; eighteen are near-misses we can repair automatically.
+
+Two caveats I want to be straight about. First, that stock cannot be blamed on the writers I
+fixed — a stored link does not record who wrote it, and the older fix has been live for a
+while, so some of this predates everything. Second, neither of the two paths I guarded has
+actually run in the twenty days of history we keep. So this is prevention on paths that are
+live, documented and reachable, not a bleed I have stopped. I would rather say that plainly
+than let the fix sound bigger than it is.
+
+## Something I got wrong, in public
+
+The numbers in the paragraph above are the second set I wrote. The first set went into the
+commit message — "30 links across 7 sites" — and was wrong in every figure. I had read them
+off the bottom of a results table on screen instead of asking the database to count. Writing
+the runbook is what caught it, because making the query re-usable meant adding a proper
+count, and the proper count disagreed with what I had already committed. Commits cannot be
+amended here, so the correction lives in the bug file and the working notes, and in the
+fleet-wide log of wrong calls.
+
+## Where it stands
+
+The code is committed and it is in the review council now (submitted before committing, which
+is what our rules ask for when the verdict will land later). It is **not live** — Go changes
+do nothing until a new chassis image is built and rolled out, and I have recorded the exact
+before-and-after checks to prove it when that happens: one string my change adds, one string
+my change removes, and one from the older fix that must stay put. Until then the bug stays
+open, because the defect is still reproducible on the running system.

@@ -61,11 +61,20 @@ guarded at one call site while the siblings stay open.**
    So a repair pass there could only ever be a no-op. **Excluded deliberately**, with the
    evidence above rather than a judgement.
 4. **The volume the bug file marks `[UNMEASURED]` is now measured** — see
-   `NOTES_sibling_link_repair.md` § census. Fleet-wide, stored `page_components.rendered_html`
-   holds **30 distinct (page, href) internal links that do not resolve** against their own
-   site's `pages` rows, across **7 sites**: 14 would be *rewritten* (a real `.html` target
-   exists) and 16 would be *unlinked*. **What that number is NOT:** it is the standing
-   stock, and it cannot be attributed to a writer — a stored link cannot say who wrote it.
+   `NOTES_sibling_link_repair.md` § census and the query in `RUNBOOK_sibling_link_repair.md`.
+
+   > **CORRECTED 2026-08-02, and the wrong numbers reached commit `66998d300`.** This
+   > paragraph first said "**30** distinct (page, href) … across **7 sites** — 14
+   > rewritable, 16 unlinkable". Every figure was wrong. Re-run as an aggregate:
+   > **35 unresolved href occurrences, in 13 components on 13 pages across 6 sites,
+   > 18 rewrite / 17 unlink**, of which **7** are tool-shaped (`slot_name LIKE 'tool%'`
+   > or `page_type='tool'`). The 30 was the row count of a `GROUP BY (domain, page,
+   > slot, href, action)` listing — a number about my query, not about the fleet — and
+   > the 7 sites was me counting domains down a terminal listing. Caught by writing the
+   > runbook, which forced a `count(DISTINCT …)`. Logged in `WRONG_CALLS.md`.
+
+   **What that number is NOT:** it is the standing stock, and it cannot be attributed to a
+   writer — a stored link cannot say who wrote it.
 
 ## Scope decision, and what is deliberately left out
 
