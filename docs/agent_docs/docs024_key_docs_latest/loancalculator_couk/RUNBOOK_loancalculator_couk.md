@@ -688,3 +688,43 @@ inside its deploy window serves the previous bytes (see the warning above), and 
 golden captured then would pin the OLD page's values as the new baseline — the one
 error in this whole sequence that no later check could catch, because the golden
 IS the reference.
+
+## After a chassis roll: re-run the byte check (2026-08-02)
+
+The decomposed pages are assembled by Go, so **a chassis roll can change what they
+render to** — `assemblePage`, `getPageSections`, `StripToolDocHeader`,
+`injectPageJSONLD` and `repairOutboundPageLinks` are all in the image. Nothing on
+the wire moves until a page re-renders, so the risk is silent: the site is correct
+until the next rebuild of any page, and then that one page differs.
+
+```bash
+export DECOMP_WORK=/tmp/decomp-work        # must still hold predicted/
+python3 decompose/verify_shipped.py --all  # cheap, no browser
+```
+
+**This is a real check, not a ritual — but it has already passed one roll.** The
+chassis rolled at `2026-08-02T18:39:14Z` in the middle of this rollout: **26 of the
+27 pages rendered after it and 1 before, and all 27 matched the same predictions.**
+So the assembly path is stable across at least one image change, which is evidence
+rather than hope.
+
+To decide whether a PENDING roll can move the bytes, diff the render path against
+what the running pods were built from:
+
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o jsonpath='{.items[0].status.startTime}'
+git log --oneline --since=<that time> -- \
+  platform/orchestration/actions/rerender_single_page_action.go \
+  platform/orchestration/actions/rerender_link_repair.go \
+  platform/content/tool_doc_header.go
+```
+Empty means the roll cannot move them. Note `save_page_sections_action.go` is NOT
+on that list: it is a WRITER, not the renderer, so a change there cannot alter what
+an already-stored page assembles to — it can only change what a section save
+writes. (Checked 2026-08-02: the pending roll's only render-adjacent change was
+exactly that, a per-slot shrink guard in the writer.)
+
+If the predictions are gone, regenerate them — `prepare_work.sh` then
+`load_decomposition.py --check --all` rewrites `predicted/` without touching the
+database.
