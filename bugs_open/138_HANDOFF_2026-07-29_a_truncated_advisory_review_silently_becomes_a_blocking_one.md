@@ -762,3 +762,32 @@ bugfix_168_deployed_asset_path lane) spawned 12 s into the window and carries th
 crippled config frozen; its edits are storage-shaped, so the adoption footprint should
 not fire the seat for it — being confirmed from `llm_call_log`, and its lane will be
 notified if the seat fired.
+
+### 2026-08-02 ~10:46 — the induced round completed: true branch NOT fired, and the miss redrew the map
+
+Corr `4d7363d7` → **rejected, `veto from editquality`, `gated_by_truncation=false`**;
+the crippled seat's review was counted **`unreadable`**, not degraded. Two independent
+causes (either alone was fatal), both recorded in the lane's NOTES/RUNBOOK §11 and
+WRONG_CALLS:
+
+1. `claude-sonnet-5` thinks by default and `output_tokens` counts thinking+text; at cap
+   120 the retry produced **42 chars** of visible JSON (`output_tokens=120`), under the
+   discard floor, so salvage yielded `""`. The cap was sized in the wrong currency.
+2. editquality **vetoes comment-only submissions by explicit rule**, and a veto
+   short-circuits `decideCouncil` before the truncation rule runs.
+
+**What this changes about the residual.** The true branch is a conjunction: a
+submission every non-crippled seat approves AND a gating review that is degraded-only.
+Production-witnessed as of today: the tolerate+retry machinery (bugs_open/119), the
+salvage-failure arm (honest `unreadable`, no fabricated verdict, round decided on the
+remaining 11 seats), the frozen-plan mechanics, the veto short-circuit, and — from
+07-30/31 — three salvage-SUCCESS cases each correctly excluded from the label. **The
+only artefact never yet produced in production is the TRUNCATED label string itself.**
+Every arm that feeds it has now been watched live; the decision rule that assembles
+them is unit-tested. Witnessing the string now requires staging a near-perfect code
+submission alongside a re-crippled seat (RUNBOOK §11 outcome lists the two blockers) —
+an owner call on whether that residual is worth another round.
+
+Zero collateral: both 120-cap calls carry the induction round's orchestration id;
+window round `0802-1034` (bugfix_168 lane) shows no adoption reviewer and no
+unreadables — the footprint gate held.
