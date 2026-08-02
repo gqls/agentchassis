@@ -17279,3 +17279,46 @@ alone structurally cannot (it passes identically whether the pattern is right or
 string is simply present for another reason). Distinct from the mock entry above but
 the same family: **a check whose output is fixed in advance by something other than
 the thing you are testing.**
+
+---
+
+## 2026-08-02 — I shipped a platform seam one commit ahead of its register entry, and the rule says "the same commit"
+
+**The claim that was wrong:** implicitly, that registering `RSH-004` immediately
+afterwards was equivalent. CLAUDE.md's ordering-exemption condition (2) is explicit
+and is the *whole* of the requirement now that condition (1) is retired: *"The seam is
+registered in the concept register in the same commit that ships it."* I committed
+`fe34fd04f` (the local-action deadline) and only then wrote the register entry.
+
+**What caught it:** re-reading the rule while writing the commit message for the
+register entry — i.e. luck and habit, not a check.
+
+**Why it matters more than it looks.** The rule exists because a seam that ships
+without its entry is discoverable only by reading the diff, and this tree has ~30
+sessions who will not. The window I created was minutes, but the failure mode it
+guards against is the one where the entry never gets written at all — and "I'll
+register it next commit" is exactly how that starts.
+
+**The cheap check that would have caught it:** before `git commit` on anything under
+`platform/`, `internal/` or `pkg/` that adds an exported seam, a new config key, or a
+new framework behaviour, ask *"is the register entry in this same pathspec?"* — it is a
+question about the command I am already typing, not a separate step.
+
+---
+
+## 2026-08-02 — backticks in a `git commit -m` message executed as shell
+
+**The claim that was wrong:** none — this one is a pure mechanical own-goal, and it is
+already a LANDMINE I have in memory (`shell-tool-traps-committing`). I wrote a commit
+message quoting config keys in backticks inside a `-m "..."` heredoc-less string. Bash
+ran them: `claimed: command not found`, `failed: command not found`,
+`timeout_seconds: command not found`, then `git: Argument list too long`.
+
+**What caught it:** the commit failed loudly. **This is the benign version** — the
+dangerous one is a backticked word that IS a valid command, which would substitute
+silently and commit a message with the output pasted in, or worse.
+
+**The cheap check that would have caught it:** do not use `-m` for a long message at
+all. Write it to a file and use `git commit -F <file>`. That removes the whole class —
+backticks, `$(...)`, `!` history expansion, embedded quotes — rather than remembering to
+escape each one. Used `-F` for the retry and it worked first time.

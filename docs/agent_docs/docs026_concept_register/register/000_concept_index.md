@@ -1671,6 +1671,7 @@ an ID prefix, or a status word.
 | NAV-006 | Nav quality mechanisms of 2026-04-17 | deployed | Tiered priority, child-page exclusion, label trust, footer quick links shipped together | navigation.md |
 | RSH-002 | Composition resolver orphan-rows policy | aspirational | Tolerate cheap orphaned rows from failed installs; sweep via database-cleanup | resilience-self-heal.md |
 | RSH-003 | Retry-as-replay: an awaited request is re-sent, never rebuilt | deployed | A retry replays the recorded original; rebuilding it sent the PARENT id, empty body, wrong action | resilience-self-heal.md |
+| RSH-004 | A local action executes under a deadline (`local_action_timeout_seconds`) | built (inert until roll) | No local action can run unbounded any more: default 600s, per-step override, <=0 disables, plus a fleet-wide kill switch. Closes `bugs_open/169` part A. | resilience-self-heal.md |
 | TLIB-002 | Never load html_template in listing queries (storage discipline) | deployed | Tool/component templates are large; listing and discovery queries must select metadata only, loading... | tool-library.md |
 | SYS-085 | Project Manager / User Representative agent hierarchy (abandoned) | abandoned | Top-level PM/user-rep persona hierarchy vanished; review intent moved to HITL | system-architecture.md |
 | DBG-003 | LLM step config field-path shadowing (ai_service/max_tokens/temperature) | partial | Top-level ai_service shadows step overrides; misplaced max_tokens silently defaults to ~2048 | debugging.md |
