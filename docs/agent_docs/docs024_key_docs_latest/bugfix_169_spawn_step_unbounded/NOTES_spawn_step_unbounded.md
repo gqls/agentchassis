@@ -155,3 +155,47 @@ over all 96,047 recorded step executions.
 run is not a rate, and there is no other diagnosis run in the last 10 days to compare
 against — every other correlation in that window is a council run. Recorded as an
 observation, deliberately **not** filed as a defect.
+
+## 2026-08-03 — live, induced, closed; and the induction found what the tests could not
+
+Fresh chassis rolled. Pod-grepped both replicas: `local_action_timeout_seconds` 1,
+`DISABLE_LOCAL_ACTION_TIMEOUT` 1, control `Executing local action` 3, same exec. **No
+negative control existed** — this change removed no string literal — and none was
+invented; said so rather than faking one.
+
+**Induced it rather than trusting the greps.** Smallest reversible surface:
+`endpoint-health-checker` (two steps, 60s tick, missed tick self-heals). Snapshot,
+`local_action_timeout_seconds: 0.001` on `check_health`, one tick, revert asserted by a
+`DO`/`RAISE` in the same transaction. Orchestration `4433e0e6` → `FAILED`:
+
+```
+local action "check_endpoint_health" on step "" exceeded its deadline after 0s
+(set "local_action_timeout_seconds" ...): query endpoints: context deadline exceeded
+```
+
+Four confirmations in one line: the deadline fired; **the ctx reached inside the
+action** (`query endpoints` is the action's own DB call being cancelled — the entire
+premise for preferring a ctx deadline to goroutine-abandonment); the run FAILED cleanly
+rather than parking; the error self-describes. Next tick `COMPLETED` normally.
+
+### The defect the induction caught and no test could
+
+`on step ""`. `models.Step.Name` is **empty on the live coordinator path** — the
+coordinator's own log line at `:1325` has the same hole — while `state.CurrentStep` was
+`check_health` throughout. **Every unit fixture sets `Name`, so the whole suite was blind
+to it by construction.**
+
+Fixed by making the resolved name a **required argument** of `localActionContext`, so it
+cannot silently read an empty field again; the regression test pins the *signature*, not
+a value, because a value-based test would pass the moment someone reintroduced the bug
+with a populated fixture.
+
+**The general lesson, and it is the one worth carrying:** when a value is populated in
+your fixtures but supplied by the framework in production, **only production can tell you
+it is empty**. A green suite is evidence about the fixtures.
+
+### Bug closed
+
+Moved to `bugs_closed/169_…`, both paths named on the commit and verified at HEAD with
+`git ls-tree` (exactly one line) — the `git mv` + pathspec landmine. `RFC_011` stays open
+on the seam and is explicitly **not** a residual of this bug.
