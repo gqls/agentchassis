@@ -18386,3 +18386,51 @@ section. If the mechanism is hot and the fix site is cold, you are looking at a
 neighbour, not an owner. (`scripts/who-owns.py` has the mirror-image blindness — it
 reads commits, so a session mid-fix is invisible; the two checks fail in opposite
 directions and are cheap to run together.)
+
+---
+
+## 2026-08-03 — brochure lane 2: shipped a link whose target I had never fetched, on the strength of copy that promised it
+
+**The call:** pointed two live CTAs ("Review the methodology", "Learn how it works") at
+`/guides/llm-cost-calculator-guide.html` because the calculator page's own copy has
+referenced "the companion guide" since 07-25 — and the sibling tool demonstrably has one.
+
+**What was wrong:** the guide had never been built. Page row `planned`, 0 components,
+serving 404 for nine days while live copy cited it. The queue rerender completed 40
+seconds before my revert, so buttons to a 404 were briefly in production.
+
+**What caught it:** my own later `curl -w %{http_code}` — run only because the guide-page
+work item (a different task) made me look at the guides at all. Nothing in the edit path
+would have said a word.
+
+**The cheap check that would have caught it:** `curl -s -o /dev/null -w '%{http_code}'`
+on EVERY URL a content edit introduces, before the rerender is queued — the same
+verify-the-artefact rule this platform applies to deploys, applied to link targets. Copy
+referencing a thing is a claim about the thing; the artefact is the only evidence. (Same
+session, same shape as the bucket-401 lesson already in the 08-02 handoff: an s3 URI in a
+note is not a stored object; a guide named in copy is not a built page.)
+
+---
+
+## 2026-08-03 — "8 findings" was 8 CANDIDATES, and I had corrected the identical error two rows up in the same table
+
+**footprint:** any both-ways diff used to predict what a converged check will FILE · bugs_open/185 lane
+
+**The claim.** Predicting `bugs_open/185` tranche 1's live impact, I wrote that
+`check_tool_acceptance_due` would file **"8 actual findings"** — after, in the same table,
+correcting the orphan check's row from 22 candidates to 2 findings by applying the rest of
+its WHERE clause, and writing "candidates are not findings" as the lesson.
+
+**What caught it.** The live run: 0 of the 8 filed. The acceptance check has three gates
+AFTER eligibility (current criteria fence in `doc_plans`, a 7-day verdict window, open-run
+dedup), and I modeled none of them: 7 of 8 tools have no current criteria plan; the 8th is
+blocked by a pre-existing subject-key mismatch the verification itself uncovered.
+
+**The cheap check.** **A both-ways diff of an eligibility clause predicts what a check can
+SEE. Before publishing what it will FILE, walk the rest of the function and either model
+every later gate or name each one as unmodeled.** The orphan row got this right because its
+gates live in the same SQL statement; the acceptance check's gates live in Go, after the
+query — and gates that are not in the query are invisible to a query-only prediction. Same
+lesson one level up: the shape of the error survived its own correction because the
+correction was applied to the INSTANCE (that row), not to the METHOD (query-only
+prediction).

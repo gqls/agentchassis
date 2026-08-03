@@ -192,6 +192,12 @@ answer was wrong in the useful direction:
 |---|---|---|---|
 | `check_orphan_pages` | 22 | **2** | yes — `gaswholesalers.com` `tool-breakeven-volume-calculator-guide` and `tool-fuel-budget-forecaster-guide`: shipped, not in nav, nothing links them |
 | `check_tool_acceptance_due` | 36 | **8** | yes — 6 `gamesdesign.co.uk` + 2 `vonc.com` tool pages, live and never acceptance-tested |
+> **CORRECTED 2026-08-03 (live verification): the "8 findings" cell above was WRONG — those
+> were 8 newly visible CANDIDATES, and the live run filed 0 items for them.** The check has
+> three more gates after eligibility (a current `doc_plans` criteria fence, a 7-day verdict
+> window, an open-run dedup), and 7 of the 8 have no current criteria plan — a Tier-2
+> concern, correctly skipped. This is the same candidates-are-not-findings error corrected
+> for the orphan row of this very table, made again two rows down. Logged in WRONG_CALLS.
 | `check_backend_entry_orphaned` | 34 | scan widens by 34 components | unknown until it runs — its findings come from a live HTTP probe, so no honest prediction is possible |
 
 **22 → 2 and 36 → 8 is the point.** The first query counted rows the check would *see*;
@@ -389,3 +395,54 @@ The render audit change means up to 36 more pages enter audit rotation (capped a
 per run, ordered by nav_order). If the audit starts photographing pages that then fail
 checks, those findings are old blindness surfacing, not new defects — same caveat as
 tranche 1's.
+
+
+---
+
+# TRANCHE 1 LIVE VERIFICATION COMPLETE 2026-08-03 — one exact proof, one falsified prediction, one pre-existing bug found
+
+The three dispatched improvement loops completed (corrs `b8aeed5a` / `d1641c1e` / `5029a34b`).
+
+## `check_orphan_pages` — PROVEN, with exact both-ways attribution
+
+gaswholesalers.com had **no `orphan_blog_posts` item before** this run; it now has one
+saying **"3 blog posts deployed but not linked"**. The check's own full query re-run both
+ways at verification time: **NEW predicate → 3 blog orphans · OLD predicate → 0.** The
+filed count matches the new predicate exactly, and matches the census (gaswholesalers has
+exactly 3 shipped `needs_rebuild` blog-posts). This finding is caused by the convergence,
+end to end: predicate → check → work item.
+
+## `check_tool_acceptance_due` — predicate live, prediction falsified, and the reason is a finding
+
+**0 of the 8 predicted tools filed.** Not a defect in the convergence — the check has
+three further gates, and the census behind "8" modeled only eligibility:
+
+- **7 of 8 have no current `doc_plans` criteria fence** → correctly skipped (that is
+  Tier-2's `needs_criteria` concern, the check's own doc comment says so).
+- **The 8th (`tool-archetype-taster-quiz`, vonc.com) is blocked by a pre-existing
+  SUBJECT-KEY MISMATCH:** its plan is filed under `tool-archetype-taster-quiz`, but the
+  component is `component_level='section'`, so `toolSubjectKeyExpr` strips the page
+  prefix and looks up `archetype-taster-quiz` — no row. **Censused fleet-wide: exactly 1
+  of 24 current tool plans is unreachable by the ladder's key.** Single row, not a class;
+  it predates this change (the tool was invisible to the check entirely before the
+  convergence, so the mismatch could never fire). Belongs to the tool-acceptance lane —
+  recorded here, not fixed here.
+
+The two acceptance items that DID file this run (`tool-spawn-rate-balancer`,
+`gauntlet-round-record`) are ordinary due-runs on `deployed` pages — explicitly NOT
+claimed as effects of this change.
+
+## `check_backend_entry_orphaned` — ran, no findings
+
+The widened scan (34 more components fleet-wide) produced no `backend_entry_orphaned`
+items on the three sites. Its findings come from a live HTTP probe, so 0 is a valid
+outcome, not evidence of a broken check — the probe found nothing orphaned on these
+domains.
+
+## The repeat error, named
+
+The "8 findings" prediction was candidates-≠-findings again — the exact error corrected
+for the orphan row of the same table, two rows up, in the same session. A both-ways diff
+of a check's *eligibility clause* predicts what the check can SEE, never what it FILES;
+every gate after eligibility must be either modeled or named as unmodeled. WRONG_CALLS
+carries the tally entry.
