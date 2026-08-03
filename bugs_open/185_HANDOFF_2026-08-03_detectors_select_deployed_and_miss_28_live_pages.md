@@ -149,3 +149,77 @@ consequence of fixing a false-negative is a burst of findings.
 - `bugs_closed/081` / `bugs_closed/175` — the two upsert arms, now converged (PBP-027).
 - `datahelpers/links_deployment_test.go` — the test that already forbids naming the status.
 - `LANDMINES.md`, "`pages.build_status = 'deployed'` is NOT 'is this page live'".
+
+
+---
+
+# PROGRESS 2026-08-03 — tranche 1 done: three detectors converged, two deliberately not
+
+**Picked up by the filing lane.** Fix candidate 1, applied to the sites the measurement
+justified and **only** those. Commit below; council submitted alongside.
+
+## The seam, because the ALIAS was the whole reason this kept being re-typed
+
+`datahelpers.NeverDeployedPagePredicate` could not be dropped into any query that aliases
+its `pages` table — which is most of them — so each consumer wrote the expression out by
+hand, and a hand-written copy is where `= 'deployed'` creeps back in. Two builders now:
+
+```go
+NeverDeployedPagePredicateFor(alias)   // "p" -> p.deployed_at IS NULL AND COALESCE(p.build_status,'') <> 'deployed'
+PageHasShippedPredicateFor(alias)      // the parenthesised negation — the one detectors want
+```
+
+`NeverDeployedPagePredicate` is now **derived** from the first, so the bare and aliased
+forms cannot drift. This is also the council's round-2 objection answered at the root:
+the duplication existed *because* there was no aliased form to reuse.
+
+## Converged — with the delta each one will actually report
+
+The bug file's own rule was *"run the query both ways and diff the row sets… confirm the
+new rows are genuinely defective rather than newly-visible-and-fine."* Done, and the first
+answer was wrong in the useful direction:
+
+| check | candidates newly visible | **findings it will actually file** | are they real? |
+|---|---|---|---|
+| `check_orphan_pages` | 22 | **2** | yes — `gaswholesalers.com` `tool-breakeven-volume-calculator-guide` and `tool-fuel-budget-forecaster-guide`: shipped, not in nav, nothing links them |
+| `check_tool_acceptance_due` | 36 | **8** | yes — 6 `gamesdesign.co.uk` + 2 `vonc.com` tool pages, live and never acceptance-tested |
+| `check_backend_entry_orphaned` | 34 | scan widens by 34 components | unknown until it runs — its findings come from a live HTTP probe, so no honest prediction is possible |
+
+**22 → 2 and 36 → 8 is the point.** The first query counted rows the check would *see*;
+the findings are what survives the rest of its WHERE clause. Reporting "22 new orphan
+findings" would have been wrong by an order of magnitude, and it is the same
+candidates-are-not-findings error the estate keeps paying for.
+
+## NOT converged, and this is a decision rather than an omission
+
+- **`check_unresolved_sections`** — its filter is not a liveness test. It flips
+  `deployed → needs_rebuild`; a page already `needs_rebuild` is already flagged, so
+  converging adds `updated_at` churn and **no information** (and `updated_at` churn moves
+  rows around `pre_query` orderings elsewhere).
+- **`check_page_component_status_drift`** — here `= 'deployed'` is *correct*. Drift means
+  "the page claims to be fully deployed but a component is not". A `needs_rebuild` page
+  having non-deployed components is the **expected** state, so converging would
+  manufacture 2 false positives. Measured, not assumed.
+
+## Tranche 2, held back deliberately
+
+`maintenance_actions.go:723,750` · `render_news_section_html.go:77` ·
+`render_directory_action.go:345` · `request_render_audit_action.go:110` ·
+`store_generated_component_action.go:843` · `component_library.go:2378,2434`.
+
+These are **rerender queuers and listing selectors**, not detectors, and the question is
+genuinely ambiguous: a shipped `needs_rebuild` page is serving a stale artefact, so a
+rerender would fix it — but the page is already queued for a rebuild that will regenerate
+it anyway. Converging them adds work items for pages already flagged. **That needs its own
+measurement (how long does a `needs_rebuild` page actually wait?), which is a different
+question from this one.** Held rather than swept in, per this file's own "do not make them
+all identical".
+
+## Still open
+
+- Tranche 2 above.
+- **Fix candidate 2** — merging `NeverDeployedPagePredicate` with
+  `queryresolve.FetchablePageEligibilitySQL`. The aliased builder removes the *excuse* for
+  the split (the alias) but not the split itself; `queryresolve` documents a deliberate
+  family of three, so read `queryresolve.go:210-236` before touching it.
+- **Nothing is live yet.** Committed only; ships on the next chassis roll.

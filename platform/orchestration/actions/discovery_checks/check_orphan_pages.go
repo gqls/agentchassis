@@ -23,6 +23,8 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func init() { Register(&OrphanPagesCheck{}) }
@@ -197,7 +199,7 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
 		       COALESCE(p.in_header, false), COALESCE(p.in_footer, false)
 		FROM pages p
 		WHERE p.site_id = $1
-		  AND p.build_status = 'deployed'
+		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
 		  AND p.url IS NOT NULL
 		  AND p.url != ''
 		  AND p.name NOT IN ('index', 'home')

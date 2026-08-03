@@ -27,6 +27,8 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func init() { Register(&ToolAcceptanceDueCheck{}) }
@@ -52,7 +54,7 @@ func (c *ToolAcceptanceDueCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, 
 		JOIN page_components pc ON pc.component_id = cc.id
 		JOIN pages p ON pc.page_id = p.id
 		WHERE p.site_id = $1
-		  AND p.build_status = 'deployed'`+toolEligibilityWhere, dctx.SiteID)
+		  AND `+datahelpers.PageHasShippedPredicateFor("p")+toolEligibilityWhere, dctx.SiteID)
 	if err != nil {
 		return nil, fmt.Errorf("tool_acceptance_due: tool query failed: %w", err)
 	}

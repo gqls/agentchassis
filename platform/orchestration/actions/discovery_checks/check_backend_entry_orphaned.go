@@ -116,7 +116,7 @@ func (c *BackendEntryOrphanedCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1
 		  AND p.status = 'active'
-		  AND p.build_status = 'deployed'
+		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
 		  AND pc.rendered_html IS NOT NULL
 		  AND pc.rendered_html <> ''
 	`, dctx.SiteID)

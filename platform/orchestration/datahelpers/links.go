@@ -17,6 +17,7 @@
 package datahelpers
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -243,7 +244,37 @@ func NormalizePagePath(href string) string {
 // packages expressing one rule with no mutual reference is how drift begins.
 // Change one, read the other. Whether they should be merged is bugs_open/185's
 // fix candidate 2, open on purpose.
-const NeverDeployedPagePredicate = `deployed_at IS NULL AND COALESCE(build_status, '') <> 'deployed'`
+var NeverDeployedPagePredicate = NeverDeployedPagePredicateFor("")
+
+// NeverDeployedPagePredicateFor is the same predicate with a table alias applied
+// ("p" → `p.deployed_at IS NULL AND …`); pass "" for the bare form.
+//
+// It exists because the alias is the ONLY reason this judgement kept being
+// re-typed by hand (bugs_open/185). Every consumer that aliases its `pages` table
+// — which is most of them — could not use the bare constant, so it wrote the
+// expression out again, and each hand-written copy is a chance to spell it
+// `build_status = 'deployed'` and lose the 28 pages that shipped under another
+// status. NeverDeployedPagePredicate itself is now DERIVED from this function, so
+// the bare and aliased forms cannot drift from each other.
+func NeverDeployedPagePredicateFor(alias string) string {
+	q := ""
+	if alias != "" {
+		q = alias + "."
+	}
+	return fmt.Sprintf("%[1]sdeployed_at IS NULL AND COALESCE(%[1]sbuild_status, '') <> 'deployed'", q)
+}
+
+// PageHasShippedPredicateFor is the negation: "this page HAS been served, and is
+// still serving whatever it last deployed". Use it for any question of the form
+// *may I mutate this*, or *does this live page owe me a check* — NOT
+// `build_status = 'deployed'`, which misses every page flagged `needs_rebuild`
+// after a real deploy (bugs_closed/037; 35 of 46 such rows carry a deployed_at).
+//
+// Parenthesised, so it drops into a WHERE clause beside other conjuncts without
+// the caller having to remember that the predicate is itself an AND.
+func PageHasShippedPredicateFor(alias string) string {
+	return "NOT (" + NeverDeployedPagePredicateFor(alias) + ")"
+}
 
 // PageURLSet is a normalised set of real page URLs for membership tests.
 type PageURLSet map[string]bool
