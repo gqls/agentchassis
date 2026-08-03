@@ -391,6 +391,14 @@ Rules that make them worth the effort:
   the marker is itself the check, because most of the time you will go and do
   the query instead. A durable claim with no marker and no evidence is the
   shape to distrust in your own writing and in anyone else's.
+- **The marker is not the whole check — a `[MEASURED]` figure is only evidence if
+  the measurement could have come out otherwise.** Dated and marked is not the
+  same as disconfirmable. Before recording a figure, name what the disconfirming
+  result would have looked like: a detector run against a tree that already
+  carries its own fix, or a census filtered on the very column it exists to
+  test, produces the same number regardless of what is true. Both happened,
+  dated and marked, in one 2026-08-03 session (`WRONG_CALLS.md`) — the marker
+  rule was followed in full and neither claim could ever have come out false.
 - **Log the wrong calls: `docs/agent_docs/docs024_key_docs_latest/WRONG_CALLS.md`.**
   Fleet-wide, append-only — a claim you wrote down that turned out to be false,
   what caught it, and the cheap check that would have. One row is an anecdote;
