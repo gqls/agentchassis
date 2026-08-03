@@ -10,6 +10,13 @@ because every repair path skips archived rows on purpose.
 
 > ## STATUS 2026-08-03 — STILL OPEN. Half fixed and live; the other half is VETOED and awaiting a human.
 >
+> **CORRECTED 2026-08-03 (late evening) — this headline is overtaken by its own SUPERSEDED
+> block below; left in place for the record.** Current state: RFC 011 is DECIDED (option B),
+> the veto is answered, the unpublish capability stands, and the one live instance is
+> retracted and stayed down past the next news refresh. The bug is open because nothing in
+> the codebase *archives* a page, so nothing *invokes* the retraction — and because the
+> serving population is **11 pages, measured**, not the 13 the closing line below claimed.
+>
 > **FIXED AND LIVE — the resurrection half** (chassis digest `sha256:5da2888…`, both
 > replicas). This page was not frozen at all: it was being re-rendered and re-published
 > **twice a day** because `queueNewsPageRerenders` filtered on `build_status` and never on
@@ -117,9 +124,25 @@ because every repair path skips archived rows on purpose.
 > ```
 > …or clear `deployed_at` on retraction, which is 098 candidate 2 and needs its own review.
 >
-> So: **13 pages still serve a frozen artefact** (14 stamped, minus the one just retracted),
-> the class is accumulating at roughly one a day, and closing this on one repaired instance
-> would be the "a `complete` work item is not a repaired artefact" mistake at bug scale.
+> So: ~~**13 pages still serve a frozen artefact** (14 stamped, minus the one just
+> retracted)~~ — **CORRECTED 2026-08-03 (late evening): 11, by curling all 14, and the
+> subtraction above is the very conflation this section corrects.** Deriving a *serving*
+> count from the *stamp* count treats `deployed_at` as liveness one paragraph after writing
+> down that it is history. Two other stamped rows were already 404, and both are documented
+> as 404 **in this file**: `/contacto.html` (file deleted deliberately) and
+> `/blog/learning-center-article.html` (the original finding's own 404 target). Measured
+> 2026-08-03 late evening, all 14 URLs:
+>
+> ```
+> 200 × 11 — leopardessconsulting.co.uk ×10 · loancalculator.co.uk/tools/standard-calc.html
+> 404 × 3  — relojistas.com/contacto.html · robot-hands.com/blog/learning-center-article.html
+>            · robot-hands.com/learning-center/index.html (the retraction — still down AFTER
+>              the 20:0x news refresh, i.e. part 2 of the acceptance below, holding)
+> ```
+>
+> The class is still accumulating at roughly one a day (`standard-calc`, archived 11:10
+> today, serves 200), and closing this on one repaired instance would be the "a `complete`
+> work item is not a repaired artefact" mistake at bug scale. Logged in `WRONG_CALLS.md`.
 >
 > Workstream: `docs024_key_docs_latest/bugfix_098_unpublish_primitive/` (the standing five).
 

@@ -18311,3 +18311,28 @@ count both before and after and require it to MOVE. A criterion whose value is u
 a successful fix is not a criterion. Generalises: an acceptance query should be one the fix
 is capable of changing — if you cannot say in advance which number will move and by how
 much, the query is measuring something adjacent to the work.
+
+## 2026-08-03 — "13 pages still serve" was stamp arithmetic in a serving claim, one paragraph after correcting exactly that conflation
+
+**The claim that was wrong:** `bugs_open/098`'s status block, in the very section that
+corrected the acceptance query for conflating *stamped* with *serving*, closed with "**13
+pages still serve a frozen artefact** (14 stamped, minus the one just retracted)". Curling
+all 14 URLs: **11** serve 200. Three are 404 — and two of those were already documented as
+404 *in the same file* (`/contacto.html`, file deleted deliberately on 07-27;
+`/blog/learning-center-article.html`, the original finding's own 404 target).
+
+**Why.** The figure was derived by subtracting one retraction from the stamped count —
+treating `deployed_at IS NOT NULL` as "currently serving" in the paragraph directly below
+the correction explaining that it means "a deploy happened once". The row above this one
+records the same conflation in the acceptance query; this row records it recurring in the
+prose within minutes of being named. Naming a conflation does not stop you performing it.
+
+**What caught it:** a re-read of the bug file the next session ("please look over this
+again") that fetched the population instead of trusting the arithmetic. 14 URLs, one
+`while read` loop, about ten seconds.
+
+**The cheap check that would have caught it:** a claim about how many pages SERVE is
+answered by fetching them, never by arithmetic on DB stamps — the file's own corrected
+criterion ("ask the artefact, not the stamp"), applied to the sentence that cites it. This
+is also 098's fix candidate 4 (the curl sweep detector) run by hand; the conflation has now
+bitten three times inside one bug file, which is the strongest case yet for building it.
