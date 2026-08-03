@@ -374,3 +374,79 @@ fix them in place per the RUNBOOK rule rather than in scrollback):
    `paste -sd"','"`, which inserts **one character per delimiter cycle**, producing
    `'podA'podB'` — invalid SQL, and the census always errors out. Use
    `paste -sd, - | sed "s/,/','/g"`.
+
+---
+
+## CLOSED 2026-08-03 — §2 induced fault RUN and PASSED; every owed item settled
+
+**By a pickup session** (the owing bugfix-003 lane was quiet since 07-26 and the
+07-27 note's "next action" had sat unclaimed past its 08-01 recheck).
+
+### The premise transition first, because it re-grounds everything below
+
+`agent-chassis` has run **2 replicas since 2026-07-28 ~15:08Z** (owner consent,
+`chassis_replica_scaling` Phase 4). §4b(i)'s original PASS criterion — "no
+multi-replica service owns rows" — is therefore **SUPERSEDED, not violated**:
+the CLAIM_RECOVERY hazard this file parked as "harmless today" was closed by
+that lane BEFORE scaling (CS-1 claim staleness guard, live since v1.0.1184,
+induced-tested on both arms: fresh claim HELD, stale claim reset + re-claimed).
+The takeover's safety now rests on CS-1 + the response claim, not on
+single-replica. `VERIFY_075_post_roll.sh` §4b(i) updated in place with the new
+criterion (CLAIM_RECOVERY_STALENESS_HELD greps ≥1 in every chassis replica —
+it does, 2026-08-03, v1.0.1244).
+
+### §1 re-run at v1.0.1244 — PASS
+
+All five new literals ≥1, `"owned by different pod"` = 0 (the discriminating
+removed string), positive + negative controls behave. The script's two recorded
+defects (double-line `NEW_PRESENT`, `paste -sd"','"`) fixed in place.
+
+### §2 induced fault A — RUN 2026-08-03 ~21:04 UTC, PASS
+
+Target: `d0163349` (improvement-loop, AWAITING at `call_design_audit`, a live
+production run). Stamped `processing_node='induced-dead-pod-075'` at
+21:04:40.98Z, status-guarded.
+
+**PASS, on the DB record** (`orchestration_state_audit` — every row UPDATE is
+audited with old/new version, and the takeover CAS is the ONLY platform writer
+that preserves `version`, so a same-version row is its fingerprint):
+
+```
+21:04:40.98  v37→37  (my stamp — manual UPDATE, version preserved)
+21:05:46.26  v37→37  (TakeOverOrchestration CAS: induced-dead-pod-075 → lfdnm)
+21:05:46.35  v37→38  AWAITING→EXECUTING spawn_site_review (response APPLIED)
+```
+
+One await, ONE execution of the step, 78 s end to end; **no ~3-minute retry
+series, no repeated side effects, no RETRY_TICKER involvement** — against the
+2026-07-25 comparison of discard-expire-re-execute for ever. The orchestration
+ran on to **COMPLETED (v68)** through five further steps. The fleet exercises
+the mechanism constantly: 55 same-version audit rows in the 6 h window
+(takeovers now occur NATURALLY between the two live replicas as responses
+land on either — observed live for four other orchestrations while watching).
+
+**The log-line half of the PASS criterion was NOT retrievable, and the reason
+is a finding in its own right.** The chassis log stream is verbose enough that
+kubectl's view ROTATES within minutes: a grep at ~21:08 still showed 21:03
+intake lines for the target; the same grep minutes later showed nothing before
+21:07. The `ORCHESTRATION_TAKEN_OVER` line for the induced takeover existed on
+the taker's stdout and rotation ate it before it was captured (both replicas
+were then deleted ~21:41 by something outside this session, closing the door).
+The audit-table fingerprint above is the durable witness and is now the
+RECOMMENDED §2 evidence — recorded in LANDMINES (chassis pod-log rotation) and
+in the verify script's §2 notes. Do not treat "no log line" from this service
+as "did not happen"; two wrong intermediate conclusions during this run came
+from exactly that (WRONG_CALLS 2026-08-03).
+
+### Still deferred, unchanged, with their original triggers
+
+- Fix 3 (reaper clause for loops) — trigger unmet: no
+  `execution_metadata->'retry_count'` above 3 observed.
+- Fix 4 (nonexistent-pod sweep) — the 2026-07-13 INITIALIZED orphan persists,
+  harmless; trigger (an INITIALIZED orphan that matters, or the liveness
+  signal) unmet. The replicas≥2 world arrived WITHOUT needing it, exactly as
+  the deferral predicted.
+- §5 (bug 003's kill-test re-run) — belongs to 003, which is CLOSED; §2's
+  induced dead-pod stamp exercises the same response-path rescue.
+
+Close bar: **fixed AND live AND induced-fault-verified.** Met.

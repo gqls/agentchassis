@@ -18458,3 +18458,30 @@ prediction).
   COMMAND you are about to trust (`grep -n "strings" LANDMINES.md`), not only the symbols
   — and run the verification's own positive control in the SAME exec (a long pre-existing
   string that must count ≥1; mine ran only on the chassis, where strings happened to exist).
+
+## 2026-08-03 — 075 pickup: two wrong calls in one hour, both against the same rotating log
+
+**Wrong call 1: I "found" takeover log lines that never existed.** To list
+takeover events I piped `grep -oE` (several patterns) into `paste - - -`.
+A takeover line contains a VARIABLE number of my patterns (two orchestration_id
+fields, previous_pod, my_pod — sometimes 4 matches, sometimes 3), and paste
+groups every three consecutive tokens REGARDLESS of source line, so tokens
+from adjacent lines fused into fabricated triples — I read "d0163349 was taken
+over" out of two tokens that came from different log lines. What caught it: the
+direct two-stage grep (`grep TAKEN_OVER | grep d0163349`) returning 0. The
+cheap check: extraction that must respect line boundaries uses one
+`grep pattern | while read line` or jq/python per LINE — never `-o` into paste
+when the match count per line is not constant.
+
+**Wrong call 2: I concluded "the mechanism did not fire" from a clean log
+grep — twice — while the log was rotating under me.** Full-log greps of both
+replicas for the induced pod name returned 0, and I began hunting for a
+phantom second writer of processing_node. The stream rotates within MINUTES
+under this service's verbosity: my ~21:08 grep still showed 21:03 lines; my
+~21:15 grep of the same pod showed nothing before 21:07. The takeover line
+(21:05:46) existed and was eaten between my greps. What caught it: the
+`orchestration_state_audit` table — the takeover CAS is the only writer that
+preserves `version`, and its same-version fingerprint sat at 21:05:46.26,
+0.09 s before the response applied. The cheap check: before treating a pod-log
+absence as evidence, print the OLDEST timestamp kubectl still returns
+(`kubectl logs <pod> | head -1`) and confirm your event window is inside it.

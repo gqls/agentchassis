@@ -43,8 +43,12 @@ POD=$(kubectl -n "$NS" get pods -o name | grep -m1 'agent-chassis' | cut -d/ -f2
 echo "=== 1. pod-grep: $POD ==="
 kubectl -n "$NS" get deploy agent-chassis -o jsonpath='{.spec.template.spec.containers[0].image}'; echo
 
-NEW_PRESENT=$(kubectl exec -n "$NS" "$POD" -- sh -c 'strings /app/agent-chassis | grep -c "ORCHESTRATION_TAKEN_OVER"' || echo 0)
-OLD_GONE=$(kubectl exec -n "$NS" "$POD" -- sh -c 'strings /app/agent-chassis | grep -c "owned by different pod"' || echo 0)
+# The `|| echo 0` fallback lives INSIDE the remote shell: grep -c already
+# prints "0" on no-match (exiting 1), so an outer fallback appended a second
+# line ("0\n0") and the -lt test below died un-gating — the 2026-07-27 run's
+# defect 1, fixed in place 2026-08-03.
+NEW_PRESENT=$(kubectl exec -n "$NS" "$POD" -- sh -c 'strings /app/agent-chassis | grep -c "ORCHESTRATION_TAKEN_OVER" || echo 0' | tail -1)
+OLD_GONE=$(kubectl exec -n "$NS" "$POD" -- sh -c 'strings /app/agent-chassis | grep -c "owned by different pod" || echo 0' | tail -1)
 
 kubectl exec -n "$NS" "$POD" -- sh -c '
   for s in ORCHESTRATION_TAKEN_OVER ORCHESTRATION_TAKEOVER_RACED ORCHESTRATION_TAKEOVER_FAILED \
@@ -111,7 +115,9 @@ RECIPE
 
 echo
 echo "=== 4. orphan census: non-terminal rows stamped to pods that are gone ==="
-LIVE=$(kubectl -n "$NS" get pods --no-headers -o custom-columns=:metadata.name | paste -sd"','" -)
+# paste -sd"','" inserts ONE character per delimiter cycle ('podA'podB'),
+# which is invalid SQL — the 2026-07-27 run's defect 2, fixed in place 2026-08-03.
+LIVE=$(kubectl -n "$NS" get pods --no-headers -o custom-columns=:metadata.name | paste -sd, - | sed "s/,/','/g")
 $PSQL -c "SELECT status, processing_node, count(*), min(last_activity) AS oldest
           FROM orchestration_states
           WHERE status NOT IN ('COMPLETED','FAILED','CANCELLED')
@@ -131,9 +137,18 @@ kubectl -n "$NS" get deploy --no-headers -o custom-columns=NAME:.metadata.name,R
   | grep -E "chassis|intel|content-creator|core-manager|reasoning" || true
 $PSQL -c "SELECT split_part(processing_node,'-',1)||'-'||split_part(processing_node,'-',2) AS svc, count(*)
           FROM orchestration_states GROUP BY 1 ORDER BY 2 DESC LIMIT 8;"
-echo "PASS = every service listed by the census is single-replica (spawned Job agents are"
-echo "       one pod by construction). A multi-replica service appearing here means the"
-echo "       CLAIM_RECOVERY hazard in chassis_replica_scaling/NOTES is now LIVE — read it."
+echo "PREMISE TRANSITION 2026-08-03: agent-chassis runs 2 replicas (owner consent,"
+echo "chassis_replica_scaling Phase 4, since 07-28 ~15:08Z), so the original PASS"
+echo "criterion (single-replica owner) is SUPERSEDED, not violated. The takeover's"
+echo "safety now rests on CS-1's claim staleness guard — induced-tested on both arms"
+echo "by that lane (fresh claim HELD, stale claim reset + re-claimed). New criterion:"
+echo "PASS = CLAIM_RECOVERY_STALENESS_HELD greps >=1 in EVERY chassis replica:"
+for CP in $(kubectl -n "$NS" get pods -l app=agent-chassis -o name); do
+  printf "  %s: %s\n" "${CP#pod/}" \
+    "$(kubectl -n "$NS" exec "${CP#pod/}" -- sh -c 'strings /app/agent-chassis | grep -c CLAIM_RECOVERY_STALENESS_HELD || echo 0' | tail -1)"
+done
+echo "A THIRD-replica-plus census entry that is NOT agent-chassis still means: stop"
+echo "and read that service's scaling notes before trusting the takeover there."
 echo
 echo "-- (ii) nothing but TakeOverOrchestration writes processing_node (run repo-side) --"
 cat <<'PREMISE'

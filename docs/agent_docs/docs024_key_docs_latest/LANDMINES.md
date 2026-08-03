@@ -4536,3 +4536,28 @@ that is also the thing you would want in the logs is not.
 - **the related trap, same change:** a full tmpfs surfaces as a Bash call returning **no output at all** — ENOSPC on the harness's own stdout capture — which reads like "the command found nothing", not like a disk error. If a command that should print something prints nothing, check `df` before believing the empty result
 - **source:** 2026-08-03, gauntlet_dead_cta lane, moving scratch to disk after `/tmp` hit 100% (12.2 GB of scratchpads, 99.3% of it reproducible `git archive` extractions). Registered as OPP-005
 - **added:** 2026-08-03, gauntlet_dead_cta lane
+
+### A queue `page_rerender` item with no `reason` in its spec is ASSEMBLE-ONLY — the item completes, the page deploys, and your `content_data` edit is not on it
+- **footprint:** `site_work_items` `item_type='page_rerender'`, handler `page-rerender`, `rerender_page_sections`, `page_components.rendered_html`, `RUNBOOK_brochure_component_library.md` §queue-recipe
+- **fires when:** you edit a section's `content_data` (or a component's `html_template`) and file the standard queue item to "republish" the page — the item goes `complete`, the page's `last-modified` moves, and you verify by the item status
+- **the tell:** the served page still carries the OLD markup while the work item says `complete`. Measured 2026-08-03 on fundamentallyai: content committed 10:58, queue item complete 11:00:33, the section's `rendered_html` untouched until a direct `rerender_sections` dispatch at 11:04:39. Nothing errors — assemble-only stitches the STORED section html, which is exactly what it is for
+- **the check:** after any rerender meant to pick up a content/template change, compare `page_components.rendered_html` (`updated_at`, or grep the new string) BEFORE trusting the item status — then verify at the served page. To actually re-render sections: `brochure_component_library/scripts/rerender_page_sections_direct.sh` (proven; passes `reason=section_data_resolved`), or put `'reason','section_data_resolved'` into the queue item's spec jsonb [UNVERIFIED]
+- **source:** brochure_component_library lane, 2026-08-03 (086b: three pages "republished", zero of the edits served)
+- **added:** 2026-08-03, brochure lane 2
+
+### A `static`-source field in a component's `input_schema` OVERWRITES your stored `content_data` on every section resolve — authored copy comes back as the schema's fallback and nothing reports the swap
+- **footprint:** `content_components.input_schema` (`fields.*.source='static'`), `rerender_page_sections` / the section-planner resolve pass, `page_components.content_data`
+- **fires when:** you hand-author `content_data` for a section and any resolve pass later runs over the page — your value for a static-source key is replaced by the schema's `fallback` (and a `query.*`-source field, e.g. tool-cta's `items`, is regenerated from its query), while `llm`-source fields you wrote are left alone
+- **the tell:** one field of your authored block reverts while its neighbours survive. Measured 2026-08-03: tool-cta `secondary_cta_label` authored as "Talk to us about AI tooling", back as "Learn how it works" (`source: static, fallback: "Learn how it works"`) in the same resolve that kept the authored `headline` and `description`
+- **the check:** before authoring `content_data`, read the component's schema: `SELECT jsonb_pretty(input_schema) FROM content_components WHERE name='<component>' AND is_active;` — any key with `source: static` or `source: query.*` is the SCHEMA's to write, not yours. Author only the `llm`/unsourced keys and let the resolver own the rest
+- **source:** brochure_component_library lane, 2026-08-03 (/tools.html build)
+- **added:** 2026-08-03, brochure lane 2
+
+### Chassis pod logs rotate away within MINUTES — a clean grep proves the last few minutes, not the incident
+
+- **footprint:** `kubectl logs` on `agent-chassis` (and any chattier chassis-image service), `ORCHESTRATION_TAKEN_OVER`, any "did mechanism X fire?" question answered from pod logs
+- **fires when:** you grep a chassis pod's logs for an event a few minutes old, get 0, and conclude the event did not happen. The coordinator emits dozens of debug lines per action, the container log rotates on size, and `kubectl logs` returns only the current file — the observable window can be under 5 minutes at busy times (measured 2026-08-03: a 21:08 grep still saw 21:03 lines; a 21:15 grep of the same pod saw nothing before 21:07)
+- **the tell:** your grep matches SOME instances of the pattern (other orchestrations' takeovers) but not the one you induced — which reads as "the mechanism skipped mine" and is actually "mine was earlier than the rotation floor"
+- **the check:** `kubectl logs <pod> | head -1` FIRST — if the oldest surviving timestamp is later than your event, the log cannot answer your question. For ownership takeovers specifically, the durable witness is `orchestration_state_audit`: `TakeOverOrchestration` is the only platform writer that preserves `version`, so `SELECT * FROM orchestration_state_audit WHERE orchestration_id='…' AND old_version=new_version` lists every takeover (and every manual psql UPDATE — your own stamp shows here too), outliving both rotation and pod deletion
+- **source:** bugs_closed/075 close-out 2026-08-03; WRONG_CALLS same date (two wrong calls from this exact trap in one hour)
+- **added:** 2026-08-03, 075 pickup session
