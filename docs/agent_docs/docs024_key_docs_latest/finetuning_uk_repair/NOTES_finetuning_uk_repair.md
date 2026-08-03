@@ -234,3 +234,123 @@ half. Continues below.
 - **Did not build/roll the chassis** to make the checker fix live — see
   README for the recommendation and why it is the owner's call while another
   session is rolling images.
+
+---
+
+## 2026-08-03 10:29 — the repair LANDED on /about.html, proven at the artefact
+
+The improvement-loop completed at 10:24. It promoted **128 items detected →
+triaged** — the first time anything on this site has been dispatchable in months —
+and `build-dispatch-loop` began claiming immediately.
+
+**But the queued rerenders would not have applied the template fix**, and that is
+the most useful thing in this file. Checked the pending items' reasons, as the
+`page_rerender`/`spec.reason` landmine prescribes:
+
+```
+(NULL — re-staples STORED html)   42
+cta_links_stale                   26
+```
+
+and per page carrying `departments-grid`:
+
+```
+/index.html   cta_links_stale   <- regenerates: the fix WILL land
+/index.html   (NULL)
+/about.html   (NULL)            <- re-staples: the fix would NEVER land
+```
+
+`rerender_single_page_action.go` says it in its own header, line 4: *"Simple
+concatenation - no template re-rendering"*. So `/about.html` — eleven of the
+nineteen broken images — was queued for a rerender that would have completed,
+reported success, and preserved exactly the defect it was supposed to remove.
+`bugs_open/140` is the same story on 08-02: backlog drained 294 → 0, six pages
+COMPLETED, not one section updated.
+
+Queued `294_…sql`: one `page_rerender` for about with
+`spec.reason='section_data_resolved'`, priority 20, `triaged`. Result:
+
+```
+claimed   10:29:10  by build-dispatch-loop
+complete  10:29:56           (46 seconds)
+/about.html page_component updated_at 10:29:40 · lucide=t · bare_img=f
+```
+
+Verified at the live artefact, not at the status:
+
+```
+curl -sS -L https://finetuning.uk/about.html | grep -oE '<i data-lucide="[a-z-]+"|<img src="[a-z-]+"'
+  → 10 × <i data-lucide="…">   (cpu, database, download-cloud, globe, layers,
+                                lock, map, network, settings, workflow)
+  → 0  × <img src="…">
+```
+
+**Eleven broken images gone from the served page.** `/index.html` still pending —
+it carries a `cta_links_stale` item at priority 35, which DOES take the
+regenerating branch, so it needs no intervention, only its turn in the queue.
+
+---
+
+## 2026-08-03 — council round 1: REVISE, and the objection was right
+
+Six of thirteen seats raised the same thing, gated high by `tooling_provenance`:
+a standing landmine keys `check_image_url_404.go` together with
+`check_placeholder_image_in_use.go` — *"Two discovery checks already own 'a page
+renders the fallback image path' — extending one silently competes with the
+other"* — and **my submission showed no sign of having read it. I had not.**
+
+I had run `grep LANDMINES` for the paths I was editing at the start of the
+session and this entry did not surface, because I grepped for the SYMBOL and the
+FILE I was changing, and the entry's discriminating text is about the *other*
+file. Worth noting as its own small lesson: an overlap landmine is keyed to a
+PAIR, and you will only find it by the half you are not editing.
+
+Ran the check the landmine itself prescribes —
+`grep -l "assets/images" platform/orchestration/actions/discovery_checks/*.go` —
+four files, all headers read. The answer is structural rather than a judgement:
+`placeholder_image_in_use` matches two **literal** paths,
+`/assets/images/hero.jpg` and `/assets/images/logo.png`. Both contain `/` and
+`.`; the new character class is `[^"/.:#\s]+`, which excludes both. **No input
+exists on which both fire.** The other two checks in that space do not read
+rendered HTML at all.
+
+Two further objections, both fair, both answered rather than argued:
+
+- `prior_art_librarian`: my false-positive case leaned on `storage.DeployedWebPath`,
+  which other landmines flag as silently wrong. **Misdirected — but round 1's
+  wording caused it, so the wording is fixed.** The bare-token branch never calls
+  that helper; `loadDeployedAssetPaths` runs only in the `len(references) > 0`
+  branch. A bare word has no extension to get wrong. (That landmine also carries a
+  status banner: FIXED AND LIVE at HEAD, `bugs_closed/168`.)
+- `prior_art_librarian`: "detected items are not promoted" was asserted without a
+  lookup. It **was** measured — 204/10 sites vs 2/1 — I simply did not put the
+  query in the submission. Now cited.
+
+Resubmitted round 2 under `RESUBMIT_CORR=cfc94d91-…` so the trail accumulates.
+The overlap analysis went **into the file**, not just the submission: the
+landmine's failure mode is "you reach for whichever of the two files you found
+first", so the answer belongs where the next author lands.
+
+`bug_historian` also made a broader point I have NOT acted on: this closes one
+shape of a generic problem — a schema-declared `string` rendered into a
+structural HTML sink with no bind-time validation that it is a resolvable
+reference. Correct, and the architecture seat approved this as a point fix on the
+same reasoning. Widening a detector bug fix into a generic sink-type check is
+exactly the scope the guardian seat vetoes. Recorded as a follow-up.
+
+---
+
+## 2026-08-03 — my LANDMINES edit was swept into another session's commit
+
+Appended the Postgres-`\b` landmine, ran `landmines-sync.py --apply`, then
+committed by pathspec — and got "1 file changed", the SQL only. `git status` on
+LANDMINES.md: clean. `git show HEAD:…LANDMINES.md | grep -c BACKSPACE`: **1**.
+
+Another session had committed the file, with my append inside it, between my
+write and my commit — `478187ba0`, a webdesign.uk shopfront commit. This is the
+**same-file passenger** case CLAUDE.md names: a pathspec commit protects you from
+carrying other sessions' files, and cannot stop another session carrying yours.
+Nothing lost, forward-only holds, and the entry is at HEAD. Recording it because
+the tell was confusing for a moment — "my commit dropped a file" and "someone
+else already committed my change" look identical at `git commit` and are
+distinguished only by reading HEAD.
