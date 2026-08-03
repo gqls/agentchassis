@@ -10223,3 +10223,52 @@ running your test for you.
 Related: `bugs_open/184` (three more detectors in this shape); **BATCH-005** in the
 concept register (`refreshOnConflict`, its two landmines, and the open question about
 whether `needs_human_review` should count as "held"); `LANDMINES.md` 2026-08-03.
+
+---
+
+### Folding a second purpose into an existing capture point inherits its TIMING — and for anything observational, timing IS the semantics
+
+**The shape.** A helper captures state at a particular moment because its *original*
+purpose needed that moment. A later feature wants "the same capture, for a different
+reason", and folding it in is obviously right: one capture, no duplicated cost, no second
+code path to drift. **What silently comes along is *when* — and the new purpose usually
+needed a different when.**
+
+**The worked case (`bugs_open/188`).** `captureEvidence` photographs a page *after*
+`evaluateOnPage` has driven it, because P3 failure evidence should show the state a run
+failed in — correct, and the comment says so. TL-035 then reused that same capture to
+photograph runs that **passed**, explicitly so opting in would not double a failing run's
+screenshot cost. The saving was real. The result is that a "look at a healthy page" is a
+photograph of the aftermath of a test run: a tool that passed 22/22 checks was
+photographed in its **post-Clear empty state**, looking broken.
+
+**Why it survives review.** Every individual decision is defensible and the diff is small
+and additive — a bool, a second output list, no change to existing behaviour. Nothing in
+the change *touches* timing, so no reviewer looks at timing. The tests pass because they
+assert routing (does a pass land in `Renders`?) not content (is the page in a state a
+visitor could reach?). **A test that asserts where the artefact goes cannot notice that
+the artefact is of the wrong moment.**
+
+**The checks, when you are folding a new consumer into an existing capture:**
+
+1. **Write down the moment the ORIGINAL purpose needed, then the moment the NEW one
+   needs, as two sentences.** If they differ, you have a bug even if everything compiles
+   and the lists are separate. Here: "the state it failed in" vs "the page as served".
+2. **Ask what has run between the page/data being obtained and the capture firing.**
+   Interaction checks, mutations, retries, cleanup — anything the original purpose was
+   happy to include.
+3. **Look at one artefact before declaring it works.** The routing was mutation-proven
+   six ways and every mutant was caught; **the content problem was found in ten seconds
+   by a human opening the picture.** Proof that the plumbing is right is not evidence
+   that what flows through it is.
+4. **Latent is not benign — date the consumer.** This was harmless while the only reader
+   was a person, who hesitated at a surprising image. The failure lands when an automated
+   consumer arrives, files repair tickets against healthy pages, and reads as *the
+   consumer's* fault rather than the capture's.
+
+**Generalises past screenshots** to any observational reuse: a metric sampled at a point
+chosen for one alarm and reused for another, an audit row written where it was cheap
+rather than where it is true, a diagnostic dump taken after the recovery path ran.
+
+Related: `bugs_open/188`; TL-035 in `docs026_concept_register/register/tool-lifecycle.md`;
+`brochure_component_library/NOTES_brochure_component_library.md` 2026-08-03.
