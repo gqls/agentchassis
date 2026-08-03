@@ -120,3 +120,63 @@ scope to 290 only (single `psql -f` + `--record-only`), never a blanket `--apply
   read renders_failed (recorded in HANDOFF for A2).
 - Session ends with Phase 0 (Go half) + Phase 1 complete. HANDOFF_2026-08-02 is the
   cold-start; image rolls are the next session's first real action.
+
+## 2026-08-03 — both REVISE verdicts read and answered; r2 resubmitted on both correlations
+
+**A0.3 (e49f5935, gated by bug_historian HIGH on recurrenceExpected):**
+- The gating claim ("omitting recurrenceExpected silently drops the third occurrence") is
+  wrong on MECHANISM for a detected defect — the third occurrence is INSERTED, born
+  'unresolved' with the "[unresolved after 2 attempts]" label (load_work_item_actions.go
+  two-strike arm; setting the flag would disable the detect→fix cycle-breaker the
+  work_items_common.go header says must stay). Pinned by
+  TestWriteRenderAuditFindings_ThirdOccurrenceIsBornUnresolvedNotDropped; **mutation run
+  for real** (recurrenceExpected=true → test fails on the unmet two-strike expectation;
+  reverted).
+- **But the objection caught a REAL false claim of ours (WRONG_CALLS row added): the
+  2026-08-02 NOTES/plan said "the fixloop digest reads unresolved rows" — FALSE.**
+  fixloop_digest_action.go reads failed / recent-complete / awaiting_diagnosis /
+  capability_gap. The real unresolved reader is the ADMIN DASHBOARD's attention queues
+  (site_admin_handlers.go:48 items_unresolved, :886, :930). Cheap check skipped: one grep
+  of the named reader for the status before writing "X reads Y".
+- The BIGGER catch fell out of guardian/debug_historian's column objection:
+  **css-patch-agent has received ZERO rows in table history** — its prompt template
+  (spec.category/description/suggestion/page_name) is the entire contract, and round 1's
+  spec matched NONE of those keys: the LLM would have been handed an empty finding. r2
+  writes both vocabularies (template keys + structured measurement), resolves page_id
+  onto the ROW (new loadSitePageIDs on pages.url), puts affected_url in spec (154's
+  column-first-then-spec fallback exposes it top-level), keeps component_id NULL honestly.
+- Dispatch relay measured (the relaygaps landmine's check): build-dispatch-loop's
+  call_handler forwards spec WHOLESALE + component_id? from the row; load_work_items has
+  NO pipeline filter and projects all four routing columns. So spec reaches handlers;
+  the template-key mismatch was the real undispatchability, not the columns.
+- lookupAssetBySrc: unescaped LIKE kept DELIBERATELY (check_undeployed_assets' own
+  landmine: escaping `_` broke 38/38 matches) — comment now cites it; returns purpose
+  for co-dedup shape parity. acceptance_test reworded to targeted single-selector form
+  (tool_acceptance_actions.go:1166 house style).
+- Committed 0a9bd5af7 (tested against clean `git archive HEAD` — the tree carried another
+  session's mid-edit WIP in retract_page_deployment_action.go that didn't compile for a
+  few minutes; full actions package green in the archive). Resubmitted
+  RESUBMIT_CORR=e49f5935.
+
+**A1.2 (fee9d810, gated by llm_reliability HIGH on "no stop_reason decoding"):**
+- The objection's authority was a STALE REGISTER ENTRY. MDL-038 still said "confirmed
+  present and unfixed" (frozen 2026-07-17) — but the decoding shipped 2026-07-20
+  (a3b606798, the bugs_open/019 fix: typed *TruncatedError carrying the partial;
+  anthropic stop_reason=max_tokens arm :246, gemini finishReason=MAX_TOKENS :482, tests
+  in stop_signal_test.go). GenerateWithImages rides the same shared generate() by
+  construction. **A register entry that ratifies a dead claim misled a council seat —
+  the bugfix_161 shape pointing at reviewers.** MDL-038 corrected visibly (register +
+  index); LANDMINE appended (footprint docs026_concept_register) + synced to doc_notes.
+- r2 adds: vision-path truncation tests for BOTH providers (IsTruncated fires, partial
+  survives, through GenerateWithImages); resolveVisionImageRefs branch tests (missing key
+  LOUD / jsonb-stringified array LOUD / genuinely-empty → caller's no-renders arm — the
+  bug_historian empty-vs-missing distinction); full aiservice suite run -count=1 in the
+  HEAD archive as guardian's stated blast-radius gate (green); execute_vision_prompt
+  confirmed DARK (0 agent_definitions references); prior-art sweep across 7 spellings —
+  only the image-generator's provider-side reference images exist elsewhere (opposite
+  direction, not a competing seam).
+- Committed 6b902ce3b; resubmitted RESUBMIT_CORR=fee9d810.
+
+**Both r2 verdicts owed (~30 min queue each from ~09:00 UTC). Image rolls (handoff step 2)
+wait on them.** Also owed from before, unchanged: A0.3b config tail, A0.4 drain proof
+(171 closure), A2 critic.
