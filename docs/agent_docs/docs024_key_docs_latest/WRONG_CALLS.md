@@ -17757,3 +17757,68 @@ why the pattern could not see it. The irony is exact — I had written a
 positives, fixed the detector on that basis, and then hand-propagated the false
 positive it had already produced. **A detector I wrote is not more trustworthy than
 someone else's; it is less, because I stop checking the outputs I expect.**
+
+---
+
+## 2026-08-03 — a fleet census returned ZERO because Postgres `\b` is a BACKSPACE, and zero looked like "the fleet is clean"
+
+**footprint:** any `regexp_matches` / `~` over `rendered_html` in `page_components` /
+`site_components` · fleet census queries generally
+
+**The claim I was one keystroke from writing.** Sizing a broken-image defect fleet-wide, I
+ran a census for `<img src>` values with no slash and no dot:
+
+```sql
+regexp_matches(pc.rendered_html, '<img\b[^>]*\bsrc\s*=\s*"([^"]*)"', 'gi')
+```
+
+It returned **0 rows, no error, exit 0** — which reads exactly like "this defect exists
+only on the site in front of me". The real answer was **31 occurrences across 2 sites**.
+
+**What caught it.** Not a check — luck of ordering. I had the offending live HTML open in
+the same session, from a site inside the queried population, so I knew a zero was
+impossible. Had I measured before reading the page, I would have filed "site-specific" and
+never looked at ai-agent-orchestration.com.
+
+**The cause.** Go's RE2 and Postgres's POSIX regex are not the same language. In Postgres
+**`\b` is a backspace character**; the word-boundary escape is `\y`. The pattern was asking
+for a literal backspace and matching nothing. I had copied the shape straight from the Go
+checker I was auditing, where `\b` is correct.
+
+**The cheap check.** **Run the census against a row you already know matches, first.** One
+extra `AND domain='finetuning.uk'` would have returned 0 and exposed it in seconds. A
+census whose known-positive is missing is a broken census, not a clean estate. Use
+`[[:space:]]` or `\y` in Postgres and never carry a Go regex across unedited.
+
+Distinct from the existing "a grep proves absence only for the SPELLING it searches" entry:
+there the spelling was plausible-but-narrow, here it is **silently a different language**,
+and the tell (no error, exit 0, empty result) is identical to success.
+
+---
+
+## 2026-08-03 — the `Council-Submitted:` placeholder, AGAIN, by a second session on the same day
+
+**footprint:** `Council-Submitted:` trailer · `098_REPORT_unreviewed_commits_v1.sh`
+
+**The claim.** I committed the `check_image_url_404` fix with
+`Council-Submitted: pending`, meaning to submit straight after. Same as the entry above
+it in this file: forward-only forbids an amend, so `1985c0433` carries a correlation
+resolving to nothing, permanently. Real correlation, recorded in the lane docs instead:
+`cfc94d91-3d17-4f29-a370-2b91d1a59a6f`.
+
+**What caught it.** Writing this file. I came to log a different wrong call, read the
+entry above, and recognised my own commit from an hour earlier.
+
+**Why it is logged twice rather than merged.** *This is the tally the file exists for.*
+**Two independent sessions made the identical mistake within hours of each other**, both
+having read the same CLAUDE.md section that explains the trailer, neither having been
+stopped by anything. That is no longer an anecdote about carelessness — it is evidence the
+control is missing. The rule "submit first, commit second" is only in prose, and the
+`commit-msg` hook that already inspects these trailers **could reject a non-UUID
+`Council-Submitted:` value outright**, at zero cost, with no judgement call. Every
+ingredient is present: the hook exists, it already parses the trailer, and the valid shape
+is a UUID.
+
+**Recommended:** extend `scripts/council-coverage-nudge.sh` to fail loudly (or the
+`commit-msg` hook to block) when `Council-Submitted:` is not a UUID. Two occurrences in one
+day is the threshold this file is designed to surface.
