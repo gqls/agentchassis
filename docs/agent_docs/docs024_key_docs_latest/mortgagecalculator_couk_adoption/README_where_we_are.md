@@ -238,3 +238,56 @@ My recommendation is to let one page rebuild first — deliberately *not* the ho
 because the homepage is the only page that keeps its address and therefore the only
 one that overwrites something live. We look at what comes out, and then you decide
 whether to run the rest.
+
+---
+
+**2026-08-03, later.**
+
+Three fixes and one experiment. Taking the fixes first.
+
+I raised that token budget again, from where I'd put it to about five times what the
+job actually needs, so we're not back here in a month. The site lock now genuinely
+locks. And six of your guide pages had a broken link I should have spotted earlier:
+clicking the logo in the header took you to a page that doesn't exist. One missing
+"../" in the address — the line directly underneath it was already correct. Fixed and
+live, and I re-checked all 29 files afterwards to be sure nothing else moved.
+
+On the lock: I proved it properly this time rather than just re-reading the setting.
+I ran the system's own "which site should I build next?" question twice against the
+same live data — once the way it used to ask it, once the way it asks it now. The old
+way picks **your site, first in the queue**. The new way skips it. So without that fix
+your site would have been rebuilding itself while we were talking.
+
+Then the experiment: I built one page — the first-time buyer guide — deliberately not
+the homepage. It worked mechanically: new page live at its new address, old page still
+serving, homepage untouched throughout.
+
+But I have to own a mistake in how I ran it. **I built a page before the site had a
+stylesheet.** When I froze everything last night, two of the jobs I froze were "work
+out the site's colours and layout" and "generate the site stylesheet". So the page
+came out with no styling and no menus, and my first reaction was that the rebuild
+produces broken orphan pages. That would have been a serious conclusion and it was
+wrong. I checked a page on the sister site built by the same machinery — it has its
+menus, and its stylesheet loads fine. The tooling is capable; I ran the steps out of
+order. The right sequence is design first, then pages, and I'll do it that way.
+
+Two links on the new page also point at pages that don't exist yet. I nearly wrote
+those up as invented, but they're both real pages the system has planned and simply
+hasn't built. Not a fault.
+
+**One thing is a genuine fault**, and it's the useful result from the experiment.
+The opening line of the new page reads: *"Banks evaluate your application using a
+\*\*Decision Engine\*\*"* — with the asterisks visible. The writer used a formatting
+convention the page doesn't understand, and nothing catches it. It's on two other
+sites of ours as well. It's small, but the reason it matters is that every automatic
+check passes it: valid page, complete content, marked as successfully deployed. It was
+only found because someone read the sentence. Written up so we can add a check.
+
+Where that leaves us: your site is locked and, this time, actually held. The live site
+is exactly as it was apart from the six link fixes. Nothing is queued that can move
+without you.
+
+What I'd suggest next is a proper first pass rather than another single page: let the
+composition and stylesheet jobs run, then rebuild two or three pages so you can judge
+them looking as they're meant to look. Still nothing near the homepage until you've
+seen that and said go.

@@ -479,3 +479,81 @@ without giving it the same treatment — I read that `locked_at` was checked in
 `LoadWorkItemsAction` and stopped there, satisfied. One grep of the *gate* would have
 shown it. **Checking one reader of a flag is not checking the flag**; the question is
 always which reader decides, and that is rarely the one you find first.
+
+## 2026-08-03 (later) — owner-directed fixes, and the single-page trial
+
+### Three fixes on the owner's instruction ("increase that budget, fix broken things")
+
+1. **`classify_and_extract` 16000 → 32000.** 16000 was already proven in production
+   (one run at 6590 output tokens); 32000 is ~5x the observed maximum and matches the
+   fleet's next tier. No root `ai_service` block, so the step value is live.
+
+2. **`sites.locked_at` now actually holds a site.** Added the missing predicate to
+   `find_dispatchable_site`. **Proved it by discrimination, which is stronger than
+   the before/after I first reached for** — run the gate's own SQL twice, once with
+   the clause and once without, against the same live data:
+
+   | query | picks |
+   |---|---|
+   | old (no lock clause) | **`mortgagecalculator.co.uk`** — our site, first in line |
+   | live (with clause) | `vetcomparison.uk` — ours correctly skipped |
+
+   That is the counterfactual made explicit: without the fix our site would have been
+   building at that moment. A plain "it didn't dispatch" could not have shown that,
+   because **a quiet queue has two causes** — I also sampled
+   `scheduled_tasks.last_triggered_at` (09:12:52 → 09:15:22) to prove the gate looked.
+
+3. **Six live guides had a broken header logo link** (`href="index.html"` from inside
+   `/guides/` → `/guides/index.html` → 404). The line below it already used
+   `../index.html` and the logo's own `img src` already used `../images/`, so this was
+   one missing `../`, not a design choice. Fixed, pushed, deploy named
+   `Changed domains: mortgagecalculator.co.uk`, all six verified at the wire, and the
+   whole-site check still reads **28 identical / 1 differing** (`robots.txt`, Cloudflare).
+
+### The single-page trial — and my own ordering mistake
+
+Built `/guides/first-time-buyer/index.html`. It went `planned → deployed`, served 200
+at the new URL, and the old `/guides/first-time-buyer.html` kept serving. The homepage
+was never dispatchable.
+
+**What I got wrong: I built a page before the site had a stylesheet.** The page
+references `/assets/css/styles.css` → **404**, and carries no `<header>`, `<nav>` or
+`<footer>`. My first reading was "the rebuild produces unstyled orphan pages" — which
+would have been a serious finding and is **false**. The comparison that corrected it:
+the sibling `loancalculator.co.uk/guides/hidden-loan-fees.html` has nav and footer and
+its `/assets/css/style.css` resolves 200. The pipeline can do this.
+
+The cause was mine. Among the 19 items I auto-deferred were:
+
+| item | summary |
+|---|---|
+| `needs_composition` | Resolve palette/layout/typography composition for the site |
+| `needs_design` | **Generate site stylesheet** |
+
+I held back the stylesheet and then built a page that needs it. **The correct order is
+composition → design → pages**, and "release one page first" has to mean one page
+*after* the site's design exists, not before.
+
+Two of the page's three links (`/tools/affordability/index.html`,
+`/scorecard-simulator.html`) are also 404 — and those are **not** defects either:
+both are `build_status='planned'` rows, i.e. forward references to pages this build
+has not reached yet. I nearly filed a hallucinated-link bug; the `pages` table
+settled it in one query.
+
+> **The lesson, and it is the same one as the lock:** I twice built a confident
+> negative reading out of a partial system, and both times the fix was to find the
+> *comparison* — a working sibling, a counterfactual query — rather than to look
+> harder at the broken thing on its own.
+
+### What IS a genuine defect: `bugs_open/184`
+
+Literal `**Decision Engine**` in the hero copy — markdown emphasis reaching the
+visitor as asterisks. Not an ordering artefact, and not ours alone: 3 components on
+3 unrelated sites and 3 slot types. Every existing check passes it (valid HTML,
+complete component, `deployed`); it was found only because a human read the prose.
+
+### State at handoff
+
+Site **locked, and the lock now demonstrably works** (`gate_says: NOT SELECTABLE —
+held`). 42 items deferred, 11 `needs_human_review`, 6 complete. The homepage item is
+`deferred`. Live site: 29 files, unchanged except the six intentional link fixes.
