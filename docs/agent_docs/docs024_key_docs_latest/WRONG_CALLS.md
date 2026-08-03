@@ -18515,3 +18515,59 @@ class) into a named binary you can grep. The near-universal habit of "chassis
 roll = deploy" holds for `platform/` and orchestration code and silently does not
 hold for `internal/adapters/*`, `internal/agents/*` — the same repo builds
 FOURTEEN binaries, and a fix is only live where its package actually links.
+
+---
+
+## 2026-08-03 — I measured "how many sites have been link-audited" by counting sites WITH FINDINGS, on the one bug whose whole point is that you cannot
+
+**footprint:** `site_work_items` coverage counts · `sites.settings->'maintenance_profile'->'last_audit'` · bugs_open/116 · any "has check X run on site Y?" question
+
+**The claim.** Validating `bugs_open/116` I ran a coverage census keyed on findings:
+
+```sql
+SELECT count(*) AS sites_total,
+       count(*) FILTER (WHERE EXISTS (SELECT 1 FROM site_work_items w
+         WHERE w.site_id=s.id AND w.item_type IN ('phantom_internal_link','dead_control',
+                                                  'cta_names_unknown_destination'))) AS ever_link_audited
+FROM sites s;
+--  37 | 10
+```
+
+I read that 10 as "ten sites have been link-audited". **It cannot mean that**, and
+the number is unusable in either direction: a site with no findings is either clean
+or unexamined. The 27 "never audited" silently included every clean site, and the 10
+"audited" was really "audited AND found wanting".
+
+**What makes this worse than an ordinary bad filter:** the bug file I was validating
+says so, in a section of its own — *"The checks passing and the checks not running
+are indistinguishable from outside… the reasonable reading of 'no findings' is the
+flattering one."* I encoded the flattering reading into a `FILTER` clause **while
+reading the paragraph warning me not to.** Nothing about the output looked wrong; a
+clean-looking 10/37 is exactly what a real coverage census would also print.
+
+**What caught it.** Writing the number into NOTES and having to state what it meant
+in a sentence. The sentence would not survive contact with the file's own §"Why it
+is dangerous", so the query had to go.
+
+**The cheap check — and it existed all along.** Ask for a record of the ACT, never
+for its consequences. `improvement-loop`'s `record_audit_pass` step writes
+`sites.settings->'maintenance_profile'->'last_audit'` (`{fingerprint, at,
+passes_at_fingerprint}`, migration 291), so:
+
+```sql
+SELECT domain, (settings#>>'{maintenance_profile,last_audit,at}')::timestamptz AS last_audit
+FROM sites ORDER BY last_audit DESC NULLS LAST;
+```
+
+answers it directly, and answers it for clean sites too. **Before counting
+consequences as evidence of a process, spend one query looking for a record of the
+process itself** — a detector's output is a measure of what it FOUND, never of
+whether it LOOKED. The general form is already in this file's tally as "your
+measurement answers the question you ENCODED"; this is that rule meeting a file that
+had pre-written the warning, and losing anyway.
+
+**Second, smaller, same session:** I then quoted "4 of 37" from the correct field
+without checking what the 37 contained — 17 are `pool-*.internal` and one is
+`system.internal`, so the real denominator is 19. Caught before publishing, but the
+habit it belongs to is the one already logged as "a filtered count can ship inside a
+DENOMINATOR": **name the population in the same breath as the number.**

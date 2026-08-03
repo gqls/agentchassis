@@ -1,5 +1,96 @@
 # 116 — the link-integrity audit has never run, on any site
 
+> ## STATUS 2026-08-03 (evening) — THE TITLE IS FALSE. The substance survives, and **every one of this file's four fix candidates is now owner-gated or forbidden by written policy.** Stays OPEN; it is NOT a coding task today.
+>
+> Taken by session "bugfix 100" as the next unowned bug, re-measured before being
+> believed, and handed back deliberately unfixed. **The reason is the finding**, so
+> read this block before writing any code against this file.
+>
+> ### 1. The checks DO run. They ran today.
+>
+> ```sql
+> SELECT item_type, created_by, count(*), count(DISTINCT site_id) AS sites, max(created_at) AS newest
+> FROM site_work_items
+> WHERE item_type IN ('phantom_internal_link','dead_control','cta_names_unknown_destination')
+> GROUP BY 1,2 ORDER BY 3 DESC;
+> ```
+> ```
+>  cta_names_unknown_destination | completeness-discovery-agent | 60 | 6 | 2026-08-03 21:04:02
+>  phantom_internal_link         | completeness-discovery-agent | 54 | 5 | 2026-08-03 21:04:02
+>  dead_control                  | completeness-discovery-agent |  4 | 3 | 2026-08-03 21:04:07
+> ```
+>
+> Filed **2026-08-03 21:03–21:04Z** against `gaswholesalers.com`, `vonc.com` and
+> `gamesdesign.co.uk`. The audit chain that produced them is
+> `improvement-loop` → `spawn_completeness_discovery` → `call_completeness_discovery`,
+> gated on `audit_state.audit_due`.
+>
+> **Why this file said otherwise, and the trap to inherit:** the **check names are
+> plural** (`phantom_internal_links`, `dead_controls`, `misdirected_cta`) and the
+> **`site_work_items.item_type` values are singular and partly renamed**
+> (`phantom_internal_link`, `dead_control`, and `misdirected_cta` files
+> `cta_names_unknown_destination` plus a `page_rerender`). A query keyed on the
+> check name returns zero rows and reads exactly like "never ran". There is **no
+> mapping table** — each `ItemType` is a separate hardcoded literal inside the
+> check (`check_dead_controls.go:160`, `check_misdirected_cta.go:318,:363`,
+> `check_phantom_internal_links.go:315,:318,:325`).
+> A different session hit the identical trap on this same file earlier today and
+> recorded it (`bugfix_123_content_creator_claims/NOTES_content_creator_claims.md:34-50`).
+>
+> ### 2. What IS still true — the defensible claim
+>
+> **No enabled `scheduled_tasks` row targets any discovery agent, so audit cadence
+> is whatever a human supplies.** Verified 2026-08-03: of 26 enabled tasks, none
+> targets `completeness-`, `design-` or `quality-discovery-agent`, and none targets
+> `improvement-loop`. Today's four audits were **hand-fired**
+> (`finetuning_uk_repair/294_TRIGGER_improvement_loop_v1.sh`, and the pattern in
+> `bugs_open/185:316-322`). Independently measured the same way on 2026-07-30 by
+> `robot_hands_checker_gaps/NOTES_checker_gaps.md:95-96`, which had already
+> corrected this file's framing: *"no enabled recurring task targets them, so
+> cadence is whatever a human supplies. **Not 'the checks never run'**."*
+>
+> Per-site coverage is now durably recorded — `improvement-loop`'s `record_audit_pass`
+> writes `sites.settings->'maintenance_profile'->'last_audit'` (migration 291). Read
+> it rather than counting findings:
+> ```
+>  gaswholesalers.com | 2026-08-03 21:07:34     finetuning.uk | 2026-08-03 10:19:41
+>  vonc.com           | 2026-08-03 21:07:29     … every other row NULL …
+>  gamesdesign.co.uk  | 2026-08-03 21:07:21
+> ```
+> **4 of 37 site rows carry a stamp** (19 real sites once 17 `pool-*.internal` and
+> `system.internal` are excluded), all four stamped today. **[UNVERIFIED] Do not
+> restate this as "15 sites have never been audited"** — the key is written by a step
+> introduced with migration 291, so a NULL means "not audited since the field
+> existed", which is weaker than "never audited".
+>
+> ### 3. Why each of this file's four candidates is blocked — all four
+>
+> | candidate | status now |
+> |---|---|
+> | **1. Run the checks on every build or change** (this file's "durable answer", and the owner's own 07-27 steer) | **Forbidden today by the platform's own written policy.** The detected→triaged promoter (`TriageDetectedItemsAction`) lives *only* inside the stopped `improvement-loop`, so `detected` rows have no consumer: fleet census 2026-08-03 is **204 `detected` across 10 sites against 2 `triaged`** (`improvement-loop` register IMP-050). Adding a per-build detector now files more findings into that queue. `validate_page_content.go:644-650` already refused exactly this, in terms: *"This writes a work RECORD, not a work ITEM, and that is a deliberate choice. A `site_work_items` row would promise a repair that nothing performs."* Governing policy is **IMP-016** (`register/improvement-loop.md:130-136`): *"a discovery check should only be enabled once its handler agent actually exists — otherwise findings accumulate unconsumed."* |
+> | **2. Add the three checks to `design-discovery-agent`** | **Explicitly warned against by the 149 lane.** `bugs_open/149:395-398`: double-seating interacts with `insertWorkItem` dedup on `item_key`, which is one of B2's three unexcluded candidate causes, so *"seating it before B2 is established could produce a change whose effect nobody can attribute"*. Also: every Group-B number predates the B4 roll and must be re-measured first (`149:780-782`). |
+> | **3. A recurring fleet-wide scheduled task** | **Reverses an owner ruling.** This is **G1** and is an explicit separate owner go (`vigilant_designer_offer_analysis/PLAN_2026-08-02:17,144`). Migration `290` was written deliberately so that when G1 comes *"one flag flip is the whole change"*, and it *"deliberately does NOT touch `enabled`"*. |
+> | **4. Re-enable the improvement loop** | **OWNER RULING 2026-07-29** (`bugs_open/136:32-35`): *"the improvement loop is stopped **DELIBERATELY** … a **decision, not a defect** — do not re-file them as dead scheduled tasks and **do not re-enable them**."* This file already said 4 should not be the reason to turn it back on; that is now a ruling, not a preference. |
+>
+> ### 4. So what this bug actually needs
+>
+> **An owner decision, not a fix.** The ordering constraint is now visible and it is
+> the opposite of what this file assumed: **detection cannot usefully be widened
+> until the promotion gap (`bugs_open/083`) is answered**, because the platform's own
+> policy forbids filing findings nothing drains. The owner-facing form of that
+> question is already framed in
+> `finetuning_uk_repair/SUMMARY_2026-08-03b_*.md:112-121` — the 204 parked findings
+> across 10 sites, and whether the three-month disconnection gets its own answer.
+>
+> Until then the honest status of link-integrity coverage is the house phrase from
+> `RFC_010:257-275`: **"built, approved, and undriven" — not "working".**
+>
+> **Diagnosis loop** filed on the mechanism rather than asserted from here:
+> intake corr `aadb9c93-62af-4676-993f-b741310c2371`, run corr
+> `54bf4506-5192-4528-8395-eb2c636a7fad`.
+>
+> **Workstream docs:** `docs024_key_docs_latest/bugfix_116_link_check_coverage/`.
+
 **Filed 2026-07-27** (webdesign_couk thread). **Status: OPEN, unowned.**
 Class: silent coverage failure. Nothing errors, nothing alerts, and the checks
 themselves are correct — they simply never execute, so the platform reports a

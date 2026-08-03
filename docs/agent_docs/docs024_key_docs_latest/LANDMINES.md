@@ -4588,3 +4588,38 @@ that is also the thing you would want in the logs is not.
   target was caught by a 0 on the chassis grep, corrected same session
   (WRONG_CALLS has the fuller account).
 - **added:** 2026-08-03, bugfix_158_reply_drop_sizing lane
+
+## A DISABLED `scheduled_tasks` row shows a fresh `last_completed_at` — the column that looks like proof it is running is written by the agent, not the scheduler
+
+- **footprint:** `scheduled_tasks.last_completed_at`, `scheduled_tasks.enabled`,
+  `improvement-sweep`, `cmd/scheduler/main.go` (`loadDueTasks`, `stampCompleted`),
+  any `notify_scheduler` step in an `agent_definitions` workflow
+- **fires when:** you ask "is this scheduled job actually running?" and read
+  `last_completed_at`. On `improvement-sweep` that column is minutes old while
+  `enabled = false` and `last_triggered_at` is **2026-05-02** — three months stale.
+  No symptom precedes this: the row reads as a healthy, currently-running job, and
+  the owner's 2026-07-29 ruling that the improvement loop is stopped DELIBERATELY
+  reads as though it had been quietly reversed.
+- **the tell:** `last_completed_at` is recent while `last_triggered_at` is ancient.
+  Those two columns can only diverge if something other than the scheduler wrote
+  one of them — `stampCompleted` (`cmd/scheduler/main.go:343-348`) always advances
+  **both** in one statement, so the scheduler can never produce that shape.
+- **the check:** read `enabled` and `last_triggered_at`, and ignore
+  `last_completed_at` for the "is it running?" question. The writer is the agent's
+  own workflow step: `improvement-loop`'s `notify_scheduler` runs
+  `UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = 'improvement-sweep'`
+  on every completion, **including a hand-fired run**, keyed by NAME with no check
+  that the scheduler dispatched it. Find every such writer with
+  `SELECT type FROM agent_definitions WHERE default_config::text LIKE '%scheduled_tasks SET last_completed_at%' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;`
+  To answer "did the SCHEDULER fire it", use `enabled` + `last_triggered_at`; to
+  answer "did the agent run", count `orchestration_states` rows instead.
+- **not a functional defect, and do not file it as one:** the redundant stamp cannot
+  cause a double-dispatch. `cmd/scheduler/main.go:287` calls `stampCompleted`
+  immediately after `fireTrigger`, so for a message-firing task the in-flight guard
+  (`last_completed_at >= last_triggered_at`) is already satisfied at fire time by
+  design (`:337-342`). A session tonight built exactly that double-dispatch theory
+  and reading `stampCompleted` killed it — the damage here is to the reader, not the
+  scheduler.
+- **source:** bugs_open/116 pickup, 2026-08-03 — the row's freshness was the first
+  thing that made a deliberately-stopped loop look live
+- **added:** 2026-08-03, bugfix_116_link_check_coverage lane
