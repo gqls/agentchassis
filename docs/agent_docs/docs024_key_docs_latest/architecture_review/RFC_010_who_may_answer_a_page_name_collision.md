@@ -1,7 +1,10 @@
 # RFC 010 — Who may answer a `pages(site_id, name)` collision, and with what authority
 
-**Status: RATIFIED 2026-08-02** (owner; the three answers are in §6, and all three are
-implemented — commit `f0…` below). Raised the same day by the `bugfix_175_page_role_upsert`
+**Status: RATIFIED 2026-08-02, IMPLEMENTED AND LIVE 2026-08-03** — chassis `v1.0.1237`,
+both replicas pod-verified (`did not set AdoptUnshippedRows` = 1; the shared-predicate
+count moved 4 → 5, the 5th being `apply_gap_plan`'s converged guard). Commits `4ee695cc1`
+(the three answers + the residue) and `023f6624a` (the predicate correction that preceded
+them). Raised the same day by the `bugfix_175_page_role_upsert`
 lane, **at the council gate's `review_architecture` seat's explicit request** on corr
 `e78c62e3-7f01-48f1-b083-924eaccd195a` (verdict: **approved**, 4 advisory objections, none
 high-severity).

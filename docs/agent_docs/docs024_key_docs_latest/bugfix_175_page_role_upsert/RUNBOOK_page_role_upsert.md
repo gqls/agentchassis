@@ -160,3 +160,23 @@ done
 - The predicate string is a compile-time constant embedded in the binary, so it greps
   cleanly — that is why it is the check for "did the correction ship", rather than
   inferring from the image tag (`bugs_open/153`).
+
+### DISCHARGED 2026-08-03 08:47Z — `v1.0.1237`, both replicas
+
+`agent-chassis-6d4b55c546-76j4g` / `-njx2r`, identical results:
+
+| grep | before (v1.0.1234) | now | reading |
+|---|---|---|---|
+| `did not set AdoptUnshippedRows` | 0 | **1** | the opt-in branch shipped |
+| `architecture_review/RFC_010` | 0 | **1** | the ruling's own citation is in the binary |
+| `deployed_at IS NULL AND COALESCE(build_status` | 4 | **5** | ← **the load-bearing one** |
+| `UpsertPageForRole: refused` | 1 | **2** | the second refusal branch (opt-in) added its own log line |
+| `IN ('deployed','needs_rebuild')` | 0 | 0 | the hand-rolled predicate stays gone |
+
+**Why the 4 → 5 is the proof and the others are only corroboration.** The shared predicate
+is a compile-time constant interpolated into each consumer's SQL, so the count IS the
+consumer count: 3 pre-existing (`nav_tables`, `check_phantom_internal_links`,
+`render_site_components`) + `page_role_upsert` = 4, and the 5th is
+`apply_gap_plan_action`'s converged guard — the one edit in this round that touches a
+DIFFERENT pipeline and could have shipped separately. A string count that moves by exactly
+one, for a reason you predicted before looking, is worth more than a presence check.
