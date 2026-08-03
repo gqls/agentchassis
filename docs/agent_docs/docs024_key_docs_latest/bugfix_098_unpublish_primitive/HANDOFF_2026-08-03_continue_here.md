@@ -12,10 +12,10 @@ command, with its gotcha).
 |---|---|
 | Bug | `bugs_open/098` — **STILL OPEN**, do not close |
 | Resurrection fix | **LIVE**, chassis digest `sha256:5da2888…`, both replicas |
-| Unpublish primitive | **BUILT + LIVE + VETOED** — council REJECTED, hard veto from `guardian` |
+| Unpublish primitive | **BUILT + LIVE**; council REJECTED → **RFC 011 DECIDED, option B** (verb kept, dropped from the generic allowlist) |
 | Council correlation | `4a7f0877-4149-4431-97d4-318d093570a4` (rounds 1 and 2) |
 | Routed to | `architecture_review/RFC_011_git_adapter_action_vocabulary_and_the_unpublish_verb.md` |
-| Retraction performed | **NONE.** Population still 13; the live instance still serves 200 |
+| Retraction performed | **ONE, done and proven** — robot-hands `/learning-center/index.html` 200 → 404 via the `page-retraction` agent. **13 pages still serve frozen artefacts** and the class grows ~1/day |
 
 **Commits (all carry `Council-Submitted: 4a7f0877…`; the verdict is REJECTED, so `098`
 will bucket them and that is correct — do NOT write `Council-Reviewed:`):**
@@ -26,14 +26,17 @@ correction + seed · `8f73e7279` cousin fix · `89b6d7963` verdict + RFC 011.
 
 ## THE ONE THING THAT WILL BITE YOU FIRST
 
-**Do not retract a page.** The owner approved retracting
-`robot-hands.com/learning-center/index.html` — *before* the veto existed. That approval
-was given on a different premise. Firing a vetoed capability at a live customer site is
-the precise thing the veto is about, and the RFC has to be broken by a human first.
+**This bug's own closing criterion does not work, and it is the bug's own lesson.**
+`SELECT count(*) FROM pages WHERE status='archived' AND deployed_at IS NOT NULL` — stated in
+the file as "after the fix: 0" — **did not move when the page was successfully retracted**.
+It cannot: the retraction deliberately does not clear `deployed_at` (that is a shared-column
+semantic change, deferred with a census). The count measures *archived-and-once-deployed*.
+To measure what is actually still served, ask the artefact: for each archived+stamped page,
+check whether its derived path exists in **its own** deploy repo (`sites` or `vm-sites`).
 
-If the owner reaffirms after reading RFC 011, the retraction is one dispatch and the
-RUNBOOK has it. **Its acceptance is two-part** — 404 immediately, *and* still 404 after the
-next news refresh — because a single `curl` passed even before the resurrection fix.
+**Do not close 098 on the one retraction.** Archiving still does not retract *by itself* —
+nothing in the codebase archives a page, so nothing invokes the retraction either. 13 pages
+still serve frozen artefacts and one more arrived today from another lane.
 
 ## WHAT THE VETO ACTUALLY SAID
 
@@ -57,15 +60,23 @@ a preference (option B: keep the verb, drop it from the generic allowlist).
 These are not packaging arguments; they are defects. All four land on
 `retract_page_graph.go`, the part added fastest.
 
-1. **HIGH — the link census does not use `linkablePageStatusPredicate`.** A landmine says
+**DEBTS 1 AND 2 ARE PAID** (commit `946fe4280`) — 2 was a real defect, not a theoretical
+one: the widened scan found a referrer the markup-only scan missed
+(`gripper-cycle-time-estimator/hero`, a CTA url in `content_data`; `/contact.html` went
+4 → 5 referrers). **NEW DEBT 5, and it is the important one: the graph audit's findings
+never reach the durable record** — the step awaits the adapter response and the await
+machinery overwrites `output_field`, so refusals survive only in ephemeral pod logs. A
+retraction that refuses a page would today refuse it SILENTLY, which is the opposite of the
+stated design. Fix by persisting the audit before dispatching, or emitting a work item.
+
+Original list, for the record:
+
+1. ~~**HIGH — the link census does not use `linkablePageStatusPredicate`.**~~ **DONE** A landmine says
    an offline census over `pages` must, or an archived page makes a correct result look
    wrong. Verify and fix. *(This one is in the auto-memory index; I built the thing it
    warns about.)*
-2. **MEDIUM, and the sharpest catch of the round — inbound references also live in
-   structured `content_data` fields** (`link_url`, `cta_url`, hero-tool/tool-cta `*_url`),
-   not only in `href=` markup. An href-only scan can miss a real inbound link and let a
-   retraction proceed — **the exact case the owner's 2026-08-03 directive exists to
-   prevent.** Fix before any retraction runs.
+2. ~~**MEDIUM, the sharpest catch of the round — inbound references also live in
+   structured `content_data` fields.**~~ **DONE, and it was real** — see above.
 3. **MEDIUM — the inbound-source logic is COPIED from `check_orphan_pages.go`** with only a
    comment warning of drift. Extract and share it. (My argument that the two ask different
    questions — what IS unreachable vs what BECOMES unreachable — is in the file header and
@@ -89,8 +100,12 @@ These are not packaging arguments; they are defects. All four land on
   **Zero mismatches.**
 - **The primitive works**, proven live: write → delete → idempotent re-delete on a scratch
   path the deploy workflow ignores, no-op logged, branch head unmoved.
-- **`page-retraction` agent seeded** in `sql_for_agents/215` — **written but NOT APPLIED**.
-  Do not apply it while the veto stands.
+- **`page-retraction` agent is APPLIED and PROVEN** (`sql_for_agents/215`), dispatched by
+  `sql_for_agents/216_TRIGGER_page_retraction.sh`. One real retraction has run through it
+  end to end. **Always pass `PAGE_IDS`** — omitting it puts every non-active stamped page on
+  the site in scope.
+- **The retraction itself**: 200 → 404, file gone, deploy workflow green, six neighbouring
+  live pages unaffected, and the live audit agreed with the hand measurement (0/0/0).
 
 ## TRAPS THIS SESSION HIT (all in NOTES, worth 30 seconds)
 
@@ -125,10 +140,16 @@ as corroboration.
 
 ## NEXT ACTIONS, IN ORDER
 
-1. Put **RFC 011** in front of the owner. Nothing else about the primitive moves until it
-   is broken.
-2. Pay debts **2 then 1** (both make the retraction safe), then 3 and 4.
-3. Re-confirm the retraction with the owner *after* the RFC, then run it with the two-part
-   acceptance.
-4. Only then consider closing 098 — and it closes only when the live instance is retracted
-   **and stays retracted**, not when the code exists.
+1. **Debt 5 first** — the audit's findings are discarded by the await. Until that is fixed,
+   a retraction that REFUSES a page refuses it silently, so the guards are only trustworthy
+   on a run you are watching. This is the one thing to fix before any unattended use.
+2. Debts **3** (share the inbound-source logic with `check_orphan_pages` rather than copy)
+   and **4** (consolidate the status predicate).
+3. **Confirm with the owner before retracting more.** 13 pages still serve frozen artefacts;
+   the owner deliberately scoped this run to one. 10 of the 13 are on
+   leopardessconsulting.co.uk and are ordinary content pages, a lesser problem than the one
+   just fixed — they advertise nothing broken.
+4. **Fix 098's acceptance criterion** (see the top) before anyone tries to close on it.
+5. Consider whether archiving should invoke retraction automatically. Today nothing archives
+   a page in code, so the honest answer may be "no, and the runbook is the mechanism" — but
+   that should be a decision, not an accident.

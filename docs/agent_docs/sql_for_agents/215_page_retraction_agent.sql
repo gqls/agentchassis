@@ -31,10 +31,15 @@
 --   input_data: {"site_id": "<uuid>", "page_ids": ["<uuid>", ...]}
 -- Set "dry_run": true in the step config to audit without deleting.
 
-INSERT INTO agent_definitions (type, name, description, default_config, is_active)
+-- SCHEMA NOTE (learned the hard way, 2026-08-03): the columns are `display_name`
+-- (NOT `name`) and `category` is NOT NULL. The first draft of this file used
+-- `name` and omitted `category`, and psql rejected it — `\d agent_definitions`
+-- before writing SQL is the rule, and skipping it cost a round trip.
+INSERT INTO agent_definitions (type, display_name, category, description, default_config, is_active)
 VALUES (
   'page-retraction',
-  'Page Retraction',
+  'Page Retraction Agent',
+  'specialist',
   'UNPUBLISH: removes the deployed artefacts of pages the platform no longer wants served, retires their nav rows, and reports anything stranded. Refuses a page still linked from live content.',
   jsonb_build_object(
     'workflow', jsonb_build_object(

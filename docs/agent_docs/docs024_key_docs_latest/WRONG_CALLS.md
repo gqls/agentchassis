@@ -18281,3 +18281,33 @@ after. **The generalisable form**: measuring "what changes for the rows I
 touch" is not the same question as "what ELSE reads the field I just started
 populating" — the second requires grepping the CONSUMER, not re-checking the
 PRODUCER's own output.
+
+---
+
+## 2026-08-03 — I said the population was "13 again" after a retraction; it was 14, and the bug's own acceptance query is the same mistake
+
+**The claim that was wrong:** having retracted `robot-hands.com/learning-center/index.html`
+— 200 → 404, file gone from the repo, deploy workflow green — I wrote into the bug file that
+the archived-but-deployed population was "13 again". I ran the query a minute later out of
+habit. It was **14**, exactly as before the retraction.
+
+**Why.** The retraction deliberately does not clear `pages.deployed_at` (that is a change to
+a shared column's meaning, deferred with a census showing three consumers read it as
+history). So a retracted page keeps its stamp for ever, and
+`WHERE status='archived' AND deployed_at IS NOT NULL` counts *archived-and-once-deployed*,
+not *archived-and-still-serving*.
+
+**The part that makes this worth a row rather than a footnote:** that query is
+`bugs_open/098`'s own stated closing criterion — *"After the fix + backfill: 0"*. It can
+**never** reach 0 through retraction alone. The bug's acceptance test is an instance of the
+bug's own central finding (`deployed_at` records history, not current state), written by
+someone who had just explained that finding. I then repeated it. Two of us read past it.
+
+**What caught it:** running the query after the change instead of reasoning about it —
+one command, thirty seconds, immediately after writing the false sentence.
+
+**The cheap check that would have caught it:** when a fix is verified by a COUNT, re-run the
+count both before and after and require it to MOVE. A criterion whose value is unchanged by
+a successful fix is not a criterion. Generalises: an acceptance query should be one the fix
+is capable of changing — if you cannot say in advance which number will move and by how
+much, the query is measuring something adjacent to the work.

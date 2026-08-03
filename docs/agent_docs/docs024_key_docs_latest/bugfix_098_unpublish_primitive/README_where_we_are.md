@@ -135,3 +135,51 @@ until the review finishes, because rolling the chassis kills any review that's m
 
 Still to do: roll the chassis, then retract the page, then check it's *still* gone after
 the next news refresh — that second check being the one that actually tests anything.
+
+## 2026-08-03, evening — decided, and the page is down
+
+You asked me to decide as I'd recommended, so I did.
+
+**On the vocabulary question**, I took option B: the deletion verb stays on the git adapter,
+but comes out of the list any workflow can reach. In practice that means retraction is only
+possible through the one action that carries the safety checks, and a future workflow author
+can't wire up a file deletion by writing configuration. That was the reviewers' actual
+complaint and it costs almost nothing to concede. I've written down what it does *not*
+settle — the general question about destructive verbs is still open for whoever adds the
+next one.
+
+**The two objections I agreed with are fixed**, and one of them turned out to be a real
+hole rather than a theoretical one. The check for "is anything still linking to this page?"
+was only reading rendered HTML. Links also live in stored structured content, and when I
+widened it, the check immediately found a link it had been missing — a call-to-action on the
+gripper cycle-time page. That's a link that would have been left pointing at a deleted page.
+The reviewer who raised it was reasoning from a documented trap and was right.
+
+**The twice-daily republishing is proven dead.** The evening news run fired on the fixed
+build: the four live news pages were refreshed as normal, and the retired one was skipped.
+Before the fix it took all five.
+
+**And the page is retracted.** Dispatched through the platform rather than by hand:
+200 → 404, gone from the repo, and I checked six neighbouring pages afterwards — all still
+fine. The link checks ran on the live path and agreed with what I'd measured by hand.
+
+Two things I want to flag rather than bury.
+
+**First, I found a fault in my own work by reading the record afterwards.** The action
+computes a full report — what it refused, what nav it retired, what got stranded — and the
+platform then throws it away, because the step waits for a reply and the reply overwrites
+the report. It survives only in logs, which don't survive a restart. For this page it
+doesn't matter, since it refused nothing. But a retraction that *did* refuse a page would
+today refuse it silently, which is the opposite of the point. It's written up as owed work.
+
+**Second, this bug's own success criterion doesn't work.** It says "count the archived pages
+that were once deployed; after the fix it should be zero". That number didn't move when the
+page was retracted, because we deliberately don't clear the "was deployed" stamp. I actually
+wrote "it's 13 again" into the file, ran the query out of habit, and it was 14. The bug's
+test is an example of the very thing the bug is about — a timestamp that records history
+being read as if it recorded current state.
+
+**Where that leaves it:** the capability works and is proven. Thirteen pages still serve
+frozen copies, and one more joined them today from another lane, so the backlog is growing
+at roughly a page a day. I've left those alone as you asked. The bug stays open, because
+archiving still doesn't retract *by itself* — someone has to run the tool.

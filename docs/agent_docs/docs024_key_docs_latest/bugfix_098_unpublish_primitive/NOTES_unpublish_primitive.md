@@ -314,3 +314,48 @@ packaging dispute:
 The pattern across all four: **every one is about edit 8**, the graph audit I added
 fastest and reviewed least. The primitive, which took the most care, drew no correctness
 objection at all — only scope.
+
+## 2026-08-03 (evening) — RFC 011 decided, debts paid, and the retraction DONE
+
+**Owner ruled OPTION B.** `delete_file` keeps its place on the adapter, loses its place in
+the generic allowlist. Two lines of code, one test, and it concedes the seats' real
+complaint (unbounded reachability) without discarding a capability two bugs needed.
+
+**Debt 2 was a REAL defect, not a theoretical one — and the proof is the nicest measurement
+of the lane.** Re-running the widened inbound scan on live data, `/contact.html` on
+robot-hands went from **4 referrers to 5**: `gripper-cycle-time-estimator/hero` carries its
+CTA url in `content_data`, invisible to an `href=`-only scan. The council seat that raised
+it could not have known that; it reasoned from a landmine and was right.
+
+I deliberately did NOT enumerate field names to fix it. `ctaFieldNames` exists and was the
+obvious tool, and it is exactly the wrong one: a field-name allow-list is blind one level
+down, which is what `bugs_open/097` was. Matching the url as a **quoted JSON string value**
+finds it at any depth, under any key, including keys nobody has invented yet.
+
+**The retraction ran through the platform**, not by hand — `page-retraction` agent,
+orchestration `fc00db29…`. 200 → 404, file gone from the repo, deploy workflow green, and
+six neighbouring live pages still 200. The graph audit ran on the live path and agreed with
+the hand measurement exactly: `editorial_refs 0, nav_refs 0, stranded 0`.
+
+## 2026-08-03 — MISSTEP, and it is the one I would most want caught: the audit's findings are DISCARDED
+
+Reading the orchestration record afterwards, `collected_data.retraction` holds only the
+adapter's reply — `{paths, success, repo_url, …}`. My action's candidates, refusals,
+`editorial_inbound`, `nav_inbound`, `stranded_targets` and `nav_retired` are **gone**.
+
+Cause: the step awaits the adapter response, and the await machinery **overwrites
+`output_field`** with that response. The findings exist only in pod logs, which this repo
+documents as ephemeral across rollouts.
+
+This is `bugs_open/071`/`083`/`091`'s class — detected then discarded — and I wrote the
+file header that says *"every refusal is RETURNED, not swallowed"*. It is true of the
+function and false of the system. **A retraction that refuses a page would today refuse it
+silently**, which is precisely the failure the owner's directive was meant to prevent.
+
+Found only because I read the durable record instead of trusting the green result — the
+same habit that found the resurrection. **The check that would have caught it earlier: for
+any action that both computes findings and awaits a response, ask where the findings live
+AFTER the await, not before it.** An action's return value is not a record.
+
+Owed on the bug as item 5. The fix is to persist the audit before dispatching (or emit a
+work item), rather than relying on `output_field` surviving.

@@ -31,23 +31,95 @@ because every repair path skips archived rows on purpose.
 > for a human. Per CLAUDE.md a scope veto is **not** answered by resubmitting with better
 > measurements, so it has not been.
 >
-> **NO PAGE HAS BEEN RETRACTED.** The owner approved retracting
-> `robot-hands.com/learning-center/index.html` *before* this verdict existed; firing a
-> vetoed capability at a live site on an approval given under a different premise is the
-> thing the veto is about. **The population is unchanged at 13** and the live instance
-> still serves 200.
+> ## SUPERSEDED 2026-08-03 (evening) — RFC 011 DECIDED, and the live instance IS RETRACTED
 >
-> **OWED, and these are correctness debts on LIVE code, not packaging:**
-> 1. **HIGH** — the retraction's link census does not go through
->    `linkablePageStatusPredicate`; a landmine says an offline census over `pages` must.
-> 2. **MEDIUM** — inbound references also live in structured `content_data` fields
->    (`link_url`, `cta_url`, `*_url`); an `href=`-only scan misses them and can let a
->    retraction proceed past a real inbound link — the exact case the owner's 2026-08-03
->    directive exists to prevent.
+> **RFC 011 → OPTION B** (owner ruling): `delete_file` keeps its place on the adapter and
+> **loses its place in the generic allowlist** — reachable only through
+> `retract_page_deployment`, which carries guards a config-assembled call cannot. Asserted
+> by `TestGitAdapterAllowlistExcludesDeleteFile`. The *general* question — whether a
+> destructive verb differs in kind from an inert field — stays open for the next verb.
+>
+> **RESURRECTION FIX PROVEN LIVE, with a positive control.** The 20:0x news run fired on
+> the fixed chassis: the **4 active** news pages were requeued, the **archived page got 0**.
+> Before the fix the selector took 5, including the archived one.
+>
+> **THE LIVE INSTANCE IS RETRACTED** — dispatched through the platform
+> (`page-retraction` agent, orchestration `fc00db29…`), not by hand:
+>
+> ```
+> before: 200, in repo b5bc7489 (41,822 bytes)
+> after : 404, absent from the repo; commit "Retract 1 retired page(s) from robot-hands.com (bugs_open/098)"
+> collateral: /learning-center-hub /learning-center /index /about /gripper-catalog /news — all still 200
+> ```
+>
+> The graph audit ran on the live path and agreed with the hand measurement:
+> `editorial_refs 0, nav_refs 0, stranded 0`.
+>
+> **NEW DEFECT FOUND BY DOING IT — and it is mine.** The action's rich output (candidates,
+> refusals, `editorial_inbound`, `nav_inbound`, `stranded_targets`, `nav_retired`) is
+> **discarded**: because the step awaits the adapter response, the await machinery
+> overwrites `output_field` with the adapter's reply, so the orchestration record holds only
+> `{paths, success, …}`. The findings survive **only in pod logs**, which this repo
+> documents as ephemeral across rollouts. That is the detected-then-discarded class
+> (`bugs_open/071`, `083`, `091`) — and it directly contradicts the property this file's own
+> design claimed: *"every refusal is RETURNED, not swallowed"*. **A retraction that refuses a
+> page would today refuse it silently.** Owed, see below.
+>
+> **DEBTS 1 AND 2 — PAID, and 2 was a real defect rather than a theoretical one:**
+> 1. ~~the census does not use `linkablePageStatusPredicate`~~ — **DONE**. It now does, on
+>    both the referrer and the target side. The error it prevents is precise: an archived
+>    target has already been retired, so "nothing links to it" is the DESIRED state, and
+>    reporting it as newly stranded would send an operator to repair something correct.
+> 2. ~~inbound references in structured `content_data` are missed~~ — **DONE**, and
+>    deliberately WITHOUT enumerating field names (`ctaFieldNames` was right there, but a
+>    field-name allow-list is blind one level down — that is what `bugs_open/097` was).
+>    Matching the url as a quoted JSON string value finds it at any depth under any key.
+>    **Measured on live data: the widened scan found a referrer the markup-only scan missed**
+>    — `gripper-cycle-time-estimator/hero`, a CTA url living in `content_data`. Referrers for
+>    `/contact.html` went 4 → 5. The retraction target stayed 0 on both surfaces.
+>
+> **STILL OWED:**
 > 3. **MEDIUM** — the inbound-source logic is copied from `check_orphan_pages.go` rather
 >    than shared with it.
-> 4. **MEDIUM** — the status predicate is a third bespoke spelling rather than a
->    consolidation onto a canonical helper.
+> 4. **MEDIUM** — the status predicate in the news requeue is a third bespoke spelling
+>    rather than a consolidation onto a canonical helper.
+> 5. **NEW, and arguably the most important** — the graph audit's findings never reach the
+>    durable record (see above). Fix by persisting the audit before dispatching, or by
+>    emitting a work item, rather than relying on `output_field` surviving an await.
+>
+> **WHY THIS BUG STAYS OPEN.** Its title is *"archiving a page does not retract it from the
+> deployed site"*, and as an **automatic behaviour that is still true**: nothing in the
+> codebase archives a page, so nothing invokes the retraction either. What exists now is the
+> *ability* to retract, proven end to end on one page.
+>
+> ### AND THIS FILE'S OWN CLOSING CRITERION IS NOT MEASURING WHAT IT THINKS
+>
+> "How to verify a fix" says: `SELECT count(*) FROM pages WHERE status='archived' AND
+> deployed_at IS NOT NULL; -- After the fix + backfill: 0`.
+>
+> **That count did not move when the page was successfully retracted.** It was 13, grew to
+> **14** when `loancalculator.co.uk/tools/standard-calc.html` was archived at 11:10 today,
+> and is **still 14** now that robot-hands' page is retracted, 404, and gone from the repo.
+>
+> Because the retraction deliberately does **not** clear `deployed_at` — that is a change to
+> what a shared column guarantees, deferred with a census (three consumers read it as
+> history) — a retracted page keeps its stamp for ever. So the criterion counts
+> *archived-and-once-deployed*, which is what this file's own second finding says the column
+> actually means, while being written as though it counted *archived-and-still-serving*.
+> **The bug's acceptance query is an instance of the bug's own lesson.** Caught by running it
+> after the retraction instead of reasoning about it; I had written "13 again" one minute
+> earlier and it was false.
+>
+> **The criterion that does measure it** — ask the artefact, not the stamp:
+> ```sh
+> # for each archived+stamped page, does its derived path still exist in its OWN deploy repo?
+> gh api "repos/gqls/<repo>/contents/<domain>/<PageFilePathFromURL(url)>?ref=<default>"
+> ```
+> …or clear `deployed_at` on retraction, which is 098 candidate 2 and needs its own review.
+>
+> So: **13 pages still serve a frozen artefact** (14 stamped, minus the one just retracted),
+> the class is accumulating at roughly one a day, and closing this on one repaired instance
+> would be the "a `complete` work item is not a repaired artefact" mistake at bug scale.
 >
 > Workstream: `docs024_key_docs_latest/bugfix_098_unpublish_primitive/` (the standing five).
 
