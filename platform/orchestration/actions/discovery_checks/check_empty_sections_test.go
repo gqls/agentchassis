@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -133,5 +134,187 @@ func TestVerifyPresentButEmptyStillFailsClosed(t *testing.T) {
 	}
 	if res.Resolved {
 		t.Error("an empty rendered_html must not verify as resolved")
+	}
+}
+
+// ============================================================================
+// Retraction guards (RFC_010 Decision 1 adoption)
+// ============================================================================
+
+const (
+	retractPageID = "3f2a1c9e-5d4b-4e8a-9c1f-7b6d2e8a4f13"
+	retractKey    = "empty_section:3f2a1c9e-5d4b-4e8a-9c1f-7b6d2e8a4f13:services"
+)
+
+// filledHTML passes emptySectionVerdict; hollowHTML does not.
+var (
+	filledHTML = `<section><p>` + strings.Repeat("real content ", 10) + `</p></section>`
+	hollowHTML = `<div></div>`
+)
+
+// retractionRows builds the (item_key, component_id, rendered_html) result of
+// the retraction observation query. A nil componentID models the LEFT JOIN miss.
+func retractionRows(components ...interface{}) *sqlmock.Rows {
+	r := sqlmock.NewRows([]string{"item_key", "id", "rendered_html"})
+	if len(components) == 0 {
+		return r
+	}
+	for i := 0; i < len(components); i += 2 {
+		r.AddRow(retractKey, components[i], components[i+1])
+	}
+	return r
+}
+
+func runCheckWithNoFindings(t *testing.T, retraction *sqlmock.Rows) (*CheckResult, sqlmock.Sqlmock, func()) {
+	t.Helper()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	// No empty sections at all — the case the old early return swallowed.
+	mock.ExpectQuery("FROM page_components pc").WillReturnRows(sqlmock.NewRows([]string{
+		"id", "page_id", "name", "slot_name", "function", "len", "pattern", "runtime_fill"}))
+	mock.ExpectQuery("FROM site_work_items").WillReturnRows(retraction)
+
+	check := &EmptySectionsCheck{}
+	res, err := check.Run(DiscoveryCheckContext{
+		Ctx: context.Background(), DB: db, SiteID: uuid.New(), Logger: zap.NewNop(),
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	return res, mock, func() { db.Close() }
+}
+
+// The whole point: a site with ZERO empty sections is the site whose stale
+// items most need closing. If someone reinstates the `len(sections) == 0`
+// early return, this is the test that fails.
+func TestRetractionRunsWhenThereAreNoFindingsAtAll(t *testing.T) {
+	res, mock, done := runCheckWithNoFindings(t, retractionRows("c1", filledHTML))
+	defer done()
+
+	if len(res.Findings) != 0 || len(res.WorkItems) != 0 {
+		t.Fatalf("expected no findings/work items, got %d/%d", len(res.Findings), len(res.WorkItems))
+	}
+	if len(res.Resolved) != 1 {
+		t.Fatalf("a healthy slot must retract even when the run found nothing: got %d resolved", len(res.Resolved))
+	}
+	if res.Resolved[0].ItemKey != retractKey {
+		t.Errorf("ItemKey = %q, want %q", res.Resolved[0].ItemKey, retractKey)
+	}
+	if res.Resolved[0].ItemType != "empty_section" {
+		t.Errorf("ItemType = %q, want empty_section", res.Resolved[0].ItemType)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// The three refusals. Each models a population measured in the live queue on
+// 2026-08-03; together they are 30 of 47 open items.
+func TestRetractionRefusesEverythingItHasNotPositivelyObserved(t *testing.T) {
+	cases := []struct {
+		name        string
+		rows        *sqlmock.Rows
+		wantResolve bool
+		why         string
+	}{
+		{
+			name:        "slot holds no deployed component",
+			rows:        retractionRows(nil, ""),
+			wantResolve: false,
+			why: "absence is equally a fix and a silently deleted component " +
+				"(bugs_open/032) — 10 of 47 open items sit in this state",
+		},
+		{
+			name:        "section still renders empty",
+			rows:        retractionRows("c1", hollowHTML),
+			wantResolve: false,
+			why:         "the finding still reproduces",
+		},
+		{
+			name:        "mixed slot: one of three still empty",
+			rows:        retractionRows("c1", filledHTML, "c2", hollowHTML, "c3", filledHTML),
+			wantResolve: false,
+			why: "bugs_open/156 means (page_id, slot_name) is not unique; the " +
+				"finding may still be true of the empty one",
+		},
+		{
+			name:        "every component in a multi-component slot renders content",
+			rows:        retractionRows("c1", filledHTML, "c2", filledHTML, "c3", filledHTML),
+			wantResolve: true,
+			why:         "nothing in the slot reproduces the finding",
+		},
+		{
+			name:        "runtime-fill shell is healthy by design",
+			rows:        retractionRows("c1", `<div data-runtime-fill="lobby"><h2></h2></div>`),
+			wantResolve: true,
+			why:         "the completion gate's own verdict function calls this resolved",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, _, done := runCheckWithNoFindings(t, tc.rows)
+			defer done()
+			got := len(res.Resolved) > 0
+			if got != tc.wantResolve {
+				t.Errorf("retracted = %v, want %v — %s", got, tc.wantResolve, tc.why)
+			}
+		})
+	}
+}
+
+// AllOfType is the wide, destructive branch. This check observes one slot at a
+// time and must never reach for it; a reviewer of a future edit should see this
+// fail rather than discover the breadth in production.
+func TestRetractionNeverUsesTheWideBranch(t *testing.T) {
+	res, _, done := runCheckWithNoFindings(t, retractionRows("c1", filledHTML))
+	defer done()
+
+	if len(res.Resolved) == 0 {
+		t.Fatal("expected a retraction to inspect")
+	}
+	for _, r := range res.Resolved {
+		if r.AllOfType {
+			t.Error("empty_section retraction must address one item_key, never AllOfType")
+		}
+		if r.ItemKey == "" {
+			t.Error("ItemKey must be set — an empty key with AllOfType false is refused by the runner")
+		}
+		if r.Reason == "" {
+			t.Error("Reason must be set — the runner refuses a retraction with no stated cause")
+		}
+	}
+}
+
+// A retraction fault must cost a missed CLOSURE, never a missed DEFECT. The
+// runner skips a check's inserts when Run returns an error, so propagating this
+// would trade the wrong way round.
+func TestRetractionFailureDoesNotSuppressFindings(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	pageID := uuid.New()
+	mock.ExpectQuery("FROM page_components pc").WillReturnRows(
+		sqlmock.NewRows([]string{"id", "page_id", "name", "slot_name", "function", "len", "pattern", "runtime_fill"}).
+			AddRow(uuid.New().String(), pageID.String(), "services", "services", "services", 0, "empty_html", false))
+	mock.ExpectQuery("FROM site_work_items").WillReturnError(sql.ErrConnDone)
+
+	check := &EmptySectionsCheck{}
+	res, err := check.Run(DiscoveryCheckContext{
+		Ctx: context.Background(), DB: db, SiteID: uuid.New(), Logger: zap.NewNop(),
+	})
+	if err != nil {
+		t.Fatalf("a retraction fault must not fail the check: %v", err)
+	}
+	if len(res.WorkItems) != 1 {
+		t.Errorf("the empty section must still be filed: got %d work items", len(res.WorkItems))
+	}
+	if len(res.Resolved) != 0 {
+		t.Errorf("a failed observation must retract nothing: got %d", len(res.Resolved))
 	}
 }
