@@ -327,3 +327,61 @@ WHERE swi.item_type IN ('orphan_blog_posts','acceptance_run','backend_entry_orph
   AND swi.created_at > '2026-08-03 19:05:00'
 ORDER BY swi.created_at DESC;
 ```
+
+
+---
+
+# TRANCHE 2 DECIDED AND DONE 2026-08-03 — the measurement inverted the holdout's premise
+
+The holdout's stated reason was *"a shipped needs_rebuild page is already queued for a
+rebuild that will regenerate it anyway"*. Measured (the question this file said tranche 2
+needed):
+
+```
+41 shipped needs_rebuild pages now waiting:
+p25 32.1h · p50 34.3h · p75 447.5h · p90 2412.1h · 13 over a week · 9 over a MONTH
+```
+
+**"It will rebuild soon anyway" is false for a quarter of the population** — the p75 waits
+18+ days, the worst 102 days. During that window the page serves its stale artefact, so a
+selector that skips it skips a live page for weeks. Decision per site, each with its own
+evidence:
+
+## Converged (3)
+
+| site | delta today | why |
+|---|---|---|
+| `request_render_audit_action.go` | **36 pages / 8 sites** newly auditable | its own comment says the intent — "has a live URL" — and the predicate now says what the comment meant. A render audit that never photographs a page serving for 18 days is blind where it matters most |
+| `render_news_section_html.go` (news rerender queuer) | 0 today, prospective | a shipped page carrying a news listing serves it; refreshing the listing on a page whose rebuild is weeks away is exactly the queuer's job |
+| `render_directory_action.go` (directory queuer) | 0 today, prospective | same, byte-for-byte the news queuer's cousin |
+
+**Collision with the 098 lane, handled rather than stumbled into:** the retraction lane
+shipped `p.status = 'active'` into BOTH queuers the same day (an archived page was being
+re-rendered twice daily), with tests pinning the literal old spelling. My convergence
+landed on top of theirs — both filters now present — and their tests were updated to pin
+the same intent under the new spelling, then **proved both ways**: reverting the artifact
+predicate fails them, and dropping their status filter fails them. Neither lane's guard
+was weakened by the other's edit, which is the same-file-passenger risk actually managed.
+
+## Kept, with the decision recorded in the pattern-check allow-list (3 files)
+
+- `maintenance_actions.go` — `findStalePages` flags pages for refresh; a `needs_rebuild`
+  page is already flagged, converging double-queues it. `findPagesWithNoContent` overlaps
+  `check_componentless_pages` (PBP-025), which covers the shipped-not-deployed case with
+  its own deliberate predicate.
+- `store_generated_component_action.go` — `markPagesForRebuild` flips
+  `deployed → needs_rebuild`; a page already flagged gains nothing but `updated_at` churn.
+- `component_library.go` — `GetHeaderNavFromPages`/`GetFooterNavFromPages` are **dead**:
+  both call sites commented out, superseded by `nav_tables.go` which already uses the
+  shared predicate. Left for the nav lane to delete, not converged.
+
+**Post-tranche-2 fleet measurement: `check_handrolled_shipped_predicate` finds 0 genuine
+hits.** Every `pages` liveness test in the tree is now either the shared predicate or a
+recorded decision.
+
+## Risk carried forward
+
+The render audit change means up to 36 more pages enter audit rotation (capped at 25/site
+per run, ordered by nav_order). If the audit starts photographing pages that then fail
+checks, those findings are old blindness surfacing, not new defects — same caveat as
+tranche 1's.

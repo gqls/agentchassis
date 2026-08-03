@@ -26,6 +26,8 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // queueNewsPageRerenders emits one scoped re-render work item per page that
@@ -98,7 +100,7 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 		JOIN content_components cc ON cc.id = pc.component_id
 		WHERE p.site_id = $1
 		  AND cc.function IN ('latest-news', 'news-listing')
-		  AND p.build_status = 'deployed'
+		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
 		  AND p.status = 'active'
 	`, siteID)
 	if err != nil {

@@ -356,7 +356,7 @@ func queueDirectoryPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UU
 		JOIN content_components cc ON cc.id = pc.component_id
 		WHERE p.site_id = $1
 		  AND cc.function IN ($2, $3)
-		  AND p.build_status = 'deployed'
+		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
 		  AND p.status = 'active'
 	`, siteID, profile.SnippetComponent, profile.ListingComponent)
 	if err != nil {

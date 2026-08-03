@@ -100,14 +100,21 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	}
 	captureRenders, _ := config["capture_renders"].(bool)
 
-	// Deployed pages only. An undeployed page has no live URL to render, and
+	// SHIPPED pages only. An unshipped page has no live URL to render, and
 	// asking for one produces a navigation failure that reads like a defect.
+	//
+	// bugs_open/185 tranche 2 (2026-08-03): this read `build_status = 'deployed'`,
+	// which is not "has a live URL" — a needs_rebuild page that once deployed is
+	// still serving its previous artefact, so it is exactly what a RENDER audit
+	// should photograph. Measured before converging: 36 pages across 8 sites were
+	// live and invisible to this audit. The intent in the comment above was always
+	// "has a live URL"; the predicate now says what the comment meant.
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT COALESCE(url, '')
 		FROM pages
 		WHERE site_id = $1::uuid
 		  AND status = 'active'
-		  AND build_status = 'deployed'
+		  AND `+datahelpers.PageHasShippedPredicateFor("")+`
 		  AND COALESCE(url, '') <> ''
 		ORDER BY COALESCE(nav_order, 999), name
 	`, siteID)

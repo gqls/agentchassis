@@ -27,17 +27,27 @@ import (
 )
 
 // TestQueueNewsPageRerendersFiltersOnPageStatus is the regression guard.
-// `build_status = 'deployed'` and `status = 'active'` answer different
+// The artifact-liveness predicate and `status = 'active'` answer different
 // questions and nothing keeps them in step: archiving sets status and leaves
-// build_status alone, so a selector keyed on build_status alone keeps choosing
-// a retired page for ever.
+// the build columns alone, so a selector keyed on artifact liveness alone
+// keeps choosing a retired page for ever.
+//
+// UPDATED 2026-08-03 (bugs_open/185 tranche 2, same day as this file was
+// written): the artifact-liveness half changed spelling from
+// `p.build_status = 'deployed'` to NOT(datahelpers.NeverDeployedPagePredicate),
+// which additionally covers a needs_rebuild page still serving its previous
+// artefact. The regex pins the NEW spelling's distinctive prefix
+// (`NOT (p.deployed_at IS NULL`) so a revert to the narrow form — or the loss
+// of the status filter — both still fail here. The INTENT is unchanged from
+// this test's original: BOTH predicates present, or an archived page gets
+// re-rendered and re-published (bugs_open/098).
 func TestQueueNewsPageRerendersFiltersOnPageStatus(t *testing.T) {
 	db, mock := newRetractMockDB(t)
 	siteID := uuid.New()
 
 	// The expectation carries BOTH predicates. Remove either from the
 	// production query and this fails.
-	mock.ExpectQuery(`p\.build_status = 'deployed'[\s\S]*p\.status = 'active'`).
+	mock.ExpectQuery(`NOT \(p\.deployed_at IS NULL[\s\S]*p\.status = 'active'`).
 		WithArgs(siteID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "domain"}))
 
@@ -77,7 +87,7 @@ func TestQueueNewsPageRerendersOrderIndependence(t *testing.T) {
 func TestQueueDirectoryPageRerendersFiltersOnPageStatus(t *testing.T) {
 	db, mock := newRetractMockDB(t)
 	siteID := uuid.New()
-	mock.ExpectQuery(`p\.build_status = 'deployed'[\s\S]*p\.status = 'active'`).
+	mock.ExpectQuery(`NOT \(p\.deployed_at IS NULL[\s\S]*p\.status = 'active'`).
 		WithArgs(siteID, "model-directory", "model-directory-listing").
 		WillReturnRows(sqlmock.NewRows([]string{"name"}))
 

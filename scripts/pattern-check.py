@@ -700,6 +700,20 @@ SHIPPED_PREDICATE_ALLOWED = {
     "import.go": "WRITES the value, does not test it",
     "fix_component_template_action.go": "page_components write, not a pages liveness test",
     "save_page_sections_action.go": "page_components predicate, different table",
+    "maintenance_actions.go":
+        "DECIDED 185 tranche 2: findStalePages flags pages for refresh — a needs_rebuild "
+        "page is already flagged, so converging double-queues it; findPagesWithNoContent "
+        "overlaps check_componentless_pages (PBP-025), which covers the shipped-not-"
+        "deployed case with its own deliberate deployed_at predicate",
+    "store_generated_component_action.go":
+        "DECIDED 185 tranche 2: markPagesForRebuild flips deployed -> needs_rebuild; a "
+        "page already needs_rebuild is already flagged, so converging is updated_at churn "
+        "(same reason as check_unresolved_sections)",
+    "component_library.go":
+        "DEAD CODE: GetHeaderNavFromPages / GetFooterNavFromPages — both call sites are "
+        "commented out (component_library.go:2064,2114), superseded by nav_tables.go "
+        "which already uses the shared predicate. Delete rather than converge when the "
+        "nav lane next touches this file",
     "create_tool_cross_link_items.go":
         "ORDER BY (p.build_status = 'deployed') DESC — a ranking PREFERENCE, not a filter. "
         "Nothing is excluded, so no page is missed; converging would only reorder ties",
