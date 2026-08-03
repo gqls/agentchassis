@@ -2358,3 +2358,70 @@ calculator fixes this lane already shipped via the offline route
 through `save_page_sections`' locked-row matching at all. Check
 `bugs_open/189` for the current fix status before relying on the documented
 re-render route again for a LOCKED section on this site.
+
+## 2026-08-03 — the owner's two rulings, and what carrying them out turned up
+
+**Ruling 1: delete the orphan.** **Ruling 2: keep withholding — "we need honesty at
+any cost."** Ruling 2 needed no code: the withhold behaviour was already live and
+proven (`defect_vectors.py --live`, 8 of 8 on the served pages). Recorded so it is
+not re-litigated.
+
+### Retiring `/tools/standard-calc.html`
+
+Done and verified on the wire: **404**, sitemap **27 → 26** with zero mentions, the
+other 26 pages all 200.
+
+**The audit that authorised it — and the one that nearly misled me.** My first probe
+was `rendered_html LIKE '%standard-calc%'` and it reported inbound links from
+`/index.html` and the footer. **Both were HTML COMMENTS** — one a previous session's
+footer note saying the page is "deliberately NOT linked", one my OWN tool-doc text
+written three hours earlier. This lane already has that landmine written down (*"a
+LIKE probe over rendered_html cannot tell markup from a comment"*) and I walked into
+it anyway, in a query whose answer would have blocked a deletion.
+
+The `bugfix_098` lane's audit is the correct one and I used it: match `href="<url>"`,
+across **page bodies, chrome AND nav** — their note that a body-only census reports
+most of a site as unreferenced is exactly right — and always with a positive control.
+Result: 0 / 0 / 0 for the target; 1 body + 2 chrome for `/tools/consolidation.html`.
+
+**Order matters, and the sitemap is the load-bearing half.** Archive in the platform
+FIRST (`pages.status='archived'`) so nothing re-publishes it, then remove the file.
+But this site's `sitemap.xml` was last written by the **adoption commit** — the
+platform has never regenerated it — and `retract_page_deployment` deliberately
+excludes `sitemap.xml` as a file `pages` does not model. So the platform primitive
+alone would have left a sitemap advertising a 404, **which is precisely the defect
+`bugs_open/098` exists to fix**. File and sitemap entry went in one commit.
+
+> **`retract_page_deployment` is LIVE but UNREACHABLE.** Pod-grep: 6 hits, positive
+> control 20, negative control 0. But it is wired into **no agent** — `SELECT` over
+> `agent_definitions` for it and for `delete_file` both return 0 — so it is a
+> capability with no caller, deliberately (its own PLAN says so). Its acceptance
+> target `robot-hands.com/learning-center/index.html` still served 200 when I
+> checked, so it has never been exercised. I did not seat an agent to reach it:
+> that is the 098 lane's platform change to make, not mine to ride.
+
+> **MISSTEP — I nearly reported a push that had not happened.** `git push` was
+> REJECTED (non-fast-forward, then `cannot lock ref` — the sites repo takes
+> concurrent pushes constantly), and my command still printed a cheerful
+> "pushed: <local sha>" because it echoed `git log -1` of my LOCAL branch. Two
+> rejections before it landed. **Verify at `origin/master`, never at the local ref**
+> — `git ls-tree origin/master` for absence and `git show origin/master:` for the
+> sitemap count.
+
+### The footer's comment shipped on all 27 pages, and the retirement made it FALSE
+
+`chrome/footer.html` opened with a 777-character engineering note explaining which
+pages are orphaned and why the footer exists. **Authored chrome has no tool-doc
+sentinel mechanism**, so unlike a component template, anything written in it is
+published verbatim — on every page of the site. The moment the orphan went, that
+note asserted the existence of a page that 404s, site-wide.
+
+Cut to 138 characters pointing at the RUNBOOK, which already carried the reasoning.
+Reloaded through the unlock → `load_chrome.py --apply` → re-lock procedure written
+this morning (its first use; it worked). Footer 3147 → 2504 b, re-locked, no slot
+mentions the retired page.
+
+**Stated rather than hidden:** the 26 live pages still serve the OLD footer until
+each next re-renders. The source is correct and it self-heals; 26 forced deploys for
+an invisible comment is not proportionate. Third instance today of the same class —
+engineering prose in a shipped artefact — after `tool-loan-repayment` twice.
