@@ -29,16 +29,20 @@ unchanged (`REGISTER_positioning.md`, `check_register.py` must pass).
    (derives favicon+OG from the LOGO). Lendzy has **no logo asset and empty
    sites.logo_url** — imagery-lane work. Residual: confirm discovery sweeps a
    shadow site before relying on auto-filing.
-4. **Seam 4 is REFRAMED and in the diagnosis loop — READ THE VERDICT FIRST:**
-   `RUN_CORRELATION_ID f2252404-257b-49a1-bf3d-6de8b5b294b0`
-   (`SELECT kind, body FROM diagnosis_artifacts WHERE correlation_id='f2252404-…'`).
-   Evidence chain (NOTES 08-03): the tool-recreation-handler's deploy DID run and
-   committed at 19:33:51Z on 08-02, but published the tool's SELF-CONTAINED
-   document (own `<head>`, no site chrome). The 08-02 session's hand-fired
-   19:42:43Z rerenders were compensating for MISSING ASSEMBLY, not a missing
-   dispatch — the old handoff's "queues NO rerender" was a wrong mechanism guess.
-   All 3 runs were retained in `orchestration_states` (may be reaped by now; the
-   evidence is quoted in NOTES).
+4. **Seam 4 is REFUTED — the tool handler was never broken. Do not route work at
+   it.**
+   > **CORRECTED 2026-08-03 (same day this file was written):** this section
+   > originally said the handler "published the tool's SELF-CONTAINED document
+   > (no site chrome)" and pointed at a pending 090 verdict. Both the original
+   > 08-02 claim ("queues NO rerender") and that reframing were WRONG — two
+   > stacked wrong calls, both now in `WRONG_CALLS.md`. The 090 run returned
+   > UNVERIFIABLE (scope-not-narrowing, corr `f2252404`); completing its
+   > "still needed" list first-hand refuted the seam: the handler's own deploy
+   > committed the FULLY-ASSEMBLED page (sites commit `626c8e15d`, 19:33:50Z
+   > 08-02 — header, nav, footer verified in the blob; the "self-contained"
+   > reading came from a 2KB preview of the 28,878-char record), and the
+   > hand-fired 19:42Z rerenders produced NO commit because there was nothing
+   > left to do. Full chain: NOTES 2026-08-03 late morning.
 
 ## Live identifiers
 
@@ -52,19 +56,16 @@ unchanged (`REGISTER_positioning.md`, `check_register.py` must pass).
 
 ## The remaining backlog, in order
 
-1. **Seam 4** — read the f2252404 verdict, then design against the CONFIRMED (or
-   corrected) mechanism. The fix shape question the diagnosis should settle: where
-   the tool deploy path forks from `assemblePage`, and whether the fix is in the
-   handler workflow (deploy after an assemble-mode rerender completes) or in the
-   render branch it calls. Council gate per coherent task; concept-register entry
-   if a new seam ships.
-2. **Seam 5** — links ship to planned-but-unbuilt pages (24 dead tool links in
-   attempt 1; scorecard has the census method).
-3. **Seam 6** — planner imposes the standard shape (blog) past the mission;
+*(Seam 4 was refuted 2026-08-03 — see the CORRECTED block above. The list is one
+shorter than the 08-02 handoff's.)*
+
+1. **Seam 5** — links ship to planned-but-unbuilt pages (24 dead tool links in
+   attempt 1; scorecard has the census method). Council gate per coherent task.
+2. **Seam 6** — planner imposes the standard shape (blog) past the mission;
    015-class; has an owner-call component.
-4. **Seam 7** — in-browser tool fixtures [UNMEASURED]; blocked on serving (lendzy
+3. **Seam 7** — in-browser tool fixtures [UNMEASURED]; blocked on serving (lendzy
    deliberately has no zone).
-5. Optional quick win: canonical sweep of lendzy (one needs_rerender item).
+4. Optional quick win: canonical sweep of lendzy (one needs_rerender item).
 
 ## Cleanups owed on lendzy (unchanged)
 

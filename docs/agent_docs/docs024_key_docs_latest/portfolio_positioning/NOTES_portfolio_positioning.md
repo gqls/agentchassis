@@ -385,3 +385,24 @@ seam-4 line was a correct observation with a wrong mechanism guess. Durable
 cross-cutting claim ⇒ 090 FILED per the CLAUDE.md norm:
 **RUN_CORRELATION_ID f2252404-257b-49a1-bf3d-6de8b5b294b0** — read the verdict
 BEFORE designing the fix (find artifacts by that corr, not the intake id).
+
+### 2026-08-03 late morning — seam 4 REFUTED: the tool handler was never broken
+
+The 090 run came back **UNVERIFIABLE (scope-not-narrowing)** with a precise
+"still needed" list; completing that list first-hand (declared substitute per the
+07-31 ruling) REFUTED the seam entirely:
+1. The handler's own deploy_result (orch dcce231c, FULL 28,878-char HTML — not the
+   2KB preview) contains header + nav + site-footer, one <html>: **assembled**.
+2. The artefact history has exactly TWO commits for the tool page: 626c8e15d at
+   19:33:50Z (the handler's own deploy, chrome verified in the blob) and 12dd4a26f
+   at 22:38:59Z (seam-1 sweep). **The 19:42Z hand-fired items produced NO commit** —
+   they had nothing to do; their completion was misread as having done the work.
+3. No code read needed once 1+2 landed: the handler calls the page renderer, the
+   renderer assembles — as designed.
+
+So: TWO stacked wrong calls (both in WRONG_CALLS.md) — the 08-02 session's
+"queues NO rerender" and this session's "bypasses assembly" (read off a truncated
+preview; the SAME truncation shape stopped the 090 loop). A REFUTED backlog item
+is a success: the seam list shrinks by one and the tool pipeline needs nothing.
+Backlog after this: seam 5 (dead links to planned-but-unbuilt pages) is next;
+then seam 6 (planner shape, owner-call component); seam 7 blocked on serving.
