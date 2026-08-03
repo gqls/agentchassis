@@ -32,3 +32,9 @@
   not confirm or deny; flagged in RUNBOOK rather than stated as fact.
 - Still waiting on: Nominet TAG+EPP password & IP allowlisting, three registrar
   keys, skip-list, www decision.
+- MISSTEP (08-03): appended the coverage-ratchet line via `cat >>` at a guessed
+  path — the shell created a stray file instead of erroring (the real one is
+  `docs026_concept_register/102_coverage_ratchet.txt`). Caught by the pathspec
+  commit refusing an untracked file. The check: `git ls-files --error-unmatch`
+  the target BEFORE a shell append; or use the Write/Edit tools, which refuse
+  unread files.
