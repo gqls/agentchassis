@@ -318,7 +318,20 @@ func createDirectoryCitationFailuresItem(
 		return err
 	}
 	defer tx.Rollback()
-	_, err = insertWorkItem(ctx, tx, workItem{
+	// refreshOnConflict (bugs_open/184). This key is not merely per-site — it is
+	// CONSTANT, and `siteID` is the directory's own system site, so ONE row stands for
+	// the entire model directory. That makes it the coarsest instance of the
+	// bugs_closed/091 class in the tree: every discovery pass after the first writes
+	// nothing while the row is open. The live row has listed the same 15 rejected
+	// candidates since 2026-07-24, across every weekly `model-directory-discovery`
+	// sweep since.
+	//
+	// [UNMEASURED, and it cannot be recovered]: whether the 2026-07-31 sweep found a
+	// different set. `orchestration_states` retains ~24h and a rejected CANDIDATE never
+	// reaches `directory_claims`, so a dropped finding here leaves no trace anywhere.
+	// That is the argument for the refresh rather than against it — it is what makes
+	// the next one observable.
+	_, err = writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "research",
 		pipeline:     "content",
@@ -331,7 +344,7 @@ func createDirectoryCitationFailuresItem(
 		status:       "needs_human_review",
 		createdBy:    params.AgentType,
 		itemKey:      "directory_citation_unverified",
-	}, logger)
+	}, refreshOnConflict, logger)
 	if err != nil {
 		return err
 	}
@@ -560,7 +573,21 @@ func createStaleDirectoryClaimItem(
 		return err
 	}
 	defer tx.Rollback()
-	_, err = insertWorkItem(ctx, tx, workItem{
+	// refreshOnConflict (bugs_open/184), and this is the sharpest of the three because
+	// the SUMMARY STATES A COUNT: "%d claim(s) changed verification status". Under the
+	// default policy that sentence froze at whatever the first pass saw, so the row has
+	// read "1 claim(s)" since 2026-07-25 — a number that was true once, attached to a
+	// list that would not grow. A count is the one thing a human reads without opening
+	// the spec, which makes a stale one worse than no summary at all.
+	//
+	// THE EXPOSURE HERE IS DATED, NOT CONTINUOUS, AND THAT IS THE ARGUMENT FOR FIXING IT
+	// NOW. `model-directory-freshness` runs daily and checks ZERO claims today —
+	// measured 2026-08-03: 97 current claims, none due, `min(verified_at + staleness)`
+	// = **2026-08-23**. So nothing is being dropped this week; a batch falls due in three
+	// weeks, and the July row will still be sitting on the key when it does, because
+	// nothing works the human-review queue (bugs_open/033). Waiting for the symptom
+	// means waiting for the one run that matters and then losing it.
+	_, err = writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "scheduled",
 		pipeline:     "content",
@@ -573,7 +600,7 @@ func createStaleDirectoryClaimItem(
 		status:       "needs_human_review",
 		createdBy:    params.AgentType,
 		itemKey:      "stale_directory_claim",
-	}, logger)
+	}, refreshOnConflict, logger)
 	if err != nil {
 		return err
 	}

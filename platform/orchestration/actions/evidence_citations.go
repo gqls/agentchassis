@@ -411,7 +411,19 @@ func createCitationFailuresItem(
 		return err
 	}
 	defer tx.Rollback()
-	_, err = insertWorkItem(ctx, tx, workItem{
+	// refreshOnConflict (bugs_open/184, the bugs_closed/091 class). The key is per
+	// SITE; the finding is a LIST of rejected candidates that differs every run. Under
+	// the default policy a second research pass on a site whose earlier item is still
+	// open wrote nothing, and the open row went on naming the FIRST batch of rejects —
+	// the live row here has described oufe.com's single 2026-07-26 reject ever since,
+	// through every pass after it.
+	//
+	// The judgement 091's council asked to see confirmed rather than assumed — that a
+	// refresh can rewrite an item under a human mid-read — is WEAKER here, not stronger:
+	// `needs_human_review` has no working surface at all (bugs_open/033, 368 parked
+	// rows), so there is no reader to disturb, and the only thing the current behaviour
+	// protects is a description that is already wrong.
+	_, err = writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "research",
 		pipeline:     "content",
@@ -424,7 +436,7 @@ func createCitationFailuresItem(
 		status:       "needs_human_review",
 		createdBy:    params.AgentType,
 		itemKey:      "citation_unverified:" + siteID.String(),
-	}, logger)
+	}, refreshOnConflict, logger)
 	if err != nil {
 		return err
 	}
