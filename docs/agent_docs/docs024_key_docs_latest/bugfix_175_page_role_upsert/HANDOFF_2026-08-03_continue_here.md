@@ -50,7 +50,12 @@ Recurrence is closed mechanically: `check_partial_page_upsert` in
 
 ## What is NOT done — pick up here
 
-1. **`bugs_open/185` is filed, unowned, census complete, no fix attempted.** ~10 detectors
+> **UPDATE 2026-08-03, later: `bugs_open/185` was PICKED UP by this lane and tranche 1 is
+> committed and council-APPROVED (`66d07687`).** Its own file now carries the progress,
+> the three tranches and the council's answers. What follows is the state as at the first
+> handoff; read `bugs_open/185` for current.
+
+1. ~~**`bugs_open/185` is filed, unowned, census complete, no fix attempted.**~~ ~10 detectors
    select `p.build_status = 'deployed'` on `pages` and are blind to **28 active** (35
    counting archived-but-possibly-served) pages that HAVE shipped under another status.
    False negatives, not corruption. Its fix candidate 1 warns: converging them will make
