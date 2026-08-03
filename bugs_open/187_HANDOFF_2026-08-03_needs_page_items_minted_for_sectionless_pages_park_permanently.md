@@ -9,6 +9,12 @@ population is measured; nobody has yet read the five emitters to establish
 which mint items that were unsatisfiable at birth versus items whose data
 legitimately never arrived.
 
+**CLAIMED 2026-08-03 (evening)** by a dedicated thread (workstream dir:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_187_sectionless_needs_page/`).
+Plan: per-emitter triage per the recipe below, then the shared-resolver
+extraction the `architecture` seat flagged, through the council gate.
+Contribute findings into this file; do not start a competing fix.
+
 ## The measured population (live DB, 2026-08-03; re-run before quoting)
 
 ```sql
