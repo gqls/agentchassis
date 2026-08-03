@@ -186,3 +186,47 @@ would have set off work across its whole backlog on a site you did not ask about
    "research", "operations" and so on, which are not real icon names. After the
    repair those show an empty circle rather than a broken image. Better, not
    right, and it is a content problem on that site.
+
+---
+
+## 2026-08-03 — owner: the chassis roll happens later, when things are quiet
+
+Recorded because it closes one of the three open items and nobody should re-raise
+it: **the owner will roll the chassis themselves, later, at a quiet moment.** That
+is the only step needed to make the broken-image check live, and it no longer
+needs a decision from this lane.
+
+Worth being precise about what that changes and what it does not, so the roll can
+be judged afterwards rather than assumed:
+
+- **It does not touch the sites.** The site repair is already live and already
+  verified on the served pages. Nothing about finetuning.uk depends on the roll.
+- **What it changes is what the framework can SEE.** Until the roll, the
+  broken-image check still cannot recognise an icon name in an image slot. The
+  defect is gone from both sites, but if it recurs — another component forked the
+  same careless way — nothing automated would report it.
+- **How to confirm it worked, afterwards.** Grep the running binary on every
+  replica, with a positive control so a zero is not ambiguous:
+
+  ```
+  strings /app/agent-chassis | grep -c "image_url_404:bare-token-src"   # want ≥1
+  strings /app/agent-chassis | grep -c "image_url_404:empty-src"        # control, want ≥1
+  ```
+
+  Both currently read 0 and 1 respectively. The runbook has the full loop over
+  both pods.
+
+## Where things stand right now
+
+finetuning.uk: **both pages clean and live.** ai-agent-orchestration.com: homepage
+clean, its About page is being repaired as I write — the fleet-wide count of this
+defect has gone from 31 to 8, and those 8 are that one page.
+
+The remaining work on finetuning.uk is content rather than appearance, and it is
+now moving for the first time since April: 17 links pointing at pages that do not
+exist, 28 call-to-action buttons whose wording names a different page than they
+actually go to, and 25 components missing fields their own schema requires. Those
+have handlers and are queued.
+
+Still yours: what to do about the 204 findings parked across ten sites. That is
+unchanged and is the biggest thing this exercise turned up.
