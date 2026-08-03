@@ -110,3 +110,127 @@ fleet-wide banned set is about **self-accuracy overclaims** ("guaranteed accurat
 `claims_global.go:111-215`. **None of them matches "Industry data shows … between
 3% and 10%"** — an attributed-but-uncited statistic. That is 123's fix candidate 3
 and it needs a new detector.
+
+---
+
+## 2026-08-03 — the constraint that shapes the fix: the delivery path is another lane's
+
+Grepped `LANDMINES.md` for the symbols I was about to touch **before** touching
+them (the SessionStart hook only matches files already dirty in the tree, and
+`internal/agents/contentcreator/` was clean). It caught something that changes the
+design:
+
+> `platform/kafka.DeliverReply` returns the outcome that stops the silent starve —
+> and a caller that ignores it compiles, passes platform/kafka's tests, and is unfixed
+> · **fires when:** you adopt the shared reply-delivery policy at one of the 8
+> remaining log-and-return sites (`bugs_open/158` item 1: reasoning, **contentcreator
+> ×2**, websearch ×2, thunder ×2)
+
+So `sendSuccessResponse` / `sendErrorResponse` in `agent.go` are **owned by the 158
+lane, which is active right now**. Two consequences, and the second is the more
+interesting:
+
+1. I must not edit either function, and must not adopt `DeliverReply`.
+2. **A refusal design is ruled out on record, not on taste.** The same entry
+   records that the council's architecture seat ruled on round `7478233b` that
+   widening that adoption "is an RFC moment ... because it changes 4 services'
+   caller-observable failure behaviour from timeout to error response". Making
+   content-creator return an error where it previously returned text is the same
+   class of change to caller-observable behaviour. The claims floor REFUSES a
+   banned claim, and the temptation was to mirror it for symmetry; the floor sits
+   on a *persistence* seam where refusing means "the old content stays", whereas
+   here refusing means "the caller gets an error instead of prose". Different
+   seam, different affordance.
+
+So the design space is **record + annotate, never refuse**, leaving the delivery
+path byte-identical.
+
+### Where a site-less finding can be recorded — checked, not assumed
+
+`agent_error_log.site_id` is **NULLABLE** (`\d agent_error_log`), and NULL-site
+rows are already the majority shape:
+
+```sql
+SELECT site_id IS NULL AS site_is_null, count(*), max(occurred_at)::date
+FROM agent_error_log WHERE occurred_at > now() - interval '7 days' GROUP BY 1;
+--  f | 201 | 2026-08-03
+--  t | 283 | 2026-08-02
+```
+
+So the claims floor's "a pod log line is not a record" rule can be honoured here
+by exactly the mechanism it uses, with no schema change and no invented shape.
+
+**[UNVERIFIED]** Whether the immune-system sweep actually *reads* NULL-site rows.
+I have established the row can be written and can be queried by `error_code`; I
+have NOT established that anything sweeps it. Do not write "the immune system will
+pick this up" anywhere until that is checked.
+
+### The seam in the code
+
+`handleMessage` (`agent.go:192`): generation returns at `:290`, the response is
+assembled at `:332-346`, and `sendSuccessResponse` is called at `:348`. The scan
+belongs between `:297` and `:332` — after generation has succeeded, before the
+payload is built, so the findings can ride in `Metadata` without touching the
+delivery call. `a.db` is a `*pgxpool.Pool` and is **optional** (`NewAgent:127-136`
+runs the agent without it if the DB is unreachable), so any durable record must
+degrade to a log line rather than assume a connection.
+
+---
+
+## 2026-08-03 — blast radius MEASURED before the plan came back, and it changed the design
+
+`bugs_open/124` drew a REJECTED verdict for asking the council to check a
+blast-radius claim instead of measuring it. So this was measured first, with the
+platform's own engine (`cmd/claimscan`, CLM-014) over the **complete live corpus,
+1,130 components** exported today.
+
+**Re-measure, never quote:** the corpus was 908 components on 07-28, 919 on 07-29,
+949 on 07-30 and is **1,130 today**. Every figure in the register entries above is
+already stale.
+
+Candidate pattern set for the attributed-but-uncited statistic (4 patterns, run
+with `-no-global` so only the candidates fire). This is an **UPPER BOUND**: the
+real detector subtracts sentences that carry a citation, and this run has no such
+subtraction.
+
+```bash
+go run ./cmd/claimscan -evidence cand.json -no-global -components corpus.tsv | grep '^BANNED'
+```
+
+**14 findings / 1,130 components = 1.24%.** By pattern: 9 × "bare percentage-of-
+population", 3 × "industry data near a figure", 2 × "research shows near a figure".
+
+### Reading them one by one is what earned the design — 5 of the 14 are FALSE POSITIVES, in three distinct ways
+
+| finding | verdict |
+|---|---|
+| `can-you-trust-ai-with-your-data` "66% of people" ×7 | **TRUE** — an unsourced statistic, live |
+| `learn-index` / `learn-security-xss-vulnerability` / `tool-csp-builder` / `tool-jwt-inspector` "90% of websites" | **TRUE** ×4 — same unsourced figure repeated across four ported pages |
+| `guide-total-cost-of-borrowing` "51% of people" | **TRUE** |
+| `ai-data-trust-in-healthcare` "97% of organisations", `…financial-services` "78% of customers", `…hiring-and-hr` "87% of organisations" | **TRUE** ×3 |
+| `index` + `news` "research showing its AI orchestration framework reduces token usage by 38%…" | **FALSE** ×2 — the sentence begins `[VentureBeat] Writer released research showing…`. The attribution IS cited; the citation just sits outside my window |
+| `noticias-index` "market analysisChrono24" | **FALSE** — a news listing whose source (Chrono24) is fused to the match by the HTML extraction |
+| `can-you-trust-ai-…` and `…financial-services` "industry reported more AI-related incidents in the first half of 2026 than in all of 2025" | **FALSE** ×2 — the `\d` my pattern required is **the YEAR**. No statistic in the sentence at all |
+
+**Three lessons, all of which the plan must carry:**
+
+1. **A citation subtraction is not optional, it is the detector.** Without it the
+   news-listing class alone produces false positives on every site that carries a
+   feed — and those are the pages most likely to quote a sourced figure.
+2. **A bare `\d` matches a year.** `datahelpers` already has the guard for exactly
+   this shape — `isExcludedNumber` (`claims.go:807`) drops composite tokens: dates,
+   times, versions, currency, en-dash ranges, "found by measurement 2026-07-26" on
+   a live sweep. **Reuse it; do not write a second one.** This is CLM-017's
+   recorded landmine ("narrowing a pattern by reasoning can make it inert") in its
+   mirror form: widening by reasoning made mine noisy, and only the corpus said so.
+3. **The nine true positives are the argument for the detector and against
+   blocking on it.** Eight live components on four sites assert an unsourced
+   population statistic today. A blocking detector would strand all of them on
+   their next rebuild — and the observed 5/14 false-positive rate is exactly the
+   reason the estate's numeric scan is "never a blocker". So: **opt-in field,
+   default OFF, record-and-annotate.** That is not deference to a rule, it is what
+   this measurement says.
+
+**[UNMEASURED]** How often the shape appears in content-creator's *own* output. It
+has produced no corpus to sample — one known generation, one fabrication in it.
+The 1.24% above is a page-copy rate and must not be quoted as a generation rate.
