@@ -156,13 +156,35 @@ references. One query against `pages` settled it.
 ## 9. Next steps
 
 1. **[IN FLIGHT at handoff]** `needs_composition` (`5484b580-05cc-44b8-9f1c-f328dfd59796`)
-   and `needs_design` (`8d462e1b-16a8-48d9-b407-0d79d28a6f8e`) released with a
-   backstop running. **Success test is the artefact, not the item status:**
+   → **COMPLETE 10:26 UTC**. `needs_design` (`8d462e1b-16a8-48d9-b407-0d79d28a6f8e`)
+   → still `triaged`, waiting for the dispatcher. Backstop was running; re-arm one if
+   you release anything else.
+
+   **Success test is the artefact, not the item status:**
    `curl -o /dev/null -w '%{http_code}' https://mortgagecalculator.co.uk/assets/css/style.css`
-   must become **200** (it is 404 now). Note the sibling uses `style.css`; our trial
+   must become **200** (404 at handoff). Note the sibling uses `style.css`; our trial
    page asked for `styles.css` — **check which filename the generated stylesheet
    actually takes, and whether built pages reference the same one.** If they
    disagree, that is a real bug and worth its own file.
+
+   > **Expect to WAIT, and do not read the wait as a stall.** The gate picks ONE site
+   > fleet-wide, `ORDER BY wi.created_at ASC` — **oldest item wins, priority is only a
+   > tiebreak**. `finetuning.uk` currently holds **125 triaged items, the oldest from
+   > 2026-07-26**, so it wins nearly every tick and our 08-02/08-03 items are behind
+   > all of them. It is not deadlock — the site's own `claimed`-mutex forces rotation,
+   > and our composition item did get through — but a release here can sit for many
+   > ticks. Check where you are in the queue rather than assuming something broke:
+   > ```sql
+   > SELECT s.domain, wi.item_type, wi.created_at FROM site_work_items wi
+   >   JOIN sites s ON s.id=wi.site_id
+   >  WHERE s.locked_at IS NULL AND wi.status IN ('triaged','approved')
+   >    AND wi.attempt_count < wi.max_attempts
+   >    AND NOT EXISTS (SELECT 1 FROM site_work_items a WHERE a.site_id=wi.site_id AND a.status='claimed')
+   >  ORDER BY wi.created_at ASC, wi.priority ASC LIMIT 5;
+   > ```
+   > **Do NOT "fix" this by back-dating your own rows.** If a lane genuinely needs to
+   > jump the queue the honest lever is the site lock on the *other* site, and that is
+   > the other lane's call, not yours.
 2. **Re-lock the site** once they finish, and prove it with the §3 gate query.
 3. **Rebuild 2–3 non-homepage pages** so the owner judges them styled. Re-run the
    first-time-buyer guide too — it was built unstyled and should be redone.
