@@ -354,3 +354,75 @@ Nothing lost, forward-only holds, and the entry is at HEAD. Recording it because
 the tell was confusing for a moment — "my commit dropped a file" and "someone
 else already committed my change" look identical at `git commit` and are
 distinguished only by reading HEAD.
+
+---
+
+## 2026-08-03 — REFINEMENT to my own claim: the LLM layer DID see it; the structural layer did not
+
+I have been writing "a live broken image with no finding anywhere", including in
+the council submission. **Checked rather than left standing**, because it is the
+load-bearing claim of the whole checker fix:
+
+```sql
+SELECT s.domain, wi.item_type, wi.created_at, left(wi.summary,100)
+FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+WHERE wi.created_at < '2026-08-03 10:14'
+  AND (summary ILIKE '%src="cpu"%' OR summary ILIKE '%bare word%'
+       OR summary ILIKE '%broken img%' OR summary ILIKE '%member-photo%');
+-- 0 rows, fleet-wide, all history
+```
+
+So the claim was TRUE as stated and as submitted. **But today's run changes the
+picture going forward, and the refinement is worth more than the claim was.** At
+10:16 the `design-audit` agent filed, unprompted:
+
+> *"The team-section uses a broken img src value of `src="cpu"` — a bare word
+> rather than a valid image path — which will render as a broken image icon,
+> creating a significant visual layout defect with unpredictable sizing in the
+> team grid that breaks alignment across cards."*
+
+That is the same diagnosis I reached, reached independently, by an LLM auditor
+reading the page. Two things follow.
+
+**First, it corroborates the diagnosis from a source that shares none of my
+reasoning** — I read the template and the schema; it looked at the rendering. Not
+proof, but the strongest independent agreement available here.
+
+**Second, it locates the gap more precisely than I did.** The framework was never
+totally blind to this: its **LLM audit layer** could see it. What could not see it
+is the **structural layer** — the deterministic `discovery_checks` that run cheaply
+every cycle, need no tokens, and are what "does the framework catch this?" should
+mean for a defect class that recurs. An LLM noticing a thing once, on the run
+where someone happened to fire the loop, is not detection you can rely on; a
+predicate is. So the fix is still the right one, and I should have said "no
+STRUCTURAL finding" rather than "no finding anywhere".
+
+Recording it as a refinement rather than a retraction because the submitted claim
+was accurate for the period it described — but the more careful phrasing is the
+one that would have survived this check, and it is the one to use from here.
+
+**Also confirmed by the same run: the empty-src branch works.** It filed
+*"16 `<img>` tags render with no image source (empty or '#' src)"*. That is the
+branch I nearly declared broken on 07-26 evidence before noticing the running
+binary predated it. It shipped 07-31, this is its first run on this site, and it
+fired correctly. The earlier note stands: nothing was wrong there.
+
+## What else the fresh audit found (answering "see what you can see wrong")
+
+The run filed 157 new items. By weight:
+
+| type | n | high | what it is |
+|---|---|---|---|
+| `page_rerender` | 70 | 28 | mostly misdirected CTAs — copy names a different page than the link goes to |
+| `required_fields_missing` | 25 | 0 | components missing schema-required fields |
+| `cta_names_unknown_destination` | 18 | 0 | a CTA whose label names a destination that does not exist |
+| `phantom_internal_link` | 17 | **17** | links to pages that are not there |
+| `empty_section` | 7 | 0 | the long-standing ones, re-detected |
+| `image_url_404` | 6 | 0 | incl. the 16 empty-src tags |
+| `claims_unverified` | 4 | 0 | stats on /about not in the register |
+| `needs_design_review` | 2 | **2** | body font is Merriweather (serif) where the style collection specifies otherwise |
+| `cta_improvement` | 1 | **1** | the only visible conversion path is one high-commitment CTA |
+
+The phantom links and misdirected CTAs are the substantial content problem behind
+the visual one, and they now have handlers and are queued — which is the first
+time that has been true on this site since April.
