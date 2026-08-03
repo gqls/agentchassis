@@ -27,8 +27,12 @@ Nothing is owed. **One thing is open and it is an owner decision, not a residual
 `platform/orchestration/coordinator.go` — `localActionContext()` derives a deadline that
 `executeLocalAction` applies to the handler call.
 
-- default **600s**; per-step `local_action_timeout_seconds`; **`<=0` disables** (Warn every
-  time); **`DISABLE_LOCAL_ACTION_TIMEOUT=true`** kills it fleet-wide with no rebuild.
+- default **7200s** (owner ruling 2026-08-03; **600s was wrong and would have cut
+  `med_scrape_prices`, a real 23-minute local action — see `WRONG_CALLS.md`**); per-step
+  `local_action_timeout_seconds`; **`<=0` disables** (Warn every time);
+  **`DISABLE_LOCAL_ACTION_TIMEOUT=true`** kills it fleet-wide with no rebuild.
+- an action using **>50% of its budget is logged while still succeeding**, so the ceiling
+  moving is heard about before anything is cut.
 - a **malformed** value falls back to the DEFAULT, never to unbounded.
 - `DeadlineExceeded` is wrapped to name action / step / elapsed, then routed through the
   existing `handleActionError` so `error_step` is unchanged.
@@ -67,20 +71,16 @@ snapshot `endpoint-health-checker`, set `local_action_timeout_seconds: 0.001` on
 not by eye**. Expect a `FAILED` run whose error ends
 `query endpoints: context deadline exceeded`. Full SQL in `NOTES`.
 
-## The one open item — needs YOU, not a thread
+## The former open item — NOW DECIDED
 
 **`docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_011_a_fleet_wide_execution_deadline_on_the_step_seam.md`**
 
-Should the coordinator impose an execution deadline on **every** local action by default?
-Three costed options: (a) default ON at a generous constant — what is running now;
-(b) default OFF, opt-in per step — which is what the 2026-08-02 RFC_010 ruling asks for
-in general, but which walks straight into the inert-by-omission defect **RFC 006** was
-decided on the same day; (c) bound it at a higher layer — which is what
-`coordinator.go:831` already is, and it demonstrably did not solve this.
-
-Council **approved** the change; the `architecture` seat's objection was about **how a
-fleet-wide guarantee change reached production**, and per the 2026-07-28 ruling a scope
-objection is not answered by better measurements. So it was routed, not rebutted.
+**DECIDED 2026-08-03 — option (a):** every step gets a limit, default very generous. The
+re-measurement that ruling forced caught a real defect: **600s would have cut
+`med_scrape_prices` (~1,391s) on every run**, because the percentile it was sized from
+could not see one 23-minute action among 91,210 mostly-sub-second ones. Default is now
+**7200s**, sized from the longest observed legitimate action and pinned by a
+mutation-tested regression test. **Nothing is outstanding.**
 
 ⚠ **Cite RFCs by SLUG.** `RFC_009` and `RFC_010` are each **two different files** by
 different sessions. Same collision hazard as migrations — landmined this session.
