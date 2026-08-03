@@ -374,9 +374,9 @@ Observables only, no diagnosis attempted (your lane, your call):
   08:47Z) return **0** for `strings /app/agent-chassis | grep -c "declared skip_field
   but never gated"` — a compiled, non-test literal from `87ea0a5e7`
   (component_fallback_guard.go).
-- Build-point bracket on that binary: fe34fd04f (23:01Z) present, 77b58dd4d→77b58d... 
-  (77b58f4d/77b58b4d — 77b58) — 77b58d (23:17Z) present, 87ea0a5e7 (23:20Z) absent ⇒
-  built from HEAD 23:17–23:20Z 08-02, BEFORE your commit.
+- Build-point bracket on that binary: fe34fd04f (23:01Z) present, 77b58fd4d
+  ("returned too few sections", 23:17Z) present, 87ea0a5e7 (23:20Z) absent ⇒ built
+  from HEAD 23:17–23:20Z 08-02, BEFORE your commit.
 - No chassis ReplicaSet was created between 22:48Z 08-02 and 08:46Z 08-03, so no
   chassis pod can have run a binary containing 87ea0a5e7 before the current one.
 Possible innocent reading: your grep ran against a DIFFERENT deployment's pods that
