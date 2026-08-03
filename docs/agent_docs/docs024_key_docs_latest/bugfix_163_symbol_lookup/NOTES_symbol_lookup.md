@@ -95,3 +95,42 @@ at filing. Nothing has ever been mechanically confirmed by this verifier.
   is the BEFORE arm of the A/B proof. Its `answerCodeCheck` symbol check exists at the
   indexed commit; `parseSymbolQuery`/`symbolClauseFor` do not (added today), so after the
   roll those two must STILL return 0 from the index — which is the landmine's own point.
+
+## 2026-08-03, ~21:30Z — LIVE on v1.0.1245, both replicas, three probes
+
+- **The roll that beat me to it:** the 178 lane built+rolled `v1.0.1244` at 21:15-16Z from a
+  HEAD cut minutes BEFORE `c3b02f035` — pod-grep showed the added strings ABSENT with the
+  positive control PRESENT, i.e. an image that genuinely predates the fix, not a bad grep.
+  Bumped to `v1.0.1245` (`015ffacb0`), built from committed HEAD, verified the LOCAL image
+  first (docker run + strings: 1/1/1), pushed, deployed.
+- **Pod proof, both replicas (`76d455b95d-ftswd`, `-hccrc`, started 21:26Z):**
+  `names a LINE, not a symbol` = 1 (added), `the NAME alone matches` = 1 (added),
+  `searched the names of` = 1 (positive control), `SplitSymbol_163_shouldnotexist` = 0
+  (negative control). 1/1/1/0 on both.
+- **The 21:16 roll KILLED five in-flight council review steps — including this lane's own
+  submission** (`da1d3a40`, died mid `review_prior_art`; all five rows' `updated_at` predate
+  the pod restarts). Resubmitting with `RESUBMIT_CORR` so the trail accumulates; the fix
+  commit already carries `Council-Submitted:` and 098 resolves at report time.
+- Dispatch discipline: nothing fired at the cluster until ≥300s after the 21:26 pod starts.
+
+## 2026-08-03, 23:00Z — END-TO-END PROVEN, and a correction to my own damage figure
+
+**The A/B proof, on the exact entry whose failed verification produced 163:**
+
+| date | binary | verdict on `LANDMINES.md#readsymbolbody-s-whole-file-branch…` |
+|---|---|---|
+| 07-31 16:01Z | pre-fix | NEEDS_HUMAN_REVIEW — "`ReadSymbolBody`, `findFile`, `namedScope`, `nextScope`, and `NextScope` returned 0 rows — most likely because the code index predates the bugfix_145 commit" (FALSE cause) |
+| 08-03 22:56Z | **v1.0.1245** | **STILL_VALID — "All footprint files and symbols (`ReadSymbolBody`, `findFile`, `scopeFromCodeResults`, `namedScope`, `nextScope`, `route.scope`) confirmed present at their cited locations; the code index predates the bugfix but confirms the pre-fix structure the entry describes"** |
+
+Same entry, same index commit (`d98010e8b` — deliberately, per the RUNBOOK landmine), same
+footprint text. The only changed variable is the binary. And the new verdict handles the
+stale-index fact HONESTLY — names it, scopes it, invents nothing.
+
+**> CORRECTED 2026-08-03, same session: my "20 verdicts, 16 NEEDS_HUMAN_REVIEW, 0 CONFIRMED"
+> figure above is part-wrong.** "CONFIRMED" is not in the verdict vocabulary
+(`STILL_VALID|STALE|NEEDS_HUMAN_REVIEW`), so my `LIKE '%CONFIRMED%'` filter counted a string
+that cannot occur — a zero that could never have been non-zero. Pre-fix truth: **21 verdicts,
+16 NEEDS_HUMAN_REVIEW, 4 STILL_VALID (all via content/ls checks), 1 STALE.** The structural
+claim is unchanged — no path-bearing SYMBOL check ever returned a row (23/23, plus today's
+live predicate test). Caught by reading the first post-fix verdict instead of the counter;
+logged in WRONG_CALLS. The register banner (DOC-069) is corrected in place.

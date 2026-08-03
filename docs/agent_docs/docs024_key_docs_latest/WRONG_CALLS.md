@@ -18571,3 +18571,29 @@ without checking what the 37 contained — 17 are `pool-*.internal` and one is
 `system.internal`, so the real denominator is 19. Caught before publishing, but the
 habit it belongs to is the one already logged as "a filtered count can ship inside a
 DENOMINATOR": **name the population in the same breath as the number.**
+
+## 2026-08-03 — "0 of 20 verdicts ever CONFIRMED" counted a string the verdict vocabulary cannot emit
+
+**The claim that was wrong:** this lane's own damage measurement for `bugs_open/163`
+(`SELECT count(*) FILTER (WHERE body LIKE '%CONFIRMED%') FROM doc_notes WHERE categories
+? 'landmine-verification'` → 0) was written into the DOC-069 register banner and a commit
+message as "0 of 20 verdicts ever CONFIRMED". The landmine-verifier's verdict vocabulary
+is `STILL_VALID | STALE | NEEDS_HUMAN_REVIEW` — it structurally cannot write "CONFIRMED",
+so that zero was true regardless of what the verifier ever did. Pre-fix truth: 21
+verdicts, 16 NEEDS_HUMAN_REVIEW, **4 STILL_VALID** (via content/ls checks), 1 STALE. The
+check-level claim ("no path-bearing SYMBOL check ever returned a row", 23 of 23) was and
+is correct; the verdict-level phrasing overstated the blindness.
+
+**Why.** The word came from 163's own "How to verify" section ("a CONFIRMED for a present
+one"), written loosely by the filing lane; I encoded the prose into a filter without first
+reading one actual verdict body to learn the enum. The filter defined the conclusion.
+
+**What caught it:** reading the first post-fix verdict to quote it — its pass value was
+`STILL_VALID`, which the counter would have scored as "not confirmed".
+
+**The cheap check that would have caught it:** before filtering on a status string, SELECT
+one real row and read the value set — or better, `count(*) GROUP BY` the extracted status
+so every value the corpus actually contains appears in the result. A filter for a value
+you have never seen in a row is a hypothesis about the vocabulary, not a measurement.
+(Family: "a `[MEASURED]` figure is only evidence if the measurement could have come out
+otherwise" — this zero could not have.)

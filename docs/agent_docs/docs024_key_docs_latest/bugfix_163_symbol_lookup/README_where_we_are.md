@@ -57,3 +57,26 @@ function where the fault lives. The bug then sat untouched for two more days. Th
 narrow and useful: when you check whether someone else is on a bug, search for the **function
 you would have to edit**, not the name of the thing that is broken. Everyone adjacent says the
 latter; only the person fixing it says the former.
+
+---
+
+**2026-08-03, night.**
+
+The fix is written, reviewed by machine-proof where machines can prove (every new test was
+shown to fail when the fix is removed — not just to pass when it is there), committed, built
+into image 1245 and running on both live replicas. We checked the running binaries directly:
+the new phrases the fix prints are in them, an old phrase that was always there is still
+there (which proves our checking method works), and a phrase we never wrote is absent (which
+proves the check cannot say yes to just anything).
+
+Two pieces of theatre from a shared workshop tonight, both worth a sentence. Another team's
+image build went out two minutes before our fix landed, so the "latest" image looked fresh
+and did not contain our work — we caught it because we always check the running binary for
+the actual change, never the version number. And that same team's deployment restarted the
+machines while five review-council sessions were mid-deliberation — including ours — killing
+all five. Ours has been resubmitted; the paper trail keeps both rounds under one reference.
+
+The last thing owed is the end-to-end demonstration: we have pointed the landmine-checker at
+the very entry whose failed check started this whole investigation, on the new binary. If it
+comes back actually confirming the symbols it looks for — something it has never once managed
+in twenty attempts — the ticket closes.

@@ -428,9 +428,12 @@ the SAME way AGREE"*.
 > same pass: the prompt is `architecture_review`'s mechanism (RFC_005 §3.2) and the owner
 > ruling of 2026-07-29 says a shared mechanism's owners are told, not patched around;
 > with the per-check predicate now in `results_text` the prompt fix is smaller than it was.
-> Re-measure before quoting: 20 verdicts / 16 NEEDS_HUMAN_REVIEW / **0 CONFIRMED** was the
-> state at fix time — the first mechanically-CONFIRMED verdict after the roll is the proof
-> the fix is live.
+> Re-measure before quoting: 21 verdicts / 16 NEEDS_HUMAN_REVIEW / 4 STILL_VALID (via
+> content/ls checks) / 1 STALE was the pre-fix state — the vocabulary has no "CONFIRMED",
+> a word an earlier wording of this note wrongly counted (see WRONG_CALLS 2026-08-03).
+> **PROVEN LIVE 2026-08-03 22:56Z on v1.0.1245:** the same entry whose 0-row false verdict
+> opened 163 re-verified as STILL_VALID with every footprint symbol "confirmed present at
+> their cited locations" — same entry, same indexed commit, only the binary changed.
 
 ### Data-driven component shells render empty — inline `<script>` never extracted to `js_content`
 

@@ -226,3 +226,52 @@ form that survives `split_footprints` intact, so it will start working the momen
 - Family: MEMORY's *"a claim about behaviour is NOT the behaviour"* and *"a PASS from a
   BLIND check outlives the blindness"* — this is the same shape with the sign flipped: a
   FAIL from a blind check, carrying an invented explanation that will outlive it.
+
+---
+
+# CLOSED 2026-08-03 — FIXED AND LIVE on v1.0.1245, end-to-end proven on this bug's own motivating entry
+
+**Fixing lane:** `docs024_key_docs_latest/bugfix_163_symbol_lookup/`. Fix commit `c3b02f035`;
+council trail `da1d3a40-8ec1-4ea1-9c65-8c585ec2d013` (round 1 killed mid-flight by an
+unrelated chassis roll — the documented council-killing roll behaviour — resubmitted on the
+same correlation; commit carries `Council-Submitted:`).
+
+**What shipped (fix candidate 1, plus two things the file did not predict):**
+- `symbolTokenClause` → `parseSymbolQuery` + `symbolClauseFor`: split on the LAST colon via
+  `analysis.SplitSymbol` (exported — the `SliceLines` precedent), path half → `path` column,
+  name half → token-AND on `symbol` (the 51e0776fb receiver-form behaviour byte-identical
+  for colon-less queries; tests pin it).
+- **A `:LINE` suffix degrades to a path check and says so** — 12 corpus footprints are line
+  references (`spawn_actions.go:3066`), and a naive split would have sent "3066" to the
+  symbol column: this bug in a new costume.
+- **A path-qualified miss re-runs name-only and reports both facts** ("0 rows AT THAT PATH …
+  the NAME alone matches N elsewhere") — a moved file can never again read as a missing
+  symbol, which is the precise shape that produced this bug's false verdict.
+- **Every 0-row answer names the predicate it executed** (`-- searched: …`) — fix candidate
+  3, retargeted: the QUERY already reached the model (`:394`); the missing thing was the
+  predicate, the per-check fact that can override the run-level staleness banner.
+
+**The A/B proof (same entry, same indexed commit `d98010e8b`, only the binary changed):**
+- 07-31, pre-fix: NEEDS_HUMAN_REVIEW — symbols "returned 0 rows — most likely because the
+  code index predates the bugfix_145 commit" (the invented cause this file documents).
+- 08-03 22:56Z, v1.0.1245: **STILL_VALID — "All footprint files and symbols
+  (`ReadSymbolBody`, `findFile`, `scopeFromCodeResults`, `namedScope`, `nextScope`,
+  `route.scope`) confirmed present at their cited locations; the code index predates the
+  bugfix but confirms the pre-fix structure"** — every symbol resolves, and the staleness
+  fact is stated honestly instead of invented.
+
+**Fix candidates 2 and 4/5, dispositioned rather than silently dropped:**
+- (2) the verify-prompt rule is `architecture_review`'s mechanism (RFC_005 §3.2, owner ruling
+  2026-07-29: consumers are told, not patched around) — told via
+  `architecture_review/NOTE_2026-08-03_163_symbol_lookup_fixed…`; the new `-- searched:` line
+  shrinks that prompt fix to one sentence.
+- (4/5) the prompt and corpus need no change: the executor now honours the prompt's own
+  contract, and `split_footprints` is not on the verifier's path at all (`derive_checks`
+  reads the raw `entry.body` — `landmines_lib.py:166`), which is the mechanical reason the
+  banner's two refuted theories never could have been the cause.
+
+**Corrections to this file, from the fixing lane:** `splitSymbol` is at
+`symbolbody.go:105-114` (not `:76-82`); `split_footprints` at `landmines_lib.py:51` (not
+`:44`). And this file's "How to verify" says "a `CONFIRMED`" — the verdict vocabulary is
+`STILL_VALID|STALE|NEEDS_HUMAN_REVIEW`; counting "CONFIRMED" produces a zero that cannot be
+non-zero (WRONG_CALLS 2026-08-03 ×2).
