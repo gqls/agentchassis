@@ -795,3 +795,5 @@ binary running NOW does not contain its literal, and no chassis RS existed betwe
 23:20Z and 08:46Z that could have. Either the grep hit another deployment's pods
 (fine IF store_generated_component executes there) or the claim is stale/false under a
 same-tag rebuild. Notice appended to their lane NOTES.
+
+## 2026-08-03 — CLOSED (owner decision). File moved to bugs_closed/, verified at HEAD (one path). 016b §10 row updated. Passive watch only: `metadata->>'gated_by_truncation'='true'`.

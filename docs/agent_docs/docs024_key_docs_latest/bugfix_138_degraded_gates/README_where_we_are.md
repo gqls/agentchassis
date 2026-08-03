@@ -138,3 +138,13 @@ Worth saying plainly: two of today's four hours went on measurements I got wrong
 first. I wrote a warning about a specific trap into my own query and then read the
 next result straight through it, because the wrong answer happened to make a better
 story than the right one. Both are written up where the next person will hit them.
+
+2026-08-03 — You closed the bug today. Everything we built is running: the honest
+label, the pressure alert, the bigger budgets, the brevity instruction, and the repair
+fix that fell out of last week's detective work. The one thing we never saw — the label
+actually printing in production — we chose to accept on the evidence, because we proved
+every piece of it separately, and because the attempt to force it taught us the
+reviewer will not fake a verdict even when told to. That refusal was the best finding
+of the week: the thing we could not test is guarded by the very integrity we were
+testing for. If the label ever prints on its own, someone will note it in the closed
+file, and that is the end of it.
