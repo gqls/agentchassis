@@ -1,7 +1,26 @@
 # 174 — the diagnosis dispatch loop drops `seed_scope` (and `runtime_page`), so a diagnosis you aimed at specific symbols silently runs against whatever the code search happened to return
 
-**Filed 2026-08-01 by the `bugfix_164` lane.** OPEN, UNOWNED. **LIVE — it has already
-degraded two other lanes' diagnoses**, see § Measured.
+**Filed 2026-08-01 by the `bugfix_164` lane.** ~~OPEN, UNOWNED. **LIVE — it has already
+degraded two other lanes' diagnoses**, see § Measured.~~
+
+> **CORRECTED 2026-08-03 (mortgagecalculator adoption lane) — THE FIX IS LIVE, and this
+> file lives in `bugs_closed/` while its own header still said OPEN.** The header is what
+> a reader sees first, so the contradiction is worth more than the tidy-up it looks like:
+> I read it, believed `seed_scope` was still dropped, and nearly skipped passing one.
+> Verified live, in the config this bug is about — both dropped keys are now in the
+> `call_handler` allow-list:
+> ```sql
+> SELECT jsonb_pretty(default_config->'workflow'->'steps'->'call_handler'->'config'->'input_mapping')
+>   FROM agent_definitions WHERE type='diagnose-dispatch-loop' AND is_active
+>     AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+> -- → "seed_scope?": "claimed.seed_scope",  "runtime_page?": "claimed.runtime_page"
+> ```
+> **`SEED_SCOPE` therefore reaches the agent again and is worth passing.** Corroborating
+> evidence from the same session: a `090` run authored WITHOUT one failed at
+> `assemble_bundle` with `no scope (tried "route.scope.Symbols", "input_data.seed_scope",
+> then code_results)` — i.e. the seed is now a genuine third rail the router falls back
+> to, not a dead key. **A closed bug's status line is not re-checked by anything**; only
+> its directory is. See [[a-closed-bugs-scope-out-expires]] in the same family.
 
 ## How it was found
 
