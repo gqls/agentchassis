@@ -742,6 +742,42 @@ def check_handrolled_shipped_predicate(files, ref, findings):
                 break
 
 
+# ── "unsupported figure" — TRIED and DECLINED, 2026-08-03, on the measurement ──
+#
+# bugs_open/185 lane. The idea: flag a count or "N of M" claim, newly added to a
+# bug/NOTES/PLAN/HANDOFF/SUMMARY file or a Go comment, that carries no date, no
+# [MEASURED]-family marker, and no adjacent code block — the "typed from memory"
+# shape this session hit twice (a count written from recollection rather than
+# from the command sitting next to it).
+#
+# CALIBRATED, NOT SHIPPED. Two scopes were built and measured against real
+# history, and both fired on ordinary, well-evidenced work far past this file's
+# own bar ("anything that fired on ordinary work was cut"):
+#   - markdown docs (bugs_open/bugs_closed/NOTES/PLAN/HANDOFF/SUMMARY), evidence
+#     scoped to the enclosing paragraph: 175 historical commits sampled, 92 fired
+#     (53%), 226 total findings.
+#   - Go comment blocks fleet-wide, evidence widened to any date OR marker OR a
+#     command/query signal in the block: 323 figure-bearing comment blocks found,
+#     103 (32%) lacked all three.
+#
+# READING THE SAMPLES IS WHAT KILLED IT, not the raw rate alone. The false
+# positives were not sloppy edge cases — they were this codebase's NORMAL, GOOD
+# house style: a section states "**Measured, <date>:**" once, then several
+# paragraphs of prose cite counts from it without repeating the marker each
+# time. Requiring evidence in every paragraph would make the annotation absurd
+# (a tag before every sentence with a number) — and this session's OWN true
+# figures were written exactly the same way, so the check could not have told
+# my true claims from my false ones. The shape and the defect are lexically
+# identical; only the epistemic status differs, and that does not show up as
+# text. See TALK_2026-08-03b_the_ratchet_from_judgement_to_mechanical.md.
+#
+# What DOES stay mechanical from this investigation: the trailer-shape check
+# below (a real syntactic property, not a judgement call) and the CLAUDE.md
+# doctrine line asking the question a regex cannot: could this measurement have
+# come out otherwise? That question is answered by the author, at the moment of
+# writing, or not at all.
+
+
 def check_append_only_docs(files, ref, findings):
     """Owner directive — SUMMARY snapshots and README_where_we_are are append-only."""
     for path in files:
@@ -1394,7 +1430,8 @@ def main():
                   check_truncation_without_reader, check_logged_model_output,
                   check_new_capability_surface, check_register_coverage,
                   check_runtime_fill_marker, check_unrepaired_component_write,
-                  check_partial_page_upsert, check_silent_reply_drop):
+                  check_partial_page_upsert, check_silent_reply_drop,
+                  check_handrolled_shipped_predicate):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit
