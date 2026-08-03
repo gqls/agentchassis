@@ -1988,8 +1988,11 @@ source document and the entry points at it.
 - **the tell:** two work items for one repair, under two different `item_key` prefixes — so `idx_swi_dedup` cannot collapse them and the queue reads as two problems. Until this fix, `image_url_404`'s recognised-purpose branch and `check_placeholder_image_in_use` shared the same two paths (`/assets/images/hero.jpg`, `/assets/images/logo.png`), the same purposes, the same item types, the same `image-build-handler`, the same severity and the same precondition, and **both are enabled on the same agent**. Neither had ever fired, which is why the duplication was invisible: `SELECT count(*) FROM site_work_items WHERE item_key LIKE 'placeholder_image_in_use:%'` returned **0**, and 0 of the 13 `image_url_404:%` rows carried either routed type.
 - **the check:** before adding image detection, `grep -l "assets/images" platform/orchestration/actions/discovery_checks/*.go` and read the headers — there are now four checks in this space with deliberately different questions: `image_url_404` (a rendered path no active asset deploys to — flag-only), `placeholder_image_in_use` (the documented fallback path with no asset of that purpose — routes a regeneration), `undeployed_asset` (the asset row exists, the file was never pushed), `image_source_unsatisfiable` (a component's `input_schema` asks for an image nothing can supply). If your new predicate does not differ from all four, you are widening one of them, not adding a fifth.
 - **why it is a landmine:** a check that has never fired looks like dead code to a reader and like available space to an author. It is neither — it is a live predicate whose precondition is rare, and duplicating it costs a second unclearable work item on the first site where the condition finally holds.
+- **ONE SHAPE IS NOW SETTLED, so the next author does not re-derive it (2026-08-03).** A third kind, `bare_token_src` (`<img src="cpu">` — an icon name rendered into an image slot), was added to `image_url_404`. **It cannot collide with `placeholder_image_in_use`, and that is a property of the pattern rather than a judgement:** the sibling matches two LITERAL paths, `/assets/images/hero.jpg` and `/assets/images/logo.png`, and the new predicate's character class is `[^"/.:#\s]+` — it excludes `/` and `.`, which both of those paths contain. **No input fires both.** The four-way split this entry's "the check" line prescribes still holds and is worth restating with the new kind in place: `image_url_404` now owns three shapes (a path no asset deploys to · empty/`#` src · a bare word), all flag-only; `placeholder_image_in_use` owns the two documented fallback paths and ROUTES a regeneration; `undeployed_asset` and `image_source_unsatisfiable` do not read rendered HTML at all. Council `cfc94d91-3d17-4f29-a370-2b91d1a59a6f`: round 1 REVISE, gated high on exactly this overlap not having been checked; round 2 **APPROVED** once it had been.
+- **and note HOW that landmine was missed**, because it generalises: the author grepped this file by the path and symbol they were EDITING, and this entry's discriminating text is about the OTHER file. **An overlap landmine is keyed to a PAIR, and is often findable only by the half you are not touching** — so when you are widening any detector, grep the whole family's footprint, not just your own file.
 - **source:** 2026-07-31, `bugs_closed/128`, commit `beff42809`
 - **added:** 2026-07-31, bugfix_128 lane
+- **updated:** 2026-08-03, finetuning.uk repair lane — the `bare_token_src` shape resolved against this entry, at the council's request that the analysis live somewhere agents can read rather than only in a Go comment
 
 ### An API USAGE-LIMIT death looks exactly like a transient seat fault, and the runbook's advice for the transient case — "resubmit unchanged" — is actively wrong for it
 
@@ -4251,3 +4254,52 @@ that is also the thing you would want in the logs is not.
   `PRE_FIX_REF` three hours earlier, in a different file: a baseline that names a
   MOVING thing stops being a control, and the expiry is silent.
 - **added:** 2026-08-03, loancalculator lane
+
+---
+
+## Obeying `on_missing:"skip_field"` is NOT "wrap the field in `{{if}}`" — for most of the library the field sits in a cell of a fixed-arity row, where that edit is either a NO-OP or emits malformed HTML
+
+- **footprint:** `content_components.html_template`, `input_schema.fields.*.on_missing`,
+  `scripts/check_placeholder_fallbacks.py` (its UNGATED class),
+  `docs/agent_docs/sql_for_agents/295_twenty_components_gate_their_declared_skip_fields.sql`,
+  and any lane clearing an "ungated skip_field" finding
+- **fires when:** the lint hands you a list of fields "declared skip_field, referenced,
+  never gated" and you do the obvious thing — put `{{if .field}}…{{end}}` around the
+  field. No symptom precedes this: the template parses, the lint goes quiet, and the
+  page renders.
+- **the tell:** there is none, and the two failure modes look opposite but both pass
+  the lint, because **the lint tests for a gate ANYWHERE in the template — it cannot
+  see what the gate encloses.**
+  1. **The NO-OP.** `<td>{{.spec_1_value}}</td>` becomes
+     `<td>{{if .spec_1_value}}{{.spec_1_value}}{{end}}</td>`. When the datum is absent
+     that renders `<td></td>` — byte-for-byte what it rendered before. The finding
+     clears, the blank cell is still there, and the lint will now never mention it
+     again. This is the more dangerous half: you have removed the detector, not the
+     defect.
+  2. **The MALFORMED ROW.** Gate the `<td>` itself and a 4-column
+     `platform-comparison` row emits three cells. Every column after the gap shifts
+     left, which is worse than the blank it replaced and appears only when a site
+     happens to omit that datum.
+- **why it is nearly always a cell:** measured 2026-08-03 across the live library —
+  **62 of the 68 ungated fields are the ungated PARTNER of a gated field**:
+  `{{if .spec_1_name}}<tr><th>{{.spec_1_name}}</th><td>{{.spec_1_value}}</td></tr>{{end}}`.
+  The row is gated on the NAME; the VALUE is not. So the element that must disappear
+  is almost never the one the field sits in.
+- **the check:** before editing, read what ENCLOSES the field and ask what the smallest
+  independently-removable element is. Then prove the edit at the render, both ways:
+  ```bash
+  # the element must VANISH when the datum is absent …
+  # … and STILL RENDER when it is present — the positive control is the half that
+  # catches an over-firing gate, which "did it disappear?" passes perfectly
+  ```
+  Render through `actions.RenderTemplate` (the production entry point), not a replica
+  of its `text/template` config — 295's harness does exactly this for 20 components.
+  Where the enclosing element cannot be dropped, **widen the row's EXISTING gate**
+  (`{{if .row1_feature}}` → `{{if and .row1_feature .row1_platform1_value …}}`) rather
+  than adding a second one.
+- **related:** the entry above on `input_schema` fallbacks never being consulted at
+  render time — same seam, opposite direction. That one is why the blank is silent;
+  this one is why the obvious repair does not fix it.
+- **source:** RFC_009 / `bugs_closed/140`, migration 295, 2026-08-03. All four
+  treatments and the per-field reasoning are in that migration's header.
+- **added:** 2026-08-03, bugfix_140 lane
