@@ -4561,3 +4561,30 @@ that is also the thing you would want in the logs is not.
 - **the check:** `kubectl logs <pod> | head -1` FIRST — if the oldest surviving timestamp is later than your event, the log cannot answer your question. For ownership takeovers specifically, the durable witness is `orchestration_state_audit`: `TakeOverOrchestration` is the only platform writer that preserves `version`, so `SELECT * FROM orchestration_state_audit WHERE orchestration_id='…' AND old_version=new_version` lists every takeover (and every manual psql UPDATE — your own stamp shows here too), outliving both rotation and pod deletion
 - **source:** bugs_closed/075 close-out 2026-08-03; WRONG_CALLS same date (two wrong calls from this exact trap in one hour)
 - **added:** 2026-08-03, 075 pickup session
+
+## A fix under `internal/adapters/` or `internal/agents/` does NOT ship in the chassis — "the chassis rolled" verifies the wrong binary
+
+- **footprint:** `internal/adapters/`, `internal/agents/`, `make build-agent-chassis`,
+  `make deploy-agent-chassis`, any handoff's "roll and pod-verify" step
+- **fires when:** you fixed code under `internal/adapters/<x>/` or
+  `internal/agents/<x>/` and are about to name the roll that makes it live, or to
+  pod-grep a binary to prove it shipped. No symptom precedes this: a chassis roll
+  after your commit LOOKS like your deploy, and a pod-grep of `/app/agent-chassis`
+  returning 0 reads as "not shipped yet" (or worse, as "another session's build
+  missed my commit" — bugs_open/153's exact shape, entered from the other side).
+- **the tell:** the positive-control grep reads 0 on a binary that genuinely rolled
+  after your commit. Before concluding the pipeline dropped your change, ask
+  whether that binary ever CONTAINED your package.
+- **the check:** map the package to its image first:
+  `grep -l "internal/adapters/webscrape" build/docker/backend/*.dockerfile`
+  (or the equivalent for your path). This repo builds FOURTEEN backend binaries
+  from one tree; `platform/` and orchestration code ship in `agent-chassis`, but
+  each adapter/agent under `internal/` ships in its OWN image with its own
+  `make build-<service>` / `make deploy-<service>` and its own pod label.
+  Verify at `/app/<service>` on `-l app=<service>` pods — with the same
+  positive + negative controls, which is what caught this.
+- **source:** bugs_open/158 item 3, 2026-08-03 — the lane wrote "needs a chassis
+  roll" into its own committed handoff for a `web-scrape-adapter` fix; the wrong
+  target was caught by a 0 on the chassis grep, corrected same session
+  (WRONG_CALLS has the fuller account).
+- **added:** 2026-08-03, bugfix_158_reply_drop_sizing lane

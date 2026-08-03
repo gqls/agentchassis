@@ -18485,3 +18485,33 @@ preserves `version`, and its same-version fingerprint sat at 21:05:46.26,
 0.09 s before the response applied. The cheap check: before treating a pod-log
 absence as evidence, print the OLDEST timestamp kubectl still returns
 (`kubectl logs <pod> | head -1`) and confirm your event window is inside it.
+
+---
+
+## 2026-08-03 — I named the wrong deploy target for my own fix, wrote it into the handoff, and only the pod-grep's zero caught it
+
+**footprint:** any fix under `internal/adapters/` or `internal/agents/` · handoff
+"roll and verify" instructions · bugs_open/158 lane
+
+**The claim.** Closing 158 item 3 I wrote into the committed handoff: "NOT YET
+LIVE. Needs: council approval → chassis roll → pod-verify," and later told the
+owner the fix "needs a roll" in the same breath as the chassis. The truncation
+code lives in `internal/adapters/webscrape/` — it ships in the
+**`web-scrape-adapter`** image. A chassis roll would have done nothing, and the
+handoff would have sent the next session to verify the wrong binary.
+
+**What caught it.** Running my own verification greps against the new chassis
+(v1.0.1244) out of thoroughness: the positive control read **0**. Under the
+"a mis-cased grep reads as not-shipped" rule I checked the pattern before
+believing the zero — the pattern was right; the *binary* was wrong. The fix was
+never going to be in `/app/agent-chassis`, because that binary never contained
+this package.
+
+**The cheap check.** **Map the package to the image before naming a deploy
+target**: `grep -l "internal/adapters/webscrape" build/docker/backend/*.dockerfile`
+— or simply ask which of the 14 backend services owns the directory. One command,
+and it converts "the chassis rolled, my fix must be in" (the `bugs_open/153`
+class) into a named binary you can grep. The near-universal habit of "chassis
+roll = deploy" holds for `platform/` and orchestration code and silently does not
+hold for `internal/adapters/*`, `internal/agents/*` — the same repo builds
+FOURTEEN binaries, and a fix is only live where its package actually links.
