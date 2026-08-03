@@ -15,6 +15,50 @@ re-rendering — so the last HTML that page ever rendered is frozen, and it **ke
 being served**. Archiving retracts a page from the platform's model of the site; it
 does not retract it from the site.
 
+> ## CORRECTED 2026-08-03 — "FROZEN" IS NO LONGER TRUE OF THE LIVE INSTANCE, AND THAT MATTERS MORE THAN THE FREEZING
+>
+> Found by re-checking the target immediately before retracting it — `pages.deployed_at`
+> had moved to **today**. This file's central claim, that archiving "correctly removes a
+> page … from re-rendering", was true when it was written on 07-26 and was **overtaken on
+> 07-31**. `robot-hands.com/learning-center/index.html` is re-rendered and re-committed
+> to the deploy repo **twice a day**: 08-01 08:07, 08-01 20:06, 08-02 08:05, 08-02 20:15,
+> 08-03 08:15 — each a single-file modify of that path.
+>
+> **Cause, traced end to end** (work item → orchestration → commit → SQL):
+> `queueNewsPageRerenders`, `platform/orchestration/actions/render_news_section_html.go`,
+> selected news pages with
+>
+> ```sql
+> WHERE p.site_id = $1
+>   AND cc.function IN ('latest-news','news-listing')
+>   AND p.build_status = 'deployed'      -- and NEVER p.status
+> ```
+>
+> `build_status` records whether a page ever shipped; `status` records whether the
+> platform still wants it served. **Archiving sets the second and leaves the first**, so
+> a selector keyed on the first keeps choosing a retired page for ever. Six
+> `page_rerender` items were raised for this page by that function between 07-31 and
+> 08-03 (`site_work_items`, `source='render_news_section'`).
+>
+> **Why this is the more important half.** It makes a retraction **self-undoing**: delete
+> the file, and the next news refresh republishes it. A session that retracted the file
+> and verified with a single `curl` would have got its 404, recorded the bug as fixed, and
+> been silently wrong by 20:0x the same evening. The acceptance test in this file is
+> therefore now a *two-part* test — see "How to verify a fix" below.
+>
+> **Blast radius, measured 2026-08-03:** fleet-wide that selector picks exactly **one**
+> non-active page, this one. Only two page statuses exist (`active` 557, `archived` 25).
+>
+> **Fixed** in `5b66615d4` (`AND p.status = 'active'`, matching the convention its
+> siblings already use), proved by mutation, and filed through the diagnosis loop as a
+> structural claim (`5bdec8cf-24cc-419f-8d9d-b3d7a8df6dbb`).
+>
+> **The transferable lesson, and it is not about news pages:** `deployed_at` /
+> `build_status` and `status` answer different questions, nothing keeps them in step, and
+> this file's *second finding* (below) already says exactly that about `deployed_at`. The
+> same confusion bit twice, one layer apart, in the same bug. Any selector that decides
+> "should this page be touched" from a BUILD column alone is the same defect waiting.
+
 ## Live instance (verified 2026-07-26 21:14 UTC)
 
 `robot-hands.com`, page `learning-center-index`:
@@ -133,6 +177,30 @@ exists:
 curl -sS -o /dev/null -w '%{http_code}\n' https://robot-hands.com/learning-center/index.html
 # today: 200. After a fix of class 1 or 3: 404 or 410.
 ```
+
+> **CORRECTED 2026-08-03 — THAT CURL ON ITS OWN IS NOT A SUFFICIENT TEST, and
+> believing it was is how this defect could have been closed while still live.**
+> Because the page is re-published twice a day (see the correction at the top),
+> a retraction verified only by an immediate `curl` shows 404 and then silently
+> reverts at the next news refresh. The acceptance is **two-part**:
+>
+> ```sh
+> # 1. immediately after the retraction
+> curl -sS -o /dev/null -w '%{http_code}\n' https://robot-hands.com/learning-center/index.html   # 404
+> # 2. AFTER the next news refresh has run (the ~08:0x / ~20:0x cadence), same command
+> curl -sS -o /dev/null -w '%{http_code}\n' https://robot-hands.com/learning-center/index.html   # still 404
+> ```
+>
+> Part 2 is the one that tests the fix. Part 1 passes with or without it.
+> Equivalently, and faster: confirm no new `page_rerender` item is raised for the
+> page — `SELECT count(*) FROM site_work_items WHERE item_type='page_rerender'
+> AND source='render_news_section' AND page_id='<id>' AND created_at > now() -
+> interval '1 day'` — and check the deploy repo's commit list for the path.
+>
+> **Generalise it:** for any retraction, "the URL 404s now" is a statement about
+> this second. The question is whether anything still *selects* the page, and
+> that is answered in `site_work_items` and the repo's commit history, not by a
+> fetch.
 
 For candidate 2, the check is the column's meaning, not one row:
 

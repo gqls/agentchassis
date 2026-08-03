@@ -204,3 +204,45 @@ control /contact.html              : 4 body, 2 chrome, 1 nav
 ```
 
 The control is the only thing that makes the zeros mean something.
+
+## 2026-08-03 — the 090 diagnosis run produced NO VERDICT, and that is stated rather than glossed
+
+Filed the resurrection claim through the diagnosis loop as CLAUDE.md requires for a
+structural claim whose cause is not where the symptom is
+(`5bdec8cf-24cc-419f-8d9d-b3d7a8df6dbb`). The dispatch loop **claimed it, ran, and
+COMPLETED at 10:30:47** — and wrote **three `bundle` artifacts and no diagnosis**.
+No `verdict`, no confirmation, no refutation:
+
+```sql
+SELECT kind, count(*) FROM diagnosis_artifacts
+ WHERE correlation_id='5bdec8cf-24cc-419f-8d9d-b3d7a8df6dbb' GROUP BY 1;
+--  bundle | 3        (and nothing else)
+```
+
+**So the loop did not corroborate anything, and this file does not claim it did.**
+The owner ruling of 2026-07-31 allows a filing session to substitute equivalent
+first-hand verification provided it says so plainly rather than omitting it. Doing
+that here, and naming the chain:
+
+1. `pages.deployed_at` for the page moved to **today** (10:05 read) — the trigger
+   for looking at all;
+2. the sites repo's commit list for that exact path shows a **single-file modify**
+   at 08-01 08:07, 08-01 20:06, 08-02 08:05, 08-02 20:15, 08-03 08:15;
+3. `orchestration_states.collected_data->'input_data'` for the most recent one
+   carries `source: render_news_section`, `reason: section_data_resolved` and the
+   page's own id;
+4. `site_work_items` holds **6** `page_rerender` rows for that page with
+   `source='render_news_section'`, first 07-31, latest 08-03 08:05;
+5. the function those rows come from selects on `p.build_status='deployed'` with
+   no `p.status` filter (read, not inferred), and the page is
+   `status='archived', build_status='deployed'`;
+6. fleet-wide that selector matches exactly **one** non-active page, and only two
+   statuses exist (`active` 557, `archived` 25).
+
+Each step is a fact about a different table or artefact, and they agree. That is
+what is standing in for the loop's verdict.
+
+**Prior art found while chasing it:** `queueNewsPageRerenders` has been through the
+council before — correlation `320878ca-5c25-4fed-99ae-82b52b095aba`, routing it down
+the no-LLM `page_rerender` path, live in v1.0.1155. That round changed HOW it emits;
+neither round changed WHICH pages it selects, which is where the defect was.
