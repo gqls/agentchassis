@@ -157,3 +157,95 @@ Option (b) is now genuinely live, not merely committed and approved. The "roll a
 pod-verify" step from this handoff's "what is owed" list is **done** — the only
 items still owed are item 3 (owner decision) and the reply-topic alignment decision,
 both listed above.
+
+
+---
+
+# 2026-08-03 (evening) — decisions 1, 2, 5 actioned; 3 and 4 explained, awaiting the owner
+
+## Decision 1 (item 3: "upload everything that gets truncated") — SHIPPED, council PENDING
+
+Commit `a92a32fba`. `internal/adapters/webscrape/{adapter,truncation,truncation_test}.go`.
+
+**FIRST THING TO CHECK in the new thread:**
+```sql
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = 'ee9f6210-3bda-4efa-a25c-92ce4a7666a1';
+```
+It was stuck at `review_debug_historian` for 13+ minutes when this was written — an
+outlier against every other round this lane ran (2-6 min). May have landed by now,
+may need a nudge, may be worth asking why that seat specifically stalled if it
+recurs. If APPROVED: commit trailer needed on a FOLLOW-UP commit (any tiny doc
+touch will do) reading `Council-Reviewed: ee9f6210-3bda-4efa-a25c-92ce4a7666a1` —
+or just let `098` resolve it automatically from `Council-Submitted:`, already on
+`a92a32fba`. If REVISE/REJECTED: the code is already on the shared branch, revise
+forward.
+
+**What it does:** two layers. `uploadScrapingResults` (adapter.go) now uploads all
+6 per-page truncatable fields instead of 2 — and fixes a real key-name bug found
+while extending it: the old code checked `pageMap["html"]`, which never matched
+`batch_handler.go`'s own key `html_content` for the same concept, so per-page HTML
+was silently never archived for that path even with `upload_results:true`.
+`truncateResultForTransport`/`stripResultForRetry` (truncation.go) gain a
+`FieldUploader` fallback: the moment a field is about to be cut and has no static
+URI yet, the FULL pre-truncation content is uploaded on the spot — closing the gap
+for the 18 of 22 live scrape/crawl steps that never set `upload_results` at all.
+
+**NOT YET LIVE.** Needs: council approval (or a decision to proceed on REVISE
+notes) → chassis roll → pod-verify. Positive control: grep the running binary for
+`"could not preserve"` (the fallback's own failure-path log line) or
+`fieldUploaderFor` — either string only exists post-fix. No natural negative
+control string was retired here (unlike 172/158b), since this ADDS a capability
+rather than replacing one; verify via the artefact instead once live: a
+`diagnosis_artifacts`-style check isn't applicable, but a live scrape with
+`upload_results:false` and content >50KB should now show a `storage.<field>_uri`
+key that pre-fix would have been entirely absent.
+
+**Stated residual, not a bug:** `stripResultForRetry`'s re-cut fields
+(markdown_content, html_content, per-page content/markdown/markdown_content) do
+NOT get a new fallback call — only raw_html does, because it's the one field
+deleted outright with no size check. The gap (content between
+`oversizeStripContentCap` and 50,000 chars that was never over the FIRST cap) is
+left open on purpose: this whole function has never fired on measured fleet
+traffic (max reply ever recorded: 48KB).
+
+**A landmine for whoever touches this file next:** per-page S3 keys now put the
+field name in a SUBDIRECTORY (`pages/<field>/page_%d.<ext>`), not the filename.
+`pageStorageURIFor` resolves a page by searching for the literal needle
+`/page_<i>.` immediately before the extension — putting the field name AFTER
+`page_` (e.g. `page_1_html.html`) breaks that match silently. Verified against
+`TestPageURIIndexMatchIsNotAPrefixMatch` before shipping; keep it that way if you
+touch the key format again.
+
+## Decision 2 (align under-provisioned reply topics) — DONE, live immediately
+
+Kafka topic config only, no code, no roll. 74 `*.responses` topics were on the 1MB
+broker default (re-measured fresh at execution time — NOT the earlier "91", topics
+churn continuously); all 74 now carry `max.message.bytes=5242880`, plus one
+(`system.thunder.smoke.responses`) that appeared mid-batch and needed a second
+pass. **Final live verification: 0 of 3,828 `.responses` topics missing the
+override**, re-checked after the fact, not assumed from the batch script's own
+count.
+
+## Decision 5 (unblock bugs_open/100) — DONE
+
+`UPDATE agent_definitions ... jsonb_set(..., '{workflow,steps,scrape_website,config,upload_results}', 'true')`
+for `vet-practice-verifier`, live, DB config only. Verified via `RETURNING`. A note
+was ALSO added directly to `bugs_open/100` (`e4de1a7d0`), since the owner is
+starting that bug in a separate thread and the pointer needs to live where that
+thread will look, not just here.
+
+## Decisions 3 and 4 — explained in chat, not actioned
+
+**3** (widen the reply-delivery fix to the 4 remaining adapter sites): explained in
+more depth; still not a live decision — nothing forces it, the detector just
+prevents a fifth silent site. **4** ("should replies carry full content up to the
+bus limit") was clarified (a "reply" here means the Kafka message sent back on the
+`*.responses` topic, not an HTTP response) and left for the owner to confirm he
+still wants it, now that decision 1 removes the main reason it used to be risky
+(nothing is destroyed either way now — decision 4 would ONLY change how large the
+INLINE reply itself gets, not whether content survives). Not implemented.
+
+## Everything from this pass's earlier sections (option-b plumbing fix, verified
+live on `v1.0.1243`) is unaffected and stays as documented above — this section is
+additive.
