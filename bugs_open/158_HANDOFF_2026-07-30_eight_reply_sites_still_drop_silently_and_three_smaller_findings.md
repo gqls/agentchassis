@@ -503,3 +503,44 @@ decision 2: the intent is now stated and uniform — topics carry 5MB, the trans
 cap is 50KB/field, and the gap between them is deliberate headroom for multi-page
 crawls (N pages × several fields × 50KB can approach 5MB; the degrade path covers
 the excess).
+
+---
+
+# 2026-08-03 (night) — decision 1 is LIVE; the council round has been killed by rolls TWICE
+
+## Decision 1 LIVE on `web-scrape-adapter:v1.0.1245`
+
+All 3 replicas pod-verified: `could not preserve content` (added) = 1,
+`/pages/%s/page_%d.%s` (added) = 1, `%s/pages/page_%d.html` (removed) = **0**.
+All three controls MOVED between 1243 and 1245 in a pre-push image differential.
+
+**The deploy-target correction, so nobody repeats it:** this code ships in the
+**`web-scrape-adapter`** image, not agent-chassis — an earlier line in this lane's
+handoff said "needs a chassis roll", which was wrong and is corrected. New
+LANDMINES entry covers the class (fourteen binaries, one tree).
+
+## The council trail for `ee9f6210` — two rounds dead, both killed by infrastructure
+
+| round | run | died at | cause, with evidence |
+|---|---|---|---|
+| 1 | `e5f7f2f0` | `review_debug_historian` | chassis roll: row's last touch 20:10:02Z, new pods 20:10:22Z |
+| 2 | `7ec39ca1` | `review_architecture` | chassis roll: failed LLM calls (`success=f`) at 21:14, roll at 21:13:56Z |
+
+**Four chassis rolls happened tonight** (19:05, 20:10, 21:13, 21:26 — replicaset
+timestamps), roughly hourly; a council round needs ~15-45 min of quiet. This is the
+documented "a roll KILLS an in-flight council" landmine observed twice in one
+evening; nothing is wrong with the submission itself (round 2 cleared six seats
+normally before dying).
+
+Round 3 submitted (`RUN_ORCH_ID=3f02f198…`, same RESUBMIT_CORR so the trail
+accumulates). `a92a32fba` carries `Council-Submitted:`, so approval auto-credits
+whenever a round survives. The two dead rows are left in place deliberately
+(fleet norm: never cancel pre-diagnosis; they are evidence).
+
+**Residual worth someone's attention, not filed as a bug by this lane:** a
+roll-killed council step leaves its orchestration row in `EXECUTING_STEP`
+**forever** — no timeout reaps it, and `llm_call_log` shows the failed call was
+never retried. Two such rows now exist from tonight alone. Related territory:
+`bugs_open/173` (loop error routing), `bugs_open/029` (hung spawns saturate
+dispatch). Whoever owns the hourly-roll cadence question may also want to know the
+fleet burned two council rounds' credits on it tonight.
