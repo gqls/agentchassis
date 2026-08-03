@@ -269,3 +269,22 @@ call); the companion-guide emits still hand-roll their INSERT (works today,
 
 Lane docs: `docs024_key_docs_latest/bugfix_177_tool_content_items/`.
 §9 pattern: "A work item can be UNSATISFIABLE AT BIRTH".
+
+## ADDENDUM 2026-08-03 ~20:10 UTC — the RAISE arm witnessed live, hours after close
+
+`2a9d693d` (source `tool-deployer`, `tool_content:tool-model-approach-selector`,
+a NEW site — not the old zombie's site) was minted at 17:55 UTC **through the
+guard** on a post-fix binary, and at 18:15 UTC became **the first completed
+`tool_content` item in the class's history**. The page now holds the
+four-section shape the code comments have described since April: `hero-tool`
+(3,255 B) / `tool-guide-intro` (8,043 B) / the widget **intact** (16,467 B) /
+`tool-cta` (8,487 B) — prose written around the tool, widget not clobbered
+(the TL-001 worry this file raised about a completing item did not bite,
+because the deploy path declares the widget as its own section).
+
+So the two arms stand: **raise arm witnessed and completed** (deploy path,
+declared sections); **skip arm still watch-listed** (create path, planless
+page — no generation has occurred since the roll; the census shows 9 wont_fix
++ 1 complete + 0 parked, i.e. no new zombie). Fix re-proven at the artefact on
+v1.0.1243 (two fleet rolls later): added symbol present, removed emit string 0,
+both replicas.
