@@ -21,6 +21,7 @@ import (
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/memory"
 	"github.com/gqls/agentchassis/platform/observability"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -55,6 +56,14 @@ type RequestPayload struct {
 		// Platform-specific
 		Platform  string `json:"platform,omitempty"`   // For social media: twitter, linkedin, facebook
 		MaxLength int    `json:"max_length,omitempty"` // Character/word limit
+
+		// Claims-guard levers (bugs_open/123). See togglesFromRequest in
+		// claims_guard.go for why the defaults differ: check_claims is a
+		// pointer so absent means ON (the floor's lever of the same name),
+		// check_uncited_stats is a plain bool so absent means OFF (owner
+		// ruling 2026-08-02 — new authority ships opt-in).
+		CheckClaims       *bool `json:"check_claims,omitempty"`
+		CheckUncitedStats bool  `json:"check_uncited_stats,omitempty"`
 	} `json:"data"`
 }
 
@@ -63,6 +72,12 @@ type ResponsePayload struct {
 	Success       bool                   `json:"success"`
 	GeneratedText string                 `json:"generated_text"`
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	// ClaimFindings carries what the claims guard found in GeneratedText
+	// (bugs_open/123). Additive and omitempty: a consumer that does not read it
+	// sees the identical payload it saw before. GeneratedText is NEVER withheld
+	// on the strength of a finding — this seam records and annotates, it does
+	// not refuse. See claims_guard.go's header for why.
+	ClaimFindings []datahelpers.ClaimFinding `json:"claim_findings,omitempty"`
 }
 
 // Agent is the content writing specialist with memory support
@@ -296,6 +311,21 @@ func (a *Agent) handleMessage(msg kafka.Message) {
 		return
 	}
 
+	// --- Claims guard (bugs_open/123): scan, record, annotate — never refuse ---
+	//
+	// Placed here deliberately: after generation has succeeded, before the
+	// response payload is assembled, so the findings can ride on the payload
+	// without touching sendSuccessResponse — which belongs to the bugs_open/158
+	// lane and must not be edited from here.
+	claimsBanned, claimsUncited := scanGeneratedText(result, req.Data.Format, togglesFromRequest(req))
+	if len(claimsBanned)+len(claimsUncited) > 0 {
+		l.Warn("content-creator claims guard: findings on generated text",
+			zap.Int("banned", len(claimsBanned)),
+			zap.Int("uncited_stats", len(claimsUncited)),
+			zap.String("topic", req.Data.Topic))
+		a.recordClaimFindings(a.ctx, headers, req, claimsBanned, claimsUncited)
+	}
+
 	// --- Token Counting & Metrics ---
 	tokensUsed := a.estimateTokens(result)
 	estimatedCost := a.estimateCost(tokensUsed, options["model"].(string))
@@ -342,7 +372,13 @@ func (a *Agent) handleMessage(msg kafka.Message) {
 			"memories_used":   len(relevantMemories),
 			"model_used":      options["model"],
 			"generation_time": time.Since(startTime).Seconds(),
+			// Counts as well as the findings themselves: a caller gating on
+			// "were there any" should not have to parse the list, and the two
+			// cannot disagree because both come from the same slices.
+			"claims_banned_count":       len(claimsBanned),
+			"claims_uncited_stat_count": len(claimsUncited),
 		},
+		ClaimFindings: append(append([]datahelpers.ClaimFinding{}, claimsBanned...), claimsUncited...),
 	}
 
 	a.sendSuccessResponse(headers, responsePayload)
@@ -350,7 +386,12 @@ func (a *Agent) handleMessage(msg kafka.Message) {
 
 	// Commit message
 	a.consumer.CommitMessages(context.Background(), msg)
-	l.Info("Content generation completed successfully",
+	// The literal changed from "Content generation completed successfully"
+	// DELIBERATELY: this change is otherwise purely additive, and an additive
+	// change has no negative pod-grep marker. Without one, a post-roll grep can
+	// only prove the pipeline works, never that the OLD binary is gone
+	// (bugs_open/153). Changing one string buys that proof for nothing.
+	l.Info("Content generation completed (claims-guard scanned)",
 		zap.Int("tokens_used", tokensUsed),
 		zap.Float64("generation_time", time.Since(startTime).Seconds()))
 

@@ -46,6 +46,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -58,6 +59,8 @@ func main() {
 		"exclude the fleet-wide banned-claim set, scanning ONLY -evidence. Use when testing a candidate pattern set in isolation; the default matches what the platform actually enforces")
 	showSuppressed := flag.Bool("show-suppressed", false,
 		"print each match the negation guard removed ('negated' lines). They are never findings; use this to see what the guard is doing to real copy")
+	attributed := flag.Bool("attributed", false,
+		"additionally run the attributed-but-uncited-statistic scan (bugs_open/123), printing 'ATTRIB' lines. It needs no evidence base. Reported SEPARATELY and deliberately EXCLUDED from the exit code: nothing in the platform blocks on it, so a dry run must not either")
 	flag.Parse()
 
 	// eb may stay nil: since bugs_open/104 the banned-claim scan is fleet-wide,
@@ -102,7 +105,10 @@ func main() {
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 1024*1024), 16*1024*1024)
 
-	var total, suppressedTotal, componentsScanned, withoutPageType int
+	var total, suppressedTotal, attribTotal, componentsScanned, withoutPageType int
+	// Keyed by page: the attributed scan's unit is the document (see below).
+	attribBlocks := map[string][]string{}
+	attribSlot := map[string]string{}
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.TrimSpace(line) == "" {
@@ -158,10 +164,42 @@ func main() {
 			fmt.Printf("NUMBER   %-45s %-22s %-30q ×%d  %s\n    …%s…\n",
 				page, slot, f.Matched, f.Occurrences, f.Reason, f.Snippet)
 		}
+		// The attributed scan's unit is the DOCUMENT, not the component: a
+		// citation routinely lives in a different component from the figure it
+		// supports, and a per-component run reports those as uncited. Measured
+		// 2026-08-03 — per component it scored 0 true / 4 false on this corpus.
+		// So accumulate the page's blocks and scan once per page, below.
+		if *attributed {
+			attribBlocks[page] = append(attribBlocks[page], blocks...)
+			if _, seen := attribSlot[page]; !seen {
+				attribSlot[page] = slot
+			}
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "claimscan: read components: %v\n", err)
 		os.Exit(2)
+	}
+
+	// Attributed-uncited-stat scan, one run per PAGE over that page's whole
+	// block set. Counted into attribTotal, NOT into `total`, so the exit code
+	// this tool's header documents as a scripted acceptance gate keeps returning
+	// exactly what it returned before. Nothing in the platform blocks on this
+	// scan; a dry run that made it exit 1 would assert an authority it does not
+	// have.
+	if *attributed {
+		pages := make([]string, 0, len(attribBlocks))
+		for page := range attribBlocks {
+			pages = append(pages, page)
+		}
+		sort.Strings(pages)
+		for _, page := range pages {
+			for _, f := range datahelpers.ScanAttributedUncitedStats(attribBlocks[page]) {
+				attribTotal++
+				fmt.Printf("ATTRIB   %-45s %-22s %-30q ×%d  %s\n    …%s…\n",
+					page, attribSlot[page], f.Matched, f.Occurrences, f.Reason, f.Snippet)
+			}
+		}
 	}
 
 	if withoutPageType > 0 {
@@ -174,6 +212,10 @@ func main() {
 	}
 
 	fmt.Printf("\nclaimscan: %d finding(s) across %d component(s)\n", total, componentsScanned)
+	if *attributed {
+		fmt.Printf("claimscan: %d attributed-uncited-stat finding(s) (bugs_open/123; not counted above, not in the exit code)\n",
+			attribTotal)
+	}
 	if suppressedTotal > 0 {
 		fmt.Printf("claimscan: %d match(es) suppressed by the negation guard (not findings)%s\n",
 			suppressedTotal, map[bool]string{true: "", false: " — -show-suppressed to list them"}[*showSuppressed])
