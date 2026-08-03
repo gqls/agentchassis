@@ -182,3 +182,19 @@ each one in turn to prove it complains.
 It's committed and with the review council. It is **not live** — that needs another
 build. And there's a date in the diary: 23 August is when the directory sweep will
 actually have something to find, and that's the run that proves this properly.
+
+**2026-08-03, evening.** The fix went live and the second bug is closed. The owner
+deployed the new chassis the normal way — the whole fleet moves to one new image
+number together, which I now know is the procedure; earlier today I had tried to
+roll just the one service on its own number, which the permission system stopped,
+and that turned out to be the right outcome for the wrong reason. Checked the
+running pods directly: all three new log lines are in the binary, the two old ones
+are still there, and the string that could never work reads zero, exactly as it
+should. Before closing I re-checked my own morning's reasoning and found one place
+I had been lucky rather than thorough: I had said "nothing can pick up a parked
+human-review item" after reading two pieces of code someone else's comment pointed
+at. This evening I enumerated every piece of code that can pick up any work item —
+there are four, and none of them can touch a parked one. Same answer, but now it is
+checked rather than believed. One thing remains, and only the calendar can do it:
+on 23 August the first real run of the stale-claims check falls due, and someone
+must look that day.

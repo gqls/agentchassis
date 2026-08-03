@@ -347,3 +347,54 @@ written. The `claimed_by`/`handled_by` values are `build-dispatch-loop` and
 
 **BATCH-005's open question stands unchanged**: if a HITL surface ever works these
 four types, `needs_human_review` should become a held status. Nothing today does.
+
+## 2026-08-03 ~19:30 — LIVE on v1.0.1243 via the owner's release flow; 184 CLOSED; and the self-review
+
+**Deploy procedure corrected by the owner.** The single-overlay `kubectl apply -k` this
+lane attempted (and the classifier blocked) is NOT the estate's procedure. Releases are
+whole-fleet on one tag: `make release redeploy-agents ENVIRONMENT=production
+REGION=uk001`, run by the owner. My stated reason for avoiding `make deploy-agents` —
+"thirteen services into ImagePullBackOff" — was correct only for the fragmented state I
+had created (one service built at 1239); `make release` avoids that state entirely by
+building and pushing ALL backend images at the tag before any overlay moves. The 1239
+image is an orphan in the registry: pushed, never deployed, superseded. Harmless.
+My commit `aec57bcee` records 1239 in the makefile and overlay; the release flow's
+1243 supersedes both on the same lines (uncommitted tree state, the norm here).
+
+**Verification on v1.0.1243, both replicas:** three markers 1/1/1, controls 2 and 1,
+retired-comment negative control 0 — identical to the pre-push image grep. `4c3a968cc`
+and `600bd99a8` confirmed ancestors of built HEAD; the five relevant files untouched
+between the unit-proof (clean `git archive`) and the build, so the proof carries.
+**184 (three_more_detectors slug) moved to `bugs_closed/` with the closure block**,
+including a visible correction: the bug file's own owed-list still instructed the
+retired comment-marker as THE discriminating check — the handoff got corrected on
+08-03 morning, the bug file did not. Fixed at closure.
+
+**Self-review of the ~12:00 claims — two sharpened, none overturned:**
+
+1. **The temporal query was presented one notch stronger than it is.** "0 rows have
+   the claim as the newest event" proves the claim is never the LAST thing that
+   happened; strictly it cannot exclude claimed-at-this-status-then-updated-again.
+   The structural audit is the conclusive leg, and at noon it was SAMPLED, not
+   exhaustive — two Go sites cited from a comment in `apply_gap_plan_action.go`.
+2. **Now exhaustive.** Every `claimed_by` writer on `site_work_items`, from a bare
+   repo-wide grep (my first grep filtered on `update|set|insert` and MISSED
+   `claimed_by = $2` lines — the SET keyword sits on a different line; redone
+   unfiltered) plus a fleet-wide `agent_definitions` config scan:
+   `claim_work_item_action.go:99` and `load_work_item_actions.go:632` claim on
+   `('triaged','approved')`; `report-dispatch-loop` config SQL claims on
+   `'awaiting_report'`; `diagnose-dispatch-loop` on `'awaiting_diagnosis'`; every
+   other site NULLs the column or writes `maintenance_queue` (a different table —
+   `maintenance_actions.go:874` was a false hit). `needs_human_review` is
+   unreachable by every claimer. The noon conclusion stands on better ground.
+
+**A sharpening for BATCH-005, found by the audit:** `reporting`, `awaiting_report`
+and `awaiting_diagnosis` are claimed-adjacent statuses NOT in `workItemHeldStatuses`
+(`{claimed, diagnosing}`). Safe today only because no refresh-adopting item type
+flows through the reports or diagnose pipelines — the same shape as the
+`needs_human_review` open question, and it should be answered by the same ruling
+when one comes. Recorded on the 184 closure.
+
+**Still owed by the calendar, not by this lane's hands: 2026-08-23**, the first run
+that can behaviourally prove `stale_directory_claim`. Same-day check required
+(~24h `orchestration_states` retention).

@@ -188,3 +188,92 @@ confirmed-green baseline.
    run that can exercise `stale_directory_claim` for real. Require the July row's
    `updated_at` to move and its summary count to change.
 3. **The council verdict** on `d6cda33d`, and act on it.
+
+---
+
+## CLOSED 2026-08-03 — fixed AND LIVE on v1.0.1243, pod-verified on BOTH replicas
+
+> **CORRECTED 2026-08-03: item 1 of the owed-list above names the WRONG marker.** It
+> says the discriminating string is `'the bugs_closed/091 class'` — that is a Go
+> **comment**, which never reaches a binary, and it would have read 0 for ever on a
+> perfectly good image. The council's `debug_historian` seat caught it before anyone
+> ran it; `600bd99a8` gave each emitter a real logged literal instead. The comment
+> string was kept below as a **negative control** — it must read 0 precisely because
+> comments are not compiled.
+
+**The bar met here is shipped + pod-grepped + unit-proven.** No live behavioural run
+confirmed these three paths, because nothing can exercise them today (see the deferred
+proof below). Do not read this closure as stronger than it is.
+
+### Live verification (2026-08-03 ~19:20Z, both replicas of v1.0.1243)
+
+```
+                                        pre-roll v1.0.1238   v1.0.1243
+HITL citation-reject item written                0                1
+HITL directory-reject item written               0                1
+HITL directory-freshness item written            0                1
+refreshed the open work item      (control)      2                2
+FINDING NOT RECORDED              (control)      1                1
+the bugs_closed/091 class    (neg. control)      0                0
+```
+
+Identical on both replicas in both runs. The controls reading their predicted values
+is what makes the pre-roll zeros mean "not shipped" rather than "grep wrong"
+(`bugs_open/153`), and the negative control staying 0 on an image known to contain
+the fix is what shows a comment string can never be evidence. The image itself was
+also grepped **before** it was pushed, same six figures.
+
+Deployed via the owner's release flow (`make release … ENVIRONMENT=production
+REGION=uk001`) at v1.0.1243 — the whole fleet moves on one tag; a single-service
+roll at its own tag is not this estate's procedure. Commits `4c3a968cc` + `600bd99a8`
+confirmed ancestors of the built HEAD; the five relevant files unchanged between the
+unit-proof and the build.
+
+### Unit proof
+
+12 tests green against a clean `git archive HEAD` (not the dirty shared tree),
+including the three named for the real call sites — `TestCreateCitationFailuresItem_…`,
+`TestCreateDirectoryCitationFailuresItem_…`, `TestCreateStaleDirectoryClaimItem_…` —
+each mutation-proven one call site at a time (revert one, exactly one fails).
+
+### The council's open objection, resolved by an EXHAUSTIVE audit
+
+`prior_art_librarian` (d6cda33d, APPROVED): the "no reader works `needs_human_review`"
+claim was an absence sourced from `bugs_open/033`, not measured. Measured now, and the
+naive measure would have MISLED: 431 rows at that status, **86 ever claimed, 55 ever
+handled** — reads as a live surface. It is not. Every writer of `claimed_by` on
+`site_work_items` was enumerated (Go grep + fleet-wide `agent_definitions` config scan):
+
+| writer | predicate |
+|---|---|
+| `claim_work_item_action.go:99` | `status IN ('triaged','approved')` |
+| `load_work_item_actions.go:632` | `status IN ('triaged','approved')` |
+| `report-dispatch-loop` (config SQL) | `status = 'awaiting_report'` |
+| `diagnose-dispatch-loop` (config SQL) | `status = 'awaiting_diagnosis'` |
+| all others | set it to NULL, or write `maintenance_queue` |
+
+**No writer can claim a `needs_human_review` row — structurally unreachable**, not
+merely quiet. The 86/55 are claimed→handled→parked *history* (0 rows have the claim
+as their newest event). And the four types that opt into `refreshOnConflict` — 8 rows
+all told — have 0 claims and 0 handles ever. Full working:
+`bugfix_091_workitem_conflict_refresh/NOTES_workitem_conflict_refresh.md`.
+
+### Deferred proof — the part a reader must not assume happened
+
+- **2026-08-23**: the directory-freshness batch falls due — the first run that can
+  exercise `stale_directory_claim` for real. Require the 07-25 row's `updated_at` to
+  move and its "1 claim(s)" summary to change. Check the SAME DAY
+  (`orchestration_states` retains ~24h).
+- `directory_citation_unverified`: next weekly sweep with a changed reject set.
+- `citation_unverified`: next content-pipeline run with rejects.
+
+### Bookkeeping
+
+- **184 is an AMBIGUOUS number** — this closes `three_more_detectors_key_per_site…`
+  ONLY; `184_…llm_markdown_reaches_the_page_as_literal_asterisks.md` is a different
+  lane's and stays open. Resolve by slug.
+- Seam registered as **BATCH-005**; its open question (should `needs_human_review`
+  become a held status once a HITL surface exists) STANDS — sharpened by this audit:
+  `reporting` and `awaiting_report`/`awaiting_diagnosis` are likewise not held
+  statuses, safe today only because no refresh-adopting item type flows through
+  those pipelines.

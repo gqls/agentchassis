@@ -1,5 +1,16 @@
 # CONTINUE HERE — the work-item conflict-refresh lane (091 closed, 184 in HEAD)
 
+> **DONE 2026-08-03 ~19:30Z — both bugs are now CLOSED and LIVE.** 184 shipped on
+> **v1.0.1243** via the owner's release flow (`make release redeploy-agents
+> ENVIRONMENT=production REGION=uk001` — the whole fleet on one tag; that is the
+> procedure, not a single-service `kubectl apply -k`). Pod-grep passed on both
+> replicas: markers 1/1/1, controls 2/1, negative control 0. 184
+> (three_more_detectors slug) moved to `bugs_closed/` with the closure block. The
+> §"Owed but NOT done" objection below is ANSWERED — exhaustively, in
+> `NOTES_workitem_conflict_refresh.md` (2026-08-03 ~19:30 entry): every
+> `claimed_by` writer enumerated, none can claim `needs_human_review`.
+> **The ONE remaining action is calendar-bound: §3 below, 2026-08-23.**
+
 **Written 2026-08-03 ~11:00Z.** This is the *current state and next action*. The full
 account is in `NOTES_workitem_conflict_refresh.md` (technical log),
 `README_where_we_are.md` (plain prose), `SUMMARY_2026-08-03_*.md` (the milestone
