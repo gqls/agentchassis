@@ -4130,3 +4130,61 @@ lane's own re-check query is the thing that misleads. `categories ? 'acceptance-
 plus `created_by` cannot distinguish the two callers, because both file under the same
 category with the same `created_by` string. The discriminator is the **action** on the
 orchestration row, which the note does not carry. Filed fleet-wide.
+
+## 2026-08-03 later — the owner chose the machine eye, I did not build it, and then the human eye found a defect in the camera
+
+**Owner decision:** close "nobody looks" with a **machine** eye — a vision check that
+raises a work item on suspicion, so the existing repair pipeline is the surface and no
+new human-facing page has to be invented. Recorded in the handoff §5.1.
+
+**I did not seed it, and the reason is ownership, not difficulty.** `execute_vision_prompt`
+(MDL-040) is genuinely undriven — **0** `agent_definitions` rows reference it, and
+`render-audit-agent` does not call it. But **`vigilant_designer_offer_analysis` owns its
+first live call as their A2**: a `design-critique-agent`, a deliberate Gemini-vs-Claude
+provider trial, and — the part that actually matters — a **findings → work-item drain
+they have already made work** (their A0.4). Seeding a vision step on
+`tool-acceptance-agent` would have made the first vision call, pre-empted their trial,
+and stood up a second critic prompt to drift from theirs. Told them instead; seeded
+nothing. The cheap end-state is **one critic, two image sources**.
+
+> **A measurement I got wrong on the way, and caught myself.** To ask "has a vision call
+> ever happened?" I ran `llm_call_log` with `step_name ILIKE '%vision%' OR '%critique%'
+> OR '%audit%'` and got **11,217**, which is meaningless — `%audit%` matches half the
+> fleet and `step_name` is not where the action lives. The sound argument needs no
+> `llm_call_log` at all: **0 agent definitions reference the action, so no step can
+> invoke it.** Textbook "your measurement answers the question you ENCODED".
+
+**Then the tree moved under me, in my own lane.** A concurrent session had already built
+**`scripts/contact_sheet.py`** (`1f375991f`) — the *human* eye: one command, fetches each
+render with the adapter's own credentials via curl sigv4, writes a local HTML sheet.
+Two consequences I had to go back and correct in three documents:
+
+1. **`[UNFETCHED]` is SPENT.** The PNGs were fetched with a real signed GET and read. I
+   had repeated that caveat in the CONTRIB, the register and this file **the same
+   morning** — a caveat is a claim, and it goes stale like any other.
+2. **⚠ The first look found a defect in TL-035 itself: the shutter fires AFTER the checks
+   drive the page.** `run_checks_action.go:333-337` — `evaluateOnPage` clicks/fills/toggles,
+   then `captureEvidence` photographs *that same driven page*. **Verified at those two
+   lines myself rather than taken from their commit message.** Correct for P3 failure
+   evidence (you want the state it failed in); **wrong for a render**. The desktop shot
+   of `review-council-simulator` shows the **post-Clear empty state** because a check had
+   just pressed Clear — their words, *"a false bug waiting to be filed"*.
+
+**That last one nearly cost the other lane real work, and it is the most important thing
+I did today.** I had already sent the vigilant lane a CONTRIB recommending these renders
+as a critic input — written hours before I knew about the capture ordering. **A human
+looking at that image hesitated. A vision model would not have.** Corrected the CONTRIB
+in place with a §7 and a banner at the top pointing at it, because a correction filed
+below the thing it corrects is a correction nobody reads. Also carried across: the
+sticky nav paints mid-page in full-page capture (a second false-positive generator), the
+mobile hamburger draws one bar (possibly real), and the mobile PNG was **22,491px tall**
+— which turns verify-later (b), "should `Renders` carry a viewport?", from a design
+question into one with an answer.
+
+**A same-file passenger, recorded because the alternative is an unexplained diff.** My
+register commit `5174c6802` reports 10 insertions and **5 deletions**; the deletions are
+not mine. Another session rewrote TL-003's `what`/`sources`/`relations` bullets with
+bugfix-177 content while I was editing TL-035 in the same file, and a pathspec commit
+takes the working tree, so their update rode along under my message. **Checked before
+assuming damage: nothing was lost** — the richer versions are present at lines 43-44 and
+the index fragments agree. Forward-only, so it stands; this note is the provenance.
