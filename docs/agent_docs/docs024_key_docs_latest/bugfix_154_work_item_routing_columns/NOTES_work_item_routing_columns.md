@@ -1153,3 +1153,31 @@ from live `agent_definitions` after the run ended:
   and 3 (emit the delta) are unimplemented; the sibling-writers item and the
   fourth-floor tracked deferral are unchanged. Full write-up in
   `bugs_open/178`'s final update.
+
+---
+
+## 2026-08-03 ~20:15 — fresh chassis build (v1.0.1243) verified; 177 confirmed live, done by its owning lane
+
+Owner reported a fresh build. Verified at the pod, not the tag: deploy image
+`v1.0.1243` (was 1238 at this lane's last check), `raiseToolContentItem`
+count 7 + `recurrenceExpected` count 1 on both replicas — the 177 lane's fix
+(`74655b709`, council `982507b0`), not anything from this session (this
+session shipped no code, only diagnosis + docs).
+
+`git log --since` on the four files this lane's 178 diagnosis names
+(`load_existing_content_action.go`, `save_page_sections_action.go`,
+`create_tool_cross_link_items.go`, `apply_gap_plan_action.go`) shows nothing
+since the diagnosis completed — 178's mechanism is exactly where this
+session left it. Their commit message names why they left the two blocked
+`content_rewrite` dependents blocked: *"the 178 interlock — dependents stay
+blocked, their dispatch is destructive today"* — a direct, correct
+consumption of this session's 178 root-cause finding by an independent lane.
+
+HANDOFF rewritten (rev 2) to make the 178 FIX the explicit next task, with a
+full design direction (opt-in field per the 2026-08-02 owner ruling on
+shared-seam authority, not a blanket behaviour change to
+`call_content_writer`) so a fresh session can start writing code without
+re-deriving the mechanism. Given this session's length (two full 090
+diagnosis runs, extensive DB/code reads, multiple large captures), the fix
+implementation itself is being left for a new session/context rather than
+started here.
