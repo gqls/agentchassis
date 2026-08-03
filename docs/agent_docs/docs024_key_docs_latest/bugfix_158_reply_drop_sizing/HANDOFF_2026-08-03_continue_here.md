@@ -249,3 +249,49 @@ INLINE reply itself gets, not whether content survives). Not implemented.
 ## Everything from this pass's earlier sections (option-b plumbing fix, verified
 live on `v1.0.1243`) is unaffected and stays as documented above — this section is
 additive.
+
+---
+
+# 2026-08-03 (night) — all five decisions closed out; decision 1 LIVE on the adapter
+
+Owner delegated the remaining decisions ("do what you think best"). Final state:
+
+| decision | outcome |
+|---|---|
+| 1 — upload what's truncated | **SHIPPED + LIVE on `web-scrape-adapter:v1.0.1245`**, all 3 replicas pod-verified (positives 1/1, negative control 0). Council re-round pending, see below |
+| 2 — align reply topics | **DONE earlier** — 0 of 3,828 `.responses` topics missing the 5MB override |
+| 3 — the four adapter reply sites | **DECIDED: not adopting.** Latent twice over, class capped by the detector. Reopen trigger: one observed refusal → adopt all four in one round |
+| 4 — full-content replies | **DECIDED: no.** The 50KB inline cap stays; decision 1 removed the correctness argument; readers (LLM prompts, `collected_data`) want URI + head. Reopen trigger: a consumer needing >50KB *inline* |
+| 5 — unblock 100 | **DONE earlier** — `upload_results` live on the vet verifier step |
+
+## THE DEPLOY TARGET LESSON — read this if you touch item-3 code again
+
+The truncation code (`internal/adapters/webscrape/`) ships in the
+**`web-scrape-adapter`** image, NOT agent-chassis. A chassis roll does nothing for
+it. `make build-web-scrape-adapter IMAGE_TAG=<tag>` + `make deploy-web-scrape-adapter`.
+Pod-verify greps `/app/web-scrape-adapter` (label `app=web-scrape-adapter`,
+three replicas). Verified controls: `could not preserve content that is about to be
+truncated` (added, 1), `/pages/%s/page_%d.%s` (added, 1),
+`%s/pages/page_%d.html` (removed, 0) — all three MOVED between 1243 and 1245.
+
+## The council saga for corr `ee9f6210` — two disruptions, neither the submission's fault
+
+1. First run (`e5f7f2f0`): **killed by a chassis roll** at 20:10:22Z — the
+   documented "a roll KILLS an in-flight council" landmine, observed precisely
+   (row's last touch 20:10:02, new pods 20:10:22). The dead row still sits at
+   `review_debug_historian|EXECUTING_STEP`; left alone deliberately.
+2. Resubmitted with `RESUBMIT_CORR=ee9f6210…` → run `7ec39ca1`. Progressed
+   normally, then `review_architecture` stalled ~11+ min with **failed LLM calls**
+   visible in `llm_call_log` (`success=f` for architecture and prior_art at
+   21:14) — retry backoff, not a dead row.
+3. A Monitor is armed on the terminal state. **Whoever reads this: check
+   the verdict** — `SELECT ... WHERE left(correlation_id::text,8)='7ec39ca1'` —
+   and act on REVISE/REJECTED (code is live; revise forward). `a92a32fba` carries
+   `Council-Submitted:` so 098 auto-credits on approval.
+
+## What would close bugs_open/158 entirely
+
+Item 1: closed (option b live + decision 3 decided). Item 2: no consumer, nothing
+owed. Item 4: fixed 07-31. Item 3: decision 1 is live; **the only thing owed is
+the council verdict read-and-act**. After that, 158 moves to `bugs_closed/` —
+every item has an outcome and none is silently dropped.
