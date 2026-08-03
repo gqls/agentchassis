@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-49 concepts, consolidated from 62 raw extractions across units U01, U02, U03, U05, U07, U09, U10, U11, U12, U17a, U18, U19, U21, U22, U24a, U24b, U24d, U25.
+50 concepts, consolidated from 62 raw extractions across units U01, U02, U03, U05, U07, U09, U10, U11, U12, U17a, U18, U19, U21, U22, U24a, U24b, U24d, U25.
 
 ### IMP-001 — QA three-layer architecture + concrete audit agent hierarchy
 - **status:** deployed
@@ -399,3 +399,11 @@
 - **sources:** docs/social001_vonc_tiktok_social/minilobby_task/PLAN_generalise_fixes_to_fleet.md#2, #3
 - **relations:** operator discipline; build_status fix layers (IMP-046); runtime-fill guards (IMP-047)
 - **verify-later:** n/a (doctrine)
+
+### IMP-050 — Manual improvement-loop trigger (the documented one does not exist)
+- **status:** deployed
+- **status-evidence:** fired live 2026-08-03 against finetuning.uk (site_id 1368e337…), orchestration 9ae95283-cef1-483c-83ec-c0f5709d91e6 observed at `spawn_design_discovery`/EXECUTING_STEP; both pre-flight refusals exercised on the same run.
+- **what:** `docs024_key_docs_latest/finetuning_uk_repair/294_TRIGGER_improvement_loop_v1.sh <site_id> [domain]` — a Kafka envelope that runs the FULL improvement-loop (discovery + audit → `triage_findings` → `call_dispatch`) against one chosen site. It exists because `004_improvement_loop.md:265` documents `./trigger-audit.sh improvement-loop <site_id> <domain>` and **that script is not in the tree** — the doc outlived it. The loop's only other route is the `improvement-sweep` scheduled task, `enabled=f` since 2026-05-02 (IMP-016, and the standing flag in BLD-003). Why the full loop and not a discovery agent alone: `triage_findings` is the ONLY promoter of `detected` → `triaged` in the platform, and the dispatcher's claim query is `status IN ('triaged','approved')` — so a lone discovery run files findings nothing can ever see (004:305 says so; measured fleet-wide 2026-08-03: **204 detected across 10 sites against 2 triaged**). Envelope mirrors `097_TRIGGER_council_review_v1.sh`; topic is read from `scheduled_tasks.target_topic` rather than assumed. Both CLAUDE.md pre-flight rules are enforced IN the script rather than left to the operator — the ~300s post-pod-restart window (inside which a dispatch is silently dropped and looks like queue latency) and the claimed/in-flight queue check.
+- **sources:** docs024_key_docs_latest/finetuning_uk_repair/294_TRIGGER_improvement_loop_v1.sh; docs024_key_docs_latest/004_improvement_loop.md#265, #305
+- **relations:** improvement-loop orchestrator (IMP-003); improvement-sweep pause + gated re-enable (IMP-016); improvement-sweep/build-pipeline-trigger scheduling (IMP-037); build pump and queue immune system (BLD-003, which carries the standing "improvement-sweep is DISABLED" flag)
+- **verify-later:** whether the sweep is ever re-enabled, which would make this a convenience rather than the only route
