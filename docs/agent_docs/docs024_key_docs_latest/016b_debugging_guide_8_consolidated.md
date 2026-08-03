@@ -2284,7 +2284,7 @@ extra sites are not in adapters at all:
 | site | swallow shape | why a string grep missed it |
 |---|---|---|
 | `platform/agentbase/agent.go:887` | error never captured | **no log line exists to match** |
-| `platform/messaging/processor.go:2000` | logged, no answer | `"KAFKA_SEND_ERROR: Failed to send message"` |
+| ~~`platform/messaging/processor.go:2000`~~ | **NOT AN INSTANCE — corrected 2026-08-03** | it `return err`s two lines below the block, and its function `sendErrorResponseOLD` has **zero callers**. My detector read only the block body and reported it; I repeated that here before checking. **The population is 12, not 13.** |
 | `platform/orchestration/coordinator.go:3663` | logged, no answer | `"Failed to notify parent of success"` |
 | `platform/orchestration/helpers.go:427` | logged, no answer | `"Failed to send timeout response"` |
 
