@@ -24,9 +24,10 @@ Chassis at handoff: **v1.0.1238** (pods started 2026-08-03 10:08 UTC).
 | Live site | **The original 29 files are intact** — re-verified at the wire after every change: 28 byte-identical, 1 differing (`robots.txt`, Cloudflare, expected — §7.3). Only deliberate changes: two link fixes (07-31) and six logo-link fixes (08-03) |
 | Adoption | Complete. 26 pages, all `build_status='planned'` except one |
 | Stylesheet | **LIVE** — `/assets/css/styles.css`, 17,016 bytes, HTTP 200 (`gqls/sites` `6f2a71a32`). Additive; the original pages use `/css/style.css`, which still serves |
-| `/guides/first-time-buyer/index.html` | **`deployed`** — the single-page trial. Live at the new URL; old URL still serves. **Its CSS now resolves, but it still has NO chrome — needs a rerender, see §9.3** |
+| `/guides/first-time-buyer/index.html` | **`deployed` AND now fully chromed** — the ordering canary **PASSED 2026-08-03 11:06 UTC**. 8,854 → 20,550 bytes, `<header>`/`<nav>`/`<footer>` all present, CSS 200. §9.3 is DONE |
+| Chrome (`site_components`) | **EXISTS as of 11:01 UTC** — header 2,125 B · head 8,635 B · footer 987 B, all `rendered`. Was **zero rows**; that was the whole "no chrome" defect (see §12) |
 | Specs | 10 current aspects. `identity` + `content_direction` are **operator-written positioning** (see §4) |
-| Work items | 8 complete · **40 deferred** · 11 `needs_human_review` · **0 armed** |
+| Work items | 8 complete · **66 deferred** · 11 `needs_human_review` · **0 armed** (the nav rebuild filed 26 `page_rerender`; all deferred immediately) |
 | Site lock | **HELD**, and the hold is proven at the gate, not assumed (`gate_says: NOT SELECTABLE — held`) |
 
 **The homepage item is `deferred` and must stay that way** until the owner sees a
@@ -208,15 +209,24 @@ references. One query against `pages` settled it.
    > jump the queue the honest lever is the site lock on the *other* site, and that is
    > the other lane's call, not yours.
 2. **Re-lock the site** once they finish, and prove it with the §3 gate query.
-3. **Rebuild 2–3 non-homepage pages** so the owner judges them styled. **Re-run the
-   first-time-buyer guide FIRST — it is still chrome-less and must be redone.** Its CSS
-   now resolves (the stylesheet exists), but the page was RENDERED before chrome
-   existed, so its stored HTML still has no `<header>`/`<nav>`/`<footer>` and a fresh
-   fetch confirms it. **A stylesheet arriving later does not retro-fit chrome** — the
-   markup is baked at render time, so the page needs a rerender, not a redeploy. Treat
-   that page as the ordering canary: if a rerun of it comes back WITH nav and footer,
-   the composition→design→pages order is confirmed end to end and the remaining pages
-   can be released in a batch.
+3. **[DONE 2026-08-03 11:06 UTC — the canary PASSED.]** The first-time-buyer guide was
+   re-run and came back **WITH** `<header>`/`<nav>`/`<footer>`, CSS resolving, 8,854 →
+   20,550 bytes. **composition → design → pages is now CONFIRMED end to end**, so the
+   remaining pages can be released as a batch. Live-site integrity re-verified after:
+   all files byte-identical bar `robots.txt` (Cloudflare) and the trial page itself.
+
+   **But fix the header CTA first — see §13 — or one broken button ships onto EVERY
+   page in the batch.** The nav is correctly withheld (§12), the CTA is not.
+
+   **Rebuild 2–3 more non-homepage pages** so the owner judges them as a set. Use the
+   assemble-only single-page path (no `reason` ⇒ no LLM, authored copy untouched):
+   ```
+   ./docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/scripts/049b_deploy_single_page.sh \
+     <page_id> 62b5978e-4271-4589-8e00-4baebfc0447c mortgagecalculator.co.uk
+   ```
+   It bypasses the dispatch queue, so the site can stay LOCKED throughout — which is
+   what kept this run contained. **Only pages with `page_components` rows can build**;
+   the other 25 have none and will correctly `skip`.
 4. **Owner decision: the homepage.** It is the only page that overwrites live content.
 5. **Owner decision: redirects.** 22 of 23 original URLs move; the old files keep
    serving as orphaned duplicates and **nothing in the platform reconciles them.**
@@ -258,3 +268,92 @@ commit the first parent, dropping the domain while the run still goes green.
 `NOTES_mortgagecalculator_couk.md` (running log incl. every wrong turn) ·
 `README_where_we_are.md` (**the owner's plain-prose log — append only, never edit**) ·
 `SUMMARY_*` (none yet — no milestone has warranted one since adoption completed).
+
+---
+
+## 12. Where chrome ACTUALLY lives — read this before diagnosing a bare page
+
+**`pages.rendered_header` / `rendered_footer` / `rendered_head` are VESTIGIAL.** They
+are empty for **all 562 pages fleet-wide**, including sites whose served pages plainly
+have nav. Only `discovery_checks/check_missing_structure.go` still reads them. A site
+with empty columns is not evidence of anything.
+
+```sql
+-- the census that settles it — note the ABSENCE of a WHERE domain=
+SELECT s.domain, count(*) FILTER (WHERE coalesce(length(p.rendered_header),0)>0) AS has_hdr
+  FROM pages p JOIN sites s ON s.id=p.site_id GROUP BY s.domain;   -- 0 for every site
+```
+
+Chrome comes from **`site_components`** (`slot_name` header/footer/head), written by
+`render_site_components`, which sits in `nav-updater`'s workflow:
+
+```
+populate_nav_tables → render_site_components → create_rerender_items → get_pages_for_rerender
+```
+
+This site had **14 `site_nav_items` and 0 `site_components`** — stalled between steps 1
+and 2. The documented bypass fixed it in one run (COMPLETED on the first poll):
+
+```
+./docs/agent_docs/docs024_key_docs_latest/bugfix_149_nav_membership/TRIGGER_nav_rebuild.sh mortgagecalculator.co.uk
+```
+
+**Two traps inside that run:**
+
+1. **It files a `page_rerender` item PER PAGE — 26 here, homepage included.**
+   `get_pages_for_rerender` filters on **`p.status`**, NOT `p.build_status`, and every
+   page of ours is `status='active'`. What actually protects the homepage is
+   `rerender_single_page_action.go:565` + `:168-209`: a page with **zero
+   `page_components`** assembles to nothing and returns `skipped:true` without
+   deploying. Only `guide-first-time-buyer` has component rows. **Defer the items
+   anyway** — do not leave the invariant resting on a downstream branch.
+2. **`status` vs `build_status` on `pages` is a genuine trap.** Same table, both
+   plausible, and only one is what the rerender selector reads.
+
+**A one-link nav (Home only) is CORRECT here, not broken.** `NavFetchableOnly` drops
+nav items whose target has never been deployed, because chrome ships on every page
+(the `bugs_open/049` fix); `loadFetchablePageSet` always injects the site root, so Home
+survives. **Cliff worth knowing:** at **0** deployed pages the filter disables itself
+and ships the FULL nav; we have exactly 1, so it is active. The nav fills in as pages
+ship — `nav-updater` runs `force_rerender:true`, so re-running it refreshes chrome.
+
+**Prove the LOCK at its source, not with §3's reconstruction.** §3's `gate_says` query
+hardcodes `s.locked_at IS NULL`, so it proves the query respects the lock, not the gate.
+The gate is a SQL string in the DB, and it does carry the clause:
+```sql
+SELECT default_config->'workflow'->'steps'->'find_dispatchable_site'->'config'->>'query'
+  FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active
+    AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+## 13. OPEN DEFECT — the header CTA is checked by a LOOSER predicate than the nav
+
+**Fix this before the batch rebuild, or it ships onto every page.**
+
+In `render_site_components_action.go`, ~70 lines apart:
+
+| what | helper | predicate |
+|---|---|---|
+| nav items | `loadFetchablePageSet` (`nav_tables.go:258`) | `status NOT IN ('deleted','archived')` **AND NOT `NeverDeployedPagePredicate`** |
+| header CTA | `loadResolverPageSet` (`resolve_internal_links_action.go:486`) | `status NOT IN ('deleted','archived')` — **no deployment check** |
+
+The CTA fallback (`:172-187`) picks an "interactive page" and validates it against the
+looser set, so an unbuilt page passes. Ours resolved to `/tools/stamp-duty/index.html`
+(`build_status='planned'`) → **`HTTP 404` at the wire on the "Get Started" button**.
+
+> **MEASURED, and the first measurement was WRONG — do not repeat it.** From the DB this
+> looks like **2 of 14 sites** (`lendzy.co.uk` → `/tools/price-cap-checker/index.html`
+> also reads never-deployed). **At the wire lendzy's target returns `HTTP 200`**, and its
+> served homepage carries no `header-cta` at all. `deployed_at IS NULL` means "no
+> recorded deploy", **not** "does not serve" — it over-reports. The code asymmetry is
+> real; the confirmed live instance is **one site, ours**. Same trap as `bugs_open/098`,
+> inverted. One `curl -o /dev/null -w '%{http_code}'` is the whole check.
+
+Cheapest containment for this lane: build `tool-stamp-duty` before the batch, or re-run
+`nav-updater` once another interactive page is deployed so the fallback picks a real one.
+The structural fix is to make the CTA use the same predicate as the nav.
+
+**Also live on the trial page, both pre-existing:** `bugs_open/184` (literal
+`**Decision Engine**` asterisks — assemble-only re-ships stored HTML, so a rerender
+cannot clear it) and `/assets/images/favicon.png` **404**, referenced twice from the
+head component.

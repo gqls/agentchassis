@@ -291,3 +291,90 @@ What I'd suggest next is a proper first pass rather than another single page: le
 composition and stylesheet jobs run, then rebuild two or three pages so you can judge
 them looking as they're meant to look. Still nothing near the homepage until you've
 seen that and said go.
+
+---
+
+## 3 August, around midday — the test page came back looking like a real page
+
+Short version: it worked, and the thing we were unsure about is now settled.
+
+You'll remember the first rebuilt page — the first-time-buyer guide — came out with
+no header, no navigation and no footer. It was a bare column of text. I'd said at the
+time that I thought the cause was ordering: I'd built the page before the site had
+its styling and structure in place, and a page gets its layout baked in at the moment
+it's built, so giving it a stylesheet afterwards doesn't retro-fit the missing parts.
+
+That was the theory. It's now confirmed. I rebuilt that one page and it came back
+with a proper header, navigation and footer, and the styling resolving. It went from
+about 8,900 characters to about 20,500. It went live at 11:06 this morning. You can
+look at it:
+
+  https://mortgagecalculator.co.uk/guides/first-time-buyer/index.html
+
+So the order is: structure and styling first, then pages. That's now proven rather
+than assumed, which means the remaining pages can be rebuilt as a batch when you're
+ready, and they should come out looking right first time.
+
+**Your live site is untouched.** I re-checked every file against the copy in the safety
+repo after making the change, and everything is byte-for-byte identical except
+`robots.txt` (which Cloudflare rewrites — expected, and covered before) and the test
+page itself, which is the change I meant to make. The site is locked again and nothing
+is queued that can move on its own.
+
+### What was actually wrong
+
+Worth recording because it wasn't what I first thought. Chrome — the header, nav and
+footer — is stored in one table, and your site simply had no rows in it. A sibling
+site had three. That was the entire difference. There's a job that creates those rows
+and it had never run for us, because I'd deferred the jobs ahead of it. I ran it, and
+it produced the header, footer and page-head in one go.
+
+Along the way I nearly misread this. There are three columns on the pages table with
+promising names like "rendered_header", and they were all empty for your site. That
+looks like a smoking gun. They're empty for **every page on every site we own** —
+they're leftovers that nothing writes any more. If I'd only looked at your site I'd
+have "fixed" a column that does nothing.
+
+### Two things you should see before we do the rest
+
+**One: the navigation currently has a single link — Home.** This is deliberate and I
+think correct, but you should know about it. The system refuses to put a link in the
+header if the page it points at hasn't been built yet, because the header appears on
+every page and a dead link would then be everywhere. Right now only one page is
+built, so there's almost nothing legitimate to link to. As we build the rest, the
+navigation fills in by itself. It's not something I need to fix, but the test page
+will look sparse until there are more pages, and I didn't want you to judge it as
+broken when it's actually being careful.
+
+**Two: I found a real fault, and it's small but it will spread.** The "Get Started"
+button in the header points at a page that doesn't exist yet, so it's a 404 right
+now. The navigation links are checked against "has this page actually been built" —
+but the button next to them is checked against a different, looser test that lets an
+unbuilt page through. Two checks, same function, a few lines apart, different rules.
+Because the header goes on every page, this one broken button would appear on all of
+them once we build the batch.
+
+I should be straight about one thing here: I first measured this against our records
+and concluded two of our sites were affected, and I was about to tell you that. Then
+I actually fetched the other site's button target and it works fine — our records say
+"never deployed" but the page serves perfectly well. So the honest answer is that the
+faulty logic is real, and the confirmed broken button is on this site only. I'd rather
+give you the smaller true number than the bigger one I hadn't checked.
+
+Nothing about that blocks the batch, and it'll want fixing before we build the rest,
+or that button ships broken onto every page.
+
+### Where that leaves your decisions
+
+Unchanged, and both still yours:
+
+- **The homepage.** Still the only page whose address doesn't change, so it's the only
+  one that would overwrite what's live. Still deferred, still needs your go-ahead.
+- **The old addresses.** 22 of the 23 original pages move to new addresses when
+  rebuilt, and the old files keep serving alongside them. Nothing reconciles that
+  automatically.
+
+What I'd suggest: have a look at the test page now it's styled. If it reads right to
+you, the sensible next step is a batch of two or three more guides — not the homepage —
+so you can see them as a set with the navigation filling in. I'd fix the Get Started
+button first so it doesn't ship broken onto each one.

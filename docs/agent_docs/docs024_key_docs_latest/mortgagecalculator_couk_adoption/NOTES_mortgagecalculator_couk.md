@@ -557,3 +557,129 @@ complete component, `deployed`); it was found only because a human read the pros
 Site **locked, and the lock now demonstrably works** (`gate_says: NOT SELECTABLE —
 held`). 42 items deferred, 11 `needs_human_review`, 6 complete. The homepage item is
 `deferred`. Live site: 29 files, unchanged except the six intentional link fixes.
+
+---
+
+## 2026-08-03 ~11:00–11:10 UTC — the ordering canary PASSED, and chrome came from a table nobody had looked at
+
+### What I set out to do
+
+HANDOFF §9.3: re-run the first-time-buyer guide, which had CSS but no
+`<header>`/`<nav>`/`<footer>`, and see whether it comes back WITH chrome. If yes,
+composition → design → pages is confirmed end to end.
+
+### Result: PASSED
+
+| check | before | after |
+|---|---|---|
+| served bytes | 8,854 | **20,550** |
+| `<header>` / `<nav>` / `<footer>` | 0 / 0 / 0 | **1 / 1 / 1** |
+| `/assets/css/styles.css` | 200 | 200 |
+| live at | — | **11:06:07 UTC** (deploy run `30808020578`, commit `8f921c5f8`) |
+
+**Live site integrity re-verified after the change**: every file byte-identical to
+the repo except `robots.txt` (Cloudflare, expected) and the trial page itself
+(my deliberate change, mid-propagation at the time of the check).
+
+### The thing worth knowing: where chrome actually lives
+
+I started by reading `pages.rendered_header` / `rendered_footer` / `rendered_head`
+and found them **empty for all 26 pages**. The obvious reading was "that's the bug".
+It is not — **those three columns are empty for all 562 pages FLEET-WIDE**, on sites
+whose served pages plainly have nav. They are vestigial. Only
+`discovery_checks/check_missing_structure.go` still reads them.
+
+Chrome comes from **`site_components`** (`slot_name` in header/footer/head), and our
+site had **zero rows** there while `loancalculator.co.uk` had three. That was the
+whole defect.
+
+> **The census is what saved me.** One site with empty columns looks like a bug; the
+> whole fleet with empty columns is a dead column. Same query, opposite conclusion —
+> and the only difference was not putting a `WHERE domain=` on it.
+> `[VERIFIED]` — `SELECT count(*) FILTER (WHERE length(rendered_header)>0) … GROUP BY domain` → 0 everywhere.
+
+### Why the site was stuck, and the fix
+
+`nav-updater`'s live workflow is
+`populate_nav_tables → render_site_components → create_rerender_items → get_pages_for_rerender`.
+We had **14 `site_nav_items` rows and 0 `site_components`** — stalled exactly between
+steps 1 and 2. Ran the documented bypass:
+
+```
+./docs/agent_docs/docs024_key_docs_latest/bugfix_149_nav_membership/TRIGGER_nav_rebuild.sh mortgagecalculator.co.uk
+```
+
+COMPLETED first poll (not the 7–9 min the memory note warns about). Produced
+header 2,125 B · head 8,635 B · footer 987 B, all `rendered`.
+
+Then the single page, assemble-only (**no `reason`** = no LLM, authored copy untouched):
+
+```
+./docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/scripts/049b_deploy_single_page.sh \
+  849383e6-f1a9-4437-b42e-19a7ccc93c5f 62b5978e-4271-4589-8e00-4baebfc0447c mortgagecalculator.co.uk
+```
+
+### The safety check I did BEFORE running any of it
+
+The nav rebuild ends by filing a `page_rerender` item **per page** — 26 of them,
+including the homepage, the one page that overwrites live content. `get_pages_for_rerender`
+filters on **`p.status`**, not `p.build_status`, and all 26 of our pages are
+`status='active'` — so the homepage IS in scope. What makes it safe is one branch
+further down: `rerender_single_page_action.go:565` returns empty for a page with
+**zero `page_components`**, and `:168-209` turns that into `skipped:true` with no
+deploy. Only `guide-first-time-buyer` has component rows (3); the other 25 have none.
+
+**`status` vs `build_status` on `pages` is a genuine trap** — same table, both plausible,
+and only one of them is what the rerender selector reads.
+
+I still deferred all 26 afterwards rather than relying on that (0 armed restored).
+
+**I also verified the site lock at its source rather than trusting the handoff's
+reconstruction of it.** The handoff's `gate_says` query hardcodes `s.locked_at IS NULL`,
+so it proves the *query* respects the lock, not the *gate*. The real gate is a SQL
+string in `agent_definitions`, and it does carry the clause:
+```sql
+SELECT default_config->'workflow'->'steps'->'find_dispatchable_site'->'config'->>'query'
+  FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active …;
+-- → "… JOIN sites s ON s.id = wi.site_id WHERE s.locked_at IS NULL AND …"
+```
+
+### A one-link nav is CORRECT, not broken
+
+The rebuilt header carries only **Home**, though there are 14 nav rows. That is
+deliberate: `GetNavItems(..., NavFetchableOnly, ...)` drops items whose target has
+never been deployed, because chrome ships on every page and a dead nav item is a
+site-wide 404 (the `bugs_open/049` fix). `loadFetchablePageSet` always injects the
+site root, so Home survives; everything else is correctly withheld until built.
+**Note the cliff**: with **0** deployed pages the filter disables itself and ships the
+full 14-item nav; we have exactly 1, so the filter is active. The nav grows as pages
+ship, and `nav-updater` runs with `force_rerender:true`, so re-running it refreshes chrome.
+
+### FINDING: the header CTA is validated by a DIFFERENT predicate from the nav
+
+In the **same function**, ~70 lines apart:
+
+- nav → `loadFetchablePageSet` (`nav_tables.go:258`):
+  `status NOT IN ('deleted','archived') AND NOT (NeverDeployedPagePredicate)`
+- header CTA → `loadResolverPageSet` (`resolve_internal_links_action.go:486`):
+  `status NOT IN ('deleted','archived')` — **no deployment predicate**
+
+So the nav is filtered to deployed pages while the CTA guard
+(`render_site_components_action.go:172,182`) accepts a page that has never been built.
+Ours took the fallback branch and picked `/tools/stamp-duty/index.html`, a `planned`
+page. **Live consequence, confirmed at the wire: `HTTP 404`** on the "Get Started"
+button — and chrome ships on every page, so this scales with the batch.
+
+> **CORRECTED IN THE SAME SESSION, before it reached the owner.** I first measured
+> this from the DB, got **2 of 14 sites** (`lendzy.co.uk` → `/tools/price-cap-checker/index.html`,
+> never deployed) and was about to report a fleet-wide defect. **Checked at the wire
+> and lendzy's target returns `HTTP 200`** — and its served homepage carries no
+> `header-cta` at all. `deployed_at IS NULL` over-reports: it means "no recorded
+> deploy", not "does not serve". So the code asymmetry is real and the confirmed live
+> instance is **exactly one site — ours**. `[VERIFIED at the wire, not from the DB]`
+> The cheap check that caught it was a single `curl -o /dev/null -w '%{http_code}'`.
+> This is the same trap as `bugs_open/098` in the opposite direction.
+
+Also still present, unchanged: **`bugs_open/184`** — literal `**Decision Engine**`
+asterisks in the hero. Assemble-only re-ships stored HTML, so a rerender cannot fix it.
+And `/assets/images/favicon.png` **404s** (referenced twice from the head component).
