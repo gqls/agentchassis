@@ -372,3 +372,35 @@ not roll the build myself; it went out on someone else's, which is how this esta
 One thing worth knowing for next time: the review board **cannot see the documentation half of
 our work** — it refuses docs, so four seats objected that we hadn't written up a hazard we had
 already written up an hour earlier. Cheap fix, and it is in the handoff.
+
+## 2026-08-03, later — a second check can now close its own findings, and the trap we wrote down was not the trap we hit
+
+The closing mechanism has a second user: the check that flags components missing the fields their
+own schema says they must have. Same shape as the first, and it drains a queue that had **no way
+out at all** — those items have no automatic fixer, so nobody could ever close one except by hand
+on the database. Fifty-nine of them are sitting there, the oldest from mid-July.
+
+Six will close on the next sweep of the two sites concerned. That is a modest number and it is the
+honest one. The fifty that stay open are the point: they are still genuinely broken, and a
+mechanism that closed all fifty-nine would have looked far more impressive and been useless.
+
+**The thing worth your attention.** After the last round we wrote down the trap that nearly bit
+us — a check that bails out early when it finds nothing, which switches the new closing behaviour
+off on exactly the sites that need it. I followed our own note, looked at the top of this check,
+and found no such bail-out. It looked safe.
+
+It was not. The same bail-out is there, just **buried in the middle** rather than sitting at the
+top, triggered by a cap that stops the check after 25 complaints so it does not spam a badly-built
+site. So it would have switched itself off precisely on the worst sites — and every test would
+have passed, because no test has 25 complaints in it. Our own note would not have caught it,
+because it told you to look in one place. It now tells you to look at every exit. That correction
+is probably worth more than the six items.
+
+I also went looking for guards that only *appear* to be doing something, by deliberately breaking
+each one and checking a test complains. Eight of them; seven complained straight away. The eighth
+did not — and the reason is subtle enough to be worth a sentence: it was being covered by the
+guard standing behind it, so removing it changed nothing *today*. It would have started mattering
+the moment anyone rearranged the query. Now it has a test of its own.
+
+Nothing is live yet. It is committed and it will go out on the next build, the same way the last
+one did.

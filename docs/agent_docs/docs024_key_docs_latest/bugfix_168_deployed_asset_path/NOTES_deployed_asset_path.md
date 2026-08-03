@@ -770,3 +770,134 @@ which is the honest way to say "we expect it to keep working" without claiming i
 `insertWorkItem` is on the insert path of every work item in the estate, and changing it from
 inside a check adoption is the `bugs_closed/124` shape. Three seats asked for the decision; the
 decision is made and written down where the next adopter will find it.
+
+## SECOND ADOPTER — `check_required_fields_missing`, and the trap the first adopter's landmine would not have caught
+
+Picking up `HANDOFF_2026-08-03b` §4.1. Took §4.2 first because it is one query: **fleet
+`result ? 'resolved_at'` is still exactly 4**, all four the original
+`leopardessconsulting.co.uk` retractions from sweep `4401d952`. The 14 retractable items on the
+5 unswept sites have **not** closed. Per the handoff's own framing that is a **scheduling
+question, not a defect** — those sites have not been swept since. Not chased; recorded so the
+next session does not re-measure it hoping for a different number. [MEASURED 2026-08-03]
+
+### Choosing the adopter — the survey, not the table
+
+The handoff offers four single-producer candidates. Ran §3's mandatory producer grep on all
+four: each has exactly **one** Go producer. Corroborated from the DATA side too, which is
+independent of my grep and is the check the council's `prior_art_librarian` seat asked for last
+round — `created_by` over every row ever:
+
+| item_type | Go producers | created_by (all history) | open |
+|---|---|---|---|
+| `required_fields_missing` | 1 | `completeness-discovery-agent` 37, `generic` 33 | 59 |
+| `cta_names_unknown_destination` | 1 | `completeness-discovery-agent` 46, `generic` 61 | 107 |
+| `needs_sprite_css` | 1 | `design-discovery-agent` 2, `generic` 9 | 10 |
+| `voice_tells` | 1 | `generic` 25 | 25 |
+
+Same shape as `empty_section`: two agent types running one check, not two producers.
+
+**Did not take the biggest population.** `cta_names_unknown_destination` has 107 open rows, but
+`check_misdirected_cta` files **two** item types — the other is `page_rerender`, which is about
+as multi-producer as this estate gets — and its retraction predicate would have to re-extract
+anchors and re-run the whole match index. Its natural "fixed" signal is also an **absence** (the
+anchor is gone from the HTML), which is the shape the seam exists to refuse. That is a real
+adopter, but it is not the cheap second one, and doing it badly would be worse than not doing it.
+
+**Sized `required_fields_missing` before writing a line of code**, simulating the predicate in
+SQL over the live queue [MEASURED 2026-08-03]:
+
+| verdict | items | sites |
+|---|---|---|
+| REFUSE: still missing | 50 | 4 |
+| **RETRACTABLE** | **6** | **2** |
+| REFUSE: no deployed component | 3 | 1 |
+
+Six is a modest number and it is the honest one — the 50 are the discrimination control. The
+argument for adopting here is not the six: **this check is FLAG-ONLY.** No handler agent, items
+born `needs_human_review`, so `CompleteWorkItemAction` is never reached and until now a
+`required_fields_missing` item could not close by **any** mechanism except a hand on the
+database. For this type retraction is not a faster path, it is the *only* path.
+
+### The trap, and why the existing landmine would not have caught it
+
+`LANDMINES.md` already carries the first adopter's entry: *a monotonic check's
+`if len(findings) == 0 { return }` makes retraction inert*. I followed it, read the top of
+`Run`, and found **no leading guard**. The check looked safe.
+
+It was not. The retraction-skipping `return result, nil` sits **in the middle of the row loop**,
+fired by `maxRequiredFieldFlagsPerPass` — a noise cap at 25 findings:
+
+```go
+if emitted >= maxRequiredFieldFlagsPerPass { ...; return result, nil }   // was
+if emitted >= maxRequiredFieldFlagsPerPass { ...; break }                // now
+```
+
+Same defect, different disguise: inert on exactly the badly-shaped sites carrying the most stale
+items, green in every test that stays under 25 findings (all of them), and **invisible to a grep
+for the documented shape**. The cap's `return` was correct while the check could only file.
+
+⚠ **This is a correction to the scope of an existing landmine, not a new instance of it.** Filed
+as its own entry: read EVERY exit between the scan and the retraction, not just the leading one.
+
+### The refusal unique to this check: an unreadable schema computes to HEALTHY
+
+The predicate is *"the schema declares these fields required and content_data lacks them"*. So a
+component whose `input_schema` is NULL, unparseable, or in an unrecognised dialect yields **no
+required fields at all**, and the naive reading of that is "nothing missing → filled". It is the
+exact inverse: the observation could not be made. Copying the filing half's `continue` straight
+across does it, because there `continue` means *do not file* and here it must mean *do not count
+as observed*. Left unguarded, the retraction would fire hardest precisely when a component's
+schema had been dropped — silent loss arriving by a route that reads as success.
+
+Kept honest structurally rather than by vigilance: **`obs.healthy++` is reachable from exactly
+one line** — where `missingRequiredValueFields` actually ran and returned nothing. Every other
+path falls through to the `healthy != deployed` gate, so a future refusal is added by *not
+counting* rather than by remembering to veto.
+
+Also refused **runtime-fill shells**, which is deliberately NARROWER than the negation of the
+filing predicate. The filing half skips them because a browser loader supplies the content —
+that is a reason not to FILE; it is not evidence the fields arrived.
+
+### Mutation round: 8 mutations, and the one that PASSED is the interesting one
+
+Harness at `scratchpad/mutate.py` — applies each mutation, requires the named test to fail,
+restores. First run: **7 of 8 caught, M2 passed.**
+
+M2 deletes the `if !componentID.Valid { continue }` refusal — the "slot holds no deployed
+component" guard. Every test stayed green. **It was caught by a guard in SERIES**: today's query
+joins `content_components` *through* `page_components`, so a LEFT JOIN miss always arrives with a
+NULL schema too, and the schema refusal shadowed it. The realistic test row could not tell the
+two guards apart.
+
+Fixed with a deliberately **synthetic** row — a join miss whose other columns look perfectly
+healthy — which pins the componentID guard on its own, so a future change to the join cannot
+quietly make correctness depend on the other guard. Second run: **8 of 8, each caught by its own
+named test.** A guard nothing fails on is decoration, and "the mutation passed" is not the same
+as "the guard is redundant".
+
+### `page_id`: the same landmine as last round, pointing the other way
+
+Council `97923026`'s `editquality` seat made the first adopter read the first-class `page_id`
+column ahead of `spec->>'page_id'`. Checked the same thing here and it inverts: **all 70
+`required_fields_missing` rows ever written have a NULL `page_id` column** and a populated spec
+key, 0 disagreements — because this check's filing half never sets `WorkItemSpec.PageID`
+[MEASURED 2026-08-03]. So for `empty_section` the COALESCE pins a preference; **here the spec
+fallback is the arm that actually fires.** Column still read first: it is the first-class one, and
+a future filing change that populates it would otherwise silently stop retraction with no signal.
+
+**Deliberately NOT fixed here.** Setting `PageID` on the filing half is a change to what this
+check *writes*, needs its own justification and test, and the retraction's correctness does not
+depend on it. Recorded as a follow-up rather than smuggled into a retraction change — the
+`bugs_closed/124` shape.
+
+### State
+
+Build clean, `go vet` clean, full `platform/orchestration/actions/...` suite green.
+⚠ Two new LANDMINES entries synced (`--apply`, 948 rows). Both came back
+`NEEDS_VERIFICATION`, and the `landmine-verifier` **cannot** discharge them: every symbol they
+name (`findResolvedRequiredFields`, `TestRequiredFieldsRetractionSurvivesThePerPassCap`)
+postdates the code index's freeze at `d98010e8b` (2026-07-28), so it reads them as ABSENT. That
+is the known index landmine, not a defect in the entries. Saying so rather than running it for a
+predictable NEEDS_HUMAN_REVIEW.
+⚠ `/tmp` tmpfs still near-full — `TMPDIR=/home/ant/.cache/buildtmp` throughout, as §8 of the
+handoff warns.
