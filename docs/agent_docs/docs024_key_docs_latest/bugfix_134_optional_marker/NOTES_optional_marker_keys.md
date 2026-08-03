@@ -104,3 +104,31 @@ said "Nothing needs verification", which is EXACTLY the trap recorded in
 the NEEDS_VERIFICATION signal. Not fought here — 163 also documents the verifier
 cannot mechanically confirm path-bearing symbols anyway; the entry stands on its
 measured evidence.
+
+## 2026-08-03 (final) — round 2 APPROVED
+
+**"approved with 2 advisory objection(s) — none high-severity"** (second
+council_report on corr 9521d62f, 6 abstained, 10 seats). The round-1 gating
+seat (editquality) flipped to approve on the snapshot-table measurements.
+Verdict READ; the two platform commits carry `Council-Submitted:` and the 098
+report credits them automatically now the correlation is approved.
+
+Advisories worth keeping, both from seats that approved or objected non-gating:
+
+- **architecture (medium):** the suspicious-keys detector has no CI/cron/build
+  caller — detection of the class depends on a session re-running
+  `scripts/audit-config-keys.sh` by hand. True, and it is the
+  "detection works; schedule and dispatch do not" shape this estate already
+  knows. Candidate follow-up (deliberately NOT folded into this lane's commits):
+  wire the report into the RFC_006-style daily CronJob check. Whoever picks it
+  up: the report exits 1 today on the three bug-136-family unknown keys, so a
+  cron that alerts on exit code alone will page daily until 136's lane lands —
+  gate on the SUSPICIOUS section specifically, or wait for 136.
+- **guardian (medium):** the migration was applied before full council
+  sign-off. Acknowledged as fact — on this tree review is after the fact by
+  design (owner ruling 2026-07-29: no thread can hold a change out of the
+  fleet), and it was stated plainly in the round-2 rationale rather than
+  disclaimed.
+- **editquality (low):** the `?* :` character set is a heuristic; a convention
+  like a trailing `(optional)` would pass. Deliberate narrowness, recorded in
+  the code comment; widen only on an observed instance, never speculatively.
