@@ -898,3 +898,65 @@ WHERE pc.page_id=p.id AND cc.id=pc.component_id
 
 Then **re-capture the golden**, or the next comparison reports your own fix as a
 regression.
+
+## ⛔ NAV: do NOT run `nav-updater` on this site (2026-08-03)
+
+**It would rebuild the nav down to roughly one link, on all 27 pages, and ship it
+immediately.** This is not a general warning copied from the fleet landmine — it is
+measured here.
+
+```sql
+-- the state that makes it fatal, re-run before trusting this
+SELECT count(*) FILTER (WHERE in_header) AS in_header,
+       count(*) FILTER (WHERE in_footer) AS in_footer,
+       count(*) AS pages
+FROM pages WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26';
+--  0 | 0 | 27      <- every page declares NEITHER flag (explicitly false, not NULL)
+
+SELECT count(*) FROM site_nav_items WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26';
+--  1                <- against 25 links in the authored header
+```
+
+`classifyPagesForNav` omits a page when it is never-primary (every `tool` page, and
+every `/guides/` child-path page) **and declares neither flag**. That is all 27.
+`populate_nav_tables` opens with `DELETE FROM site_nav_items WHERE site_id = $1`.
+
+**The chrome is now LOCKED** (`lock_type='permanent'`,
+`locked_by='loancalculator_authored_chrome_20260803'`, backup in
+`site_components_bak_20260803_chromelock`), so a forced chrome re-render is refused
+and emits `lock_blocked_change` instead of overwriting. That blocks the second half
+of the damage, not the first — `site_nav_items` would still be rebuilt.
+
+### If you need a nav change
+
+1. **Edit `chrome/header.html` (or `footer.html`) and reload it.** The chrome is
+   authored, not generated. `load_chrome.py --check` refuses on an asset that does
+   not resolve — that refusal is the point (see § "Chrome for an assembled site").
+2. Unlock, load, re-lock:
+   ```sql
+   UPDATE site_components SET locked_at=NULL, locked_by=NULL, lock_type=NULL
+    WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26' AND slot_name='header';
+   -- ... load_chrome.py --apply ...
+   UPDATE site_components SET locked_at=now(),
+          locked_by='loancalculator_authored_chrome_20260803', lock_type='permanent'
+    WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26' AND slot_name='header';
+   ```
+3. Propagate with **assemble-only** `page_rerender` (no `spec.reason`), `page_id` in
+   the spec AND the column.
+4. `nav-link-fixer` (refreshes chrome from the EXISTING nav tables, no populate
+   step) is the platform-native alternative — but it is only correct here once
+   `site_nav_items` actually describes this site, which today it does not.
+
+### Before generating the header from `pages` — the precondition
+
+Set `in_header`/`in_footer` to match what the authored chrome already links.
+Until that is done, every platform nav mechanism reads this site as having no
+navigation at all. ⚠ `in_header` has a second consumer —
+`buildServicesHTML` (`render_site_components_action.go:1156`) selects
+`in_header = true OR in_footer = true` for a footer "Our Services" column — so the
+flag change needs its own verification, not a bulk UPDATE.
+
+⚠ **`in_header` has THREE states.** `render_site_components.go:1044` reads
+`in_header = true OR in_header IS NULL` as included, while `classifyPagesForNav`
+reads NULL as excluded. This site's pages are explicitly `false`, so they are
+excluded by both — do not "tidy" them to NULL.

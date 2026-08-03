@@ -2216,3 +2216,114 @@ git ref, once for a working copy. Fleet landmine written.
   landed** — the queue went from 15 to 133 items deep while this was in flight.
   **Not verified live yet**; when it lands, expect `nobody asked to publish` → 0
   and both figures → 0 on `/index.html`.
+
+## 2026-08-03 (later still) — the header-nav item, surveyed rather than built
+
+Queue item (1) was "the header's link list is hand-maintained; generating
+`site_components.header` from `pages` is the obvious next mechanism". **The survey
+falsified the premise and then found something more urgent.**
+
+### 1. There is no drift to fix. Yet.
+
+```
+header links: 25    pages: 27
+IN HEADER, NOT A PAGE (dead links):  none
+A PAGE, NOT IN HEADER:               /legal.html, /tools/standard-calc.html
+```
+
+Zero dead links, and both omissions are already known and deliberate: `/legal.html`
+is in the FOOTER, and `/tools/standard-calc.html` is the orphan sitting on this
+lane's own queue as a **content question for the owner**. So the hand-maintained
+list is currently *correct*, and the risk it carries is latent, not realised.
+
+That matters, because a generator would have had to decide the orphan question
+mechanically — which is precisely the decision that is the owner's.
+
+### 2. ⛔ THE MECHANISM ALREADY EXISTS, AND ON THIS SITE IT IS A DEMOLITION CHARGE
+
+The platform's nav machinery is `nav-updater` → `populate_nav_tables` →
+`site_nav_items` → chrome. Anyone acting on item (1) reaches for the agent whose
+name says navigation. Read `classifyPagesForNav` at HEAD before you do:
+
+```go
+neverPrimary := neverPrimaryTypes[page.PageType] ||
+    (isChildPageURL(page.URL) && !isSectionIndexType(page.PageType))
+if neverPrimary {
+    if page.InHeader || page.InFooter { utility = append(utility, page) }  // kept
+    else { /* omitted — "the honest answer" */ }
+    continue
+}
+```
+
+Now this site, measured:
+
+```
+pages                     27   (13 guide, 12 tool, 1 content, 1 landing)
+in_header = true           0
+in_footer = true           0
+declaring NEITHER         27   (explicitly false — not NULL, which is a third state)
+site_nav_items rows        1   (against 25 links in the authored header)
+```
+
+Every `tool` page is `neverPrimaryTypes`. Every `/guides/` page is a child-path URL
+whose `page_type` is not a section-index type. **All 27 declare neither flag, so all
+27 take the "omitted" branch.** `populate_nav_tables` opens with
+`DELETE FROM site_nav_items WHERE site_id = $1` and rebuilds — and `nav-updater`
+then re-renders the chrome and re-assembles every deployed page, so the damage
+ships immediately.
+
+**This site is one `nav-updater` run away from a nav of roughly one link, on all 27
+pages.** The fleet landmine for this is dated 2026-07-30 and was NARROWED on 07-31
+to "only a page declaring neither flag is still lost" — which reads reassuring
+right up until you measure a site where *that is every page*.
+
+### 3. What was done instead: lock the authored chrome
+
+The three `site_components` rows (head/header/footer) were authored by this lane and
+were **unlocked**. Locking them is the same mechanism, precedent and rationale as
+the twelve tool rows, and it is the protection that actually matches the threat.
+
+Verified rather than assumed, in this order:
+
+- **The chrome re-render honours the lock.** All three write sites in
+  `render_site_components_action.go` (lines 569, 746, 913) carry
+  `pageComponentAgentWritableSQL`. *(`CheckSiteComponentLock` itself has no
+  production caller outside its test — a helper that looks like a finished
+  refactor — but the predicate is in the WHERE of the writers, which is what
+  actually bites.)*
+- **The lock bites here**: `agent_may_write` = `f` on all three, evaluated with the
+  platform's own predicate.
+- **Negative control**: fleet-wide the same predicate returns `t` for **45 chrome
+  rows across 15 sites** and `f` for exactly these 3. It is not constant-false.
+- **Nothing on the wire moved**: 27 nav links on every page sampled, all HTTP 200.
+
+**The stated cost is real and is already paid.** The guard's own file says "a
+permanently locked header means new pages stop appearing in navigation on every
+page of the site". On this site the header is hand-authored and never did update
+itself — that IS item (1)'s complaint. So the lock costs nothing that was not
+already true, makes it explicit, and converts a silent overwrite into a
+`lock_blocked_change` for review.
+
+### 4. So item (1) is now a different, larger job — and it has a precondition
+
+Generating the header is no longer "write a script". It is:
+
+1. **Declare nav membership**: set `in_header`/`in_footer` on the 25+2 pages to
+   match what the authored chrome already does. This is the precondition for ANY
+   platform nav mechanism working here, and it is what disarms the demolition
+   charge in §2.
+2. Decide the orphan (`/tools/standard-calc.html`) — **owner's call**, and it is an
+   input to step 1, not an output of it.
+3. Only then consider generating chrome from the nav tables, via `nav-link-fixer`
+   (refreshes chrome from the EXISTING tables, no populate step) — never
+   `nav-updater`, which repopulates.
+4. Unlock the chrome for that deliberate act, then re-lock.
+
+**Step 1 was deliberately NOT done in this session.** It writes to 27 rows on a live
+money site, and `in_header` has consumers beyond the classifier — `buildServicesHTML`
+(`render_site_components_action.go:1156`) selects pages with
+`in_header = true OR in_footer = true` to build a footer "Our Services" column.
+Today that is inert here (the authored chrome carries no placeholders and is now
+locked), but "inert today" is a fact about today, not a guard — the same reasoning
+this lane got wrong once already this session. It needs its own change with its own
+verification, and the orphan decision first.
