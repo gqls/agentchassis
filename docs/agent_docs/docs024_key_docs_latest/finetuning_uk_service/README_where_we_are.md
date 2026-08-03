@@ -68,3 +68,54 @@ defend later.
 So it now sits on you: mint the new Thunder Compute token, and the runbook's
 first section has the steps ready to paste. After that the next spend is about a
 pound.
+
+## 3 August 2026 — the key in the cluster doesn't work, and the safety check now does
+
+Two things to report, and they point in opposite directions.
+
+The first is a problem. You said we now have a Thunder Compute key, so I went and
+checked rather than taking it on trust, and the key sitting in the cluster is
+being refused by Thunder — it comes back "unauthorised". I checked it from inside
+the machine that would actually use it, so this is not a question of my laptop or
+my typing. I also made sure the *check* wasn't the thing at fault: I compared what
+I sent against what our own code sends, and I tried the same request with a
+deliberately fake key and with no key at all. Both were refused in exactly the
+same way, which is how I know the refusal means "this key is bad" rather than
+"you asked the wrong question". And the key in the cluster is not the one you
+generated on the 31st — the two don't match — so I think the new one simply never
+got pasted in.
+
+The reassuring half of that: a key that can't authenticate can't rent a GPU
+either. Nothing can be running up a bill right now, and I confirmed separately
+that we have nothing running at all and have spent nothing in the last day. What
+it *does* cost us is the one check that could spot a machine running at Thunder
+that our own records know nothing about — that check has to ask Thunder directly,
+so it's blind until the key works. That is the reason to fix it, more than the
+GPU work being blocked.
+
+The second thing is progress. The safety net you asked about — the automatic
+sweep that shuts down forgotten machines — has been repaired and the repair is
+live. You'll remember the finding: it had been running every fifteen minutes for
+months and had never actually shut anything down, because the way it looked for
+machines missed three of the situations that actually cost money. That fix is now
+applied and I've confirmed all three are covered.
+
+Applying a fix isn't the same as proving it works, so I'm now doing exactly that:
+I've put a fake, deliberately-fake-named machine into our records, backdated so
+the sweep should consider it long overdue, and I'm watching to see whether the
+sweep finds it and acts. Two things make this the safest possible moment to run
+that test — we have nothing real running, and the key doesn't work, so the test
+physically cannot destroy anything of ours at Thunder. The flip side is that it
+proves the half that was broken (noticing, and deciding to act) but not the final
+step of actually telling Thunder to shut down. That last step has to be re-proved
+once a working key is in.
+
+One more thing worth knowing, from your other thread rather than mine. That lane
+found that the machinery which is supposed to pick up detected problems and act
+on them has been switched off since May — problems get spotted and then sit
+there. My plan for taking customer orders was going to ride on that same
+machinery, so I've noted that it would have inherited a queue nobody empties.
+Better to find that now than after someone has paid.
+
+Nothing I've touched today goes anywhere near the site itself, so your other
+thread and this one aren't going to collide.

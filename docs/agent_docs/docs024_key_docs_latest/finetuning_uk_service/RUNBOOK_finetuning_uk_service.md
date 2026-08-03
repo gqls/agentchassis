@@ -7,6 +7,17 @@ not in scrollback. Companion: `PLAN_2026-07-31_finetuning_uk_service.md`.
 
 ## 1. Phase −1 — rotate the Thunder Compute token (OWNER ACTION, blocks all GPU work)
 
+> **STATUS 2026-08-03: STILL BLOCKED — the key in the cluster returns 401.**
+> The secret holds a 64-char key fingerprinted `a73…96`, the pod's env matches it,
+> and `GET /v1/instances/list` with it returns **401 Unauthorized**. Controls (a
+> bogus token, and no header at all) also return 401, so 401 is this API's
+> auth-rejection response and the key is genuinely invalid — not a header-shape
+> artefact. That fingerprint is **not** the key minted on 07-31 (`5a2…c2`), so
+> the patch in step 2 below has not yet been run.
+> **Silver lining: an invalid key cannot provision either, so nothing can be
+> billing.** The real cost is that §1b — the only orphan-visible check — is blind
+> until this is fixed.
+
 The key is `THUNDER_COMPUTE_API_KEY` in secret **`personae-default-secrets`**
 (ns `ai-persona-system`), consumed via `envFrom` by the `thunder-adapter`
 deployment (`deployments/kustomize/services/thunder-adapter/base/deployment.yaml:54-57`).
@@ -100,6 +111,19 @@ UPDATE thunder_config SET is_paused = true, pause_reason = '<why>';
   `decommissioning`, `running` with a NULL `running_since`) — **measured 0 of 3
   on synthetic rows.** `sql_for_agents/280_thunder_reaper_widen_stuck_states.sql`
   fixes that (3 of 3), with the rollback in its header.
+  **APPLIED 2026-08-03** — verify anytime with:
+  ```sql
+  SELECT enabled,
+         pre_query LIKE '%stuck_provisioning%'    AS covers_provisioning,
+         pre_query LIKE '%stuck_decommissioning%' AS covers_decommissioning
+  FROM scheduled_tasks WHERE name='thunder-reaper';   -- expect t | t | t
+  ```
+- ⚠ **The dispatch field names disagree with the query's, and that is FINE** —
+  do not "fix" it. The workflow description says
+  `provisioning_id`/`thunder_identifier`, the pre_query returns
+  `thunder_instance_id`. `thunder_decommission_dispatch.go:62-67` requires
+  **either** `provisioning_id` **or** `thunder_identifier`; the query supplies
+  `provisioning_id`, the form the source marks preferred. Checked 08-03.
 - **Still uncovered: orphans** (billing at Thunder, unknown to us). Needs an
   action exposing `api.Client.ListInstances` — built and unit-tested in the Go
   client, exposed by nothing. Until then, §1b above is the only net.

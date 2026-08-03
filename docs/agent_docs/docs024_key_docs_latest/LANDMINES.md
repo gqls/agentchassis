@@ -4303,3 +4303,33 @@ that is also the thing you would want in the logs is not.
 - **source:** RFC_009 / `bugs_closed/140`, migration 295, 2026-08-03. All four
   treatments and the per-field reasoning are in that migration's header.
 - **added:** 2026-08-03, bugfix_140 lane
+
+---
+
+### The thunder reaper's own smoke test supplies the one field whose absence breaks it
+
+- **footprint:** `thunder_instances`, `internal/adapters/thunder/store/instances.go`, `docs/agent_docs/sql_for_agents/114_thunder_reaper.sql`, `thunder-reaper`
+- **fires when:** proving the reaper works, or hand-inserting a row to clean up an
+  instance seen at Thunder
+- **the tell:** the drill passes. `store.Instance.InstanceIP` is a plain Go `string`
+  against a **nullable** column, so `lookupOne` dies with *"converting NULL to string is
+  unsupported"* — but `114_thunder_reaper.sql:186-199` builds its synthetic row **with
+  `instance_ip = '10.0.0.42'`**, so the only documented proof can never reach that branch
+- **the check:** run the drill **omitting `instance_ip`** — the omission *is* the test.
+  Then read `thunder_instances.status`, not the clock: `last_triggered_at` advancing
+  proves the SCHEDULER fired, never that anything was reaped. Runs are in
+  `orchestration_states` under **`owner_agent_type`** (`agent_type` does not exist and
+  errors — which reads as "no rows" if you suppressed stderr)
+- ⚠ **the drill id is a safety control, not a label.** Real `thunder_instance_id`s are
+  bare integers (`0`, `1`); use a **non-numeric** one, because
+  `decommission_action.go:123-129` refuses an unparseable id *before* calling Thunder.
+  The seed's `999999` instead relies on Thunder 404ing — weaker. And DELETE the row after
+  (match `id` AND `thunder_instance_id`): one left in `decommissioning` is re-selected
+  every 900s for ever by the widened selector (`sql_for_agents/280`)
+- **a state the schema models is not one the code writes:** `042_thunder.sql` references
+  `status='provisioning'`; nothing writes it (`provision_action.go:413` hardcodes
+  `'running'` and INSERTs only *after* the box is up) — which is also why the real
+  exposure is an instance **billing at Thunder with no row at all**, invisible to every
+  check we own. The vendor API is truth; our table is a cache
+- **source:** `bugs_open/186`, `finetuning_uk_service/NOTES` 2026-08-03
+- **added:** 2026-08-03, finetuning_uk_service lane
