@@ -18359,3 +18359,30 @@ premise of the question.
 answered by the registry — one grep of the map variable (`reviewRevalidators`), ten
 seconds. A doc's statement about what a map covers is a claim about behaviour, not
 behaviour (the standing family: read the row/map, not the prose about it).
+
+## 2026-08-03 — "163 IS being worked" was read off transcript heat for the MECHANISM'S name, and the bug sat unowned two more days
+
+**The claim that was wrong:** `bugfix_097_content_data_links/NOTES:21` (2026-08-02)
+recorded `landmine-verifier 112 in 693556a1 -> bugs_open/163 IS being worked; dropped
+it` — and the note's own stated rule was correct ("the signal is the SYMBOL, and the
+discriminator is one session having a large count"). The rule was applied to the wrong
+symbol. Session `693556a1` mentioned `landmine-verifier` 300 times because it was doing
+landmine CORPUS work (the bugs-file staleness sweep); it mentioned `symbolTokenClause` —
+the function any 163 fixer must open — exactly **0** times, all-history. Nobody was
+working 163. It stayed unowned from 08-02 until this lane took it on 08-03.
+
+**Why.** The mechanism's name is what every ADJACENT lane says: the corpus sweep, the
+sync scripts, the RFC lane, any session reading LANDMINES.md. Only a fixer says the fix
+site's identifier. Heat on the broken thing's name measures how interesting the breakage
+is, not whether anyone is fixing it.
+
+**What caught it:** this lane re-ran the same transcript scan before dropping the bug,
+with the fix-site symbol as the probe alongside the mechanism name — 300 vs 0 in the
+same file settled it in one grep.
+
+**The cheap check that would have caught it:** when a transcript scan says a bug is
+owned, grep the SAME transcript for the symbol named in the bug's "Fix candidates"
+section. If the mechanism is hot and the fix site is cold, you are looking at a
+neighbour, not an owner. (`scripts/who-owns.py` has the mirror-image blindness — it
+reads commits, so a session mid-fix is invisible; the two checks fail in opposite
+directions and are cheap to run together.)

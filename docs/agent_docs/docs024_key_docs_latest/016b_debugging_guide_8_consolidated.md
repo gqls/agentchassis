@@ -413,6 +413,25 @@ cause, say what would change if you removed it, then remove it and look.
 outlives the blindness"* (this is the same shape with the sign flipped), *"two checks blind
 the SAME way AGREE"*.
 
+> **FIXED 2026-08-03 (`bugfix_163_symbol_lookup` lane, commit `c3b02f035`) — and the fix
+> followed this entry's own ordered list, with two additions the entry did not predict.**
+> (1) landed as written: `SplitSymbol` exported (the `SliceLines` precedent), path↔`path`,
+> name↔`symbol`, receiver-form token matching preserved for colon-less queries. (3) landed
+> better than asked: the answer now names the **predicate as executed** (`-- searched: …`),
+> not just the query — the per-check fact that can override the run-level staleness banner,
+> which is the seam the false verdict actually slipped through. The additions: a **`:LINE`
+> suffix** (12 corpus footprints — `spawn_actions.go:3066` — a third convention nobody had
+> modelled) degrades to a path check and says so, because matching "3066" against symbol
+> names would have rebuilt this bug in a new costume; and a **path-qualified miss re-runs
+> name-only and reports where the symbol DOES live**, so a moved file can never again read
+> as a missing symbol. (2) — the verdict-step prompt rule — was deliberately NOT done in the
+> same pass: the prompt is `architecture_review`'s mechanism (RFC_005 §3.2) and the owner
+> ruling of 2026-07-29 says a shared mechanism's owners are told, not patched around;
+> with the per-check predicate now in `results_text` the prompt fix is smaller than it was.
+> Re-measure before quoting: 20 verdicts / 16 NEEDS_HUMAN_REVIEW / **0 CONFIRMED** was the
+> state at fix time — the first mechanically-CONFIRMED verdict after the roll is the proof
+> the fix is live.
+
 ### Data-driven component shells render empty — inline `<script>` never extracted to `js_content`
 
 **Symptom.** A component with built-in interactivity (and, for data-driven ones, a

@@ -104,7 +104,24 @@ so a zero numerator can never be read without its zero denominator beside it.
 - **First, answer the § Measured question** — if the action's output genuinely never
   reaches a bundle, the fix is still correct but the priority changes a great deal.
 
-## Related
+## Contribution from the 163 lane (2026-08-03) — your symbol-arm baseline has moved, and your fix candidate 2 got its single writer
+
+Filed here per the `bugs_closed/164` ruling (an adjacent change in the function you have
+claimed must be named, not silent). The `bugfix_163_symbol_lookup` lane (commit `c3b02f035`)
+rewrote the **symbol arm's** query construction — path half now binds to the `path` column,
+and a path-qualified miss re-runs name-only and reports both facts. Consequences for this bug:
+
+- **Your verification recipe's byte-identical baseline no longer holds for the symbol arm.**
+  "A 39-row answer renders byte-identically to today" is still true for `content` and `ls`,
+  but a symbol answer may now carry a `note:` line (line-ref degrade), a `-- searched:` line
+  (0-row predicate narration), or an `ELSEWHERE` block (path miss disclosure). Re-baseline
+  from `c3b02f035`, not from 2026-08-02.
+- **Helpful to your fix candidate 2:** the symbol arm's rows (primary AND fallback) now flow
+  through one `renderSymbolRows(ctx, db, clause, args, rowCap, codeOut, docs)` — the "one
+  writer" your candidate 2 asks for. A `n == rowCap` notice added THERE covers both symbol
+  branches at one site; `content` and `ls` remain inline loops, untouched.
+- **No cap behaviour was changed**: `rowCap` still flows to `LIMIT` unreported in all three
+  arms. Your defect stands exactly as filed.
 
 - **`bugs_open/172`** (this lane) — the two caps in the sibling file; the fix landed
   `3761a04ca` / `c8031e284`, council `d47b826e-6fc6-42ad-a2ef-62b1f1ba0b88` APPROVED.
