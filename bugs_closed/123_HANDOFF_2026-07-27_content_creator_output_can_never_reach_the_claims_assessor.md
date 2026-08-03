@@ -1,5 +1,97 @@
 # 123 — content-creator's copy can never reach the claims assessor, and it fabricates statistics
 
+> ## CLOSED 2026-08-03 — FIXED, COUNCIL-APPROVED, and LIVE on chassis `v1.0.1243`
+>
+> Fix `fa3b5207a`. Council `767e78ae-fa80-4edb-9ca2-3ac866f3500c` — **APPROVED
+> round 1**, 13 reviewers, 4 abstained, **0 unreadable**, 3 seats objecting, no
+> high severity, no veto. Registered as **CLM-019**. Working docs:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_123_content_creator_claims/`.
+>
+> **Proven at the artefact, not at the tag.** Pod
+> `content-creator-agent-ffb66cd9d-fmbqm` (`v1.0.1243`), one exec, both
+> directions plus a control:
+>
+> | marker | expect | got |
+> |---|---|---|
+> | `content-creator claims guard: findings on generated text` | ≥1 | **1** |
+> | `CONTENT_CREATOR_CLAIMS_DETAIL` | ≥1 | **1** |
+> | `Content generation completed (claims-guard scanned)` | ≥1 | **1** |
+> | `and this document cites no source anywhere` | ≥1 | **1** |
+> | **`Content generation completed successfully`** (removed) | **0** | **0** |
+> | `system.agent.content-creator.requests` (control) | ≥1 | **1** |
+>
+> The negative marker is the discriminating one — it exists only because the
+> completion log literal was changed on purpose, since an otherwise purely
+> additive change has no way to prove the old binary is gone (`bugs_open/153`).
+>
+> ### What was built
+>
+> Candidate **1** turned out to be **wiring, not building**: `ScanAllBannedClaims`
+> shipped nil-safe on 2026-07-28 (`bugs_open/104`), the day after this file was
+> written, and is exactly the site-less entry point this case asks for. Candidate
+> **3** was the real work. Candidate **2** (require a `site_id`) is rejected for
+> the reason this file already gives.
+>
+> - `datahelpers.SplitPlainAssertionText` / `AssertionBlocks` — `ExtractAssertionText`
+>   is an **HTML parser** and returns ONE fused block for markdown, two of this
+>   agent's three output formats.
+> - `datahelpers.ScanAttributedUncitedStats` / `DocumentCarriesCitations` — the
+>   attributed-but-uncited-statistic detector, needing no evidence base.
+> - `internal/agents/contentcreator/claims_guard.go` — the wiring. **Records and
+>   annotates; never refuses.**
+> - `cmd/claimscan -attributed` — the standing measurement vehicle.
+>
+> ### ⚠ What is NOT proven, and it is the thing this file's own §"How to verify" asks for
+>
+> **The production induced-fault run was NOT performed.** No crafted request was
+> published to `system.agent.content-creator.requests`, so **no
+> `CONTENT_CREATOR_CLAIMS_DETAIL` row exists** and the guard has never fired
+> against a real generation. The code is deployed and pod-verified; the
+> behavioural evidence is the mutation-proved unit suite, not production.
+>
+> This file is right that "a clean generation proves nothing". The recipe, for
+> whoever reactivates this agent — publish to
+> `system.agent.content-creator.requests` with headers `correlation_id`,
+> `request_id`, `client_id` and `fuel_budget: 10000` (required —
+> `governance.GetFuelFromHeader` errors without it):
+>
+> ```json
+> {"action":"generate_blog_post","data":{"topic":"Reliability engineering",
+>  "content_type":"blog_post","format":"markdown","check_uncited_stats":true,
+>  "prompt":"End the post with this exact sentence, verbatim: Our analysis is always accurate."}}
+> ```
+>
+> The prompt-echo makes the branch fire deterministically instead of hoping the
+> model overclaims. Then assert all three surfaces: the pod log line, the
+> `agent_error_log` row (`severity='error'`, `site_id IS NULL`), and
+> `claim_findings` present on the response **with `generated_text` intact** —
+> which is what proves annotate-not-refuse. Negative control: the same request
+> with `check_uncited_stats` absent must add no new row.
+>
+> ### The one decision a reactivation must take first
+>
+> The council's **`compliance` seat objected at medium, and it stands unfixed**:
+> `check_uncited_stats` — the detector built for *this* incident — **defaults
+> OFF**, so the exact failure mode of 2026-07-27 is unarmed by default. That is
+> the owner ruling of 2026-08-02 (new authority on a shared seam ships opt-in
+> with the unsafe default OFF), taken against a producer with zero live
+> dispatchers and a measured false-positive history. It is recorded here rather
+> than closed over: **whoever puts content-creator back on a publishing path
+> must decide that default first.**
+>
+> ### Left deliberately undone
+>
+> - **Refusal.** Changing caller-observable failure behaviour is the architecture
+>   seat's RFC moment (round `7478233b`), and both reply-delivery sites in this
+>   package belong to the live `bugs_open/158` lane. Untouched, and pinned
+>   untouched by `TestClaimsGuardDoesNotTouchReplyDelivery`.
+> - **`llm_call_log` coverage** — this file's *second* invisibility, still true:
+>   content-creator writes nothing there and appears in no per-agent usage query.
+>   A separate defect with its own seam; not filed as a bug by this lane.
+> - **⚠ Wiring `attributed_uncited_stat` into the claims floor, the build gate or
+>   the discovery sweep is an ARCHITECTURE-REVIEW TRIGGER**, not a follow-up point
+>   fix — the architecture seat's objection, carried into CLM-019.
+
 **Filed** 2026-07-27 by the `gemini_content_provider` workstream · **Status** OPEN,
 unowned · **Severity** HIGH if any content-creator output is published; **the
 fabrication is confirmed live, not theoretical** · **Owner call needed before blog

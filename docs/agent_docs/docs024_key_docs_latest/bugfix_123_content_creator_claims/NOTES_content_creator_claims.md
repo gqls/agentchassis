@@ -284,3 +284,104 @@ the next site-less producer needs the same thing.
 fix, twice, before probing it. Nil-safety was the property I checked; *what it
 returns for a non-HTML input* was the property that mattered, and nothing about the
 function's name or doc comment would have told me. The probe cost 90 seconds.
+
+---
+
+## 2026-08-03 — the corpus refuted my own NOTES entry from four hours earlier
+
+The candidate detector was measured twice more, and both runs contradicted
+something I had already written down in this file.
+
+**Run 2 (cue-based, BLOCK-scoped citation test): 4 findings, ALL FALSE.**
+
+```
+"But Deloitte's 2026 banking research found that while 87% of banks say…"
+"Thomson Reuters' Future of Professionals research found…"
+"Salesforce's State of the Connected Customer research found only 42%…"
+"The same Dice survey found 30% of tech professionals…"
+```
+
+Every one names its source in the same sentence. 0 true positives, 4 false.
+
+> **CORRECTED 2026-08-03 — the "nine true positives" recorded above are not nine.**
+> Going back to the source text to understand run 2, I read the earlier nine in
+> their full paragraphs instead of in `claimscan`'s 100-character snippet.
+> *"66% of people already use AI regularly"* is preceded by a full citation
+> (University of Melbourne, *Trust, attitudes and use of artificial intelligence*,
+> April 2025). *"at least 51% of people accepted"* is the statutory DEFINITION of
+> a representative APR — not a statistic at all. *"the 78% of customers who…"* is
+> anaphoric to a figure cited earlier on the page. **The bare-percentage arm was
+> deleted, and its absence is the finding.** Logged in `WRONG_CALLS.md`; the
+> transferable form is *judging a finding from a fixed-width snippet is judging
+> the instrument, not the copy* — and the window's blind spot is exactly the width
+> of the citation you are looking for.
+
+**What the two refutations jointly say, and it is the whole design:** on real
+copy the citation lives in a **different block, often a different component**,
+from the figure. A block-local test cannot see it. The unit that can is the
+**document** — and the document is precisely what content-creator has, one
+free-standing piece of prose per request, with no earlier block anywhere that
+could be carrying the source. That is why the motivating fabrication is
+detectable and the estate's cited copy is not.
+
+**Run 3 (document-scoped): 0 findings across 1,130 components**, and the
+non-ATTRIB output is byte-identical with and without the flag. Zero is only good
+news if the thing can still fire, so every must-pass fixture is re-run with its
+citation stripped and fails loudly if that does not fire (CLM-017's vacuous-pass
+lesson).
+
+### Two more found by tests, not by reading
+
+1. **The cue swallowed its own negation.** `negatedClaimMatch` scans BACKWARDS
+   from the match start; this cue spans subject-to-verb, so "Industry data **does
+   not** show that 40% …" puts the negation INSIDE the match. Every denial was
+   reported as an assertion. Fixed by scanning from `loc[1]` (the verb). CLM-017
+   records the same geometry for the fleet-wide patterns, where it is harmless —
+   which is why that entry reads as reassurance and does not warn you.
+2. **A `Reason` string that described a check the code no longer ran.** It still
+   said "no citation in the same block" after the scan had become
+   document-scoped — `bugs_closed/133`'s shape, a message asserting something
+   reachable without its evidence. Caught by re-reading my own output, and it
+   would have sent an author hunting one paragraph for a document-level problem.
+
+### Mutation proof (a passing suite that would also pass with the guard deleted is worthless)
+
+| mutation | result |
+|---|---|
+| delete the guard call from `handleMessage` | only `TestHandleMessageActuallyCallsTheGuard` fails — **nothing else in the package notices**, which is why that test reads the source |
+| neuter `DocumentCarriesCitations` | all 4 must-pass cases fail |
+| neuter the shared negation guard | the denial cases fail |
+
+### Live, and the limit of "live"
+
+Chassis rolled by the owner; `content-creator-agent` came up on **v1.0.1243**.
+Pod-grepped both directions plus a control — 4 positive markers at 1, the removed
+literal at **0**, control at 1. Full table in `bugs_closed/123`.
+
+**The production induced-fault run was NOT performed.** No crafted request was
+published, so no `CONTENT_CREATOR_CLAIMS_DETAIL` row exists and the guard has
+never fired against a real generation. Recorded as an explicit gap with its
+recipe rather than glossed — this file's own standing rule is that a green run
+with no seeded fault proves the code shipped, not that it detects.
+
+### Council `767e78ae` — APPROVED round 1, and the four checkable objections checked
+
+13 reviewers, 4 abstained, 0 unreadable, 3 seats objecting, none high, no veto.
+Checked rather than argued (`bugs_open/124`'s ground):
+
+- **guardian, medium — could a fourth `Check` value be dropped by a consumer's switch?**
+  Exactly one `switch f.Check` exists (`claimsSummary`, `check_unverified_claims.go:464`);
+  it **has a `default:`**, so an unknown value is **mislabelled as an unregistered
+  number, not dropped** — and it is unreachable for this value today because that
+  file never calls the new scan. Recorded as a LANDMINE for whoever wires it.
+- **prior_art_librarian, medium — the liveness fact.** Re-run: 3 referencing rows,
+  all inactive and soft-deleted, live count **0**.
+- **prior_art_librarian, medium — is the detector genuinely new?** `grep -rniE
+  "uncited|attributed|unsourced"` finds only `directory_export_action.go`'s
+  attributed *prices*, an unrelated sense. No prior art.
+- **reuse_agent, low — was a markdown splitter searched for?** `section_text.go`
+  has normalisation and token sets, not block splitting; every markdown-named
+  function in the tree strips JSON fences from LLM output. None existed.
+- **compliance, medium — STANDS.** The detector for this very incident defaults
+  OFF. Owner ruling, recorded in the closed bug as the decision a reactivation
+  must take first.

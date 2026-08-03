@@ -18113,3 +18113,98 @@ result, never a keystroke** — if the full value is not in your scrollback, run
 the query before writing the line, not after. The hedge note was the tell: the
 moment you write "re-verify this before trusting it", you are describing a
 query you should run now.
+
+---
+
+## 2026-08-03 — I pod-grepped for a COMMENT, and then wrote a negative control that was itself wrong
+
+**The claims that were wrong, both in one verification:**
+
+**(1)** I verified a chassis image by grepping the binary for two strings I had just
+added — `RESURRECTS RETIRED PAGES` and `carried in lockstep with the cousin`. Both read
+**0**. For about ten seconds that reads as "the fix did not ship". Both are **Go
+comments**, and the compiler does not put comments in the binary. Only string literals
+survive. The fix was present the whole time; the marker could never have been.
+
+**(2)** Having switched to the SQL (which *is* a raw string literal, so it does survive),
+I wrote a negative control for "the OLD query shape, expect 0" as a PCRE with
+`'deployed'\s*\n\s*` followed by a backtick. It returned **1**. Second scare, also false:
+the regex was wrong, not the binary. Extracting the actual matches showed both
+`cc.function` queries present and both carrying the new filter, with no unfixed variant
+of either.
+
+**Why this is worth a row.** The house rule is "prove a deploy at the artefact, with a
+positive AND a negative control". Both times the *control* was the broken thing, and both
+times the failure direction was **towards a false alarm** — which is the benign one. The
+dangerous version is a positive marker that is present for an unrelated reason, which
+would read as "shipped" when nothing shipped. Same root: **a control is code, and
+unreviewed code is where errors live.** A grep pattern gets no test, no compiler and no
+review, and this session got three of them wrong (this pair, plus an earlier
+`strings /app/...` against a path that did not exist, which read 0 for every check
+*including* its control).
+
+**The cheap checks that would have caught both:**
+- Before grepping a binary for a marker, ask *"is this string in the compiled output?"* —
+  comments and identifiers-only-in-comments are not. Prefer a **string literal the change
+  introduced**: an SQL fragment, an error message, a log message.
+- Make the negative control the **same pattern as the positive one, minus the new part**,
+  and print the matches rather than counting them. `grep -o` on the shared prefix shows
+  every variant that exists in one pass, so "old shape absent" and "new shape present"
+  are one observation instead of two patterns that can disagree.
+
+## 2026-08-03 — I called nine live sentences "real unsourced statistics" from a 100-character snippet. Six were cited, defined or anaphoric.
+
+**Lane:** `bugfix_123_content_creator_claims` (bugs_open/123, content-creator's
+missing claims check).
+
+**The claim I wrote down.** Dry-running a candidate detector over the live corpus,
+a "bare `N% of <population>`" pattern returned 14 hits. I read them in
+`cmd/claimscan`'s output — which prints a **100-character snippet** around each
+match — judged 9 of them true positives, and committed that to the lane NOTES as:
+
+> *"Nine of the fourteen were REAL — live, unsourced population statistics on four
+> sites … Those nine are the reason the detector exists."*
+
+I then built an argument on top of it: that the detector had real value, and that
+it must not block because it would strand eight live components.
+
+**What caught it.** Reading the same sentences in their **full paragraph**, which I
+only did because the *next* measurement (the cue-based arm) produced four
+false positives and I went back to the source text to understand why.
+
+- *"66% of people already use AI regularly"* — the preceding sentence is a full
+  citation: University of Melbourne, *Trust, attitudes and use of artificial
+  intelligence: A global study*, April 2025.
+- *"at least 51% of people accepted"* — the statutory **definition** of a
+  representative APR. Not a statistic at all; a regulatory rule, stated correctly.
+- *"the 78% of customers who say they'll leave…"* — anaphoric, referring back to a
+  figure cited earlier on the same page.
+
+**The cheap check I skipped.** Print more context than the finding. A snippet
+window is a measurement instrument, and this one has a blind spot **exactly the
+width of the citation you are looking for** — the citation for a figure sits in
+the sentence before it or the component before it, which is precisely where a
+100-character window ends. The check costs one `python3` loop over the same TSV
+with a 300-character window, and I wrote that loop eventually — after the wrong
+call was already committed.
+
+**What it cost, and what it bought.** The wrong reading survived one commit
+(`d477210a6`) and shaped the first version of the detector, which then scored
+**0 true positives and 4 false positives** over the whole corpus. Cheap, because
+the corpus refuted it before anything shipped. What it bought was the actual
+design: the citation test has to be **document-scoped**, not block-scoped, and
+the whole bare-percentage arm had to be deleted. **The corpus designed the
+detector; my reading of it would have shipped a noise generator.**
+
+**Transferable form.** *Judging a finding from a fixed-width snippet is judging
+the instrument, not the copy.* Any time a scan's output window is narrower than
+the evidence that would exonerate a match, the false positives are invisible in
+exactly the cases you most need to see them. Widen the window, or read the source
+document, **before** the count goes into a document anyone else will read.
+
+**Also, smaller, same day, same lane:** I twice wrote "call `ExtractAssertionText`,
+it is shared and nil-safe" into my own reading of the fix before probing what it
+returns for **non-HTML** input. It returns ONE fused block for a whole markdown
+document. Nil-safety was the property I checked; behaviour on the input I actually
+had was the property that mattered, and the function's name and doc comment would
+never have told me. The probe test cost 90 seconds.
