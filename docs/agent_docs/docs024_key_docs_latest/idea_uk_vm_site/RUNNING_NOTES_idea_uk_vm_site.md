@@ -3672,3 +3672,12 @@ in §X.38 was the tell — I read it as "registered elsewhere", the truth was
    by successful-AND-empty list. If DELETE alone still 9109s post-lockout,
    the token genuinely lacks zone-delete — dashboard fallback is ten seconds
    (Overview → Delete zone) or widen the token.
+
+**§X.42 addendum — the watcher WAS the problem:** killed the zone-endpoint
+poller after realising a failure-counter lockout + a once-a-minute poll with
+the same failing token is SELF-SUSTAINING — every probe feeds the counter
+that causes the refusals. Recovery requires SILENCE, then one attempt.
+Session ends here; full continuation state in
+`HANDOFF_2026-08-03_continue_here.md`. The 08-03 chassis roll touches nothing
+in this lane (no chassis-shipped artefacts; box config + API state + docs
+only), so no pod-grep is owed from here.
