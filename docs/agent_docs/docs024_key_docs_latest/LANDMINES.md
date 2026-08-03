@@ -4124,9 +4124,9 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
 
 ### Two acceptance callers file notes under ONE category with the SAME `created_by` — so "the feature stopped working" and "this row came from the caller you never armed" are the identical query result
 
-- **footprint:** `doc_notes` `categories ? 'acceptance-run'` · `created_by='tool-acceptance-agent'` ·
-  `request_browser_run` · `request_component_browser_run` ·
-  `platform/orchestration/actions/tool_acceptance_actions.go` · `capture_renders`
+- **footprint:** `platform/orchestration/actions/tool_acceptance_actions.go`,
+  `request_browser_run`, `request_component_browser_run`, `dispatchBrowserRun`,
+  `capture_renders`, `doc_notes`, `tool-acceptance-agent`, `acceptance-run`
 - **fires when:** you re-check a per-step opt-in (TL-035's `capture_renders`) by
   selecting over the note category and reading a derived column — `body LIKE
   '%Rendered:%'`. A render-less note appears **newer than** your armed one and you
@@ -4207,3 +4207,47 @@ that is also the thing you would want in the logs is not.
 
 - **source:** `bugs_open/184`; `docs024_key_docs_latest/bugfix_091_workitem_conflict_refresh/HANDOFF_2026-08-03_continue_here.md` (the corrected block); council `d6cda33d`
 - **added:** 2026-08-03, bugs-sweep lane (091/184)
+
+---
+
+## `~/projects/sites` is written by the platform's OWN deploys — it is not a record of what a site used to look like, and a harness baselined on it silently starts comparing your output against itself
+
+- **footprint:** `~/projects/sites`, `~/projects/sites2`,
+  `loancalculator_couk/rewrite/verify_rewrite.py` (`SITE_SRC`), any lane script
+  taking "the original page" from a sites working copy, `git pull --rebase` in that
+  repo
+- **fires when:** you build a before/after comparison — "splice my rewrite into the
+  REAL page and check the numbers still match" — and take the real page from the
+  sites checkout. It is the obvious source: it is on disk, it is the site, and it is
+  what the deploy publishes.
+- **the tell:** none for as long as your checkout happens to be STALE, which is why
+  this is not obvious. Every `Rerender:` commit the platform makes lands in that
+  repo, so each page your lane successfully changes **replaces its own baseline**.
+  Measured 2026-08-03: `verify_rewrite.py` passed all morning against a checkout
+  sitting on a 2026-08-01 commit — genuinely valid runs. Another session ran
+  `git pull --rebase` at 10:19 and the next run broke, because
+  `tools/standard-calc.html` at HEAD was now the DECOMPOSED page (5 `ported-prose`
+  sections) rather than the hand-built original.
+  **It broke loudly only by luck of an unrelated rule.** The harness requires each
+  cut pattern to match exactly once, and those patterns anchor on original markup
+  an assembled page no longer has, so it refused with "opening-div regex matched 0
+  times". With looser patterns it would have spliced the component into a page that
+  **already contained it** and compared the rewrite against itself — passing, while
+  proving nothing.
+- **the check:** never read a baseline from the working copy. Export it from a
+  pinned ref that predates your own writes, and record in the file WHY that ref:
+  ```bash
+  cd ~/projects/sites && git log --oneline -- <domain>/ | head        # find a pre-adoption commit
+  git archive <sha> <domain>/ | tar -x -C "$(mktemp -d)"              # and use THAT
+  ```
+  Confirm the ref really is pre-change before trusting it — grep the exported page
+  for a marker only the NEW shape has (`class="ported-prose"`, `data-component`)
+  and require 0. ⚠ **The repo root is `~/projects/sites`, so paths are
+  `<domain>/tools/x.html`**; `git show <ref>:tools/x.html` fails with a `fatal:`
+  that `2>/dev/null` will hide, and `grep -c` on the empty result returns 0 — which
+  reads exactly like "the marker is absent". That misfire happened while
+  diagnosing this entry.
+- **source:** loancalculator.co.uk, 2026-08-03. Same class as `defect_vectors.py`'s
+  `PRE_FIX_REF` three hours earlier, in a different file: a baseline that names a
+  MOVING thing stops being a control, and the expiry is silent.
+- **added:** 2026-08-03, loancalculator lane
