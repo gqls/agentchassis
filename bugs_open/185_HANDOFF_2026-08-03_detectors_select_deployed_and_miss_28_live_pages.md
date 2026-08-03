@@ -452,6 +452,10 @@ carries the tally entry.
 
 # TRANCHE 3 DONE 2026-08-03 — `realisedPageIsBuilt` becomes `realisedPageHasShipped`, and the lockstep comment it carried was wrong
 
+**Commit `64dd4cd3b` · council `c881ef22-25d3-4677-84c8-bb2213ac9459`** (submitted after
+the commit; correlation recorded here forward — the risks block flags the overridden
+lockstep comment as the thing to review hardest).
+
 **Go:** the planner's empty-page gate (`v3_site_actions.go`) now reads `has_shipped` from
 the realised row, falling back to the old `build_status == "deployed"` test when the
 column is absent — the either-order deployment contract migration 173 established for
