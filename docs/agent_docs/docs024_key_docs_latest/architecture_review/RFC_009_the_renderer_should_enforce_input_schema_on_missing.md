@@ -310,8 +310,27 @@ fabricates cannot be repaired by regenerating it into another fabrication. That 
 deliberate — the escape is a gated regeneration or a migration, which is how 140
 itself was fixed. Currently vacuous: 0 of 173 active components fabricate.
 
-**Owed:** pod-grep at the next roll (positive and negative control); read the
-verdict for `19bee790-ea55-46eb-9f39-c985ecf8bd56` and act on a REVISE.
+**LIVE on v1.0.1237** (2026-08-03 08:47). Pod-grepped on BOTH replicas with
+controls, per the standing landmine that a roll is not evidence your fix shipped:
+
+| grep | 76j4g | njx2r |
+|---|---|---|
+| `fabricatedFallbackIssue` (added) | 2 | 2 |
+| `template invents` — the absolute refusal (added) | 1 | 1 |
+| `replacement INTRODUCES` — the comparative refusal (added) | 1 | 1 |
+| `opening_hours` — a fact shape (added) | 1 | 1 |
+| `library_fabricated_hours` — C's detector, prior roll | 1 | 1 |
+| `fake_phone_555` — pre-existing, pipeline control | 2 | 2 |
+| `invented_string_xyzzy` — **negative control** | **0** | **0** |
+
+No regression: 0 of 8 contact-info instances fabricate, and the lint is clean
+across 173 active components.
+
+**And C proved itself unattended.** The CronJob fired on its own schedule at
+**06:40:00Z**, succeeded at 06:40:15Z, and wrote its `doc_notes` row at 06:40:11 —
+selftest first, then the report. That is a stronger result than the manual
+`--from=cronjob` proof: it shows the schedule fires, not merely that the job runs
+when pushed.
 
 #### B — council APPROVED (11 seats), and the two objections answered with work
 
