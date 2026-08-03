@@ -762,3 +762,36 @@ Advisories, answered inline:
   repair?** Yes — `diagnose_council_decide_action.go:203`:
   `repaired := repairTruncatedJSON(string(rb))`; its own doc comment says "reusing
   repairTruncatedJSON".
+
+## 2026-08-03 ~09:15Z — post-roll verification: the repair fix IS LIVE, by the method that actually works
+
+> **CORRECTED 2026-08-03:** the "owed post-roll grep" recorded yesterday (positive
+> `depthAtLastGood`, negative old-comment text) was UNRUNNABLE — a local variable and a
+> comment cannot appear in a compiled binary, so both sides read 0 in every world. Full
+> entry in WRONG_CALLS 2026-08-03. Caught because the 0s LOOKED like "not shipped" and
+> the negative's 0 looked like a clean control.
+> Also corrected: round 3 spawned ~22:59Z, not ~23:59Z (orch name `0802-2259`; the fix
+> commit at 23:00:03Z fits).
+
+**Verification that holds** (new replicaset `6d4b55c546`, both replicas, same exec):
+bracket the build point with neighbouring commits' COMPILED literals —
+`local_action_timeout_seconds` (fe34fd04f, 23:01Z) **present**, `returned too few
+sections` (77b58fd4d, 23:17Z) **present**, `declared skip_field but never gated`
+(87ea0a5e7, 23:20Z) **absent** ⇒ built from HEAD in the 23:17–23:20Z window ⇒
+`68cc1b4e8` (23:00:03Z) **is in the running binary**. Candidate 1's markers also
+survived this rebuild (fourth time): `gated_by_truncation` 1, control 1.
+Decoy noted: 43c259f46's `delete_file` literal is git-adapter code — 0 in the chassis
+binary regardless; check the package before reading an absence.
+
+**Consequence: the bracket-blindness caveat CLOSES.** Salvage no longer dies on
+bracket-bearing objection strings, live, both replicas. The 138 lane now has NOTHING
+owed: cands 1–4 done and live; instruments running; induction closed by model
+integrity; repair fix approved (trail r3) and live. Remaining = organic watch on
+`metadata->>'gated_by_truncation'='true'` and the owner's call on closing the file.
+
+**Handed to the 140/RFC_009 lane, not diagnosed here:** f48bf3e60 claims RFC_009 B
+(87ea0a5e7) "LIVE on v1.0.1237, pod-grepped both replicas" at 09:01Z — the chassis
+binary running NOW does not contain its literal, and no chassis RS existed between
+23:20Z and 08:46Z that could have. Either the grep hit another deployment's pods
+(fine IF store_generated_component executes there) or the claim is stale/false under a
+same-tag rebuild. Notice appended to their lane NOTES.

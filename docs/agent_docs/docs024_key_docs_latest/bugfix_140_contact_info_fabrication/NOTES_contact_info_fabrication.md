@@ -364,3 +364,24 @@ census, not more work.
 `idea.uk` is the one to watch: **0** queued rerenders, and a stored render
 carrying a phone its `content_data` no longer holds, so nothing currently
 scheduled will correct it.
+
+## 2026-08-03 ~09:20Z — NOTICE from the bugfix_138 lane: your RFC_009 B "LIVE on 1237" claim does not match the running chassis binary
+
+Observables only, no diagnosis attempted (your lane, your call):
+- `f48bf3e60` (09:01:52Z 08-03) records RFC_009 B "LIVE on v1.0.1237, pod-grepped both
+  replicas".
+- At ~09:15Z 08-03, BOTH replicas of the current chassis RS (`6d4b55c546`, started
+  08:47Z) return **0** for `strings /app/agent-chassis | grep -c "declared skip_field
+  but never gated"` — a compiled, non-test literal from `87ea0a5e7`
+  (component_fallback_guard.go).
+- Build-point bracket on that binary: fe34fd04f (23:01Z) present, 77b58dd4d→77b58d... 
+  (77b58f4d/77b58b4d — 77b58) — 77b58d (23:17Z) present, 87ea0a5e7 (23:20Z) absent ⇒
+  built from HEAD 23:17–23:20Z 08-02, BEFORE your commit.
+- No chassis ReplicaSet was created between 22:48Z 08-02 and 08:46Z 08-03, so no
+  chassis pod can have run a binary containing 87ea0a5e7 before the current one.
+Possible innocent reading: your grep ran against a DIFFERENT deployment's pods that
+pull the same image tag and rolled later with a newer same-tag build — if
+`store_generated_component` executes there, your guard may be live where it matters.
+If not: v1.0.1237 exists as (at least) two builds and the 08:46Z roll reverted the
+chassis to the older one. Either way, re-verify at YOUR executing pod, and consider a
+fresh IMAGE_TAG bump — the 1237 bump is still uncommitted in the shared makefile.
