@@ -6,6 +6,14 @@ TL-035 (`capture_renders`).
 **Status of this note:** informational. **I have deliberately not seeded anything.** A2 is
 yours, the Gemini-vs-Claude trial is yours, and MDL-040's first live call is yours to make.
 
+> ## ⚠ CORRECTED SAME DAY — READ §7 BEFORE §3
+>
+> **These renders photograph the page AFTER the checks have driven it, not as a visitor
+> sees it.** I did not know that when I wrote §3 and it is the single most important
+> thing on this page for a critic. A vision model fed these images **will** file false
+> findings about states no visitor ever reaches. The source is still worth having and
+> §3's field paths are all still correct — but §7 is a precondition, not a footnote.
+
 ---
 
 ## 1. Why you are getting this
@@ -110,3 +118,61 @@ visible rather than folklore.
 the 2026-08-03 correction — I had armed one of two callers); MDL-040 in
 `model-infrastructure.md`; my lane's evidence in
 `brochure_component_library/EVIDENCE_2026-07-31b_TL-035_caller_half.md`.
+
+---
+
+## 7. CORRECTION, hours after §1–§6 — the renders are POST-INTERACTION, and for a critic that is the whole ballgame
+
+**What I got wrong.** §3 sells these images as photographs of pages that passed. They
+are — but I wrote it not knowing **when** the shutter fires. It fires **after the checks
+have driven the page**, and for an interactive tool page that means the photograph shows
+the end state of an automated test run, not the page a visitor arrives at.
+
+**Verified in the code, not taken on trust** —
+`internal/adapters/browserrunner/run_checks_action.go:333-337`:
+
+```go
+res := evaluateOnPage(page, crit, applicable, profile, url)   // :333  drives the page
+// P3: evidence while the page is still open …
+if ref, failing, ok := a.captureEvidence(runCtx, page, req, res, profile, url, urlIdx); ok {   // :337  photographs it
+```
+
+`evaluateOnPage` is where checks like `real-click-opens-first-card` and
+`threshold-lever-updates-the-readout` click, fill and toggle. `captureEvidence` runs
+after, on that same driven page.
+
+**This ordering is CORRECT for its original purpose and wrong for yours.** For P3 failure
+evidence you want exactly this — the page as it looked when it failed. For a *look at a
+healthy page* it means the camera photographs the aftermath.
+
+**It has already produced a false finding, by a human, on the first look.** A concurrent
+session in my lane built a contact sheet and read the two 08-02 renders. The desktop
+shot of `review-council-simulator` shows the **post-Clear empty state** — the tool
+looking blank — because a check had just exercised its Clear button. Their own words:
+*"a false bug waiting to be filed"*. **That is precisely the failure mode your critic
+would hit at scale, except a model will not hesitate the way a person did.**
+
+**What I would want in your critic if you take this source:**
+
+- Treat "the page looks empty / half-populated / mid-transition" as **not reportable**
+  from this source, or gate the whole source behind tools whose fences contain no
+  interaction checks. The criteria document is in the same collected data, so the critic
+  can be told which checks ran and refuse accordingly.
+- Two further real observations from that same first look, both unasserted by any check:
+  the **sticky nav paints mid-page** in a full-page capture (an artefact of full-page
+  screenshotting, not a page defect — another false-positive generator), and the **mobile
+  hamburger draws one bar**, which may be a genuine defect.
+- The mobile PNG was **22,491px tall**. A full-page capture at mobile width is not a
+  viewport view, and a critic reasoning about "above the fold" or layout balance from it
+  is reasoning about an image no human will ever see in that form. This is now the
+  concrete case for the viewport-metadata question open against `Renders`.
+
+**Also now closed, in your favour:** §5's `[UNFETCHED]` caveat is **spent**. The PNGs
+have been fetched with a real signed GET and read by a person — so the objects
+demonstrably exist and are readable with the adapter's own credentials, which is one
+less unknown for your storage-client path.
+
+**The honest summary of this correction:** the source is real, live, free, and aimed at
+the right blind spot, and it has a state problem serious enough that wiring it to a
+critic without handling it would generate exactly the noise that gets a critic switched
+off. I would rather you got that from me today than from your first sweep's findings.
