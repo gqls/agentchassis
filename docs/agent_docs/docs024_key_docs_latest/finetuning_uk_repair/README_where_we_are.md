@@ -114,3 +114,75 @@ it is recorded.
 Also, for the record: I submitted the check fix to the review council
 (reference `cfc94d91-3d17-4f29-a370-2b91d1a59a6f`) and the verdict was still
 pending when I wrote this.
+
+---
+
+## 2026-08-03, later — it's fixed, and here is exactly what "fixed" means
+
+**finetuning.uk is clean.** Both pages, checked by fetching the actual served
+HTML rather than trusting a status:
+
+```
+https://finetuning.uk/            broken images: 0   (was 8)
+https://finetuning.uk/about.html  broken images: 0   (was 11)
+```
+
+The homepage now shows 18 proper icons where 8 broken-image symbols used to be.
+The framework did the repair — I changed the component, the framework re-rendered
+the pages and deployed them.
+
+**There was one more trap on the way, and it is worth knowing about** because it
+would have made everything above look done while changing nothing. The site had
+68 page-rebuild jobs already queued. It would be reasonable to assume the fix
+reaches the pages when those run. It does not. Those jobs come in two kinds, and
+the difference is invisible unless you look: one kind *regenerates* each section
+from the component, the other just *re-staples* the page from sections it already
+has stored — the very sections that were wrong. 42 of the 68 were the re-stapling
+kind, including the only one for the About page. They would all have completed,
+reported success, and left the site exactly as broken. This has bitten us before
+— on 2 August a queue of 294 drained to zero and repaired nothing. I queued the
+regenerating kind explicitly; both pages were fixed within a minute of being
+picked up.
+
+**The check fix passed review, on the second attempt.** The council rejected my
+first submission and it was right to: there is a standing note in our own records
+warning that this file and a sibling check overlap, and I had not read it. Having
+checked properly, they cannot overlap — the sibling only ever matches two
+specific file paths, and the new rule structurally excludes anything containing a
+path separator or a dot. Second round approved. I have also moved that analysis
+somewhere other agents can read it, rather than leaving it in a code comment,
+which was one of the reviewers' suggestions.
+
+**One correction to something I said earlier.** I wrote that the broken images had
+"no finding anywhere". That was true — I checked, and there was not a single one
+in our records, on any site, ever. But the audit run today *did* catch it: the
+design-audit agent described it independently and accurately, from looking at the
+rendering rather than the code. So the framework was not blind to it; its
+*automated structural checks* were, while its *AI reviewer* was not. The fix is
+still right — an AI noticing something once when someone happens to run an audit
+is not something you can depend on, whereas a rule is — but "no automated finding"
+is the accurate phrasing and I should have used it.
+
+**The other site is queued but not yet done.** ai-agent-orchestration.com uses the
+same component and had 16 of the same broken images. Its pages are queued for the
+same repair; they are waiting behind finetuning.uk's much longer queue on a shared
+dispatcher. I deliberately did *not* start the full repair loop on that site — that
+would have set off work across its whole backlog on a site you did not ask about.
+
+## Still outstanding, and one is yours to decide
+
+1. **The 204 parked items across 10 sites.** Unchanged, and still the biggest
+   finding here. Options and my recommendation are in the plan document; the short
+   version is that I suggest running the loop deliberately per site for now, and
+   treating "should the schedule go back on" as its own decision rather than
+   something settled by whoever happens to be fixing a site that week.
+2. **The check fix is not live yet.** It is written, tested, reviewed and
+   approved, but it only takes effect on the next software build. I verified
+   against the running system that it is not in there. I have not triggered a
+   build myself: a review round was in flight and a restart would have killed it,
+   and builds ship everyone's committed work, not just mine. Worth doing soon —
+   until then the framework still cannot see this class of problem on its own.
+3. **ai-agent-orchestration.com has eight icons with invented names** — "strategy",
+   "research", "operations" and so on, which are not real icon names. After the
+   repair those show an empty circle rather than a broken image. Better, not
+   right, and it is a content problem on that site.
