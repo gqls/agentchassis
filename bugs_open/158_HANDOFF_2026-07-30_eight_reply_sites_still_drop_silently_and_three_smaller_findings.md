@@ -348,3 +348,57 @@ right and it should stay unfixed until a consumer exists.
    rather than incident — the numbers above are the sizing it asked for.
 2. **Item 3** — an owner decision about what a crawl result is for.
 3. **Item 2** — nothing, until a consumer of `storage.pages` exists.
+
+---
+
+# 2026-08-03 (later) — OWNER RULING on item 1, and a correction to my own census
+
+## OWNER RULING, 2026-08-03: option (b) — the PLUMBING sites only
+
+Presented with the sizing above and four options, the owner ruled: **adopt
+`DeliverReply` at the sites every agent inherits, and leave the four adapter/agent
+sites alone.** That discharges the council architecture seat's RFC condition on
+`7478233b` for this scope — the decision was taken by a human on measured evidence,
+which is what the RFC was for.
+
+**SHIPPED** in `2d976c026`. Council `f13212d4-2787-448f-bf49-b57506ded74e`
+(submitted; verdict pending at the time of writing).
+
+| site | what it now does when the reply cannot be delivered |
+|---|---|
+| `coordinator.go` `notifyParentOfSuccess` | tells the parent the workflow **FAILED**, via the existing `notifyParentOfFailure` — the same answer the adjacent size-precheck path already chose |
+| `agentbase/agent.go` `processMessage` | degrades to headers + a marked `ERROR_FORWARD_TOO_LARGE` stub so the error **chain** survives when the payload cannot; logs plainly if even that fails |
+| `helpers.go` `sendTimeoutResponse` | stops logging an **undelivered** notice at the same level as a delivered one (this reply IS the error response — there is no fallback to choose) |
+
+Detector sweep: **7 → 4**. The four remaining are the deferred adapter/agent sites.
+
+## ⚠ CORRECTION — one of the four sites I added yesterday was NOT an instance
+
+`platform/messaging/processor.go:2000` **does not swallow its error.** It
+`return err`s two lines below the block, and its enclosing function
+`sendErrorResponseOLD` has **zero callers** — it is dead code. My detector read only
+the *body* of the `if err != nil` block, so it missed the return; I then copied its
+output into this ticket and into `016b §9` without opening the file far enough.
+
+- **The census is 2 of 12, not 2 of 13.** The other three additions
+  (`agentbase:887`, `coordinator` (now `:3721`), `helpers:427`) were re-verified
+  line by line and are genuine.
+- The detector is fixed (`2d976c026`): an error **returned after** the block is
+  propagated, not swallowed. Sweep went 8 → 7 before the adoptions.
+- Logged in `WRONG_CALLS.md`.
+
+**Also worth knowing:** `coordinator.go`'s site moved `:3663 → :3721` between my
+sweep and my edit, because another session committed to that file in between. Line
+numbers in this ticket are a snapshot; find these by symbol, not by line.
+
+## STATUS
+
+**Still OPEN**, and now for exactly two reasons:
+
+1. **Item 3** — an owner decision about what a crawl result is *for*. Untouched.
+2. **The four adapter/agent sites** — deliberately deferred by the owner's ruling,
+   not forgotten. They are held by `check_silent_reply_drop`, so no fifth can
+   appear quietly. If they are ever to be adopted, that is a fresh decision.
+
+Items 4 (already fixed), 2 (no consumer exists) and 0 (surveyed, handed to
+`bugs_open/100`'s owner) need nothing further from this lane.
