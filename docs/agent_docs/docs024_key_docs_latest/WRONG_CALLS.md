@@ -17822,3 +17822,40 @@ is a UUID.
 **Recommended:** extend `scripts/council-coverage-nudge.sh` to fail loudly (or the
 `commit-msg` hook to block) when `Council-Submitted:` is not a UUID. Two occurrences in one
 day is the threshold this file is designed to surface.
+
+---
+
+## 2026-08-03 — a test named for three call sites, which never called any of them
+
+**The claim that was wrong:** I wrote `hitl_refresh_adoption_test.go` to hold the line on
+`bugs_open/184` — three emitters switched onto `refreshOnConflict` — and described it, in
+the file header and to myself, as covering the call sites. It did not. Every case called
+`writeWorkItem(..., refreshOnConflict, ...)` **directly** and asserted the returned
+outcome. That tests the shared helper, which `bugs_closed/091` had already proven twice
+over. The three call sites it was named for were never executed.
+
+**What caught it:** running the mutation. I reverted one emitter to `insertWorkItem`,
+expected a red test, and got one — but the suite was *already* red for an unrelated
+reason (an unmatched `ExpectCommit`), so the mutation "passing" and the mutation
+"failing" looked identical. Fixing the expectation and re-running showed the truth: with
+the call site reverted, the test still passed. **The mutation is what found it; the
+already-red suite nearly hid it.**
+
+**Why it is worth an entry.** The test read *well*. It had a table of the three item
+types, their keys, their spec list-fields, and a paragraph explaining why the defect is
+invisible on the happy path — all accurate, all irrelevant to what the code did. A test
+can be an essay about the right thing and an assertion about something else, and the
+name is what carries the false claim to the next reader.
+
+**The cheap checks, in order of how much they would have saved:**
+
+1. **Mutate the thing the test is NAMED for, not the thing it obviously exercises.** If
+   the test says "call site X refreshes", break call site X. This is the only check that
+   can distinguish a test of the helper from a test of the caller.
+2. **A mutation result is only evidence against a GREEN baseline.** Confirm the suite is
+   green before you break anything, or "it failed" tells you nothing about your change.
+   Same shape as the deaf-observer trap logged for `recurrenceExpected` — twice in one
+   session I nearly accepted a mutation result the harness could not have produced.
+3. **Ask what the test IMPORTS of the code under test.** Mine referenced the item types
+   as string literals in a table. A test that never names a function from the file it
+   claims to cover is testing something else.
