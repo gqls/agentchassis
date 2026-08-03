@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# commit-msg — two checks, in order:
+# commit-msg — three checks, in order:
 #   (1) D2 direction-document gate — a REAL GATE (owner ruling 2026-07-20): blocks
 #       a commit touching a blessed direction doc without a `Direction-Approved:`
 #       trailer. UNCHANGED from the original; its exit 1 must still block.
+#   (1b) trailer-shape gate — a REAL GATE (2026-08-03): blocks a Council-Submitted:/
+#       Council-Reviewed: trailer whose value cannot be a correlation id. This does
+#       NOT enforce review (that stays advisory per the 2026-07-24 ruling) — it
+#       refuses a false-shaped claim, the 098 report's stated dishonesty surface.
 #   (2) council coverage nudge — ADVISORY (owner ruling 2026-07-24, "strengthen
 #       advisory, defer structural"): a short note on an un-reviewed platform-code
 #       commit. Delegated to scripts/council-coverage-nudge.sh and wrapped so it
@@ -54,6 +58,29 @@ if [ -n "$TOUCHED" ] && ! grep -qi '^Direction-Approved:' "$MSG_FILE"; then
   printf 'that defeats the guard and leaves a false record.\n'
   exit 1
 fi
+
+# ── (1b) Trailer-shape gate (BLOCKING) ────────────────────────────────────────
+# Three sessions wrote `Council-Submitted: pending` on 2026-08-03 alone; forward-
+# only (no amends) makes each one a permanent join key that resolves to nothing.
+# The value must look like a correlation id — a UUID or an 8+-char hex prefix of
+# one (same shape the coverage nudge parses). An absent trailer is always allowed:
+# review itself is not enforced here, only honesty of what the message asserts.
+for trailer_name in Council-Submitted Council-Reviewed; do
+  trailer_value=$(grep -iE "^[[:space:]]*${trailer_name}:" "$MSG_FILE" \
+                    | head -1 | sed -E "s/^[[:space:]]*${trailer_name}:[[:space:]]*//I")
+  [ -n "$trailer_value" ] || continue
+  if ! printf '%s' "$trailer_value" | grep -qE '^[0-9a-fA-F-]{8,}$'; then
+    printf '\033[1;31m── TRAILER GATE: commit blocked ──\033[0m\n'
+    printf '    %s: %s\n' "$trailer_name" "$trailer_value"
+    printf 'This trailer is a JOIN KEY for the 098 coverage report. A value that is\n'
+    printf 'not a UUID (or an 8+-char hex prefix of one) resolves to nothing, and\n'
+    printf 'forward-only forbids fixing it with an amend. Either submit first —\n'
+    printf '097_TRIGGER_council_review_v1.sh prints SUBMISSION_CORR in seconds —\n'
+    printf 'and commit with that id, or drop the trailer entirely: committing\n'
+    printf 'before the SUBMISSION exists needs no trailer at all.\n'
+    exit 1
+  fi
+done
 
 # ── (2) Council coverage nudge (ADVISORY — never blocks) ───────────────────────
 if [ -x "$ROOT/scripts/council-coverage-nudge.sh" ]; then
