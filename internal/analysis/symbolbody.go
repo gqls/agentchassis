@@ -48,7 +48,7 @@ import (
 // matching FuncDef. A receiver-qualified form ("AnalysisCallGraph.Neighbourhood")
 // disambiguates when two types share a method name in one file.
 func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
-	pathPart, namePart := splitSymbol(symbol)
+	pathPart, namePart := SplitSymbol(symbol)
 	if pathPart == "" {
 		return "", fmt.Errorf("ReadSymbolBody: empty path in symbol %q", symbol)
 	}
@@ -102,10 +102,23 @@ func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
 	return SliceLines(src, start, end)
 }
 
-// splitSymbol splits on the LAST colon: "path:Name" -> ("path","Name");
+// SplitSymbol splits on the LAST colon: "path:Name" -> ("path","Name");
 // "path" -> ("path",""). Last-colon so a path that itself contains a colon is
 // not mangled (paths here are slash-relative, so this is belt-and-braces).
-func splitSymbol(symbol string) (path, name string) {
+//
+// EXPORTED 2026-08-03 for diagnose_code_lookup's symbol arm (bugs_open/163),
+// which was tokenising a whole "path:Symbol" query and AND-ing every token —
+// path fragments included — against the code_symbols.symbol column, a column
+// that never holds a path. It is exported rather than re-implemented for the
+// same reason SliceLines was below: one function keeps owning the convention,
+// and this handle format now has three producers (scopeFromCodeResults,
+// resolveScopeEntries, the landmine-verifier's derive_checks prompt) whose
+// output must all parse the same way. There is a third, inline copy at
+// diagnose_assemble_bundle_action.go:639-644 (`i > 0` rather than `i >= 0`, so
+// a leading colon is read as no-symbol); it is left alone deliberately — folding
+// it in changes behaviour in an action this fix does not otherwise touch — and
+// is recorded in the concept register under CTXK-002 as the remaining duplicate.
+func SplitSymbol(symbol string) (path, name string) {
 	i := strings.LastIndex(symbol, ":")
 	if i < 0 {
 		return symbol, ""

@@ -24,8 +24,15 @@
 // Wire format (mirrors checks:[{sql,why}] — one convention per tier):
 //
 //	code_checks: [{"kind": "symbol|content|ls", "query": "...", "why": "..."}]
-//	  symbol  — match against the symbol name (ILIKE, e.g. "GenerateText" or
-//	            "(*OllamaClient).%"); returns path, symbol, signature, lines.
+//	  symbol  — a name ("GenerateText", "Type.Method") or a path:Symbol handle
+//	            ("internal/analysis/symbolbody.go:ReadSymbolBody"); the path
+//	            half matches the path column, the name half token-matches the
+//	            symbol column (receiver forms resolve), and a ":LINE" suffix
+//	            degrades to a path check and says so (bugs_open/163 — the old
+//	            contract line here said "match against the symbol name", and
+//	            path-bearing queries were unsatisfiable by construction).
+//	            Returns path, symbol, signature, lines; a path-qualified miss
+//	            reports where the bare name DOES resolve before saying absent.
 //	  content — match against symbol source BODIES and declarations (ILIKE over
 //	            the trigram-indexed body and content columns, e.g. "stop_reason");
 //	            returns path, symbol + an excerpt taken AROUND the match, marked
@@ -63,6 +70,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gqls/agentchassis/internal/analysis"
 	"github.com/gqls/agentchassis/pkg/diagnose"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
@@ -530,44 +538,51 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 	}()
 	switch c.Kind {
 	case "symbol":
-		// Match every identifier token in the query as an AND of substrings,
-		// NOT the raw string. A reviewer writes Go methods as "Type.Method"
+		// The NAME half is matched as an AND of identifier-token substrings,
+		// NOT as the raw string. A reviewer writes Go methods as "Type.Method"
 		// (e.g. "OllamaClient.GenerateText"), but the index stores the receiver
 		// form "(*OllamaClient).GenerateText" — a raw ILIKE '%Type.Method%'
 		// then misses it (false negative on run 90e989d5, 2026-07-17: the
 		// Ollama-adapter check came back empty and a reviewer nearly read that
 		// as "no such symbol"). Splitting on non-identifier chars and requiring
-		// each token as a substring matches both forms and is still anchored to
-		// the symbol column (never the body).
-		clause, args := symbolTokenClause(c.Query, repoFilter, rowCap)
-		rows, err := db.QueryContext(ctx, `
-			SELECT path, symbol, COALESCE(signature,''), COALESCE(line_start,0), COALESCE(line_end,0), COALESCE(commit_sha,''), kind
-			FROM code_symbols
-			WHERE `+clause+`
-			ORDER BY path, symbol
-			LIMIT `+fmt.Sprintf("$%d", len(args)+1), append(args, rowCap)...)
+		// each token as a substring matches both forms.
+		//
+		// The PATH half (bugs_open/163) is matched against the path column,
+		// because code_symbols.symbol never holds one. See symbolQuery.
+		sq := parseSymbolQuery(c.Query)
+		if sq.lineRef {
+			fmt.Fprintf(b, "  note: %q names a LINE, not a symbol — answered as a path check over that file.\n", sq.raw)
+		}
+		clause, args, searched := symbolClauseFor(sq, repoFilter)
+		_, total, err := renderSymbolRows(ctx, db, clause, args, rowCap, b, &docs)
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
-		n := 0
-		for rows.Next() {
-			var path, symbol, sig, sha, kind string
-			var ls, le int
-			if err := rows.Scan(&path, &symbol, &sig, &ls, &le, &sha, &kind); err != nil {
+		if total > 0 {
+			return nil
+		}
+		// A PATH-QUALIFIED query that found nothing is the exact shape that
+		// produced 163's false verdict: the symbol existed and was reported
+		// absent, because the answer could only speak about the pair. Ask the
+		// name on its own before reporting absence, and report BOTH facts — a
+		// moved or mis-cited file must not read as a missing symbol.
+		if sq.path != "" && sq.name != "" {
+			var elsewhere strings.Builder
+			altClause, altArgs, _ := symbolClauseFor(symbolQuery{name: sq.name, raw: sq.raw}, repoFilter)
+			altCode, _, err := renderSymbolRows(ctx, db, altClause, altArgs, rowCap, &elsewhere, &docs)
+			if err != nil {
 				return err
 			}
-			out := b
-			if !isCode(kind) {
-				out = &docs
+			if altCode > 0 {
+				fmt.Fprintf(b, "  answered: 0 rows AT THAT PATH — searched %s\n", searched)
+				fmt.Fprintf(b, "  the NAME alone matches %d indexed symbol(s) ELSEWHERE, so the symbol EXISTS and the path is what did not match:\n", altCode)
+				b.WriteString(elsewhere.String())
+				return nil
 			}
-			fmt.Fprintf(out, "  - %s : %s%s  [L%d-%d]  %s  (commit %s)\n", path, symbol, docTag(kind), ls, le, truncateCell(sig, 160), shortSHA(sha))
-			n++
 		}
-		if n == 0 {
-			b.WriteString(scope.emptyAnswer("symbol"))
-		}
-		return rows.Err()
+		b.WriteString(scope.emptyAnswer("symbol"))
+		fmt.Fprintf(b, "  -- searched: %s\n", searched)
+		return nil
 
 	case "content":
 		// body OR content. body is the symbol's source text (added 2026-07-27);
@@ -770,30 +785,176 @@ func dedupCodeChecks(in []codeCheck) []codeCheck {
 	return out
 }
 
-// symbolTokenClause builds a WHERE clause matching every identifier token in
-// the query as a case-insensitive substring of the symbol column (AND), plus
-// the optional repo filter. Returns the clause and its ordered bind args; the
-// caller appends the LIMIT param. Tokens are the maximal [A-Za-z0-9_] runs, so
-// "OllamaClient.GenerateText", "(*OllamaClient).GenerateText", and
-// "OllamaClient GenerateText" all yield {OllamaClient, GenerateText} and match
-// the stored receiver form. A query with no identifier token falls back to a
-// single raw-substring match so it still does something predictable.
-func symbolTokenClause(query, repoFilter string, _ int) (string, []interface{}) {
-	tokens := identifierTokens(query)
-	var clauses []string
-	var args []interface{}
-	if len(tokens) == 0 {
-		args = append(args, query)
-		clauses = append(clauses, fmt.Sprintf("symbol ILIKE '%%' || $%d || '%%'", len(args)))
-	} else {
-		for _, t := range tokens {
-			args = append(args, t)
-			clauses = append(clauses, fmt.Sprintf("symbol ILIKE '%%' || $%d || '%%'", len(args)))
+// renderSymbolRows executes one symbol-arm SELECT and renders its rows: code
+// rows to codeOut, prose rows to docs (the D12 guard — a doc-comment mention
+// must never read as an implementation). Returns how many code rows and how
+// many rows in total were rendered. Extracted so the 163 name-only fallback
+// answers through the SAME renderer as the primary query — a second inline
+// copy is how the [doc] tagging or a future cap notice would silently apply to
+// one branch and not the other.
+func renderSymbolRows(ctx context.Context, db *sql.DB, clause string, args []interface{}, rowCap int, codeOut *strings.Builder, docs *strings.Builder) (codeRows, total int, err error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT path, symbol, COALESCE(signature,''), COALESCE(line_start,0), COALESCE(line_end,0), COALESCE(commit_sha,''), kind
+		FROM code_symbols
+		WHERE `+clause+`
+		ORDER BY path, symbol
+		LIMIT `+fmt.Sprintf("$%d", len(args)+1), append(args, rowCap)...)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var path, symbol, sig, sha, kind string
+		var ls, le int
+		if err := rows.Scan(&path, &symbol, &sig, &ls, &le, &sha, &kind); err != nil {
+			return codeRows, total, err
 		}
+		out := codeOut
+		if isCode(kind) {
+			codeRows++
+		} else {
+			out = docs
+		}
+		fmt.Fprintf(out, "  - %s : %s%s  [L%d-%d]  %s  (commit %s)\n", path, symbol, docTag(kind), ls, le, truncateCell(sig, 160), shortSHA(sha))
+		total++
+	}
+	return codeRows, total, rows.Err()
+}
+
+// symbolQuery is a kind="symbol" check's query, parsed into the two columns
+// that can actually answer it.
+//
+// bugs_open/163. The landmine-verifier's derive_checks prompt DEFINES kind
+// "symbol" as `path:Symbol` — "a file path followed by a colon and a Go
+// identifier" — and scopeFromCodeResults, resolveScopeEntries and the §7D scope
+// resolver all compose that same handle. Until 2026-08-03 the clause builder
+// tokenised the whole string and AND-ed EVERY token against the SYMBOL column,
+// path fragments included, so `internal/analysis/symbolbody.go:ReadSymbolBody`
+// executed as symbol ILIKE '%internal%' AND '%analysis%' AND '%go%' AND …
+// code_symbols.symbol holds a Go identifier and NEVER a path — measured 0 of
+// 4,992 rows contain a '/' — so a path-bearing symbol check was unsatisfiable
+// BY CONSTRUCTION, returned 0 rows, and rendered as "the query was RUN and
+// matched none". The producer's contract was right; the executor could not
+// honour it. Splitting on the last colon is the fix already recorded in
+// 016b §9 and in the bug file itself.
+type symbolQuery struct {
+	// path constrains code_symbols.path. Empty means "any path".
+	path string
+	// name is token-matched against code_symbols.symbol. Empty means "no name
+	// constraint", reachable only via lineRef.
+	name string
+	// lineRef records that what followed the colon was a line number or range
+	// (`spawn_actions.go:3066`, `run_checks_action.go:773-774`) rather than an
+	// identifier. 12 LANDMINES footprints are written that way, and matching
+	// "3066" against the symbol column would reproduce 163 in a new costume —
+	// so the check degrades to a path question, and the answer says it did.
+	lineRef bool
+	// raw is the query as the reviewer wrote it, kept for narration.
+	raw string
+}
+
+// parseSymbolQuery splits a symbol query into its path and name halves.
+//
+// Anything it does not recognise as path-bearing keeps the pre-2026-08-03
+// behaviour exactly — the whole string is a name. That is the load-bearing
+// property: "OllamaClient.GenerateText", "(*OllamaClient).GenerateText" and
+// bare identifiers all land there, preserving the receiver-form match that
+// 51e0776fb added for a MEASURED false negative (run 90e989d5, where a reviewer
+// nearly read an empty result as "no such symbol"). This fix must not trade one
+// false negative for another.
+func parseSymbolQuery(query string) symbolQuery {
+	q := symbolQuery{raw: query, name: query}
+	pathPart, namePart := analysis.SplitSymbol(query)
+	if namePart == "" || !looksLikePath(pathPart) {
+		return q
+	}
+	q.path, q.name = pathPart, namePart
+	if isLineReference(namePart) {
+		q.name, q.lineRef = "", true
+	}
+	return q
+}
+
+// looksLikePath decides whether the text before the last colon is a file path
+// rather than the first half of something like "Type.Method". A slash settles
+// it; failing that a source-file extension does, because footprints routinely
+// name a bare file ("claims.go:Foo"). Deliberately conservative: whatever it
+// rejects falls back to the old whole-string-is-a-name path, so a wrong answer
+// here can only fail to improve a query — never break one that works today.
+func looksLikePath(s string) bool {
+	if s == "" {
+		return false
+	}
+	if strings.Contains(s, "/") {
+		return true
+	}
+	lower := strings.ToLower(s)
+	for _, ext := range []string{".go", ".sql", ".sh", ".py", ".md", ".ts", ".tsx", ".js"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
+}
+
+// isLineReference reports whether s is a line number or line range — "3066",
+// "773-774", optionally L-prefixed. Not a regexp: this file uses none, and the
+// grammar is three characters wide.
+func isLineReference(s string) bool {
+	s = strings.TrimPrefix(strings.TrimPrefix(s, "L"), "l")
+	if s == "" {
+		return false
+	}
+	seenDigit, seenDash := false, false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= '0' && c <= '9':
+			seenDigit = true
+		case c == '-' && seenDigit && !seenDash && i+1 < len(s):
+			seenDash = true
+		default:
+			return false
+		}
+	}
+	return seenDigit
+}
+
+// symbolClauseFor builds the WHERE clause for a parsed symbol query, its
+// ordered bind args (the caller appends the LIMIT param), and a one-line human
+// rendering of the predicate actually built.
+//
+// The narration is RETURNED rather than logged because the reader is a model. A
+// 0-row answer that shows its own predicate is self-diagnosing, and — this is
+// the point — it gives a per-check fact that can contradict the run-level
+// staleness banner. The false verdict that produced 163 was not invented from
+// nothing: the banner correctly warned that "a 'no matches' answer may mean NOT
+// YET INDEXED", and the model generalised that whole-run caveat onto symbols
+// that predated the indexed commit. There was nothing in the per-check output
+// specific enough to override it. Now there is.
+//
+// The repo filter stays the LAST bind arg; a test pins that.
+func symbolClauseFor(sq symbolQuery, repoFilter string) (clause string, args []interface{}, searched string) {
+	var clauses, human []string
+	if sq.path != "" {
+		args = append(args, sq.path)
+		clauses = append(clauses, fmt.Sprintf("path ILIKE '%%' || $%d || '%%'", len(args)))
+		human = append(human, fmt.Sprintf("path ILIKE '%%%s%%'", sq.path))
+	}
+	tokens := identifierTokens(sq.name)
+	if sq.name != "" && len(tokens) == 0 {
+		// A name with no identifier token at all still gets a raw-substring
+		// match, so the check does something predictable rather than nothing.
+		tokens = []string{sq.name}
+	}
+	for _, t := range tokens {
+		args = append(args, t)
+		clauses = append(clauses, fmt.Sprintf("symbol ILIKE '%%' || $%d || '%%'", len(args)))
+		human = append(human, fmt.Sprintf("symbol ILIKE '%%%s%%'", t))
 	}
 	args = append(args, repoFilter)
 	clauses = append(clauses, fmt.Sprintf("($%d = '' OR repo = $%d)", len(args), len(args)))
-	return strings.Join(clauses, " AND "), args
+	return strings.Join(clauses, " AND "), args, strings.Join(human, " AND ")
 }
 
 // identifierTokens splits s into maximal [A-Za-z0-9_] runs.

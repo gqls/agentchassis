@@ -99,8 +99,11 @@ func TestIdentifierTokens(t *testing.T) {
 // clause that would match the stored "(*Type).Method" receiver form. We can't
 // hit the DB here, but we can assert the clause ANDs both tokens as symbol
 // substrings (which the stored form satisfies) rather than one literal string.
+// (Ported from symbolTokenClause to the parse+clause pair for bugs_open/163;
+// the assertions are byte-identical to the 51e0776fb originals — a no-colon
+// query must build exactly the clause it always built.)
 func TestSymbolTokenClauseGoReceiver(t *testing.T) {
-	clause, args := symbolTokenClause("OllamaClient.GenerateText", "", 40)
+	clause, args, _ := symbolClauseFor(parseSymbolQuery("OllamaClient.GenerateText"), "")
 	if !strings.Contains(clause, "symbol ILIKE '%' || $1 || '%'") ||
 		!strings.Contains(clause, "symbol ILIKE '%' || $2 || '%'") {
 		t.Fatalf("expected two AND-ed symbol substring clauses, got: %s", clause)
@@ -108,12 +111,119 @@ func TestSymbolTokenClauseGoReceiver(t *testing.T) {
 	if len(args) != 3 || args[0] != "OllamaClient" || args[1] != "GenerateText" || args[2] != "" {
 		t.Fatalf("args = %v, want [OllamaClient GenerateText \"\"]", args)
 	}
+	if strings.Contains(clause, "path ILIKE") {
+		t.Fatalf("a dotted method name is not a path and must not constrain the path column: %s", clause)
+	}
 }
 
 func TestSymbolTokenClauseRepoFilter(t *testing.T) {
-	_, args := symbolTokenClause("GenerateText", "gqls/agentchassis", 40)
+	_, args, _ := symbolClauseFor(parseSymbolQuery("GenerateText"), "gqls/agentchassis")
 	if args[len(args)-1] != "gqls/agentchassis" {
 		t.Fatalf("repo filter should be the last arg, got %v", args)
+	}
+}
+
+// bugs_open/163. The landmine-verifier's derive_checks prompt DEFINES kind
+// "symbol" as `path:Symbol`, and until 2026-08-03 the clause builder AND-ed
+// every token of that string — path fragments included — against the symbol
+// column, which never holds a path (measured: 0 of 4,992 rows contain '/').
+// Every path-bearing symbol check ever run returned 0 rows by construction and
+// rendered as a confident "matched none"; 16 of 20 landmine verifications came
+// back NEEDS_HUMAN_REVIEW and none ever CONFIRMED. The path half must bind to
+// the path column, the name half to the symbol column.
+func TestSymbolTokenClausePathBearing(t *testing.T) {
+	sq := parseSymbolQuery("internal/analysis/symbolbody.go:ReadSymbolBody")
+	if sq.path != "internal/analysis/symbolbody.go" || sq.name != "ReadSymbolBody" || sq.lineRef {
+		t.Fatalf("parse mangled the handle: %+v", sq)
+	}
+	clause, args, searched := symbolClauseFor(sq, "")
+	if !strings.Contains(clause, "path ILIKE '%' || $1 || '%'") {
+		t.Fatalf("the path half must constrain the path column: %s", clause)
+	}
+	if !strings.Contains(clause, "symbol ILIKE '%' || $2 || '%'") {
+		t.Fatalf("the name half must constrain the symbol column: %s", clause)
+	}
+	// The 163 failure shape: no path fragment may reach the symbol column.
+	for i, a := range args[:len(args)-1] { // last arg is the repo filter
+		if s, ok := a.(string); ok && i > 0 && (s == "internal" || s == "analysis" || s == "go" || strings.Contains(s, "/")) {
+			t.Fatalf("path fragment %q bound as a symbol token — the 163 defect: args=%v", s, args)
+		}
+	}
+	if len(args) != 3 || args[0] != "internal/analysis/symbolbody.go" || args[1] != "ReadSymbolBody" || args[2] != "" {
+		t.Fatalf("args = %v, want [path name repo]", args)
+	}
+	// The narration is the per-check fact that can override the run-level
+	// staleness banner; a 0-row answer must be able to show its own predicate.
+	if !strings.Contains(searched, "path ILIKE '%internal/analysis/symbolbody.go%'") ||
+		!strings.Contains(searched, "symbol ILIKE '%ReadSymbolBody%'") {
+		t.Fatalf("searched narration does not state the predicate: %q", searched)
+	}
+}
+
+// Receiver-qualified name AFTER a path — both halves must survive: the path to
+// the path column, both name tokens to the symbol column (receiver form again).
+func TestSymbolTokenClausePathWithDottedName(t *testing.T) {
+	sq := parseSymbolQuery("platform/aiservice/ollama.go:OllamaClient.GenerateText")
+	clause, args, _ := symbolClauseFor(sq, "")
+	if sq.path != "platform/aiservice/ollama.go" {
+		t.Fatalf("path half lost: %+v", sq)
+	}
+	if len(args) != 4 || args[1] != "OllamaClient" || args[2] != "GenerateText" {
+		t.Fatalf("dotted name after a path must still token-split: %v", args)
+	}
+	if strings.Count(clause, "symbol ILIKE") != 2 {
+		t.Fatalf("want two symbol token clauses: %s", clause)
+	}
+}
+
+// 12 LANDMINES footprints write a LINE reference after the colon, not a symbol
+// (`spawn_actions.go:3066`, `run_checks_action.go:773-774`). Matching "3066"
+// against the symbol column would reproduce 163 in a new costume; the check
+// must degrade to a path question and say so.
+func TestSymbolTokenClauseLineReference(t *testing.T) {
+	for _, q := range []string{
+		"platform/orchestration/actions/spawn_actions.go:3066",
+		"platform/orchestration/actions/run_checks_action.go:773-774",
+		"internal/analysis/symbolbody.go:L105",
+	} {
+		sq := parseSymbolQuery(q)
+		if !sq.lineRef {
+			t.Fatalf("%q should parse as a line reference: %+v", q, sq)
+		}
+		clause, args, _ := symbolClauseFor(sq, "")
+		if strings.Contains(clause, "symbol ILIKE") {
+			t.Fatalf("a line number must not become a symbol predicate (%q): %s", q, clause)
+		}
+		if len(args) != 2 { // path + repo filter only
+			t.Fatalf("line-ref args = %v, want [path repo]", args)
+		}
+	}
+	// Negative control for the detector itself: a hyphenated identifier-less
+	// name that is NOT numeric must stay a name, and a genuine symbol whose
+	// file half lacks any path shape must keep the old whole-string behaviour.
+	if sq := parseSymbolQuery("claims.go:773x"); sq.lineRef {
+		t.Fatalf("773x is not a line reference: %+v", sq)
+	}
+	if sq := parseSymbolQuery("NotAPath:GenerateText"); sq.path != "" {
+		t.Fatalf("a left half with no path shape must not bind the path column: %+v", sq)
+	}
+}
+
+// The parser's conservatism is load-bearing: anything not recognised as
+// path-bearing must keep the pre-163 behaviour byte-for-byte, or queries that
+// work today change under people's feet.
+func TestParseSymbolQueryFallsBackToNameOnly(t *testing.T) {
+	for _, q := range []string{
+		"GenerateText",
+		"OllamaClient.GenerateText",
+		"(*OllamaClient).GenerateText",
+		"snake_case_name",
+		"NotAPath:GenerateText", // colon, but the left half is not a path
+	} {
+		sq := parseSymbolQuery(q)
+		if sq.path != "" || sq.name != q || sq.lineRef {
+			t.Fatalf("parseSymbolQuery(%q) = %+v, want name-only passthrough", q, sq)
+		}
 	}
 }
 
