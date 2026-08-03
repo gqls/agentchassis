@@ -156,7 +156,16 @@ consequence of fixing a false-negative is a burst of findings.
 # PROGRESS 2026-08-03 — tranche 1 done: three detectors converged, two deliberately not
 
 **Picked up by the filing lane.** Fix candidate 1, applied to the sites the measurement
-justified and **only** those. Commit below; council submitted alongside.
+justified and **only** those. Commit `171d52a1a`.
+
+**Council: `66d07687-8e4a-46c5-aa0e-f056b96e1b2c`** (submitted 2026-08-03, verdict pending).
+
+> **The commit's trailer is WRONG and this line is the repair.** `171d52a1a` carries
+> `Council-Submitted: pending-185-tranche-1` — a placeholder typed before the submission
+> ran, which resolves to nothing and will read as un-credited in the `098` coverage report.
+> Forward-only forbids an amend, so the real correlation is recorded here instead.
+> **The lesson is small and repeatable: submit FIRST, then commit with the id it printed.**
+> The trailer is not a note to yourself, it is a join key.
 
 ## The seam, because the ALIAS was the whole reason this kept being re-typed
 
