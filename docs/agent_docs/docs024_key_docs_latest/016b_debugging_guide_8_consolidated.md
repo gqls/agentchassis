@@ -5083,14 +5083,24 @@ See `/bugs_closed/README.md`.
 | 174 | **The diagnosis dispatch loop DROPS `seed_scope` (and `runtime_page`), so a diagnosis you aimed at chosen symbols silently runs against whatever the code search returned.** `diagnose-dispatch-loop.call_handler`'s `input_mapping` is a 10-key ALLOW-LIST omitting both, while `diagnose-orchestrator.call_diagnoser` behind it FORWARDS both — two mappings on one path disagreeing, and the one in front wins. **Every observable says the knob worked**: `090_TRIGGER` documents `SEED_SCOPE`, writes it into the item spec (it is still there), and keys its own coverage probe on it. **The failure is invisible because the assembler's scope resolution is a FALLBACK CHAIN** (`diagnose_assemble_bundle_action.go:135-151`) — with the seed gone, step 3 supplies a different, plausible scope, so the action cannot tell "no seed given" from "seed confiscated in transit" and correctly stays silent | **OPEN, unowned. LIVE, and it has already degraded two other lanes' diagnoses.** Measured over every intake that ever carried a non-empty seed scope: **3 of 4 lost it** — all three claimed by `diagnose-dispatch-loop`; the only survivor was claimed by `090_TRIGGER` (a manual `DISPATCH=1` direct publish). Corroborated from the far end: **1 of 10** retained `diagnose-agent` runs ever saw a `seed_scope`, and that one is the direct dispatch. The two lost real runs are `deploy-image-asset-purpose-not-assetid` (the `155` lane, 07-31) and `scheduler-stamps-completed-at-publish` (07-28) — **both COMPLETE, both reporting findings drawn from a scope nobody chose, neither author able to know**. ⚠ window: `orchestration_states` retains ~1 day, so the 1-of-10 is a snapshot; the 4-row intake table (07-28..08-01) is the durable measure, and pre-07-28 losses are `[UNMEASURED]` and unknowable. Found 2026-08-01 by the `bugfix_164` lane running `164`'s own VERIFY, which it BLOCKS. Candidate 1 is **config-only** (add `seed_scope?`/`runtime_page?` from `claimed.*`, the form the other ten keys already use); candidate 2 is a lockstep test over the two mappings (a `dedup-index/Go-list` shaped pair with nothing checking it); candidate 3 — **report WHICH branch of the fallback chain supplied the scope** — generalises past this bug to every fallback in the platform. **Do NOT "fix" it by documenting `DISPATCH=1`**, which writes the bug into the runbook as a feature. Same allow-list mechanism as LANDMINES' `--fidelity high` (dropped until migration 274) **CLOSED 2026-08-02 — LIVE on chassis v1.0.1229, proven at the artefact on both replicas and by a real seeded diagnosis through the DEFAULT path (`scope_source`=`seed`, iteration-1 bundle contains exactly the two seeded symbols). `bugs_closed/174`. Gate 3 CONFIRMED IN PRODUCTION: `jsonb_typeof(input_data->'seed_scope')` = `string`, not `array` — so the config half alone would NOT have fixed it. Fixed by the `bugfix_174_seed_scope_relay` lane — see the ticket's own TAKEN AND FIXED section, and `docs024/bugfix_174_seed_scope_relay/`. CORRECTION to the filing: candidate 1 was INSUFFICIENT and would have failed SILENTLY — `claim_item`'s `RETURNING` is a SECOND allow-list that never projected the key, so the proposed `claimed.seed_scope` source path does not exist; and a THIRD gate is the TYPE — `query_database` stringifies jsonb, so the value arrives as text and `ExtractStringListHelper` returned nil for it. Gates 1+2 config (mig 289, LIVE); gate 3 Go (`f51acb2bb`, inert until the roll — hence still OPEN). Candidate 3 shipped as `scope_source`. Candidate 2 shipped, but NOT as specified: the general rule was measured and REJECTED (31 findings fleet-wide, and blind to this very bug, because `call_handler` resolves its callee at runtime) — see `config-key-audit --relay-gaps` / WFA-007. Council APPROVED r1 `081d98b3`.** |
 | 177 | **`tool-generator` raised a `needs_content_page` item for every tool page it created, and every one was UNSATISFIABLE AT BIRTH** — the create path's `pages` INSERT declares no `sections`, and `page-build-handler` resolves sections from the plan tables → `site_specs.site_plan` → `pages.sections`, none of which contains a just-generated page. 9 of 9 items in the class's history died in `needs_human_review` (0% completion, 2026-07-14 → 08-02); one re-armed the 176 dependency blocker with two `tool_crosslink` dependents. The sibling `deploy_tool_action.go` declares 4 sections and produced zero failures — and the `tool_guide` items from the SAME two files (page declares sections) ran 4/5 complete, the natural experiment that pinned the cause in the declaration | **CLOSED 2026-08-03 — LIVE on chassis v1.0.1241, pod-proven both replicas (added symbol present, removed emit string 0).** Fixed by the bugfix_177 lane: `raiseToolContentItem` (`tool_content_item.go`), one satisfiability-gated emit seam for both tool paths — resolves the handler's own sources read-only, skips observably (`content_item: skipped_no_prose_sections`), writes via shared `insertWorkItem` with `recurrenceExpected` (gapPlanWorkItem precedent). Sweep `297`: 8 zombies → `wont_fix`; the two dependents deliberately LEFT BLOCKED as a 178 interlock (dispatching that class is destructive today — see the contrib note in `bugs_open/178`). Council `982507b0` APPROVED r1; commit `74655b709`. Wider `needs_page` population → `bugs_open/187`. TL-009 (should tool pages declare prose?) stays an owner question. §9: "A work item can be UNSATISFIABLE AT BIRTH" |
 | 099 | **The feature designer's plans died on a validator rule its prompt never stated, and the loss was SILENT.** `diagnose_persist_fix_plan` returned a bare error on any structural validation failure — the step fails, `error_step` routes to `complete_refused`, and a COMPLETED, GOOD design is discarded with `orchestration_states.error` **NULL** (reason only in `collected_data->>'__step_error'`, so a dashboard keyed on `error` reports the run clean). Candidate 1 (migration `222`) stated ONE rule in the prompt; the validator has a dozen and gains more, so that shape had to be repeated per rule, per agent, and drifted whenever the validator changed. **Candidate 2 (the durable fix) makes the refusal RECOVERABLE**: the rejected plan + exact problems persist as `iteration_note`/`note_kind=plan_validation_refusal` (no DDL — `kind` is CHECK-constrained), an `agent_error_log` `FIX_PLAN_VALIDATION_REFUSED` row is written on BOTH outcomes, and the action returns a result routing to a dedicated `repair_plan` step for `max_repair_attempts` rounds. **Opt-in**: with `repair_step` unset the action is byte-for-byte the old behaviour. Gate NOT lowered — nothing invalid is persisted on either path; truncation stays terminal, but a **schema mismatch (well-formed JSON, wrong shape) is repairable** — that distinction was found by the FIRST live repair failing on it | **CLOSED 2026-07-31 → `/bugs_closed/`**: live on `v1.0.1216`/`1218` + migration `272`, and **proven on the failing branch** — corr `53fff682`, refusal at 18:08:26 (`stage s1: 2 edits exceeds the per-stage cap 1`), repaired `fix_plan` persisted 18:09:31 with **3 stages / all 3 edits** (original: 2 stages, one holding 2), run continued into its council. ⚠ **099's own stated verification is INSUFFICIENT and returns a false PASS** — written for candidate 1, which worked, so re-firing its work item takes the SUCCESS path and satisfies both stated conditions while the repair loop never fires; the corrected test induces a refusal and requires FOUR conditions. Residue is DECISIONS, not omissions: `fix-proposer` → `bugs_open/162` (fix written, dry-run clean, unapplied — another lane owns it); `council-gate` not opted in on purpose; size caps (`max_stages`/`max_total_edits`) stay unrepairable because they ask for less scope while the repair prompt forbids dropping it. Register `FIX-057` |
-> **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
-> this table is **materially behind** and a miss here is a false negative for the
-> "grep the index before filing" rule. Indexed rows stop at `081` apart from `098`
-> below, while `/bugs_open/` currently holds **30** cases — `082`–`097` are almost all
-> unindexed, filed by concurrent threads on 2026-07-26. Historic gaps stand too:
+> **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
+> RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
+> false negative for the "grep the index before filing" rule. Historic gaps stand:
 > `025`–`033` are not all here (`034`–`041` are; `042`–`047` are not), and `027` is
 > used by **two** different cases. **List them with `ls bugs_open/ bugs_closed/` and
 > grep the files themselves; do not trust this table to be complete.**
+>
+> **Measured 2026-08-03 — the gap is now the majority of the corpus, not a tail.**
+> Indexed rows stop at **`099`** (103 distinct numbers). On disk: **55** files in
+> `/bugs_open/` and **158** in `/bugs_closed/` — **213 cases, highest number `191`.**
+> So roughly **half the numbering range (`100`–`191`) has no row here at all**, and
+> the 07-26 figure of "30 open cases" is superseded.
+>
+> **Do not add a lone row for a new bug 90 numbers ahead of the last one** — it makes
+> that one case look indexed while its 90 neighbours are not, which is worse than an
+> obviously-truncated table. The honest fix is a regenerated index or an explicit
+> "indexed to 099" marker; until someone does that, **§9 above is the current part of
+> this document and this table is an archive of the first 99.**
 
 ### A confident claim in our own knowledge base is not evidence (2026-07-19)
 
@@ -10402,3 +10412,52 @@ Category tags: `envelope-vs-payload`, `residue-after-fix`, `source-vs-artefact`.
 Related: `bugs_open/190`; `bugs_closed/008`, `bugs_closed/054`;
 `json_envelope.go` header; the 140 lane's "a repro is destroyed by the render"
 memory (same source/artefact split, opposite direction).
+
+### Two elements rendered side by side from the same table can be gated by different eligibility predicates — and the stricter one's output is what makes the looser one look checked (`bugs_open/191`, 2026-08-03)
+
+A renderer that emits several links into one artefact often validates them through
+different helpers. `render_site_components_action.go` builds a header's nav items via
+`loadFetchablePageSet` (excludes never-deployed pages) and, ~70 lines later, its CTA
+button via `loadResolverPageSet` (status only). Same table, same run, same component,
+two answers to "may chrome link this page".
+
+**The tell is the absence of a tell.** A reviewer opens the rendered header, sees a nav
+correctly reduced to the pages that exist, and reads the whole component as filtered —
+because the *visible majority* of its links went through the strict path. The one element
+that did not is indistinguishable by inspection; you have to ask *which helper produced
+each href*, not *does this look filtered*. The stricter predicate's output is doing the
+persuading, and it has no authority over its neighbour.
+
+Three things make this class hard to see and worth a named pattern:
+
+1. **The doc comment describes the strict path and is filed above both.** Here `:149-150`
+   says the CTA points "at an existing page instead of the hardcoded phantom", and
+   `:166-170` says the template "renders no CTA button rather than a phantom". Both are
+   true of the primary branch and false of the fallback. **A comment that is true of the
+   happy path reads as true of the function.**
+2. **The looser branch is reached *because* the stricter one fired.** The CTA fallback
+   runs when there is no `contact` nav item — and on a young site that item was dropped by
+   the strict filter. So the two predicates are not merely inconsistent, they are
+   *coupled*: the strict filter's exclusion is what routes control into the unguarded path.
+   Tightening one filter can therefore *increase* traffic through the other.
+3. **It only fires in a window.** All targets built, or none built, and the divergence is
+   invisible; it needs a partially-built site. That is every adoption and every first
+   build — i.e. the state you are least likely to have a test for and most likely to
+   dismiss as "it is mid-build, of course things 404".
+
+**The check, and it is cheap:** when one function emits N links into one artefact, grep the
+function for every page-set/eligibility loader it calls and diff their SQL. More than one
+distinct predicate is the finding — you do not need a failing artefact first. Then confirm
+occurrence **at the wire**, not from the deploy columns: `deployed_at IS NULL` means "no
+recorded deploy", not "does not serve", and it produced a false positive here (2 candidate
+sites from SQL, 1 real — the other serves 200). Note also **where the link actually lives**:
+191's diagnosis run queried `content_data->>'cta_url'`, which does not exist, got 0 rows,
+and correctly refused to read that as absence — the href is literal HTML inside
+`rendered_html`.
+
+Category tags: `two-predicates-one-artefact`, `comment-describes-happy-path`,
+`partially-built-window`, `stamp-is-not-liveness`.
+Related: `bugs_open/191`; `bugs_closed/118` (same shape, component-eligibility spelling —
+"three call sites answered this three ways", commit `b052249d8`); `bugs_closed/049`
+(the nav half that installed the strict predicate); `bugs_open/071` (why detect-only is
+the weakest fix here); `bugs_open/098` durable half (`deployed_at` is history, not liveness).
