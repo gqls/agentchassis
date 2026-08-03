@@ -3444,7 +3444,15 @@ deliberately:
 
 - **footprint:** `pages.build_status`, `pages.deployed_at`, any guard spelled
   `build_status = 'deployed'` / `COALESCE(build_status,'') <> 'deployed'`,
-  `realisedPageIsBuilt`, `findStrandedNavPages`, `pageHasBeenLive`
+  `realisedPageIsBuilt`, `findStrandedNavPages`, `NeverDeployedPagePredicateFor`,
+  `PageHasShippedPredicateFor`
+  > **CORRECTED 2026-08-03 — this footprint used to name `pageHasBeenLive`, which no
+  > longer exists** (it WAS the hand-rolled predicate this entry was written about, and
+  > it was deleted the same day in favour of the shared one). Four council seats read
+  > the stale name and asked whether that symbol still carried the defect — a footprint
+  > pointing at a deleted symbol costs a reviewer a search for a bug that is gone.
+  > **When you fix the thing a landmine guards, re-read the landmine.** The reusable
+  > builders are named instead: reach for those, never a fresh spelling.
 - **fires when:** you write a predicate meaning "don't touch a page a visitor can
   see" — a replan guard, a re-type guard, an overwrite refusal, a repair
   candidate set
@@ -4113,3 +4121,45 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   the page reached the bucket but the DNS/page-rule change could not be applied.
   `webdesign_uk_build_service/HANDOFF_2026-08-03_P1_shopfront.md` §3
 - **added:** 2026-08-03, webdesign.uk build-service lane
+
+### Two acceptance callers file notes under ONE category with the SAME `created_by` — so "the feature stopped working" and "this row came from the caller you never armed" are the identical query result
+
+- **footprint:** `doc_notes` `categories ? 'acceptance-run'` · `created_by='tool-acceptance-agent'` ·
+  `request_browser_run` · `request_component_browser_run` ·
+  `platform/orchestration/actions/tool_acceptance_actions.go` · `capture_renders`
+- **fires when:** you re-check a per-step opt-in (TL-035's `capture_renders`) by
+  selecting over the note category and reading a derived column — `body LIKE
+  '%Rendered:%'`. A render-less note appears **newer than** your armed one and you
+  conclude the flag was reverted or the seed lost. It was not: **two different actions
+  file into that one category**, `request_browser_run` (tool pages) and
+  `request_component_browser_run` (components), and arming one leaves the other dark
+- **the tell:** there isn't one in the note, and that is the whole trap. **Both callers
+  write `created_by='tool-acceptance-agent'` and `source='tool-acceptance'`**, so every
+  column the note carries is identical; the discriminator lives on the *orchestration
+  row*, which the note does not reference (`source_item_id` is NULL). The two exits the
+  brochure lane's own handoff offered both dead-end here: the run **PASSED** 15/15 (so
+  "a failing run legitimately has no render" is closed) and the flag was **still `true`**
+  in `agent_definitions` (so "the seed was lost" is closed)
+- **the check:** never conclude from the note — **join to the run and read the ACTION**:
+  ```sql
+  SELECT o.orchestration_id, o.workflow_plan #>> '{steps,request_run,action}' AS action,
+         o.workflow_plan #>> '{steps,request_run,config,capture_renders}' AS flag
+    FROM orchestration_states o
+   WHERE o.created_at BETWEEN '<note ts>'::timestamptz - interval '5 min' AND '<note ts>'::timestamptz;
+  ```
+  A NULL `flag` with a non-null `action` is an **unarmed caller**, not a regression.
+  Then ask the prior question the category query cannot: **how many callers are there?**
+  `grep -n "dispatchBrowserRun(" platform/orchestration/actions/tool_acceptance_actions.go`
+  → `:184` and `:390`, two call sites, one shared helper reading the flag at `:220`
+- **the wider rule:** when you arm a shared helper by config, **the blast radius is the
+  helper's CALL SITES, not the config rows you edited** — count them in the code before
+  claiming coverage. Here the second caller has **no `agent_definitions` row at all**
+  (0 rows fleet-wide for `%component_browser_run%`, including snapshots and soft-deleted):
+  it runs from an **inline `workflow_plan`**, so a census of live agent configs reports
+  full coverage while a live caller sits unarmed and invisible to it
+- **related:** this is the config-side twin of the memory index's `input_mapping` /
+  `RETURNING` allow-list entry — there two gates on one path, here one gate on two paths
+- **source:** 2026-08-03, brochure lane's first re-check after TL-035 went live;
+  `brochure_component_library/NOTES_brochure_component_library.md` (2026-08-03 entry) and
+  `HANDOFF_2026-08-02_continue_here.md` §2, corrected the same day
+- **added:** 2026-08-03, brochure component library lane

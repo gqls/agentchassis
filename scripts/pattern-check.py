@@ -655,6 +655,93 @@ def check_partial_page_upsert(files, ref, findings):
             ))
 
 
+# ── a hand-rolled "has this page shipped" test ──────────────────────────────
+#
+# bugs_open/185. `pages.build_status = 'deployed'` reads as "this page is live" and
+# is not: a `needs_rebuild` page HAS deployed and is still serving its previous
+# artefact (bugs_closed/037), and 28 active pages fleet-wide sit in that state. The
+# estate's one definition is datahelpers.NeverDeployedPagePredicateFor / its
+# negation PageHasShippedPredicateFor.
+#
+# WHY A CHECK AND NOT JUST THE HELPER: the council's bug_historian seat put it
+# exactly right — a shared predicate stops nobody re-typing the string by hand, and
+# hand-re-typing is verbatim how this bug arose. The helper removes the EXCUSE (an
+# unaliased constant could not be used by an aliased query); this removes the
+# opportunity to do it silently.
+#
+# PRECISION: `pages` only, and only where the test decides liveness. It does NOT
+# fire on `page_components.build_status` (a different table and a different
+# question — component deploy state), on writes (`SET build_status = 'deployed'`),
+# or on the two checks that legitimately keep the narrow form, which are listed
+# with their reasons. MEASURED over the tree on 2026-08-03: 11 raw matches, of which
+# 3 are false positives now allow-listed with their reasons (an ORDER BY ranking in
+# create_tool_cross_link_items, twice, and queryresolve's correct disjunct), leaving
+# **8 genuine hits — every one of them in the tranche-2 holdout set named in
+# bugs_open/185**, and 0 elsewhere. The first version of this comment claimed "7"
+# from counting by eye before running anything; the rule also fired on the 3 false
+# positives until that run showed them.
+HANDROLLED_SHIPPED_RE = re.compile(
+    r"(?<![.\w])(?:[a-z]\.)?build_status\s*=\s*'deployed'")
+
+# Each entry is a DECISION on the record, not an exemption granted by convenience.
+SHIPPED_PREDICATE_ALLOWED = {
+    "check_page_component_status_drift.go":
+        "correct as-is: drift means 'the page claims full deployment but a component "
+        "does not'. A needs_rebuild page having non-deployed components is the EXPECTED "
+        "state, so the shared predicate would manufacture false positives (measured: 2)",
+    "check_unresolved_sections.go":
+        "not a liveness test: it flips deployed -> needs_rebuild, and a page already "
+        "needs_rebuild is already flagged, so converging adds updated_at churn and no "
+        "information",
+    "check_news_feed.go":
+        "bugs_closed/015's stranded-page set, deliberately the NEGATIVE direction "
+        "(build_status <> 'deployed'); bugs_closed/081 records why it is correct",
+    "adopt_verbatim.go": "WRITES the value, does not test it",
+    "import.go": "WRITES the value, does not test it",
+    "fix_component_template_action.go": "page_components write, not a pages liveness test",
+    "save_page_sections_action.go": "page_components predicate, different table",
+    "create_tool_cross_link_items.go":
+        "ORDER BY (p.build_status = 'deployed') DESC — a ranking PREFERENCE, not a filter. "
+        "Nothing is excluded, so no page is missed; converging would only reorder ties",
+    "queryresolve.go":
+        "FetchablePageEligibilitySQL is `deployed_at IS NOT NULL OR p.build_status = "
+        "'deployed'` — this line is the DISJUNCT that makes the predicate correct, not a "
+        "narrow test. Merging it with datahelpers is bugs_open/185 fix candidate 2",
+}
+
+
+def check_handrolled_shipped_predicate(files, ref, findings):
+    """bugs_open/185 — 'has this page shipped' spelled by hand misses 28 live pages."""
+    for path in files:
+        if not path.endswith(".go") or path.endswith("_test.go"):
+            continue
+        base = os.path.basename(path)
+        if base in SHIPPED_PREDICATE_ALLOWED or base == "links.go":
+            continue
+        body = strip_comments(file_content(path, ref))
+        if not body or "build_status" not in body:
+            continue
+        # Only the lines this commit touched, so an untouched legacy site is not nagged.
+        touched = changed_lines(path, ref)
+        for i, line in enumerate(body.splitlines(), start=1):
+            if i not in touched or "page_components" in line:
+                continue
+            if HANDROLLED_SHIPPED_RE.search(line):
+                findings.append((
+                    "handrolled-shipped-predicate", f"{path}:{i}",
+                    f"`build_status = 'deployed'` on {BOLD}pages{RESET} — that is not "
+                    f"\"is this page live\"",
+                    "bugs_open/185 — a needs_rebuild page HAS deployed and is still serving its "
+                    "previous artefact (bugs_closed/037: 35 of 46 carry a deployed_at), so this "
+                    "test silently skips 28 active pages. Use "
+                    "datahelpers.PageHasShippedPredicateFor(\"<alias>\") — it takes the alias, "
+                    "which is the reason this kept being re-typed by hand. If the narrow form is "
+                    "genuinely right here (drift checks and write paths are), add the file to "
+                    "SHIPPED_PREDICATE_ALLOWED with the reason.",
+                ))
+                break
+
+
 def check_append_only_docs(files, ref, findings):
     """Owner directive — SUMMARY snapshots and README_where_we_are are append-only."""
     for path in files:

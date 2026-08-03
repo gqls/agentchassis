@@ -232,3 +232,74 @@ all identical".
   the split (the alias) but not the split itself; `queryresolve` documents a deliberate
   family of three, so read `queryresolve.go:210-236` before touching it.
 - **Nothing is live yet.** Committed only; ships on the next chassis roll.
+
+
+---
+
+# COUNCIL APPROVED 2026-08-03 (`66d07687`), and four seats found the same gap in my census
+
+**Verdict: approved, 6 advisory objections, none high-severity.** Four seats
+(`editquality`, `reuse_agent`, `debug_historian`, `prior_art_librarian`) independently
+noted that the `LANDMINES` entry for this defect names three symbols my tranche-2 list did
+not: `pageHasBeenLive`, `realisedPageIsBuilt`, `findStrandedNavPages`. Each checked:
+
+| symbol | verdict |
+|---|---|
+| `pageHasBeenLive` | **GONE** — it WAS the hand-rolled predicate, deleted 2026-08-02. **The landmine's footprint was stale and sent four reviewers hunting a defect that no longer exists.** Corrected: the footprint now names the reusable builders instead. *When you fix the thing a landmine guards, re-read the landmine.* |
+| `findStrandedNavPages` (`check_news_feed.go:690`) | **correct as-is** — `bugs_closed/015`'s stranded set, deliberately the NEGATIVE direction; `bugs_closed/081` records why. Now allow-listed *with that reason* rather than left implicit. |
+| `realisedPageIsBuilt` (`v3_site_actions.go:5113`) | **still `status == "deployed"`, and it is NOT what `bugs_closed/037` fixed** — 037 shipped a separate `realisedPageCompositionIsPreserved`, which correctly covers `deployed` AND `needs_rebuild`. See below. |
+
+## `realisedPageIsBuilt` — a content-injection path, with ~zero live exposure
+
+Its two callers (`v3_site_actions.go:5031`, `:5064`) both ask one question: **is this
+page's EMPTINESS authoritative?** — i.e. did it deploy empty because it renders through
+another subsystem (a tool or blog-index page), or is it merely uncomposed? A shipped
+`needs_rebuild` page's emptiness is authoritative by exactly the same argument, so the
+narrow test misreads it as uncomposed and **lets the planner inject a generic layout into
+a live page**. That is corruption, not a missed check.
+
+**Measured before proposing anything:** pages that are shipped, not `deployed`, and
+sectionless = **1 row**, and it is `archived` (`robot-hands.com/learning-center-article`).
+So the live exposure today is effectively **nil**.
+
+**Not fixed here, and the reason is mechanical rather than a judgement call:** the realised
+page arrives as a `map[string]interface{}` that **carries no `deployed_at`** (checked —
+the loading query does not select it). A correct fix therefore needs a query change plus a
+Go change in the planner's hottest path, for one archived row. **Filed as tranche 3 in this
+file rather than bolted onto a batch the council has already approved.**
+
+## The other advisories
+
+- **`bug_historian` [medium]: "nothing stops the next call site re-typing it by hand — which is
+  verbatim how this bug arose."** Right, and now closed: `check_handrolled_shipped_predicate`
+  in `scripts/pattern-check.py`. **MEASURED: 11 raw matches → 3 false positives allow-listed
+  with reasons (an `ORDER BY` ranking twice, and `queryresolve`'s correct disjunct) → 8
+  genuine, every one in the tranche-2 holdout set, 0 elsewhere.** The rule was also proved
+  to FIRE on both a holdout and a synthetic new site, and to stay quiet on
+  `page_components`, on writes, and on the correct spelling.
+- **`guardian` [medium]: const→var is an exported-signature change asserted, not evidenced.**
+  Evidence on the record: `grep -rn "NeverDeployedPagePredicate"` returns 30 references,
+  every one either a comment, a `strings.Contains` test, or a runtime concatenation inside a
+  function body; **zero appear in a `const (` block**, which is the only context a `var`
+  would break.
+- **`prior_art_librarian` / `reuse_agent` [low]: is `linkablePageStatusPredicate` the same
+  judgement?** No — checked: it is `status NOT IN ('deleted','archived')`, the **page.status
+  axis**, about whether a page may be OFFERED as a link target. This bug is the
+  `build_status`/`deployed_at` axis, about whether a page is being SERVED. A page can be
+  active and never shipped, or archived and still served (`bugs_open/098`). Different
+  questions; both matter; neither substitutes.
+- **`bug_historian` / `guardian` [low]: `check_backend_entry_orphaned`'s widened scan drives an
+  unbounded live HTTP probe (0–34 findings) and is bundled with two measured edits.** Fair.
+  It stays in the batch — it is read-only and the check already runs against these domains —
+  but it is named here so a post-roll burst is attributable rather than mysterious.
+- **`editquality` [low]: two overlapping guard tests on one property.**
+  `links_deployment_test.go` guards the bare constant, the new file guards the builders.
+  Deliberate: the constant is now derived, so its test is the one that would catch a
+  hand-written literal creeping back into the derivation, while the builders' test is what
+  new call sites will actually violate. Both cheap; neither redundant.
+
+## Tranche 3, added by this round
+
+`realisedPageIsBuilt` (above) — needs the loader to select `deployed_at` before the Go test
+can be made honest. 1 archived row of exposure, so priority is low and the reason is
+recorded rather than the work being silently dropped.
