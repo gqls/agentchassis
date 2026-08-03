@@ -1,8 +1,11 @@
 # Concept Index — master register
 
-**1,710 index table rows** across **109** category register files, re-measured
-2026-08-03 with the command below after CLM-019 (the site-less claims seam) landed;
-the count moved 1,708 → 1,710, i.e. one row besides mine arrived concurrently —
+**1,711 index table rows** across **109** category register files, re-measured
+2026-08-03 with the command below after PBP-028 (the content_rewrite edit-live
+channel) landed; the count moved 1,710 → 1,711, exactly my own row, no
+concurrent arrival this time — still re-run rather than trust this number, per
+every line below it. Previously: 1,710 measured 2026-08-03 after CLM-019 (the
+count moved 1,708 → 1,710, i.e. one row besides mine arrived concurrently —
 the same concurrency the line below records, and the reason to re-run rather than
 trust any of these numbers. Previously: 1,708 measured 2026-08-03 after DGH-006.
 Previously: 1,706 measured 2026-08-02 late after STY-051 landed. **The prior headline of 1,711 (recorded the
@@ -633,6 +636,7 @@ an ID prefix, or a status word.
 | PBP-025 | componentless_pages discovery check (repair half of PBP-023) | built, not enabled | Active+deployed page with sections but ZERO page_components serves chrome only and no check could see it | page-build-pipeline.md |
 | PBP-026 | sourceResolver identity fallback chain (spec-path miss → canonical sites row) | built, inert till roll | plan_sections could not read the sites row's identity columns, so an owner-supplied email was invisible to every component | page-build-pipeline.md |
 | PBP-027 | UpsertPageForRole — one collision seam for constant-role page arms | built, inert till roll | An upsert that omits page_type turns a CREATE into a silent PARTIAL update; the collision is now four explicit outcomes | page-build-pipeline.md |
+| PBP-028 | load_current_section_content — opt-in edit channel for content_rewrite | built, inert till roll | content_rewrite never set spec.mode so the writer got guidance with nothing to edit and fabricated a replacement, dropping prose; a third mode value now hands it the page's own current rendered_html | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
 | STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |

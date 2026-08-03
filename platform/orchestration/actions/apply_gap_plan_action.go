@@ -208,6 +208,12 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 			"page_name":        pageName,
 			"content_guidance": contentGuidance,
 			"source":           "content-gap-planner",
+			// mode=edit_live opts this item into load_current_section_content
+			// (bugs_open/178): the page was just resolved by name from the
+			// pages table above, so it already exists — the writer should
+			// edit its current stored content, not fabricate a replacement
+			// with nothing to work from.
+			"mode": "edit_live",
 		}
 		if addSections, ok := addPlan["add_sections"].([]interface{}); ok {
 			// Resolve section names to canonical functions before handing

@@ -269,6 +269,13 @@ func emitToolCrossLinkItems(ctx context.Context, params ActionParams, logger *za
 			"tool_page_id":     req.toolPageID.String(),
 			"work_item_type":   "content_rewrite",
 			"max_fix_attempts": 1,
+			// mode=edit_live opts this item into load_current_section_content
+			// (bugs_open/178): the writer is handed the page's own current
+			// rendered_html to edit rather than nothing to fabricate a
+			// replacement from. The target here is always an existing,
+			// already-built page — resolveToolPageURL only returns a URL for
+			// a page row that already exists.
+			"mode": "edit_live",
 		})
 
 		// item_key keeps the tool_crosslink: namespace rather than the row's

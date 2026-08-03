@@ -1295,7 +1295,7 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	"git_adapter_request": {
 		Handler:     GitAdapterRequestAction,
 		Category:    "site",
-		Description: "Generic git-adapter caller (allowlisted verbs: commit, create_branch, create_pull_request, delete_file) with data assembled from config paths/literals; awaits the adapter response; the write credential never leaves the adapter",
+		Description: "Generic git-adapter caller (allowlisted verbs: commit, create_branch, create_pull_request — delete_file deliberately excluded per RFC 011; reach it via retract_page_deployment) with data assembled from config paths/literals; awaits the adapter response; the write credential never leaves the adapter",
 		IsLocal:     true,
 	},
 	"retract_page_deployment": {
@@ -1672,6 +1672,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Handler:     LoadExistingContentAction,
 		Category:    "site",
 		Description: "Load existing page content from research_results for recreate mode",
+		IsLocal:     true,
+	},
+	"load_current_section_content": {
+		Handler:     LoadCurrentSectionContentAction,
+		Category:    "site",
+		Description: "When spec.mode=edit_live, attach each ready section's current rendered_html so the writer edits instead of regenerating (bugs_open/178)",
 		IsLocal:     true,
 	},
 	"select_representative_content": {
