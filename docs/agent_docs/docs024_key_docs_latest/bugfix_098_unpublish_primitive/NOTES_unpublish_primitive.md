@@ -415,3 +415,55 @@ platform has never written? That decides whether this is one site's quirk or a c
   landing on the third attempt. Anything scripted against that repo needs a
   pull-rebase-retry loop, and must verify at `origin/master` rather than at the
   local ref — a naive `git log -1` after a failed push reports success.
+
+## 2026-08-03 (late) — DEBT 5 PAID: the audit now outlives the await, two sinks, both tested
+
+Committed (Council-Submitted: `5a965452-a9a0-40a6-a990-410f14ac32b0`), **not yet live** —
+a chassis build was already in flight from a HEAD that predates the commit, so the next
+build after this one is the first that carries it. Pod-grep string for that check:
+`retraction refused for page` (a literal the change ADDS; negative control: none removed —
+use `conditions_recorded` as a second positive).
+
+**The fix, and why this shape.** The await machinery replaces the step-name and
+`output_field` keys wholesale when the adapter reply lands (`applyResponseToState`,
+default branch — read, not inferred: `state.CollectedData[stepName] = normalisedData`,
+then the same for `output_field`). So:
+
+1. the whole audit is attached to `collected_data.retraction_audit` — a top-level
+   SIBLING key, outside the response handler's write set, persisted when the step parks
+   to await. Writing side keys into `params.CollectedData` is an established action
+   pattern (`image_result`, `final_html`, `__spawn_input_data__`), and the map is the
+   coordinator's live state map by reference (`coordinator.go:1682`).
+2. refusals become `agent_error_log` rows (`RETRACTION_REFUSED`, one per refused
+   candidate, editorial referrers attached; `RETRACTION_STRANDED_TARGETS` as a batch
+   summary; severity `warning`) — on REAL runs only, BEFORE the empty-batch return (an
+   all-refused run is the loudest silent case) and BEFORE dispatch (a failed send cannot
+   unrecord the audit). The orchestration record is retention-clocked (~24h terminal), so
+   the record alone was never a durable sink for a refusal; `agent_error_log` is where
+   the immune sweep already looks.
+
+**Two design points a reviewer should know:**
+- `orchestration.LogAgentError` ("ONE INSERT against agent_error_log") is unreachable
+  from the actions package — `coordinator.go:23` imports it, so the call would be a
+  cycle. The direct INSERT mirrors its column list exactly, which is also what
+  `recordComponentWriteRejection` (this package's precedent for "a refusal must be
+  queryable, not pod-log-only") already does.
+- The recorder is best-effort by contract, which made "no rows on a dry run"
+  untestable through a swallowing recorder — so the audit itself carries
+  `conditions_recorded`/`conditions_lost`. That is not only for tests: a lost row must
+  not read as a recorded one in the durable record.
+
+**Verified**: 4 action-level tests (audit survives a verbatim overwrite simulation;
+dry-run writes nothing durable; all-refused still records; failed dispatch does not
+unrecord) — action-level rather than helper-level so deleting a call site fails them.
+Mutation-tested both ways: disabling the attach fails 4, disabling the recorder fails
+the 3 real-run tests and correctly leaves dry-run green. Built + tested against
+`git archive HEAD` + only my two files, because the working tree was churning under
+two other sessions (both of whose test-package breakages healed while I watched —
+`create_blog_posts_canonical_test.go`, then `toolPageDeclaredSections`, then
+`realisedPageIsBuilt`; none were mine to fix).
+
+**NOT done, deliberately:** no work-item emission (a new item_type with no consumer is
+queue-noise per 033/071; the error-log route already has a fleet-wide reader), no
+coordinator change (merging responses instead of replacing them is a shared-mechanism
+redesign — architecture scope), debts 3 and 4 still open.

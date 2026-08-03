@@ -183,3 +183,27 @@ being read as if it recorded current state.
 frozen copies, and one more joined them today from another lane, so the backlog is growing
 at roughly a page a day. I've left those alone as you asked. The bug stays open, because
 archiving still doesn't retract *by itself* — someone has to run the tool.
+
+---
+
+2026-08-03, late — the "silent refusal" hole is closed in code, awaiting the next build.
+
+Last time we found that when a retraction runs, everything it worked out — which pages
+it refused to touch and why, what still links where — was being thrown away the moment
+the git service replied, surviving only in pod logs that vanish on the next restart. So
+a retraction that *declined* to remove a page would decline silently, and nobody would
+ever know.
+
+That's now fixed and committed. The full audit is kept in a place the reply can't
+overwrite, and every refusal is also written to the fleet's error log, where the
+monitoring already looks — written *before* we ask the git service to do anything, so
+even a failed run leaves its record. The record also says how many of those rows were
+actually written, so a lost write can't masquerade as a kept one. Four tests prove the
+behaviour, including one that replays the exact overwrite that caused the loss.
+
+It's committed but not running yet — a new build was already going out as I committed,
+built from code just before mine, so the *next* build is the one that picks this up.
+
+Still open, unchanged: nothing archives pages automatically (so nothing retracts them
+automatically either), 11 old pages still serve frozen copies, and the decision on
+whether to retract the rest — 10 of them on leopardess — is still yours to make.

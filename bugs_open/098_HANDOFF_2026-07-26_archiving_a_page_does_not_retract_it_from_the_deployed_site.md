@@ -90,9 +90,26 @@ because every repair path skips archived rows on purpose.
 >    than shared with it.
 > 4. **MEDIUM** — the status predicate in the news requeue is a third bespoke spelling
 >    rather than a consolidation onto a canonical helper.
-> 5. **NEW, and arguably the most important** — the graph audit's findings never reach the
+> 5. ~~**NEW, and arguably the most important** — the graph audit's findings never reach the
 >    durable record (see above). Fix by persisting the audit before dispatching, or by
->    emitting a work item, rather than relying on `output_field` surviving an await.
+>    emitting a work item, rather than relying on `output_field` surviving an await.~~
+>    **PAID 2026-08-03 (late), committed — NOT yet live** (Go is inert until the next
+>    chassis build; the roll in progress at the time of the commit was built from a HEAD
+>    that predates it). Two sinks, two readers: the full audit now also lands in
+>    `collected_data.retraction_audit` — a top-level SIBLING key, which the await
+>    overwrite cannot touch because `applyResponseToState` writes only the step-name and
+>    `output_field` keys — and every refusal (plus a stranded-targets summary) becomes an
+>    `agent_error_log` row (`RETRACTION_REFUSED` / `RETRACTION_STRANDED_TARGETS`,
+>    severity `warning`), written on real runs BEFORE dispatch, because the orchestration
+>    record itself is retention-clocked (~24h terminal) and a refusal must outlive it.
+>    The audit records `conditions_recorded`/`conditions_lost` so a lost best-effort row
+>    cannot read as a recorded one. Proven by four action-level tests including a
+>    verbatim simulation of the overwrite, and by mutation (disabling either sink fails
+>    them). Council: `Council-Submitted: 5a965452-a9a0-40a6-a990-410f14ac32b0`.
+>    **Verify once live**: run a retraction with a candidate that refuses, then
+>    `SELECT error_code, error_message FROM agent_error_log WHERE
+>    action='retract_page_deployment' ORDER BY created_at DESC LIMIT 5;` and read
+>    `collected_data->'retraction_audit'` on the orchestration row.
 >
 > **WHY THIS BUG STAYS OPEN.** Its title is *"archiving a page does not retract it from the
 > deployed site"*, and as an **automatic behaviour that is still true**: nothing in the

@@ -95,9 +95,14 @@ func init() {
 }
 
 // retractionCandidate is one page considered for retraction, and the reason if
-// it was not retracted. Refusals are RETURNED, not swallowed: a page the
-// platform declines to retract is a page that keeps serving, and an operator
-// reading a green result must be able to see which ones those are.
+// it was not retracted. Refusals are RETURNED, RECORDED in collected_data
+// under retractionAuditKey, and — on a real run — persisted as
+// agent_error_log rows: a page the platform declines to retract is a page
+// that keeps serving, and an operator reading a green result must be able to
+// see which ones those are. Returning alone was tried and is NOT enough
+// (debt 5, 2026-08-03): this action awaits the adapter's reply, and the await
+// machinery replaces the step's own collected_data keys with that reply, so
+// the returned refusals survived nowhere but pod logs.
 type retractionCandidate struct {
 	PageID   string `json:"page_id"`
 	PageName string `json:"page_name"`
@@ -225,6 +230,40 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	}
 	sort.Strings(paths)
 
+	// DEBT 5 (bugs_open/098, found on the first real retraction, 2026-08-03):
+	// this action's RETURN VALUE does not survive the await. The step returns
+	// its findings AND awaits the adapter's reply, and when the reply lands
+	// the await machinery replaces the step-name and output_field keys with it
+	// wholesale (coordinator.go, applyResponseToState, default branch) — so
+	// the one real retraction's record held only {paths, success, …} and every
+	// refusal survived nowhere but pod logs, which this repo documents as
+	// ephemeral across rollouts. A retraction that refused a page had refused
+	// it silently — the opposite of what the guards above promise. Two sinks,
+	// two readers:
+	//   - collected_data[retractionAuditKey]: a sibling key the response
+	//     handler never writes, for whoever reads the orchestration record;
+	//   - agent_error_log rows (real runs only, below): a refusal must outlive
+	//     the orchestration row itself, which is retention-clocked (~24h once
+	//     terminal), and that table is where the dashboards and the
+	//     immune-system sweep already look.
+	// `audit` and `result` share the same nested values on purpose; the audit
+	// map is enriched in place below (nav_retired, request_id) and the
+	// coordinator persists it when the step parks to await.
+	audit := map[string]interface{}{
+		"site_id":           siteID.String(),
+		"domain":            domain,
+		"considered":        len(candidates),
+		"candidates":        candidates,
+		"paths":             paths,
+		"retracted":         len(paths),
+		"editorial_inbound": graph.Editorial,
+		"nav_inbound":       graph.Nav,
+		"stranded_targets":  graph.Stranded,
+		"audited_at":        time.Now().UTC().Format(time.RFC3339),
+		"dispatched":        false,
+	}
+	attachRetractionAudit(params, audit, logger)
+
 	result := map[string]interface{}{
 		"site_id":           siteID.String(),
 		"domain":            domain,
@@ -240,9 +279,23 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	if dry, _ := config["dry_run"].(bool); dry {
 		result["dry_run"] = true
 		result["await_response"] = false
+		audit["dry_run"] = true
 		logger.Info("retract_page_deployment: dry run",
 			zap.String("domain", domain), zap.Strings("paths", paths))
 		return result, nil
+	}
+
+	// Refusals and stranded targets become durable rows on every REAL run —
+	// deliberately BEFORE the empty-batch return below, because a run that
+	// dispatches nothing since every candidate was refused is the loudest of
+	// the silent cases, and BEFORE the dispatch, so a failed send cannot
+	// unrecord what the audit found. The counts go into the audit so the
+	// record says how many durable rows actually back it — recorded-but-lost
+	// must not read as recorded.
+	attempted, recorded := recordRetractionConditions(ctx, params, siteID, domain, candidates, graph, paths, logger)
+	audit["conditions_recorded"] = recorded
+	if attempted != recorded {
+		audit["conditions_lost"] = attempted - recorded
 	}
 
 	if len(paths) == 0 {
@@ -250,6 +303,7 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 		// dispatching an empty request the adapter would have to reject.
 		result["await_response"] = false
 		result["status"] = "nothing_to_retract"
+		audit["status"] = "nothing_to_retract"
 		logger.Info("retract_page_deployment: nothing to retract",
 			zap.String("domain", domain), zap.Int("considered", len(candidates)))
 		return result, nil
@@ -268,6 +322,7 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 		return nil, err
 	}
 	result["nav_retired"] = navRetired
+	audit["nav_retired"] = navRetired
 
 	requestID, err := sendGitDeleteFileRequest(ctx, params, config, domain, paths, logger)
 	if err != nil {
@@ -275,7 +330,147 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	}
 	result["request_id"] = requestID
 	result["await_response"] = true
+	audit["request_id"] = requestID
+	audit["dispatched"] = true
 	return result, nil
+}
+
+// retractionAuditKey is the collected_data key the audit is persisted under.
+// It is a TOP-LEVEL SIBLING of the step's own keys on purpose: when the
+// awaited adapter reply lands, applyResponseToState overwrites the step-name
+// and output_field keys wholesale, and anything inside them — refusals
+// included — is destroyed. A sibling key is outside that write set, is
+// persisted with the parked state before any reply can arrive, and is still
+// there when the record is read afterwards. The seed's output_field is
+// 'retraction' (sql_for_agents/215); keep any caller's output_field distinct
+// from this key.
+const retractionAuditKey = "retraction_audit"
+
+// attachRetractionAudit stores the audit under retractionAuditKey.
+// params.CollectedData is the coordinator's live state map, passed by
+// reference (coordinator.go, ActionParams construction), so a key written
+// here is persisted when the step parks to await — writing side keys this way
+// is an established action pattern (image_result, final_html, __spawn_input_data__).
+func attachRetractionAudit(params ActionParams, audit map[string]interface{}, logger *zap.Logger) {
+	if params.CollectedData == nil {
+		// Never true under the coordinator — the step could not have resolved
+		// its site without collected data — but a panic in bookkeeping must
+		// not fail a retraction that is otherwise sound.
+		logger.Warn("retract_page_deployment: no collected_data map — audit not attached; the step result is the only in-record copy and it will NOT survive the await")
+		return
+	}
+	params.CollectedData[retractionAuditKey] = audit
+}
+
+// recordRetractionConditions persists every refusal, and the stranded-target
+// report, as agent_error_log rows (severity 'warning') — the table the
+// dashboards and the immune-system sweep already read, and the only sink here
+// that outlives the orchestration record's retention. Real runs only; the
+// caller skips it for dry runs. Row volume is bounded by the candidate set,
+// which is at most the non-active stamped pages of ONE site.
+//
+// Best-effort, like every recorder against this table: a failure to record
+// must never change a disposition already decided — the refusal stands either
+// way, it is only the durable trace that is lost, and that loss is logged.
+// Returns (rows attempted, rows written) so the caller can put the difference
+// in the audit rather than letting a lost row read as a recorded one.
+func recordRetractionConditions(ctx context.Context, params ActionParams, siteID uuid.UUID, domain string, candidates []retractionCandidate, graph *retractionGraph, paths []string, logger *zap.Logger) (attempted, recorded int) {
+	// Editorial referrers, grouped by target, so a refusal row carries the
+	// links an operator must repair — a refusal nobody can act on is the
+	// defect bugs_open/033 and /071 describe.
+	referrersByURL := map[string][]inboundRef{}
+	for _, r := range graph.Editorial {
+		referrersByURL[r.TargetURL] = append(referrersByURL[r.TargetURL], r)
+	}
+
+	for _, c := range candidates {
+		if c.Refused == "" {
+			continue
+		}
+		payload := map[string]interface{}{
+			"page_id":     c.PageID,
+			"url":         c.URL,
+			"page_status": c.Status,
+			"refused":     c.Refused,
+		}
+		if c.FilePath != "" {
+			payload["file_path"] = c.FilePath
+		}
+		if refs := referrersByURL[c.URL]; len(refs) > 0 {
+			payload["editorial_referrers"] = refs
+		}
+		attempted++
+		if insertRetractionConditionRow(ctx, params, siteID, domain,
+			"RETRACTION_REFUSED",
+			fmt.Sprintf("retraction refused for page %q (%s): %s", c.PageName, c.URL, c.Refused),
+			payload, logger) {
+			recorded++
+		}
+	}
+
+	if len(graph.Stranded) > 0 {
+		attempted++
+		if insertRetractionConditionRow(ctx, params, siteID, domain,
+			"RETRACTION_STRANDED_TARGETS",
+			fmt.Sprintf("%d page(s) lose their last inbound referrer when this retraction lands", len(graph.Stranded)),
+			map[string]interface{}{
+				"stranded":        graph.Stranded,
+				"retracted_paths": paths,
+			}, logger) {
+			recorded++
+		}
+	}
+	return attempted, recorded
+}
+
+// insertRetractionConditionRow writes one agent_error_log row, reporting
+// whether the write landed. Direct INSERT because the one shared writer
+// (orchestration.LogAgentError) lives in the package that imports this one
+// and cannot be called from here without a cycle; the column list mirrors it
+// and recordComponentWriteRejection (component_write_guard.go), this
+// package's established shape for exactly this need — a refusal queryable
+// across the fleet rather than living only in pod logs.
+func insertRetractionConditionRow(ctx context.Context, params ActionParams, siteID uuid.UUID, domain, code, message string, contextPayload map[string]interface{}, logger *zap.Logger) bool {
+	if params.DB == nil {
+		return false
+	}
+	contextJSON, _ := json.Marshal(contextPayload)
+	if contextJSON == nil {
+		contextJSON = []byte("{}")
+	}
+
+	var orchestrationID, agentType, agentID, podName, stepName string
+	if params.ExecutionContext != nil {
+		orchestrationID = params.ExecutionContext.OrchestrationID
+		agentType = params.ExecutionContext.Sender.AgentType
+		agentID = params.ExecutionContext.Sender.AgentID
+		podName = params.ExecutionContext.Sender.PodName
+		stepName = params.ExecutionContext.StepName
+	}
+	if agentType == "" {
+		agentType = params.AgentType
+	}
+	workItemID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
+
+	_, err := params.DB.ExecContext(ctx, `
+		INSERT INTO agent_error_log (
+			site_id, domain, work_item_id, orchestration_id,
+			agent_type, agent_id, pod_name, step_name, action,
+			error_message, error_code, severity, context
+		) VALUES (
+			NULLIF($1, '')::uuid, $2, NULLIF($3, '')::uuid, $4,
+			$5, $6, $7, $8, $9,
+			$10, $11, $12, $13::jsonb
+		)`,
+		siteID.String(), domain, workItemID, orchestrationID,
+		agentType, agentID, podName, stepName, "retract_page_deployment",
+		message, code, "warning", string(contextJSON))
+	if err != nil {
+		logger.Warn("retract_page_deployment: failed to record condition in agent_error_log — the disposition stands but its durable trace is lost",
+			zap.Error(err), zap.String("error_code", code))
+		return false
+	}
+	return true
 }
 
 // resolveRetractionSiteID takes the site from config, from a configured field,

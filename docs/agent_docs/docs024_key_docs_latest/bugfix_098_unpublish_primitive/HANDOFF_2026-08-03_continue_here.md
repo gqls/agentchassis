@@ -140,13 +140,22 @@ as corroboration.
 
 ## NEXT ACTIONS, IN ORDER
 
-1. **Debt 5 first** — the audit's findings are discarded by the await. Until that is fixed,
-   a retraction that REFUSES a page refuses it silently, so the guards are only trustworthy
-   on a run you are watching. This is the one thing to fix before any unattended use.
+> **CORRECTED 2026-08-03 (late): item 1 is DONE — committed, not yet live** (commit with
+> `Council-Submitted: 5a965452-a9a0-40a6-a990-410f14ac32b0`; the chassis build in flight at
+> commit time predates it, so verify against the NEXT build: pod-grep the added literal
+> `retraction refused for page`). The audit now lands in `collected_data.retraction_audit`
+> (sibling key — the await overwrite only touches the step-name and output_field keys) and
+> every refusal becomes an `agent_error_log` row (`RETRACTION_REFUSED` /
+> `RETRACTION_STRANDED_TARGETS`, severity `warning`), written before dispatch on real runs.
+> Details + the two design points in NOTES (2026-08-03 late entry). Also note the serving
+> population is **11, measured by curling all 14** — the "13" below was stamp arithmetic,
+> corrected in the bug file the same evening.
+
+1. ~~**Debt 5 first** — the audit's findings are discarded by the await.~~ **DONE, see above.**
 2. Debts **3** (share the inbound-source logic with `check_orphan_pages` rather than copy)
    and **4** (consolidate the status predicate).
-3. **Confirm with the owner before retracting more.** 13 pages still serve frozen artefacts;
-   the owner deliberately scoped this run to one. 10 of the 13 are on
+3. **Confirm with the owner before retracting more.** 11 pages still serve frozen artefacts;
+   the owner deliberately scoped this run to one. 10 of the 11 are on
    leopardessconsulting.co.uk and are ordinary content pages, a lesser problem than the one
    just fixed — they advertise nothing broken.
 4. **Fix 098's acceptance criterion** (see the top) before anyone tries to close on it.

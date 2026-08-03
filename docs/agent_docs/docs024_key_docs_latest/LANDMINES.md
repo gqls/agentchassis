@@ -4623,3 +4623,36 @@ that is also the thing you would want in the logs is not.
 - **source:** bugs_open/116 pickup, 2026-08-03 — the row's freshness was the first
   thing that made a deliberately-stopped loop look live
 - **added:** 2026-08-03, bugfix_116_link_check_coverage lane
+
+## An action that RETURNS findings and AWAITS a response loses the findings — the reply overwrites the step's record, and the green result reads as "everything was reported"
+
+- **footprint:** `platform/orchestration/coordinator.go` (`applyResponseToState`,
+  `storeActionResult`), `await_response`, `output_field`, any action that both
+  computes findings and dispatches to an adapter (`retract_page_deployment` was
+  the case that found it)
+- **fires when:** you write (or read the record of) an action that returns a rich
+  result — refusals, audits, counts — with `await_response: true`. The result IS
+  stored (`storeActionResult` writes it under the step name and `output_field`),
+  your immediate read-back confirms it, the step completes green. Then the
+  adapter's reply lands and `applyResponseToState`'s default branch REPLACES both
+  keys wholesale: `state.CollectedData[stepName] = normalisedData`, same for
+  `output_field`. Everything the action computed is gone from the durable record;
+  it survives only in pod logs, which do not survive a rollout. No symptom: the
+  status is `complete`, the reply looks like the step's output, and a refusal or
+  warning the action "returned" was never recorded anywhere a reader will look.
+- **the check:** for any action with `await_response: true`, ask where its
+  findings live AFTER the await, not before it. If the answer is "in its return
+  value", they live nowhere. Persist them before dispatching: a top-level SIBLING
+  collected_data key survives (the response handler writes ONLY the step-name and
+  `output_field` keys — `params.CollectedData` is the coordinator's live state
+  map, and side keys like `image_result`/`final_html` are the established
+  pattern), and anything that must outlive the orchestration row's ~24h terminal
+  retention goes to `agent_error_log` (see `retract_page_deployment_action.go`,
+  `retractionAuditKey` + `recordRetractionConditions`, for a worked example of
+  both sinks).
+- **source:** bugs_open/098 debt 5, 2026-08-03 — the one real retraction's record
+  held only the adapter's `{paths, success, …}`; candidates, refusals and the
+  whole graph audit were discarded by the await, contradicting the action's own
+  "refusals are RETURNED, not swallowed" comment (071/083/091's
+  detected-then-discarded class)
+- **added:** 2026-08-03, bugfix_098_unpublish_primitive lane
