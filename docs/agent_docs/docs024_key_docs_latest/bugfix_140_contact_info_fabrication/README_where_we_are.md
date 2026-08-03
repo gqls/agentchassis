@@ -251,3 +251,32 @@ failure would stop the next one being introduced at all. The cost is that a genu
 new component from another team could turn the daily check red until someone adds one
 line to it. I have not made that change, because it alters what an existing check does
 to other people's work, and that is your call rather than mine.
+
+**2026-08-03, late evening — a second thing that needs your call, and this one is
+about the review process itself, not this bug.** The change that gated the 68 blank
+fields (migration 295) touched twenty shared components used across the whole fleet,
+and it went live the moment it was applied. It was never reviewed by the council —
+and it *could not have been*: the submission script refuses anything that doesn't
+touch platform code, and this change was entirely configuration. The earlier, similar
+change (287) was only reviewed because it happened to ride along with code changes.
+So there is a class of fleet-wide changes — edits to the shared component library and
+to agent definitions — that today cannot be put in front of the reviewers at all,
+however large their reach. Two ways to go: either the submission script is widened so
+these configuration migrations can be reviewed like code, or we accept the gap
+knowingly and rely on the daily check plus after-the-fact reading. I'd lean towards
+widening it — this lane has now shipped two fleet-wide config changes in two days and
+would have welcomed the review both times — but it changes what the review process
+covers for everyone, so it is your decision. Written up as item 8 in the handoff.
+
+**Also done this evening, from the handoff's list:** the commit hook now refuses the
+false-shaped "review pending" label three sessions accidentally wrote (a real id or
+nothing — an absent label stays allowed); the daily check retries its flaky fetch
+instead of failing on bad luck; there is now a small tool that picks *provable*
+deploy-verification markers (it caught, on its first outing, both the comment trap
+that caused yesterday's false alarm and a subtler one of its own — a marker crossing
+a non-ASCII character greps as absent from a program that contains it); the
+two pages storing a raw model reply where their content should be are now a filed
+bug (190) with one proven mechanical repair; and the failed blog rebuild on
+finetuning.uk turned out to be the platform *protecting* the page — the rebuild came
+back with too little content and the save was refused whole — with the details handed
+to the lane that owns that site.
