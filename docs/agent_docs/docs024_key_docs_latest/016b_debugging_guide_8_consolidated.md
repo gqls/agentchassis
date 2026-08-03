@@ -10372,3 +10372,33 @@ rediscovered as a fresh bug.
 
 Related: `bugs_closed/123`; CLM-019 in `docs026_concept_register/register/claims-verification.md`;
 `bugfix_123_content_creator_claims/`.
+
+### Fixing a parser does not fix the rows it already mis-parsed — sweep the stored corpus for the OLD failure shape (`bugs_open/190`, 2026-08-03)
+
+The LLM-envelope decode path was repaired in three tiers over July (escaping
+repair, complete-value recovery, corrective re-ask — `json_envelope.go`'s header
+is the diagnosis). Every fix shipped at the PARSE seam, so every fix acts on
+responses arriving AFTER it. Two `page_components` rows written before the fixes
+still hold the raw `{"type":"text","result":...}` transport envelope verbatim as
+`content_data` — one of them the exact page `json_envelope.go` names as its
+motivating manual repair: the repair fixed `rendered_html` and nobody looked at
+`content_data` underneath it. Both rows render fine today, which is what keeps
+them invisible: the poison is in the SOURCE half of a source/artefact pair, and
+it only detonates when a reasoned rerender regenerates from it.
+
+**The pattern.** A parser/decoder/validator fix has a natural blast radius of
+"everything processed from now on". The corpus it already mis-processed is
+untouched and now looks *healthier* than it is, because the fix removed the
+symptom generator while leaving the stored symptoms. After fixing any decode
+seam, write the query that finds the OLD failure shape in what was already
+stored, run it, and route the hits: some are mechanically repairable by
+re-running today's parser over them (measure first — one of 190's two rows fully
+recovers, the other only yields a 131-char fragment of a 1,364-char answer), and
+the rest need a human. "The fix is live" and "the damage is gone" are different
+claims; only the second closes the bug, and the fixed-AND-live bar for
+`bugs_closed/` already says so.
+
+Category tags: `envelope-vs-payload`, `residue-after-fix`, `source-vs-artefact`.
+Related: `bugs_open/190`; `bugs_closed/008`, `bugs_closed/054`;
+`json_envelope.go` header; the 140 lane's "a repro is destroyed by the render"
+memory (same source/artefact split, opposite direction).
