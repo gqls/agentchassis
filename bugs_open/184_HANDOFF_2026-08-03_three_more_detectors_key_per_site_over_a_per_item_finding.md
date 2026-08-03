@@ -12,8 +12,9 @@
 the wrong facts**, so do not assume these are quieter without looking.
 **Class:** the `091` class exactly — key coarser than finding, dedup drops the finding,
 the durable record goes on describing the first thing it ever saw.
-**Status:** OPEN, not started. The remedy already exists and is live; the work is
-one judgement per call site, not new machinery.
+**Status:** **FIXED IN HEAD, NOT LIVE** — all three switched (`4c3a968cc`),
+`Council-Submitted: d6cda33d-1e5a-4ea3-8ddc-98f0a6848e35`. Go code, so it is inert
+until the next chassis image. **Do not close on the commit.**
 
 Grepped `bugs_open/` and `bugs_closed/` for the mechanism before filing: the only prior
 member is `091` (closed 2026-08-03). No existing bug covers these three.
@@ -111,3 +112,79 @@ mechanical:
 - `bugs_open/033` — why one row per finding is not available as a fix here.
 - `docs024_key_docs_latest/bugfix_091_workitem_conflict_refresh/` — PLAN, RUNBOOK
   (the measurement queries, with their three gotchas), NOTES, README.
+
+---
+
+## 2026-08-03 — FIXED IN HEAD, and the measurement corrected this file's own framing
+
+All three now call `writeWorkItem(..., refreshOnConflict, ...)` (`4c3a968cc`). No new
+mechanism — three identifiers plus a test per call site. Because all three already
+discarded `insertWorkItem`'s boolean, they also inherit for free the not-recorded
+warning that `091`'s council asked to be moved INTO the shared writer.
+
+> ### ⚠ CORRECTION to this file, from measuring what it told the next reader to measure
+>
+> The header said "**unmeasured on these three** — that is the first job", and implied,
+> by placing them in 091's class without qualification, that findings were being dropped
+> now. **They are not, and the difference changes how this should be read.**
+>
+> **`stale_directory_claim` — the exposure is DATED, not continuous.**
+> `model-directory-freshness` is enabled and runs daily, and it checked **zero** claims
+> on 2026-08-03 09:32Z. Cause read from `loadDueDirectoryClaims`, not inferred: it
+> selects on `verified_at < now() - staleness_days`, and of **97** current claims **none
+> is due** — `min(verified_at + staleness)` = **2026-08-23**. All 134 claim rows are
+> status `found`. So nothing is being dropped this week.
+>
+> **That is an argument for fixing it now, not for deferring it.** A batch falls due in
+> three weeks; the row filed 2026-07-25 will still be holding the key when it does,
+> because nothing works the `needs_human_review` queue (`bugs_open/033` — 368 parked, 50
+> raised in 7 days). Its summary will still read "1 claim(s) changed verification
+> status". **Waiting for the symptom here means waiting for the one run in three weeks
+> that matters, and then losing it.**
+>
+> **`directory_citation_unverified` — [UNMEASURED, AND UNRECOVERABLE].** The live row has
+> listed the same **15** rejected candidates since 2026-07-24, across every weekly
+> `model-directory-discovery` sweep since (last 07-31). Whether that sweep found a
+> different set **cannot now be established**: `orchestration_states` retains ~24h, and a
+> rejected *candidate* never reaches `directory_claims`, so a dropped finding here leaves
+> no trace in any table. Marked rather than guessed. It is the argument for the refresh —
+> it is what makes the next one observable.
+>
+> **`citation_unverified`** — one row on oufe.com since 2026-07-26, one reject listed.
+> Driven by content pipelines, so cadence is caller-dependent and was not measured.
+
+### The judgement, made explicitly because this file demanded it be
+
+Question 1 of "what each one needs decided" was whether a silently-CHANGING record beats
+a silently-WRONG one here. **Yes, and the case is stronger than 091's, not weaker.** 091's
+least-certain call was that a refresh can rewrite a row under a human mid-read.
+`bugs_open/033` establishes that queue **has no working surface at all** — so there is no
+reader to disturb, and what the current behaviour protects is a description that is
+already false. Question 3 (a per-item key instead) stays refused for 091's reason: 033's
+queue must not fill, and a refresh keeps the count at exactly one row.
+
+### Tests — and the draft that was worthless
+
+One test per call site, each **driving the real emitter**, each mutation-proven: revert
+`evidence_citations` and only its test fails; revert `stale_directory_claim` and only its
+test fails. Plus a counterfactual asserting the DEFAULT policy still drops, so the three
+are known to be measuring something.
+
+**The first draft called `writeWorkItem` directly and asserted the outcome.** It passed,
+it read convincingly, and it was worthless — reverting a call site did not fail it,
+because it never touched the call sites. Logged in `WRONG_CALLS.md`; the check that
+removes the class is *mutate the thing the test is NAMED for*, against a
+confirmed-green baseline.
+
+### What is owed before this closes
+
+1. **The roll**, then pod-grep. Discriminating marker for this change (0 today):
+   ```bash
+   strings /app/agent-chassis | grep -c 'the bugs_closed/091 class'
+   ```
+   Run it on **every** replica, with the 091 markers as positive controls
+   (`refreshed the open work item` → 2, `FINDING NOT RECORDED` → 1 on v1.0.1238).
+2. **Watch 2026-08-23**, when the directory freshness batch falls due — that is the first
+   run that can exercise `stale_directory_claim` for real. Require the July row's
+   `updated_at` to move and its summary count to change.
+3. **The council verdict** on `d6cda33d`, and act on it.
