@@ -18255,3 +18255,29 @@ never resolved, so even a historical run behaved as defaults; no scheduled or
 automated caller exists), which is what it should have rested on from the start:
 **a retention-clocked table supports "none recently", never "none ever" — if the
 claim says "ever", the evidence must come from a table with no reaper.**
+
+## 2026-08-03 — bugfix 182 lane: measured every consumer of the changed VALUE, missed the one keyed on the changed NAME
+
+Fixing `bugs_open/182` (resolve `rerender_page_sections` by `component_id`
+first), my pre-ship measurements covered `missingRequiredLLMFields` and
+`componentTemplateValid` against the newly-resolvable sections — both came
+back 0/65, which I took as "this fix introduces no new side effects." **That
+measured the CONTENT consequence of resolution succeeding and never asked what
+else keys off the fact that resolution now succeeds.** `save_page_sections`'s
+`extractSectionsFromMetadata` prefers `component_function` over
+`component_name` once a component resolves, silently renaming the persisted
+`slot_name` — and `matchLockedRow` (the `bugs_closed/058` lock guard) matches
+locked rows by that same name. Inducing my OWN "does the repair work" test on
+`loancalculator.co.uk`'s locked `tool-loan-vs-savings` section reproduced it
+live: the page rendered the calculator **twice** for about a minute before I
+caught it in the same session (filed `bugs_open/189`, remediated the live
+rows, redeployed). **The cheap check skipped:** before shipping a fix that
+makes a previously-always-false condition (`resolveComponent` succeeding)
+newly common, grep every OTHER function that branches on that same field
+downstream — `grep -rn "ComponentName\b" platform/orchestration/actions/save_page_sections_action.go`
+would have surfaced both `extractSectionsFromMetadata`'s precedence and
+`matchLockedRow`'s name-keyed match before a single induced test ran, not
+after. **The generalisable form**: measuring "what changes for the rows I
+touch" is not the same question as "what ELSE reads the field I just started
+populating" — the second requires grepping the CONSUMER, not re-checking the
+PRODUCER's own output.
