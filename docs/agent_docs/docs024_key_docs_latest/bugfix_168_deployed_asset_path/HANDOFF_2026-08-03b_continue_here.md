@@ -86,15 +86,41 @@ real open populations, all enabled, all single-producer (verified):
 
 | check | item_type | open rows |
 |---|---|---|
-| `check_required_fields_missing` | `required_fields_missing` | 59 |
-| `check_misdirected_cta` | `cta_names_unknown_destination` | 100 |
+| ~~`check_required_fields_missing`~~ | `required_fields_missing` | ~~59~~ **DONE 2026-08-03 — see below** |
+| `check_misdirected_cta` | `cta_names_unknown_destination` | 100 (**107** open when re-measured 08-03; still being filed) |
 | `check_sprite_css_missing` | `needs_sprite_css` | 10 (all `unresolved`) |
 | `check_voice_tells` | `voice_tells` | 25 |
 
-⚠ **`check_image_url_404` is tempting (a real HTTP probe is the cleanest possible positive
-observation) but another lane is actively editing it** — co-ordinate first.
+> **UPDATE 2026-08-03 (later session) — row 1 is ADOPTED, committed `ba3aae47f`, docs
+> `b312c409a`, council `64430363-a42a-4028-b84a-9a25ab707441`. NOT LIVE until the next roll.**
+> 6 of the 59 retract on evidence; 50 refused as still-missing, 3 as holding no deployed
+> component. Full working in `NOTES_deployed_asset_path.md` (bottom). Three things the next
+> adopter should take from it:
+>
+> 1. **The trap list below is INCOMPLETE, and trap 1 is the one that fooled me.** It says to look
+>    for a leading `if len(findings) == 0 { return }`. `check_required_fields_missing` has no such
+>    guard, looked safe, and was inert anyway — its retraction-skipping `return` sat **mid-loop**,
+>    fired by a 25-finding noise cap. **Read every exit between the scan and the retraction.**
+>    Filed as its own `LANDMINES.md` entry.
+> 2. **A NEW REFUSAL CLASS, for any check whose predicate is "the config declares X, the data
+>    lacks X".** An unreadable schema/config yields NO required set, which computes to *nothing
+>    missing* = healthy. It is the inverse — the observation could not be made — and unguarded it
+>    retracts hardest exactly when a component's schema was dropped. Also in `LANDMINES.md`.
+> 3. **A mutation that PASSES is not proof the guard is redundant.** Deleting the "no deployed
+>    component" refusal left every test green because a guard in *series* (the NULL-schema
+>    refusal) shadowed it under today's join. It took a synthetic row to pin it alone.
+>
+> `page_id` also inverts here: all 70 rows carry a **NULL** first-class column (this check's
+> filing half never sets `WorkItemSpec.PageID`), so the `COALESCE` fallback is the arm that
+> actually fires — the opposite of `empty_section`, where it only pins a preference. Fixing the
+> filing half is a **live follow-up**, deliberately not folded in.
 
-**Three traps, all paid for already:**
+⚠ **`check_image_url_404` is tempting (a real HTTP probe is the cleanest possible positive
+observation) but another lane is actively editing it** — co-ordinate first. (Still true 08-03:
+`gofmt -l` shows it dirty in the shared tree.)
+
+**Three traps, all paid for already** (and see point 1 above — trap 1 is **narrower than it
+reads**):
 1. **The early return.** Most checks open with `if len(findings) == 0 { return }`. Correct while a
    check can only file; exactly backwards once it can retract, because a site with zero findings
    is the *only* site it fires on and precisely the one whose stale items need closing. It is
@@ -119,6 +145,13 @@ Expect it to climb from 4 toward 18 as the five unswept sites get their next swe
 stalls at 4, the question is whether those sites are being swept at all** — that is a scheduling
 question, not a defect in this code, and the standing lesson applies: *a silent mechanism is
 usually undriven, not missing.*
+
+> **MEASURED 2026-08-03 (later session): it is STILL EXACTLY 4.** All four are the original
+> `leopardessconsulting.co.uk` retractions from sweep `4401d952`; none of the 14 have closed.
+> So the branch above resolves to the *scheduling* arm: those five sites have not been swept
+> since. **Do not re-run this query hoping for a different number — go and look at whether the
+> sweeps are firing**, or dispatch one yourself as the 08-03 session did to produce the first
+> four. Recorded so the next reader does not spend the query twice.
 
 ### 4.3 RFC_010 Q1 — the two-strike interaction (owner-ruled, tracked, not fixed)
 
