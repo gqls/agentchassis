@@ -195,13 +195,39 @@ carried anyway proves the deploy, not the fix. Induce it:
   candidate 1 over 2: candidate 2 repairs one route in, candidate 1 makes *every*
   route in visible. Take both, and take 1 first.
 
-## Diagnosis loop
+## Diagnosis loop — **CONFIRMED**, first iteration
 
-Filed to `090` at 2026-08-03, `RUN_CORRELATION_ID=834a24b0-4d3e-4ce7-a17c-6b270493bfd6`,
-per the owner ruling of 2026-07-31 (a `bugs_open/` file asserting a cross-cutting
-root cause goes through the loop). Read its verdict before acting on the candidates
-above — and if it refutes the mechanism, correct this file in place rather than
-deleting it.
+Filed to `090` per the owner ruling of 2026-07-31 (a `bugs_open/` file asserting a
+cross-cutting root cause goes through the loop).
+`RUN_CORRELATION_ID=834a24b0-4d3e-4ce7-a17c-6b270493bfd6`, `outcome: CONFIRMED`.
+
+It reached the mechanism independently and cited the same five code sites plus
+live state — worth reading, because its chain is tighter than the one above and
+names a step this file glossed:
+
+> stored `slot_name` values (`prose-0`, `prose-1`, `prose-3`, `tool-2`) are
+> positional and never equal the matching `content_components.name`/`function`
+> (`Ported Prose Block`/`ported-prose`, `Pay Off Loan or Save?`/`tool-loan-vs-savings`);
+> `loadSectionComponents` matches only on `name`/`function IN(...)`, so the query
+> returns nothing for these slot_names, **the resulting stub carries no
+> `component_id` and is dropped by `loadComponentSchemas`**, so `schemas[s.slotName]`
+> is absent and the rerender action's `haveComp` check forces every section into
+> `carryStoredSection`.
+
+The bolded step is the part this file did not have: `loadSectionComponents` does
+not return nothing, it returns a **name-stub**, and `loadComponentSchemas` then
+drops it precisely because it has no `component_id`
+(`plan_sections_action.go`: `if _, hasID := comp["component_id"]; !hasID { continue }`).
+That matters for fix candidate 2 — the `component_id` the row already carries is
+being used as a *filter* two layers up while the lookup that needed it went by name.
+
+Citations: `names = append(names, s.slotName)`,
+`comp, haveComp := schemas[s.slotName]`,
+`"rerender_page_sections: component not found, carrying stored HTML"`,
+`FROM content_components WHERE name IN (%s)`, the `hasID` drop, the two live
+`page_components` rows, and the orchestration output
+(`"carried": 4, "rerendered": 0, "section_count": 4, "escalated": false`) against
+the work item's `complete`.
 
 ## What the lane did meanwhile
 
