@@ -138,3 +138,22 @@ between them is not a control (see `WRONG_CALLS`, 2026-08-02).
 - `bugs_open/181` (filed by this session's earlier work on `172`) is the fourth
   instance of the silent-cap family. Its first question is not the fix — it is why
   **0 of 276** retained diagnosis bundles contain a rendered `code_check` block.
+
+---
+
+## 2026-08-03 (later) — LIVE, pod-verified on both replicas
+
+Chassis rolled to **v1.0.1243**. Verified on both running pods:
+
+| check | pod `mxjt7` | pod `wxbbg` |
+|---|---|---|
+| `notifying parent of FAILURE instead` (added) | 2 | 2 |
+| `ERROR_FORWARD_TOO_LARGE` (added) | 1 | 1 |
+| `Failed to notify parent of success` (removed, negative control) | 0 | 0 |
+| `PARTITION BY agent_type` (172, added) | 1 | 1 |
+| `\t\tLIMIT $2` whole-line (172, removed, negative control) | 4 | 4 |
+
+Option (b) is now genuinely live, not merely committed and approved. The "roll and
+pod-verify" step from this handoff's "what is owed" list is **done** — the only
+items still owed are item 3 (owner decision) and the reply-topic alignment decision,
+both listed above.
