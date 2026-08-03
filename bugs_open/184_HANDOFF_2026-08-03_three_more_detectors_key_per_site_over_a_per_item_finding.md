@@ -1,6 +1,12 @@
 # 184 — three more HITL detectors key their work item per SITE while finding per ITEM, so every finding after the first is dropped
 
 **Filed:** 2026-08-03 by the bugs-sweep lane, while closing `bugs_closed/091`.
+> **⚠ `184` IS AN AMBIGUOUS NUMBER — two unrelated cases.** This one (per-site key over a
+> per-item finding), and `184_HANDOFF_2026-08-03_llm_markdown_reaches_the_page_as_literal_asterisks.md`
+> (the mortgagecalculator lane, filed 27 minutes later). Both stay: numbers are never
+> reassigned, and the repo already carries 016/017/083/112/131/146 in the same state.
+> **Resolve by SLUG, and `git log` the FILE PATH, not the number** — a commit message
+> saying "184" is not evidence about which.
 **Severity:** Medium, and **unmeasured on these three** — that is the first job below.
 091's instance was Medium on paper and turned out to have **4 of 5 live records naming
 the wrong facts**, so do not assume these are quieter without looking.

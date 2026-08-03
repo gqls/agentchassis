@@ -83,6 +83,13 @@ in the same shape) — a NEW file, deliberately, so this one can mean "not bitin
 > but NOT in v1.0.1237** — they are refinements to a fix that is already live and proven,
 > not the fix itself. Markers for the next roll: `FINDING NOT RECORDED`,
 > `the row is in the HUMAN-REVIEW queue` (both currently 0).
+>
+> > **UPDATE 2026-08-03 10:09Z — the round-2 refinements are LIVE too, on `v1.0.1238`.**
+> > Both replicas: `FINDING NOT RECORDED` → 1, `the row is in the HUMAN-REVIEW queue` → 1,
+> > `refreshed the open work item` → 2 (it gained the human-review arm), negative control
+> > still 0. So the whole change — fix plus all four council refinements — is now shipped.
+> > Nothing further is owed on this file; the class continues in `bugs_open/184`
+> > (**resolve by slug** — 184 is now an ambiguous number, see that file's header).
 
 > ## STATUS 2026-08-03 (bugs-sweep lane) — **CANDIDATE 1 BUILT.** And the severity in the header above is too low: the record is wrong on 4 of 5 sites TODAY
 >
