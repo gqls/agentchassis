@@ -303,3 +303,27 @@ file rather than bolted onto a batch the council has already approved.**
 `realisedPageIsBuilt` (above) — needs the loader to select `deployed_at` before the Go test
 can be made honest. 1 archived row of exposure, so priority is low and the reason is
 recorded rather than the work being silently dropped.
+
+## Verification dispatched 2026-08-03 20:xx UTC — tranche 1 exercised live
+
+Chassis `v1.0.1243` pod-verified carrying `NeverDeployedPagePredicateFor` /
+`PageHasShippedPredicateFor` (both replicas). `improvement-loop` dispatched by hand
+(`091_TRIGGER_improvement_loop_single_site.sh` pattern) against the three sites the
+measurement predicted findings for:
+
+| domain | site_id | correlation |
+|---|---|---|
+| gamesdesign.co.uk | `e33263f4-74f8-494f-b191-546845dbbddf` | `b8aeed5a-90cb-4753-9664-2af9219b4d1d` |
+| gaswholesalers.com | `5fe15466-4e2e-4ff2-981e-98c1b7074002` | `d1641c1e-4b3e-4bc0-a13a-14ba46bfb954` |
+| vonc.com | `9ec3b9ee-5b08-461b-b4f8-9e1e03579c74` | `5029a34b-e90b-4c8e-9ee8-7ff36f1f2e4f` |
+
+**Expect:** `orphan_blog_posts` on gaswholesalers.com (2, per the both-ways diff), and
+`acceptance_run` on gamesdesign.co.uk (6) + vonc.com (2). Verify with:
+
+```sql
+SELECT s.domain, swi.item_type, swi.summary, swi.created_at
+FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+WHERE swi.item_type IN ('orphan_blog_posts','acceptance_run','backend_entry_orphaned')
+  AND swi.created_at > '2026-08-03 19:05:00'
+ORDER BY swi.created_at DESC;
+```
