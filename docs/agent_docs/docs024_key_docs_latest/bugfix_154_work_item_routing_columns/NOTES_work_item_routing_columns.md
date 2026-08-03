@@ -1079,3 +1079,28 @@ honestly (scope-not-narrowing, UNVERIFIABLE, no auto-conclusion). Exactly the
 run caught it. Verdict JSON committed as
 `EVIDENCE_2026-08-03_177_verdict_da59941f.json` (this dir); full trail written
 into `bugs_open/177` for the owning lane.
+
+---
+
+## 2026-08-03 — watch item MEASURED: the pre_query/selector asymmetry is real in code, vacuous in data
+
+The 08-02 `[UNMEASURED]` marker (scheduler pre_query gates `status='triaged'`
++ `locked_at IS NULL`; loader accepts `triaged|approved` at
+`load_work_item_actions.go:633` with the approval_mode gate at :635, and
+skips locked sites itself at :127-137). Measured live:
+
+- Dispatchable build items right now: finetuning.uk 114 triaged /
+  vetcomparison.uk 2 triaged, both unlocked; **zero `approved` items on any
+  site**. No one is in the starvation gap today.
+- Deeper: **no row in the retained table has EVER had `status='approved'` or
+  a non-auto `approval_mode`** (0 rows, any pipeline, any status). The
+  selector's approved arm has never matched anything — a designed-but-unexercised
+  approval flow, not a live path. (site_work_items retains at least back to
+  07-14; this is not an orchestration-style 24h window.)
+
+So: the asymmetry bites only when the first writer sets `approved` — at which
+point an approved-only queue starves invisibly whenever no site fleet-wide
+holds a `triaged` item (the pre_query returns 0 sites and the loop never
+ticks). Noting, still not fixing: the right moment is whenever an approval
+flow is actually built, and the fix belongs with that work. Marker resolved
+to `[MEASURED 2026-08-03: inert]` — not deleted, downgraded.

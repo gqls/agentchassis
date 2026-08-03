@@ -62,6 +62,10 @@ account of the whole lane.
 5. Watch list (unchanged): `bugs_open/169` part A (spawn hang) · scheduler
    pre_query vs selector asymmetry [UNMEASURED] · loader's dependency
    subquery is SITE-SCOPED (fix = Go + both queries together).
+   > **UPDATED 2026-08-03 (same lane, later session):** the asymmetry is now
+   > [MEASURED: inert] — zero `approved`-status rows have EVER existed, so
+   > the gap opens only when an approval flow is first built. Evidence in
+   > NOTES 08-03 tail. The other two watch entries stand.
 
 ## Landmines specific to this lane (carry-forward + new)
 
