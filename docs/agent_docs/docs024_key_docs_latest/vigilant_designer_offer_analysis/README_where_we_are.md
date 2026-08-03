@@ -67,3 +67,31 @@ counter now exists. Two more reviews are still in the queue.
 Next session: ship the new images, prove one finding travels all the way from "a browser
 measured it" to "the page changed", and then build the critic itself and run your
 Gemini-versus-Claude comparison.
+
+## 2026-08-03 — the two overnight objections answered, and both taught us something
+
+The review council had sent back both remaining code pieces with one blocking objection
+each. Both are now answered and resubmitted, and each objection turned out to be valuable
+for a different reason than the reviewer intended.
+
+On the findings-writer: the reviewer feared repeat findings would silently vanish after
+two fix attempts. They don't — the third one is recorded and labelled "unresolved after
+2 attempts" — but chasing the claim exposed two things we actually had wrong. First, our
+own notes said these parked items show up in the fix loop's daily digest; they don't —
+they show up on the admin dashboard's attention lists, and the notes now say so (logged
+as a wrong call). Second, and bigger: the agent that's supposed to fix contrast problems
+has never once been given a work item in the platform's whole history, and the prompt it
+runs expects fields our findings didn't include — so our findings would have arrived as
+blank forms. The revision writes the fields its prompt actually reads, plus the page
+reference, so the first item that agent ever receives will be one it can act on.
+
+On the "eyes": the reviewer said we claimed truncated AI responses fail loudly but never
+built the mechanism. The mechanism has existed since 20 July — the reviewer was reading
+our own concept register, which still described the bug as unfixed two weeks after it was
+fixed. So the code was right and the paperwork was wrong, and wrong paperwork cost us a
+review round. The register entry is corrected, a trap note now warns future readers (and
+future reviewers) that register status lines go stale, and two new tests prove the
+truncation alarm fires through the new image path specifically, for both AI providers.
+
+Both revisions are committed and back in the review queue. Next: read the two verdicts,
+then ship the new images and prove one finding travels browser → work item → changed page.
