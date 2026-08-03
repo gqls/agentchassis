@@ -1563,3 +1563,55 @@ working one from the outside, and unlike the repository there is no safety net i
 get it wrong. The main disk has 234 gigabytes free, so pointing the scratch
 directories there would end the whole class of problem. Flagging it rather than
 acting on it.
+
+**Monday 3 August, later — the scratch disk problem, done your way, with one change
+I'd argue for.**
+
+You said: point the scratch directory at the main disk, and put the scratchpads in a
+local git repository so we can see what's old and new and keep it managed. Both are
+now in place. But I measured what was actually in those directories before building
+it, and the measurement changed the shape of the answer, so it's worth explaining.
+
+Twelve gigabytes of scratch space, and **99.3% of it is full copies of this
+repository** — the extractions sessions make to test a build against committed code,
+which is a practice this project mandates. Every one of those is reproducible from a
+commit; deleting one loses nothing at all. Everything else — every hand-written
+script, query and note across every session on the machine — comes to **88
+megabytes**.
+
+That split matters because it inverts the naive plan. If we committed the
+scratchpads wholesale, git would permanently store a duplicate copy of the entire
+repository for every build check anyone has ever run, and it would grow forever. The
+part actually worth protecting is under a hundred megabytes and is small enough that
+it never needs deleting.
+
+So: the git repository now captures **only files Claude writes by hand**, and it does
+that by a nice accident of how the tools work rather than by a rule I had to get
+right. The big extractions are made by shell commands; the snapshot only watches file
+writes. It therefore *cannot* pick one up, no matter how the sizes change. I prefer
+that to a size limit, because a size limit is something that can be wrong.
+
+The reporting tool shows every session directory with its age, its size, and how much
+of it is throwaway versus irreplaceable. It can also delete — but only directories it
+can positively identify as repository copies, it re-checks that at the moment of
+deletion, and it defaults to telling you what it *would* do rather than doing it.
+
+I have deleted nothing. Asked what it would clear today, it says nothing is safely
+reapable, and that's the honest answer rather than a cautious one: every one of those
+copies has been touched within about a day, and deleting one out from under a session
+that's mid-build would break that session. As old sessions finish and new ones write
+to the main disk instead, the temporary disk drains by itself — it was down to its
+last half-megabyte when it bit me, and it's back to 1.4 gigabytes free already.
+
+One wrinkle worth knowing, and I've written it into the traps file. A session that's
+already running keeps using the old location, so for the next few hours there are two
+scratch areas in use at once. That means the obvious check — "is the temporary disk
+full?" — can give a confident answer about a place you aren't actually working in.
+Both tools I wrote read both locations for that reason.
+
+And the reason this was hard to spot at all is worth repeating: when that disk filled,
+it didn't produce a disk error. It made one of my commands return **nothing**, which
+looks exactly like a command that ran fine and found no results. That's the second
+time today I've hit something where a failure and a clean result are indistinguishable
+— the first was proving the home page hides the provocation. It seems to be the shape
+of most of the mistakes worth catching here.

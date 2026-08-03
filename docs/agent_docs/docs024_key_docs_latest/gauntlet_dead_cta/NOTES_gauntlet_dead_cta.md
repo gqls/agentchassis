@@ -3617,3 +3617,61 @@ scratchpad has no git safety net — the same unrecoverable class as the memory-
 clobber that put the snapshot hook in CLAUDE.md. Small outputs still work. Flagged
 for the owner; the real disk has 234 GB free, so `CLAUDE_CODE_TMPDIR` on `/home`
 would end the class.
+
+**2026-08-03 (later) — scratch tmpdir moved to disk; scratchpads versioned; reaping
+made safe. Registered OPP-005.**
+
+Owner's call, on the /tmp finding above: point the scratch directory at the main
+disk and put the scratchpads under git so we can see what is old and new. Built,
+tested and committed (`48fa0ac3a`).
+
+**The measurement came first and it changed the design.** The instinct — "commit the
+scratchpads" — would have put 12 GB of `git archive HEAD` extractions into a git
+repo, permanently, one duplicate tree per build check. Measured before building:
+
+    repo-extraction dirs   33   12.13 GB   99.3%   reproducible from a sha
+    everything else       370    0.09 GB    0.7%   irreplaceable  (88 MB)
+
+So the thing worth versioning is 0.7% of the volume and is small enough that it
+never needs deleting at all, while the 99.3% must never be versioned and is free to
+delete because a commit regenerates it. **Two classes, opposite handling, and the
+naive design gets both backwards.**
+
+**The separation is structural, not a heuristic — that is the part worth reusing.**
+Extractions are made by `tar`/`git archive` in **Bash**; the snapshot hook fires on
+**Write|Edit**. It is therefore *incapable* of committing an extraction. There is no
+size threshold doing the classification and so nothing to misfire. (The 5 MB cap in
+the hook is a backstop against a big generated artefact, not the class filter.) A
+tool boundary that already exists beats a rule you have to keep correct.
+
+`.gitignore` is `*` and every add is `-f`, so the repo holds only what was
+deliberately snapshotted and `git status` beside 12 GB of untracked bulk returns
+**empty in 3 ms** rather than listing it.
+
+**Verified in both directions before wiring, because a guard that refuses everything
+passes a refusal test:**
+- POSITIVE — a real `Write` in this live session produced a commit, so the hook is
+  live without a restart (the settings watcher picked it up).
+- NEGATIVE — a repo path outside any scratchpad, and a 6 MB file, each refused with
+  the commit count unchanged.
+- IDEMPOTENCE — re-firing on unchanged content adds no second commit.
+- NEW ROOT — the same probe under `~/.claude-scratch` (untested until then, and the
+  path every future session takes) creates its own repo and commits correctly.
+
+**Two things I deliberately did NOT do.**
+1. **Deleted nothing.** `--reap` reports "nothing older than 2.0d is safely
+   reapable" and that is the honest answer: every extraction has been touched within
+   ~1 day, and deleting one out from under a live `go build` breaks that session.
+   The age threshold is the guard; the default is conservative on purpose.
+2. **Did not reap hand-written files at any age.** They are 0.7% of the volume, so
+   reaping them buys nothing measurable and risks the only irreplaceable thing there.
+
+**The trap this change itself creates, filed as a landmine and synced:** a running
+session keeps the tmpdir it launched with, so **two scratch roots are live at once**
+until the pre-move sessions die. `df -h /tmp` can read healthy while the tree you are
+in is full, or read 100% while your writes go to a disk with 212 GB free. Both tools
+read both roots for exactly this reason. Ask `echo "${CLAUDE_CODE_TMPDIR:-/tmp}"`
+rather than assuming.
+
+Immediate pressure is easing on its own (456 K free when it bit, 1.4 G now) as
+sessions end; new sessions land on disk, so the tmpfs drains rather than refills.
