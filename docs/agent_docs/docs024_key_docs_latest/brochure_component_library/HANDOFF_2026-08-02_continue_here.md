@@ -45,6 +45,35 @@ SELECT created_at, subject_key, body LIKE '%Rendered:%' AS has_render_line, leng
   the chassis did its half and the fault is downstream. And a run that FAILED its checks
   legitimately has no render for the failing profile — check the verdict first.
 
+> **CORRECTED 2026-08-03 — the query above is RIGHT but INCOMPLETE, and the very next
+> run tripped over the gap.** On picking the lane up I ran it and the top row was a
+> render-less note *newer* than the armed one (`teaser-reveal-panel`, 08-02 21:53). Both
+> exits this section offers are **dead ends for that row**: the run **PASSED** 15/15, and
+> the flag was still `true` in `agent_definitions`. The real cause is a **third
+> possibility this section did not contemplate — a SECOND CALLER that was never armed.**
+> `request_component_browser_run` (the `staged_component_build` lane's component
+> acceptance) files into the *same* `acceptance-run` category with the *same*
+> `created_by='tool-acceptance-agent'`, so **no column on the note can separate the two.**
+> Add the caller to the check — the discriminator is on the orchestration row, not the note:
+>
+> ```sql
+> SELECT o.workflow_plan #>> '{steps,request_run,action}'                   AS action,
+>        o.workflow_plan #>> '{steps,request_run,config,capture_renders}'   AS flag
+>   FROM orchestration_states o
+>  WHERE o.created_at BETWEEN '<note ts>'::timestamptz - interval '5 min'
+>                         AND '<note ts>'::timestamptz;
+> ```
+>
+> A NULL `flag` next to a non-null `action` is an **unarmed caller, not a regression**.
+> Nothing about TL-035 on the tool path is weakened by this — the 19:22 proof stands
+> unchanged. What was wrong was my claim of *coverage*: I armed one of two call sites and
+> the re-check could not see the other. Filed fleet-wide in `LANDMINES.md`; the other lane
+> has been told (`staged_component_build/CONTRIB_2026-08-03_capture_renders_is_free_on_your_path.md`),
+> as the owner ruling of 2026-07-29 §3 requires. **The blast radius of arming a shared
+> helper by config is the helper's CALL SITES, not the config rows you edited:**
+> `grep -n "dispatchBrowserRun(" platform/orchestration/actions/tool_acceptance_actions.go`
+> → `:184` and `:390`. That grep is the check I should have run on 08-02 and did not.
+
 ## 3. What was done tonight, and the two things that were done differently from plan
 
 **Pod-verified before writing the key, both replicas, one exec each.** The ordering is

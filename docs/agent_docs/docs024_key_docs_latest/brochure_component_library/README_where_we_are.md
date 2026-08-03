@@ -1441,3 +1441,60 @@ as a review page.
 The thing that started all this was you finding faults by opening pages. We can now
 photograph the pages automatically. The gap that's left is the shortest one, and it's
 the one that decides whether any of it was worth doing.
+
+---
+
+## 3 August 2026 — the camera looked broken this morning, and it wasn't; but I'd only fitted it to one of two cameras
+
+First thing I did today was re-run last night's own check, the one that proves the
+camera works. It came back looking bad. The newest entry in the log had no photograph
+against it, and it was *newer* than the one I'd proved last night. The obvious reading
+is that the thing I turned on yesterday lasted exactly one run.
+
+That reading was wrong, and I want to set out how it was wrong, because the way it was
+wrong is more useful than the fact of it.
+
+Last night's handoff anticipated this exact worry and offered two explanations to check
+before panicking: either the run failed its tests, in which case there's legitimately no
+photograph of a passing page, or the setting got lost. Both were dead ends. The run
+**passed** — all fifteen of its checks — and the setting was still there when I looked.
+So the doc had thought about it, offered two exits, and the real answer was through a
+third door it hadn't imagined.
+
+The answer: there are **two** acceptance systems, not one. Mine photographs tool pages.
+Another thread built one that checks *components* — the reusable building blocks — and
+theirs runs down a parallel path. I fitted the camera to mine. Theirs never had one.
+And because both write their results into the same log under the same name, there is
+genuinely no way to tell from the log entry which of the two produced it. The only
+place the difference shows up is the run record underneath, which the log entry doesn't
+point at.
+
+So nothing is broken and nothing I claimed last night was false — the proof from last
+night stands exactly as it was. What was wrong was subtler and worth saying out loud: I
+said the camera was fitted, when what I'd actually done was fit it to one of the two
+places it belongs. I checked the box I'd ticked rather than counting the boxes. The
+check that would have caught it takes about five seconds — search the code for how many
+places call the shared function — and I didn't run it, because I was looking at the
+thing I'd changed instead of the thing it plugs into.
+
+Three things came out of it. I've written the trap up in the fleet-wide landmines file,
+because the shape of it isn't special to me: **when you switch something on by
+configuration, the reach of that switch is every place in the code that calls it, not
+the config entries you edited.** I've corrected last night's handoff in place rather
+than quietly editing it, so the next person sees that the check they're about to run
+has a hole and what to add. And I've written to the other thread to tell them the
+camera is available to them for free — their side needs no new code at all, just one
+line of configuration, because both systems already run through the same shared piece
+of code. I deliberately haven't switched it on for them: it's their lane, and telling
+them is the rule; helping myself to their config isn't.
+
+One caveat on that last point, in the same spirit as yesterday's two. I have **not**
+run their path with the camera on. I'm confident it works — it's provably the same code
+doing the sending — but confident isn't the same as watched, and I've said so in the
+note to them rather than handing over something that reads like a result when it's a
+prediction.
+
+Everything from yesterday still stands, including the open question I left you: the
+photographs still land where nobody sees them. That's still the top of the list and
+still a decision for you rather than a job for me. If anything today made it slightly
+more pressing — there are now two systems that could be taking pictures nobody looks at.

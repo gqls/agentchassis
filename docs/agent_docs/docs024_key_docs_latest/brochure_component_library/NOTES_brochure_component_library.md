@@ -4049,3 +4049,84 @@ A footnote on the run itself: 22 passed, 14 skipped, all skips `@mobile` and all
 them profile-gated by design (TL-036's deadline fix). `no-horizontal-overflow@mobile`
 and `page-serves-200@mobile` did run, so the mobile profile genuinely executed — which
 is what makes the mobile render meaningful rather than a duplicate of the desktop one.
+
+## 2026-08-03 — the newest acceptance note has NO render line, and it is not our bug: TL-035 was armed on ONE of TWO callers
+
+**First thing I did on picking the lane up was re-run the handoff's own §2 re-check.
+It came back with a render-less note at the top, newer than the armed one:**
+
+```
+ 2026-08-02 21:53 | teaser-reveal-panel            | f | 1060   <- newest, NO render
+ 2026-08-02 19:22 | tool-review-council-simulator  | t | 2176   <- the armed run
+```
+
+Read naively that says the camera lasted one run and broke. It does not, and the
+handoff's §2 offers two exits, **both of which are wrong here** — which is the
+finding. §2 says: read `request_run.response` for `capture_renders: true`, and check
+the verdict first because a failing run legitimately has no render. But this note says
+**`Tier-4 acceptance PASSED`, all 15 checks green.** So the "it failed" exit is closed,
+and the flag was still live in config (verified, not assumed):
+
+```sql
+SELECT default_config #> '{workflow,steps,request_run}' FROM agent_definitions
+ WHERE type='tool-acceptance-agent' AND is_active AND COALESCE(is_snapshot,false)=false
+   AND deleted_at IS NULL;
+-- "capture_renders": true   <- seed 292 held
+```
+
+**The real cause: there are two actions, and I armed one.** The note's `created_by` is
+`tool-acceptance-agent` — the same string on both rows, which is exactly why the
+category query cannot separate them. But the 21:53 run is a different orchestration
+(`cee46f41-1ccb-49aa-a980-4914b4c43088`) whose step calls a different action:
+
+| | 19:22 run | 21:53 run |
+|---|---|---|
+| action | `request_browser_run` | `request_component_browser_run` |
+| config has `capture_renders` | **yes** (seed 292) | **no key at all** |
+| response keys | …+ renders | `run_id, results, skipped, summary` |
+
+`platform/orchestration/actions/tool_acceptance_actions.go` — **both actions funnel
+into the same helper**: `RequestBrowserRunAction` returns `dispatchBrowserRun(...)` at
+`:184`, `RequestComponentBrowserRunAction` returns the identical call at `:390`. The
+helper reads the flag at `:220`, `datahelpers.GetBoolField(config, "capture_renders",
+false)`, and puts it in the adapter envelope at `:268`. **So the code needs no change
+whatsoever** — the component path already supports renders and is simply never asked,
+because its step config omits the key and the default is `false`.
+
+**Two things that make this worth writing down rather than just fixing:**
+
+1. **The 21:53 run has no registered agent behind it.** `component-acceptance-probe`
+   returns **0 rows** from `agent_definitions` — including snapshots and soft-deleted
+   (`WHERE default_config::text LIKE '%component_browser_run%'` over ALL rows: 0). It
+   ran from an **inline `workflow_plan`** on the orchestration row. So there is no live
+   config row for me to add a key to; the gap is not a missing key in something that
+   exists, it is a caller that exists only as another lane's hand-dispatched plan.
+2. **It is another lane's, and it is active.** `request_component_browser_run` appears
+   in `staged_component_build/` (PLAN, NOTES, both handoffs) and in the register's
+   `tool-lifecycle.md` / `documentation-system.md`. That lane committed today
+   (`1f4beb92b`). Their `HANDOFF_2026-08-02` mentions `capture_renders` **zero times**
+   — so they are not declining the camera, they do not know it is there. Per the owner
+   ruling of 2026-07-29 §3, a shared mechanism's other consumers must be **told**, not
+   merely measured: `CONTRIB_2026-08-03_capture_renders_is_free_on_your_path.md`.
+
+**The `neg_control_confirmed_red` step and the `__step_error` on that run are correct
+and are not a fault.** The plan deliberately points a `bad_page_id` at a page where the
+component is not placed and requires the action to refuse; it did, with
+`component "teaser-reveal-panel" is not placed on page fc505ab2-… (or that page is
+inactive)`. That is their negative control passing. I nearly filed it as a defect
+because `__step_error` is populated on a COMPLETED row — the same shape the memory
+index warns about for `bugs_open/099`, arriving here for the opposite reason: the step
+error is the *intended* result.
+
+**What I did NOT verify, stated rather than glossed.** I have not run an acceptance
+pass on the component path with the flag on, so "adding `capture_renders: true` to
+their step config yields renders" is **[INFERRED]** from the shared helper — a strong
+inference (identical envelope, identical `run_checks` action, one code path from
+`:390`) but not an artefact. The CONTRIB says so in those words rather than handing
+that lane a claim dressed as a result.
+
+**The transferable bit, and why it is a LANDMINE and not just a lane note:** the
+lane's own re-check query is the thing that misleads. `categories ? 'acceptance-run'`
+plus `created_by` cannot distinguish the two callers, because both file under the same
+category with the same `created_by` string. The discriminator is the **action** on the
+orchestration row, which the note does not carry. Filed fleet-wide.
