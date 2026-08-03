@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -344,8 +345,12 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 	// THAT field — see truncation.go. bugs_open/133: this used to claim
 	// "full version in S3" unconditionally, including on the four live steps
 	// that never upload anything.
+	//
+	// bugs_open/158 item 3, decision 1 (owner ruling 2026-08-03): pass a
+	// fallback uploader so a field this step did NOT opt into archiving still
+	// gets a stored copy the moment truncation is about to discard it.
 	if resultMap, ok := result.(map[string]interface{}); ok {
-		truncateResultForTransport(resultMap, storageInfoOf(resultMap), l)
+		truncateResultForTransport(resultMap, storageInfoOf(resultMap), a.fieldUploaderFor(resultMap, req.ClientID, l), l)
 		result = resultMap
 	}
 
@@ -436,7 +441,10 @@ func (a *Adapter) sendSuccessResponse(requestID, correlationID, orchestrationID,
 			}
 			// Mutates the map the envelope already holds by reference, so
 			// re-marshalling the same envelope yields the degraded reply.
-			stripResultForRetry(resultMap, storageInfoOf(resultMap))
+			// bugs_open/158 item 3, decision 1: same fallback uploader as the
+			// first pass, for the one thing THIS pass deletes outright
+			// (raw_html) rather than merely re-cutting.
+			stripResultForRetry(resultMap, storageInfoOf(resultMap), a.fieldUploaderFor(resultMap, clientID, a.logger))
 			return json.Marshal(response)
 		},
 	)
@@ -821,33 +829,106 @@ func (a *Adapter) uploadScrapingResults(result interface{}, req RequestPayload, 
 			if pageMap, ok := page.(map[string]interface{}); ok {
 				pageInfo := make(map[string]string)
 
-				// Upload each page's content
-				if pageHTML, ok := pageMap["html"].(string); ok {
-					pageURI, pageURL, err := a.uploadContent(
-						[]byte(pageHTML),
-						fmt.Sprintf("%s/pages/page_%d.html", basePath, i),
-						"text/html",
+				// bugs_open/158 item 3 (decision 1, owner ruling 2026-08-03):
+				// upload every field the transport truncator can cut, not just
+				// two of six. Doing this UPFRONT here — the same discipline the
+				// top-level fields already get — is what lets
+				// truncateResultForTransport's fallback uploader (truncation.go)
+				// stay a fallback rather than the only path: when upload_results
+				// is true, the copy already exists before truncation ever runs.
+				//
+				// "html" AND "html_content" are checked because they name the
+				// SAME concept under two different producers' key conventions —
+				// Firecrawl's own /crawl response uses "html" (and "rawHtml");
+				// batch_handler.go's normalised page shape uses "html_content"
+				// (and "raw_html"). A page carries at most one of each pair in
+				// practice, but checking both costs nothing and removes a
+				// key-name assumption this file was previously making silently:
+				// pageMap["html"] alone never matched batch_handler.go's pages
+				// at all, so per-page HTML for that path was never uploaded
+				// under upload_results:true either, prior to this fix.
+				// The field name goes in a SUBDIRECTORY, not into the filename
+				// itself: pageStorageURIFor resolves a page by searching for
+				// the literal needle "/page_<i>." immediately before the
+				// extension (truncation.go), specifically so page_1 cannot
+				// prefix-match page_10 (TestPageURIIndexMatchIsNotAPrefixMatch).
+				// Putting the field before "page_" would still satisfy that
+				// needle; putting it AFTER (page_1_html.html) would not — the
+				// literal "/page_1." is simply absent from that string.
+				//
+				// uploadPageContent returns the uri/url rather than writing
+				// pageInfo itself, and every call site below assigns with a
+				// LITERAL pageInfo["<key>_uri"] — not a computed key — on
+				// purpose: TestURIKeysAreOnesTheUploaderActuallyWrites greps
+				// this file's source text for that exact literal per key it
+				// expects written, and a computed key (pageInfo[field+"_uri"])
+				// would be invisible to that grep, turning a real "does the
+				// uploader write this key" check into one that always fails.
+				uploadPageContent := func(content, field, ext, contentType string) (uri, url string) {
+					if content == "" {
+						return "", ""
+					}
+					uri, url, err := a.uploadContent(
+						[]byte(content),
+						fmt.Sprintf("%s/pages/%s/page_%d.%s", basePath, field, i, ext),
+						contentType,
 						logger,
 					)
-					if err == nil {
-						pageInfo["html_uri"] = pageURI
-						if pageURL != "" {
-							pageInfo["html_url"] = pageURL
+					if err != nil {
+						return "", ""
+					}
+					return uri, url
+				}
+
+				htmlSrc, hasHTML := pageMap["html"].(string)
+				if !hasHTML {
+					htmlSrc, hasHTML = pageMap["html_content"].(string)
+				}
+				if hasHTML {
+					if uri, url := uploadPageContent(htmlSrc, "html", "html", "text/html"); uri != "" {
+						pageInfo["html_uri"] = uri
+						if url != "" {
+							pageInfo["html_url"] = url
 						}
 					}
 				}
 
-				if pageMarkdown, ok := pageMap["markdown"].(string); ok {
-					pageURI, pageURL, err := a.uploadContent(
-						[]byte(pageMarkdown),
-						fmt.Sprintf("%s/pages/page_%d.md", basePath, i),
-						"text/markdown",
-						logger,
-					)
-					if err == nil {
-						pageInfo["markdown_uri"] = pageURI
-						if pageURL != "" {
-							pageInfo["markdown_url"] = pageURL
+				if md, ok := pageMap["markdown"].(string); ok {
+					if uri, url := uploadPageContent(md, "markdown", "md", "text/markdown"); uri != "" {
+						pageInfo["markdown_uri"] = uri
+						if url != "" {
+							pageInfo["markdown_url"] = url
+						}
+					}
+				}
+
+				if mdc, ok := pageMap["markdown_content"].(string); ok {
+					if uri, url := uploadPageContent(mdc, "markdown_content", "md", "text/markdown"); uri != "" {
+						pageInfo["markdown_content_uri"] = uri
+						if url != "" {
+							pageInfo["markdown_content_url"] = url
+						}
+					}
+				}
+
+				if content, ok := pageMap["content"].(string); ok {
+					if uri, url := uploadPageContent(content, "content", "txt", "text/plain"); uri != "" {
+						pageInfo["content_uri"] = uri
+						if url != "" {
+							pageInfo["content_url"] = url
+						}
+					}
+				}
+
+				rawSrc, hasRaw := pageMap["rawHtml"].(string)
+				if !hasRaw {
+					rawSrc, hasRaw = pageMap["raw_html"].(string)
+				}
+				if hasRaw {
+					if uri, url := uploadPageContent(rawSrc, "raw_html", "html", "text/html"); uri != "" {
+						pageInfo["raw_html_uri"] = uri
+						if url != "" {
+							pageInfo["raw_html_url"] = url
 						}
 					}
 				}
@@ -874,6 +955,45 @@ func (a *Adapter) uploadScrapingResults(result interface{}, req RequestPayload, 
 	)
 
 	return uploadInfo, nil
+}
+
+// fieldUploaderFor returns the callback truncation.go uses to preserve a full
+// copy of a field it is about to discard — bugs_open/158 item 3, decision 1
+// (owner ruling 2026-08-03: "upload everything that gets truncated ... the
+// basis is eventual correctness and robustness"). nil when storage is not
+// configured at all, which is the one case nothing can be done — every other
+// case now gets a real copy regardless of THIS request's own upload_results
+// setting, because destroying scraped content is a correctness defect, not a
+// feature a step can opt out of.
+//
+// Reuses storage["base_path"] when the main uploader above already ran
+// (upload_results was true), so a field this fallback catches lands in the
+// SAME session directory as everything else rather than a second,
+// disconnected one. Mints its own otherwise — this path exists precisely for
+// the case where the main uploader never ran at all.
+func (a *Adapter) fieldUploaderFor(resultMap map[string]interface{}, clientID string, logger *zap.Logger) FieldUploader {
+	if a.storageClient == nil {
+		return nil
+	}
+	basePath := ""
+	if storage, ok := resultMap["storage"].(map[string]interface{}); ok {
+		basePath, _ = storage["base_path"].(string)
+	}
+	if basePath == "" {
+		basePath = fmt.Sprintf("webscrape/%s/%s/%s",
+			clientID, time.Now().UTC().Format("20060102-150405"), uuid.NewString())
+	}
+	return func(content []byte, key string) (string, error) {
+		contentType := "text/plain"
+		switch {
+		case strings.Contains(key, "html"):
+			contentType = "text/html"
+		case strings.Contains(key, "markdown"):
+			contentType = "text/markdown"
+		}
+		uri, _, err := a.uploadContent(content, basePath+"/"+key, contentType, logger)
+		return uri, err
+	}
 }
 
 // uploadContent uploads content to S3 and returns URI and presigned URL

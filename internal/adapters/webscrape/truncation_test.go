@@ -105,7 +105,7 @@ func stringLiteralsIn(t *testing.T, filename string) []string {
 func TestTruncationWithNoUploadSaysDiscarded(t *testing.T) {
 	result := map[string]interface{}{"raw_html": bigString(53805)}
 
-	cut := truncateResultForTransport(result, storageInfoOf(result), zap.NewNop())
+	cut := truncateResultForTransport(result, storageInfoOf(result), nil, zap.NewNop())
 
 	if len(cut) != 1 || cut[0] != "raw_html" {
 		t.Fatalf("cut = %v, want [raw_html]", cut)
@@ -130,7 +130,7 @@ func TestTruncationWithUploadNamesThatFieldsURI(t *testing.T) {
 		},
 	}
 
-	truncateResultForTransport(result, storageInfoOf(result), zap.NewNop())
+	truncateResultForTransport(result, storageInfoOf(result), nil, zap.NewNop())
 
 	got := result["raw_html"].(string)
 	if !strings.Contains(got, "s3://bucket/webscrape/c1/20260730/abc/raw.html") {
@@ -155,7 +155,7 @@ func TestTruncationResolvesURIsPerFieldNotPerRequest(t *testing.T) {
 		},
 	}
 
-	truncateResultForTransport(result, storageInfoOf(result), zap.NewNop())
+	truncateResultForTransport(result, storageInfoOf(result), nil, zap.NewNop())
 
 	if got := result["html_content"].(string); !strings.Contains(got, "s3://bucket/content.html") {
 		t.Error("html_content was stored but its marker does not name the URI")
@@ -192,7 +192,7 @@ func TestPageURIIsResolvedByEmbeddedIndexNotByPosition(t *testing.T) {
 		},
 	}
 
-	truncateResultForTransport(result, storageInfoOf(result), zap.NewNop())
+	truncateResultForTransport(result, storageInfoOf(result), nil, zap.NewNop())
 
 	pages := result["pages"].([]interface{})
 	page0 := pages[0].(map[string]interface{})["markdown"].(string)
@@ -225,20 +225,15 @@ func TestPageURIIndexMatchIsNotAPrefixMatch(t *testing.T) {
 	}
 }
 
-// Fields with no stored copy at any setting must never resolve a URI, even when
-// the storage map is full of other pages' URIs.
-func TestPageFieldsThatAreNeverUploadedResolveNoURI(t *testing.T) {
-	storage := map[string]interface{}{
-		"pages": []map[string]string{
-			{"markdown_uri": "s3://bucket/base/pages/page_0.md", "html_uri": "s3://bucket/base/pages/page_0.html"},
-		},
-	}
-	for field := range pageFieldsNeverUploaded {
-		if uri := pageStorageURIFor(storage, field, 0); uri != "" {
-			t.Errorf("page field %q is never uploaded but resolved %q", field, uri)
-		}
-	}
-}
+// RETIRED 2026-08-03 (bugs_open/158 item 3, decision 1, owner ruling): there
+// is no longer a "never uploaded" category of page field — see
+// pageFieldURIKeys's comment. The equivalent guarantee this test protected
+// (a field with no URI recorded must resolve to "", never a wrong one) is
+// still covered structurally: pageStorageURIFor only ever returns a value it
+// found by literal match, never a guess. Deleted rather than left as a
+// for-range over an empty map, which would pass by running zero iterations —
+// exactly the vacuous-pass shape TestTheOldUnconditionalClaimIsUnreachable's
+// own comment warns against.
 
 // storage.pages survives a JSON round trip as []interface{}; both shapes must
 // resolve, or the marker silently reverts to claiming nothing was stored.
@@ -257,9 +252,12 @@ func TestPageURIResolvesThroughJSONShape(t *testing.T) {
 // The drift guard — two lists that must agree, and a real cross-check.
 // ---------------------------------------------------------------------------
 
-// Every field the truncator cuts must have a ruling: either a URI key, or an
-// explicit entry saying no copy is ever stored. Adding a field to one list and
-// not the other fails here rather than shipping a marker that guesses.
+// Every field the truncator cuts must have a URI mapping. Before decision 1
+// (bugs_open/158 item 3, 2026-08-03) a field could instead be recorded in
+// pageFieldsNeverUploaded, an explicit "no copy is ever stored" ruling; that
+// category is retired — truncateResultForTransport's fallback uploader means
+// every truncatable field now has SOME path to a URI, so the only remaining
+// failure mode is a field present in one list and absent from the other.
 func TestEveryTruncatedFieldHasAURIRuling(t *testing.T) {
 	for _, field := range truncatableTopLevelFields {
 		if _, ok := topLevelFieldURIKeys[field]; !ok {
@@ -268,13 +266,9 @@ func TestEveryTruncatedFieldHasAURIRuling(t *testing.T) {
 		}
 	}
 	for _, field := range truncatablePageFields {
-		_, mapped := pageFieldURIKeys[field]
-		if !mapped && !pageFieldsNeverUploaded[field] {
-			t.Errorf("page field %q is truncated but has no ruling — map it in pageFieldURIKeys "+
-				"or record it in pageFieldsNeverUploaded", field)
-		}
-		if mapped && pageFieldsNeverUploaded[field] {
-			t.Errorf("page field %q is both mapped and declared never-uploaded", field)
+		if _, mapped := pageFieldURIKeys[field]; !mapped {
+			t.Errorf("page field %q is truncated but has no URI mapping — add it to pageFieldURIKeys, "+
+				"or its marker will claim nothing was stored when it was", field)
 		}
 	}
 }
@@ -319,7 +313,7 @@ func TestURIKeysAreOnesTheUploaderActuallyWrites(t *testing.T) {
 // the content. A consumer should not have to read a marker to know.
 func TestTruncationSetsMachineReadableFlags(t *testing.T) {
 	result := map[string]interface{}{"raw_html": bigString(60000)}
-	truncateResultForTransport(result, nil, zap.NewNop())
+	truncateResultForTransport(result, nil, nil, zap.NewNop())
 
 	if result["truncated"] != true {
 		t.Error("truncated flag not set")
@@ -335,7 +329,7 @@ func TestNothingOversizedIsLeftAlone(t *testing.T) {
 		"raw_html":         "short",
 		"markdown_content": bigString(maxTransportContentLen), // exactly at the cap
 	}
-	cut := truncateResultForTransport(result, nil, zap.NewNop())
+	cut := truncateResultForTransport(result, nil, nil, zap.NewNop())
 
 	if len(cut) != 0 {
 		t.Errorf("cut %v, want nothing", cut)
@@ -353,7 +347,7 @@ func TestNothingOversizedIsLeftAlone(t *testing.T) {
 
 func TestScreenshotBase64IsAlwaysDropped(t *testing.T) {
 	result := map[string]interface{}{"screenshot_base64": "AAAA", "screenshot_uri": "s3://b/s.png"}
-	truncateResultForTransport(result, nil, zap.NewNop())
+	truncateResultForTransport(result, nil, nil, zap.NewNop())
 
 	if _, present := result["screenshot_base64"]; present {
 		t.Error("screenshot_base64 survived")
@@ -364,7 +358,7 @@ func TestScreenshotBase64IsAlwaysDropped(t *testing.T) {
 }
 
 func TestTruncateHandlesNilResult(t *testing.T) {
-	if cut := truncateResultForTransport(nil, nil, nil); cut != nil {
+	if cut := truncateResultForTransport(nil, nil, nil, nil); cut != nil {
 		t.Errorf("nil result returned %v", cut)
 	}
 }
@@ -383,7 +377,7 @@ func TestStripResultForRetryDropsRawAndShrinksTheRest(t *testing.T) {
 		},
 	}
 
-	stripResultForRetry(result, storageInfoOf(result))
+	stripResultForRetry(result, storageInfoOf(result), nil)
 
 	if _, present := result["raw_html"]; present {
 		t.Error("raw_html survived the strip — if the reply did not fit with it, it is what did not fit")
@@ -413,7 +407,7 @@ func TestStripResultForRetryDropsRawAndShrinksTheRest(t *testing.T) {
 // The strip must not resurrect the lie either.
 func TestStripResultForRetryDoesNotClaimAnUnwrittenStore(t *testing.T) {
 	result := map[string]interface{}{"markdown_content": bigString(60000)}
-	stripResultForRetry(result, storageInfoOf(result))
+	stripResultForRetry(result, storageInfoOf(result), nil)
 
 	got := result["markdown_content"].(string)
 	if strings.Contains(got, "s3://") || strings.Contains(got, theOldLie) {
@@ -425,5 +419,200 @@ func TestStripResultForRetryDoesNotClaimAnUnwrittenStore(t *testing.T) {
 }
 
 func TestStripResultForRetryHandlesNil(t *testing.T) {
-	stripResultForRetry(nil, nil) // must not panic
+	stripResultForRetry(nil, nil, nil) // must not panic
+}
+
+// ---------------------------------------------------------------------------
+// Decision 1 (bugs_open/158 item 3, owner ruling 2026-08-03): "upload
+// everything that gets truncated ... the basis is eventual correctness and
+// robustness." These tests are the headline claim made concrete: content that
+// USED to be destroyed with an honest "DISCARDED" marker now gets a real
+// stored copy instead, independent of upload_results.
+// ---------------------------------------------------------------------------
+
+// fakeFieldUpload is a FieldUploader that records every call, so a test can
+// assert BOTH that it fired and how many times — the double-upload guard
+// below needs the count, not just a returned URI.
+type fakeFieldUpload struct {
+	calls   int
+	stored  map[string]string // key -> content, for content-fidelity checks
+	failAll bool
+}
+
+func (f *fakeFieldUpload) upload(content []byte, key string) (string, error) {
+	f.calls++
+	if f.failAll {
+		return "", fmt.Errorf("fake upload always fails")
+	}
+	if f.stored == nil {
+		f.stored = map[string]string{}
+	}
+	f.stored[key] = string(content)
+	return "s3://fake-bucket/" + key, nil
+}
+
+// TestTruncationUploadsViaFallbackWhenNoStaticURIExists is the direct
+// regression test for the incident this decision answers: bugs_closed/133
+// measured a raw_html of 53,805 chars discarded with upload_results false.
+// Same shape, but now WITH a fallback uploader available — the content must
+// survive somewhere, not just be marked honestly as gone.
+func TestTruncationUploadsViaFallbackWhenNoStaticURIExists(t *testing.T) {
+	fake := &fakeFieldUpload{}
+	full := bigString(53805)
+	result := map[string]interface{}{"raw_html": full}
+
+	truncateResultForTransport(result, storageInfoOf(result), fake.upload, zap.NewNop())
+
+	if fake.calls != 1 {
+		t.Fatalf("fallback uploader called %d times, want 1", fake.calls)
+	}
+	got := result["raw_html"].(string)
+	if strings.Contains(got, "DISCARDED") {
+		t.Errorf("a field the fallback uploader stored must not say discarded: %q", got[len(got)-200:])
+	}
+	if !strings.Contains(got, "s3://fake-bucket/") {
+		t.Errorf("marker does not name the fallback-uploaded URI: %q", got[len(got)-200:])
+	}
+	// The upload must carry the FULL original content, not the 50KB stub —
+	// by the time a caller could reach for "what was truncated to", the
+	// original is already gone from `result`, so this is the only place that
+	// can be checked from.
+	for _, stored := range fake.stored {
+		if len(stored) != len(full) {
+			t.Errorf("fallback upload received %d bytes, want the full %d — it must run BEFORE truncation, not after",
+				len(stored), len(full))
+		}
+	}
+	// storage must be visible on the result too, or a consumer reading the
+	// reply directly (not just the marker prose) cannot find the copy.
+	storage := storageInfoOf(result)
+	if storage == nil || storage["raw_html_uri"] == "" {
+		t.Errorf("no raw_html_uri recorded in result[\"storage\"]: %v", storage)
+	}
+}
+
+// TestTruncationDoesNotDoubleUploadWhenAStaticURIAlreadyExists is the
+// negative control the fake's call-COUNT exists for: when upload_results
+// already stored a copy, the fallback must not fire a second, wasted upload
+// of the same bytes.
+func TestTruncationDoesNotDoubleUploadWhenAStaticURIAlreadyExists(t *testing.T) {
+	fake := &fakeFieldUpload{}
+	result := map[string]interface{}{
+		"raw_html": bigString(60000),
+		"storage": map[string]interface{}{
+			"raw_html_uri": "s3://bucket/webscrape/c1/20260730/abc/raw.html",
+		},
+	}
+
+	truncateResultForTransport(result, storageInfoOf(result), fake.upload, zap.NewNop())
+
+	if fake.calls != 0 {
+		t.Errorf("fallback uploader called %d times when a static URI already existed, want 0", fake.calls)
+	}
+	got := result["raw_html"].(string)
+	if !strings.Contains(got, "s3://bucket/webscrape/c1/20260730/abc/raw.html") {
+		t.Errorf("marker must still name the PRE-EXISTING URI: %q", got[len(got)-200:])
+	}
+}
+
+// TestTruncationFallbackFailureStillDegradesHonestly: the uploader can fail
+// (network, permissions, storage down) — the marker must still say DISCARDED,
+// never a broken or empty-but-present URI.
+func TestTruncationFallbackFailureStillDegradesHonestly(t *testing.T) {
+	fake := &fakeFieldUpload{failAll: true}
+	result := map[string]interface{}{"raw_html": bigString(60000)}
+
+	truncateResultForTransport(result, storageInfoOf(result), fake.upload, zap.NewNop())
+
+	if fake.calls != 1 {
+		t.Fatalf("fallback uploader called %d times, want 1 (attempted, and failed)", fake.calls)
+	}
+	got := result["raw_html"].(string)
+	if !strings.Contains(got, "DISCARDED") {
+		t.Errorf("a failed fallback upload must still degrade to the honest marker: %q", got[len(got)-200:])
+	}
+	if strings.Contains(got, "s3://") {
+		t.Errorf("a failed upload must never name a URI: %q", got[len(got)-200:])
+	}
+}
+
+// TestTruncationPageFieldFormerlyNeverUploadedNowGetsAURI is the per-page
+// half of the same headline claim, for the exact field bugs_open/158 item 3
+// named as one of five with "no stored copy at any setting of
+// upload_results" before this fix.
+func TestTruncationPageFieldFormerlyNeverUploadedNowGetsAURI(t *testing.T) {
+	fake := &fakeFieldUpload{}
+	result := map[string]interface{}{
+		"pages": []interface{}{
+			map[string]interface{}{"content": bigString(60000)},
+		},
+	}
+
+	truncateResultForTransport(result, storageInfoOf(result), fake.upload, zap.NewNop())
+
+	if fake.calls != 1 {
+		t.Fatalf("fallback uploader called %d times, want 1", fake.calls)
+	}
+	page := result["pages"].([]interface{})[0].(map[string]interface{})
+	got := page["content"].(string)
+	if strings.Contains(got, "DISCARDED") {
+		t.Errorf("page content field must be stored, not discarded, now: %q", got[len(got)-200:])
+	}
+	if !strings.Contains(got, "s3://fake-bucket/") {
+		t.Errorf("marker does not name the fallback URI: %q", got[len(got)-200:])
+	}
+	// And it must be RE-FINDABLE by the existing resolver, for a later pass
+	// (stripResultForRetry) to see it without re-uploading.
+	storage := storageInfoOf(result)
+	if uri := pageStorageURIFor(storage, "content", 0); uri == "" {
+		t.Error("the fallback-uploaded page URI is not resolvable via pageStorageURIFor")
+	}
+}
+
+// TestStripResultForRetryPreservesRawHTMLBeforeDeletingIt: raw_html is the
+// one field stripResultForRetry deletes OUTRIGHT rather than re-cutting, with
+// no size check first — so a field UNDER the first pass's 50KB cap (never
+// touched by truncateResultForTransport) would previously lose its bytes here
+// with no chance at a stored copy at all.
+func TestStripResultForRetryPreservesRawHTMLBeforeDeletingIt(t *testing.T) {
+	fake := &fakeFieldUpload{}
+	full := bigString(20000) // UNDER maxTransportContentLen — pass 1 never touches it
+	result := map[string]interface{}{"raw_html": full}
+
+	stripResultForRetry(result, storageInfoOf(result), fake.upload)
+
+	if fake.calls != 1 {
+		t.Fatalf("fallback uploader called %d times, want 1", fake.calls)
+	}
+	if _, present := result["raw_html"]; present {
+		t.Error("raw_html must still be deleted from the reply — the strip's own contract")
+	}
+	storage := storageInfoOf(result)
+	if storage == nil || storage["raw_html_uri"] == "" {
+		t.Errorf("no raw_html_uri recorded before deletion: %v", storage)
+	}
+	for _, stored := range fake.stored {
+		if len(stored) != len(full) {
+			t.Errorf("preserved %d bytes, want the full %d", len(stored), len(full))
+		}
+	}
+}
+
+// Negative control for the strip path: raw_html already has a stored URI
+// (from pass 1, because it WAS over the first cap) — the strip must not
+// upload it a second time.
+func TestStripResultForRetryDoesNotDoubleUploadRawHTML(t *testing.T) {
+	fake := &fakeFieldUpload{}
+	result := map[string]interface{}{
+		"raw_html": bigString(20000),
+		"storage": map[string]interface{}{
+			"raw_html_uri": "s3://bucket/already/stored.html",
+		},
+	}
+
+	stripResultForRetry(result, storageInfoOf(result), fake.upload)
+
+	if fake.calls != 0 {
+		t.Errorf("fallback uploader called %d times when a URI already existed, want 0", fake.calls)
+	}
 }

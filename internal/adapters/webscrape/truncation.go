@@ -68,19 +68,27 @@ var topLevelFieldURIKeys = map[string]string{
 // setting of upload_results, so their marker can never truthfully claim one —
 // pageFieldsNeverUploaded records that as a decision rather than leaving it to
 // be rediscovered.
+// bugs_open/158 item 3, decision 1 (owner ruling 2026-08-03: "upload
+// everything that gets truncated ... nothing is lost"). Before this ruling
+// only "markdown" was here — the other five page fields were listed in
+// pageFieldsNeverUploaded, a deliberate acknowledgement that no code path
+// stored them. That category is retired: uploadScrapingResults now uploads
+// all six (adapter.go, the per-page loop), and truncateResultForTransport's
+// fallback uploader below closes the remaining case — upload_results:false —
+// so every field a truncation can cut now has a real path to a stored copy.
+//
+// "html_content" and "rawHtml" share a URI key with their sibling spelling
+// ("html", "raw_html") because they name the SAME concept under two
+// producers' different key conventions (Firecrawl's raw /crawl response vs.
+// batch_handler.go's normalised shape) — see the comment in adapter.go's
+// per-page upload loop.
 var pageFieldURIKeys = map[string]string{
-	"markdown": "markdown_uri",
-}
-
-// pageFieldsNeverUploaded are per-page fields that are truncated but which
-// uploadScrapingResults never stores. Listed explicitly so the drift test can
-// tell "no URI is possible" apart from "somebody forgot to map it".
-var pageFieldsNeverUploaded = map[string]bool{
-	"content":          true,
-	"markdown_content": true,
-	"html_content":     true,
-	"rawHtml":          true,
-	"raw_html":         true,
+	"content":          "content_uri",
+	"markdown_content": "markdown_content_uri",
+	"html_content":     "html_uri",
+	"markdown":         "markdown_uri",
+	"rawHtml":          "raw_html_uri",
+	"raw_html":         "raw_html_uri",
 }
 
 // truncatableTopLevelFields is the order in which top-level fields are cut.
@@ -105,6 +113,93 @@ func transportTruncationMarker(uri string) string {
 	return "\n\n[Content truncated for Kafka transport at " +
 		fmt.Sprint(maxTransportContentLen) +
 		" chars - full version stored at " + uri + "]"
+}
+
+// FieldUploader uploads a field's FULL, pre-truncation content when it is
+// about to be discarded — bugs_open/158 item 3, owner ruling 2026-08-03:
+// "upload everything that gets truncated ... the basis is eventual
+// correctness and robustness." A nil FieldUploader means storage is not
+// configured at all (no client), which is the one case this cannot close.
+// Every OTHER case now gets a real copy regardless of the caller's own
+// upload_results setting — destroying scraped content is a correctness
+// defect, not a feature a step can opt out of. `key` is a storage path
+// relative to the scrape's own base path, distinct per field/page so two
+// concurrent truncations can never collide.
+type FieldUploader func(content []byte, key string) (uri string, err error)
+
+// ensureFieldURI returns uri unchanged when a copy already exists — the main
+// uploader (upload_results: true) already wrote it, and calling upload again
+// would be a wasted second write of the same bytes. Otherwise, if upload is
+// usable, it uploads the FULL content (never the truncated stub — by the time
+// a caller reaches this function the field has already been cut, so `full`
+// must be the pre-truncation copy) and records the new URI into `storage` so
+// a LATER read of the same field (stripResultForRetry's second pass) finds it
+// too, without a second upload. Failure degrades to "" — logged, never
+// silent, and never a broken or invented URI.
+func ensureFieldURI(uri string, storage map[string]interface{}, storageKey, full, key string, upload FieldUploader, logger *zap.Logger) string {
+	if uri != "" {
+		return uri
+	}
+	if upload == nil {
+		return ""
+	}
+	newURI, err := upload([]byte(full), key)
+	if err != nil || newURI == "" {
+		logger.Warn("could not preserve content that is about to be truncated — no copy will exist",
+			zap.String("key", key), zap.Error(err))
+		return ""
+	}
+	if storage != nil && storageKey != "" {
+		storage[storageKey] = newURI
+	}
+	return newURI
+}
+
+// extFor is a cosmetic file extension for the fallback uploader's storage
+// key. It is not load-bearing for correctness — pageStorageURIFor and
+// storageURIFor resolve by KEY and by the embedded page index, never by
+// extension — it only makes an ad-hoc S3 object readable by eye.
+func extFor(field string) string {
+	switch {
+	case strings.Contains(field, "html"):
+		return ".html"
+	case strings.Contains(field, "markdown"):
+		return ".md"
+	default:
+		return ".txt"
+	}
+}
+
+// appendPageFieldURI records a fallback-uploaded per-page URI into
+// storage["pages"]. It APPENDS a fresh single-key entry rather than trying to
+// merge into an existing one for page i, because entries in storage.pages
+// carry no explicit page-index field — they are matched purely by searching
+// every entry's URI string for the embedded "/page_<i>." pattern
+// (pageStorageURIFor). A linear scan over more, smaller entries resolves
+// exactly the same as one over fewer, larger ones, so appending is both
+// correct and the simplest thing that is.
+//
+// storage["pages"] is created as []map[string]string (the shape
+// uploadScrapingResults itself builds) if absent. If it already holds some
+// OTHER type — which should only happen if a caller round-tripped storage
+// through JSON before reaching here, never true on the live single-message
+// path — this logs and does nothing rather than panicking or silently
+// discarding the URI into a shape nothing will read.
+func appendPageFieldURI(storage map[string]interface{}, key, uri string) {
+	if storage == nil || key == "" || uri == "" {
+		return
+	}
+	entry := map[string]string{key: uri}
+	switch pages := storage["pages"].(type) {
+	case nil:
+		storage["pages"] = []map[string]string{entry}
+	case []map[string]string:
+		storage["pages"] = append(pages, entry)
+	default:
+		// Unexpected shape (e.g. already JSON round-tripped). Not the live
+		// path today; degrading to "not recorded" is safer than guessing a
+		// conversion that could silently misplace the URI.
+	}
 }
 
 // storageInfoOf returns the upload record merged onto a result by
@@ -196,12 +291,31 @@ func storagePageEntries(storage map[string]interface{}) []map[string]string {
 //
 // `storage` is the map uploadScrapingResults returned, or nil when
 // upload_results was false — which is exactly the case the old code got wrong.
-func truncateResultForTransport(result map[string]interface{}, storage map[string]interface{}, logger *zap.Logger) []string {
+//
+// `upload` is the fallback uploader (bugs_open/158 item 3, decision 1): when a
+// field is about to be cut and has no PRE-EXISTING URI (the main uploader
+// either never ran, or ran but this particular field was outside its static
+// list), the FULL content is uploaded on the spot and the new URI both names
+// the marker AND is written back into `storage` — creating it on `result` if
+// it did not already exist — so downstream, including a later
+// stripResultForRetry call on the same result, sees it too.
+func truncateResultForTransport(result map[string]interface{}, storage map[string]interface{}, upload FieldUploader, logger *zap.Logger) []string {
 	if result == nil {
 		return nil
 	}
 	if logger == nil {
 		logger = zap.NewNop()
+	}
+	// Materialise a mutable storage map only once something is actually about
+	// to be uploaded into it — an empty map attached where none existed before
+	// would itself be a small false claim ("something was stored") and would
+	// break the existing "no storage at all" test shape.
+	attachStorage := func() map[string]interface{} {
+		if storage == nil {
+			storage = map[string]interface{}{}
+			result["storage"] = storage
+		}
+		return storage
 	}
 
 	var cut []string
@@ -212,6 +326,10 @@ func truncateResultForTransport(result map[string]interface{}, storage map[strin
 			continue
 		}
 		uri := storageURIFor(storage, field)
+		if uri == "" && upload != nil {
+			uri = ensureFieldURI(uri, attachStorage(), topLevelFieldURIKeys[field], content,
+				fmt.Sprintf("truncated/%s%s", field, extFor(field)), upload, logger)
+		}
 		result[field] = content[:maxTransportContentLen] + transportTruncationMarker(uri)
 		cut = append(cut, field)
 		logger.Info("Truncating large field for Kafka",
@@ -247,6 +365,17 @@ func truncateResultForTransport(result map[string]interface{}, storage map[strin
 					continue
 				}
 				uri := pageStorageURIFor(storage, field, i)
+				if uri == "" && upload != nil {
+					key := fmt.Sprintf("truncated/pages/%s/page_%d%s", field, i, extFor(field))
+					newURI, err := upload([]byte(content), key)
+					if err == nil && newURI != "" {
+						uri = newURI
+						appendPageFieldURI(attachStorage(), pageFieldURIKeys[field], newURI)
+					} else {
+						logger.Warn("could not preserve truncated page content — no copy will exist",
+							zap.Int("page", i), zap.String("field", field), zap.Error(err))
+					}
+				}
 				pageMap[field] = content[:maxTransportContentLen] + transportTruncationMarker(uri)
 				cut = append(cut, fmt.Sprintf("pages[%d].%s", i, field))
 				logger.Info("Truncating large page field for Kafka",
@@ -278,9 +407,41 @@ func truncateResultForTransport(result map[string]interface{}, storage map[strin
 // It marks the result so the degradation is visible in the reply itself: a
 // caller that receives a stub must be able to tell it from a genuinely small
 // page, or the next investigation starts from a page that "scraped fine".
-func stripResultForRetry(result map[string]interface{}, storage map[string]interface{}) {
+//
+// `upload` (decision 1, as in truncateResultForTransport) is used ONLY for
+// raw_html, top-level and per-page, because that is the one thing this
+// function deletes OUTRIGHT with no size check first — a field that was
+// UNDER the 50KB cap sails through truncateResultForTransport's pass
+// untouched and therefore never gets a chance at a stored copy there. Every
+// other field this function cuts (markdown_content, html_content, and the
+// per-page content/markdown_content/markdown) was already ≥ the same 50KB
+// cap on the FIRST pass — since this function only runs when the reply is
+// STILL too big after that pass — so anything originally worth preserving
+// from them already has a URI, findable via the same storage map, without a
+// second upload. The one gap this leaves, stated rather than silently
+// carried: a field between oversizeStripContentCap and 50,000 chars that was
+// never over the FIRST cap loses its tail here uploaded. Not closed, because
+// stripResultForRetry has no measured live traffic to justify it — fleet-wide
+// the largest reply ever recorded is 48KB, under even the first cap — and
+// closing it would repeat the SAME upload machinery a second time for a path
+// that has never fired.
+func stripResultForRetry(result map[string]interface{}, storage map[string]interface{}, upload FieldUploader) {
 	if result == nil {
 		return
+	}
+	if raw, ok := result["raw_html"].(string); ok && raw != "" {
+		uri := storageURIFor(storage, "raw_html")
+		if uri == "" && upload != nil {
+			if storage == nil {
+				storage = map[string]interface{}{}
+				result["storage"] = storage
+			}
+			uri = ensureFieldURI(uri, storage, topLevelFieldURIKeys["raw_html"], raw,
+				"truncated/raw_html.html", upload, zap.NewNop())
+		}
+		// The URI is not otherwise reachable once raw_html itself is deleted
+		// below — nothing else in this reply names it — so it goes into
+		// result["storage"] only; there is no marker to put it in.
 	}
 	delete(result, "raw_html")
 	delete(result, "screenshot_base64")
@@ -297,6 +458,23 @@ func stripResultForRetry(result map[string]interface{}, storage map[string]inter
 			pageMap, ok := page.(map[string]interface{})
 			if !ok {
 				continue
+			}
+			for _, field := range []string{"rawHtml", "raw_html"} {
+				raw, ok := pageMap[field].(string)
+				if !ok || raw == "" {
+					continue
+				}
+				uri := pageStorageURIFor(storage, field, i)
+				if uri == "" && upload != nil {
+					if storage == nil {
+						storage = map[string]interface{}{}
+						result["storage"] = storage
+					}
+					key := fmt.Sprintf("truncated/pages/%s/page_%d%s", field, i, extFor(field))
+					if newURI, err := upload([]byte(raw), key); err == nil && newURI != "" {
+						appendPageFieldURI(storage, pageFieldURIKeys[field], newURI)
+					}
+				}
 			}
 			delete(pageMap, "rawHtml")
 			delete(pageMap, "raw_html")
