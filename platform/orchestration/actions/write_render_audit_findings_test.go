@@ -2,6 +2,8 @@ package actions
 
 import (
 	"context"
+	"database/sql/driver"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -16,6 +18,47 @@ import (
 // status, handler and key), never the absence of a query — a vacuous guard
 // passes against insertWorkItem because it swallows sqlmock errors
 // (work_item_recurrence_test.go's lesson).
+
+// argJSONHasKeys matches a JSON-string argument that contains every named
+// top-level key with a non-empty value. It exists because css-patch-agent's
+// prompt template renders spec.category/description/suggestion/page_name —
+// an AnyArg() here would let the spec silently stop carrying the only keys
+// the handler reads (council e49f5935, guardian/debug_historian).
+type argJSONHasKeys struct{ keys []string }
+
+func (a argJSONHasKeys) Match(v driver.Value) bool {
+	s, ok := v.(string)
+	if !ok {
+		if b, okb := v.([]byte); okb {
+			s = string(b)
+		} else {
+			return false
+		}
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(s), &m); err != nil {
+		return false
+	}
+	for _, k := range a.keys {
+		val, present := m[k]
+		if !present || val == nil || val == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// argContains matches a string argument containing a substring — used to pin
+// the "[unresolved after N attempts]" label on the third-occurrence test.
+type argContains struct{ substr string }
+
+func (a argContains) Match(v driver.Value) bool {
+	s, ok := v.(string)
+	if !ok {
+		return false
+	}
+	return strings.Contains(s, a.substr)
+}
 
 func renderAuditCollected(siteID uuid.UUID, payload map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
@@ -38,10 +81,16 @@ func TestWriteRenderAuditFindings_FilesFirmContrastSkipsOverImage(t *testing.T) 
 	defer db.Close()
 
 	siteID := uuid.New()
+	pricingPageID := uuid.New()
 
 	// No locked components on the site.
 	mock.ExpectQuery("locked_at IS NOT NULL").
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	// The site's pages, for first-class page_id resolution.
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).
+			AddRow(pricingPageID.String(), "/pricing.html"))
 
 	mock.ExpectBegin()
 	// Two-strike pre-check for the ONE firm finding (the over_image one must
@@ -49,10 +98,13 @@ func TestWriteRenderAuditFindings_FilesFirmContrastSkipsOverImage(t *testing.T) 
 	mock.ExpectQuery("INTERVAL '7 days'").
 		WithArgs(siteID, "contrast_failure:/pricing.html#h2.card-title").
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
-	// The effect: one INSERT with the routed shape.
+	// The effect: one INSERT with the routed shape. The spec matcher pins the
+	// handler-contract keys; page_id ($8) must be the resolved pages row.
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WithArgs(siteID, "render-audit", "build", "contrast_failure", "high",
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(),
+			argJSONHasKeys{keys: []string{"category", "description", "suggestion", "page_name", "affected_url", "selector", "acceptance_test"}},
+			pricingPageID, sqlmock.AnyArg(),
 			60, "css-patch-agent", "detected", sqlmock.AnyArg(),
 			"contrast_failure:/pricing.html#h2.card-title", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -105,6 +157,9 @@ func TestWriteRenderAuditFindings_LockedCulpritIsSkippedAndCounted(t *testing.T)
 	mock.ExpectQuery("locked_at IS NOT NULL").
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).
 			AddRow(`<section><h2 class="card-title">Locked</h2></section>`))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
 	// No pre-check, no INSERT — the tx opens and commits empty. Asserting the
 	// commit (an effect) rather than "no insert happened" keeps this non-vacuous:
 	// an unexpected INSERT fails ExpectationsWereMet loudly.
@@ -151,14 +206,17 @@ func TestWriteRenderAuditFindings_BrokenImagesAttributedAndNot(t *testing.T) {
 
 	mock.ExpectQuery("locked_at IS NOT NULL").
 		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
 
 	// hero.jpg resolves to an assets row; ghost.jpg does not.
 	mock.ExpectQuery("FROM assets").
 		WithArgs(siteID, "hero.jpg").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(assetID.String()))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "purpose"}).AddRow(assetID.String(), "content_hero"))
 	mock.ExpectQuery("FROM assets").
 		WithArgs(siteID, "ghost.jpg").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "purpose"}))
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("INTERVAL '7 days'").
@@ -166,7 +224,9 @@ func TestWriteRenderAuditFindings_BrokenImagesAttributedAndNot(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WithArgs(siteID, "render-audit", "build", "undeployed_asset", "medium",
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(),
+			argJSONHasKeys{keys: []string{"asset_id", "purpose", "affected_url", "src"}},
+			sqlmock.AnyArg(), sqlmock.AnyArg(),
 			60, "asset-deployer", "detected", sqlmock.AnyArg(),
 			"undeployed_asset:"+assetID.String(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -191,6 +251,80 @@ func TestWriteRenderAuditFindings_BrokenImagesAttributedAndNot(t *testing.T) {
 	m := out.(map[string]interface{})
 	if m["inserted"] != 1 || m["unattributed_images"] != 1 {
 		t.Fatalf("want inserted=1 unattributed_images=1, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// TestWriteRenderAuditFindings_ThirdOccurrenceIsBornUnresolvedNotDropped is
+// the direct answer to council e49f5935's gating objection (bug_historian,
+// high): "omitting recurrenceExpected silently drops the third occurrence."
+// It does not: for a DETECTED DEFECT the two-strike rule INSERTS the third
+// occurrence with status 'unresolved' and a loud label — parked for the admin
+// dashboard's attention queues, not vanished. The test pins both halves:
+//
+//   - the two-strike pre-check RUNS (recurrenceExpected must stay false: if a
+//     session "fixes" the objection by setting it, the INTERVAL query is never
+//     issued and this test fails on an unmet expectation), and
+//   - the third occurrence is INSERTED, born 'unresolved' with the
+//     "[unresolved after 2 attempts]" prefix — not suppressed.
+//
+// Mutation-proven 2026-08-03: setting recurrenceExpected=true on the contrast
+// item fails this test twice over (unmet INTERVAL expectation; status arrives
+// 'detected'); deleting the two-strike block fails it the same way.
+func TestWriteRenderAuditFindings_ThirdOccurrenceIsBornUnresolvedNotDropped(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+
+	mock.ExpectBegin()
+	// Two completed fix attempts inside the 7-day window, the newest 24h old:
+	// strike two is spent, and this re-file is the third occurrence.
+	mock.ExpectQuery("INTERVAL '7 days'").
+		WithArgs(siteID, "contrast_failure:/faq.html#p.answer").
+		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(2, 24.0))
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WithArgs(siteID, "render-audit", "build", "contrast_failure", "medium",
+			argContains{substr: "[unresolved after 2 attempts]"},
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			60, "css-patch-agent", "unresolved", sqlmock.AnyArg(),
+			"contrast_failure:/faq.html#p.answer", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id": "run-4",
+			"contrast": []map[string]interface{}{
+				{
+					"url": "https://example.com/faq.html", "tag": "p",
+					"class": "answer", "fg": "#777777", "bg": "#999999",
+					"ratio": 2.2, "need": 4.5, "font_px": 16, "over_image": false,
+				},
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["inserted"] != 1 {
+		t.Fatalf("third occurrence must be INSERTED (born unresolved), got %#v", m)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

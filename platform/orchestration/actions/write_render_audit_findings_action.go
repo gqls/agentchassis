@@ -13,7 +13,17 @@
 //     at css-patch-agent. The dedup key contrast_failure:<page-path>#<class> is
 //     the de-facto verifier: a repaired pairing stops being re-filed because
 //     the NEXT render audit no longer measures it, and an unrepaired one
-//     collapses onto the open row.
+//     collapses onto the open row. The spec carries BOTH vocabularies: the
+//     structured measurement (selector/fg/bg/ratio/need) for machine consumers,
+//     and category/description/suggestion/page_name because those are the keys
+//     css-patch-agent's live prompt template actually renders — measured
+//     2026-08-03, zero rows have ever been filed at that handler, so the
+//     template IS the whole contract, and a spec that misses its keys hands the
+//     LLM an empty finding (council e49f5935, guardian + debug_historian).
+//     page_id is set on the ROW when the page path resolves; affected_url rides
+//     the spec, which load_work_items exposes top-level via its column-first-
+//     then-spec fallback (bugs_open/154). component_id stays NULL honestly: the
+//     render path measures URL + selector and cannot name a component.
 //   - A broken image whose src resolves to an assets row → item_type
 //     "undeployed_asset" at asset-deployer, keyed undeployed_asset:<asset_id>
 //     so it CO-DEDUPS with check_undeployed_assets' rows (same item_type, same
@@ -41,6 +51,22 @@
 // Items are born status='detected': promotion is improvement-loop's
 // triage_findings (the migration-286 single owner), so this action composes
 // with the drain rather than bypassing it.
+//
+// recurrenceExpected is DELIBERATELY NOT SET (council e49f5935, bug_historian's
+// gating objection, answered rather than adopted). That flag is for ACTION
+// REQUESTS, where a terminal predecessor is a success (workItem doc,
+// load_work_item_actions.go). contrast_failure is a DETECTED DEFECT: a re-file
+// after two completed fixes means the fixer is not fixing it, and the
+// two-strike rule parking the third as 'unresolved' is the intended
+// cycle-breaker (work_items_common.go header). The third occurrence is NOT
+// dropped — it is inserted, labelled "[unresolved after N attempts]", and
+// surfaces on the admin dashboard's attention queues
+// (internal/core-manager/admin/site_admin_handlers.go: items_unresolved count
+// and the needs-attention selections). NOTE the correction that objection
+// earned: this file's original round claimed the FIXLOOP DIGEST reads
+// unresolved rows — it does not (it reads failed/complete/capability_gap);
+// the dashboard is the real reader. Pinned by
+// TestWriteRenderAuditFindings_ThirdOccurrenceIsBornUnresolvedNotDropped.
 //
 // A run that would file more than max_items (default 60) files the worst
 // max_items by ratio and reports findings_capped=true with the dropped count —
@@ -153,6 +179,11 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 		return nil, fmt.Errorf("write_render_audit_findings: locked-component load: %w", err)
 	}
 
+	pageIDs, err := loadSitePageIDs(ctx, params.DB, siteID)
+	if err != nil {
+		return nil, fmt.Errorf("write_render_audit_findings: page load: %w", err)
+	}
+
 	type pending struct {
 		item  workItem
 		ratio float64
@@ -177,8 +208,22 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			severity = "high"
 		}
 		spec := map[string]interface{}{
-			"page_url":         c.URL,
-			"page_path":        pagePath,
+			// The keys css-patch-agent's live prompt template renders (its
+			// css_fix step reads spec.category/description/suggestion/page_name
+			// — the handler has never received a row, so the template is the
+			// contract; see file header).
+			"category": "contrast",
+			"description": fmt.Sprintf(
+				"Elements matching %s on %s render %s text on a %s background: %.2f:1 contrast where %.1f:1 is needed (%dpx text, sample %q).",
+				selector, pagePath, c.FG, c.BG, c.Ratio, c.Need, c.FontPx, truncateString(c.Text, 60)),
+			"suggestion": fmt.Sprintf(
+				"Adjust ONLY the colour of elements matching %s on %s — darken the foreground or lighten the background until the pairing reaches %.1f:1. Do not restyle anything else.",
+				selector, pagePath, c.Need),
+			"page_name": pagePath,
+			// affected_url in SPEC is enough: load_work_items resolves it
+			// column-first THEN spec (bugs_open/154), so current_item.affected_url
+			// works without widening insertWorkItem's shared statement.
+			"affected_url":     c.URL,
 			"selector":         selector,
 			"fg":               c.FG,
 			"bg":               c.BG,
@@ -188,7 +233,7 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			"text_sample":      truncateString(c.Text, 120),
 			"fix_type":         "contrast_fix",
 			"current_value":    fmt.Sprintf("%s on %s measures %.2f:1 (needs %.1f:1)", c.FG, c.BG, c.Ratio, c.Need),
-			"acceptance_test":  fmt.Sprintf("elements matching %s on %s render at or above %.1f:1 contrast on the next render audit", selector, pagePath, c.Need),
+			"acceptance_test":  fmt.Sprintf("computed contrast for elements matching %s on %s is at least %.1f:1 — a single-selector, single-page measurement, not a site re-audit", selector, pagePath, c.Need),
 			"max_fix_attempts": 2,
 			"run_id":           payload.RunID,
 		}
@@ -197,23 +242,27 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			logger.Warn("write_render_audit_findings: spec marshal failed", zap.Error(mErr))
 			continue
 		}
-		toFile = append(toFile, pending{
-			ratio: c.Ratio,
-			item: workItem{
-				siteID:       siteID,
-				source:       "render-audit",
-				pipeline:     "build",
-				itemType:     "contrast_failure",
-				severity:     severity,
-				summary:      fmt.Sprintf("Contrast %.2f:1 (needs %.1f:1) for %s on %s", c.Ratio, c.Need, selector, pagePath),
-				spec:         string(specJSON),
-				priority:     60,
-				handlerAgent: "css-patch-agent",
-				status:       "detected",
-				createdBy:    params.ExecutionContext.Sender.AgentType,
-				itemKey:      workItemKey("contrast_failure", pagePath+"#"+selector),
-			},
-		})
+		item := workItem{
+			siteID:       siteID,
+			source:       "render-audit",
+			pipeline:     "build",
+			itemType:     "contrast_failure",
+			severity:     severity,
+			summary:      fmt.Sprintf("Contrast %.2f:1 (needs %.1f:1) for %s on %s", c.Ratio, c.Need, selector, pagePath),
+			spec:         string(specJSON),
+			priority:     60,
+			handlerAgent: "css-patch-agent",
+			status:       "detected",
+			createdBy:    params.ExecutionContext.Sender.AgentType,
+			itemKey:      workItemKey("contrast_failure", pagePath+"#"+selector),
+			// recurrenceExpected stays FALSE: detected defect, not an action
+			// request — two-strike is the cycle-breaker (see file header).
+		}
+		if pid, ok := pageIDs[pagePath]; ok {
+			p := pid
+			item.pageID = &p
+		}
+		toFile = append(toFile, pending{ratio: c.Ratio, item: item})
 	}
 
 	// Worst first, then the loud cap.
@@ -226,7 +275,7 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 
 	unattributedImages := 0
 	for _, img := range payload.Images {
-		assetID, aErr := lookupAssetBySrc(ctx, params.DB, siteID, img.Src)
+		assetID, purpose, aErr := lookupAssetBySrc(ctx, params.DB, siteID, img.Src)
 		if aErr != nil {
 			logger.Warn("write_render_audit_findings: asset lookup failed",
 				zap.String("src", img.Src), zap.Error(aErr))
@@ -239,10 +288,14 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 		}
 		spec := map[string]interface{}{
 			"asset_id": assetID.String(),
-			"src":      img.Src,
-			"page_url": img.URL,
-			"reason":   "render_audit_404",
-			"run_id":   payload.RunID,
+			// purpose keeps SHAPE PARITY with check_undeployed_assets' rows —
+			// co-dedup means either producer's row must be equally actionable
+			// to asset-deployer, whose deploy path resolves purpose/asset_id.
+			"purpose":      purpose,
+			"src":          img.Src,
+			"affected_url": img.URL,
+			"reason":       "render_audit_404",
+			"run_id":       payload.RunID,
 		}
 		specJSON, mErr := json.Marshal(spec)
 		if mErr != nil {
@@ -250,7 +303,7 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 		}
 		// Same item_type, same key namespace, same handler as
 		// check_undeployed_assets — deliberate co-dedup (see header).
-		toFile = append(toFile, pending{item: workItem{
+		item := workItem{
 			siteID:       siteID,
 			source:       "render-audit",
 			pipeline:     "build",
@@ -263,7 +316,12 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 			status:       "detected",
 			createdBy:    params.ExecutionContext.Sender.AgentType,
 			itemKey:      fmt.Sprintf("undeployed_asset:%s", assetID),
-		}})
+		}
+		if pid, ok := pageIDs[urlPath(img.URL)]; ok {
+			p := pid
+			item.pageID = &p
+		}
+		toFile = append(toFile, pending{item: item})
 	}
 
 	tx, err := params.DB.BeginTx(ctx, nil)
@@ -382,31 +440,79 @@ func htmlCorpusContainsClass(corpus []string, class string) bool {
 	return false
 }
 
+// loadSitePageIDs maps a site's page paths (pages.url, e.g. "/faq.html") to
+// their ids, so filed items can carry the first-class page_id column. "/" is
+// aliased to the index page when one exists. A path that does not resolve
+// leaves page_id NULL — an enrichment miss, not an error.
+func loadSitePageIDs(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]uuid.UUID, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, url FROM pages WHERE site_id = $1
+	`, siteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		var u string
+		if err := rows.Scan(&id, &u); err != nil {
+			return nil, err
+		}
+		if p := urlPath(u); p != "" {
+			out[p] = id
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if _, ok := out["/"]; !ok {
+		if id, ok := out["/index.html"]; ok {
+			out["/"] = id
+		}
+	}
+	return out, nil
+}
+
 // lookupAssetBySrc resolves an <img src> to the site's assets row by basename,
-// against storage_path and url. Returns uuid.Nil when nothing matches. Matching
-// is by basename because assets.url may be stale (bugs_open/152) while the
-// stable serving path keeps the storage basename.
-func lookupAssetBySrc(ctx context.Context, db *sql.DB, siteID uuid.UUID, src string) (uuid.UUID, error) {
+// against storage_path and url. Returns (uuid.Nil, "") when nothing matches.
+// Matching is by basename because assets.url may be stale (bugs_open/152)
+// while the stable serving path keeps the storage basename. purpose is
+// returned for spec shape-parity with check_undeployed_assets' rows.
+//
+// The LIKE is DELIBERATELY UNESCAPED — the same doctrine as
+// check_undeployed_assets.go's landmine ("DO NOT 'FIX' THE LIKE WILDCARD"):
+// this estate's asset names drift between underscore and hyphen spellings
+// (`content_hero` vs `content-hero…`), and `_`-as-any-character absorbs
+// exactly that drift. Measured there 2026-07-31: 38/38 real assets matched
+// with the wildcard live, 0/38 with `_` escaped. Escaping would manufacture
+// misses here the same way; the reviewers' duplication concern (council
+// e49f5935, reuse_agent) is answered by ALIGNING with that doctrine, not by
+// sharing code — the two queries ask different questions of different tables
+// (theirs: which generated assets no page references; ours: which assets row
+// owns this served, 404ing src).
+func lookupAssetBySrc(ctx context.Context, db *sql.DB, siteID uuid.UUID, src string) (uuid.UUID, string, error) {
 	base := path.Base(urlPath(src))
 	if base == "" || base == "." || base == "/" {
-		return uuid.Nil, nil
+		return uuid.Nil, "", nil
 	}
 	var id uuid.UUID
+	var purpose string
 	err := db.QueryRowContext(ctx, `
-		SELECT id FROM assets
+		SELECT id, COALESCE(purpose, '') FROM assets
 		WHERE site_id = $1
 		  AND status = 'active'
 		  AND (storage_path LIKE '%' || $2 OR url LIKE '%' || $2)
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, siteID, base).Scan(&id)
+	`, siteID, base).Scan(&id, &purpose)
 	if err == sql.ErrNoRows {
-		return uuid.Nil, nil
+		return uuid.Nil, "", nil
 	}
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, "", err
 	}
-	return id, nil
+	return id, purpose, nil
 }
 
 func contrastSelector(tag, class string) string {
