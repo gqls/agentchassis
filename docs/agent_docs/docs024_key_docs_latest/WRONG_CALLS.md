@@ -18208,3 +18208,27 @@ returns for **non-HTML** input. It returns ONE fused block for a whole markdown
 document. Nil-safety was the property I checked; behaviour on the input I actually
 had was the property that mattered, and the function's name and doc comment would
 never have told me. The probe test cost 90 seconds.
+
+---
+
+## 2026-08-03 — three claims in one handoff, caught by a requested recheck, one query each
+
+**footprint:** `bugfix_140…/HANDOFF_2026-08-03_continue_here.md` (~19:45Z version) ·
+`input_schema.fields.*.on_missing` · `data-runtime-fill`
+
+**The claims.** Written into the evening handoff and committed (`d0ed9bc96`): (1)
+"featured_title is bare and undeclared" — it declares `skip_section`; (2) "25 rows of
+realised damage" — 2 are documented `data-runtime-fill` shells and 1 is inactive; (3)
+"queue scoped rerenders for the residual rows" — the queue already held items on those
+exact pages, one **failed**, one unresolved ×3, one needs_human_review.
+
+**What caught it.** The owner asked "please recheck the plan". Every correction came from
+one query the first pass skipped: read the schema row before writing "undeclared"; join
+damage rows to the exemption their own sibling check documents; check `site_work_items`
+before recommending dispatch — the same rule the handoff itself cites at item 4.
+
+**The tally-worthy part.** Claim 3 is the CLAUDE.md dispatch rule verbatim ("checking the
+pod does not check the queue", cost a real run 2026-07-16) — known, written, and still
+skipped while drafting a plan whose OTHER items preach measurement. A plan is a set of
+claims; each item deserves the one-query check its own text demands of others. The recheck
+took ~20 minutes and changed 4 of 8 items.

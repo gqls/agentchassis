@@ -570,3 +570,46 @@ its own, exit 1 would enforce a check satisfiable by a no-op.
 - Unparsed LLM envelope stored as `content_data`: **2 rows of 1,145**, 2 components —
   including the gaswholesalers `Pricing Tiers` row, which is why that one will not repair by
   rerendering alone.
+
+## 2026-08-03 ~20:00Z — the owner asked for the plan to be RECHECKED, and the recheck corrected four of its claims
+
+Each was in the ~19:45Z handoff and is corrected there in place. Recorded here because the
+missteps are the point.
+
+1. **"featured_title is bare and undeclared" — FALSE.** It declares
+   `on_missing: "skip_section"`. I ran the schema query for `call-to-action.headline` and
+   skipped it for `featured_article` — the exact one-query check whose absence I was busy
+   documenting. The corrected finding is STRONGER: the lint's ungated class filters
+   `on_missing == "skip_field"` only, so a declared contract of the wrong FLAVOUR
+   (`skip_section` 15, `use_fallback` 21 — never applied at render, `needs_human_review` 8)
+   is exactly as unchecked as no contract.
+2. **"25 rows across 20 components" of realised damage — overstated.** Two rows are
+   `data-runtime-fill` shells (vonc `provocation-card`, `lobby-grid`) — deliberately empty,
+   browser-filled, and the DOCUMENTED first-catch exemption of `check_empty_sections.go`.
+   One more is an inactive component. Honest: ~15 empty headings / 6 dead links / 3 broken
+   imgs on active, non-runtime-fill components. Any new check must honour the same
+   exemption or it re-finds the sibling check's known false positive on day one.
+3. **"Nothing currently detects it" (inherited from RFC_009) — false at section
+   granularity.** `check_empty_sections` is enabled (one of FOUR,
+   `discovery_checks.go:97`), files `empty_section` items, and can now close them
+   (RFC_010 seam). The real gap is element-level: an empty `<h1>` inside a non-empty
+   section. And the queue shows detection ≠ repair: finetuning's `insights` empty_section
+   is unresolved after 3 attempts.
+4. **"Queue scoped rerenders for the residual rows" — WITHDRAWN.** The queue already
+   holds items on those exact pages: `needs_page` "Full rebuild of blog" **failed**
+   (the hero row's page), `save_refused_incomplete` on gaswholesalers pricing
+   (needs_human_review), `empty_section` on insights (unresolved ×3). Firing parallel
+   rerenders at owned, in-flight pages is the 2026-07-16 dispatch mistake. Also material:
+   the hero row's `content_data` is EMPTY — a rerender redraws, it does not regenerate
+   content, so even a reasoned rerender may swap one blank for another there.
+
+Also banked from the recheck, positive: the two 16:30/16:55Z `featured_article` rows
+rendered through the POST-295 template and the gates WORKED — image block absent (no
+`<img src="">`), meta row absent (no empty spans). Production traffic confirmed 295 within
+hours, unprompted. The empty `<h1>` beside those working gates is the boundary of the fix,
+drawn by production: gated flavour obeyed, other flavours untouched.
+
+And one attribution corrected before it shipped: the case-studies-grid `<img src="">` on
+ai-agent-orchestration.com `/index.html` was rendered TODAY via `card1..5_image_url` —
+referenced, bare, **no schema entry at all** — i.e. the third unchecked population
+(schema-absent), distinct from both the undeclared-`on_missing` and wrong-flavour ones.
