@@ -305,3 +305,87 @@ func TestImageURL404_EmissionOrderIsDeterministic(t *testing.T) {
 		t.Errorf("expected path-sorted emission, got %v", first)
 	}
 }
+
+// THE THIRD SHAPE (2026-08-03). <img src="cpu"> is what an icon name looks like
+// when a template renders it into an image slot. It is not an /assets/images/…
+// path and it is not empty, so both older predicates were silent — and 31 of
+// these were live across 2 sites when this test was written, every one a broken
+// image with no finding anywhere.
+func TestImageURL404_BareWordSrcIsReportedWithItsTokens(t *testing.T) {
+	res := runImageURL404(t,
+		`<img src="cpu" alt="Automation Department" class="member-photo">`+
+			`<img src="network" alt="Agents Department" class="member-photo">`+
+			`<img src="cpu" alt="Automation Department" class="member-photo">`, "",
+		[]assetRow{{"hero_home", "hero"}})
+
+	if len(res.WorkItems) != 1 {
+		t.Fatalf("want exactly 1 work item, got %d (%v)", len(res.WorkItems), itemKeys(res))
+	}
+	w := res.WorkItems[0]
+	if w.ItemKey != "image_url_404:bare-token-src" {
+		t.Errorf("item_key = %q, want image_url_404:bare-token-src", w.ItemKey)
+	}
+	// Three tags, two distinct tokens: the count is occurrences, the tokens are
+	// the evidence that names the cause.
+	if !strings.Contains(w.Summary, "3 <img>") {
+		t.Errorf("count must be occurrences, not distinct tokens; summary = %q", w.Summary)
+	}
+	if !strings.Contains(w.SpecJSON, `"kind":"bare_token_src"`) {
+		t.Errorf("spec must carry the kind: %s", w.SpecJSON)
+	}
+	if !strings.Contains(w.SpecJSON, `"tokens":["cpu","network"]`) {
+		t.Errorf("tokens must be distinct and sorted: %s", w.SpecJSON)
+	}
+	if w.Severity != "high" {
+		t.Errorf("severity = %q; a template defect repeats on every page that mounts it", w.Severity)
+	}
+}
+
+// THE NEGATIVE CONTROLS. The predicate excludes '/', '.' and ':', so every shape
+// of legitimate src must stay silent. Without this, the cheapest way to "fix" a
+// false positive is to widen the pattern until it reports nothing — and a check
+// that reports nothing looks exactly like a check that found nothing.
+func TestImageURL404_LegitimateSrcsAreNotBareWords(t *testing.T) {
+	for _, src := range []string{
+		"/assets/images/hero-home.jpg",       // rooted path (and asset-backed)
+		"hero.png",                           // relative filename — has a dot
+		"../images/logo.svg",                 // relative path — has slashes
+		"https://cdn.example.com/a.png",      // absolute URL — has a colon
+		"//cdn.example.com/a.png",            // protocol-relative — has slashes
+		"data:image/png;base64,iVBORw0KGgo=", // data URI — has a colon
+	} {
+		res := runImageURL404(t, `<img src="`+src+`" alt="x">`, "",
+			[]assetRow{{"hero_home", "hero"}})
+		for _, k := range itemKeys(res) {
+			if k == "image_url_404:bare-token-src" {
+				t.Errorf("src=%q was reported as a bare word", src)
+			}
+		}
+	}
+}
+
+// The two "no usable source" shapes must stay separate items: they have
+// different repairs (supply a source vs fix the template that wrote one), so
+// folding them into one tally would send a reader to the wrong place.
+func TestImageURL404_EmptyAndBareWordAreDistinctFindings(t *testing.T) {
+	res := runImageURL404(t,
+		`<img src="" alt="a"><img src="cpu" alt="b">`, "",
+		[]assetRow{{"hero_home", "hero"}})
+
+	keys := itemKeys(res)
+	if len(keys) != 2 {
+		t.Fatalf("want 2 distinct items, got %v", keys)
+	}
+	want := map[string]bool{"image_url_404:empty-src": false, "image_url_404:bare-token-src": false}
+	for _, k := range keys {
+		if _, ok := want[k]; !ok {
+			t.Errorf("unexpected item key %q", k)
+		}
+		want[k] = true
+	}
+	for k, seen := range want {
+		if !seen {
+			t.Errorf("missing item key %q", k)
+		}
+	}
+}

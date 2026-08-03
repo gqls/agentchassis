@@ -69,7 +69,15 @@
 //
 // Every emission is item_type image_url_404 with no handler agent: a stale
 // reference is repaired by removing or repointing it, which no image generator can
-// decide. spec.kind distinguishes the two shapes ("unbacked_path", "empty_src").
+// decide. spec.kind distinguishes the three shapes ("unbacked_path", "empty_src",
+// "bare_token_src").
+//
+// THE THIRD SHAPE, added 2026-08-03. An <img> whose src is a bare word —
+// <img src="cpu"> — is invisible to both predicates above: it is not an
+// /assets/images/… path and it is not empty. Measured that day, 31 such tags were
+// live across 2 sites from 1 component, every one a broken image, with no finding
+// on any surface. See bareTokenImgSrcPattern for the shape and why "no dot" is
+// safe on this fleet.
 
 package discovery_checks
 
@@ -108,6 +116,43 @@ var emptyImgSrcPattern = regexp.MustCompile(
 	`(?is)<img\b[^>]*\bsrc\s*=\s*("\s*"|'\s*'|"#"|'#')`,
 )
 
+// bareTokenImgSrcPattern matches an <img> whose src is a single bare word — no
+// slash, no dot, no colon — e.g. <img src="cpu">. It is neither a path (the
+// pattern above needs /assets/images/…) nor empty (the pattern above that needs
+// "" or "#"), so until 2026-08-03 BOTH predicates were silent on it and the
+// browser painted a broken-image icon on a live page with no finding anywhere.
+//
+// WHAT IT ACTUALLY CATCHES, and why the shape is diagnostic rather than
+// incidental. A bare token in a src slot is what an ICON NAME looks like when a
+// template renders it into an <img> instead of an icon element. departments-grid
+// is the worked case: schema declares `icon: string`, the fleet renders icons as
+// <i data-lucide="{{.icon}}"> (see the features component, which shares a page
+// with it and works), but departments-grid still carried the <img src> of the
+// team-photo component it was forked from. Measured 2026-08-03 over every
+// rendered surface in the fleet: 31 occurrences, 2 sites, 1 component, and every
+// single one a broken image in a browser.
+//
+// WHY NO DOT IS A SAFE PREDICATE HERE rather than a guess. Everything this
+// platform serves as an image is committed by storage.DeployedWebPath, which
+// always produces /assets/images/<key>.<ext> — an extension is structural, not
+// conventional. The sites are static (no content negotiation, no extensionless
+// image routes), so a dotless, slashless src cannot resolve to an image on any
+// of them. Excluding ':' keeps scheme-bearing and protocol-relative srcs out;
+// excluding '/' keeps every relative and rooted path out; excluding '.' keeps
+// every filename out. What remains is only the bare-word shape.
+//
+// Deliberately NOT folded into the empty_src tally: that finding says "this img
+// has no source at all", which a human fixes by supplying one. This one says
+// "this img has a source that is not a source", which a human fixes by changing
+// the TEMPLATE that put it there — a different repair, so a different kind.
+// '#' is excluded as well as '/', '.' and ':': a fragment src is not a bare word
+// but a placeholder, and emptyImgSrcPattern already owns it. Without that
+// exclusion this pattern double-reports every "#" as both shapes — which is how
+// TestImageURL404_EmptyImgSrcIsCountedAndReportedOnce caught it.
+var bareTokenImgSrcPattern = regexp.MustCompile(
+	`(?is)<img\b[^>]*\bsrc\s*=\s*"([^"/.:#\s]+)"`,
+)
+
 // maxEmptySrcSamples bounds the sample list carried in the work item spec. The
 // count is always exact; only the examples are capped.
 const maxEmptySrcSamples = 5
@@ -131,7 +176,7 @@ func (s imageSurface) String() string {
 }
 
 func (c *ImageURL404Check) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
-	references, emptySrc, err := collectImageReferences(dctx)
+	references, emptySrc, bareSrc, err := collectImageReferences(dctx)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +285,44 @@ func (c *ImageURL404Check) Run(dctx DiscoveryCheckContext) (*CheckResult, error)
 		})
 	}
 
+	if bareSrc.count > 0 {
+		tokens := bareSrc.sortedTokens()
+		spec := map[string]interface{}{
+			"check":  "image_url_404",
+			"kind":   "bare_token_src",
+			"count":  bareSrc.count,
+			"tokens": tokens,
+		}
+		specJSON, _ := json.Marshal(spec)
+
+		result.Findings = append(result.Findings, map[string]interface{}{
+			"check":  "image_url_404",
+			"kind":   "bare_token_src",
+			"count":  bareSrc.count,
+			"tokens": tokens,
+		})
+
+		result.WorkItems = append(result.WorkItems, WorkItemSpec{
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: dctx.Pipeline,
+			ItemType: "image_url_404",
+			// High: unlike a single stale path, this shape is emitted by a
+			// TEMPLATE, so it repeats on every page that uses the component and
+			// every site that mounts it.
+			Severity: "high",
+			Summary: fmt.Sprintf(
+				"%d <img> tags have a bare word as src (%s) — a template is rendering an icon name into an image slot",
+				bareSrc.count, strings.Join(tokens, ", ")),
+			SpecJSON:  string(specJSON),
+			Priority:  40,
+			Status:    "detected",
+			CreatedBy: dctx.AgentType,
+			ItemKey:   "image_url_404:bare-token-src",
+			BatchID:   dctx.BatchID,
+		})
+	}
+
 	return result, nil
 }
 
@@ -266,15 +349,45 @@ type emptySrcTally struct {
 	samples []string
 }
 
+// bareTokenTally is the site-wide record of <img src="<bare word>">. Unlike the
+// empty-src tally it keeps the DISTINCT tokens, because the token list is the
+// evidence that identifies the cause: a set of lucide icon names in src slots
+// names the defect ("a template renders an icon as an image") in a way a bare
+// count never could.
+type bareTokenTally struct {
+	count  int
+	tokens map[string]int
+}
+
+func (t *bareTokenTally) add(token string) {
+	if t.tokens == nil {
+		t.tokens = make(map[string]int)
+	}
+	t.count++
+	t.tokens[token]++
+}
+
+// sortedTokens returns the distinct tokens in a stable order, so two runs over
+// the same data produce the same work item spec.
+func (t bareTokenTally) sortedTokens() []string {
+	out := make([]string, 0, len(t.tokens))
+	for tok := range t.tokens {
+		out = append(out, tok)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // collectImageReferences scans BOTH rendered surfaces — deployed unlocked page
 // components and the site chrome — returning every distinct /assets/images/*
 // path with the surfaces it appeared on, and the empty-src tally.
 //
 // Locked components are skipped on both surfaces: a human-locked component is
 // presumed deliberate, the same convention isPathReferencedInPages follows.
-func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface, emptySrcTally, error) {
+func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface, emptySrcTally, bareTokenTally, error) {
 	refs := make(map[string]imageSurface)
 	var empty emptySrcTally
+	var bare bareTokenTally
 
 	scan := func(html string, chrome bool) {
 		for _, m := range imagePathRefPattern.FindAllStringSubmatch(html, -1) {
@@ -296,6 +409,12 @@ func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface
 				empty.samples = append(empty.samples, strings.TrimSpace(m))
 			}
 		}
+		for _, m := range bareTokenImgSrcPattern.FindAllStringSubmatch(html, -1) {
+			if len(m) < 2 {
+				continue
+			}
+			bare.add(m[1])
+		}
 	}
 
 	pageRows, err := dctx.DB.QueryContext(dctx.Ctx, `
@@ -308,7 +427,7 @@ func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface
 		  AND pc.rendered_html IS NOT NULL
 	`, dctx.SiteID)
 	if err != nil {
-		return nil, empty, fmt.Errorf("page_components scan failed: %w", err)
+		return nil, empty, bare, fmt.Errorf("page_components scan failed: %w", err)
 	}
 	for pageRows.Next() {
 		var html string
@@ -320,7 +439,7 @@ func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface
 	}
 	if err := pageRows.Err(); err != nil {
 		pageRows.Close()
-		return nil, empty, fmt.Errorf("page_components scan failed: %w", err)
+		return nil, empty, bare, fmt.Errorf("page_components scan failed: %w", err)
 	}
 	pageRows.Close()
 
@@ -336,7 +455,7 @@ func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface
 		  AND sc.rendered_html IS NOT NULL
 	`, dctx.SiteID)
 	if err != nil {
-		return nil, empty, fmt.Errorf("site_components scan failed: %w", err)
+		return nil, empty, bare, fmt.Errorf("site_components scan failed: %w", err)
 	}
 	defer chromeRows.Close()
 	for chromeRows.Next() {
@@ -347,7 +466,7 @@ func collectImageReferences(dctx DiscoveryCheckContext) (map[string]imageSurface
 		}
 		scan(html, true)
 	}
-	return refs, empty, chromeRows.Err()
+	return refs, empty, bare, chromeRows.Err()
 }
 
 // loadDeployedAssetPaths returns the set of site-relative web paths this site's
