@@ -180,3 +180,30 @@ scope to 290 only (single `psql -f` + `--record-only`), never a blanket `--apply
 **Both r2 verdicts owed (~30 min queue each from ~09:00 UTC). Image rolls (handoff step 2)
 wait on them.** Also owed from before, unchanged: A0.3b config tail, A0.4 drain proof
 (171 closure), A2 critic.
+
+## 2026-08-03 (later) — rolls done and pod-verified, A0.3b LIVE; two roll missteps logged
+
+- **Both r2 verdicts APPROVED** (A0.3: 6 advisories none-high; A1.2: 1 medium — "the
+  register has no staleness detector", class-level, not this lane's). Commits carry
+  Council-Submitted; 098 credits at report time.
+- **Chassis: my code is live on v1.0.1244** — NOT my own 1241 roll. Timeline: my 1241
+  deploy landed AFTER other lanes had shipped 1242–1244 during a ~10h council-wait, so it
+  rolled prod BACKWARDS for ~2 min; recovered by redeploying 1244, which (built from
+  later shared HEAD) carries my r2. Pod-verified BOTH replicas: positives
+  write_render_audit_findings/execute_vision_prompt/GenerateWithImages + the r2-only
+  acceptance-test phrase (1); negative "on the next render audit" = 0. Both missteps in
+  WRONG_CALLS (backwards deploy off a stale tag; strings-less image printing clean zeros
+  — the 07-30 landmine I failed to grep for. grep -ac on the binary is the check).
+- **Browser-runner: v1.0.1241 (my build) live, 1 replica**, grep -ac: capture_renders,
+  renderSweepKey, renders_failed all present. A1.1 is live end to end.
+- **A0.3b LIVE: migration 301 applied + recorded** (site → audit → write_findings →
+  complete; error edge step-level to complete_error; verify DO/RAISE read start_step and
+  passed). 299 AND 300 were taken by other lanes mid-session — applied under a transient
+  299 name, renumbered to 301, ledger note records it. Live probe:
+  audit.next_step=write_findings, action registered in the running binary first.
+- **NEXT = A0.4** (hand-fire one sweep on a specimen site; watch 291's audit_state branch
+  + one item detected→triaged→claimed→complete with a visible page change; then close
+  bugs_open/171 citing the orchestration id). Cancel provably-stale rerender rows first;
+  hold 115's two rows for A3.2. THEN the witnessed write_findings run (the .response
+  nesting proves itself — the action fails loud on mismatch) — one specimen render-audit
+  run covers both.
