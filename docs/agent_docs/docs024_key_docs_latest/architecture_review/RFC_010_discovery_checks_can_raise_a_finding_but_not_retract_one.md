@@ -276,9 +276,22 @@ claiming the seam works.
 
 ## DECISION 1 HAS A FIRST REAL ADOPTER — `check_empty_sections`, 2026-08-03
 
-Committed `2287606d1`, council `97923026-2b2d-4925-b9a3-de6f70c49d2b` (submitted before the
-commit; trailer `Council-Submitted:`). **Not live at time of writing** — both replicas run
-`v1.0.1238`, and the roll is deliberately deferred because a roll kills an in-flight council.
+Committed `2287606d1` + hardening `27891fab8`; council `97923026-2b2d-4925-b9a3-de6f70c49d2b`
+**APPROVED at round 1** (15 seats, 3 advisory objections, none high). **LIVE on `v1.0.1243`,
+both replicas, pod-verified 2026-08-03** — ⚠ **live but not yet EXERCISED**: no discovery sweep
+has run since the roll, so `result ? 'resolved_at'` is still 0 fleet-wide. "Adopted and
+deployed" is not "working", and the distinction is the same one this section was written to
+make about the seam itself.
+
+**OWNER RULING 2026-08-03 — the two-strike interaction is ACCEPTED AS-IS, and tracked as a
+follow-up rather than fixed here.** A retraction writes `complete` onto an existing row and so
+feeds `insertWorkItem`'s two-strike counter identically to a handler fix. Three council seats
+(`guardian` medium, `improvement_guardian` low, `bug_historian` low) independently asked for a
+human decision. Ruled: accept, because it is measured empty today (0 of 17) and `insertWorkItem`
+sits on the insert path of every work item in the estate — changing it from inside a check
+adoption is exactly the `bugs_closed/124` shape the guardian seat exists to veto. Exempting
+retractions from the counter remains arguably correct (the counter breaks discover/fix loops,
+and a retraction is evidence the loop is NOT stuck) and is now open question **Q1** below.
 
 `check_empty_sections` now retracts `empty_section` findings whose slot it has positively
 re-observed as rendering content. It reuses `emptySectionVerdict` — the pure, unit-tested
@@ -355,3 +368,19 @@ real, deliberately untouched by the repair), `WRONG_CALLS.md` 2026-08-02 ("I tol
 twice that a clobber path was unreachable"), the `Dedup index ↔ Go list lockstep` landmine, and
 `RFC_009` — whose closing section names the same underlying habit from the other direction: the
 platform reconstructs state from metadata instead of recording what it did.
+
+## Open questions
+
+**Q1 — should a retraction count toward `insertWorkItem`'s two-strike counter?** Opened by the
+owner ruling of 2026-08-03 (above), which accepted the current behaviour and asked for the
+question to be tracked rather than closed. The counter's stated purpose is to break
+discover/fix loops: *"a discover agent that keeps re-finding an issue after the fix agent
+reports `complete` would loop forever if we only counted 'failed'"*. A retraction is a different
+signal — the finding stopped reproducing without a handler doing anything — so counting it
+identically is at least arguable, and the failure it risks is the one this whole paper is about:
+at 2 strikes the next genuine detection is born `unresolved`, i.e. the landfill, created by the
+mechanism meant to drain it. **Measured 0 of 17 affected on 2026-08-03**, and the measurement is
+what makes deferring it safe rather than merely convenient. Whoever picks this up: it changes
+shared insert-path behaviour for every item type in the estate, so it wants its own council
+round, and `workItem.recurrenceExpected` is the existing lever that already exempts a class of
+items from the same counter — read it before inventing a second one.
