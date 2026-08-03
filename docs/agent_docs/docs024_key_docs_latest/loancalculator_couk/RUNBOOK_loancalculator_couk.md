@@ -685,6 +685,14 @@ That is the whole content of the "41 diverging keys" seen on 2026-08-02: 28
 APPEARED (now named), 13 VANISHED (the same controls, formerly positional), and
 **zero changed values**.
 
+⚠ **THE GOLDEN SET IS NOW 11 TOOLS, NOT 12 (2026-08-03).**
+`GOLDEN_2026-08-03b_after_orphan_retired.json` is the forward baseline;
+`/tools/standard-calc.html` is retired and 404s, so any earlier golden — including
+`GOLDEN_2026-08-03_defects_fixed.json`, captured hours before — now names a page
+that does not exist and will fail. `tool-loan-repayment` keeps its coverage through
+`/index.html`, which renders the same component, so nothing was lost. Self-verified:
+11 of 11 reproduce.
+
 ⚠ **KEEP `GOLDEN_2026-07-31c` — do not delete or overwrite it.** It is the only
 record of what the HAND-BUILT site computed, and every equivalence claim made
 during the rewrite is stated against it. The new file is the forward baseline; the
