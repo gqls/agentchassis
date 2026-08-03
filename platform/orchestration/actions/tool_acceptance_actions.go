@@ -434,11 +434,12 @@ type acceptanceVerdict struct {
 // chars of expiring signature). ViewURL is a presigned GET for the work item's
 // spec, where a human triaging the ticket can click it (7-day expiry).
 type screenshotRef struct {
-	Profile string
-	URL     string
-	URI     string
-	ViewURL string
-	Failing []string // id@profile instances the screenshot evidences
+	Profile  string
+	URL      string
+	URI      string
+	ViewURL  string
+	Viewport string   // layout viewport + device scale, e.g. "390x844@3x" (empty on pre-viewport adapters)
+	Failing  []string // id@profile instances the screenshot evidences
 }
 
 // chromeFailure is a document-level failure the adapter proved lies OUTSIDE the
@@ -637,6 +638,7 @@ func extractShotList(collected map[string]interface{}, field, key string, envIdx
 		ref.URL, _ = m["url"].(string)
 		ref.URI, _ = m["uri"].(string)
 		ref.ViewURL, _ = m["view_url"].(string)
+		ref.Viewport, _ = m["viewport"].(string)
 		if fc, ok := m["failing_checks"].([]interface{}); ok {
 			for _, f := range fc {
 				if s, ok := f.(string); ok {
@@ -660,11 +662,7 @@ func evidenceLine(shots []screenshotRef) string {
 	}
 	parts := make([]string, 0, len(shots))
 	for _, s := range shots {
-		p := s.URI
-		if s.Profile != "" {
-			p += " (" + s.Profile + ")"
-		}
-		parts = append(parts, p)
+		parts = append(parts, s.URI+profileTag(s))
 	}
 	return "\nEvidence: full-page screenshot(s) at failure: " + strings.Join(parts, "; ")
 }
@@ -681,14 +679,29 @@ func renderLine(renders []screenshotRef) string {
 	}
 	parts := make([]string, 0, len(renders))
 	for _, s := range renders {
-		p := s.URI
-		if s.Profile != "" {
-			p += " (" + s.Profile + ")"
-		}
-		parts = append(parts, p)
+		parts = append(parts, s.URI+profileTag(s))
 	}
 	return "\nRendered: full-page screenshot(s) of the page as it passed: " + strings.Join(parts, "; ") +
 		"\nNote: a render is a look, not a verdict — nothing here asserts the page is free of defects no check covers."
+}
+
+// profileTag labels one shot for a note line: " (desktop 1366x900@1x)", or
+// " (desktop)" from an adapter that predates the viewport field. The viewport
+// matters because the PNG's pixel width is viewport × device scale — a
+// 22,491px-tall, 1170px-wide render is a phone at 3x, and nothing else on the
+// line says so.
+func profileTag(s screenshotRef) string {
+	tag := s.Profile
+	if s.Viewport != "" {
+		if tag != "" {
+			tag += " "
+		}
+		tag += s.Viewport
+	}
+	if tag == "" {
+		return ""
+	}
+	return " (" + tag + ")"
 }
 
 // shotsForSpec renders screenshot refs for a work item's spec (uri + view_url).
@@ -699,9 +712,13 @@ func shotsForSpec(shots []screenshotRef, profile string) []map[string]interface{
 		if profile != "" && s.Profile != "" && s.Profile != profile {
 			continue
 		}
-		out = append(out, map[string]interface{}{
+		entry := map[string]interface{}{
 			"profile": s.Profile, "uri": s.URI, "view_url": s.ViewURL,
-		})
+		}
+		if s.Viewport != "" {
+			entry["viewport"] = s.Viewport
+		}
+		out = append(out, entry)
 	}
 	return out
 }

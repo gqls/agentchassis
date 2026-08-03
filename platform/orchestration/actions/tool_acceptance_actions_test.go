@@ -582,3 +582,31 @@ func TestRenderLineDurableURIOnlyAndClaimsNothing(t *testing.T) {
 		t.Error("no renders → no line (the default-off case must add nothing to the note)")
 	}
 }
+
+// A ref that carries its viewport prints it beside the profile on BOTH note
+// lines; one from a pre-viewport adapter keeps the bare-profile form for ever
+// (the field is optional in the envelope, so absence is normal, not an error).
+func TestNoteLinesCarryViewportWhenPresent(t *testing.T) {
+	withVp := []screenshotRef{{Profile: "mobile", URI: "s3://b/m.png", Viewport: "390x844@3x"}}
+	if line := renderLine(withVp); !strings.Contains(line, "s3://b/m.png (mobile 390x844@3x)") {
+		t.Errorf("render line must carry the viewport beside the profile: %q", line)
+	}
+	if line := evidenceLine(withVp); !strings.Contains(line, "s3://b/m.png (mobile 390x844@3x)") {
+		t.Errorf("evidence line must carry the viewport beside the profile: %q", line)
+	}
+}
+
+// The envelope's optional viewport survives extraction into the ref.
+func TestExtractRunResultsKeepsViewport(t *testing.T) {
+	collected := map[string]interface{}{"browser_run": map[string]interface{}{
+		"results": []interface{}{map[string]interface{}{"check_id": "x", "pass": false, "profile": "mobile"}},
+		"screenshots": []interface{}{map[string]interface{}{
+			"profile": "mobile", "uri": "s3://b/m.png", "view_url": "https://v",
+			"viewport": "390x844@3x", "failing_checks": []interface{}{"x@mobile"},
+		}},
+	}}
+	v := extractRunResults(collected, "browser_run")
+	if len(v.Shots) != 1 || v.Shots[0].Viewport != "390x844@3x" {
+		t.Errorf("viewport lost in extraction: %+v", v.Shots)
+	}
+}

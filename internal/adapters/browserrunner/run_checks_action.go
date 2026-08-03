@@ -144,10 +144,15 @@ type overflowInfo struct {
 // travelling-doc notes); ViewURL is a presigned GET that expires (for the work
 // item's spec). FailingChecks lists the id@profile instances it evidences.
 type ScreenshotRef struct {
-	URL           string   `json:"url"`
-	Profile       string   `json:"profile"`
-	URI           string   `json:"uri"`
-	ViewURL       string   `json:"view_url,omitempty"`
+	URL     string `json:"url"`
+	Profile string `json:"profile"`
+	URI     string `json:"uri"`
+	ViewURL string `json:"view_url,omitempty"`
+	// Viewport is the layout viewport the page was rendered at, with its device
+	// scale — "390x844@3x". The PNG's own pixel width is viewport × scale, so
+	// without this a reader must fetch the object to learn that a 1170px-wide
+	// image is a phone, not a tablet.
+	Viewport      string   `json:"viewport,omitempty"`
 	FailingChecks []string `json:"failing_checks"`
 }
 
@@ -238,6 +243,7 @@ const (
 	desktopHeight = 900
 	mobileWidth   = 390
 	mobileHeight  = 844
+	mobileScale   = 3 // DeviceScaleFactor for the mobile context, and the @Nx in Viewport
 	mobileUA      = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) " +
 		"AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 
@@ -420,8 +426,19 @@ func (a *RunChecksAction) captureEvidence(ctx context.Context, page browserPage,
 		zap.String("uri", uri), zap.String("profile", profile),
 		zap.Bool("failure", isFailure), zap.Strings("failing_checks", failed),
 		zap.Int("bytes", len(png)))
-	return ScreenshotRef{URL: url, Profile: profile, URI: uri, ViewURL: viewURL, FailingChecks: failed},
+	return ScreenshotRef{URL: url, Profile: profile, URI: uri, ViewURL: viewURL,
+			Viewport: profileViewport(profile), FailingChecks: failed},
 		isFailure, true
+}
+
+// profileViewport names the layout viewport a profile renders at, from the
+// same constants openChromium builds the browser context with — one source, so
+// the label cannot drift from the capture.
+func profileViewport(profile string) string {
+	if profile == "mobile" {
+		return fmt.Sprintf("%dx%d@%dx", mobileWidth, mobileHeight, mobileScale)
+	}
+	return fmt.Sprintf("%dx%d@1x", desktopWidth, desktopHeight)
 }
 
 // resolveProfiles: desktop always runs unless only mobile is asked for; mobile
@@ -811,7 +828,7 @@ func openChromium(ctx context.Context, url, profile string, logger *zap.Logger) 
 	if profile == "mobile" {
 		ctxOpts.Viewport = &playwright.Size{Width: mobileWidth, Height: mobileHeight}
 		ctxOpts.UserAgent = playwright.String(mobileUA)
-		ctxOpts.DeviceScaleFactor = playwright.Float(3)
+		ctxOpts.DeviceScaleFactor = playwright.Float(mobileScale)
 		ctxOpts.IsMobile = playwright.Bool(true)
 		ctxOpts.HasTouch = playwright.Bool(true)
 	}

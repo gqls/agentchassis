@@ -870,3 +870,30 @@ func TestFailingRunGoesToScreenshotsEvenWithRendersOn(t *testing.T) {
 		t.Errorf("opting into renders must not double the capture cost of a failing run: %d uploads", len(st.keys))
 	}
 }
+
+// The viewport label is derived from the same constants openChromium builds
+// the browser context with — if either changes without the other, this fails.
+// A reader needs it because the PNG's pixel width is viewport × device scale:
+// a 1170px-wide render is a phone at 3x, and nothing else says so.
+func TestCaptureStampsViewport(t *testing.T) {
+	if got := profileViewport("desktop"); got != "1366x900@1x" {
+		t.Errorf("desktop viewport label: %q", got)
+	}
+	if got := profileViewport("mobile"); got != "390x844@3x" {
+		t.Errorf("mobile viewport label: %q", got)
+	}
+	// And it reaches the ref a real run returns, on both lists.
+	mobile := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 1, "#result": 1}, overflow: true, texts: map[string]string{"#result": "1"}}
+	a := actionWith(map[string]*fakePage{"mobile": mobile})
+	a.store = &fakeStore{}
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "run-vp", URLs: []string{"u"}, Profiles: []string{"mobile"},
+		CriteriaJSON: criteriaDesktopMobile, Function: "tool-x", SiteID: "s",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Screenshots) != 1 || out.Screenshots[0].Viewport != "390x844@3x" {
+		t.Errorf("a captured ref must carry its viewport: %+v", out.Screenshots)
+	}
+}
