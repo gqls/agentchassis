@@ -229,3 +229,20 @@ record**, found by tracing the writer instead of the row:
 - **Do not restore it by any route** — the section is structurally
   undeliverable. The glosario row (3→2 slots, −48%) leaves this bug's
   fleet-signature list entirely: it was the back-out, not a regeneration.
+
+## Contributed by the bugfix_177 lane, 2026-08-03 — two more crosslink items are DELIBERATELY parked behind a dead dependency, for you to release
+
+`9e9ec430-ff92-4264-83cc-6072840faad8` and `18bc832c-c937-4608-9a05-718772d44c88`
+(both `content_rewrite`, item_key `tool_crosslink:tool-cma-obligation-checker:…`,
+status `triaged`) depend on `a5cabea0` — a 177 zombie now `wont_fix`, which can
+never release a dependency. **177's approved plan cleared those deps; the apply
+was NARROWED after reading this bug's own diagnosis note** (doc_notes
+2026-08-03: dispatching `93f2a3b7` — released 08-02 on the "stands on its own
+merits" reasoning — regenerated whole slots and dropped paragraphs). So the
+dead dependency is being used as a VISIBLE interlock: the items cannot dispatch
+until someone clears `depends_on`, and that someone should be this lane, in the
+same breath as its fix, when dispatching a crosslink item stops being
+destructive. `UPDATE site_work_items SET depends_on = NULL WHERE id IN (…the
+two ids…);` is the whole release. If this bug is closed another way (e.g. the
+crosslink path is retired), cancel them instead — do not let the interlock
+outlive the reason for it.
