@@ -827,3 +827,22 @@ is the post-roll pod-grep (positive `depthAtLastGood` ≥1, negative "fixes JSON
 = 0, every replica, same exec). Commit `68cc1b4e8` (`Council-Submitted`) is credited by
 098 automatically on this approval. **The fix stays inert until a chassis image rolls —
 until then, salvage still dies on bracket-bearing objection strings.**
+
+### 2026-08-03 — the repair fix is VERIFIED LIVE; the lane is complete except the organic watch
+
+Post-roll verification on replicaset `6d4b55c546`, both replicas: the running binary is
+bracketed to a 23:17–23:20Z (08-02) build by neighbouring commits' compiled literals
+(fe34fd04f present / 77b58fd4d present / 87ea0a5e7 absent), so `68cc1b4e8` (23:00:03Z)
+is IN it. Candidate 1's markers survived a fourth rebuild. **The bracket-blindness
+caveat closes: salvage no longer dies on bracket-bearing review text.** Note the owed
+check as originally written was unrunnable (WRONG_CALLS 2026-08-03 — a local var and a
+comment cannot appear in a binary); the literal-bracket method above is the one that
+works for a change adding no new string.
+
+**Everything this bug can produce has been produced.** Cands 1–4 live; instruments
+running; the induction question settled by the model itself; the repair fix approved
+and live. The file stays OPEN pending one owner decision: accept the aggregate evidence
+and close (recommended — the TRUNCATED label string is the only unwitnessed artefact,
+every arm feeding it production-witnessed), or keep waiting on
+`metadata->>'gated_by_truncation'='true'` organically, which candidate 4's own success
+makes rare by design.
