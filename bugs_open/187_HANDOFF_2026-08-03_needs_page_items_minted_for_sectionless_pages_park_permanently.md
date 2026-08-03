@@ -84,7 +84,16 @@ takes this ticket should weigh that extraction first.
 
 All 28 parked rows measured against live state (join `pages` BY NAME — 27/28
 carry NULL `page_id`), every emitter read at HEAD. 090 run filed, correlation
-`b3dcb102-d4bf-44c1-b2a2-3068ce95acc6`.
+`b3dcb102-d4bf-44c1-b2a2-3068ce95acc6` — verdict **UNVERIFIABLE** (3
+iterations; its own citations name the stale code index and failed source
+reads as the cause — the loop could not read the code, it did not contradict
+anything). Per the 2026-07-31 ruling the substitute is stated plainly: every
+emitter read at HEAD and quoted, the handler chain read in full, all 28 rows
+measured live, and the natural experiment inherited from 177 (same handler,
+sectioned sibling items complete). The run's one find is a confirmation from
+the other direction: the ONLY unpark ever performed was manual
+(`spec.promoted_by='dartsonline-traffic-workstream'`, 2 rows fleet-wide, one
+day, 0 Go hits for the field at HEAD) — no systematic drain exists.
 
 - **image-build-handler (14) — 177's shape, guard the emit.**
   `flag_page_image_rebuild_action.go:132-159` emits from only (site_id,

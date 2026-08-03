@@ -58,3 +58,46 @@ Design consequence: the park-for-ever half of this bug is not "rows evading a
 drain" but "no drain exists" — and the drain's question ("is this item's ask
 now satisfied?") is the SAME satisfiability question the emit guard asks.
 One shared resolver can serve both ends.
+
+## 2026-08-03 ~23:00 — sweep drafted; near-miss caught by encoding the check
+
+- 090 filed (run corr `b3dcb102-d4bf-44c1-b2a2-3068ce95acc6`); implementation
+  dispatched to an opus agent per the PLAN.
+- **MISSTEP (caught before apply): the sweep's first verify block asserted 3
+  leftover rows — the real number is 7.** I had measured plan SECTION rows per
+  page but not plan MEMBERSHIP (`site_plan_pages`), and 4 sectionless tool
+  pages (grip-force-friction, gripper-cycle-time, gripper-payload, matchmatrix)
+  ARE current-plan members — synthesis-eligible, so "unsatisfiable" is not
+  provable and they must not be swept. What caught it: writing the DO/RAISE
+  verify forced the exact leftover list, and re-running the measurement with
+  the membership column contradicted the draft. The check IS the catch —
+  same lesson as the marker rule: encoding the expectation is what surfaces
+  the wrong one. Sweep = `sql_for_agents/300`, now asserting 7.
+- Corollary worth keeping: those 4 rows mean the emit guard alone does NOT
+  zero the leak for plan-member sectionless pages — the guard (correctly,
+  conservatively) lets them emit, synthesis then finds no same-role donor, and
+  they park. That residue is a PLAN-shape question (TL-009 territory), named
+  in the bug close-out, not silently absorbed.
+
+## 2026-08-03 ~23:25 — 090 verdict: UNVERIFIABLE (tooling), no refutation; one useful datum
+
+- Run `b3dcb102` COMPLETED after 3 iterations: **UNVERIFIABLE**. Its own
+  stated reason: both targeted code searches hit the stale code index
+  (0-row = UNKNOWN per the index's own staleness notice — the known landmine,
+  frozen at `d98010e8b`), and its reads of `reviewRevalidators` /
+  `check_has_ready_sections` bodies failed ("tooling failure"). It neither
+  confirmed nor refuted the mechanism; nothing in the citations contradicts
+  the first-hand verification recorded in the bug file (per the 2026-07-31
+  owner ruling, that verification is the stated substitute: emitters read at
+  HEAD and quoted, handler chain read, all 28 rows measured, natural
+  experiment inherited from 177).
+- The run's one real find: `needs_page` rows CAN be hand-unparked — spec
+  fields `promoted_by`/`promoted_reason` on rows `7e515460`/`b17664fe`
+  (dartsonline `beginners` + sibling, backfilled 2026-07-29 by the
+  dartsonline-traffic lane, both now `complete`). Its data_request answered
+  live: exactly 2 rows fleet-wide, one actor, one day, and `promoted_by` has
+  0 Go hits at HEAD (grepped in the tree, NOT the index) — a one-off manual
+  intervention, not a mechanism. This is the strongest possible confirmation
+  that no systematic unpark path exists — the revalidator gap is real, and
+  the two promoted rows are the manual precedent for what `revalidateNeedsPage`
+  mechanises with evidence.
