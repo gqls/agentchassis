@@ -277,3 +277,43 @@ one is unusable. Two of them also draw things that aren't true: a delivery van, 
 guide for the site's imagery, and marked the old icons as superseded so the system will
 generate replacements. Nothing has been generated yet — no credits spent — and I'll
 look at each new image before anything goes on the site.
+
+## 2026-08-03 — the setup-builder tool is live, and so is the "Start Here" fix
+
+A different thread had told us: the nav's "Start Here" link went to a page that
+was substantially blank, and the tools weren't visible on the site at all. Both
+are fixed now, checked the proper way — fetched the live pages, not the database.
+
+**The tools page.** The Dart Setup Builder (the interactive quiz — experience
+level, grip, release — that recommends a barrel weight and setup) had actually
+been built days ago, but it never made it onto the live site. The reason was a
+real platform bug, already found and fixed by another thread this week (filed as
+`bugs_open/169`, now `bugs_closed/169`): a background job can hang indefinitely
+partway through publishing a page, and this exact page had been caught in it,
+then permanently failed on a retry that was chasing an old, already-deleted
+version of the page. With that bug fixed, I re-ran the publish directly and it
+went live cleanly in seconds — `https://dartsonline.com/tools/setup-builder/index.html`
+now serves the real tool, not a blank page.
+
+**The menu link.** Getting the page live wasn't enough on its own — this site's
+menu/footer is a separate stored snapshot that only updates when explicitly
+rebuilt, so the new "Setup Builder" link existed in our records but not on the
+page you'd actually see. I rebuilt it, and confirmed by fetching the homepage
+fresh (past the CDN's cached copy) that the link is there — it's in the footer's
+utility links, alongside About/Contact/Shipping, which is the right place for a
+tool link (the main menu is reserved for content sections, not tools).
+
+**"Start Here"** itself was rewritten a couple of days ago with real content
+("Build Your First Darts Setup") rather than the near-empty page reported — I
+re-checked it today and it's still there, live.
+
+**Left open, deliberately:** the tool page doesn't yet have the short
+explanatory paragraph around the widget (what it does, why it matters) — that
+generation step ran and found nothing ready to write, so it silently did
+nothing rather than fail. The widget itself works fully without it; this is
+polish, not a blocker. Also still flagged for a human decision: two "Start Here"
+call-to-action buttons whose secondary link doesn't point anywhere real yet —
+harmless until someone clicks that specific button.
+
+Every other page on the site is being refreshed so they all pick up the new
+menu too (one small rebuild job per page; drains on its own, nothing needed).

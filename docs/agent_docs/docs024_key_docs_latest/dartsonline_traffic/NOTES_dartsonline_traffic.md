@@ -754,3 +754,60 @@ steps, not one. The 7 new icons are `active` but **not deployed** — 19
 heroes shipped because their `needs_imagery` items were routed; these were not.
 Swapping the component before promoting the assets would wire the page to images
 that 404.
+
+## 2026-08-03 — setup-builder tool page: stale-page_id dead item + frozen-chrome nav gap
+
+Item 3 from the 07-30 handoff ("the setup-builder tool") closed out today. Full
+mechanism, for whoever touches a tool page next:
+
+**Symptom:** `/tools/setup-builder/index.html` served 404 live despite
+`page_components` holding a real 11,198-byte `rendered_html` tool widget
+(slot `tool-setup-builder`, position 2) dated 2026-07-31 20:27 — the content
+existed and was simply never published.
+
+**Cause:** the `page_rerender` work item for this page (`b286f2f5-...`) predates
+a delete+recreate of the page done during the original 07-31 fix session (the
+placeholder page was empty and blocked a clean `tool-generator` re-run, so it
+was deleted and rebuilt at the same canonical URL with a new `page_id`). The
+stale item still carried the OLD `page_id` (`4b8d7e3f-...`) in its `spec`, so
+every retry failed identically: `failed to load page info: sql: no rows in
+result set`. 3/3 attempts burned, item permanently `failed`. Compounding it:
+this item's *first* two hang attempts (before it started failing outright) were
+literally the `bugs_open/169` spawn-hang bug — so the same item carries evidence
+of two different, now both-fixed defects.
+
+**Fix applied:** did not touch the dead item. Fired `page-rerender` directly
+against the CURRENT `page_id` (`e0325e16-6df6-41de-903c-61f5778708e2`), per
+`cta_link_integrity/scripts/049b_deploy_single_page.sh`, no `reason` (assemble-
+only — the stored `rendered_html` is what we want served verbatim). Completed
+in the same request/response round-trip; page flipped `build_status`
+`planned` → `deployed`; `https://dartsonline.com/tools/setup-builder/index.html`
+→ 200, real widget content confirmed by string match (`Barrel weight`,
+`Tungsten`).
+
+**Second gap, found only because the first fix didn't make the link appear on
+its own:** `site_nav_items` already had the correct `Setup Builder` row
+(`utility` group, i.e. footer — matches this codebase's tool-pages-never-
+primary-nav rule) since 07-31 20:30:06, but the site's stored chrome
+(`site_components.rendered_html` for head/header/footer — a frozen artefact,
+see `bugs_open/117`) was rendered 100ms into the SAME transaction, one page-
+deploy short: it built the nav from the DB at a moment the target page was
+still `planned`, so — [INFERRED, not read in code, only observed] — the nav
+renderer appears to skip a link to a not-yet-deployed page. Fired `nav-updater`
+directly (`site_id`+`domain`, matching the `ensure_site_record` both-fields
+requirement) *after* the page went `deployed`; chrome re-rendered
+2026-08-03 10:19:47, footer now `ILIKE '%Setup Builder%'` = true. Confirmed on
+the live homepage only after busting the CDN cache (`cache-control: max-age=3600`
+had the pre-fix footer cached for up to an hour past the DB write — add
+`?cb=$(date +%s)` or wait past `max-age`, don't trust a bare `curl` here).
+
+`nav-updater`'s own `get_pages_for_rerender` step (statuses `deployed`+`active`)
+then queued a `page_rerender` item for every deployed page on the site (23 of
+them) so the REST of the site picks up the new footer too — that's a normal
+`build-dispatch-loop` drain, not a defect; letting it run rather than firing
+each page directly.
+
+**Left open (not part of this note's fix):** `aadbbe09-...` (`needs_content_page`
+for the hero/guide/CTA text around the widget) completed as a no-op —
+`page-build-handler no-op: no sections ready to build` — so the tool page has
+no explanatory copy yet, only the widget. Cosmetic; not re-driven here.
