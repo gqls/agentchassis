@@ -450,3 +450,56 @@ verification: 0 of 3,828 responses topics missing the override.**
 thread.
 
 ## Decisions 3 and 4 — explained to the owner, no action taken pending his read
+
+---
+
+# 2026-08-03 (late) — decisions 3 and 4 DECIDED (owner delegated: "do what you think best")
+
+## Decision 3 — the four adapter sites: NOT ADOPTING NOW. Decided, not deferred.
+
+The four remaining log-and-swallow sites (reasoning, contentcreator ×2, websearch
+×2, thunder ×2) stay as they are. Grounds:
+
+- **The failure is latent by measurement, twice over.** Largest reply ever recorded
+  fleet-wide: 48,327 bytes. And decision 2 raised every reply topic's ceiling to
+  5MB, so the headroom is now ~108×, not ~21×.
+- **The class cannot grow**: `check_silent_reply_drop` fires on any new site (and
+  on any of these four being touched), so the population is capped at these four
+  named instances.
+- **Each adoption is a caller-observable behaviour change** on a service whose
+  callers have never seen this failure. Changing four services' failure semantics
+  to close a gap nothing has ever fallen into is risk with no measured benefit.
+
+**The reopen trigger, stated so this is falsifiable:** one observed refusal — a
+`Message Size Too Large` (or any produce failure that starves a caller) in any of
+the four services' logs, or a caller timeout traced to an unsent reply. If that is
+ever seen, adopt at ALL FOUR in one round (they are one decision, per the
+architecture seat's ruling on 7478233b), reusing the option-b pattern and its tests.
+
+## Decision 4 — replies carrying full content: NO. Decided, and the cap stays.
+
+The 50KB-per-field preemptive cut stays. Grounds, in order of weight:
+
+1. **Decision 1 removed the only correctness argument for it.** Pre-decision-1,
+   variant (a) was the way content survived; now nothing is destroyed either way —
+   the full copy is in S3 and the marker names it. What remains is purely "should
+   the inline copy be bigger", and the answer turns on who reads it.
+2. **The readers are LLM pipelines and the orchestration DB.** A reply's body is
+   merged into `orchestration_states.collected_data` (a Postgres jsonb row) and
+   rendered into LLM prompts downstream. A 5MB inline reply would bloat every
+   orchestration row it passes through and could not be handed to a model whole
+   anyway — the URI + 50KB head IS the useful form for both consumers.
+3. **Measured demand is zero.** Truncation fired 2 times in the current pod window
+   (1 scrape); no consumer has ever been observed wanting the tail inline —
+   `bugs_open/100`'s company-number case wants the tail *stored and fetchable*,
+   which decision 1 + decision 5 already give it.
+
+**Reopen trigger:** a consumer that demonstrably needs more than 50KB *inline*
+(not fetchable-from-S3). None is known; `firecrawl_crawl`'s two research consumers
+read structure, not bulk.
+
+The cap-number question 133 left ("two numbers, no stated intent") is RESOLVED by
+decision 2: the intent is now stated and uniform — topics carry 5MB, the transport
+cap is 50KB/field, and the gap between them is deliberate headroom for multi-page
+crawls (N pages × several fields × 50KB can approach 5MB; the degrade path covers
+the excess).
