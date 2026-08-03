@@ -1498,3 +1498,57 @@ Everything from yesterday still stands, including the open question I left you: 
 photographs still land where nobody sees them. That's still the top of the list and
 still a decision for you rather than a job for me. If anything today made it slightly
 more pressing — there are now two systems that could be taking pictures nobody looks at.
+
+---
+
+## 3 August 2026, later — you chose the machine eye, and then I found someone already building it
+
+You picked the option where a machine looks at the photographs rather than a person:
+something that examines each picture and, if it sees a problem, raises a repair ticket.
+The appeal is that we don't have to invent a new place for people to look — the repair
+queue is already a thing that gets worked, so the pictures would flow into machinery
+that exists.
+
+I went to build it and stopped, and I want to explain why, because the reason is a
+decision rather than an obstacle.
+
+The "eye" itself already exists — someone built the capability a couple of days ago:
+the ability to send images to a model and get a critique back. It has genuinely never
+been used; I checked properly, and nothing in the system calls it. So far so good, and
+that matches what I told you when you chose.
+
+What I then found is that **another thread has building the first user of it as their
+literal next task.** They're not just planning a critic — they've already built the
+surrounding machinery: a way of sweeping pages for screenshots, and, crucially, a
+working path from "critique found something" to "repair ticket raised and drained".
+That last part is the hard bit, and they have it working. They also have a deliberate
+experiment attached: comparing two different AI providers on the same critique job, to
+decide which to use.
+
+If I had built mine, I'd have made the first call to that shared capability, which
+would have pre-empted their comparison, and I'd have written a second critique prompt
+that would inevitably drift from theirs. Two things doing the same job slightly
+differently is the specific way this system has gone wrong before, repeatedly. So the
+right answer was to stop and hand over what only my side has.
+
+Which is this: **my photographs are of pages that just passed every test.** Theirs are
+of pages they went looking at. Mine are the ones that matter for the original problem —
+every one of the three faults you found by eye last week was on a page where every
+automated check was green. A critic aimed at pages that passed is aimed exactly at the
+gap. And it costs nothing extra, because the photographs are already being taken.
+
+I've written to that thread with the details: where my pictures live, the fact that
+their critic can read them by changing one setting rather than any code, and two
+warnings about how not to misread them. I've deliberately not touched their side.
+
+So the position is: **you'll get the machine eye, and the sensible shape is one critic
+reading two sources rather than two critics.** The timing now depends on their next
+session rather than mine. If you'd rather not wait on another thread — say so and I'll
+build a minimal version on our side and accept the duplication; it's your call and it's
+a legitimate one, I just didn't want to make it silently by being the first to press a
+button that was somebody else's to press.
+
+One honest note: I have **not** run their critic against my pictures. I've checked, by
+reading the code, that the shapes match and it would work. That's a strong argument and
+it isn't the same as having watched it happen, and I've said exactly that in the note to
+them rather than passing off a prediction as a result.

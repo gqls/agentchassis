@@ -140,6 +140,37 @@ ordering is the design working.
    half that needs machinery and none of the half that needs eyes. Options range from a
    line in a weekly digest to a contact sheet of the last N passing runs to a review page.
    **Editorial, not technical** — do not pick one unilaterally.
+
+   > **OWNER DECIDED 2026-08-03: wire the MACHINE eye.** Not a human surface — a vision
+   > check over the renders that raises a work item on suspicion, so the existing repair
+   > pipeline is the surface and nothing new has to be looked at by a person.
+   >
+   > **Then the ground moved, so NOTHING WAS SEEDED — read this before you build it.**
+   > The eye is `execute_vision_prompt` / `aiservice.VisionCapable` (**MDL-040**), and it
+   > really is undriven: **0** `agent_definitions` rows reference it, and `render-audit-agent`
+   > does not call it. **But `vigilant_designer_offer_analysis` owns its first live call as
+   > their A2** — `design-critique-agent`, seeded per their PLAN §Phase 2, with a
+   > Gemini-vs-Claude provider trial attached and, more importantly, a **drain that already
+   > works**: `write_render_audit_findings` → work items → repair (their A0.4). Their critic
+   > does not exist yet, so A2 is genuinely pending, not done.
+   >
+   > **Seeding a vision step on `tool-acceptance-agent` would have made the first vision
+   > call, pre-empted their provider trial, and stood up a second critic prompt to drift
+   > from theirs.** That is the exact duplication CLAUDE.md's "reuse existing machinery"
+   > rule exists to stop, so I stopped and told them instead:
+   > `vigilant_designer_offer_analysis/CONTRIB_2026-08-03_acceptance_renders_are_a_second_input_for_your_critic.md`.
+   >
+   > **The cheap shape, when A2 lands:** ONE critic, TWO image sources. Our renders sit at
+   > `browser_run.response.renders` in exactly the shape `resolveVisionImageRefs` consumes
+   > (`execute_vision_prompt_action.go:277-284`; its descent is object → `.response` →
+   > `.renders`), so their critic reads them with `"images_field": "browser_run"` — a config
+   > value on each side, no Go. **[INFERRED, not run.]**
+   > **Checked, not assumed:** `tool-acceptance-agent` has **no root `ai_service`** block, so
+   > MDL-039's shadowing trap does not bite here and a step-level block would actually apply.
+   > **Do not read acceptance renders as pass-only** — `Renders` rides on a FAILED note too
+   > when one profile passed and another failed, and `failing_checks` is `null` on every
+   > entry by construction. A critic that branches on a render's presence has undone the
+   > two-list design.
 2. ~~The lane SUMMARY~~ — **written**: `SUMMARY_2026-08-02_the_camera_works_and_nobody_looks_yet.md`.
 3. **Open design question on the camera itself:** a full-page shot at one width is not what
    a mobile reviewer needs. Should `Renders` carry its viewport? (register `verify-later` (b)).
