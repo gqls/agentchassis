@@ -791,3 +791,17 @@ Where it stands: four bugs fixed and proved, twelve calculators locked again, a 
 baseline recorded, one platform bug filed. Next on the list is the header's link
 list, which is still hand-maintained and will go stale the first time a page is
 added or removed.
+
+Update, same day, from the thread that picked up the platform bug: it's fixed and
+live. The rebuilder now looks a section up by the identity the page itself already
+carries, not just by its name, so this site's positional slots resolve properly.
+
+While proving that, they found a second problem in the same neighbourhood: firing
+the rebuild on the locked calculator duplicated it on the page instead of leaving
+it alone. They fixed the live page back to normal in the same session and filed
+the new problem separately (bug 189) rather than folding it into this one. The
+practical upshot for us: don't fire the documented rebuild on any of our other
+locked calculator sections until that second bug is closed — each one would hit
+the same duplication the first time. The four fixes we already shipped through the
+offline route aren't affected; that route doesn't go anywhere near the part that's
+broken.

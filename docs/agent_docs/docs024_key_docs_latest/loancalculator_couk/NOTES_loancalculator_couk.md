@@ -2327,3 +2327,34 @@ Today that is inert here (the authored chrome carries no placeholders and is now
 locked), but "inert today" is a fact about today, not a guard — the same reasoning
 this lane got wrong once already this session. It needs its own change with its own
 verification, and the orphan decision first.
+
+## 2026-08-03 (platform thread) — bugs_open/182 fixed and live; a second defect found inducing it
+
+A different thread (`bugfix bugs_open/182`) picked up the platform bug this lane
+filed and shipped the fix: `RerenderPageSectionsAction` now resolves by
+`page_components.component_id` first, falling back to `slot_name`. LIVE on
+chassis v1.0.1240, pod-verified both replicas. This site's positional slots
+(`prose-0`, `tool-2`, etc.) are the population that fix repairs — 63 of 63
+slots here, plus 2 on oufe.com.
+
+**A second, DIFFERENT defect surfaced inducing the verification** — filed as
+`bugs_open/189`. Firing `section_data_resolved` on `tool-loan-vs-savings`
+(this site's own documented re-render, exactly as this NOTES file describes it
+above) DUPLICATED the calculator on the page: the fresh render inserted
+alongside the pre-existing locked row, instead of the lock guard discarding
+the fresh copy as `bugs_closed/058` is supposed to guarantee. Root cause:
+`save_page_sections` matches a locked row by name, and 182's fix means the
+persisted name now silently changes (`extractSectionsFromMetadata` prefers the
+resolved component's own identity over the stored slot_name) — so the lock
+match misses. **Remediated live in the same session** (duplicate row deleted,
+locked row repositioned back, prose slot_names restored, assemble-only
+redeploy fired) — this page is back to 4 sections, content unchanged.
+
+**Do NOT fire `section_data_resolved` on this site's other 12 locked
+sections** (or oufe.com's 2) until `bugs_open/189` is fixed — each one will
+reproduce the same duplication the first time it's touched. The four
+calculator fixes this lane already shipped via the offline route
+(`decompose/render_tool_row.py`) are unaffected — that route never goes
+through `save_page_sections`' locked-row matching at all. Check
+`bugs_open/189` for the current fix status before relying on the documented
+re-render route again for a LOCKED section on this site.
