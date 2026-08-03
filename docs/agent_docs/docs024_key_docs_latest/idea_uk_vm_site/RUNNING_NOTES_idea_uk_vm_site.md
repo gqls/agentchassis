@@ -3633,3 +3633,17 @@ hostname (curl exit 35 via --resolve; plain-http 200s you see meanwhile are
 cached dan.com A records still draining, NOT the edge). Watcher armed for the
 edge cert; content wiring (Worker route/B2) remains the webdesign lane's
 machinery, as with webzy.uk.
+
+**§X.41 final state (loanzy.uk), and the watcher's false alarm corrected:**
+edge cert ISSUED (openssl: `CN=loanzy.uk`, SAN incl. wildcard) and the zone
+serves **522 via cf-ray after ~20s** — CF timing out on the placeholder origin
+`199.59.243.228`, which is the CORRECT current state for a pattern-record zone
+with **no Worker route yet** (webdesign.co.uk's identical record serves 200
+only because its route intercepts). My watcher's "TLS not up after 40 min" was
+a FALSE NEGATIVE — wrong zone's anycast IP early, then a 15s HTTP timeout
+misread as a missing cert (WRONG_CALLS 08-03). Fresh-zone probe playbook:
+zone's OWN IP, `openssl s_client` for the cert question, ≥30s for the 522.
+Plus: **the CF token carries a LOCATION filter** — a v6-sourced API call is
+refused with 9109 naming the address; pin `curl -4` for all CF API work.
+loanzy.uk DONE at this lane's boundary: delegation, zone, cert live; content
+route = webdesign lane.
