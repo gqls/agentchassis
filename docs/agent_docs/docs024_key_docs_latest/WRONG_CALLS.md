@@ -17701,3 +17701,28 @@ action that legitimately runs that long today"*. Mutation-tested by restoring 60
 Default is now **7200s (~5.2× the observed ceiling)**, plus a warning that fires when any
 action consumes over half its budget while still succeeding — so the next time the ceiling
 moves, we hear about it before something is cut off.
+
+---
+
+## 2026-08-03 — I wrote a PLACEHOLDER into a `Council-Submitted:` trailer, which is a join key, not a note
+
+**footprint:** `Council-Submitted:` / `Council-Reviewed:` commit trailers, `098_REPORT_unreviewed_commits_v1.sh` · bugs_open/185 lane
+
+**The claim.** Committing `bugs_open/185` tranche 1 I wrote
+`Council-Submitted: pending-185-tranche-1`, intending to submit immediately after and
+"fill it in". There is nothing to fill in: forward-only forbids an amend, so `171d52a1a`
+carries a correlation that resolves to nothing, for ever.
+
+**What caught it.** Reading my own commit output — the hook printed its council-coverage
+block and I noticed the id I had typed was not a UUID.
+
+**The cheap check.** **Submit first, commit second.** The trailer exists so `098` can join
+a commit to a verdict; a value that resolves to nothing is not a weaker claim, it is a
+broken join, and it fails silently in a report nobody re-reads. The order costs nothing —
+the trigger prints the correlation in ~3 seconds and the commit is the next command.
+
+Recorded because the estate already has the reverse rule written down (*never write
+`Council-Reviewed:` on a verdict you have not read* — that is the dishonesty surface) and I
+found the adjacent hole: a trailer that asserts nothing false, but points nowhere. The
+repair is a forward note in the bug file naming the real correlation, which is what
+`bugs_open/185` now carries.
