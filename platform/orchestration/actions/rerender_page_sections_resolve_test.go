@@ -145,3 +145,358 @@ func TestRerenderPageSections_PageIDCannotReachPastTheSite(t *testing.T) {
 		t.Errorf("expected a not-found refusal, got: %v", err)
 	}
 }
+
+// ============================================================================
+// bugs_open/182 — a re-render that resolved NO component for a section used
+// to carry the stored HTML and complete successfully; nothing distinguished
+// that from a real re-render. These tests pin the fix: resolve by
+// component_id first (loadComponentSchemasByID), fall back to slot_name, and
+// fail the step — naming every unresolved slot — when a section resolves via
+// NEITHER route. "Not ready" and "empty template" carries stay legitimate and
+// non-fatal.
+// ============================================================================
+
+// componentColumns is the column order scanSectionComponentRow expects, once,
+// so every fixture below stays honest about column position.
+var componentColumns = []string{
+	"id", "name", "display_name", "function", "category", "semantic_tags",
+	"description", "html_template", "input_schema", "render_mode", "agent_type",
+	"component_level",
+}
+
+func emptyComponentRows() *sqlmock.Rows {
+	return sqlmock.NewRows(componentColumns)
+}
+
+// expectPageAndSections wires the two queries every test below needs first:
+// the page resolve, then loadStoredSections' page_components read.
+func expectPageAndSections(mock sqlmock.Sqlmock, siteID uuid.UUID, pageID uuid.UUID, pageName, domain string, section sqlmock.Rows) {
+	mock.ExpectQuery("SELECT p.id, s.domain").
+		WithArgs(siteID, pageName).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "domain", "url", "name"}).
+			AddRow(pageID, domain, "/x.html", pageName))
+	mock.ExpectQuery("FROM page_components").WillReturnRows(&section)
+}
+
+func rerenderParams(db *sql.DB, siteID uuid.UUID, pageName string) ActionParams {
+	return resolveParams(db, map[string]interface{}{
+		"input_data": map[string]interface{}{
+			"site_id": siteID.String(),
+			"spec":    map[string]interface{}{"reason": "section_data_resolved", "page_name": pageName},
+		},
+	}, map[string]interface{}{
+		"target_site_id": "input_data.site_id",
+		"page_name":      "input_data.spec.page_name",
+		"reason":         "input_data.spec.reason",
+	})
+}
+
+func expectBaseSiteData(mock sqlmock.Sqlmock) {
+	mock.ExpectQuery("FROM sites WHERE id").
+		WillReturnRows(sqlmock.NewRows([]string{"content_data", "email"}).AddRow(nil, ""))
+}
+
+// TestRerenderPageSections_FailsWhenComponentUnresolvedByNameOrID is the 182
+// regression: a positional slot_name (no component_id at all, matching
+// loancalculator.co.uk's shape) resolves via neither name/function nor id.
+func TestRerenderPageSections_FailsWhenComponentUnresolvedByNameOrID(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	expectPageAndSections(mock, siteID, pageID, "tool-loan-vs-savings", "loancalculator.co.uk",
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
+			AddRow("", "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 2))
+
+	// loadComponentSchemas: name pass then function pass, both miss — "tool-2"
+	// is a positional slot name, not any component's identity.
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+	// component_id is empty, so loadComponentSchemasByID issues no query at all.
+
+	expectBaseSiteData(mock)
+
+	p := rerenderParams(db, siteID, "tool-loan-vs-savings")
+
+	_, err = RerenderPageSectionsAction(context.Background(), p)
+	if err == nil {
+		t.Fatal("expected the step to fail when a section's component resolves via neither name nor id")
+	}
+	if !strings.Contains(err.Error(), "tool-2") {
+		t.Errorf("error must name the unresolved slot, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "bugs_open/182") {
+		t.Errorf("error must cite bugs_open/182, got: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
+// TestRerenderPageSections_ResolvesToolByComponentIDWithoutEscalating is the
+// loancalculator repair shape (candidate 2) combined with the 024 end-state
+// flip (candidate 4 from the plan): a positional slot_name with NO name/
+// function match, but a component_id that resolves to an active, self-
+// contained tool component — it must render from the template, not escalate
+// the page to the writer for "missing content_data".
+func TestRerenderPageSections_ResolvesToolByComponentIDWithoutEscalating(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	componentID := uuid.New().String()
+
+	expectPageAndSections(mock, siteID, pageID, "tool-loan-vs-savings", "loancalculator.co.uk",
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
+			AddRow(componentID, "tool-2", []byte(`{}`), "<section>old</section>", 2))
+
+	// name/function passes both miss.
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+
+	// by-id resolution hits: an active, self-contained tool component.
+	mock.ExpectQuery("FROM content_components").WillReturnRows(
+		emptyComponentRows().AddRow(
+			componentID, "tool-loan-vs-savings", "Pay Off Loan or Save?", "tool-loan-vs-savings",
+			"", nil, nil, "<section>hi</section>", nil, "template", nil, "tool"))
+
+	expectBaseSiteData(mock)
+
+	p := rerenderParams(db, siteID, "tool-loan-vs-savings")
+
+	out, err := RerenderPageSectionsAction(context.Background(), p)
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["escalated"] == true {
+		t.Error("a self-contained tool with resolvable component_id must not escalate to the writer")
+	}
+	if got := m["rerendered"]; got != 1 {
+		t.Errorf("expected rerendered=1, got %v", got)
+	}
+	if got := m["carried"]; got != 0 {
+		t.Errorf("expected carried=0, got %v", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
+// TestRerenderPageSections_ComponentIDWinsOverNameWhenBothResolve pins the
+// resolution ORDER: when a slot_name coincidentally matches a generic
+// component by name AND the row's own component_id resolves to a different
+// component, the id's template must win — the row is telling you exactly
+// which component it is; the name match is a coincidence.
+func TestRerenderPageSections_ComponentIDWinsOverNameWhenBothResolve(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	nameMatchID := uuid.New().String()
+	pinnedID := uuid.New().String()
+
+	expectPageAndSections(mock, siteID, pageID, "index", "webdesign.co.uk",
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
+			AddRow(pinnedID, "hero", []byte(`{"headline":"hi"}`), "<section>old</section>", 0))
+
+	// Pass 1 (name) resolves — to a different, generic component.
+	mock.ExpectQuery("FROM content_components").WillReturnRows(
+		emptyComponentRows().AddRow(
+			nameMatchID, "hero", "Generic Hero", "hero", "", nil, nil, "<section>GENERIC</section>", nil, "template", nil, "section"))
+
+	// by-id resolves to the page's own pinned, different component.
+	mock.ExpectQuery("FROM content_components").WillReturnRows(
+		emptyComponentRows().AddRow(
+			pinnedID, "webdesign.co.uk Two-Column Hero", "webdesign.co.uk Two-Column Hero", "hero",
+			"", nil, nil, "<section>PINNED</section>", nil, "template", nil, "section"))
+
+	expectBaseSiteData(mock)
+
+	p := rerenderParams(db, siteID, "index")
+
+	out, err := RerenderPageSectionsAction(context.Background(), p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := out.(map[string]interface{})
+	sections, _ := m["sections_metadata"].([]map[string]interface{})
+	if len(sections) != 1 {
+		t.Fatalf("expected exactly one section, got %d", len(sections))
+	}
+	html, _ := sections[0]["rendered_html"].(string)
+	if !strings.Contains(html, "PINNED") {
+		t.Errorf("expected the page's own pinned component to win, got: %s", html)
+	}
+	if strings.Contains(html, "GENERIC") {
+		t.Error("the generic name-matched template must not be used when component_id resolves")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
+// TestRerenderPageSections_InvalidTemplateByID_IsFatalAndNamed covers
+// bugs_open/024's second route into an empty schemas map: the row's pinned
+// component_id resolves to a row that EXISTS but fails the template-
+// truncation guard. This must be fatal (not a silent carry) and named
+// distinctly from "no component at all", because the remediations differ.
+func TestRerenderPageSections_InvalidTemplateByID_IsFatalAndNamed(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	componentID := uuid.New().String()
+	// Long, with an opened <div> and no closing </div> — fails
+	// toolTemplateValid's tag-balance check (component_level="tool").
+	brokenTemplate := "<div>" + strings.Repeat("x", 120)
+
+	expectPageAndSections(mock, siteID, pageID, "tool-x", "example.com",
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
+			AddRow(componentID, "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 0))
+
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+
+	mock.ExpectQuery("FROM content_components").WillReturnRows(
+		emptyComponentRows().AddRow(
+			componentID, "tool-x", "Tool X", "tool-x", "", nil, nil, brokenTemplate, nil, "template", nil, "tool"))
+
+	expectBaseSiteData(mock)
+
+	p := rerenderParams(db, siteID, "tool-x")
+
+	_, err = RerenderPageSectionsAction(context.Background(), p)
+	if err == nil {
+		t.Fatal("expected the step to fail when the pinned component fails the template guard")
+	}
+	if !strings.Contains(err.Error(), "tool-2") {
+		t.Errorf("error must name the slot, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "invalid template") {
+		t.Errorf("error must distinguish an invalid-template drop from a plain miss, got: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
+// TestRerenderPageSections_EmptyTemplateCarriesWithoutFailing pins the other
+// side of the boundary: an empty html_template is a legitimate, evidenced
+// fallback (an intentional stub), not the silent-no-op class 182 is about —
+// it must carry, surface itself in the output, and NOT fail the step.
+func TestRerenderPageSections_EmptyTemplateCarriesWithoutFailing(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	componentID := uuid.New().String()
+
+	expectPageAndSections(mock, siteID, pageID, "tool-x", "example.com",
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
+			AddRow(componentID, "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 0))
+
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
+
+	// html_template NULL: scanSectionComponentRow omits the map key entirely
+	// for a NULL/empty template, which is what drives the empty-template
+	// branch (as opposed to the component simply not being found).
+	mock.ExpectQuery("FROM content_components").WillReturnRows(
+		emptyComponentRows().AddRow(
+			componentID, "tool-x", "Tool X", "tool-x", "", nil, nil, nil, nil, "template", nil, "tool"))
+
+	expectBaseSiteData(mock)
+
+	p := rerenderParams(db, siteID, "tool-x")
+
+	out, err := RerenderPageSectionsAction(context.Background(), p)
+	if err != nil {
+		t.Fatalf("an empty html_template must be a legitimate, non-fatal carry: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if got := m["carried"]; got != 1 {
+		t.Errorf("expected carried=1, got %v", got)
+	}
+	if got := m["rerendered"]; got != 0 {
+		t.Errorf("expected rerendered=0, got %v", got)
+	}
+	reasons, ok := m["carried_empty_template"].([]string)
+	if !ok || len(reasons) != 1 || !strings.Contains(reasons[0], "tool-2") {
+		t.Errorf("expected carried_empty_template to name the slot, got: %v", m["carried_empty_template"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
+// ── rerenderResolution predicate/describe unit tests (no DB) ────────────────
+
+func TestRerenderResolution_FatalOnlyOnUnresolvedOrInvalidTemplate(t *testing.T) {
+	cases := []struct {
+		name  string
+		r     rerenderResolution
+		fatal bool
+	}{
+		{"nothing carried", rerenderResolution{}, false},
+		{"only legitimate carries", rerenderResolution{
+			NotReadySlots: []string{"a (pos 0)"}, EmptyTemplateSlots: []string{"b (pos 1)"},
+		}, false},
+		{"one unresolved slot", rerenderResolution{UnresolvedSlots: []string{"c (pos 2)"}}, true},
+		{"one invalid-template slot", rerenderResolution{InvalidTemplateSlots: []string{"d (pos 3)"}}, true},
+		{"mixed fatal and legitimate", rerenderResolution{
+			UnresolvedSlots: []string{"e (pos 4)"}, NotReadySlots: []string{"f (pos 5)"},
+		}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := c.r.fatal(); got != c.fatal {
+				t.Errorf("fatal() = %v, want %v", got, c.fatal)
+			}
+		})
+	}
+}
+
+func TestRerenderResolution_DescribeNamesEveryList(t *testing.T) {
+	r := rerenderResolution{
+		UnresolvedSlots:      []string{"tool-2 (pos 2)"},
+		InvalidTemplateSlots: []string{"tool-3 (pos 3)"},
+		NotReadySlots:        []string{"prose-1 (pos 1)"},
+		EmptyTemplateSlots:   []string{"prose-4 (pos 4)"},
+	}
+	desc := r.describe()
+	for _, want := range []string{"tool-2 (pos 2)", "tool-3 (pos 3)", "prose-1 (pos 1)", "prose-4 (pos 4)"} {
+		if !strings.Contains(desc, want) {
+			t.Errorf("describe() missing %q: %s", want, desc)
+		}
+	}
+}
+
+func TestSlotLabel_NamesPositionForDuplicateSlotNames(t *testing.T) {
+	a := slotLabel(storedSection{slotName: "generic-text-block", position: 0})
+	b := slotLabel(storedSection{slotName: "generic-text-block", position: 3})
+	if a == b {
+		t.Errorf("two sections sharing a slot_name must not produce the same label: %q", a)
+	}
+}

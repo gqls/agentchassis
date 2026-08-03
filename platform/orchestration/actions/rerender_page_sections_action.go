@@ -231,6 +231,65 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	}
 	schemas := loadComponentSchemas(ctx, params.DB, names, logger)
 
+	// bugs_open/182: slot_name is only ever a naming convention. On a site
+	// whose slots are positional ("prose-0", "tool-2") it is not, and never
+	// will be, any component's name/function — so `schemas` above can never
+	// resolve those sections, every one of them is silently carried, and a
+	// re-render in which nothing was re-rendered completes successfully.
+	// page_components.component_id is the row's own identity and does not
+	// depend on slot naming at all; resolve by it FIRST, falling back to the
+	// name/function map for sites where slot_name legitimately IS a component
+	// identity.
+	componentIDs := make([]string, 0, len(stored))
+	seenComponentIDs := make(map[string]bool, len(stored))
+	for _, s := range stored {
+		if s.componentID != "" && !seenComponentIDs[s.componentID] {
+			seenComponentIDs[s.componentID] = true
+			componentIDs = append(componentIDs, s.componentID)
+		}
+	}
+	byID, byIDDrops := loadComponentSchemasByID(ctx, params.DB, componentIDs, logger)
+
+	// resolveComponent is the single lookup every branch below now goes
+	// through. invalidTemplate distinguishes "a row exists but the template
+	// guard rejected it" (bugs_open/024's second route into an empty schemas
+	// map) from "nothing resolved at all" — the two get different fatal-list
+	// entries in the diagnostic below because their remediations differ.
+	resolveComponent := func(s storedSection) (comp componentInfo, invalidTemplate bool, haveComp bool) {
+		if s.componentID != "" {
+			if ci, ok := byID[s.componentID]; ok {
+				// Observe-only (mirrors the CTA ownership-conflict log below):
+				// when BOTH routes resolve and disagree, the id now wins where
+				// the name map used to. Measured 2026-08-03: 13 live sections
+				// fleet-wide hit this, each to a substantively different
+				// template — logged so that flip stays visible, not silently
+				// exchanged for the id's answer.
+				if nameComp, nameOK := schemas[s.slotName]; nameOK && nameComp.ID != ci.ID {
+					logger.Info("rerender_page_sections: component_id and slot_name resolve to different components (observe-only, id wins)",
+						zap.String("section", s.slotName),
+						zap.String("id_resolved_component", ci.ID),
+						zap.String("id_resolved_name", ci.Name),
+						zap.String("name_resolved_component", nameComp.ID),
+						zap.String("name_resolved_name", nameComp.Name))
+				}
+				return ci, false, true
+			}
+			if _, dropped := byIDDrops[s.componentID]; dropped {
+				// Deliberately NOT falling through to the name map here. The
+				// page names this exact component as its own; a template guard
+				// rejecting THAT row is a defect in the row the page is pinned
+				// to, and silently rendering a different, coincidentally
+				// name-matched component instead would be the same silent
+				// substitution 182 is about, just moved one level down.
+				return componentInfo{}, true, false
+			}
+		}
+		if ci, ok := schemas[s.slotName]; ok {
+			return ci, false, true
+		}
+		return componentInfo{}, false, false
+	}
+
 	// ── Content pre-check: re-render-all renders each section from its STORED
 	//    content_data, so every section must actually carry its content. Two
 	//    ways it can fail, both of which would render an empty section and
@@ -256,7 +315,7 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// input_schema, never on a heuristic about field shape: predicating on
 		// "has no required LLM fields" would also exempt components declaring
 		// OPTIONAL source:"llm" fields, a broader class than is justified.
-		if comp, ok := schemas[s.slotName]; ok && isSelfContainedSection(comp) {
+		if comp, _, ok := resolveComponent(s); ok && isSelfContainedSection(comp) {
 			logger.Info("rerender_page_sections: self-contained tool section, no content_data expected — rendering from template",
 				zap.String("page", pageName),
 				zap.String("section", s.slotName))
@@ -266,7 +325,7 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		reason := ""
 		if len(s.contentData) == 0 {
 			reason = "no stored content_data"
-		} else if comp, ok := schemas[s.slotName]; ok && len(comp.InputSchema) > 0 {
+		} else if comp, _, ok := resolveComponent(s); ok && len(comp.InputSchema) > 0 {
 			// The rerender path reaches the gate WITHOUT a plan_sections pass, so
 			// this is where a re-rendered legacy-dialect component would otherwise
 			// be enforced silently — fire the fail-loud tripwire here.
@@ -301,17 +360,28 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	sectionsMetadata := make([]map[string]interface{}, 0, len(stored))
 	reRendered := 0
 	carried := 0
+	var resolution rerenderResolution
 
 	// CTA targets for reason=cta_links_stale, loaded once on first CTA section.
 	var cta *rerenderCTAState
 
 	for _, s := range stored {
-		comp, haveComp := schemas[s.slotName]
+		comp, invalidTemplate, haveComp := resolveComponent(s)
 
-		// Can't load the component → carry the stored HTML untouched.
+		// Can't load the component → carry the stored HTML untouched. Named in
+		// the diagnostic (not just logged) because a re-render in which every
+		// section takes this branch is otherwise indistinguishable from one
+		// that worked — bugs_open/182.
 		if !haveComp {
-			logger.Warn("rerender_page_sections: component not found, carrying stored HTML",
-				zap.String("section", s.slotName))
+			if invalidTemplate {
+				logger.Warn("rerender_page_sections: component template invalid, carrying stored HTML",
+					zap.String("section", s.slotName), zap.Int("position", s.position))
+				resolution.InvalidTemplateSlots = append(resolution.InvalidTemplateSlots, slotLabel(s))
+			} else {
+				logger.Warn("rerender_page_sections: component not found, carrying stored HTML",
+					zap.String("section", s.slotName), zap.Int("position", s.position))
+				resolution.UnresolvedSlots = append(resolution.UnresolvedSlots, slotLabel(s))
+			}
 			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
 			carried++
 			continue
@@ -321,10 +391,12 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		plan := planSection(ctx, s.slotName, comp, resolver, logger)
 		if plan.Status != "ready" {
 			// A required non-LLM field can't resolve now — carry the stored HTML
-			// rather than render a broken/empty section.
+			// rather than render a broken/empty section. Legitimate, evidenced
+			// fallback (bugs_closed/095's council history): named, not fatal.
 			logger.Info("rerender_page_sections: section not ready, carrying stored HTML",
 				zap.String("section", s.slotName),
 				zap.String("status", plan.Status))
+			resolution.NotReadySlots = append(resolution.NotReadySlots, slotLabel(s))
 			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
 			carried++
 			continue
@@ -332,8 +404,10 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 
 		htmlTemplate, _ := comp.Raw["html_template"].(string)
 		if htmlTemplate == "" {
+			// Also legitimate/non-fatal — an intentionally empty template stub.
 			logger.Warn("rerender_page_sections: empty html_template, carrying stored HTML",
 				zap.String("section", s.slotName))
+			resolution.EmptyTemplateSlots = append(resolution.EmptyTemplateSlots, slotLabel(s))
 			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
 			carried++
 			continue
@@ -431,6 +505,16 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	out["section_count"] = len(sectionsMetadata)
 	out["rerendered"] = reRendered
 	out["carried"] = carried
+	// Per-reason breakdown for the legitimate (non-fatal) carries, so an
+	// operator or a discovery check can tell "the run did nothing because
+	// every section is a deliberate fallback" from the fatal case below
+	// without re-deriving it from the logs.
+	if len(resolution.NotReadySlots) > 0 {
+		out["carried_not_ready"] = resolution.NotReadySlots
+	}
+	if len(resolution.EmptyTemplateSlots) > 0 {
+		out["carried_empty_template"] = resolution.EmptyTemplateSlots
+	}
 
 	logger.Info("rerender_page_sections: done",
 		zap.String("page", pageName),
@@ -439,7 +523,72 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		zap.Int("rerendered", reRendered),
 		zap.Int("carried", carried))
 
+	// bugs_open/182: a section carried because its component could not be
+	// resolved at all (name AND id both missed, or the id's row failed the
+	// template guard) is not a degraded render — the action failed to do the
+	// one thing it exists to do, and the run must not report success. The
+	// predicate is "any slot in these two lists", NOT rerendered==0: five of
+	// the six sites this was measured against are PARTIAL carries, so an
+	// all-or-nothing test would clear exactly the cases hardest to spot by eye.
+	//
+	// The two legitimate-carry lists (not-ready, empty-template) are
+	// deliberately excluded — bugs_closed/095's second application
+	// (section_editor_actions.go) had its first, blanket version of this
+	// exact check rejected by the council as "asserted rather than evidenced";
+	// this mirrors the corrected, narrower predicate.
+	if resolution.fatal() {
+		return nil, fmt.Errorf(
+			"page %q: %d of %d section(s) could not resolve a component and were carried unrendered instead — %s (bugs_open/182)",
+			pageName, len(resolution.UnresolvedSlots)+len(resolution.InvalidTemplateSlots), len(stored), resolution.describe())
+	}
+
+	// Every carry was a legitimate, individually-logged fallback — not fatal,
+	// but worth one line an operator or discovery check can key on without
+	// wading through per-section logs (weakest of the bug file's fix
+	// candidates on its own; here it is additive to the two above, not a
+	// substitute).
+	if reRendered == 0 && carried > 0 {
+		logger.Warn("rerender_page_sections: every section was carried (all legitimate fallbacks) — nothing changed on this run",
+			zap.String("page", pageName),
+			zap.Int("carried", carried))
+	}
+
 	return out, nil
+}
+
+// rerenderResolution accumulates, across a page's sections, the reasons a
+// section did not re-render — named, not merely counted, mirroring
+// bugs_closed/095's pageAssembly one layer up. UnresolvedSlots and
+// InvalidTemplateSlots are FATAL: bugs_open/182 is exactly that nothing else
+// distinguished "the re-render did nothing" from "the re-render worked" once
+// every section silently took one of these two routes. NotReadySlots and
+// EmptyTemplateSlots are legitimate, evidenced fallbacks and stay non-fatal.
+type rerenderResolution struct {
+	UnresolvedSlots      []string
+	InvalidTemplateSlots []string
+	NotReadySlots        []string
+	EmptyTemplateSlots   []string
+}
+
+// fatal reports whether this page's re-render must fail the step rather than
+// complete. Deliberately NOT keyed on rerendered==0 — see the call site.
+func (r rerenderResolution) fatal() bool {
+	return len(r.UnresolvedSlots) > 0 || len(r.InvalidTemplateSlots) > 0
+}
+
+// describe names every slot in every list, so the operator reading the error
+// (or the immune-system failure sweep) sees exactly which sections and why,
+// the same shape as pageAssembly.describe() one layer up.
+func (r rerenderResolution) describe() string {
+	return fmt.Sprintf("unresolved component %v; invalid template %v; not ready (legitimate) %v; empty template (legitimate) %v",
+		r.UnresolvedSlots, r.InvalidTemplateSlots, r.NotReadySlots, r.EmptyTemplateSlots)
+}
+
+// slotLabel names a slot together with its position, so a duplicate slot_name
+// on one page (11 legitimate cases fleet-wide) still names a SPECIFIC section
+// rather than an ambiguous repeated string.
+func slotLabel(s storedSection) string {
+	return fmt.Sprintf("%s (pos %d)", s.slotName, s.position)
 }
 
 // rerenderCTAState holds the per-page CTA targets for a cta_links_stale

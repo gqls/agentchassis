@@ -3830,6 +3830,63 @@ func scanSectionComponentRow(rows *sql.Rows) (map[string]interface{}, error) {
 	return comp, nil
 }
 
+// loadContentComponentsByID loads components directly by id, the identity a
+// page_components row actually carries (component_id) rather than the
+// name/function loadSectionComponents matches on. Built for bugs_open/182:
+// when a site's slot_name is positional ("prose-0", "tool-2") it is not a
+// component identity at all, so no name/function lookup can ever resolve it —
+// only the id the row already has can. Reuses scanSectionComponentRow so the
+// row shape is identical to the name/function path (both feed
+// componentInfoFromRaw).
+//
+// Only is_active rows are returned — an id pointing at a retired component is
+// treated the same as "not found" rather than resurrecting retired markup;
+// the caller's fallback (name/function lookup) still gets a chance.
+func loadContentComponentsByID(ctx context.Context, db *sql.DB, componentIDs []string, logger *zap.Logger) []map[string]interface{} {
+	if len(componentIDs) == 0 || db == nil {
+		return nil
+	}
+
+	query := `
+		SELECT
+			id,
+			name,
+			COALESCE(display_name, name) AS display_name,
+			function,
+			COALESCE(category, '') AS category,
+			semantic_tags,
+			description,
+			html_template,
+			input_schema,
+			COALESCE(render_mode, 'template') AS render_mode,
+			agent_type,
+			COALESCE(component_level, 'section') AS component_level
+		FROM content_components
+		WHERE id = ANY($1::uuid[]) AND is_active = true`
+
+	rows, err := db.QueryContext(ctx, query, toPGTextArrayLiteral(componentIDs))
+	if err != nil {
+		logger.Error("loadContentComponentsByID: query failed",
+			zap.Error(err), zap.Int("requested", len(componentIDs)))
+		return nil
+	}
+	defer rows.Close()
+
+	var out []map[string]interface{}
+	for rows.Next() {
+		comp, scanErr := scanSectionComponentRow(rows)
+		if scanErr != nil {
+			logger.Error("loadContentComponentsByID: row scan failed", zap.Error(scanErr))
+			continue
+		}
+		out = append(out, comp)
+	}
+	if err := rows.Err(); err != nil {
+		logger.Error("loadContentComponentsByID: row iteration failed", zap.Error(err))
+	}
+	return out
+}
+
 // buildStubSectionComponents returns minimal stubs for the no-DB code path.
 func buildStubSectionComponents(sectionNames []string) []map[string]interface{} {
 	stubs := make([]map[string]interface{}, len(sectionNames))

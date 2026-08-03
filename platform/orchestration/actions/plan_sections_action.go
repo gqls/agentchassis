@@ -1150,58 +1150,10 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 	components := loadSectionComponents(ctx, db, sectionNames, "", true, logger)
 
 	for _, comp := range components {
-		// Stubs from the helper have no component_id — drop them so plan_sections
-		// falls through to Path 2 (selector) for those names.
-		if _, hasID := comp["component_id"]; !hasID {
+		ci, ok := componentInfoFromRaw(comp, "plan_sections", logger)
+		if !ok {
 			continue
 		}
-
-		// Template truncation guard: components with HTML content but no
-		// closing </section> tag are treated as broken and skipped so they
-		// flow to Path 3 (needs_new_component work item) instead of
-		// rendering broken markup. Empty/very-short templates are NOT
-		// dropped here — they may be stubs that legitimately have no body.
-		//
-		// component_level='tool' templates get their own check: a tool is
-		// self-contained HTML, not a <section> wrapper, so the '</section>'
-		// marker is the wrong truncation signal in BOTH directions there —
-		// it dropped healthy tools that end '</script>' (which is how a
-		// durable tool fix could never re-render, bugs_open/024) and passed
-		// truncated ones that happen to contain '</section>' upstream of
-		// the cut.
-		htmlTpl, _ := comp["html_template"].(string)
-		level, _ := comp["component_level"].(string)
-		if !componentTemplateValid(htmlTpl, level) {
-			name, _ := comp["name"].(string)
-			function, _ := comp["function"].(string)
-			logger.Warn("plan_sections: component template truncated, skipping",
-				zap.String("function", function),
-				zap.String("name", name),
-				zap.String("component_level", level))
-			continue
-		}
-
-		var ci componentInfo
-		if id, ok := comp["component_id"].(string); ok {
-			ci.ID = id
-		}
-		if name, ok := comp["name"].(string); ok {
-			ci.Name = name
-		}
-		if fn, ok := comp["function"].(string); ok {
-			ci.Function = fn
-		}
-		if schemaStr, ok := comp["input_schema"].(string); ok && schemaStr != "" {
-			if err := json.Unmarshal([]byte(schemaStr), &ci.InputSchema); err != nil {
-				logger.Warn("plan_sections: failed to parse input_schema",
-					zap.String("component", ci.Name),
-					zap.Error(err))
-			}
-		}
-		if ci.InputSchema == nil {
-			ci.InputSchema = make(map[string]interface{})
-		}
-		ci.Raw = comp
 
 		// Index by both name and function for fast lookup in the section loop.
 		if ci.Name != "" {
@@ -1222,6 +1174,118 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 	aliasNormalisedSectionKeys(result, sectionNames)
 
 	return result
+}
+
+// componentInfoFromRaw converts one raw per-component map (the shape both
+// loadSectionComponents and loadContentComponentsByID produce, scanned by the
+// shared scanSectionComponentRow) into a componentInfo, applying the
+// template-truncation guard so a truncated/broken template is dropped
+// identically regardless of which lookup found the row.
+//
+// Factored out so the three places that used to do this conversion inline
+// (loadComponentSchemas, loadSingleComponentSchema, and now
+// loadComponentSchemasByID) cannot drift out of step with each other the way
+// bugs_open/024 recorded happening once already.
+//
+// callerCtx prefixes the truncation-drop log line, so a drop on the rerender
+// path is not misattributed to plan_sections in the evidence trail.
+//
+// ok is false in two cases the caller cannot tell apart from the bool alone:
+// the raw map is a name-stub (no component_id — the requested section matched
+// no row at all), or the row matched but componentTemplateValid rejected its
+// template. loadComponentSchemasByID reports which one via its drops map;
+// the two existing callers only ever needed "usable or not".
+func componentInfoFromRaw(comp map[string]interface{}, callerCtx string, logger *zap.Logger) (componentInfo, bool) {
+	// Stubs have no component_id — nothing matched the requested name/id at all.
+	if _, hasID := comp["component_id"]; !hasID {
+		return componentInfo{}, false
+	}
+
+	// Template truncation guard: components with HTML content but no closing
+	// </section> tag are treated as broken and dropped so they flow to the
+	// caller's fallback path instead of rendering broken markup. Empty/very-
+	// short templates are NOT dropped — they may be intentional stubs.
+	//
+	// component_level='tool' templates get their own check: a tool is
+	// self-contained HTML, not a <section> wrapper, so the '</section>'
+	// marker is the wrong truncation signal in BOTH directions there — it
+	// dropped healthy tools that end '</script>' (a durable tool fix could
+	// never re-render, bugs_open/024) and passed truncated ones that happen
+	// to contain '</section>' upstream of the cut.
+	htmlTpl, _ := comp["html_template"].(string)
+	level, _ := comp["component_level"].(string)
+	if !componentTemplateValid(htmlTpl, level) {
+		name, _ := comp["name"].(string)
+		function, _ := comp["function"].(string)
+		logger.Warn(callerCtx+": component template truncated, skipping",
+			zap.String("function", function),
+			zap.String("name", name),
+			zap.String("component_level", level))
+		return componentInfo{}, false
+	}
+
+	var ci componentInfo
+	if id, ok := comp["component_id"].(string); ok {
+		ci.ID = id
+	}
+	if name, ok := comp["name"].(string); ok {
+		ci.Name = name
+	}
+	if fn, ok := comp["function"].(string); ok {
+		ci.Function = fn
+	}
+	if schemaStr, ok := comp["input_schema"].(string); ok && schemaStr != "" {
+		if err := json.Unmarshal([]byte(schemaStr), &ci.InputSchema); err != nil {
+			logger.Warn(callerCtx+": failed to parse input_schema",
+				zap.String("component", ci.Name),
+				zap.Error(err))
+		}
+	}
+	if ci.InputSchema == nil {
+		ci.InputSchema = make(map[string]interface{})
+	}
+	ci.Raw = comp
+	return ci, true
+}
+
+// loadComponentSchemasByID resolves components by their OWN identity
+// (page_components.component_id) rather than by name/function — the repair
+// half of bugs_open/182. A slot_name is only ever a naming convention; a
+// site whose slots are positional ("prose-0", "tool-2") has a slot_name that
+// is not, and never will be, any component's name/function, so
+// loadComponentSchemas can never resolve it. The row already knows exactly
+// which component it is; this is what reads that identity instead of
+// re-deriving it from a name that may not carry it.
+//
+// Returns the resolved map keyed by component id, plus a drops map (id ->
+// reason, currently only "invalid_template") naming every requested id that
+// has a row but was rejected by the template guard — as opposed to an id
+// simply absent from the result (not found at all, or is_active=false),
+// which the caller cannot distinguish from "no such id" and does not need to:
+// both mean "resolve some other way or carry the stored HTML".
+func loadComponentSchemasByID(ctx context.Context, db *sql.DB, componentIDs []string, logger *zap.Logger) (map[string]componentInfo, map[string]string) {
+	result := make(map[string]componentInfo)
+	drops := make(map[string]string)
+	if len(componentIDs) == 0 {
+		return result, drops
+	}
+
+	components := loadContentComponentsByID(ctx, db, componentIDs, logger)
+	for _, comp := range components {
+		id, _ := comp["component_id"].(string)
+		ci, ok := componentInfoFromRaw(comp, "rerender_page_sections(by_id)", logger)
+		if !ok {
+			// componentInfoFromRaw only fails the template guard here — every row
+			// this loop sees came back from a WHERE id = ANY(...) query, so it
+			// always carries its own component_id and can never be a name-stub.
+			if id != "" {
+				drops[id] = "invalid_template"
+			}
+			continue
+		}
+		result[ci.ID] = ci
+	}
+	return result, drops
 }
 
 // aliasNormalisedSectionKeys adds, for each requested section name that is not
@@ -1385,36 +1449,15 @@ func loadSingleComponentSchema(ctx context.Context, db *sql.DB, function string,
 			continue
 		}
 
-		htmlTpl, _ := raw["html_template"].(string)
-		level, _ := raw["component_level"].(string)
-		if !componentTemplateValid(htmlTpl, level) {
-			logger.Warn("loadSingleComponentSchema: template truncated, rejecting",
-				zap.String("function", function),
-				zap.String("component_level", level))
+		// componentInfoFromRaw logs its own drop; preserve this function's
+		// original behaviour of failing hard on an invalid template rather than
+		// trying another candidate (loadComponentSchemas' bulk loop tries every
+		// candidate instead — a deliberate difference kept by not sharing this
+		// control flow, only the conversion+guard).
+		ci, ok := componentInfoFromRaw(raw, "loadSingleComponentSchema", logger)
+		if !ok {
 			return nil
 		}
-
-		var ci componentInfo
-		if id, ok := raw["component_id"].(string); ok {
-			ci.ID = id
-		}
-		if name, ok := raw["name"].(string); ok {
-			ci.Name = name
-		}
-		if fn, ok := raw["function"].(string); ok {
-			ci.Function = fn
-		}
-		if schemaStr, ok := raw["input_schema"].(string); ok && schemaStr != "" {
-			if err := json.Unmarshal([]byte(schemaStr), &ci.InputSchema); err != nil {
-				logger.Warn("loadSingleComponentSchema: failed to parse input_schema",
-					zap.String("function", function),
-					zap.Error(err))
-			}
-		}
-		if ci.InputSchema == nil {
-			ci.InputSchema = make(map[string]interface{})
-		}
-		ci.Raw = raw
 		return &ci
 	}
 
