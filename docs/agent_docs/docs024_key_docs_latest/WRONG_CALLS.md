@@ -17859,3 +17859,50 @@ name is what carries the false claim to the next reader.
 3. **Ask what the test IMPORTS of the code under test.** Mine referenced the item types
    as string literals in a table. A test that never names a function from the file it
    claims to cover is testing something else.
+
+---
+
+## 2026-08-03 — "our page references the wrong stylesheet name" — a sample of ONE sibling, stated as a convention
+
+**The claim.** A rebuilt page on `mortgagecalculator.co.uk` referenced
+`/assets/css/styles.css` and got a 404. I compared it against the equivalent page on
+`loancalculator.co.uk`, which references `/assets/css/**style**.css` and resolves 200,
+and concluded the generated filename and the referenced filename disagreed. I wrote it
+into the lane's cold-start handoff as an open bug for the next session: *"check which
+filename the generated stylesheet actually takes… if they disagree, that is a real bug
+and worth its own file."*
+
+**It was backwards.** Counting the deploy repo instead of reading one sibling:
+
+```bash
+ls -d */assets/css/style.css  | wc -l   # 4
+ls -d */assets/css/styles.css | wc -l   # 17
+```
+
+**Plural is the house convention**, 17 domains to 4, and
+`rerender_pages_actions.go:558` hardcodes the plural in its fallback head — agreeing
+with 17 of 21. `loancalculator.co.uk`, the one site I looked at, is in the minority.
+The 404 had nothing to do with naming: **the site had no stylesheet at all**, because
+I had deferred the `needs_design` job that generates one.
+
+**What caught it.** Writing the handoff. The claim had to be phrased as an instruction
+to someone else — "check whether X" — and that forced the question *how would they
+check?* The answer was one `ls` across the deploy repo, which I could run myself in
+five seconds, and which immediately said the opposite. Nothing else in the session
+would have caught it; the next session would have gone hunting a naming bug that does
+not exist, in a lane where the real cause (my own ordering error) was already
+documented three paragraphs above.
+
+**The cheap checks, in order:**
+
+1. **Two data points make a comparison; they do not make a convention.** I had N=1 on
+   each side and reported a norm. The population was 21 directories on local disk.
+2. **When the fix is "the platform is inconsistent", count the platform first.** An
+   inconsistency claim is a claim about a distribution, so it needs the distribution —
+   and here the distribution said my exemplar was the outlier.
+3. **A 404 has more causes than a wrong path.** "Missing" and "misnamed" look
+   identical from a single `curl`. I already knew the generator had not run; I let a
+   plausible naming story displace a cause I had myself created and written down.
+4. **Writing the instruction is itself a check** — if you cannot state how the next
+   person would verify your claim in one command, you probably have not verified it
+   either. Related: the "grep before you file" habit, applied to your own drafts.

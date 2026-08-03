@@ -161,11 +161,27 @@ references. One query against `pages` settled it.
    you release anything else.
 
    **Success test is the artefact, not the item status:**
-   `curl -o /dev/null -w '%{http_code}' https://mortgagecalculator.co.uk/assets/css/style.css`
-   must become **200** (404 at handoff). Note the sibling uses `style.css`; our trial
-   page asked for `styles.css` — **check which filename the generated stylesheet
-   actually takes, and whether built pages reference the same one.** If they
-   disagree, that is a real bug and worth its own file.
+   `curl -o /dev/null -w '%{http_code}' https://mortgagecalculator.co.uk/assets/css/styles.css`
+   must become **200** (404 at handoff, both spellings).
+
+   > **CORRECTED before anyone acted on it — an earlier draft of this handoff told
+   > you to suspect a filename mismatch. There is no mismatch.** I had compared
+   > against one sibling (`loancalculator.co.uk`, which serves `style.css`) and
+   > inferred our trial page's `styles.css` reference was wrong. Counting the deploy
+   > repo settles it the other way: **17 domains carry `assets/css/styles.css`
+   > (plural) and only 4 carry `style.css`** — so plural is the house convention and
+   > the sibling is the minority. `rerender_pages_actions.go:558` hardcodes
+   > `/assets/css/styles.css` in its **fallback head** (the `else` branch taken when a
+   > site has no rendered head), which therefore agrees with 17 of 21.
+   > **So the trial page's 404 was never a naming bug — the site simply had no
+   > stylesheet yet, because I had deferred the job that makes one.** One `ls` across
+   > `~/projects/sites/*/assets/css/` is the whole check; a single sibling is not a
+   > population.
+
+   Useful tell that comes out of this: **a page referencing `/assets/css/styles.css`
+   with no `<header>`/`<nav>`/`<footer>` took the FALLBACK head**, i.e. it rendered
+   before the site had chrome. That is a signature worth recognising, not a defect in
+   itself.
 
    > **Expect to WAIT, and do not read the wait as a stall.** The gate picks ONE site
    > fleet-wide, `ORDER BY wi.created_at ASC` — **oldest item wins, priority is only a
