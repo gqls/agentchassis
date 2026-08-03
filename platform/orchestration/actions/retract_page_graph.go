@@ -156,14 +156,34 @@ func auditRetractionInbound(ctx context.Context, db *sql.DB, siteID uuid.UUID, u
 	// 1. Body copy on OTHER pages. The retracted pages are excluded as
 	//    referrers — a page linking to itself, or to a sibling in the same
 	//    retraction batch, is not a reason to refuse.
+	//
+	//    TWO SURFACES, not one (council `editquality`, 2026-08-03): a link to a
+	//    page lives in the RENDERED markup *and* in the stored `content_data`
+	//    that a re-render rebuilds it from. Scanning only the markup misses a
+	//    reference that will reappear the next time the page is rebuilt — and
+	//    lets a retraction proceed past a real inbound link, which is exactly
+	//    the case the owner's directive of 2026-08-03 exists to prevent.
+	//
+	//    content_data is matched WITHOUT enumerating field names. The obvious
+	//    implementation is a list of the url-bearing keys (`cta_url`,
+	//    `link_url`, `primary_cta_url`, …) and `ctaFieldNames` is right there —
+	//    but an allow-list of field names is blind one level down, which is the
+	//    defect `bugs_open/097` was: prior checks enumerated field names and
+	//    could not see a link nested inside an array of items. Matching the url
+	//    as a QUOTED JSON STRING VALUE (`"…"`) finds it wherever it sits, at any
+	//    depth, under any key, including keys nobody has invented yet. The
+	//    second arm catches a url inside markup stored in a content field.
 	rows, err := db.QueryContext(ctx, `
 		SELECT DISTINCT p.name, COALESCE(pc.slot_name,''), u.url
 		  FROM unnest($2::text[]) AS u(url)
-		  JOIN page_components pc ON pc.rendered_html LIKE '%href="' || u.url || '"%'
+		  JOIN page_components pc
+		    ON pc.rendered_html LIKE '%href="' || u.url || '"%'
+		    OR pc.content_data::text LIKE '%"' || u.url || '"%'
+		    OR pc.content_data::text LIKE '%href=\"' || u.url || '\"%'
 		  JOIN pages p ON p.id = pc.page_id
 		 WHERE p.site_id = $1
 		   AND `+datahelpers.PageHasShippedPredicateFor("p")+`
-		   AND COALESCE(p.status,'') = 'active'
+		   AND p.`+linkablePageStatusPredicate+`
 		   AND NOT (p.id::text = ANY($3::text[]))
 		 ORDER BY 1, 2`, siteID, datahelpers.PGTextArrayLiteral(urls), datahelpers.PGTextArrayLiteral(retractingPageIDs))
 	if err != nil {
@@ -189,7 +209,10 @@ func auditRetractionInbound(ctx context.Context, db *sql.DB, siteID uuid.UUID, u
 	rows, err = db.QueryContext(ctx, `
 		SELECT DISTINCT COALESCE(sc.slot_name, sc.id::text), u.url
 		  FROM unnest($2::text[]) AS u(url)
-		  JOIN site_components sc ON sc.rendered_html LIKE '%href="' || u.url || '"%'
+		  JOIN site_components sc
+		    ON sc.rendered_html LIKE '%href="' || u.url || '"%'
+		    OR sc.content_data::text LIKE '%"' || u.url || '"%'
+		    OR sc.content_data::text LIKE '%href=\"' || u.url || '\"%'
 		 WHERE sc.site_id = $1
 		 ORDER BY 1`, siteID, datahelpers.PGTextArrayLiteral(urls))
 	if err != nil {
@@ -253,6 +276,17 @@ func auditRetractionInbound(ctx context.Context, db *sql.DB, siteID uuid.UUID, u
 // check_orphan_pages: that check reads the world as it stands, in which the
 // page being retracted is still a referrer. Hence the same three sources with
 // the retracted pages subtracted from the referrer set.
+//
+// THE TARGET SET IS `linkablePageStatusPredicate`, NOT a hand-rolled status
+// condition (council `debug_historian` HIGH, 2026-08-03). That constant is the
+// ONE definition of "a page that may be linked to", shared with the deploy
+// gate's phantom-link judgement, and the landmine it guards says an offline
+// census built from `pages` must use it or an ARCHIVED page makes a correct
+// result look wrong. Here the error would be precise and silly: an archived
+// target has ALREADY been retired, so "nothing links to it any more" is the
+// desired state, and reporting it as newly stranded would send an operator to
+// repair something that is correct. Using the shared constant also means this
+// cannot drift from what the gate calls a phantom link.
 func findStrandedTargets(ctx context.Context, db *sql.DB, siteID uuid.UUID, retractingPageIDs []string, logger *zap.Logger) ([]strandedTarget, error) {
 	if len(retractingPageIDs) == 0 {
 		return nil, nil
@@ -260,28 +294,33 @@ func findStrandedTargets(ctx context.Context, db *sql.DB, siteID uuid.UUID, retr
 
 	rows, err := db.QueryContext(ctx, `
 		WITH outbound AS (
-		    -- every shipped page this site holds, that a retracting page links to
+		    -- every linkable page this site holds, that a retracting page links to
 		    SELECT DISTINCT t.id, t.name, t.url, COALESCE(t.status,'') AS status
 		      FROM pages t
-		      JOIN page_components pc ON pc.rendered_html LIKE '%href="' || t.url || '"%'
+		      JOIN page_components pc
+		        ON pc.rendered_html LIKE '%href="' || t.url || '"%'
+		        OR pc.content_data::text LIKE '%"' || t.url || '"%'
 		     WHERE t.site_id = $1
 		       AND t.url IS NOT NULL AND t.url <> ''
+		       AND t.`+linkablePageStatusPredicate+`
 		       AND pc.page_id::text = ANY($2::text[])
 		       AND NOT (t.id::text = ANY($2::text[]))
 		)
 		SELECT o.name, o.url, o.status
 		  FROM outbound o
-		 WHERE NOT EXISTS (            -- no OTHER active page links to it
+		 WHERE NOT EXISTS (            -- no OTHER linkable page links to it
 		           SELECT 1 FROM page_components pc2
 		             JOIN pages p2 ON p2.id = pc2.page_id
 		            WHERE p2.site_id = $1
-		              AND COALESCE(p2.status,'') = 'active'
+		              AND p2.`+linkablePageStatusPredicate+`
 		              AND NOT (p2.id::text = ANY($2::text[]))
-		              AND pc2.rendered_html LIKE '%href="' || o.url || '"%')
+		              AND (pc2.rendered_html LIKE '%href="' || o.url || '"%'
+		                   OR pc2.content_data::text LIKE '%"' || o.url || '"%'))
 		   AND NOT EXISTS (            -- not in the chrome
 		           SELECT 1 FROM site_components sc
 		            WHERE sc.site_id = $1
-		              AND sc.rendered_html LIKE '%href="' || o.url || '"%')
+		              AND (sc.rendered_html LIKE '%href="' || o.url || '"%'
+		                   OR sc.content_data::text LIKE '%"' || o.url || '"%'))
 		   AND NOT EXISTS (            -- not in the nav
 		           SELECT 1 FROM site_nav_items i
 		             JOIN site_nav_groups g ON g.id = i.group_id

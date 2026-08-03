@@ -44,20 +44,36 @@ func init() {
 // adapter's unknown-action branch; and destructive verbs (delete_repo) are
 // NOT reachable through the generic caller at all.
 //
-// `delete_file` IS allowlisted, and the line it sits on the right side of is
-// worth stating because it is not "destructive vs not". `delete_repo` destroys
-// a container the platform cannot rebuild and has no workflow that wants it.
-// `delete_file` is a CONTENT operation: its blast radius is exactly the paths
-// named, every one of them is recoverable from the repo's own history, and it
-// is the counterpart of `commit` — which is already here, already writes
-// content, and can already destroy a page by overwriting it. Refusing the
-// unpublish half while allowing the publish half is what left `bugs_open/098`
-// with no repair path at all.
+// `delete_file` IS DELIBERATELY ABSENT, and that is a decision rather than an
+// omission — RFC 011, owner ruling 2026-08-03, option B.
+//
+// The verb exists on the adapter (it is what `bugs_open/098` and
+// `bugs_closed/125` were both blocked on: the platform could publish a page and
+// had no way to unpublish one). It was briefly allowlisted here, and the council
+// gate returned REJECTED — hard veto from `guardian`, `architecture` signalling
+// needs_rfc — on the ground that a DESTRUCTIVE verb reachable by any workflow
+// author is a change to what this shared vocabulary can be asked to do, not an
+// additive-and-inert one. Correlation `4a7f0877-4149-4431-97d4-318d093570a4`.
+//
+// The argument for allowlisting it was that the line is not "destructive vs
+// not" — `commit` already writes content and can already destroy a page by
+// overwriting it, while `delete_file`'s blast radius is exactly the paths named
+// and every one is recoverable from the repo's history. That argument is not
+// wrong, and it is not enough: it describes today's blast radius rather than
+// what a future workflow author could ask for. So the capability stays and the
+// REACHABILITY narrows.
+//
+// `delete_file` is therefore callable ONLY through `retract_page_deployment`
+// (`retract_page_deployment_action.go`), which carries the guards a config-
+// assembled call could never carry: paths derived only from `pages.url` via the
+// shared `PageFilePathFromURL`, a path an ACTIVE page also derives refused, a
+// page still linked from live content refused, nav rows retired, stranded
+// targets reported. A future caller with a different shape needs a code change
+// and a review — which is the point, not the cost.
 var gitAdapterActions = map[string]bool{
 	"commit":              true,
 	"create_branch":       true,
 	"create_pull_request": true,
-	"delete_file":         true,
 }
 
 // GitAdapterRequestAction sends one request to the git-adapter and awaits it.
@@ -70,7 +86,7 @@ func GitAdapterRequestAction(ctx context.Context, params ActionParams) (interfac
 
 	adapterAction, _ := config["adapter_action"].(string)
 	if !gitAdapterActions[adapterAction] {
-		return nil, fmt.Errorf("adapter_action %q is not allowed (want one of: commit, create_branch, create_pull_request, delete_file)", adapterAction)
+		return nil, fmt.Errorf("adapter_action %q is not allowed (want one of: commit, create_branch, create_pull_request; delete_file is deliberately NOT reachable here — see RFC 011, use retract_page_deployment)", adapterAction)
 	}
 
 	// Assemble the data payload: literals verbatim + fields resolved from

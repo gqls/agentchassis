@@ -196,3 +196,28 @@ func TestAuditRetractionPropagatesQueryErrors(t *testing.T) {
 		t.Fatal("a failing inbound scan must fail the audit, not report a clean graph")
 	}
 }
+
+// TestGitAdapterAllowlistExcludesDeleteFile — RFC 011 option B, owner ruling
+// 2026-08-03. The verb exists on the adapter and is deliberately NOT reachable
+// through the generic config-assembled caller; it is callable only via
+// retract_page_deployment, which carries guards a config-assembled call cannot.
+//
+// This is a decision, and a decision that lives only in a comment is one commit
+// from being undone by someone "completing" the allowlist. Asserting it is what
+// makes it survive.
+func TestGitAdapterAllowlistExcludesDeleteFile(t *testing.T) {
+	if gitAdapterActions["delete_file"] {
+		t.Fatal("delete_file is allowlisted on the GENERIC git-adapter caller. " +
+			"RFC 011 (option B, owner ruling 2026-08-03) keeps the verb but removes it " +
+			"from this allowlist so it is reachable only through retract_page_deployment. " +
+			"If that ruling has been revisited, change the RFC and this test together.")
+	}
+	for _, want := range []string{"commit", "create_branch", "create_pull_request"} {
+		if !gitAdapterActions[want] {
+			t.Errorf("%q went missing from the allowlist — the RFC 011 change was meant to remove ONE verb", want)
+		}
+	}
+	if len(gitAdapterActions) != 3 {
+		t.Errorf("allowlist has %d verbs, want exactly 3: %v", len(gitAdapterActions), gitAdapterActions)
+	}
+}

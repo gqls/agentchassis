@@ -4,7 +4,18 @@
 a **council REJECTED verdict** (hard veto from `guardian`, `architecture` signalled
 `needs_rfc`) — correlation `4a7f0877-4149-4431-97d4-318d093570a4`, round 2.
 
-**Status:** OPEN — for a human to break. This RFC does not ask the council again.
+**Status:** **DECIDED 2026-08-03 — OPTION B**, by the owner, on this RFC's own recommendation.
+`delete_file` **keeps its place on the adapter and LOSES its place in the generic
+allowlist**: it is reachable only through `retract_page_deployment`, which carries guards a
+config-assembled call cannot. Shipped in the same push as the decision; asserted by
+`TestGitAdapterAllowlistExcludesDeleteFile`, because a decision that lives only in a comment
+is one commit away from someone "completing" the allowlist.
+
+**What that settles, and what it does not.** It settles *this* verb. It does **not** settle
+the general question in §2 — whether a destructive verb differs in kind from an inert field
+— which stays open for the next adapter verb, and option C (a separate destructive
+vocabulary) remains the honest general answer if this recurs. Recorded so a later thread
+does not read one worked example as a rule.
 
 **The code being reviewed is already on shared HEAD and live** (chassis digest
 `sha256:5da2888…`, git-adapter `sha256:df7bc0a…`). That is not defiance: forward-only
