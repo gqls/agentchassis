@@ -501,3 +501,72 @@ rendered is gated`. Was `0 fabricated, 68 ungated`.
 - **Do not run `run-migrations.sh --apply`** — it takes EVERY pending file, and two
   other sessions have pending migrations in that directory right now. Applied 295 by
   hand with `psql -v ON_ERROR_STOP=1 -f`, then `--record-only`.
+
+## 2026-08-03 ~19:30Z — post-roll re-measurement, and it reframes the morning's work
+
+New chassis `v1.0.1243` deployed (RS `6cbdfdf4d4`, pods 19:05–19:06Z). Re-verified RFC_009 B
+on both replicas with compiled markers + negative control: `template invents` 1/1,
+`replacement INTRODUCES` 1/1, `fabricatedFallbackIssue` 2/2, `invented_string_xyzzy` 0/0.
+Lint still clean, now across **176** active components (was 173).
+
+### CORRECTION to two figures I published this morning
+
+Both went into migration 295's header, `f2c8c6b41`'s commit message and RFC_009.
+
+1. **"20 of the 68 fields have zero live instances."** True at 11:20Z. **False by 16:30Z.**
+   `featured_article` gained two instances (`finetuning.uk/ai-guides.html` 16:30:26,
+   `/insights.html` 16:55:03). The other three (`product-specs`, `archetype-result-card`,
+   `bayesian-ranking-hero-tool_pre_037`) are still at zero. **A live-instance census on this
+   fleet has a half-life of hours.** Date it or re-run it; I did neither when quoting it.
+2. **"3 stored rows carry the empty element."** It is **2** for the 20 components I changed.
+   The third — `<h2></h2>` on `finetuning.uk/blog.html` — belongs to `call-to-action`, which
+   295 never touched. I attributed it by signature without joining to the component, which
+   is the same shortcut that produced the 47-vs-1 near-miss earlier the same day. *Caught by
+   running the join I should have run the first time.*
+
+### The finding those corrections led to, which is the important part
+
+`featured_article`'s two new rows both **lack `featured_title`**. That field is **bare and
+UNDECLARED**, so both pages render an empty `<h1>`. Within five hours of gating that
+component's *declared* fields, it began serving the same defect through an *undeclared* one.
+
+So the 68 were **the DECLARED subset, not the broken set**. `on_missing` is what made them
+visible to the lint; it is not what made them wrong. Measured live:
+
+- **undeclared + referenced + bare: 1,795 fields across 112 components.** *[Structural
+  capability to render blank — an upper bound on exposure, not a defect count.]*
+- **Realised in stored `rendered_html` fleet-wide: 25 rows across 20 components** — 21 empty
+  headings, 7 dead `<a></a>` controls, 4 `<img src="">`. **`<td></td>`: 0** (295's shape).
+  Only 4 of those 20 components are ones I changed, and their residue is all undeclared.
+
+`call-to-action.headline`: `on_missing` **NOT DECLARED**, template **BARE**, rendering an
+empty `<h2>` on a live page today. The lint cannot see it and never could.
+
+### The residue I created, stated plainly
+
+The lint tests for a gate ANYWHERE and cannot see WHAT THE GATE ENCLOSES. So the next
+person handed an ungated finding can satisfy it with `<td>{{if .v}}{{.v}}{{end}}</td>` —
+the identical empty cell, finding cleared permanently. **I removed the detector's ability
+to complain about those 68 without any guarantee the blank is gone.** The fix is an
+output-level check (the harness from this session, promoted), which is immune by
+construction because it measures the artefact rather than the template shape. It is item 1
+of the plan in the handoff, and it is ordered ahead of the exit-code flip deliberately: on
+its own, exit 1 would enforce a check satisfiable by a no-op.
+
+### Also measured, for whoever picks up the plan
+
+- `scripts/council-coverage-nudge.sh:52` **already greps `Council-Submitted:`** — rejecting
+  a non-UUID value is a ~3-line change in a file that does the parse today.
+- `scripts/check_cta_gates.py:86 def blocks(tpl)` **already holds a block-stack parse**, if
+  a scope-accurate template check is ever wanted instead of / alongside the output check.
+- `on_missing` distribution barely moved: **1,991 undeclared / 181 skip_field / 21
+  use_fallback / 15 skip_section / 8 needs_human_review**. RFC_009 option A's premise (~90%
+  undeclared) **still holds** — and this evening's finding is its mirror image: the
+  undeclared 90% are not safe, they are merely unmeasured, so an `on_missing`-driven gate
+  is the wrong instrument in both directions.
+- The two components created today declare **zero** `skip_field` fields, so the lint's clean
+  result for them is **silent by construction on the ungated arm** (its fabrication arm did
+  look, and that pass is real). "0 findings" has two causes; this is the other one.
+- Unparsed LLM envelope stored as `content_data`: **2 rows of 1,145**, 2 components —
+  including the gaswholesalers `Pricing Tiers` row, which is why that one will not repair by
+  rerendering alone.

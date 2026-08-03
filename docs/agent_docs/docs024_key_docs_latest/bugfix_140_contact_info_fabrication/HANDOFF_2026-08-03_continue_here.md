@@ -1,161 +1,254 @@
-# HANDOFF 2026-08-03 — bugfix 140 + RFC_009 · **everything is DONE and LIVE**
+# HANDOFF 2026-08-03 (evening) — bugfix 140 / RFC_009 · **the 68 are gated; the class is not closed**
 
-**Read this first. There is no work in flight and nothing is half-finished.**
-This is a cold-start doc for whoever picks the thread up, not a to-do list.
+**Read this first.** Nothing is half-finished and nothing is broken. The work that was
+asked for is done, live and proven. What this doc exists to hand over is a **measurement
+taken after that work, which reframes it** — and an ordered plan for what to do about it.
+
+Supersedes the 10:02Z version of this file. History lives in `NOTES_…` (technical,
+append-only), `README_where_we_are.md` (plain prose) and the `SUMMARY_…` series.
 
 ---
 
 ## One-line state
 
-`bugs_open/140` → **CLOSED** (`bugs_closed/140_…`), fixed at source and proven on
-all 8 sites stored *and* served. `RFC_009` → **decided**: A not taken, **B and C
-both shipped, council-APPROVED, and LIVE on v1.0.1237**. The only open item in the
-whole thread is a **judgement call for the owner**, described at the foot.
+`bugs_closed/140` **CLOSED**. RFC_009 **A not taken, B and C live**, and **the 68 ungated
+`skip_field` fields are GATED** (migration 295, commits `f2c8c6b41` + `c7e135c54` +
+`aacd6c5fd`). The live lint reports **clean across 176 active components**.
 
-## What was wrong (30 seconds)
+**And that clean result is narrower than it sounds.** See the next section — it is the
+reason this handoff exists rather than a closing note.
 
-The shared `contact-info` component rendered Email/Phone/Hours cards
-unconditionally and, when a site had not supplied the datum, **invented one** —
-`+1234567890` in a `tel:` link, `Monday – Friday, 9am – 6pm`, `info@example.com` —
-styled identically to real details. **8 live commercial sites** served the invented
-hours; `vetcomparison.uk` served the invented phone.
+---
 
-**The organising fact:** the component's own `input_schema` already declared
-`"on_missing": "skip_field"` for phone/hours/address. **The template disobeyed its
-own published contract**, so this was never a policy question needing an owner —
-it was making the template obey a rule it already published.
+## THE FINDING THAT CHANGES THE PICTURE
 
-## What shipped, and where it lives
+The 68 fields I gated were **the fields that happened to be DECLARED**, not the fields that
+are broken. `on_missing` is what made them *visible to the lint*; it is not what made them
+*wrong*. Measured this evening, live:
 
-| | what | where | state |
-|---|---|---|---|
-| **fix** | migration 287 — gate every card, delete the 4 literals, repair a template/schema desync | `sql_for_agents/287_contact_info_obeys_its_own_schema.sql` | LIVE (config), 8/8 sites clean |
-| **detector** | `check_placeholder_contact` taught the dummies our own library ships | `discovery_checks/check_placeholder_contact.go` | LIVE v1.0.1233 |
-| **C — lint** | daily CronJob, reads the LIVE library, fact-vs-label | `deployments/kustomize/services/component-fallback-check/` | LIVE, **fired unattended 06:40** |
-| **B — gate** | refuses a fabricating template at the write | `platform/orchestration/actions/component_fallback_guard.go` | LIVE v1.0.1237 |
+| population | size | can the lint see it? |
+|---|---|---|
+| declared `skip_field`, referenced, **bare** | **68 → 0** (migration 295) | yes — this is its UNGATED class |
+| **undeclared**, referenced, **bare** | **1,795 fields across 112 components** | **NO — invisible by construction** |
 
-Commits: `673b2556c` `4cc7da377` `8666a83a8` `4e06cf92d` `395246bb5` `3c5cd09ca`
-`f2a59047f` `194f0c5f0` `249df5940` `87ea0a5e7` `d3d673856` `471b0f922` `f48bf3e60`.
-Councils: **`40de12b0-…` APPROVED r1** (the fix), **`19bee790-…` APPROVED r1** (B).
+*[MEASURED 2026-08-03 19:2xZ, live. This is structural CAPABILITY to render blank — a
+field that is always supplied never renders empty — so it is an upper bound on exposure,
+not a defect count. The realised damage is the next table.]*
 
-## The five things worth knowing before you touch any of it
+**Realised today, in stored `rendered_html`, fleet-wide — 25 rows across 20 components:**
 
-1. **A rerender does NOT regenerate sections unless `spec.reason` is set.**
-   `check_rerender_mode` routes `image_landed|section_data_resolved|cta_links_stale`
-   → `rerender_page_sections` (regenerates from template); **everything else** →
-   `render_page`, which re-staples the page from section HTML **already stored**.
-   A reason-less item is the fleet default. **I got this wrong in the middle of
-   this work**: I said the pages would self-correct once the stalled queue drained;
-   it drained 294→0, six contact pages rerendered, and every one came back with the
-   fabrication intact. Fixed by queuing 7 items carrying the reason.
-   *Do not read `create_rerender_items_action.go:219`'s `&& componentIDStr != ""`
-   as the consumer's rule — it is producer-side; the agent needs only the reason.*
+| shape | rows | why it is not "a mild blank" |
+|---|---|---|
+| `<h1..h4></h1..h4>` empty heading | 21 | an empty heading is a WCAG failure and a broken document outline |
+| `<a …></a>` dead control | 7 | invisible, unclickable, announced as nothing by a screen reader |
+| `<img src="">` | 4 | resolves to the page URL and re-requests it — a broken image |
+| `<td></td>` | 0 | (this is the shape 295 removed) |
 
-2. **`page_component_history.source` tells you what WROTE a section.** Do not infer
-   it from whatever work item completed nearby. vetcomparison corrected via
-   `save_page_sections_overwrite` (the content-writer), **not** a rerender, and
-   mis-crediting that is what made "the others will follow" sound safe.
+**Only 4 of those 20 components are among the 20 I changed**, and their remaining defects
+are all through **undeclared** fields.
 
-3. **The roster-free detector is UNSOUND.** "Flag any rendered contact fact absent
-   from `content_data`" looks like the obvious upgrade and over-fires:
-   `RenderContext` carries top-level `Email`/`Phone` whose json tags reach the
-   template contract, so a component can legitimately render a phone its
-   `content_data` lacks. **`idea.uk` is exactly that shape.**
+### The single fact that makes the case
 
-4. **The write path does NOT close the door, and nothing should imply it does.**
-   ~10 writers touch `html_template`; **two are gated** (`store_generated_component`
-   absolute, `update_component_html` comparative). `create_tool_component`,
-   `deploy_tool_action`, four `fix_*` style repairs and the admin handler are not.
-   The daily lint is the backstop because it reads the live library.
-   **Gate where it is sound, report everywhere.**
+`featured_article` had **zero live instances when I measured at 11:20Z**, so I recorded its
+6 gated fields as "purely prophylactic". At **16:30Z and 16:55Z** another lane created two
+instances of it, on `finetuning.uk/ai-guides.html` and `/insights.html`. **Both lack
+`featured_title`. It is bare, it declares nothing, and both pages now render an empty
+`<h1>`** — the two empty headings attributed to `featured_article` above.
 
-5. **The rule has TWO implementations on purpose** (Go gate, Python lint) — the
-   drift class the rule itself detects. Pinned to ONE shared fixture, 24 cases,
-   10 must-refuse / 14 must-allow, read by `component_fallback_guard_test.go` and
-   by `--selftest`, which the CronJob runs **before** `--report`. If you change a
-   pattern, change the fixture; one side will fail if you don't.
+So within five hours of gating that component's declared fields, it began serving the same
+defect through an undeclared one. That is not bad luck; it is the boundary being in the
+wrong place.
 
-## How to check it is still healthy (all fast, all read-only)
+> **CORRECTION to my own figures, and what caught it.** I wrote "20 of the 68 fields have
+> zero live instances" and "3 stored rows carry the empty element" into migration 295's
+> header, `f2c8c6b41`'s message and RFC_009. Re-measured this evening: **three** of those
+> four components are still at zero (`product-specs`, `archetype-result-card`,
+> `bayesian-ranking-hero-tool_pre_037`) but `featured_article` is not, and the "3 rows" is
+> **2** for my 20 components — the third (`<h2></h2>` on `finetuning.uk/blog.html`) belongs
+> to `call-to-action`, which I never touched and whose `headline` is *undeclared and bare*.
+> Neither figure was wrong when taken; the first went stale in five hours. **A census of
+> live instances on this fleet has a half-life of hours — date it, or re-run it.**
+
+---
+
+## THE PLAN — ordered by what closes the door, not by effort
+
+### 1. Promote the render harness to a standing check ← **the one that matters**
+
+**The problem it solves is twofold, and the second half is the dangerous one.**
+
+*First*, the lint cannot see the 1,795 undeclared fields, because its UNGATED class keys on
+`on_missing`. A check that looks at **rendered output** instead of template shape needs no
+declaration and would have caught `featured_article`, `call-to-action`, `contact-block` and
+the other 17 on day one.
+
+*Second — and this is residue I created* — the lint tests for a gate **anywhere** in the
+template and **cannot see what the gate encloses**. So the next person handed an ungated
+finding can "fix" it as `<td>{{if .v}}{{.v}}{{end}}</td>`, which renders the identical empty
+cell **and clears the finding for ever**. I have removed the detector's ability to complain
+about those 68 without any guarantee the blank is gone. An output-level check is immune to
+this by construction: it measures the artefact, not the shape.
+
+**It already exists and it already passed 20/20.** The harness in this session's scratchpad
+renders a component through `actions.RenderTemplate` — the production entry point, not a
+replica of its `text/template` config — with a field present and absent, and asserts the
+element vanishes when absent and **still renders when present** (the positive control is
+the half that catches an over-firing gate). Promote it:
+
+- **Where:** a Go CLI under `cmd/`, or a test in `platform/orchestration/actions/`. It must
+  call `RenderTemplate`, not reimplement `executeGoTemplate`'s options and FuncMap.
+- **What it asserts:** for every active component, for every referenced field
+  **regardless of declaration**, render with that field absent and fail on
+  `<h1..4></h1..4>`, `<a …></a>`, `<img src="">`, `<td></td>`, or an empty
+  class-bearing block element.
+- **Calibrate first**, per `component_write_guard.go`'s standing instruction. Expect real
+  false positives: some empty elements are legitimate JS mount points. The must-allow arm
+  is the larger half.
+- **Carrier:** the `component-fallback-check` CronJob already exists, is proven to fire
+  unattended, and has direct-Postgres access. Do **not** wire it to
+  `quality-discovery-agent` — that carrier has raised 0 items in all history
+  (`bugs_open/149` Group B/C), which is how the original 140 defect survived from birth.
+
+**Do this before 3.**
+
+### 2. Make `Council-Submitted:` un-fakeable — ~3 lines, no judgement
+
+`scripts/council-coverage-nudge.sh:52` **already greps for the trailer**. Have it reject a
+value that is not a UUID. **Three independent sessions wrote `Council-Submitted: pending`
+on 2026-08-03** — the third was me, on `f2c8c6b41` — each having read the CLAUDE.md
+paragraph that explains it, none stopped by anything. Forward-only forbids the amend, so
+all three commits carry a correlation resolving to nothing, permanently. The recommendation
+is logged three times in `WRONG_CALLS.md`. **A rule three careful sessions break in one day
+is missing its enforcement, not its explanation.**
+
+### 3. Decide the lint's exit code — but only after 1
+
+C's UNGATED class deliberately does not fail the exit code, because "68 predate this check
+and a permanently-red gate is one everybody learns to ignore". **That reasoning has expired:
+the count is 0.** Flipping it to exit 1 closes the door behind 295. The cost is that a new
+component from another lane turns the daily CronJob red until someone adds one `{{if}}`.
+
+**Owner's call, and worth taking it after step 1** — on its own, exit 1 enforces the check
+that can be satisfied by a no-op (see 1), which is the worst of both.
+
+### 4. Rerender the two residual rows — small, visible, finishes the job
+
+Templates do not retro-apply. Two stored rows still serve an empty element from a component
+295 fixed:
+
+| component | site / page | row |
+|---|---|---|
+| `hero` | finetuning.uk `/blog.html` | `4d3c6c61-3575-4860-97ec-8f4da3057b0b` |
+| `Pricing Tiers` | gaswholesalers.com `/how-pricing-works.html` | `25c73a1c-b3af-48af-978b-95f7e500e8fa` |
+
+⚠ **A reason-less rerender will not fix them** — it re-staples stored section HTML.
+`check_rerender_mode` routes only `image_landed|section_data_resolved|cta_links_stale` to
+`rerender_page_sections`. Pattern to copy: `SQL_2026-08-02_scoped_rerender_seven_contact_pages.sql`
+(this lane, `395246bb5`). This thread got that wrong in the middle of 140 and watched six
+pages come back unchanged.
+
+⚠ **The gaswholesalers row will not repair by rerendering alone.** Its `content_data` is an
+**unparsed LLM envelope** — `{"type":"text","result":"{\n  \"section_title\": …\n}\n\n---\n\n**⚠ HUMAN REVIEW REQUIRED…"}`
+— so every tier field is absent and the section is an empty shell. Post-295 it renders
+*less* rather than *wrong*. See 7.
+
+### 5. A helper for picking a pod-grep marker — the check exists only as prose
+
+On 2026-08-03 a lane reported RFC_009 B missing from the running binary, on
+`strings … | grep -c "declared skip_field but never gated"` returning 0. That phrase lives
+**only in a `//` comment** (`component_fallback_guard.go:78`), so it returns 0 against every
+binary ever built. **B was and is live.** The landmine was already written that morning by
+another lane (`663b063ef`) and it still happened hours later, which says prose is not
+enough. A `scripts/pick-pod-marker.sh <commit>` that (a) greps the commit's added lines for
+string literals **excluding comments**, (b) builds and greps a real binary to prove the
+marker compiles in, (c) prints a negative control, converts a landmine into a command.
+
+### 6. Retry the DB fetch inside the lint — a recurring flake, correctly handled but noisy
+
+`kubectl exec … psql -tAc` on the ~2 MB whole-library payload intermittently truncates
+mid-stream (`"Copying stdout failed" … unexpected EOF`). The lint handles it correctly —
+**exit 2, "could not reach the database"**, never a false clean — but it hit twice in one
+session. Three attempts with backoff inside `load()` removes it. **Until then: exit 2 is a
+flake, not a pass; retry.**
+
+### 7. File the unparsed-envelope defect — 2 rows, but a real class
+
+`{"type":"text","result":"<markdown>"}` stored as `content_data` where flat fields were
+expected. **2 rows of 1,145**, 2 components. Small, but every field of those components is
+absent, so it defeats any per-field gate. Grep `bugs_open/` and `bugs_closed/` for
+`json_envelope` / `raw-text envelope` before filing — `json_envelope.go:17` documents a
+sibling case and this may already be owned.
+
+### 8. For the owner — a gap in the council gate's scope, not a task
+
+Migration 295 changed **20 shared components fleet-wide and went live the moment it was
+applied**, and it **could not be submitted for review**: the trigger refuses any submission
+touching no `platform/`, `internal/` or `pkg/` path (`097_TRIGGER…v1.sh:127`). Migration 287
+was reviewed only because it rode alongside Go changes in the same submission. **Config that
+ships instantly is arguably the class most worth reviewing, and it is the class the
+path-based rule excludes.** Either extend the scope to `sql_for_agents/*.sql` that touch
+`content_components`/`agent_definitions`, or accept it explicitly and rely on the lint.
+
+---
+
+## What is verified live RIGHT NOW (re-checked after the new chassis roll)
+
+**Chassis `v1.0.1243`**, ReplicaSet `6cbdfdf4d4`, pods started 19:05–19:06Z. RFC_009 B is in
+this binary — pod-grepped on **both** replicas with compiled markers and a negative control,
+per the standing rule that a roll is not evidence your fix shipped:
+
+| grep | mxjt7 | wxbbg |
+|---|---|---|
+| `template invents` — absolute refusal (`component_fallback_guard.go:250`) | 1 | 1 |
+| `replacement INTRODUCES` — comparative refusal | 1 | 1 |
+| `fabricatedFallbackIssue` — the symbol | 2 | 2 |
+| `library_fabricated_hours` — C's detector | 1 | 1 |
+| `invented_string_xyzzy` — **negative control** | **0** | **0** |
+
+⚠ **Do not dispatch orchestration within ~300s of a chassis restart** — the spawn is
+silently dropped.
+
+## Health checks (all fast, all read-only)
 
 ```bash
-python3 scripts/check_placeholder_fallbacks.py            # expect: CLEAN — 0 fabricated, 0 ungated (68 -> 0 on 08-03, migration 295)
-                                                          # exit 2 = kubectl stream flake, NOT a pass — retry
-python3 scripts/check_placeholder_fallbacks.py --selftest  # expect: 10 must-refuse, 14 must-allow
+python3 scripts/check_placeholder_fallbacks.py             # expect CLEAN. exit 2 = stream flake, retry — NOT a pass
+python3 scripts/check_placeholder_fallbacks.py --selftest   # expect 10 must-refuse / 14 must-allow
 go test ./platform/orchestration/actions/ -run TestFabricatedFallback
 kubectl get cronjob component-fallback-check -n ai-persona-system   # LASTSUCCESS should be today
 ```
 ```sql
--- the artefact. Expect 0 of 8.
-SELECT count(*) FILTER (WHERE pc.rendered_html LIKE '%Monday%9am%6pm%'), count(*)
-FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
-WHERE cc.function='contact-info';
--- the daily report, clean or not, one row per run
-SELECT created_at, left(body,80) FROM doc_notes
- WHERE source='check_placeholder_fallbacks' ORDER BY created_at DESC LIMIT 3;
+-- the class this lane is really about, and what the lint cannot see:
+SELECT count(*) FROM page_components WHERE rendered_html ~ '<h[1-4][^>]*>\s*</h[1-4]>';  -- 21 today
+SELECT count(*) FROM page_components WHERE rendered_html ~ '<a [^>]*>\s*</a>';           --  7 today
+SELECT count(*) FROM page_components WHERE rendered_html ~ '<img[^>]*src=""';            --  4 today
 ```
 
-Full command set with the gotcha attached to each: `RUNBOOK_contact_info_fabrication.md`
-(**R4 is SUPERSEDED — use R9**). Missteps: `NOTES_…`. Plain-prose history:
-`README_where_we_are.md`. Milestone read-out: `SUMMARY_2026-08-02_…`.
+## The five things worth knowing before you touch any of it
 
-## ~~THE ONE OPEN ITEM~~ — **CLOSED 2026-08-03: the owner asked, and the 68 are gated**
+1. **A rerender does NOT regenerate sections unless `spec.reason` is set.** A reason-less
+   item re-staples stored HTML. *Do not read `create_rerender_items_action.go:219`'s
+   `&& componentIDStr != ""` as the consumer's rule — it is producer-side.*
+2. **`page_component_history.source` tells you what WROTE a section.** Do not infer it from
+   whatever work item completed nearby.
+3. **The roster-free detector is UNSOUND.** `RenderContext` carries json-tagged scalars that
+   reach the template contract, so a component can legitimately render a value its
+   `content_data` lacks. Of the 68, exactly one (`about-commercial-block.domain`) collides.
+   Check yours before assuming absence.
+4. **The write path does NOT close the door.** ~10 writers touch `html_template`; two are
+   gated. **Gate where it is sound, report everywhere.**
+5. **The rule has TWO implementations on purpose** (Go gate, Python lint) — the drift class
+   the rule itself detects — pinned to ONE shared fixture, 24 cases. Change a pattern,
+   change the fixture; one side will fail if you don't.
 
-> **SUPERSEDED 2026-08-03 ~12:00Z.** The owner's answer to the judgement call below
-> was "please gate the 68 blank-rendering fields". Done and live: **migration 295**
-> (`295_twenty_components_gate_their_declared_skip_fields.sql`, commit `f2c8c6b41`).
-> The live lint now reports `clean — 173 active components`, where it reported
-> `68 ungated`. **The expected lint output in the health-check section above is
-> therefore `0 fabricated, 0 ungated`, not `0 fabricated, 68 ungated`.**
->
-> **What the next thread most needs to know**, because this doc's own description of
-> the 68 was misleading: **62 of the 68 were the ungated PARTNER of a gated field**
-> — `{{if .spec_1_name}}<tr><th>{{.spec_1_name}}</th><td>{{.spec_1_value}}</td></tr>{{end}}`,
-> where the row is gated on the NAME and the VALUE is what declares `skip_field`. So
-> the obvious repair is wrong two ways, **both of which pass the lint**: gating the
-> value inside its `<td>` still emits `<td></td>` (a NO-OP that permanently silences
-> the finding), and gating the `<td>` emits a 3-cell row in a 4-column table. Four
-> treatments were needed; the per-component reasoning is in migration 295's header
-> and the prospective check is now in `LANDMINES.md`.
->
-> **Two of the 68 were not mild blanks at all**: `featured_article.featured_image`
-> rendered `<img src="">` (a broken image — the `bugs_open/018` dead-control class),
-> and `hero-tool`'s two CTA labels rendered `<a href="/x"></a>`, an invisible
-> unclickable control. Both now gate on url AND label.
->
-> **Blast radius, at the artefact rather than in the data**: 20 of the 68 fields have
-> ZERO live instances; only **3 stored rows** carried the empty element. The
-> "75 field-instances absent from `content_data`" figure is forward-looking RISK, not
-> damage — 46 of the 47 `hero.subheadline` rows serve real text from a legacy render
-> over an empty `content_data`. The two differ by 25×; do not quote the first as the
-> second.
->
-> **Proven**: all 20 templates re-fetched from the live library *after* the migration
-> and rendered through `actions.RenderTemplate` (the production path, not a replica),
-> datum present and absent — 20/20, positive control included.
->
-> **NOT council-reviewed, and it could not be**: the trigger refuses a submission
-> touching no `platform/`/`internal/`/`pkg/` path, and this is a `docs/` migration.
-> (`f2c8c6b41` carries a meaningless `Council-Submitted: pending` trailer — my error,
-> logged in `WRONG_CALLS.md`; forward-only forbids the amend.)
-
-**RFC_009's option A is still NOT taken and this does not revive it** — ~90% of
-fields (1,938 of 2,163) declare no `on_missing` at all, so a render-time gate would
-be inert for nine fields in ten while being the only option that can break a live
-page. Revisit if the declaration rate rises, or if a third *fabrication* slips the
-lint. Neither is true today.
-
-**The one thing now genuinely open — and it is a smaller call than the last one.**
-The lint's ungated class deliberately does not fail the exit code, because "68 of
-them predate this check and a permanently-red gate is one everybody learns to
-ignore". **That reasoning has expired — the count is 0.** Flipping it to exit 1
-closes the door behind this work; the cost is that a legitimately new component from
-another lane could turn the daily CronJob red until someone adds one `{{if}}`. Not
-done unasked, because it changes what an existing check does to other lanes' work.
+**Sixth, added by this session:** obeying `skip_field` is **not** "wrap the field in
+`{{if}}`". 62 of the 68 sat in a cell of a fixed-arity row, where that edit is either a
+**no-op** or emits **malformed HTML** — and both pass the lint. Full entry in `LANDMINES.md`;
+the four treatments and per-component reasoning are in migration 295's header.
 
 ## Explicitly NOT owed
 
-- No pod-grep outstanding — done on v1.0.1233 (C's detector) and v1.0.1237 (B's
-  guard), both replicas, with positive **and** negative controls each time.
-- No council verdict outstanding — both approved at round 1, objections answered
-  with checks and recorded in `RFC_009` and the closed bug file.
-- No rerenders outstanding — all 8 sites verified clean on the wire.
+- No pod-grep outstanding — re-verified above on `v1.0.1243`, both replicas, with controls.
+- No council verdict outstanding, and **295 could not have one** (see 8).
+- No rerenders outstanding **except the two named in 4**.
+- The 2026-08-03 09:20Z notice in `NOTES` claiming B is not live is **REFUTED** — see 5 and
+  `WRONG_CALLS.md`. It was raised correctly and that is why it cost twenty minutes.
