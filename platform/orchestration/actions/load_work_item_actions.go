@@ -15,6 +15,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -1376,19 +1377,41 @@ var workItemHeldStatuses = []string{
 }
 
 // refreshOpenWorkItemSQL is a function rather than an inline string so the test
-// that asserts the two guard clauses can read the STATEMENT THAT RUNS, instead of
+// that asserts the guard clauses can read the STATEMENT THAT RUNS, instead of
 // re-deriving its own copy and agreeing with itself.
+//
+// THE STATUS LISTS ARE PARAMETERS, NOT INTERPOLATED TEXT — council `8e7357ae`,
+// constitution seat: *"SCHEMA FIRST, PARAMETERISED ALWAYS requires values pass as
+// query parameters, never interpolated into a template string."* It is right, and
+// the objection is worth more than the one line it costs: `sqlInList` exists only
+// because insertWorkItem's `ON CONFLICT … WHERE` predicate MUST be literal text
+// for partial-index inference to resolve idx_swi_dedup. This is a plain `WHERE` —
+// it has no such constraint, so the exemption does not extend to it. The array
+// literal is built the way `depends_on` already is a few lines above, which is the
+// existing machinery for exactly this.
+//
+// It RETURNS the refreshed row's status, which is not decoration: it is what lets
+// the writer say WHICH row it changed without a second query, and so warn when a
+// refresh lands on an item sitting in the human-review queue (see below).
 func refreshOpenWorkItemSQL() string {
-	return fmt.Sprintf(`
+	return `
 		UPDATE site_work_items
 		   SET summary    = $3,
 		       spec       = $4::jsonb,
 		       updated_at = NOW()
 		 WHERE site_id  = $1
 		   AND item_key = $2
-		   AND status NOT IN (%s)
-		   AND status NOT IN (%s)
-	`, sqlInList(workItemTerminalStatuses), sqlInList(workItemHeldStatuses))
+		   AND status <> ALL($5::text[])
+		   AND status <> ALL($6::text[])
+	 RETURNING status
+	`
+}
+
+// sqlTextArrayLiteral formats a Go string slice as a Postgres array literal for
+// use as a QUERY PARAMETER (`$n::text[]`), not for interpolation into SQL text.
+// Same shape as the `depends_on` literal insertWorkItem already builds.
+func sqlTextArrayLiteral(values []string) string {
+	return "{" + strings.Join(values, ",") + "}"
 }
 
 // refreshOpenWorkItem brings the OPEN item holding this key up to date with the
@@ -1416,31 +1439,60 @@ func refreshOpenWorkItemSQL() string {
 // inserting cleanly. A row a handler currently HOLDS (claimed, diagnosing) is
 // skipped for the same reason in reverse: changing the spec under a running
 // handler is a different bad state, and this seam must not create one.
+// THE NO-OP IS LOUD, AND IT IS LOUD HERE RATHER THAN AT THE CALLER — council
+// `8e7357ae`, bug_historian seat: *"the ONLY fail-loud surface for that case is the
+// one caller's own log.Warn … any future refreshOnConflict adopter who doesn't
+// replicate the Recorded()-check-and-warn pattern reproduces 091 silently."* That
+// is 091's own shape one level down — a shared mechanism whose correctness depends
+// on each caller remembering something — so the warning belongs to the writer. A
+// caller may add its own; it can no longer be the only one.
 func refreshOpenWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.Logger) (workItemWrite, error) {
 	if item.itemKey == "" {
 		return workItemWrite{}, nil
 	}
 
-	result, err := tx.ExecContext(ctx, refreshOpenWorkItemSQL(),
-		item.siteID, item.itemKey, item.summary, item.spec)
+	var refreshedStatus string
+	err := tx.QueryRowContext(ctx, refreshOpenWorkItemSQL(),
+		item.siteID, item.itemKey, item.summary, item.spec,
+		sqlTextArrayLiteral(workItemTerminalStatuses),
+		sqlTextArrayLiteral(workItemHeldStatuses),
+	).Scan(&refreshedStatus)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Warn("writeWorkItem: FINDING NOT RECORDED — nothing inserted and nothing "+
+			"refreshed. An item already holds this key and could not be updated: it went "+
+			"terminal between the two statements, or a handler is holding it. The durable "+
+			"record still describes the EARLIER finding (bugs_open/091)",
+			zap.String("item_key", item.itemKey),
+			zap.String("item_type", item.itemType),
+			zap.String("site_id", item.siteID.String()),
+		)
+		return workItemWrite{}, nil
+	}
 	if err != nil {
 		return workItemWrite{}, fmt.Errorf("refresh failed for %s: %w", item.itemKey, err)
 	}
 
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		logger.Info("writeWorkItem: nothing inserted and nothing refreshed — the open item "+
-			"went terminal or a handler holds it",
+	// A refresh that lands on a human-review row rewrites what someone may be
+	// reading. It is deliberate — needs_human_review is a queue, not a claim, and
+	// leaving the record FALSE is worse — but it is the one judgement in this seam
+	// the council asked to see confirmed rather than assumed (guardian, architecture),
+	// so it says so every time it happens rather than only in a design document.
+	if refreshedStatus == "needs_human_review" {
+		logger.Warn("writeWorkItem: refreshed the open work item with a newer finding — "+
+			"the row is in the HUMAN-REVIEW queue, so its description changed under any "+
+			"reader. Deliberate (bugs_open/091): a record that is silently WRONG is worse "+
+			"than one that silently changes",
 			zap.String("item_key", item.itemKey),
 			zap.String("item_type", item.itemType),
 		)
-		return workItemWrite{}, nil
+		return workItemWrite{Refreshed: true}, nil
 	}
 
 	logger.Info("writeWorkItem: refreshed the open work item with a newer finding",
 		zap.String("item_key", item.itemKey),
 		zap.String("item_type", item.itemType),
-		zap.Int64("rows", rows),
+		zap.String("status", refreshedStatus),
 	)
 	return workItemWrite{Refreshed: true}, nil
 }

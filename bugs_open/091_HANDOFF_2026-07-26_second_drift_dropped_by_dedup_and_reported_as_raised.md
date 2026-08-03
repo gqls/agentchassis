@@ -83,8 +83,16 @@ absent-record — which is the class `074` itself belongs to.
 > ### Candidate 3 stays refused, and the reason is now sharper
 >
 > One row per fact would multiply into `needs_human_review`, which `bugs_open/033`'s owner
-> ruling says must not fill. Re-measured 2026-08-02: **368** parked rows (this file
-> recorded 380 on 07-27). The refresh keeps the row count at exactly one per site.
+> ruling says must not fill. The refresh keeps the row count at exactly one per site.
+>
+> > **CORRECTED 2026-08-03, by the council's `prior_art_librarian` seat**, which caught an
+> > internal inconsistency in my own submission: I wrote "368 parked rows, still growing"
+> > while also recording a FALL from this file's 380 on 07-27. Both cannot be read the same
+> > way. Re-measured: **368 open, 50 raised in the last 7 days, 2 in the last 24h.** So the
+> > queue is still ACCUMULATING at ~7/day and the net fall is drain outpacing intake — not a
+> > slowdown in what arrives. The 033 rationale still binds (candidate 3 would add intake to
+> > a queue that already takes 50 a week); the word "growing" was wrong for the count and
+> > right for the intake, and saying which is the whole difference.
 >
 > ### Guards are MUTATION-PROVEN, not merely present
 >

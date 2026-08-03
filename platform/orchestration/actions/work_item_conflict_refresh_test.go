@@ -67,10 +67,14 @@ func TestWriteWorkItem_RefreshOnConflict_UpdatesTheOpenItem(t *testing.T) {
 	// 0 rows: an OPEN item already holds this key.
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0))
-	// The refresh, carrying THIS finding's summary and spec to the open row.
-	mock.ExpectExec(regexp.QuoteMeta("UPDATE site_work_items")).
-		WithArgs(item.siteID, item.itemKey, item.summary, item.spec).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	// The refresh, carrying THIS finding's summary and spec to the open row. It is
+	// a QUERY now (RETURNING status), and the two status lists arrive as PARAMETERS
+	// rather than interpolated text — council 8e7357ae, constitution seat.
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE site_work_items")).
+		WithArgs(item.siteID, item.itemKey, item.summary, item.spec,
+			sqlTextArrayLiteral(workItemTerminalStatuses),
+			sqlTextArrayLiteral(workItemHeldStatuses)).
+		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("needs_human_review"))
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -116,6 +120,16 @@ func TestWriteWorkItem_DropOnConflict_IssuesNoUpdate(t *testing.T) {
 		t.Fatalf("begin: %v", err)
 	}
 
+	// THIS TEST IS NOT VACUOUS, AND THAT WAS CHALLENGED — three council seats on
+	// 8e7357ae (editquality, guardian, debug_historian) all asked whether a negative
+	// sqlmock assertion means anything here, given the anti-churn probe a few lines
+	// away in the SAME function swallows its own error and would let such a test pass
+	// whatever happened. The answer is that refreshOpenWorkItem PROPAGATES its error
+	// (only sql.ErrNoRows is treated as "nothing matched"), so an unexpected query
+	// surfaces as a returned error rather than being absorbed — which the t.Fatalf
+	// below turns into a failure. Verified by mutation, not by reading: forcing the
+	// default policy down the refresh path fails this test and TestInsertWorkItem_
+	// CannotRefresh. The err check is therefore load-bearing; do not soften it.
 	w, err := writeWorkItem(context.Background(), tx, refreshableItem(), dropOnConflict, zap.NewNop())
 	if err != nil {
 		t.Fatalf("writeWorkItem: %v", err)
@@ -205,8 +219,8 @@ func TestWriteWorkItem_RefreshOnConflict_ReportsNothingWhenTheRowIsUnavailable(t
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	// The refresh matches no row: it went terminal, or a handler holds it.
-	mock.ExpectExec(regexp.QuoteMeta("UPDATE site_work_items")).
-		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE site_work_items")).
+		WillReturnRows(sqlmock.NewRows([]string{"status"}))
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -279,8 +293,8 @@ func TestRefreshStatement_GuardsTerminalAndHeldRows(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count", "age"}).AddRow(0, 999.0))
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec(regexp.QuoteMeta("UPDATE site_work_items")).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(regexp.QuoteMeta("UPDATE site_work_items")).
+		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("triaged"))
 	mock.MatchExpectationsInOrder(true)
 
 	tx, err := db.Begin()
@@ -295,17 +309,28 @@ func TestRefreshStatement_GuardsTerminalAndHeldRows(t *testing.T) {
 	// would only prove the test agrees with itself.
 	refreshSQL := refreshOpenWorkItemSQL()
 
-	for _, s := range workItemTerminalStatuses {
-		if !strings.Contains(refreshSQL, "'"+s+"'") {
-			t.Errorf("terminal status %q missing from the refresh predicate — a %s item "+
-				"would be resurrected by a refresh", s, s)
+	// The lists are PARAMETERS now, so the statement carries their placeholders and
+	// the VALUES are asserted through the literal builder the code passes.
+	for _, clause := range []string{"$5::text[]", "$6::text[]"} {
+		if !strings.Contains(refreshSQL, clause) {
+			t.Errorf("refresh predicate lost %s — one of the two guards is gone", clause)
 		}
 	}
-	for _, s := range workItemHeldStatuses {
-		if !strings.Contains(refreshSQL, "'"+s+"'") {
-			t.Errorf("held status %q missing from the refresh predicate — a handler holding "+
-				"the row would have its spec changed underneath it", s)
+	termLit := sqlTextArrayLiteral(workItemTerminalStatuses)
+	heldLit := sqlTextArrayLiteral(workItemHeldStatuses)
+	for _, st := range workItemTerminalStatuses {
+		if !strings.Contains(termLit, st) {
+			t.Errorf("terminal status %q missing — a %s item would be resurrected by a refresh", st, st)
 		}
+	}
+	for _, st := range workItemHeldStatuses {
+		if !strings.Contains(heldLit, st) {
+			t.Errorf("held status %q missing — a handler holding the row would have its "+
+				"spec changed underneath it", st)
+		}
+	}
+	if strings.Contains(refreshSQL, "'complete'") {
+		t.Error("status list is interpolated into the statement text again — it must be a parameter")
 	}
 	if !strings.Contains(refreshSQL, "summary") || !strings.Contains(refreshSQL, "spec") {
 		t.Error("the refresh must carry the finding's description")

@@ -133,3 +133,72 @@ challenged: `needs_human_review` is deliberately NOT in the held list, so an ite
 a human is mid-way through reading can change under them. It is a queue, not a
 claim, and the alternative is leaving the record false — but that is a judgement,
 not a measurement, and it is stated as one.
+
+## 2026-08-03 01:55 — council APPROVED (13 reviewers, 0 unreadable, 6 advisory objections)
+
+`decided_by: approved with 6 advisory objection(s) — none high-severity`. Four were
+checkable, so they were checked rather than banked. **Read the report by
+CORRELATION, not by `doc_notes … ORDER BY created_at DESC LIMIT 1`** — that
+returned another lane's REVISE verdict for a completely different submission
+(`4a7f0877`, the unpublish primitive), which for a few seconds read as *my*
+verdict. The runbook query is `diagnosis_artifacts WHERE correlation_id=…
+AND kind='council_report'`.
+
+### Acted on
+
+**1. "Is the negative test vacuous?" — three seats independently (editquality,
+guardian, debug_historian).** All three cited the landmine I filed myself: a test
+asserting a query is NOT issued passes vacuously against `insertWorkItem`, because
+the anti-churn probe swallows the mock's error. **They were right to ask and the
+answer is no — proven by mutation, not by reading.** Forcing the default policy
+down the refresh path fails the test with:
+
+```
+writeWorkItem: refresh failed for stale_evidence:…: all expectations were
+already fulfilled, call to Query '…UPDATE site_work_items…'
+```
+
+i.e. `refreshOpenWorkItem` **propagates** its error (only `sql.ErrNoRows` means
+"nothing matched"), so an unexpected query surfaces as a returned error and the
+`t.Fatalf` fires. The distinction from the probe is exactly the `err == nil` test
+one swallows and the other does not. Written into the test as a comment with the
+mutation recorded, so the next reader does not have to re-derive it.
+
+**2. "The silent no-op depends on one caller remembering to check `Recorded()`"
+— bug_historian.** Sustained, and it is 091's own shape one level down: a shared
+mechanism whose correctness depends on each adopter remembering something. The
+`Warn` moved INTO `refreshOpenWorkItem`, so the fail-loud surface belongs to the
+writer. A caller may add its own; it can no longer be the only one.
+
+**3. "Parameterise the status lists, do not interpolate" — constitution.**
+Sustained. `sqlInList` exists only because `insertWorkItem`'s `ON CONFLICT … WHERE`
+predicate MUST be literal for partial-index inference to resolve `idx_swi_dedup`.
+The refresh is a plain `WHERE` and has no such constraint, so the exemption never
+extended to it — I had simply copied the sibling. Now `status <> ALL($5::text[])`,
+with the literal built the way `depends_on` already is. PREPAREd **and EXECUTEd**
+against the live schema (0 rows, as expected) — a PREPARE alone would not have
+proven the array literal binds.
+
+**4. "Log when a refresh lands on a `needs_human_review` row" — guardian, echoed
+by architecture.** Done. This is the one judgement I flagged as wanting challenge,
+and the seats' answer was "not blocking, but make it observable rather than
+documented". It now says so every time it happens.
+
+**5. "'368, still growing' contradicts your own drop from 380" —
+prior_art_librarian.** Caught a real inconsistency in my submission. Re-measured:
+368 open, **50 raised in 7 days, 2 in 24h**. The queue is accumulating at ~7/day
+and the net fall is drain outpacing intake. "Growing" was wrong about the count and
+right about the intake; the correction is in the bug file, marked.
+
+### Not acted on, deliberately
+
+**tooling_provenance (low): no `doc_notes` row capturing the decision.** It is
+covered — the two `LANDMINES.md` entries are synced into `doc_notes` by
+`landmines-sync.py --apply` (run), which is the ruled system of record (D10). Writing
+a second hand-authored row is explicitly forbidden by that ruling.
+
+**guidelines seat flagged a GUIDELINE GAP rather than objecting:** the documented
+work-item dedup rule says "use DELETE+INSERT, not ON CONFLICT", which the entire
+existing helper contradicts. Not this change's to resolve — but it is the rule the
+`a5b70424` guidelines seat cited against `apply_gap_plan`, so the rule and the
+platform have been out of step for a while. Worth someone's RFC; noted, not taken.
