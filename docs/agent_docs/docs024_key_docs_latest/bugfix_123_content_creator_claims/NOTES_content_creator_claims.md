@@ -234,3 +234,53 @@ population", 3 × "industry data near a figure", 2 × "research shows near a fig
 **[UNMEASURED]** How often the shape appears in content-creator's *own* output. It
 has produced no corpus to sample — one known generation, one fabrication in it.
 The 1.24% above is a page-copy rate and must not be quoted as a generation rate.
+
+---
+
+## 2026-08-03 — measured: `ExtractAssertionText` collapses markdown to ONE block
+
+The obvious wiring is "call `ExtractAssertionText` on the generated text and pass
+the blocks to `ScanAllBannedClaims`". It is wrong, and a throwaway probe test in
+`platform/orchestration/datahelpers/` said so in one run:
+
+```
+plain/markdown -> 1 block(s)
+  [0] "## Why recovery matters Industry data shows that large language models
+       experience hallucination rates between 3% and 10% depending on the task
+       A second paragraph, with 66% of people agreeing."
+html -> 2 block(s)
+  [0] "First para."
+  [1] "Industry data shows rates between 3% and 10%."
+```
+
+`extractAssertions` (`claims.go:327`) is an **HTML parser**: it flushes a block at
+each `assertionBlockElements` boundary. Plain text and markdown contain no such
+elements, so `html.Parse` wraps the lot in one `<body>` text node and
+`wsCollapseRe` joins every line with a single space. content-creator's `Format`
+field offers `markdown`, `html` and `plain_text` (`agent.go:48`), so **two of its
+three output formats hit this.**
+
+**Why it matters rather than being untidy.** This is the exact hazard the claims
+floor recorded when it decided to scan sections individually:
+
+> *"joining raw section HTML can fuse a trailing fragment of one section to the
+> opening of the next into a sentence neither section contains"*
+> — `save_sections_claims_guard.go:116-121`
+
+Here the heading `## Why recovery matters` fuses to the following sentence with
+**no full stop between them**, so a match window bounded by `[^.]` spans the join,
+and CLM-017's negation guard — which scans backwards to the nearest boundary — can
+read a cue from a line that is not the same clause at all. A scan that reports on
+sentences the document does not contain is worse than no scan, because its
+findings look specific.
+
+So the plan needs a **format-aware splitter** in `datahelpers`: HTML keeps
+`ExtractAssertionText`; markdown/plain text splits on line boundaries first. Small,
+shared, and it belongs next to the extractor rather than inside content-creator —
+the next site-less producer needs the same thing.
+
+**[MISSTEP avoided, recorded because it nearly shipped]** I had already written
+"call `ExtractAssertionText`, it is nil-safe and shared" into my own reading of the
+fix, twice, before probing it. Nil-safety was the property I checked; *what it
+returns for a non-HTML input* was the property that mattered, and nothing about the
+function's name or doc comment would have told me. The probe cost 90 seconds.
