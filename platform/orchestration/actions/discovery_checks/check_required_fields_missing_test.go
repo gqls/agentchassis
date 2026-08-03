@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"reflect"
 	"strings"
 	"testing"
@@ -389,6 +392,71 @@ func TestRequiredFieldsRetractionIsNotVacuous(t *testing.T) {
 	if reason := res.Resolved[0].Reason; reason == "" ||
 		!containsAll(reason, "re-observed filled", "1 deployed component") {
 		t.Errorf("reason must state what was observed, got %q", reason)
+	}
+}
+
+// The whole refusal design rests on ONE discipline: obs.healthy is incremented
+// only where missingRequiredValueFields actually ran and returned nothing, so
+// every refusal works by NOT counting rather than by remembering to veto. That
+// held by review discipline alone, which council 64430363's bug_historian seat
+// objected to (low) as "the same class of latent exposure, just caught by
+// review rather than mechanism". This is the mechanism.
+//
+// It parses the real source with go/ast rather than grepping, because a grep
+// would also match the string inside a comment — and this file's comments talk
+// about obs.healthy repeatedly. It cannot pass vacuously: it t.Fatal's if it
+// cannot find the function, and again if it counts zero increments (which would
+// mean the needle stopped matching, not that the discipline is held).
+func TestHealthyIsIncrementedFromExactlyOnePlace(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "check_required_fields_missing.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	var fn *ast.FuncDecl
+	for _, d := range file.Decls {
+		if f, ok := d.(*ast.FuncDecl); ok && f.Name.Name == "findResolvedRequiredFields" {
+			fn = f
+			break
+		}
+	}
+	if fn == nil {
+		t.Fatal("findResolvedRequiredFields not found — this test's needle has stopped matching, " +
+			"so it would pass vacuously; fix the test, do not delete it")
+	}
+
+	writes := 0
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		isHealthy := func(e ast.Expr) bool {
+			sel, ok := e.(*ast.SelectorExpr)
+			return ok && sel.Sel.Name == "healthy"
+		}
+		switch s := n.(type) {
+		case *ast.IncDecStmt: // obs.healthy++ / --
+			if isHealthy(s.X) {
+				writes++
+			}
+		case *ast.AssignStmt: // obs.healthy = x / += x
+			for _, lhs := range s.Lhs {
+				if isHealthy(lhs) {
+					writes++
+				}
+			}
+		}
+		return true
+	})
+
+	if writes == 0 {
+		t.Fatal("counted zero writes to .healthy — the AST needle has stopped matching, " +
+			"so this test can no longer fail; fix it rather than trusting the pass")
+	}
+	if writes != 1 {
+		t.Errorf("`.healthy` is written from %d places, want exactly 1.\n"+
+			"Every refusal in findResolvedRequiredFields works by NOT incrementing healthy and "+
+			"falling through to the `healthy != deployed` gate. A second write site means some "+
+			"path now counts as a positive observation without having run the predicate — which "+
+			"is how an unreadable schema or a runtime-fill shell starts reading as healthy.", writes)
 	}
 }
 

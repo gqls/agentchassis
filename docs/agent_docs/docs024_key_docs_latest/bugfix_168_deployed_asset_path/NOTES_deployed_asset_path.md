@@ -901,3 +901,108 @@ is the known index landmine, not a defect in the entries. Saying so rather than 
 predictable NEEDS_HUMAN_REVIEW.
 ⚠ `/tmp` tmpfs still near-full — `TMPDIR=/home/ant/.cache/buildtmp` throughout, as §8 of the
 handoff warns.
+
+## Council `64430363` — **APPROVED at round 1**, 14 seats, 1 objecting seat, none high
+
+Dispatch was immediate again (submitted ~20:13 UTC, verdict 20:23) — second sample in a row, but
+still not the measured 29-minute norm. Two samples is not a rate.
+
+**Three objections were checkable, so they were checked rather than filed.** That is this lane's
+standing pattern and it held for a third round.
+
+### `bug_historian` (MEDIUM) — "second per-call-site fix of the same landmine, and nothing audits the rest"
+
+The sharpest objection of the round, and correct in shape: *"this is now the SECOND time this
+exact landmine has been found and fixed per-call-site, with no stated intent to sweep other
+per-pass-capped checks before they adopt the seam."* Its `missing` field asked the question
+outright, so I answered it with a census rather than an intention [MEASURED 2026-08-03]:
+
+| check | cap | exit | seam adopted? |
+|---|---|---|---|
+| `check_componentless_pages.go` | `componentlessMaxPerPass` | `break` | no |
+| `check_component_template_corrupted.go` | `maxTemplateRegensPerPass` | `break` | no |
+| `check_section_source_drift.go` | `maxSectionDriftFlagsPerPass` | `break` | no |
+| `check_required_fields_missing.go` | `maxRequiredFieldFlagsPerPass` | ~~`return`~~ → `break` | **yes (this change)** |
+| **`check_image_source_unsatisfiable.go`** | `maxUnsatisfiableFlagsPerPass` | **`return result, nil`** | no |
+
+**Exactly one other site is armed**, and it is **inert today**: `check_image_source_unsatisfiable`
+does not populate `Resolved`, and while a check can only file, its `return` is *correct*. So there
+is nothing to fix there now — and deliberately nothing was. **Fixing it pre-emptively would be a
+behaviour change with no benefit and no test**, on a check I am not otherwise touching. What was
+owed is that the next person cannot miss it: the census is appended to the `LANDMINES.md` entry,
+with the re-run command, and the entry now says plainly that **the adoption commit is the commit
+that must also change that `return` to a `break`.**
+
+### `bug_historian` (LOW) — "the single-increment discipline is held by review, not by mechanism"
+
+Fair, and the fix was cheap enough that arguing would have cost more.
+`TestHealthyIsIncrementedFromExactlyOnePlace` parses `check_required_fields_missing.go` with
+**`go/ast`** and asserts `.healthy` has exactly one write site.
+
+Deliberately not a grep: this file's comments discuss `obs.healthy` repeatedly, so a grep would
+match prose and pass for the wrong reason. It also cannot pass vacuously — it `t.Fatal`s if it
+cannot find the function, and again if it counts **zero** writes, because a needle that stopped
+matching produces a green test that can never fail again. Mutation M9 (a second `obs.healthy++`
+on the unreadable-schema branch) → fails with *".healthy is written from 2 places, want exactly
+1"*; restored → green. **9 mutations now, 9 required failures.**
+
+### `editquality` (LOW) — "`build_status='deployed'` is a documented trap on other tables"
+
+The seat was right to ask (`pages.build_status` undercounts / outlives; `site_components` never
+reaches `'deployed'` at all), and the answer turned out to be **structural, not statistical** —
+which is a better answer than the row count I first reached for.
+
+`\d page_components` [MEASURED 2026-08-03]: there is **no separate `status` column**. Its one
+status column is `build_status`, whose CHECK constraint is
+`deployed | pending | approved | removed | needs_rebuild` — **retirement is `removed`, INSIDE the
+column the predicate filters on.** The `pages` trap needs *two* columns to drift apart (archiving
+sets `pages.status` and leaves `pages.build_status` alone); `page_components` has only one, so the
+trap cannot reproduce here. Live values: deployed 962, approved 216, pending 22.
+
+Also measured the page-level interaction it implies: **all 59 open items sit on `pages.status =
+'active'`**, 0 on archived pages. ⚠ **Deliberately did NOT add a `p.status='active'` guard**, and
+the reason is symmetry rather than the zero: the FILING half joins `pages` with no status filter,
+so it still files on an archived page. A retraction narrower than its own filer would refuse to
+close exactly the things it would still raise — the wrong asymmetry, and a worse defect than the
+one being guarded against.
+
+### The two seats that asked a human to confirm something I could confirm myself
+
+`tooling_provenance` and `prior_art_librarian` both recorded that they **could not** verify the
+docs commit or the cited symbols — `doc_plans` is not in their schema and `code_checks` cannot
+see function bodies. Confirmed here so the record is not left hanging: `b312c409a` landed the two
+`LANDMINES.md` entries plus the lane's NOTES and README (3 files, 179 insertions), and
+`findResolvedEmptySections`, `SchemaContentFields`, `missingRequiredValueFields` and
+`CheckResult.Resolved` all exist and are the shapes cited.
+
+`reuse_agent` asked whether this was "a straight resubmission with unresolved prior objections
+carried forward" — it is not: no `RESUBMIT_CORR`, and council `97923026` was a **different
+change** (`check_empty_sections`) in the same lane. The docs-gap objection it noticed in my
+rationale was me *pre-empting* last round's finding, not carrying it forward.
+
+### The `architecture` seat, and why its verdict is the reassuring one
+
+`ARCHITECTURE_SIGNAL: point_fix`, approve. Its reasoning is the answer to the question this lane
+has been circling since `bugs_closed/124`: *"no shared contract added, no exported symbol other
+packages depend on (`findResolvedRequiredFields` is file-local), single-package single-file change,
+fails every needs_rfc trigger."* And it explicitly rewarded the **declining**: *"the author
+explicitly declined to fix the filing half's PageID gap inside this change, correctly naming that
+as the `bugs_closed/124` shape — that is the right instinct for this seat to reward."*
+
+⚠ Worth carrying: **the seat that vetoes scope creep also credits you for the thing you did NOT
+do, but only if you SAY you did not do it and why.** A silent omission reads as an oversight; a
+stated deferral reads as judgement. Same edit, different verdict.
+
+### State
+
+Committed `ba3aae47f` (code, `Council-Submitted:`), `b312c409a` (docs), `9cd9c5227` (handoff).
+Verdict read and approved, so the follow-up commit carries `Council-Reviewed:`.
+**NOT LIVE.** Both replicas run `v1.0.1244`.
+
+⚠ **Pre-roll baseline TAKEN AND DATED — the one measurement that cannot be recovered afterwards.**
+`re-observed filled: all` greps **0 on both replicas of `v1.0.1244`** (2026-08-03), with the first
+adopter's `re-observed healthy: all` at **1** on both as a positive control proving the grep and
+the pipeline work. After the next roll the same command must read **1**; a stale same-tag binary
+would still read 0, so the 0→1 transition is the proof. This change removes no string literal, so
+`bugs_open/153`'s positive+negative recipe does not apply — and the substitute only exists if you
+take it BEFORE the roll, which is why it is here and not in the next session's plan.
