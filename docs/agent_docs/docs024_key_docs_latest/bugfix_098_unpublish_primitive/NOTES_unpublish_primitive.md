@@ -246,3 +246,71 @@ what is standing in for the loop's verdict.
 council before — correlation `320878ca-5c25-4fed-99ae-82b52b095aba`, routing it down
 the no-LLM `page_rerender` path, live in v1.0.1155. That round changed HOW it emits;
 neither round changed WHICH pages it selects, which is where the defect was.
+
+## 2026-08-03 — COUNCIL ROUND 2: **REJECTED**, hard veto from `guardian`
+
+Correlation `4a7f0877-4149-4431-97d4-318d093570a4`, round 2. Not a surprise — I named
+this exact risk as #1 in my own submission — but the verdict is the verdict, and
+CLAUDE.md is explicit: **"A veto on SCOPE is not answered by resubmitting with better
+measurements."** So this is not being resubmitted. It is being split.
+
+**The veto, verbatim on the substance:**
+
+> "This is eight files spanning a shared wire struct, the core git-commit function every
+> deploy-writing pipeline depends on, a new verb on a shared adapter, and its allowlist
+> gate — plus three more new/changed action files. That is architecture-change-dressed-as-fix
+> by this council's own definition… The one edit I would approve standing alone is
+> `render_news_section_html.go` (add `p.status='active'` to `queueNewsPageRerenders`) —
+> that is the actual root-cause fix for the resurrection bug, small, contained, and
+> matches sibling query conventions. Safest path: ship that predicate fix now, and take
+> `delete_file`/`retract_page_deployment`/`retract_page_graph` through an architecture
+> review as a self-contained RFC on the git adapter's action vocabulary, separate from
+> the urgent bug. **Splitting does not require re-deriving any of the measurement work
+> already done — it only changes sequencing.**"
+
+The `architecture` seat agreed and signalled `needs_rfc`, while saying the design itself
+is right — *"expressing delete-as-null-sha inside the existing CommitToRepo path is the
+right reuse… On that axis the plan is sound and I'd carry it"*. So the objection is to
+**how the capability reached production, not to the capability**. That distinction is the
+whole of 124's precedent and it is why more evidence would not have helped.
+
+**What follows, and what does not.** The code is already on shared HEAD and forward-only
+forbids removing it; the 2026-07-29 ruling says review here is after the fact by design
+and that a thread must not pretend it could have held the change back. So: the predicate
+fix stands and is live, the seam is registered (DGH-006) and now carries the veto, and
+the RFC goes to architecture review on its own merits for a human to break.
+
+**THE RETRACTION IS NOT BEING PERFORMED.** The owner approved retracting one page before
+this verdict existed. Firing a vetoed capability at a live customer site, on the strength
+of an approval given on a different basis, would be the exact thing the veto is about.
+It waits for the RFC.
+
+### The four objections that are RIGHT ON THE MERITS regardless of the veto
+
+These are real defects in code that is already live, so they matter more than the
+packaging dispute:
+
+1. **`debug_historian`, HIGH, edit 8.** My link census does not go through
+   `linkablePageStatusPredicate`. The landmine it cites is in my own memory index: *"an
+   offline census MUST use `linkablePageStatusPredicate` — an ARCHIVED page makes a
+   CORRECT rewrite look wrong."* Building a fresh census over `pages` with a hand-rolled
+   status condition is precisely the shape that landmine guards. **Owed: verify and fix.**
+2. **`editquality`, MEDIUM, edit 8.** Inbound references also live in **structured
+   `content_data` fields** (`link_url`, `cta_url`, hero-tool/tool-cta `*_url`), not only
+   in `href=` markup. An href-only scan can miss a real inbound reference and let a
+   retraction proceed — *the exact case the owner's directive was written to prevent.*
+   **Owed, and it is the sharpest catch in the round.**
+3. **`reuse_agent` + `guardian`, MEDIUM, edit 8.** The inbound-source logic is *copied*
+   from `check_orphan_pages.go` with a comment warning of drift, rather than extracted and
+   shared. I argued the two ask different questions (what IS unreachable vs what BECOMES
+   unreachable); the seats are right that a comment is not a mechanism. **Owed.**
+4. **`bug_historian`, MEDIUM, edit 7.** The predicate fix invents a third spelling instead
+   of consolidating onto a canonical helper, and I presented no fleet-wide census of other
+   `build_status`-as-liveness selectors. **Half-answered after submitting**: I ran that
+   census and found `queueDirectoryPageRerenders` — which calls itself "cousin of
+   queueNewsPageRerenders" — carrying the identical defect (latent, 0 live rows), fixed in
+   `8f73e7279`. The consolidation half is still owed and is a fair hit.
+
+The pattern across all four: **every one is about edit 8**, the graph audit I added
+fastest and reviewed least. The primitive, which took the most care, drew no correctness
+objection at all — only scope.

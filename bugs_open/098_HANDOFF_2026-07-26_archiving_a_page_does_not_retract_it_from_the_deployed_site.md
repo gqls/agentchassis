@@ -8,6 +8,49 @@ mechanism, and 052's fix cannot reach it by construction.
 class is permanent: nothing in the platform can ever repair the affected page,
 because every repair path skips archived rows on purpose.
 
+> ## STATUS 2026-08-03 — STILL OPEN. Half fixed and live; the other half is VETOED and awaiting a human.
+>
+> **FIXED AND LIVE — the resurrection half** (chassis digest `sha256:5da2888…`, both
+> replicas). This page was not frozen at all: it was being re-rendered and re-published
+> **twice a day** because `queueNewsPageRerenders` filtered on `build_status` and never on
+> `status`. See the correction below. Its self-declared cousin
+> `queueDirectoryPageRerenders` carried the identical defect (latent, 0 live rows) and is
+> fixed too (`8f73e7279`). **This mattered more than the retraction**: without it, deleting
+> the file would have been undone by the next news refresh, and a single post-delete `curl`
+> would have reported success.
+>
+> **BUILT, LIVE, AND VETOED — the unpublish half.** The missing primitive
+> (`delete_file` on the git adapter, `retract_page_deployment`, the retraction graph audit)
+> is written, tested, deployed, and **proven end to end on a scratch path**. Council
+> correlation `4a7f0877-4149-4431-97d4-318d093570a4` round 2 returned **REJECTED — hard veto
+> from `guardian`**, `architecture` signalling `needs_rfc`. The objection is to **how the
+> capability reached production, not to the capability** — the architecture seat called the
+> design *"the right reuse… the plan is sound and I'd carry it"* and vetoed `delete_file`
+> as a new reserved verb on a shared adapter's vocabulary. Routed to
+> **`architecture_review/RFC_011_git_adapter_action_vocabulary_and_the_unpublish_verb.md`**
+> for a human. Per CLAUDE.md a scope veto is **not** answered by resubmitting with better
+> measurements, so it has not been.
+>
+> **NO PAGE HAS BEEN RETRACTED.** The owner approved retracting
+> `robot-hands.com/learning-center/index.html` *before* this verdict existed; firing a
+> vetoed capability at a live site on an approval given under a different premise is the
+> thing the veto is about. **The population is unchanged at 13** and the live instance
+> still serves 200.
+>
+> **OWED, and these are correctness debts on LIVE code, not packaging:**
+> 1. **HIGH** — the retraction's link census does not go through
+>    `linkablePageStatusPredicate`; a landmine says an offline census over `pages` must.
+> 2. **MEDIUM** — inbound references also live in structured `content_data` fields
+>    (`link_url`, `cta_url`, `*_url`); an `href=`-only scan misses them and can let a
+>    retraction proceed past a real inbound link — the exact case the owner's 2026-08-03
+>    directive exists to prevent.
+> 3. **MEDIUM** — the inbound-source logic is copied from `check_orphan_pages.go` rather
+>    than shared with it.
+> 4. **MEDIUM** — the status predicate is a third bespoke spelling rather than a
+>    consolidation onto a canonical helper.
+>
+> Workstream: `docs024_key_docs_latest/bugfix_098_unpublish_primitive/` (the standing five).
+
 ## The gap in one line
 
 `pages.status = 'archived'` correctly removes a page from re-derivation *and* from
