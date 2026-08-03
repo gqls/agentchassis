@@ -108,21 +108,39 @@ earns its keep):
 
 ```sql
 INSERT INTO site_work_items (
-  site_id, item_type, item_key, status, pipeline, summary, spec,
+  site_id, item_type, item_key, status, severity, priority, summary, spec,
   handler_agent, source, created_by, attempt_count, max_attempts, created_at, updated_at)
 VALUES ((SELECT id FROM sites WHERE domain='fundamentallyai.com'),
   'page_rerender',
-  'page_rerender_<page>_199733a8-ac9c-4c30-b2ce-65ecdac6f3bd_assemble_<tag>',
-  'triaged','build','Republish <page>: <why>',
+  'page_rerender:<page>:<tag>',
+  'triaged','medium',30,'Republish <page>: <why>',
   jsonb_build_object('domain','fundamentallyai.com','page_id','<page_id>',
                      'filename','<path/index.html>','page_name','<page>'),
   'page-rerender','operator:<workstream>','operator:<workstream>',0,3,NOW(),NOW());
 ```
 
-`item_type='page_rerender'` + handler `page-rerender` re-renders from **stored
-`content_data`** (no LLM). Do NOT use `needs_page` for this — that routes into
+> **CORRECTED 2026-08-03 (twice in one morning).** (1) The column list above had
+> drifted from the live schema twice — first `category`, then `pipeline`; the
+> table has neither. The form above (severity + priority, item_key in the
+> `page_rerender:<page>:<tag>` shape) is copied from a live row and inserted
+> successfully three times today. (2) **The claim that this queue item
+> "re-renders from stored content_data" is WRONG as written — with no `reason`
+> in the spec it is ASSEMBLE-ONLY.** Measured: a 10:58 `content_data` edit, the
+> queue item complete at 11:00:33, and the section's `rendered_html` still
+> carried the OLD markup until the direct script ran at 11:04:39. A completed
+> item + a deployed page that still serves your old content is exactly what an
+> assemble-only run of stale sections looks like. For a content_data or
+> template change, use `scripts/rerender_page_sections_direct.sh` (verified,
+> §routes table below) — or add `'reason','section_data_resolved'` to the spec
+> jsonb, which the agent wires into the rerender_sections pre-pass
+> [UNVERIFIED — the direct script is the proven path].
+
+Do NOT use `needs_page` for a republish — that routes into
 the full LLM pipeline and rewrites all the copy (016b §9,
-"`spec.reason` does not make `needs_page` scoped").
+"`spec.reason` does not make `needs_page` scoped"). `needs_page` IS the right
+route for a genuinely new planned page (used 2026-08-03 for the two guide
+builds: spec `{"reason":"not_built","page_name":"<name>"}`, handler
+`page-build-handler`, mirroring the completed `needs_page:capabilities` item).
 
 **Verify by payload, never by the printed correlation id:**
 ```sql

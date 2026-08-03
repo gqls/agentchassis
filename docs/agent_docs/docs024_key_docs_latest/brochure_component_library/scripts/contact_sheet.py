@@ -121,9 +121,13 @@ def main():
         verdict = "PASSED" if "PASSED" in body.split("\n", 1)[0] else \
                   ("FAILED" if "FAILED" in body.split("\n", 1)[0] else "?")
         skipped = re.search(r"\((\d+) skipped", body)
-        uris = re.findall(r"(s3://\S+?\.png)\s*\((\w+)\)", body)
+        # The tag is "(desktop)" on old notes and "(desktop 1366x900@1x)" once
+        # the viewport field ships — match anything in the parens, first word
+        # is the profile.
+        uris = re.findall(r"(s3://\S+?\.png)\s*\(([^)]+)\)", body)
         imgs = []
-        for uri, profile in uris:
+        for uri, tag in uris:
+            profile = tag.split()[0]
             data, err = fetch_s3(uri, key_id, key)
             if err:
                 imgs.append("<p class='err'>%s: fetch failed — %s</p>" % (profile, err))

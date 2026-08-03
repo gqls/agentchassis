@@ -20,7 +20,7 @@ trusting this line), with the command written into it as the previous thread
 asked:
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,701  ← THIS is the headline number
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,714  ← THIS is the headline number (re-taken 2026-08-03 after TL-039; the line said 1,701 and the grep said 1,713 before the row was added — 12 rows from other threads had landed unrecorded, which is this line's own point)
 cat *.md | grep -c '^### '                                       # 1,738  (headings; always higher)
 ls *.md | grep -vc 000_concept_index                             # 109    (files)
 ```
@@ -1622,6 +1622,7 @@ an ID prefix, or a status word.
 | DES-043 | Palette/typography resolution cascade + the dead-slot bug and fingerprint-fallback hardening | partial | The palette source cascade is design_reference → mission → `design_intent.palette.reference_values` → layout... | design-composition.md |
 | TL-017 | Acceptance criteria live in the tool's PLAN (fenced ```criteria JSON block) | deployed | The per-tool definition of *working*. Candidates judged on key/lifecycle/owner and rejected: site_specs (right... | tool-lifecycle.md |
 | TL-038 | `computed_values` criteria check type + the emitter that authors it from a working tool | built | The only rung of the acceptance ladder that judges what a calculator COMPUTES rather than what it contains: `steps` drive, `expect_values` assert the exact... | tool-lifecycle.md |
+| TL-039 | `contact_sheet.py` — the acceptance renders in front of eyes, one command | built, exercised | Closes TL-035's "nobody looks": last N acceptance-run notes → signed fetches from the private bucket → local HTML contact sheet; render-less runs listed grey with the reason class. Every image captioned "state as driven by the checks, not the landing state". LANDMINE: the shutter fires AFTER checks drive the page — a render of a healthy page can show a driven state | tool-lifecycle.md |
 | IMP-039 | Unified build & maintenance work items (site_work_items) | deployed | The pivotal unification: every piece of work — building a page, fixing stale content, adding a tool, publishing... | improvement-loop.md |
 | TLIB-012 | JS tools documentation and provenance gap | aspirational | The platform's JS tools have no prose docs and no code-symbol provenance; the only documentation is origin... | tool-library.md |
 | DES-001 | Three-layer design system (content_components / css_themes / style_collections) | deployed | The platform's design system has always had three independently-varying layers: Layer 1 self-contained HTML... | design-composition.md |

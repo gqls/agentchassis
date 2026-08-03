@@ -1552,3 +1552,49 @@ One honest note: I have **not** run their critic against my pictures. I've check
 reading the code, that the shapes match and it would work. That's a strong argument and
 it isn't the same as having watched it happen, and I've said exactly that in the note to
 them rather than passing off a prediction as a result.
+
+---
+
+2026-08-03 (brochure lane 2). You said "do them all in the order you choose", so here is
+what happened, in the order it happened.
+
+The duplicate-section checker is switched on. Before throwing it I re-ran every safety
+check myself rather than trusting Friday's numbers: the guard code really is in the
+running binary (checked on both servers), the census really would delete nothing (re-run
+over all 1,189 sections — the count had grown from 1,023, which is exactly why re-running
+matters), and the one page whose plan genuinely asks for a repeated section is protected.
+Then I watched its first real run against fundamentallyai: it deleted nothing and filed
+one advisory note — our capabilities page and index genuinely do repeat facts at each
+other, which is the deeper problem (bug 151, candidate 1) it was built to surface. So the
+camera works, the tripwire works, and nothing got bitten.
+
+Somebody now looks at the photographs. There is a one-command script that gathers the
+acceptance-run screenshots out of the private storage bucket and lays them out on a
+single page, and I published the first sheet to you privately. Looking immediately earned
+its keep: the desktop photograph shows the simulator in its EMPTIED state — because the
+last automated check presses "Clear" before the camera fires. The page is fine; the
+photograph is honest about the wrong moment. That warning is now stamped on every image
+so nobody files a false bug off it. The photos also settled a design question: the mobile
+screenshot is 22,491 pixels tall, so each photo now records what screen size it was taken
+at (that change is written and reviewed, and goes live with the next release).
+
+The tools got their shopfront. fundamentallyai.com/tools.html now exists and lists all
+three tools; the "Explore All Tools" buttons on the tool pages finally point at it
+instead of at a marketing page. The cost calculator's dead buttons work ("Run the
+calculator" scrolls to the calculator; "Review the methodology" opens its guide), and
+both missing companion guides were written and published today by the real content
+pipeline — including one the site's own copy had been promising since 25 July while the
+page behind it sat unbuilt, serving 404. I nearly shipped buttons pointing at that 404
+on the strength of the copy's promise; caught it, held the buttons back until the guide
+actually served, then wired them. A dead index stub (decision-record) that had been
+serving 404 for nine days is retired.
+
+One thing I deliberately did not do: add the "how to use this" strip to the simulator
+page. Adding a section that way risks the content system rewriting the whole page's
+copy, and that page is our most carefully proven artefact. The new guide covers the same
+need. If you want the strip anyway, there is a safe route noted in the technical log.
+
+Still open for your call: whether the contact sheet should come to you on a schedule (a
+weekly digest, say) or stay on-demand; and whether the camera should photograph the page
+BEFORE the checks interact with it — that changes what a photograph means, so it is not
+mine to decide.

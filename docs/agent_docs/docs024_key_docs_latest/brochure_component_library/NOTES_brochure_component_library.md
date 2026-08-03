@@ -4188,3 +4188,115 @@ bugfix-177 content while I was editing TL-035 in the same file, and a pathspec c
 takes the working tree, so their update rode along under my message. **Checked before
 assuming damage: nothing was lost** — the richer versions are present at lines 43-44 and
 the index fragments agree. Forward-only, so it stands; this note is the provenance.
+
+## 2026-08-03 — the switch, the eye, the viewport, and the loose ends (session: brochure lane 2)
+
+Owner: *"do them all in the order you choose."* Order chosen: 151 enable → renders
+eye-path → viewport field → content loose ends. All four landed; the missteps are
+below the results, and two of them are the most useful lines here.
+
+**1. `content_duplication` is ENABLED — seed 296, and the first sweep is clean.**
+Preconditions re-verified rather than requoted: guard chain pod-grepped on both
+v1.0.1238 replicas (`plan_specified_repetition` 1, `lock_skipped` 1, nonsense
+control 0 — note `strings` is absent from the image, `grep -acF` on the binary);
+shipped-rule census re-run over all **1,189** live rows (07-31's 1,023 was already
+stale): **0 groups, 0 deletions**; the plan-repetition figure re-measured (still
+exactly 1: webdesign.co.uk/index/info-card-grid ×2, guard refuses it by design).
+Enabled on **completeness-discovery-agent** (the rows-of-a-page family), both seed
+guards induced before the real apply. First watched run (one-shot scheduled task,
+disabled after firing): **0 deletions, one flag-only `capability_gap`** — 9
+fact-overlap pairs + 1 near-duplicate on fundamentallyai, `do_not_auto_rewrite`,
+naming candidate 1 as the structural fix. That gap row is candidate 1's measured
+population on our own site.
+
+- *Misstep (query):* my first plan-repetition census grouped across ALL
+  `site_plans` per site and read **87 duplicate groups** — plan history counted as
+  repetition. Within current plans: 1. The 07-31 figure was corroborated, not
+  contradicted; the wrong number never left this session.
+
+**2. The eye half of TL-035 exists: `scripts/contact_sheet.py`.** One command →
+HTML sheet of the last N acceptance runs, PNGs fetched from the private bucket
+with the adapter's own credentials (`curl --aws-sigv4`; stdlib has no signer),
+render-less runs listed grey rather than hidden. The first sheet is PUBLISHED
+(private artifact, owner's gallery): the 08-02 renders were **fetched and READ**
+— `[UNFETCHED]` is spent for good. What the look caught is in the 08-02b NOTES
+entry above and in the sheet itself; the new item today: **/tools.html's blank
+lower half in a look.py render is the vh-stretch artifact (trap 2 in look.py's
+own header), not a page defect** — doc_height tracked the 4000px probe viewport.
+
+**3. Viewport metadata on `Renders` — verify-later (b) answered YES and shipped.**
+`ScreenshotRef.Viewport` ("390x844@3x") stamped in `captureEvidence` from the same
+constants `openChromium` builds the context with (new `mobileScale` const replaces
+the bare `3`); chassis parses it and both note lines print it beside the profile.
+Old refs/adapters keep the exact `(mobile)` form — asserted by the existing tests,
+which is what makes the change safe to interleave with old notes. **Inert until
+adapter + chassis images roll, either order.** Council `a18db904` submitted,
+committed `d0a873f97` with `Council-Submitted:`. Tested against a clean
+`git archive HEAD` — the working tree carries another session's mid-edit WIP in
+`discovery_checks` (`findResolvedEmptySections` defined at :257 but the package
+does not compile), so a tree-level `go test` says *my* change broke the build
+when HEAD + my files are green. Also: `contact_sheet.py`'s tag regex widened
+`\((\w+)\)` → `\(([^)]+)\)` ahead of the new form.
+
+**4. Content loose ends — all served, two dispatches, one near-miss.**
+- `/tools.html` EXISTS (page row + hero-tool + tool-cta reusing the calculator's
+  exact component rows; `in_header=false` — nav membership deliberately untouched,
+  the 149 lane owns that seam). The tool-cta `items` turn out to be
+  **resolver-fed** (`source: query.pages_where_type:tool`) — hand-written items
+  are seed data at best. Corollary: **archiving the decision-record stub is what
+  kept a 404 card off the index** (page row was `active`, 0 components, never
+  deployed, serving 404 since 07-25 — now `archived`).
+- Calculator hero: "Run the calculator" → `#input-tokens`; "Explore All Tools" →
+  `/tools.html` on BOTH tool pages (the simulator's used to point at
+  `/multi-agent-review-council.html` — label promised an index that didn't exist).
+- **Both companion guides are BUILT and LIVE** via the real pipeline:
+  `needs_page` items (`{"reason":"not_built","page_name":…}`, handler
+  `page-build-handler`, the completed `needs_page:capabilities` item as the
+  precedent). `/guides/llm-cost-calculator-guide.html` (promised by live copy
+  since 07-25, page row `planned` with 0 components the whole time) and
+  `/guides/review-council-simulator-guide.html` (page row created today mirroring
+  the selector guide's shape). Calculator's methodology/how-it-works buttons now
+  point at its guide — restored only AFTER the guide served 200.
+- **`tool-guide-intro` on the simulator page: deliberately NOT added.** The
+  whole-page escalation gotcha (any NULL-content section → content writer
+  regenerates the page's copy) risks the mutation-proven page for a section whose
+  need the guide page now serves. If wanted later: build the JSON from the guide's
+  own copy and deliver via `section_edit` (no LLM near the page). Recorded here so
+  the omission reads as a decision, not a gap.
+- Simulator re-render verified with the 44-check probe — now **47 checks, 0
+  failed** (another lane grew it; the number in older notes is stale, the exit
+  code is the contract).
+
+**The near-miss, in full, because it is the day's best lesson.** I pointed two
+calculator CTAs at `/guides/llm-cost-calculator-guide.html` on the strength of
+the live copy referencing a companion guide — *the copy was the claim, not the
+artefact*. The guide had never been built (row `planned`, 0 components, serves
+404). The queue rerender completed **40 seconds before my revert**, so the 404
+buttons were briefly live. Reverted (label-without-url renders no button — the
+prior state), re-queued, guide built through the pipeline, links restored only
+against a 200. Same session, same lesson as the bucket 401: **verify the TARGET
+at the artefact before shipping a link to it.** → WRONG_CALLS row added.
+
+**Missteps with mechanisms, for the next reader:**
+- **The queue `page_rerender` item with no `reason` is ASSEMBLE-ONLY.** My
+  content_data edits did not reach the page through it; stored `rendered_html`
+  timestamps proved the sections were never re-rendered (RUNBOOK corrected, with
+  the measurement). `rerender_page_sections_direct.sh` is the proven path for a
+  content/template change. → LANDMINES entry added (the completed item + deployed
+  page LOOK exactly like success).
+- **The RUNBOOK's work-item INSERT recipe had drifted from the live schema twice
+  in one morning** (`category`, then `pipeline`; the table has neither — the 154
+  routing-columns work moved it). Copy a live row's shape, not a doc's.
+- **I re-ran a whole SQL script as its own diagnostic** (`... | grep -B3 ERROR`
+  piped the script through psql a third time). Idempotence guards (`@>` fence,
+  unique constraint) absorbed it — by design, not by luck, but the practice is
+  wrong: diagnose from the failed run's output, never by re-executing.
+- **The session clock: I wrote "~00:20 BST" into a ledger note when it was
+  ~11:20.** Hours passed between turns; `date` + `SELECT now()` agreed and my
+  sense of time did not. Corrected in place (`schema_migrations.notes` is
+  metadata, not history). Timestamp claims come from the clock, not from feel.
+- **A static-source schema field wins over stored content_data on every
+  resolve**: my "Talk to us about AI tooling" secondary label came back
+  "Learn how it works" (`input_schema.fields.secondary_cta_label.source=static`).
+  Not a bug — the schema is the authority; check `input_schema` before authoring
+  content_data keys. → LANDMINES entry added.
