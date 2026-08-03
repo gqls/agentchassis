@@ -1,10 +1,12 @@
 # Concept Index — master register
 
-**1,711 index table rows** across **109** category register files, re-measured
-2026-08-03 with the command below after PBP-028 (the content_rewrite edit-live
-channel) landed; the count moved 1,710 → 1,711, exactly my own row, no
-concurrent arrival this time — still re-run rather than trust this number, per
-every line below it. Previously: 1,710 measured 2026-08-03 after CLM-019 (the
+**1,713 index table rows** across **109** category register files, re-measured
+2026-08-03 with the command below after DOC-073 (`pick-pod-marker`) landed; the
+count moved 1,711 → 1,713, i.e. one row besides mine arrived concurrently —
+re-run rather than trust this number, per every line below it. Previously:
+1,711 measured 2026-08-03 after PBP-028 (the content_rewrite edit-live
+channel) landed; the count moved 1,710 → 1,711, exactly that thread's own row,
+no concurrent arrival that time. Previously: 1,710 measured 2026-08-03 after CLM-019 (the
 count moved 1,708 → 1,710, i.e. one row besides mine arrived concurrently —
 the same concurrency the line below records, and the reason to re-run rather than
 trust any of these numbers. Previously: 1,708 measured 2026-08-03 after DGH-006.
@@ -1044,12 +1046,14 @@ an ID prefix, or a status word.
 | DOC-066 | docs019 working/main snapshot bundle (duplicate early-draft staging copy) | superseded | Nested archive-of-archive with zero unique content vs live docs | documentation-system.md |
 | DOC-068 | `subject_type='component'`: travelling docs for a section component (the ladder's substrate) | both halves LIVE + observed; capability proven, NOT used | A component can carry a PLAN + criteria fence and per-site NOTES; PLAN is the fleet-wide contract, NOTES the per-site verdicts. Go gate watched at runtime 07-31 (corr `8f564028`, v1.0.1215), not inferred from a build date. LANDMINE: `doc_plans` is back to 0 component rows — no real contract exists yet, and doc_notes also allows 'landmine', so re-adding its CHECK from doc_plans' array orphans the live corpus | documentation-system.md |
 | DOC-070 | `PROBE_doc_subject_go_gate.sh`: make the running binary print its own doc-subject vocabulary | built, used to a PASS | The runtime half of the four-enforcement-point checklist: an invalid `subject_type` makes the pod render `validDocSubjectTypes` as compiled. Workflow travels INLINE in the message, so no agent row is written. LANDMINE: two Go gates over one list with DIFFERENT messages — `load_doc_context` cannot produce `unsupported subject_type`; and a green run with no control arm is indistinguishable from a probe that never ran (VOID) | documentation-system.md |
+| DOC-073 | `pick-pod-marker`: choose pod-grep markers a binary can actually contain | built, validated on the incident's own commit, live PASS | Diff literals only NOMINATE; the verdict is a binary built from `git archive <commit>`. Prints comment-only literals as the trap, a removed-literal negative control, and an every-replica probe. LANDMINE: `strings` splits at non-ASCII bytes — a marker spanning U+2026 greps 0 against a binary that contains it, so markers are printable-ASCII only | documentation-system.md |
 | TL-036 | Offline criteria-fence trial + mutation prover (try_fence / prove_fence_can_fail) | built, cluster-verified | A fence can be run and proven able to fail BEFORE it is published as a tool contract; uses the fleet's own RunChecksAction. LANDMINE: a check's ID is an assertion nothing validates — `selector_count` does not assert a count | tool-lifecycle.md |
 | TL-037 | Tool numeric-equivalence gate (`toolgolden.py`) — capture what a tool COMPUTES | built, proven able to fail | Nothing in the platform verified that a tool computes the right numbers: Tier 2 validates selectors and "CONFIRMs, never refutes"; `toolaudit.py`'s RESPONDS is satisfiable by a page with one number input and NO SCRIPT AT ALL (proven by construction). Records every id-bearing element's text+display per input vector; caught a divisor 12→11 error toolaudit scores RESPONDS. LANDMINE: a mid-parse capture records £0.00 for everything and reports success | tool-lifecycle.md |
 | DBG-051 | Assumed-status-values trap | deployed | Never assume a status column's vocabulary; always SELECT DISTINCT first | debugging.md |
 | MIGG-001 | Proposed migration runner/ledger for hand-applied agent-def changes | aspirational | Never built; only manual "2d state check" stands in; responds to DBG-010's incident | migration-governance.md |
 | OPP-002 | Operator discipline: verify-by-artifact, dated backups, kcat | deployed | Never trust a status; diff bytes, dated backups, kcat trigger convention | operator-practice.md |
 | OPP-004 | `check_register_coverage`: the register coverage cadence, on the commit path | deployed | A commit creating a workstream the register has never heard of now says so, to the person creating it; closes bugs_open/106. | operator-practice.md |
+| OPP-005 | Session scratchpads: versioned by a snapshot hook, reaped by content class | deployed | Scratch moved off the full tmpfs onto disk; Write/Edit files are git-snapshotted; only provably reproducible repo extractions (99.3% of the bytes) are reapable. | operator-practice.md |
 | HITL-011 | HITL approval-as-specialised-agent architecture (human-reviewer plan) | aspirational | Never-built plan: dedicated human-reviewer agent, approval_tasks/versions tables | hitl.md |
 | CTS-018 | system.internal site convention | deployed | Never-deployed sites row hosting maintenance/library work items | contracts-and-standards.md |
 | DEV-015 | Chassis action input conventions (dual registration) | deployed | New actions need BOTH ActionInputSpec registration AND a GlobalActionRegistry entry (IsLocal:true). | development-guide.md |

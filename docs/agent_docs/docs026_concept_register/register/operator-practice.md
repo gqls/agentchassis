@@ -4,9 +4,10 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-2 concepts, consolidated from 4 raw extractions across unit U25 (each of the 2 distinct blocks
-appeared byte-identically twice within the cluster input file — treated as duplicate copies of
-one extraction, not independent corroboration).
+5 concepts (2 consolidated from 4 raw extractions across unit U25 — each of the 2 distinct blocks
+appeared byte-identically twice within the cluster input file, treated as duplicate copies of
+one extraction, not independent corroboration; + OPP-003, OPP-004 and OPP-005 added later, see
+their entries for dates).
 
 ### OPP-001 — In-chassis replicability requirement for operator work
 - **status:** deployed
@@ -56,3 +57,18 @@ one extraction, not independent corroboration).
 - **landmine:** it **imports** the sensor rather than reimplementing `is_covered()` — one matching rule, one implementation, because two hand-maintained copies is the `idx_swi_dedup` ↔ `workItemTerminalStatuses` drift class. Change how coverage is decided in the sensor and the hook follows. The import is guarded: if the sensor moves, the check returns silently rather than breaking commits.
 - **NOT in scope, deliberately:** it asks only whether a subsystem is *represented*, never whether an entry is *accurate*. **The register can be complete in coverage and stale in content, and nothing detects that** — two live instances hit on 2026-07-28 (a `verify-later` stating an expected answer that had been false for weeks, contributing to `bugs_closed/124` going unnoticed). Recorded, not fixed: a coverage check that starts auditing accuracy becomes slow, noisy and ignored.
 - **verify-later:** does `check_register_coverage` still appear in `scripts/pattern-check.py`'s check tuple in `main()`, and does `./scripts/pattern-check.py` stay silent on a commit touching no workstream directory?
+
+### OPP-005 — Session scratchpads: versioned by a snapshot hook, reaped by content class
+- **status:** deployed (2026-08-03; `CLAUDE_CODE_TMPDIR` moved to disk in `~/.claude/settings.json`, hook wired in `.claude/settings.json`, both tools in `scripts/`)
+- **what:** Three coupled pieces that make the shared session-scratchpad tree survivable. (1) **`CLAUDE_CODE_TMPDIR=/home/ant/.claude-scratch`** — scratchpads move off the 16 GB `/tmp` tmpfs onto the main disk (212 GB free), ending the class where a full tmpfs makes a Bash call return **no output** (ENOSPC on the harness's own stdout capture, which reads like "the command found nothing", not like a disk error). (2) **`scripts/scratch-git-snapshot.py`** — a `PostToolUse` hook on `Write|Edit` that commits each written scratchpad file into a git repo at the scratch root, one file by pathspec, so a scratchpad stops being unrecoverable. (3) **`scripts/scratch-report.py`** — shows every session dir by age, size and content class, and reaps only what is provably reproducible.
+- **why it is registerable:** any workstream on this machine writes to a scratchpad, and until now nothing versioned or bounded that tree. It is also the general answer to "how do we clean up shared temp safely", which every lane eventually asks.
+- **the measurement the whole design rests on** — the two content classes have opposite risk profiles and the space is almost entirely in the safe one: **33 repo-extraction dirs = 12.13 GB = 99.3%**, versus **370 other entries = 88 MB = 0.7%**. A repo extraction is a `git archive HEAD` unpack (the shared-tree build check CLAUDE.md mandates); it is byte-for-byte reproducible from a sha, so deleting one loses nothing. The 0.7% is irreplaceable and small enough never to need deleting.
+- **the separation is structural, not heuristic.** Extractions are created by `tar`/`git archive` in **Bash**; the hook fires on **Write|Edit**. So it is *incapable* of committing an extraction — no size rule is doing the work, and there is no threshold to misfire. The 5 MB cap in the hook is a backstop against a large generated artefact, not the class filter.
+- **`.gitignore` is `*` and every add is `-f`.** The repo therefore contains only what was deliberately snapshotted, and `git status` next to 12 GB of untracked bulk returns **empty in 3 ms** instead of listing it. Showing untracked bulk is the report tool's job, not git's.
+- **verified in both directions before wiring** (a guard that refuses everything passes a refusal test): positive — a real `Write` in a live session produced a commit, proving the hook fires without a restart; negative — a repo path outside any scratchpad and a 6 MB file were each refused, commit count unchanged; idempotence — re-firing on unchanged content adds no second commit.
+- **`--reap` deletes only marker-verified extraction directories**, never a loose file, never a session dir, never anything it cannot positively identify (≥2 of `go.mod`/`platform`/`CLAUDE.md` at the directory top). It re-verifies at the moment of deletion, not just at scan time, and defaults to a dry run at a 2-day threshold.
+- **sources:** `scripts/scratch-git-snapshot.py`; `scripts/scratch-report.py`; `~/.claude/settings.json` (`env.CLAUDE_CODE_TMPDIR`); `.claude/settings.json` (`PostToolUse`); `gauntlet_dead_cta/NOTES` 2026-08-03
+- **relations:** `scripts/memory-git-snapshot.py` (same argument, same shape — an unversioned shared store is the hazard, and versioning it dissolves the class rather than policing writes); the `bugfix_177` LANDMINE on `/tmp` filling mid-build, which is the same outage seen from inside a build
+- **landmine:** **two scratch roots are live at once after the move.** A running session keeps the tmpdir it launched with, so sessions started before 2026-08-03 keep writing to `/tmp` while new ones use the disk. `df -h /tmp` can therefore look healthy while the tree you are actually in is full, or the reverse. Both tools read **both** roots for this reason; a check that inspects only one will be confidently wrong for as long as the old sessions live.
+- **NOT in scope, deliberately:** it does not reap hand-written files at all, at any age. They are 0.7% of the volume, so reaping them buys nothing measurable and risks the only irreplaceable thing in the tree.
+- **verify-later:** does `git -C /home/ant/.claude-scratch/claude-1000 log` show commits from more than one session id (proving the hook is live fleet-wide, not just in the session that wired it), and does `scripts/scratch-report.py` still report both roots?
