@@ -17906,3 +17906,62 @@ documented three paragraphs above.
 4. **Writing the instruction is itself a check** — if you cannot state how the next
    person would verify your claim in one command, you probably have not verified it
    either. Related: the "grep before you file" habit, applied to your own drafts.
+
+---
+
+## 2026-08-03 — "the camera is fitted" (TL-035), when it was fitted to one of two callers
+
+**The claim.** 2026-08-02, brochure component library lane: `capture_renders` is *live
+and PROVEN at the artefact*. Backed by a real run — 22/22 checks, two renders filed as
+durable `s3://` URIs, and a control in the data (the same tool's previous note has no
+render line). The evidence was genuine and the run was real.
+
+**What was actually wrong.** Not the proof — the **scope**. The claim a reader takes
+from "the camera is fitted" is *acceptance runs now photograph passing pages*. What was
+true is *one of the two actions that dispatch acceptance runs does*. I armed
+`request_browser_run` and never learned that `request_component_browser_run` existed,
+though both funnel into the same helper I had just edited.
+
+**What caught it.** The very next run of my own re-check, about fourteen hours later —
+the newest `acceptance-run` note had no render line. I nearly filed *that* as the bug.
+The handoff had anticipated the worry and offered two exits ("the run failed" / "the
+flag was lost"); both were closed — the run **PASSED** 15/15 and the flag was still
+`true` — and the true cause was a door the doc had not imagined. **Being contradicted by
+my own check is what worked here; the doc's list of explanations is what nearly stopped
+it, by making two wrong answers feel exhaustive.**
+
+**The cheap check that would have, in five seconds:**
+
+```bash
+grep -n "dispatchBrowserRun(" platform/orchestration/actions/tool_acceptance_actions.go
+# :184  RequestBrowserRunAction            <- the one I armed
+# :390  RequestComponentBrowserRunAction   <- the one I did not know about
+```
+
+**The cheap checks, in order:**
+
+1. **When you arm a shared helper by config, the blast radius is the helper's CALL
+   SITES — not the config rows you edited.** I verified the thing I changed instead of
+   the thing it plugs into. Count the callers *in the code* before claiming coverage;
+   a census of live agent configs cannot do it (the second caller has **no
+   `agent_definitions` row at all** — it runs from an inline `workflow_plan`, so a
+   config census reports 100% coverage while a live caller sits dark).
+2. **A verified artefact proves the path it travelled, and only that path.** One run
+   through one action is not evidence about a second action, however shared the code
+   underneath. This is the same shape as the memory index's "a spoof proven on service
+   A does not transfer to B by code similarity" — here it bit in the *other* direction:
+   shared code made me assume shared behaviour where the difference was in config.
+3. **Two producers writing into one category with one `created_by` is a measurement
+   trap you should look for while building, not after.** Every column on the note is
+   identical between the two callers; nothing on it can separate them. If I had asked
+   "what else writes this category?" when designing the re-check, the query would have
+   carried the caller from day one.
+4. **A doc that lists the explanations it thought of teaches the reader the list is
+   complete.** My handoff's two exits were both sound and both wrong here. Worth
+   writing "and if neither of these fits, the cause is something this doc did not think
+   of — go to the run record" rather than letting an enumeration read as exhaustive.
+
+**Related, and the reason this is one row rather than two:** the prospective form of
+this is now in `LANDMINES.md` ("Two acceptance callers file notes under ONE category
+with the SAME `created_by`"). This file records that I made the call; that one records
+the check for whoever touches it next.
