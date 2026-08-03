@@ -52,3 +52,23 @@
   `landmines-sync.py --apply` clean.
 - Register edits done (TL-003 conditional emission, TL-009 partial-shipped
   note); 016b §9 entry inserted ("unsatisfiable at birth"); RUNBOOK written.
+
+## 2026-08-03 ~12:15 — verdict, implementation, and a plan correction
+
+- **Council APPROVED round 1** (~10 min queue-to-verdict, not the budgeted 30),
+  4 advisory objections, all actioned: LIKE-wildcard fixed to `~ '^tool_content:'`
+  (debug_historian — real catch, `_` is a wildcard); sweep already atomic
+  (editquality — the sketch omitted the BEGIN/COMMIT the file had); doc_notes
+  fix row left on subject pipeline/tool-generator (tooling_provenance);
+  wider population ticketed as bugs_open/187 (bug_historian + architecture);
+  `wont_fix` confirmed in workItemTerminalStatuses (guidelines).
+- **Opus implementation landed**: tool_content_item.go + tests + both call
+  sites. Its mutation testing caught TWO non-biting assertions in MY test
+  spec (ordered sqlmock answers the two-strike probe with an error that
+  writeWorkItem swallows, so recurrenceExpected:false stayed green) — fixed
+  with an unordered-mock test + two priority tests. 4 mutations, all caught.
+  Reused withWorkItemTx rather than a fourth BeginTx copy. Build 0, package
+  tests ok, HEAD-archive check ok, pattern-check 0.
+- **Edit 4 NARROWED before apply** (see PLAN correction): dependents stay
+  blocked as a 178 interlock — the completed crosslink diagnosis showed
+  dispatching that class destroys content today.

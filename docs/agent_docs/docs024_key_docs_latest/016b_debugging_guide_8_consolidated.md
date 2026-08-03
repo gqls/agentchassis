@@ -256,6 +256,55 @@ title>`, then Symptom / Diagnose / Root cause / Fix, with the SQL and cross-refe
 immediately-prior pattern — the interactive-page clobber — is the final §9 entry in 016
 v2_56; start the next one below.)*
 
+### A work item can be UNSATISFIABLE AT BIRTH — and a 0% class completion rate indicts the EMITTER, not the handler
+
+**Symptom.** Every item of some class fails identically and nobody can work one by hand
+either. `bugs_closed/177`: 9 of 9 `tool_content:%` items over the class's entire history
+(2026-07-14 → 2026-08-02) parked in `needs_human_review` with the byte-identical
+"no sections ready to build" no-op, at `attempt_count=1`, across 4 sites.
+
+**Diagnose.** Three moves, cheapest first.
+
+1. **A class that has NEVER completed is a different beast from one that sometimes fails.**
+   `SELECT status, count(*) … WHERE item_key LIKE '<class>:%' GROUP BY 1` — if no terminal
+   success exists over the whole history, stop debugging the handler. The handler is doing
+   the same thing every time; the question is what the emitter handed it.
+2. **Find the natural experiment: a sibling class from the SAME emitter that succeeds, and
+   diff the inputs.** 177's emitters raise `tool_guide:%` items in the same function
+   bodies, for the companion guide page — 4 of 5 complete. The only input difference: the
+   guide page is created with `sections=["hero","article-body","call-to-action"]` declared;
+   the tool page with none. One variable, clean attribution, no log-diving.
+3. **Read the handler's INPUT RESOLUTION as a contract, then ask whether the emitter ever
+   satisfies it.** `page-build-handler` resolves sections via `load_page_sections_from_spec`
+   (site_plan_sections → `site_specs.site_plan` → `pages.sections` → sibling synthesis,
+   which needs plan membership) — the work item's own `spec` is NOT a section source, and
+   its `content_guidance` field has **no reader anywhere**. A freshly generated tool page is
+   in none of the four sources, so the item was unsatisfiable at the moment it was minted.
+   The 45ms gap between page INSERT and item INSERT in the same action is the tell that no
+   later process was ever going to add the missing input.
+
+**Root cause shape.** Two sibling code paths (`deploy_tool_action.go` /
+`create_tool_component_action.go`) shared an item-emission pattern by copy; one declared
+the sections the handler resolves, the other copied the emit without the declaration. The
+emit and the declaration were never one operation, so they could disagree — and the
+disagreement is invisible because the handler's park-don't-fail routing (correct, WDS-004)
+makes the failure look like a queue backlog, not an emitter bug.
+
+**Fix shape (and the door it closes).** An emit-side satisfiability guard at ONE seam both
+paths call: resolve the page's declared sections in the handler's own priority order and
+raise the item only when a prose section beyond the widget exists; surface the skip in the
+action output (a silent no-op must be observable — the 182 lesson). Route the write through
+the shared `insertWorkItem` rather than a hand-rolled INSERT (`gapPlanWorkItem` precedent,
+corr `a5b70424`). Retire the zombies as `wont_fix` — never `complete`, which would both
+assert unperformed work and release `depends_on` dependents on a lie (the `bugs_closed/176`
+fleet-stall coupling: only `complete`/`verified` release a dependency, so an immortal
+open item is a permanent blocker).
+
+**Cross-references.** `bugs_closed/177` (the case), `bugs_closed/176` (what the zombies
+block), `bugs_open/033` owner ruling 2026-07-25 ("the queue should not fill"),
+`bugs_closed/015` (the inverse: empty `sections` on a page that SHOULD have them is a real
+defect — which is why the handler's no-op must NOT be blanket-softened), TL-003/TL-009.
+
 ### A precondition parked in a CALLER is one port away from gone — and "no producer can reach it" is a claim about today's producers
 
 **Symptom.** A shared helper does something surprising and unbounded on an input nobody

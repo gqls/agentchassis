@@ -80,20 +80,56 @@ pair.
 
 ## Edits (≤8, for the council submission)
 
+> **REVISED after prior-art research (same day).** The first draft preserved
+> the hand-rolled `INSERT … ON CONFLICT DO NOTHING` inside the helper. The
+> council has already ruled on that exact shape: `gapPlanWorkItem`
+> (apply_gap_plan_action.go:720-762, corr `a5b70424`) — hand-rolled inserts
+> reimplement half of `insertWorkItem`'s semantics and predate the shared
+> door having the fields callers needed. The revised design routes through
+> `insertWorkItem` (load_work_item_actions.go:1220), with
+> `recurrenceExpected: true` for the same stated reason as the gap plan: the
+> item is an ACTION REQUEST — a completed predecessor means the request
+> succeeded, and two-strike must not brand a re-request unresolved
+> (bugs_open/024's regression). Two-strike counts only `complete`/`failed`
+> (:1247), so the 297 sweep's `wont_fix` rows cannot poison future emits.
+
 1. New file `platform/orchestration/actions/tool_content_item.go`: unexported
    helper `raiseToolContentItem(ctx, params, logger, req)` — resolves declared
    sections (plan tables → spec aspect → pages.sections, read-only), counts
-   prose sections ≠ tool function, inserts the item only when > 0, returns a
-   disposition string (`raised` | `skipped_no_prose_sections` | insert error).
+   prose sections ≠ tool function. Zero → `skipped_no_prose_sections`, no
+   insert. Otherwise builds the same `workItem` both call sites build today
+   (needs_content_page / medium / priority 50 / page-build-handler / triaged /
+   item_key `tool_content:<fn>:<site>`) and routes it through `insertWorkItem`
+   in a short transaction. Disposition string returned: `raised` |
+   `skipped_no_prose_sections` | `deduped_open_item` | `insert_failed` (kept
+   non-fatal, today's Warn-and-continue behaviour).
 2. `create_tool_component_action.go`: replace the inline INSERT (:365-380) with
    the helper; put the disposition in the action's return map.
 3. `deploy_tool_action.go`: replace the inline INSERT (:474-489) with the
-   helper; put the disposition in the return map. Behaviour unchanged here (its
-   pages always declare 3 prose sections) — the point is one seam, no drift.
+   helper; put the disposition in the return map. Behaviour preserved here (its
+   pages always declare 3 prose sections, so the guard resolves them and
+   raises) — the point is one seam, no drift.
 4. Sweep (SQL, live immediately): the 8 `needs_human_review` rows → `wont_fix`
    with the original error preserved in the reason (the 286 triage precedent —
    NOT `complete`, no work happened); clear `depends_on` on `9e9ec430` and
    `18bc832c` so the two real crosslink items can dispatch.
+5. Register hygiene, same commit: update TL-003 (documents the divergence as
+   current behaviour — now conditional emission), note in TL-009 that its "do
+   not queue needs_content_page for a page that doesn't want generic content"
+   half has shipped; the shape question itself stays open/aspirational.
+
+Out of scope, named for the close-out: the two companion-guide emits in the
+same files (same hand-rolled shape, but their items WORK — 4/5 complete);
+the 24+ `needs_page` rows from five other sources with the same no-op error
+(different item type, different emitters, possibly legitimate deferrals).
+
+Prior art the fix stands on: TL-009 + `tools/tool_widget_clobber/PLAN` §5
+Option 2 already recommend exactly this guard ("If a tool page does not want
+generic content, do not queue needs_content_page for it"); bugs_open/033's
+OWNER RULING 2026-07-25 ("the queue should not fill" — and needs_content_page
+is an uncovered type for the revalidator drain, so nothing auto-closes these);
+bugs_closed/015's correction (tool pages' empty `sections` is legitimate —
+their content comes from elsewhere).
 
 ## Verify
 
@@ -112,3 +148,19 @@ pair.
   `["hero-tool","tool-guide-intro","<fn>","tool-cta"]` in the create path)?
   That would make the class buildable instead of unmintable — a design change,
   deliberately NOT taken here.
+
+## CORRECTION 2026-08-03 ~12:10 — edit 4 NARROWED after approval, before apply
+
+> **CORRECTED:** the approved plan cleared `depends_on` on the two triaged
+> `content_rewrite` dependents (the 286 precedent: "the crosslink stands on
+> its own merits"). Between the verdict and the apply, the diagnosis run on
+> that class COMPLETED and found that the item 286 released on that exact
+> reasoning (`93f2a3b7`) **destroyed content when it dispatched** — whole-slot
+> regeneration, changed heading, dropped paragraphs (bugs_open/178's
+> mechanism; doc_notes 2026-08-03). Releasing two more would repeat a known
+> destructive outcome. So the sweep retires the zombies and deliberately
+> LEAVES `9e9ec430`/`18bc832c` dep-blocked as a visible interlock; the 154
+> lane (owner of 178) releases them with its fix. The guardian seat's
+> advisory ("confirm no race with the in-flight diagnosis before applying")
+> is what prompted the re-read that caught this — the race was fine; the
+> diagnosis's own FINDING was the blocker.

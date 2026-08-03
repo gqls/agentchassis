@@ -452,41 +452,23 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	// --- 6. Create work item for content around the tool ---
 	// page-content-writer generates hero, intro, and CTA sections.
 	// The tool section (position 2) already has content — the writer skips it.
-	toolContentSpec, _ := json.Marshal(map[string]interface{}{
-		"page_name":         pageName,
-		"page_id":           pageID.String(),
-		"page_type":         "tool",
-		"tool_function":     toolFunction,
-		"tool_display_name": toolDisplayName,
-		"tool_description":  toolDescription.String,
-		"tool_page_url":     pageURL,
-		"source":            "tool-deployer",
-		"content_guidance": fmt.Sprintf(
-			"This is a tool page for '%s'. Generate: (1) a hero section with the tool name and a one-line benefit statement, "+
-				"(2) an educational guide section explaining the concept behind the tool — what it calculates, why it matters, "+
-				"how users should interpret the results — written for the site's target audience, "+
-				"(3) a CTA section encouraging users to try the tool and linking to related content. "+
-				"Do NOT regenerate the tool widget itself — it is already deployed at position 2.",
-			toolDisplayName,
-		),
+	//
+	// bugs_open/177 routed this through the shared guard. Behaviour on THIS arm
+	// is unchanged: the page written above declares hero-tool, tool-guide-intro
+	// and tool-cta alongside the widget, so the guard resolves three prose
+	// sections and raises exactly the item it always did. The seam exists because
+	// the sibling path declares nothing and must not raise — one guard rather
+	// than two emitters that agree only by luck. See tool_content_item.go.
+	contentItem := raiseToolContentItem(ctx, params, logger, toolContentItemRequest{
+		siteID:       siteID,
+		pageID:       pageID,
+		pageName:     pageName,
+		toolFunction: toolFunction,
+		displayName:  toolDisplayName,
+		description:  toolDescription.String,
+		pageURL:      pageURL,
+		source:       "tool-deployer",
 	})
-
-	_, err = params.DB.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, page_id, priority, handler_agent, status, created_by, item_key
-		) VALUES (
-			$1, 'tool-deployer', 'build', 'needs_content_page', 'medium',
-			$2, $3::jsonb, $4, 50, 'page-build-handler', 'triaged', 'tool-deployer', $5
-		) ON CONFLICT DO NOTHING
-	`, siteID,
-		fmt.Sprintf("Write content for tool page: %s", toolDisplayName),
-		string(toolContentSpec), pageID,
-		fmt.Sprintf("tool_content:%s:%s", toolFunction, siteID),
-	)
-	if err != nil {
-		logger.Warn("DeployToolToSiteAction: Failed to create tool content work item (non-fatal)", zap.Error(err))
-	}
 
 	// --- 6b. Cross-link the tool from its related pages (bugs_open/029) ---
 	// Emitted HERE, after the page row and its content build item exist, so the
@@ -616,6 +598,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		"already_deployed":  false,
 		"needs_rerender":    true,
 		"cross_links_added": crossLinksAdded,
+		"content_item":      contentItem,
 	}, nil
 }
 

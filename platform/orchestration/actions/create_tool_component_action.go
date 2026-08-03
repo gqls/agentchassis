@@ -340,44 +340,24 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		}, logger)
 	}
 
-	// --- Create needs_content_page work item for tool page ---
-	// This triggers page-build-handler to write hero, intro, and CTA sections
-	// around the tool (the tool widget at position 2 is already deployed).
-	toolContentSpec, _ := json.Marshal(map[string]interface{}{
-		"page_name":         pageName,
-		"page_id":           pageID.String(),
-		"page_type":         "tool",
-		"tool_function":     function,
-		"tool_display_name": displayName,
-		"tool_description":  description,
-		"tool_page_url":     pageURL,
-		"source":            "tool-generator",
-		"content_guidance": fmt.Sprintf(
-			"This is a tool page for '%s'. Generate: (1) a hero section with the tool name and a one-line benefit statement, "+
-				"(2) an educational guide section explaining the concept behind the tool — what it calculates, why it matters, "+
-				"how users should interpret the results — written for the site's target audience, "+
-				"(3) a CTA section encouraging users to try the tool and linking to related content. "+
-				"Do NOT regenerate the tool widget itself — it is already deployed at position 2.",
-			displayName,
-		),
+	// --- Ask for content around the tool, if the page can take any ---
+	//
+	// bugs_open/177. This arm declares no sections above (see the pages INSERT),
+	// so the item it used to raise unconditionally could never be satisfied: all
+	// nine tool_content items ever minted died in needs_human_review, and one of
+	// them blocked a dependent long enough to stall the fleet. The guard asks the
+	// same sources page-build-handler will ask and declines when the answer is
+	// "nothing a writer could write". See tool_content_item.go.
+	contentItem := raiseToolContentItem(ctx, params, logger, toolContentItemRequest{
+		siteID:       siteID,
+		pageID:       pageID,
+		pageName:     pageName,
+		toolFunction: function,
+		displayName:  displayName,
+		description:  description,
+		pageURL:      pageURL,
+		source:       "tool-generator",
 	})
-
-	_, err = params.DB.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, page_id, priority, handler_agent, status, created_by, item_key
-		) VALUES (
-			$1, 'tool-generator', 'build', 'needs_content_page', 'medium',
-			$2, $3::jsonb, $4, 50, 'page-build-handler', 'triaged', 'tool-generator', $5
-		) ON CONFLICT DO NOTHING
-	`, siteID,
-		fmt.Sprintf("Write content for tool page: %s", displayName),
-		string(toolContentSpec), pageID,
-		fmt.Sprintf("tool_content:%s:%s", function, siteID),
-	)
-	if err != nil {
-		logger.Warn("CreateToolComponentAction: Failed to create tool content work item (non-fatal)", zap.Error(err))
-	}
 
 	// --- Cross-link the tool from its related pages (bugs_open/029) ---
 	// Emitted HERE, after the page row and its content build item exist, so the
@@ -498,6 +478,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		"needs_rerender":    true,
 		"generated":         true,
 		"cross_links_added": crossLinksAdded,
+		"content_item":      contentItem,
 	}, nil
 }
 

@@ -14,14 +14,21 @@
 -- wont_fix, NOT complete — no work was performed, and complete would both
 -- assert a success that did not happen and release dependents on a lie.
 --
--- a5cabea0 has two triaged content_rewrite dependents (9e9ec430, 18bc832c).
--- A dependency is released only by complete/verified (bugs_closed/176), so
--- they are cleared explicitly — the crosslink work stands on its own merits:
--- the tool page IS deployed (widget live), which is all a crosslink needs.
--- Same reasoning as 286's treatment of 93f2a3b7.
+-- DEVIATION FROM THE APPROVED PLAN (2026-08-03 ~12:10, NARROWING — recorded
+-- in the lane PLAN and in bugs_open/178): the two triaged content_rewrite
+-- dependents (9e9ec430, 18bc832c) are deliberately NOT released. The plan
+-- (council 982507b0, edit 4) cleared their depends_on on 286's reasoning
+-- ("the crosslink stands on its own merits"). Between approval and apply, the
+-- diagnosis run on this exact class COMPLETED and found that dispatching one
+-- (93f2a3b7 — the item 286 released on that same reasoning) REGENERATED whole
+-- slots and DROPPED PARAGRAPHS on the target page (bugs_open/178's mechanism;
+-- doc_notes 2026-08-03). Releasing two more would repeat a known-destructive
+-- outcome. Their dep on a wont_fix row keeps them non-dispatchable (the
+-- loader skips unresolved deps — bugs_closed/176) — an ugly but VISIBLE
+-- interlock. The 154 lane (owner of 178) releases them with its fix.
 --
 -- Verify after applying (expect: first query 0 rows; second query the two
--- ids with depends_on NULL, status unchanged 'triaged'):
+-- ids still 'triaged' WITH depends_on INTACT — the 178 interlock):
 --   SELECT id FROM site_work_items
 --   WHERE item_key ~ '^tool_content:' AND status='needs_human_review';
 --   SELECT left(id::text,8), status, depends_on FROM site_work_items
@@ -32,17 +39,10 @@
 
 BEGIN;
 
--- The two dependents first, so the ids are printed before anything changes.
+-- The two dependents, printed for the record — and deliberately NOT updated
+-- (see the deviation note above).
 SELECT left(id::text,8) AS dependent, status, depends_on
 FROM site_work_items
-WHERE depends_on && ARRAY(
-  SELECT id FROM site_work_items
-  WHERE item_key ~ '^tool_content:' AND status = 'needs_human_review'
-);
-
-UPDATE site_work_items
-SET depends_on = NULL,
-    updated_at = NOW()
 WHERE depends_on && ARRAY(
   SELECT id FROM site_work_items
   WHERE item_key ~ '^tool_content:' AND status = 'needs_human_review'
@@ -73,8 +73,10 @@ BEGIN
     AND w.depends_on && ARRAY(
       SELECT id FROM site_work_items WHERE item_key ~ '^tool_content:'
     );
-  IF blocked <> 0 THEN
-    RAISE EXCEPTION 'sweep incomplete: % live items still depend on a tool_content row', blocked;
+  -- EXACTLY the two 178-interlocked dependents must remain; anything else is
+  -- a row this sweep did not know about.
+  IF blocked <> 2 THEN
+    RAISE EXCEPTION 'expected exactly 2 deliberately-blocked dependents (the 178 interlock), found %', blocked;
   END IF;
 END $$;
 
