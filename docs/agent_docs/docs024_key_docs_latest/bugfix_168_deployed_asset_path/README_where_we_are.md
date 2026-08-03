@@ -349,3 +349,26 @@ something was unreachable when it was not.
 I am holding off deliberately: pushing a new build restarts the services, and that would kill the
 review currently running on this very change. Once the verdict is in, it goes out and I will
 measure the first real retraction rather than claiming it works.
+
+## 2026-08-03, evening — it fired, and it left the right things alone
+
+The build went out and the closing mechanism did its first real work. A routine sweep of
+leopardessconsulting.co.uk **closed four findings raised in April** — over three months old, and
+until today nothing in the platform could close them at all.
+
+The number I care about more: **the same sweep left six of that site's ten open.** Three sections
+are still genuinely empty. Two are flagged for a human. One names a section whose component has
+disappeared altogether — which looks like a fix, but looks identical to a rebuild having quietly
+deleted it, so it refuses to guess and leaves it alone. If it had closed all ten it would have
+looked better and been the exact failure you warned against.
+
+Fourteen more will close on the other five sites as they get swept.
+
+Two things I decided as you asked, and both are written down where the next person will find
+them. The two-strike question is **accepted as-is and tracked** rather than fixed — it affects
+nothing today and changing it would touch the insert path of every work item we have. And I did
+not roll the build myself; it went out on someone else's, which is how this estate works.
+
+One thing worth knowing for next time: the review board **cannot see the documentation half of
+our work** — it refuses docs, so four seats objected that we hadn't written up a hazard we had
+already written up an hour earlier. Cheap fix, and it is in the handoff.
