@@ -277,11 +277,15 @@ claiming the seam works.
 ## DECISION 1 HAS A FIRST REAL ADOPTER — `check_empty_sections`, 2026-08-03
 
 Committed `2287606d1` + hardening `27891fab8`; council `97923026-2b2d-4925-b9a3-de6f70c49d2b`
-**APPROVED at round 1** (15 seats, 3 advisory objections, none high). **LIVE on `v1.0.1243`,
-both replicas, pod-verified 2026-08-03** — ⚠ **live but not yet EXERCISED**: no discovery sweep
-has run since the roll, so `result ? 'resolved_at'` is still 0 fleet-wide. "Adopted and
-deployed" is not "working", and the distinction is the same one this section was written to
-make about the seam itself.
+**APPROVED at round 1** (15 seats, 3 advisory objections, none high). **LIVE AND PROVEN on `v1.0.1243`, both replicas,
+2026-08-03.** A `completeness-discovery-agent` sweep of `leopardessconsulting.co.uk`
+(correlation `4401d952`) **retracted 4 `empty_section` items raised 2026-04-14 / 04-23** — over
+three months stale, and unclosable by anything in the platform until now. Fleet-wide
+`result ? 'resolved_at'` went **0 → 4**. **And the control that matters: the same sweep left 6 of
+that site's 10 empty_section rows open** (3 `unresolved`, 2 `needs_human_review`, 1 `detected`),
+so it closed what it had evidence for and nothing more. The paper's central claim — that the
+complement is free information the checks were throwing away — is now demonstrated rather than
+argued.
 
 **OWNER RULING 2026-08-03 — the two-strike interaction is ACCEPTED AS-IS, and tracked as a
 follow-up rather than fixed here.** A retraction writes `complete` onto an existing row and so

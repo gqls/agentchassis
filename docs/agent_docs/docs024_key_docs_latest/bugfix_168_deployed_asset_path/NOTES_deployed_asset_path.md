@@ -723,3 +723,50 @@ Measured **0 of 17 affected today**; structurally unprevented. **Not accepted si
 with the owner.** Three seats converging on one question from three different remits is the
 strongest signal this council produces, and this lane's round 2 is the standing proof that the
 seats pressing hardest are usually pressing on something real.
+
+## LIVE AND PROVEN — `v1.0.1243`, and the first four retractions in the platform's history
+
+**The roll came from another session's build**, as it did for `bugs_closed/168` hours earlier.
+Third time in two days; it is the mechanism working as designed, not a coincidence worth noting
+again.
+
+**Pod-verified, both replicas, and the negative-control problem solved rather than waved at.**
+This change removes no string literal, so `bugs_open/153`'s positive+negative recipe does not
+apply. The substitute, which is *stronger* for a purely additive change: **the dated BEFORE
+measurement.** `re-observed healthy: all` grepped **0 on both replicas of `v1.0.1238`** (taken
+deliberately before the roll) and **1 on both replicas of `v1.0.1243`**. A stale same-tag binary
+would still read 0, so the transition is the proof. The post-council hardening string
+(`COALESCE(page_id::text`) also greps 1, which proves the build postdates `27891fab8` and not
+merely the first commit. Positive control 1, invented negative control 0, same exec.
+
+⚠ **Generalises, and belongs to anyone verifying an additive change: if your change removes no
+string, take the pod-grep BEFORE the roll and date it.** It costs one command and converts an
+unfalsifiable "my string is present" into a 0→1 transition.
+
+### The measurement that was the whole point
+
+Dispatched a `completeness-discovery-agent` sweep at `leopardessconsulting.co.uk` (4 retractable,
+pre-measured), correlation `4401d952-4b1b-472c-b364-4d9fedb369f1`. Pre-dispatch coverage check
+first: 0 claimed/in-progress items on the candidate sites, 0 running orchestrations. Pods were 34
+minutes old, well past the ~300s post-restart window in which a spawn is silently dropped.
+
+**Fleet-wide `result ? 'resolved_at'`: 0 → 4.** All four `resolved_by: empty_sections`, each
+carrying its reason. **The items were raised 2026-04-14 and 2026-04-23** — over three months
+stale, on `info-card-grid` ×3 and `tool-cta`, and nothing in this platform could close them until
+today.
+
+**The discrimination control is the load-bearing half, and it is the number I would want if I
+were reviewing this.** The same sweep left **6 of that site's 10** `empty_section` rows open — 3
+`unresolved`, 2 `needs_human_review`, 1 `detected`. It closed what it had evidence for and
+nothing else. A mechanism that had closed all 10 would have looked identical in the headline
+figure and been the catastrophe the RFC's standing condition exists to prevent.
+
+14 retractable items remain across 5 unswept sites; they will close on those sites' next sweeps,
+which is the honest way to say "we expect it to keep working" without claiming it already has.
+
+### Owner ruling recorded
+
+**The two-strike interaction is ACCEPTED AS-IS and tracked as `RFC_010` Q1**, not fixed here —
+`insertWorkItem` is on the insert path of every work item in the estate, and changing it from
+inside a check adoption is the `bugs_closed/124` shape. Three seats asked for the decision; the
+decision is made and written down where the next adopter will find it.
