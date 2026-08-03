@@ -332,3 +332,36 @@ mutation, with the import kept referenced so the *assertion* fires and not the c
 **helper** already existed. I checked, answered, and stopped — the objection named a
 helper, so I searched for a helper. The reusable unit was **one line of SQL**, which is
 what nobody searches for. `WRONG_CALLS.md` carries the full entry.
+
+
+---
+
+# FULLY LIVE 2026-08-03 — `v1.0.1237`, every round of this file's work is in the running binary
+
+The addendum above records the correction going live on `v1.0.1234`. The RFC_010 round
+(opt-in adoption + `bugs_closed/081`'s converged guard) followed on **`v1.0.1237`**,
+08:47Z, both replicas `agent-chassis-6d4b55c546-76j4g` / `-njx2r`:
+
+| grep | v1.0.1234 | v1.0.1237 |
+|---|---|---|
+| `did not set AdoptUnshippedRows` | 0 | **1** |
+| `architecture_review/RFC_010` | 0 | **1** |
+| `deployed_at IS NULL AND COALESCE(build_status` | 4 | **5** |
+| `IN ('deployed','needs_rebuild')` (removed) | 0 | 0 |
+
+**The 4 → 5 is the proof; the rest is corroboration.** That predicate is a compile-time
+constant interpolated into each consumer's SQL, so the count is the consumer count — 3
+pre-existing plus `page_role_upsert` made 4, and the 5th is `apply_gap_plan_action`'s
+converged guard, the one edit in the round that touches a different pipeline and could
+have shipped separately.
+
+**Council: `e78c62e3` — approved → REVISE → approved.** The REVISE was gating, correct, and
+is the most transferable thing this file produced: *a default-OFF field turns every
+UNEDITED call site into a behaviour change, so a submission whose edit list does not
+enumerate every caller cannot be reviewed.* The code had all four arms; the submission
+showed two. **Show the sweep, never assert it.**
+
+**Deployed is not proven.** No arm has hit a collision since the roll, so nothing has
+exercised the CREATE/REFRESH/ADOPT/REFUSE branches in production. The first live
+`PageRoleAdopted` or `PageRoleRefused` log line is still owed, and `mistyped_deployed_page`
+still has zero rows from any of its three producers.
