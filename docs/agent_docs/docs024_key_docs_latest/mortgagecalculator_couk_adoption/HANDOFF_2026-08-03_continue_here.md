@@ -155,10 +155,15 @@ references. One query against `pages` settled it.
 
 ## 9. Next steps
 
-1. **[IN FLIGHT at handoff]** `needs_composition` (`5484b580-05cc-44b8-9f1c-f328dfd59796`)
-   → **COMPLETE 10:26 UTC**. `needs_design` (`8d462e1b-16a8-48d9-b407-0d79d28a6f8e`)
-   → still `triaged`, waiting for the dispatcher. Backstop was running; re-arm one if
-   you release anything else.
+1. **[DONE 2026-08-03 ~11:30 UTC]** `needs_composition` and `needs_design` both
+   **complete**. The stylesheet is **live**: `/assets/css/styles.css`, 17,016 bytes,
+   HTTP 200, written by `webdesign-agent` (`gqls/sites` commit `6f2a71a32`) and
+   deployed. Site **re-locked** afterwards; 0 items armed.
+
+   The original 29 files were re-verified after it landed: **28 identical, 1 differing
+   (`robots.txt`, Cloudflare)** — the new stylesheet is additive and touched nothing.
+   Note the site's ORIGINAL pages reference `/css/style.css`, a different file that
+   still serves; the new `/assets/css/styles.css` is only for rebuilt pages.
 
    **Success test is the artefact, not the item status:**
    `curl -o /dev/null -w '%{http_code}' https://mortgagecalculator.co.uk/assets/css/styles.css`
@@ -202,8 +207,15 @@ references. One query against `pages` settled it.
    > jump the queue the honest lever is the site lock on the *other* site, and that is
    > the other lane's call, not yours.
 2. **Re-lock the site** once they finish, and prove it with the §3 gate query.
-3. **Rebuild 2–3 non-homepage pages** so the owner judges them styled. Re-run the
-   first-time-buyer guide too — it was built unstyled and should be redone.
+3. **Rebuild 2–3 non-homepage pages** so the owner judges them styled. **Re-run the
+   first-time-buyer guide FIRST — it is still chrome-less and must be redone.** Its CSS
+   now resolves (the stylesheet exists), but the page was RENDERED before chrome
+   existed, so its stored HTML still has no `<header>`/`<nav>`/`<footer>` and a fresh
+   fetch confirms it. **A stylesheet arriving later does not retro-fit chrome** — the
+   markup is baked at render time, so the page needs a rerender, not a redeploy. Treat
+   that page as the ordering canary: if a rerun of it comes back WITH nav and footer,
+   the composition→design→pages order is confirmed end to end and the remaining pages
+   can be released in a batch.
 4. **Owner decision: the homepage.** It is the only page that overwrites live content.
 5. **Owner decision: redirects.** 22 of 23 original URLs move; the old files keep
    serving as orphaned duplicates and **nothing in the platform reconciles them.**
