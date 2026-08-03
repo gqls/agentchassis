@@ -12,7 +12,7 @@ read-out). Read this file first; it is short on purpose.
 | | state |
 |---|---|
 | `bugs_closed/091` | ✅ **DONE.** Fixed, live on **v1.0.1237**, refinements live on **v1.0.1238**, verified against real dropped findings, council `8e7357ae` **APPROVED 13-0**. Nothing owed. |
-| `bugs_open/184` (this lane's) | **FIXED IN HEAD, NOT LIVE.** Commit `4c3a968cc`. Council `d6cda33d` — **verdict may still be pending; read it.** |
+| `bugs_open/184` (this lane's) | **FIXED IN HEAD, NOT LIVE.** Commits `4c3a968cc` + `600bd99a8`. Council `d6cda33d` **APPROVED**, 3 advisory objections, all acted on. |
 
 **The one thing that is genuinely owed: a roll, then a pod-grep, then close 184.**
 
@@ -22,7 +22,7 @@ read-out). Read this file first; it is short on purpose.
 
 ```
 SUBMISSION_CORR (091)  8e7357ae-9f8d-49bf-81c0-669d9a97a205   APPROVED 13-0, 6 advisory
-SUBMISSION_CORR (184)  d6cda33d-1e5a-4ea3-8ddc-98f0a6848e35   read the verdict
+SUBMISSION_CORR (184)  d6cda33d-1e5a-4ea3-8ddc-98f0a6848e35   APPROVED, 3 advisory, all acted on
 ```
 
 Read a verdict **by correlation**, never `doc_notes … ORDER BY created_at DESC LIMIT 1`
@@ -50,13 +50,25 @@ Two unrelated bugs. **Resolve by slug, and `git log` the FILE PATH, not the numb
 
 ### 1. The roll, then the pod-grep (do not skip the controls)
 
+> **⚠ CORRECTED 2026-08-03, by the council's `debug_historian` seat, before anyone ran
+> it.** This block first named `'the bugs_closed/091 class'` as the marker. **That is a
+> Go COMMENT and never reaches the binary** — it would have greped 0 for ever and read
+> as "the fix did not ship" on a perfectly good image. And the underlying problem was
+> worse: the 184 change was three identifiers, so it added **no string literal at all**
+> and `strings` could not discriminate it. Fixed at source (`600bd99a8`): each emitter
+> now logs its own outcome with a distinct literal, which these three previously did not
+> do at all — the row was the only evidence they had run. **Verify a negative control
+> against your own source, and a positive one by grepping a binary you actually built.**
+
 ```bash
 for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
   echo "=== $p"
   kubectl -n ai-persona-system exec "$p" -- sh -c "
-    strings /app/agent-chassis | grep -c 'the bugs_closed/091 class'          # NEW: 0 today, >=1 after
-    strings /app/agent-chassis | grep -c 'refreshed the open work item'       # CONTROL: 2 on v1.0.1238
-    strings /app/agent-chassis | grep -c 'FINDING NOT RECORDED'               # CONTROL: 1 on v1.0.1238
+    strings /app/agent-chassis | grep -c 'HITL citation-reject item written'       # NEW: 0 today, 1 after
+    strings /app/agent-chassis | grep -c 'HITL directory-reject item written'      # NEW: 0 today, 1 after
+    strings /app/agent-chassis | grep -c 'HITL directory-freshness item written'   # NEW: 0 today, 1 after
+    strings /app/agent-chassis | grep -c 'refreshed the open work item'            # CONTROL: 2 on v1.0.1238
+    strings /app/agent-chassis | grep -c 'FINDING NOT RECORDED'                    # CONTROL: 1 on v1.0.1238
   "
 done
 ```
@@ -153,3 +165,20 @@ The `guidelines` seat on `8e7357ae` flagged a **guideline gap** rather than obje
 the documented work-item dedup rule says "use DELETE+INSERT, not ON CONFLICT", which
 the entire shared helper has contradicted for a long time. It is the rule the
 `a5b70424` seat cited against `apply_gap_plan`. Worth an RFC; not taken here.
+
+## Owed but NOT done — one objection I recorded rather than answered
+
+`prior_art_librarian` (edit 3, medium) on `d6cda33d`: the argument that a refresh may
+safely rewrite a `needs_human_review` row leans on `bugs_open/033`'s "no reader works
+that queue" — **an absence claim sourced from another bug file, not from a live query in
+this submission.** It is measured in this lane only as volume (368 parked, 50 raised in
+7 days). What was NOT checked is whether `claimed_by` / `handled_by` show any activity
+on those rows. One query, and it either confirms the downgrade or overturns the one
+judgement both councils flagged:
+
+```sql
+SELECT count(*) FILTER (WHERE claimed_by IS NOT NULL) AS ever_claimed,
+       count(*) FILTER (WHERE handled_by IS NOT NULL) AS ever_handled,
+       max(claimed_at) AS newest_claim
+  FROM site_work_items WHERE status='needs_human_review';
+```
