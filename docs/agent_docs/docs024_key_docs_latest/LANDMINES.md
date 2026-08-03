@@ -4333,3 +4333,26 @@ that is also the thing you would want in the logs is not.
   check we own. The vendor API is truth; our table is a cache
 - **source:** `bugs_open/186`, `finetuning_uk_service/NOTES` 2026-08-03
 - **added:** 2026-08-03, finetuning_uk_service lane
+
+## A concept-register STATUS line is a snapshot that outlives its truth — and council seats read it as ground truth
+
+- **footprint:** `docs/agent_docs/docs026_concept_register/register/`, `000_concept_index.md`, `MDL-038`
+- **fires when:** citing a register entry's status ("deployed as a bug", "unfixed",
+  "nothing consumes X") as authority — in a submission, a review seat, or a plan —
+  without grepping the source for the mechanism the status describes
+- **the tell:** the citation is precise, dated and CONFIRMED-graded, so it reads as
+  stronger evidence than a fresh look. But the register froze 2026-07-13 (bugs_open/106)
+  and hand-patched entries do not update when fixes land. Proven cost 2026-08-03:
+  MDL-038 said "GenerateText never decodes stop_reason — confirmed present and unfixed"
+  while the fix had been live since 2026-07-20 (a3b606798, typed TruncatedError, every
+  provider, tests); council fee9d810's llm_reliability seat read the entry and GATED a
+  correct submission on the missing mechanism. The wrong result (a REVISE) looks exactly
+  like the right one (a caught defect)
+- **the check:** before repeating any register status as evidence, grep the cited
+  source for the mechanism itself (`grep -n "stop_reason\|StopReason" platform/aiservice/*.go`
+  beat the entry in one command). A status older than the file it describes
+  (`git log -1 -- <source>` newer than the entry's date) is a stale-status suspect.
+  When you catch one, correct the ENTRY visibly (strike-through + date + cost), not
+  just your own doc — the next reader inherits whichever you fixed
+- **source:** council fee9d810 r1→r2, `vigilant_designer_offer_analysis/NOTES` 2026-08-03
+- **added:** 2026-08-03, vigilant_designer_offer_analysis lane
