@@ -2110,3 +2110,109 @@ render offline with the same Go engine, write `rendered_html`, let the
 - All 12 tool rows re-locked. The unlock window was ~20 minutes, nothing wrote to
   the row, and **in hindsight it was unnecessary**: the working route writes by SQL
   and assemble-only `render_page` never touches `page_components`.
+
+---
+
+## 2026-08-03 (later) — the owed tidy, and the harness that had quietly expired
+
+### The tidy was not cosmetic after all
+
+`tool-loan-repayment` carried a twelve-line HTML comment explaining why its three
+copy blocks are conditional. HTML comments are NOT stripped from a served page —
+only the tool-doc sentinel block is — so it shipped in the public source of both
+`/index.html` and `/tools/standard-calc.html`.
+
+It was queued as a cosmetic tidy ("one clause editorialises"). Reading it again
+with fresh eyes, it is worse than that, and the reason is a small joke at our
+expense:
+
+> **The comment explaining why the homepage must not carry two dated factual
+> claims was publishing both figures into the homepage's own source.**
+
+Measured before the change — on the LIVE `/index.html`:
+
+```
+=== tool-doc ===          0     <- the sentinel block IS stripped
+nobody asked to publish   1     <- the comment is NOT
+3.75% base rate           1     <- and it carries the figure
+7.9% market average       1     <- and the other one
+```
+
+This is the same defect the `{{if}}` guards exist to prevent, arriving by a route
+the guards cannot see. It also explains the 07-31 misfire recorded above, where a
+`LIKE '%3.75%'` probe said the base-rate claim was still on the homepage: **it was
+right about the bytes and wrong about the page**, and the comment was the reason.
+
+Fixed by moving the whole explanation inside the tool-doc sentinels — which the
+`0` above proves are stripped — and leaving a two-line pointer in the markup with
+no figures and no opinion.
+
+> **MISSTEP: the validator caught a literal `{{if}}` in my prose.** The tool-doc
+> block lives INSIDE the template, so writing "their `{{if}}` guards" in an
+> explanation is real template syntax: `template: tool:161: missing value for if`.
+> Second time today the same class caught me — earlier it was a literal `<div>` in
+> a CSS comment, which `load_components.py` counts as markup when balancing tags.
+> **Prose inside a template is not inert.** Spell the construct out in words.
+
+### THE HARNESS HAD EXPIRED, and only luck made it loud
+
+`verify_rewrite.py` — the gate the whole lane's equivalence claims rest on — takes
+"the REAL hand-built page" from `~/projects/sites/loancalculator.co.uk`. **That is
+the checkout the platform's own deploys commit re-rendered pages back into**
+(`Rerender: tools/standard-calc.html`). So every page this lane successfully
+decomposed replaced its own baseline.
+
+It went unnoticed for a day only because the checkout was stale. Runs earlier
+today were reading 2026-08-01 content and were genuinely valid. Another session
+ran `git pull --rebase` at 10:19 and the very next run failed:
+
+```
+PREP-FAIL  standard-calc   opening-div regex matched 0 times (need exactly 1)
+```
+
+**It failed loudly by luck.** The cut patterns anchor on original markup that an
+assembled page no longer has, and the harness requires each to match exactly once.
+That rule was written to catch a mis-typed regex; it caught a moved baseline. With
+looser patterns it would have spliced the component into a page that **already
+contained it** and compared the rewrite against itself — passing, proving nothing,
+on a gate this lane cites in every equivalence claim it has made.
+
+Fixed by `git archive`-ing a pinned ref (`b4302e22b`, "repair the site before
+adopting it into the platform", 2026-07-30 — the hand-built site as adopted, and
+what `GOLDEN_2026-07-31c` was captured from). Verified file-for-file identical to
+`803bf68c3`, the last pre-pull commit the earlier runs actually used, across every
+page and asset the harness touches. Re-run on the pinned ref reproduces the
+morning's result exactly: **9 of 11 MATCH, 2 DIVERGED on the intended keys only.**
+
+**Same lesson as `PRE_FIX_REF`, three hours apart and in a different file: a
+baseline that names a MOVING thing stops being a control, silently.** Once for a
+git ref, once for a working copy. Fleet landmine written.
+
+> **MISSTEP while diagnosing it, and it nearly sent me the wrong way.** I ran
+> `git show <ref>:tools/standard-calc.html` — but the repo root is
+> `~/projects/sites`, so the path is `<domain>/tools/...`. Every call failed with
+> a `fatal:` that my own `2>/dev/null` swallowed, `grep -c` on the empty output
+> returned `0`, and I read **four zeros across three refs as data** — concluding
+> briefly that no ref anywhere held the original. The tell was that the numbers
+> were *too* uniform: a working tree and three refs agreeing on 0 for a marker I
+> could see with my own eyes in the file.
+
+> **A same-file passenger, disclosed.** My `LANDMINES.md` commit `4cb891a7f`
+> reports 3 deletions I did not write: another session was reformatting the
+> `footprint:` line of the acceptance-callers entry from `·` separators to commas
+> (the form `landmines-sync.py` parses). A pathspec commit cannot exclude a
+> same-file edit. Checked before saying so: the change is complete, consistent
+> with the other entries, and `--apply` ran clean after it. Nothing lost,
+> forward-only holds.
+
+### State at handover of this segment
+
+- `tool-loan-repayment` template updated in `content_components`; **both** rows
+  re-rendered offline and written (`index` 8571→9261 b, `tool-standard-calc`
+  8796→9486 b — larger because the prose moved INTO the tool-doc block, which is
+  stripped at assembly, so the SERVED pages shrink).
+- Both controls REPRODUCED before either write.
+- Assemble-only re-renders filed (`created_by='tidy-20260803'`). **Queued, not yet
+  landed** — the queue went from 15 to 133 items deep while this was in flight.
+  **Not verified live yet**; when it lands, expect `nobody asked to publish` → 0
+  and both figures → 0 on `/index.html`.
