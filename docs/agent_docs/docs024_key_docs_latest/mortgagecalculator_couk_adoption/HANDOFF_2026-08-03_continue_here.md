@@ -328,6 +328,11 @@ SELECT default_config->'workflow'->'steps'->'find_dispatchable_site'->'config'->
 
 ## 13. OPEN DEFECT — the header CTA is checked by a LOOSER predicate than the nav
 
+**FILED as `bugs_open/191`** (2026-08-03) with the full evidence, the measurement
+correction, the diagnosis-loop trail and three fix candidates ordered by what closes the
+door. Pattern in `016b` §9. **Do not re-derive it here — read 191.** The lane-relevant
+part is below.
+
 **Fix this before the batch rebuild, or it ships onto every page.**
 
 In `render_site_components_action.go`, ~70 lines apart:
