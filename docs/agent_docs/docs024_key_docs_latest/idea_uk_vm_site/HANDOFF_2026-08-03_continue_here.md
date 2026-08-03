@@ -16,7 +16,13 @@ LANDMINES entries of 08-01 and 08-03 (the two traps now guarding this box).
 
 ## Open items, in order
 
-1. **Delete the webzy.uk CF zone.** Blocked at session end by a Cloudflare
+1. ~~**Delete the webzy.uk CF zone.**~~ **CLOSED 2026-08-03: the owner deleted
+   it in the dashboard.** One API verification was attempted per the protocol
+   below and hit the still-active lockout (`success:false`, so its
+   `matches:0` proves nothing) — NOT retried. Optional residual for whoever
+   next uses the token successfully: the zone list simply should not contain
+   webzy.uk. The lockout history below stays because its lessons outlive the
+   deletion. ~~Blocked at session end by a Cloudflare~~
    auth-failure lockout (`10502`, then zone endpoints refusing with the
    MISLEADING "Cannot use the access token from location: <your ip>" — that
    message appears mid-lockout from BOTH address families and does not prove

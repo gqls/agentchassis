@@ -3681,3 +3681,11 @@ Session ends here; full continuation state in
 `HANDOFF_2026-08-03_continue_here.md`. The 08-03 chassis roll touches nothing
 in this lane (no chassis-shipped artefacts; box config + API state + docs
 only), so no pod-grep is owed from here.
+
+**§X.42 closed — owner deleted the webzy.uk zone in the dashboard
+(2026-08-03).** My single protocol-permitted API verify hit the still-active
+lockout (`success:false` ⇒ its `matches:0` carries no information) and was
+not retried. The dashboard action is authoritative; the token's first
+successful zone list settles the residual for free. Ingress arc: NOTHING
+open in this lane but the passive waits (organic Stripe webhook; loanzy
+Worker route, webdesign lane).
