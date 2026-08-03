@@ -48,9 +48,8 @@ SELECT body FROM diagnosis_artifacts WHERE kind='council_report'
  AND correlation_id='f13212d4-2787-448f-bf49-b57506ded74e' ORDER BY created_at DESC LIMIT 1;
 ```
 
-The commit carries `Council-Submitted:`, so `098` credits it automatically **if**
-the verdict is approved. If it is REVISE, the code is already on the shared branch —
-revise forward, do not amend.
+`2d976c026` carries `Council-Submitted:` and `fca47d869` carries `Council-Reviewed:`
+for the same correlation, so `098`'s join resolves both.
 
 ## The owner's ruling, so it is not re-litigated
 
@@ -115,8 +114,10 @@ between them is not a control (see `WRONG_CALLS`, 2026-08-02).
 
 ## What is owed, in order
 
-1. **Read the council verdict** for `f13212d4` and act on it.
-2. **Roll and pod-verify** — the three adoptions are inert until then.
+1. ~~Read the council verdict~~ **DONE — APPROVED, and its one real objection is
+   closed** (`fca47d869`). Nothing further owed to the gate.
+2. **Roll and pod-verify** — the three adoptions are inert until then. This is now
+   the FIRST thing owed.
 3. **Item 3 needs the owner**: the uploader stores 2 per-page fields, the truncator
    cuts 6, only `markdown` overlaps — so a `firecrawl_crawl` result loses page
    content over 50KB with no recoverable copy, on 4 live steps. Options: upload what
