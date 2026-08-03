@@ -10167,6 +10167,28 @@ entry is the inverse failure, an alias resolving to the *wrong* component rather
 than to none. Category tags: `no-op-reports-success`, `fallback-in-aggregate`,
 `name-is-not-identity`, `counters-over-artefacts`.
 
+> **FIXED 2026-08-03, LIVE on v1.0.1240, pod-verified both replicas.**
+> `page_components.component_id` was already read by `loadStoredSections` and
+> never used for the lookup — the row knows exactly which component it is;
+> `slot_name` was never the only identity available, just the only one
+> consulted. Resolution now tries `component_id` first (a new
+> `loadComponentSchemasByID`/`loadContentComponentsByID`), falling back to
+> name/function. The step now FAILS — naming every unresolved slot — when a
+> section resolves via **neither** route, keyed on "any slot carried for
+> unresolved-or-invalid-template", never on `rerendered == 0` (the partial-carry
+> warning above was exactly right: five of the six affected sites would have
+> cleared that cruder gate). Legitimate carries (field not ready, empty
+> template) stay non-fatal, mirroring `bugs_closed/095`'s council-corrected
+> predicate rather than repeating its rejected first draft.
+> **One thing the fix surfaced that the diagnosis didn't measure**: on slots
+> where slot_name ALREADY resolved by name, 13 across the fleet have a
+> `component_id` pointing at a DIFFERENT, active component — all confirmed
+> substantively different templates by byte length. `component_id` now wins
+> there too (the row's own identity outranks a coincidental name match), logged
+> observe-only rather than switched silently, because measuring that zero
+> *existing* renders break is not the same as knowing the switch is *wanted*
+> for those 13. Council submission `80fbbe7d`. Fix: `a43be1e70`.
+
 ### A dedup that keeps the ROW throws away the FINDING — and "one open item per key" is only correct while the key is as granular as the thing it describes (`bugs_closed/091`, 2026-08-03)
 
 **The shape.** A detector files a work item keyed `<type>:<site>` and dedups on it, so a
@@ -10272,3 +10294,61 @@ rather than where it is true, a diagnostic dump taken after the recovery path ra
 
 Related: `bugs_open/188`; TL-035 in `docs026_concept_register/register/tool-lifecycle.md`;
 `brochure_component_library/NOTES_brochure_component_library.md` 2026-08-03.
+
+### An enforcement layer keyed on one identifier is blind to every producer that lacks it — and the coverage report keyed on the same identifier cannot see the gap (`bugs_closed/123`, 2026-08-03)
+
+**Symptom.** A producer publishes unchecked output for months. No error, no failing
+status, no coverage report showing a hole — because every report is grouped by the
+identifier the producer does not have.
+
+**Mechanism.** The whole claims-verification layer resolves its evidence base by
+`site_id`: the build gate, the post-deploy sweep and the persistence floor all
+start from *"which site is this?"*. `content-creator` emits free-standing prose
+from a Kafka request — no site, no page row. So it was not merely unchecked; it
+was **unreachable**, and the floor's own source file had already recorded the fact
+as a scope boundary (`save_sections_claims_guard.go:81`). It took a human reading
+one output to find the fabricated statistic.
+
+**The second invisibility is what makes it durable.** Coverage was computed per
+site, so a producer with no site appeared in no coverage query. The same agent
+also wrote nothing to `llm_call_log`, so it appeared in no per-agent usage census
+either. **Two blind spots that share a key compound into a producer no audit
+surface can see** — each alone is survivable.
+
+**How to find the class.** Do not ask "what is failing"; ask **what the enforcement
+layer's entry parameter is, and enumerate the producers that cannot supply it.**
+One query per layer:
+
+```sql
+-- who writes the artefact, vs who the gate can reach
+SELECT type FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND default_config::text LIKE '%<the write action>%';
+```
+
+Then read the enforcement action's required inputs. Anything on the first list
+whose inputs cannot satisfy the second is in this class, today, silently.
+
+**Two things that are NOT the fix.**
+
+1. *Requiring the identifier.* Forcing a `site_id` onto a producer that genuinely
+   has no site is a category error — whose register would its prose be checked
+   against? — and it does nothing for the failure actually observed.
+2. *A prompt rule.* "Do not invent statistics" was already in the house voice and
+   held elsewhere the same day. A prompt rule is a request, not a gate.
+
+**What the fix looks like.** Find the part of the shared engine that does not
+actually need the identifier — often it already exists, built nil-safe for a
+different reason — and call it from the producer. Here `ScanAllBannedClaims(blocks,
+nil)` was documented *"a nil eb means 'this site has no register', not 'do not
+scan'"* and had shipped for an unrelated case one day after the bug was filed.
+**Check whether the reachable half already exists before designing a new seam:
+the dependency on the identifier is often narrower than the API suggests.**
+
+**The residue to state, not hide.** Wiring one producer in is a point fix; the
+seam still has one entry mode, so the next site-less producer re-derives the whole
+pattern. Record that as an architecture item where the mechanism lives, or it gets
+rediscovered as a fresh bug.
+
+Related: `bugs_closed/123`; CLM-019 in `docs026_concept_register/register/claims-verification.md`;
+`bugfix_123_content_creator_claims/`.
