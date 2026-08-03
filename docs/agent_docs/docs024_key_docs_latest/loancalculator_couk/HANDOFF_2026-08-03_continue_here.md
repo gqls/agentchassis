@@ -74,12 +74,16 @@ the sentinels. Served pages shrank — `/index.html` 27039→26338 b,
 `3.75% base rate` and `7.9% market average` all now **0** on both, and both tools
 still MATCHING the golden.
 
-**(3) `/tools/standard-calc.html` is an orphan** — nothing links to it, and it
-duplicates the index calculator. A content question for the owner, not a bug.
-**It is now blocking item (1)**, because a nav generator must decide it.
+**~~(3) `/tools/standard-calc.html` is an orphan.~~ RETIRED 2026-08-03 — owner
+decision, verified on the wire: 404, sitemap 27→26, other 26 pages all 200.** It was
+unreachable from the site yet in the sitemap at priority 0.8, self-canonical, no
+noindex — and it was the page carrying two dated rate claims the homepage
+deliberately omits. Backups: `pages_bak_20260803_orphan_retract`,
+`page_components_bak_20260803_orphan_retract`. **No longer blocks item (1).**
 
-**(4) Consider whether the consolidation fix should EXCLUDE rather than WITHHOLD.**
-See §5. This is the owner's call and it is small either way.
+**~~(4) EXCLUDE vs WITHHOLD on consolidation.~~ RULED 2026-08-03: keep WITHHOLDING**
+— *"we need honesty at any cost."* No code change; the behaviour was already live
+and proven. Do not re-open it.
 
 ## 3a. ⛔ NAV — read before touching item (1)
 
@@ -152,6 +156,25 @@ three are in the fleet `LANDMINES.md`.
   by SQL — the deliberate act the lock exists to force, not automation — and
   assemble-only `render_page` never touches `page_components`.
 
+## 4a. Retiring a page — what the platform does NOT do for you
+
+`retract_page_deployment` is **live** in the chassis (pod-grep 6, positive control
+20, negative control 0) but wired into **no agent**, so it is unreachable today, and
+its own acceptance target still served 200 when checked. Do not assume it is a
+usable route.
+
+⚠ **Whatever route you use, the SITEMAP is a separate act on this site.** Its
+`sitemap.xml` was last written by the **adoption commit** — the platform has never
+regenerated it — and `retract_page_deployment` deliberately excludes `sitemap.xml`
+as a file `pages` does not model. So retracting a page via the platform primitive
+leaves the sitemap advertising a 404, which is the very defect `bugs_open/098`
+exists to fix. Delete the file and its `<url>` block in one commit.
+
+The order that worked: archive in the DB first (`pages.status='archived'`, so
+nothing re-publishes it) → remove file + sitemap entry in one sites-repo commit →
+verify at `origin/master`, **never at your local ref** (the push was rejected twice
+by concurrent pushes while a naive echo reported success) → wait for the 404.
+
 ## 5. The one judgement call, flagged rather than buried
 
 `tool-consolidation-risk`: a debt row with a balance but no usable rate or term now
@@ -165,7 +188,8 @@ question from the one the reader asked: a confident verdict computed over a subs
 of their debts, with nothing on the page saying so. Withholding cannot state a wrong
 comparison at all, which is the property worth having on a page about mis-selling.
 
-**Small change either way if the owner prefers exclusion.**
+**RULED 2026-08-03 by the owner: keep WITHHOLDING** — *"we need honesty at any
+cost."* Settled; do not re-open. No code change was needed.
 
 > **CORRECTION carried into the template.** The old note said the rate-less row made
 > consolidation look **better** than it is. Backwards — and its own stated reason
