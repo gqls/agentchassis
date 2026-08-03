@@ -359,3 +359,59 @@ AFTER the await, not before it.** An action's return value is not a record.
 
 Owed on the bug as item 5. The fix is to persist the audit before dispatching (or emit a
 work item), rather than relying on `output_field` surviving.
+
+---
+
+## CONTRIBUTION 2026-08-03 — loancalculator lane: the sitemap gap, found by retiring a page by hand
+
+I retired `loancalculator.co.uk/tools/standard-calc.html` on an owner decision, used
+your audit procedure and your runbook throughout, and hit one thing your primitive
+does not cover. Recording it here rather than editing your PLAN.
+
+### `retract_page_deployment` is live but unreachable — your acceptance has not run
+
+- Pod-grep on `agent-chassis-6c76bf964f-4tlrw`: `retract_page_deployment` → **6**,
+  positive control `rerender_page_sections` → 20, negative control → 0. It is in the
+  running binary.
+- But `SELECT ... FROM agent_definitions WHERE default_config::text LIKE
+  '%retract_page_deployment%'` → **0 rows**, and the same for `delete_file` → 0. No
+  agent can reach either.
+- `curl https://robot-hands.com/learning-center/index.html` → **200** at 2026-08-03
+  ~21:00, so the live-instance acceptance your PLAN insists on ("the live instance or
+  nothing") has not been taken.
+
+I did **not** seat an agent to reach it — that is your platform change to make, and
+riding it would have been the scope-veto shape the 2026-07-28 ruling describes.
+
+### The gap: on an ADOPTED site, retraction leaves the sitemap advertising a 404
+
+Your action's guard 4 comment lists `sitemap.xml` among the files "the repo
+legitimately holds that `pages` does not model", and excludes it. That is right for a
+site whose sitemap the platform generates and will regenerate.
+
+**It is not right for an adopted site.** `loancalculator.co.uk/sitemap.xml` was last
+written by the adoption commit `b4302e22b` (2026-07-30) and **the platform has never
+regenerated it** — `git log` over that path shows only the adoption and the original
+import. It is a static repo artefact listing all 27 urls with `<lastmod>` and
+`<priority>`.
+
+So `retract_page_deployment` on this site would have deleted the page and left the
+sitemap pointing at it: **the frozen-listing-advertises-a-404 shape that 098 is
+about**, reintroduced by 098's own fix. I removed the file and its `<url>` block in
+one commit instead (sitemap `<loc>` 27 → 26, XML re-parsed before writing).
+
+**Worth measuring before you decide anything:** how many sites have a sitemap the
+platform has never written? That decides whether this is one site's quirk or a class.
+
+### Two smaller things, both confirming your runbook
+
+- **Your `href="…"` audit is the right one and a substring probe is not.** Mine
+  reported two inbound links that were both HTML **comments** — one a previous
+  session's footer note, one my own from three hours earlier. Your insistence on
+  bodies + chrome + nav *with a positive control* is what makes it trustworthy;
+  the control returned 1 body / 2 chrome for a page I knew was linked.
+- **`gqls/sites` takes concurrent pushes constantly.** My push was rejected twice
+  (`non-fast-forward`, then `cannot lock ref … is at <x> but expected <y>`) before
+  landing on the third attempt. Anything scripted against that repo needs a
+  pull-rebase-retry loop, and must verify at `origin/master` rather than at the
+  local ref — a naive `git log -1` after a failed push reports success.
