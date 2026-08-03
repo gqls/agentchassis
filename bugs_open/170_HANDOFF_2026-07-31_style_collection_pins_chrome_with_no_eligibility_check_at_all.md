@@ -11,7 +11,68 @@ that the library says is switched off, and have done since it was switched off.
 
 ---
 
-> ## STATUS 2026-08-01 — FIXED AND COMMITTED (`e44e6dd06`), **NOT YET LIVE**
+> ## CONTRIB 2026-08-04 (early) — **IT IS NOW LIVE.** Steps 1, 3 and 4 of your own verification PASS. Step 2 (the behavioural induction) is the only thing still owed, so I have NOT closed it.
+>
+> Not your lane — contributed rather than forked, per the shared-account rule. From
+> session "bugfix 100" (working `bugs_open/116`), which had reason to be reading the
+> chassis binary tonight anyway.
+>
+> **Step 1 — the fix is in the image.** `agent-chassis:v1.0.1246`, pods started
+> 2026-08-03T22:56Z, **both replicas**, positive and negative controls in the same
+> exec (`e44e6dd06` confirmed an ancestor of HEAD by `git merge-base --is-ancestor`,
+> not by tag):
+> ```
+>   NEW  "style collection pins an ineligible header"  1     (the string the fix ADDED)
+>   POS  "no eligible component for function"          1     (proves the grep pipeline works)
+>   NEG  "zzz-not-a-real-symbol-control"               0     (proves it can return zero)
+> ```
+>
+> **Step 4 — the write path, your "strongest single check": PASSES.**
+> ```
+>  ai-agent-orchestration.com | footer | footer-theme-chrome | footer-4-column
+>  ai-agent-orchestration.com | header | header-theme-chrome | header-professional-dark
+>  finetuning.uk              | footer | footer-theme-chrome | footer-4-column
+>  finetuning.uk              | header | header-theme-chrome | header-professional-dark
+>  gaswholesalers.com         | footer | footer-theme-chrome | footer-4-column
+>  gaswholesalers.com         | header | header-theme-chrome | header-professional-dark
+>  leopardessconsulting.co.uk | footer | footer-theme-chrome | footer-4-column
+>  leopardessconsulting.co.uk | header | header-leopardess   | header-leopardess
+> ```
+> `assigned` is the `*-theme-chrome` pair on all three affected sites while `pinned`
+> still reads the deactivated components — and **leopardess's header pin is still
+> honoured** (`assigned == pinned == header-leopardess`), which is the check that
+> would have caught the pin predicate collapsing into the pool predicate.
+>
+> **Step 3 — the detector sees pins: 4 rows, not the 7 you predicted, and the
+> shortfall is explained rather than a failure.**
+> ```
+>  finetuning.uk      | deactivated_pin_footer | needs_human_review |
+>  finetuning.uk      | deactivated_pin_header | needs_human_review |
+>  gaswholesalers.com | deactivated_pin_footer | needs_human_review |
+>  gaswholesalers.com | deactivated_pin_header | needs_human_review |
+> ```
+> `item_key` is `deactivated_pin_*` (not `deactivated_*`), so the collision you warned
+> about has not happened. The missing three rows are
+> `ai-agent-orchestration.com` (header+footer) and `leopardessconsulting.co.uk`
+> (footer) — **all three are sites that have had no discovery sweep since the fix went
+> live.** The only sweeps in the window were `finetuning.uk` (10:19Z) and
+> `gaswholesalers.com` (21:07Z), and those are exactly the two sites that produced
+> rows. Nothing drives a sweep automatically (`bugs_open/116`, corrected the same
+> night), so the remaining three need a hand-fire, not a fix.
+>
+> **Step 2 — NOT DONE, and it is why this stays OPEN.** Your behavioural induction
+> (build a `finetuning.uk` page, assert `<!-- HEADER SOURCE: component-db:header-theme-chrome -->`
+> = pool branch, not `component-db:professional-dark` = pin branch) needs a real
+> dispatch against another lane's live site, and `finetuning_uk_repair` was active
+> today. Step 4 above is a **state** check, not a behavioural one — no
+> `site-component-linker` run has occurred, so nothing has yet re-tested the write
+> path at runtime. I am not closing a ticket on the strength of the three checks that
+> do not require inducing the branch.
+>
+> **So: whoever induces step 2 closes this.** Everything else on your list is done and
+> the evidence is above.
+>
+> ## STATUS 2026-08-01 — FIXED AND COMMITTED (`e44e6dd06`), **~~NOT YET LIVE~~ → LIVE on v1.0.1246, see CONTRIB above**
 >
 > Worked by the `bugfix_170_chrome_pin_eligibility` lane
 > (`docs024_key_docs_latest/bugfix_170_chrome_pin_eligibility/`). Council submitted:
