@@ -269,3 +269,81 @@ paragraph on why the defect is invisible. All accurate; none of it executed.
 Rewritten to drive `createCitationFailuresItem`,
 `createDirectoryCitationFailuresItem` and `createStaleDirectoryClaimItem` directly,
 then mutation-proven one call site at a time — revert one, exactly one test fails.
+
+## 2026-08-03 ~12:00 — v1.0.1239 built and proven; the deploy is blocked on a permission
+
+**The pod-grep on v1.0.1238 came back exactly as the handoff predicted**, which is
+worth stating because it is the discriminating result and not merely a negative:
+
+```
+citation-reject   (NEW): 0    directory-reject (NEW): 0    dir-freshness (NEW): 0
+refreshed open wi (CTL): 2    FINDING NOT RECORDED (CTL): 1
+```
+
+Both replicas, identical. The two controls reading their predicted values is what
+makes the three zeros mean "184 did not ship" rather than "the grep was wrong" — a
+bare zero cannot tell those apart (`bugs_open/153`).
+
+**Then the same grep against the image I had just built, BEFORE pushing it**, which
+is the check the `debug_historian` seat asked for and the one that would have caught
+the false marker in the first draft of the handoff:
+
+```
+citation-reject (NEW): 1   directory-reject (NEW): 1   dir-freshness (NEW): 1
+refreshed open wi (CTL): 2   FINDING NOT RECORDED (CTL): 1
+'the bugs_closed/091 class' (NEGATIVE CONTROL): 0
+```
+
+The negative control is the retired marker — a Go **comment**, which never reaches a
+binary. It reads 0 in an image that definitely contains the fix, which is exactly
+why it was useless as evidence and why `600bd99a8` replaced it.
+
+`v1.0.1239` is built and **pushed** (digest `sha256:a1ed28ec…50e6a5`). The overlay is
+updated to `newTag: v1.0.1239`. **`kubectl apply -k` was refused by this session's
+permission classifier**, so the roll itself is owed to a session that can run it.
+Deliberately NOT done via `make deploy-agents`: that target seds *every* agent overlay
+to `$(IMAGE_TAG)` and applies all fourteen, and only `agent-chassis` exists at 1239 —
+it would have put thirteen services into ImagePullBackOff to roll one.
+
+## 2026-08-03 ~12:00 — the `prior_art_librarian` objection is ANSWERED, and the handoff's own query would have misread it
+
+The handoff listed this as "owed but NOT done". **It was in fact already answered in
+`evidence_citations.go:421-437`** by the fix commit itself; the handoff's "owed"
+section is stale. Re-verified here first-hand rather than taken from the comment.
+
+> **CORRECTED 2026-08-03 — the paragraph above ("The judgement 091 flagged came out
+> the other way here") still says `bugs_open/033` establishes the queue "has no
+> working surface, so there is no reader". That is FALSE as a general statement**, and
+> the council was right to refuse it as an absence sourced from another bug file.
+> Measured today: of **431** rows at `needs_human_review`, **86 have been claimed and
+> 55 handled**, newest claim 2026-08-02. A surface exists.
+
+**The handoff's supplied query cannot distinguish residue from a live reader, and
+read naively it overturns the downgrade it was meant to test.** `claimed_by` persists
+across status transitions, so "currently `needs_human_review` AND `claimed_by` not
+null" says nothing about *when* the claim happened. The discriminating query:
+
+```sql
+SELECT count(*) FILTER (WHERE claimed_at IS NOT NULL AND updated_at > claimed_at) AS updated_after_claim,
+       count(*) FILTER (WHERE claimed_at IS NOT NULL AND updated_at <= claimed_at) AS claim_is_newest
+  FROM site_work_items WHERE status='needs_human_review';
+-- 86 | 0
+```
+
+**Zero rows have the claim as their newest event.** Every claim precedes the row's
+arrival at this status — it is a claimed→handled→parked history, not a live reader.
+
+Two independent confirmations, one structural and one empirical:
+
+- **Structural, and the stronger of the two:** `claim_work_item_action.go:102` and
+  `load_work_item_actions.go:632` both claim on `status IN ('triaged','approved')`.
+  `needs_human_review` is *unreachable* by the dispatch loop — not merely quiet.
+- **Empirical:** of the four item types that opt into `refreshOnConflict` — 8 rows all
+  told — **0 claimed, 0 handled**. Matches the comment's figure exactly.
+
+So the downgrade is **confirmed**, on a narrower and better warrant than the one first
+written. The `claimed_by`/`handled_by` values are `build-dispatch-loop` and
+`page-build-handler` — both automated, neither a human surface.
+
+**BATCH-005's open question stands unchanged**: if a HITL surface ever works these
+four types, `needs_human_review` should become a held status. Nothing today does.
