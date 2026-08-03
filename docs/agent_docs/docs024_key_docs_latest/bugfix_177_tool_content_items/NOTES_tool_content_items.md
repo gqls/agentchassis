@@ -72,3 +72,24 @@
 - **Edit 4 NARROWED before apply** (see PLAN correction): dependents stay
   blocked as a 178 interlock — the completed crosslink diagnosis showed
   dispatching that class destroys content today.
+
+## 2026-08-03 ~12:40 — shipped, proven, closed
+
+- Sweep applied: 9 wont_fix, 0 open; dependents verified still blocked (the
+  interlock held through the DO/RAISE check expecting exactly 2).
+- v1.0.1241 built from HEAD (contains BOTH 177 and the 182 lane's fix — their
+  v1.0.1240 rolled ~15 min before mine; my roll advances the same lineage),
+  pushed, rolled, pod-proven both replicas: `raiseToolContentItem` 7 /
+  removed emit string 0 / `skipped_no_prose_sections` 1.
+- MISSTEP, small: `make push-agent-chassis` does not exist — the chassis push
+  lives inside `push-backend`, which must NOT be run for one service (it would
+  retag 13 other services' stale local images at the new tag — the
+  retag-is-not-a-rebuild landmine). Direct `docker push` of the one image is
+  the move. RUNBOOK-worthy if it recurs.
+- My uncommitted TL-003/TL-009 register edits were swept into another
+  session's register commit (`5174c6802`, their TL-035 work) between my edit
+  and my commit — the same-file-passenger event, this time with me as the
+  passenger. Nothing lost; the edits are in HEAD; noting per the CLAUDE.md
+  rule ("say so in the message" — theirs couldn't, so it's said here).
+- Bug file moved to bugs_closed with the full close-out; §10 row added
+  (CLOSED); 187 filed for the wider population; 178 contrib note committed.

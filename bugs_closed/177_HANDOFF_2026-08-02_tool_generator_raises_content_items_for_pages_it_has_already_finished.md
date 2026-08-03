@@ -193,3 +193,79 @@ problem.
   the column default). Both this session and the owning lane verified the
   LIVE row is `[]` — the claim stands on state evidence, not on inference
   from the emitter's code.
+
+---
+
+## CLOSED 2026-08-03 — fixed AND live (v1.0.1241, pod-proven both replicas)
+
+**Root cause, verified** (was `[UNVERIFIED]` above): not a workflow defect in
+tool-generator but a two-file asymmetry. `create_tool_component_action.go`
+copied `deploy_tool_action.go`'s item emission WITHOUT its section declaration
+— its `pages` INSERT names no `sections` column, so the page is born `[]`, and
+page-build-handler's whole resolution chain (site_plan_sections →
+`site_specs.site_plan` → `pages.sections` → sibling synthesis, which needs plan
+membership) finds nothing. Control that pinned it: `tool_guide:%` items from
+the SAME two files, whose page DOES declare sections, ran 4 complete / 1
+review. All 9 `tool_content` items ever created were the create path's; zero
+were tool-deployer's.
+
+**Per the owner ruling of 2026-07-31**: no `090` run was filed for this root
+cause; the substitute was equivalent first-hand verification, stated plainly —
+both emit sites read at HEAD, the live `page-build-handler` workflow config
+read from `agent_definitions`, the loader action read in full, the 9/9
+attribution and the tool_guide control measured live, and the guard's edge case
+(33 current-plan section rows for tool-named pages) measured before design. A
+diagnosis note on this exact mechanism (doc_notes, pipeline/tool-generator,
+2026-08-03) was independently filed by another session and is answered/
+superseded by the fix note beneath it.
+
+**What shipped** (council `982507b0` APPROVED round 1; commit `74655b709`,
+`Council-Reviewed` trailer):
+
+- Fix candidate 1+2 merged as an emit-side satisfiability guard:
+  `raiseToolContentItem` (`tool_content_item.go`), one seam for both tool
+  paths. Resolves the page's declared sections read-only in the handler's own
+  priority order; raises only when a prose section beyond the widget exists;
+  skip surfaced as `content_item: skipped_no_prose_sections` in the action
+  output. Write routed through the shared `insertWorkItem`
+  (`recurrenceExpected: true`, the `gapPlanWorkItem` precedent). 8 sqlmock
+  tests including mutation-hardened guards.
+- Candidate 4: `sql_for_agents/297` applied — 8 zombies → `wont_fix` (original
+  errors preserved), NOT `complete` (no work happened; `complete` would release
+  dependents on a lie).
+- Candidates 3 (handler no-op split) deliberately NOT done — see
+  `bugs_closed/015`: empty sections can be a real defect the no-op must keep
+  surfacing.
+
+**Deviation from the approved plan, narrowing (recorded in the lane PLAN):**
+the two `tool_crosslink` dependents (`9e9ec430`, `18bc832c`) were NOT released.
+Between verdict and apply, the diagnosis on their class completed: dispatching
+one (`93f2a3b7`, released 08-02 on exactly the "stands on its own merits"
+reasoning this plan copied) regenerated whole slots and dropped paragraphs —
+`bugs_open/178`'s mechanism. They stay dep-blocked as a visible interlock;
+`bugs_open/178` (owner: the 154 lane) releases them with its fix — contributed
+into that file 2026-08-03.
+
+**Verification record:**
+- Unit: 8/8 pass; 4 mutations each caught (prose guard off, recurrence off,
+  widget-as-prose, priority-order broken).
+- Pod, both replicas, same exec: `raiseToolContentItem` 7 (added),
+  `Failed to create tool content work item` **0** (removed — non-zero on any
+  pre-fix image, so the zero is disconfirmable), `skipped_no_prose_sections` 1.
+- Queue: `tool_content:%` = 9 wont_fix, 0 open; the two interlocked dependents
+  still `triaged` + blocked, by design.
+- **Watch (the live skip arm):** tool generation is work-item driven (~1 per
+  2 days fleet-wide). On the next generation of a NOVEL tool for a planless
+  page, expect NO new `tool_content:%` row and a logged
+  `skipped_no_prose_sections`; a deploy-path fork should still mint one.
+  `SELECT left(item_key,60), status, created_at FROM site_work_items WHERE
+  item_key ~ '^tool_content:' ORDER BY created_at DESC LIMIT 3;`
+
+**Left open, tracked elsewhere:** `bugs_open/187` (the 24+ `needs_page` rows
+with the same no-op error, five other emitters — filed at the council's
+direction); TL-009 (should generated tool pages DECLARE prose sections? owner
+call); the companion-guide emits still hand-roll their INSERT (works today,
+4/5 complete — a tidy-up, not a defect).
+
+Lane docs: `docs024_key_docs_latest/bugfix_177_tool_content_items/`.
+§9 pattern: "A work item can be UNSATISFIABLE AT BIRTH".
