@@ -984,3 +984,34 @@ to presence.
 (e64f8576 r2); refusal wording true on all four paths + APPROVED (98aa9103) +
 its advisory implemented; all of it in the running binary. What 178 still owes
 is the handler root cause and the sibling writers — a different thread.
+
+---
+
+## 2026-08-03 — 178 root cause: 090 diagnosis DISPATCHED
+
+Handoff item 1 picked up. Pre-dispatch checks, in order:
+
+- Dedup: no open `needs_diagnosis` item covers this mechanism (the four open
+  rows are 156-duplicates / anthropic max_tokens / phantom links / spawn race —
+  all sitting `failed`, incidentally). No `/bugs_open/` file other than 178.
+- Refusal queue: only the known dartsonline induction row (cancelled) + one
+  older prune-floor item. **No new class instances since the guard went live.**
+- **The handoff's suggested symptom said `tool_crosslink` — the real
+  `item_type` is `content_rewrite`** (verified on row 93f2a3b7; handler
+  `page-build-handler`, produced by `create_tool_cross_link_items.go`). Symptom
+  authored with the real type.
+- Origin was **406 commits behind** local HEAD and the diagnosis reads origin —
+  `save_sections_shrink_guard.go` did not exist there at all. Fast-forward
+  pushed before dispatch (3e11f2518..30dde02d1); a session committed again
+  mid-push, leaving a 1-commit advisory that the seam does not depend on.
+- Coverage probe hits: two `needs_links` rows on the target page, `unresolved`
+  since 07-17, completeness-discovery-agent — parked backlog, not in-flight.
+  Read, then FORCE=1 per the documented path. Seed-scope probe clear.
+
+Dispatched via the loop (not a direct publish):
+`item_key = needs_diagnosis:178-crosslink-regenerates-whole-section`,
+intake corr `0c4b57be`, **RUN corr `aece2920-f85a-46e2-a53f-235a4b6e9ab1`**
+(artifacts key). Seeds: `create_tool_cross_link_items.go` +
+`save_page_sections_action.go`; subject `pipeline/page-build-handler`;
+runtime site robot-hands.com. Verdict pending — capture evidence promptly,
+`orchestration_states` retention is ~24h.
