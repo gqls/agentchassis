@@ -183,7 +183,9 @@ section. Candidates 1 (edit-not-regenerate) and 3 (emit the delta) remain open.
   FAILED honestly (not masked), refusal item emitted+deduped, zero bytes written.
   Council `e64f8576`: round 1 REVISE → round 2 **APPROVED** (2026-08-02 23:11Z,
   4 advisory objections, none high). Locked slots excluded (`5f00dcba9`); the
-  refusal's queue wording made its own (`77b58fd4d`, council `98aa9103` pending).
+  refusal's queue wording made its own (`77b58fd4d`, council `98aa9103`
+  **APPROVED** 23:26Z; + advisory `0913d5754`). **All of it LIVE in v1.0.1238,
+  pod-proven both replicas 2026-08-03.**
   Evidence: `docs024_key_docs_latest/bugfix_154_work_item_routing_columns/NOTES_…`.
 - **TRACKED DEFERRAL (the council's ask, 4 seats):** `save_page_sections` now
   carries THREE bespoke content-loss floors — page-total wipe, completeness/drop,

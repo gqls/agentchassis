@@ -958,3 +958,29 @@ the round cannot see helps nobody). The fix is small but has one design edge:
 keep `item_type`+`item_key` shared (one open refusal per page is the right
 dedup) and parameterise ONLY the Summary/Fix strings. Fold into a REVISE if one
 comes back; otherwise a follow-up commit after the verdict.
+
+---
+
+## 2026-08-03 — v1.0.1238 rolled; every commit on this thread now LIVE and pod-proven
+
+Owner rolled a fresh build (v1.0.1238, tags 1235–1237 skipped like 1230–1232).
+Pod-grep BOTH running replicas, one exec each:
+
+```
+shrank past the floor                              1   (77b58fd4d — violation wording)
+could not measure the page's existing sections     1   (0913d5754 — measurement-error sentence)
+SECTION SHRINK                                     2   (guard marker, unchanged)
+CONTENT REGRESSION BLOCKED                         1   (positive control)
+INDUCE-178-NEVER-IN-BINARY                         0   (nonsense negative control — grep sane)
+```
+
+`5f00dcba9` (locked-slot exclusion) adds no rodata; proven in by ANCESTRY — the
+0913d5754 literal postdates it and builds come from committed HEAD. Counts are
+substring `grep -c` used as PRESENCE checks (≥1), not occurrence counts —
+debug_historian's caution about linker-packed literals applies to counting, not
+to presence.
+
+**This thread is closed end to end**: guard live + induction-proven + APPROVED
+(e64f8576 r2); refusal wording true on all four paths + APPROVED (98aa9103) +
+its advisory implemented; all of it in the running binary. What 178 still owes
+is the handler root cause and the sibling writers — a different thread.

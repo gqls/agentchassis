@@ -1,5 +1,8 @@
 # HANDOFF 2026-08-02 — bugfix-19 session: dispatch fixed end-to-end, content restored, guard pending roll
 
+> **SUPERSEDED 2026-08-03 by `HANDOFF_2026-08-03_continue_here.md`** — items 1–3
+> below are done and live (v1.0.1238); items 4–6 are carried forward there.
+
 **Read this first; then `NOTES_…` (2026-08-02 entries) for evidence.** The
 2026-07-31 handoff in this directory is SUPERSEDED (154 closed).
 
