@@ -17620,3 +17620,41 @@ my writing the claim and the review. I had told the owner twice that nothing fro
 correction onward was live. **A deployment claim has a shelf life of minutes on a tree
 this many sessions share; re-grep the pod at the moment you assert it, not once per
 session.**
+
+---
+
+## 2026-08-03 — I committed to a deploy check whose markers structurally CANNOT appear in a binary
+
+**The claim, written into three docs (NOTES, RUNBOOK §11 outcome, bugs_open/138) as the
+"owed post-roll verification":** positive control `strings /app/agent-chassis | grep -c
+depthAtLastGood` (expect ≥1), negative control `grep -c "repairTruncatedJSON fixes JSON
+cut off"` (expect 0). Run after the roll, both replicas: 0 and 0 — which reads as "fix
+not shipped, negative clean".
+
+**Both markers were unrunnable from the moment I wrote them.** `depthAtLastGood` is a
+LOCAL VARIABLE — Go compiles local names away. The negative was a COMMENT — comments
+never reach a binary at all. So the positive reads 0 whether or not the fix shipped,
+and the negative reads 0 whether or not it shipped: a check that cannot distinguish the
+two states it exists to distinguish, dressed as the 153 practice (which it cited).
+What `strings` can contain: **string LITERALS and function/package symbols. Nothing
+else.** My change added neither — which is exactly the case the existing memory
+[date-the-build-when-a-change-adds-no-new-string] covers, a memory LINKED FROM MY OWN
+LANE FILE that I did not re-read while writing a check it would have refused.
+
+**What the real verification was (and found):** bracket the build point with
+neighbouring commits' COMPILED literals plus ancestry. fe34fd04f (23:01Z)'s literal
+present, 77b58fd4d (23:17Z)'s present, 87ea0a5e7 (23:20Z)'s absent ⇒ the running 1237
+was built from HEAD in the 23:17–23:20Z window; my commit is 23:00:03Z ⇒ **IN, live on
+both replicas.** (One decoy en route: 43c259f46's literal greps 0 because it is
+git-adapter code — never in the chassis binary. Check the PACKAGE before reading an
+absence.)
+
+**The family, again.** Same shape as the truncation counter that could never match and
+the cap sized in the wrong currency: an assertion about what a mechanism (here: the
+compiler+linker) does with my input, made from plausibility rather than from the
+mechanism's actual behaviour. The marker discipline would have caught it: writing
+"expect ≥1 `[UNVERIFIED that this symbol survives compilation]`" is the moment you go
+and check. A deploy check is CODE that runs once, later, when you are gone — it
+deserves the same "prove it can fail" standard as a test: **run the positive control
+against a binary KNOWN to contain the change (the scratch build existed!) before
+recording it as the owed check.**
