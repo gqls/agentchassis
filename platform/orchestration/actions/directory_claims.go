@@ -331,7 +331,7 @@ func createDirectoryCitationFailuresItem(
 	// reaches `directory_claims`, so a dropped finding here leaves no trace anywhere.
 	// That is the argument for the refresh rather than against it — it is what makes
 	// the next one observable.
-	_, err = writeWorkItem(ctx, tx, workItem{
+	w, err := writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "research",
 		pipeline:     "content",
@@ -348,6 +348,15 @@ func createDirectoryCitationFailuresItem(
 	if err != nil {
 		return err
 	}
+	// A DELIBERATE STRING LITERAL, because a Go COMMENT cannot be pod-grepped and
+	// this change adds no other literal — the council's debug_historian seat asked
+	// how the new wiring would be confirmed in a running binary and the honest answer
+	// was "it cannot". It is also the only record this emitter makes of its own
+	// outcome: the row is otherwise the sole evidence it ran.
+	logger.Info("HITL directory-reject item written (bugs_open/184)",
+		zap.String("item_type", "directory_citation_unverified"),
+		zap.Bool("inserted", w.Inserted),
+		zap.Bool("refreshed", w.Refreshed))
 	return tx.Commit()
 }
 
@@ -587,7 +596,7 @@ func createStaleDirectoryClaimItem(
 	// weeks, and the July row will still be sitting on the key when it does, because
 	// nothing works the human-review queue (bugs_open/033). Waiting for the symptom
 	// means waiting for the one run that matters and then losing it.
-	_, err = writeWorkItem(ctx, tx, workItem{
+	w, err := writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "scheduled",
 		pipeline:     "content",
@@ -604,6 +613,15 @@ func createStaleDirectoryClaimItem(
 	if err != nil {
 		return err
 	}
+	// A DELIBERATE STRING LITERAL, because a Go COMMENT cannot be pod-grepped and
+	// this change adds no other literal — the council's debug_historian seat asked
+	// how the new wiring would be confirmed in a running binary and the honest answer
+	// was "it cannot". It is also the only record this emitter makes of its own
+	// outcome: the row is otherwise the sole evidence it ran.
+	logger.Info("HITL directory-freshness item written (bugs_open/184)",
+		zap.String("item_type", "stale_directory_claim"),
+		zap.Bool("inserted", w.Inserted),
+		zap.Bool("refreshed", w.Refreshed))
 	return tx.Commit()
 }
 

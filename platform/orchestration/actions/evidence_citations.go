@@ -423,7 +423,7 @@ func createCitationFailuresItem(
 	// `needs_human_review` has no working surface at all (bugs_open/033, 368 parked
 	// rows), so there is no reader to disturb, and the only thing the current behaviour
 	// protects is a description that is already wrong.
-	_, err = writeWorkItem(ctx, tx, workItem{
+	w, err := writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "research",
 		pipeline:     "content",
@@ -440,5 +440,14 @@ func createCitationFailuresItem(
 	if err != nil {
 		return err
 	}
+	// A DELIBERATE STRING LITERAL, because a Go COMMENT cannot be pod-grepped and
+	// this change adds no other literal — the council's debug_historian seat asked
+	// how the new wiring would be confirmed in a running binary and the honest answer
+	// was "it cannot". It is also the only record this emitter makes of its own
+	// outcome: the row is otherwise the sole evidence it ran.
+	logger.Info("HITL citation-reject item written (bugs_open/184)",
+		zap.String("item_type", "citation_unverified"),
+		zap.Bool("inserted", w.Inserted),
+		zap.Bool("refreshed", w.Refreshed))
 	return tx.Commit()
 }
