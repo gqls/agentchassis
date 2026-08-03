@@ -17726,3 +17726,34 @@ Recorded because the estate already has the reverse rule written down (*never wr
 found the adjacent hole: a trailer that asserts nothing false, but points nowhere. The
 repair is a forward note in the bug file naming the real correlation, which is what
 `bugs_open/185` now carries.
+
+---
+
+## 2026-08-03 — I trusted my own detector's output into two documents without opening the file far enough
+
+**footprint:** `scripts/pattern-check.py` output · any tool-generated census copied
+into a ticket, 016b table or RFC · bugs_open/158 lane
+
+**The claim.** My new `check_silent_reply_drop` reported 8 sites where a reply
+produce's error is swallowed. I verified three of them by eye, wrote all eight into
+`bugs_open/158` as genuine, and wrote a new `016b §9` entry announcing the
+population was **13, not 9** — the headline being that a string-keyed census had
+undercounted. I then used that number to scope an owner decision.
+
+**What caught it.** Starting to *fix* one of them. `platform/messaging/processor.go:2000`
+sits under `if err != nil { log } else { log }` — and two lines below the block is
+`return err`. The error is propagated; it was never swallowed. Its function is
+called `sendErrorResponseOLD` and has **zero callers**, so it is dead code as well.
+My detector had read only the *body* of the error branch, and I had scrolled far
+enough to see the log-and-else and stopped.
+
+**The cheap check.** **A detector's output is a list of candidates, not a list of
+findings — and the moment you copy it into prose it becomes a claim you are making.**
+Open every line you are about to assert, and read past the construct that matched:
+the thing that makes a produce-error benign (`return err`, a later propagation, a
+dead caller) is usually *outside* the block the pattern matched, which is precisely
+why the pattern could not see it. The irony is exact — I had written a
+`WRONG_CALLS` row hours earlier saying a positive control cannot find false
+positives, fixed the detector on that basis, and then hand-propagated the false
+positive it had already produced. **A detector I wrote is not more trustworthy than
+someone else's; it is less, because I stop checking the outputs I expect.**
