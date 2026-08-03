@@ -419,10 +419,22 @@ func createCitationFailuresItem(
 	// through every pass after it.
 	//
 	// The judgement 091's council asked to see confirmed rather than assumed — that a
-	// refresh can rewrite an item under a human mid-read — is WEAKER here, not stronger:
-	// `needs_human_review` has no working surface at all (bugs_open/033, 368 parked
-	// rows), so there is no reader to disturb, and the only thing the current behaviour
-	// protects is a description that is already wrong.
+	// refresh can rewrite an item under a human mid-read — is WEAKER here, and the
+	// evidence is NARROWER than I first wrote it. I claimed `needs_human_review` "has no
+	// working surface at all"; that is FALSE as a general statement and the council's
+	// prior_art_librarian seat was right to refuse it as an absence sourced from another
+	// bug file. Measured 2026-08-03: of 428 rows at that status fleet-wide, **86 have
+	// been claimed and 55 handled**, the newest claim on 2026-08-02.
+	//
+	// What IS true, and is the actual warrant: of the four item types that opt into
+	// refreshOnConflict (stale_evidence, citation_unverified,
+	// directory_citation_unverified, stale_directory_claim) — 8 rows all told — **not
+	// one has ever been claimed or handled.** So there is no reader of THESE to disturb,
+	// while what the old behaviour protected is a description that is already wrong.
+	//
+	// The distinction is not pedantry: it means a HITL surface already works some of this
+	// queue, so `needs_human_review` becoming a held status (BATCH-005's open question) is
+	// nearer than "there is no surface" implied.
 	w, err := writeWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
 		source:       "research",
