@@ -6,8 +6,10 @@
 ## State in one line
 
 **`bugs_open/169` is CLOSED and moved to `bugs_closed/`.** Both parts fixed and live.
-Nothing is owed. **One thing is open and it is an owner decision, not a residual:
-`architecture_review/RFC_011`.**
+**`RFC_011` was DECIDED by the owner on 2026-08-03** (option a: every step limited,
+default very generous) — and that ruling changed the constant, so the shipped default is
+**7200s, not the 600s** that earlier commits and the council submission describe.
+**Nothing is outstanding.**
 
 ## What was done this session (in order)
 
@@ -21,6 +23,7 @@ Nothing is owed. **One thing is open and it is an owner decision, not a residual
 | 6 | Verified live + **induced** | pod-grep both replicas, then made the guard fire against a real agent |
 | 7 | Fixed what the induction found | `893cb6483` — the error said `on step ""` |
 | 8 | Closed and moved | `e590866cb`, verified at HEAD with `git ls-tree` (exactly one line) |
+| 9 | **Owner ruled on RFC_011**; re-measurement caught that **600s would have cut `med_scrape_prices`** (~1,391s, a real local action) | `a12882473` — default now 7200s, sized from the longest observed legitimate action rather than a percentile; `WRONG_CALLS.md` 2026-08-03 |
 
 ## The fix, for anyone touching it
 
@@ -36,8 +39,9 @@ Nothing is owed. **One thing is open and it is an owner decision, not a residual
 - a **malformed** value falls back to the DEFAULT, never to unbounded.
 - `DeadlineExceeded` is wrapped to name action / step / elapsed, then routed through the
   existing `handleActionError` so `error_step` is unchanged.
-- 8 tests in `local_action_deadline_test.go`; the three risky behaviours **proven able to
-  fail by mutation**.
+- 12 tests in `local_action_deadline_test.go`; four behaviours **proven able to fail by
+  mutation**, including the default itself (restoring 600s fails
+  `TestTheDefaultClearsTheLongestLegitimateLocalAction`).
 
 ## The four traps, if you touch this area
 
