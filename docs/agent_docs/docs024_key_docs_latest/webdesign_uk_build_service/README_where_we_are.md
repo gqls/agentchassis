@@ -592,3 +592,44 @@ to do.
 
 Still yours to decide: the price (I've recommended £1,200), the correction fee, and
 the VAT position.
+
+---
+
+**2026-08-03 — the shopfront exists, and it's two clicks from being live.**
+
+I've built the webdesign.uk page: the offer, the £1,200 price you confirmed, the
+money-back-until-you-accept-it guarantee, how it works, and the questions people
+actually ask. It's uploaded and I've proved it renders properly by serving it
+through the exact same machinery webdesign.uk will use — you can look at it right
+now at **https://preview.ugg2.com/**. What you see there is byte-for-byte what
+webdesign.uk will serve.
+
+It doesn't take money and it doesn't have the chat. Both of those need the new box.
+For now, someone who wants a site emails us with their domain, using a link that
+fills most of the message in for them. That's weaker than a proper form, but it's
+honest and it works from day one.
+
+**What stopped me finishing.** Partway through, Cloudflare started refusing my
+changes — the token is locked to particular IP addresses and this machine's address
+had changed. So webdesign.uk still shows last night's redirect to webdesign.co.uk.
+Either add `5.65.164.9` to the token's allowed addresses, or just make the two
+changes yourself in the Cloudflare dashboard: delete the redirect rule on
+webdesign.uk, and change its A record from `192.0.2.1` to `199.59.243.228`, leaving
+it orange. That's it — the page is already sitting in the bucket waiting.
+
+**On the Mythic Beasts box.** Short answer: **2 cores, 4 GB of RAM, 40–60 GB of
+disk, Ubuntu 24.04, and you almost certainly don't need to pay for an IPv4
+address** — because we'll reach it through a Cloudflare tunnel, so nothing needs to
+connect to it from outside at all. We already run a box on exactly this pattern
+(the tools-api one), so we're copying something that works rather than inventing.
+The RAM is the one number I wouldn't trim; everything else has room.
+
+The thing to be careful about on that box isn't the size, it's that it faces
+strangers and spends money on every visitor. The limits on how much any one person
+can use it have to go in when it's built, not afterwards — and there's a specific
+trap where a rate limit behind Cloudflare silently becomes one shared bucket for
+everybody while still looking like it's working. That's written down.
+
+**Still yours:** the correction fee (nothing on the page quotes one yet), and
+whether £1,200 includes VAT. The page carefully doesn't say either way, but that
+needs settling before we take a real payment.

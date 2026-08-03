@@ -4052,3 +4052,64 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
 - **source:** mortgagecalculator.co.uk adoption lane, 2026-08-03 — locked a site,
   watched it build anyway
 - **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane
+
+---
+
+## A Go regex carried into Postgres matches NOTHING at exit 0 — `\b` is a BACKSPACE there, and an empty census reads as a clean fleet
+
+**footprint:** any `regexp_matches` / `~` / `!~` over `page_components.rendered_html` · `site_components.rendered_html` · `content_components.html_template` · any fleet census SQL copied from a Go checker in `platform/orchestration/actions/discovery_checks/`
+
+- **the trap:** the discovery checks are Go, and Go's RE2 spells word-boundary `\b`. When
+  you audit one of those checks the natural next move is to run its pattern as SQL to size
+  the defect fleet-wide — and **Postgres POSIX regex has no `\b` word boundary at all.**
+  There `\b` is the **backspace character** (`\y` is the word boundary). A pattern like
+  `'<img\b[^>]*\bsrc\s*=\s*"([^"]*)"'` asks for a literal backspace, matches nothing, and
+  returns **0 rows with no error and exit 0**
+- **why it is worse than an ordinary typo:** the failure is not "my query errored", it is
+  **"the fleet is clean"** — the single most reassuring result the query can produce, and
+  the one nobody re-checks. It arrives in exactly the shape of good news, at the exact
+  moment you are deciding whether a defect is site-specific or systemic. Measured
+  2026-08-03: the broken pattern said 0, the correct pattern said **31 occurrences across
+  2 sites from 1 component**. A session that measured before reading the page would have
+  filed "site-specific", fixed one site, and left the other broken
+- **the check, and it costs one line:** **run the census against a row you already know
+  matches, FIRST.** Add `AND s.domain = '<the site you are looking at>'` and confirm it
+  returns non-zero before you trust the fleet-wide number. A census whose known-positive is
+  absent is a broken census, not a clean estate. This is the only check that works, because
+  the correct and incorrect queries are visually near-identical and both succeed
+- **when writing SQL, not porting it:** use `[[:space:]]` and explicit character classes.
+  If you want a word boundary in Postgres it is `\y`. Never paste a Go pattern into psql
+  unedited — also note Go's `(?i)`/`(?s)` inline flags are not Postgres syntax (the flag
+  is the `'gi'` argument to `regexp_matches`), so a ported pattern can fail two ways at once
+- **related:** the existing "a grep proves absence only for the SPELLING it searches" rule
+  is adjacent but different — there the spelling is plausible-but-narrow, here the pattern
+  is **silently in a different language**, so re-reading it in your own head does not help
+- **source:** `docs024_key_docs_latest/finetuning_uk_repair/` (broken-image census,
+  2026-08-03); WRONG_CALLS.md same date
+- **added:** 2026-08-03, finetuning.uk repair lane
+
+### A Cloudflare token with Client-IP filtering reports the SAME failure two different ways — one of them sends you hunting a permissions bug that does not exist
+
+- **footprint:** `~/.config/cloudflare/token` · `api.cloudflare.com/client/v4` ·
+  `code 9109` · `code 10000` · any dual-stack machine calling the CF API
+- **fires when:** the token has **Client IP Address Filtering** set and your public
+  address changes — a reconnect, a different network, or the machine simply
+  preferring IPv6 on one call and IPv4 on the next. The token is valid,
+  `/user/tokens/verify` still returns `status: active`, and calls that worked an
+  hour ago start failing
+- **the tell:** `code 9109 Cannot use the access token from location: <ip>` names
+  the address and is unmistakable — **but the very next call can return the generic
+  `code 10000 Authentication error` for the identical cause.** Measured 2026-08-03,
+  two calls seconds apart: DELETE → 9109, PATCH → 10000. If you happen to see only
+  the 10000 you will conclude the token lacks a scope and go re-issue it, which
+  fixes nothing. **`/user/tokens/verify` cannot detect this** — it answers "is this
+  token alive", not "may this address use it"
+- **the check:** read the **`errors[0].message`, never the HTTP status** (Cloudflare
+  returns 200 with `success:false`), and on any 10000 immediately re-run one call
+  with `curl -4` and one with `curl -6` — if either reports 9109, it is the
+  allow-list and **both families need listing**, not one. Fix in Cloudflare → My
+  Profile → API Tokens → the token → Client IP Address Filtering
+- **source:** 2026-08-03, mid-way through publishing the webdesign.uk shopfront —
+  the page reached the bucket but the DNS/page-rule change could not be applied.
+  `webdesign_uk_build_service/HANDOFF_2026-08-03_P1_shopfront.md` §3
+- **added:** 2026-08-03, webdesign.uk build-service lane
