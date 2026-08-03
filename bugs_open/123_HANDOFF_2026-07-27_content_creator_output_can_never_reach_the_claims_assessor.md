@@ -126,3 +126,68 @@ figures.
 
 `docs/agent_docs/docs024_key_docs_latest/gemini_content_provider/` (how it
 surfaced) · `bugs_closed/043` · `bugs_open/102` · `fabricated_stats_043/`
+
+---
+
+## TAKEN UP 2026-08-03 — workstream `bugfix_123_content_creator_claims`
+
+Picked up by a bug-sweep thread. `who-owns.py 123` names `gemini_content_provider`
+(which filed it and closed out on 2026-07-28), and no live session has 123 as its
+subject. Working docs, and every figure below re-measured rather than carried
+forward, live in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_123_content_creator_claims/`.
+
+**Re-verified 2026-08-03 — the defect stands.**
+
+- `grep -rniE "validate|claims|evidence|fabricat|banned" internal/agents/contentcreator/`
+  → **0 matches**, 828 lines, one file. Still no validation of any kind.
+- `llm_call_log`, 14 days, `agent_type ILIKE '%content%'` → `content-quality-auditor`,
+  `page-content-writer`, `content-reviewer`, `content-gap-planner`. **No
+  `content-creator`.** Still invisible to every per-agent usage query.
+- The platform now says this itself. `save_sections_claims_guard.go:81` (the claims
+  floor, `bugs_open/149` C1, shipped 2026-07-30) states its scope boundary as:
+  *"bugs_open/123's content-creator path has no site and no page row, so this seam
+  cannot reach it at all."*
+
+> ### CORRECTION 2026-08-03 — the severity above is overstated, and the untraced half is now measured
+>
+> This file is headed **HIGH** and asks for an "owner call needed before blog or
+> social output is published anywhere", and it names as untraced *"which workflows
+> call content-creator, and what they do with the returned text"*. Measured:
+>
+> ```sql
+> SELECT type, is_active, COALESCE(is_snapshot,false) snap, deleted_at IS NOT NULL del
+> FROM agent_definitions WHERE default_config::text ILIKE '%content-creator%';
+> --  website-builder           | f | f | t
+> --  multipage-website-builder | f | f | t
+> --  multipage-website-builder | f | f | t
+> ```
+>
+> **All three referencing rows are deleted and inactive. No live agent definition
+> dispatches content-creator.** It is reachable only by a direct publish to
+> `system.agent.content-creator.requests` — which is how the 2026-07-27 fabrication
+> was produced. So the honest reading is **latent, not biting**, the same shape as
+> `bugs_open/134`: nothing depends on the current behaviour, so the fix cannot
+> regress anything, and no owner call gates it.
+>
+> The service itself IS deployed and running (`content-creator-agent-8576b699d4-rgmq2`,
+> 1/1), so a guard placed inside it sits on the path any direct dispatch takes — it is
+> not a mechanism rotting unexercised.
+
+**What changed in the platform since this was filed, and it changes the fix.**
+Candidate 1 asks for "a variant that takes `(text, evidenceBase)` directly … so any
+producer can call it". **That already exists**, shipped by `bugs_open/104`'s lane on
+2026-07-28 — the day after this file was written:
+`datahelpers.ScanAllBannedClaims(blocks []string, eb *EvidenceBase)`
+(`claims_global.go:248`), documented nil-safe — *"a nil eb means 'this site has no
+register', not 'do not scan'"*. So candidate 1 is now **wiring, not building**, and
+candidate 2 (require a `site_id`) is rejected for the reason this file already gives.
+
+**The gap that remains is candidate 3, and it is the half that matches the observed
+damage.** All ten fleet-wide patterns (`claims_global.go:111-215`) are
+**self-accuracy overclaims** — "guaranteed accurate", "independently verified",
+"you can rely on us". **None matches "Industry data shows … between 3% and 10%"**,
+which is an attributed-but-uncited statistic. That needs a new shared detector, and
+per the owner ruling of 2026-08-02 it ships as an **opt-in field with the unsafe
+default OFF**, never as a widening of the fleet-wide banned set (whose stated bar is
+"false-by-construction for every site we will ever run").
