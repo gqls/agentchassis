@@ -78,3 +78,20 @@ at filing. Nothing has ever been mechanically confirmed by this verifier.
   which is why narrating the predicate is part of the fix and not decoration.
 - **My fix direction was already written down twice** — 016b §9 `:398-401` and 163 `:185-190`.
   Cite it, do not re-derive it.
+
+## 2026-08-03, late evening — fix committed, council submitted, and one same-file passenger
+
+- Fix commit: `c3b02f035` (3 files, pathspec, `Council-Submitted: da1d3a40-8ec1-4ea1-9c65-8c585ec2d013`).
+  Three mutations run pre-commit, each caught by its intended test. Live-index proof of all
+  four predicate shapes: fixed primary 1 row, absent-symbol 0, moved-file primary 0 with
+  name-only fallback 1, line-ref path-only 51.
+- Lane docs: `58eeef91d`. Register/016b/WRONG_CALLS/181-disposition: `d4fc4d663`.
+- **[OBSERVED, the CLAUDE.md same-file passenger, from the other side]** my `LANDMINES.md`
+  append was committed by ANOTHER session's `48fa0ac3a` ("scratch: move session
+  scratchpads…") between my append and my own docs commit — their commit touched
+  LANDMINES.md, so whoever committed first took both edits. Nothing lost; the entry is in
+  HEAD under their message. This is the documented behaviour, experienced rather than read.
+- Verifier dispatched against the new entry ON THE OLD BINARY — deliberately: that verdict
+  is the BEFORE arm of the A/B proof. Its `answerCodeCheck` symbol check exists at the
+  indexed commit; `parseSymbolQuery`/`symbolClauseFor` do not (added today), so after the
+  roll those two must STILL return 0 from the index — which is the landmine's own point.
