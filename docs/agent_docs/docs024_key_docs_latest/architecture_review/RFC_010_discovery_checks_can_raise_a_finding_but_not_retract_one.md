@@ -274,6 +274,70 @@ adopter is a check that already computes a positive observation and throws it aw
 one is a separate piece of work, and it should measure the retraction on a real site before
 claiming the seam works.
 
+## DECISION 1 HAS A FIRST REAL ADOPTER — `check_empty_sections`, 2026-08-03
+
+Committed `2287606d1`, council `97923026-2b2d-4925-b9a3-de6f70c49d2b` (submitted before the
+commit; trailer `Council-Submitted:`). **Not live at time of writing** — both replicas run
+`v1.0.1238`, and the roll is deliberately deferred because a roll kills an in-flight council.
+
+`check_empty_sections` now retracts `empty_section` findings whose slot it has positively
+re-observed as rendering content. It reuses `emptySectionVerdict` — the pure, unit-tested
+predicate already written for the completion gate — so there is one answer to "is this section
+empty", not two. Enumeration is from the **item** side: walk the slots that `empty_section` items
+name for this site and ask what occupies each one now. Every retraction is a statement about a
+row that was read.
+
+**Measured on the live queue before any code was written**, and the split is the result that
+matters:
+
+| bucket | items | disposition |
+|---|---|---|
+| every deployed component in the slot renders content | **17** (6 sites, 15 `unresolved`) | retract |
+| still empty | 19 | leave open |
+| slot holds **no deployed component** | **10** | leave open — ambiguous |
+| **mixed** slot (one of several still empty) | **1** | leave open — conservative |
+
+**The absence rule this RFC forbids would have closed the 10 + 1 = 11 items it has no evidence
+about.** That is the standing condition's cost, finally denominated.
+
+### Three findings the adoption produced, which the paper did not anticipate
+
+**1. The seam's addressing unit is coarser than the producer set — and this is the first thing an
+adopter must check.** `Resolved` closes rows by `(site_id, item_type, item_key)`. Where several
+producers deliberately converge on one key — which the owner's ruling of 2026-08-02 (`RFC_010_who
+_may_answer_a_page_name_collision`) explicitly encourages — **one producer's positive observation
+closes another producer's finding**. 13 item types have ≥2 Go producers today.
+
+The worked case is worse than "they might disagree". `undeployed_asset` was the obvious first
+adopter (95 open items, and a switch arm that already observes "Deployed." and discards it). It is
+filed by BOTH `check_undeployed_assets` and `write_render_audit_findings_action` under the same
+key, by design. The render audit's finding is *"this image serves broken on a real page"*; the
+check's healthy signal is *"a deployed component's HTML references the filename"*. **You cannot
+have a broken `<img>` unless the HTML references its src** — the two are positively correlated, so
+adopting there would have retracted every render-audit 404 finding on the next sweep. It was
+rejected on that ground and the hazard is now in `LANDMINES.md`.
+
+*This does not change what the seam guarantees, so it is not an RFC-scope change under the
+2026-07-29 ruling — but it is a precondition every adopter must discharge, and it belongs here
+rather than in one check's comments.*
+
+**2. Adopting by appending to the end of `Run` ships an inert mechanism.** Most monotonic checks
+open with `if len(findings) == 0 { return }` — correct for a check that can only file, exactly
+backwards for one that can retract, because a site with zero findings is the only site that guard
+fires on and precisely the site whose stale items need closing. It is green in every test that has
+a finding. Also in `LANDMINES.md`; mutation-proven in this adoption.
+
+**3. Retraction interacts with the two-strike rule, and the interaction is real though empty
+today.** `insertWorkItem` counts `status IN ('complete','failed')` rows created within 7 days and
+brands the third item on a repeated `item_key` as `unresolved`. A retraction writes `complete`
+onto an existing row, so it can burn a strike — and at two strikes the next genuine detection is
+born `unresolved` and undispatchable, i.e. the landfill, created by the mechanism meant to drain
+it. Measured: of the 17 items that retract, **0** were created within 7 days and **0** keys are
+already at 2 strikes. Stated as a live interaction rather than dismissed, because this lane's
+round-2 error was exactly a "measured as currently unreachable" claim that was not. Whether "the
+problem went away by itself" and "a handler fixed it" should feed that counter identically is a
+question for a human, not a measurement.
+
 ## What this RFC deliberately does not do
 
 It does not implement anything. `CheckResult` is shared by 50 checks and the runner is on the

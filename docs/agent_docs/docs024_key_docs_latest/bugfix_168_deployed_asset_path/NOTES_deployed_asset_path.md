@@ -516,3 +516,149 @@ exactly this reason. It behaves as a landfill and needs a decision of its own.
 the dispatch path; changing either from inside a bug lane is the `bugs_closed/124` shape. Filed
 as a design question, with the 909/497/206 measurement stated as a measure of *ignorance* — not
 a claim that 497 items are false.
+
+## 2026-08-03 (successor session) — Decision 1's adoption: picking the adopter was the whole job
+
+Picked up from `HANDOFF_2026-08-03_continue_here.md` §4.1. The seam was built, approved and
+**inert**; the handoff's own framing is that adoption, not more mechanism, is next.
+
+**Ownership checked two ways first.** `d2d29561` — the originating session — was still writing
+at 11:36 (61 mentions of `check_undeployed_assets`), so I checked what it was holding before
+touching anything: it wrote the handoff, the summary and the commits, and had gone quiet. I am
+its successor, not a competitor. The narrow grep matters: an alternation of four terms including
+`discovery_checks/` matched **20** live sessions and told me nothing.
+
+### The candidate I rejected, and why it is the finding of the day
+
+`check_undeployed_assets` was the obvious first adopter — **95 open items, the largest stale
+population in the queue**, 50 of them `unresolved`, and its half-2 switch literally contains an
+arm that observes `case rowAtPublishedPath:` / *"The deriver's own record of a successful commit.
+Deployed."* and does nothing with it. A positive observation, computed and discarded, exactly as
+the RFC asks for.
+
+**It is the wrong adopter, and adopting it would have quietly closed real defects fleet-wide.**
+`undeployed_asset` has a **second producer**: `write_render_audit_findings_action.go`, which
+files `undeployed_asset:<asset_id>` under the *same* item_type, key namespace and handler —
+`"deliberate co-dedup (see header)"`, blessed by the owner's 2026-08-02 ruling. Its finding is
+*"this image serves broken on a real page"*. `check_undeployed_assets` treats *"a deployed
+page_component's rendered_html references the filename"* as healthy.
+
+**Those two are not merely different — they are positively correlated.** You cannot have a broken
+`<img>` unless the HTML references its `src`. So *every* render-audit 404 finding sits on an asset
+the other check reads as healthy, and adopting retraction there would have retracted every one of
+them on the next sweep, with no signal.
+
+The general form, now in `LANDMINES.md`: **the seam addresses rows by `(site_id, item_type,
+item_key)`, which is coarser than the producer set that shares that key.** 13 item types have ≥2
+Go producers today, and the ruling that blesses co-dedup means that number will grow. The check
+before adopting is one grep, and "is my observation a *refutation* of the other producer's
+predicate, or merely unrelated to it?" — unrelated is not good enough, because the UPDATE closes
+the row either way.
+
+### The adopter chosen: `check_empty_sections`, on evidence
+
+Single Go producer (grepped). Enabled on `completeness-discovery-agent`. 47 open items, oldest
+**2026-04-06**, 32 `unresolved`. And — the reason it is the right one — the file **already
+contains the predicate**: `emptySectionVerdict`, pure and unit-tested, written for the completion
+gate (`VerifyEmptySectionResolved`). So the retraction reuses the platform's existing answer to
+"does this section render content?" instead of minting a second one. That is RFC_009's
+one-derivation discipline, from this same lane, applied to a different question.
+
+### The measurement, run BEFORE any code was written
+
+| bucket | items | what it means |
+|---|---|---|
+| every deployed component in the slot renders content | **17** (6 sites, 15 `unresolved`) | **retract** |
+| still empty | 19 | finding still reproduces |
+| **slot holds no deployed component** | **10** | **ambiguous — must not retract** |
+| **mixed slot** | **1** | **must not retract** |
+
+**An absence rule — "close what this run did not find" — would have closed the 10 + 1 = 11 it has
+no evidence about.** That is the seam's forbidden inference, with a live number against it.
+
+### MISSTEP 6 — my first census was inflated by a join fan-out, and the tell was a rounding-sized discrepancy
+
+The first pass reported **19** retractable. The earlier census said 47 open items; the join
+returned **49 rows**. Two extra rows is exactly the size of discrepancy that reads as "the queue
+moved under me" on a live system — and I nearly wrote it off as that.
+
+It was `bugs_open/156`: **`(page_id, slot_name)` is not unique.** One live page holds **three**
+deployed components in one slot. Per-item the true figure is **17**, and the fan-out also
+exposed a case I had not designed for — a *mixed* slot, where one component of several is still
+empty. The rule became "retract only if the slot holds components **and every one** renders
+content", which is conservative in the right direction.
+
+⚠ **Generalises: when a per-item count disagrees with its source population by a small number,
+that is a JOIN FAN-OUT until proven otherwise, not queue drift.** The check costs one query
+(`GROUP BY … HAVING count(*) > 1`). I found this by measurement and only then found the landmine
+that already says so — which is the wrong order, and the reason the grep-LANDMINES-for-your-
+symbols habit exists.
+
+### The trap inside the file, which no test would have caught
+
+`Run` opened with `if len(sections) == 0 { return &CheckResult{}, nil }`. Appending the
+retraction to the end of the function — the natural, minimal edit — produces a mechanism that is
+**green in every test that has a finding and inert on every site that has none**. A site with
+zero empty sections is the only site that guard fires on, and it is precisely the site whose
+stale items need closing. Removed, and mutation M1 is the proof. Also in `LANDMINES.md`, because
+every monotonic check adopting `Resolved` has one of these.
+
+### The interaction I nearly shipped without checking: retraction burns a two-strike strike
+
+Grepping `LANDMINES.md` for my symbols (the habit, not an instinct) surfaced
+`recurrenceExpected` — and through it `insertWorkItem`'s two-strike block, which counts
+`status IN ('complete','failed') AND created_at > NOW() - INTERVAL '7 days'` and brands the third
+item on a repeated `item_key` as `unresolved`.
+
+**A retraction writes `complete` onto an existing row.** So it can add a strike, and at two
+strikes the next genuine detection of that key is born `unresolved` and undispatchable — the
+landfill, created by the mechanism meant to drain it.
+
+Measured rather than argued: of the 17 items that retract, **0 were created within 7 days**
+(oldest 2026-04-06, newest 2026-07-19), and **0 keys are already at 2 strikes**. So zero strikes
+burn today and no within-cycle suppression fires.
+
+⚠ **Stated in the submission as a live interaction, NOT dismissed as unreachable — because this
+lane has already been wrong in exactly that way.** Round 2 of council `abd9b119` refuted a
+"measured as currently unreachable" claim I had defended twice; the error was measuring the tap
+and not the bath. The honest version: the interaction is real, it is empty *today*, and the
+semantics are at least consistent with `CompleteWorkItemAction`, which also writes `complete` on
+a fix and also counts as a strike.
+
+### Guards: six mutations, six required failures
+
+M1 reinstate the early return → the zero-findings test fails. M2 drop the no-component refusal →
+the ambiguity test fails. M3 let a mixed slot retract → the mixed-slot test fails. M4 set
+`AllOfType` → the wide-branch test fails. M5 propagate the retraction fault → the
+findings-not-suppressed test fails. M6 ignore the verdict entirely (anti-vacuity) → the
+still-empty test fails. All six failed as required and were reverted.
+
+M5 is the one worth keeping in mind: the runner's `continue` on a check error drops that check's
+**inserts** too, so propagating a retraction fault would trade a missed closure for a missed
+defect. It warns and retracts nothing instead.
+
+### What was deliberately NOT done
+
+No third copy of the closed-status vocabulary. This package already holds two hand-rolled copies
+and **they already disagree** — `check_truncated_component.go:163` includes `'cancelled'`,
+`check_component_template_corrupted.go:141` omits it. `resolveWorkItems` owns the predicate; the
+check owns the observation. A stale row read costs a no-op `UPDATE`, and the worst site names 14
+distinct slots in its entire history.
+
+### State
+
+Committed `2287606d1`, council `97923026-2b2d-4925-b9a3-de6f70c49d2b` submitted before the
+commit, trailer `Council-Submitted:`. **NOT live** — both replicas run `v1.0.1238`; HEAD's
+`IMAGE_TAG` is `v1.0.1239`, bumped by another session.
+
+⚠ **The roll is deliberately deferred: a roll kills an in-flight council**, and mine is running.
+Verification (positive control + both replicas) and the first real retraction measurement follow
+the verdict. ⚠ **This change removes no string literal, so it has no natural negative control** —
+the `bugs_open/153` recipe does not fully apply and saying so is better than substituting a
+weaker control and calling it the same thing.
+
+⚠ Environmental, cost me a confusing build failure: **`/tmp` is a 16G tmpfs at 97%**, 14G of it
+session scratchpads, and the Go linker writes there — `go build ./...` fails with
+`mapping output file failed: no space left on device`, which reads like a code error. Fixed
+non-destructively with `TMPDIR=/home/ant/.cache/buildtmp` (235G free on `/`) rather than deleting
+other sessions' scratch.

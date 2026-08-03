@@ -284,3 +284,68 @@ which is not defensible either way.
 nothing".** A check that errored, or that was silently blinded by a bug, returns an empty
 result that looks identical to a clean site. Getting that backwards would quietly close real
 defects across the whole fleet — the opposite failure, and a much more expensive one.
+
+---
+
+## 2026-08-03, later — the retraction mechanism has its first real user
+
+Picking up where the last session left off. The thing it built — the ability for a check to say
+"this problem I reported has gone away, close it" — was finished, approved and switched on, and
+had never once fired. That was expected: it only works for checks that opt in, and the only check
+that had opted in is one nothing runs. So the job was to find a check that should use it.
+
+That turned out to be the whole job, and not for the reason I expected.
+
+**The obvious candidate was a trap.** The natural choice was the check that looks for images that
+were generated but never deployed. It has the biggest backlog by far — 95 open items, some going
+back to April — and it already works out which images *are* fine and then throws that away, which
+is exactly what we need. I was ready to use it.
+
+The problem is that two different parts of the system file that same kind of item, deliberately,
+so they share a slot in the queue. One is the check above. The other is the render audit, which
+loads a real page in a browser and reports "this image is broken on screen". And here is the bit
+that matters: **an image can only be broken on screen if the page refers to it** — which is the
+exact condition the first check treats as proof that everything is fine. So if I had let that
+check close items, it would have closed every genuine "this image is broken" finding the render
+audit ever raised, silently, across every site.
+
+Nothing about that is visible from the code I would have been editing. I only found it by
+counting who else files that kind of item before touching anything. I have written it up as a
+trap for whoever adopts this next, because we are actively encouraging different parts of the
+system to share queue slots — so the situation will come up again.
+
+**So I used a different check**: the one that finds page sections that render empty. It has one
+producer, so nobody else's findings are at risk, and it already contains a tested function
+answering "does this section actually have content in it?" — written for a different purpose. So
+the closing logic reuses the answer we already had rather than inventing a second one that can
+drift from the first.
+
+**What it will actually do, measured on the real queue before I wrote any code:** of 47 open
+"empty section" items, **17 across 6 sites will close** — most of them sections that were fixed
+weeks or months ago and that nothing has been able to tidy up since. The other 30 stay open, and
+they are the interesting part:
+
+- 19 are still genuinely empty. Good — it is not just closing everything.
+- 10 name a section where **the component has vanished entirely**. That reads like a fix, but it
+  reads identically to a page rebuild having silently deleted the thing — which is one of our
+  most repeated failures. So it refuses to guess, and leaves them open.
+- 1 is a page where three components share one slot, and one of them is still empty. Also left
+  alone.
+
+Those last eleven are the point. A lazier version — "close anything I did not find a problem with
+this time" — would have closed all eleven on no evidence at all. That is the failure the owner's
+condition was written to prevent, and now there is a live number attached to it.
+
+**One thing I checked late and should have checked first.** There is a rule that if the same
+problem gets filed three times, the third one is marked "unresolved" and stops being worked. It
+counts how many times that item has been closed. Closing an item *counts*, which means this new
+tidying-up could, in principle, use up one of those chances and cause a genuinely recurring
+problem to be shelved. I measured it: none of the 17 are recent enough to count, so nothing is
+used up today. I have flagged it to the reviewers as a live question rather than waving it away,
+because the last session was caught out doing exactly that — twice telling the review board
+something was unreachable when it was not.
+
+**Where it stands.** The code is committed and submitted for review. It is **not live yet**, and
+I am holding off deliberately: pushing a new build restarts the services, and that would kill the
+review currently running on this very change. Once the verdict is in, it goes out and I will
+measure the first real retraction rather than claiming it works.
