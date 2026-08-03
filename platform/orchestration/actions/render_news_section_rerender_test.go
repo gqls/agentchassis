@@ -67,3 +67,28 @@ func TestQueueNewsPageRerendersOrderIndependence(t *testing.T) {
 		t.Fatalf("no p.status filter in the news requeue query: %v", err)
 	}
 }
+
+// TestQueueDirectoryPageRerendersFiltersOnPageStatus — the cousin. Its own
+// comment calls it "cousin of queueNewsPageRerenders", which is exactly how a
+// reader concludes the two behave alike; they did not, and this keeps them
+// honest. Latent rather than live (0 non-active pages carry a directory
+// component fleet-wide, measured 2026-08-03), so this test is the only thing
+// that would catch the filter being dropped again.
+func TestQueueDirectoryPageRerendersFiltersOnPageStatus(t *testing.T) {
+	db, mock := newRetractMockDB(t)
+	siteID := uuid.New()
+	mock.ExpectQuery(`p\.build_status = 'deployed'[\s\S]*p\.status = 'active'`).
+		WithArgs(siteID, "model-directory", "model-directory-listing").
+		WillReturnRows(sqlmock.NewRows([]string{"name"}))
+
+	queued := queueDirectoryPageRerenders(context.Background(), db, siteID,
+		directoryPublishProfile{SnippetComponent: "model-directory", ListingComponent: "model-directory-listing"},
+		zap.NewNop())
+	if queued != 0 {
+		t.Errorf("queued = %d, want 0 for an empty result set", queued)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("the directory requeue query no longer filters on BOTH build_status and status — "+
+			"it will re-render and re-publish archived pages, exactly as its news cousin did: %v", err)
+	}
+}

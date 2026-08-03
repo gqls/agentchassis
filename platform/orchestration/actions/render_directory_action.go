@@ -335,6 +335,20 @@ func queueDirectoryPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UU
 		return 0
 	}
 
+	// `p.status = 'active'` carried in lockstep with the cousin named above
+	// (bugs_open/098). The cousin filtered on build_status alone and was
+	// re-rendering and re-publishing an ARCHIVED page twice a day — build_status
+	// records whether a page ever shipped, status records whether the platform
+	// still wants it served, and archiving sets the second while leaving the
+	// first. This query had the identical shape.
+	//
+	// MEASURED 2026-08-03, and stated honestly: fleet-wide this selects ZERO
+	// non-active pages today, so unlike the news cousin it has no live instance
+	// — it is the same defect, latent. It is fixed here anyway because "one call
+	// site of a shared judgement gets the rigorous fix, the sibling stays
+	// heuristic" is a failure this platform has already recorded (bugs_open/093),
+	// and because the two functions declare their kinship in their own comments,
+	// which is precisely how a reader concludes they behave alike.
 	rows, err := db.QueryContext(ctx, `
 		SELECT DISTINCT p.name
 		FROM pages p
@@ -343,6 +357,7 @@ func queueDirectoryPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UU
 		WHERE p.site_id = $1
 		  AND cc.function IN ($2, $3)
 		  AND p.build_status = 'deployed'
+		  AND p.status = 'active'
 	`, siteID, profile.SnippetComponent, profile.ListingComponent)
 	if err != nil {
 		logger.Warn("queueDirectoryPageRerenders: page lookup failed", zap.Error(err))
