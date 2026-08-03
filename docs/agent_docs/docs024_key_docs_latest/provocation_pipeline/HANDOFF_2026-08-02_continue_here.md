@@ -1,4 +1,4 @@
-# HANDOFF — provocation pipeline, 2026-08-02
+# HANDOFF — provocation pipeline, 2026-08-02 (**UPDATED 2026-08-03**)
 
 **Supersedes `HANDOFF_2026-07-31_continue_here.md`** (still worth reading for the
 design reasoning and the owner's settled decisions; this file supersedes only its
@@ -16,7 +16,7 @@ false claim — "Today's Provocation" over an entry dated 26 Jul — because **t
 pool holds nothing newer than 26 Jul**. The remaining gap is content and only
 content. Adding provocations is `INSERT`s: no code, no image, no deploy.
 
-## What is true right now (all verified 2026-08-02, evening)
+## What is true right now (verified 2026-08-02 evening; encoding row re-verified 2026-08-03)
 
 | thing | state | how it was checked |
 |---|---|---|
@@ -25,28 +25,31 @@ content. Adding provocations is `INSERT`s: no code, no image, no deploy.
 | skip path | **proven live** | fired 18:57Z in ~1.4s → `committed:false`, `reason:"no change since the served feed"`, 8 archive entries |
 | commit path | **proven live**, induced deliberately | `a1bf37d55` in `gqls/sites` |
 | pool | 9 rows, newest `publish_on` = **2026-07-26** | `SELECT … FROM provocations WHERE domain='vonc.com'` |
-| served feed | `today.slug = nobody-wants-personalised-internet` | `curl https://vonc.com/data/provocations.json` |
+| served feed | `today.slug = nobody-wants-personalised-internet`, **literal `<em>`, 10,798 bytes** | `curl https://vonc.com/data/provocations.json` (2026-08-03 10:23Z) |
+| `marshalFeedFile` in the binary | **yes, both replicas** (v1.0.1238) | `strings \| grep -c` = 2; control `render_provocation_feed` = 1; synthetic negative = 0 |
 
-## The one thing that is fixed but NOT live
+## The escaping fix is now LIVE (updated 2026-08-03)
 
-Commit **`59f3c67dd`** — `marshalFeedFile` with `SetEscapeHTML(false)`.
+Commit `59f3c67dd` shipped on chassis **v1.0.1238** and the artefact is fixed:
+commit **`33bb75049`** carries **0 escaped sequences and 3 literal `<em>`**, the
+file is back to its original **10,798 bytes**, and it is verified both in the repo
+and on the wire.
 
-The action shipped HTML-escaped markup: headlines carrying `<em>` reached the file
-as the escaped six-character form. Every parser decodes it, which is why it was
-invisible to the golden-fixture parity test — **that test unmarshals both sides
-before comparing, so an encoding difference cannot reach it by construction.** It
-was found by diffing the first artefact the action committed against the one the
-Python oracle had written.
+**Two things learned landing it, both worth keeping:**
 
-**It needs a chassis roll.** Not urgent — nothing is broken, the escaped form
-renders correctly — but until it rolls, the file carries escaped markup on the
-hand-edited fallback path. Any session's roll ships it.
+1. **The fix could not self-apply.** `checkAgainstServed` canonicalises both sides
+   through the same `json.Marshal` before comparing, so the served escaped file and
+   the new build's literal output compare EQUAL and the action skips. The encoding
+   blindness is symmetric — it hid the fix exactly as it hid the defect. A commit
+   had to be induced with `force_commit`. **Expect this for any future
+   encoding-only change.**
+2. **The key-order decision was measured, not just argued.** Yesterday's reasoning
+   for leaving key order alone was that the 119-line diff is a one-off cost of
+   changing writer. `33bb75049` came in at **+11 / −11**. The cost model holds.
 
-Also shipped and **deliberately not fixed**: Go sorts map keys, so the file's
-top-level order is alphabetical where the oracle wrote a human order. That cost is
-paid once per *change of writer*, not once per day. Pinning it needs a second
-hand-maintained copy of every object's field list — a worse trade. Recorded in
-VONC-011's open-question field with the ping-pong caveat.
+Still deliberately unfixed: Go sorts map keys, so the action's order differs from
+the Python oracle's. If the manual fallback is ever used by hand, the next Go run
+rewrites the whole file again. Recorded in VONC-011.
 
 ## What to do next — in order
 
@@ -69,18 +72,11 @@ Then either wait up to 6h for the schedule, or make it due:
 The partial unique index makes two approved provocations on one date
 unrepresentable — you will get a constraint violation, not a silent overwrite.
 
-### 2. Verify the escaping fix after the next roll
+### 2. ~~Verify the escaping fix after the next roll~~ — DONE 2026-08-03
 
-```bash
-strings /app/agent-chassis | grep -c marshalFeedFile      # symbol may be inlined — prefer the artefact:
-gh api "repos/gqls/sites/commits/<next-sha>" --jq '.files[] | "+\(.additions) -\(.deletions)"'
-```
+Landed and verified; see the section above. Nothing outstanding.
 
-After the roll, the **next** commit should be a small diff, and the file should
-carry literal `<em>`. Note the first post-roll commit will again be large (the
-escaping change touches every escaped line) — that is expected, once.
-
-### 3. The generative half (PLAN §4/§10) — unbuilt, unchanged
+### 3. The generative half (PLAN §4/§10) — unbuilt, and now the largest remaining piece of MACHINERY
 
 Grok generates candidate provocations; a gate checks safe / interesting /
 current / good-provocation-properties. The pool's `source`, `source_ref`,
@@ -101,7 +97,9 @@ identity. Both are in the PLAN; neither is started.
   Never "seal" today's provocation by emptying them — `checkFeed` refuses to emit
   a feed that does, in both directions.
 - **A structural test cannot see an encoding.** See `LANDMINES.md`; it is why the
-  parity test was green for a week while the artefact diverged on every line.
+  parity test was green for a week while the artefact diverged on every line. The
+  blindness is SYMMETRIC: the same comparison also hides the fix, so an
+  encoding-only change will never publish itself — induce it with `force_commit`.
 - **Never TYPE a backslash-u escape sequence**, in Go source or in prose about it.
   The Go compiler decodes it inside double quotes and several tool channels decode
   it in transit — an assertion that a sequence is ABSENT silently becomes a search

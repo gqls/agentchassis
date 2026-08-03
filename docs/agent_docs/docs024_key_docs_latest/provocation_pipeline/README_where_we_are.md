@@ -528,3 +528,45 @@ July. That is now purely a content question. Adding provocations is a database
 insert; no code, no build, no deploy. Nothing further happens on its own until
 there is something new to publish, and I have not written any, because they go
 out as your opinions under your name.
+
+---
+
+## 3 August, morning — the fix is live, and it proved a guess I made yesterday
+
+Your new build carried the escaping fix, and it is now live on the site.
+
+One thing was worth checking before I touched anything: whether the fix would
+apply itself. It would not, and the reason is neat enough to be worth a sentence.
+The publisher decides whether to bother committing by comparing what it would
+write against what the site currently serves — and it does that comparison after
+reading both in, which is precisely the step that makes escaped and unescaped
+markup look identical. So the same blind spot that let the problem out also stops
+the repair getting in. I confirmed the site was still serving the escaped version,
+then forced a publish, and put the schedule back exactly as it was.
+
+It worked. The live file now carries proper italics markup again and is back to
+10,798 bytes — exactly the size the old Python script used to produce. I checked
+it in the repository and then on the actual website, because those can differ.
+
+**The part I am pleased about.** Yesterday I decided *not* to fix the second
+problem — the sections of the file being written in alphabetical order — and my
+reasoning was that it would cost one ugly commit when the writer changed, rather
+than one every day. That was an argument, not evidence. Today's commit changed
+**11 lines instead of 119**, which is the measurement that argument needed. The
+reasoning held up.
+
+I should be straight about what that does not settle: the old Python script still
+writes the sections in a different order, so if we ever fall back to it by hand,
+the next automatic run will rewrite the whole file again. That is a real cost of
+keeping two ways of writing the same file, and I have written it down rather than
+pretended it away.
+
+**Where we are.** The machine is finished, live, and every part of it has now been
+watched working. The site is still showing a provocation from 26 July under the
+words "Today's Provocation", because that is genuinely the newest one we have. It
+is not broken; it is accurately reporting that we have run out of material.
+
+Everything from here is content, and content is your call — they publish as your
+opinions under your name. Send me some text with dates and I will load them; the
+site will start rotating on its own from that point with nothing further from
+either of us.

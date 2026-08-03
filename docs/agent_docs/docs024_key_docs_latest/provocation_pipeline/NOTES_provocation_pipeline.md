@@ -894,3 +894,67 @@ Provocation" over an entry dated 26 Jul, because the pool's newest row is 26 Jul
 and the selector correctly serves the latest one that has arrived. **The
 remaining gap is content and nothing else** — adding provocations is now
 `INSERT`s, no code, no roll. That is the owner's editorial call.
+
+---
+
+## 2026-08-03 — the escaping fix landed, and it verified a prediction I had made about the fix I did NOT write
+
+Second chassis roll (v1.0.1238, both pods 10:08Z). `marshalFeedFile` present on both
+replicas (count 2; `render_provocation_feed` = 1 as the prior-work control;
+synthetic negative = 0).
+
+### 1. The fix does not self-apply — and the reason is the same blindness
+
+The 07:00Z scheduled run (still on the old image) skipped, as it should. But the
+important observation is that the run *after* the roll would also have skipped:
+
+**`checkAgainstServed` canonicalises both sides through the same `json.Marshal`
+before comparing.** So the served file's escaped markup and the new build's literal
+markup canonicalise to the *same string*, and the comparison sees no change. The
+encoding blindness that let the defect ship is exactly symmetric: it also prevents
+the fix from ever landing on its own. Verified before acting — live file at 10:22Z
+still had 12 escaped sequences and 0 literal `<em>`, with `generated_at` still
+showing yesterday's forced commit.
+
+So the fix needed a commit to be induced, the same way the writer did. Forced one
+(`force_commit`, restored immediately afterwards — verified `still_forced = f`).
+
+### 2. Proven at the artefact, then on the wire
+
+Commit **`33bb75049`**. In the repo: **0 escaped sequences, 3 literal `<em>`**, and
+the file is back to **10,798 bytes** — byte-for-byte the size the Python oracle
+produced before the Go writer took over. On the wire (`curl` of the live URL):
+same, `generated_at: 2026-08-03T10:23:17Z`, `today.slug` unchanged, 8 archive
+entries. Semantically equal to the oracle's output for today (`parsed ==` True).
+
+### 3. The prediction that got tested
+
+Yesterday I decided NOT to pin the key order, and the argument was: *the 119-line
+diff is a one-off cost of changing writer, not a daily one, because Go's ordering
+is deterministic.* That was an argument, not a measurement, and I wrote it into
+the code comment, the register and the handoff.
+
+**This commit measured it: +11 / −11.** Not 119. Both sides of this diff were
+written by the Go action, so key order was stable and only the escaped lines and
+the timestamp moved. The one-off claim holds.
+
+Worth being precise about what that does and does not vindicate. It confirms the
+*cost model* I reasoned from. It does not make the decision costless: the two
+writers still differ in key order, so if the Python fallback is ever used, the next
+Go run rewrites the file wholesale again. That ping-pong remains the price of
+keeping two writers, and it is recorded in VONC-011 rather than fixed.
+
+### 4. Where the two writers now stand
+
+| | oracle (Python) | action (Go) | status |
+|---|---|---|---|
+| markup | literal `<em>` | literal `<em>` | **agreed, fixed** |
+| top-level key order | `generated_at, today, …` | `archive, arena, …` (sorted) | diverges, deliberate |
+| parsed content | — | — | **identical** |
+
+### 5. Still true, and still the whole remaining gap
+
+The pool's newest row is **26 Jul**. The site continues to serve it under "Today's
+Provocation", correctly, because that is the most recent provocation that has
+arrived. Nothing in the machinery will change that. **Content is the gap and it is
+the owner's editorial call.**
