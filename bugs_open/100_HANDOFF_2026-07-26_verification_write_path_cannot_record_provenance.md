@@ -259,3 +259,42 @@ assumption.
   before the prompt, and there is no runtime trace because collection has been off since March.
   It did **not** refute the mechanism. The two gaps it named are closed by items 1 and 3 above,
   gathered independently before the verdict returned.
+
+---
+
+## 2026-08-03 — `upload_results` turned on for `scrape_website`, unblocking the acceptance run this file is waiting on
+
+Worked from `bugs_open/158` item 1b, by the `bugfix_158_reply_drop_sizing` lane, at
+the owner's explicit go-ahead — that lane surveyed all 22 live scrape/crawl steps
+fleet-wide and found `vet-practice-verifier/scrape_website` was one of 18 with
+`upload_results` unset, which is directly relevant here: without a stored copy, the
+truncator's marker degrades to "DISCARDED", and a company registration number
+sitting in a page footer past the 50KB cut is exactly the shape that would be lost
+with no recoverable copy.
+
+**Live now**, DB config, no chassis roll needed:
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config, '{workflow,steps,scrape_website,config,upload_results}', 'true'::jsonb),
+    updated_at = now()
+WHERE type='vet-practice-verifier' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Verified via `RETURNING`: the step's config now carries `"upload_results": true`
+alongside its existing `max_pages`/`follow_links`/etc.
+
+**Separately, and worth knowing before this file's acceptance run**: the SAME lane
+also shipped a fix (`bugs_open/158` item 3, owner-ruled "upload everything that gets
+truncated") that makes a stored copy happen even for steps that do NOT set
+`upload_results` — so this flip is now belt-and-braces, not the only path to a
+recoverable copy. Still worth having explicitly, since it also puts this step's
+full-page HTML/markdown/raw_html in the SAME session directory as everything else
+rather than an ad-hoc fallback path, and unblocks the company-number hit-rate
+measurement `bugs_closed/133` flagged as cheap to settle.
+
+**Not done by this lane:** this note stops at the config flip. `100`'s own remaining
+work (the acceptance run, this file's `STATUS` line, whether the 2,970 unsourced
+historical rows need anything) is untouched and stays with whoever owns this bug.
+Vet collection has been off since March per this file's own text — first thing to
+check before expecting fresh rows.
