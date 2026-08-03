@@ -69,3 +69,54 @@ intent is clearly the larger number; ninety-one channels simply missed it.
 **Where it stands.** Two of the four findings now wait on you, below. The other two
 need nothing: one is already fixed, and one I measured and would leave alone — its
 worry is about a data structure that, as far as I can find, nothing actually reads.
+
+---
+
+**2026-08-03, late evening.**
+
+You handed me the remaining decisions, so here is what I did with each and why.
+
+**Nothing scraped is ever destroyed any more.** That was your first ruling and it
+is now running in production. The archiver keeps all six kinds of page content
+instead of two — and while extending it I found and fixed a genuine bug: for one
+of the two ways pages arrive, the old code was looking for the content under the
+wrong name, so it had never archived page HTML at all, even for steps that
+explicitly asked. On top of that there is now a safety net: the moment anything is
+about to be trimmed for transport and no copy exists yet, a copy is made on the
+spot, whether or not the step opted in. I proved each piece by deliberately
+breaking it and watching the tests object, then watched it go out to all three of
+the scraper's replicas and checked the running binaries directly.
+
+One embarrassment to own on the way: I initially wrote that this needed the main
+system rebuilt, which was the wrong target — this code lives in the scraper's own
+image. My own checks caught it before it cost anyone anything, and I've written
+the trap up properly, because the repository builds fourteen separate programs
+and "rebuild the main one" is a habit that silently doesn't cover most of them.
+
+**The message-bus channels are aligned.** All seventy-four reply channels that
+were still on the small default now carry the same 5MB ceiling as the other 97%.
+Checked afterwards: none missing, out of 3,828.
+
+**The vet pipeline is unblocked** for your other thread, and a note saying exactly
+what changed is in that bug's own file where the new thread will look.
+
+**The two remaining decisions I closed as "no, with a tripwire".** The four older
+services that still swallow a failed reply: leaving them, because the failure has
+never once occurred, the ceilings just got five times higher, and an automatic
+check now stops the pattern spreading — but I wrote down the exact event that
+should reopen it. And no, replies will not carry full content inline: now that
+nothing is lost anyway, bigger inline replies would only bloat the database rows
+and the model prompts that read them. Also written down with its reopening
+condition, so neither is a silent shelving.
+
+**One thing did not cooperate: the review.** The council reviewed and approved
+everything else this lane did, but tonight's round for the archiving change was
+killed twice — not on its merits, but because the platform was redeployed four
+times this evening and a redeploy kills any review in flight. Both kills are
+documented with timestamps. A third round is in and being watched; the change is
+correct, tested, and yours by explicit ruling either way, and the paperwork
+resolves itself automatically once a round survives.
+
+With that, every item in this bug has an outcome: two fixed and live, one fixed by
+someone else earlier, one measured and needing nothing, and two decided-no with
+reopening conditions. Once the review lands, the whole file moves to closed.
