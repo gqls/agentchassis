@@ -18079,3 +18079,19 @@ already verified — softened, not excused, by the 2026-07-31 ruling wanting a l
 over exactly that kind of first-hand-verified root cause (the 155 precedent). The run was
 left to complete for that reason, with the symptom's known framing error recorded in
 `bugs_open/177` so the verdict gets read with the right lens.
+
+- **2026-08-03 · portfolio_positioning** — claimed (in HANDOFF_2026-08-02 seam list): "tool handler writes its component but queues NO rerender — I fired page_rerender items by hand". FALSE: the tool-recreation-handler's own deploy_page committed the fully-assembled page at 19:33:50Z (sites commit 626c8e15d: header, nav, footer, one <html>); the hand-fired 19:42Z items produced NO commit (nothing left to change) and their completion was read as having done the work. **What caught it:** reading the retained orchestration's deploy_result + `git log` on the artefact path. **The cheap check skipped:** `git log origin/master -- <page path>` BEFORE hand-firing — one command showing the deploy had already landed.
+- **2026-08-03 · portfolio_positioning (same thread as previous line — a wrong call built ON a wrong call)** — claimed: "the tool deploy bypasses assembly; it publishes a self-contained document with no site chrome", filed into a 090 run and NOTES. FALSE: the full 28,878-char deploy_result HTML contains the complete chrome; the claim was read off the 2KB *preview* of a persisted tool output whose notice named the full file. The diagnosis loop was stopped by the SAME shape (its bundle's rendered_page.html "truncated before the <body>"). **What caught it:** grepping the persisted full file for chrome markers — the file was already on disk. **The cheap check skipped:** never conclude from a `<persisted-output>` preview; the notice prints the full path precisely so you read it.
+
+- **2026-08-03 · vigilant_designer_offer_analysis** — claimed (NOTES 2026-08-02 + the A0.3
+  council rationale): "the two-strike flip to 'unresolved' IS the escalation path; **the
+  fixloop digest reads unresolved rows**". FALSE: `fixloop_digest_action.go` reads
+  `failed` / recent `complete` / `awaiting_diagnosis` / `capability_gap` — never
+  `unresolved`. The real reader is the admin dashboard's attention queues
+  (`site_admin_handlers.go:48,886,930`). The claim rode into a council submission and
+  bug_historian's REVISE was partly right FOR THE WRONG REASON (its "silently dropped"
+  mechanism is also false — third occurrence is inserted, born unresolved — but the
+  named escalation reader did not exist). **What caught it:** the REVISE round forcing a
+  re-read of the digest's actual SELECTs. **The cheap check skipped:** one grep of the
+  named reader for the status name — "X reads Y" costs `grep unresolved <X>.go` before
+  it is written. Same family as the ledger's other "a CITATION is not a READ" rows.
