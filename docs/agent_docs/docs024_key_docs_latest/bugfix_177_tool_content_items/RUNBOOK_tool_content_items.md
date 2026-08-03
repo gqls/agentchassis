@@ -11,18 +11,18 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 -- the class, by status (healthy end-state after the fix + sweep:
 -- 0 needs_human_review, N wont_fix)
 SELECT status, count(*) FROM site_work_items
-WHERE item_key LIKE 'tool_content:%' GROUP BY 1;
+WHERE item_key ~ '^tool_content:' GROUP BY 1;
 
 -- the control class from the SAME emitter files (guide pages declare
 -- sections, so these complete — if THESE start dying, the defect is not 177's)
 SELECT status, count(*) FROM site_work_items
-WHERE item_key LIKE 'tool_guide:%' GROUP BY 1;
+WHERE item_key ~ '^tool_guide:' GROUP BY 1;
 
 -- anything still blocked on a tool_content row (must be 0 after the sweep)
 SELECT left(w.id::text,8), w.status FROM site_work_items w
 WHERE w.status NOT IN ('complete','verified','cancelled','rejected','wont_fix')
   AND w.depends_on && ARRAY(
-    SELECT id FROM site_work_items WHERE item_key LIKE 'tool_content:%');
+    SELECT id FROM site_work_items WHERE item_key ~ '^tool_content:');
 ```
 
 ## The guard's decision inputs, for one page
@@ -89,6 +89,6 @@ row DOES appear (positive control). Then the deploy path: fork a library tool
 sections).
 ```sql
 SELECT left(item_key,60), status, created_at FROM site_work_items
-WHERE item_key LIKE 'tool_content:%' OR item_key LIKE 'tool_guide:%'
+WHERE item_key ~ '^tool_content:' OR item_key ~ '^tool_guide:'
 ORDER BY created_at DESC LIMIT 6;
 ```

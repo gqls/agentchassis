@@ -23,7 +23,7 @@
 -- Verify after applying (expect: first query 0 rows; second query the two
 -- ids with depends_on NULL, status unchanged 'triaged'):
 --   SELECT id FROM site_work_items
---   WHERE item_key LIKE 'tool_content:%' AND status='needs_human_review';
+--   WHERE item_key ~ '^tool_content:' AND status='needs_human_review';
 --   SELECT left(id::text,8), status, depends_on FROM site_work_items
 --   WHERE id IN ('9e9ec430-ff92-4264-83cc-6072840faad8',
 --                '18bc832c-c937-4608-9a05-718772d44c88');
@@ -37,7 +37,7 @@ SELECT left(id::text,8) AS dependent, status, depends_on
 FROM site_work_items
 WHERE depends_on && ARRAY(
   SELECT id FROM site_work_items
-  WHERE item_key LIKE 'tool_content:%' AND status = 'needs_human_review'
+  WHERE item_key ~ '^tool_content:' AND status = 'needs_human_review'
 );
 
 UPDATE site_work_items
@@ -45,7 +45,7 @@ SET depends_on = NULL,
     updated_at = NOW()
 WHERE depends_on && ARRAY(
   SELECT id FROM site_work_items
-  WHERE item_key LIKE 'tool_content:%' AND status = 'needs_human_review'
+  WHERE item_key ~ '^tool_content:' AND status = 'needs_human_review'
 );
 
 UPDATE site_work_items
@@ -55,7 +55,7 @@ SET status = 'wont_fix',
          || 'had nothing to build. Emit-side guard now prevents the class. '
          || 'Original error: ' || COALESCE(error, '(none)'),
     updated_at = NOW()
-WHERE item_key LIKE 'tool_content:%'
+WHERE item_key ~ '^tool_content:'
   AND status = 'needs_human_review';
 
 -- Induced check (RFC_006 lesson: a verify block of SELECTs cannot stop a
@@ -64,14 +64,14 @@ DO $$
 DECLARE remaining int; blocked int;
 BEGIN
   SELECT count(*) INTO remaining FROM site_work_items
-  WHERE item_key LIKE 'tool_content:%' AND status = 'needs_human_review';
+  WHERE item_key ~ '^tool_content:' AND status = 'needs_human_review';
   IF remaining <> 0 THEN
     RAISE EXCEPTION 'sweep incomplete: % tool_content rows still needs_human_review', remaining;
   END IF;
   SELECT count(*) INTO blocked FROM site_work_items w
-  WHERE w.status NOT IN ('complete','verified','cancelled','rejected','wont_fix')
+  WHERE w.status NOT IN ('complete','failed','verified','rejected','wont_fix','unresolved','cancelled')  -- = workItemTerminalStatuses (work_items_common.go:40)
     AND w.depends_on && ARRAY(
-      SELECT id FROM site_work_items WHERE item_key LIKE 'tool_content:%'
+      SELECT id FROM site_work_items WHERE item_key ~ '^tool_content:'
     );
   IF blocked <> 0 THEN
     RAISE EXCEPTION 'sweep incomplete: % live items still depend on a tool_content row', blocked;
