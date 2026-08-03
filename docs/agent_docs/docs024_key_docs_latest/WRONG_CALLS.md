@@ -17584,9 +17584,9 @@ is "none of them", the measurement has told you a symptom and nothing more.
 
 ## 2026-08-03 — I filtered a blast-radius census on `status='active'` without ever enumerating `status`
 
-**footprint:** `pages.status`, `sites.status`, any `count(*) … WHERE status = '<value>'` used to size a blast radius · bugs_open/181, bugfix_175 lane
+**footprint:** `pages.status`, `sites.status`, any `count(*) … WHERE status = '<value>'` used to size a blast radius · bugs_open/185, bugfix_175 lane
 
-**The claim.** Filing `bugs_open/181` I measured how many live pages a
+**The claim.** Filing `bugs_open/185` I measured how many live pages a
 `build_status = 'deployed'` selector misses, and published **28**, from
 `WHERE COALESCE(build_status,'') <> 'deployed' AND deployed_at IS NOT NULL AND
 status='active'`. The number went into the bug file's headline, its title, a commit

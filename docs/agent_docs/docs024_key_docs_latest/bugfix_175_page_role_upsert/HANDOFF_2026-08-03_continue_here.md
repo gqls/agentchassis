@@ -9,7 +9,7 @@ Written because the originating session's context ran long, not because the work
 `v1.0.1237` (both replicas, pod-verified 2026-08-03 08:47Z). The council trail is
 **approved → REVISE → approved** on one correlation, `e78c62e3-7f01-48f1-b083-924eaccd195a`.
 `architecture_review/RFC_010` is **RATIFIED by the owner and implemented**. One follow-up
-was filed and is **unowned**: `bugs_open/181`. Nothing is in flight; nothing is owed to a
+was filed and is **unowned**: `bugs_open/185`. Nothing is in flight; nothing is owed to a
 council; the working tree carries none of this lane's changes uncommitted.
 
 ## What was built
@@ -50,14 +50,14 @@ Recurrence is closed mechanically: `check_partial_page_upsert` in
 
 ## What is NOT done — pick up here
 
-1. **`bugs_open/181` is filed, unowned, census complete, no fix attempted.** ~10 detectors
+1. **`bugs_open/185` is filed, unowned, census complete, no fix attempted.** ~10 detectors
    select `p.build_status = 'deployed'` on `pages` and are blind to **28 active** (35
    counting archived-but-possibly-served) pages that HAVE shipped under another status.
    False negatives, not corruption. Its fix candidate 1 warns: converging them will make
    ten checks start reporting on pages they have never seen, so **measure what each newly
    reports before shipping** — the first consequence of fixing a false-negative is a burst
    of findings.
-2. **`bugs_open/181` fix candidate 2** is the one two council seats pushed hardest:
+2. **`bugs_open/185` fix candidate 2** is the one two council seats pushed hardest:
    `datahelpers.NeverDeployedPagePredicate` and `queryresolve.FetchablePageEligibilitySQL`
    are one judgement in two constants. They now cross-reference each other by comment; the
    seats wanted actual convergence. Read `queryresolve.go:210-236` first — it documents a
@@ -125,6 +125,6 @@ interpolated per consumer, so the count IS the consumer count (3 pre-existing + 
 
 `12e9335db` liveness record · `d7c119c11` RFC/register live · `004206913` + `b460937de` +
 `1c71d7cff` the two corrections and their wrong-calls · `47b4d9f8b` the sibling audit +
-`bugs_open/181` · `0f2d57a9b` RFC REVISE record · `85d7e0ca5` + `4ee695cc1` the ruling
+`bugs_open/185` · `0f2d57a9b` RFC REVISE record · `85d7e0ca5` + `4ee695cc1` the ruling
 round · `023f6624a` the predicate correction · `6192cc9d2` close + RFC_010 · `588adb6f1`
 016b §9 follow-up · `9897cb82f` docs · `cbbecb021` **the fix itself**.

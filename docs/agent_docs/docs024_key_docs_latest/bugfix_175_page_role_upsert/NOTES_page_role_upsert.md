@@ -287,7 +287,7 @@ changed something I had written down.
 
 ### `debug_historian` was right: I scoped a blast radius by a status column I never enumerated
 
-`bugs_open/181`'s census read `... AND status='active'` and published **28**. The seat
+`bugs_open/185`'s census read `... AND status='active'` and published **28**. The seat
 called it as the generalised form of the "`sites.status` is informational — do not scope
 blast radius by it" trap. Enumerated: `pages.status` has two values, and **7 further rows
 are `archived` AND shipped-but-not-`deployed`**. That is not a rounding error, because
@@ -318,7 +318,7 @@ a shelf life measured in minutes on this tree.
 ### The three advisories I did NOT act on, and why
 
 - `reuse_agent` + `architecture` [medium]: the two constants are still two, cross-referenced
-  by comment rather than merged. Deferred to `bugs_open/181` fix candidate 2 **on purpose** —
+  by comment rather than merged. Deferred to `bugs_open/185` fix candidate 2 **on purpose** —
   `queryresolve` documents a deliberate family of three eligibility fragments, and collapsing
   one of them in a bug-fix round is the "shipped a contract inside a two-day fix" shape the
   same council flags elsewhere. Their objection strengthens 181's case; it is recorded there.

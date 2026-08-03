@@ -1,6 +1,12 @@
-# 181 — every detector that selects `build_status = 'deployed'` is blind to 28 live pages (35 counting archived-but-possibly-served)
+# 185 — (RENUMBERED from 181 on 2026-08-03. The `bugfix_172_agent_state_cap` lane had
+# already filed a different 181 — the code-lookup row caps case, committed `0a5ff9634`
+# on 2026-08-02, hours before this one. Theirs was first; this one moved. Numbering is
+# one sequence across both dirs and is never reassigned, so **resolve by slug** — and
+# note 184 is ALSO doubly-used today, by two other lanes.)
 
-**Filed:** 2026-08-03 by the `bugfix_175_page_role_upsert` lane, **at the council gate's
+# 185 — every detector that selects `build_status = 'deployed'` is blind to 28 live pages (35 counting archived-but-possibly-served)
+
+**Filed:** 2026-08-03 (as 181; renumbered same day) by the `bugfix_175_page_role_upsert` lane, **at the council gate's
 request** (round 2 on corr `e78c62e3-7f01-48f1-b083-924eaccd195a`, REVISE). Three seats —
 `bug_historian`, `reuse_agent`, `debug_historian` — independently asked the same question
 about `bugs_open/175`'s fix: *"does any other call site still hand-roll a
@@ -10,7 +16,18 @@ build_status/deployed_at liveness check?"* The audit they asked for produced thi
 some live pages are simply never looked at. Filed rather than fixed because the fix
 changes what ~10 checks report fleet-wide, which is its own measurement.
 
-**Status:** OPEN, unowned. Census done, no fix attempted.
+**Status:** OPEN. **Picked up 2026-08-03 by the filing lane** — see § Progress at the foot.
+
+**On the 2026-07-31 owner ruling (a cross-cutting root cause is not "filed" until it has
+been through the `090` diagnosis loop, or the session states plainly why it substituted
+first-hand verification):** `090` was **not** run, and the substitute is stated rather than
+omitted. Every claim here is first-hand and mechanical — the census is `grep` output with
+each site read and classified by hand, and the impact figure is a `GROUP BY` against the
+live DB, re-run after the council caught the first version scoping on an unenumerated
+status column. The loop's value is forming a cited theory when the cause is not where the
+symptom is; here there is no theory to form — the predicate is visible in the source and
+the missed rows are countable. What the loop could NOT have supplied, and what this fix
+requires, is the both-ways row diff per call site in § Progress.
 
 ---
 

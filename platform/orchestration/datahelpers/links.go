@@ -234,14 +234,14 @@ func NormalizePagePath(href string) string {
 // The column names are UNQUALIFIED, so this is valid only in a query whose FROM
 // is `pages` with no ambiguous alias. A joined query needs a qualified variant;
 // nobody has needed one yet.
-// RELATED, and named here so the pair cannot drift unnoticed (bugs_open/181,
+// RELATED, and named here so the pair cannot drift unnoticed (bugs_open/185,
 // raised by the council gate on the bugs_open/175 round):
 // `queryresolve.FetchablePageEligibilitySQL` is the SAME judgement inverted —
 // `AND (p.deployed_at IS NOT NULL OR p.build_status = 'deployed')`, i.e. exactly
 // NOT(this) with an alias prefix. That is deliberate rather than drift (it is one
 // of a documented family of three eligibility fragments), but two constants in two
 // packages expressing one rule with no mutual reference is how drift begins.
-// Change one, read the other. Whether they should be merged is bugs_open/181's
+// Change one, read the other. Whether they should be merged is bugs_open/185's
 // fix candidate 2, open on purpose.
 const NeverDeployedPagePredicate = `deployed_at IS NULL AND COALESCE(build_status, '') <> 'deployed'`
 

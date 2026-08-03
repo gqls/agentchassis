@@ -271,7 +271,7 @@ sweep, not assert it.**
 Three further seats (`bug_historian`, `reuse_agent`, `debug_historian`) asked the same
 medium-severity question — *does another `pages` upsert helper hand-roll its own "is this
 shipped" test?* The audit is now on record: the other three helpers make **no liveness
-judgement at all**. What it did turn up is `bugs_open/181` — ~10 detectors select
+judgement at all**. What it did turn up is `bugs_open/185` — ~10 detectors select
 `p.build_status = 'deployed'` and are blind to **28 live pages**. Filed with its census
 rather than fixed in passing, because converging them changes what ten checks report and
 the first consequence of fixing a false-negative is a burst of findings.
