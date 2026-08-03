@@ -1241,11 +1241,16 @@ const localActionTimeoutKey = "local_action_timeout_seconds"
 // escape hatches are explicit instead.
 const disableLocalActionTimeoutEnv = "DISABLE_LOCAL_ACTION_TIMEOUT"
 
-func localActionContext(ctx context.Context, step models.Step, logger *zap.Logger) (context.Context, context.CancelFunc) {
+// stepName is passed EXPLICITLY rather than read from step.Name, because on the live
+// coordinator path models.Step.Name is empty — proven in production 2026-08-03 by
+// inducing this deadline on endpoint-health-checker, whose error read `on step ""`
+// while the orchestration's current_step was `check_health`. The unit fixtures set
+// Name and so could never have caught it. state.CurrentStep is the reliable name.
+func localActionContext(ctx context.Context, step models.Step, stepName string, logger *zap.Logger) (context.Context, context.CancelFunc) {
 	if os.Getenv(disableLocalActionTimeoutEnv) == "true" {
 		logger.Warn("local action deadlines are DISABLED fleet-wide by env switch — actions can park an orchestration indefinitely",
 			zap.String("env", disableLocalActionTimeoutEnv),
-			zap.String("step", step.Name),
+			zap.String("step", stepName),
 			zap.String("action", step.Action))
 		return ctx, func() {}
 	}
@@ -1255,7 +1260,7 @@ func localActionContext(ctx context.Context, step models.Step, logger *zap.Logge
 		seconds, parsed := datahelpers.ToFloat64(raw)
 		if !parsed {
 			logger.Warn("local action timeout override is not a number — using the default",
-				zap.String("step", step.Name),
+				zap.String("step", stepName),
 				zap.String("action", step.Action),
 				zap.Any("value", raw),
 				zap.Duration("default", defaultLocalActionTimeout))
@@ -1264,7 +1269,7 @@ func localActionContext(ctx context.Context, step models.Step, logger *zap.Logge
 			// unbounded action is exactly what bugs_open/169 is about and it
 			// should never be quietly true of a step.
 			logger.Warn("local action is explicitly UNBOUNDED for this step — it can park the orchestration indefinitely",
-				zap.String("step", step.Name),
+				zap.String("step", stepName),
 				zap.String("action", step.Action),
 				zap.String("config_key", localActionTimeoutKey))
 			return ctx, func() {}
@@ -1336,7 +1341,7 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// 3-day audit window: 6,951 spawn-step executions, p99 24s, and exactly ONE
 	// above 300s — at 14,475s. The distribution is bimodal with nothing between
 	// seconds and hours, which is what makes a generous bound safe.
-	actionCtx, cancelAction := localActionContext(ctx, step, contextLogger)
+	actionCtx, cancelAction := localActionContext(ctx, step, state.CurrentStep, contextLogger)
 	actionStarted := time.Now()
 	result, err := executeAction(actionCtx, handler, params, contextLogger)
 	cancelAction()
@@ -1346,16 +1351,23 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 	// reader looking in the wrong place — the whole point of 169 part A was that
 	// nothing said which step was stuck.
 	if err != nil && errors.Is(actionCtx.Err(), context.DeadlineExceeded) {
-		elapsed := time.Since(actionStarted).Round(time.Second)
+		elapsed := time.Since(actionStarted).Round(time.Millisecond)
+		if elapsed >= time.Second {
+			elapsed = elapsed.Round(time.Second)
+		}
+		stepName := state.CurrentStep
+		if stepName == "" {
+			stepName = step.Name
+		}
 		contextLogger.Error("Local action exceeded its deadline and was cancelled",
 			zap.String("action", step.Action),
-			zap.String("step", step.Name),
+			zap.String("step", stepName),
 			zap.Duration("elapsed", elapsed),
 			zap.String("override_key", localActionTimeoutKey),
 			zap.Error(err))
 		err = fmt.Errorf("local action %q on step %q exceeded its deadline after %s "+
 			"(set %q on the step to change it, or <=0 to disable): %w",
-			step.Action, step.Name, elapsed, localActionTimeoutKey, err)
+			step.Action, stepName, elapsed, localActionTimeoutKey, err)
 	}
 
 	if err != nil {

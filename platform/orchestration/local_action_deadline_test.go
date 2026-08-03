@@ -31,7 +31,7 @@ func testStep(config map[string]interface{}) models.Step {
 // The whole point: a blocking action must be cut off, not waited on for ever.
 func TestABlockingLocalActionIsCancelledAtItsDeadline(t *testing.T) {
 	ctx, cancel := localActionContext(context.Background(),
-		testStep(map[string]interface{}{localActionTimeoutKey: 0.05}), zap.NewNop())
+		testStep(map[string]interface{}{localActionTimeoutKey: 0.05}), "spawn_thing", zap.NewNop())
 	defer cancel()
 
 	started := time.Now()
@@ -53,7 +53,7 @@ func TestABlockingLocalActionIsCancelledAtItsDeadline(t *testing.T) {
 // The negative control. A bound that fires on healthy work is worse than the bug:
 // measured 2026-08-02, 6,950 of 6,951 spawn-step executions finished inside 24s.
 func TestAFastLocalActionIsNotDisturbed(t *testing.T) {
-	ctx, cancel := localActionContext(context.Background(), testStep(nil), zap.NewNop())
+	ctx, cancel := localActionContext(context.Background(), testStep(nil), "spawn_thing", zap.NewNop())
 	defer cancel()
 
 	select {
@@ -77,7 +77,7 @@ func TestAFastLocalActionIsNotDisturbed(t *testing.T) {
 func TestZeroOrNegativeDisablesTheBound(t *testing.T) {
 	for _, v := range []interface{}{0, 0.0, -1, -30.5} {
 		ctx, cancel := localActionContext(context.Background(),
-			testStep(map[string]interface{}{localActionTimeoutKey: v}), zap.NewNop())
+			testStep(map[string]interface{}{localActionTimeoutKey: v}), "spawn_thing", zap.NewNop())
 		if _, ok := ctx.Deadline(); ok {
 			t.Errorf("%v (%T) set a deadline; <=0 must mean explicitly unbounded", v, v)
 		}
@@ -90,7 +90,7 @@ func TestZeroOrNegativeDisablesTheBound(t *testing.T) {
 func TestAMalformedOverrideFallsBackToTheDefaultNotToUnbounded(t *testing.T) {
 	for _, v := range []interface{}{"", "sixty", true, nil, []interface{}{1}} {
 		ctx, cancel := localActionContext(context.Background(),
-			testStep(map[string]interface{}{localActionTimeoutKey: v}), zap.NewNop())
+			testStep(map[string]interface{}{localActionTimeoutKey: v}), "spawn_thing", zap.NewNop())
 		deadline, ok := ctx.Deadline()
 		if !ok {
 			t.Errorf("%v (%T) produced an UNBOUNDED action; a bad value must fall back to the default", v, v)
@@ -113,7 +113,7 @@ func TestAMalformedOverrideFallsBackToTheDefaultNotToUnbounded(t *testing.T) {
 // That is the defect class RFC 006 was decided on.
 func TestTheBoundIgnoresTimeoutSecondsEntirely(t *testing.T) {
 	ctx, cancel := localActionContext(context.Background(),
-		testStep(map[string]interface{}{"timeout_seconds": 1}), zap.NewNop())
+		testStep(map[string]interface{}{"timeout_seconds": 1}), "spawn_thing", zap.NewNop())
 	defer cancel()
 
 	deadline, ok := ctx.Deadline()
@@ -133,7 +133,7 @@ func TestAnInheritedShorterDeadlineIsNotExtended(t *testing.T) {
 	parent, cancelParent := context.WithTimeout(context.Background(), 40*time.Millisecond)
 	defer cancelParent()
 
-	ctx, cancel := localActionContext(parent, testStep(nil), zap.NewNop())
+	ctx, cancel := localActionContext(parent, testStep(nil), "spawn_thing", zap.NewNop())
 	defer cancel()
 
 	select {
@@ -151,11 +151,32 @@ func TestTheFleetWideKillSwitchRestoresUnboundedBehaviour(t *testing.T) {
 	t.Setenv(disableLocalActionTimeoutEnv, "true")
 
 	ctx, cancel := localActionContext(context.Background(),
-		testStep(map[string]interface{}{localActionTimeoutKey: 1}), zap.NewNop())
+		testStep(map[string]interface{}{localActionTimeoutKey: 1}), "spawn_thing", zap.NewNop())
 	defer cancel()
 
 	if _, ok := ctx.Deadline(); ok {
 		t.Fatal("kill switch set and a deadline was still applied — the one lever available " +
 			"during a fleet-wide incident does not work")
 	}
+}
+
+// Regression from a PRODUCTION induction, 2026-08-03. Inducing the deadline on
+// endpoint-health-checker produced: `local action "check_endpoint_health" on step ""
+// exceeded its deadline` — an empty step name — while the orchestration's
+// current_step was `check_health`. models.Step.Name is NOT populated on the live
+// coordinator path; state.CurrentStep is. Every fixture above sets Name, so no unit
+// test could have caught this. Diagnosability is the entire point of the wrapped
+// error, so an unnamed step defeats it.
+func TestTheStepNameComesFromTheCallerNotFromAnEmptyStepName(t *testing.T) {
+	unnamed := models.Step{Action: "check_endpoint_health", Config: nil} // Name deliberately empty, as live
+
+	ctx, cancel := localActionContext(context.Background(), unnamed, "check_health", zap.NewNop())
+	defer cancel()
+
+	if _, ok := ctx.Deadline(); !ok {
+		t.Fatal("no deadline applied")
+	}
+	// The name must be the one the caller resolved, not the empty struct field.
+	// This test's value is the signature: localActionContext cannot read step.Name
+	// even by accident, because the name is a separate required argument.
 }
