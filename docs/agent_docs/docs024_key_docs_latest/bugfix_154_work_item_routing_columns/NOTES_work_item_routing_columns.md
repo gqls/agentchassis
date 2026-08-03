@@ -1063,3 +1063,19 @@ it by design, so it can never reach the served page. Verified live: component
 `bugs_open/178` (three visible markers + a dated update) and the handoff.
 The 178 fleet-signature table loses its relojistas row: 3→2 slots was the
 back-out.
+
+---
+
+## 2026-08-03 — 177 verdict: REFUTED in one iteration, re-deriving the owning lane's asymmetry
+
+The run took ~3 minutes (claimed 10:43Z, complete 10:46:34Z — far under the
+~30-minute budget; the loop dispatch really is faster than a direct publish).
+Outcome REFUTED: the loop caught the symptom's both-paths framing on
+`deploy_tool_action.go`'s explicit four-section `sectionsJSON` and noted the
+create path's INSERT omits `sections` entirely — i.e. it independently
+re-derived the 177 lane's central finding from seed code alone, then stopped
+honestly (scope-not-narrowing, UNVERIFIABLE, no auto-conclusion). Exactly the
+"REFUTED verdict is a success" case: my framing was the wrong part, and one
+run caught it. Verdict JSON committed as
+`EVIDENCE_2026-08-03_177_verdict_da59941f.json` (this dir); full trail written
+into `bugs_open/177` for the owning lane.

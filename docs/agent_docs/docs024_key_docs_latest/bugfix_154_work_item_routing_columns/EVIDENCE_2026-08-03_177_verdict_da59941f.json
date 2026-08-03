@@ -1,0 +1,44 @@
+{
+    "outcome": "REFUTED",
+    "citations": [
+        {
+            "tier": "static",
+            "quote": "// Tool page has content sections around the tool widget:\n\t//   position 0: hero-tool (headline + brief intro)\n\t//   position 1: tool-guide-intro (educational content about the concept)\n\t//   position 2: the tool itself (interactive widget)\n\t//   position 3: tool-cta (call to action, link to companion guide)",
+            "where": "deploy_tool_action.go:DeployToolToSiteAction"
+        },
+        {
+            "tier": "static",
+            "quote": "sectionsJSON := fmt.Sprintf(\n\t\t`[\"hero-tool\", \"tool-guide-intro\", \"%s\", \"tool-cta\"]`,\n\t\ttoolFunction,\n\t)",
+            "where": "deploy_tool_action.go:DeployToolToSiteAction"
+        },
+        {
+            "tier": "static",
+            "quote": "INSERT INTO pages (\n\t\tid, site_id, name, url, title,\n\t\tpage_type, status, build_status, nav_order, meta_description\n\t) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6)",
+            "where": "create_tool_component_action.go:CreateToolComponentAction"
+        }
+    ],
+    "next_scope": [
+        "apply_gap_plan_action.go",
+        "page-build-handler default_config (workflow steps not inlined in this bundle)",
+        "pages.sections — actual persisted values for tool pages created via each of the two paths"
+    ],
+    "runtime_site": "page-build-handler",
+    "code_requests": [
+        {
+            "why": "Find how page-build-handler (or whichever action processes needs_content_page items) reads pages.sections to derive buildable work, and whether it recognizes 'hero-tool', 'tool-guide-intro', 'tool-cta' as writable slots or only a fixed vocabulary that excludes them.",
+            "kind": "content",
+            "query": "sections"
+        }
+    ],
+    "data_requests": [
+        {
+            "sql": "SELECT p.id, p.name, p.page_type, p.sections, p.build_status FROM pages p WHERE p.site_id = (SELECT id FROM sites WHERE domain = 'robot-hands.com') AND p.page_type = 'tool'",
+            "why": "Shows the actual declared sections on live tool pages for this site — settles whether create_tool_component_action.go's omission of the sections column produced an empty array, null, or something else, and whether deploy_tool_action.go's 4-section array is what's actually stored."
+        },
+        {
+            "sql": "SELECT id, item_type, status, item_key, result, error, created_at FROM site_work_items WHERE item_key LIKE 'tool_content:%' ORDER BY created_at DESC LIMIT 20",
+            "why": "Shows whether tool_content work items actually resolve to needs_human_review with identical wording, which is the runtime behavior the hypothesis claims but which no log line in this bundle currently demonstrates."
+        }
+    ],
+    "revised_hypothesis": "The two emitters are not siblings behaving identically. deploy_tool_action.go explicitly declares FOUR sections for the tool page — hero-tool, tool-guide-intro, the tool widget itself, and tool-cta — which already correspond to exactly the hero/guide/CTA shape that content_guidance asks a handler to write. That contradicts the premise that 'the platform-wide finished shape of a tool page is the single widget slot': at least this emitter's pages are NOT single-slot. create_tool_component_action.go's pages INSERT, by contrast, never mentions the sections column at all — it neither declares the single slot nor an empty array; the value is whatever the column default is, which is not shown anywhere in this bundle. So the claim that both emitters raise a needs_content_page item against a page whose declared sections cannot satisfy it is unverified for one emitter and actively contradicted for the other. If page-build-handler really derives buildable work purely from pages.sections, the deploy_tool_action.go path (hero-tool/tool-guide-intro/tool-cta already declared) should be actionable, not a no-op — so the no-op, if it occurs, is more likely isolated to (or at least differs between) the create_tool_component_action.go path and whatever page-build-handler actually does with those specific section names, not a uniform platform-wide mismatch."
+}

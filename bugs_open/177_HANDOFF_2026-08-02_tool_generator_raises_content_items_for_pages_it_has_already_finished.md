@@ -164,3 +164,32 @@ problem.
   NO handler on the work-item path — its only reader
   (`apply_gap_plan_action.go:178`) takes it from a gap plan, not from an item
   spec. It is dead weight even on satisfiable items.
+
+### Verdict landed (same day, ~3-minute run): REFUTED — and the refutation independently re-derives the lane's asymmetry
+
+- Run `da59941f` completed in ONE iteration: outcome **REFUTED**, citing
+  `deploy_tool_action.go`'s explicit
+  `sectionsJSON = ["hero-tool","tool-guide-intro","<fn>","tool-cta"]` against
+  the symptom's both-paths framing, and the create path's `pages` INSERT that
+  never mentions the `sections` column. Revised hypothesis, core verbatim:
+  *"The two emitters are not siblings behaving identically … the no-op, if it
+  occurs, is more likely isolated to (or at least differs between) the
+  create_tool_component_action.go path and whatever page-build-handler
+  actually does with those specific section names, not a uniform
+  platform-wide mismatch."*
+- **That is an independent re-derivation of this lane's PLAN's central
+  finding** (create path omits the declaration; deploy path declares four),
+  from the seed code alone — the 2026-07-31 loop pass, delivered in the
+  REFUTED-is-success form. The loop then stopped honestly
+  (scope-not-narrowing; run status UNVERIFIABLE; "hand to a human, do NOT
+  auto-conclude").
+- Full verdict JSON (citations, data_requests, next_scope) preserved before
+  the ~24h reaper:
+  `bugfix_154_work_item_routing_columns/EVIDENCE_2026-08-03_177_verdict_da59941f.json`;
+  bundle iter 1 durable in `diagnosis_artifacts` under `da59941f%`; terminal
+  summary in `doc_notes` (categories diagnosis, unconfirmed-diagnosis).
+- A rigor point worth keeping: the verdict declined to treat even
+  `sections=[]` as established for the create path (the bundle never showed
+  the column default). Both this session and the owning lane verified the
+  LIVE row is `[]` — the claim stands on state evidence, not on inference
+  from the emitter's code.
