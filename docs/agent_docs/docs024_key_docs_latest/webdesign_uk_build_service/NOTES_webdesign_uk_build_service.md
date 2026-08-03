@@ -869,3 +869,10 @@ settings all work. `/zones/{z}/rulesets*` returns `code 10000 Authentication err
 — the **modern Redirect Rules API is not reachable**, which is why the redirect is a
 Page Rule. Also: DNS record `comment` is capped at 100 chars and returns `code 9313`
 with **no record created** — a hard failure that reads like a metadata warning.
+
+**2026-08-03 CORRECTION to the 08-02 webzy.uk note (same lane as wrote it):
+the owner does NOT own webzy.uk** — the GODADDY tag was the tell, read too
+charitably. The CF zone is being DELETED at the owner's instruction. **Do not
+wire a Worker route or any content for webzy.uk.** loanzy.uk (DESIGNCONSULT,
+delegated + cert live, currently a correct 522 awaiting a route) is the real
+new member.

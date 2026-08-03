@@ -3647,3 +3647,28 @@ Plus: **the CF token carries a LOCATION filter** — a v6-sourced API call is
 refused with 9109 naming the address; pin `curl -4` for all CF API work.
 loanzy.uk DONE at this lane's boundary: delegation, zone, cert live; content
 route = webdesign lane.
+
+## §X.42 — 2026-08-03: webzy.uk is NOT the owner's — zone delete requested, then blocked by a token LOCKOUT (self-inflicted)
+
+Owner: "I don't own webzy.uk so we need to delete that one." (The GODADDY tag
+in §X.38 was the tell — I read it as "registered elsewhere", the truth was
+"someone else's domain".) Delete attempted; three lessons in ten minutes:
+
+1. **`zones?name=webzy.uk → matches: 0` was a POISONED read, not an absence** —
+   the call had FAILED (`success:false`) but still shaped as an empty result
+   list, and my jq counted it. I nearly reported the zone deleted on it.
+   Same family as [[a-grep-proves-absence-only-for-its-spelling]]: an empty
+   answer only means absent if the query itself succeeded. Check `.success`
+   before believing any empty CF list.
+2. **The 9109 "Cannot use the access token from location: <ip>" is NOT (only)
+   an IP-filter message** — it appeared from the working v4 address as the
+   prelude to `10502: Too many authentication failures`. The burst of refused
+   calls (v6-sourced ones + my scope probes at cert-packs/universal-settings)
+   tripped CF's auth-failure rate limiter, and mid-lockout the errors wear
+   the location costume. Do not diagnose token scope from error text alone
+   while a lockout may be in force.
+3. **Lockout is temporary; watcher armed** (tokens/verify poll). On lift:
+   verify → GET zone by id (expect webzy.uk still present) → DELETE → confirm
+   by successful-AND-empty list. If DELETE alone still 9109s post-lockout,
+   the token genuinely lacks zone-delete — dashboard fallback is ten seconds
+   (Overview → Delete zone) or widen the token.
