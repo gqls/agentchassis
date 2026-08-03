@@ -406,3 +406,23 @@ preview; the SAME truncation shape stopped the 090 loop). A REFUTED backlog item
 is a success: the seam list shrinks by one and the tool pipeline needs nothing.
 Backlog after this: seam 5 (dead links to planned-but-unbuilt pages) is next;
 then seam 6 (planner shape, owner-call component); seam 7 blocked on serving.
+
+### 2026-08-03 midday — seam 5 CLOSED by census + prior art: zero dead links remain
+
+Census on the current built artefacts (git show from origin/master, all 18 pages,
+root-relative double-quoted hrefs checked against the actual file set): **0 distinct
+dead internal targets.** The 24 dead links of attempt 1 were measured on chassis
+1228; the 097 lane's content_data link resolver went LIVE in 1229, the 3 tools were
+built, the blog rows were removed, and the 22:36Z seam-1 sweep re-rendered every
+page on 1231 — the class fix belongs to the 097 lane (CLOSED+LIVE, both arms
+induced, per its own records), and lendzy's instance is confirmed clean. Scope
+notes: the census does not cover JS-built anchors (the 180 landmine — that residue
+is the 097/180 lane's) or non-rooted hrefs; for "does the artefact ship 404 links"
+the file-set denominator is the right one.
+
+**Backlog position after today:** seams 3, 4, 5 all dissolved under measurement
+(imagery input missing / never broken / fixed by another lane). Remaining REAL
+items: seam 6 (planner imposes the standard shape past the mission — needs an
+owner call on the 015 retype arm before or alongside the design) and seam 7
+(in-browser fixtures, blocked on serving). The two genuine platform gaps the
+scorecard found (seams 1+2) are shipped, approved, and verified live.

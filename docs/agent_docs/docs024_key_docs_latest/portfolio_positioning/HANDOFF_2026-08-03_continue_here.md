@@ -56,16 +56,20 @@ unchanged (`REGISTER_positioning.md`, `check_register.py` must pass).
 
 ## The remaining backlog, in order
 
-*(Seam 4 was refuted 2026-08-03 — see the CORRECTED block above. The list is one
-shorter than the 08-02 handoff's.)*
+*(Seams 4 AND 5 closed 2026-08-03: 4 refuted — see the CORRECTED block above;
+5 already fixed by the 097 lane's content_data link resolver (live 1229) and
+confirmed by census — 0 dead internal targets across all 18 current artefacts,
+NOTES midday entry. Of the original seven seams, the two genuine platform gaps
+(1, 2) are shipped+verified by this lane; 3/4/5 dissolved under measurement.)*
 
-1. **Seam 5** — links ship to planned-but-unbuilt pages (24 dead tool links in
-   attempt 1; scorecard has the census method). Council gate per coherent task.
-2. **Seam 6** — planner imposes the standard shape (blog) past the mission;
-   015-class; has an owner-call component.
-3. **Seam 7** — in-browser tool fixtures [UNMEASURED]; blocked on serving (lendzy
+1. **Seam 6** — planner imposes the standard shape (blog) past the mission;
+   015-class. **Get the owner call on the 015 retype arm first** (retyping
+   blog-index section-index→news-index hands the blog to the NEWS pipeline —
+   wiring ongoing news generation onto sites is a decision, not a fix). Then the
+   platform half: the planner honouring a mission's negative space ("no blog").
+2. **Seam 7** — in-browser tool fixtures [UNMEASURED]; blocked on serving (lendzy
    deliberately has no zone).
-4. Optional quick win: canonical sweep of lendzy (one needs_rerender item).
+3. Optional quick win: canonical sweep of lendzy (one needs_rerender item).
 
 ## Cleanups owed on lendzy (unchanged)
 
