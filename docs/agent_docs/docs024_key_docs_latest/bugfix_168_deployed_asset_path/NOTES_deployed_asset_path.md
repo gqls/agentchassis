@@ -662,3 +662,64 @@ session scratchpads, and the Go linker writes there — `go build ./...` fails w
 `mapping output file failed: no space left on device`, which reads like a code error. Fixed
 non-destructively with `TMPDIR=/home/ant/.cache/buildtmp` (235G free on `/`) rather than deleting
 other sessions' scratch.
+
+## Council `97923026` — **APPROVED at round 1**, 15 seats, 3 advisory objections (none high)
+
+Dispatch was immediate this time, not the measured 29-minute queue: `fix_plan` persisted 10:55:19
+UTC, verdict at 11:03. Do not read that as the new normal — one sample.
+
+**Four of the advisories were checkable, so they were checked.** The pattern from this lane's
+earlier rounds held again: most objections were not "you did the wrong thing".
+
+**`editquality` (medium) — the one that needed code, and it was right in the way that matters.**
+The retraction read `spec->>'page_id'` while `site_work_items` carries a **first-class `page_id`
+column**, which is the standing landmine about a reader blind to the column its creator populates.
+Measured: over all **58** `empty_section` rows ever, **0** have a NULL column, **0** disagree with
+the spec key, and that holds for all 47 open ones. So the objection is **empirically empty today**
+— and the `COALESCE(page_id::text, spec->>'page_id')` went in anyway, because *measured empty is
+not unreachable* and this lane has already been wrong in exactly that way (round 2 of `abd9b119`).
+A future filing change that sets the column and forgets the spec key would otherwise silently stop
+retracting, with no signal. Mutation-proven, M7.
+
+**`prior_art_librarian` (medium) + `guardian` (low) — "the single-producer claim rests on a grep
+the council cannot verify".** Fair: it was load-bearing for scoping this as a contained fix. So I
+corroborated it from the **data** side, which is independent of my grep — every `empty_section` row
+ever was created by `completeness-discovery-agent` or `generic`, i.e. **two agent types running one
+check, not two producers**.
+
+**`prior_art_librarian` (low) — "the seam-is-inert claim is your own measurement".** Re-verified:
+**0** agents enable `backend_unreachable`, **0** items in all history, and **0** rows in
+`site_work_items` have ever carried `result.resolved_at`.
+
+**Four seats (`editquality`, `bug_historian`, `tooling_provenance`, `architecture`) — "you say you
+will file the hazard to LANDMINES/register, but no edit does it".** Fair on the record and
+**already discharged in fact**: the gate **refuses docs client-side**, so a docs edit could never
+have appeared in the plan it reviewed. They shipped in `d983de570`.
+
+⚠ **A structural note worth keeping: the council cannot see the half of this lane's work that the
+gate refuses to accept.** Round 1's lesson was "evidence you hold and do not cite is evidence you
+do not have"; this is its sharper form — evidence you *cannot* cite, because the submission schema
+excludes it. Four seats independently objected to a gap that did not exist. The fix is not to
+argue: it is to say in the RATIONALE that the docs exist and name their commit, since prose is the
+only channel the gate leaves open for them.
+
+**The `untouched-twin` pattern-check advisory, answered here because it fired at commit time and
+forward-only forbids an amend.** It flagged that `findResolvedEmptySections` changed while its twin
+`findEmptySections` did not. **Deliberate, and the twin does not share the defect**: the twin reads
+`page_components` and never touches `site_work_items`, so it has no spec-versus-column question to
+get wrong. It is the *writer* that populates both fields; the ambiguity exists only on the read
+side, which is the side that changed.
+
+### STILL OPEN, and owed to a human — three seats asked for it by name
+
+`guardian` (medium), `improvement_guardian` (low) and `bug_historian` (low) **independently** ask
+for explicit sign-off on the two-strike interaction: a retraction writes `complete` onto an
+existing row and feeds `insertWorkItem`'s terminal-row counter **identically to a real fix**.
+Guardian's wording is the precise one — acceptable *"only if a human signs off that
+'resolved-by-observation' and 'resolved-by-handler' should count identically toward the strike
+counter — otherwise this needs a follow-up, not silent acceptance."*
+
+Measured **0 of 17 affected today**; structurally unprevented. **Not accepted silently — raised
+with the owner.** Three seats converging on one question from three different remits is the
+strongest signal this council produces, and this lane's round 2 is the standing proof that the
+seats pressing hardest are usually pressing on something real.
