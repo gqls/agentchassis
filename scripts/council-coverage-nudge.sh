@@ -23,6 +23,35 @@ trap 'exit 0' ERR
 MSGFILE="${1:-}"
 [ -n "$MSGFILE" ] && [ -f "$MSGFILE" ] || exit 0
 
+# ── Trailer SHAPE validation (added 2026-08-03, bugs_open/185 lane) ──────────────
+# Runs on EVERY commit with either trailer, before the platform-code gate below —
+# a placeholder is worth catching whatever the diff touches. The correlation these
+# trailers carry is a UUID minted by 097_TRIGGER_council_review_v1.sh
+# (`/proc/sys/kernel/random/uuid`); 098 also accepts a PREFIX of one (LIKE
+# '${id}%'), so a short hex id is legitimate — only hex-and-dash is valid, of at
+# least 8 characters.
+#
+# WHY: found live on commit 171d52a1a — `Council-Submitted: pending-185-tranche-1`,
+# a placeholder typed before the submission ran, meant to be "filled in later".
+# There is no later: forward-only forbids an amend, so the trailer is a JOIN KEY
+# that resolves to nothing, permanently, and 098 can never credit that commit.
+# Advisory only, same as everything else in this hook — it cannot undo a bad
+# trailer, only warn on the NEXT one before it is made permanent.
+for trailer_name in Council-Submitted Council-Reviewed; do
+  trailer_value=$(grep -iE "^[[:space:]]*${trailer_name}:" "$MSGFILE" \
+                    | head -1 | sed -E "s/^[[:space:]]*${trailer_name}:[[:space:]]*//I")
+  [ -n "$trailer_value" ] || continue
+  if ! printf '%s' "$trailer_value" | grep -qE '^[0-9a-fA-F-]{8,}$'; then
+    printf '\n\033[1;31m── %s trailer looks like a placeholder, not a correlation ──\033[0m\n' "$trailer_name"
+    printf '  Value: %s\n' "$trailer_value"
+    printf '  This trailer is a JOIN KEY for the 098 coverage report, not a note to\n'
+    printf '  yourself — a value that is not a UUID (or a hex prefix of one, 8+ chars)\n'
+    printf '  resolves to nothing, and forward-only forbids fixing it with an amend.\n'
+    printf '  Submit FIRST (097_TRIGGER_council_review_v1.sh prints the correlation in\n'
+    printf '  seconds), THEN commit with the id it printed. Advisory — never blocks.\n'
+  fi
+done
+
 # Platform CODE only (owner scope: platform/ internal/ pkg/). Docs/site content
 # never spend council credits and never need the trailer, so never nudge on them.
 plat=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null \
