@@ -1,0 +1,65 @@
+{
+    "outcome": "UNVERIFIABLE",
+    "citations": [
+        {
+            "tier": "state",
+            "fresh": "2026-08-02 19:04:18.646989 +0000 UTC (completed_at)",
+            "quote": "Rerender after content restore (bugs_open/178, migration 287)",
+            "where": "site_work_items row 724bb732 (summary/spec)"
+        },
+        {
+            "tier": "state",
+            "fresh": "2026-08-02 18:50:15.532996 +0000 UTC",
+            "quote": "2026-08-02 18:50:15.532996 +0000 UTC",
+            "where": "site_work_items row 724bb732 (created_at)"
+        },
+        {
+            "tier": "state",
+            "fresh": "2026-08-02 19:04:11.949553 +0000 UTC",
+            "quote": "\"headline\": \"How to Specify a Robotic Gripper\"",
+            "where": "page_component_history (hero, 19:04:11 batch)"
+        },
+        {
+            "tier": "state",
+            "fresh": "2026-08-02 10:41:22.93696 +0000 UTC",
+            "quote": "\"headline\": \"Gripper Specification, Structured\"",
+            "where": "page_component_history (hero, 10:41:22 batch)"
+        },
+        {
+            "tier": "state",
+            "fresh": "2026-08-02 10:41:50.892018 +0000 UTC",
+            "quote": "2026-08-02 10:41:50.892018 +0000 UTC | build-dispatch-loop",
+            "where": "site_work_items row 93f2a3b7 (completed_at query)"
+        },
+        {
+            "tier": "state",
+            "fresh": "2026-07-31 12:27:28.402738 +0000 UTC",
+            "quote": "2026-07-31 12:27:28.402738 +0000 UTC",
+            "where": "site_work_items row 93f2a3b7 (created_at)"
+        }
+    ],
+    "next_scope": [
+        "agent_definitions[page-rerender] workflow steps (currently unreadable — tooling failure, must be re-fetched, not dismissed)",
+        "page-build-handler workflow step that produces page_content.response.page_html/sections_metadata (the writer step preceding validate_content — not present in this bundle)",
+        "save_page_sections_action.go: ownership-guard logic and apply_section_edit (targeted single-anchor edit path)"
+    ],
+    "runtime_site": "page-rerender",
+    "code_requests": [
+        {
+            "why": "locate page-rerender's full workflow step definitions to see whether it calls save_page_sections directly under a step reached via the 'section_data_resolved' reason, and whether it regenerates whole slots (confirming or refuting that it, not 93f2a3b7, produced the 19:04:11 save)",
+            "kind": "content",
+            "query": "page-rerender"
+        },
+        {
+            "why": "find all call sites/step configs invoking save_page_sections to see whether page-rerender and page-build-handler share the same save path and input construction, or diverge in how they build sections",
+            "kind": "symbol",
+            "query": "save_page_sections_action"
+        },
+        {
+            "why": "determine whether the targeted single-anchor edit path referenced by save_page_sections_action's ownership-guard comment is actually invoked anywhere, or is unreachable/dead code — load-bearing for whether content_rewrite items like 93f2a3b7 can ever take an edit path at all",
+            "kind": "content",
+            "query": "apply_section_edit"
+        }
+    ],
+    "needed_evidence": "The hypothesis's own supporting argument omits 93f2a3b7's completed_at (2026-08-02 10:41:50.892018): a page_component_history save exists at 2026-08-02 10:41:22.93696, 28 seconds before that completion — a save plausibly attributable to 93f2a3b7's own processing by timing, contradicting the hypothesis's claim that 'no save can be attributed to 93f2a3b7... at all.' That 10:41:22 save is itself a multi-field rewrite of hero/cta/generic-text slots (not a single-anchor edit), yet it does not contain the requested 'Gripper Safety Factor Calculator' link — so it is unclear whether 93f2a3b7's processing itself performed a whole-slot regeneration (unrelated to the migration-287 event) that simply failed to add the link, or did nothing to this page at all. Settling this requires: (1) the page-build-handler writer/content-generation step definition (absent from this bundle) to see whether stored page_components content_data is passed to the writer as edit material for content_rewrite items like 93f2a3b7, or only the item summary/spec; (2) page-rerender's workflow steps (body unavailable — tooling failure) to confirm it independently calls save_page_sections with wholesale-regenerated content under its 'section_data_resolved' reason, which would explain the 19:04:11 heading change without implicating 93f2a3b7; (3) confirmation of what process wrote the 10:41:22 batch specifically (its content_data has source='save_page_sections_overwrite' and source_item_id=NULL for every row on this page, so the column cannot arbitrate either)."
+}

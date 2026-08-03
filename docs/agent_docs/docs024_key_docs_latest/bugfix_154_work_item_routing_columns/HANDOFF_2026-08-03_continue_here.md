@@ -29,17 +29,27 @@ account of the whole lane.
 
 ## OPEN — in priority order for whoever continues
 
-1. **`bugs_open/178` root cause — run `090`.** Why does a link-insertion item
-   regenerate the WHOLE section? Undiagnosed. Suggested symptom shape (state
-   the mechanism, point at evidence, no counts): *"A tool_crosslink work item
-   whose summary is 'Add … tool reference' rewrites entire page_components
-   slots instead of editing them — history rows show whole-slot regeneration
-   (7 paragraphs → 4, heading changed) on an item scoped to one anchor. The
-   handler path and its prompt/action seam are pointed at by
-   `bugs_open/178`; evidence in `page_component_history` around 2026-08-02
-   10:41 for page 5a385981."* The 090 trigger self-checks the queue; grep
-   `/bugs_open/` first per CLAUDE.md. Fix candidates 1 (edit-not-regenerate)
-   and 3 (emit the delta) are open; the guard makes the failure LOUD now, so
+1. ~~**`bugs_open/178` root cause — run `090`.**~~ **DONE 2026-08-03 (same
+   lane, later session): CONFIRMED.** The 090 run (`aece2920`, 5 iterations)
+   stopped UNVERIFIABLE naming one missing config; reading that config
+   directly closed it. Mechanism: `content_rewrite` items never set
+   `spec.mode`, so `load_existing_content_action.go`'s adoption-only gate
+   (`mode != "recreate"` → no-op) starves `call_content_writer`'s
+   `existing_content?` input, and `current_page`/`page_record` carries no
+   prose either (sections/title/page_type only) — the writer gets guidance
+   text and nothing to edit, so it fabricates a replacement section.
+   Generalises beyond cross-links to any `content_rewrite` emitter that
+   omits `mode` (checked: `create_tool_cross_link_items.go` does;
+   `apply_gap_plan_action.go` unchecked — flag for the fix). **Correction to
+   fix candidate 2's premise:** `mode="recreate"`, even set, sources
+   `research_results` (original adoption crawl), never current
+   `page_components` — so it cannot serve as the edit-source fix; candidate
+   1 (a real edit channel) is the only one the current plumbing supports.
+   Full citations in `bugs_open/178`'s final update; landmine written
+   (`LANDMINES.md#page-build-handler-s-content-writer…`, verifier dispatched
+   `98ca06a2`); evidence JSON committed pre-reaper. **Still not fixed** —
+   this closes root-cause, not the bug; fix candidates 1/3 remain open for
+   whoever takes the implementation. The guard makes the failure LOUD now, so
    the class will surface as `save_refused_incomplete` items rather than
    silent losses — check that queue when picking this up:
    `SELECT * FROM site_work_items WHERE item_type='save_refused_incomplete'

@@ -1,12 +1,13 @@
 # 178 — a "add a link to X" work item regenerates the WHOLE section and silently loses most of its prose; the item reports `complete`
 
 **Filed 2026-08-02** (session "bugfix 19"), immediately after the triage in
-`sql_for_agents/286` released the item that caused it. **Status: OPEN,
-UNDIAGNOSED at the handler.** The effect is measured and certain on one page and
-`[UNVERIFIED]` on three others with the same signature. **I have not read the
-`page-build-handler` / `save_page_sections` path**, so this file makes no claim
-about *why* a link-insertion item triggers a full regeneration. Run `090` before
-fixing.
+`sql_for_agents/286` released the item that caused it. **Status: prevention
+LIVE + APPROVED; handler root cause CONFIRMED 2026-08-03** (see the final
+update) — `content_rewrite` items never set `spec.mode`, so
+`load_existing_content`'s adoption-only gate no-ops and the writer gets the
+item's guidance text with no existing prose to edit. Effect measured and
+certain on one page, `[UNVERIFIED]` on three others with the same signature
+(now down to three — the relojistas row is explained, see below).
 
 **Nothing is lost permanently — the prior content is in `page_component_history`.**
 That is what makes this safe to leave open rather than hot-fix.
@@ -204,10 +205,61 @@ section. Candidates 1 (edit-not-regenerate) and 3 (emit the delta) remain open.
 
 ## UPDATE 2026-08-03 (154 lane) — root-cause 090 DISPATCHED; relojistas slot RESOLVED (deliberate back-out, do not restore)
 
-**The 090 run for the handler root cause is in flight**: intake
-`needs_diagnosis:178-crosslink-regenerates-whole-section`, RUN correlation
-`aece2920-f85a-46e2-a53f-235a4b6e9ab1` (artifacts key). Dispatch record in
-`bugfix_154_work_item_routing_columns/NOTES_…` 2026-08-03.
+**The 090 run for the handler root cause completed** (5 iterations, final
+UNVERIFIABLE — intake `needs_diagnosis:178-crosslink-regenerates-whole-section`,
+RUN correlation `aece2920-f85a-46e2-a53f-235a4b6e9ab1`) and named the exact
+config it needed but didn't have in its bundle. Reading that config directly
+CONFIRMED the mechanism — see the new section immediately below. Dispatch
+record in `bugfix_154_work_item_routing_columns/NOTES_…` 2026-08-03.
+
+**The handler root cause is now CONFIRMED**, closing the gap the 090 run
+identified but could not reach in 5 iterations (it stopped UNVERIFIABLE,
+naming exactly the missing piece: *"the page-build-handler writer/
+content-generation step definition (absent from this bundle)"*). Read that
+config directly from live `agent_definitions` after the run terminated —
+first-hand verification substituting for a 6th automated pass, per the
+2026-07-31 ruling's escape hatch, stated here plainly:
+
+- `page-build-handler`'s `load_existing_content` step is a strict gate:
+  `load_existing_content_action.go:64-69` — `mode := inputs.Get("mode"); if
+  mode != "recreate" { ... return {"has_existing": false, "reason":
+  "not_recreate"} }`. Its own doc comment: *"For non-adoption pages (no mode:
+  recreate), returns empty — no-op."*
+- `93f2a3b7.spec` carries **no `mode` key at all** (verified against the live
+  row), and `create_tool_cross_link_items.go` **never sets one** — grepped,
+  zero hits. So for every item this emitter raises, the gate is closed.
+- `call_content_writer`'s `input_mapping` passes `existing_content?` (the
+  output of the gated step above — empty here) and `current_page:
+  page_record`. `load_page_record`'s own description: *"Load page record from
+  DB — sections, title, page_type"* — no prose content; that lives in
+  `page_components.content_data`, which this workflow never loads for the
+  writer at all outside the gate.
+- **So `page-content-writer` receives the item's guidance text
+  ("weave a natural reference … into the existing content … do NOT add a new
+  section") and NO existing content to weave it into**, for any
+  `content_rewrite` item on an already-built page. It must fabricate a
+  replacement section that satisfies the instruction's shape — which is
+  exactly the observed defect: a well-formed, correctly-linked, shorter,
+  restructured section with a changed heading.
+- **This generalises beyond cross-links**: the mechanism is the emitter never
+  setting `mode`, not anything specific to `create_tool_cross_link_items.go`.
+  Any `content_rewrite` item from any source, against any page that already
+  has content, hits the same gate. `apply_gap_plan_action.go`'s
+  `content_rewrite` emission (:243) is the other live source and was not
+  checked for a `mode` key — flagging for whoever picks up the fix.
+- **Correction to fix candidate 2's premise**: `load_existing_content`, even
+  when `mode="recreate"` IS set, sources `research_results` — the original
+  adoption-crawl snapshot — never the page's CURRENT `page_components`. So
+  setting `mode="recreate"` on a crosslink item would not fix this; it would
+  feed the writer stale, pre-platform-edit content instead of none. There is
+  today **no workflow channel that passes a page's live stored section
+  content to its writer for editing** — candidate 1 (a real edit path) is not
+  merely preferred, it is the only candidate of the three that the plumbing
+  can currently support without adding a new one.
+- Full verdict JSON (5 iterations, final UNVERIFIABLE with the gap named)
+  preserved before the ~24h reaper:
+  `bugfix_154_work_item_routing_columns/EVIDENCE_2026-08-03_178_verdict_aece2920.json`;
+  bundles in `diagnosis_artifacts` under `aece2920%`.
 
 **relojistas' "deleted DefinedTermSet slot" is closed by its owning lane's own
 record**, found by tracing the writer instead of the row:

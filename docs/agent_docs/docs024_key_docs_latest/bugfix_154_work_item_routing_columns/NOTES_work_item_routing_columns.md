@@ -1104,3 +1104,52 @@ holds a `triaged` item (the pre_query returns 0 sites and the loop never
 ticks). Noting, still not fixing: the right moment is whenever an approval
 flow is actually built, and the fix belongs with that work. Marker resolved
 to `[MEASURED 2026-08-03: inert]` — not deleted, downgraded.
+
+---
+
+## 2026-08-03 — 178 root cause: CONFIRMED, closing the gap the 090 run named but couldn't reach
+
+Run `aece2920` ran 5 full iterations (10:39Z→11:00Z) and stopped honestly at
+UNVERIFIABLE. Its own "still needed" text named the exact gap: *"the
+page-build-handler writer/content-generation step definition (absent from
+this bundle)"* — a scope/tooling limit (the step config wasn't in what got
+gathered), not evidence against the hypothesis. Read that config directly
+from live `agent_definitions` after the run ended:
+
+- `load_existing_content` step: `mode: input_data.spec.mode`. The action
+  (`load_existing_content_action.go:64-69`) is a hard gate:
+  `if mode != "recreate" { return has_existing:false }`. Doc comment: *"For
+  non-adoption pages (no mode: recreate), returns empty — no-op."*
+- `93f2a3b7.spec` has no `mode` key (checked the live row).
+  `create_tool_cross_link_items.go` never sets one (grepped, zero hits).
+- `call_content_writer`'s `input_mapping`: `existing_content?` ← that no-op;
+  `current_page` ← `page_record`, whose own step description says it carries
+  only "sections, title, page_type" — confirmed no prose channel exists
+  there either (`page_components.content_data` is never loaded into it).
+- So the writer gets `rewrite_guidance` (the item's instruction text) and
+  literally nothing to edit. It fabricates a replacement section that
+  satisfies the instruction's shape — exactly the observed defect: correct
+  new link, shorter/restructured prose, changed heading.
+- **Bonus finding, corrects fix candidate 2's premise**: `mode="recreate"`,
+  even set, sources `research_results` (the ORIGINAL adoption crawl) per
+  `load_existing_content_action.go`'s own doc comment — never current
+  `page_components`. So it can't be the fix; there is no existing channel
+  that passes a page's LIVE stored content to its writer for editing.
+  Candidate 1 (edit-not-regenerate) is the only one the plumbing supports
+  without adding a new channel.
+- **Generalises past cross-links**: the mechanism is "emitter omits `mode`",
+  not anything cross-link-specific. `apply_gap_plan_action.go`'s
+  `content_rewrite` emission (:243) was not checked for a `mode` key — left
+  as a flag for the fix, not verified either way.
+- This is the diagnosis-loop escape hatch (07-31 ruling) used as designed:
+  the automated run was executed, iterated fully, and named the precise
+  missing evidence; I then supplied that evidence first-hand rather than
+  re-running a 6th iteration, and say so here plainly.
+- Landmine written (shared mechanism, will bite the next thread touching any
+  content-writer path) + verifier dispatched (`98ca06a2`). Evidence JSON for
+  both runs (`aece2920` here, `da59941f` for 177 above) committed before the
+  ~24h `orchestration_states` reaper.
+- **This closes ROOT CAUSE, not the bug.** Fix candidates 1 (edit channel)
+  and 3 (emit the delta) are unimplemented; the sibling-writers item and the
+  fourth-floor tracked deferral are unchanged. Full write-up in
+  `bugs_open/178`'s final update.
