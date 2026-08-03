@@ -238,3 +238,78 @@ with the same Go engine, writes `rendered_html` directly, and lets the
 control that re-renders from a baseline ref and requires the CURRENT stored bytes
 back, so it refuses to write when the offline renderer and the live row disagree.
 That is a workaround for this site, not a fix for the platform.
+
+## FIXED 2026-08-03, LIVE v1.0.1240, pod-verified both replicas
+
+Took both fix candidates, in the order the file recommended (2 makes it work, 1
+makes the next failure visible):
+
+- **Candidate 2**: `page_components.component_id` — already read by
+  `loadStoredSections`, never used for the lookup — is now resolved FIRST via a
+  new `loadComponentSchemasByID`/`loadContentComponentsByID`, falling back to
+  `schemas[s.slotName]`. The raw-map→`componentInfo` conversion (incl. the
+  `componentTemplateValid` guard) was factored into `componentInfoFromRaw` and
+  shared across all three now-existing lookup paths, closing the drift pair
+  `loadComponentSchemas`/`loadSingleComponentSchema` already had.
+- **Candidate 1**: a `rerenderResolution` struct (mirroring
+  `bugs_closed/095`'s `pageAssembly`) accumulates named `UnresolvedSlots` and
+  `InvalidTemplateSlots` through the render loop — sections still carry, so the
+  run completes its pass — then the step FAILS after the loop if either list is
+  non-empty, naming every slot. Predicate is `carried-for-unresolved > 0`, NOT
+  `rerendered == 0`, per the file's own warning (5 of 6 affected sites are
+  partial). `NotReadySlots`/`EmptyTemplateSlots` stay non-fatal, matching
+  `bugs_closed/095`'s council-corrected predicate rather than its rejected
+  first draft — and are now surfaced in the output alongside `rerendered`/
+  `carried`.
+
+**Pre-ship measurements** (in-package scratch test calling the real functions,
+deleted after use): 0 of the 65 newly-resolvable sections trip
+`missingRequiredLLMFields`; 0 of 110 referenced components fail
+`componentTemplateValid`. **Also measured, and logged observe-only rather than
+switched silently**: 13 sections fleet-wide where `component_id` and a
+coincidental name/function match both resolve and DISAGREE — id now wins,
+confirmed against substantively different templates by byte length.
+
+**Files**: `plan_sections_action.go`, `v3_site_actions.go`,
+`rerender_page_sections_action.go`, `rerender_page_sections_resolve_test.go`
+(8 new tests). Commit `a43be1e70`. Council submission `80fbbe7d-9b79-4dbf-be6a-286d3fe084a4`
+(verdict pending at close — see `Council-Submitted:` trailer; `098` resolves it
+automatically).
+
+**Pod-verified**, both replicas, positive + negative string controls:
+```
+strings /app/agent-chassis | grep -c 'could not resolve a component and were carried unrendered instead'  # 1
+strings /app/agent-chassis | grep -c 'bugs_open/182'                                                       # 1
+strings /app/agent-chassis | grep -c 'template truncated, rejecting'   # the OLD, now-replaced wording — 0
+```
+
+**Induced live verification**, `tool-loan-vs-savings` (site
+`0162cde4-633e-45e9-8ca6-87a6b2fe1d26`, page `558f9f3f-ebac-4e4a-8265-30721054f351`):
+
+- Positive: fired `section_data_resolved` unmodified → all 4 sections
+  resolved via `component_id` (0 unresolved) where before the fix this page's
+  own recorded evidence was `rerendered: 0, carried: 4`.
+- Negative: temporarily broke `prose-1`'s `slot_name`/`component_id` → the
+  step FAILED with `page "tool-loan-vs-savings": 1 of 4 section(s) could not
+  resolve a component and were carried unrendered instead — unresolved
+  component [zzz-induced-test-182 (pos 2)]; invalid template []; not ready
+  (legitimate) []; empty template (legitimate) [] (bugs_open/182)` — restored
+  immediately after, work item cancelled.
+- Re-ran the blast-radius query: `loancalculator.co.uk` and `oufe.com` now
+  show **0** name-AND-id-unresolvable slots.
+
+**A second, distinct defect was found and handled while inducing the positive
+case**: resolving a LOCKED, positionally-named section duplicates it on the
+page instead of the lock guard protecting it (a pre-existing interaction in
+`save_page_sections_action.go` that 182's fix newly makes reachable). Filed
+separately as `bugs_open/189` (NOT folded into this fix — different file,
+different root cause), remediated live in the same session (4 rows restored,
+no content lost), and documented as a landmine + in the loancalculator lane's
+own NOTES/README so nobody fires the documented re-render at the lane's other
+12 locked sections (or oufe.com's 2) before 189 is fixed.
+
+**Not touched by this fix, noted for whoever picks it up**: 13 of the original
+78 slots have neither a resolvable name NOR a `component_id` (9 empty-content
+stubs that already escalate to the writer today, unchanged; 4 live tool pages
+on lendzy.co.uk/gamesdesign.co.uk whose remediation is a `component_id`
+backfill — data repair, not an action-code change).
