@@ -81,3 +81,61 @@ I would welcome being overruled on: if a note is sitting in the human review
 queue and somebody is halfway through reading it, this change can update it under
 them. I decided that a note quietly changing is better than a note being quietly
 wrong. A note that a machine has actively *claimed* is left alone.
+
+## 2026-08-03, morning — it's live, it's proven, and the ticket is closed
+
+The council came back **approved, 13 to 0**, with six advisory comments. Four of them
+were things I could actually go and check, so I did rather than just noting them.
+
+Three reviewers independently asked the same sharp question: one of my tests works by
+asserting that a particular database call is *never made* — and they pointed out that
+a nearby piece of code in the same function is known to swallow errors, which would
+make a test like that pass no matter what. That is a fair challenge and it was one I
+had flagged myself. I proved it by deliberately breaking the code and watching the
+test fail with the right error. It isn't vacuous. But they were right to ask, and I've
+written the proof into the test so the next person doesn't have to repeat it.
+
+One reviewer made a point I liked a lot: my fix warns you when it fails to record
+something — but the warning lived in the one place that calls it, not in the shared
+code. So the next person to use this would have had to *remember* to add their own
+warning, and if they forgot, the bug would come back silently. That is the same shape
+as the bug I was fixing, one level down. The warning now lives in the shared code.
+
+Then the good bit. **It shipped**, on chassis v1.0.1237 — another session's build
+picked it up. I checked the running pods properly: not just that my new code is
+there, but that the code it replaced is *gone*, which is the check that actually
+tells you something.
+
+**And the test wrote itself.** The bug file says to verify this by deliberately
+corrupting a fact on a site to force a second problem. I didn't need to: four sites
+were already dropping findings on every single sweep. So I just re-ran the daily task
+that runs anyway, and watched.
+
+It worked. All four reported "didn't create a note, refreshed the existing one" —
+which is the honest answer, and the one thing this fix was most at risk of getting
+wrong. And the notes were corrected in place, same rows, no duplicates. The one that
+had been pointing at the wrong fact since 26 July now names the right one.
+
+**Two things I want to be straight about rather than let them read as finished.**
+
+The four improvements the council asked for are committed but haven't shipped yet.
+They make the fix better; they aren't the fix, which is live and proven.
+
+And one of the five notes is *still* wrong. It describes a problem that has since
+sorted itself out, and my change was never going to catch that — it only does
+something when there's a new finding to record. Retracting a note whose problem went
+away is a different job, which someone else is already designing. So it's four out of
+five corrected, and I'd rather say that than round it up.
+
+**What's next.** I found the same defect in three more places while I was in there —
+and one of them puts a *count* of the problems it's about to throw away in its own
+summary line, which is a bleak little detail. I've filed those as bug 184 rather than
+holding this one open, because a closed ticket ought to mean "this isn't biting us any
+more", and it isn't.
+
+I deliberately haven't fixed those three. The tool now exists and switching them over
+is nearly free, but each one needs the same judgement made on its own evidence — is a
+note that quietly *changes* better than one that's quietly *wrong*, for whoever reads
+that particular queue? I answered yes here because I could measure it. Answering it
+three more times at speed, on sites I haven't measured, is how a careful fix turns
+into a fleet-wide surprise.
