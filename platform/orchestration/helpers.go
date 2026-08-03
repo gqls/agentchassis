@@ -424,16 +424,34 @@ func (tm *TimeoutMonitor) sendTimeoutResponse(ctx context.Context, parentOrchID,
 
 	responseBytes, _ := json.Marshal(response)
 
-	if err := tm.producer.Produce(ctx, responsesTopic, response.Headers.ToMap(),
-		[]byte(requestID), responseBytes); err != nil {
-		tm.logger.Error("Failed to send timeout response",
-			zap.Error(err),
-			zap.String("topic", responsesTopic))
-	} else {
+	// bugs_open/158 item 1, owner ruling 2026-08-03 (option b).
+	//
+	// degrade is nil and that is not an oversight: this reply is a fixed-size
+	// TIMEOUT envelope with no payload, so there is nothing to shrink and an
+	// oversize refusal here would mean something is wrong with the envelope
+	// itself rather than with its size.
+	//
+	// There is also no error response to fall back to, because THIS IS the error
+	// response — the parent is being told its child timed out. So the honest
+	// answer to an undeliverable timeout notice is to say, at Error, that the
+	// waiting parent was not told: it will now time out on its own clock with no
+	// cause recorded, and this log line is the only place that fact exists.
+	// Silence here is what bugs_closed/062 was about.
+	outcome, err := kafka.DeliverReply(ctx, tm.producer, tm.logger,
+		responsesTopic, response.Headers.ToMap(), []byte(requestID), responseBytes, nil)
+	if outcome.Answered() {
 		tm.logger.Info("Sent timeout response",
 			zap.String("topic", responsesTopic),
-			zap.String("request_id", requestID))
+			zap.String("request_id", requestID),
+			zap.String("delivery_outcome", outcome.String()))
+		return
 	}
+	tm.logger.Error("Timeout response was NOT delivered — the parent will not learn why its child stopped",
+		zap.Error(err),
+		zap.String("delivery_outcome", outcome.String()),
+		zap.String("topic", responsesTopic),
+		zap.String("request_id", requestID),
+		zap.String("child_orchestration_id", childOrchID))
 }
 
 func (tm *TimeoutMonitor) getPodName() string {

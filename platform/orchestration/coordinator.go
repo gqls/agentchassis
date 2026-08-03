@@ -3718,13 +3718,40 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 		return
 	}
 
-	if err := s.producer.Produce(ctx, parentTopic, successResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes); err != nil {
-		s.logger.Error("Failed to notify parent of success", zap.Error(err))
-	} else {
+	// bugs_open/158 item 1, owner ruling 2026-08-03 (option b — the plumbing
+	// sites first, because every agent inherits them).
+	//
+	// This was a log-and-carry-on: if the produce failed, the parent was never
+	// told the child had finished and simply waited out its timeout, with the
+	// cause visible only in THIS pod's logs. The rule (016b §9, bugs_closed/062)
+	// is that a reply which cannot be delivered must become a deliverable error.
+	//
+	// degrade is nil deliberately: extractWorkflowResultWithSizeLimit above has
+	// already bounded the payload, so there is nothing left here to shrink — an
+	// oversize refusal at this point means the bound itself is wrong, and a
+	// second guaranteed-to-fail produce would only hide that.
+	//
+	// The answer to "could not tell the parent it succeeded" is the one the
+	// size-limit path above already chose for the same predicament: TELL THE
+	// PARENT IT FAILED. A workflow whose result never reached its parent did not
+	// succeed from the parent's point of view, and notifyParentOfFailure routes
+	// into error_step / needs-review handling instead of leaving a silent gap.
+	outcome, err := kafka.DeliverReply(ctx, s.producer, s.logger,
+		parentTopic, successResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes, nil)
+	if outcome.Answered() {
 		s.logger.Info("Successfully notified parent of workflow completion",
 			zap.String("parent_topic", parentTopic),
-			zap.String("reply_to_request_id", replyToRequestID))
+			zap.String("reply_to_request_id", replyToRequestID),
+			zap.String("delivery_outcome", outcome.String()))
+		return
 	}
+	s.logger.Error("Could not notify parent of success — notifying parent of FAILURE instead",
+		zap.Error(err),
+		zap.String("delivery_outcome", outcome.String()),
+		zap.String("parent_topic", parentTopic),
+		zap.String("orchestration_id", state.OrchestrationID))
+	s.notifyParentOfFailure(ctx, state,
+		fmt.Sprintf("workflow completed but its result could not be delivered to the parent (%s): %v", outcome, err))
 }
 
 // extractWorkflowResult builds the result payload to send back to parent

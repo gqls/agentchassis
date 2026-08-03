@@ -884,7 +884,46 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 				headers["from_agent_type"] = a.AgentType
 
 				parentResponsesTopic := os.Getenv("PARENT_RESPONSES_TOPIC")
-				a.producer.Produce(context.Background(), parentResponsesTopic, headers, msg.Key, msg.Value)
+				// bugs_open/158 item 1, owner ruling 2026-08-03 (option b).
+				// This produce's error was not merely logged — it was NEVER
+				// CAPTURED, so an error travelling up the spawn chain could
+				// vanish at any hop with no record anywhere. That is the worst
+				// form of the 016b §9 / bugs_closed/062 defect, because the
+				// message being dropped is itself an error report.
+				//
+				// The degrader keeps the SIGNAL when the payload is what makes
+				// the message too large: the headers carry the correlation id
+				// and the error_chain, which is what the parent actually needs
+				// to route and to know something failed. Dropping the body is a
+				// real loss and is marked as such rather than passed off as the
+				// original.
+				degrade := func() ([]byte, error) {
+					return json.Marshal(map[string]interface{}{
+						"success": false,
+						"error": map[string]interface{}{
+							"code": "ERROR_FORWARD_TOO_LARGE",
+							"message": fmt.Sprintf(
+								"an error message from %s could not be forwarded intact (%d bytes); "+
+									"its payload was dropped to keep the error chain deliverable",
+								a.AgentType, len(msg.Value)),
+							"recoverable": false,
+						},
+						"error_chain": headers["error_chain"],
+					})
+				}
+				outcome, derr := kafka.DeliverReply(context.Background(), a.producer, a.logger,
+					parentResponsesTopic, headers, msg.Key, msg.Value, degrade)
+				if !outcome.Answered() {
+					// Nothing further to try: this agent has no other channel to
+					// the parent. Say plainly that the chain is broken here, so
+					// the gap is attributable instead of silent.
+					a.logger.Error("Error message could NOT be forwarded to parent — the error chain ends here",
+						zap.Error(derr),
+						zap.String("delivery_outcome", outcome.String()),
+						zap.String("parent_topic", parentResponsesTopic),
+						zap.String("correlation_id", headers["correlation_id"]),
+						zap.String("error_chain", headers["error_chain"]))
+				}
 			}
 			return
 		}

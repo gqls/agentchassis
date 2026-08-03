@@ -1255,6 +1255,25 @@ def check_silent_reply_drop(files, ref, findings):
             joined = "\n".join(body)
             logged = any(logcall_re.search(t) for t in body)
             answers = answers_re.search(joined) is not None
+
+            # An error RETURNED after the block is propagated, not swallowed —
+            # the caller still learns the reply failed. Missed by the first
+            # version, which only read the block body: processor.go's
+            # `if err != nil { log } else { log }` is followed two lines later by
+            # `return err`, and it was reported as a silent drop. Scan from the
+            # end of the block to the end of the enclosing function.
+            err_var = "err"
+            m = re.search(r"(\w+)\s*!=\s*nil", tail[err_at])
+            if m:
+                err_var = m.group(1)
+            abs_end = i + err_at + 1 + len(body)
+            for t in lines[abs_end: min(len(lines), abs_end + 60)]:
+                if t.startswith("}"):                 # end of the enclosing func
+                    break
+                if re.match(r"\s*return\b", t) and re.search(rf"\b{re.escape(err_var)}\b", t):
+                    answers = True
+                    break
+
             if logged and not answers:
                 findings.append((
                     "silent-reply-drop", f"{path}:{i+1}",
