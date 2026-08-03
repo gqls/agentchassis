@@ -58,24 +58,69 @@ export DECOMP_WORK=/tmp/decomp-work
 
 ## 3. The queue of real work, in the order I would take it
 
-**(1) The header's link list is hand-maintained.** 25 links lifted verbatim from
-`nav.js`. A page added to `pages` does not appear; a page removed leaves a dead
-link. Generating `site_components.header` from `pages` is the obvious next
-mechanism, deliberately not bundled with the decomposition so that a regression
-would not have two candidate causes. **Still the right next thing.**
+> **UPDATED later on 2026-08-03.** Item (2) is DONE and live. Item (1) was surveyed
+> and is a different, larger job than it looked — read §3a before touching nav.
 
-**(2) A tidy owed on `tool-loan-repayment`.** Its template carries an HTML comment
-that ships in the public source of `/index.html` and `/tools/standard-calc.html`,
-and one clause of it editorialises. Not done on 08-02 because `index` was
-mid-render; not done on 08-03 because it was out of scope for the defect fixes.
-**It is now the cheapest thing on this list** — `render_tool_row.py` makes it one
-`--apply` and one assemble-only rerender.
+**(1) ⛔ Header nav — NOT a scripting job, and there is a demolition charge under
+it.** See §3a. The precondition is declaring nav membership on 27 live rows, and
+the orphan decision (item 3) is an INPUT to it. **Do not run `nav-updater`.**
+
+**~~(2) A tidy owed on `tool-loan-repayment`.~~ DONE 2026-08-03, live and verified.**
+It was not cosmetic: the HTML comment explaining why the homepage must not carry two
+dated factual claims was **publishing both figures into the homepage's own source**
+(HTML comments are not stripped; only the tool-doc sentinel block is). Moved inside
+the sentinels. Served pages shrank — `/index.html` 27039→26338 b,
+`/tools/standard-calc.html` 26389→25702 b — with `nobody asked to publish`,
+`3.75% base rate` and `7.9% market average` all now **0** on both, and both tools
+still MATCHING the golden.
 
 **(3) `/tools/standard-calc.html` is an orphan** — nothing links to it, and it
 duplicates the index calculator. A content question for the owner, not a bug.
+**It is now blocking item (1)**, because a nav generator must decide it.
 
 **(4) Consider whether the consolidation fix should EXCLUDE rather than WITHHOLD.**
 See §5. This is the owner's call and it is small either way.
+
+## 3a. ⛔ NAV — read before touching item (1)
+
+**This site is one `nav-updater` run away from a nav of roughly ONE link on all 27
+pages, shipped immediately.** Measured 2026-08-03, not inferred:
+
+```
+pages                27  (13 guide, 12 tool, 1 content, 1 landing)
+in_header = true      0
+in_footer = true      0
+declaring NEITHER    27  (explicitly false — NOT NULL, which is a third state)
+site_nav_items        1  (against 25 links in the authored header)
+```
+
+`classifyPagesForNav` omits a page that is never-primary AND declares neither flag.
+Every `tool` page is never-primary by type; every `/guides/` page by URL shape. That
+is all 27. `populate_nav_tables` opens `DELETE FROM site_nav_items WHERE site_id=$1`,
+and `nav-updater` then re-renders chrome and re-assembles every deployed page.
+
+The fleet landmine for this was NARROWED on 2026-07-31 to "only a page declaring
+neither flag is still lost" — which reads reassuring until you measure a site where
+that is **every page**.
+
+**Mitigation applied: the chrome is now LOCKED.** `head`/`header`/`footer`,
+`lock_type='permanent'`, `locked_by='loancalculator_authored_chrome_20260803'`,
+backup in `site_components_bak_20260803_chromelock`. Verified in order: the chrome
+re-render honours the predicate (three write sites in
+`render_site_components_action.go`), the lock bites here (`agent_may_write=f` ×3),
+and the predicate DISCRIMINATES (45 chrome rows across 15 sites still read `t`).
+Nothing on the wire moved.
+
+That blocks the chrome overwrite, **not** the `site_nav_items` rebuild. And there is
+no drift to fix today: 25 header links, **zero dead**, the only two pages absent from
+the header being `/legal.html` (deliberately in the footer) and the orphan.
+
+**The real item (1), in order:** declare `in_header`/`in_footer` to match the
+authored chrome → decide the orphan (owner) → only then generate, via
+`nav-link-fixer` (refreshes chrome from EXISTING tables, no populate step), never
+`nav-updater` → unlock, load, re-lock. ⚠ `in_header` has a second consumer,
+`buildServicesHTML` (`render_site_components_action.go:1156`), so the flag change
+needs its own verification rather than a bulk UPDATE.
 
 ## 4. What the 2026-08-03 work added to "what will mislead you"
 
