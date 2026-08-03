@@ -10066,3 +10066,60 @@ than a case variant. See also "A section name is not a component name" above —
 entry is the inverse failure, an alias resolving to the *wrong* component rather
 than to none. Category tags: `no-op-reports-success`, `fallback-in-aggregate`,
 `name-is-not-identity`, `counters-over-artefacts`.
+
+### A dedup that keeps the ROW throws away the FINDING — and "one open item per key" is only correct while the key is as granular as the thing it describes (`bugs_closed/091`, 2026-08-03)
+
+**The shape.** A detector files a work item keyed `<type>:<site>` and dedups on it, so a
+site never accumulates duplicates. Correct, and it works. What nothing notices is that
+the *finding* is made per FACT / per PAGE / per CITATION, so when a **second, different**
+finding arrives while the first item is open, `ON CONFLICT DO NOTHING` discards it — and
+the open row goes on describing the first thing it ever saw, for as long as a human
+leaves it there.
+
+**Why it survives every check you would normally run.** The happy path is byte-identical
+under both behaviours: an insert that succeeds behaves the same whether or not the key is
+granular enough. So the defect is invisible to the test suite, to a green build, to the
+run's own status, and to every log line except one `inserted=false` in a pod that will be
+replaced within the hour. `bugs_open/091` was filed at Medium with "nothing is
+permanently lost"; measured 15 months later, **4 of 5 live records named the wrong
+facts**, one pointing a human at a completely different fact from the one that had moved,
+and one describing a problem that no longer existed.
+
+**The question that finds it, and it takes ten seconds:**
+
+> **Is this item's `item_key` as granular as its finding?**
+
+If `spec` carries a LIST that will differ next run and the key does not, it is dropping
+findings right now. Prove it by comparing what the open record SAYS against what the last
+run FOUND — not by reading the code, which looks correct because it is correct about rows.
+
+**Three traps in fixing it**, each of which the obvious version walks into:
+
+1. **`ON CONFLICT … DO UPDATE` re-creates the reporting bug you are fixing.** An update
+   affects a row, so `RowsAffected()` returns 1, and any caller reporting "created" from
+   `rows > 0` starts reporting a creation that never happened. Use a separate statement
+   and a **three-state** outcome (inserted / refreshed / neither). A bool cannot be honest
+   about three states, and the field named `created` must keep meaning created.
+2. **Widening the shared statement charges every caller.** Adding one column to the shared
+   INSERT for one caller's benefit failed **20 tests across 8 files** in unrelated lanes,
+   because sqlmock matches the argument count. Make it conditional. The size of that
+   breakage is a *measurement of the seam*, not an obstacle to it — the instinct to "just
+   update the twenty expectations" is the instinct to ship a real widening.
+3. **An opt-in on a shared helper must be unreachable from the old entry point.** As a
+   struct field, a caller can set it and still call the old function, whose single bool
+   cannot express the new outcome — a silent wrong answer at the call site most likely to
+   be copied. As a *parameter of a new function*, the mistake does not compile.
+
+**And the honest boundary:** a refresh fires when there IS a finding, so it cannot correct
+a record whose finding has RESOLVED. That is retraction, a different mechanism. On the
+verified run, 4 of 5 records were corrected and the fifth — describing drift that had gone
+away — was untouched and still wrong.
+
+Live verification worth copying: **no induced fault was needed.** Four sites were already
+dropping findings on every sweep, so re-arming the standing scheduled task was the natural
+experiment, with zero production mutation. If a bug is active, the fleet is already
+running your test for you.
+
+Related: `bugs_open/184` (three more detectors in this shape); **BATCH-005** in the
+concept register (`refreshOnConflict`, its two landmines, and the open question about
+whether `needs_human_review` should count as "held"); `LANDMINES.md` 2026-08-03.
