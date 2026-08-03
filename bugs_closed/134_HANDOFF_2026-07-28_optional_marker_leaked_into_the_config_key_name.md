@@ -115,3 +115,48 @@ leave the config honest-but-warning rather than change behaviour.
 - `bugs_open/133` — same session, same class one level down: a *message* that
   describes something that did not happen.
 - concept register SCR-003 (`CheckConfig`), SCR-004, SCR-005 (`--specs`, what found it).
+
+---
+
+## CLOSED 2026-08-03 (bugfix_134_optional_marker lane, session 81180b3f)
+
+**Fixed AND live.** All three fix candidates landed, in the order this file
+proposed, commit `321279376`:
+
+- **Candidate 2 (the data):** seed 156 corrected at source; migration 298
+  applied by hand 2026-08-03 ~12:06 BST — snapshot verified present in
+  `agent_definitions_backup` **with the old keys preserved** (the two-arg
+  `snapshot_agent` overload writes there; the one-arg form writes an
+  `is_snapshot` row into `agent_definitions` — proven via `pg_get_functiondef`
+  after the council's editquality seat gated on exactly this), `UPDATE 1`, both
+  DO/RAISE verify blocks (values + neighbours) passed. Live row read back:
+  `{"limit": "input_data.limit", "site_id": "site_record.site_id", "category":
+  "input_data.category"}`. Recorded via `--record-only`. **Live immediately** —
+  the deployed binary has read `category`/`limit` since 07-15; only the key
+  names were wrong.
+- **Candidate 1 (the contract):** `CheckConfig: true` on
+  `RefreshProductSpecsInputSpec`. Inert until the next chassis roll (bool flip,
+  no compiled string marker — the offline report is the primary detector and was
+  proven from HEAD source both directions: pre-migration it reported this agent
+  under UNKNOWN KEYS and SUSPICIOUS KEYS; post-migration, neither).
+- **Class fix (beyond this file's candidates):** `cmd/config-key-audit
+  --suspicious-keys` + a fourth report section in `scripts/audit-config-keys.sh`
+  flag doc-notation punctuation (`?` `*` `:` space) in any live step-config key,
+  **independent of opt-in** — the population where this instance sat invisible.
+  Five fixture tests incl. the nested-loop traversal arm; mutation-proven.
+  Register: SCR-004 updated same commit.
+- **Candidate 3 honoured:** nothing was declared into the spec to silence the
+  detector.
+
+**Correction to this file's severity section, for the record:** "nothing has
+ever run this agent" rests on `orchestration_states`, which is
+retention-clocked; five `products.verified_date` stamps dated 2026-07-22 are
+consistent with a reaped manual run. The safety claim that survives:
+the bad keys could not resolve, so any run behaved as the defaults; the only
+behavioural change is that a caller explicitly passing `category`/`limit` is
+now honoured — the seed's own documented contract. (`WRONG_CALLS.md`
+2026-08-03.)
+
+Council trail: correlation `9521d62f-f239-4590-875b-4c4f2e9c4343` — round 1
+REVISE (the snapshot-overload check above, answered with measurements), round 2
+resubmitted on the same trail; commit carries `Council-Submitted:`.

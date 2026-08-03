@@ -4470,3 +4470,11 @@ that is also the thing you would want in the logs is not.
 - **the check:** pair them — `AND p.build_status = 'deployed' AND p.status = 'active'` — as `load_site_pages_action.go:80`, `plan_sections_action.go:247`, `maintenance_actions.go:751`, `request_render_audit_action.go:110` and `store_generated_component_action.go:873` already do. Census the whole class rather than the one call site you were sent to: the two functions that had the defect are the two that call each other "cousin" in their own comments, which is exactly how a reader concludes they behave alike. To see it in the estate: `SELECT status, count(*) FROM pages GROUP BY 1` (only `active` and `archived` exist) then run your predicate with and without the `status` arm and diff the row sets
 - **source:** `bugs_open/098` correction 2026-08-03; commits `5b66615d4`, `8f73e7279`; `bugfix_098_unpublish_primitive` lane
 - **added:** 2026-08-03, bugfix_098 lane
+
+### `go run` collapses the child's exit status — your carefully-chosen exit 2 arrives as exit 1
+- **footprint:** `go run` inside any `scripts/*.sh` wrapper, `cmd/config-key-audit`, exit-code branching on a Go tool run from source
+- **fires when:** a wrapper script branches on the exit code of `go run ./cmd/<tool>` — e.g. distinguishing a tool's "findings, exit 1" from its "refusing to report, exit 2" — because the tool's own os.Exit codes are documented and you reasonably branch on them
+- **the tell:** there is none at the call site: `go run` prints `exit status 2` to stderr and then itself exits **1**, so every non-zero child status ≥ 1 arrives as 1 (measured 2026-08-03, bugfix_134 lane). A branch on `rc > 1` is dead code that never fires and looks exactly like "the refusal case just never happens"
+- **the check:** discriminate on the tool's OUTPUT, not its code — an empty stdout where JSON findings belong is the refusal (`scripts/audit-config-keys.sh` does this for all three of its `go run` captures, with the reason in a comment). If the code itself matters, `go build -o` to a temp path and run the binary, whose status arrives intact
+- **source:** `bugfix_134_optional_marker` lane, 2026-08-03 — found writing the `--suspicious-keys` capture; the first draft branched on `rc > 1` and would have silently never taken the refusal path
+- **added:** 2026-08-03, bugfix_134 lane

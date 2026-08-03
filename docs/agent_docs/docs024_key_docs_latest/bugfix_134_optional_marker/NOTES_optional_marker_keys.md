@@ -92,3 +92,15 @@ Zero `is_snapshot=true` rows for this type in `agent_definitions`. The
 answers `tooling_provenance`'s silent-failure concern at the artefact.
 All other objections measured or answered in the round-2 rationale; resubmitting
 on the same correlation.
+
+## 2026-08-03 (close) — ticket moved to bugs_closed; landmine appended
+
+Bug file moved to `/bugs_closed/` with the closing account appended; 016b §10 row
+updated to CLOSED (with the run-count overreach corrected in place). LANDMINES
+gained the `go run`-collapses-exit-status entry (found by this lane's own first
+draft); `landmines-sync.py --apply` ran — and then `landmines-verify-dispatch.sh`
+said "Nothing needs verification", which is EXACTLY the trap recorded in
+`bugs_open/163`'s WRONG_CALLS cross-reference: running `--apply` first consumes
+the NEEDS_VERIFICATION signal. Not fought here — 163 also documents the verifier
+cannot mechanically confirm path-bearing symbols anyway; the entry stands on its
+measured evidence.
