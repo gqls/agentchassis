@@ -180,3 +180,47 @@ func TestTheStepNameComesFromTheCallerNotFromAnEmptyStepName(t *testing.T) {
 	// This test's value is the signature: localActionContext cannot read step.Name
 	// even by accident, because the name is a separate required argument.
 }
+
+// OWNER DIRECTIVE 2026-08-03: every step gets a limit, and the default must be
+// generous enough that we never cut off something still running.
+//
+// This is the test that the 600s first cut FAILED. `med_scrape_prices` is a LOCAL
+// action that legitimately runs ~1391s (23 minutes) — measured over the 3-day audit
+// window, 27 executions, p95 1372s, max 1391s — so a 600s default would have killed
+// it on every single run. The percentile that produced 600s (all-step p99.9 = 214s)
+// was computed over a population dominated by sub-second steps, and the one action
+// that genuinely takes twenty minutes vanished into the tail.
+//
+// So the default is pinned against the longest OBSERVED legitimate action, not
+// against a percentile. If someone lowers it, this test tells them what breaks.
+func TestTheDefaultClearsTheLongestLegitimateLocalAction(t *testing.T) {
+	// The real ceiling in the fleet, measured 2026-08-02: med_scrape_prices.
+	const longestObservedLegitimateAction = 1391 * time.Second
+
+	if defaultLocalActionTimeout <= longestObservedLegitimateAction {
+		t.Fatalf("default %s does not clear med_scrape_prices at %s — this default CUTS OFF a "+
+			"local action that legitimately runs that long today",
+			defaultLocalActionTimeout, longestObservedLegitimateAction)
+	}
+
+	// And it must clear it by a real margin, not by seconds: the measurement is a
+	// 3-day window of a partly-idle fleet, so the true ceiling may be higher.
+	const wantHeadroom = 4
+	if defaultLocalActionTimeout < wantHeadroom*longestObservedLegitimateAction {
+		t.Errorf("default %s is only %.1fx the longest observed legitimate action (%s); want >=%dx. "+
+			"The measurement window under-samples, so thin headroom is not headroom",
+			defaultLocalActionTimeout,
+			float64(defaultLocalActionTimeout)/float64(longestObservedLegitimateAction),
+			longestObservedLegitimateAction, wantHeadroom)
+	}
+}
+
+// The generous default is only safe while nothing is quietly creeping toward it.
+// The slow-action warning is what turns "we picked a number once" into something
+// observable, so a fraction of 0 or >=1 would silently disable the early warning.
+func TestTheSlowActionWarningFractionIsUsable(t *testing.T) {
+	if localActionSlowFraction <= 0 || localActionSlowFraction >= 1 {
+		t.Fatalf("localActionSlowFraction = %v; must be strictly between 0 and 1, or the early "+
+			"warning never fires (>=1) or fires on everything (<=0)", localActionSlowFraction)
+	}
+}

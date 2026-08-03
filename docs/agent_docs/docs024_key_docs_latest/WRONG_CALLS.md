@@ -17660,3 +17660,44 @@ against a binary KNOWN to contain the change (the scratch build existed!) before
 recording it as the owed check.**
 
 | 2026-08-03 | ideauk-sec | "loanzy.uk edge TLS STILL NOT UP after 40 min — check Universal SSL" (my own watcher's line, relayed to the owner as pending-cert) | The cert HAD issued: openssl to the zone's OWN anycast IP returned CN=loanzy.uk while the watcher was still failing. Two stacked measurement errors: the probe borrowed ANOTHER zone's anycast IP (CF binds hostnames per-zone), and `curl --max-time 15` measured the HTTP phase — a placeholder origin 522s at ~20s, so "no response in 15s" read as "no certificate". | Separate the layers: `openssl s_client -servername <host>` answers the CERT question alone in one round-trip; probe the zone's own `dig +short` IP; give a proxied-origin probe ≥30s before calling anything absent. Same day, same lesson in a second costume: the CF API refused a call sourced from IPv6 (token location filter names the v4) — pin `-4` on anything allow-listed. |
+
+---
+
+## 2026-08-03 — I sized a fleet-wide timeout from a percentile, and the percentile hid the one action it would have killed
+
+**The claim that was wrong:** that 600s was a safe default for the local-action deadline
+(`bugs_closed/169`, RSH-004), justified as *"~25× the observed all-step p99.9 (214s) and
+25× the spawn-step p99 (24s)"*. Both figures were correct. The conclusion was not.
+
+**What it would have done:** killed `med_scrape_prices` on **every run**. It is a LOCAL
+action that legitimately takes **~1,391s (23 minutes)** — 27 executions in the same
+window, p95 1,372s, max 1,391s, a tight cluster with no sign of being anomalous.
+
+**Why the percentile lied.** I computed it over *all* step executions — 91,210 of them,
+overwhelmingly sub-second. One action that genuinely runs for twenty minutes is
+statistically invisible in that population: it does not move the p99.9 at all. **A
+percentile is the wrong statistic when the requirement is "never cut off real work",
+because the entire risk lives in precisely the tail the percentile discards.** I had even
+written "the distribution is bimodal" in the plan — and then sized the constant off the
+mode anyway.
+
+**What caught it:** the owner, saying the default should be "very generous so we never cut
+off something still running". That prompted the measurement I should have run first —
+*what is the longest legitimate local action in the fleet?* — rather than *what does the
+distribution look like?* **The council did not catch it either**, across 13 seats; the
+guardian and architecture seats both objected on blast radius and neither surfaced the
+concrete action that would break. A blast-radius objection is not the same as a
+blast-radius measurement.
+
+**The cheap check that would have caught it:** before choosing any fleet-wide bound, query
+for the MAXIMUM of the thing being bounded and go and look at what produced it — one query
+(`max(secs) ... GROUP BY step ORDER BY 1 DESC`) and one lookup of whether that step is
+local. It took under a minute once I asked the right question.
+
+**Now pinned so it cannot recur silently:**
+`TestTheDefaultClearsTheLongestLegitimateLocalAction` asserts the default clears
+`med_scrape_prices` with ≥4× headroom, and fails with *"this default CUTS OFF a local
+action that legitimately runs that long today"*. Mutation-tested by restoring 600s.
+Default is now **7200s (~5.2× the observed ceiling)**, plus a warning that fires when any
+action consumes over half its budget while still succeeding — so the next time the ceiling
+moves, we hear about it before something is cut off.

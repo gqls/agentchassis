@@ -1190,12 +1190,40 @@ func (s *SagaCoordinator) executeStep(ctx context.Context, state *OrchestrationS
 // executeLocalAction - Main entry point, orchestrates local action execution
 // defaultLocalActionTimeout bounds how long a LOCAL action may execute.
 //
-// 600s is deliberately generous rather than tight: ~25x the observed all-step
-// p99.9 (214s) and 25x the spawn-step p99 (24s), measured over the 3-day
-// orchestration_state_audit window on 2026-08-02. A too-tight bound would break
-// working pipelines fleet-wide, which is a considerably worse defect than the
-// rare hang this catches — so the default errs heavily toward "let it finish".
-const defaultLocalActionTimeout = 600 * time.Second
+// OWNER DIRECTIVE 2026-08-03: every step gets a limit, and the default must be
+// "very generous so we never cut off something still running". This constant is
+// therefore sized from the LONGEST LEGITIMATE ACTION EVER OBSERVED, not from a
+// percentile — a p99 is the wrong statistic when the requirement is "never cut
+// off real work", because the whole risk lives in the tail it discards.
+//
+// Measured over orchestration_state_audit, 2026-07-31..08-02, 91,210 local
+// (non-call_) step executions:
+//
+//	all non-call_ steps      p95 6s     p99 22s    max 1391s
+//	local LLM (execute_llm_prompt, council seats)  p95 68s  p99 103s  max 281s
+//	med_scrape_prices        p95 1372s  p99 1391s  max 1391s   <- the ceiling
+//
+// The longest legitimate local action in the fleet is `med_scrape_prices` at
+// ~1391s (23 minutes). 7200s is ~5.2x that — an action would have to run five
+// times longer than anything ever recorded before this could touch it, while
+// still halving the 4-hour hang that motivated the change (bugs_closed/169).
+//
+// An earlier revision of this file used 600s, chosen from the p99.9. That was
+// WRONG and would have killed med_scrape_prices on every run: the percentile was
+// computed over a population dominated by sub-second steps, so the one action
+// that legitimately takes twenty minutes vanished into the tail. Recorded here
+// because the mistake is easy to repeat — see WRONG_CALLS.md 2026-08-03.
+const defaultLocalActionTimeout = 7200 * time.Second
+
+// localActionSlowFraction is the share of the deadline an action may consume
+// before it is reported, even when it SUCCEEDS.
+//
+// This is what keeps the constant above honest. A generous default is only safe
+// while nothing is quietly creeping toward it; without this the first evidence
+// that 7200s had become too tight would be a working pipeline being cut off.
+// At 0.5 an action that takes over an hour is named in the logs while still
+// completing normally — early warning instead of a post-mortem.
+const localActionSlowFraction = 0.5
 
 // localActionTimeoutKey is a NEW step-config key, deliberately NOT `timeout_seconds`.
 //
@@ -1368,6 +1396,24 @@ func (s *SagaCoordinator) executeLocalAction(ctx context.Context, state *Orchest
 		err = fmt.Errorf("local action %q on step %q exceeded its deadline after %s "+
 			"(set %q on the step to change it, or <=0 to disable): %w",
 			step.Action, stepName, elapsed, localActionTimeoutKey, err)
+	}
+
+	// Early warning that the generous default is becoming tight. Fires on a
+	// SUCCESSFUL action, so the first sign that something is creeping toward the
+	// deadline is a log line rather than a cut-off pipeline.
+	if err == nil {
+		if deadline, ok := actionCtx.Deadline(); ok {
+			budget := time.Until(deadline) + time.Since(actionStarted)
+			if elapsed := time.Since(actionStarted); budget > 0 &&
+				float64(elapsed) > localActionSlowFraction*float64(budget) {
+				contextLogger.Warn("Local action used most of its deadline — it succeeded, but the budget is becoming tight",
+					zap.String("action", step.Action),
+					zap.String("step", state.CurrentStep),
+					zap.Duration("elapsed", elapsed.Round(time.Second)),
+					zap.Duration("budget", budget.Round(time.Second)),
+					zap.String("override_key", localActionTimeoutKey))
+			}
+		}
 	}
 
 	if err != nil {

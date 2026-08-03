@@ -1,6 +1,27 @@
 # RFC 011 — a fleet-wide execution deadline on the coordinator's step-execution seam
 
-**Status: RAISED 2026-08-02 by the bugfix_169 lane. Needs an owner decision.**
+## STATUS: **DECIDED — OWNER RULING 2026-08-03: option (a). Every step gets a limit, and the default must be very generous so we never cut off something still running.**
+
+The ruling changed the constant, and the re-measurement it forced found a real defect in
+what had shipped. **600s would have killed `med_scrape_prices` on every run** — a LOCAL
+action that legitimately takes ~1,391s (23 minutes). The original justification (~25x the
+all-step p99.9) was arithmetically correct and methodologically wrong: a percentile over
+91,210 mostly-sub-second executions cannot see the one action that runs for twenty
+minutes. **Sizing now comes from the longest observed legitimate action, not a
+percentile.** Full account: `WRONG_CALLS.md` 2026-08-03.
+
+What is live now:
+
+| | value |
+|---|---|
+| default | **7200s** (~5.2x the 1,391s ceiling) |
+| pinned by | `TestTheDefaultClearsTheLongestLegitimateLocalAction` (>=4x headroom, mutation-tested) |
+| early warning | an action consuming >50% of its budget is logged **while still succeeding**, so the ceiling moving is heard about before anything is cut |
+| escape hatches | per-step `local_action_timeout_seconds`; `<=0` disables; `DISABLE_LOCAL_ACTION_TIMEOUT=true` fleet-wide |
+
+Options (b) and (c) below are **not taken** and are kept for the record.
+
+> **Original status line:** RAISED 2026-08-02 by the bugfix_169 lane. Needs an owner decision.
 
 Raised because the council's `architecture` seat objected on record, on a submission it
 otherwise **approved** (`2c6800e6`, *"approved with 2 advisory objection(s) — none
@@ -45,7 +66,7 @@ The fix derives a deadline in `executeLocalAction`:
 
 | lever | value |
 |---|---|
-| default | **600s** |
+| default | ~~**600s**~~ → **7200s** (superseded by the 2026-08-03 ruling above; 600s would have cut `med_scrape_prices`) |
 | per-step override | `local_action_timeout_seconds` (new reserved key) |
 | per-step disable | that key `<= 0`, logged Warn every time |
 | fleet-wide disable | `DISABLE_LOCAL_ACTION_TIMEOUT=true` (new env contract) |
@@ -60,9 +81,14 @@ between seconds and hours.
 **Should the coordinator impose an execution deadline on every local action by default?**
 
 **(a) Yes, default ON at a generous constant — what shipped.**
-*For:* the defect is fleet-wide and silent, and the measurement says a 600s bound is ~25×
-the p99.9 — it catches the pathological case and touches nothing healthy. Three escape
-hatches exist, one of which needs no rebuild.
+*For:* the defect is fleet-wide and silent, and a generous bound catches the pathological
+case while touching nothing healthy. Three escape hatches exist, one of which needs no
+rebuild.
+> **CORRECTED 2026-08-03:** this bullet originally read *"the measurement says a 600s bound
+> is ~25× the p99.9 — it catches the pathological case and touches nothing healthy"*. The
+> second clause was **false**: 600s would have cut `med_scrape_prices` (~1,391s) on every
+> run. The percentile could not see it. This is exactly the "Against" below coming true
+> before the ruling, not after.
 *Against:* it changes a guarantee for every action in every package at once, and the
 constant was measured over **three days of a partly-idle fleet** (`improvement-sweep` and
 other schedulers are disabled). If a legitimate long-running local action exists that
