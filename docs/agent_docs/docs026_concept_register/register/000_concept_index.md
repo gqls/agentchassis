@@ -836,7 +836,7 @@ an ID prefix, or a status word.
 | SPEC-001 | Dream spec / gap analysis / feasibility - one spec, not two | aspirational | Full spec is the dream; per-item status makes gap analysis mechanical | site-spec-and-classifier.md |
 | WDS-001 | Work-item state machine (detected → triaged → claimed → complete/failed) + site-exclusion by stuck claim | deployed | Full state machine plus the common "one stuck claim blocks the whole site" failure mode | work-dispatch.md |
 | BATCH-003 | Dispatch loop & detected→triaged→claimed state machine | deployed | Full work-item state chain from detection through claim to completion | batch-processing.md |
-| BATCH-005 | `refreshOnConflict` — a repeat finding updates the OPEN work item instead of vanishing | built, not live | Opt-in conflict policy on the shared work-item writer; three-state outcome so a refresh is never reported as a creation | batch-processing.md |
+| BATCH-005 | `refreshOnConflict` — a repeat finding updates the OPEN work item instead of vanishing | deployed | Opt-in conflict policy on the shared work-item writer; three-state outcome so a refresh is never reported as a creation | batch-processing.md |
 | CQ-004 | Recovery playbook for stranded dependents (Route A vs Route B) | deployed | Full writer rebuild vs re-key + scoped re-render to recover pages after a contract change | content-quality.md |
 | DES-028 | Layout: tool-first-landing | deployed | Full-container (up to 1400px) tool-dominated landing page where "the tool IS the page" — defining primitive... | design-composition.md |
 | BIZ-027 | UK-sovereign stack exploration (deferred) | aspirational | Future fully-UK-hosted compute+storage+model stack; explicitly deferred by owner | business-strategy.md |
