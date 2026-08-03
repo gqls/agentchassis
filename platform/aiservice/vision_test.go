@@ -144,6 +144,71 @@ func TestGeminiGenerateWithImagesWireShape(t *testing.T) {
 	}
 }
 
+// The two tests below answer council fee9d810's gating objection
+// (llm_reliability, high): "fails loud on truncation" was called an
+// unsubstantiated completeness claim because no edit added stop_reason
+// decoding. The decoding was not added because it already exists — the shared
+// generate() arm each provider routes through (stop_reason=max_tokens /
+// finishReason=MAX_TOKENS → *TruncatedError, shipped for bugs_open/019 in
+// a3b606798) — and GenerateWithImages rides it by construction, both entry
+// points delegating to the same generate(). The objection's other premise
+// ("truncated calls have output_tokens=NULL, so a token-count heuristic can't
+// work") is right and is WHY the mechanism is the provider's own stop signal,
+// not a count. These tests pin the arm THROUGH the vision entry point, so the
+// claim is measured rather than argued. The stale MDL-038 register entry that
+// fed the objection ("GenerateText never decodes stop_reason", frozen
+// 2026-07-17) is corrected in this commit.
+func TestAnthropicVisionTruncationIsLoudAndKeepsPartial(t *testing.T) {
+	c, _ := anthropicVisionWith(`{
+		"content": [{"type": "text", "text": "partial crit"}],
+		"stop_reason": "max_tokens",
+		"usage": {"input_tokens": 12, "output_tokens": 512}
+	}`)
+	out, err := c.GenerateWithImages(context.Background(), "critique these pages",
+		[]ImageInput{{MediaType: "image/png", Data: []byte("png")}},
+		map[string]interface{}{"max_tokens": 512})
+	if err == nil {
+		t.Fatal("a vision completion cut at max_tokens must return an error")
+	}
+	te, ok := IsTruncated(err)
+	if !ok {
+		t.Fatalf("want *TruncatedError through the vision path, got %T: %v", err, err)
+	}
+	if te.Partial != "partial crit" {
+		t.Fatalf("partial lost through the vision path: %q", te.Partial)
+	}
+	if out != "partial crit" {
+		t.Fatalf("GenerateWithImages must surface the partial alongside the error, got %q", out)
+	}
+}
+
+func TestGeminiVisionTruncationIsLoudAndKeepsPartial(t *testing.T) {
+	const body = `{
+		"candidates": [{
+			"content": {"parts": [{"text": "partial crit"}]},
+			"finishReason": "MAX_TOKENS"
+		}],
+		"usageMetadata": {"promptTokenCount": 900, "candidatesTokenCount": 12, "totalTokenCount": 912}
+	}`
+	c, _ := geminiWith("gemini-test", body)
+	_, err := c.GenerateWithImages(context.Background(), "critique this page",
+		[]ImageInput{{MediaType: "image/png", Data: []byte("png")}},
+		map[string]interface{}{"max_tokens": 512})
+	if err == nil {
+		t.Fatal("a vision completion cut at MAX_TOKENS must return an error")
+	}
+	te, ok := IsTruncated(err)
+	if !ok {
+		t.Fatalf("want *TruncatedError through the vision path, got %T: %v", err, err)
+	}
+	if te.Provider != "gemini" {
+		t.Fatalf("Provider = %q, want gemini", te.Provider)
+	}
+	if te.Partial != "partial crit" {
+		t.Fatalf("partial lost through the vision path: %q", te.Partial)
+	}
+}
+
 // The refactor moved GenerateText onto the shared generate path — this pins
 // that a plain text call still sends STRING content (not a one-element block
 // array), so no wire behaviour changed for every existing caller.
