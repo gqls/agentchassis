@@ -1,5 +1,36 @@
 # HANDOFF C (2026-07-30) — the home page paints the provocation the gauntlet page is built to hide
 
+> # ✅ RESOLVED 2026-07-31, RE-VERIFIED LIVE 2026-08-03 — do NOT start a fresh thread
+>
+> **The owner chose option 3** (home paints a PAST provocation as its sample) and it
+> shipped the same day, as a **renderer-level invariant** — not the data-level seal
+> this file's first draft proposed, which would have served every round an empty
+> question. The design, the delivery order and the two false positives my own
+> instrument produced against itself are in `NOTES_gauntlet_dead_cta.md`, 2026-07-31.
+>
+> **Re-verified 2026-08-03 against the live site**, because a green sweep on the day
+> of the fix only proves the day of the fix:
+> - `scripts/provocation_leak_sweep.py` — **0 of 20 pages** paint today's provocation
+>   (`nobody-wants-personalised-internet`), all three original leak surfaces included.
+> - **The negative was proven non-vacuous.** On `/` the *sample* provocation
+>   (`ai-never-funny-on-purpose`) **is** painted — headline and body — read through
+>   the same `innerText` call that reports today's as absent. So the instrument can
+>   still see provocation text on the very page that used to leak; "sealed" is not
+>   "the card failed to render". Control script:
+>   `scratchpad/seal_positive_control.py` (run it before believing any future green).
+> - Engine contract intact: `today` still carries headline/body/slug/date, which is
+>   what `round.go FetchProvocation()` reads server-side.
+> - Served `snippets.js`: `data.sample` ×3, `data.seal` ×2, and the four
+>   `today.headline`/`today.body` hits are all inside the explanatory comment block —
+>   **grep the context, not the count**, or the seal's own documentation reads as the
+>   leak it describes.
+>
+> **The one item this file left open is now ANSWERED** — see "not a clean bill" below.
+>
+> Everything past this banner is the ORIGINAL 2026-07-30 text plus its 07-31
+> corrections, kept because the wrong turns are the point. **Read the decision
+> section as history: the choice has been made.**
+
 **Start a fresh thread on this.** Small, sharp, and it silently defeats a feature
 that took a day to build. Owner-raised 2026-07-30: *"while the provocation is
 hidden on the gauntlet page it is visible on the home page."* **Confirmed by
@@ -162,3 +193,45 @@ understanding where it came from.**
 The owner has chosen; a first-time visitor arriving at `/` cannot read today's
 provocation body before entering the Gauntlet (or the seal has been explicitly
 retired as a feature); verified by rendering both pages, not by reading HTML.
+
+> **MET 2026-07-31, re-verified 2026-08-03 — see the banner at the top of this file.**
+> All three clauses: owner chose option 3; 0 of 20 pages paint today's provocation;
+> verified by rendering, with a positive control proving the renderer was working.
+
+## "Not a clean bill" — ANSWERED 2026-08-03: the ROW is wrong, not the file
+
+Every sweep of this site exits **2, not 0**, and will keep doing so. One page is
+UNSCORED: `/blog/provocation.html` is `status='active'` in `pages` but **404s live**.
+The 07-31 NOTES recorded it as unrelated and pre-existing, and left the question
+open: *is the row wrong or is the file missing?*
+
+**It is the row, and one query settles it.** Grouping every active vonc page by its
+component count and deploy state:
+
+```sql
+SELECT p.url, p.deployed_at IS NULL AS never_deployed, count(pc.id) AS components
+FROM pages p LEFT JOIN page_components pc ON pc.page_id = p.id
+WHERE p.site_id='9ec3b9ee-5b08-461b-b4f8-9e1e03579c74' AND p.status='active'
+GROUP BY p.url, p.deployed_at ORDER BY never_deployed DESC, p.url;
+```
+
+`/blog/provocation.html` is the **only** one of 19 with `components = 0`, and the
+**only** one with `deployed_at IS NULL`. Created 2026-06-22 17:13:08 with the rest of
+the initial site plan and `updated_at` **never moved since** — the other 18 all have
+≥1 component and a deploy timestamp. So there is no lost file to restore: the page
+was planned, never built, and nothing could ever have been published at that path.
+
+**Deliberately NOT fixed here, and the reason is not timidity.** Flipping `status`
+is a live write to a production site's page inventory, and `status` semantics are
+not obvious from this distance — `bugs_open/098` is open on exactly the neighbouring
+question (archiving does not undeploy), so "just set it to archived" is the kind of
+one-line change that turns out to mean something else. It belongs to whoever owns
+vonc's page inventory, with the evidence above rather than a fresh investigation.
+
+**Until then, read a sweep exit code correctly:** `0` = every page scored and clean,
+`1` = a real leak, `2` = incomplete. This site returns **2 with zero leaks**, and the
+script says so in prose. Do not "fix" that by dropping the page from the list — the
+whole point of the unscored bucket is that a capped sweep must not report clean.
+**And note `$?` after `| tail` is the exit code of `tail`** — I read `EXIT=0` off a
+pipeline on the first run here, which was true of `tail` and told me nothing about
+the sweep. Run it unpiped, or `${PIPESTATUS[0]}`.

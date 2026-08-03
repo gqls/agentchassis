@@ -1508,3 +1508,58 @@ no work. So the end state is exactly what we wanted: the machinery is live in
 production, inert, and waiting on the owning team's decision. Nothing on this thread
 is owed any more — if duplicate-content work items ever start appearing, that means
 the other team turned it on, and their notes are the place to start reading.
+
+---
+
+**Monday 3 August — I was sent to fix something that was already fixed, and that is
+the finding worth your attention.**
+
+I was handed one file to start from: the handoff about the home page giving away the
+sealed provocation. That page was fixed on the 31st — you chose the option where the
+home page shows a *past* provocation as its sample, and it went live the same day.
+But the handoff still read like live work. It opened with "start a fresh thread on
+this" and ended by asking you to choose between three options you had already chosen
+between. Nothing in the file said it was done.
+
+That is a small thing that costs a lot. A handoff is written for someone with no
+context, which is exactly the person who cannot tell it is out of date. Everything
+else in the lane knew — the technical notes, the memory index, even the file's own
+commit history — but none of that reaches somebody who was pointed at the handoff and
+read it from the top. I have put a clear "resolved" banner at the top of it and left
+the original text below, because the wrong turns in it are still worth reading. The
+rule I would draw from it: **when a job lands, close the file that asked for it
+first**, before writing up anything else.
+
+Then I checked the fix is still working, rather than taking the record's word for it.
+It is. Every one of the site's twenty pages was loaded in a real browser and none of
+them shows today's provocation.
+
+I also did something the original check did not, and I think it matters. Proving a
+thing is *absent* is a weak test, because a page that failed to load looks exactly
+like a page that is correctly hiding something. So the check now also proves the
+*sample* provocation is visible on the home page, in the same read of the same page.
+That makes the absence mean something: the instrument was demonstrably working when
+it found nothing. I have left that as a script in the lane so anyone can re-run it
+before believing a clean result.
+
+Two smaller things. First, the one page that has always made these sweeps report
+"not a clean bill" — a blog page that the database says is live but which returns a
+404 — I have now diagnosed rather than left as a question. It is the database record
+that is wrong, not a missing file: the page was planned back in June, never actually
+built, and has no content in it at all. It is the only one of the nineteen in that
+state. I have deliberately not changed it, because that means writing to a live
+site's page list and there is an open bug next door about exactly what those status
+values do. It should be a two-minute job for whoever owns that site's page list, and
+the evidence is now written down for them.
+
+Second, and unrelated to any of this: the machine's temporary disk is completely
+full. Sixteen gigabytes, all of it used, and about fifteen of those are Claude
+session working directories — a dozen or so sessions each holding a full copy of the
+repository, several of them from today. It has already caused one command of mine to
+fail in a way that looks like the command produced no output rather than like a disk
+problem, which is a nasty way to be wrong. I have not deleted anybody's directory:
+several of those sessions look live, there is no way to tell a dead one from a
+working one from the outside, and unlike the repository there is no safety net if I
+get it wrong. The main disk has 234 gigabytes free, so pointing the scratch
+directories there would end the whole class of problem. Flagging it rather than
+acting on it.

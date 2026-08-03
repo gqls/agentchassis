@@ -3540,3 +3540,80 @@ of any duplication type. Code live, mechanism off.
 
 Handoff §7 appended with the full record; §0 superseded-note added. Nothing here
 remains owed except watching for the brochure lane's enable decision.
+
+---
+
+**2026-08-03 — HANDOFF C re-verified live, and its one open question answered.**
+
+Picked up as a cold start: the session was handed
+`HANDOFF_2026-07-30_C_the_home_page_gives_away_the_sealed_provocation.md` and
+nothing else. **That file still opened with "Start a fresh thread on this" and a
+three-option decision to put to the owner — three days after the owner had chosen
+and the fix had shipped.** Nothing in it said so. A resolution banner is now at the
+top; the original text and its 07-31 corrections are untouched below it.
+
+**The lesson is about handoff hygiene, not about the seal.** A handoff is written
+to be found by someone with no context, which is exactly the reader least able to
+tell that it is stale. The lane's own NOTES recorded the fix, the workstream memory
+line recorded it, and `git log` on the file showed the fix commit touching it — and
+none of those help a thread that was pointed at the handoff itself and read it
+top-down. **When work lands, the file that ASKED for it is the first thing to close,
+before the NOTES entry**, because it is the one with a stranger as its audience.
+
+**Re-verification, because a green sweep dates from the day it was run:**
+
+- `scripts/provocation_leak_sweep.py` against the live site: **0 of 20 pages** paint
+  today's provocation (slug `nobody-wants-personalised-internet`, 26 Jul). All three
+  original leak surfaces (`/`, `/index.html`, `/tools/arena/index.html`) clean.
+- Feed contract intact: `today` still carries headline (55 chars) / body (326) /
+  slug / date, so `round.go FetchProvocation()` still has a question to serve. The
+  cross-check the seal needs in the other direction also holds — neither today's
+  headline nor its body appears anywhere in the feed OUTSIDE `today`.
+- Served `snippets.js`: `data.sample` ×3, `data.seal` ×2.
+
+**A green negative is worth nothing without a positive control, so I built one.**
+`scripts/seal_positive_control.py` reads `/` once and asserts BOTH directions from
+that single `innerText`: today's provocation MUST be absent, and the **sample**
+provocation (`ai-never-funny-on-purpose`, 5 Jul) MUST be painted. It passed — the
+sample's headline and body are both on the page. That is what makes the absence
+evidence: the same instrument, on the same page, in the same run, can still see
+provocation text. Without it, a card that failed to render, a broken fetch and a
+working seal are three states with one appearance. The script exits 2 (UNSCORED,
+not PASS) if the sample is missing, for that reason.
+
+**A trap I walked into while checking the served bundle.** I greped `snippets.js`
+for `today.headline`/`today.body` as negative controls, expecting 0, and got **2
+each**. That reads as the leak still being live. All four hits are inside the
+seal's own explanatory comment block — the comment explaining why the card no
+longer paints those keys names them to do so. **The 07-31 record's control was
+`t.headline` (the minified local), which is 0 and is the right probe; `today.*` is
+the wrong one.** Generalised: a fix that documents itself plants its own false
+positive, and a count cannot tell code from prose — print the context.
+
+**`$?` after a pipe is the pipe's exit code.** I ran the sweep through `tail` and
+read `EXIT=0` as "clean bill". It was `tail`'s status. The sweep actually exits 2
+here, deliberately, and says so in prose I had just read.
+
+**`/blog/provocation.html` — the "not a clean bill" page — is a wrong ROW, not a
+missing file.** Recorded open on 07-31 as "wants a check of whether the row or the
+file is wrong". One grouping query answers it: of 19 active vonc pages it is the
+only one with **0 page_components** and the only one with **`deployed_at IS NULL`**,
+created 2026-06-22 with the initial site plan and `updated_at` never moved since.
+Planned, never built — nothing was ever published at that path and nothing is lost.
+Left unfixed on purpose: changing `status` is a live write to a production page
+inventory and `bugs_open/098` is open on the adjacent semantics, so it belongs to
+whoever owns vonc's inventory, now with the evidence rather than the question.
+Query and reasoning are in HANDOFF C's new closing section.
+
+**Unrelated, and it is biting every session on this box:** `/tmp` is a 16 GB tmpfs
+at **100% full**, 15 GB of it under `/tmp/claude-1000/-home-ant-projects-agentchassis/`
+— roughly a dozen session scratchpads each holding a ~450 MB `git archive`
+extraction of the repo, several written today. It already killed one `psql` call
+here with ENOSPC on the harness's own stdout capture, which surfaces as a lost
+command output rather than as a disk error. I did **not** delete any of them: dir
+mtime lies (the 3.5 GB one shows 08-02 at the top level and 08-03 11:32 inside), so
+a dead session and a live one are not distinguishable from outside, and a
+scratchpad has no git safety net — the same unrecoverable class as the memory-dir
+clobber that put the snapshot hook in CLAUDE.md. Small outputs still work. Flagged
+for the owner; the real disk has 234 GB free, so `CLAUDE_CODE_TMPDIR` on `/home`
+would end the class.
