@@ -106,6 +106,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 QUERY = """
 SELECT jsonb_agg(jsonb_build_object(
@@ -300,20 +301,41 @@ def load(path):
         with open(path) as fh:
             return json.load(fh)
     argv, env = psql_argv()
-    try:
-        out = subprocess.run(argv + [QUERY], capture_output=True, text=True,
-                             timeout=120, env=env)
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        print("could not reach the database: %s" % exc, file=sys.stderr)
-        sys.exit(2)
-    if out.returncode != 0:
-        print("could not reach the database: %s" % out.stderr.strip(), file=sys.stderr)
-        sys.exit(2)
-    body = out.stdout.strip()
-    if not body:
-        print("no active components returned — is this the right database?", file=sys.stderr)
-        sys.exit(2)
-    return json.loads(body)
+    # The ~2 MB whole-library fetch streams through `kubectl exec` and truncates
+    # intermittently ("Copying stdout failed: unexpected EOF" — twice in one
+    # session, 2026-08-03). Usually that surfaces as a non-zero exit, but a cut
+    # stream can also arrive rc=0 and fail json.loads, so both retry. Three
+    # attempts with backoff; the final failure still exits 2 — a flake, never a
+    # pass.
+    last = None
+    for attempt in range(3):
+        if attempt:
+            print("fetch attempt %d/3 after: %s" % (attempt + 1, last), file=sys.stderr)
+            time.sleep(3 * attempt)
+        try:
+            out = subprocess.run(argv + [QUERY], capture_output=True, text=True,
+                                 timeout=120, env=env)
+        except FileNotFoundError as exc:
+            print("could not reach the database: %s" % exc, file=sys.stderr)
+            sys.exit(2)          # no client binary at all — a retry cannot help
+        except subprocess.TimeoutExpired as exc:
+            last = "timeout: %s" % exc
+            continue
+        if out.returncode != 0:
+            last = out.stderr.strip() or ("exit %d" % out.returncode)
+            continue
+        body = out.stdout.strip()
+        if not body:
+            last = "empty result — truncated stream, or the wrong database?"
+            continue
+        try:
+            return json.loads(body)
+        except ValueError as exc:
+            last = "invalid JSON (truncated stream?): %s" % exc
+            continue
+    print("could not fetch the component library after 3 attempts: %s" % last,
+          file=sys.stderr)
+    sys.exit(2)
 
 
 def write_doc_note(body):
