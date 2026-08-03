@@ -47,7 +47,63 @@ sys.path.insert(0, LANE)
 
 from toolgolden import Runner, VECTORS, numeric_diff  # noqa: E402
 
-SITE_SRC = os.path.expanduser("~/projects/sites/loancalculator.co.uk")
+SITES_REPO = os.path.expanduser("~/projects/sites")
+SITE_SUBDIR = "loancalculator.co.uk"
+
+# THE HAND-BUILT ORIGINAL, PINNED — and it has to be pinned, because the obvious
+# thing (read the working tree) EXPIRED UNDER THIS HARNESS on 2026-08-03.
+#
+# This whole file rests on one premise: take the REAL page byte-for-byte, cut the
+# original widget out, splice the component in, and compare. `~/projects/sites` is
+# the checkout the PLATFORM'S OWN DEPLOYS commit re-rendered pages back into
+# ("Rerender: tools/standard-calc.html"). So every page this lane successfully
+# decomposes replaces its own baseline, and once someone pulls, the original is
+# gone from the working tree for ever.
+#
+# It went unnoticed for a day only because this checkout sat on a stale commit:
+# runs earlier on 2026-08-03 were still reading 2026-08-01 content and were valid.
+# Another session ran `git pull --rebase` at 10:19 and the next run failed.
+#
+# ⚠ IT FAILED LOUDLY ONLY BECAUSE OF THE exactly-once CUT RULE. `standard-calc`
+# reported "opening-div regex matched 0 times" — the cut patterns are anchored on
+# ORIGINAL markup that an assembled page no longer has. With looser patterns this
+# would have spliced the component into a page that ALREADY CONTAINS IT and
+# compared the rewrite against itself, passing while proving nothing. The
+# strictness that was written to catch a mis-typed regex caught a moved baseline.
+#
+# b4302e22b is "repair the site before adopting it into the platform" (2026-07-30)
+# — the hand-built site as adopted, and what GOLDEN_2026-07-31c was captured from.
+# Verified identical to 803bf68c3 (the last pre-pull commit these runs actually
+# used) for every page and asset this harness touches.
+SITE_REF = os.environ.get("LOANCALC_SITE_REF", "b4302e22b")
+
+
+def export_site(dest):
+    """Materialise the pinned hand-built site into `dest`.
+
+    `git archive` rather than a working-tree copy, for the reason above: the
+    working tree is downstream of this platform's deploys and stops being the
+    original the moment a page re-renders.
+    """
+    os.makedirs(dest, exist_ok=True)
+    tar = subprocess.run(
+        ["git", "archive", SITE_REF, SITE_SUBDIR],
+        capture_output=True, cwd=SITES_REPO)
+    if tar.returncode != 0:
+        raise RuntimeError("git archive %s failed in %s: %s"
+                           % (SITE_REF, SITES_REPO, tar.stderr.decode()[:300]))
+    extract = subprocess.run(["tar", "-x", "-C", dest], input=tar.stdout,
+                             capture_output=True)
+    if extract.returncode != 0:
+        raise RuntimeError("tar extract failed: %s" % extract.stderr.decode()[:300])
+    return os.path.join(dest, SITE_SUBDIR)
+
+
+# Exported once per process, into a temp dir. SITE_SRC stays an ordinary path
+# string, because `defect_vectors.py` and others import it and do os.path.join on
+# it — a lazily-resolving str subclass would join as its literal value, not its
+# __str__, and would silently produce paths under the wrong root.
+SITE_SRC = export_site(tempfile.mkdtemp(prefix="loancalc-site-"))
 GOLDEN = os.path.join(LANE, "acceptance", "GOLDEN_2026-07-31c_tool_values.json")
 LIVE = "https://loancalculator.co.uk"
 
