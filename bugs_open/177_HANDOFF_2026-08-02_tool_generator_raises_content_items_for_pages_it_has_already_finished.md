@@ -133,3 +133,34 @@ failed at `validate_page_content` ("content validation failed: N blockers,
 M errors"). If `93f2a3b7` fails the same way, that is a separate defect in the
 crosslink path and should be filed as such — not re-diagnosed as a dependency
 problem.
+
+---
+
+## UPDATE 2026-08-03 (154 lane session) — a 090 run is IN FLIGHT for this bug; do not fire another
+
+- This session, continuing the 154 lane whose handoff listed 177 as "unstarted",
+  dispatched a 090 diagnosis at ~10:47Z: intake
+  `needs_diagnosis:177-tool-content-item-unsatisfiable-at-birth`, **RUN
+  correlation `da59941f-8d16-4c3a-9812-e9f76064de28`** (artifacts key). Minutes
+  later the untracked `bugfix_177_tool_content_items/` PLAN (11:41 BST)
+  surfaced: the lane had been taken concurrently, and neither session could see
+  the other — who-owns reads commits, the trigger's probes read
+  `site_work_items`, and the new lane had touched neither. The misstep and its
+  check are in `WRONG_CALLS.md` (2026-08-03, "177 is unstarted").
+- **Do not dispatch a second 090** — the in-flight intake's seed_scope covers
+  `create_tool_component_action.go` + `deploy_tool_action.go`, so the trigger's
+  coverage probe will refuse anyway. Find the verdict under the run correlation
+  above (`diagnosis_artifacts`, `doc_notes`).
+- **Read the verdict against this caveat:** the dispatched symptom wrongly
+  attributes the empty `sections` declaration to BOTH emit paths. The 177
+  lane's sharper finding (deploy path declares 4 sections at
+  `deploy_tool_action.go:343-346`; every dead item is create-path) supersedes
+  that framing — a verdict refuting the both-paths claim refutes the SYMPTOM's
+  framing, not the lane's diagnosis. What the run is still good for: the
+  2026-07-31 owner ruling asks for a loop pass over a first-hand-verified
+  structural root cause (the 155 precedent), and this is that pass.
+- One observation for the close-out, found during the quick look:
+  `spec.content_guidance` is written by all four tool emit sites and read by
+  NO handler on the work-item path — its only reader
+  (`apply_gap_plan_action.go:178`) takes it from a gap plan, not from an item
+  spec. It is dead weight even on satisfiable items.

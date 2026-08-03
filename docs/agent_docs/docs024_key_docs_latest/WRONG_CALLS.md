@@ -18048,3 +18048,34 @@ has TWO causes"; this is the same shape one layer down, in `strings`.
 diagnose, offered an innocent reading, and routed it to the owning lane — which is exactly
 right, and is why it took twenty minutes to resolve instead of festering. The defect is in
 the probe, not the practice.
+
+## 2026-08-03 — "177 is unstarted", from a handoff hours old, and a 090 fired at a bug another session was four minutes into
+
+**The claim.** The 154 lane's handoff listed `bugs_open/177` as unstarted in its priority
+queue. Continuing that lane, I quick-looked the mechanism, authored a symptom, and
+dispatched a 090 diagnosis (run corr `da59941f`). Before dispatch I checked the diagnosis
+queue, the refusal queue, `/bugs_open/`, and the trigger ran its own coverage probes — all
+clear, so I read "clear" as "unowned".
+
+**What was true.** Session "bugfix 182" had opened `bugfix_177_tool_content_items/` at
+11:41 BST, about four minutes before my dispatch, with a PLAN already carrying a sharper,
+verified diagnosis than my symptom (the deploy path declares sections; every dead item is
+create-path). Untracked files: invisible to `who-owns.py` (reads COMMITS) and to every
+probe the trigger runs (reads `site_work_items`).
+
+**What caught it.** `who-owns.py`, run only AFTER the dispatch, listed the new directory's
+PLAN by name — the file had appeared in the tree between my two looks.
+
+**The cheap check that would have.** Already in the memory index, verbatim: *"EVERY
+ownership check is LAGGING — grep live `.jsonl` transcripts."* The 177 lane itself ran
+exactly that check at its own start — symbol grep over 34 live transcripts — and yielded
+off bug 182 because of it. I had the same practice loaded and applied it to nothing: I
+checked four lagging surfaces and no live one. Second ledger appearance for this check in
+one day (the 177 lane's yield-at-182 was the first, in their NOTES); it is a candidate for
+the 090 trigger's own coverage probe, which today cannot see an uncommitted session.
+
+**Cost, and the offset.** One diagnosis run's credits on a mechanism the owning lane had
+already verified — softened, not excused, by the 2026-07-31 ruling wanting a loop pass
+over exactly that kind of first-hand-verified root cause (the 155 precedent). The run was
+left to complete for that reason, with the symptom's known framing error recorded in
+`bugs_open/177` so the verdict gets read with the right lens.

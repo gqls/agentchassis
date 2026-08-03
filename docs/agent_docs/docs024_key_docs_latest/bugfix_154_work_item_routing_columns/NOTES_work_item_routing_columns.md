@@ -1015,3 +1015,29 @@ intake corr `0c4b57be`, **RUN corr `aece2920-f85a-46e2-a53f-235a4b6e9ab1`**
 `save_page_sections_action.go`; subject `pipeline/page-build-handler`;
 runtime site robot-hands.com. Verdict pending — capture evidence promptly,
 `orchestration_states` retention is ~24h.
+
+---
+
+## 2026-08-03 — 177: dispatched a 090 into a lane that had JUST been taken (misstep, recorded)
+
+While 178's run iterated, took handoff item 3 (177, listed "unstarted"). Quick
+look verified the two emit sites, `sections=[]` on the traced page, and that
+`content_guidance` is written four times and read by nobody on the work-item
+path. Dispatched 090: intake `2e566eb2`, RUN corr
+`da59941f-8d16-4c3a-9812-e9f76064de28`.
+
+**who-owns run AFTER dispatch surfaced `bugfix_177_tool_content_items/`** —
+PLAN created 11:41 BST, ~4 minutes before my dispatch, untracked, so invisible
+to who-owns (reads commits) and to the trigger's probes (reads
+`site_work_items`). The owning lane is further along than my quick look: the
+deploy path DECLARES four sections (`deploy_tool_action.go:343-346`), every
+dead item is create-path, and the plan-sections edge case is measured. **My
+symptom's both-paths framing is wrong on the deploy path** — caveat recorded
+in `bugs_open/177` so the verdict is read with the right lens.
+
+Run left to complete deliberately: the 07-31 ruling wants a loop pass over a
+first-hand-verified structural root cause (155 precedent), and this is that
+pass for their PLAN's claim. NOT fixing 177 here — contribution routed into
+the bug file per who-owns. The check the misstep earns (transcript grep BEFORE
+a 090 dispatch, not after; three lagging surfaces are not one live one) is in
+`WRONG_CALLS.md` 2026-08-03.
