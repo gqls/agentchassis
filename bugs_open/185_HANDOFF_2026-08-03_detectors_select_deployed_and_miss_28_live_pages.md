@@ -446,3 +446,51 @@ for the orphan row of the same table, two rows up, in the same session. A both-w
 of a check's *eligibility clause* predicts what the check can SEE, never what it FILES;
 every gate after eligibility must be either modeled or named as unmodeled. WRONG_CALLS
 carries the tally entry.
+
+
+---
+
+# TRANCHE 3 DONE 2026-08-03 — `realisedPageIsBuilt` becomes `realisedPageHasShipped`, and the lockstep comment it carried was wrong
+
+**Go:** the planner's empty-page gate (`v3_site_actions.go`) now reads `has_shipped` from
+the realised row, falling back to the old `build_status == "deployed"` test when the
+column is absent — the either-order deployment contract migration 173 established for
+`build_status` itself. Renamed, because the callers' question was never "is it built";
+it is "has this page been SERVED, so its emptiness is authoritative?"
+
+**Config:** migration **302** (applied by hand + `--record-only` same minute, per the
+ledger landmine; snapshot `f263eaa1`) surfaces
+`NOT (deployed_at IS NULL AND COALESCE(build_status,'') <> 'deployed') AS has_shipped`
+in `build-site-planner`'s `load_existing_pages` query. **content-gap-planner is NOT
+migrated, checked rather than assumed:** its same-named step is a Go action whose config
+is `{"site_id": ...}` — no query key, and it does not feed `reconcilePlanWithRealised`.
+
+**The lockstep claim, corrected rather than obeyed.** The old function's comment said it
+"mirrors decideEmit's skip_built test … keep the two in step". That coupling was wrong:
+`decideEmit` asks *does this page need a BUILD item* — a `needs_rebuild` page must answer
+`not_built` there, so `decideEmit` correctly stays narrow and is untouched. One spelling,
+two questions — the same trap as this whole bug, living in a comment that ordered the
+reader to preserve it.
+
+**The 037 test is the design's own proof, unchanged.** `dartsonline/brands-index`
+(needs_rebuild, never shipped, 0 sections) must stay composable — and does: the live
+query computes `has_shipped = f` for it (verified against production post-migration).
+The naive status widening that test has always warned about is still wrong; the
+`deployed_at`-keyed widening is what separates brands-index from a page that SERVED
+empty. New paired test `TestReconcile_ShippedNeedsRebuildEmptyPageIsGated` covers the
+other side: same status, opposite `has_shipped`, opposite outcome.
+
+**Mutations, all compiling, all red:** fallback deleted → the either-order contract
+cases fail; naive status widening → the 037 test itself fails; gate reads the column
+but never honours TRUE → both new tests fail. (One earlier mutation failed to COMPILE
+and was redone — a compile error is not a mutation result.)
+
+**Exposure, stated honestly:** the loader filters `p.status='active'` and the single
+row in the wild is archived — so live exposure through these callers today is **zero**,
+and this tranche is purely prospective. It exists because the hole reopens the moment
+any active shipped page goes sectionless awaiting rebuild, and because the wrong
+lockstep comment would have steered the next reader into widening `decideEmit` too.
+
+**With this, all three tranches are done.** Remaining open in this file: the
+`tool-archetype-taster-quiz` subject-key mismatch (1 row, tool-acceptance lane's),
+and fix candidate 2 (merging the two liveness constants), both recorded above.

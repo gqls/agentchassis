@@ -2639,7 +2639,7 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 			origin_prompt = COALESCE(EXCLUDED.origin_prompt, assets.origin_prompt),
 			origin_model = COALESCE(EXCLUDED.origin_model, assets.origin_model),
 			updated_at = NOW()
-		WHERE `+assetAgentWritableSQL("assets.")+`
+		WHERE ` + assetAgentWritableSQL("assets.") + `
 		RETURNING id
 	`
 
@@ -4904,7 +4904,7 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 // to pick up). So letting a re-plan take the LLM's composition for a
 // needs_rebuild page was silent loss, not an honoured redesign request. This
 // widens only MEMBERSHIP of the preserved set (realisedPageCompositionIsPreserved);
-// the empty-sections classification in Pass B/B2 still keys on realisedPageIsBuilt
+// the empty-sections classification in Pass B/B2 still keys on realisedPageHasShipped
 // (== deployed), because a needs_rebuild page with empty sections may be either
 // rendered-elsewhere OR genuinely awaiting composition, which Pass B2's non-empty
 // gate already routes correctly (see bugs_open/050 for the deployed-empty case).
@@ -5085,7 +5085,7 @@ func reconcilePlanWithRealised(
 		if rp, ok := realisedByURL[lurl]; ok {
 			if rname, _ := rp["name"].(string); rname != "" && rname != lname {
 				snapped := normaliseRealisedToPlanPage(rp)
-				if !realisedPageIsBuilt(rp) && len(realisedSectionsOf(rp)) == 0 {
+				if !realisedPageHasShipped(rp) && len(realisedSectionsOf(rp)) == 0 {
 					if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
 						snapped["sections"] = ls
 					}
@@ -5118,7 +5118,7 @@ func reconcilePlanWithRealised(
 					lm["sections"] = rs
 					snappedSections++
 				}
-			} else if realisedPageIsBuilt(rp) {
+			} else if realisedPageHasShipped(rp) {
 				if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
 					logger.Info("validate: forced deployed sectionless page back to empty",
 						zap.String("page", lname),
@@ -5158,16 +5158,42 @@ func reconcilePlanWithRealised(
 	return kept, unioned, droppedCollision, snappedRename, snappedSections
 }
 
-// realisedPageIsBuilt reports whether a realised pages-table row (as returned by
-// the load_existing_pages query) represents a page that is actually built and
-// deployed. Mirrors decideEmit's "skip_built" test in
-// reconcile_site_plan_action.go — build_status='deployed' is the platform's
-// single definition of "built", so keep the two in step.
+// realisedPageHasShipped reports whether a realised pages-table row (as
+// returned by the load_existing_pages query) has ever been SERVED — which is
+// the question both callers actually ask: "is this page's emptiness
+// authoritative?" A page that shipped sectionless renders through another
+// subsystem (a tool, a blog-index) and must not receive an injected generic
+// layout; a page that has never shipped is merely uncomposed.
 //
-// Returns false when build_status is absent, which is what makes the widened
-// preservation set degrade safely to the first-plan set on a chassis whose
-// load_existing_pages query has not yet been updated to surface the column.
-func realisedPageIsBuilt(rm map[string]interface{}) bool {
+// It reads `has_shipped`, surfaced by migration 302's load_existing_pages query
+// as NOT(datahelpers.NeverDeployedPagePredicate) — the estate's ONE definition
+// of "has been served" (bugs_open/185 tranche 3). It falls back to the old
+// build_status test when the column is absent, so the Go change and migration
+// 302 can land in either order (the same degradation contract migration 173
+// established for build_status itself).
+//
+// > **CORRECTED 2026-08-03 — this function (then `realisedPageIsBuilt`) claimed
+// > it "mirrors decideEmit's skip_built test … keep the two in step". That
+// > coupling was WRONG, and it is removed rather than obeyed.** The two share a
+// > spelling, not a question. decideEmit asks "does this page need a BUILD item
+// > emitted?" — a needs_rebuild page must answer not_built there, so decideEmit
+// > is CORRECT to test build_status != 'deployed' and must never widen. This
+// > function asks "has this page been served?", where build_status='deployed'
+// > misses a shipped needs_rebuild page still serving its previous artefact
+// > (bugs_closed/037's own population: 35 of 46 carry a deployed_at). One
+// > spelling, two questions — the same trap as bugs_open/185's detectors.
+//
+// It is deliberately DISTINCT from realisedPageCompositionIsPreserved below:
+// that is preservation MEMBERSHIP (deployed + needs_rebuild by status, because
+// their sections are their intended composition); this is the empty-page GATE.
+// TestReconcile_NeedsRebuildEmptyPageIsStillComposable pins the difference:
+// dartsonline's brands-index (needs_rebuild, never shipped, 0 sections) must
+// stay composable — and does, because its deployed_at is NULL, so has_shipped
+// is false. Only a needs_rebuild page that actually SERVED empty is gated.
+func realisedPageHasShipped(rm map[string]interface{}) bool {
+	if v, ok := rm["has_shipped"].(bool); ok {
+		return v
+	}
 	status, _ := rm["build_status"].(string)
 	return status == "deployed"
 }
@@ -5185,7 +5211,7 @@ func realisedPageIsBuilt(rm map[string]interface{}) bool {
 // defensive compat path — it is dead against the current query, costs nothing,
 // resolves a snapshot rollback of 194, and is what the reconcile tests exercise
 // (their fixtures set the old key). An absent flag degrades to false, matching
-// realisedPageIsBuilt's treatment of a missing column.
+// realisedPageHasShipped's treatment of a missing column.
 func noCurrentPlanFlag(rm map[string]interface{}) bool {
 	if v, _ := rm["site_has_no_current_plan"].(bool); v {
 		return true
@@ -5206,7 +5232,7 @@ func noCurrentPlanFlag(rm map[string]interface{}) bool {
 //	    the reconcilePlanWithRealised header for the enumeration of writers).
 //
 // This is the preservation-MEMBERSHIP predicate, used by reconcilePlanWithRealised
-// and the truncation guard. It is deliberately DISTINCT from realisedPageIsBuilt
+// and the truncation guard. It is deliberately DISTINCT from realisedPageHasShipped
 // (== deployed), which the empty-sections gate in Pass B/B2 keeps using: an empty
 // needs_rebuild page may be genuinely awaiting composition rather than rendered
 // elsewhere, so it must not be force-emptied. Pass B2's non-empty gate routes both

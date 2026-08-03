@@ -351,10 +351,22 @@ func TestReconcile_NeedsRebuildPageOmittedByLLMIsUnioned(t *testing.T) {
 // needs_rebuild, 0 sections, 0 components). Bringing needs_rebuild into the
 // preserved MEMBERSHIP set must NOT force such a page back to empty the way a
 // DEPLOYED sectionless page is (that would block its composition forever). This
-// passes only because the empty-gate stays keyed on realisedPageIsBuilt
-// (== deployed) while membership uses realisedPageCompositionIsPreserved; a naive
-// "widen realisedPageIsBuilt to include needs_rebuild" would fail it by
+// passes only because the empty-gate stays keyed on realisedPageHasShipped
+// while membership uses realisedPageCompositionIsPreserved; a naive
+// "widen the gate to include needs_rebuild by STATUS" would fail it by
 // force-emptying brands-index.
+//
+// UPDATED 2026-08-03 (bugs_open/185 tranche 3): the gate's predicate changed
+// from build_status=='deployed' to has_shipped (deployed_at-keyed, migration
+// 302), and THIS TEST STILL PASSES UNCHANGED — which is the point. brands-index
+// has deployed_at NULL, so has_shipped is false whichever way it is computed:
+// the row here carries no has_shipped key (exercising the fallback), and the
+// live query computes false for it. The naive status widening this comment has
+// always warned about remains wrong; the deployed_at widening is the one that
+// distinguishes brands-index (never served -> composable) from a page that
+// SERVED empty (authoritative -> gated). See TestRealisedPageHasShipped for the
+// per-case table, and TestReconcile_ShippedNeedsRebuildEmptyPageIsGated for the
+// other side of this coin.
 func TestReconcile_NeedsRebuildEmptyPageIsStillComposable(t *testing.T) {
 	existing := []interface{}{
 		realised("index", "/index.html", "deployed", `["hero","features"]`, false),
@@ -370,6 +382,66 @@ func TestReconcile_NeedsRebuildEmptyPageIsStillComposable(t *testing.T) {
 	want := []string{"category-listing"}
 	if s := sectionsOf(t, got, "brands-index"); !equalStrings(s, want) {
 		t.Errorf("needs_rebuild empty page sections = %v, want %v (composition blocked or force-emptied)", s, want)
+	}
+}
+
+// TestRealisedPageHasShipped pins the empty-page gate's predicate, including
+// the two halves that MUST disagree with each other for bugs_open/185 tranche 3
+// to mean anything: a shipped needs_rebuild row (has_shipped true) is gated; a
+// never-shipped needs_rebuild row (has_shipped false, or no key + fallback) is
+// not. The fallback rows are the either-order deployment contract with
+// migration 302 — delete the fallback and they fail.
+func TestRealisedPageHasShipped(t *testing.T) {
+	cases := []struct {
+		name string
+		row  map[string]interface{}
+		want bool
+	}{
+		{"shipped needs_rebuild (the 185 case)",
+			map[string]interface{}{"build_status": "needs_rebuild", "has_shipped": true}, true},
+		{"never-shipped needs_rebuild (brands-index)",
+			map[string]interface{}{"build_status": "needs_rebuild", "has_shipped": false}, false},
+		{"deployed with the column",
+			map[string]interface{}{"build_status": "deployed", "has_shipped": true}, true},
+		{"fallback: deployed, no column (old config)",
+			map[string]interface{}{"build_status": "deployed"}, true},
+		{"fallback: needs_rebuild, no column — old behaviour preserved",
+			map[string]interface{}{"build_status": "needs_rebuild"}, false},
+		{"fallback: empty row",
+			map[string]interface{}{}, false},
+		{"has_shipped wins over build_status, both directions",
+			map[string]interface{}{"build_status": "deployed", "has_shipped": false}, false},
+	}
+	for _, c := range cases {
+		if got := realisedPageHasShipped(c.row); got != c.want {
+			t.Errorf("%s: realisedPageHasShipped(%v) = %v, want %v", c.name, c.row, got, c.want)
+		}
+	}
+}
+
+// TestReconcile_ShippedNeedsRebuildEmptyPageIsGated is the other side of
+// TestReconcile_NeedsRebuildEmptyPageIsStillComposable, and the pair is the
+// whole design: same build_status, opposite has_shipped, opposite outcomes.
+// A needs_rebuild page that SERVED sectionless (robot-hands
+// learning-center-article's shape) renders through another subsystem; letting
+// the planner inject a generic layout into it is content corruption on a live
+// page. With has_shipped surfaced, the gate forces the proposal back to empty.
+func TestReconcile_ShippedNeedsRebuildEmptyPageIsGated(t *testing.T) {
+	shipped := realised("learning-center", "/learning-center.html", "needs_rebuild", `[]`, false)
+	shipped["has_shipped"] = true
+	existing := []interface{}{
+		realised("index", "/index.html", "deployed", `["hero","features"]`, false),
+		shipped,
+	}
+	llm := []interface{}{
+		llmPage("index", "/index.html", "hero", "features"),
+		llmPage("learning-center", "/learning-center.html", "content-block"),
+	}
+
+	got, _, _, _, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if s := sectionsOf(t, got, "learning-center"); len(s) != 0 {
+		t.Errorf("shipped sectionless page received an injected layout %v — its emptiness is authoritative", s)
 	}
 }
 
