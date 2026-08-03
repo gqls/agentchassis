@@ -325,3 +325,76 @@ it*. That is right, and it is the same shape as `bugs_closed/124`. Filed as
 **`architecture_review/RFC_011_a_fleet_wide_execution_deadline_on_the_step_seam.md`**
 with three costed options. Per the 2026-07-28 ruling, a scope objection is not answered
 by better measurements — so nothing here was resubmitted.
+
+---
+
+# CLOSED 2026-08-03 — part A fixed, LIVE, and INDUCED in production
+
+Both parts are now fixed and live. Part B: `sql_for_agents/284` + `bugs_closed/176`
+(session "bugfix 19"). Part A: below.
+
+## Live on both replicas
+
+Pod-grepped the running binary, both replicas, added strings plus a control in the
+same exec (a roll is not evidence — `bugs_open/153`):
+
+| string | 76j4g | njx2r |
+|---|---|---|
+| `local_action_timeout_seconds` (added) | 1 | 1 |
+| `DISABLE_LOCAL_ACTION_TIMEOUT` (added) | 1 | 1 |
+| `Executing local action` (control) | 3 | 3 |
+
+**No negative control was available** and none was invented: this change removed no
+string literal, so there is nothing that should now read 0. Stated rather than faked.
+
+## INDUCED — the guard fired in production, not just in tests
+
+A deadline that has only ever passed is not a proven deadline. So it was made to fire
+against a real agent, on the smallest, most reversible surface available:
+`endpoint-health-checker` (two steps, ticks every 60s, a missed tick self-heals on the
+next one). Snapshot first, `local_action_timeout_seconds: 0.001` on `check_health`,
+one tick, revert.
+
+Orchestration `4433e0e6`, `status = FAILED`, `current_step = check_health`:
+
+```
+step check_health failed: failed to execute action check_endpoint_health:
+local action "check_endpoint_health" on step "" exceeded its deadline after 0s
+(set "local_action_timeout_seconds" on the step to change it, or <=0 to disable):
+query endpoints: context deadline exceeded
+```
+
+Everything the design intended, confirmed at once:
+- the deadline fired;
+- **the context reached inside the action** — `query endpoints: context deadline
+  exceeded` is the action's own DB call being cancelled, which is the whole premise of
+  choosing a ctx deadline over goroutine-abandonment;
+- the orchestration **FAILED cleanly** instead of parking at `EXECUTING_STEP`;
+- the error names the action, the config key, and how to change it.
+
+Reverted at 09:03:55 UTC; the next tick `COMPLETED` normally. The induction key is gone
+(asserted by a `DO`/`RAISE` in the same transaction, not by eyeballing).
+
+## What the induction caught that no test could
+
+The error said **`on step ""`**. `models.Step.Name` is not populated on the live
+coordinator path — the coordinator's own pre-existing log line at `:1325` has the same
+hole — while `state.CurrentStep` was `check_health` throughout. Every unit fixture sets
+`Name`, so no test could ever have found it, and a timeout that will not say which step
+timed out defeats the diagnosability the wrapper exists for.
+
+Fixed in `893cb6483`: `localActionContext` now takes the resolved step name as a
+**required argument**, so it cannot silently read an empty field again, and the
+regression test pins the signature rather than a value. Elapsed now rounds to
+milliseconds below a second (the induced failure read "after 0s"). **That refinement is
+itself inert until the next roll — it is the error message, not the bound.** The bound
+is live and proven, which is what closes this.
+
+## Owed to nobody, but recorded
+
+`architecture_review/RFC_011_a_fleet_wide_execution_deadline_on_the_step_seam.md` is
+open for an owner decision on the *seam* — whether the coordinator should impose an
+execution deadline on every local action by default. Council `2c6800e6` APPROVED the
+change; the `architecture` seat's scope objection was upheld and routed there rather
+than rebutted. **That RFC is not a residual of this bug** — the bug is fixed either way;
+the RFC decides whether the mechanism keeps its current shape.
