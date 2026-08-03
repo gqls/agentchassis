@@ -54,6 +54,11 @@ account of the whole lane.
 4. **relojistas' deleted DefinedTermSet slot** (history `b0e119a4`, 2,816
    chars, no slot_name recorded) — needs an owner call or the 178 lane;
    blind INSERT was refused deliberately.
+   > **CORRECTED 2026-08-03 (same lane, later session):** CLOSED, no owner
+   > call — the slot was the traffic_probe lane's own deliberate back-out of
+   > a structurally undeliverable JSON-LD-only section (the assembler drops
+   > script-only sections by design). Do not restore. Full trail in
+   > `bugs_open/178`'s 2026-08-03 update and NOTES.
 5. Watch list (unchanged): `bugs_open/169` part A (spawn hang) · scheduler
    pre_query vs selector asymmetry [UNMEASURED] · loader's dependency
    subquery is SITE-SCOPED (fix = Go + both queries together).

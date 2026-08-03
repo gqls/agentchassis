@@ -1041,3 +1041,25 @@ pass for their PLAN's claim. NOT fixing 177 here — contribution routed into
 the bug file per who-owns. The check the misstep earns (transcript grep BEFORE
 a 090 dispatch, not after; three lagging surfaces are not one live one) is in
 `WRONG_CALLS.md` 2026-08-03.
+
+---
+
+## 2026-08-03 — handoff item 4 CLOSED: the relojistas slot was a recorded back-out, not a mystery
+
+Traced the writer instead of the row. `page_component_history` has no
+slot_name column (pointer is `component_id`, FK `ON DELETE SET NULL` — hence
+the anonymous snapshot). Zero `page_components` rows fleet-wide hold a
+`jsonld` content key today; no Go code writes `DefinedTermSet`. The trail
+ended in `traffic_probe/relojistas_rebuild_running_notes.md` 2026-07-28 (3):
+the `structured-data-block` component (JSON-LD DefinedTermSet, 8 glossary
+terms) was built AND **deliberately backed out the same day** — a JSON-LD-only
+section is a `<script>` and nothing else, `sectionHasVisibleContent()` drops
+it by design, so it can never reach the served page. Verified live: component
+`b51dbc8f` `is_active=false`, refusal reason in its description. Snapshot
+`b0e119a4` is the back-out's own pre-write copy (source
+`save_page_sections_overwrite`, 07-28 16:21Z).
+
+**Do not restore; no owner call needed.** Corrections written into
+`bugs_open/178` (three visible markers + a dated update) and the handoff.
+The 178 fleet-signature table loses its relojistas row: 3→2 slots was the
+back-out.

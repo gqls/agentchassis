@@ -81,7 +81,8 @@ gamesdesign.co.uk    /tools/bayesian-ranking.html            7926   5751   4->4 
 
 **Read the slot column — it discriminates.** `vonc.com/about.html` (12→6) is
 almost certainly the legitimate duplicate-component removal from
-`bugs_closed/156`, and `relojistas` lost a slot too. The four with an **unchanged
+`bugs_closed/156`, and `relojistas` lost a slot too (> **CORRECTED 2026-08-03:**
+explained — a deliberate back-out by its owning lane, see the final update). The four with an **unchanged
 slot count and a large content loss** are the ones matching this bug's signature.
 Only `robot-hands.com` is CONFIRMED (I read both versions); the other three are
 `[UNVERIFIED]` — same shape, cause not established, do not cite them as instances
@@ -155,7 +156,8 @@ that is the whole problem.
   blob was a context dump, new fields purposeful); vonc (156 md5-dedup);
   relojistas glosario (DefinedTermSet slot DELETED and absent site-wide, but
   history records no slot_name — snapshot `b0e119a4`, 2,816 chars, awaits this
-  bug's fix or an owner slot-name decision).
+  bug's fix or an owner slot-name decision). (> **CORRECTED 2026-08-03:** no
+  decision needed — deliberate back-out, do not restore; see the final update.)
 - 2 rerender items `restore_287:%` queued; verify at the artefact (ISO 9409-1 +
   the anchor both present in robot-hands' rendered slot; vet faq ~3×).
 
@@ -197,4 +199,33 @@ section. Candidates 1 (edit-not-regenerate) and 3 (emit the delta) remain open.
 - **Still open here (unchanged):** root cause at the handler (why does a
   link-insertion item regenerate the whole section — run 090); candidates 1
   (edit-not-regenerate) and 3 (emit the delta); relojistas' deleted
-  DefinedTermSet slot; other rendered_html writers unguarded (named above).
+  DefinedTermSet slot (> **CORRECTED 2026-08-03:** resolved, not open — see
+  below); other rendered_html writers unguarded (named above).
+
+## UPDATE 2026-08-03 (154 lane) — root-cause 090 DISPATCHED; relojistas slot RESOLVED (deliberate back-out, do not restore)
+
+**The 090 run for the handler root cause is in flight**: intake
+`needs_diagnosis:178-crosslink-regenerates-whole-section`, RUN correlation
+`aece2920-f85a-46e2-a53f-235a4b6e9ab1` (artifacts key). Dispatch record in
+`bugfix_154_work_item_routing_columns/NOTES_…` 2026-08-03.
+
+**relojistas' "deleted DefinedTermSet slot" is closed by its owning lane's own
+record**, found by tracing the writer instead of the row:
+
+- `page_component_history` has NO slot_name column — the pointer is
+  `component_id`, FK `ON DELETE SET NULL`, which is why the snapshot looks
+  anonymous after the slot row went.
+- The content was a `structured-data-block` component (JSON-LD DefinedTermSet,
+  the 8 glossary terms) built by the traffic_probe lane on 2026-07-28 — and
+  **backed out by that same lane, same day, deliberately**:
+  `sectionHasVisibleContent()` strips `<script>` then requires >10 visible
+  chars, so a JSON-LD-only section is dropped by the page assembler by design
+  and can never reach the served page. Evidence:
+  `traffic_probe/relojistas_rebuild_running_notes.md` 2026-07-28 (3) plus its
+  same-session CORRECTED entry; component `b51dbc8f` sits in the library
+  `is_active=false` with the full reason in its description. Snapshot
+  `b0e119a4` (16:21Z, source `save_page_sections_overwrite`) is the back-out's
+  own pre-write copy.
+- **Do not restore it by any route** — the section is structurally
+  undeliverable. The glosario row (3→2 slots, −48%) leaves this bug's
+  fleet-signature list entirely: it was the back-out, not a regeneration.
