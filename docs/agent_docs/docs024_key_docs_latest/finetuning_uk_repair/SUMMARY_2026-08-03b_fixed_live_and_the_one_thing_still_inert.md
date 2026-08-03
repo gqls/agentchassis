@@ -73,6 +73,22 @@ ai-agent-orchestration.com/            broken images 0  (was 8),  17 icons  ✔
 ai-agent-orchestration.com/about.html  broken images 8            claimed, in flight
 ```
 
+> **UPDATED 2026-08-03, ~15 minutes later — the last page landed. The census is
+> now 31 → 0.** All four affected pages serve zero broken images:
+> `finetuning.uk/` 18 icons · `finetuning.uk/about.html` 11 ·
+> `ai-agent-orchestration.com/` 17 · `ai-agent-orchestration.com/about.html` 8.
+> The class fix is complete across the fleet, at the served pages.
+>
+> The zero was checked against a **positive control** before being believed,
+> because a zero-row census is the exact shape that produced this lane's first
+> wrong call (a Go regex carried into Postgres, where `\b` is a backspace, matched
+> nothing at exit 0 and read as "the fleet is clean"). Same extraction with the
+> filter relaxed: **156 img srcs extracted, 133 containing a dot, 0 bare tokens.**
+> The query works; the estate is genuinely clean.
+>
+> Left in place rather than edited away: this block is what "where we are now" said
+> when written, and the series is the record.
+
 **The council approved the check fix on round 2.** Round 1 was REVISE and was
 right: a standing landmine pairs that file with a sibling check and I had not
 read it. Checked properly, they cannot collide — the sibling matches two literal

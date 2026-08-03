@@ -426,3 +426,48 @@ The run filed 157 new items. By weight:
 The phantom links and misdirected CTAs are the substantial content problem behind
 the visual one, and they now have handlers and are queued — which is the first
 time that has been true on this site since April.
+
+---
+
+## 2026-08-03 — CLASS FIX COMPLETE, and the closing zero was checked against a control
+
+All four pages that mount `departments-grid`, verified at the served HTML:
+
+```
+https://finetuning.uk/                        broken_img=0   icons=18
+https://finetuning.uk/about.html              broken_img=0   icons=11
+https://ai-agent-orchestration.com/           broken_img=0   icons=17
+https://ai-agent-orchestration.com/about.html broken_img=0   icons=8
+```
+
+Fleet census: **31 → 0**, both sites, page and chrome surfaces.
+
+**The zero was NOT taken at face value**, because a zero-row census is precisely
+what produced this lane's first wrong call this morning — a Go regex carried into
+Postgres, where `\b` is a backspace, matching nothing at exit 0 and reading as
+"the fleet is clean". Having written a landmine saying *"a census whose
+known-positive is absent is a broken census, not a clean estate"*, accepting an
+unchecked zero would have been the same error with the sign flipped. So:
+
+```sql
+-- same extraction, filter relaxed
+total img src extracted              156
+of those, bare tokens (the finding)    0
+sanity: srcs containing a dot        133
+```
+
+The extraction is demonstrably working on live data. The zero is the estate, not
+the query.
+
+**Note the shape of that check, because it generalises**: when the finding
+population drops to zero there is no known-positive left to test against, so the
+control has to come from *relaxing the predicate* rather than *narrowing the
+population*. "Does this query find anything at all?" is answerable even when the
+thing it looks for is gone.
+
+**Timing, for the record.** The last page (`ai-agent-orchestration.com/about.html`)
+landed roughly 15 minutes after `296` queued it — it waited behind finetuning.uk's
+115-item queue on a shared dispatcher, which is exactly the behaviour `295`'s
+header predicted and priced. `SUMMARY_2026-08-03b` was written while it was still
+in flight and now carries a visible dated update rather than an edit: the series
+is the record, and what a summary believed at the time is part of it.
