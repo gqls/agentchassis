@@ -1,0 +1,206 @@
+# NOTES — the unpublish primitive (`bugs_open/098`)
+
+Running record, append-only, newest at the bottom. Missteps are the point.
+
+---
+
+## 2026-08-02 — picking the bug
+
+Surveyed `bugs_open/` against the live `.jsonl` transcripts of ~30 concurrent
+sessions (`who-owns.py` reads COMMITS, so it is blind to a session mid-fix —
+grepping live transcripts is the check that sees those). 098 came out unowned,
+still reproducible, and named a **missing framework primitive** two bugs share.
+
+`bugs_closed/125`'s council round had asked that the same gap be logged as a
+required follow-up rather than absorbed; it was logged on 098. So this is that
+follow-up, not a fresh choice.
+
+## 2026-08-02 — the finding that shrank the job
+
+098's fix candidate 1 is "make the deploy reconciling rather than additive",
+described as the biggest-blast-radius option needing its own survey. It is
+**half-built already**: `gqls/sites/.github/workflows/deploy-to-b2.yml` runs
+`b2 sync --delete --skip-newer` per changed domain and then purges the Cloudflare
+zone. The *sync* reconciles; only the *git tree* is never removed from. That
+turned a deploy-pipeline redesign into one missing capability.
+
+Reading the workflow before designing anything is what found this. It was not in
+any doc.
+
+## 2026-08-02 — probed rather than assumed
+
+Wrote the existence filter as "defensive", then probed GitHub to see whether it
+was actually needed. POST `/git/trees` against the live master tree (a tree
+object is created unreferenced — no ref moves, no workflow fires):
+
+```
+null sha, path PRESENT -> 201, tree 0d8dab50…
+null sha, path ABSENT  -> 422 GitRPC::BadObjectState
+```
+
+So it is **required**: without it, re-running a repair fails. Good outcome from
+a cheap check — and the opposite of what I had written in the comment.
+
+## 2026-08-02 — MISSTEP: I justified a design choice with a hazard I had not measured
+
+I chose a per-path existence check over one recursive tree listing and wrote the
+reason as though it described the estate: *"a recursive listing can come back
+`truncated: true`"*. Then I measured: `gqls/sites` recursive is **1,847 entries,
+`truncated: false`**. Nowhere near the limit.
+
+The decision was right; the stated reason was fiction, written in the same voice
+as the 422 probe two paragraphs above it. Logged in `WRONG_CALLS.md`. The tell
+is the word **"can"** — it smuggles a hypothetical into a paragraph of facts.
+
+## 2026-08-02 — MISSTEP: a pod-grep that read 0 for everything, including its control
+
+Verified the built image with `strings /app/git-adapter` — got `0` for every
+positive check. The binary is at `/root/git-adapter`; `strings` with no readable
+file read stdin and matched nothing. **The control also read 0**, which is what
+flagged it as a broken check rather than a bad image. Without the control I would
+have concluded the build had failed and rebuilt for nothing.
+
+In-pod grep then failed on permissions (container runs as uid 1000, binary owned
+by root). Settled on the stronger check anyway: extract the binary from the image
+locally, grep it with a **negative control** (a string the change REMOVED, expect
+0), then compare the **pushed digest to the running pod's `imageID`**. That is a
+complete provenance chain and it does not depend on in-pod tooling.
+
+## 2026-08-02 — live proof on a scratch path before touching production
+
+`unknown-domain/` exists in the sites repo and does NOT match the deploy
+workflow's changed-domain regex (`^[^/]+\.[^/]+/` — no dot), so it is an in-repo
+scratch area with no B2 or CDN side effects. Wrote a file through the adapter,
+deleted it via the new verb (404 confirmed), re-deleted it:
+
+```
+CommitToRepo: no-op — every requested deletion is already absent
+```
+
+head unmoved. Write → delete → idempotent re-delete, all three arms live.
+
+## 2026-08-03 — THE BUG'S STATED MECHANISM IS ONLY HALF RIGHT
+
+> **CORRECTION to 098's root cause, found by re-checking the target before
+> retracting it** (CLAUDE.md: other threads change things beneath us; a figure
+> carried forward unchecked is how a stale premise gets diagnosed as a bug).
+
+098 says an archived page is **frozen**: "the last HTML that page ever rendered
+is frozen and it keeps being served". For the retraction target that is **false
+as of 2026-07-31**. `robot-hands.com/learning-center/index.html` is re-rendered
+and re-committed **twice a day**: 08-01 08:07, 08-01 20:06, 08-02 08:05, 08-02
+20:15, 08-03 08:15.
+
+Traced work item → orchestration → commit → SQL. Cause is
+`queueNewsPageRerenders` (`render_news_section_html.go:64`):
+
+```sql
+WHERE p.site_id = $1
+  AND cc.function IN ('latest-news','news-listing')
+  AND p.build_status = 'deployed'     -- and NEVER p.status
+```
+
+`build_status` records whether the page ever shipped; `status` records whether
+the platform still wants it served. Archiving sets the second and leaves the
+first, so a selector keyed on the first keeps choosing a retired page for ever.
+6 `page_rerender` items raised for it since 07-31.
+
+**This makes a retraction self-undoing** — delete the file and the next news
+refresh republishes it. So the retraction could not have been proven without
+fixing this first, and a session that had retracted and walked away would have
+recorded a fix that quietly reverted overnight.
+
+Blast radius, measured: fleet-wide this selects exactly **one** non-active page,
+this one. Only two page statuses exist (`active` 557, `archived` 25). Filed
+through the diagnosis loop as a structural claim (`5bdec8cf`).
+
+098 was accurate when filed on 07-26; it was overtaken five days later. The bug
+file gets the correction, not a rewrite.
+
+## 2026-08-03 — the council's REVISE was worth having
+
+Round 1 → **revise**, gating objection from `editquality`, echoed by
+`bug_historian` and `reuse_agent`: my retraction derives the deploy path via
+`PageFilePathFromURL`, and a landmine warns two functions eleven characters apart
+decide a page's deploy path and disagree. If mine is not the one that WROTE the
+file, the deletion silently targets nothing.
+
+The landmine predates the 125 fix (all five derivations now delegate to the
+shared helper, `git_deployer_actions.go:436`), but the seats were right that I had
+**asserted** rather than shown it. So I showed it — ran the real helper (not a
+re-implementation, which would be the very drift under test) over all 13
+candidates and looked for the file in the actual deploy repo:
+
+| | |
+|---|---|
+| `sites`-repo pages with a file at exactly the derived path | **11 of 12** |
+| the 12th (`blog/learning-center-article.html`) | genuinely absent, serves 404 — it is the dead link the frozen page advertises |
+| the 13th (relojistas `contacto`) | deploys to `vm-sites`, correctly absent there |
+
+**Zero mismatches.** Refuted with evidence, not argument.
+
+## 2026-08-03 — MISSTEP: I checked the wrong repo for one of the 13
+
+My first sweep queried `gqls/sites` for every candidate. relojistas.com has
+`github_repo='vm-sites'`. The row came back with a sha and I nearly recorded it
+as "file present but 404" — an interesting-looking contradiction that was
+entirely my own error. `gqls/sites` does hold a stale
+`relojistas.com/contacto.html`, left over from before that site moved to the VM,
+and it serves nothing because the domain is served from the VM.
+
+The production code was never wrong here — `resolveGitRepoNameDB` picks the
+per-site repo. **The verification script did not, and a verification that does
+not model the thing it verifies is a coin toss.**
+
+## 2026-08-03 — the owner's directive, and what it changed
+
+> "When we retract a page we should look through the whole site to change any
+> links inward, nav links, and any places that it linked to but now noone links
+> to."
+
+This is 098's second surface reached from the other end, and it is a stronger
+statement of it. Implemented in `retract_page_graph.go` with the three
+obligations split by KIND (editorial refuses / nav deactivates / stranded
+reports) — the argument is in the file header and in DGH-006.
+
+Audited for the real target before building: 0 editorial, 0 chrome, 0 nav,
+0 stranded. Clean retraction.
+
+## 2026-08-03 — MISSTEP: my first orphan census was blind, and said so confidently
+
+The first pass at "what would be orphaned" looked only at `page_components` and
+reported that **10 of 16** outbound targets had no other referrer — which would
+have meant retracting one page stranded most of the site. Implausible on its
+face, and wrong: the nav and the site chrome are where most links live, in
+`site_nav_items` and `site_components`, and my query could not see either.
+
+Re-run across all three sources: **every one of the 16** has chrome and nav
+referrers. Nothing is stranded.
+
+The lesson is the one 016b keeps recording: a link census that enumerates one
+table answers a question about that table, not about the site. It is also
+exactly why the shipped code copies the orphan check's three sources rather than
+inventing its own.
+
+## 2026-08-03 — the tests caught a real runtime bug the compiler could not
+
+`[]string` is not a driver-supported parameter type here (database/sql over pgx
+stdlib, with neither `pq.Array` nor pgx array types imported). Every one of my
+new queries would have failed at runtime with *"unsupported type []string"*. The
+sqlmock tests failed first; the fix is the project's existing
+`datahelpers.PGTextArrayLiteral` with an explicit `::text[]` cast.
+
+Separately, `go build` cannot parse SQL, so the queries were **PREPAREd against
+the live schema** — which caught `site_components.component_type`, a column that
+does not exist (it is `slot_name`). Two real defects, neither visible to the
+compiler, both found before shipping.
+
+Then ran them for real, with a **positive control**, because all four guards
+returning empty for the target is also what a broken query looks like:
+
+```
+target /learning-center/index.html : 0 body, 0 chrome, 0 nav, 0 stranded
+control /contact.html              : 4 body, 2 chrome, 1 nav
+```
+
+The control is the only thing that makes the zeros mean something.

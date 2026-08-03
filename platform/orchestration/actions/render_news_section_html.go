@@ -66,6 +66,30 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 		return 0
 	}
 
+	// `p.status = 'active'` is NOT redundant beside `build_status = 'deployed'`,
+	// and leaving it out RESURRECTS RETIRED PAGES (bugs_open/098).
+	//
+	// The two columns answer different questions and nothing keeps them in step:
+	// `build_status` records whether the page ever shipped, `status` records
+	// whether the platform still wants it served. Archiving a page sets
+	// `status='archived'` and leaves `build_status='deployed'` untouched — so a
+	// selector keyed on build_status alone keeps choosing it for ever.
+	//
+	// Observed, not theorised: robot-hands.com/learning-center-index is archived
+	// and was re-rendered and re-committed to the sites repo TWICE A DAY
+	// (2026-08-01 08:07 and 20:06, 08-02 08:05 and 20:15, 08-03 08:15 — six
+	// page_rerender items raised by this function since 07-31). 098 was filed on
+	// 07-26 describing archived pages as FROZEN; this path had made that false
+	// by the time it was fixed. It also makes a retraction self-undoing: delete
+	// the file and the next news refresh republishes it.
+	//
+	// Fleet-wide this selects exactly one non-active page today, which is that
+	// one (measured 2026-08-03; only two page statuses exist, active 557 /
+	// archived 25). The filter matches the convention its siblings already use —
+	// load_site_pages_action.go:80, plan_sections_action.go:247,
+	// maintenance_actions.go:751 — rather than introducing a shared predicate
+	// constant, because the eligibility family in queryresolve answers the
+	// "did it ship" axis and has no member for the lifecycle axis.
 	rows, err := db.QueryContext(ctx, `
 		SELECT DISTINCT p.id, p.name, s.domain
 		FROM pages p
@@ -75,6 +99,7 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 		WHERE p.site_id = $1
 		  AND cc.function IN ('latest-news', 'news-listing')
 		  AND p.build_status = 'deployed'
+		  AND p.status = 'active'
 	`, siteID)
 	if err != nil {
 		logger.Warn("queueNewsPageRerenders: page lookup failed", zap.Error(err))

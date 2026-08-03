@@ -151,7 +151,9 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	}
 
 	var paths []string
+	var eligible []retractionCandidate
 	seen := map[string]bool{}
+	filePathToURL := map[string]string{}
 	for i := range candidates {
 		c := &candidates[i]
 
@@ -172,6 +174,7 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 			continue
 		}
 		c.FilePath = fp
+		filePathToURL[fp] = c.URL
 
 		if owner, clash := activePaths[fp]; clash {
 			c.Refused = fmt.Sprintf("file path is also owned by ACTIVE page %q — retracting it would delete a live page's artefact", owner)
@@ -183,16 +186,55 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 		}
 		seen[fp] = true
 		paths = append(paths, fp)
+		eligible = append(eligible, *c)
+	}
+
+	// GUARD 5 — the graph. A retraction that only removes the artefact trades
+	// one broken state for another: 098's second surface is relojistas, where
+	// the file was correctly deleted and every page then advertised the 404
+	// from its own footer because the nav row was still active. See
+	// retract_page_graph.go for why editorial and nav references are handled
+	// differently, and why stranded targets are reported rather than repaired.
+	graph, err := auditRetraction(ctx, params.DB, siteID, eligible, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	// Editorial references BLOCK. A page something still links to may not be
+	// retracted, so "a retraction created a dead link" is unreachable rather
+	// than merely detectable. The referrers are named, because a refusal an
+	// operator cannot act on is the defect bugs_open/033 and /071 describe.
+	if len(graph.Editorial) > 0 {
+		blocked := map[string]bool{}
+		for _, r := range graph.Editorial {
+			blocked[r.TargetURL] = true
+		}
+		kept := paths[:0]
+		for _, fp := range paths {
+			if u, ok := filePathToURL[fp]; ok && blocked[u] {
+				continue
+			}
+			kept = append(kept, fp)
+		}
+		paths = kept
+		for i := range candidates {
+			if candidates[i].FilePath != "" && blocked[candidates[i].URL] {
+				candidates[i].Refused = "still linked from live content — repair or remove those links first (see editorial_inbound)"
+			}
+		}
 	}
 	sort.Strings(paths)
 
 	result := map[string]interface{}{
-		"site_id":    siteID.String(),
-		"domain":     domain,
-		"considered": len(candidates),
-		"candidates": candidates,
-		"paths":      paths,
-		"retracted":  len(paths),
+		"site_id":           siteID.String(),
+		"domain":            domain,
+		"considered":        len(candidates),
+		"candidates":        candidates,
+		"paths":             paths,
+		"retracted":         len(paths),
+		"editorial_inbound": graph.Editorial,
+		"nav_inbound":       graph.Nav,
+		"stranded_targets":  graph.Stranded,
 	}
 
 	if dry, _ := config["dry_run"].(bool); dry {
@@ -212,6 +254,20 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 			zap.String("domain", domain), zap.Int("considered", len(candidates)))
 		return result, nil
 	}
+
+	// Nav rows are retired BEFORE the artefact is removed, not after. The
+	// window between the two is the relojistas state — a live nav entry
+	// pointing at a file that is already gone — and ordering it this way makes
+	// the window the harmless one instead: a nav entry disappears slightly
+	// before the page it pointed at does. It is also the durable half: the
+	// delete is dispatched asynchronously and the DB write is not, so doing the
+	// DB write on a response that may never arrive would leave the nav live
+	// after a successful retraction.
+	navRetired, err := deactivateNavItems(ctx, params.DB, graph.Nav, logger)
+	if err != nil {
+		return nil, err
+	}
+	result["nav_retired"] = navRetired
 
 	requestID, err := sendGitDeleteFileRequest(ctx, params, config, domain, paths, logger)
 	if err != nil {
