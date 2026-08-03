@@ -4163,3 +4163,47 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   `brochure_component_library/NOTES_brochure_component_library.md` (2026-08-03 entry) and
   `HANDOFF_2026-08-02_continue_here.md` §2, corrected the same day
 - **added:** 2026-08-03, brochure component library lane
+
+---
+
+### A pod-grep marker taken from a COMMENT can never match — and a change that is only identifiers has no marker at all, so "0 on both replicas" reads as "not shipped" when it means "unmeasurable"
+
+- **footprint:** `strings /app/agent-chassis`, `kubectl exec`, pod-grep, deploy verification, `bugs_open/153`, `HANDOFF_*_continue_here.md`
+
+The deploy-verification ritual on this platform is `strings /app/agent-chassis |
+grep -c '<marker>'`, and it only works on **string literals the compiler emits**. Two
+ways it silently doesn't:
+
+1. **The marker is a Go comment.** Comments are not in the binary. The grep returns 0
+   for ever, on a perfectly good image, and reads exactly like a failed deploy. A
+   marker lifted from the change's own explanatory comment is the natural mistake,
+   because that is the most quotable sentence in the diff.
+2. **The change contains no literal at all.** A fix that is *identifiers* —
+   `insertWorkItem` → `writeWorkItem`, a flag flipped, a call site rerouted — adds
+   nothing greppable. There is no marker to pick, and the honest answer to "how will
+   we confirm this shipped?" is **"we cannot, as written"**.
+
+Both were shipped into a handoff on 2026-08-03 (`bugs_open/184`) and caught by a
+council seat, not by running it: the file told the next session to grep
+`'the bugs_closed/091 class'`, which is a comment.
+
+**the check, before you write a marker into a runbook or handoff:**
+
+```bash
+# 1. it must be a LITERAL in production code, not a comment and not a _test.go file
+grep -rn "<marker>" --include=*.go platform/ internal/ | grep -v '_test.go' | grep -v '^\s*//'
+# 2. prove it COMPILES IN — build a real binary and grep that, do not assume
+go build -o /tmp/probe ./cmd/agent-chassis && strings /tmp/probe | grep -c "<marker>"
+# 3. and verify the NEGATIVE control is absent from your own source first
+#    (a string your change KEEPS greps 1 before and after, and reads as "not shipped")
+```
+
+**If step 2 returns 0, the change has no marker — add one rather than pretend.** The
+useful form is a log line the code should arguably have had anyway: on 184 the three
+emitters made *no record of their own execution* (the DB row was the only evidence
+they ran), so giving each an outcome log fixed the observability gap and produced the
+marker in the same stroke. A marker invented purely to be grepped is a smell; a marker
+that is also the thing you would want in the logs is not.
+
+- **source:** `bugs_open/184`; `docs024_key_docs_latest/bugfix_091_workitem_conflict_refresh/HANDOFF_2026-08-03_continue_here.md` (the corrected block); council `d6cda33d`
+- **added:** 2026-08-03, bugs-sweep lane (091/184)
