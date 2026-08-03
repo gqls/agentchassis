@@ -357,3 +357,31 @@ item reading `complete` at 22:36 while children queued is the known
 a-complete-work-item-is-not-a-repaired-artefact shape; only the artefact census
 closes the claim. Scorecard metric moves 3/15 → 18/18. Seam 1 CLOSED as built:
 carrier live, seeded, propagated, measured.
+
+### 2026-08-03 morning — v1.0.1238 rolled by owner: seam 2 VERIFIED LIVE; seam 4 reframed by evidence; 090 filed
+
+Roll verification done at the POD (rule: a roll is not evidence): both replicas of
+v1.0.1238 carry injectCanonicalLink (4 strings), resolvedValueSatisfiesDeclaredType
+(1), the "no canonical emitted" log literal (1); the zero-control returned 0 (a Go
+comment never reaches a binary, so it doubles as the nonsense-string control — the
+POSITIVES are what prove the grep pipeline). Then one assemble-mode rerender of
+about.html (item d1319b89, fired 7 min after pod start): artefact now carries
+`<link rel="canonical" href="https://lendzy.co.uk/about.html">` and the blank
+description tag is GONE (count 0; page has empty meta_description — correct-or-
+absent exercised). **Seam 2 CLOSED end to end.** Remaining lendzy pages gain
+canonicals at their next natural rerender — no sweep fired, deliberate; one
+needs_rerender item (proven shape) sweeps them if wanted sooner.
+
+Seam 4 REFRAMED by the retained runs (all 3 tool orchestrations still in
+orchestration_states, 19:31/19:34/19:38Z yesterday, COMPLETED, no __step_error):
+the handler's deploy DID run — deploy_result shows a commit at 19:33:51Z — but it
+published the tool's SELF-CONTAINED document (own <head>, meta description blank,
+NO site chrome). The hand-fired 19:42:43Z items were compensating for MISSING
+ASSEMBLY, not a missing dispatch. Current artefact is fine (assembled by the
+19:44 hand-fired rerenders, compliance block added by the 22:36 seam-1 sweep; no
+canonical yet = last rerender predates the roll, consistent). So the seam is
+"tool deploy path bypasses assembly", not "no rerender queued" — the handoff's
+seam-4 line was a correct observation with a wrong mechanism guess. Durable
+cross-cutting claim ⇒ 090 FILED per the CLAUDE.md norm:
+**RUN_CORRELATION_ID f2252404-257b-49a1-bf3d-6de8b5b294b0** — read the verdict
+BEFORE designing the fix (find artifacts by that corr, not the intake id).
