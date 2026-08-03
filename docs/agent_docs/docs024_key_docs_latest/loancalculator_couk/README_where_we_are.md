@@ -805,3 +805,46 @@ locked calculator sections until that second bug is closed — each one would hi
 the same duplication the first time. The four fixes we already shipped through the
 offline route aren't affected; that route doesn't go anywhere near the part that's
 broken.
+
+**3 August 2026, evening — your two decisions, done**
+
+Both carried out. The duplicate calculator page is gone, and the consolidation
+checker keeps refusing to give a verdict it can't stand behind.
+
+On the page: it now returns "not found", the sitemap has gone from 27 entries to 26,
+and I checked the other 26 pages are all still serving normally. Before deleting it I
+checked three separate places for anything linking to it — the page bodies, the
+header and footer, and the navigation tables — and ran the same check against a page
+I *knew* was linked, to prove the check actually works rather than just returning
+nothing. Clean on all three.
+
+One thing that made this more than a delete. Your sitemap — the file that tells
+Google what pages exist — was written once when the site was adopted and the platform
+has never touched it since. There is a purpose-built tool for retiring a page, built
+by another thread this week, and it deliberately leaves sitemaps alone, because on
+most sites the platform regenerates them. On yours it doesn't. So using that tool
+would have deleted the page and left the sitemap still pointing at it — which is
+exactly the bug that tool was built to fix. I removed the page and its sitemap entry
+together instead, and I've written that up for the thread that built it, because it
+probably affects every adopted site rather than just this one.
+
+Two honest notes about my own work. First, when I went looking for links to the page,
+my initial check found two — and both turned out to be *comments* in the page source,
+one of them written by me three hours earlier. Had I trusted it I would have refused
+to delete a page nothing actually linked to. Second, when I pushed the deletion, it
+was rejected twice because other work was pushing to the same place at the same
+moment — and the command I'd written cheerfully reported success anyway, because it
+was reading my own copy rather than the real one. Both fixed, both written down.
+
+And a small tidy that fell out of it. The footer carried a note in its source
+explaining which pages were orphaned and why — visible to anyone viewing the page
+source, on all 27 pages. The moment the page went, that note was describing something
+that no longer exists. It's now two lines pointing at our own documentation. That's
+the third time today the same mistake has surfaced: engineering notes written into
+something that gets published. The existing pages will pick up the corrected footer
+as they naturally rebuild; I didn't think an invisible comment justified forcing 26
+rebuilds.
+
+Nothing is outstanding on either decision. The next real piece of work is the header's
+link list, which I looked at earlier and which turns out to need a decision from the
+platform side before it can be automated safely.
