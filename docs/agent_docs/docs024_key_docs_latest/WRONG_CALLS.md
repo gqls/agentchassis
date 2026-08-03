@@ -18434,3 +18434,27 @@ query — and gates that are not in the query are invisible to a query-only pred
 lesson one level up: the shape of the error survived its own correction because the
 correction was applied to the INSTANCE (that row), not to the METHOD (query-only
 prediction).
+
+- **2026-08-03 · vigilant_designer_offer_analysis (roll)** — deployed chassis at the tag I
+  had built hours earlier (v1.0.1241) without re-reading the estate, and **rolled
+  production BACKWARDS from v1.0.1244 to 1241** for ~2 minutes (three other lanes had
+  built 1242–1244 during my long council-wait; the 177 lane had also legitimately re-used
+  1241 itself, since my override tag was recorded NOWHERE they could see). The deploy-%
+  preflight checks your tag EXISTS in the registry, not that it is NEWEST. **What caught
+  it:** the pod listing printed a 1244 pod dying next to my fresh 1241 pods. **The cheap
+  checks skipped:** (1) `kubectl get pods -o ...image` immediately before `deploy-*` —
+  the running tag IS the floor; (2) a tag taken by env override and never committed is a
+  tag another session will also take — commit the claim or re-check at deploy time.
+  Recovered forward by redeploying 1244 (which, built from later HEAD, carried my r2 —
+  pod-verified positives + negative).
+- **2026-08-03 · vigilant_designer_offer_analysis (same roll)** — read `strings /app/... |
+  grep -c X` = 0 on the browser-runner pod as "my symbols are missing from the binary"
+  (and pre-roll, as a valid before/after control). The image has NO `strings` binary:
+  every pipeline printed a clean 0 — positives, negatives, and controls all blind the
+  same way. `grep -ac X /app/<binary>` (no in-image tooling needed) showed all three
+  A1.1 symbols present. **The landmine already existed** (LANDMINES "strings splits a Go
+  literal…" entry, 2026-07-30, which says in terms "the image has no strings binary — use
+  grep -ac"), **on the same pod family**. The cheap check skipped: grep LANDMINES for the
+  COMMAND you are about to trust (`grep -n "strings" LANDMINES.md`), not only the symbols
+  — and run the verification's own positive control in the SAME exec (a long pre-existing
+  string that must count ≥1; mine ran only on the chassis, where strings happened to exist).
