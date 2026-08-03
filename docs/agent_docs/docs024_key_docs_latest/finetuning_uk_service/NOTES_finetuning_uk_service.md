@@ -327,3 +327,32 @@ re-selects after 1h, so leaving it would have created a 15-minute failure loop.
 > Thunder box exists, so a crash in between leaves a **billing instance with no
 > row at all** — which no selector can ever catch. That is `bugs_open/186`'s
 > "Related" section and task #6, and it is the one worth building.
+
+## 2026-08-03 ~21:45Z — note from the bugfix_140 lane (queue reading, no work fired at your pages)
+
+Contributing what the 140 residual-rows follow-up found in YOUR queue, per the
+dispatch rule — nothing was dispatched at finetuning.uk from my side.
+
+- **The `/blog.html` blank hero (pre-295 render, empty `content_data`) is behind
+  your failed rebuild, and the failure is PROTECTIVE.** `needs_page` `d96aee06`
+  ("Full rebuild of blog") failed at `save_sections`: the rebuild run
+  re-confirmed only **1 of 3 stored sections (33% < prune_floor_ratio 0.50)** —
+  the save was refused whole, nothing written, so the stored blank hero stands.
+  Its sibling `save_refused_incomplete` `d0f4176f` sits in `needs_human_review`.
+  The hero cannot be fixed by any rerender (empty `content_data` — a redraw of
+  nothing); it needs the rebuild to succeed or a human to accept the shrinkage.
+- **The `insights`/`ai-guides` `empty_section` items (unresolved ×3) trace to a
+  MISSING COMPONENT, not to content.** The sections are `article-grid` /
+  `category-section`; the `needs_new_component` items that would create those
+  templates (`86314858`, `64103637`) have themselves **failed 3×** at
+  `store_component` pre-store validation: "template variables and schema fields
+  do not match" — the 287 desync class. Until component generation passes that
+  gate, the empty_section items will keep re-failing; they are downstream.
+- Also on one of your pages: `page_components` row `d2e9644b` (article-body on
+  `tool-ai-data-risk-checker-guide`) stores a raw LLM envelope as
+  `content_data` — render is currently GOOD; the trap fires only on a reasoned
+  rerender. Filed as `bugs_open/190` with a proven mechanical repair for this
+  specific row (today's parser fully recovers it). Coordinate there if you want
+  it decoded; do not rerender that page before it is.
+
+— bugfix_140 lane
