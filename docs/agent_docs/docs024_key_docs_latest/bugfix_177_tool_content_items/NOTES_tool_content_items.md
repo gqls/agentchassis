@@ -33,3 +33,22 @@
   `gemini-p7-verification`. Different item type, different emitters, possibly
   legitimate deferrals — NOT swept, NOT fixed here (one coherent bug per fix).
   Named in the 177 close-out for a follow-up decision.
+
+## 2026-08-03 ~12:00 — mid-implementation events
+
+- Council submitted, `SUBMISSION_CORR=982507b0-2e18-4457-a354-85a809012bbd`
+  (~11:55 BST). Budget ~30 min. SEQUENCING: the chassis roll must WAIT for the
+  verdict — a roll kills an in-flight council run (kubectl-scale memory).
+- Opus implementer dispatched with the final design (insertWorkItem routing per
+  the gapPlanWorkItem precedent — the first draft's hand-rolled INSERT was
+  revised away after the a5b70424 objections were found in research).
+- **/tmp (16G tmpfs, shared by every session) hit 100% full mid-implementation.**
+  Top consumers: other live sessions' scratchpad HEAD-check build contexts
+  (447MB each; one session held 3.5GB of them). Not ours to delete. Mitigation:
+  messaged the implementer to use `GOTMPDIR=/home/ant/tmp` and keep the
+  headcheck off tmpfs. Appended the trap to LANDMINES.md (### heading — the
+  sync REJECTS `##` entries with "cost DELIVERY"; six older entries in the file
+  have that defect and were left for their lanes) and ran
+  `landmines-sync.py --apply` clean.
+- Register edits done (TL-003 conditional emission, TL-009 partial-shipped
+  note); 016b §9 entry inserted ("unsatisfiable at birth"); RUNBOOK written.

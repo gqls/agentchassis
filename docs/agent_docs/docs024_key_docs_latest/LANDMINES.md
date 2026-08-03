@@ -4368,3 +4368,43 @@ that is also the thing you would want in the logs is not.
   just your own doc — the next reader inherits whichever you fixed
 - **source:** council fee9d810 r1→r2, `vigilant_designer_offer_analysis/NOTES` 2026-08-03
 - **added:** 2026-08-03, vigilant_designer_offer_analysis lane
+
+### The documented scratchpad is a SHARED 16G tmpfs — a git-archive build context there fills /tmp for every session at once
+
+- **footprint:** `/tmp/claude-1000/`, `git archive HEAD | tar -x`, `go build` (GOTMPDIR), any "verify against committed HEAD" check
+- **fires when:** following the harness's own instruction ("always use this scratchpad
+  directory for temporary files") for a HEAD-check build context — `git archive HEAD`
+  extracted + `go build` is ~450MB per iteration, iterations accumulate (one session held
+  five at 3.5GB), and /tmp is one 16GB tmpfs shared by EVERY session on the machine
+- **the tell:** `no space left on device` from a go build whose code is fine — or, subtler,
+  a harness tool-result reading "Command output was lost … ENOSPC", which looks like a
+  tooling glitch and is actually the machine-wide symptom. Measured 2026-08-03 11:55:
+  /tmp 100% full, 456K free, top consumers five sessions' scratchpad headcheck dirs
+  (447MB each) while every concurrent session's builds were failing
+- **the check:** `df -h /tmp | tail -1` BEFORE creating any multi-hundred-MB context; put
+  HEAD-check contexts on disk instead (`mkdir -p /home/ant/tmp/headcheck-<lane>`;
+  `GOTMPDIR=/home/ant/tmp go build ...` — / has ~235G free), and `rm -rf` the context in
+  the same session that made it. Your own session dir being small proves nothing — the
+  tmpfs is shared, so the polluter and the victim are usually different sessions
+- **source:** bugfix_177_tool_content_items/NOTES 2026-08-03 (hit mid-implementation; the
+  fix agent's builds were pre-emptively redirected and succeeded)
+- **added:** 2026-08-03, bugfix_177 lane
+
+### Adopting the retraction seam on a CO-DEDUP'd `item_type` closes the OTHER producer's finding — and the two producers' evidence can be positively correlated
+- **footprint:** `CheckResult.Resolved`, `resolveWorkItems` (`work_items_common.go`), `undeployed_asset`, `write_render_audit_findings_action.go`, any `item_type` filed from more than one place
+- **fires when:** you adopt RFC_010's retraction seam (WII-009) on a check and reason, correctly, that "my check raised these items, so my check may close them". The seam addresses rows by `(site_id, item_type, item_key)` — which is **coarser than the producer set that shares that key**. The owner's ruling of 2026-08-02 (RFC_010 *who may answer a page name collision*) explicitly **blesses and encourages** converging N producers onto one `item_type`/`item_key`, so the shape is spreading, not shrinking: **13 item types have ≥2 Go producers today**
+- **the tell:** **none at the call site.** Your check's own code, tests and item_key all look self-consistent; the other producer is in a different package and never mentions you. The retraction UPDATE names no producer, so a wrongly-closed row is indistinguishable from a rightly-closed one afterwards
+- **the worked case, which is worse than "they might disagree" — their evidence is POSITIVELY CORRELATED.** `undeployed_asset` is filed by BOTH `check_undeployed_assets` and `write_render_audit_findings_action` ("same item_type, same key namespace, same handler — deliberate co-dedup"). The render audit's finding is *"this image serves broken on a real page"*; `check_undeployed_assets` treats *"a deployed page_component's rendered_html references the filename"* as healthy. **You cannot have a broken `<img>` unless the HTML references its src** — so every render-audit 404 finding sits on an asset that the other check reads as healthy. Adopting retraction there would have retracted **every** render-audit 404 on the next sweep, silently, fleet-wide
+- **the check:** before adopting, count the producers — do NOT assume your check is the only one:
+  `grep -rn --include=*.go -E '(ItemType|itemType):[[:space:]]*"<your_type>"' platform/ internal/ | grep -v _test`
+  If it returns more than one file, ask the harder question: **is my positive observation a REFUTATION of the other producer's finding, or merely unrelated to it?** Unrelated is not good enough — retraction closes the row either way. Prefer a single-producer type for a first adoption; if you must adopt on a shared one, the observation has to refute *every* producer's predicate, not just your own
+- **source:** 2026-08-03, `bugfix_168_deployed_asset_path` lane, choosing the first real adopter of WII-009. `check_undeployed_assets` was the obvious candidate (95 open items, the largest stale population in the queue) and was **rejected on this ground**; `check_empty_sections` was adopted instead because it has exactly one producer
+- **added:** 2026-08-03, bugfix_168_deployed_asset_path lane
+
+### A monotonic check's `if len(findings) == 0 { return }` early return makes its new retraction INERT on exactly the sites that need it
+- **footprint:** `CheckResult.Resolved`, any `discovery_checks/check_*.go` `Run` adopting retraction, `check_empty_sections.go`
+- **fires when:** you add retraction to an existing discovery check by appending it to the end of `Run` — the natural, minimal, diff-friendly edit. Most checks open with a guard of the shape `if len(findings) == 0 { return &CheckResult{}, nil }`, which is **correct** while a check can only FILE (nothing found, nothing to say) and **exactly backwards** once it can also RETRACT
+- **the tell:** **every test passes and the mechanism does nothing.** A site with zero findings is the ONLY site the early return fires on, and it is precisely the site whose stale items need closing — so the retraction works in every test that has a finding, works in every test you would naturally write, and is inert in production wherever it matters. `items_resolved` stays 0 and reads as "nobody adopted it" rather than "adopted and unreachable"
+- **the check:** write the zero-findings retraction test FIRST, and prove it by mutation — reinstate the early return and require the test to fail. `TestRetractionRunsWhenThereAreNoFindingsAtAll` in `check_empty_sections_test.go` is that test; mutation M1 in the 2026-08-03 round is that proof
+- **source:** 2026-08-03, found while adopting WII-009 on `check_empty_sections` — the guard was in the file already and the append-to-the-end edit would have shipped a mechanism that was green everywhere and inert everywhere
+- **added:** 2026-08-03, bugfix_168_deployed_asset_path lane
