@@ -57,8 +57,8 @@ INSERT INTO agent_definitions (
             "action": "refresh_product_specs",
             "config": {
               "site_id": "site_record.site_id",
-              "category?": "input_data.category",
-              "limit?": "input_data.limit"
+              "category": "input_data.category",
+              "limit": "input_data.limit"
             },
             "next_step": "complete",
             "description": "Firecrawl each product source_url, ground-extract specs, refresh rows",

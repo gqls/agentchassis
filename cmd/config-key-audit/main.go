@@ -29,6 +29,13 @@
 //	  (RFC 006 / bugs_closed/150 — a site-wide promoter with three callers made
 //	  the improvement loop call a busy site clean. Exit 1 on findings.)
 //
+//	go run ./cmd/config-key-audit --suspicious-keys        < live-workflows.json
+//	  [{"agent": "...", "path": "...", "action": "...", "key": "...", "nested": bool}, ...]
+//	  Which live step-config key NAME carries schema-documentation punctuation
+//	  ("?", "*", ":" or a space)? bugs_open/134: `category?` leaked out of a seed's
+//	  own comment into two real key names, which then resolved to nothing and said
+//	  nothing. Asked of EVERY action, opted in or not. Exit 1 on findings.
+//
 //	go run ./cmd/config-key-audit --relay-gaps             < live-workflows.json
 //	  {"findings": [...], "uncovered_relays": [...], "unmatched_registry_entries": [...]}
 //	  Can each DECLARED dispatcher relay still carry every key its handler's
@@ -76,6 +83,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
 
@@ -147,6 +155,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--single-owner-actions" {
 		emitSingleOwnerViolations()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--suspicious-keys" {
+		emitSuspiciousKeys()
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--relay-gaps" {
@@ -392,6 +404,121 @@ func emitUnregisteredActions() {
 		os.Exit(1)
 	}
 	fmt.Fprintf(os.Stderr, "config-key-audit --unregistered-actions: %d agents decoded (%d undecodable), %d finding(s)\n",
+		len(agents), failed, len(findings))
+	if len(findings) > 0 {
+		os.Exit(1)
+	}
+}
+
+// suspiciousKeyFinding names one live step-config key whose NAME carries
+// schema-documentation punctuation. Unlike an unknown key, this is not a
+// judgement about what an action reads — a key called "category?" cannot be read
+// by anything, whatever the action's contract says.
+type suspiciousKeyFinding struct {
+	Agent  string `json:"agent"`
+	Path   string `json:"path"`
+	Action string `json:"action"`
+	Key    string `json:"key"`
+	Nested bool   `json:"nested"`
+}
+
+// suspiciousKeyChars is the punctuation that schema DOCUMENTATION uses and a key
+// an action reads never does: "?" for optional ("category?"), "*" for a glob or
+// a wildcard, ":" for a "key: value" line lifted out of a contract sketch, and a
+// space for prose that was never a key at all.
+//
+// bugs_open/134 is why this exists. Seed 156 described the agent's input
+// contract in a comment — "{site_id, category?}", where the trailing "?" is the
+// ordinary convention for "optional" and entirely correct there — and forty-five
+// lines later the same notation was written inside the real JSON, as part of two
+// key names. `refresh_product_specs` reads "category" and "limit", so neither
+// key ever resolved; an unrecognised config key is silently ignored at
+// execution, so nothing complained and the step went on describing behaviour it
+// did not perform.
+//
+// The set is deliberately NARROW. Every character here is one that cannot
+// plausibly appear in a key some action reads, so a finding is always signal and
+// never a style opinion — no underscore, no dot, no hyphen, no case rule. A
+// broader set would turn this into a linter people learn to ignore, which is the
+// state that lets the next real one through.
+const suspiciousKeyChars = "?* :"
+
+// findSuspiciousKeys is the pure check, separated from I/O so a fixture test can
+// exercise it (see findUnregisteredActions). It walks with validation.WalkSteps
+// — the SAME traversal the runtime validator enforces against, top-level and
+// nested — for the bugs_open/144 reason recorded there: two hand-written
+// descents go blind in different directions and then agree with each other.
+//
+// It flags the key REGARDLESS of whether the action has opted into
+// ActionInputSpec checking, and that independence is the whole point. The
+// unknown-key report can only speak about actions someone has already declared,
+// so it stayed silent on bug 134 for as long as `refresh_product_specs` had no
+// declaration — while the defect was visible in the key name itself the entire
+// time. This check needs to know nothing about the action to be certain.
+func findSuspiciousKeys(agents []liveAgent) []suspiciousKeyFinding {
+	findings := []suspiciousKeyFinding{}
+	for _, agent := range agents {
+		validation.WalkSteps(agent.Workflow, func(path string, step models.Step, nested bool) {
+			for key := range step.Config {
+				if !strings.ContainsAny(key, suspiciousKeyChars) {
+					continue
+				}
+				findings = append(findings, suspiciousKeyFinding{
+					Agent: agent.Type, Path: path, Action: step.Action, Key: key, Nested: nested,
+				})
+			}
+		})
+	}
+	// Map iteration over step.Config is random, so the sort is what makes the
+	// report diffable between runs — a check whose output reorders itself cannot
+	// be committed as a baseline.
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].Agent != findings[j].Agent {
+			return findings[i].Agent < findings[j].Agent
+		}
+		if findings[i].Path != findings[j].Path {
+			return findings[i].Path < findings[j].Path
+		}
+		return findings[i].Key < findings[j].Key
+	})
+	return findings
+}
+
+// emitSuspiciousKeys reads the same stdin shape as --live-pairs and
+// --unregistered-actions and prints every key findSuspiciousKeys flags, as JSON.
+//
+// Zero findings is a legitimate, meaningful result — it says no live definition
+// currently carries doc notation in a key name. An empty decoded-agent set is
+// not: it would produce that same clean report over a truncated or broken
+// export, so it is refused, exactly as on emitUnregisteredActions.
+func emitSuspiciousKeys() {
+	raw, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --suspicious-keys: reading stdin: %v\n", err)
+		os.Exit(2)
+	}
+
+	agents, failed, err := decodeLiveAgents(raw, "--suspicious-keys")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --suspicious-keys: %v\n", err)
+		os.Exit(2)
+	}
+	if len(agents) == 0 {
+		fmt.Fprintf(os.Stderr,
+			"config-key-audit --suspicious-keys: 0 agents decoded (%d undecodable) — "+
+				"refusing to print a clean report over an empty or broken export.\n", failed)
+		os.Exit(2)
+	}
+
+	findings := findSuspiciousKeys(agents)
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(findings); err != nil {
+		fmt.Fprintf(os.Stderr, "config-key-audit --suspicious-keys: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stderr, "config-key-audit --suspicious-keys: %d agents decoded (%d undecodable), %d finding(s)\n",
 		len(agents), failed, len(findings))
 	if len(findings) > 0 {
 		os.Exit(1)

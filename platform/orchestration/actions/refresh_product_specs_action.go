@@ -175,6 +175,14 @@ func specValueIsRestatement(existing, extracted string) bool {
 var RefreshProductSpecsInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"site_id"},
 	Optional: []string{"category", "limit", "delay_ms", "llm_model"},
+	// Opted in per bugs_open/134. This action passes its own spec to
+	// ExtractActionInputs, which reads config[k] for every Required and Optional
+	// key, so the spec above already IS what it reads from config and CheckConfig
+	// asserts nothing new. What it buys is the detector: the live step carried
+	// "category?" and "limit?" — doc notation leaked out of the seed's own comment
+	// — and an unrecognised key is ignored rather than reported, so neither ever
+	// resolved and nothing said so.
+	CheckConfig: true,
 }
 
 func init() {

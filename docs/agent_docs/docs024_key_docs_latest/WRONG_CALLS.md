@@ -18232,3 +18232,26 @@ pod does not check the queue", cost a real run 2026-07-16) — known, written, a
 skipped while drafting a plan whose OTHER items preach measurement. A plan is a set of
 claims; each item deserves the one-query check its own text demands of others. The recheck
 took ~20 minutes and changed 4 of 8 items.
+
+## 2026-08-03 — bugfix_134 lane: I hardened "0 runs" into "0 runs all-history" against a table that cannot say "ever"
+
+The bug file (filed 07-28) measured `orchestration_states` = 0 rows for
+`product-spec-refresher` and said "the agent has never run". Re-verifying it
+2026-08-03 I got 0 again and wrote **"runs = 0 all-history"** into my NOTES and
+carried "0 runs ever" into the council submission's safety argument — but
+`orchestration_states` is retention-clocked (the bugfix 003 landmine, **already
+in my own memory index**: terminal rows reaped on the order of a day; a
+whole-table floor is set by unreaped statuses), so the query can only ever say
+"no runs within retention". **What caught it:** the council's
+`prior_art_librarian` seat, round 1, citing that exact landmine back at me. The
+follow-up measurement made it worse than unproven: 10 `products` rows carry the
+`verified_date` stamp the action writes — one dated 2026-07-14 (predates the
+agent, so hand-written), but five dated 2026-07-22, which is entirely consistent
+with a **reaped manual run**. The claim was not just unsupported; it may be
+false. **The cheap check skipped:** grepping my own memory index for the table
+name before writing "all-history" — the landmine names `orchestration_states`
+verbatim. The safety argument was rebuilt without the run-count (the bad keys
+never resolved, so even a historical run behaved as defaults; no scheduled or
+automated caller exists), which is what it should have rested on from the start:
+**a retention-clocked table supports "none recently", never "none ever" — if the
+claim says "ever", the evidence must come from a table with no reaper.**

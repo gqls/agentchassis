@@ -17,13 +17,22 @@
 #   UNKNOWN KEY       — the action HAS declared its contract and this key is not
 #                       in it. This is a real inert key: the config describes
 #                       behaviour that does not happen.
+#   SUSPICIOUS KEY    — the key NAME carries schema-documentation punctuation
+#                       ("?", "*", ":" or a space), so nothing can read it
+#                       whatever the action declares. Added 2026-08-03 for
+#                       bugs_open/134, where "category?" leaked out of a seed's
+#                       own comment into two live key names. Independent of
+#                       opt-in, which is why it is a third thing and not a
+#                       subset of the second: the action in bug 134 had declared
+#                       nothing, so the UNKNOWN KEY section could not see it.
 #
-# A count of zero in the second section is meaningful. A count of zero in the
-# first would mean full adoption, which is not the case today and is the number
-# this report exists to drive down.
+# A count of zero in the second and third sections is meaningful. A count of
+# zero in the first would mean full adoption, which is not the case today and is
+# the number this report exists to drive down.
 #
 # Usage: scripts/audit-config-keys.sh [--json]
-# Exit:  0 = no unknown keys · 1 = unknown keys found · 2 = could not determine
+# Exit:  0 = clean · 1 = unknown keys and/or suspicious keys found
+#        2 = could not determine
 
 set -uo pipefail
 
@@ -88,13 +97,37 @@ if [[ -z "$LIVE" ]]; then
     exit 2
 fi
 
-DECLARED="$DECLARED" LIVE="$LIVE" JSON_OUT="$JSON_OUT" python3 - <<'PY'
+# Keys whose NAME cannot be read by anything (bugs_open/134). The same fetched
+# definitions, walked by the same binary with the same validation.WalkSteps
+# traversal — deliberately NOT a second query, for the reason recorded above the
+# LIVE block: two walks drift apart and then agree with each other.
+#
+# The mode exits 1 on findings and 2 when it refuses to report over an empty or
+# broken export. The exit code alone cannot tell those apart HERE, because
+# `go run` collapses the program's status: it prints "exit status 2" to stderr
+# and exits 1 itself (measured 2026-08-03). So the discriminator is stdout, the
+# same one DECLARED and LIVE above use — findings are JSON, a refusal is silent.
+# This script runs `set -uo pipefail` with no -e, so neither case aborts of its
+# own accord and both have to be read.
+SUSPICIOUS="$(printf '%s' "$WORKFLOWS_JSON" | (cd "$REPO_ROOT" && go run ./cmd/config-key-audit --suspicious-keys))"
+SUSPICIOUS_RC=$?
+if [[ -z "$SUSPICIOUS" ]]; then
+    echo "ERROR: the suspicious-key check printed nothing (rc $SUSPICIOUS_RC) — it refuses to" >&2
+    echo "       report over an empty or broken export rather than printing a clean one" >&2
+    exit 2
+fi
+
+DECLARED="$DECLARED" LIVE="$LIVE" SUSPICIOUS="$SUSPICIOUS" JSON_OUT="$JSON_OUT" python3 - <<'PY'
 import json, os, sys
 from collections import defaultdict
 
 _dump = json.loads(os.environ["DECLARED"])
 declared = _dump["declared"]
 conditional = _dump.get("conditional", {})
+# Already computed by the binary, which walked the same definitions with the same
+# traversal — passed in as JSON rather than re-derived here, so there is one
+# implementation of "what counts as suspicious" and it is the tested one.
+suspicious = json.loads(os.environ.get("SUSPICIOUS") or "[]")
 # Framework keys are read by the orchestrator on ANY step, whatever the action.
 # Kept in step with datahelpers.frameworkStepConfigKeys — if these drift apart
 # this report grows false positives, which is how a report gets ignored.
@@ -152,6 +185,7 @@ if os.environ["JSON_OUT"] == "1":
         "unknown_keys": {k: sorted(v) for k, v in unknown_by_action.items()},
         "conditional_keys": {k: sorted(v) for k, v in conditional_by_action.items()},
         "undeclared_actions": {k: sorted(v) for k, v in undeclared_by_action.items()},
+        "suspicious_keys": suspicious,
         "declared_action_count": len(declared),
         "undeclared_action_count": len(undeclared_by_action),
         "pairs_top_level": len(seen_top),
@@ -195,6 +229,23 @@ else:
         print("  none")
 
     print()
+    print("=== SUSPICIOUS KEYS (doc-notation punctuation in the key name — never readable) ===")
+    if suspicious:
+        for f in suspicious:
+            where = " (nested)" if f.get("nested") else ""
+            print(f"  {f['agent']} {f['path']} {f['action']}.{f['key']}{where}")
+        print()
+        print("  These key names carry '?', '*', ':' or a space — the punctuation schema")
+        print("  DOCUMENTATION uses. Nothing reads a key spelled like that, whatever the")
+        print("  action declares, so the step describes behaviour that cannot happen.")
+        print("  bugs_open/134: 'category?' was written in seed 156's own comment, where")
+        print("  it correctly means 'optional', and then written again into the real JSON")
+        print("  forty-five lines below. Fix the SEED as well as the live row — a replay")
+        print("  restores it otherwise.")
+    else:
+        print("  none")
+
+    print()
     print("=== UNDECLARED ACTIONS (not opted in — nothing is known about these keys) ===")
     print(f"  {len(undeclared_by_action)} actions, "
           f"{sum(len(v) for v in undeclared_by_action.values())} (action,key) pairs")
@@ -208,5 +259,9 @@ else:
         print(f"    … and {len(undeclared_by_action) - 20} more actions "
               f"(use --json for the full list — this cap is a display limit, not a filter)")
 
-sys.exit(1 if unknown_by_action else 0)
+# Both classes fail the run. A suspicious key is the more certain of the two —
+# an unknown key MIGHT be a stale declaration, whereas a key nothing can read is
+# inert by construction — so exiting 0 over one because the other section is
+# empty would be the report vouching for a definition it just flagged.
+sys.exit(1 if (unknown_by_action or suspicious) else 0)
 PY
