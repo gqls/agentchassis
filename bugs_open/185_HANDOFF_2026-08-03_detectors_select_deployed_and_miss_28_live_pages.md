@@ -333,6 +333,10 @@ ORDER BY swi.created_at DESC;
 
 # TRANCHE 2 DECIDED AND DONE 2026-08-03 — the measurement inverted the holdout's premise
 
+**Commit `9bd75a55f` · council `b563a61c-bbf3-40e6-9b2f-a32d6e71e964`** (submitted after
+the commit, so the commit carries no trailer — deliberately no placeholder this time; the
+correlation lives here, which is the honest forward record).
+
 The holdout's stated reason was *"a shipped needs_rebuild page is already queued for a
 rebuild that will regenerate it anyway"*. Measured (the question this file said tranche 2
 needed):
