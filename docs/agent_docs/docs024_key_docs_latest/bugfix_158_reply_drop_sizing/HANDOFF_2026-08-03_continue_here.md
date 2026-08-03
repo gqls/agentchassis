@@ -19,13 +19,27 @@ by the owner on 2026-08-03 and the ruled scope is SHIPPED.** What remains open i
 | commit | what |
 |---|---|
 | `2091903ab` | `check_silent_reply_drop` in `scripts/pattern-check.py` — closes the class prospectively, no behaviour change |
-| `2d976c026` | **option (b)**: `DeliverReply` adopted at the three plumbing sites + tests + a detector false-positive fix |
+| `2d976c026` | **option (b)**: `DeliverReply` adopted at the three plumbing sites + coordinator tests + a detector false-positive fix |
+| `fca47d869` | agentbase adoption tests — the council's one real gap, mutation proved |
 | `b759bb072` | ticket updated with the ruling and the census correction |
 | `300c04bfd`, `c34fbaadd` | 016b correction, WRONG_CALLS |
 
-**Council `f13212d4-2787-448f-bf49-b57506ded74e` was submitted and its verdict had
-NOT landed when this was written.** It was at `review_mission`. **First job for the
-next session: read it and act on it.**
+**Council `f13212d4-2787-448f-bf49-b57506ded74e`: APPROVED round 1**, 3 advisory
+objections, none high. Acted on: the `editquality` seat's medium — my submission
+invoked 158's landmine about tests living in the caller's package and then tested
+only the coordinator — closed by `fca47d869` (agentbase adoption tests, mutation
+proved). Still standing, and worth a glance rather than action:
+
+- `guardian` (medium x2): the owner-ruling claim is checkable and should be checked
+  — it is recorded in `bugs_open/158`'s 2026-08-03 section and in the ruling summary
+  above; the seat is right that a plan asserting an owner ruling should be verified,
+  not taken on trust.
+- `guardian`/`debug_historian` (medium): the timeout-monitor site still has no test
+  (no repository fake in the package), and the plan named no post-deploy
+  verification — the commands ARE below, they simply were not in the submission.
+- `editquality`/`guardian` (low): the `pattern-check.py` false-positive fix rode in
+  on a core-plumbing change and diluted the plan's minimality. Fair; it was a
+  correction of my own error and I did not want it sitting unfixed.
 
 ```sql
 SELECT current_step, status FROM orchestration_states
