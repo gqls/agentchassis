@@ -18336,3 +18336,26 @@ answered by fetching them, never by arithmetic on DB stamps — the file's own c
 criterion ("ask the artefact, not the stamp"), applied to the sentence that cites it. This
 is also 098's fix candidate 4 (the curl sweep detector) run by hand; the conflation has now
 bitten three times inside one bug file, which is the strongest case yet for building it.
+
+## 2026-08-03 — "needs_page IS drainable by the revalidator" was written into a bug file from the surrounding workstream's ambience, not from the map
+
+**The claim that was wrong:** `bugs_open/187` (filed at council direction by the 177
+lane) told its future owner that "`needs_page` IS drainable by the revalidator but
+these rows predate/evade it — check why before hand-sweeping". The `reviewRevalidators`
+map (`revalidate_review_queue_action.go:149`) has exactly three entries —
+`unresolved_cta`, `required_fields_missing`, `needs_section_data`. `needs_page` has
+never been covered; the 28 parked rows are not evading a drain, there is no drain.
+
+**Why.** The review-queue workstream's docs discuss draining `needs_page`-adjacent
+types at length, and the claim reads like the plan's ambience compressed into a
+statement of current behaviour. It was stated in the same voice as the file's measured
+figures, with no `[UNVERIFIED]` marker — exactly the shape the marker rule exists for.
+
+**What caught it:** the 187 lane's "check why before hand-sweeping" instruction being
+followed literally — the check's first step was reading the map, which refuted the
+premise of the question.
+
+**The cheap check that would have caught it:** coverage claims about a registry are
+answered by the registry — one grep of the map variable (`reviewRevalidators`), ten
+seconds. A doc's statement about what a map covers is a claim about behaviour, not
+behaviour (the standing family: read the row/map, not the prose about it).

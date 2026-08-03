@@ -68,12 +68,53 @@ takes this ticket should weigh that extraction first.
 
 - `bugs_closed/177` — the worked case + the §9 pattern entry.
 - `bugs_open/033` — the queue these park in; owner ruling 2026-07-25 "the queue
-  should not fill"; `needs_page` IS drainable by the revalidator but these rows
-  predate/evade it — check why before hand-sweeping.
+  should not fill"; ~~`needs_page` IS drainable by the revalidator but these rows
+  predate/evade it — check why before hand-sweeping.~~
+  > **CORRECTED 2026-08-03 (187 lane):** false. `reviewRevalidators`
+  > (`revalidate_review_queue_action.go:149`) covers exactly `unresolved_cta`,
+  > `required_fields_missing`, `needs_section_data`. **`needs_page` is an
+  > UNCOVERED type — nothing drains these rows.** The check was one grep of the
+  > map. WRONG_CALLS entry recorded.
 - `bugs_open/087` — page-rebuild's writer got no section plan (a consumer-side
   sibling of this emitter-side question).
 - `bugs_closed/015` / `bugs_closed/081` — the "page should have sections and
   does not" cause family.
+
+## Per-emitter triage — DONE 2026-08-03 (187 lane; the `[UNVERIFIED]` above is now resolved)
+
+All 28 parked rows measured against live state (join `pages` BY NAME — 27/28
+carry NULL `page_id`), every emitter read at HEAD. 090 run filed, correlation
+`b3dcb102-d4bf-44c1-b2a2-3068ce95acc6`.
+
+- **image-build-handler (14) — 177's shape, guard the emit.**
+  `flag_page_image_rebuild_action.go:132-159` emits from only (site_id,
+  page_name); its own header comment says "VERIFY BEFORE RELYING ON IT", and
+  the assumption is measured false: every parked row's page declares
+  `sections=[]` with no plan membership (except brands-index/shop-index —
+  satisfiable, see below).
+- **page-rerender (4) — 177's shape, guard the emit.**
+  `escalateRerenderToWriter` (`rerender_page_sections_action.go:803`) fires on
+  a NULL `content_data` slot and asks the writer to rebuild from a section
+  plan that does not exist; a tool page's widget slot rendering from other
+  than `content_data` makes the trigger itself a false alarm there.
+- **reconcile_site_plan (9) — leave the emitter alone.** 4 rows' pages were
+  BUILT since by other routes (tungsten-guide, board-setup, cases-index,
+  thames-water — items stale, drainable with evidence); 5 rows point at pages
+  with 0 sections + 0 plan rows (directory-index, practice, guides-index,
+  brand-detail, platform-log-index) — the `bugs_closed/015` shape, a REAL gap
+  the item is correctly surfacing. A guard here would suppress genuine
+  findings.
+- **gemini-p7-verification (1) / json-leak-fix (1) — manual enqueues, no code
+  path exists** (grep: doc mentions only). grip-styles is satisfiable NOW
+  (3 declared, 3 plan rows, 0 slots) — genuine pending work, stays parked;
+  the json-leak-fix row is already `rejected`.
+
+Fix shipping from the 187 lane (PLAN in
+`docs024_key_docs_latest/bugfix_187_sectionless_needs_page/`): shared
+read-only satisfiability resolver extracted from 177's guard (the third-copy
+moment the architecture seat named), wired into both 177-shaped emitters, plus
+a `needs_page` entry in `reviewRevalidators` so satisfied asks close with
+evidence instead of parking for ever.
 
 ## Verify (per emitter, once triaged)
 
