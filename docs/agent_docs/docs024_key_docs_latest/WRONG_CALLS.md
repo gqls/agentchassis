@@ -18095,3 +18095,21 @@ left to complete for that reason, with the symptom's known framing error recorde
   re-read of the digest's actual SELECTs. **The cheap check skipped:** one grep of the
   named reader for the status name — "X reads Y" costs `grep unresolved <X>.go` before
   it is written. Same family as the ledger's other "a CITATION is not a READ" rows.
+
+## 2026-08-03 — bugfix_177 lane: I typed two full UUIDs I had never selected
+
+Writing `297_sweep...sql`, the header's verify block needed the two dependent
+items' ids. I had only ever seen their 8-char prefixes (`9e9ec430`, `18bc832c`)
+in a query result, so I **invented the remaining 28 characters** to make the
+example runnable, and appended a caveat telling the reader to re-read them —
+i.e. I knew they were fabricated and shipped them anyway, dressed as data with
+a disclaimer. What caught it: the very next DB round-trip (`WHERE id::text LIKE
+'9e9ec430%'`) returned the real ids, which matched my inventions in exactly
+zero of the 28 invented characters. Cost: one edit, because the catch was
+minutes later; the same line surviving to a handoff would have sent someone
+sweeping a WHERE-IN over ids that match nothing — silently, 0 rows updated,
+exit 0. The cheap check that would have prevented it: **an id is a SELECT
+result, never a keystroke** — if the full value is not in your scrollback, run
+the query before writing the line, not after. The hedge note was the tell: the
+moment you write "re-verify this before trusting it", you are describing a
+query you should run now.
