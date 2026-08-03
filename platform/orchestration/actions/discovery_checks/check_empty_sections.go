@@ -264,12 +264,24 @@ func findResolvedEmptySections(dctx DiscoveryCheckContext) ([]ResolvedFinding, e
 	// page_id is compared AS TEXT rather than cast to uuid: a cast would raise
 	// on a malformed spec value and take the whole check down with it, and the
 	// set is bounded at a few dozen keys per site, so the index is not the point.
+	// page_id comes from the FIRST-CLASS COLUMN first, the spec only as a
+	// fallback. Raised by the council's editquality seat (medium, correlation
+	// 97923026) against the standing landmine about handlers that read one of
+	// site_work_items' first-class columns while the creator populates the other.
+	// The filing half above sets BOTH — WorkItemSpec.PageID and spec.page_id —
+	// so today they cannot disagree, and they do not: measured over all 58
+	// empty_section rows ever, 0 have a NULL column, 0 disagree, and that holds
+	// for all 47 open ones. The COALESCE is here anyway because "measured empty"
+	// is not "unreachable" — this lane was already wrong once in exactly that way
+	// — and because preferring the column costs nothing while removing the whole
+	// class: a future filing change that sets the column and forgets the spec key
+	// would otherwise silently stop retracting, with no signal.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT k.item_key, pc.id, COALESCE(pc.rendered_html, '')
 		FROM (
 		    SELECT DISTINCT item_key,
-		           spec->>'page_id'               AS page_id,
-		           COALESCE(spec->>'slot_name','') AS slot_name
+		           COALESCE(page_id::text, spec->>'page_id') AS page_id,
+		           COALESCE(spec->>'slot_name','')           AS slot_name
 		      FROM site_work_items
 		     WHERE site_id = $1
 		       AND item_type = 'empty_section'

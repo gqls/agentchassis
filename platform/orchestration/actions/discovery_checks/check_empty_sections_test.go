@@ -318,3 +318,33 @@ func TestRetractionFailureDoesNotSuppressFindings(t *testing.T) {
 		t.Errorf("a failed observation must retract nothing: got %d", len(res.Resolved))
 	}
 }
+
+// The retraction resolves page_id from the FIRST-CLASS COLUMN, falling back to
+// the spec. Council 97923026, editquality (medium): a handler blind to the
+// column the creator populates is a standing landmine on this table. Measured
+// 58/58 agreement today, so this pins the PREFERENCE rather than a behaviour
+// difference — if someone drops the COALESCE back to spec-only, the query text
+// stops naming the column and this fails.
+func TestRetractionPrefersTheFirstClassPageIDColumn(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("FROM page_components pc").WillReturnRows(sqlmock.NewRows([]string{
+		"id", "page_id", "name", "slot_name", "function", "len", "pattern", "runtime_fill"}))
+	// The column must appear, coalesced ahead of the spec key.
+	mock.ExpectQuery(`COALESCE\(page_id::text, spec->>'page_id'\)`).
+		WillReturnRows(retractionRows("c1", filledHTML))
+
+	check := &EmptySectionsCheck{}
+	if _, err := check.Run(DiscoveryCheckContext{
+		Ctx: context.Background(), DB: db, SiteID: uuid.New(), Logger: zap.NewNop(),
+	}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the retraction query must resolve page_id from the first-class column: %v", err)
+	}
+}
