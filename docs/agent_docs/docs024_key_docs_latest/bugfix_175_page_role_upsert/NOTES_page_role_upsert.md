@@ -329,3 +329,43 @@ a shelf life measured in minutes on this tree.
 - `editquality` [low]: the `links.go` edit is comment-only and should not count as a covering
   fix. Correct, and it never claimed to be — it is documentation of a relationship, and the
   fix is 181.
+
+## 2026-08-03 — the prevention package, and a check that measured itself out of existence
+
+Asked directly whether this session's mistakes could be stopped rather than only caught,
+the answer split into three kinds: a disconfirmability question (judgement, stays a
+doctrine line), a sequencing hole (mechanical, closed), and a repeating-shape hole
+(mechanical and closed, but a DIFFERENT one than first attempted).
+
+**Shipped:**
+- `CLAUDE.md` — extended the existing marker bullet: a `[MEASURED]` figure is only
+  evidence if the measurement could have come out otherwise. Two of this session's own
+  wrong claims are cited as the case that a dated, marked figure can still be false.
+- `scripts/council-coverage-nudge.sh` — validates the SHAPE of `Council-Submitted:` /
+  `Council-Reviewed:` (hex-and-dash, ≥8 chars) before the platform-code gate, so the exact
+  mistake on `171d52a1a` (a placeholder trailer that resolves to nothing, permanently,
+  because forward-only forbids the amend) cannot happen silently again. Induced both
+  branches, then broke the regex and watched the placeholder case go quiet — a real guard.
+- **A genuine, separate bug found while doing this**: `check_handrolled_shipped_predicate`
+  (added in `e9c78a84f`, earlier today) was written and documented but never added to
+  `main()`'s check tuple — dead code that had never fired in production. Fixed in the same
+  pass; this is my own "a check unregistered is not a check" lesson, caught by touching the
+  same file a second time.
+
+**Attempted and DECLINED, on the measurement:** a `check_unsupported_figure` rule — flag a
+count with no date/marker/evidence in reach. Calibrated against real history before
+shipping, per this file's own standing rule. Two scopes, both far past the noise bar:
+markdown bug/NOTES files, paragraph-scoped, **53% of 175 sampled historical commits
+fired**; Go comment blocks fleet-wide, **32% of 323 figure-bearing blocks lacked any
+signal**. Reading the false positives is what killed it: they were not sloppy prose, they
+were this codebase's normal good style — a section states its measurement once, then
+argues from it across several paragraphs without repeating the tag each time. My own true
+figures this session were written the same way. **The check could not distinguish my
+correct claims from my wrong ones, because at the text level there is no difference.**
+
+This is not a failure to report quietly. It is the direct, load-bearing confirmation of
+the thing I'd just written in the TALK essay before building it: confidence is invisible
+because the sentence that's right and the sentence that's wrong look identical, and that
+identity is exactly what a lexical pattern cannot see through. Recorded in the essay as an
+addendum, and the declined code is kept as a comment in `pattern-check.py` (not silently
+deleted) with both calibration numbers, so nobody re-attempts the same shape blind.
