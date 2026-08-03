@@ -484,8 +484,15 @@ step and is deliberately not bundled here.
 
 **`footer.html`.** An ADDITION: the hand-built pages had none. It earns its place
 because `/legal.html` is orphaned — zero inbound links from the 27 pages or from
-`nav.js`. `/tools/standard-calc.html` is the other orphan and is deliberately not
-linked; it duplicates the index calculator, which is a content question.
+`nav.js`. ~~`/tools/standard-calc.html` is the other orphan~~ **RETIRED 2026-08-03
+on the owner's decision** (404 on the wire, sitemap 27→26); it duplicated the index
+calculator while carrying two dated rate claims the homepage deliberately omits.
+
+⚠ **The footer's own comment used to say all of this, and it shipped on all 27
+pages** — an HTML comment is not stripped from a served page. The moment the
+orphan was retired the comment became FALSE, site-wide. It now points here
+instead. Keep engineering prose out of authored chrome: the chrome has no
+tool-doc sentinel mechanism, so anything you write in it is published.
 
 ⚠ **Do not write a literal HTML tag inside a comment in any of these.** The first
 head carried `<div class="container">` inside a CSS comment explaining the rule,
