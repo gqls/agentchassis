@@ -385,3 +385,119 @@ pull the same image tag and rolled later with a newer same-tag build — if
 If not: v1.0.1237 exists as (at least) two builds and the 08:46Z roll reverted the
 chassis to the older one. Either way, re-verify at YOUR executing pod, and consider a
 fresh IMAGE_TAG bump — the 1237 bump is still uncommitted in the shared makefile.
+
+## 2026-08-03 ~11:00–12:00Z — the 68 ungated `skip_field` fields are GATED (migration 295), and the 138 lane's notice above is REFUTED
+
+The owner asked for the one open item: *"please gate the 68 blank-rendering fields"*.
+Done, live, proven. `bugs_closed/140` + RFC_009 now have nothing outstanding.
+
+### What the 68 actually were, which is not what RFC_009's shape suggested
+
+RFC_009 describes them as "declared `skip_field`, referenced, never gated" and leaves
+the impression that each wants an `{{if}}` around it. **62 of the 68 are the ungated
+PARTNER of a gated field:**
+
+```
+{{if .spec_1_name}}<tr><th>{{.spec_1_name}}</th><td>{{.spec_1_value}}</td></tr>{{end}}
+                                                      ^^^^^^^^^^^^^^ ungated
+```
+
+The row is gated on the NAME. The VALUE is the one declaring `skip_field`. So the
+element that must disappear is usually **not** the one the field sits in, and the
+obvious edit is wrong in two opposite ways, both of which pass the lint:
+
+- `<td>{{if .spec_1_value}}{{.spec_1_value}}{{end}}</td>` still renders `<td></td>` —
+  **a NO-OP that silences the detector and leaves the defect.** The worse half.
+- Gating the `<td>` itself emits a 3-cell row in a 4-column table — **malformed**,
+  and only when a site omits that datum.
+
+Four treatments, chosen per component, all in migration 295's header: gate the element
+(30 fields), widen the existing row gate (23), gate the optional card/container (6),
+gate the section (1). Prospective form now in `LANDMINES.md`.
+
+### Two of the 68 were never "mild blanks", and RFC_009 says they all are
+
+- `featured_article.featured_image` sits bare in `<img src="{{.featured_image}}">`.
+  Absent → `src=""`, which a browser resolves to the page URL and re-requests: a
+  **broken image**, the `inURLAttr` dead-control class of `bugs_open/018`.
+- `hero-tool`'s two CTA labels sit inside anchors gated only on the URL → `<a
+  href="/x"></a>`, an invisible unclickable control.
+
+Both now gate on url AND label — the idiom `hero` in this same library already used
+(`{{if and .cta_text .cta_url}}`), so the library was made to agree with itself.
+
+### MISSTEP — I nearly reported 47 damaged pages when the answer was 3
+
+`content_data` lacks the datum in **75 field-instances**, 47 of them `hero.subheadline`.
+I had that number ready to write as the blast radius. It is **not** present damage:
+querying the stored artefact instead, only **1** hero row actually contains
+`<p class="hero-subheadline"></p>`. The other 46 have real subheadline text from a
+legacy render and an **empty `content_data`** — their blank is latent, not served.
+Across all 20 components: **3 stored rows** carry the empty element today.
+
+Quoting the data count as the damage count would have overstated the fix **25×**.
+The distinction now sits in the migration header, marked as which is which. *The
+artefact is the fact; `content_data` is a forward-looking risk measure.*
+
+### MISSTEP — my own render check failed for the wrong reason
+
+`hero-tool` failed the "element vanishes" assertion on the signature `htl-cta-row`,
+which also appears **as a CSS class selector in the component's own `<style>` block**.
+The gate was correct; the assertion was matching stylesheet text. Tightened to
+`<div class="htl-cta-row">`. A signature that can match the CSS as well as the markup
+will pass or fail for reasons unrelated to the template logic.
+
+### MISSTEP — `Council-Submitted: pending` on `f2c8c6b41`, the third such commit today
+
+Logged in `WRONG_CALLS.md`. Doubly meaningless here: the trigger **refuses** any
+submission touching no `platform/`/`internal/`/`pkg/` path, and this is a `docs/`
+migration, so there was never a submission to be pending. Forward-only ⇒ no amend.
+Related structural gap flagged there: a config migration with fleet-wide blast radius
+is invisible to the council gate purely by its path — 287 was reviewed only because it
+rode alongside Go changes.
+
+### The 09:20Z notice from the bugfix_138 lane is REFUTED — B is live
+
+Their probe grepped `strings /app/agent-chassis` for **"declared skip_field but never
+gated"**. That phrase exists once in the tree: `component_fallback_guard.go:78`,
+**inside a `//` comment**. Comments are not compiled, so it returns 0 against every
+binary that has ever existed. Re-probed 11:45Z with compiled strings from the same
+commit (`git log -S` → `87ea0a5e7`), both replicas:
+
+| grep | 2dz8n | wf4qf |
+|---|---|---|
+| `template invents` (`:250`, real format string) | 1 | 1 |
+| `replacement INTRODUCES` | 1 | 1 |
+| `fabricatedFallbackIssue` | 2 | 2 |
+| `invented_string_xyzzy` — negative control | 0 | 0 |
+
+So `f48bf3e60`'s "LIVE on v1.0.1237" stands, and the handoff's "no pod-grep
+outstanding" was right. Their build-point bracket inherits the same blindness on its
+87ea0a5e7 leg. Full write-up in `WRONG_CALLS.md`; the check they needed was already in
+`LANDMINES.md`, added hours earlier by another lane (`grep -v '^\s*//'` when picking a
+marker). **Their notice was raised correctly** — observables only, innocent reading
+offered, routed to this lane. That is why it cost twenty minutes.
+
+### How it was proven, and the half that does the work
+
+Every one of the 20 templates was **re-fetched from the live library after the
+migration** and rendered through `actions.RenderTemplate` — the production entry point,
+not a replica of its `text/template` config — twice: datum present, datum absent.
+**20/20.** The positive control ("still renders when the datum IS there") is the
+load-bearing half: a gate that over-fires passes a "did it disappear?" test perfectly.
+
+Live lint after: `clean — 173 active components … every declared skip_field that is
+rendered is gated`. Was `0 fabricated, 68 ungated`.
+
+### Gotchas banked
+
+- **The whole-library dump truncates.** `kubectl exec … -tAc` on the ~2 MB
+  `jsonb_agg` of all active components returned **invalid JSON** with
+  `"Copying stdout failed: unexpected EOF"` — and the lint hit the same flake once,
+  correctly exiting 2 rather than reporting a false clean. Fetch the components you
+  need by name; retry on exit 2 rather than believing a clean run.
+- **`\b` is a BACKSPACE in Postgres regex** (existing landmine). The verify block uses
+  `\y`, and it was proved in psql with both negative controls before being relied on.
+- **Do not run `run-migrations.sh --apply`** — it takes EVERY pending file, and two
+  other sessions have pending migrations in that directory right now. Applied 295 by
+  hand with `psql -v ON_ERROR_STOP=1 -f`, then `--record-only`.

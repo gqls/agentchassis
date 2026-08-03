@@ -78,7 +78,8 @@ Councils: **`40de12b0-…` APPROVED r1** (the fix), **`19bee790-…` APPROVED r1
 ## How to check it is still healthy (all fast, all read-only)
 
 ```bash
-python3 scripts/check_placeholder_fallbacks.py            # expect: 0 fabricated, 68 ungated
+python3 scripts/check_placeholder_fallbacks.py            # expect: CLEAN — 0 fabricated, 0 ungated (68 -> 0 on 08-03, migration 295)
+                                                          # exit 2 = kubectl stream flake, NOT a pass — retry
 python3 scripts/check_placeholder_fallbacks.py --selftest  # expect: 10 must-refuse, 14 must-allow
 go test ./platform/orchestration/actions/ -run TestFabricatedFallback
 kubectl get cronjob component-fallback-check -n ai-persona-system   # LASTSUCCESS should be today
@@ -97,28 +98,59 @@ Full command set with the gotcha attached to each: `RUNBOOK_contact_info_fabrica
 (**R4 is SUPERSEDED — use R9**). Missteps: `NOTES_…`. Plain-prose history:
 `README_where_we_are.md`. Milestone read-out: `SUMMARY_2026-08-02_…`.
 
-## THE ONE OPEN ITEM — an owner judgement call, not a task
+## ~~THE ONE OPEN ITEM~~ — **CLOSED 2026-08-03: the owner asked, and the 68 are gated**
 
-**68 fields across 20 components declare `on_missing: "skip_field"`, are rendered,
-and are never gated** — `platform-comparison` 15, `product-specs` 8,
-`system-stats` 8, and 17 others. When the datum is absent they render a **blank**
-(an empty table cell, an empty spec row, a missing subheadline).
+> **SUPERSEDED 2026-08-03 ~12:00Z.** The owner's answer to the judgement call below
+> was "please gate the 68 blank-rendering fields". Done and live: **migration 295**
+> (`295_twenty_components_gate_their_declared_skip_fields.sql`, commit `f2c8c6b41`).
+> The live lint now reports `clean — 173 active components`, where it reported
+> `68 ungated`. **The expected lint output in the health-check section above is
+> therefore `0 fabricated, 0 ungated`, not `0 fabricated, 68 ungated`.**
+>
+> **What the next thread most needs to know**, because this doc's own description of
+> the 68 was misleading: **62 of the 68 were the ungated PARTNER of a gated field**
+> — `{{if .spec_1_name}}<tr><th>{{.spec_1_name}}</th><td>{{.spec_1_value}}</td></tr>{{end}}`,
+> where the row is gated on the NAME and the VALUE is what declares `skip_field`. So
+> the obvious repair is wrong two ways, **both of which pass the lint**: gating the
+> value inside its `<td>` still emits `<td></td>` (a NO-OP that permanently silences
+> the finding), and gating the `<td>` emits a 3-cell row in a 4-column table. Four
+> treatments were needed; the per-component reasoning is in migration 295's header
+> and the prospective check is now in `LANDMINES.md`.
+>
+> **Two of the 68 were not mild blanks at all**: `featured_article.featured_image`
+> rendered `<img src="">` (a broken image — the `bugs_open/018` dead-control class),
+> and `hero-tool`'s two CTA labels rendered `<a href="/x"></a>`, an invisible
+> unclickable control. Both now gate on url AND label.
+>
+> **Blast radius, at the artefact rather than in the data**: 20 of the 68 fields have
+> ZERO live instances; only **3 stored rows** carried the empty element. The
+> "75 field-instances absent from `content_data`" figure is forward-looking RISK, not
+> damage — 46 of the 47 `hero.subheadline` rows serve real text from a legacy render
+> over an empty `content_data`. The two differ by 25×; do not quote the first as the
+> second.
+>
+> **Proven**: all 20 templates re-fetched from the live library *after* the migration
+> and rendered through `actions.RenderTemplate` (the production path, not a replica),
+> datum present and absent — 20/20, positive control included.
+>
+> **NOT council-reviewed, and it could not be**: the trigger refuses a submission
+> touching no `platform/`/`internal/`/`pkg/` path, and this is a `docs/` migration.
+> (`f2c8c6b41` carries a meaningless `Council-Submitted: pending` trailer — my error,
+> logged in `WRONG_CALLS.md`; forward-only forbids the amend.)
 
-They are **reported and deliberately not blocking**: a blank asserts nothing
-untrue, all 68 predate the check, and a permanently-red gate is one everybody
-learns to ignore. **This is a different, milder class than the fabrications** — do
-not conflate them.
-
-Fixing them means gating 68 fields across 20 shared components owned by other
-lanes, with a visible blast radius on live pages. **Nobody has costed that**, and
-it should not start without the owner asking for it.
-
-RFC_009's **option A** (make the *renderer* enforce `on_missing`, fixing all 68 at
-once) is **open and NOT taken**, on a measurement worth keeping: **~90% of fields
-(1,938 of 2,163) declare no `on_missing` at all**, so a render-time gate would be
-inert for nine fields in ten while being the only option that can break a live
+**RFC_009's option A is still NOT taken and this does not revive it** — ~90% of
+fields (1,938 of 2,163) declare no `on_missing` at all, so a render-time gate would
+be inert for nine fields in ten while being the only option that can break a live
 page. Revisit if the declaration rate rises, or if a third *fabrication* slips the
-lint — that would be evidence the lint is at the wrong layer. Neither is true today.
+lint. Neither is true today.
+
+**The one thing now genuinely open — and it is a smaller call than the last one.**
+The lint's ungated class deliberately does not fail the exit code, because "68 of
+them predate this check and a permanently-red gate is one everybody learns to
+ignore". **That reasoning has expired — the count is 0.** Flipping it to exit 1
+closes the door behind this work; the cost is that a legitimately new component from
+another lane could turn the daily CronJob red until someone adds one `{{if}}`. Not
+done unasked, because it changes what an existing check does to other lanes' work.
 
 ## Explicitly NOT owed
 

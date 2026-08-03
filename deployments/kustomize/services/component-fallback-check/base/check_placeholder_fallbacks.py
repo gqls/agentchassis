@@ -52,9 +52,20 @@ GATES. When the datum is absent that renders a BLANK — an empty cell in
 platform-comparison, an empty row in product-specs, a missing subheadline —
 instead of skipping the element as the contract says. **Reported separately and
 deliberately NOT failing the exit code**: it is a milder defect (a blank asserts
-nothing untrue, a fabricated literal asserts a falsehood), 68 of them predate
+nothing untrue, a fabricated literal asserts a falsehood), 68 of them predated
 this check, and a red result nobody can clear is a red result everybody learns to
 ignore.
+
+  UPDATE 2026-08-03 — that population is now **0**: the owner asked for the 68 to be
+  gated and migration 295 gated them across 20 components (RFC_009's decision record).
+  **The reason this class does not fail the exit code has therefore expired**, and
+  flipping it to exit 1 would close the door behind that work. NOT done unasked — it
+  changes what this check does to other lanes' components, and a legitimately new
+  component could turn the daily CronJob red until someone adds one `{{if}}`.
+  Note the limit of a clean result here, which 295 had to work around: this tests for
+  a gate ANYWHERE in the template and cannot see WHICH element the gate encloses. A
+  field gated inside its own `<td>` renders the identical empty cell and reports clean
+  — so "0 ungated" means the finding is cleared, not that the blank is gone.
 
 WHERE IT RUNS. Two places, one file:
   * by hand, by a session, via kubectl exec (the default);

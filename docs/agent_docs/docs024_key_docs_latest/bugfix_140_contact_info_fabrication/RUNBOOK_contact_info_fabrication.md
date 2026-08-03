@@ -193,3 +193,97 @@ label, a constant rendered two ways (link-or-text), an honest non-claim
 ("Contact us for pricing"), a gated field, a declared-but-unused field, a field
 gated with `{{with}}`. **Narrowing past a false positive is how this check would
 go inert, and it nearly did** — see NOTES.
+
+---
+
+## R10 — gating a declared `skip_field` field (migration 295's method)
+
+**The commands that were hard to get right, with the gotcha attached to each.**
+
+### Fetch the templates — by NAME, never the whole library
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc \
+  "SELECT string_agg('<<<COMP '||name||'>>>'||E'\n'||html_template, E'\n' ORDER BY name)
+     FROM content_components WHERE is_active AND name IN ('hero','product-specs', …);"
+```
+
+**GOTCHA — the whole-library dump SILENTLY TRUNCATES.** `jsonb_agg` over all 173 active
+components is ~2 MB and the kubectl stream cuts mid-string:
+`"Copying stdout failed" err="read message: unexpected EOF"`, leaving **invalid JSON**
+and a non-zero exit that is easy to miss inside a pipeline. `check_placeholder_fallbacks.py`
+hits the same flake intermittently — it exits **2** and says so rather than reporting a
+false clean, so **retry on exit 2; never treat it as a pass.**
+
+### Prove the gate at the RENDER, through the production path
+
+Do not re-implement `executeGoTemplate`'s options and FuncMap — a replica proves the
+replica works. Point a throwaway module at the repo and call the real exported entry:
+
+```go
+// go.mod: replace github.com/gqls/agentchassis => /home/ant/projects/agentchassis
+out := actions.RenderTemplate(tpl, &actions.RenderContext{ContentData: data}, zap.NewNop())
+```
+
+Render **twice** — datum present, datum absent — and assert both directions.
+**The positive control is the load-bearing half:** a gate that over-fires (drops the
+element even when the datum is there) passes "did it disappear?" perfectly.
+
+**GOTCHA — do not assert on a bare class name.** `htl-cta-row` matched the component's
+own `<style>` block, failing a correct gate. Assert on the ELEMENT:
+`<div class="htl-cta-row">`.
+
+**GOTCHA — `RenderContext` supplies some fields itself.** Its json-tagged scalars reach
+the template contract, so "absent from `content_data`" is not "absent". Of the 68, exactly
+one (`about-commercial-block.domain`) collides with a context key — check yours:
+
+```bash
+grep -n "type RenderContext struct" -A 90 platform/orchestration/actions/component_library.go \
+  | grep -oP 'json:"\K[a-z_0-9]+' | sort
+```
+
+### Measure the blast radius at the ARTEFACT, not in `content_data`
+
+```sql
+-- forward-looking risk: the datum is absent from the data
+SELECT count(*) FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
+ WHERE cc.name='hero' AND COALESCE(pc.content_data->>'subheadline','')='';   -- 47
+-- PRESENT DAMAGE: the empty element is actually in the stored HTML
+SELECT count(*) FROM page_components WHERE rendered_html LIKE '%hero-subheadline"></p>%'; -- 1
+```
+
+**GOTCHA — these differ by 25× and it is the second one that is true today.** Rows with
+an EMPTY `content_data` still serve real text from a legacy render. Quote the first as
+risk, the second as damage, and never swap them.
+
+### Apply it — by hand, then record
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/295_….sql
+./scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_agents/295_….sql --note "…"
+```
+
+**GOTCHA — NEVER `run-migrations.sh --apply` here.** It applies EVERY pending file in the
+directory, and other sessions routinely have unapplied migrations sitting there (two did
+on 2026-08-03). Apply your own file, then record it.
+
+**GOTCHA — the verify block must be a `DO` block that RAISEs.** `ON_ERROR_STOP` ignores a
+non-empty result set, so a verify block made of `SELECT`s **cannot stop the COMMIT**.
+295's catches both real failure modes: a `replace()` that matched nothing (compared against
+the row's own before-image) and a field still ungated (the lint's own regex).
+
+**GOTCHA — `\b` is a BACKSPACE in Postgres regex, not a word boundary.** Use `\y`, and
+prove it with negative controls before relying on it:
+
+```sql
+SELECT '{{if .subheadline}}x{{end}}' ~ '\{\{-?\s*(if|with)\s+[^}]*\.subheadline\y',  -- t
+       '<p>{{.subheadline}}</p>'    ~ '\{\{-?\s*(if|with)\s+[^}]*\.subheadline\y',  -- f
+       '{{if .subheadline_x}}y{{end}}' ~ '\{\{-?\s*(if|with)\s+[^}]*\.subheadline\y'; -- f
+```
+
+### Verify
+
+```bash
+python3 scripts/check_placeholder_fallbacks.py     # expect: clean, 173 components (was 68 ungated)
+```

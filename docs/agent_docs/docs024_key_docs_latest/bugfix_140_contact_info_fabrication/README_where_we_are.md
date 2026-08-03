@@ -179,3 +179,75 @@ a proposal rather than quietly fixing it, because the sensible answer depends on
 judgement call — whether to enforce the rules when a page is drawn, which is
 thorough but could break existing pages, or when a component is first created,
 which is safe but only helps future ones. That is your call, not mine.
+
+---
+
+## 2026-08-03, midday — you asked for the 68, and they are done
+
+The one thing I left open yesterday was a judgement call for you: 68 fields across 20
+shared components that say, in their own settings, "if nobody gave us this, leave it
+out" — and then render an empty space instead. You asked me to gate them. They are
+gated, live, and checked.
+
+**They were not quite what my own write-up said they were.** I had described them as
+fields with no guard around them, which made it sound like the fix was to put a guard
+around each one. When I actually read the twenty templates, 62 of the 68 turned out to
+be the *second half of a pair*: a spec table row is switched on by the row's NAME, and
+the VALUE sitting next to it in the same row is the unguarded one. That matters,
+because the obvious repair is wrong in two different directions. Guard the value where
+it sits inside a table cell and you get an empty cell exactly as before — the warning
+light goes off and nothing has changed, which is the worse of the two. Guard the cell
+itself and a four-column comparison row comes out with three cells, so every column
+after the gap slides sideways. Neither is what the setting asks for. What it asks for
+is "don't draw the row at all", so that is what I did for the tables, and for the rest
+I removed whichever element was genuinely safe to remove.
+
+**Two of the 68 were not harmless blanks at all.** One of them is an article image:
+with nothing to show, the page was emitting an image tag pointing at nothing, which a
+browser turns into a broken-image icon and a wasted request. Another two were button
+labels — the button was drawn because it had a link, but with no words on it, so the
+page carried an invisible, unclickable control. Those are the same family as a defect
+we already track separately. They are now switched on only when both the link and the
+label exist.
+
+**On how much was actually broken, I nearly told you the wrong number.** Counting the
+stored data, 47 pages were missing a hero subheadline, and I was ready to say so. Then
+I looked at the pages themselves: only ONE of them is actually serving an empty gap
+today. The other 46 have perfectly good text on them, written at some point in the past
+and still sitting in the saved page, even though the underlying record has since been
+emptied. Across all twenty components, three pages show the defect today, not 75. The
+larger number is a fair description of *risk* — what would happen if those pages were
+rebuilt — but quoting it as damage would have made this look twenty-five times more
+urgent than it is. Both numbers are written down now, each labelled as what it is.
+
+**Nothing on any live site changes until that page is next rebuilt**, and only if the
+rebuild is the kind that redraws sections rather than re-stapling the saved ones. That
+is the same trap this thread fell into last time, so I have not assumed otherwise.
+
+**How I know it works.** I took all twenty templates back out of the live system after
+the change and drew each one twice — once with the information present, once with it
+missing — through the platform's real drawing code rather than a copy of it. Twenty out
+of twenty: the element disappears when there's nothing to say, and still appears when
+there is. The second half is the one that matters; a guard that is too aggressive would
+sail through a test that only checks things vanish. The standing daily check now reports
+the component library completely clean, where yesterday it reported 68.
+
+**One loose end from another thread, now closed.** Overnight, another session left a
+note in this thread's file saying my previous fix was not actually in the running
+software, with what looked like solid evidence. It was a false alarm, and the reason is
+worth knowing: they searched the running program for a sentence that only exists in a
+*comment* in the source code. Comments are stripped when the program is built, so that
+search returns "not found" against every version ever made, including one that has the
+fix. Searching instead for text the program genuinely uses finds it on both machines.
+The fix is live. I have written up both the correction and the cheaper check, and I want
+to be clear that they were right to raise it — they reported only what they saw, offered
+an innocent explanation, and handed it to this thread rather than acting on it.
+
+**One thing I would still like your view on.** The daily check reports these blank
+fields but deliberately does not treat them as a failure — the reasoning was that 68 of
+them already existed and a warning nobody can ever clear is a warning everybody learns
+to ignore. That reasoning has now expired, because the count is zero. Making it a hard
+failure would stop the next one being introduced at all. The cost is that a genuinely
+new component from another team could turn the daily check red until someone adds one
+line to it. I have not made that change, because it alters what an existing check does
+to other people's work, and that is your call rather than mine.

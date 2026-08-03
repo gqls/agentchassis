@@ -4,7 +4,7 @@
 the council gate's **architecture** and **reuse_agent** seats, which reached this
 independently in the same round (`40de12b0-36fa-4c06-82b4-995dc9098593`,
 APPROVED with 7 advisory objections).
-**Status** **DECIDED 2026-08-03 by the owner: "C now, B next".** C is DONE and live (see the decision record at the foot). B is the next piece of work. A is NOT taken, and the sizing below says why.
+**Status** **DECIDED 2026-08-03 by the owner: "C now, B next".** C and B are both DONE and live. **The 68 ungated fields C reported were then GATED at the owner's request on 2026-08-03 (migration 295) — the count is now 0 and this RFC has nothing outstanding.** A is NOT taken, and the sizing below says why.
 
 > The seat's own verdict on the change that prompted this was **`point_fix`** —
 > *"no new namespace, wire shape, or shared runtime contract is introduced … does
@@ -403,3 +403,100 @@ Refuse, at `store_generated_component`, a template that ships a **fact-shaped
   makes it the cheap half of the pair. It also fixes nothing that exists: the 68
   stay until someone gates them, and that is a separate, larger piece of work
   nobody has costed.
+
+---
+
+## THE 68 ARE GATED — 2026-08-03, migration 295, on the owner's ask
+
+**"Please gate the 68 blank-rendering fields."** Done, live, and proven. The live lint
+now reports `clean — 173 active components … every declared skip_field that is rendered
+is gated`, where it reported `68 ungated` the day before.
+
+**This does not revive option A, and does not weaken the case against it.** The sizing
+above is unchanged: ~90% of fields declare no `on_missing` at all, so a render-time gate
+would still be inert for nine fields in ten while being the only option able to break a
+live page. 295 is the per-template repair the "A is not taken" decision implies, applied
+to the 10% where the contract IS declared and therefore checkable. **A stays open on the
+same two triggers** — a rising declaration rate, or a third *fabrication* slipping the
+lint.
+
+### One correction to this RFC's own framing, found by doing the work
+
+§2 lists the 68 as "declared `skip_field`, referenced by their template, with no
+`{{if .field}}` gate anywhere", which reads as though each wants a gate around it.
+**62 of the 68 are the ungated PARTNER of a gated field:**
+
+```
+{{if .spec_1_name}}<tr><th>{{.spec_1_name}}</th><td>{{.spec_1_value}}</td></tr>{{end}}
+```
+
+The row is gated on the NAME; the VALUE is what declares `skip_field`. So the element
+that must disappear is usually **not** the one the field sits in, and the reading this
+RFC invites produces one of two failures, **both of which pass the lint**:
+
+- `<td>{{if .spec_1_value}}{{.spec_1_value}}{{end}}</td>` still emits `<td></td>` — **a
+  no-op that clears the finding and leaves the defect**, permanently, because the lint
+  now sees a gate. The worse half.
+- Gating the `<td>` emits a 3-cell row in a 4-column table — malformed, and only for
+  sites that omit that datum.
+
+Four treatments were needed, not one: gate the element (30 fields), widen the existing
+row gate (23), gate the optional card or container (6), gate the section (1). The
+per-component reasoning is in the migration header; the prospective check is now in
+`LANDMINES.md`.
+
+### And §3's "these are all milder blanks" is too kind to two of them
+
+- `featured_article.featured_image` sits bare in `<img src="{{.featured_image}}">`.
+  Absent it renders `src=""`, which a browser resolves to the page URL and re-requests:
+  a **broken image**, the `inURLAttr` dead-control class of `bugs_open/018` — not a
+  blank, and not something that "asserts nothing untrue" so much as something that
+  visibly fails.
+- `hero-tool`'s two CTA labels sit in anchors gated only on the URL, so an absent label
+  renders `<a href="/x"></a>`: an invisible, unclickable control.
+
+Both are now gated on url AND label. Neither changes the RFC's conclusion; both mean
+the class was not uniformly mild, and a future sizing should not assume it is.
+
+### Blast radius, and a number this RFC would have got wrong
+
+§2's population is a `content_data` census. Measured at the **artefact** instead:
+
+| | fields | what it means |
+|---|---|---|
+| zero live instances | 20 of 68 | product-specs 8, featured_article 6, archetype 3, bayesian 3 — purely prophylactic |
+| datum absent in `content_data` | 75 field-instances | forward-looking RISK |
+| empty element in the STORED HTML | **3 rows** | PRESENT DAMAGE |
+
+The gap is 25×. 46 of the 47 `hero.subheadline` rows have real text in their stored HTML
+from a legacy render and an **empty `content_data`**. **The artefact is the fact; the
+data census is a risk measure.** Anyone re-sizing this class should quote both, labelled.
+
+### Proven on the real path
+
+Each of the 20 templates was re-fetched from the live library *after* the migration and
+rendered through `actions.RenderTemplate` — the production entry point, not a replica of
+its `text/template` configuration — with the datum present and with it absent. 20/20. The
+**positive control is the load-bearing half**: a gate that over-fires passes a
+"does it disappear?" assertion perfectly.
+
+### Not reviewed by the council, and it could not have been
+
+The council trigger refuses any submission touching no `platform/`, `internal/` or `pkg/`
+path (`097_TRIGGER…v1.sh:127`). 295 is a `docs/agent_docs/sql_for_agents/` migration whose
+effect is live DB config. **Migration 287 was reviewed only because it rode alongside Go
+changes in the same submission.** A config change with a fleet-wide blast radius that
+ships the instant it is applied is arguably the class most worth reviewing, and it is the
+class the path-based scope rule excludes. Flagged in `WRONG_CALLS.md` for whoever owns the
+gate's scope; not filed as an RFC here, because it is a question about the gate rather
+than about `on_missing`.
+
+### Open, and now decidable — the lint's exit code
+
+C's ungated class deliberately does **not** fail the exit code, on the reasoning that "68
+of them predate this check, and a permanently red gate is one everybody learns to ignore".
+**That reasoning has expired: the count is 0.** Flipping the ungated class to exit 1 would
+make the door close behind this work, at the cost that a legitimately new component from
+another lane could turn the daily CronJob red until someone adds one `{{if}}`. Left for
+the owner — it changes what an existing check does to other lanes' work, which is not a
+change to make unasked.
