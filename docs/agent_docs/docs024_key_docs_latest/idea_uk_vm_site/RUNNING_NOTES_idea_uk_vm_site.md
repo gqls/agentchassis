@@ -3625,3 +3625,11 @@ sale" page until the CF-side content exists; the pattern A record alone
 serves whatever the Worker route says, which for a zone with no Worker route
 is nothing useful — content wiring is the webdesign lane's machinery, same
 as webzy.uk.
+
+**§X.41 addendum:** loanzy.uk zone flipped **ACTIVE after 60s**. Fresh-zone
+state observed and worth knowing: **Universal SSL is not instant** — for ~the
+first minutes after activation the edge refuses the TLS handshake for the new
+hostname (curl exit 35 via --resolve; plain-http 200s you see meanwhile are
+cached dan.com A records still draining, NOT the edge). Watcher armed for the
+edge cert; content wiring (Worker route/B2) remains the webdesign lane's
+machinery, as with webzy.uk.
