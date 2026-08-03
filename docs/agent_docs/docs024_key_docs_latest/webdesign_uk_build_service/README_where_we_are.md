@@ -633,3 +633,46 @@ everybody while still looking like it's working. That's written down.
 **Still yours:** the correction fee (nothing on the page quotes one yet), and
 whether £1,200 includes VAT. The page carefully doesn't say either way, but that
 needs settling before we take a real payment.
+
+---
+
+**2026-08-03, later — VAT sorted, and why Cloudflare keeps locking me out.**
+
+You're not VAT registered, so £1,200 is simply £1,200. I've put that on the page in
+three places: next to the price, as its own question ("Is there VAT on top?"), and
+in the footer. It's worth being explicit rather than silent — a business buyer
+assumes a quoted price is before VAT unless told, so saying nothing quietly reads as
+"£1,440 really". It's live now; you can see it at https://preview.ugg2.com/.
+
+I haven't put "not VAT registered" on the page. What a buyer needs to know is that
+nothing gets added to the price, and that's what it says. Your registration status
+is a fact about your turnover and doesn't need publishing.
+
+**On Cloudflare blocking me.** The token is restricted to particular IP addresses,
+and this machine's address had changed since the token was made — so Cloudflare
+refused it. Three things worth knowing:
+
+The obvious way to test a token says everything is fine. Cloudflare's "verify this
+token" check answered "yes, active" at the exact moment real requests were being
+refused, because that check is exempt from the address restriction. So it answers
+"is this token still alive", not "can you use it from where you are". Anyone
+debugging this will be misled by it.
+
+Your address changes on its own. It worked last night and had rotated by this
+afternoon. So adding today's address fixes it for a few days and then it breaks
+again. Better to allow a range rather than one address — that survives the rotation
+and still keeps out everyone who isn't on your broadband.
+
+And the machine has two addresses, an old-style one and a new-style one, and picks
+between them unpredictably. That's why it half-worked for a while. I've changed our
+commands to always use the old-style one so there's only a single address to allow.
+
+My honest recommendation: allow the range, keep the restriction. That token can
+change DNS on all 36 of your domains, so the restriction is doing real work — it's
+the main thing limiting the damage if the token ever leaked. Don't remove it just to
+make my life easier. Longer term, once the new box exists, we run these changes from
+there instead, and lock the token to that one fixed address — which is both tighter
+and never in the way.
+
+Either way you don't need to unblock me to finish the shopfront: the two changes
+that put webdesign.uk live are dashboard clicks and need no token.

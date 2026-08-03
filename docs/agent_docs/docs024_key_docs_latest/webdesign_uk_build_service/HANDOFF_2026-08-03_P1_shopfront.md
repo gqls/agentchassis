@@ -46,12 +46,36 @@ permission-based**, but a second call in the same breath returned the *generic*
 different ways**, and 10000 reads like a scope problem you will waste time chasing.
 [LANDMINE — recorded in `LANDMINES.md`.]
 
-**Fix, either way:**
-- **Owner:** Cloudflare → My Profile → API Tokens → this token → edit **Client IP
-  Address Filtering**: add `5.65.164.9`, or remove the restriction. Note the machine
-  is dual-stack — an IPv6 egress (`2a02:c7e:3066:5400::/64`) hit the same wall, so
-  allow-list both families or neither.
-- **Or just do §4 in the dashboard by hand** — it is two changes.
+**A green health check does NOT mean the token will work.** Measured the same
+minute: `/user/tokens/verify` returned `active` over **both** families while a real
+zone call from that same IPv4 was refused. The verify endpoint is **exempt from the
+filter**, so it can never detect this. Test with a real (read) call against the zone
+you intend to write to.
+
+### How to stop it happening — ranked
+
+Token id `f0089a62ce6ea218b8c8137956d28297`.
+**Cloudflare → My Profile → API Tokens → the token → Edit → Client IP Address
+Filtering.**
+
+1. **Allow the ISP prefix, not the single address — recommended.** The address that
+   worked last night had rotated by this afternoon, so listing `5.65.164.9` alone
+   buys days, not weeks. Enter a CIDR (e.g. `5.65.0.0/16`) so ordinary DHCP
+   rotation stops breaking it. Keeps the filter meaningful — it still excludes the
+   whole internet outside one ISP.
+2. **Also pin the address family in the client.** Both families are filtered, so a
+   dual-stack machine flips between two different addresses and fails
+   *intermittently* — the worst kind. Use `curl -4` for every API call (the RUNBOOK
+   snippets now do) and only the IPv4 side needs listing.
+3. **Long-term: call the API from a stable address.** Once P1's box exists (§5), run
+   Cloudflare changes from there and lock the token to that one IP. That is the
+   version where the filter is genuinely tight *and* never in the way.
+4. **Removing the filter entirely is defensible but is the weakest option here** —
+   this token reaches **36 zones** with DNS and Page Rule write. The filter is the
+   main thing limiting blast radius if it leaks. If you do remove it, shorten the
+   expiry and rotate on a schedule instead.
+
+**Or sidestep it entirely:** §4 is two dashboard changes and needs no token at all.
 
 ## 4. To make webdesign.uk live (2 changes, ~1 minute)
 
@@ -124,10 +148,18 @@ does not ship**. It is not P2 polish.
 - **The correction fee** (§7d suggested £150/change or £600/day). The page says
   changes after acceptance are charged and our mistakes are free — it does **not**
   quote a number, so this is not urgent, but a caller will ask.
-- **VAT.** The page says only "Prices shown in pounds sterling" and deliberately
-  avoids "inc/ex VAT", because the position is undecided. **Settle it before step 5**
-  — a consumer-facing price is normally VAT-inclusive, and changing £1,200 from
-  inclusive to +VAT after people have seen it is a bad look.
+- ~~**VAT.**~~ **SETTLED by the owner, 2026-08-03: not VAT registered, so there is
+  no VAT on the price.** The page now says so in three places — the price card
+  (*"£1,200 is the total — there's no VAT to add"*), a FAQ entry (*"Is there VAT on
+  top?"*), and the footer. Live and verified at 13,254 B.
+  > **Why it is stated rather than left silent:** a business buyer assumes a quoted
+  > price is ex-VAT unless told otherwise, so silence reads as "£1,440 really". It
+  > also removes the single most common pre-purchase question.
+  > **Do not write "not VAT registered" on the page** — the price statement is what
+  > the buyer needs, and registration status is a fact about turnover that need not
+  > be published. **If registration ever happens this page must change**, and
+  > £1,200 should stay the total (absorb it) rather than becoming £1,440 for
+  > anyone who saw the old page.
 
 ## 8. Two things I got wrong today, for the next session's benefit
 

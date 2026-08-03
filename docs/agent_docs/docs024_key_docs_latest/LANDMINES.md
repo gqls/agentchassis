@@ -4113,8 +4113,20 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   `code 10000 Authentication error` for the identical cause.** Measured 2026-08-03,
   two calls seconds apart: DELETE → 9109, PATCH → 10000. If you happen to see only
   the 10000 you will conclude the token lacks a scope and go re-issue it, which
-  fixes nothing. **`/user/tokens/verify` cannot detect this** — it answers "is this
-  token alive", not "may this address use it"
+  fixes nothing.
+- **⚠ THE HEALTH CHECK IS EXEMPT FROM THE FILTER — measured, not inferred.**
+  2026-08-03, same machine, same minute: `GET /user/tokens/verify` returned
+  `success:true, status:active` over **both IPv4 and IPv6**, while
+  `GET /zones/{z}/pagerules` from **that same IPv4 address** returned
+  `9109 … from location: 5.65.164.9`. So the endpoint everyone reaches for to
+  answer "is my token OK?" **answers a different question** — it reports the
+  token's own lifecycle, never your right to use it from here. A green `verify`
+  is worth nothing as evidence that the next call will work
+- **both address families are filtered**, also measured: 9109 named an **IPv6**
+  address (`2a02:c7e:3066:5400:…`) on one call and an **IPv4** address on another,
+  so allow-listing one family leaves a dual-stack machine failing intermittently
+  as it flips between them. Pin the family with `curl -4` so only one address has
+  to be listed
 - **the check:** read the **`errors[0].message`, never the HTTP status** (Cloudflare
   returns 200 with `success:false`), and on any 10000 immediately re-run one call
   with `curl -4` and one with `curl -6` — if either reports 9109, it is the
