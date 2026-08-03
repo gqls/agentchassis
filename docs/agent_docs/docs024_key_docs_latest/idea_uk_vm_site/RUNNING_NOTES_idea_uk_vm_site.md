@@ -3609,3 +3609,19 @@ own in-flight REWRITE of their `input_schema` entry (7 lines replaced by a
 richer version with HEAD citations), swept from the shared working tree by my
 pathspec commit exactly as CLAUDE.md warns no hook can prevent. Verified
 coherent and complete before concluding; nothing of theirs was lost.
+
+## §X.41 — 2026-08-03: loanzy.uk moved to Cloudflare — VMB-015's second live run, 4 minutes end to end
+
+Owner: "can you do loanzy.uk". Checks first: **DESIGNCONSULT tag** (so EPP has
+authority, unlike webzy.uk), parked at **dan.com** NS (the same for-sale
+arrangement whose Google snippet damaged idea.uk — see the demand lane).
+Flow: CF zone `18c86604…` created (pending, alexis/leah), pattern record
+`A → 199.59.243.228 proxied` (webdesign.co.uk shape), EPP dry-run then
+`--apply` — all 1000s, verifying `domain:info` reads alexis/leah. 1.1.1.1
+answered the CF pair before `nsa.nic.uk` had republished (parent nodes lag
+each other by a few minutes — don't read one parent's stale answer as
+failure). Zone-active watcher armed. NB the domain serves a Dan.com "for
+sale" page until the CF-side content exists; the pattern A record alone
+serves whatever the Worker route says, which for a zone with no Worker route
+is nothing useful — content wiring is the webdesign lane's machinery, same
+as webzy.uk.
