@@ -846,3 +846,27 @@ and close (recommended — the TRUNCATED label string is the only unwitnessed ar
 every arm feeding it production-witnessed), or keep waiting on
 `metadata->>'gated_by_truncation'='true'` organically, which candidate 4's own success
 makes rare by design.
+
+---
+
+## CLOSED 2026-08-03 — owner decision, on aggregate evidence
+
+The bar for closing is fixed AND live, and every fix is both: attribution
+(`gated_by_truncation` + the TRUNCATED wording, live since v1.0.1200-era roll,
+survived four rebuilds), the headroom alert (running 6-hourly, no credits), the cap
+raises (owner's `277`), the length budget (48/51 seats, verified to shorten replies at
+an unchanged cap without losing objections), and the string-aware
+`repairTruncatedJSON` (`68cc1b4e8`, council-approved on trail `4d7363d7`, verified
+live 08-03 by literal-bracket).
+
+The TRUNCATED label string itself was never witnessed in production. It is closed
+anyway, deliberately: every arm feeding it was separately production-witnessed
+(salvage-success ×3 correctly excluded, salvage-failure → honest unreadable,
+tolerate+retry, veto short-circuit, merits-preference), the assembly is unit-tested,
+the fix suppresses the failure that would print it, and the model itself ended the
+induction programme by refusing an instructed verdict — the full account is
+`bugfix_138_degraded_gates/SUMMARY_2026-08-03_degraded_gates.md`.
+
+Passive watch, no owner: if `metadata->>'gated_by_truncation'='true'` ever appears on
+a `council_report`, the last artefact is witnessed for free — note it here and nothing
+more is owed.
