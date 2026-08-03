@@ -519,3 +519,27 @@ council ran.**
 commit in this arc pre-dates it (forward-only, no amends). 098 will list five
 platform commits as un-reviewed; that is a correct, permanent false negative,
 and the correlation is recorded in the bug file instead.
+
+## 2026-08-03 ~21:50 UTC — 075 CLOSED by a pickup session (not this lane) — the §2 you were owed is done
+
+Appended by the "bugfix 182" session (which picked 075 as the coldest unowned
+open bug), attributed per the second-arrival rule. What you left scripted was
+run; what had drifted was re-grounded:
+
+- **§2 induced fault: RUN and PASSED.** Live improvement-loop run `d0163349`
+  stamped `induced-dead-pod-075` mid-AWAITING; the takeover CAS fired 66 s
+  later (audit-table same-version fingerprint at 21:05:46.26Z — the CAS is the
+  only version-preserving writer, which makes `orchestration_state_audit` the
+  durable takeover witness), the response applied 0.09 s after, ONE execution,
+  no retry series, orchestration COMPLETED (v68).
+- **Premise transition**: chassis runs 2 replicas since 07-28 (owner consent);
+  §4b(i)'s single-replica criterion superseded by CS-1's staleness guard
+  (grepped ≥1 in every replica, v1.0.1244). Script updated in place, dated.
+- Your two recorded script defects fixed in place; §1 re-passed at v1.0.1244.
+- Takeovers are now ROUTINE between the two live replicas (4 observed in one
+  watch window; 55 same-version audit rows in 6 h) — the mechanism your fix
+  shipped is load-bearing infrastructure under replicas=2, not a rare rescue.
+- Fix 3 / fix 4 deferrals stand, triggers unmet (the 2026-07-13 INITIALIZED
+  orphan is still there, still harmless).
+- Full record: `bugs_closed/075` close-out; the log-rotation trap that cost an
+  hour is in LANDMINES + WRONG_CALLS (2026-08-03).
