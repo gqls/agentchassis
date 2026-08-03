@@ -402,3 +402,51 @@ numbers in this ticket are a snapshot; find these by symbol, not by line.
 
 Items 4 (already fixed), 2 (no consumer exists) and 0 (surveyed, handed to
 `bugs_open/100`'s owner) need nothing further from this lane.
+
+---
+
+# 2026-08-03 (evening) — decisions 1, 2 and 5 actioned
+
+## Decision 1 — item 3, "upload everything that gets truncated": SHIPPED, council pending
+
+`a92a32fba`. Two layers: `uploadScrapingResults` now uploads all 6 per-page fields
+(was 2 — and fixes a real key-name mismatch found while extending it: the old code
+checked `pageMap["html"]`, which never matched `batch_handler.go`'s own key
+`html_content` for the same concept, so per-page HTML for that path was silently
+never archived even with `upload_results:true`). `truncateResultForTransport` and
+`stripResultForRetry` gain a `FieldUploader` fallback that uploads the FULL
+pre-truncation content the moment a field is about to be cut and has no static URI
+yet — closing the gap for the 18 of 22 steps that never set `upload_results` at all.
+`pageFieldsNeverUploaded` is retired.
+
+8 new tests, all mutation-proved (4 independent mutations, each caught). All ~13
+pre-existing tests pass unchanged. Full build + suite green.
+
+**Council `ee9f6210-3bda-4efa-a25c-92ce4a7666a1` submitted, verdict PENDING** at the
+time of writing — `review_debug_historian` was still running after 13+ minutes, an
+outlier against this lane's other rounds (all landed in 2-6 minutes). Check it before
+trusting this as approved:
+```sql
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = 'ee9f6210-3bda-4efa-a25c-92ce4a7666a1';
+```
+Commit carries `Council-Submitted:` — correct for a pre-verdict commit, `098`
+resolves it automatically once approved. **Not yet live**: needs a chassis roll
+after approval, then pod-verify per this file's own established discipline.
+
+## Decision 2 — align the under-provisioned reply topics: DONE, live immediately
+
+Kafka topic config, no chassis roll needed. **74 `*.responses` topics** were on the
+1MB broker default (re-measured fresh, not the earlier 91 — topics churn
+continuously); all now carry the 5MB override. One (`system.thunder.smoke.responses`)
+appeared between the snapshot and the batch alter and needed a second pass. **Final
+verification: 0 of 3,828 responses topics missing the override.**
+
+## Decision 5 — unblock `bugs_open/100`: DONE
+
+`upload_results: true` set live on `vet-practice-verifier/scrape_website`
+(`agent_definitions`, DB config, no roll needed). Note added to `100` itself
+(`e4de1a7d0`) rather than only here, since the owner starts that bug in a separate
+thread.
+
+## Decisions 3 and 4 — explained to the owner, no action taken pending his read
