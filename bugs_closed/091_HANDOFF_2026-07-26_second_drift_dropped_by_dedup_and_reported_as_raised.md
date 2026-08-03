@@ -7,9 +7,82 @@ re-raises), but for as long as the item is open: the durable record names the *w
 the run's own report says a record was created when none was.
 **Class:** detected-then-discarded (`bugs_open/071`, `083`) crossed with green-report-for-an-
 absent-record — which is the class `074` itself belongs to.
-**Status:** **OPEN — candidate 2 done, candidates 1 and 3 still owed.** Committed
-`027a8f9e3`, council APPROVED (`a5b70424-b2b5-4d58-aa61-978e8bcf1234`, 11 reviewers,
-0 unreadable, 3 advisory objections), inert until the next chassis roll.
+**Status:** ✅ **CLOSED 2026-08-03 — fixed, LIVE on v1.0.1237, and verified by a real
+sweep against real dropped findings.** Candidate 2 shipped v1.0.1177; candidate 1
+shipped v1.0.1237 (`6468a2746`, council `8e7357ae` APPROVED 13-0); candidate 3 refused
+with a measured reason. The class continues in **`bugs_open/184`** (three more detectors
+in the same shape) — a NEW file, deliberately, so this one can mean "not biting prod".
+
+> ## ✅ VERIFIED LIVE 2026-08-03 08:56Z — CLOSED. And the test needed no induced fault, because the bug was still dropping findings
+>
+> **Live on `v1.0.1237`**, pod-grepped on **both** replicas with a negative control, which
+> is the part that makes it evidence (`bugs_open/153`: a roll is not proof, and the image
+> may predate your commit):
+>
+> ```
+> 'refreshed the open work item'                          -> 1   (the change is there)
+> "holds this site's key, and its spec still describes"   -> 0   (the code it REPLACED is gone)
+> 'an open stale_evidence item already'                   -> 1   (positive control, live since 1177)
+> ```
+>
+> ### The acceptance test, which this file specified and which did NOT need a corrupted fact
+>
+> This file's §"How to verify a fix" says to induce a second, different drift. **That was
+> unnecessary: four sites were already dropping findings on every sweep**, so re-arming
+> `evidence-freshness` was the natural experiment — a real second-finding-while-open case,
+> with no production mutation at all. (`UPDATE scheduled_tasks SET last_triggered_at=NULL`;
+> it is a standing daily task, so this is one extra run of something that runs anyway.)
+>
+> **1. The run reports the two states separately** — the thing candidate 2 could only say
+> half of:
+>
+> | domain | drifted | `work_item_created` | `work_item_refreshed` |
+> |---|---|---|---|
+> | ai-agent-orchestration.com | 3 | **false** | **true** |
+> | fundamentallyai.com | 4 | **false** | **true** |
+> | leopardessconsulting.co.uk | 2 | **false** | **true** |
+> | oufe.com | 12 | **false** | **true** |
+>
+> `created` stays **false** — nothing was created, and the field named "created" still
+> means created. That is the assertion this fix was most at risk of breaking, because
+> `ON CONFLICT … DO UPDATE` would have flipped it true.
+>
+> **2. The durable record was brought up to date, IN THE SAME ROW.** The ids are identical
+> to the pre-state captured minutes earlier, so this is an update, not a delete-and-replace:
+>
+> | domain | row id | before (since 07-27) | after |
+> |---|---|---|---|
+> | leopardessconsulting.co.uk | `3a5419a1…` | `C4-orchestration-state-records` | **`C4-agent-definitions-catalogue`, `C4-orchestration-state-records`** |
+> | fundamentallyai.com | `42186b98…` | F11, F12, F13 | **F9, F10, F11, F12** |
+> | ai-agent-orchestration.com | `ef70bfad…` | 3 facts | the same 3, re-confirmed |
+> | oufe.com | `76ee7a57…` | 12 × CIT-* | the same 12 |
+>
+> **leopardess is the filed case, closed on its own evidence.** The fact that had been
+> invisible since 26 July — `C4-agent-definitions-catalogue` — is now named in the record a
+> human reads. fundamentallyai's F9 and F10 likewise; F13 dropped out because it had
+> re-synced, which is the record being *current* rather than merely *longer*.
+>
+> **3. No queue fill.** 5 rows / 5 sites, unchanged — the objection that ruled out
+> candidate 3 does not apply to this shape, as designed.
+>
+> ### One thing this fix does NOT do, stated because the row is still wrong
+>
+> **vonc.com's item still says `vonc-tools` and nothing drifts there any more.** Its
+> `updated_at` did not move, correctly: the refresh fires when there IS a finding, and
+> there was none. So a record whose finding has RESOLVED is still stale, and this bug never
+> claimed otherwise — that is retraction, `RFC_010`'s territory, not dedup. Naming it here
+> so nobody reads "4 of 5 corrected" as "5 of 5".
+>
+> ### Council
+>
+> `8e7357ae-9f8d-49bf-81c0-669d9a97a205` **APPROVED**, 13 reviewers, 0 unreadable, 6
+> advisory objections — none high-severity. Four were checkable and were checked, not
+> banked (`7f85873b9`): the negative test proven non-vacuous by mutation, the
+> not-recorded warning moved INTO the shared writer, the status lists parameterised, and
+> a warning added when a refresh lands on a human-review row. Those four are **committed
+> but NOT in v1.0.1237** — they are refinements to a fix that is already live and proven,
+> not the fix itself. Markers for the next roll: `FINDING NOT RECORDED`,
+> `the row is in the HUMAN-REVIEW queue` (both currently 0).
 
 > ## STATUS 2026-08-03 (bugs-sweep lane) — **CANDIDATE 1 BUILT.** And the severity in the header above is too low: the record is wrong on 4 of 5 sites TODAY
 >
