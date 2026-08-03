@@ -1,8 +1,24 @@
 # 183 — `domain-research-classifier` truncates on a 6000-token cap, the fleet's only one, and burns all 3 attempts
 
 **Filed 2026-08-03** by the `mortgagecalculator_couk_adoption` lane, which it blocked.
-**Status: cap raised 6000 → 16000 (live config, applied 2026-08-02 23:0x UTC). OPEN**
-because the exposure that produced it is untouched — see fix candidates 2 and 3.
+**Status: cap raised 6000 → 16000, then → 32000 on the owner's instruction
+(live config; 16000 proven in production first — one run at 6590 output tokens).
+OPEN** because the exposure that produced it is untouched — see fix candidates 2 and 3.
+
+> **UPDATE 2026-08-03 — this is NOT a one-step problem, and the fleet number is
+> much worse than this bug's.** A 14-day audit keyed on `error_message` (the only
+> reliable truncation signal) shows **25 distinct steps truncating**, and ours is
+> mid-table. The council review seats are the real concentration, at cap 8000:
+> `review_editquality` **21/105** and **19/136** on two agent_types, with a maximum
+> successful call of **7996 of 8000 — 99.95% of cap**; `review_contracts` **6 of
+> 10**; `review_feasibility` **5 of 10**. Two `experience-approval-council` seats
+> sit on the same 6000 this bug is about.
+> **Left alone deliberately.** Those seats are `bugs_open/138`'s active lane, which
+> has already raised `editquality` once and recorded that it *grew back into the
+> doubled cap in three days* — so a second unilateral raise from a passing session
+> is both territorial trespass and the move that lane has already shown does not
+> hold. Raising twenty caps mid-flight would also disrupt councils other sessions
+> are running right now. Reported to the owner with the numbers instead.
 
 ## Symptom
 

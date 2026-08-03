@@ -3982,6 +3982,20 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
 
 ### `sites.locked_at` does NOT hold a site — the live dispatch gate never looks at it
 
+> **CORRECTED 2026-08-03, hours after filing, by the lane that filed it — the
+> lock clause is now LIVE, so the headline above is HISTORY, not current state.**
+> On the owner's instruction ("fix broken things") the missing predicate was added
+> to `find_dispatchable_site`: `WHERE s.locked_at IS NULL AND wi.status IN
+> ('triaged','approved')`. Verified by INDUCTION, not by reading the config back —
+> one item armed `triaged` against a locked site, held across firing ticks (see
+> below for why "it did not dispatch" alone proves nothing).
+> **This entry stays because the SHAPE is what protects you**: a control that
+> reads back exactly as written and does nothing. It is also only the ONE clause —
+> the rest of `213`'s reconciliation (pipeline scope, `approved` status, the
+> claimed-mutex in the `pre_query`) is still undone and still belongs to the
+> `bugs_open/029` lane. **Do not read "locked_at works now" as "the three
+> predicates agree now." They do not.**
+
 - **footprint:** `sites.locked_at`, `build-pipeline-trigger`, `find_dispatchable_site`,
   `scripts/../213_dispatch_gate_matches_dispatcher.sql`
 - **fires when:** you lock a site to stop automated work — before a risky build,
@@ -4024,6 +4038,17 @@ was listening ([[a-mutation-that-passes-may-have-hit-a-guard-in-series]]).
   Migration is unapplied (`schema_migrations` has no 213 row) and belongs to the
   active `bugs_open/029` dispatch-gate lane — contribute there, do not apply it as a
   side effect of your own task
+- **how to prove a lock actually holds** (this is the part people get wrong): arm
+  exactly ONE item `triaged` against the locked site and watch it NOT dispatch —
+  but **a quiet queue has two causes with opposite meanings**, so in the same window
+  you must also show the gate *looked*:
+  ```sql
+  SELECT last_triggered_at FROM scheduled_tasks WHERE name='build-pipeline-trigger';
+  ```
+  Sample it at the start and end. If that timestamp did not move, your item sat
+  still because **nothing ran**, not because the lock held, and you have proved
+  nothing. Then release the lock and confirm the same item DOES dispatch — a guard
+  that never lets anything through is indistinguishable from a broken pipeline
 - **source:** mortgagecalculator.co.uk adoption lane, 2026-08-03 — locked a site,
   watched it build anyway
 - **added:** 2026-08-03, mortgagecalculator.co.uk adoption lane
