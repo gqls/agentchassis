@@ -1638,3 +1638,97 @@ owned), same precedent this lane already set the same week.
 **Neither item picked up for implementation.** Both were genuinely "check before touching,"
 and both checks concluded the honest next step is visibility (filing/leaving-filed), not
 code — consistent with `HANDOFF_2026-08-02`'s own instruction for both.
+
+## 2026-08-03 — council verdict read: APPROVED, and one objection is a real design lesson
+
+Owner reported a fresh chassis build (`v1.0.1231` → **`v1.0.1238`**, new pod names, confirmed
+by `startTime` before trusting it — same discipline as every prior roll-check in this file).
+Then read the council verdict on `f6bfb7e6e` properly rather than just the headline.
+
+**First mistake of this entry: the standard "latest council-gate note" query answers the
+WRONG question.** `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY
+created_at DESC LIMIT 1` (the exact query CLAUDE.md itself prints) returns the fleet's most
+recent council note **fleet-wide**, not mine — it came back naming a totally different
+correlation (`e78c62e3-...`, someone else's submission). Caught by checking the printed
+correlation against the one I actually submitted, not by trusting the row. Re-ran scoped to
+`body LIKE '%33d00513-2fd8-4872-ad5a-a19c24a1ae0b%'` and got the right one.
+
+**Verdict: APPROVED — 11 reviewers, 3 advisory objections (2 medium, 1 low-severity each of
+the rest), 0 unreadable, `gated_by_truncation: false`** (checked per `bugfix_138`'s own
+landmine — a truncated review gates identically to a real one, so this is a genuine, undegraded
+result, not a false pass). No `Council-Reviewed` trailer needed on a new commit — the design
+is explicit that `Council-Submitted` on the earlier commit (`195a169ff`) resolves automatically
+at 098's report time, and forward-only forbids amending `f6bfb7e6e` to add one anyway.
+
+**Read every objection rather than the headline, and verified the factual claims rather than
+argued them:**
+
+- **`editquality`, medium — "this ships inert... until a workflow names this action, the
+  cited blocking mechanism is unresolved."** True, and already the exact wording of DOC-072's
+  own verify-later ("whether a real `agent_definitions` row... ever gets seeded"). Not a defect
+  in what shipped — P2's own gate (PLAN) was proving the DISPATCH MECHANISM works, which the
+  live run did; a real automatic trigger (a due-sweep or scheduled discovery equivalent to
+  whatever fires `tool-acceptance-agent` for tools) is genuinely separate, larger, unfunded
+  work, not something P2 was ever scoped to include.
+- **`reuse_agent`, low — possible duplicate resolution path.** Checked:
+  `grep -rn "page_components" --include=*.go` fleet-wide. Every other hit is a different
+  purpose (deploy, render, repair, admin-dashboard CRUD) — nothing else resolves "one page for
+  a given component, for browser-run dispatch." No duplicate.
+- **`tooling_provenance`, low — no `doc_notes`/`doc_plans` entry for the action itself.**
+  Checked whether `subject_type='action'` is actually a general convention for orchestration
+  actions: `SELECT subject_key FROM doc_plans WHERE subject_type='action'` returns exactly 4
+  rows, all diagnosis-loop internals (`diagnose_build_gate`, `diagnose_prepare_fix_commit`,
+  `diagnose_read_repo_files`, `spawn_agent`). **`request_browser_run` itself — the action this
+  one sits beside, shipped long before this session — has no such entry either.** Not a gap
+  this change introduced; consistent with actual (not aspirational) practice.
+- **`guardian`, low — registry treated as a closed/counted set?** Checked: `ListActions` /
+  `ListAllActions` / `ListActionsByCategory` / `ListDeprecatedActions` all iterate the live map
+  dynamically; nothing hardcodes a count or an expected member list. No risk.
+- **`guardian`, low — does the new `p.status='active'` predicate match the existing one?**
+  Checked: byte-identical to `RequestBrowserRunAction`'s own existing tool-lookup predicate.
+  Confirmed consistent, not a second, divergent definition of "deployable."
+- **`debug_historian`, low — the `pages.status` landmine (naive filtering under-counts).**
+  Checked: that landmine is about `linkablePageStatusPredicate`
+  (`prepare_link_context_action.go:35`, `status NOT IN (...)`), a DIFFERENT predicate for a
+  DIFFERENT purpose (can content link to this page) — not the browser-run-resolution predicate
+  either action uses. No divergence; different question entirely.
+- **`debug_historian`, low — no pod-grep mentioned in the plan.** True of the SUBMITTED plan
+  (written before the roll existed to grep); already done in fact, the same day, and recorded
+  above in this file. Timing artefact of round 1, not a gap in what happened.
+- **`guardian`, medium — "'no behaviour change' rests on manual diff alone, not an existing
+  test."** Checked, and this one is factually WRONG, with better evidence than argument:
+  `TestRequestBrowserRunPayloadCarriesCaptureRenders` and
+  `TestRequestBrowserRunCaptureRendersDefaultsOff` (`tool_acceptance_actions_test.go:411,427`)
+  call `RequestBrowserRunAction` directly against a `capturingProducer` mock and assert on the
+  ACTUAL produced Kafka payload — i.e. they exercise `RequestBrowserRunAction → dispatchBrowserRun
+  → Producer.ProduceWithValidation` end to end, the exact call path in question. Both existed
+  before this session and both passed after the extraction (`go test` output already recorded
+  above). The manual diff was corroboration, not the only evidence — this objection undersold
+  what was actually checked.
+- **`prior_art_librarian`, medium — THE REAL ONE. "The absence claim may be false: `url_field`
+  already exists on `RequestBrowserRunAction` as an override that bypasses the `pages.name`
+  lookup entirely."** Checked and **this is factually correct**:
+  `grep -n "url_field" tool_acceptance_actions.go` shows it at line 160 (original code,
+  predating this session) and line 370 (mine). So a caller COULD already have fed
+  `RequestBrowserRunAction` an explicit URL — resolved by ANY mechanism — via `url_field`,
+  bypassing the name lookup, with zero new code in the tool action at all. **This means a
+  smaller design existed: a standalone resolver action doing ONLY the
+  `page_components`/`content_components` placement-JOIN, writing a URL into `collected_data`,
+  then calling the EXISTING `request_browser_run` unchanged via its `url_field`/`function_field`
+  overrides.** That design needs no `dispatchBrowserRun` extraction and touches
+  `RequestBrowserRunAction`'s own file not at all — a strictly smaller blast radius than what
+  shipped, on the exact axis D9 itself argued from. **This is the "I costed a change by reading
+  one enforcement point... there were two" lesson again (D5′), and I made the same class of
+  miss: read `RequestBrowserRunAction`'s page-resolution branch closely, but not its own
+  existing escape hatch one field below it.**
+
+**What this does and does not change.** The code that shipped is correct, tested (including
+by the two end-to-end tests above, which the guardian objection wrongly assumed didn't exist),
+and proven live in the cluster with a working negative control — reverting proven, working
+code to rebuild a marginally smaller equivalent is a real cost with no functional benefit, and
+not something to do unilaterally on an advisory, non-blocking objection. **Not silently
+dismissed either**: recorded here in full, and in DOC-072's own register entry, as a real
+design lesson for whoever builds the next sibling action — check the target action's own
+`ActionInputSpec` for an existing override field before concluding "nothing can express X,"
+not just its main resolution branch. Owner's call whether this is worth a follow-up
+refactor; not undertaken here without that call, given the cost/benefit above.

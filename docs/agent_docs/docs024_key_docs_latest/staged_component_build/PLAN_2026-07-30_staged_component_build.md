@@ -233,6 +233,21 @@ component makes it go red.
 > through the cluster was judged redundant with TL-036's already-complete offline proof
 > (same `RunChecksAction.Execute`, 12/12 mutants caught) — see NOTES for the full reasoning.
 > Full detail: NOTES "2026-08-02 — P2 CLOSED"; `SUMMARY_2026-08-02b_the_dispatch_gap_is_closed.md`.
+>
+> **COUNCIL VERDICT 2026-08-03: APPROVED**, 11 reviewers, 3 advisory objections (2 medium, 6
+> low), none blocking, `gated_by_truncation: false`. Two medium objections checked against the
+> actual code rather than argued: `guardian`'s "no test covers the extraction" is **factually
+> wrong** — `TestRequestBrowserRunPayloadCarriesCaptureRenders` +
+> `TestRequestBrowserRunCaptureRendersDefaultsOff` already exercise
+> `RequestBrowserRunAction → dispatchBrowserRun → Producer` end to end and both passed.
+> **`prior_art_librarian`'s is factually RIGHT and a real lesson**: `request_browser_run`
+> already had a `url_field` override that bypasses the `pages.name` lookup entirely, so a
+> smaller design existed — a resolver action doing only the placement JOIN, feeding
+> `request_browser_run` unchanged via `url_field`, needing no `dispatchBrowserRun` extraction
+> at all. Not reverted (shipped, tested, proven live; reverting working code for a marginally
+> smaller equivalent is a real cost the owner hasn't asked for) but recorded plainly as a
+> "smallest possible platform change" miss, same class as D5′. Full read-out, all 9 objections
+> individually verified: NOTES "2026-08-03 — council verdict read".
 
 **P3 — the remaining gates**, cheapest first, each with its mutation.
 
