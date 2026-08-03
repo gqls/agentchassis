@@ -21,12 +21,13 @@ Chassis at handoff: **v1.0.1238** (pods started 2026-08-03 10:08 UTC).
 
 | thing | state |
 |---|---|
-| Live site | **29 files, 200 across the board, intact.** Only deliberate changes: two link fixes (07-31) and six logo-link fixes (08-03) |
+| Live site | **The original 29 files are intact** — re-verified at the wire after every change: 28 byte-identical, 1 differing (`robots.txt`, Cloudflare, expected — §7.3). Only deliberate changes: two link fixes (07-31) and six logo-link fixes (08-03) |
 | Adoption | Complete. 26 pages, all `build_status='planned'` except one |
-| `/guides/first-time-buyer/index.html` | **`deployed`** — the single-page trial. Live at the new URL; old URL still serves |
+| Stylesheet | **LIVE** — `/assets/css/styles.css`, 17,016 bytes, HTTP 200 (`gqls/sites` `6f2a71a32`). Additive; the original pages use `/css/style.css`, which still serves |
+| `/guides/first-time-buyer/index.html` | **`deployed`** — the single-page trial. Live at the new URL; old URL still serves. **Its CSS now resolves, but it still has NO chrome — needs a rerender, see §9.3** |
 | Specs | 10 current aspects. `identity` + `content_direction` are **operator-written positioning** (see §4) |
-| Work items | 6 complete · **40 deferred** · 11 `needs_human_review` · 2 released for composition+design |
-| Site lock | **Released** at handoff time to run composition+design. **Re-lock when they finish** (§3) |
+| Work items | 8 complete · **40 deferred** · 11 `needs_human_review` · **0 armed** |
+| Site lock | **HELD**, and the hold is proven at the gate, not assumed (`gate_says: NOT SELECTABLE — held`) |
 
 **The homepage item is `deferred` and must stay that way** until the owner sees a
 styled rebuild. It is the ONLY page whose URL does not change (`/index.html` →
