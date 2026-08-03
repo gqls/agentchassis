@@ -139,3 +139,46 @@ note that quietly *changes* better than one that's quietly *wrong*, for whoever 
 that particular queue? I answered yes here because I could measure it. Answering it
 three more times at speed, on sites I haven't measured, is how a careful fix turns
 into a fleet-wide surprise.
+
+## 2026-08-03, late morning — the rest of the family, and a lesson about waiting
+
+The remaining four improvements went live on chassis v1.0.1238, so the whole of the
+091 work is now shipped and proven. Nothing is owed on it.
+
+Then I went after the three other places with the same defect (bug 184). Before
+changing anything I did what the bug file told the next person to do: measure.
+
+**And the measurement said the opposite of what I'd assumed.** I'd filed those three
+implying they were losing findings daily. They aren't. The directory freshness sweep
+runs every day and examines *nothing*, because the claims it watches each have a
+staleness window and none of them is due until **23 August**.
+
+The interesting part is that this is an argument for fixing it *now*, not for leaving
+it. In three weeks a batch of claims falls due all at once. The stale note from 25
+July will still be sitting on the key when that happens — nothing works that queue —
+so the first real finding in a month would be dropped and nobody would know. "Wait
+until it actually bites" is usually good advice; it's wrong when the biting is
+scheduled, singular, and unrepeatable.
+
+One of the three I genuinely cannot measure and have said so rather than guessing.
+Its note has listed the same 15 rejected items since 24 July, and whether the sweeps
+since found different ones is simply not recoverable: the run history is kept for a
+day, and a rejected candidate never gets written anywhere else. That's the case for
+the fix rather than against it — it's what makes the next one visible.
+
+**I also got a test badly wrong and want it on the record.** I wrote what looked
+like a careful test for all three places — a table of the cases, a clear explanation
+of why the bug is invisible — and it never called any of the three. It tested the
+shared machinery instead, which was already proven. It passed happily while the code
+was wrong.
+
+What caught it was deliberately breaking one of the three and expecting the test to
+notice. It didn't. And I nearly missed *that*, because the test suite was already
+failing for an unrelated reason, so "broke it and got a failure" looked the same as
+"broke it and nothing happened". A test that fails is only evidence if you know it
+was passing first. Both tests are rewritten to call the real code, and I've broken
+each one in turn to prove it complains.
+
+It's committed and with the review council. It is **not live** — that needs another
+build. And there's a date in the diary: 23 August is when the directory sweep will
+actually have something to find, and that's the run that proves this properly.

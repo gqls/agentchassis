@@ -202,3 +202,70 @@ work-item dedup rule says "use DELETE+INSERT, not ON CONFLICT", which the entire
 existing helper contradicts. Not this change's to resolve — but it is the rule the
 `a5b70424` guidelines seat cited against `apply_gap_plan`, so the rule and the
 platform have been out of step for a while. Worth someone's RFC; noted, not taken.
+
+## 2026-08-03 10:09 — round 2 live on v1.0.1238, and a NUMBER COLLISION on 184
+
+All four council refinements shipped. Both replicas: `FINDING NOT RECORDED` → 1,
+`the row is in the HUMAN-REVIEW queue` → 1, `refreshed the open work item` → 2
+(it gained the human-review arm), negative control still 0. Nothing owed on 091.
+
+**`184` is now an ambiguous number.** I filed
+`184_…three_more_detectors_key_per_site_over_a_per_item_finding.md` at 09:59Z; the
+`mortgagecalculator_couk_adoption` lane filed
+`184_…llm_markdown_reaches_the_page_as_literal_asterisks.md` at 10:26Z (`905895069`).
+Both stay — numbers are never reassigned and the repo already carries six such
+pairs. Flagged in my file's header. **Resolve by slug; `git log` the FILE PATH.**
+Worth noting *how* this happens: both of us read "next free number" off the same
+directory listing within half an hour, and there is no allocation step. The
+convention absorbs it, but the cost lands on every later reader of a commit message
+that says "184".
+
+## 2026-08-03 10:40 — 184: the measurement inverted what I had filed
+
+This is the entry worth keeping from the 184 work.
+
+**When I filed 184 I implied the three siblings were dropping findings now.** I had
+not measured them — the file says so (`unmeasured on these three — that is the first
+job`), which is the only reason the claim was not a WRONG_CALLS entry. Measuring:
+
+- **`stale_directory_claim`: the daily sweep checks ZERO claims.** Not broken —
+  `loadDueDirectoryClaims` selects on `verified_at < now() - staleness_days`, and of
+  97 current claims **none is due until 2026-08-23**. Read the predicate before
+  concluding a silent mechanism is broken ([[zero-adoption-means-read-the-mechanism]]).
+- **And the conclusion INVERTS the usual one.** A dated exposure is normally an
+  argument to defer. Here it is the argument to fix now: the batch lands in three
+  weeks, the July row will still be holding the key (nothing works
+  `needs_human_review` — 033, 368 parked), and the only run that can exercise this
+  for real would be lost. **"Wait for the symptom" is wrong when the symptom is
+  scheduled and singular.**
+- **`directory_citation_unverified` is [UNMEASURED AND UNRECOVERABLE].** Same 15
+  rejects listed since 07-24 across every weekly sweep since. Whether a later sweep
+  found a different set cannot be established: 24h retention, and a rejected
+  *candidate* never reaches `directory_claims`, so a dropped finding leaves no trace
+  in any table. Marked rather than guessed — and it is the argument for the refresh,
+  since it is what makes the next one observable.
+
+**The judgement 091 flagged came out the other way here, and that is the point of
+making it per-site.** 091's least-certain call was that a refresh can rewrite a row
+under a human mid-read. For these three that concern is *weaker*: `bugs_open/033`
+establishes the queue has no working surface, so there is no reader — and what the
+old behaviour protects is a description that is already false. Had I switched all
+four in one go at 02:00 without measuring, I would have got the right answer for the
+wrong reason, and would not have known which.
+
+## 2026-08-03 10:55 — MISSTEP: a test named for three call sites that never called them
+
+Full entry in `WRONG_CALLS.md`. In brief: the first `hitl_refresh_adoption_test.go`
+called `writeWorkItem` directly with `refreshOnConflict` and asserted the outcome —
+i.e. it re-tested the helper 091 had already proven, while its name and header
+claimed it covered the emitters. Reverting a call site did not fail it.
+
+**Two things nearly hid it.** The suite was already red from an unmatched
+`ExpectCommit`, so "mutation fails" and "mutation does nothing" looked identical —
+a mutation result is only evidence against a **confirmed-green** baseline. And the
+test *read* well: a table of the three item types, their keys, their spec fields, a
+paragraph on why the defect is invisible. All accurate; none of it executed.
+
+Rewritten to drive `createCitationFailuresItem`,
+`createDirectoryCitationFailuresItem` and `createStaleDirectoryClaimItem` directly,
+then mutation-proven one call site at a time — revert one, exactly one test fails.
