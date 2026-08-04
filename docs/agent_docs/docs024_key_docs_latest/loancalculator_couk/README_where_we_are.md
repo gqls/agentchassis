@@ -933,3 +933,24 @@ footer" and been wrong about twenty pages. That check cost about two minutes.
 Twenty-one jobs are now queued. The queue is moving in fits and starts because of that
 other backlog, so they may take a while. Everything needed to confirm they worked is
 written down, including a check that needs nothing kept from tonight.
+
+**Finished, later that night.** All twenty-one queued jobs went through — first time,
+no retries, which says the jobs were always fine and only the queue was slow. All
+twenty-six pages now have a proper canonical tag, a correct description tag, and the
+corrected footer. The calculators still give exactly the right answers, every page is
+up, and the deleted page is still deleted.
+
+One detail I'd want you to know, because it nearly went the other way. Before trusting
+the "all clear", I ran the check against a page I *knew* was still broken, to confirm
+the check could actually detect a problem. It could — it flagged all three faults. A
+check that has never been seen to fail is not evidence of anything, and an hour earlier
+tonight I'd been caught by exactly that: I'd read a run of zeroes as good news when the
+zeroes actually meant I'd downloaded an error message instead of a web page.
+
+The thing I'd flag for the future isn't this site — it's that this will quietly happen
+again. Every time the platform improves how pages are built, every page that doesn't
+rebuild is left behind, and nothing announces it. Tonight that was twenty pages missing
+a tag that tells Google which address is real, for two days, on a site whose whole job
+is being found. Nobody did anything wrong to cause it. It's just what "applies on next
+rebuild" means when pages don't rebuild often. Worth deciding whether we want something
+that watches for it rather than someone noticing by accident.

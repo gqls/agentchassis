@@ -2720,3 +2720,35 @@ time.**
 >
 > `complete` is the WORK ITEM's status, not the CDN's. The lane's own guidance already
 > said ~2 min; I queried on `status='complete'` and fetched immediately.
+
+### Item (2) CLOSED — 23 of 23, and the acceptance test proved itself before it passed
+
+All 21 bulk re-renders completed **first attempt, zero retries** — which is worth
+noting given the lane spent the evening intermittent: the items were always fine, only
+the claiming was slow. Nothing was re-fired.
+
+**Acceptance census, all 26 served pages: `old footer 0 · no-canonical 0 ·
+empty-description 0`.**
+
+```
+                    before      after
+old footer          23 of 26      0
+no canonical        20 of 26      0
+empty <meta desc>   20 of 26      0
+```
+
+**The control was run FIRST and fired all three arms** against a known-stale baseline
+page. That is the difference between a clean sweep and a silent probe — and after the
+B2-blob episode an hour earlier, running it was not optional.
+
+Re-confirmed after the 21 re-renders: **11/11 calculators exact** against
+`GOLDEN_2026-08-03b`, 26/26 HTTP 200, retired page still 404, `tool-loan-vs-savings`
+still **4** `<section>` blocks (so `bugs_open/189` did not bite — assemble-only never
+enters `save_page_sections`, as predicted).
+
+The site now carries everything the platform currently emits, so §6b's
+"use-a-settled-page-as-baseline" constraint is lifted. ⚠ It will come back on its own:
+**a platform improvement landing in `assemblePage` puts every un-re-rendered page back
+into the pending state with nobody on this lane touching anything.** That is the whole
+lesson of the day, and it is not a one-off condition to be cleared but a standing one
+to be re-checked.

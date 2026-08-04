@@ -46,8 +46,27 @@ chrome — **which is a write to 26 live rows and `in_header` has a second consu
 (`buildServicesHTML`, `render_site_components_action.go:1156`)**, so it wants its
 own change and its own verification.
 
-**(2) Stale served pages — ⚠ NOT the cosmetic item this used to say. 2 of 23 done,
-21 FILED AND QUEUED. Verification is OWED.**
+**~~(2) Stale served pages.~~ ✅ DONE 2026-08-04 evening — 23 of 23, verified on the
+wire with an induced control. Nothing owed.** Keep reading it anyway: it was recorded
+as cosmetic and was not, and that mis-sizing is the transferable part.
+
+> **CLOSING RESULT.** All 23 re-rendered (2 canaries + 21 bulk, 21/21 first attempt,
+> zero retries). **Acceptance census over all 26 served pages: `old footer 0 ·
+> no-canonical 0 · empty-description 0`.** The probe was proven live first — run
+> against a known-stale baseline it fired **all three** arms, so the clean sweep is a
+> result and not a broken grep. Also re-confirmed after the 21 re-renders: **11/11
+> calculators exact**, 26/26 HTTP 200, retired page 404, and `tool-loan-vs-savings`
+> still **4** `<section>` blocks — `bugs_open/189` did not bite, as assemble-only never
+> enters `save_page_sections`.
+>
+> | | old footer | no canonical | empty `<meta description>` |
+> |---|---|---|---|
+> | before | 23 of 26 | 20 of 26 | 20 of 26 |
+> | **after** | **0** | **0** | **0** |
+>
+> **The site is now fully settled** — every page carries what the platform currently
+> emits. §6b's baseline constraint is therefore **lifted**: any page may be used as a
+> post-roll baseline, until something new is left pending.
 
 > **REWRITTEN 2026-08-04 evening. The 08-03 framing — "an invisible comment, 26
 > forced deploys is disproportionate" — was fair on the facts then known and is now
@@ -76,46 +95,38 @@ own change and its own verification.
 > `save_page_sections`, so `bugs_open/189` cannot bite. Proven on this image — §6b
 > re-rendered three pages this way, byte-identical.
 >
-> **DONE (2 of 23), verified on the wire:** `/legal.html` and
-> `/tools/overpayment-calculator.html` (`created_by='footerprop-canary'`).
+> **⚠ The two canaries DISAGREED, which is why there were two — DO NOT DROP THIS STEP
+> next time you face a job of this shape.** `overpayment-calculator` changed
+> footer-only; `legal.html` changed footer **+ canonical added + empty-description
+> removed**. The 23 were **not homogeneous** — each carried whatever landed since *it*
+> last rendered. One canary, either one, would have licensed a confident wrong
+> prediction, and the agreeable one was the likelier pick.
 >
-> **⚠ The two canaries DISAGREED, which is why there were two — do not drop this
-> step.** `overpayment-calculator` changed footer-only; `legal.html` changed footer
-> **+ canonical added + empty-description removed**. The 23 are **not homogeneous** —
-> each carries whatever landed since *it* last rendered. One canary, either one,
-> would have licensed a confident wrong prediction.
+> **The prediction held.** Stated before firing: footer on all 21, canonical +
+> description on 20 of 21, the exception being `/tools/car-finance-calculator.html`
+> (the only one already re-rendered since 08-02). Confirmed.
 >
-> **FILED AND QUEUED (21), `created_by='footerprop-bulk'`.** Baselines captured in
-> `/tmp/decomp-work/postroll1251/bulk/*.pre` (21 files).
+> ⚠ **I refuted it wrongly first, and the recipe below carries the scar.** Four pages
+> checked mid-deploy read `canonical 0->0` on two of them; the "mechanism" survived
+> two independent checks (JSON-LD absent on exactly those two) before I printed the
+> file and found **seven lines of B2 `NoSuchKey` JSON served at HTTP 200**. Both
+> signals came from that same blob, so they could not have disagreed. See `WRONG_CALLS.md`.
 >
-> **PREDICTION, stated before firing so it can come out false:** footer on all 21;
-> canonical added + empty-description removed on **20 of 21**; the exception is
-> **`/tools/car-finance-calculator.html`**, the only one of the 21 already re-rendered
-> since 08-02 (footer-only expected).
+> **On the lane, recorded but NOT diagnosed:** the `page_rerender` lane ran
+> intermittently all evening — 211→231 `triaged` with **0 claims for 10+ minutes** at a
+> stretch, while `build-dispatch-loop` completed runs normally and other item types
+> drained fine (`page_component_status_drift` 12, `acceptance_run` 6). It cleared
+> unaided, twice. The backlog was another session's flood (**webdesign.co.uk 156,
+> gaswholesalers.com 52**; loancalculator only ever mine). `bugs_closed/030` is the
+> closed fleet-wide version of this shape and this is **not obviously it** — 030 was
+> *everything* stalled. **Nothing was re-fired** (the single-page bypass — 049b, the
+> 086 envelope — shares this same lane and cannot beat it). All 21 eventually landed
+> **first attempt, zero retries**, which is itself evidence the items were fine and
+> only the claiming was slow.
 >
-> **⛔ THE `page_rerender` LANE IS INTERMITTENT — this is why they are queued, and it
-> is NOT yours to fix.** Measured this evening: 211→231 `triaged`, 5 complete, long
-> spells with **0 claims for 10+ minutes**, while the `build-dispatch-loop` itself
-> completes runs normally and **other item types drain fine in the same window**
-> (`page_component_status_drift` 12, `acceptance_run` 6). It cleared once, unaided,
-> after ~15 min and took my two canaries, then stalled again. The 209 items ahead are
-> another session's flood — **webdesign.co.uk 156, gaswholesalers.com 52,
-> loancalculator.co.uk only mine**. `bugs_closed/030` is the old fleet-wide version of
-> this shape and is CLOSED; this is **not obviously it** (030 was everything stalled,
-> this is one item type while others drain). **Recorded as a measurement, deliberately
-> NOT as a diagnosis.**
->
-> **NEXT THREAD — VERIFICATION IS OWED. In order:**
-> 1. `SELECT status, count(*) FROM site_work_items WHERE created_by='footerprop-bulk'
->    GROUP BY 1;` — **do NOT re-fire, whatever it says.** A slow or missing row is not
->    a lost message, and the single-page bypass (049b, the 086 envelope) **shares this
->    same lane**, so it cannot beat the stall either.
-> 2. When all 21 are `complete` (allow ~2 min more for deploy propagation), assert the
->    prediction above **page by page** against `bulk/*.pre`. If that scratch dir is
->    gone, the diff baseline is gone with it — fall back to the census in step 3,
->    which needs no baseline.
-> 3. **Re-run the census. Expect `old footer 0 · no-canonical 0 · empty-description 0`,
->    out of 26.** This is the real acceptance test and it is baseline-free:
+> **THE ACCEPTANCE TEST, kept because it is baseline-free and re-runnable.** It needs
+> nothing from tonight's scratch dir. Expect `old footer 0 · no-canonical 0 ·
+> empty-description 0` out of 26 — which is what it returned:
 > ```bash
 > while read u; do b=$(curl -s "https://loancalculator.co.uk$u");
 >   # GUARD FIRST: a deploy-window fetch returns a 7-line B2 {"error":…"NoSuchKey"} blob
@@ -127,9 +138,9 @@ own change and its own verification.
 >   echo "$b" | grep -q '<meta name="description" content="">' && echo "EMPTY DESC  $u";
 > done < /tmp/decomp-work/postroll1251/urls.txt   # regenerate: SELECT url FROM pages WHERE site_id='0162cde4-…' AND status='active'
 > ```
-> Silence = all three clean. **Induce a non-zero first** (run it against a page you
-> know is stale) — a grep that matches nothing looks identical whether it is clean or
-> broken.
+> Silence = all three clean. **Induce a non-zero first, and I did**: run against a
+> known-stale baseline page it fired **all three** arms (`OLD FOOTER`, `NO CANONICAL`,
+> `EMPTY DESC`). Without that, a silent pass is indistinguishable from a broken probe.
 >
 > ⚠ **The two guard lines are not decoration — they are there because I lost half an
 > hour to their absence tonight.** Fetching a page inside its own deploy window
@@ -139,11 +150,9 @@ own change and its own verification.
 > "`PageInfo.Domain` is unpopulated" finding that does not exist. **`complete` is the
 > work item's status, not the CDN's — allow ~2 minutes.** Full write-up in
 > `WRONG_CALLS.md`, 2026-08-04.
-> 4. Then re-run `toolgolden --compare` (§6b) — 21 pages re-rendered is exactly when
->    to re-confirm the calculators.
 >
-> **When this is done the site is fully settled**, §6b's baseline constraint
-> disappears, and any page may be used as a post-roll baseline.
+> **Then re-run `toolgolden --compare` (§6b)** — 21 pages re-rendered is exactly when
+> to re-confirm the calculators. Done: **11 of 11 exact.**
 
 **(3) ~~`bugs_open/182` is owned by another thread~~ — CORRECTED 2026-08-04 (evening).**
 
@@ -403,9 +412,11 @@ Anchor it twice before firing: `cmp` the live bytes against the previous check's
 `.post` files, so the baseline is provably both **current** and **produced by the old
 image**. Both held here.
 
-⚠ **After the footer propagation below completes, all 26 pages are settled**, so this
-constraint disappears and any page may be used as a baseline. If a new pending change
-is introduced, this paragraph applies again.
+✅ **LIFTED, 2026-08-04 evening: the propagation in §2 completed, so all 26 pages are
+settled and any page may now be used as a baseline.** This paragraph applies again the
+moment something new is left pending — which, note, is not only your own work: a
+platform improvement landing in `assemblePage` puts every un-re-rendered page back into
+this state without anyone on this lane doing anything.
 
 Baselines for this check: `/tmp/decomp-work/postroll1251/` (`*.post1251` are the
 v1.0.1251 renders). Work items `created_by='postroll-1251'`.
