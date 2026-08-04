@@ -313,3 +313,49 @@ same as always, but that particular review run got stuck partway through and
 never gave a verdict — not rejected, just stalled. That's only advisory, so
 it didn't stop anything, but the review itself is owed to whoever looks at
 that system next.
+
+---
+
+2026-08-04, later the same day. I need to correct what I told you above, on
+two points, and you asked good questions that caught the first one.
+
+The bigger correction: the fix I described as done actually broke every
+single page build across the whole system for about 40 minutes this
+morning. The new code I added had a mistake in it — a step that was
+supposed to pass information through untouched instead wrapped it in an
+extra layer, and because of how that information gets reused by the next
+step, every page build anywhere started failing. I noticed page builds were
+failing when I went to test my own fix, but I looked at the timing wrong and
+convinced myself it must be a different, older problem that had nothing to
+do with me — it genuinely looked that way from the numbers, but I should
+have read the actual error messages from the earlier failures instead of
+just comparing counts, and if I had I'd have seen they were a different
+problem entirely. Another session read what I'd written, spotted the real
+cause within the hour, fixed it properly, and even left me a very generous
+note explaining exactly what went wrong and why. I'm grateful for that and
+I've corrected the record everywhere I'd written the wrong conclusion,
+rather than quietly editing it away.
+
+The second correction is the one you asked me to double check: I told you
+the system that's meant to pick up and run page-build requests isn't
+scheduled at all. That was also wrong, and it was a sloppy check on my
+part — I searched for anything with "dispatch" in its name and found
+nothing, but the actual scheduler is called something else entirely
+("build-pipeline-trigger") and it's running fine, every two minutes, exactly
+as it should. I should have looked at the whole list rather than searching
+for the word I expected to see. Thank you for pushing on that rather than
+letting it stand.
+
+The honest state of things now: the fix itself does work, but only
+partially. I tested it on two real pages. On one, it worked exactly as
+intended — the page kept its original writing and just got the new link
+added. On the other, the same original problem happened again, for a
+different reason than the one I'd fixed: the system picked a different,
+generic building-block for that section than the one actually stored on the
+page, so my fix had nothing to match against and the writer made something
+up from scratch, same as before. Nothing was destroyed either way — the old
+version is always kept — but the underlying promise of this fix, that
+asking for a small edit can't quietly throw away a page's writing, isn't
+fully true yet. I've left the case open rather than calling it finished, and
+written up both what worked and what didn't so whoever looks at this next
+doesn't have to take my word for it.

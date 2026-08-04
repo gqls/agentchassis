@@ -18961,3 +18961,54 @@ the answer is "someone remembers to delete it", it is not a shim, it is a second
 delay fuse — and if the mechanism has no ordering (a single path, a single mapping), a shim
 there cannot self-retire at all. Prefer the site that fails loudly when the shim is stale;
 where none exists, leave the thing broken and say so, as the seed header now does.
+
+### The two calls that caused this bug in the first place, from the `bugfix_154` lane
+
+**The claim I shipped.** `load_current_section_content_action.go`'s header comment (and
+`bugs_open/178`'s own filing) said the step "gets the `section_plan` it was handed,
+byte-for-byte unchanged" on every non-`edit_live` path. My own tests asserted
+`result["section_plan"]`, `result["applied"]`, `result["reason"]` — i.e. they encoded the
+wrapper shape as the CORRECT one and passed on the exact code that caused a fleet-wide
+outage 40 minutes after deploy.
+
+**Why it was wrong.** I designed the return value the way `load_existing_content_action.go`
+returns its OWN new output field (`{"has_existing":…, "existing_content":…}`) — a
+descriptive wrapper — without registering that MY step's `output_field` reused an UPSTREAM
+key (`section_plan`), so the orchestrator's `storeActionResult` would store my wrapper
+wholesale in place of the flat plan every step downstream expected. I asserted "byte-for-byte
+unchanged" in prose and never wrote a test that checked it — every test checked the
+WRAPPER's fields, not equality against the input.
+
+**The cheap check.** When a step's `output_field` names a key that ALREADY EXISTS upstream,
+assert `reflect.DeepEqual(output, input)` on every path that claims to be a pass-through —
+not "the wrapper's `applied` field is `false`". A test that only inspects your own added
+keys can't see that you also silently changed everyone else's.
+
+**The second claim I shipped, in the same session.** Having tripped the bug above, I
+diagnosed my OWN outage as "a separate, pre-existing bug, unrelated to this fix" and filed
+it as `bugs_open/192` with that in the title, on the strength of an HOURLY COUNT:
+`current_step='process_sections_loop' AND status='FAILED'` spiking the evening before my
+code ever ran. A different lane read the actual error text of that earlier spike and found
+it was a different failing step (`iter_N_generate_content`) entirely — my own two failures,
+same morning, were the real instance, caused by my own code an hour earlier.
+
+**Why it was wrong.** I grouped rows by `current_step` + `status`, not by the actual error
+message, and treated "these counts form a plausible timeline" as proof of one shared cause.
+Two distinct defects sharing a `current_step` name (`process_sections_loop` wraps several
+sub-steps) look identical in an aggregate query and completely different once you read
+`error`.
+
+**The cheap check.** Before using a historical count as an alibi ("this happened before my
+code existed, so it can't be me"), read the actual `error` text of a SAMPLE of the historical
+rows, not just their step name and timestamp — grouping by symptom is not the same claim as
+grouping by cause, and only the second one can exonerate you.
+
+**The third, smaller claim.** Wrote "`build-dispatch-loop` isn't scheduled anywhere" into
+three documents, from `SELECT … FROM scheduled_tasks WHERE name ILIKE '%dispatch%' OR
+target_agent_type ILIKE '%dispatch%'` returning two unrelated rows. The real row,
+`build-pipeline-trigger`, doesn't contain the word "dispatch" anywhere in its own name.
+
+**The cheap check.** A substring filter on a table you can just list in full (44 rows) is
+never the right first move — `SELECT name, target_agent_type, enabled FROM scheduled_tasks`
+with no WHERE clause costs nothing and can't miss a row for not matching a word you guessed.
+Filter only after you've seen the whole list and know what you're excluding.

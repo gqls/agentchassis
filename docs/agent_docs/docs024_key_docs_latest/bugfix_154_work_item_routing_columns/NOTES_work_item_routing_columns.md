@@ -1292,14 +1292,26 @@ Baseline recorded before dispatch: `d8c51ace-...` (guide-cma-compliance)
 `2a347990-...` (guide-independent-strategy) `generic-text-block` **3637**
 (rendered_html 3815).
 
-**Discovered no scheduler drives `build` pipeline dispatch at all** —
-`scheduled_tasks` has `report-dispatch` and `diagnose-pipeline-trigger`, no
-`build-dispatch-loop` entry, ever. Same family as the
-`detection-works-schedule-and-dispatch-do-not` pattern already in memory,
-now with a THIRD instance. Fired `build-dispatch-loop` directly via `kcat`
+Fired `build-dispatch-loop` directly via `kcat`
 (`config.agent_type: "build-dispatch-loop"`, `input_data: {site_id, domain}`
 — confirmed its `input_contract` first rather than guessing the shape) for
 `vetcomparison.uk`'s site_id, since both target items are on that site.
+
+> **CORRECTED 2026-08-04 — "no scheduler drives build dispatch at all" was
+> WRONG.** Originally claimed here, and repeated into `bugs_open/178` and
+> the handoff, on the strength of `SELECT ... FROM scheduled_tasks WHERE
+> name ILIKE '%dispatch%' OR target_agent_type ILIKE '%dispatch%'` finding
+> only `report-dispatch`/`diagnose-pipeline-trigger`. **The check that would
+> have caught it: list every row, don't filter by a word you're expecting.**
+> `build-pipeline-trigger` (no "dispatch" in its name) IS enabled,
+> `interval_seconds=120`, fires via the `kafka-scheduler` service (a
+> deployment, not a k8s CronJob — checked both per the owner's ask), and its
+> own workflow's `find_dispatchable_site` → `call_dispatch` steps DO call
+> `build-dispatch-loop` for the oldest-eligible site every two minutes. The
+> manual fire below was unneeded; the two items would have dispatched on
+> their own within a cycle or two. Caught when the owner asked to
+> double-check cron specifically — a substring grep on a name is not the
+> same claim as "I read every row".
 **IN PROGRESS as this note is written**: orchestration claimed both items,
 is calling `page-build-handler` for item 0
 (`process_item_iter_0_call_handler`, `AWAITING_RESPONSES`). Result not yet
@@ -1309,6 +1321,40 @@ reaches first.
 ---
 
 ## 2026-08-04 — dispatch RESULT: the fix is proven correct at the data level; end-to-end blocked by an UNRELATED bug, filed as 192
+
+> **CORRECTED 2026-08-04, by the `bugfix_192_select_sections_wrapper` lane's
+> own diagnosis (`a0e3ecee8`), then verified here**: the conclusion below —
+> "this is NOT this fix" / "a regression that predates your own code cannot
+> be caused by your own code" — was **wrong for the two failures I actually
+> triggered** (`0883b1aa`, `df69efd6`, both 08-04 ~08:26). It genuinely WAS
+> caused by this fix: `load_current_section_content_action.go` returned a
+> wrapper `{section_plan, applied, reason|matched}` on every path — including
+> the ones I called "pass-through" and believed were byte-identical — and
+> because its `output_field` reused the key `section_plan`, the ORCHESTRATOR
+> stores an action's return value WHOLESALE under that field
+> (`coordinator.go` `storeActionResult`), so the wrapper silently replaced
+> the real plan on every page build in every mode, fleet-wide, from
+> ~08:20 on 08-04 (when I applied migration 299) until the 192 lane's fix
+> landed at 09:01Z. My "byte-for-byte unchanged" claim in the action's own
+> header comment was **aspirational, not true of the code** — I described
+> the design intent, not what I had actually written, and never wrote a
+> test that would have caught the gap (my own tests asserted the wrapper
+> shape as correct, which is a test proving the bug, not catching it).
+>
+> **What DID hold up**: the two separate failures sharing one error string
+> genuinely were two different causes (087 vs 192), and the 08-03 21:00
+> historical spike genuinely is a third, still-different, still-undiagnosed
+> thing (`iter_N_generate_content`, per the 192 lane's correction to my own
+> filing). **What did NOT hold up**: treating "the historical spike predates
+> my rollout" as proof my OWN two failures that same morning were the same
+> phenomenon as that spike, rather than checking their error text
+> independently. I had the right instinct (check timing) and the wrong
+> conclusion (conflated an aggregate count with a single cause). See
+> `bugs_open/178`'s own corrected account for the full record, including a
+> SECOND, still-open gap this fix does not cover (found once builds worked
+> again) — a page whose section resolves to a different generic-fallback
+> component than what's stored still loses its content, by a route this fix
+> never touches.
 
 Both items claimed and dispatched. **9e9ec430** (guide-cma-compliance) ran
 `page-content-writer` orchestration `0883b1aa-d5d6-45ad-a596-df0cc06744ec`.
@@ -1378,3 +1424,45 @@ reached `review_constitution` at 20:09:59Z on 08-03 and never advanced —
 no `council_report` artifact was ever written and the `orchestration_states`
 row itself is gone. Stalled, not rejected. Not investigated (advisory only,
 doesn't block); flagging for whoever next looks at council-gate reliability.
+
+---
+
+## 2026-08-04, later — the 192 lane fixed the wrapper bug; final verification run; ONE page confirms the fix, ONE reproduces the original bug for a NEW reason
+
+The `bugfix_192_select_sections_wrapper` lane read, diagnosed and fixed the
+outage this session's own `load_current_section_content` caused (see the
+CORRECTED note above and `bugs_open/178`'s own account — not re-derived
+here). Their fix: the action now returns the plan itself on every path
+(shape-preserving), bookkeeping goes to the log plus one namespaced
+`edit_live_meta` key inside the plan on the applied path only. Live via a
+seed workaround since 09:01Z, Go fix committed (`2b9d84072`, registered
+`WFA-009`), inert until the next roll. **Nothing owed by this lane on that
+half** — they notified `178` directly and it's confirmed correct.
+
+**Re-ran this file's own verification once builds worked again:**
+
+- `guide-cma-compliance` (`d8c51ace-...`): `generic-text-block` content_data
+  **6034 → 6240** (+206 chars). Slot name unchanged. **This is the fix
+  working exactly as designed, on a real page.**
+- `guide-independent-strategy` (`2a347990-...`): the ORIGINAL bug's exact
+  symptom reproduced, by a route this fix does not cover. `plan_sections`'
+  component-selector resolved this build's section to `article-body` — a
+  generic fallback component minted earlier the same day for an unrelated
+  page — instead of the page's actually-stored `generic-text-block`. Since
+  the resolved name and the stored slot name disagree,
+  `load_current_section_content`'s exact-name join correctly found nothing
+  to attach, and the writer fabricated fresh content exactly as it did
+  before this fix ever existed. Diffed the old (`page_component_history`
+  `c5769938`, 3637 chars) against the new (`article-body`, 3262 chars,
+  wholly different prose, including a fabricated "Last reviewed: October
+  2023" line) — confirmed by reading both, not inferred from the length
+  alone.
+
+**This is a genuine, previously-undiscovered gap, not a retread of 192.**
+Full writeup with the exact evidence is in `bugs_open/178`'s own final
+update — **that file is being left OPEN, not closed**, because the core
+problem (a content_rewrite item can still silently lose a page's prose) can
+still happen when a section's build-time component identity drifts from
+what's stored. Candidate fixes are named there but not evaluated; this
+session is stopping here rather than attempting a third design change on
+the same day it shipped a fleet-wide outage from the second one.

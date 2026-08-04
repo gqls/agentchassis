@@ -326,10 +326,26 @@ symbol counts, not the tag). Migration `299` applied and recorded.
 **Live verification, using the two items parked above** (their `spec` had
 no `mode` key — predating this fix — so they were patched with
 `mode="edit_live"` before release, not released as-is, which would have
-reproduced the original damage). `build-dispatch-loop` isn't scheduled
-anywhere (confirmed: no matching row in `scheduled_tasks` — a fresh instance
-of the "detection works, dispatch doesn't" pattern), so it was fired
-directly for the target site.
+reproduced the original damage). Fired `build-dispatch-loop` directly for
+the target site rather than waiting.
+
+> **CORRECTED 2026-08-04 (same day, owner asked "check cron as well as
+> scheduled tasks, think hard"):** the line originally here claimed
+> `build-dispatch-loop` "isn't scheduled anywhere ... no matching row in
+> `scheduled_tasks`". **That was wrong, and the check that would have caught
+> it is cheap: I filtered `scheduled_tasks` on `name ILIKE '%dispatch%' OR
+> target_agent_type ILIKE '%dispatch%'` and stopped there.** The real row is
+> `build-pipeline-trigger` (target_agent_type `build-pipeline-trigger`,
+> `interval_seconds=120`, `enabled=true`, firing on schedule via the
+> `kafka-scheduler` service, not a k8s CronJob) — its own workflow's
+> `find_dispatchable_site` step picks the oldest-eligible site fleet-wide and
+> its `call_dispatch` step calls `build-dispatch-loop` for it, every two
+> minutes. So the build pipeline **is** scheduled; my manual fire was
+> unnecessary (the two items would have dispatched within a couple of
+> cycles regardless, subject to the fair-queue ordering other sites compete
+> for). The lesson: a substring filter on a name is not a search for a
+> concept — I should have listed every row and read it, not grepped for the
+> word I expected the row to contain.
 
 **Confirmed working, at the data level**: the dispatched orchestration's
 `section_plan.sections_ready[0].existing_content_html` held the page's
@@ -339,18 +355,93 @@ join by slot name found the right row and handed it to the writer intact.
 
 **Could not complete the full before/after `content_data` length check**:
 both dispatches then failed one step later, inside `page-content-writer`'s
-OWN `select_sections`/`process_sections_loop`, on a **separate, pre-existing
-bug** unrelated to this fix — filed as `bugs_open/192`. Confirmed not
-caused by this fix: the failure wave started hours before this fix's image
-ever ran anywhere, and it also hit a completely unrelated tool page on a
-different site in the same run. No content was lost (the failure is
-upstream of `save_page_sections` entirely), and the two items are `failed`
-(attempt_count=1, non-terminal) — safe to retry once 192 is fixed, which is
-the last remaining step to close 178 out completely.
+OWN `select_sections`/`process_sections_loop` — filed as `bugs_open/192`.
 
-**Status: fix DONE, LIVE, and proven correct at the exact point this bug's
-mechanism lives (the writer's input). The end-to-end acceptance test (content
-length assertion) is BLOCKED on 192, not on anything in this fix.**
+> **CORRECTED 2026-08-04, by the `bugfix_192_select_sections_wrapper` lane
+> (see their NOTICE below), then re-checked here after their fix**: the
+> claim that 192 was "a separate, pre-existing bug... confirmed not caused
+> by this fix" was **wrong for the failure I personally triggered and
+> diagnosed** (the 08-04 08:26 dispatches). It WAS this fix — my own
+> `load_current_section_content_action.go` returned a wrapper object on
+> every path including its "pass-through" ones, and because its
+> `output_field` reused the `section_plan` key, that wrapper silently
+> replaced the real plan on **every page build in every mode**, fleet-wide,
+> from the moment migration 299 was applied (~08:20 on 08-04) until the 192
+> lane's fix landed (~09:01Z). What I got right: the timing check itself was
+> a sound instinct; what I got wrong was trusting an AGGREGATE count
+> (`current_step='process_sections_loop' AND status='FAILED'`) as proof of a
+> single cause, without reading the actual error text of the historical
+> (08-03 21:00) batch to confirm it matched what I was looking at. It
+> didn't — that earlier wave was a different, still-undiagnosed failure at a
+> different step (`iter_N_generate_content`). Two different problems looked
+> like one because I compared counts, not messages.**
+
+No content was lost either way (the failure was upstream of
+`save_page_sections`), and the 192 lane's fix is now live+committed. Full
+account: `bugs_open/192`, its NOTICE to this file below, and this
+workstream's `NOTES_work_item_routing_columns.md`.
+
+## UPDATE 2026-08-04 (154 lane, after the 192 fix) — verification completed: ONE page confirms the fix, ONE page reproduces the ORIGINAL bug for a DIFFERENT reason
+
+Both parked items ran to `complete` after the 192 fix landed (`18bc832c` at
+09:05Z, `9e9ec430` shortly after). Checked `content_data` on both, per this
+file's own "how to verify a fix" test:
+
+**`guide-cma-compliance` (`d8c51ace-...`, item `9e9ec430`) — SUCCESS.**
+`generic-text-block` content_data: **6034 → 6240** (+206 chars, roughly the
+inserted link anchor plus surrounding adjustment). `slot_name` unchanged.
+This is exactly what the fix was built to do, on a real production page.
+
+**`guide-independent-strategy` (`2a347990-...`, item `18bc832c`) —
+REPRODUCES THE ORIGINAL BUG, by a route the fix does not cover.** The
+section's stored slot was `generic-text-block` (3637 chars, confirmed in
+`page_component_history` id `c5769938`, snapshot taken at write time). After
+this run, the page has **no `generic-text-block` row at all** — its only
+section is now `article-body`, 3262 chars, and the text is wholly different
+prose (different opening, headers, a fabricated "Last reviewed: October
+2023" line, none of the original sentences). Diffed directly, not inferred.
+
+**Root cause of this instance, read from the orchestration's own
+`section_plan`**: for THIS page's build, `plan_sections`' component
+resolution (Path 2, the section-type selector) resolved the section to a
+**different, generic fallback component** — literally the same
+`article-body` component minted earlier that day for an unrelated page,
+`tool-gripper-payload-calculator-guide` (its own `description` field says
+so verbatim: `"Component needed for section type \"article-body\" on page
+\"tool-gripper-payload-calculator-guide\""`). So `section_plan.sections_ready[0].name`
+was `"article-body"`, not `"generic-text-block"` — **`load_current_section_content`'s
+join correctly found no `page_components` row named `article-body` for this
+page (there isn't one), so `existing_content_html` was legitimately never
+attached, and the writer did exactly what it did before this fix: fabricate
+a fresh section from the guidance text alone.**
+
+**This is a real, undiscovered-until-now limitation of the fix, not a bug in
+the join logic itself**: matching by exact section name only works when the
+CURRENT build's resolved component identity for a section agrees with what
+is actually STORED under that page. `generic-text-block` and `article-body`
+are both generic fallback components (`generic-text-block`'s own
+description: *"Fallback component for any unmatched section"*) — the
+selector can evidently pick a different one build to build for what a human
+would call "the same section", and nothing before this incident said slot
+identity for a generically-resolved section is stable across rebuilds.
+`[UNVERIFIED]` how often this happens fleet-wide — this is one observed
+instance, not a measured rate. The old content is not lost (recoverable from
+`page_component_history` id `c5769938`, same as the original bug), and the
+shrink guard did not fire because there is no matching slot_name to compare
+against — a whole-slot rename bypasses a same-slot shrink check entirely,
+which is itself worth someone's attention.
+
+**Status: fix candidate 1 is real, live, and proven to work for the case it
+was designed for (stable slot/component identity across builds) — but it is
+NOT a complete fix for this bug. A page whose section resolves through the
+generic-fallback selector path can still lose its content exactly as
+before. Leaving this file OPEN rather than closing it.** Next step for
+whoever picks this up: either make `load_current_section_content`'s match
+tolerant of a component-identity change (e.g. match by `page_id` + "this
+was the only/most-recent prose slot" when the resolved name has no
+corresponding stored row), or fix the underlying instability in how
+generic-fallback components get assigned identity across rebuilds — the
+options are not evaluated here, this update is evidence, not a design.
 
 ---
 

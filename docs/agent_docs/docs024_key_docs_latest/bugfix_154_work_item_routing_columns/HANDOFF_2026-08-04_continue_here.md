@@ -1,131 +1,123 @@
-# HANDOFF 2026-08-04 — 178's fix is DONE and LIVE; the only thing left is blocked on an unrelated bug (192)
+# HANDOFF 2026-08-04 (rev 2, evening) — 178's fix works for ONE case, reproduces the ORIGINAL bug for another; still OPEN
 
-**Read this first; then `NOTES_work_item_routing_columns.md`'s 2026-08-03/04
-tail (three entries: "178 FIX IMPLEMENTED...", "dispatch RESULT...") for the
-full evidence trail. `bugs_open/178` carries its own final update too.**
+**This revision replaces the morning version of this file, which contained
+two claims that turned out wrong within hours — both are corrected here and
+in `bugs_open/178` itself, with the checks that would have caught them named
+inline. Read `bugs_open/178`'s own file in full before doing anything
+further; it now carries the complete, corrected account. This file is the
+short version + the open task list.**
 
-## State: 178's fix is DONE, LIVE, and proven correct where it matters
+## What actually happened today, in order
 
-- Root cause (confirmed 2026-08-03): `content_rewrite` items never set
-  `spec.mode`, so the writer got a rewrite instruction with nothing to edit
-  and fabricated a replacement section, dropping most of the page's prose
-  (measured -59% on one real page).
-- Fix: a third `spec.mode` value, `"edit_live"`. New Go step
-  `load_current_section_content` (between `check_has_ready_sections` and
-  `spawn_content_writer` in `page-build-handler`) attaches the page's current
-  `rendered_html` to each ready section, matched by slot name, when and only
-  when the item opts in. Both live `content_rewrite` emitters
-  (`create_tool_cross_link_items.go`, `apply_gap_plan_action.go`) now set it.
-  Default OFF for everything else — proven by two passthrough tests, not
-  just argued.
-- Committed `08d0515f3` (code+SQL+register) + `0a2a94b89` (tag bump).
-  Registered as **PBP-028** in `docs026_concept_register/register/page-build-pipeline.md`.
-- Built `v1.0.1244`, deployed by the owner's whole-fleet release as part of
-  `v1.0.1247`. **Pod-verified on both replicas** (binary symbol grep, not the
-  tag — `LoadCurrentSectionContent: attached current content for edit mode`
-  present, negative control absent).
-- Migration `299_edit_live_channel_for_content_rewrite_writer.sql` applied
-  by hand (both `DO $$ RAISE EXCEPTION $$` verify blocks passed) and
-  recorded (`run-migrations.sh --record-only`).
-- **Live-tested on a real production dispatch**, not a synthetic one: the
-  two crosslink items `bugs_open/178`'s own note left parked for this
-  purpose. Confirmed directly from `orchestration_states` that
-  `section_plan.sections_ready[0].existing_content_html` held the page's
-  exact current prose (the CMA-compliance content on
-  `vetcomparison.uk/guides/cma-compliance`), matched to the right slot,
-  unmodified. **This is the part of the mechanism 178 was about, and it
-  works.**
+1. Implemented candidate 1 from `bugs_open/178`: opt-in `spec.mode="edit_live"`,
+   new step `load_current_section_content` in `page-build-handler`, both live
+   `content_rewrite` emitters updated. Committed, built, deployed
+   (`v1.0.1247`), migration applied.
+2. **Bug introduced**: the new step's `output_field` reused the key
+   `section_plan` (deliberately, to avoid touching `call_content_writer`'s
+   mapping), but the action RETURNED A WRAPPER object on every path,
+   including its "pass-through" ones. Because the orchestrator stores an
+   action's return value wholesale under `output_field`, this silently
+   replaced the real plan with a wrapper on **every page build in every
+   mode, fleet-wide** — not just `edit_live` ones — from the moment the
+   migration was applied (~08:20) until it was fixed (~09:01Z).
+3. **Misdiagnosed my own outage as a pre-existing, unrelated bug** — filed
+   it as `bugs_open/192`, reasoned (wrongly) that a historical failure spike
+   the previous evening proved the cause predated my code. It didn't: that
+   evening's spike was a different, still-undiagnosed failure at a different
+   step; my own two failures that morning shared only the error STRING, not
+   the cause, with that spike.
+4. The `bugfix_192_select_sections_wrapper` lane read `192`, correctly
+   diagnosed it as this fix's wrapper bug, fixed it (live seed workaround +
+   committed Go fix, shape-preserving return value now, mutation-tested),
+   and notified `178` directly. **Their fix is good and this lane owes them
+   nothing on that half.**
+5. **Also got a second thing wrong today**, caught by the owner asking to
+   check specifically: claimed `build-dispatch-loop` has no scheduler at
+   all. Wrong — `scheduled_tasks` has `build-pipeline-trigger` (enabled,
+   fires every 120s via the `kafka-scheduler` service), which calls
+   `build-dispatch-loop` for the oldest-eligible site every cycle. Missed it
+   because the search filtered on the substring `%dispatch%`, and this row's
+   name doesn't contain it. No k8s CronJob involved either way — checked,
+   per the ask.
+6. Re-ran verification once builds worked again. **Split result**:
+   - `guide-cma-compliance`: content preserved, +206 chars, fix worked
+     exactly as designed.
+   - `guide-independent-strategy`: **the original bug reproduced**, by a
+     route this fix does not cover — `plan_sections`' component selector
+     resolved the section to a different, generic fallback component than
+     what was actually stored, so the exact-name join in
+     `load_current_section_content` found nothing to attach, and the writer
+     fabricated fresh content exactly as it did before this fix existed.
 
-## What's NOT done, and why
+## State: `bugs_open/178` is OPEN, not closed
 
-The full before/after `content_data`-length assertion (178's own "how to
-verify a fix" test) could not be completed, because **both live dispatches
-then failed one step later inside `page-content-writer`'s own
-`select_sections`/`process_sections_loop`** — a completely separate,
-pre-existing bug, filed as **`bugs_open/192`**. Evidence it is NOT this fix's
-doing: the same failure hit an unrelated tool page on a different site in
-the same run, and `orchestration_states` shows the failure wave started at
-2026-08-03 21:00 — hours before this fix's image had been deployed anywhere.
-**No content was lost** (the failure is upstream of any save) and the two
-work items are `failed`/attempt_count=1/non-terminal — safe to retry.
-
-192 itself is NOT diagnosed (a `090` run is owed, not run — flagged rather
-than chased, to keep this session's scope to 178). Root cause, per the
-evidence gathered: `select_sections` is `extract_fields` trying
-`resolved_links.response.link_resolution.sections_ready` (present but
-explicitly `null` in the failing runs) before falling back to
-`input_data.section_plan.sections_ready` (which DOES hold the real data at
-the same instant, confirmed directly). Why the fallback doesn't fire is
-unexplained — `ExtractFieldsAction` does null-check its candidates on its
-face, so there's a real puzzle here for whoever picks it up.
+The fix is real and live, and demonstrably works for the case it targets
+(stable component/slot identity across rebuilds). It does **not** cover a
+section whose build-time resolved component differs from what's stored —
+which is exactly what happened on the second test page, using the platform's
+OWN generic-fallback components (`generic-text-block`, `article-body`).
+Old content is recoverable either way (`page_component_history`), so nothing
+irreversible has happened, but the bug's actual promise — "a link-insertion
+item cannot silently gut a page's prose" — is not yet true in general.
 
 ## OPEN — in priority order
 
-1. **Diagnose and fix `bugs_open/192`.** This blocks 178's final acceptance
-   test AND, per the measured failure rate (11-14 failures/hour for several
-   hours on 08-03 night), is plausibly blocking a large fraction of ALL page
-   content builds right now, fleet-wide, whenever
-   `resolved_links.response.link_resolution.sections_ready` comes back
-   explicitly `null` rather than absent. Recommend the `090` diagnosis
-   trigger given it's cross-cutting and non-obvious — this handoff's author
-   read `ExtractFieldsAction` far enough to rule out the obvious theory (no
-   null-check) but did not find the real cause.
-2. **Once 192 is fixed, re-dispatch the two parked items** and complete
-   178's own verification: `SELECT length(content_data::text) FROM
-   page_components WHERE page_id IN ('d8c51ace-9286-4e53-95f9-efd02152568b',
-   '2a347990-c152-4fa2-8acb-a39a5f74f4a9') AND slot_name='generic-text-block'`
-   — expect ~6034 and ~3637 respectively **plus** roughly the length of one
-   inserted link anchor (~90-150 chars), NOT a wholesale replacement. Item
-   ids: `9e9ec430-ff92-4264-83cc-6072840faad8` (guide-cma-compliance),
-   `18bc832c-c937-4608-9a05-718772d44c88` (guide-independent-strategy), both
-   `vetcomparison.uk`, both `status=failed attempt_count=1` currently — just
-   needs a fresh `build-dispatch-loop` fire for site `72b9e3a6-872f-4528-a6d6-7f205ea60f4d`
-   once 192 no longer breaks the writer.
-3. **`build-dispatch-loop` has no scheduled task at all** — confirmed via
-   `SELECT name, target_agent_type, enabled FROM scheduled_tasks` (only
-   `report-dispatch` and `diagnose-pipeline-trigger` exist). This session
-   fired it by hand (`kcat` with `config.agent_type:"build-dispatch-loop"`,
-   `input_data:{site_id, domain}` — confirmed its `input_contract` first).
-   Not fixed, just flagged — third instance of the "detection works,
-   schedule/dispatch doesn't" pattern family already in memory. If this is
-   why the queue has felt slow/stalled to other lanes, this is why.
-4. **Council submission stalled**, not rejected: `Council-Submitted:
-   97ebadcf-bbe6-485f-8231-ff16fc4e679f` on the 178 commit; the run reached
+1. **Design and implement a fix for the component-identity-drift gap.**
+   `bugs_open/178`'s final update names the two directions (make the match
+   tolerant of a resolved-name miss by falling back to "the page's current
+   prose slot", or fix the underlying instability of generic-fallback
+   component assignment across rebuilds) but does not choose between them —
+   that's the next real task. Measure how often this actually happens
+   fleet-wide before investing heavily; this session has one observed
+   instance, not a rate.
+2. **Confirm the 192 fix's Go half survives the next chassis roll** (it's
+   committed, `2b9d84072`, but inert until then — currently the fleet is
+   running on the live seed workaround only). Pod-grep the marker their
+   commit names once a roll happens.
+3. **Council submission for 178 stalled**, not rejected —
+   `Council-Submitted: 97ebadcf-bbe6-485f-8231-ff16fc4e679f`, reached
    `review_constitution` at 20:09:59Z on 08-03 and never advanced, no
-   `council_report` was ever written. Advisory only — doesn't block — but
-   flagging for whoever next looks at council-gate reliability. Do NOT
-   re-submit for 178 unless you have a reason to think a fresh submission
-   would fare differently; the change itself is unrelated to the stall.
+   verdict artifact written. Advisory only, doesn't block. A fresh
+   submission covering the corrected fix (once the drift gap has a design)
+   would be the natural point to resubmit, not before.
+4. **Watch list, not urgent**: the shrink guard did not fire on the
+   `guide-independent-strategy` case, because a whole-slot RENAME (old slot
+   gone, new slot appears) isn't the same-slot shrink the guard compares —
+   worth someone's attention as a second, narrower gap in that guard's
+   coverage, separate from the fourth-floor deferral already tracked there.
 
-## Landmines specific to this lane (carry-forward + new)
+## Landmines specific to this lane (carry-forward + corrected)
 
 - All landmines from the 2026-08-03 handoff (shrink guard, dependency
   release rules, dispatch quiet-spell reading, `orchestration_states`
   retention) still apply unchanged.
-- **NEW — a `content_rewrite` item created BEFORE the emitter fix has no
-  `mode` key, so releasing it as-is still hits the OLD destructive path.**
-  If you find more parked/gated crosslink or gap-plan items predating
-  `08d0515f3`, patch their `spec` with `mode:"edit_live"` before releasing
-  them, the same way this session did for the two it used.
-- **NEW — `select_sections`'s null-fallback (bugs_open/192) can fail ANY
-  content build**, not just `edit_live` ones. If you dispatch anything
-  through `page-build-handler` and it fails at `process_sections_loop` with
-  `key 'sections_ready' not found`, this is very likely 192, not a new bug —
-  check 192 before filing a duplicate.
-- **NEW — `bugs_open/087`'s error string is not unique to 087.** Two
-  different causes now produce the identical `sections_for_render.sections_ready
-  not found` message (087: `page-rebuild` supplies no section_plan at all;
-  192: build-handler path, null link-resolution). Read which AGENT the
-  failing orchestration is (page-rebuild vs page-content-writer via
-  build-handler) before assuming which bug you're looking at.
+- A `content_rewrite` item created BEFORE the emitter fix has no `mode` key
+  — patch `spec` with `mode:"edit_live"` before releasing any more you find
+  predating `08d0515f3`, or it hits the old destructive path.
+- **A step whose `output_field` reuses an upstream key must return that
+  value SHAPE-PRESERVING — never a wrapper, not even on a "pass-through"
+  path.** This is now `016b` §9 (`5f569bb8e`) — read it before writing
+  another step like this one.
+- **`build-dispatch-loop` IS scheduled** (`build-pipeline-trigger`, 120s).
+  Don't manually fire it out of a belief that nothing else will.
+- `bugs_open/087`'s error string is not unique to it — `192` produced the
+  identical `sections_for_render.sections_ready not found` message from a
+  completely different cause. Read which agent actually failed
+  (`page-rebuild` vs `page-content-writer` via build-handler) before
+  assuming which bug you're looking at.
 
 ## Cold-start pointers
 
-- This file → `NOTES_work_item_routing_columns.md` (08-03/04 tail, three
-  entries) → `bugs_open/178`'s final update → `bugs_open/192` (new, evidence
-  only) → register entry PBP-028
-  (`docs026_concept_register/register/page-build-pipeline.md`).
+- `bugs_open/178`'s own file is now the authoritative account — read it in
+  full, including its two `> **CORRECTED**` blocks and the final "ONE page
+  confirms, ONE reproduces" update.
+- `NOTES_work_item_routing_columns.md`'s 2026-08-03/04 tail (five entries
+  now, including two correction entries).
+- `bugs_open/192` (owned by the other lane, diagnosis + fix both there).
+- Register entry PBP-028 (`docs026_concept_register/register/page-build-pipeline.md`)
+  still describes the mechanism correctly; its own "OPEN REVIEW QUESTION"
+  about matching by slot_name has gone from theoretical to confirmed — worth
+  updating when the drift-gap fix is designed.
 - Commits: `08d0515f3` (178 fix), `0a2a94b89` (tag bump), `75fceb501` (192
-  filing).
-- Migration: `docs/agent_docs/sql_for_agents/299_edit_live_channel_for_content_rewrite_writer.sql`,
-  applied and recorded.
+  filing, since corrected in place), plus the 192 lane's `a0e3ecee8`/`2b9d84072`.
