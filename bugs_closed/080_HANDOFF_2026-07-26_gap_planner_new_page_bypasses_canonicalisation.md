@@ -1,6 +1,34 @@
 # 080 — `content-gap-planner`'s `new_page` bypasses `CanonicalisePage`, so two creation surfaces disagree on a page's name and URL (FIX LIVE on v1.0.1177 — OPEN for the duplicate rows it does not repair)
 
-> ## STATUS 2026-08-04 — the CLASS is closed and the DETECTOR is built; OPEN only for the roll + seed that arm it
+> # CLOSED 2026-08-04 — fixed, council-APPROVED r1, and LIVE + INDUCED on v1.0.1250
+>
+> The full chain ran today, in order, with evidence at each step:
+>
+> 1. **Pod-verified on BOTH replicas of v1.0.1250** (`agent-chassis-88cf8787-4dzzx`/`-5z5sn`):
+>    `page_canonical_collision` → 5, `collisionCanonName` → 1, **negative control
+>    `"/tools/%s.html"` → 0** (the fallback this fix deleted), positive control
+>    `request_browser_run` → 5, discriminator `zqxjkwv_nonexistent` → 0.
+> 2. **Seed 306 applied** — `page_canonical_collision` is the 32nd check on
+>    completeness-discovery-agent, neighbour assertions passed, snapshot taken.
+>    Seed 305 (claim-timeout lockstep) was applied and verified the day before.
+> 3. **Induced sweep on robot-hands.com** (corr `10bafdf5`): filed **EXACTLY the two
+>    predicted items** — `page_canonical_collision:/news` and
+>    `page_canonical_collision:/gripper-catalog`, both `needs_human_review`, no
+>    handler, medium — and nothing else fleet-wide.
+> 4. **Dedup proven by induction** (corr `239fdfb8`): a second completed sweep filed
+>    0 new rows (still 2 rows / 2 keys, newest created_at unchanged).
+>
+> Council `83710c81` APPROVED round 1 (6 advisory objections, none high; the four
+> checkable ones checked and answered in the lane NOTES). Commits `9595c43fc`
+> (surfaces), `96dd3015c` (detector + PLAN-047 register entry), `be557024d` /
+> `9ec60ccd2` (docs + fixture).
+>
+> **What remains is a DECISION, not a defect, and it now lives in the queue:** the
+> two filed items carry the decided section-index-family convention and ask which
+> row survives. Executing that decision needs the retirement mechanism
+> (`bugs_open/098` → RFC_011) — deliberately out of this bug's scope.
+>
+> ## STATUS 2026-08-04 (morning) — the CLASS is closed and the DETECTOR is built; OPEN only for the roll + seed that arm it *(superseded by the banner above the same day)*
 >
 > Taken up by the `bugfix_080_canonical_collisions` lane (cold-start:
 > `docs024_key_docs_latest/bugfix_080_canonical_collisions/`). Committed

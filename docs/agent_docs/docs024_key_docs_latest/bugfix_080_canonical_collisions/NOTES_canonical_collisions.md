@@ -136,3 +136,25 @@ bugs_closed (both paths on the commit, `git ls-tree` check). With the seed, also
 `page_canonical_collision` to `liveConfiguredChecks` in
 `discovery_checks_registration_test.go:42` (its contract is to pin LIVE config, so it gains the
 entry when the config does, not before).
+
+## 2026-08-04 (late morning) — the owed chain ran; 080 CLOSED
+
+Owner rolled **v1.0.1250** (whole-fleet). Every step of the owed list above executed, in
+order, all green:
+
+- Pod-grep BOTH replicas (`-4dzzx`/`-5z5sn`): `page_canonical_collision` 5,
+  `collisionCanonName` 1, negative `"/tools/%s.html"` **0**, control `request_browser_run` 5,
+  discriminator 0. (Gotcha for the runbook: five sequential `grep -acF` over the binary in one
+  exec exceeds a 2-min timeout — split into ≤2 per exec.)
+- Seed 306 applied; checks list verified — 32 entries, neighbours intact, snapshot taken.
+- Fixture entry committed (`9ec60ccd2`) — also caught `content_duplication` missing from the
+  same fixture since 08-03 (declared in the message).
+- Induced sweep corr `10bafdf5` → **exactly** `page_canonical_collision:/news` +
+  `:/gripper-catalog`, needs_human_review, no handler, nothing else fleet-wide.
+- Second sweep corr `239fdfb8` → COMPLETED, **0 new rows** (2 rows / 2 keys, newest
+  created_at unchanged) — dedup + prior-item suppression proven by induction, not asserted.
+- 080 closing banner written; file moved to `bugs_closed/` with BOTH paths named on the
+  commit; `git ls-tree` check in the closing commit's message. 016b §10 row flipped to CLOSED.
+
+Residuals recorded where they live: the two decision items (the queue), retirement
+(098/RFC_011), queue surface (033). **This lane is done.**

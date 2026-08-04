@@ -37,3 +37,17 @@ duplicates we know about, and then close the ticket. The "which copy of the page
 question lands in the review queue as two concrete decision items — the machinery to actually
 retire the losing copy is still the vetoed/redesign question from the other workstream, so
 nothing on the live sites changes until a human decides.
+
+## 2026-08-04, later — done and closed
+
+Your release landed and everything worked exactly as predicted: the new code is verified in
+both running pods, the alarm is switched on, and its first live run found precisely the two
+robot-hands duplicates we knew about — nothing more, nowhere else. A second run correctly
+recognised it had already reported them and filed nothing new. The ticket is closed and moved
+to the closed pile.
+
+The one thing waiting on you, whenever it suits: two decision items in the review queue asking
+which copy of each duplicated robot-hands page survives. Each one carries the naming convention
+that was already decided, so it's a confirm-and-go, not research — but actually removing the
+losing copy from the live site still waits on the "unpublish" mechanism being redesigned after
+its veto.
