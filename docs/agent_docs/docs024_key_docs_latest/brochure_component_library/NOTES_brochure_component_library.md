@@ -4338,3 +4338,17 @@ July sprite pages). Republished fresh: `14a45889-e1f0-46e9-969a-08295cc36650`,
 recorded in the wrapper + RUNBOOK with the note that this has now happened once
 and what to do when it happens again. A published artifact is the owner's to
 delete; the wrapper treats the URL as replaceable state, not an invariant.
+
+**08-04, later — both verdicts read, both APPROVED r1.** Viewport `a18db904`
+(1 advisory: profileTag minimality — no action). Landing-state `8e35caad`
+(5 advisories, none high): two drew code (`2f374cdaf`, Council-Reviewed) — the
+failed-landing-capture path now falls back to an unstamped driven-state render
+rather than silently zero, and the post-settle guarantee is stated at the
+capture site. The other three, recorded not actioned: guardian's external-
+consumer compat (contact_sheet.py was already stage-aware one commit before the
+review; the vigilant CONTRIB warning stays true for stage-less refs); guardian's
+other-callers blast radius (captureEvidence has exactly one call site, grepped);
+prior_art_librarian's precedent-check note (fair; the TL-035 register entry IS
+the precedent trail and is cited). architecture's "new reserved key on a shared
+wire shape" advisory is the 07-29 ruling's own boundary: additive, opt-in,
+reaching nothing until a caller sets it — normal gate, which is where it went.
