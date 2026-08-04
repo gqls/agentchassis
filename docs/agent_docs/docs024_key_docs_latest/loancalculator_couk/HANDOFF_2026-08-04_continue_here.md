@@ -23,8 +23,12 @@ locks           11/11 tool rows   permanent, locked_by=decompose_20260802_proven
                 46 prose rows unlocked, deliberately
 live            26/26 HTTP 200 · retired page 404 · sitemap 26 entries
 calculators     11/11 match GOLDEN_2026-08-03b_after_orphan_retired.json
-chassis         v1.0.1250, rolled 2026-08-04T10:29Z
+chassis         v1.0.1251, rolled 2026-08-04T19:19Z  (v1.0.1250 was 10:29Z — TWO
+                rolls today; both post-roll-checked, see §6 and §6b)
 ```
+
+*(§1 re-measured 2026-08-04 evening: 26/26 HTTP 200, retired page 404, 11/11
+calculators match `GOLDEN_2026-08-03b`. Locks not re-counted this session.)*
 
 **Everything the owner asked for is done.** Four calculator defects fixed and live;
 the orphan retired; withholding ruled and kept. No work is half-finished.
@@ -48,19 +52,57 @@ serve the OLD footer until each next re-renders. Self-heals; 26 forced deploys f
 an invisible comment was judged disproportionate. If you re-render pages for any
 other reason, this rides along.
 
-**(3) `bugs_open/182` is owned by another thread** (owner said so 08-03). Do not
-work it. It is why `rerender_sections` is a no-op here — read it before trying to
-re-render anything by the ordinary route.
+**(3) ~~`bugs_open/182` is owned by another thread~~ — CORRECTED 2026-08-04 (evening).**
+
+> **This entry was already false when I wrote it, and the NOTES tail said so.**
+> `182` is **FIXED, LIVE and CLOSED** — `a43be1e70`, shipped on chassis v1.0.1240,
+> and it now lives in **`bugs_closed/`**, not `bugs_open/`. Pod-grepped on
+> v1.0.1251 this evening, both replicas: `id_resolved_component` = 1, positive
+> control 1, negative control 0. `rerender_sections` resolves by
+> `page_components.component_id` first now, so this site's 57 positional slots are
+> **exactly the population that fix reaches** — it is no longer a no-op here.
+>
+> **The offline route is still mandatory — for a NEWER and MORE DANGEROUS reason.**
+> The old reason was benign: the re-render did nothing. The live reason is
+> `bugs_open/189`, which 182's fix *newly reaches*: firing `section_data_resolved`
+> on a previously-unresolvable **locked** section **DUPLICATES it on the page**
+> (measured on `tool-loan-vs-savings` 08-03: 5 rows where there should be 4, the
+> calculator rendered twice on the served page; remediated live). Still unfixed —
+> `extractSectionsFromMetadata` is unchanged since 06-17, verified this evening.
+> **Do NOT fire `section_data_resolved` at any of this site's 11 locked tool
+> sections** (or oufe.com's 2) until 189 is fixed. Each will reproduce it the first
+> time it is touched.
+>
+> ⚠ **`189` is an AMBIGUOUS NUMBER — `bugs_open/` holds TWO unrelated files.**
+> This lane's is `189_HANDOFF_2026-08-03_resolving_a_locked_positional_slot_duplicates_it_on_the_page.md`.
+> The other (`189_HANDOFF_2026-08-04_siblingsignatures…`) is a `path:Symbol`
+> parser duplicate from the 163 lane and has nothing to do with this site — so
+> every commit message saying "189" since 08-04 means the *other* one. Resolve by
+> slug, per CLAUDE.md.
+>
+> **What caught it:** reading the `NOTES` tail on cold start, which carried both
+> facts under a `2026-08-03 (platform thread)` heading. I wrote this handoff hours
+> later and carried the stale premise forward from the 08-03 handoff without
+> re-reading my own notes file. The lesson is not "182 moved" — it is that a
+> handoff's §2 was contradicted by its own lane's NOTES at the moment of writing.
 
 **(4) Nothing else is owed.** The four defects, the tidy, the retirement and the
 re-baseline are all closed and verified.
 
 ## 3. The one live procedure you must not get wrong
 
-**`rerender_sections` DOES NOTHING on this site and reports success** (`bugs_open/182`).
+> **CORRECTED 2026-08-04 (evening) — the danger INVERTED, the instruction did not.**
+> The paragraph below describes **pre-v1.0.1240 behaviour** and is kept only so the
+> measurement is not lost. Since `bugs_closed/182` shipped, `rerender_sections`
+> resolves by `component_id` and **does reach this site's positional slots**. It no
+> longer fails silently — it fails *loudly and destructively* on a LOCKED row, by
+> duplicating the section (`bugs_open/189`, open). So the rule is unchanged and the
+> stakes are higher: **use the offline route below.** See §2 item (3).
+
+~~**`rerender_sections` DOES NOTHING on this site and reports success** (`bugs_open/182`).
 Slots are positional (`prose-0`, `tool-2`); the component lookup keys on
 `slot_name`; nothing resolves; every section is carried. Measured `rerendered: 0,
-carried: 4` with fixes already live.
+carried: 4` with fixes already live.~~ *(true until chassis v1.0.1240, 2026-08-03)*
 
 **The route that works** — and the one all pages shipped through:
 
@@ -219,6 +261,66 @@ python3 $LANE/toolgolden.py --compare $LANE/acceptance/GOLDEN_2026-08-03b_after_
 baseline is gone with it and this particular check cannot be completed — capture a
 fresh baseline and re-render a page again. Do not substitute "the pages look fine";
 that proves the site is unchanged, not that the new binary renders the same.
+
+## 6b. Post-roll check for v1.0.1251 (2026-08-04 evening) — ✅ DONE, PASSED, clean baseline
+
+**The chassis rolled TWICE on 2026-08-04**: v1.0.1250 at 10:29Z (§6) and
+**v1.0.1251 at 19:19Z**. This is the second check.
+
+**The render-path diff is again NOT empty, and this time it is chrome** —
+`chrome_link_policy.go` (new, `bugs_open/191`), `render_site_components_action.go`,
+`nav_tables.go`, `resolve_internal_links_action.go`,
+`load_current_section_content_action.go`. On this site, chrome is the most sensitive
+surface there is (25 authored header links, all three slots locked), so it was read
+rather than waved through.
+
+**It cannot reach an assembled page.** `assemblePage`
+(`rerender_single_page_action.go:532`) loads chrome through `getSiteComponents`,
+which is a plain `SELECT slot_name, rendered_html FROM site_components` — it **reads
+stored chrome and never renders it**. `LoadChromeLinkPolicy`'s only callers are
+`render_site_components_action.go:179` and `nav_tables.go:193`, neither on the
+assembly path. The RUNBOOK's named render-path files had **no commits at all** in the
+window.
+
+**Measured anyway, because expected is not measured:**
+
+```
+index.html                  05dee40c992d -> 05dee40c992d  IDENTICAL
+tools/consolidation.html    be7bd8586779 -> be7bd8586779  IDENTICAL
+tools/loan-vs-savings.html  fcf803a8e1e8 -> fcf803a8e1e8  IDENTICAL
+```
+
+`toolgolden --compare` vs `GOLDEN_2026-08-03b`: **11 of 11 exact.** 26/26 pages 200,
+retired page 404. `tool-loan-vs-savings` still has **4** `<section>` blocks (not 5),
+so `bugs_open/189` did not bite — expected, as assemble-only never enters
+`save_page_sections`.
+
+### The baseline was clean this time, and here is why — READ THIS BEFORE THE NEXT ROLL
+
+§6's warning was *"establish that there is NOTHING pending"*. There was a third
+option beyond §6's two, and it is the cheap one:
+
+> **Use the pages that have ALREADY absorbed the pending change as your baseline
+> pages.** After §6, exactly three pages on this site were in a settled state —
+> `index`, `tool-consolidation`, `tool-loan-vs-savings` — because §6's own check had
+> propagated the footer to them. Those three were therefore the *only* correct choice
+> of baseline page, and needed no prediction at all.
+
+Anchor it twice before firing: `cmp` the live bytes against the previous check's
+`.post` files, so the baseline is provably both **current** and **produced by the old
+image**. Both held here.
+
+⚠ **After the footer propagation below completes, all 26 pages are settled**, so this
+constraint disappears and any page may be used as a baseline. If a new pending change
+is introduced, this paragraph applies again.
+
+Baselines for this check: `/tmp/decomp-work/postroll1251/` (`*.post1251` are the
+v1.0.1251 renders). Work items `created_by='postroll-1251'`.
+
+⚠ Two of the three work items hit the known **spawn→call handshake race**
+(`workflow completed but its result could not be delivered to the parent
+(failed_transient)`) and succeeded on attempt 2 of 3. That is fleet-wide and
+expected; do not diagnose it here, and **do not cancel a failing row** — it retries.
 
 ## 7. Backups taken 2026-08-03 (all still present)
 

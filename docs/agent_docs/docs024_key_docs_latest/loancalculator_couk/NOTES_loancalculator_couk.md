@@ -2470,3 +2470,119 @@ Three instances in two days says the class is worth naming: *know what your
 **Side effect worth recording:** 3 of 26 pages (`index`, `tool-consolidation`,
 `tool-loan-vs-savings`) now carry the corrected footer; the other 23 still serve the
 old comment until they next re-render.
+
+## 2026-08-04 (evening) — v1.0.1251 post-roll: CLEAN baseline this time, and a handoff that contradicted its own NOTES
+
+**A second roll landed the same day.** The handoff written this morning covers
+v1.0.1250 (rolled 10:29Z); the pods now run **v1.0.1251, started 19:19Z**. So a
+second post-roll check was owed, and this one could be done properly.
+
+### The baseline problem from this morning solved itself, and I used it
+
+This morning's misstep was a baseline taken from pages with a **known pending
+change** (the corrected footer waiting on each page's next re-render). The fix I
+wrote down was: *either let everything propagate first, or predict the diff and
+assert it exactly.*
+
+There was a third option available and I took it: **the three pages that already
+picked up the footer this morning have nothing pending.** `index`,
+`tool-consolidation` and `tool-loan-vs-savings` are, as of this morning, the only
+three pages on the site in a settled state — so they are the only correct choice of
+baseline page, and for once the check needed no prediction at all.
+
+Doubly anchored before firing anything: today's live bytes are byte-identical to
+the `.post` files v1.0.1250 produced this morning (`cmp`, all three), so the
+baseline is both *current* and *attributable to the old image*.
+
+### Reachability first — the render-path diff is NOT empty, again
+
+Between the rolls (local 11:20 → 20:20) these changed under `platform/`:
+
+```
+chrome_link_policy.go              (new, bugs_open/191)
+render_site_components_action.go
+nav_tables.go
+resolve_internal_links_action.go
+load_current_section_content_action.go
+```
+
+Four of those are chrome/nav, which on this site is the **most sensitive surface
+there is** — 25 authored header links, chrome locked. So this needed reading, not
+waving through.
+
+**It cannot reach an assembled page.** `assemblePage`
+(`rerender_single_page_action.go:532`) loads chrome via `getSiteComponents`, which is
+a plain `SELECT slot_name, rendered_html FROM site_components` — it **reads stored
+chrome, it never renders it**. `LoadChromeLinkPolicy` has exactly three callers
+(`render_site_components_action.go:179`, `nav_tables.go:193`, and a comment in
+`resolve_internal_links_action.go:496`), none of them on the assembly path. And the
+RUNBOOK's named render-path files (`rerender_single_page_action.go`,
+`rerender_link_repair.go`, `tool_doc_header.go`) show **no commits at all** in the
+window.
+
+So: expected no movement. **Expected is not measured**, so:
+
+### Measured — all three IDENTICAL
+
+```
+index.html                  05dee40c992d -> 05dee40c992d  IDENTICAL
+tools/consolidation.html    be7bd8586779 -> be7bd8586779  IDENTICAL
+tools/loan-vs-savings.html  fcf803a8e1e8 -> fcf803a8e1e8  IDENTICAL
+```
+
+`toolgolden --compare` against `GOLDEN_2026-08-03b`: **11 of 11 reproduce exactly**
+(re-run after all three re-renders had landed, not during — the first run overlapped
+two of them and I did not want a claim resting on that). 12 of 12 spot-checked pages
+200. `tool-loan-vs-savings` still has **4** `<section>` blocks, not 5, so `189` did
+not bite — as expected, since assemble-only never enters `save_page_sections`.
+
+**Contrast with this morning worth keeping:** same site, same check, same three
+pages. This morning it read DIFFERS and needed a diff to exonerate; this evening it
+reads IDENTICAL and needs nothing. The only variable was whether the baseline had
+something pending in it.
+
+### The handoff I wrote this morning was contradicted by this file
+
+`HANDOFF_2026-08-04` §2 item (3) said *"`bugs_open/182` is owned by another thread …
+it is why `rerender_sections` is a no-op here"*, and §3 repeated the no-op claim as
+the standing procedure. **Both were already false when written.** `182` was fixed
+(`a43be1e70`), shipped on v1.0.1240, and moved to `bugs_closed/` on 08-03 — and the
+`2026-08-03 (platform thread)` entry in *this file*, several screens above, says so
+in full, along with `bugs_open/189`.
+
+Pod-grepped rather than inherited, both replicas on v1.0.1251:
+`id_resolved_component` = 1, positive control (`assemblePage: Complete`) = 1,
+negative control = 0.
+
+**The correction is not "182 moved".** It is that the danger **inverted** while the
+instruction stayed the same. Before: firing `rerender_sections` here did nothing.
+Now: it resolves this site's 57 positional slots, and on a **locked** row it
+duplicates the section on the page (`bugs_open/189`, still open —
+`extractSectionsFromMetadata` is unchanged since 06-17, checked). A reader who took
+§3 at face value would have concluded the ordinary route was *harmless* here, which
+is the most expensive possible way to be wrong about it.
+
+> **What this says about handoffs.** The stale claim did not come from missing
+> information — the correct version was in my own lane's NOTES, written by me, hours
+> earlier. It came from carrying §3 forward verbatim from the 08-03 handoff while
+> writing a new one. **A handoff assembled by copying its predecessor inherits its
+> predecessor's expiry dates.** The cheap check is to re-read the NOTES tail
+> *against* the handoff before publishing it, which is the one thing I did not do.
+
+⚠ **`189` is now an ambiguous number** — `bugs_open/` holds two unrelated files
+under it (this lane's 08-03 duplication bug, and the 163 lane's 08-04
+`siblingSignatures` parser duplicate). Every commit message saying "189" since 08-04
+means the other one. Resolve by slug; `git log` the file path.
+
+### Footer propagation (open item 2) — measured, then acted on
+
+Census over all 26 active pages, `THE HAND-BUILT PAGES HAD NO FOOTER` (old) against
+`Site footer. Rationale` (new): **OLD 23, NEW 3, NEITHER 0.** Both arms non-zero and
+they partition the site, so the probe discriminates rather than merely agreeing with
+me.
+
+Re-weighed the "disproportionate" judgement from 08-03 and reversed it, on two facts
+that were not on the table then: the old note **asserts `/legal.html` is orphaned and
+describes the page that now 404s**, so 23 live pages publish a claim that went false
+on 08-03; and it is a **standing baseline contaminant** — it is precisely what broke
+this morning's check, and it would break the next one on any of those 23 pages.
