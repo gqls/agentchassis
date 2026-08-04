@@ -162,3 +162,33 @@ func TestExtractFields_Required_SatisfiedByDefault(t *testing.T) {
 		t.Errorf("topic = %v, want fallback-topic", got.(map[string]interface{})["topic"])
 	}
 }
+
+// A name in "required" that matches no configured target is a step-config typo,
+// not a data problem, and must say so — otherwise it fails every run with a
+// message about a field the reader cannot find in "fields". Council advisory,
+// round 2 of bugs_open/192.
+func TestExtractFields_Required_NamesNoConfiguredTarget(t *testing.T) {
+	config := map[string]interface{}{
+		"fields": map[string]interface{}{
+			"sections_ready": []interface{}{"input_data.section_plan.sections_ready"},
+		},
+		"required": []interface{}{"sectionsready"}, // the typo
+	}
+	collected := map[string]interface{}{
+		"input_data": map[string]interface{}{
+			"section_plan": map[string]interface{}{"sections_ready": []interface{}{"x"}},
+		},
+	}
+
+	got, err := ExtractFieldsAction(context.Background(), extractFieldsParams(config, collected))
+	if err == nil {
+		t.Fatalf("a required name matching no configured target must fail, got success: %v", got)
+	}
+	// The message must name it as a CONFIG error and list what was configured,
+	// or the operator re-reads the data looking for a field that was never asked for.
+	for _, want := range []string{"sectionsready", "step-config error", "sections_ready"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error must contain %q; got: %s", want, err.Error())
+		}
+	}
+}

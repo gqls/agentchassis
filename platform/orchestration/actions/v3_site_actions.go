@@ -4367,11 +4367,31 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 	// review — a caller's own reviewer can see this one. Checked AFTER defaults,
 	// so a supplied default legitimately satisfies a required field.
 	if requiredRaw, ok := config["required"].([]interface{}); ok {
+		// A name in "required" that matches no CONFIGURED target is a config
+		// typo, and it fails in the most confusing possible way: the field can
+		// never be produced, so the step fails every single run with a message
+		// about a field the reader cannot find in "fields". Say what it really
+		// is instead. Council advisory, round 2 of bugs_open/192.
+		configuredTargets := map[string]interface{}{}
+		for _, source := range []string{"fields", "field_map", "defaults"} {
+			if m, ok := config[source].(map[string]interface{}); ok {
+				for target := range m {
+					configuredTargets[target] = true
+				}
+			}
+		}
+
 		var missing []string
 		for _, r := range requiredRaw {
 			name, _ := r.(string)
 			if name == "" {
 				continue
+			}
+			if _, configured := configuredTargets[name]; len(configuredTargets) > 0 && !configured {
+				return nil, fmt.Errorf(
+					"extract_fields: required field %q names no configured target "+
+						"(configured targets: %v) — this is a step-config error, not a data problem",
+					name, datahelpers.GetMapKeys(configuredTargets))
 			}
 			if value, present := result[name]; !present || value == nil {
 				missing = append(missing, name)

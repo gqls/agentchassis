@@ -305,3 +305,86 @@ was right that they rested on claims, not checks):
 component instances — an audit sweep, flag-only, emitting `needs_human_review`. Mine is a
 *runtime step contract* over orchestration `collected_data` that fails the step. Different
 data, different time, different consequence.
+
+## 2026-08-04 ~12:10 — council round 2: APPROVED, and the five advisories worked through
+
+`7afbf531`, round 2: **approved with 5 advisory objections, none high-severity**,
+4 abstained, 0 unreadable, not truncation-gated. The `bug_historian` seat explicitly
+credited the round-1 response: *"it ran the fleet census the round-1 objection demanded and
+found a real second casualty (design_fingerprint), which it fixed. That is the correct
+shape."* Trailer earned: `Council-Reviewed: 7afbf531-…`, on a verdict actually read.
+
+Four advisories acted on, one recorded as a human decision:
+
+**1. `editquality` (medium) — seed 308 was applied by hand and the NUMBER was never
+claimed.** Correct, and it is the standing landmine ("a migration number is not yours
+because you named a file — it is yours when the LEDGER says so"). I had picked 308 with
+`ls | tail`, which answers *what existed a moment ago*, never *what is free*. Asked the
+ledger instead:
+
+```
+schema_migrations, highest recorded: 302_load_existing_pages_has_shipped.sql
+303-307 exist on disk, recorded: NONE (other lanes' pending files)
+```
+
+So 308 collided with no *claimed* number — but mine was pending, and the next `--apply`
+would have replayed it. Recorded it the same minute with the by-hand provenance in the
+note, which is the only place that survives:
+`./scripts/migration/run-migrations.sh --record-only 308_… --note '<applied at, verified how>'`
+
+**2. `reuse_agent` (missing) — no `code_checks` on the new config key.** The code index is
+stale (known landmine), so `code_checks` would return NEEDS_HUMAN_REVIEW. Ran the offline
+audit instead, which is the tool that actually answers it:
+`./scripts/audit-config-keys.sh` → `extract_fields` is an **UNDECLARED ACTION** (no
+`RegisterActionInputSpec`), so nothing knows its key set and `required` cannot be flagged
+as unknown. The three UNKNOWN KEYS it does report (`plan_sections: domain` et al.) are
+pre-existing and belong to `bugs_open/136`. **No breakage from the new key.**
+
+**3. `editquality` (low) — `required` was not cross-checked against `fields`.** Fixed: a
+name in `required` matching no configured target now fails as a *step-config error*,
+naming what WAS configured. Without it, a typo fails **every** run with a message about a
+field the reader cannot find in `fields` — maximally confusing, and exactly the
+wrong-file-named failure this whole bug is about. New test; the union covers
+`fields`/`field_map`/`defaults` so a default-satisfied requirement still validates.
+
+**4. `bug_historian` (low) — "absence of evidence is not evidence of absence" on
+`research-agent`.** The seat was right to push: my 0 came from `orchestration_states`,
+which reaps at ~24h. Re-measured in a table with a 4.5-month memory, and **checked the
+relabelling trap first** (`llm_call_log.agent_type` is a known silent trap — a filter on
+one spelling can read 0 while the rows sit under another):
+
+```
+llm_call_log, ALL agents:      48,525 rows, 2026-03-25 → 2026-08-04
+llm_call_log, research-agent:       0 rows
+agent_type ILIKE '%research%':  domain-research-classifier 55, vertical-exemplar-researcher 19,
+                                adoption-researcher 2, directory-researcher 1  — none is this agent
+page-content-writer:           18,590 rows
+```
+
+So the conclusion strengthens rather than flips: **`research-agent` is spawned on every
+page build** (`page-content-writer.spawn_research_agent`, the only live spawner — I watched
+that step execute in both verification runs) **and has never made a single LLM call in the
+4.5 months `llm_call_log` retains.** Opting `extract_topic` into `required` would change a
+path that has produced no observable LLM work in that whole period — still the right call
+not to touch it, but now for a properly evidenced reason.
+
+> **Flagged, NOT chased, and not this lane's:** an agent spawned on every page build that
+> has never made an LLM call is worth someone's attention on its own. Two candidate
+> readings — spawned but never actually called (cf. the known spawn→call handshake race),
+> or called but never reaching an LLM. **Stated precisely: `llm_call_log` measures LLM
+> calls, so this says the agent has never made one, NOT that it has never run.** No bug
+> filed by me: I have not diagnosed it and would be filing a symptom.
+
+**5. `bug_historian` (medium) — no shipped guard on `storeActionResult` itself.** Not
+acted on, deliberately, and the seat's own recommendation is *"the router treat the
+RFC_012 addendum as a required follow-on, not optional reading"*. That is a human decision
+about a shared-mechanism guarantee, which by the 2026-07-29 ruling §1 is architecture
+scope, not council-gate scope. It is recorded in RFC_012 with the working detector
+specified — including that **both naive versions return 0 on the bug that motivated them**.
+
+**One more claim converted to a check** while waiting on the verdict: I told the council
+that failing loud after the roll cannot break a legitimate build because
+`check_has_ready_sections` gates upstream. Verified — it is a `conditional` on
+`section_plan.ready_count > 0` whose `then_step` is the only route onward, and it runs
+**before** `load_current_section_content`, so it reads the FLAT plan and was never itself
+broken by the wrapper. Consistent with builds failing at `select_sections` and not earlier.
