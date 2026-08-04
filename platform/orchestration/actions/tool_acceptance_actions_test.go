@@ -610,3 +610,16 @@ func TestExtractRunResultsKeepsViewport(t *testing.T) {
 		t.Errorf("viewport lost in extraction: %+v", v.Shots)
 	}
 }
+
+// A landing-stage ref says so on the note line; refs with no stage (all
+// failure evidence, and renders from pre-stage adapters) keep the prior form.
+func TestNoteLinesCarryLandingStage(t *testing.T) {
+	landing := []screenshotRef{{Profile: "mobile", URI: "s3://b/m.png", Viewport: "390x844@3x", Stage: "landing"}}
+	if line := renderLine(landing); !strings.Contains(line, "s3://b/m.png (mobile 390x844@3x, landing state)") {
+		t.Errorf("render line must say which state the image shows: %q", line)
+	}
+	driven := []screenshotRef{{Profile: "mobile", URI: "s3://b/m.png", Viewport: "390x844@3x"}}
+	if line := renderLine(driven); !strings.Contains(line, "s3://b/m.png (mobile 390x844@3x)") {
+		t.Errorf("a stage-less ref must keep the prior form exactly: %q", line)
+	}
+}

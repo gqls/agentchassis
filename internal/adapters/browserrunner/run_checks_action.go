@@ -152,7 +152,15 @@ type ScreenshotRef struct {
 	// scale — "390x844@3x". The PNG's own pixel width is viewport × scale, so
 	// without this a reader must fetch the object to learn that a 1170px-wide
 	// image is a phone, not a tablet.
-	Viewport      string   `json:"viewport,omitempty"`
+	Viewport string `json:"viewport,omitempty"`
+	// Stage says which page state the image shows. "landing" = captured after
+	// navigation + settle and BEFORE any check drove the page — what a visitor
+	// actually sees. Empty = the driven state (all failure evidence, and every
+	// render captured before 2026-08-04): TL-035's first fetched render showed
+	// a post-Clear empty panel because the last check pressed Clear, which is
+	// a false bug waiting to be filed. Per-ref rather than per-era so a reader
+	// never has to know deploy dates to trust an image.
+	Stage         string   `json:"stage,omitempty"`
 	FailingChecks []string `json:"failing_checks"`
 }
 
@@ -330,11 +338,25 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 				// run fails; a navigation failure is NOT this path.
 				return nil, fmt.Errorf("run_checks: browser open failed for %s [%s]: %w", url, profile, err)
 			}
+			// TL-035 (d): a render shows the LANDING state — the page as a
+			// visitor arrives, before any check clicks, fills or clears it.
+			// Capture the bytes now, decide later: they are uploaded only if
+			// every check passes. Best-effort like all evidence; a failed
+			// capture costs the render, never the verdict.
+			var landingPNG []byte
+			if req.CaptureRenders && a.store != nil && page.NavError() == "" {
+				if png, shotErr := page.Screenshot(true); shotErr == nil {
+					landingPNG = png
+				} else {
+					a.logger.Warn("landing render capture failed — render skipped, verdict unaffected",
+						zap.String("url", url), zap.String("profile", profile), zap.Error(shotErr))
+				}
+			}
 			res := evaluateOnPage(page, crit, applicable, profile, url)
 			// P3: evidence while the page is still open — a failing verdict
 			// carries what the page actually looked like. With CaptureRenders
 			// set, a PASSING run is photographed too, into a separate list.
-			if ref, failing, ok := a.captureEvidence(runCtx, page, req, res, profile, url, urlIdx); ok {
+			if ref, failing, ok := a.captureEvidence(runCtx, page, req, res, profile, url, urlIdx, landingPNG); ok {
 				if failing {
 					out.Screenshots = append(out.Screenshots, ref)
 				} else {
@@ -363,16 +385,23 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 	return out, nil
 }
 
-// captureEvidence takes and stores ONE full-page screenshot for this
-// (url, profile) run, and says whether it evidences a failure.
+// captureEvidence stores ONE full-page screenshot for this (url, profile) run,
+// and says whether it evidences a failure.
 //
-// Two callers' worth of behaviour, deliberately in one capture so that opting
-// into renders never doubles the screenshot cost of a failing run:
-//
-//   - failing == true  → the run had at least one failing check. Unconditional,
-//     exactly as before. The caller files it under Screenshots.
+//   - failing == true  → the run had at least one failing check. The page is
+//     photographed NOW — evidence must show the state it failed in, checks'
+//     interactions included. The caller files it under Screenshots. The
+//     landingPNG, if any, is discarded: renders exist only for passing runs.
 //   - failing == false → the run passed and req.CaptureRenders was set. The
-//     caller files it under Renders, NEVER under Screenshots.
+//     stored image is landingPNG — captured before any check drove the page,
+//     because a render is what a VISITOR sees (TL-035 (d): the first fetched
+//     render showed a post-Clear empty panel and read as a false bug). Stage
+//     is stamped "landing" so a reader can trust the image without knowing
+//     deploy dates. The caller files it under Renders, NEVER Screenshots.
+//
+// Cost note: a failing run with CaptureRenders set now takes one in-memory
+// capture it discards. What opting into renders still never adds to a failing
+// run is an UPLOAD — the property callers actually depend on.
 //
 // WHY THE TWO LISTS ARE SEPARATE, AND WHY THAT IS NOT TIDINESS. Three existing
 // consumers in tool_acceptance_actions.go attach `Screenshots` to a work item
@@ -389,7 +418,8 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 // alter the verdict. Navigation failures are excluded: there is no page state
 // worth photographing.
 func (a *RunChecksAction) captureEvidence(ctx context.Context, page browserPage,
-	req RunChecksRequest, results []CheckResult, profile, url string, urlIdx int) (ref ScreenshotRef, failing bool, ok bool) {
+	req RunChecksRequest, results []CheckResult, profile, url string, urlIdx int,
+	landingPNG []byte) (ref ScreenshotRef, failing bool, ok bool) {
 
 	if a.store == nil || page.NavError() != "" {
 		return ScreenshotRef{}, false, false
@@ -408,12 +438,25 @@ func (a *RunChecksAction) captureEvidence(ctx context.Context, page browserPage,
 	}
 	isFailure := len(failed) > 0
 
-	png, err := page.Screenshot(true)
-	if err != nil {
-		a.logger.Warn("screenshot capture failed — evidence skipped, verdict unaffected",
-			zap.String("url", url), zap.String("profile", profile),
-			zap.Bool("failure", isFailure), zap.Error(err))
-		return ScreenshotRef{}, false, false
+	var png []byte
+	stage := ""
+	if isFailure {
+		var err error
+		png, err = page.Screenshot(true)
+		if err != nil {
+			a.logger.Warn("screenshot capture failed — evidence skipped, verdict unaffected",
+				zap.String("url", url), zap.String("profile", profile),
+				zap.Bool("failure", isFailure), zap.Error(err))
+			return ScreenshotRef{}, false, false
+		}
+	} else {
+		// A render is the landing state, captured before evaluateOnPage ran.
+		// nil means that capture failed and its warning is already logged.
+		if landingPNG == nil {
+			return ScreenshotRef{}, false, false
+		}
+		png = landingPNG
+		stage = "landing"
 	}
 	key := screenshotKey(req.SiteID, req.Function, req.RunID, profile, urlIdx)
 	uri, viewURL, err := a.store.Save(ctx, key, png)
@@ -427,7 +470,7 @@ func (a *RunChecksAction) captureEvidence(ctx context.Context, page browserPage,
 		zap.Bool("failure", isFailure), zap.Strings("failing_checks", failed),
 		zap.Int("bytes", len(png)))
 	return ScreenshotRef{URL: url, Profile: profile, URI: uri, ViewURL: viewURL,
-			Viewport: profileViewport(profile), FailingChecks: failed},
+			Viewport: profileViewport(profile), Stage: stage, FailingChecks: failed},
 		isFailure, true
 }
 

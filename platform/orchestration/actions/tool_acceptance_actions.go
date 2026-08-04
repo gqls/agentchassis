@@ -439,6 +439,7 @@ type screenshotRef struct {
 	URI      string
 	ViewURL  string
 	Viewport string   // layout viewport + device scale, e.g. "390x844@3x" (empty on pre-viewport adapters)
+	Stage    string   // "landing" = photographed before checks drove the page; empty = driven state (all failure evidence, and renders from older adapters)
 	Failing  []string // id@profile instances the screenshot evidences
 }
 
@@ -639,6 +640,7 @@ func extractShotList(collected map[string]interface{}, field, key string, envIdx
 		ref.URI, _ = m["uri"].(string)
 		ref.ViewURL, _ = m["view_url"].(string)
 		ref.Viewport, _ = m["viewport"].(string)
+		ref.Stage, _ = m["stage"].(string)
 		if fc, ok := m["failing_checks"].([]interface{}); ok {
 			for _, f := range fc {
 				if s, ok := f.(string); ok {
@@ -685,11 +687,13 @@ func renderLine(renders []screenshotRef) string {
 		"\nNote: a render is a look, not a verdict — nothing here asserts the page is free of defects no check covers."
 }
 
-// profileTag labels one shot for a note line: " (desktop 1366x900@1x)", or
-// " (desktop)" from an adapter that predates the viewport field. The viewport
-// matters because the PNG's pixel width is viewport × device scale — a
-// 22,491px-tall, 1170px-wide render is a phone at 3x, and nothing else on the
-// line says so.
+// profileTag labels one shot for a note line: " (desktop 1366x900@1x, landing
+// state)", or " (desktop)" from an adapter that predates the newer fields. The
+// viewport matters because the PNG's pixel width is viewport × device scale —
+// a 22,491px-tall, 1170px-wide render is a phone at 3x, and nothing else on
+// the line says so. The stage matters because a render captured after the
+// checks drove the page shows a state no visitor sees (a post-Clear empty
+// panel read as a false bug) — per-ref, so a reader never needs deploy dates.
 func profileTag(s screenshotRef) string {
 	tag := s.Profile
 	if s.Viewport != "" {
@@ -697,6 +701,12 @@ func profileTag(s screenshotRef) string {
 			tag += " "
 		}
 		tag += s.Viewport
+	}
+	if s.Stage == "landing" {
+		if tag != "" {
+			tag += ", "
+		}
+		tag += "landing state"
 	}
 	if tag == "" {
 		return ""

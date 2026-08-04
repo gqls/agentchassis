@@ -29,6 +29,7 @@ type fakePage struct {
 	steps          []criteriaStep   // recorded
 	shotErr        error            // error to return from Screenshot
 	shotTaken      bool             // recorded: Screenshot was called
+	shotStepsSeen  []int            // per Screenshot call: how many Do steps had run — 0 means the landing state
 	evalResult     interface{}      // canned Evaluate return (render_audit probe)
 	evalErr        error
 }
@@ -73,6 +74,7 @@ func (f *fakePage) Do(step criteriaStep) error {
 }
 func (f *fakePage) Screenshot(fullPage bool) ([]byte, error) {
 	f.shotTaken = true
+	f.shotStepsSeen = append(f.shotStepsSeen, len(f.steps))
 	if f.shotErr != nil {
 		return nil, f.shotErr
 	}
@@ -895,5 +897,67 @@ func TestCaptureStampsViewport(t *testing.T) {
 	}
 	if len(out.Screenshots) != 1 || out.Screenshots[0].Viewport != "390x844@3x" {
 		t.Errorf("a captured ref must carry its viewport: %+v", out.Screenshots)
+	}
+}
+
+// TL-035 (d): a render is the LANDING state. The criteria fixture's calc check
+// fills and clicks before it passes; the first fetched real render showed a
+// post-Clear empty panel because the camera fired after checks like that had
+// driven the page. The capture must therefore happen at zero driven steps, and
+// the ref must say so, so a reader never needs deploy dates to trust an image.
+func TestRenderPhotographsLandingStateBeforeChecksDriveThePage(t *testing.T) {
+	ok := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 5, "#result": 1}, texts: map[string]string{"#result": "9"}}
+	a := actionWith(map[string]*fakePage{"desktop": ok})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "r-landing", URLs: []string{"u"}, Profiles: []string{"desktop"},
+		CriteriaJSON: criteriaDesktopMobile, Function: "tool-x", SiteID: "site-1",
+		CaptureRenders: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ok.steps) == 0 {
+		t.Fatal("fixture no longer drives the page — this test needs an interactive check to mean anything")
+	}
+	if len(out.Renders) != 1 {
+		t.Fatalf("expected 1 render, got %+v", out.Renders)
+	}
+	if got := out.Renders[0].Stage; got != "landing" {
+		t.Errorf("a render must be stamped with the state it shows, got Stage=%q", got)
+	}
+	if len(ok.shotStepsSeen) != 1 || ok.shotStepsSeen[0] != 0 {
+		t.Errorf("the render must be captured BEFORE any check drives the page: shots at step-counts %v", ok.shotStepsSeen)
+	}
+}
+
+// A failing run keeps its meaning: evidence shows the state it failed in
+// (checks' interactions included), carries no landing stamp, and opting into
+// renders adds no UPLOAD — the discarded landing capture is the accepted cost.
+func TestFailureEvidenceStaysDrivenStateAndUploadsOnce(t *testing.T) {
+	mobile := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 1, "#result": 1}, overflow: true, texts: map[string]string{"#result": "1"}}
+	a := actionWith(map[string]*fakePage{"mobile": mobile})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "r-fail", URLs: []string{"u"}, Profiles: []string{"mobile"},
+		CriteriaJSON: criteriaDesktopMobile, Function: "tool-x", SiteID: "site-1",
+		CaptureRenders: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Renders) != 0 || len(out.Screenshots) != 1 {
+		t.Fatalf("failing run: renders=%d shots=%d", len(out.Renders), len(out.Screenshots))
+	}
+	if got := out.Screenshots[0].Stage; got != "" {
+		t.Errorf("failure evidence is the driven state by definition and must carry no stage, got %q", got)
+	}
+	if len(mobile.shotStepsSeen) != 2 {
+		t.Errorf("expected the discarded landing capture plus the evidence capture, got shots at %v", mobile.shotStepsSeen)
+	}
+	if len(st.keys) != 1 {
+		t.Errorf("renders must never add an UPLOAD to a failing run: %d uploads", len(st.keys))
 	}
 }
