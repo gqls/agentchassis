@@ -19864,3 +19864,57 @@ that PASSES may have hit a guard in SERIES"*) and I had not carried it across to
 CHECKING code. **Guards in series prove only the one that fires, whichever side of the
 test you are on.** The cheap check is to run each branch alone, which costs one extra
 command.
+
+## 2026-08-04 — I believed a bug file's own "OPEN, UNOWNED" header, and it was two days stale
+
+Picking an unworked bug from `bugs_open/`, I settled on `181`, whose header says in bold
+**"OPEN, UNOWNED"**. It was written on 2026-08-02 and it was true then. It is not true now:
+two live sessions are on it, one of them the `163` lane with 34 mentions of the file in its
+transcript, and `163` had already landed a commit inside the very function `181` is about.
+
+I know that `who-owns.py` lags — it is documented as reading commits and being blind to a
+session mid-fix, and that caveat is in MEMORY. What I had not generalised is that **the bug
+file's own ownership line lags in exactly the same way, and is more persuasive because it is
+phrased as a fact rather than as a tool's best guess.** A claim about who is working
+something is the fastest-decaying claim in this repo; the file cannot update itself.
+
+The cheap check that caught it, and that I only ran because a *different* session had left
+its own census in a transcript: grep the live `.jsonl` transcripts for the bug file as a
+tool-call `file_path`. **Do not grep for the bare string `bugs_open/181`** — every session
+that has run `ls bugs_open/` carries the entire bug list, so that query returns "several
+live sessions" for *every* bug, including ones nobody has touched in a fortnight. A signal
+that fires for everything told me nothing and I nearly acted on it twice.
+
+## 2026-08-04 — a data question that was really a code question: 65 history rows are not 65 writes
+
+Re-validating `bugs_open/190`, I found 65 rows in `page_component_history` carrying the
+poisoned LLM transport envelope, every one of them `source='save_page_sections_overwrite'`,
+the most recent the previous evening. I drafted the headline "the save seam has written 65
+envelopes, most recently yesterday" — a much more alarming bug than the filed one, and the
+kind of upgrade that gets a lane prioritised.
+
+It is wrong. The history INSERT (`save_page_sections_action.go:586-601`) is
+`SELECT pc.content_data … WHERE pc.page_id = $1` executed **before** the DELETE: it archives
+the state being *replaced*. So 65 counts overwrite events on pages that **already** carried
+an envelope — it is a measure of how often poisoned pages get rebuilt, not of anything the
+writer produced.
+
+**What makes this worth logging is that no amount of further querying would have caught it.**
+Every follow-up I was reaching for — group by source, by date, by site — returns a
+confident, internally consistent number under either reading. The disambiguator was four
+lines of SQL *inside the Go action*, and reading them took less time than the queries I ran
+around them. **When a column's meaning depends on when the writer runs relative to the rest
+of its transaction, the schema cannot tell you and the data cannot tell you.**
+
+Doing it properly paid twice over: the same read showed the real blast radius is 25 pages
+across 6 sites (not the 2 rows filed), and a date filter showed generation *stopped* in
+mid-July when the parse fix landed — so the live defect is propagation, not minting. I had
+already written "a write seam produced a fresh envelope row yesterday" into the bug file
+before correcting it there, visibly, in the same session.
+
+⚠ One trap inside that measurement, which I did fall into for a minute:
+`count(DISTINCT component_id)` on those rows returns **0**, which reads as "no components"
+and is actually NULL — `page_component_history_component_id_fkey` is `ON DELETE SET NULL`,
+so any archived row whose component was later deleted has the id nulled. Group by `page_id`.
+Same shape as the `distinct_content = 0` trap already in `LANDMINES.md`; second sighting of
+a zero-that-means-null in that table family, which is why it is now in the runbook.
