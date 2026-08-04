@@ -46,6 +46,27 @@
 // means call_content_writer's existing input_mapping needs no change at all,
 // and a reader diffing the workflow sees one step transparently refining the
 // value the previous step produced, not two competing sources of truth.
+//
+// THE RETURN VALUE IS THE PLAN — never a wrapper around it (bugs_open/192).
+// Reusing an upstream key as output_field is a REPLACEMENT, not an annotation:
+// coordinator.go's storeActionResult stores an action's return value wholesale
+// under output_field, so whatever this function returns simply BECOMES
+// collected_data.section_plan. The first version of this file returned
+// {"section_plan": plan, "applied": …, "reason"|"matched": …} on every path,
+// including all eight it called "pass-through". That silently demoted the real
+// plan one level on EVERY page build in EVERY mode, and the wrong result looked
+// exactly like the right one because all the data was still there — just at
+// section_plan.section_plan. Downstream, page-content-writer's select_sections
+// (input_data.section_plan.sections_ready) and resolve_links
+// ("sections?": the same path) both resolved nothing, and every page build in
+// the fleet failed at process_sections_loop with an error naming the missing
+// key rather than the failed extraction.
+//
+// So: a step whose output_field names its own input must be SHAPE-PRESERVING.
+// Bookkeeping goes to the log, and — only on the path that actually did
+// something — to one namespaced key INSIDE the plan (edit_live_meta), which is
+// additive: every consumer reads named fields off the plan, none iterates its
+// keys (grep-verified, 2026-08-04).
 
 package actions
 
@@ -88,12 +109,16 @@ func LoadCurrentSectionContentAction(ctx context.Context, params ActionParams) (
 	// nothing for a config key to name.
 	sectionPlanRaw := datahelpers.ExtractNestedField(params.CollectedData, "section_plan")
 
+	// output_field is "section_plan", so the return value REPLACES the plan
+	// (storeActionResult). A pass-through therefore returns the plan value
+	// ITSELF, byte-identical — which is what this file's header has always
+	// promised and what, before bugs_open/192, it did not do. The reason is
+	// logged rather than returned: there is no second output channel on a step,
+	// and inventing one by wrapping is precisely the defect.
 	passthrough := func(reason string) (interface{}, error) {
-		return map[string]interface{}{
-			"section_plan": sectionPlanRaw,
-			"applied":      false,
-			"reason":       reason,
-		}, nil
+		logger.Info("LoadCurrentSectionContent: pass-through, section_plan returned unchanged",
+			zap.String("reason", reason))
+		return sectionPlanRaw, nil
 	}
 
 	if params.DB == nil {
@@ -155,7 +180,7 @@ func LoadCurrentSectionContentAction(ctx context.Context, params ActionParams) (
 
 	readySections, _ := planMap["sections_ready"].([]interface{})
 	if len(readySections) == 0 {
-		return map[string]interface{}{"section_plan": planMap, "applied": false, "reason": "no_ready_sections"}, nil
+		return passthrough("no_ready_sections")
 	}
 
 	// Read-only. Joined through pages so a page_id that (by whatever bug)
@@ -170,7 +195,7 @@ func LoadCurrentSectionContentAction(ctx context.Context, params ActionParams) (
 	if err != nil {
 		logger.Warn("LoadCurrentSectionContent: page_components query failed, section_plan passed through unchanged",
 			zap.Error(err))
-		return map[string]interface{}{"section_plan": planMap, "applied": false, "reason": "query_failed"}, nil
+		return passthrough("query_failed")
 	}
 	defer rows.Close()
 
@@ -208,9 +233,14 @@ func LoadCurrentSectionContentAction(ctx context.Context, params ActionParams) (
 		zap.Int("sections_ready", len(readySections)),
 		zap.Int("matched", matched))
 
-	return map[string]interface{}{
-		"section_plan": planMap,
-		"applied":      true,
-		"matched":      matched,
-	}, nil
+	// The one DB-visible record that this channel fired, namespaced INSIDE the
+	// plan rather than wrapped around it, and written only on the path that
+	// actually attached content. Additive: consumers read named fields off the
+	// plan, none iterates its keys.
+	planMap["edit_live_meta"] = map[string]interface{}{
+		"applied": true,
+		"matched": matched,
+	}
+
+	return planMap, nil
 }

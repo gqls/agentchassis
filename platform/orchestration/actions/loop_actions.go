@@ -748,7 +748,14 @@ func getNestedValueForLoop(data map[string]interface{}, path string) (interface{
 		case map[string]interface{}:
 			val, exists := v[part]
 			if !exists {
-				return nil, fmt.Errorf("key '%s' not found at position %d in path '%s'", part, i, path)
+				// Listing what IS here turns "the key is missing" into "the
+				// shape changed", which is the actually useful sentence. In
+				// bugs_open/192 this line printed `key 'sections_ready' not
+				// found` for hours; had it printed the keys present
+				// (`[applied reason section_plan]`) the wrapper upstream would
+				// have been visible in the very first failure.
+				return nil, fmt.Errorf("key '%s' not found at position %d in path '%s' (keys present at this level: %v)",
+					part, i, path, getCollectedDataKeys(v))
 			}
 			current = val
 		case string:
@@ -759,7 +766,8 @@ func getNestedValueForLoop(data map[string]interface{}, path string) (interface{
 			}
 			val, exists := parsed[part]
 			if !exists {
-				return nil, fmt.Errorf("key '%s' not found in parsed JSON at position %d", part, i)
+				return nil, fmt.Errorf("key '%s' not found in parsed JSON at position %d (keys present at this level: %v)",
+					part, i, getCollectedDataKeys(parsed))
 			}
 			current = val
 		default:

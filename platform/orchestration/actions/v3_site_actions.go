@@ -4349,6 +4349,42 @@ func ExtractFieldsAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
+	// Opt-in strictness (bugs_open/192). By default this action reports success
+	// having silently omitted any target whose configured paths all missed —
+	// so the failure surfaces later, somewhere else, named after the symptom.
+	// That is how a shape change upstream cost the fleet every page build for
+	// hours: select_sections wrote an empty sections_for_render and the NEXT
+	// step failed with "key 'sections_ready' not found", which points at the
+	// wrong file.
+	//
+	// "required": ["field", ...] makes that state fail HERE, naming the cause,
+	// the paths tried, and what was actually in scope to try them against.
+	//
+	// Default OFF: an absent "required" key preserves the historical lenient
+	// behaviour exactly, so no existing step changes meaning. Per the OWNER
+	// RULING of 2026-08-02 §2, new authority on a shared seam ships as an
+	// opt-in FIELD with the unsafe default off, not as a doc comment policed by
+	// review — a caller's own reviewer can see this one. Checked AFTER defaults,
+	// so a supplied default legitimately satisfies a required field.
+	if requiredRaw, ok := config["required"].([]interface{}); ok {
+		var missing []string
+		for _, r := range requiredRaw {
+			name, _ := r.(string)
+			if name == "" {
+				continue
+			}
+			if value, present := result[name]; !present || value == nil {
+				missing = append(missing, name)
+			}
+		}
+		if len(missing) > 0 {
+			return nil, fmt.Errorf(
+				"extract_fields: required field(s) %v resolved via no configured path "+
+					"(configured fields: %v; collected_data top-level keys: %v)",
+				missing, config["fields"], datahelpers.GetMapKeys(params.CollectedData))
+		}
+	}
+
 	params.Logger.Info("ExtractFieldsAction: Complete",
 		zap.Int("fields_extracted", len(result)),
 		zap.Strings("result_keys", datahelpers.GetMapKeys(result)))

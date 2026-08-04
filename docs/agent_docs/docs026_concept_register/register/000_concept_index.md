@@ -1,11 +1,13 @@
 # Concept Index — master register
 
-**1,720 index table rows** across **109** category register files, re-measured
-2026-08-04 with the command below after WFA-008 (per-substep
-`continue_on_error`, bugs_open/173) landed; the count moved 1,719 → 1,720,
-exactly this row, no concurrent arrival that time. Note the baseline: the
-headline said **1,718** and the grep said **1,719** before this row was added,
-so one row from another thread had landed unrecorded — which is this line's own
+**1,721 index table rows** across **109** category register files, re-measured
+2026-08-04 with the command below after WFA-009 (`extract_fields` opt-in
+`required`, bugs_open/192) landed; the count moved 1,720 → 1,721, exactly this
+row, no concurrent arrival that time either. The entry before it, WFA-008
+(per-substep `continue_on_error`, bugs_open/173), moved 1,719 → 1,720. Note the
+baseline: the headline said **1,718** and the grep said **1,719** before that
+row was added, so one row from another thread had landed unrecorded — which is
+this line's own
 point, and the reason to re-run rather than trust it. Previously: 1,718
 re-measured 2026-08-04 after PBP-029 (lifecycle predicate +
 link-surface lockstep, bugs_open/098 debts 3+4) landed; the count moved
@@ -40,7 +42,7 @@ trusting this line), with the command written into it as the previous thread
 asked:
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,720  ← THIS is the headline number (re-taken 2026-08-04 after WFA-008; the line said 1,718 and the grep said 1,719 before the row was added — one row from another thread had landed unrecorded, which is this line's own point)
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,721  ← THIS is the headline number (re-taken 2026-08-04 after WFA-009; 1,720 after WFA-008 before it. The line once said 1,718 while the grep said 1,719 — one row from another thread had landed unrecorded, which is this line's own point)
 cat *.md | grep -c '^### '                                       # 1,762  (headings; always higher)
 ls *.md | grep -vc 000_concept_index                             # 109    (files)
 ```
@@ -2024,3 +2026,4 @@ an ID prefix, or a status word.
 | NAV-013 | The nav-membership contract: one declaration, one writer, and a rebuild REQUEST | LIVE v1.0.1215, council-APPROVED | pages.in_header/in_footer DECLARES membership; URL shape decides WHERE, never WHETHER. Collapses two overlapping never-primary rules — the URL-keyed one ran BEFORE the flags were read, so a nav_drift item completed having placed nothing (proven twice, with a positive control where the same handler succeeded). site_nav_items now has ONE writer: addToolToNav is DELETED (NAV-008 superseded in part). RequestNavRebuild asks nav-updater for the rebuild instead — a nav row is NOT a link, and writing one would have silenced check_orphan_pages. LANDMINE: a third caller outside platform/orchestration/actions is an RFC moment; recurrenceExpected is load-bearing or the THIRD request per site is born terminal | navigation.md |
 | WII-008 | `mistyped_deployed_page`: a create arm that REFUSES a live-page collision | LIVE v1.0.1225, council-APPROVED | `applyNewPage`'s `ON CONFLICT DO UPDATE` made a CREATE arm a silent PARTIAL update — plan content applied, `page_type` left wrong — so a live page was overwritten AND the check re-raised for ever (2026-05-01→07-31 on one site). Now `DO NOTHING`, read the row, and on deployed+different-type mutate NOTHING: file `mistyped_deployed_page` at needs_human_review with the remediation SQL, and set the originator `blocked`, not `complete`. Refusal needs no discriminator because the planner already named the page — which is why it is available where a re-type predicate is not (two pages carry identical `sections=["news-listing"]`, a third is archived). LANDMINE: this item type has NO handler agent by design and holds a non-terminal dedup slot, so anything draining needs_human_review meets a DECISION queue, not a work queue. Scope is deployed-only on a count (5 deployed / 0 planned), pinned by a control test | work-item-integrity.md |
 | WII-010 | Shared page-section satisfiability seam (emit guard + needs_page revalidator) | LIVE v1.0.1248, council-APPROVED r1 | ONE read-only answer to "would page-build-handler find anything to build for this page?", asked at BOTH ends of a needs_page item's life: `declaredPageSections` (extracted pure from 177's guard) + `pageInCurrentPlan` (mirrors only the synthesis GATE, fail-open toward emitting) guard the two 177-shaped emitters (image-build-handler, page-rerender) with an observable `skipped_sectionless_page`; `revalidateNeedsPage` in `reviewRevalidators` closes a satisfied ask on positive name-matched slot evidence and stamps "satisfiable now" on the buildable-but-unbuilt. Drain proven on real rows day one: 26 auto-resolved with evidence. reconcile_site_plan deliberately unguarded (015-shape gaps are real findings). LANDMINE: `site_work_items.page_id` is NULL while the page exists — join pages BY NAME; and `page_rerender:` vs `needs_page:` prefixes are the WII-004 drift | work-item-integrity.md |
+| WFA-009 | `extract_fields` gains an opt-in `required` list | built (Go inert until roll; **config half LIVE** via seed 308) | A target field whose fallback paths ALL miss was omitted while the step reported success, so the run died two steps later under an error naming the symptom; `required` makes it fail at the extraction, naming the field, the paths tried and what was in scope. Default OFF. Closes `bugs_open/192`. | workflow-authoring.md |
