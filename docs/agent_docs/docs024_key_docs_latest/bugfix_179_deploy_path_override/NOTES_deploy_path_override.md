@@ -216,3 +216,68 @@ roll verification needs and what is easy to lose by measuring too late:
 Post-roll those must read `>=1` and `0`. **The removed-string control is the load-
 bearing half** — this change deletes a literal as well as adding one, so a stale
 image and a fresh one are distinguishable in both directions rather than one.
+
+## 2026-08-04 10:29–10:40 — LIVE on v1.0.1250, induced, closed
+
+**Pod-grep, both replicas, with the baseline taken BEFORE the roll** (the whole point
+— this change removes a literal as well as adding one, so the fleet is
+distinguishable in both directions rather than one):
+
+| marker | v1.0.1248 (pre) | v1.0.1250 (post) |
+|---|---|---|
+| NEW `refused: deploy_path` | 0 | **1** |
+| REMOVED `Using custom deploy_path` | 1 | **0** |
+| POS CTRL brand-head refusal | 1 | 1 |
+
+**The induction was designed as an A/B differing in ONE variable**, both dispatches
+carrying a deliberately bogus `s3_uri` so neither could commit to a live site:
+
+- **A** (`deploy_path` present) → `COMPLETED`, `deployed:false`, `skipped:true`,
+  `reason: refused: deploy_path "assets/images/refusal-probe-179.jpg"
+  (input_data.deploy_path) …` — and it names which of the three arms fired.
+- **B** (identical, no `deploy_path`) → `FAILED` at `deploy_asset`,
+  *"storage client not available"*.
+
+**B is worth more than A.** A alone would prove only that a refusal exists; B proves
+the guard is **not** a blanket refusal *and* that it **precedes the storage
+resolution** — same bogus URI, and A refused while B got as far as storage and died
+there. That is the ordering property demonstrated at runtime, where the source sensor
+only demonstrates it in the file's text.
+
+Neither probe committed: both candidate paths 404.
+
+**[NOT DONE]** a *successful* deploy was not induced — B failed at storage rather than
+deploying. "A legitimate deploy still works" therefore rests on the unchanged code
+path, the unit tests, and B showing the guard is not what stopped it. A real one needs
+a valid `s3_uri` and would commit an image to another lane's live site.
+
+## 2026-08-04 — MISSTEP, the serious one: my census was an artefact, and it reached the council
+
+Running the "must stay at zero" census once more after the roll, it returned **0** —
+**minutes after probe A had deliberately written a `deploy_path`.** A query that
+cannot see a value I had just written with my own hands is not a query.
+
+**Cause:** Postgres renders `jsonb::text` **with a space after the colon**
+(`"deploy_path": "…"`). The pattern `LIKE '%"deploy_path":"%'` has no space, so it
+**cannot match a jsonb column at all**. All three of my population zeros were
+structural.
+
+**It was not my invention** — `bugs_open/179`'s own Evidence section recommends
+exactly that pattern (correctly diagnosing that the bare word returns a pile of
+council-submission false positives, then prescribing a broken remedy). I repeated it
+approvingly and propagated it into the council submission, the IMG-067 register
+entry, migration 307's comment and four commit messages.
+
+**Re-measured** with `'"deploy_path"\s*:\s*"[^"]+"'`: `site_work_items` 0, active
+`agent_definitions` 0, `orchestration_states` **1** — and that 1 is the probe, which
+is precisely how the query is known to be capable of returning non-zero.
+
+**The conclusion did not change**, which is the uncomfortable part: the fix was right,
+but it was right by luck, and luck is indistinguishable from measurement in the
+record. Logged in `WRONG_CALLS.md`, and the trap given its own footprinted
+`LANDMINES.md` entry because it generalises to every `jsonb::text LIKE '%"k":"v"%'`
+census in the estate.
+
+**The check that would have caught it at the start, and it is one line:** *induce a
+non-zero before trusting a zero.* Write the value you are hunting, confirm the query
+finds it, then trust the zero.
