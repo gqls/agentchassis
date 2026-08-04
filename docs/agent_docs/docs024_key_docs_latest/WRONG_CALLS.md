@@ -19918,3 +19918,53 @@ and is actually NULL — `page_component_history_component_id_fkey` is `ON DELET
 so any archived row whose component was later deleted has the id nulled. Group by `page_id`.
 Same shape as the `distinct_content = 0` trap already in `LANDMINES.md`; second sighting of
 a zero-that-means-null in that table family, which is why it is now in the runbook.
+
+## 2026-08-04 — I sized a job by the change I knew about, and 20 pages had been missing a canonical tag for two days
+
+On 2026-08-03 I judged an open item on loancalculator.co.uk not worth doing, and wrote the
+reasoning into a handoff twice: *"the 26 live pages still serve the OLD footer until each
+next re-renders. Self-heals; 26 forced deploys for an invisible comment was judged
+disproportionate."* Nobody challenged it, because it reads as a sober cost/benefit call.
+
+It is wrong, and not marginally. Before bulk-firing the re-renders a day later I canaried
+two pages and diffed them. One changed exactly as predicted — the footer comment, nothing
+else. The other changed in **three** ways: the footer, **plus** it gained
+`<link rel="canonical">` and **lost** `<meta name="description" content="">`. Censusing all
+26 served pages: **20 of 26 had no canonical and carried an empty description tag.** Both
+come from `9c7a8e9e4` (2026-08-02) — `injectCanonicalLink` and `spliceMetaDescription`, both
+called from `assemblePage`. So the thing I had priced as "an invisible comment" was actually
+a canonical tag and a correct meta-description, absent for two days, on a site whose entire
+product is being found.
+
+**The error is a category error, not a measurement error.** I never measured anything and
+never claimed to. I reasoned: *the change I made was cosmetic, therefore what is pending is
+cosmetic.* That is an inference about **what has accumulated behind a door**, dressed as a
+sizing decision — and it silently assumes I am the only one who has put anything behind it.
+On a platform where improvements land continuously and reach a page only when that page next
+renders, **the pending set on a stale page is everything that has shipped since it last
+rendered.** It grows every day, most of it authored by other lanes, and it is unknowable
+without looking.
+
+This is the marker rule (016b / the working-docs rules) failing in the one place it does not
+reach. The rules make an *unchecked claim* look unchecked — `[INFERRED]`, `[ASSUMED]`. But I
+did not experience this as a claim at all. It felt like a judgement about my own work, whose
+inputs I obviously knew. **The tell is the word "only".** "Only a comment is pending" is a
+claim about a set, and a claim about a set needs the set enumerated.
+
+**The cheap check, ~2 minutes, and it is now in the lane's runbook:** before deciding a
+re-render is not worth it, **re-render ONE page and diff it**. Not to check the platform —
+to find out what you are actually shipping.
+
+⚠ **And run TWO canaries, not one.** My two disagreed: the tool page changed footer-only,
+the prose page changed three ways, because each page carries whatever landed since *it* last
+rendered. A single canary — **either** one — would have produced a confident, internally
+consistent, wrong prediction, and the one that agreed with me was the likelier pick. Stale
+pages are not a homogeneous population, and one sample cannot tell you that they are not.
+
+Second-order, same session, worth its own line: writing this up I stated that the one
+exception among the 21 remaining pages was `tools/credit-roadmap.html`. It is
+`tools/car-finance-calculator.html`. I had the **count** (20 of 21) from a real loop, then
+reached for the **name** from memory — one command after writing that an inference had been
+stated as a measurement. **A count you measured does not make the label you attached to it
+measured.** Caught by re-reading my own sentence and running the two-line loop that prints
+the exception by name.

@@ -5227,3 +5227,17 @@ that is also the thing you would want in the logs is not.
 - **the sixth refusal, and it is OPT-IN:** the entry above records five refusing guards in this function. `require_sections_metadata` is a sixth, but unlike the other five it is reachable by nothing until a step names it (RFC_010, default OFF). A save that fails with `this step declares require_sections_metadata…` is a step that asked for it
 - **source:** `bugs_open/194`, concept register `PBP-031`, seed `312`
 - **added:** 2026-08-04, bugfix_194 lane
+
+### A page that has not re-rendered is holding EVERY platform improvement since it last did — you cannot size the job by the change you authored
+- **footprint:** `platform/orchestration/actions/rerender_single_page_action.go` (`assemblePage`, `injectCanonicalLink`, `injectPageJSONLD`, `injectComponentCSS`, `spliceMetaDescription`), `pages.deployed_at`, any `page_rerender` work item filed with **no** `reason`
+- **fires when:** you decide whether re-rendering some stale pages is *worth it*, and price it by the change **you** made — "it's only a footer comment", "it's only a copy tweak", "it self-heals on next rebuild". The reasoning feels like a judgement about your own work, whose inputs you obviously know, so it does not trip the `[INFERRED]` habit at all. **It is a claim about a SET — everything queued behind that page's next render — and most of that set was authored by other lanes.** `assemblePage` alone injects canonical, JSON-LD, per-component CSS and the meta-description splice, each added by a different workstream on a different day
+- **the tell:** there isn't one, and that is the point. The stale page renders fine, returns 200 and looks correct. The missing thing is in the `<head>` of a page nobody is looking at, and it stays missing for as long as nobody re-renders it
+- **the check:** **re-render ONE page and diff it, before you decide.** ~2 minutes, and it is the only thing that enumerates the set:
+  ```bash
+  curl -s "https://<domain>/<path>" -o /tmp/p.pre     # then file an assemble-only page_rerender (spec with NO `reason`)
+  curl -s "https://<domain>/<path>" -o /tmp/p.post && diff /tmp/p.pre /tmp/p.post
+  ```
+  ⚠ **Use TWO canaries, of different page types, and expect them to DISAGREE.** Stale pages are **not** a homogeneous population — each holds whatever shipped since *it* last rendered, so two pages last built a week apart hold different sets. A single canary produces a confident, internally consistent, wrong prediction, and the one that agrees with you is the likelier pick.
+  For a baseline-free acceptance test afterwards, census the SERVED pages for what the platform currently emits (`<link rel="canonical">`, a non-empty `<meta name="description">`) rather than diffing — and **induce a non-zero first**, because a grep that matches nothing looks identical whether the site is clean or your probe is broken.
+- **source:** loancalculator.co.uk lane, 2026-08-04. The item was recorded on 08-03 as "an invisible comment; 26 forced deploys is disproportionate" and left. Canarying before the bulk showed **20 of 26 served pages had NO `<link rel="canonical">` and carried `<meta name="description" content="">`** — from `9c7a8e9e4` (2026-08-02), live and unnoticed for two days on a site whose product is being found. Full write-up in `WRONG_CALLS.md` (same date) and the lane's `NOTES`
+- **added:** 2026-08-04, loancalculator_couk lane
