@@ -37,7 +37,7 @@ DOMAIN="${1:?usage: $0 <site-domain>}"
 
 SITE_ID=$(kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
   psql -U clients_user -d clients_db -t -A \
-  -c "SELECT id FROM sites WHERE domain='${DOMAIN}' AND deleted_at IS NULL;")
+  -c "SELECT id FROM sites WHERE domain='${DOMAIN}';")
 if [ -z "$SITE_ID" ]; then
   echo "ERROR: no site row for domain '${DOMAIN}'" >&2; exit 1
 fi
