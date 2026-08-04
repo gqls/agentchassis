@@ -142,3 +142,77 @@ the tree-wide ban cheap and total.
   **And it was induced**: an inverted copy of the block was run against the
   post-apply row and raised as designed, so the silent pass is a measurement rather
   than an artefact of a block that can never fire.
+
+## 2026-08-04 08:49 — COUNCIL ROUND 1: REVISE, and the gating objection was a good one
+
+`decision: revise`, **`unreadable: 0`** — so a real judgement, not the
+`bugs_open/119` harness case. Gating objection from **`guardian`**, high, on edit 1;
+medium on edit 6; low on edit 1; plus two low `editquality` notes on the doc-only
+edits. Six seats abstained (relevance-gated).
+
+**The objection, and it is the right question to ask of this change:**
+
+> "This plan converts a gated/overridable derivation into an UNCONDITIONAL one and
+> bans all other constructions tree-wide, betting that the derivation itself is
+> correct for every reader. That bet is exactly what a landmine keyed
+> `DeployedAssetPath` appears to contradict — read it before revising."
+
+That is the strongest form of the argument against deletion: **if the derivation has
+a silent-wrongness case, the override might have been silently compensating for it,
+and removing the escape hatch makes the wrong path inescapable.** It also named its
+own contained alternative (fall back to candidate 2, record-and-surface, until
+`platform/storage` is fixed) — which is what a guardian seat is for.
+
+**The check was run rather than argued with, and it clears.** Five strands:
+
+1. **The landmine's own status line says it is history.** It concerns
+   `DeployedWebPath` mis-deriving `og_card`; its header reads *"FIXED AND LIVE on
+   chassis v1.0.1229 … THE TRAP BELOW IS HISTORY, not current behaviour"*, kept only
+   for readers on an older binary.
+2. **Verified against the RUNNING binary using the discriminator the landmine itself
+   supplies** — *"non-zero means the OLD binary and the trap below is live"*:
+   `Phase 2E: derived variant deploy path` → **0 on both replicas** (v1.0.1248), with
+   the positive control `refusing to deploy a brand-head purpose` → **1**, so the
+   zero is a measurement and not a broken grep.
+3. **The derivation is pinned correct for the exact case named**:
+   `TestDeployedWebPathExpressesBrandHeadPaths` (the 142-era tripwire, inverted at its
+   own written instruction once the behaviour was fixed),
+   `TestDeployedAssetPathAgreesWithTheMapLiteral`,
+   `TestBrandHeadPathsAreTakenWholeNotReconstructed`, all passing.
+4. **What survives the fix is not a wrongness.** The landmine says two clauses outlive
+   it: (a) `og-card.png` is not derivable from `og_card`, so `BrandHeadAssetPaths`
+   stays as the derivation's INPUT — a statement about construction, not a wrong
+   answer; (b) the `deploy_path` clause, which is exactly what this change removes and
+   which is now struck through and dated in that entry.
+5. **The override cannot have been compensating for anything**: `deploy_path` carries
+   a VALUE in 0 work-item specs, 0 active definitions and 0 orchestrations in all
+   history. Nothing ever set one, so nothing was ever worked around.
+
+The low objection (does this touch `resolveStorageURIFromAsset`, the `bugs_open/155`
+landmine on the same file?) — **confirmed not touched**: no hunk in the shipped commit
+mentions it.
+
+**Resubmitted as round 2 under the same trail** (`RESUBMIT_CORR`), code unchanged,
+with all five strands in the rationale. The guardian's own words set that bar: *"If
+the check clears, this is approvable as submitted."*
+
+> **Worth keeping regardless of the verdict:** the objection was answerable only
+> because the landmine carried a *discriminating command* — not just a warning, but a
+> way to tell which world you are in. A landmine that says "this is sometimes wrong"
+> would have forced a code change; one that says "run this, non-zero means old
+> binary" settled a high-severity gate in two minutes.
+
+## 2026-08-04 ~08:35 — the pre-fix baseline, captured by luck rather than by plan
+
+The fleet rolled to **v1.0.1248** at 08:34Z, minutes *before* my commit landed. So a
+pod-grep taken at 08:50 is a clean **pre-fix baseline**, which is exactly what the
+roll verification needs and what is easy to lose by measuring too late:
+
+```
+  NEW      "refused: deploy_path"      0   on both replicas
+  REMOVED  "Using custom deploy_path"  1   on both replicas
+```
+
+Post-roll those must read `>=1` and `0`. **The removed-string control is the load-
+bearing half** — this change deletes a literal as well as adding one, so a stale
+image and a fresh one are distinguishable in both directions rather than one.

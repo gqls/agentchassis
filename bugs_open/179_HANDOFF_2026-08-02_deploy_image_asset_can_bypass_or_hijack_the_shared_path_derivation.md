@@ -1,5 +1,94 @@
 # 179 — `deploy_image_asset` can still bypass the shared path derivation (`deploy_path`), and can now write to another writer's artefact (brand-head)
 
+> ## STATUS 2026-08-04 — FINDING A FIXED AND COMMITTED, COUNCIL **APPROVED** (round 2). **Stays OPEN until the roll**, and the close is one command away.
+>
+> Both findings are now fixed in code (B on 2026-08-02, A here). **This file stays
+> OPEN only because the repo's bar is fixed AND live**: a fix inert until the next
+> roll is still reproducible in production.
+>
+> **What shipped** — `fd0516b18` (code + register), `f62265138` (config), `6f69fd757`
+> (`IMAGE_TAG` → `v1.0.1249`), docs `13194d96d`.
+> Lane: `docs024_key_docs_latest/bugfix_179_deploy_path_override/`.
+>
+> - The **override is deleted**: `deploy_image_asset` constructs no `AssetPaths` of
+>   its own, so every path it commits is `storage.DeployedAssetPath(asset_key,
+>   purpose)` — the derivation is **total** for this writer, not merely preferred.
+> - An **explicit** `deploy_path` (step config, the deprecated `deploy_path_field`,
+>   or `input_data.deploy_path`) draws a refusal-as-result before the storage-URI
+>   resolution, the download and the git commit.
+> - The input is **undeclared** from the spec, and pruned from the live
+>   `asset-deployer` row (seed **307 applied**, snapshot `e9a9bac9`) and from the
+>   canonical `044`.
+> - **The class, not the instance:** `TestAssetPathsAreOnlyConstructedInStorage`
+>   fails the build on any hand-built `AssetPaths` outside `platform/storage`.
+>
+> ### The correction this file most needs: its census could not see the real exposure
+>
+> This file measured the risk set empty three ways and framed the risk as *a caller
+> might set `deploy_path`*. **The override did not need a caller to set it.**
+> `ExtractActionInputs` resolves every **declared** field by a **depth-20 recursive
+> search of the whole of `collected_data`**, and `deploy_path` was a declared
+> optional input on the live `asset-deployer` row — so a `deploy_path` key anywhere
+> in a deploy orchestration (a nested sub-agent response, an echoed spec) was hunted
+> out, bound, and used to redirect the git commit.
+>
+> A census of *values callers set* returns zero and stays zero while that is true.
+> **That is why the fix is deletion rather than a gate, and why the refusal is wired
+> to explicit sources only** — refusing on the recursive hunt would convert a stray
+> nested key into a **false denial** of a legitimate deploy fleet-wide, which is the
+> worse bug. A value only that search can find is ignored, and the derived path wins.
+>
+> ### Candidate 2 was rejected on a measurement this file did not have
+>
+> It ranks *"route `deploy_path` through the derivation … require it to be recorded
+> where readers can see it"* above deletion. But the action **already records** what
+> it wrote (`:296-325`), and **no reader reads it** — all six derive the path
+> (`emit_sprite_css_action.go:136`, `plan_sections_action.go:304-423`,
+> `derive_card_asset_action.go:204`, `render_site_components_action.go:415`,
+> `check_image_url_404.go:565`, `queryresolve.go:301-304`). A recorded override is
+> still a path no reader resolves. That seam is `bugs_open/152`/`155`.
+>
+> ### Council trail
+>
+> `7435c263-3551-4191-bee0-66b9298bc834`. **Round 1 REVISE**, `unreadable: 0` —
+> a genuine gating objection from `guardian` (high): deleting the escape hatch bets
+> the derivation is correct, and a LANDMINES entry keyed `DeployedAssetPath` warns it
+> is *"silently WRONG"*. **The right question.** Answered by running the check rather
+> than arguing: that landmine is about `DeployedWebPath`/`og_card`, its own status
+> line says *"FIXED AND LIVE on v1.0.1229 … THE TRAP BELOW IS HISTORY"*, and its own
+> discriminator (`Phase 2E: derived variant deploy path`, *"non-zero means the OLD
+> binary"*) reads **0 on both replicas** with a positive control at 1. The derivation
+> is pinned correct for that exact case by four passing tests. And the override
+> cannot have been compensating for it: **nothing has ever set one**.
+> **Round 2 APPROVED**, `unreadable: 0`, guardian `object` → `approve`.
+>
+> ### To close this file
+>
+> 1. Roll a chassis image built from `fd0516b18` or later (`IMAGE_TAG` is already
+>    bumped to `v1.0.1249`; the release is whole-fleet and the owner runs it).
+> 2. Pod-grep **every** replica, positive **and** negative control in one exec.
+>    **The pre-fix baseline is already recorded** on `v1.0.1248`:
+>    ```
+>      NEW      "refused: deploy_path"      0     -> must be >=1
+>      REMOVED  "Using custom deploy_path"  1     -> must be 0
+>    ```
+>    The removed-string half is load-bearing: this change deletes a literal as well
+>    as adding one, so a stale image and a fresh one differ in both directions.
+> 3. Induce it (≥300s after any pod restart): dispatch `asset-deployer` with a
+>    `deploy_path` and assert `deployed:false, skipped:true,
+>    reason LIKE 'refused: deploy_path%'`, no git commit, and the probe path 404s.
+>    Then the **healthy control** — the same dispatch *without* `deploy_path` must
+>    still deploy. Without that second half, a guard that refuses everything looks
+>    exactly like success.
+> 4. Then move this file to `bugs_closed/`, naming **both** paths on the commit and
+>    verifying at HEAD: `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 179`
+>    must return exactly one line.
+>
+> **⚠ Landmine created by this fix:** a step that sets `deploy_path` now completes
+> **GREEN** — `deployed:false, skipped:true` plus a `reason`, not an error, because a
+> refusal must let the work item resolve rather than retry for ever. **Read the
+> `reason`; the orchestration status says COMPLETED either way.**
+
 **Filed:** 2026-08-02 by the `bugfix_168_deployed_asset_path` lane, discharging the
 council's `bug_historian` seat objection at round 1 (`abd9b119`): *"No work item /
 follow-up filed for the disclosed `deploy_path` passthrough exposure — should be tracked so
