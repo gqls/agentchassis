@@ -78,6 +78,29 @@ WHERE type = 'build-site-planner' AND deleted_at IS NULL AND is_active = true
 -- Verification INSIDE the transaction, and it RAISEs rather than SELECTs — a
 -- verify block of SELECTs cannot stop the COMMIT (fleet memory: ON_ERROR_STOP
 -- ignores a non-empty result set).
+--
+-- > **THIS BLOCK IS UNSOUND FOR ONE CASE, AND THE SQL BELOW IS LEFT AS IT RAN.**
+-- > Three council seats (editquality, debug_historian, guardian — corr c881ef22)
+-- > flagged it against the known trap: a `#>>` path that is ABSENT yields NULL,
+-- > and every comparison below is then NULL, so no `IF` fires and the block
+-- > passes SILENTLY. Reproduced against the live row on 2026-08-04 by pointing
+-- > the SELECT at a nonexistent path: `q IS NULL: t`, `would any guard have
+-- > FIRED? f`. **So these guards prove the query's CONTENT when the path
+-- > resolves, and prove nothing at all when it does not** — exactly the case a
+-- > path typo produces.
+-- >
+-- > The migration itself is fine: the path was right, and the column was verified
+-- > independently against the live row and against production data (brands-index
+-- > computes has_shipped=f). The file is annotated rather than edited because it
+-- > is the record of what ran, and it is RECORDED in schema_migrations.
+-- >
+-- > **IF YOU COPY THIS BLOCK — and it is otherwise a good pattern — add the
+-- > null-guard FIRST:**
+-- >     IF q IS NULL THEN
+-- >       RAISE EXCEPTION 'NNN: jsonb path did not resolve — nothing was verified';
+-- >     END IF;
+-- > Without it, a verify block reads as belt-and-braces while being a decoration
+-- > for the one failure it most needs to catch.
 DO $$
 DECLARE
   n int;

@@ -698,3 +698,66 @@ The shared `/tmp` went 95% full → cleared (8%) between sessions, taking every 
 JSON with it. They are regenerable from the bug file, which is why the answers live in the
 committed record and not only in a scratch file. **Nothing durable should ever exist only
 in the scratchpad.**
+
+
+---
+
+# TRANCHE 3 APPROVED 2026-08-04 — ALL THREE TRANCHES APPROVED, and the round found a real flaw in my own guard
+
+**`c881ef22` → APPROVED** ("3 advisory objections, none high-severity"), on the third
+attempt at getting a verdict (two prior runs reaped). **`bugs_open/185` is now: all three
+tranches committed, live on `v1.0.1247`+, and council-approved.**
+
+## The advisory that was right, and it is about a guard I wrote
+
+Three seats independently (`editquality` [medium], `debug_historian` [medium], `guardian`
+[low]) flagged migration 302's `DO $$ … RAISE EXCEPTION` verify block against the known
+trap: **a `#>>` path that is ABSENT yields NULL, every comparison against NULL is NULL, so
+no `IF` fires and the block passes silently.**
+
+**Reproduced against the live row rather than conceded in prose** — pointed the same
+SELECT at a nonexistent path:
+
+```
+NOTICE:  q IS NULL: t
+NOTICE:  would any guard have FIRED on an absent path? f
+```
+
+So my three guards prove the query's *content* when the path resolves, and prove **nothing
+at all** when it does not — which is precisely the failure a path typo produces, i.e. the
+one case a verify block most needs to catch. The migration itself was fine (the path was
+right; the column was verified independently against the live row and against production
+data). **The file is annotated, not edited** — it is the record of what ran and is recorded
+in `schema_migrations` — with the one-line fix for anyone copying the pattern:
+`IF q IS NULL THEN RAISE EXCEPTION …` **first**.
+
+## The exposure figure: challenged, re-measured, and it holds — for this gate
+
+`editquality` [low] noted my census used `pages.sections`, "a documented stale materialised
+cache", so the "exactly 1 row" claim might be wrong. Re-measured four ways:
+
+| method | count |
+|---|---|
+| by `pages.sections` (my original) | **1** |
+| by `page_components` (no components) | 15 |
+| either empty | 15 |
+| either empty **and** `status='active'` (what the loader sees) | 9 |
+
+**The original figure stands, because the gate's own predicate is `pages.sections`** —
+`realisedSectionsOf` reads the loader's `sections` field (`v3_site_actions.go:5386`), so
+the gate's population is exactly "pages.sections empty" = 1 row, archived, and the loader
+filters `status='active'`. Live exposure through this gate is still zero.
+
+**But the seat surfaced a different, real population:** 9 active shipped pages have **no
+`page_components`** while carrying non-empty `pages.sections`. Those take the *other*
+branch (sections restored), not the empty gate — and they are `PBP-025`'s
+`componentless_pages` territory, already filed. Recorded here so the number is not
+re-derived as a new finding.
+
+## Left as a named follow-up rather than changed
+
+`bug_historian` [medium]: the fallback (`has_shipped` absent → old `build_status` test) is
+**silent** — no log distinguishes "legitimately absent, old semantics intended" from "a
+caller wired it wrong and the gate has quietly reverted to the buggy predicate". Correct,
+and deliberately not changed now: the code is live and approved, exposure is zero, and the
+honest fix is a Debug-level line in a per-page hot path, which wants its own small round.
