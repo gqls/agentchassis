@@ -261,3 +261,23 @@ breaking HEAD** — and it arrives at exactly the moment you are looking for tha
 real output is three lines up (`link: mapping output file failed`). Cleaned up,
 re-ran, HEAD builds clean and every actions test passes at `e4e003f13`. §R5 now says
 to clean up after, not just to look before.
+
+---
+
+## 2026-08-04 (~21:50Z) — CLOSED by a successor session: step 2 induced on the WRITE path; your marker recipe was unsatisfiable
+
+Not this lane's session — recorded here because this lane owns the fix. The
+owner-authorised finetuning.uk page build ran and **stitched stored chrome
+byte-for-byte** (`InjectHeader`'s site-header skip-guard), so the step-2 recipe
+"build a page, assert the HEADER SOURCE marker" can never reach the pin branch:
+today's only render-path callers of `RenderHeader` are the DEPRECATED
+`RerenderSitePagesAction` or skip-guarded build paths. The behavioural induction
+was delivered instead by the **first-ever `site-component-linker` run**
+(orchestration `e8732279`, provably a no-write beforehand via
+`link_site_components:210-213` + the already-correct slots): both ineligible pins
+discarded with the fix's own warn line, both slots resolved to the pool answer,
+`linked: 0`, chrome untouched, leopardess's legitimate pin preserved. Full
+evidence in the closing CONTRIB of
+`bugs_closed/170_HANDOFF_2026-07-31_style_collection_pins_chrome_with_no_eligibility_check_at_all.md`.
+Candidate 2 (repointing the four wrong `style_collections` rows) and RFC_007
+remain open, deliberately.
