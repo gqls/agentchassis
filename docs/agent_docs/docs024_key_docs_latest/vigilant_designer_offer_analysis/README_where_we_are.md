@@ -95,3 +95,28 @@ truncation alarm fires through the new image path specifically, for both AI prov
 
 Both revisions are committed and back in the review queue. Next: read the two verdicts,
 then ship the new images and prove one finding travels browser → work item → changed page.
+
+## 2026-08-04 — the drain works: we watched a finding travel, and the counter bug is closed
+
+This morning the whole point of Phase 0 got proven on a real site. We hand-fired one
+improvement sweep at relojistas.com (the watch-news site rebuilt at the end of July).
+Before firing, we checked its queue by hand: five of its six old findings described the
+site as it was before the rebuild, so we cancelled them with the evidence written on each
+— firing blind would have churned live pages over stale complaints.
+
+What happened next is exactly what we built: the new gate looked at the site, said "never
+audited — audit due", ran the full audit, promoted twenty-two findings to workers, and
+the workers started clearing them. Two completions are worth naming. The old "empty
+news section" finding from 19 July — which had sat dead in the queue for over two weeks —
+was closed by the system itself observing the section is now healthy, with the reason
+recorded. And a fresh finding ("the shared header is stale") was picked up, the header
+re-rendered, and a nineteen-page refresh queued and draining behind it. One finding
+resolved by honest observation, one by actual work: both ends of the drain shown working
+in a single run.
+
+That witnessed run was the last thing the audit-counter bug (the one where a capped site
+was reported "clean" forever) was waiting on — it's now formally closed.
+
+One correction to our own plan: the sweep does not include the new browser-measurement
+audit; that runs as its own job. Proving that half — a browser measurement becoming a
+work item — is the next small step, after the page refresh settles. Then the critic.
