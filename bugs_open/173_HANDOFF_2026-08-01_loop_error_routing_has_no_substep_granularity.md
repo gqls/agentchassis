@@ -233,3 +233,112 @@ Whether the three loops above have ever actually aborted a build this way. The
 floors are new (A live on `v1.0.1223` 2026-07-31; B and C not yet live), so the
 answer today is almost certainly no — but it is unmeasured, and
 `orchestration_states` retention (~2 days) will make it unanswerable in arrears.
+
+---
+
+## FIX 2026-08-04 — candidate 1 BUILT and committed (`2e497e846`). **STILL OPEN: inert until a chassis roll.**
+
+Picked up unowned, per this file's own header. Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_173_substep_error_tolerance/`.
+
+**Do not close this on the commit.** The bar in CLAUDE.md is *fixed AND live*, and the live
+chassis is `v1.0.1248`, which predates the fix. Measured at the pod the moment after
+committing, with both controls:
+
+```
+strings /app/agent-chassis | grep -c 'resolveSubstepContinueOnError'                    -> 0   (this change; not live)
+strings /app/agent-chassis | grep -c 'continue_on_error is true for this loop iteration step' -> 1   (positive control; the probe reads the binary)
+```
+
+### What was built — candidate 1, the shape this file and the seats pointed at
+
+One production file, `platform/orchestration/loop_expansion_handler.go`. The unconditional
+stamp at line 157 becomes a resolution:
+
+| substep's own `config.continue_on_error` | resolves to |
+|---|---|
+| bool `true` | `true` — tolerant substep inside a strict loop |
+| bool `false` | `false` — **strict substep inside a tolerant loop** |
+| absent | the loop's value — byte-identical to today |
+| present, not a bool | the loop's value, **and a WARN naming the substep** |
+
+Candidates 2 and 3 were **not** taken, for this file's own reasons: 2 is a new shared
+vocabulary and by the owner ruling of 2026-07-29 wants an RFC rather than a bug patch; 3 is
+the option that "leaves the next thread inventing a bool".
+
+### The finding this file does not contain — the key was already writable, and inert
+
+Line 104 deep-clones the substep's config into the injected step, so a substep's own
+`continue_on_error` **was already present** and line 157 then **overwrote** it. And
+`continue_on_error` is in `datahelpers.frameworkStepConfigKeys`, so `config-key-audit` called
+it legitimate framework vocabulary and never flagged it.
+
+**So an author could write the obvious thing, get no error, no warning and no audit finding —
+and no effect.** Any substep config predating this fix that declares the key has been inert
+since it was written. Registered as a landmine (footprint `loop_expansion_handler.go`) and as
+concept **WFA-008**, in the same commit as the code.
+
+### The direction that is easy to get wrong, recorded for the reviewer
+
+`if v, ok := cfg["continue_on_error"].(bool); ok && v` is **wrong**: folding the type
+assertion into the truth test reads a declared `false` as *no declaration*, silently
+destroying the strict-substep-in-a-tolerant-loop direction. Presence and truth are tested
+separately, and the test suite covers both.
+
+**Mutation-proven rather than merely green** (`platform/orchestration/substep_continue_on_error_test.go`,
+5 functions / 7 subtests): reverting the production line to the unconditional stamp fails
+exactly the three override tests (tolerant-in-strict, strict-in-tolerant,
+per-substep-not-per-loop) while the two inheritance tests correctly still pass.
+
+### Answering this file's two "NOT established" items
+
+1. **"Whether any live workflow is currently mis-shaped by this."** Re-measured today, and
+   the answer is unchanged from the 08-01 contribution: no loop is mis-shaped in the swallow
+   direction. **But the census has drifted and the figures here were stale** — it recorded
+   20 loops (10 unset / 9 true / 1 false); today it is **18** (8 unset / 9 true / 1 false).
+2. **The blast-radius question this fix needed:** **0 of 79 substeps** across those 18 loop
+   steps declare `config.continue_on_error`. Positive control, same CTE grouped rather than
+   filtered: 18 loops / 79 substeps — so the predicate reaches substep configs and a non-zero
+   answer was reachable. **The change is therefore inert fleet-wide on the day it rolls.**
+
+Still **[UNVERIFIED]**, as this file listed: whether candidate 1 interacts with the
+retry/`fallback_step` fields that `loop_expansion_handler.go:480` prefixes alongside
+`error_step`. I did not look either, and it is flagged in the council submission as such.
+
+### CORRECTION — this file's motivating loop no longer exists
+
+§"Why it matters — the concrete case that produced this file" is **historical**.
+`multipage-website-builder` is now `is_active=f` and deleted (consistent with `7a15c3a47`
+"retire(agents): three unused builders are out"), so `generate_pages_loop → extract_links`
+cannot recur. **Quote the three live consumers instead**, all still
+`continue_on_error` **(unset)** with a substep that can refuse — measured 2026-08-04:
+
+| agent | loop | substep | action |
+|---|---|---|---|
+| `pageflow-builder` | `build_pages_loop` | `save_sections` | `save_page_sections` |
+| `page-rebuild` | `build_pages_loop` | `save_sections` | `save_page_sections` |
+| `site-work-orchestrator` | `build_items_loop` | `save_sections` | `save_page_sections` |
+
+The reasoning in this file is unaffected — it never depended on that agent, only illustrated
+itself with it.
+
+### Council
+
+Submitted 2026-08-04, correlation `549e25fb-acc1-4806-a2a7-95bf73cca806`; committed with
+`Council-Submitted:` because no verdict had been read. The submission argues the scope
+question explicitly (owner ruling 2026-07-29 §1: the RFC trigger is a change to the shared
+mechanism's **guarantees**, and this adds an opt-in capability reachable by nothing until a
+config names it) and names the three consumers rather than merely counting them (§3).
+
+### WHAT IS OWED before this can be closed
+
+1. **The roll.** `make release` is whole-fleet and owner-run, and a roll kills in-flight
+   council runs — including this change's own, which was in flight at commit time. Not done
+   unilaterally.
+2. **The live induction, which is this file's own bar and which no build can satisfy:** give a
+   loop two substeps, make the **tolerant** one fail and confirm the iteration is skipped
+   while the orchestration continues; then make the **strict** one fail in the same loop and
+   confirm the orchestration FAILS. Both branches. The commands are in the lane's
+   `RUNBOOK_substep_error_tolerance.md` §R5–R6.
+3. **Read the verdict** and act on a REVISE/REJECTED — the code is already on the shared
+   branch, so a resubmission is a forward fix, never an amend.
