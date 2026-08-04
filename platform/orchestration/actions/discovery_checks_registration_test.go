@@ -51,6 +51,8 @@ var liveConfiguredChecks = []string{
 	"missing_model_directory_page", "backend_entry_orphaned", "truncated_component",
 	"missing_adoption_tracker_section", "missing_adoption_tracker_page",
 	"missing_protocol_tracker_section", "missing_protocol_tracker_page",
+	"content_duplication",      // seed 296, applied 2026-08-03
+	"page_canonical_collision", // seed 306, applied 2026-08-04
 
 	// design-discovery-agent
 	"stale_site_components", "missing_style_collection", "shared_css_theme",
