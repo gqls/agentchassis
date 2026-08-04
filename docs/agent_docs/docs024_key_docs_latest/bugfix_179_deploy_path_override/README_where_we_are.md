@@ -110,3 +110,31 @@ bug ticket itself, and it has been copied into at least two other documents. I h
 corrected it where it originated, written up the incident, and recorded the trap as a
 standing warning, because it applies to any similar count anyone runs against this
 database.
+
+---
+
+**2026-08-04, late evening (a fresh session picking up the handoff).** Three things
+tonight, all executions of decisions you already made.
+
+First: the vet data collection you restarted this evening worked immediately. Within
+a minute of its first tick it was storing practice data again, and — this is the
+point of the whole bug — every one of the first four records carries the web address
+it actually came from, recorded by the code that fetched the page, not repeated by
+the AI. That was the last thing bug 100 was waiting on, so it is now closed. It had
+been open since late July, and the fix has been in place for a week; what was
+missing was live traffic to prove it, and the restart provided it.
+
+Second: the robot-hands wording fix you authorised. Good news — half of it had
+already been fixed by someone else in passing: the catalogue page no longer makes
+the "independently verified" claim at all. Only the how-it-works page still did. I
+have removed the false phrase there (the surrounding text already describes,
+honestly, what the site actually does — sources named and dated), and the page is
+queued to republish. I will confirm the change on the live site before calling it
+done.
+
+Third: the header test on finetuning.uk you authorised. I picked a blog page that is
+half-broken anyway (it has no stored content and is marked for rebuild), and its
+current live copy conveniently carries the "before" evidence: a stamp naming the
+switched-off header. I have queued a rebuild; if the fix works, the rebuilt page's
+stamp will name the correct header from the library instead. Both queued jobs are
+waiting on the shared build queue, which is busy but moving.

@@ -336,7 +336,10 @@ rotate in minutes, so check promptly or read the stored scrape artefacts
 
 ---
 
-## 2026-08-04 (~21:15Z) — THE TWO-COLUMN ACCEPTANCE RAN AND PASSED. CLOSED.
+## 2026-08-04 (~20:15Z) — THE TWO-COLUMN ACCEPTANCE RAN AND PASSED. CLOSED.
+
+> *(Heading time corrected from ~21:15Z the same evening — the first write read
+> local BST as UTC. The queries ran 20:11–20:15Z.)*
 
 By the successor session to "bugfix 100" (picking up
 `bugfix_179_deploy_path_override/HANDOFF_2026-08-04_continue_here.md` §D7's

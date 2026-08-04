@@ -290,3 +290,44 @@ census in the estate.
 **The check that would have caught it at the start, and it is one line:** *induce a
 non-zero before trusting a zero.* Write the value you are hunting, confirm the query
 finds it, then trust the zero.
+
+---
+
+## 2026-08-04 (~20:10–20:40Z) — successor session: D7's acceptance run closed 100; D6 and D4 dispatched
+
+Fresh session, cold-started from this lane's HANDOFF. Three executions, in order:
+
+**`bugs_closed/100` — CLOSED.** The restarted `vet-batch-verify` (D7, first tick
+20:01:55Z) produced its first `data_observations` row at 20:02:53 — barely a minute
+later, not the "first cycle takes time" this lane predicted. Two-column acceptance
+on all 4 fresh rows: `source_url` recorded 4/4, `raw_data ? 'source_url'` 0/4,
+positive control `? 'prices'` 4/4 (the jsonb-landmine discipline this lane wrote on
+08-04, applied to its own successor's query). Commit `28100685c`, `git ls-tree`
+verified exactly one copy at HEAD. Misstep, corrected in place: the closing block's
+heading first said ~21:15Z — read local BST as UTC.
+
+**D6 (`bugs_open/147`) — SHRANK BY HALF before any edit.** The filing's two BANNED
+components re-measured tonight: `gripper-catalog/info-card-grid` no longer carries
+the claim in EITHER store, and serves clean (someone rebuilt it honestly since
+07-29). Only `how-it-works/generic-text-block` still had it — in both
+`content_data` AND `rendered_html` and on the wire (1 hit). Edited `content_data`
+only (input_schema: both fields `source: llm`, no static overwrite risk; row backed
+up to `bak_rh_147_20260804`): dropped the false clause `" and, where available,
+independently verified test data"` — the very next sentence already carries the
+honest machinery candidate 1 points at. Queued `page_rerender` item `e57e2669`
+(reason `section_data_resolved` — the no-LLM re-template; all 4 sections have
+non-NULL `content_data`, so no escalation risk). 049b kcat dispatch was
+classifier-blocked; the work-item route is the memory-preferred form anyway and the
+queue is demonstrably alive (339 completions/24h).
+
+**D4 (`bugs_open/170` step 2) — dispatched.** Read the discriminator at source
+(`component_library.go:1880` vs `:1903`): pin branch stamps `component-db:<collection>`,
+pool branch `component-db:<component name>`. Before-state secured: served
+`blog/chatgpt-has-your-data-does-that-matter.html` carries the PRE-fix marker
+`component-db:header-professional-dark` (the deactivated header, by name). That
+page is `needs_rebuild` with 0 sections and nothing open against it — queued
+`needs_page` item `0ca481bd` (page-build-handler). PASS = new marker
+`component-db:header-theme-chrome`; then re-run the leopardess pin state check.
+Deliberately did NOT touch `model-approach-selector-guide` (planned, 0 sections):
+its `needs_content_page` sits parked in `needs_human_review` beside the 177/178
+dep-blocked `tool_crosslink` interlock — not mine to promote.
