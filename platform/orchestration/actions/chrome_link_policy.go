@@ -33,6 +33,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"regexp"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -98,4 +99,95 @@ func (p ChromeLinkPolicy) Allows(href string) bool {
 		return true
 	}
 	return p.fetchable.Contains(href)
+}
+
+// chromeStoredHrefs pulls every href out of a stored chrome artefact. Deliberately
+// a plain scan over the rendered bytes rather than a read of some structured copy:
+// the CTA lives ONLY in site_components.rendered_html — there is no `cta_url` key
+// anywhere in the schema, and bugs_open/191's own diagnosis run was recorded
+// UNVERIFIABLE precisely because it queried `content_data->>'cta_url'` and got a
+// 0-row answer that could never have been anything else.
+var chromeStoredHrefs = regexp.MustCompile(`href="([^"]*)"`)
+
+// staleChromeLinkSlots reports which of the given slots ALREADY hold chrome that
+// links somewhere this policy refuses.
+//
+// It exists because the idempotence exit in renderAndStoreSiteComponent asks
+// "does this slot hold HTML?", never "does it hold HTML that still satisfies
+// policy?" — so without this, a corrected predicate reaches only sites whose
+// chrome happens to be re-rendered for some other reason, and every header
+// already serving a dead CTA keeps it indefinitely (bugs_open/191). Same shape,
+// and the same answer, as bugs_open/166's repointRetiredChromeSlot: detect
+// BEFORE the exit and let the slot through the exit's own force channel.
+//
+// Fail-safe direction is deliberately "do not re-render": an unreadable row, a
+// failed query or an unfiltered policy all return no slots. Re-rendering chrome
+// is a write, and a write on the strength of a failed read is how a bad artefact
+// gets manufactured rather than repaired.
+func staleChromeLinkSlots(
+	ctx context.Context,
+	db *sql.DB,
+	siteID uuid.UUID,
+	slots []string,
+	policy ChromeLinkPolicy,
+	logger *zap.Logger,
+) map[string]bool {
+	stale := map[string]bool{}
+	// An unfiltered policy allows everything, so nothing can be stale against it.
+	// Checking here also means a first build issues no query at all.
+	if policy.Unfiltered() || len(slots) == 0 {
+		return stale
+	}
+
+	// The slots being rendered are filtered in Go rather than passed as a SQL
+	// array: a site holds a handful of chrome slots, and this package
+	// deliberately carries no dependency on lib/pq's pq.Array (see the note on
+	// toPGTextArrayLiteral in resolve_composition_helpers.go).
+	wanted := make(map[string]bool, len(slots))
+	for _, s := range slots {
+		wanted[s] = true
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT slot_name, COALESCE(rendered_html, '')
+		FROM site_components
+		WHERE site_id = $1
+		  AND rendered_html IS NOT NULL AND rendered_html <> ''
+	`, siteID)
+	if err != nil {
+		logger.Warn("staleChromeLinkSlots: stored-chrome lookup failed; leaving the idempotence exit alone",
+			zap.String("site_id", siteID.String()), zap.Error(err))
+		return stale
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var slot, html string
+		if err := rows.Scan(&slot, &html); err != nil {
+			continue
+		}
+		if !wanted[slot] {
+			continue
+		}
+		for _, m := range chromeStoredHrefs.FindAllStringSubmatch(html, -1) {
+			if policy.Allows(m[1]) {
+				continue
+			}
+			// Name the href. "Chrome was re-rendered" with no reason attached is
+			// indistinguishable from a spurious rebuild loop to whoever reads
+			// the log next.
+			logger.Warn("staleChromeLinkSlots: stored chrome links to a page the policy now refuses — forcing a re-render of this slot (bugs_open/191)",
+				zap.String("site_id", siteID.String()),
+				zap.String("slot", slot),
+				zap.String("href", m[1]),
+			)
+			stale[slot] = true
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		logger.Warn("staleChromeLinkSlots: stored-chrome iteration failed; the slots found so far still stand",
+			zap.String("site_id", siteID.String()), zap.Error(err))
+	}
+	return stale
 }

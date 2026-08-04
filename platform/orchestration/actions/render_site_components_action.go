@@ -283,12 +283,23 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		zap.String("primary_color", siteData.PrimaryColor),
 	)
 
+	// A slot already holding chrome that links where the policy now refuses must
+	// be re-rendered, or this fix protects future renders only and every header
+	// already carrying a dead CTA keeps it for ever (bugs_open/191, raised as the
+	// council's gating objection: "a renderer fix is inert until something
+	// re-renders", 016b §9). The idempotence exit below asks "does this slot hold
+	// HTML?", never "does it hold html that still SATISFIES policy?" — the same
+	// blind spot bugs_open/166 fixed for component identity, in its link-target
+	// spelling. So it is answered the same way: detect before the exit, and route
+	// through the exit's own force channel rather than inventing a second one.
+	staleLinkSlots := staleChromeLinkSlots(ctx, params.DB, siteID, slots, chromeLinks, params.Logger)
+
 	// Render each slot
 	rendered := make(map[string]bool)
 	lockedSlots := []string{}
 	ineligibleChrome := map[string]string{}
 	for _, slot := range slots {
-		success, locked, degraded := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, params.Logger)
+		success, locked, degraded := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender || staleLinkSlots[slot], params.Logger)
 		rendered[slot] = success
 		if locked {
 			lockedSlots = append(lockedSlots, slot)
@@ -302,6 +313,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		zap.Any("rendered", rendered),
 		zap.Strings("locked_slots_preserved", lockedSlots),
 		zap.Any("ineligible_chrome", ineligibleChrome),
+		zap.Any("stale_link_slots_rerendered", staleLinkSlots),
 	)
 
 	// locked_slots_preserved reports human locks that refused a re-render
