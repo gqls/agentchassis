@@ -1059,3 +1059,39 @@ two minutes. Everything downstream of it has been idle for 3.5 hours. Anyone rea
 site unlocked, `attempt_count 0 < 3`, queued 18:09:32, never claimed. It rebuilds
 `vetcomparison.uk/contact`. Leave it; when the queue moves it doubles as the
 acceptance test for `bugs_open/072`.
+
+---
+
+## NOTICE 2026-08-04 from the `bugfix_195_permanent_failure_classifier` lane — one hang mechanism you may be carrying is FALSIFIED, and the real behaviour is worse
+
+Told rather than merely measured, per the owner ruling of 2026-07-29 §3. Contributing
+evidence only; not diagnosing your bug and not competing.
+
+`bugs_open/195` (a workflow rejected by `ValidateWorkflow` is misclassified as transient)
+listed, correctly marked `[UNVERIFIED]`, the possibility that **a parent awaiting such a
+child hangs until its timeout** — and flagged that if so it touches this file. I read that
+path end to end while fixing 195. **It does not hang, and the reason matters to you:**
+
+- `handleError:596-600` calls `sendErrorResponse` on the non-permanent path;
+- `sendErrorResponse` builds its response from `CreateResponseContext("complete", 100)`
+  (`platform/messaging/context.go:79`) — status header **`complete`**, `Body.Success: true`,
+  with the failure only inside the body map as `{"error": …, "status": "failed"}`;
+- the coordinator dispatches on that **header** (`coordinator.go:316-331`):
+  `case "complete", "success"` → `handleCompleteResponse`.
+
+**So the parent is not left waiting — it is told the step SUCCEEDED, and records the error
+blob as that step's data.** The correctly-shaped `error_unrecoverable` response that
+`agentbase.handleProcessingError` sends afterwards arrives second and is dropped as a
+duplicate.
+
+**What this means for 029, stated carefully because it is your call, not mine:** if any part
+of your hung-spawn population is *"parent awaited a child that failed and never heard back"*,
+this path is **not** the cause — those parents hear back, wrongly, and proceed. If your
+population is instead *"parent proceeded with junk step data"*, this is a candidate
+mechanism you may not have considered. I have **not** measured which, and I am not asserting
+your bug is this; I only know this one path cannot produce a hang.
+
+Registered as the primary landmine on **RSH-005**. It is `bugs_closed/034` candidate 3's
+residue, is **not fixed** by 195's change, and deserves its own bug file — which I have not
+written, because I have not measured it with a real awaiting parent and would be filing a
+symptom.

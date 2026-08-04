@@ -10695,3 +10695,69 @@ class one layer up).
   diagnostic, and **a second live instance** (`enrich_fingerprint_with_css`) found by the
   fleet census the council demanded. CLOSED + LIVE `v1.0.1250`, both replicas pod-verified.
   Pattern in §9 above; architectural half in `RFC_012`.
+
+### A guarantee that is conditional on a CLASSIFIER inherits every gap in that classifier — and classifying by substring over an error's prose is a category error (`bugs_open/195`, 2026-08-04)
+
+**The shape.** A previous fix established something valuable: *"a dropped validation error
+now leaves a queryable row"*. It shipped, it was induction-proven on four sites, it closed.
+But the row is written **inside the branch a classifier selects**, and the classifier decides
+by `strings.Contains` over the error's human-readable message. So the real guarantee is
+*"…leaves a queryable row **if the classifier recognises it**"* — and nobody tested whether
+it recognises the commonest input.
+
+It did not. `WORKFLOW_INVALID: Invalid workflow configuration (caused by: … requires a
+topic)` matches none of `{"is required","validation","invalid","missing"}`: *"is required"*
+loses to the wording, and *"invalid"* loses to the **capital I**, because the match is
+case-sensitive. Result: total invisibility — no orchestration row, no error-log row, no
+audit row, one pod log line that had rotated within eight hours.
+
+**Why this is a class and not a typo.** Three properties make prose-matching structurally
+wrong, and all three bit here:
+1. **It is defeated by rewording.** The needle said `is required`; the message said
+   `requires a topic`. Both are correct English for the same fact.
+2. **It is defeated by capitalisation**, silently, because `strings.Contains` is exact.
+3. **It matches things it never meant to** — the same list also catches
+   `invalid connection` (a driver fault), `invalid memory address` (a nil deref) and
+   `x509: … invalid` (TLS), reclassifying real runtime failures as "the caller sent rubbish"
+   and dropping them without retry. The list's own comment documented this and deferred it.
+
+The information needed was **already present and exact**: the error was constructed with a
+typed code (`ErrWorkflowInvalid`). The code was thrown away and the rendered prose was
+searched instead.
+
+**How to find it.** When a guarantee is stated as "X now always happens", ask *what decides
+whether X happens* — then feed that decider its **commonest real input** and check. Here one
+line settles it: `MatchedValidationNeedle(theError.Error())` returns `""` for the exact error
+the fleet produces most. Write that as a test asserting the **miss**, so nobody later "fixes"
+the list and quietly removes the reason the seam exists.
+
+**Two traps while fixing it.**
+- **Do not case-fold the substring list.** It widens every mis-match hazard above to its
+  capitalised variants. Match on the typed code and demote prose to a fallback for errors
+  that carry no type at all.
+- **Structure must beat prose everywhere, including in your own fix.** My first
+  implementation let an explicitly-`AsRetryable` error skip the typed branch and then be
+  classified permanent by the fallback matching the word "validation" **in its own message**
+  — the bug reproduced inside its own fix. The guard must return early, not fall through.
+
+**The companion fix that matters more than the classifier.** Make the durable record
+**unconditional**. A trace that depends on classification being correct fails exactly when
+classification is wrong — which is the moment you most need it. After: being wrong about the
+class costs retry accuracy, which is visible and recoverable; it can never again cost the
+only evidence that anything happened.
+
+**Bonus finding, and check for it yourself.** Investigating this turned up that the failure
+response reaches the parent **success-shaped**: built from `CreateResponseContext("complete",
+100)`, so the status header says `complete` and `Success: true`, with the failure only in the
+body map — and the coordinator dispatches on the header. The parent marks the step COMPLETE
+with the error blob as its data. **"The parent hangs" and "the parent is correctly told" can
+both be wrong at once.** When tracing an error path, read the *envelope* the response is
+built with, not just the payload.
+
+Category tags: `guarantee-conditional-on-a-classifier`, `substring-over-prose`,
+`case-sensitive-match`, `typed-code-was-already-there`, `unconditional-record`,
+`success-shaped-failure`.
+Related: `bugs_open/195`; `bugs_closed/034` (built the conditional guarantee and deferred the
+typed fix in its own header); `bugs_open/029` (its hung-parent reading is falsified for this
+path); RSH-005; `bugs_open/132` (an error rendered as though it were content — same family as
+the bonus finding).
