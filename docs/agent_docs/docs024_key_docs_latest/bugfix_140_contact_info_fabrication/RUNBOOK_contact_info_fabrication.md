@@ -375,3 +375,40 @@ the library to a file once, mutate the file, compare against the committed basel
 
 B and C matter together: a check that only fired on A would be detecting broken templates,
 not holes. **Self-comparison (0 NEW / 0 fixed) proves nothing — it is the no-op case.**
+
+### R11c — it is STANDING now: the CronJob, and how to bank a fix
+
+```bash
+kubectl -n ai-persona-system get cronjob component-render-check          # 55 6 * * * UTC
+kubectl -n ai-persona-system get pods -l app=component-render-check      # READ THE POD
+make component-render-check-now                                          # trigger a run
+```
+```sql
+SELECT created_at, left(body,140) FROM doc_notes
+WHERE source='component_render_check' ORDER BY created_at DESC LIMIT 3;
+```
+
+**GOTCHA — read the POD, never the Job.** `ImagePullBackOff` leaves the Job reporting
+`Running 0/1` until `activeDeadlineSeconds` expires; it is **never** `Failed`. A dead check
+looks exactly like a slow one, and no `doc_notes` row is written — so the very signal that
+distinguishes "found nothing" from "stopped running" is the thing that goes missing. This
+bit on the first manual run: the manifest was copied from `component-fallback-check`, which
+pulls a PUBLIC image and needs no `imagePullSecrets`. Anything pulling `docker.io/aqls/*`
+needs `imagePullSecrets: [{name: docker-hub-creds}]`.
+
+**GOTCHA — `kubectl apply` succeeding is not the check running.** Deploying a CronJob
+proves the manifest parsed. Trigger one run and confirm the pod reaches `Completed` and the
+row landed.
+
+**Banking a real fix.** The baseline is `go:embed`-ed, so there is deliberately nothing to
+edit in place — no ConfigMap, no file in the image:
+
+```bash
+go build -o /tmp/rck ./cmd/component-render-check/
+/tmp/rck --write-baseline cmd/component-render-check/baseline.json
+git commit cmd/component-render-check/baseline.json -m "bank: <what you fixed>"
+make build-component-render-check push-component-render-check deploy-component-render-check
+```
+
+`--write-baseline` refuses while any component fails to parse, so blindness cannot be baked
+in as clean.
