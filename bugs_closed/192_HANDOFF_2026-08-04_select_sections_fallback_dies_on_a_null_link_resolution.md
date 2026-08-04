@@ -1,23 +1,61 @@
 # 192 — `page-content-writer`'s `select_sections` step is failing broadly since ~2026-08-03 21:00, unrelated to bugs_open/087
 
-> ## STATUS 2026-08-04 — DIAGNOSED · OUTAGE OVER AND PROVEN · **STILL OPEN, pending the roll**
+> ## CLOSED 2026-08-04 — FIXED AT SOURCE AND LIVE on chassis `v1.0.1250`, both replicas pod-verified
 >
-> **Owned by the `bugfix_192_select_sections_wrapper` lane.** Root cause found and
-> fixed at source; the reason this stays OPEN is stated so nobody has to guess.
+> Owned and closed by the `bugfix_192_select_sections_wrapper` lane. Council **APPROVED**
+> round 2, correlation `7afbf531-5ddd-484e-88c8-091994a0f51f`.
 >
-> | | |
+> **The defect is no longer reproducible.** A `page-build-handler` run created after the
+> roll carries `collected_data.section_plan` with **no `applied` key** and **with
+> `sections_ready`** — the wrapper is gone at source, not merely tolerated:
+>
+> ```
+> orch 1116302d  page-build-handler   COMPLETED   wrapper=false  flat=true
+> orch 5427b9f2  page-content-writer  COMPLETED   sections_for_render ? 'sections_ready' = true
+> ```
+>
+> Both **COMPLETED**, on chassis `v1.0.1250` and on the **post-`311` config** — i.e. with
+> the temporary shim already removed, so the flat path is carrying the build on its own.
+> Three consecutive `page-content-writer` runs have now completed (`0511e4d1`, `25652dd0`
+> pre-roll via the shim; `5427b9f2` post-roll without it) against the three that failed
+> before the fix.
+>
+> **Pod-verified on BOTH replicas** (`4dzzx`, `5z5sn`), never git and never the tag:
+> `resolved via no configured path` **1/1**, `keys present at this level` **2/2** (two call
+> sites — 1 would have meant a partial ship), `returning it unchanged rather than replacing
+> it` **1**, positive control `ExtractFieldsAction: Found via input_data prefix` **1/1**.
+>
+> | what shipped | where |
 > |---|---|
-> | **Live now** | seed `308` only — a self-retiring third fallback path + the `required` opt-in. **Page builds work again**, proven end to end: item `18bc832c` → `complete`, orchestration `0511e4d1` → `COMPLETED` with `sections_for_render ? 'sections_ready'` **true**, against **false** on the three runs immediately before it. |
-> | **Committed, INERT until the next chassis roll** | `2b9d84072` — the unwrap at source, `extract_fields`' opt-in `required`, and the loop's keys-present error. Go changes do nothing here until an image is built and rolled. |
-> | **Why still OPEN** | the wrapper is **still produced on every build**; the live seed merely tolerates it. Until the roll the defect is reproducible, which is this repo's stated bar (`CLAUDE.md` → Debugging: *"a fix committed but inert until the next roll stays OPEN"*). |
-> | **To close** | after the roll: pod-grep `grep -ac 'required field(s)' /app/agent-chassis` → 1 (0 before) with a long-literal positive control from the same function; confirm `collected_data->'section_plan' ? 'applied'` is **false** and `? 'sections_ready'` **true** on a fresh `page-build-handler` run; then apply a cleanup seed removing path 3 of `select_sections`. |
-> | **Known degradation until the roll** | `resolve_links`' `input_mapping` is broken by the same wrapper, so internal CTA resolution is degraded on every build. **Deliberately not shimmed** — `input_mapping` has no ordered fallback, so a shim there would work today and silently re-break on the roll. It self-heals. |
-> | **Council** | `Council-Submitted: 7afbf531-5ddd-484e-88c8-091994a0f51f` — verdict not yet read; the trailer asserts nothing, per the standing rule. |
-> | **Not this bug** | the overnight `process_sections_loop_iter_N_generate_content` failures (21:00–01:00, ~38 runs) that this filing counted as the same defect. Different step, reachable only *after* this one succeeds, still undiagnosed, nobody on it. |
+> | the action returns **the plan itself** on every path; bookkeeping to the log, and on the applied path only to `edit_live_meta` **inside** the plan | `load_current_section_content_action.go` |
+> | `extract_fields` opt-in **`required`** — a target resolving on no path fails the step naming the field, the paths tried and the keys in scope. **Default OFF** | `v3_site_actions.go#ExtractFieldsAction` (WFA-009) |
+> | the loop's path-miss error lists **the keys actually present** | `loop_actions.go#getNestedValueForLoop` |
+> | **a second live instance**, found by the census the council demanded: `enrich_fingerprint_with_css` returned a status stub on both early-outs, overwriting a real `design_fingerprint` | `enrich_fingerprint_with_css_action.go` |
+> | seed `308` (shim + opt-in) then seed `311` (shim retired **by value**, because seed `309` landed in between and an index delete would have removed *their* path) | `sql_for_agents/`, both ledger-recorded |
 >
-> Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_192_select_sections_wrapper/`.
-> Full diagnosis at the foot of this file. **The title's "since ~2026-08-03 21:00" is
-> wrong** — corrected there.
+> All three test files are **mutation-proven** — reverting each fix fails the cases with the
+> intended message. The pre-existing test asserted the *wrapper*, so it passed on the code
+> that took the fleet down; it now asserts the contract its own header always promised.
+>
+> **Named residual, and it is not this defect.** A post-roll `edit_live` run has not
+> happened (2 such items exist of 3,895; both ran to `complete` **pre**-roll, reaching the
+> enrichment through the shim). The **pass-through** branch — the path every live build
+> takes — is verified live post-roll by the `wrapper=false flat=true` row above, which is
+> exactly `bugs_open/178`'s "byte-for-byte unchanged" promise. The applied branch is covered
+> by mutation-proven unit tests. Re-running 178's own end-to-end check post-roll belongs to
+> **that lane**, is unblocked now, and is not a defect of this bug.
+>
+> **Open, and deliberately not this lane's:** the overnight
+> `process_sections_loop_iter_N_generate_content` failures (~38 runs, 21:00–01:00 on 08-03)
+> that this filing counted as the same bug — a different step, reachable only *after* this
+> one succeeds, still undiagnosed. And the architectural half — a guard on
+> `storeActionResult` itself — is routed into **`RFC_012`** with the working detector
+> specified, including that **both naive detector versions return 0 on the bug that
+> motivated them**.
+>
+> Working docs, including the full paper trail:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_192_select_sections_wrapper/`.
+> **The title's "since ~2026-08-03 21:00" is wrong** — corrected at the foot of this file.
 
 **Filed 2026-08-04**, discovered while live-verifying `bugs_open/178`'s fix
 (`bugfix_154_work_item_routing_columns` lane). **Not yet diagnosed** — this is

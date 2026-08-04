@@ -10607,3 +10607,12 @@ the envelope was not); `bugs_open/087` (same error signature, opposite cause —
 why the message needed the keys-present suffix); WFA-009 and the `LANDMINES.md` entry of
 the same name; `bugs_closed/086` (a field the plan-builder failed to carry — the same
 class one layer up).
+
+- **`bugs_closed/192`** — `select_sections` found nothing because a step reusing
+  `output_field: section_plan` returned a **wrapper** round the plan on every path,
+  demoting it one level on every page build in every mode; the error surfaced two steps
+  downstream in `loop_actions.go` naming a missing key. Fixed at source (shape-preserving
+  returns), plus an opt-in `extract_fields.required` (WFA-009), a keys-present loop
+  diagnostic, and **a second live instance** (`enrich_fingerprint_with_css`) found by the
+  fleet census the council demanded. CLOSED + LIVE `v1.0.1250`, both replicas pod-verified.
+  Pattern in §9 above; architectural half in `RFC_012`.
