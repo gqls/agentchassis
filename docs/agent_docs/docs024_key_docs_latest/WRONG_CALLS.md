@@ -18597,3 +18597,28 @@ so every value the corpus actually contains appears in the result. A filter for 
 you have never seen in a row is a hypothesis about the vocabulary, not a measurement.
 (Family: "a `[MEASURED]` figure is only evidence if the measurement could have come out
 otherwise" — this zero could not have.)
+
+---
+
+## 2026-08-03 — bugfix_140 lane: shipped a probe suggestion that greps 0 for a marker the binary contains
+
+**The claim.** pick-pod-marker's first emitted every-replica probe — presented as "run
+this to verify the deploy" — used a marker verified byte-present in the built binary.
+Run against the live pods it returned **0 / 0-negative on every replica**, the exact
+signature of "the fix never shipped", for a binary that provably contained it.
+
+**Why.** The marker spanned a `U+2026` and the probe pipeline is `strings | grep -cF`:
+`strings` splits its output at multibyte sequences, so no output line carries the full
+marker. My verification asked "are the bytes in the blob" and the pipeline asks "is the
+string on one ASCII line" — two different questions, and I proved the first while
+shipping the second. The negative control could not catch it: it was 0 for the right
+reason while the positive was 0 for the wrong one.
+
+**What caught it:** running the tool's own suggested command against the live pods
+before shipping — the positive came back 0 while a known-live ASCII marker from the
+same commit came back 2.
+
+**The cheap check that would have caught it:** probe THROUGH the pipeline you are
+recommending, not around it — a suggested command has not been tested until it has been
+run verbatim. Now mechanical: pick-pod-marker nominates printable-ASCII literals only,
+and the trap is a LANDMINES entry (footprint `strings /app/`).

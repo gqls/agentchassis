@@ -4656,3 +4656,27 @@ that is also the thing you would want in the logs is not.
   "refusals are RETURNED, not swallowed" comment (071/083/091's
   detected-then-discarded class)
 - **added:** 2026-08-03, bugfix_098_unpublish_primitive lane
+
+## A `strings | grep` pod probe returns 0 for a marker the binary CONTAINS if the marker spans a non-ASCII byte
+
+- **footprint:** `scripts/pick-pod-marker.py`, `strings /app/`, pod-grep deploy
+  verification (the "prove a deploy at the artefact" practice), any marker chosen
+  from Go source containing `…`, `—`, `£`, `⚠` or any other multibyte rune
+- **fires when:** you verify a deploy by grepping `strings <binary>` for a source
+  string literal that contains a non-ASCII character. `strings` emits printable
+  ASCII runs and SPLITS its output at every multibyte byte sequence, so a marker
+  crossing one is cut across two output lines and `grep -cF` returns 0 — against a
+  binary whose bytes verifiably contain the full string. The failure is
+  indistinguishable from "the fix never shipped", and a negative control does NOT
+  catch it: the control is 0 for the right reason while your positive is 0 for the
+  wrong one. Found live 2026-08-03: pick-pod-marker's own first suggested marker
+  spanned a U+2026 and probed 0/0 on every replica of a binary that contained it.
+- **the check:** markers must be printable ASCII end to end — `python3 -c
+  "print(open('m').read().isascii())"` or just run `scripts/pick-pod-marker.py
+  <commit>`, which now enforces ASCII-only nomination and prints an every-replica
+  probe with a negative control. If you must probe for a non-ASCII string, grep
+  the binary directly with `grep -acF` (byte match, no `strings` in the pipe) —
+  and prove the probe on a marker you KNOW is compiled first.
+- **source:** bugfix_140 plan item 5 build, 2026-08-03 — caught by running the
+  tool's own suggested command against live pods before shipping it
+- **added:** 2026-08-03, bugfix_140_contact_info_fabrication lane
