@@ -1,7 +1,7 @@
 # 191 — the header CTA is validated by a LOOSER predicate than the nav rendered beside it, so chrome ships a 404 button the nav itself would have refused
 
 **Filed 2026-08-03 by the `mortgagecalculator_couk_adoption` lane.**
-**FIXED IN CODE 2026-08-04 (`d32692882`) — STILL OPEN, because it is not live.**
+**CLOSED 2026-08-04 — FIXED, LIVE on chassis `v1.0.1251`, and INDUCED on the wire.**
 **See "Fix record" at the foot before reading the candidates: candidate 2 shipped,
 and candidate 1's first-build recommendation was deliberately REFUSED.**
 **LIVE on one site, confirmed at the wire.**
@@ -157,11 +157,26 @@ Council: **APPROVED, round 4** (`78b0b7ff-f88d-402b-8f8f-ca4ae01c2d30`) — 3 ad
 objections, none high. Rounds 1-3 were REVISE and **every one of them changed the code**;
 the trail is worth reading before you touch this area (see "What the council caught").
 
-**STATUS: FIXED IN CODE, NOT LIVE. This file stays in `bugs_open/` deliberately.**
-A Go change is inert until an image is rebuilt and rolled, and the bar for
-`bugs_closed/` is *fixed AND live* — the defect is still reproducible on
-`mortgagecalculator.co.uk` as you read this. Move it only when §"What is owed"
-below has been run and passed.
+**STATUS: CLOSED 2026-08-04. Fixed, live on `v1.0.1251`, pod-verified on BOTH
+replicas with two REAL negative controls, and induced end-to-end on the wire.**
+
+| | before | after |
+|---|---|---|
+| `site_components.header` CTA | `/tools/stamp-duty/index.html` | **absent** |
+| served `/guides/first-time-buyer/index.html` | `href="/tools/stamp-duty/index.html" class="header-cta"` | **`header-cta` count 0** |
+| that page's `last-modified` | Mon 03 Aug 11:06 GMT | **Tue 04 Aug 19:32 GMT** |
+
+The clean evidence is the detector firing **once**, on the header only
+(`chrome_link_policy.go:199`, `slot=header`,
+`href=/tools/stamp-duty/index.html`, pod `agent-nav-updater-aa619d34-76x68`).
+Footer and head were **not** marked — the discriminating half.
+
+⚠ **Two traps for anyone re-running this**, both of which caught me (full write-up
+in the lane NOTES): `nav-updater` carries **`force_rerender: true`**, so
+`site_components.updated_at` moves for every slot regardless and CANNOT
+discriminate — predict on the log line. And **curl the pages the `pages` table says
+are DEPLOYED**, not the homepage: this site's `/` is not a deployed row and its file
+predates the bad chrome by a day, so it shows 0 dead buttons and means nothing.
 
 ## What shipped — candidate 2, not candidate 1
 
@@ -278,7 +293,24 @@ which is the behaviour-preservation proof for the `applyNavVisibility` refactor.
    a caller). `debug_historian` objected that a curl proves a runtime effect but not
    **which binary** produced it — hence the pod-grep leading the list below.
 
-## What is owed before this file may move to `bugs_closed/`
+## What was owed before this file could move — ALL RUN, ALL PASSED
+
+1. ✅ **Pod-grep, both replicas, v1.0.1251.** New symbols `LoadChromeLinkPolicy` 2/2
+   and `markStaleChromeLinkSlot` 2/2; new literals 1/1. **The two NEGATIVE controls —
+   `GetNavItems: site has NO deployed pages` and `GetNavItems: fetchable-page lookup
+   failed`, both DELETED by this change — are 0/0**, and the untouched positive controls
+   are non-zero. ⚠ The negative control this file and my own RUNBOOK originally named
+   (`headerPages := loadResolverPageSet`) is a Go SOURCE EXPRESSION, not a string
+   literal: it is absent from every binary ever built and would have "passed" on a pod
+   predating the fix entirely. It was replaced before use.
+2. ✅ **`nav-updater` re-run** on `mortgagecalculator.co.uk` — detector fired, header
+   marked and re-rendered, CTA now absent.
+3. ✅ **Page re-assembly + curl** — the dead button is gone from the served file.
+4. ✅ **Council APPROVED** (round 4, `78b0b7ff-f88d-402b-8f8f-ca4ae01c2d30`).
+5. ✅ **Fleet closing query** returns one row, `lendzy.co.uk`, whose target **serves
+   200** — the false positive this file itself predicted. No live 404 remains.
+
+<details><summary>original checklist, kept for the record</summary>
 
 1. **Pod-grep both replicas FIRST** after the next chassis roll — before any curl,
    because a wire check proves an effect but not that the intended binary served it
@@ -301,3 +333,5 @@ This file asked the fixer to contribute into the chrome lane
 starting: seven live sessions had *read* `render_site_components_action.go`, none had
 uncommitted edits in it, and the change there is two swapped lines plus a comment.
 The new mechanism went into its own file to keep that footprint minimal.
+
+</details>
