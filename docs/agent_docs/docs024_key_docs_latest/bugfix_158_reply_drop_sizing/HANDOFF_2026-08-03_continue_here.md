@@ -295,3 +295,34 @@ Item 1: closed (option b live + decision 3 decided). Item 2: no consumer, nothin
 owed. Item 4: fixed 07-31. Item 3: decision 1 is live; **the only thing owed is
 the council verdict read-and-act**. After that, 158 moves to `bugs_closed/` —
 every item has an outcome and none is silently dropped.
+
+
+---
+
+# ⛔ LANE CLOSED 2026-08-04 — `bugs_open/158` → `bugs_closed/158`. Nothing owed.
+
+Everything above is history. Final state:
+
+- **Council `ee9f6210` APPROVED** (round 4 — rounds 1-3 killed by chassis rolls /
+  infra). All 4 advisory objections answered; one **corrected a real error of mine**
+  (residual justified with `llm_call_log`, a model-completion statistic, for a claim
+  about scrape replies — see `WRONG_CALLS.md` 2026-08-04).
+- **LIVE and pod-verified on the CURRENT images**, both rolled by other sessions
+  after my deploys: `agent-chassis:v1.0.1247` (option b + `bugs_closed/172`) and
+  `web-scrape-adapter:v1.0.1246` (item 3). Negative controls 0 on every replica.
+- All six ticket items discharged; two decided-no with written reopen triggers.
+- §10 index row added; §9 pattern added; `LANDMINES` entry for the deploy-target
+  trap; four `WRONG_CALLS` entries.
+
+**If you are a fresh session that opened this file looking for work: there is none
+here.** Read `bugs_closed/158_HANDOFF_2026-07-30_*.md` for the account. Live
+follow-ons that came OUT of this lane and are still open:
+
+- **`bugs_open/181`** — the fourth silent-cap instance (filed by this lane's earlier
+  `172` work). First question is not the fix: why do 0 of 276 retained diagnosis
+  bundles contain a rendered `code_check` block?
+- **The four adapter reply sites** — decided-no, held by `check_silent_reply_drop`.
+  Reopen only on one observed refusal, then all four in one round.
+- **Roll-killed council rows** — two now sit in `EXECUTING_STEP`/`FAILED` forever
+  with no reaper, from four rolls in one evening. Not filed as a bug by this lane;
+  adjacent to `bugs_open/173`/`029` if someone wants it.
