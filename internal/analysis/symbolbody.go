@@ -113,11 +113,19 @@ func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
 // same reason SliceLines was below: one function keeps owning the convention,
 // and this handle format now has three producers (scopeFromCodeResults,
 // resolveScopeEntries, the landmine-verifier's derive_checks prompt) whose
-// output must all parse the same way. There is a third, inline copy at
-// diagnose_assemble_bundle_action.go:639-644 (`i > 0` rather than `i >= 0`, so
-// a leading colon is read as no-symbol); it is left alone deliberately — folding
-// it in changes behaviour in an action this fix does not otherwise touch — and
-// is recorded in the concept register under CTXK-002 as the remaining duplicate.
+// output must all parse the same way.
+//
+// COLLAPSED 2026-08-04 (bugs_closed/189, slug
+// siblingsignatures_hand_rolls_the_path_symbol_split): the third copy — inline
+// in siblingSignatures, splitting on `i > 0` rather than `i >= 0`, so a leading
+// colon read as no-symbol — now calls this function, and there are ZERO
+// in-build duplicates of the grammar left. Its one divergent input (":Foo")
+// was proven unobservable there before the collapse, so the edge was decided on
+// its merits rather than preserved by mimicry: an entry with no path names no
+// file, so that caller skips it, which is the judgement ReadSymbolBody above
+// already makes on the same scope slice. The archived contextkit copy keeps its
+// unexported splitSymbol — it is in no build, and that drift is recorded in
+// CTXK-002 rather than fixed here.
 func SplitSymbol(symbol string) (path, name string) {
 	i := strings.LastIndex(symbol, ":")
 	if i < 0 {

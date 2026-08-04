@@ -637,9 +637,23 @@ func renderWorkflowSteps(ctx context.Context, db *sql.DB, logger *zap.Logger, re
 func siblingSignatures(out analysis.Output, scope []string, capChars int) string {
 	inScope := map[string]map[string]bool{} // path -> symbol names in scope
 	for _, s := range scope {
-		path, name := s, ""
-		if i := strings.LastIndex(s, ":"); i > 0 {
-			path, name = s[:i], s[i+1:]
+		// ONE owner of the path:Symbol grammar. This loop was its third
+		// hand-rolled copy and had drifted (`i > 0` here against SplitSymbol's
+		// `i >= 0`) — bugs_closed/189, slug
+		// siblingsignatures_hand_rolls_the_path_symbol_split, filed at the
+		// council gate's direction while reviewing 163's export of SplitSymbol.
+		//
+		// An entry with no path (empty, or leading-colon like ":Foo") names no
+		// file, so it can anchor no sibling section: skip it. That is the same
+		// judgement analysis.ReadSymbolBody makes on the same scope slice
+		// ("empty path in symbol %q") — the two consumers now agree, where the
+		// inline copy quietly read ":Foo" as a whole-file entry instead.
+		// Output is byte-identical to the old split for every input; the
+		// evidence is TestSiblingSignatures_ScopeEntryParsing, written against
+		// the pre-fix code and re-run unchanged.
+		path, name := analysis.SplitSymbol(s)
+		if path == "" {
+			continue
 		}
 		if inScope[path] == nil {
 			inScope[path] = map[string]bool{}

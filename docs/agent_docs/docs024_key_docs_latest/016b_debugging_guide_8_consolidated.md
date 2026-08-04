@@ -2915,6 +2915,39 @@ Two corollaries, both paid for here:
 Category tags: `helper-built-copy-unmigrated`, `shared-constant-does-not-propagate`,
 `grep-the-columns-not-the-callers`, `latent-copy-zero-exposure`.
 
+**INSTANCE 2026-08-04 (`bugs_closed/189`, slug `siblingsignatures_hand_rolls_the_path_symbol_split`)
+— the seat's prediction paid off a third time, and the deferral it objected to rested on a
+premise nobody had measured.** 163's fix exported `analysis.SplitSymbol` so one function would
+own the `path:Symbol` grammar, migrated two call sites, and left the **third** — an inline copy
+in `siblingSignatures` — with a written reason: folding it in "would change behaviour in an
+action this fix does not otherwise touch". `bug_historian` objected at MEDIUM, matching this
+entry by name, and the deferral was recorded in the concept register instead. **The premise was
+false.** The two parsers' only divergent input is a leading-colon entry, and that divergence is
+not merely unreachable (no producer composes one) but **unobservable**: the map they feed is
+read only by real analysed paths, so both parses yield an unmatchable key. There was never a
+behaviour change to fear.
+
+Two things transfer, and neither is "the seat was right":
+
+- **"Folding it in would change behaviour" is a measurement, not a reason.** It is the same
+  shape as `bugs_open/191`'s "no collision is possible" — a claim that reads as caution while
+  being an untested assertion, and caution is the disguise that stops anyone checking it. The
+  check here was reading two call sites; it took minutes and inverted the decision.
+- **When the divergence turns out to be invisible, that is a licence, not an anticlimax.** It
+  means the edge case can be decided on its merits rather than preserved out of caution — here,
+  making the parser agree with `ReadSymbolBody`, the other consumer of the very same scope
+  slice, which rejects an empty path outright. A duplicate removed *and* an inconsistency
+  closed, where mimicking the old parse would have kept the second one for ever.
+
+The behaviour-preservation method is worth copying wholesale for any de-duplication: write the
+golden test against the **unchanged** code first and run it green, apply the collapse, re-run
+the **identical untouched** test, then mutate the new code three ways and confirm each failure
+lands on its predicted named case. The golden literals then describe the old code, and the new
+code reproducing them is the evidence — rather than a test written after the fact, which can
+only pin what you just wrote. Category tags for this instance:
+`deferral-premise-unmeasured`, `unobservable-divergence-licenses-the-better-edge`,
+`baseline-test-before-the-change`.
+
 ### A NUL byte anywhere in marshalled state kills the whole jsonb persist (22P05) — and silently, the run
 
 **Symptom.** An orchestration dies at a step whose own work succeeded; the stored result says
