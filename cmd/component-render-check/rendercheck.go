@@ -365,11 +365,79 @@ type finding struct {
 	RuntimeFill bool   `json:"runtime_fill,omitempty"`
 }
 
+// ---------------------------------------------------------------------------
+// Baseline — what makes this runnable unattended without being a red nobody
+// clears. The census is ~1,000 findings; the SIGNAL is a finding that was not
+// there yesterday. A baseline file is a committed, reviewable artefact, so
+// growth arrives as a diff a human can read, and no new storage is needed.
+//
+// The key deliberately EXCLUDES Count: a shape going from x1 to x2 in the same
+// component+field is the same defect rendered twice, not a new one, and letting
+// counts into the key makes an unrelated markup edit look like regression.
+// ---------------------------------------------------------------------------
+
+func findingKey(f finding) string {
+	return f.Component + "\x00" + f.Field + "\x00" + f.Shape
+}
+
+type baselineFile struct {
+	Note string   `json:"note"`
+	Keys []string `json:"keys"`
+}
+
+func loadBaseline(path string) (map[string]bool, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var bf baselineFile
+	if err := json.Unmarshal(b, &bf); err != nil {
+		return nil, err
+	}
+	set := make(map[string]bool, len(bf.Keys))
+	for _, k := range bf.Keys {
+		set[k] = true
+	}
+	if len(set) == 0 {
+		// A baseline that accidentally parses to zero keys would silently
+		// report every finding as NEW — loud refusal instead.
+		return nil, fmt.Errorf("baseline %s holds no keys", path)
+	}
+	return set, nil
+}
+
+func writeBaseline(path string, findings []finding, checked int) error {
+	keys := make([]string, 0, len(findings))
+	for _, f := range findings {
+		keys = append(keys, findingKey(f))
+	}
+	sort.Strings(keys)
+	bf := baselineFile{
+		Note: fmt.Sprintf("component-render-check baseline: %d findings across %d analysed components. "+
+			"Keys are component\\0field\\0shape — counts deliberately excluded. "+
+			"Regenerate with --write-baseline; a NEW key is the signal.", len(keys), checked),
+		Keys: keys,
+	}
+	b, err := json.MarshalIndent(bf, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
 func main() {
 	jsonPath := flag.String("json", "", "read components from a file instead of the cluster")
 	only := flag.String("component", "", "check a single component by name")
 	emitJSON := flag.Bool("emit-json", false, "machine-readable findings on stdout")
+	baseline := flag.String("baseline", "", "compare against a baseline file; exit 1 if any finding is NEW")
+	writeBase := flag.String("write-baseline", "", "write the current findings as a baseline file and exit 0")
 	flag.Parse()
+
+	if *baseline != "" && *only != "" {
+		fmt.Fprintln(os.Stderr, "--baseline with --component would report every other component's "+
+			"findings as FIXED — refusing (compare whole runs, or use --write-baseline on a full run)")
+		os.Exit(2)
+	}
 
 	comps, err := loadComponents(*jsonPath)
 	if err != nil {
@@ -385,6 +453,7 @@ func main() {
 	var overfiring []finding // positive control failed: marker never reached output
 	var skippedCtx []string  // component.field skipped for context collision
 	var unanalysed []string  // components whose template failed to parse
+	unanalysedNames := map[string]bool{}
 	checked, runtimeFillComps := 0, 0
 
 	for _, c := range comps {
@@ -394,6 +463,7 @@ func main() {
 		an := analyse(c.Template)
 		if an.err != nil {
 			unanalysed = append(unanalysed, fmt.Sprintf("%s (%v)", c.Name, an.err))
+			unanalysedNames[c.Name] = true
 			continue
 		}
 		if len(an.root.children) == 0 {
@@ -409,8 +479,8 @@ func main() {
 		for name, child := range an.root.children {
 			full[name] = synthesize(child, []string{name})
 		}
-		baseline := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: full}, logger)
-		baseCounts := shapeCounts(baseline)
+		baseRender := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: full}, logger)
+		baseCounts := shapeCounts(baseRender)
 		for shapeName, n := range baseCounts {
 			hardcoded = append(hardcoded, finding{Component: c.Name, Shape: shapeName, Count: n, RuntimeFill: runtimeFill})
 		}
@@ -427,7 +497,7 @@ func main() {
 				continue
 			}
 			// Positive control: the field's markers must reach the baseline.
-			if !strings.Contains(baseline, marker([]string{f})) && !strings.Contains(baseline, "RCKMARK_"+f+"_") {
+			if !strings.Contains(baseRender, marker([]string{f})) && !strings.Contains(baseRender, "RCKMARK_"+f+"_") {
 				overfiring = append(overfiring, finding{Component: c.Name, Field: f, Shape: "marker_never_rendered", RuntimeFill: runtimeFill})
 			}
 			probe := map[string]interface{}{}
@@ -448,21 +518,124 @@ func main() {
 		}
 	}
 
-	if *emitJSON {
-		json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
-			"findings": findings, "hardcoded_empties": hardcoded, "positive_control_failures": overfiring,
-			"skipped_context_collisions": skippedCtx, "unanalysed": unanalysed,
-			"components_checked": checked,
-		})
-		return
-	}
-
 	sort.Slice(findings, func(i, j int) bool {
 		if findings[i].Component != findings[j].Component {
 			return findings[i].Component < findings[j].Component
 		}
-		return findings[i].Field < findings[j].Field
+		if findings[i].Field != findings[j].Field {
+			return findings[i].Field < findings[j].Field
+		}
+		return findings[i].Shape < findings[j].Shape
 	})
+
+	if *writeBase != "" {
+		if len(unanalysed) > 0 {
+			// Baselining a run that silently dropped components would bake the
+			// drop in as "clean" — the blind-check-outlives-the-blindness shape.
+			fmt.Fprintf(os.Stderr, "refusing to baseline: %d component(s) failed to parse and are "+
+				"therefore uncovered\n", len(unanalysed))
+			os.Exit(2)
+		}
+		if err := writeBaseline(*writeBase, findings, checked); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		fmt.Printf("wrote baseline %s: %d findings across %d analysed components\n",
+			*writeBase, len(findings), checked)
+		return
+	}
+
+	// Baseline comparison. New findings are the signal; disappeared ones are
+	// reported too, because a baseline nobody regenerates is a baseline that
+	// slowly stops describing the tree.
+	var newFindings []finding
+	var fixedKeys, uncoveredKeys []string
+	if *baseline != "" {
+		base, err := loadBaseline(*baseline)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		seen := map[string]bool{}
+		for _, f := range findings {
+			k := findingKey(f)
+			seen[k] = true
+			if !base[k] {
+				newFindings = append(newFindings, f)
+			}
+		}
+		// A component that failed to parse produced NO findings, so every
+		// baseline key it owns would otherwise read as "fixed" — a silent pass
+		// bought by going blind, which is how a broken template would clear its
+		// own findings. Proven by mutation 2026-08-04: breaking one template
+		// reported its 2 findings as fixed and still exited 0. Those keys are
+		// UNCOVERED, and an uncovered key fails the run.
+		for k := range base {
+			if seen[k] {
+				continue
+			}
+			pretty := strings.ReplaceAll(k, "\x00", " .")
+			if unanalysedNames[strings.SplitN(k, "\x00", 2)[0]] {
+				uncoveredKeys = append(uncoveredKeys, pretty)
+				continue
+			}
+			fixedKeys = append(fixedKeys, pretty)
+		}
+		sort.Strings(fixedKeys)
+		sort.Strings(uncoveredKeys)
+	}
+
+	if *emitJSON {
+		out := map[string]interface{}{
+			"findings": findings, "hardcoded_empties": hardcoded, "positive_control_failures": overfiring,
+			"skipped_context_collisions": skippedCtx, "unanalysed": unanalysed,
+			"components_checked": checked,
+		}
+		if *baseline != "" {
+			out["new_findings"] = newFindings
+			out["fixed_since_baseline"] = fixedKeys
+			out["uncovered_since_baseline"] = uncoveredKeys
+		}
+		json.NewEncoder(os.Stdout).Encode(out)
+		if len(newFindings) > 0 || len(uncoveredKeys) > 0 {
+			os.Exit(1)
+		}
+		return
+	}
+
+	if *baseline != "" {
+		fmt.Printf("component-render-check vs baseline %s: %d findings now, %d NEW, %d fixed, %d UNCOVERED\n\n",
+			*baseline, len(findings), len(newFindings), len(fixedKeys), len(uncoveredKeys))
+		if len(newFindings) > 0 {
+			fmt.Println("NEW since the baseline — a component started being able to render a hole:")
+			for _, f := range newFindings {
+				fmt.Printf("  %-38s .%-28s %s x%d\n", f.Component, f.Field, f.Shape, f.Count)
+			}
+			fmt.Println()
+		}
+		if len(uncoveredKeys) > 0 {
+			fmt.Println("UNCOVERED — the baseline knows these findings but the component no longer PARSES, " +
+				"so their absence is blindness, not a fix:")
+			for _, k := range uncoveredKeys {
+				fmt.Printf("  %s\n", k)
+			}
+			fmt.Println()
+		}
+		if len(fixedKeys) > 0 {
+			fmt.Println("gone since the baseline (regenerate the baseline to bank these):")
+			for _, k := range fixedKeys {
+				fmt.Printf("  %s\n", k)
+			}
+			fmt.Println()
+		}
+		if len(unanalysed) > 0 {
+			fmt.Printf("unanalysed (NOT cleared): %d — %s\n", len(unanalysed), strings.Join(unanalysed, "; "))
+		}
+		if len(newFindings) > 0 || len(uncoveredKeys) > 0 {
+			os.Exit(1)
+		}
+		return
+	}
 	real, info := 0, 0
 	fmt.Printf("component-render-check: %d active components analysed (%d with runtime-fill)\n\n", checked, runtimeFillComps)
 	if len(findings) > 0 {

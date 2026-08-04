@@ -340,3 +340,38 @@ probe. **GOTCHA — `strings` splits at non-ASCII bytes**, so a marker containin
 greps 0 against a binary that contains it. The tool now nominates printable-ASCII only;
 if you pick a marker by hand, check `.isascii()` yourself, and run the probe through the
 same `strings | grep` pipeline you intend to recommend.
+
+### R11b — the baseline, which is what makes it runnable unattended
+
+```bash
+/tmp/rck --write-baseline docs/.../baseline/component_render_check_baseline.json   # regenerate
+/tmp/rck --baseline       docs/.../baseline/component_render_check_baseline.json   # compare
+```
+
+Compare reports four numbers — findings now, **NEW**, fixed, **UNCOVERED** — and exits 1
+if NEW or UNCOVERED is non-zero. The baseline key is `component\0field\0shape`;
+**counts are deliberately excluded**, so a hole rendered twice instead of once is not a
+new defect and a markup reshuffle does not read as regression.
+
+**GOTCHA — `--baseline` with `--component` is refused.** A single-component run produces
+no findings for anything else, so every other component's baseline keys would report as
+FIXED. Compare whole runs.
+
+**GOTCHA — a component that fails to PARSE would otherwise clear its own findings.**
+That was a real defect in the first cut, found by mutation, not by reading: breaking one
+template made its 2 findings vanish, reported them as "fixed", and exited **0**. Baseline
+keys belonging to an unanalysable component are now `UNCOVERED` and fail the run.
+`--write-baseline` refuses outright while any component fails to parse, so the blindness
+can never be baked in as clean.
+
+**How the three arms were proven (do this again if you change the shape regexes).** Fetch
+the library to a file once, mutate the file, compare against the committed baseline:
+
+| mutation | expected | got |
+|---|---|---|
+| A — break a template (stray `{{end}}`) | 2 UNCOVERED, exit 1 | ✓ (and this is the arm that found the defect above) |
+| B — un-gate `featured_article.featured_image` (valid template, the real pre-295 shape) | exactly 1 NEW `broken_img`, exit 1 | ✓ |
+| C — gate `call-to-action.headline` (a genuine fix) | 1 fixed, 0 NEW, exit 0 | ✓ |
+
+B and C matter together: a check that only fired on A would be detecting broken templates,
+not holes. **Self-comparison (0 NEW / 0 fixed) proves nothing — it is the no-op case.**
