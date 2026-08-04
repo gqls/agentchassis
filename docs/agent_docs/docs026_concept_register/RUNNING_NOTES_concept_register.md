@@ -1351,3 +1351,96 @@ citations that matter most (`family-latest`) are all still on disk.
 taxonomy change, and `register/rebuild-cascade.md` was left alone — it was another
 session's uncommitted work in the tree, and a pathspec commit is how you leave
 that out.
+
+---
+
+## 2026-08-04 (later) — the watcher, in the framework rather than in the CLI
+
+Owner asked: add a watcher for the index drift, **in the framework rather than the
+local CLI — is that possible?** Yes, and there was a live pattern to copy rather
+than a design to invent.
+
+### The answer to "is that possible"
+
+The framework already reads repo markdown on a schedule. `bugs-open-staleness-sweep`
+(DOC-071, RFC_005 §3.3) is a K8s CronJob on `postgres:16-alpine` that resolves a
+pinned ref through the GitHub Trees/Contents API, analyses the files, and writes
+its findings straight to `doc_notes` over psql. It has been firing unattended since
+2026-08-02. `component-fallback-check` and `single-owner-carriers-check` are the
+same family on daily schedules. So this is an established fleet shape, not a
+one-off, and the register watcher is a **cheaper** member of it: no LLM, no DB
+reads, two regexes and a set difference.
+
+### The three placement decisions, each with a reason that outlives the build
+
+**Not a pre-commit hook**, which is where a check like this instinctively goes. A
+hook fires only for a session already committing to the register — the session most
+likely to have got it right — and never for drift accumulating between them. The
+failure being watched for was never "someone skipped the check": ~20 sessions ran
+the documented re-measurement faithfully and **not one of them could see it**,
+because they compared the row count to the previous row count.
+
+**Not a chassis agent.** Same reason DOC-071 is not one: no generic action lists a
+repo directory or reads arbitrary non-`.go` files, and the function that came
+closest was closed as a hazard (`bugs_closed/145`). An agent would add a queue and
+a bill without adding judgement, since there is no judgement here to add.
+
+**Findings to `doc_notes`, not `site_work_items`.** The queue's triage would route
+them toward a handler that does not exist — the "findings die with no consumer"
+failure the mission-reviewer lane hit and designed against.
+
+### What it checks, and the one that immediately earned its place
+
+Four comparisons: entry with no index row; row with no entry; duplicate id; and
+**the index's own bolded headline against the actual row count**. The fourth was
+almost an afterthought and it caught something within hours.
+
+### Two things I got wrong, both caught by the harness rather than by review
+
+**1. My positive-control assertion was false.** I asserted that at the pre-fix ref
+the headline must also have drifted — reasoning that a broken register should look
+broken from every angle. It did not: the headline said 1,721 and there were exactly
+1,721 rows. **The headline was honest while 34 entries were missing**, because a
+row count cannot see a row nobody wrote. The assertion now tests for *agreement* at
+that ref, which is a far better control — it encodes the actual lesson instead of
+my assumption about it.
+
+**2. The first HEAD run was not clean, and the drift was three hours old.** Commit
+`8bafcf9d4` (another lane, closing `bugs_open/087`) added a concept and its index
+row correctly, then set the headline to **1,764** — the raw `###` heading count —
+while the real row count was **1,757**. Measured the same minute: documented row
+regex **1,758**, loose row regex **1,765**, raw headings **1,766**. Three numbers,
+all correct answers to different questions, sitting in adjacent lines of the same
+header — and the wrong one was picked up by a careful session seven hours after the
+last correction. Corrected in place with a dated note, and the loose command is now
+labelled as **not** the headline. This is the strongest argument for the watcher
+that exists: the convention had been strengthened that morning, in that very file,
+and it still went wrong before the day was out.
+
+### Proof discipline, because a clean run proves nothing
+
+`scripts/test-concept-register-drift-local.py --self-test` runs the **same
+functions** the CronJob runs — the three GitHub calls are swapped for `git`, the
+logic is never re-implemented — against `8f998e86b^`, the last tree carrying the
+defect, and requires exactly 34 entry-without-row findings with `CLM-001` among
+them; then requires clean one commit later; then **mutates** the fetched index text
+by deleting one row and requires the check to name that exact id. Without the
+mutation, an `analyse()` that returned empty sets would pass every other assertion.
+
+### State, and what is owed
+
+Committed, self-test green, manifests render, both `secretKeyRef` keys confirmed
+present in `personae-platform-secrets`. **NOT deployed — the owner is running the
+deploy.** DOC-074's status says so plainly and lists what is owed before it may
+claim live: the apply, one manual job, and a `doc_notes` row.
+
+⚠ **`make release` does not cover this.** Its `deploy-core`/`deploy-agents` targets
+apply a hardcoded list of service overlays; a new CronJob directory is not in it.
+`make deploy-concept-register-drift-check` is its own target — which is also the
+honest reason the fleet release run this afternoon left the cluster without it.
+
+⚠ **The second hand-pinned branch ref.** `REGISTER_REF` joins `SWEEP_REF`. A stale
+one fails in the worst way: it reports on a register nobody is editing, so every
+finding is unfalsifiable **and every "clean" run is meaningless**. Both manifests
+need bumping when the working branch moves; the check refuses on a ref that does
+not resolve, but cannot know that a resolving ref is no longer the one in use.

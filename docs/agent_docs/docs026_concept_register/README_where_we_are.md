@@ -490,3 +490,38 @@ as sources in register entries, so those particular citations now only resolve
 through git. There's a note in the landmines file telling whoever hits one how to
 pull it back, and warning them that a missing file is not the same as a fabricated
 citation.
+
+**The watcher, and why it isn't a hook (2026-08-04, later).** You asked whether the
+watcher could live in the framework rather than in a session's local tooling. It
+can, and there was already a working example to copy: the sweep that checks open
+bug files for stale citations runs as a scheduled job in the cluster, reads the
+repository through GitHub, and writes what it finds into the notes table. Two other
+jobs in the same family run daily. So the register's watcher is now one of those —
+a daily job that reads the register, compares its two halves, and writes a verdict.
+It reports and never repairs: filling in a missing row needs a sentence written by
+someone who understands the concept, and a generated one would be worse than the
+gap because it would look authored.
+
+Worth saying why it isn't a commit-time check, since that's the obvious place. A
+commit-time check only runs for the person editing the register — the one person
+most likely to have got it right — and never for what accumulates in between. The
+problem was never that people skipped a check. Around twenty sessions did exactly
+what the file told them to do, and none of them could see the gap, because the
+check they were told to run compares this week's count with last week's count.
+
+Two honest notes. First, I got an assertion wrong while writing the test: I assumed
+that if the register was broken, every number in it would look wrong. It didn't —
+the headline was perfectly accurate while thirty-four concepts were missing. The
+test now checks for that agreement, which is a better test than the one I meant to
+write. Second, the very first run against the current state wasn't clean: another
+session, three hours earlier, had copied the wrong number into the headline — there
+are three counts sitting in adjacent lines of that file and they answer different
+questions. That's now corrected, the misleading one is labelled, and it is the
+best argument for the watcher I could have asked for: the rule had been tightened
+that same morning, in that same file, and it still went wrong before the day was
+out.
+
+It's built, tested and committed, but **not deployed** — you said you'd run that.
+One thing worth knowing: this afternoon's `make release` won't have picked it up.
+That target deploys a fixed list of services and a new scheduled job isn't on it,
+so it needs its own one-line deploy.
