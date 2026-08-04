@@ -288,3 +288,123 @@ this guard's dominant behaviour is "change nothing" — and so is a completely b
 5. **Then** the count query in § "How to verify a fix" goes 2 → 1 → 0, the last step only
    when the human closes item 3. **A count of 1 is the expected post-repair state**, not a
    failed fix.
+
+---
+
+## COUNCIL: APPROVED round 1 — 13 reviewers, 5 advisory objections, none high. Each one answered with a check, not an argument.
+
+Correlation `09bc4b3d-6721-4479-85b8-b5b56bf9b5d7`, decision `approved`, 4 abstained,
+0 unreadable. The commits carry `Council-Submitted:` and `098` credits them automatically now
+the correlation has approved — **no `Council-Reviewed:` was written, and that is correct**:
+forward-only forbids the amend, and the trailer must never be added to a commit that predates
+the verdict.
+
+The objections were the useful part. Three of them were **claims I had inherited or asserted
+rather than measured**, which is precisely the surface this gate exists to catch.
+
+### 1. `editquality` (medium) — "the needs_human_review item is asserted, not shown"
+
+Right to ask: if no remediation item exists, the permanent refusal has no path out and the
+row just fails silently for ever. **Checked, and it exists** — but not under the name this
+bug file gave it:
+
+```sql
+SELECT swi.item_type, swi.status, left(swi.summary,70), swi.created_at
+FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+WHERE s.domain='gaswholesalers.com' AND swi.summary ILIKE '%how-pricing%';
+```
+
+| item_type | status | since |
+|---|---|---|
+| `needs_section_data` | **`needs_human_review`** | 2026-04-09 |
+| `dead_control` | `needs_human_review` | 2026-08-03 |
+
+> **CORRECTION to this file's own fix candidate 3**, which calls it a
+> `save_refused_incomplete` item. The live item is **`needs_section_data`**, and its summary
+> is exactly the right one — *"Section 'pricing' on how-pricing-works needs: Pricing tier
+> names and p…"*. Resolve by item_type, not by the name in this file.
+
+**And the check surfaced something live that nobody had looked for:** there is a
+`page_rerender` item at status `triaged`, created **2026-08-04 19:41**, for this very page.
+So a rerender of the poisoned page is *already queued*. Once the guard ships it will be
+refused — which is the design working, but it means the first `CONTENT_DATA_ENVELOPE` row in
+`agent_error_log` will probably appear within hours of the roll, on this page, and should not
+be mistaken for a new fault.
+
+### 2. `prior_art_librarian` (medium) — "'nothing looks at the shape' is an ASSERTED ABSENCE"
+
+The seat's point is sharp: the submission verified row counts exhaustively and never ran an
+existence check for the thing it claimed did not exist, and `json_envelope.go` — which
+already handles this class on the parse side — is the first place a storage-side check would
+plausibly live. **Checked now:**
+
+```bash
+grep -nE "func .*[Ee]nvelope" platform/orchestration/actions/json_envelope.go   # no matches
+grep -rn "isEnvelope\|IsEnvelope\|envelopeShape\|looksLikeEnvelope" --include=*.go platform/ internal/  # none
+```
+
+`json_envelope.go` mentions the shape **only in prose, in its header**. There is no
+envelope-shape predicate anywhere in the tree and no pre-existing shape guard on
+`content_data`. The absence is now measured rather than asserted — and the same result answers
+`reuse_agent`'s (low) objection: there was nothing to reuse, so `isLLMTransportEnvelope` is not
+a duplicate.
+
+### 3. `editquality` + `bug_historian` (medium) — "does every named ingress really converge on one call site?"
+
+The strongest objection, and **my first attempt to answer it was wrong**, which is worth more
+than the answer. Code first: `rerender_page_sections_action.go` emits `sections_metadata`
+*"in the exact shape CompilePageSectionsAction … so save_page_sections ingests it"*, and
+`carryStoredSection` does the same for a carried-forward section. So the recycle loop routes
+through the guarded seam.
+
+Then live config — and my first query said `page-rebuild` does **not** call
+`save_page_sections`:
+
+```sql
+-- WRONG: reads only TOP-LEVEL steps, and PBP-031 records that four of six callers
+-- are nested inside a loop sub_workflow
+SELECT type, jsonb_path_query_array(default_config,'$.workflow.steps.*.action') @> '["save_page_sections"]' ...
+```
+
+Nesting-safe, it is `true` for all six:
+
+```sql
+SELECT type, default_config::text LIKE '%save_page_sections%' AS calls_save
+FROM agent_definitions WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+**All six page-writing callers route through the guarded seam** — `page-build-handler`,
+`pageflow-builder`, `page-rebuild`, `page-rerender`, `site-work-orchestrator`,
+`tool-recreation-handler` (the same six PBP-031 names). The other three hits
+(`council-gate`, `fix-proposer`, `diagnose-agent`) carry the string in review footprints and
+are not callers. Logged in `WRONG_CALLS.md` — a `jsonb_path` over `steps.*` is blind to
+sub-workflow nesting, and it fails by reporting a *smaller* caller set, which is the direction
+that makes a coverage claim look worse than it is rather than better.
+
+### 4. `bug_historian` (medium) — "the third ingress is named and left unguarded; that is a silent decision"
+
+Accepted in full. **Filed as `bugs_open/199`** rather than left in a rationale field. `190`'s
+guard is deliberately *not* widened to cover it: the storage seam and the render-resolution
+path have different blast radii and want separate decisions, and bundling a shared
+render-behaviour change into a bug patch is what `bugs_closed/124` drew a REJECTED verdict for.
+`199` carries the census that decides whether it is a bug or a note, marked `[UNMEASURED]`.
+
+### 5. Objections NOT acted on, and why — stated rather than quietly dropped
+
+- **`debug_historian` (medium): no data-repair step ships for `d2e9644b`.** Deliberate and
+  already on this file — the repair must run against the *fixed* binary or the next rebuild
+  recycles the poison, and the intended repair is an ordinary rerender through the framework,
+  not hand SQL. Sequenced under "What is still owed", not skipped.
+- **`debug_historian` (medium): no pod-verification named.** It is named on this file (the
+  discriminating marker plus a positive control). It was missing from the *submission*, which
+  is a fair hit on the submission.
+- **`guardian` (medium): callers must treat a returned error as a genuine no-write.** The
+  refusal is placed before the history snapshot and the DELETE, so a refused save writes
+  nothing — that is a property of the code, not of the callers. The residual question the seat
+  is really asking (do downstream monitors equate orchestration success with "sections
+  saved"?) is the existing landmine's territory, unchanged by this commit and not made worse
+  by it: this is the third refusal path in a file whose first one already forced that lesson.
+- **`prior_art_librarian` (low): the import-direction claim was not in `grounded_in`.** It was
+  checked before designing (`grep -rn "orchestration/actions" platform/orchestration/datahelpers/*.go`
+  → no matches, so `actions` imports `datahelpers` and not the reverse). Correct that it did
+  not appear in the evidence block.

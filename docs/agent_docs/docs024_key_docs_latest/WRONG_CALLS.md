@@ -20166,3 +20166,38 @@ tally is now the argument: this belongs in `scripts/pattern-check.py` as a rule,
 WRONG_CALLS tally earned `check_append_only_docs` its place. Filed here rather than built,
 because building it is a change to a shared pre-commit control and belongs to whoever owns
 that script — but the second occurrence in one day is the evidence it was waiting for.
+
+## 2026-08-04 — a `jsonb_path_query_array` over `steps.*` is blind to sub-workflow nesting, and it under-reports a coverage claim
+
+Answering a council objection on `bugs_open/190` — *do all the named ingress paths really
+converge on the one seam I guarded?* — I asked the live config which agents call
+`save_page_sections`:
+
+```sql
+SELECT type, jsonb_path_query_array(default_config,'$.workflow.steps.*.action')
+              @> '["save_page_sections"]' AS calls_save
+FROM agent_definitions WHERE type IN ('page-rerender','page-build-handler','page-rebuild') ...
+```
+
+It returned `page-rebuild → false`. That is wrong: `page-rebuild` does call it. The path
+expression reads **top-level steps only**, and this estate nests most of these callers inside
+a loop `sub_workflow` — a fact recorded in the concept register entry (**PBP-031**) I had
+read earlier the same session, which says in terms that *"four of them [are] nested in a loop
+sub_workflow"*. A nesting-safe `default_config::text LIKE '%save_page_sections%'` returns
+**true for all six**.
+
+**What makes this worth logging is the DIRECTION of the error.** It under-reported the caller
+set, which made my coverage claim look *weaker* than the truth. A wrong answer that flatters
+you is easy to distrust; one that goes against your own argument feels like honest
+measurement, so it gets less scrutiny — and had the objection been "you are over-claiming
+coverage", this query would have appeared to concede the point and I would have written a
+correction that was itself false. **A measurement that damages your case is not thereby
+trustworthy.**
+
+The cheap check: when querying `agent_definitions` config for a step or action, use a
+whole-document text match first (`default_config::text LIKE '%…%'`) and only narrow to a path
+expression once you have seen the shape. Anything keyed on `$.workflow.steps.*` silently
+excludes `sub_workflow` bodies, and the estate uses those heavily. Second cheap check: I had
+already read the count in PBP-031 — **six callers** — and my query returned five. A number
+that disagrees with the register is a reason to doubt the query, not to quietly prefer the
+fresher-looking figure.
