@@ -4848,3 +4848,11 @@ that is also the thing you would want in the logs is not.
   "byte-for-byte unchanged" and its unit test asserted the **wrapper**, so the test
   passed on the code that caused the outage. WFA-009.
 - **added:** 2026-08-04, bugfix_192_select_sections_wrapper lane
+
+### A "FIXED AND LIVE on v1.0.NNNN" close-out EXPIRES — the fleet rolls past your image within hours, and the sentence still reads as current
+- **footprint:** `bugs_closed/` (any close-out naming an image tag), `makefile` (`IMAGE_TAG`), `make build-agent-chassis`, `kubectl get pods -l app=agent-chassis`
+- **fires when:** you rely on a closed bug's "LIVE on v1.0.NNNN" line — reading it as a reader, quoting it in a handoff, or (worst) as the AUTHOR hours after you wrote it. This tree rolls several images a day from many lanes: 1245→1248 inside eleven hours on 2026-08-04, four replicasets inside 90 seconds at one point
+- **the tell:** there isn't one. The sentence is correctly formed, was true when written, cites a real tag and a real pod grep — and says nothing about the image actually running now. `bugs_open/153`'s landmine is the INVERSE case (the image may PREDATE your commit); this is the one where your proof predates the image. Both produce a confident, dated, wrong "it is live"
+- **the check:** re-grep the CURRENT pods, not the tag you proved on: `kubectl get pods -n ai-persona-system -l app=agent-chassis -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image --no-headers`, then `kubectl exec … -- sh -c 'strings /app/agent-chassis | grep -c "<a string YOUR change added>"'` on **every** replica, with a positive and a negative control. Because `make build-*` builds from committed HEAD, a later lane's build normally carries your fix for free — "normally" is the trap, and one exec settles it. Cite the claim as "live on `<tag>` as at `<date>`", never bare "live"
+- **source:** `bugfix_163_symbol_lookup` lane, 2026-08-04 — proved on v1.0.1245, re-proved on v1.0.1248 rather than inheriting the claim
+- **added:** 2026-08-04, bugfix_163_symbol_lookup lane
