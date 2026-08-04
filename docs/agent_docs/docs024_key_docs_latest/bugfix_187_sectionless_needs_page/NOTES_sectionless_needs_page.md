@@ -133,3 +133,44 @@ One shared resolver can serve both ends.
   (schema lessons: `plan` is an OBJECT with summary/edits/grounded_in/risks;
   `create` is spelled `add`). Committing with `Council-Submitted:` per the
   2026-07-30 rule.
+
+## 2026-08-04 ~00:40 — council APPROVED round 1 (5 advisories, none high); the checkable ones checked
+
+Corr `e2e87b04`, decision `approved`, 13 seats reviewed / 4 abstained.
+Advisories and their answers, each checked rather than nodded at:
+
+1. **editquality (sweep matches `pages.sections`)** — rests on a false
+   premise: the objection says the build "never reads pages.sections", but
+   the loader reads it as fallback 3 (`load_page_sections_from_spec_action.go`)
+   and the resolver mirrors exactly that. A stale non-empty cache means the
+   HANDLER would find sections, so excluding such rows from the sweep is
+   correct, and exclusion is the safe direction regardless. No change.
+2. **bug_historian (declaredPageSections fails open to "declares nothing")** —
+   real, inherited verbatim from 177's guard (the extraction is pure by
+   design). Bounded: the emit guard also requires NOT plan-member before
+   skipping, and membership fails open to TRUE, so suppressing a legit emit
+   needs all three section sources erroring while the membership query
+   succeeds-false. On the revalidator side the same failure lands on
+   `unknown` (stays queued) — safe. Recorded as an open line in WII-010.
+3. **reuse_agent + guardian + prior_art_librarian (revalidator judges EVERY
+   needs_page producer fleet-wide)** — measured, not argued: every parked
+   needs_page row across ALL producers (7 sources once the error filter is
+   dropped) carries `spec.page_name`, so none hits the unknown-spec arm
+   blind; reconcile's real-gap rows resolve no sections → `unknown`, parked,
+   exactly as the 015 caution demands; `rejected` manual rows are terminal
+   and never loaded. The verdict asymmetry (close only on positive
+   name-matched evidence) is the containment.
+4. **debug_historian (how is the roll confirmed before the sweep?)** — the
+   pod-grep pair in the PLAN's verify section IS the answer (positive
+   `declaredPageSections`/`skipped_sectionless_page`, negative
+   `toolPageDeclaredSections`, both replicas, one exec) and will be executed
+   before `300` is applied.
+5. **tooling_provenance (check doc_notes before trusting the file register)**
+   — 74 notes mention needs_page/page-build-handler (latest today); the
+   load-bearing ones (177's fix note, the b3dcb102 verdict) are already cited
+   in the lane docs.
+
+Census moved overnight: one more unsatisfiable row
+(`tool-spawn-rate-balancer`, decl 0, planless, image-build-handler 22:59Z) —
+the sweep predicate catches it and the DO/RAISE leftover set is unchanged.
+The leak stays live until the image rolls, which is the point of rolling it.
