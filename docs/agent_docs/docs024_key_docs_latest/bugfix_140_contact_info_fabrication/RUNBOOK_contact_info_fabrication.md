@@ -287,3 +287,56 @@ SELECT '{{if .subheadline}}x{{end}}' ~ '\{\{-?\s*(if|with)\s+[^}]*\.subheadline\
 ```bash
 python3 scripts/check_placeholder_fallbacks.py     # expect: clean, 173 components (was 68 ungated)
 ```
+
+---
+
+## R11 — `component-render-check`: the output-level empty-element check (plan item 1)
+
+```bash
+go build -o /tmp/rck ./cmd/component-render-check/   # rendercheck.go, not main.go — see below
+/tmp/rck                     # live library; ~30s; exit 0 = ran, exit 2 = load failed
+/tmp/rck --component hero    # one component
+/tmp/rck --emit-json         # machine-readable: findings / hardcoded_empties /
+                             #   positive_control_failures / skipped_context_collisions
+/tmp/rck --json comps.json   # offline, from a saved fetch (same shape as its own query)
+```
+
+**Read the THREE sections, not just the first.** `ABSENT FIELD => EMPTY ELEMENT` is the
+findings; `EMPTY EVEN WITH EVERY FIELD PRESENT` is ~44 legitimately-blank components (JS
+placeholders) and is NOT a finding; `POSITIVE CONTROL FAILED` means that field's absence
+test proved nothing — treat those as unchecked, not as clean.
+
+**GOTCHA — exit 0 does NOT mean clean.** This is calibration mode by design: 1,023
+findings is a census. Do not wire it into anything that treats exit 0 as a pass without
+first building a baseline (see plan item 3's reasoning — an exit code is only worth
+flipping when the check cannot be satisfied by a no-op).
+
+**GOTCHA — the file is `rendercheck.go`, deliberately not `main.go`.**
+`scripts/pattern-check.py`'s `RUNTIME_FILL_ALLOWED` keys on BASENAME, so an entry for
+`main.go` would exempt every `cmd/` tool in the tree from the `bugs_open/137` check. If
+you add a `cmd/` tool that legitimately tests `data-runtime-fill`, give its file a unique
+name for the same reason.
+
+**GOTCHA — a field that never renders a marker is not testable by absence.** Condition-only
+and attribute-only fields (`background_image`, `autoplay`, `show_load_more`, `reverse`) and
+every `{{else}}`-branch field (`empty_state_text`) land in `POSITIVE CONTROL FAILED`. An
+`empty_state_text` is made to render by emptying the LIST, not by removing the field —
+that is a different probe arm and this tool does not have it.
+
+**GOTCHA — baseline-subtract, or you will blame the wrong field.** ~44 components render an
+empty class-bearing block even with every field supplied. A finding is only a shape whose
+count INCREASES when a field is removed; without the subtraction every one of those
+components reports against whichever field happened to be probed.
+
+### Proving a marker is actually probe-able (item 5)
+
+```bash
+scripts/pick-pod-marker.py <commit> [--package ./cmd/agent-chassis]
+```
+
+Builds from `git archive <commit>` (immune to another session's WIP), prints verified
+markers, the comment-only literals as the trap, a negative control, and an every-replica
+probe. **GOTCHA — `strings` splits at non-ASCII bytes**, so a marker containing `…`/`—`/`£`
+greps 0 against a binary that contains it. The tool now nominates printable-ASCII only;
+if you pick a marker by hand, check `.isascii()` yourself, and run the probe through the
+same `strings | grep` pipeline you intend to recommend.
