@@ -362,6 +362,21 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	outcome.HTML = repairComponentHTMLBeforePersist(ctx, params, siteID,
 		domain, pageName, pageURL, "apply_section_edit", outcome.HTML, logger)
 
+	// --- Refuse or decode a stored LLM transport envelope (bugs_open/190) ---
+	// Same reasoning as the repair above, and placed for the same reason: ONE call
+	// before ONE persist switch. applyContentEdit seeds its map from the existing
+	// row, so a field_updates merge onto an already-poisoned row carries type and
+	// result forward untouched; replacement_content_data is agent-supplied and can
+	// be a raw step output. Refusing here means neither branch can persist one.
+	if normalized, changed, envErr := normalizeContentDataEnvelope(outcome.ContentData); envErr != nil {
+		return nil, fmt.Errorf("apply_section_edit (%s) on %q: %w", editType, slotName, envErr)
+	} else if changed {
+		logger.Warn("ApplySectionEditAction: decoded an LLM transport envelope out of content_data (bugs_open/190)",
+			zap.String("page_name", pageName),
+			zap.String("slot_name", slotName))
+		outcome.ContentData = normalized
+	}
+
 	// --- Persist the page_components row ---
 	switch editType {
 	case "content_edit":

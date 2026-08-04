@@ -160,9 +160,10 @@ func TestTruncationAwareActionsReadTheMarker(t *testing.T) {
 // truncation marker WITHOUT consuming one. Each value is the reason, because an
 // exemption with no reason is just a silenced test.
 var truncationMarkerExemptions = map[string]string{
-	"ai_actions.go":       "the PRODUCER: markTruncated STAMPS the marker and the guard refuses to; it never reads one back",
-	"types.go":            "documentation only: the ActionParams.WorkflowSteps comment explains why the plan is plumbed",
-	"truncation_guard.go": "the registry itself — excluded from the forward scan for the same reason it is excluded here",
+	"ai_actions.go":                  "the PRODUCER: markTruncated STAMPS the marker and the guard refuses to; it never reads one back",
+	"types.go":                       "documentation only: the ActionParams.WorkflowSteps comment explains why the plan is plumbed",
+	"truncation_guard.go":            "the registry itself — excluded from the forward scan for the same reason it is excluded here",
+	"content_data_envelope_guard.go": "names the marker only as an example of the __-prefixed transport keys a lossless decode drops (bugs_open/190). It does not consume the truncation contract and must not be registered as a consumer: a truncated payload can never reach its decode branch, because it either fails to parse or recovers only via a lossy provenance tier, and both outcomes REFUSE. TestTruncatedEnvelopeCannotReachTheDecodeBranch pins that rather than asserting it",
 }
 
 // readsLLMTruncationMarker reports whether a source file refers to the LLM
