@@ -245,32 +245,29 @@ func makeIterationOutputField(outputField string, iterIdx int) string {
 // not discarded quietly. It falls back to the loop's value and warns, because a knob
 // that is declared and inert is the very defect this resolution removes. The loop is
 // named by the caller's logger, which carries the loop step under step_name.
+//
+// THE PARSE ITSELF LIVES IN datahelpers.GetBoolFieldLoud (bugs_open/193). This
+// function keeps its name, signature and doc — it is the anchor bugs_open/173's
+// landmine points at, and the symbol a post-roll pod-grep looks for — but it no
+// longer carries its own copy of the read. It had one, and the LOOP-level twin
+// three lines away in loop_actions.go had a silent one, so the same key warned in
+// one place and not the other. That divergence is what 193 exists to close, and
+// one implementation with two callers is the only shape that closes it for good
+// rather than until the next edit (016b §9).
+//
+// The fallback passed here is the LOOP's value, not `false`: a silent substep
+// INHERITS, it does not opt out. That is why the helper takes the fallback as a
+// parameter instead of assuming a default.
 func resolveSubstepContinueOnError(
 	substepConfig map[string]interface{},
 	loopContinueOnError bool,
 	substepName string,
 	logger *zap.Logger,
 ) bool {
-	declared, present := substepConfig["continue_on_error"]
-	if !present {
-		return loopContinueOnError
-	}
-
-	// Presence is not truth: an explicit false must survive as false, so the type
-	// assertion is tested on its own rather than folded into `ok && value`, which
-	// would read a declared false as no declaration at all.
-	value, isBool := declared.(bool)
-	if !isBool {
-		logger.Warn("Substep declares continue_on_error with a non-bool value; inheriting the loop's flag",
-			zap.String("substep", substepName),
-			zap.String("declared_type", fmt.Sprintf("%T", declared)),
-			zap.Any("declared_value", declared),
-			zap.Bool("loop_continue_on_error", loopContinueOnError),
-		)
-		return loopContinueOnError
-	}
-
-	return value
+	return datahelpers.GetBoolFieldLoud(
+		substepConfig, "continue_on_error", loopContinueOnError, logger,
+		zap.String("substep", substepName),
+	)
 }
 
 // setLoopVariable sets the current loop variable in CollectedData before executing a loop substep

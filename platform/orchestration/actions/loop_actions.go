@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -55,17 +56,33 @@ func LoopAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	}
 
 	// Check for allow_missing config - if true, missing collection returns empty result
-	allowMissing := false
-	if am, ok := config["allow_missing"].(bool); ok {
-		allowMissing = am
-	}
+	// bugs_open/193. Both reads were a bare `.(bool)` assertion that silently kept
+	// the default when the key was declared with the wrong TYPE — the likely
+	// JSON-authoring mistake is `"true"`, a string. The author writes the key,
+	// the config-key audit accepts it (both are in frameworkStepConfigKeys), and
+	// the declaration does nothing, loudly announcing nothing.
+	//
+	// GetBoolFieldLoud is the same parse used by resolveSubstepContinueOnError
+	// (loop_expansion_handler.go), which is the point: bugs_open/173 made the
+	// SUBSTEP-level read of continue_on_error loud and left this LOOP-level twin
+	// silent, so the same key warned in one place and not the other. One
+	// implementation, two callers (016b §9).
+	//
+	// `logger` here already carries step_name (see the top of this function), so
+	// a warning names the offending loop without any extra field.
+	//
+	// allow_missing matters MORE than continue_on_error at this site, which is why
+	// it is converged in the same change rather than deferred as its sibling:
+	// a mistyped allow_missing turns a graceful skip into a hard workflow error
+	// below, whereas a mistyped continue_on_error happens to coincide with the
+	// default. Measured 2026-08-04: zero live loops declare allow_missing at all,
+	// and all 10 that declare continue_on_error declare it as a boolean — so this
+	// is inert on arrival, by measurement rather than by hope.
+	allowMissing := datahelpers.GetBoolFieldLoud(config, "allow_missing", false, logger)
 
 	// continue_on_error: failed iterations are skipped rather than
 	// failing the entire workflow
-	continueOnError := false
-	if coe, ok := config["continue_on_error"].(bool); ok {
-		continueOnError = coe
-	}
+	continueOnError := datahelpers.GetBoolFieldLoud(config, "continue_on_error", false, logger)
 
 	// Get substeps (supports both 'substeps' and 'sub_workflow.steps')
 	var substepsConfig map[string]interface{}
