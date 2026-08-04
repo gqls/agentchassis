@@ -198,3 +198,20 @@ The leak stays live until the image rolls, which is the point of rolling it.
   `4934a777` — a re-fire after ~40 min of no row is justified by the KNOWN
   in-window fire, which is different evidence than "row missing = dropped".
   Cheap check that would have caught it: print the deadline before waiting.
+
+## 2026-08-04 ~11:45 BST — fix RE-PROVEN on v1.0.1250 (two rolls later); the leak has stopped
+
+- Fresh fleet roll landed (pods 10:29Z, v1.0.1250). Re-proven both replicas,
+  one exec each: pos_resolver=5, pos_skip=3, neg_oldsym=0 — the fix survives
+  rolls (the WII-009 lesson applied, measured not assumed).
+- **Leak measurement: 0 new parked no-sections rows since the guard went
+  live at 08:34Z** (rate before: ~3/day). The RAISE arm is witnessed live:
+  image-build-handler minted `page_rerender:index` at 08:41 for a sectioned
+  page — the guard lets satisfiable emits through. The SKIP arm remains
+  watch-listed (needs a natural image-landing on a sectionless non-plan
+  page; current pod logs cover only since 10:29Z, 0 hits so far).
+- The two post-guard `index` rows sit `failed` on
+  `process_sections_loop ... sections_for_render.sections_ready` — that is
+  `bugs_open/192` (filed 08-03 by another lane, owned), NOT the 187 shape and
+  not the guard's doing: the rows were emitted correctly and failed
+  downstream in the handler workflow. Not re-diagnosed here.
