@@ -174,3 +174,27 @@ Census moved overnight: one more unsatisfiable row
 (`tool-spawn-rate-balancer`, decl 0, planless, image-build-handler 22:59Z) —
 the sweep predicate catches it and the DO/RAISE leftover set is unchanged.
 The leak stays live until the image rolls, which is the point of rolling it.
+
+## 2026-08-04 ~09:40 BST — LIVE on v1.0.1248, pod-proven; sweep applied; one dispatch misstep
+
+- **Deploy chain, in order:** 1247 trap caught (image built 08:55 BST
+  postdating the fix commit by ~8h yet WITHOUT it — pinned/stale ref;
+  image-grep neg=5); IMAGE_TAG bumped to 1248 passing over the other lane's
+  uncommitted 1247 line (057fa3610 precedent, named in the message); built
+  from HEAD, image-grepped BEFORE push (pos 5/3, neg 0); deploy held until
+  the council lane cleared (4 seats mid-review — a roll kills them); rolled
+  08:34Z. **Pod-proven both replicas, one exec each: pos_resolver=5,
+  pos_skip=3, neg_oldsym=0** — the negative is disconfirmable (1247 greps 5).
+  The other lane HAD deployed fix-less 1247 at 08:08Z; 1248 supersedes it.
+- **Sweep 300 applied post-roll: UPDATE 12** (the 11 triaged + overnight
+  tool-spawn-rate-balancer, same shape), DO/RAISE passed — leftover census
+  exactly the 7 asserted. wont_fix, original errors preserved in result.sweep.
+- **MISSTEP: revalidator trigger fired at 08:37:32Z — INSIDE the 300s
+  rebalance window** (pods 08:34:36Z; window to 08:39:36Z). Cause: my wait
+  loop compared against `date -u -d 'today 08:39:40'`, whose -d input parses
+  in LOCAL time (BST) — the -u flag formats output only, so the deadline was
+  already an hour past and the loop exited instantly. The spawn may be
+  silently dropped (the documented mechanism); watching for orch
+  `4934a777` — a re-fire after ~40 min of no row is justified by the KNOWN
+  in-window fire, which is different evidence than "row missing = dropped".
+  Cheap check that would have caught it: print the deadline before waiting.
