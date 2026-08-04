@@ -18881,3 +18881,83 @@ claim, and confirm each one names a file in the `edits` array.** If a claim rest
 the reviewer cannot see, either add the edit or delete the claim. Generally: *a reviewer
 grades the artifact, not your session* — an assertion whose evidence lives only in your
 scrollback is indistinguishable, from the outside, from one with no evidence at all.
+
+---
+
+## 2026-08-04 — `bugs_open/192`: two failure modes counted as one, and the onset that pointed away from the cause
+
+**Not my claim — the filing lane's — but recorded here because the shape is general and
+the correction is mine.** Also below: the query error underneath it, which *is* the kind
+I have made myself.
+
+**The claim.** `bugs_open/192` is titled and framed as *"`select_sections` is failing
+broadly since ~2026-08-03 21:00"*, supported by a `[MEASURED]` hourly table of FAILED
+counts — 21:00 (11), 22:00 (14), 23:00 (12) — and the reasoning that followed from it:
+*"This predates this session's own chassis roll by many hours … so 178's code cannot be
+the cause."*
+
+**Why it was wrong.** The hourly counts pooled **two different failure modes** under one
+label. This bug's mode has `current_step = 'process_sections_loop'` exactly. The overnight
+spike is `process_sections_loop_iter_N_generate_content` — a step reachable **only after
+`select_sections` has already succeeded**, i.e. the *opposite* of this bug. Split on the
+step name, this defect appears **only from 08:20 on 08-04**, and 08:20 is
+`agent_definitions.updated_at` for both agents: the moment seed `299` was applied. The same
+21:00 hour also had **12 COMPLETED** runs, so "roughly half failed outright" was never true
+of this defect either.
+
+**The cost.** The wrong onset was load-bearing, not decorative. `08-03 21:00` predates the
+trigger, so it made *"178 cannot be the cause"* look sound — and 178's fix **was** the
+cause. A reader who trusted the timing would have gone looking anywhere but the one commit
+that did it.
+
+**The cheap check.** When a failure count is the evidence for *when something started*,
+**group by the thing that distinguishes the failure, not by the agent**. Here that is one
+`CASE` on `current_step`: `process_sections_loop` vs `process_sections_loop_iter%`. The
+general form: **a spike is only evidence about YOUR bug if the population you counted
+excludes every other way that agent can fail.** Ask what else is in the bucket before
+reading a timestamp off it — and prefer a `GROUP BY` that would *show* you a second mode
+over a `WHERE` that hides it.
+
+### The same file's second error, and it is the one I am likeliest to repeat
+
+**The claim.** *"`collected_data->'input_data'->'section_plan'->'sections_ready` … returns
+the real ready section, complete with `existing_content_html`, proving THAT part of the
+pipeline is healthy"* — offered as the reason the fallback *should* have worked, which is
+what made the failure look mysterious enough to file undiagnosed.
+
+**Why it was wrong.** The path was read against a row whose **shape** was never checked.
+On the failing rows that path returns nothing: the plan had been demoted to
+`->'section_plan'->'section_plan'->'sections_ready'` by a wrapper. The query asked the
+question the author already believed the answer to, and JSON path traversal answers
+"absent" and "you are looking one level too high" **identically** — with a quiet NULL.
+
+**What caught it.** Enumerating the keys instead of reading the path:
+`SELECT string_agg(k, ',') FROM jsonb_object_keys(collected_data->'input_data'->'section_plan') k`
+returned `applied,reason,section_plan` on the failing rows and
+`deferred_count,…,sections_ready` on the healthy ones. Two shapes, visible immediately.
+
+**The cheap check.** **A query that reads the path you expect cannot tell you the shape
+changed underneath it.** When a value is "missing" from JSON, enumerate the keys at each
+level before concluding it is absent — `jsonb_object_keys` on the parent costs one line and
+answers "absent" and "moved" as *different* answers. Same family as the standing lesson that
+a filter drawn from your hypothesis describes a small world: here the *path* was the filter.
+
+### And one of mine, on the same bug
+
+**The claim I nearly shipped.** I drafted seed `308` to also repoint
+`page-content-writer.resolve_links`' `input_mapping` at the wrapper path, so internal link
+resolution would work again immediately instead of staying degraded until the roll.
+
+**Why it would have been wrong.** `input_mapping` has **no ordered fallback**. The moment
+the Go fix rolls and the plan is flat again, a wrapper-path mapping resolves to nothing, the
+link resolver is silently handed no sections, and **there is no error** — the precise defect
+class I was there to fix, reintroduced by the fix. `select_sections`' shim is safe only
+because its paths are tried *in order* with the flat path ahead of the shim, so it retires
+itself. I caught it while writing the seed header and had to explain why the two shims were
+not the same shim.
+
+**The cheap check.** Before adding a compatibility shim, ask **what makes it go away**. If
+the answer is "someone remembers to delete it", it is not a shim, it is a second bug with a
+delay fuse — and if the mechanism has no ordering (a single path, a single mapping), a shim
+there cannot self-retire at all. Prefer the site that fails loudly when the shim is stale;
+where none exists, leave the thing broken and say so, as the seed header now does.

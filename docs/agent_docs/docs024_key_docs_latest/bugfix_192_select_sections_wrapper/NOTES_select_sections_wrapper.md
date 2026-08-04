@@ -146,3 +146,68 @@ Applied clean: `UPDATE 1`, both `DO` verification blocks passed, `COMMIT`. Wrote
 verification as `DO`/`RAISE` rather than bare `SELECT`s — a `SELECT` below an
 `UPDATE` cannot stop a `COMMIT` under `ON_ERROR_STOP`, which is a landmine already on
 file.
+
+## 2026-08-04 ~10:25 — V2 PASSED end to end, and it could have failed
+
+Re-queued `18bc832c` (vetcomparison `content_rewrite`) — the item `192`'s filer
+explicitly nominated for this ("both parked items … can retry once this is fixed").
+The dispatcher takes `status IN ('triaged','approved')`, so `failed` → `triaged`.
+
+```
+[1] 0511e4d1 | EXECUTING_STEP | spawn_link_resolver                           | -    | -
+[2] 0511e4d1 | EXECUTING_STEP | process_sections_loop_iter_0_generate_content | true | 1
+[3] 0511e4d1 | COMPLETED      | complete                                      | true | 1
+```
+
+Work item `18bc832c` → **`complete`**. The columns are
+`sections_for_render ? 'sections_ready'` and its length: **true / 1**, against **false**
+on the three runs immediately before. This is falsifiable — it fails at
+`process_sections_loop` if the wrapper diagnosis is wrong.
+
+**A near-miss worth recording.** `0733d0cc` FAILED at 09:02:08, which at first looked
+like a counter-example *after* my seed. It was created at **09:01:33**, and the seed
+committed at **09:01:35** — two seconds earlier. It had already loaded the old config.
+Checking `created_at` rather than `updated_at` is what settled it; `updated_at` on a
+failed run is when it died, not when it started, and reading the wrong one would have
+had me chasing a fix that had actually worked.
+
+## 2026-08-04 ~10:30 — the `090` run returned NOTHING, and that is worth stating plainly
+
+The diagnosis loop I filed at the start completed, but produced **no verdict**:
+
+```
+kind   | count      diagnosis_artifacts for aea3cc68-…
+bundle |     3      (08:42:31 · 08:45:01 · 08:48:28; truncated = false/true/false)
+final_result: empty          work item: complete, spec carries no verdict
+```
+
+Three bundle rounds, one of them truncated, then the run ended with no
+diagnosis/verdict artifact and no `final_result`. So it neither confirmed nor refuted
+anything. **This lane's diagnosis therefore rests entirely on first-hand
+verification** — reading the code, both shapes in live rows, the fleet census, and the
+end-to-end re-dispatch above — which the owner ruling of 2026-07-31 permits provided
+the substitution is **stated, not silently omitted**. It is stated here, in the bug
+file, and in the commit.
+
+Same failure mode `bugs_open/161` recorded ("UNVERIFIABLE at the iteration cap … blocked
+by a harness truncation"), so this is a second instance rather than a one-off. Not
+diagnosed here and **not** filed as a new bug by this lane — but noted, because "I ran
+the loop" is worth nothing if nobody checks that the loop produced anything, and it
+would be easy to cite the run id and imply corroboration it never gave.
+
+## 2026-08-04 ~10:40 — state at handover
+
+- **Committed:** `2b9d84072`, `Council-Submitted: 7afbf531-5ddd-484e-88c8-091994a0f51f`
+  (verdict not yet read — trailer is deliberately `Submitted`, never `Reviewed`).
+  The trailer gate refused an earlier attempt that carried `Council-Submitted: pending`,
+  correctly: a non-UUID resolves to nothing and forward-only forbids the amend.
+- **Live now:** seed `308` only. The outage is over and proven.
+- **Inert until the next roll:** the unwrap, the `required` opt-in, the loop message.
+- **Owed after the roll:** a cleanup seed removing the shim path (path 3 of
+  `select_sections`), and the WFA-009 `verify-later` pod-greps.
+- **Deliberately left alone:** `resolve_links`' `input_mapping`, so internal CTA
+  resolution is degraded on every build until the roll. Stated in the seed header;
+  fixing it would have re-broken silently on the roll.
+- **Not this bug, still open, nobody on it:** the overnight
+  `process_sections_loop_iter_N_generate_content` failures (21:00–01:00, ~38 runs).
+  `192`'s filing counted them as this bug; they are not.

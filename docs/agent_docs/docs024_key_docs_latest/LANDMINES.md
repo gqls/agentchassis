@@ -4803,3 +4803,48 @@ that is also the thing you would want in the logs is not.
   The clobber was found by reading the expander while verifying the bug was still
   valid — it is not stated in `173` itself
 - **added:** 2026-08-04, bugfix_173_substep_error_tolerance lane
+
+### A step whose `output_field` names a key an earlier step wrote REPLACES it — so a "pass-through plus bookkeeping" return shape silently demotes the real value one level
+
+- **footprint:** `output_field` in any `agent_definitions` workflow step ·
+  `platform/orchestration/coordinator.go` (`storeActionResult`, ~line 1858) ·
+  `platform/orchestration/actions/load_current_section_content_action.go` ·
+  `platform/orchestration/actions/plan_sections_action.go` (`section_plan`) ·
+  any action returning `{"<the_thing>": …, "applied": …, "reason": …}`
+- **fires when:** you add a step that *refines* a value an earlier step produced, and
+  reuse that value's key as your `output_field` so downstream `input_mapping`s need no
+  change. This is a **documented, sensible-looking pattern** — seed `299`'s header
+  recommends it in those words — and it is safe **only if your return value is the
+  refined value itself.** Return a wrapper around it plus some bookkeeping and you have
+  replaced the key, not annotated it: `storeActionResult` stores an action's return
+  value **wholesale** under `output_field`
+  (`state.CollectedData[step.OutputField] = result`, no merge, no unwrap).
+- **the tell — and why there isn't one:** **the wrong result looks exactly like the
+  right one.** All the data is still present, one level down, at
+  `<key>.<key>.<field>`. Nothing errors at the producing step; it reports success.
+  The failure surfaces **two steps later**, in whichever consumer first walks the old
+  path, under an error naming *its* missing key — so every reader is sent to the wrong
+  file. In `bugs_open/192` that error (`key 'sections_ready' not found`, raised in
+  `loop_actions.go`) was the whole visible symptom while the fault was an
+  `output_field` declaration in a seed, and it broke **every page build in the fleet**.
+- **the check, and it is one line:** never verify such a value by reading the path you
+  expect — **enumerate the keys**:
+  `SELECT (SELECT string_agg(k, ',' ORDER BY k) FROM jsonb_object_keys(collected_data->'<key>') k) FROM orchestration_states WHERE …;`
+  A `SELECT collected_data->'x'->'y'` returns a quiet NULL for "absent" and for "you
+  are one level too high" alike, so it can only confirm what you already believed.
+  Compare a failing row against a healthy one: two different key sets is the answer.
+  Before writing the step: if your action declares `output_field: X` and X already
+  exists, its return value must **be** an X. Bookkeeping goes to the log, or to a
+  namespaced key **inside** X — never around it.
+- **the second trap, for whoever fixes one of these:** a compatibility shim is only
+  safe where the reader has an **ordered fallback**. `select_sections`' fallback list
+  tolerates both shapes and retires itself because the flat path sits ahead of the
+  wrapper path. `input_mapping` has **no** such ordering — repointing one at the
+  wrapper path fixes it today and silently re-breaks it on the roll, with no error.
+  Leave that one broken and say so.
+- **source:** `bugs_open/192` (filed 2026-08-04 by the `154` lane as undiagnosed;
+  diagnosed and fixed the same day). Introduced by `bugs_open/178`'s fix
+  (`08d0515f3`) + seed `299`; the action's own header promised the plan came back
+  "byte-for-byte unchanged" and its unit test asserted the **wrapper**, so the test
+  passed on the code that caused the outage. WFA-009.
+- **added:** 2026-08-04, bugfix_192_select_sections_wrapper lane
