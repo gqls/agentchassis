@@ -113,9 +113,18 @@ The third is the one worth keeping: it isolates ordering from existence, which a
 
 ## Blast radius, measured before submitting
 
-**Value census** (JSON shape `'%"deploy_path":"%'`, *not* the bare word — the bare
+> **CORRECTED 2026-08-04 (later, see the entry at the foot of this file) — THE TABLE
+> BELOW IS AN ARTEFACT.** `LIKE '%"deploy_path":"%'` cannot match a jsonb column at
+> all, because Postgres renders `jsonb::text` with a **space** after the colon. Every
+> zero here was structural, not measured. Re-measured with
+> `'"deploy_path"\s*:\s*"[^"]+"'` the conclusion is unchanged (0 / 0 / 1, the 1 being
+> this lane's own induced probe — which is how the query is known to work), but these
+> figures as originally written proved nothing. Left standing, struck, because how it
+> was wrong is the transferable part.
+
+**Value census** ~~(JSON shape `'%"deploy_path":"%'`, *not* the bare word — the bare
 word returns 2 definitions and 93 orchestrations, all declarations and this lane's
-own council submissions):
+own council submissions)~~ **— pattern broken, see the correction above**:
 
 | population | values |
 |---|---|
