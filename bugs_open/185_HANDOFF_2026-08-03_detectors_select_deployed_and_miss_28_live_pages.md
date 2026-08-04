@@ -498,3 +498,59 @@ lockstep comment would have steered the next reader into widening `decideEmit` t
 **With this, all three tranches are done.** Remaining open in this file: the
 `tool-archetype-taster-quiz` subject-key mismatch (1 row, tool-acceptance lane's),
 and fix candidate 2 (merging the two liveness constants), both recorded above.
+
+
+---
+
+# TRANCHE 3 ROUND 2 — REVISE answered; the gating objection was right and produced a standing guard
+
+**Round 1 verdict: REVISE**, gated by `prior_art_librarian` [high], with `reuse_agent` and
+`architecture` raising the same point independently: **migration 302 hand-writes the SQL
+predicate that `PageHasShippedPredicateFor` already builds** — the exact re-derivation this
+whole bug exists to stop, committed inside the fix for it. Nobody had verified the two
+matched; the submission asserted it in prose.
+
+**They were right, and prose was the wrong answer.** A migration is SQL text in a file — it
+cannot call the Go builder — so nothing structural ties them and a fourth spelling was one
+edit away. The fix is a **standing test**, not a one-off diff:
+`datahelpers.TestMigration302CarriesTheCanonicalPredicateVerbatim` reads the migration file
+and asserts (a) it contains `PageHasShippedPredicateFor("p")`'s output verbatim, (b) exactly
+once in the **executable SQL**, and (c) **no whitespace-drifted near-miss anywhere in the
+file, comments included**. Bit-for-bit answer to the seats' question: **verbatim match
+confirmed**.
+
+**The test caught its own author mid-write, which is why (b) and (c) are shaped as they
+are.** Version 1 counted over the whole file. Correcting the post-apply doc comment to the
+canonical spelling — the very tidy-up the guard should encourage — turned it red. Scoping
+the count to executable lines keeps the duplicate-column property while letting operator
+paste-blocks quote the predicate, and (c) then makes those quotes carry the canonical
+spelling too. Both new assertions mutation-proved: drift the doc comment → RED; duplicate
+the column in the SQL → RED.
+
+## The other objections, each answered with a check
+
+- **`editquality` [low] — "if `query_database` stringifies scanned columns, the bool
+  assertion silently fails and the fix ships INERT."** The sharpest objection in the round,
+  because the failure would be invisible. Checked in the code, not assumed:
+  `QueryDatabaseAction` (`database_actions.go:100-107`) scans into `interface{}` and
+  converts **only** `[]byte` to string, passing other driver values through — so a Postgres
+  boolean arrives as a Go `bool`. Corroborated in production: the existing
+  `site_has_no_current_plan` column is read by `noCurrentPlanFlag` with the identical
+  `.(bool)` assertion and has worked since 173's era. Recorded in the function's comment so
+  the next reader inherits the check rather than the worry.
+- **`guardian` [low] — "confirm no OTHER agent consumes the load_existing_pages step
+  shape."** Queried: exactly two agents carry a step of that name.
+  `build-site-planner` uses `query_database` **with** a `query` key (migrated);
+  `content-gap-planner` uses a registered Go action `load_site_pages` with **no** query key.
+  And exactly one agent config mentions `site_has_no_current_plan` — the migrated one.
+- **`guardian` [low] — "did earlier tranches' reviews already surface the decideEmit
+  decoupling?"** Grepped both prior council reports: `decideEmit`, `skip_built` and
+  `lockstep` appear **zero** times. This round is the first time it has been put to the
+  council, so there is no earlier ruling to contradict.
+- **`debug_historian` [low] — no pod-grep step named.** The post-roll recipe is in
+  `RUNBOOK_page_role_upsert.md`; for this tranche the symbol is `realisedPageHasShipped`
+  and the config half is already live, so the grep is the Go half's only outstanding proof.
+
+**Not changed:** the `decideEmit` decoupling itself. That was the thing I most wanted
+challenged and no seat challenged it — `guardian` asked only whether it had been ruled on
+before (it had not). The argument stands as submitted: one spelling, two questions.

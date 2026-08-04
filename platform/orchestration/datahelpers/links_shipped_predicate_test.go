@@ -12,6 +12,9 @@
 package datahelpers
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -80,5 +83,73 @@ func TestEmptyAliasProducesNoStrayDot(t *testing.T) {
 	}
 	if strings.Contains(NeverDeployedPagePredicateFor(""), "(.") {
 		t.Error("empty alias produced a stray dot inside COALESCE")
+	}
+}
+
+// TestMigration302CarriesTheCanonicalPredicateVerbatim is the bit-for-bit diff
+// the council's architecture seat asked for on bugs_open/185 tranche 3, kept as
+// a standing drift guard rather than run once in a terminal.
+//
+// Migration 302 surfaces `has_shipped` in build-site-planner's
+// load_existing_pages query. A migration is SQL text in a file — it cannot CALL
+// PageHasShippedPredicateFor — so nothing structural stops its hand-written
+// predicate drifting from the canonical builder, and a fourth subtly-different
+// spelling of "has this page shipped" is precisely the defect family
+// bugs_open/185 exists to close. This test makes the two one: the migration
+// must contain the builder's exact output, so editing either without the other
+// goes red here.
+//
+// If migration 302's file is ever archived/moved, move this assertion onto its
+// successor rather than deleting it — the LIVE row was written from that text,
+// and this test is the only thing tying the row's predicate to the builder.
+func TestMigration302CarriesTheCanonicalPredicateVerbatim(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..", "..")
+	migPath := filepath.Join(repoRoot, "docs", "agent_docs", "sql_for_agents",
+		"302_load_existing_pages_has_shipped.sql")
+	raw, err := os.ReadFile(migPath)
+	if err != nil {
+		t.Fatalf("reading migration 302 (moved? update this test's path AND keep the assertion): %v", err)
+	}
+	mig := string(raw)
+
+	want := PageHasShippedPredicateFor("p")
+	if !strings.Contains(mig, want) {
+		t.Errorf("migration 302 does not carry PageHasShippedPredicateFor(\"p\") verbatim.\n  builder: %s\nThe live build-site-planner row was written from this file; a drifted spelling here is a fourth definition of 'has this page shipped' (bugs_open/185).", want)
+	}
+
+	// Exactly once in the EXECUTABLE SQL — a second occurrence there would mean a
+	// duplicated column. Comment lines are excluded deliberately: this file's
+	// post-apply notes quote the predicate for an operator to paste, and that copy
+	// SHOULD match the canonical spelling too.
+	//
+	// > The first version of this test counted over the whole file and went red the
+	// > moment the doc comment was corrected to the canonical spelling — i.e. it
+	// > punished the fix it exists to encourage. Caught by making that very edit.
+	// > Scoping the count to executable lines keeps both properties: the SQL cannot
+	// > gain a duplicate column, and every quoted copy anywhere in the file is still
+	// > required to be the canonical spelling by the loop below.
+	var sqlOnly []string
+	for _, line := range strings.Split(mig, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+			sqlOnly = append(sqlOnly, line)
+		}
+	}
+	if n := strings.Count(strings.Join(sqlOnly, "\n"), want); n != 1 {
+		t.Errorf("predicate appears %d times in migration 302's executable SQL, want exactly 1", n)
+	}
+
+	// No NEAR-MISS copy anywhere in the file, comments included. A predicate that
+	// differs only in whitespace is the drift this guard exists to catch, and a
+	// wrong copy sitting in an operator's paste-this block is how it spreads.
+	loose := strings.NewReplacer(" ", "", "\t", "").Replace(want)
+	for i, line := range strings.Split(mig, "\n") {
+		squashed := strings.NewReplacer(" ", "", "\t", "").Replace(line)
+		if strings.Contains(squashed, loose) && !strings.Contains(line, want) {
+			t.Errorf("line %d carries a whitespace-drifted copy of the predicate — make it byte-identical to PageHasShippedPredicateFor(\"p\"):\n  %s", i+1, strings.TrimSpace(line))
+		}
 	}
 }

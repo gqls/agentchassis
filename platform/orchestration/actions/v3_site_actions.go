@@ -5190,6 +5190,16 @@ func reconcilePlanWithRealised(
 // dartsonline's brands-index (needs_rebuild, never shipped, 0 sections) must
 // stay composable — and does, because its deployed_at is NULL, so has_shipped
 // is false. Only a needs_rebuild page that actually SERVED empty is gated.
+// THE FALLBACK IS NOT A NO-OP PATH, and the council's editquality seat was right
+// to ask: if `query_database` stringified its scanned columns, the bool assertion
+// would silently fail and this fix would ship INERT — the worst outcome, because
+// nothing errors. Checked, not assumed: QueryDatabaseAction
+// (database_actions.go:100-107) scans into interface{} and converts ONLY
+// []byte to string, passing every other driver value through untouched. lib/pq
+// returns a Postgres boolean as a Go bool, so `has_shipped` arrives as a bool and
+// the assertion holds. The existing `site_has_no_current_plan` column proves the
+// same path in production — noCurrentPlanFlag reads it with the identical
+// `.(bool)` assertion and has worked since migration 173's era.
 func realisedPageHasShipped(rm map[string]interface{}) bool {
 	if v, ok := rm["has_shipped"].(bool); ok {
 		return v

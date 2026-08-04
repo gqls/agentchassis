@@ -13,6 +13,16 @@
 -- deployed_at) reads as "never composed", so a re-plan may inject a layout into
 -- a live page. The Go side now reads `has_shipped`; this migration surfaces it.
 --
+-- The predicate below is PageHasShippedPredicateFor("p")'s exact output, copied
+-- verbatim. A migration is SQL text and cannot CALL the Go builder, so the tie
+-- between them is a TEST, not a compiler:
+-- datahelpers.TestMigration302CarriesTheCanonicalPredicateVerbatim reads this
+-- file and asserts the builder's output appears in it exactly once. Edit either
+-- side without the other and that test goes red (proved by mutating both sides).
+-- If this file is ever archived or renumbered, move that assertion onto its
+-- successor rather than deleting it — the LIVE agent_definitions row was written
+-- from this text, and the test is the only thing tying the row to the builder.
+--
 -- The predicate is the estate's ONE definition of "has been served" —
 -- datahelpers.NeverDeployedPagePredicate, negated — NOT a status list. Naming
 -- needs_rebuild in the predicate is the trap this whole bug is about
@@ -103,7 +113,7 @@ COMMIT;
 -- ---------------------------------------------------------------------------
 -- 1. The step query carries has_shipped exactly once and still runs:
 --    SELECT p.name, p.build_status,
---           NOT (p.deployed_at IS NULL AND COALESCE(p.build_status,'') <> 'deployed') AS has_shipped
+--           NOT (p.deployed_at IS NULL AND COALESCE(p.build_status, '') <> 'deployed') AS has_shipped
 --    FROM pages p WHERE p.site_id = '<site>' AND p.status = 'active' ORDER BY p.name;
 --
 -- 2. Functional, once the chassis with realisedPageHasShipped is rolled: re-plan
