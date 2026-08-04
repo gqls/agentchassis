@@ -4999,6 +4999,52 @@ converter failed to carry — the same class one layer up). Sibling in MEMORY:
 `order-fix-candidates-by-what-closes-the-door` — rank by what makes the bad state
 unrepresentable, and "every caller must remember X" is a defect, not a design.
 
+### A guarantee that is conditional on a CLASSIFIER inherits every gap in that classifier — and a substring classifier over error TEXT fails on capitalisation (2026-08-04)
+
+`bugs_closed/034` closed a real class: validation errors were dropped with no durable
+record, so a whole family of failures was invisible. Its fix persists a queryable row
+before the drop. It is live, induction-proven, and closed.
+
+**It never fires for the platform's commonest permanent config error.** The branch that
+writes the durable row is guarded by a substring classifier:
+
+```go
+if needle := messaging.MatchedValidationNeedle(errMsg); needle != "" { …record + drop… }
+// ValidationErrorNeedles = {"is required", "validation", "invalid", "missing"}   // strings.Contains, CASE-SENSITIVE
+```
+
+and a rejected workflow produces `WORKFLOW_INVALID: Invalid workflow configuration (caused
+by: step 'X' with action 'Y' requires a topic)` — which contains **none** of them. Not
+`"is required"` (it says *requires*), and not `"invalid"`, because both occurrences are
+**capitalised** and the match is case-sensitive. So it is classified as *transient*,
+**retried** (a static config error that can never succeed), and the durable row is never
+written. Measured 2026-08-04 by induced fault: needle-hit warns **0**, `Processing failed`
+**2**, `agent_error_log` rows **0** against a positive control of **1,301 rows/24h**.
+Filed as `bugs_open/195`.
+
+**The transferable pattern, and it is not about capitalisation.** When you close a bug by
+guaranteeing "X is always recorded", ask what decides *whether this is an X* — because the
+guarantee is only as good as that predicate, and a predicate over human-readable prose is a
+category error. The typed code was available at the throw site the whole time
+(`errors.New(errors.ErrWorkflowInvalid, …)`); the classifier reached for the rendered
+message instead. **A closed bug's guarantee should be read as "conditional on its
+recogniser", and the recogniser is usually the part nobody re-checks.**
+
+**The diagnostic trap it sets, which is the expensive half.** The failure is invisible in
+the database *and* the guidance points away from it: a missing `orchestration_states` row is
+documented as almost always queue latency, and that is true for every case except this one.
+The `173` lane lost three dispatches to exactly that reasoning. **The check that beats it:
+grep the chassis log for your `orchestration_name` BEFORE theorising about the queue.** If
+the message is not in the log, latency is live; if it *is* in the log, latency is refuted
+outright and the error is sitting right there. A queue theory explains an absent row; it
+does not explain an absent row **plus a log line showing the message was processed**.
+
+**Cross-references.** `bugs_open/195`; `bugs_closed/034` (the guarantee, and its four drop
+sites — this is a fifth *mode*, mis-classification, not a fifth site); `bugs_open/193` (same
+family in miniature: a config value present, accepted, and silently ignored on a type
+mismatch). `WRONG_CALLS.md` 2026-08-04 records the misdiagnosis; the runbook check is in
+`bugfix_173_substep_error_tolerance/RUNBOOK_substep_error_tolerance.md` §R8.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
