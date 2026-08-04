@@ -1,6 +1,6 @@
 # 100 — The verification write path CANNOT record provenance: it reads the source URL from the LLM
 
-> ## STATUS 2026-07-28 (evening) — FIX IS LIVE AND THE CONSTRAINT ENFORCES. **Stays OPEN on one owed run.**
+> ## STATUS 2026-07-28 (evening) — FIX IS LIVE AND THE CONSTRAINT ENFORCES. ~~**Stays OPEN on one owed run.**~~ → **CLOSED 2026-08-04: the owed run happened and passed — see the closing block at the bottom of this file.**
 >
 > **The title claim is now false, and that is the point:** the write path CAN record
 > provenance. What is left is not a defect — it is this file's own acceptance test,
@@ -333,3 +333,53 @@ FROM business_intel.data_observations ORDER BY collected_at DESC LIMIT 5;
 `no fetch provenance available` names the field it looked in — but chassis logs
 rotate in minutes, so check promptly or read the stored scrape artefacts
 (`upload_results` was flipped on for this step on 2026-08-03, above).
+
+---
+
+## 2026-08-04 (~21:15Z) — THE TWO-COLUMN ACCEPTANCE RAN AND PASSED. CLOSED.
+
+By the successor session to "bugfix 100" (picking up
+`bugfix_179_deploy_path_override/HANDOFF_2026-08-04_continue_here.md` §D7's
+successor instruction). Fresh rows began landing ~1 minute after the restarted
+`vet-batch-verify`'s first tick (20:01:55Z → first row 20:02:53).
+
+**The acceptance, on every row the restarted collection had produced (4 at query
+time), with the operator's positive control induced in the same query** — the
+2026-08-04 jsonb landmine rule: a zero/false is only evidence once the query has
+been shown able to return non-zero:
+
+```sql
+SELECT count(*) AS fresh_rows,
+       count(*) FILTER (WHERE source_url IS NOT NULL AND source_url <> '') AS col1_source_url_recorded,
+       count(*) FILTER (WHERE raw_data ? 'source_url')                     AS col2_model_claimed_MUST_BE_0,
+       count(*) FILTER (WHERE raw_data ? 'prices')                         AS positive_control_operator_fires
+FROM business_intel.data_observations WHERE collected_at > '2026-08-04';
+
+ fresh_rows | col1_source_url_recorded | col2_model_claimed_must_be_0 | positive_control_operator_fires
+          4 |                        4 |                            0 |                               4
+```
+
+- **Column 1**: all 4 rows carry a non-empty `source_url`
+  (`https://greenwoodvet.co.uk`, `hollywoodvets.co.uk`,
+  `sheffield.bestlocalrated.co.uk`, `beechhousevets.co.uk`) — the fetcher
+  recorded it.
+- **Column 2**: zero rows have `raw_data ? 'source_url'` — the model did not
+  claim it. Non-degenerate: `raw_data` on every row is a real 6-key object
+  (`prices, business, vet_staff, vet_details, confidence_score,
+  extraction_notes`, 1.3–1.8KB), and the positive control proves the `?`
+  operator fires on a key that IS present.
+- All 4 rows carry an `orchestration_id`, i.e. they came through the restarted
+  pipeline, not a hand insert.
+
+The `[UNVERIFIED]` shape-mismatch contingency above (chassis log
+`no fetch provenance available`) was not needed — provenance came back populated
+on the first cycle.
+
+**This was the last owed item.** Fix live since v1.0.1192 (pod-verified above),
+constraint 257 enforcing (negative control above), and now the discriminating
+run has happened on real production traffic. Moved to `bugs_closed/`.
+
+For `vetcomparison`: the P1-lifted note in the top block is now *demonstrated*,
+not just structural — the first four restarted crawls all recorded provenance.
+The 2,970 historical unsourced rows remain deliberately untouched; whether they
+need anything is a separate question this file never owned.
