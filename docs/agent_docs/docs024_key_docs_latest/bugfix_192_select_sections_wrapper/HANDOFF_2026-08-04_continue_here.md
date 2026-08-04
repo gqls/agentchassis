@@ -1,5 +1,26 @@
 # HANDOFF 2026-08-04 — `bugs_open/192`, continue here
 
+> ## ⚠ SUPERSEDED — THE LANE IS CLOSED. Nothing here is owed.
+>
+> **`192` is CLOSED, fixed at source, and LIVE on chassis `v1.0.1250`** (both replicas
+> pod-verified). The file moved to
+> `bugs_closed/192_HANDOFF_2026-08-04_select_sections_fallback_dies_on_a_null_link_resolution.md`,
+> whose banner carries the closing evidence.
+>
+> **All five steps in "THE REMAINING SEQUENCE" below were completed:**
+> 1. V3 passed — `page-build-handler` post-roll: `wrapper=false flat=true`, and both handler
+>    and writer reached **COMPLETED**.
+> 2. Seed `311` applied and ledger-recorded. Seed `309` landed in between, and removing the
+>    shim **by value** rather than by index is what stopped it deleting *their* path.
+> 3. V4 is a **named residual belonging to the `178` lane**, not to this one — see the
+>    closed file's banner. The pass-through branch every live build takes IS verified.
+> 4. Closed, moved, `016b` §10 row added.
+> 5. The `webdesign_uk_build_service` lane has been told, in its own NOTES.
+>
+> Kept, unedited below, because it is the record of what was owed at 11:40Z and how it was
+> discharged. **Do not pick work up from it.** The durable lessons are in `WRONG_CALLS.md`,
+> `LANDMINES.md`, `016b` §9, register **WFA-009**, and the `RFC_012` addendum.
+
 **Read this first, then `NOTES_select_sections_wrapper.md` bottom-up.** The lane is
 `bugfix_192_select_sections_wrapper`. Everything below is measured unless marked.
 
