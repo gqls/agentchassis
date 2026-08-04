@@ -141,3 +141,39 @@ on a live probe. **Still owed before closing: one witnessed improvement-loop run
 the gate** (the guard proves SQL, not the engine's parse of the conditions) — planned as
 the same lane's A0.4 specimen drain. Whoever witnesses it: close this as fixed-and-live,
 citing the orchestration id.
+
+---
+
+## 2026-08-04 — CLOSED: fixed AND live, witnessed on a real run
+
+**Orchestration `5d36d7ec-aa00-4acd-8137-6cae34f930f9`** (improvement-loop, specimen
+relojistas.com `ecf15e75`, correlation `44933795-c46a-4bda-9de5-015e0dd69532`, hand-fired
+via `run_improvement_sweep_once.sh` — the manual mode the owner ruled; the sweep task
+itself stays enabled=false). Every proof this file said was owed, witnessed live:
+
+- **The engine PARSED the gate**: `collected_data.audit_state = {audit_due: true,
+  fingerprint: f2fef661f2d9d97148c8c5e1cb465bfe, not_converging: false}` and the
+  audit branch ran (site never audited → cooldown_expired). This was the specific gap —
+  291's guard proved the SQL, not the engine's read of `audit_state.audit_due == true`.
+- **`record_audit_pass`'s two-param binding works**: `sites.settings →
+  maintenance_profile.last_audit = {at: 2026-08-04T08:40:09Z, fingerprint: f2fef661…,
+  passes_at_fingerprint: 1}` — parent materialised, both params bound.
+- **Promotion ran and the drain drained** (the second half of this file): triage promoted
+  **22** items; within minutes **7 were complete**, two ways, both valid:
+  - the stranded 2026-07-19 `empty_section` row closed by **RFC_010 retraction**
+    (`resolved_by: empty_sections`, "re-observed healthy… 25,576 chars render") — the
+    check adjudicated a stale finding rather than dispatching it;
+  - fresh finding `stale_sc_header` (needs_rerender) travelled
+    detected→triaged→claimed→**complete 08:41:31** at rerender-pages, with the artefact
+    visibly changed (`site_components.header/head` updated 08:41:22-23) and a 19-page
+    rerender cascade filed and draining behind it (dispatch-loop observed mid-item
+    08:45:30).
+- Skipped ≠ clean and the not-converging brake were config-proven by 291's guard; the
+  branch exercised live here is the audit-due one, which is the branch this bug's false
+  "clean" lived on.
+
+Pre-flight discipline recorded in the lane NOTES: 5 provably-stale detected rows at the
+specimen were cancelled WITH evidence before firing, so nothing in this proof is a stale
+row churning a live page.
+
+Closed by the vigilant_designer_offer_analysis lane, 2026-08-04.
