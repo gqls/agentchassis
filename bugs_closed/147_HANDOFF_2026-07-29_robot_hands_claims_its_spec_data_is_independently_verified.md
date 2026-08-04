@@ -105,3 +105,47 @@ The `robot_hands` lane (`docs024_key_docs_latest/robot_hands/`) owns this site; 
 `SUMMARY_2026-07-24_robot_hands_residuals_closed.md`, so it is dormant rather than active — I
 have not touched the copy, because rewriting another lane's site voice is theirs to do. A
 pointer is in that lane's NOTES.
+
+## 2026-08-04 (~21:00Z) — CANDIDATE 1 EXECUTED, VERIFIED ON THE WIRE. CLOSED.
+
+Executed by the successor session to "bugfix 100" under the OWNER DECISION above.
+The work was **half the size the filing describes**, and the difference was
+measured before editing anything:
+
+- **`gripper-catalog`/`info-card-grid` needed nothing.** Re-measured tonight: the
+  claim is in NEITHER store (`content_data` f / `rendered_html` f) and the served
+  page has 0 hits — someone rebuilt it honestly since 2026-07-29 (its card 3 now
+  reads "We list our source documents and their dates so you can check them").
+- **`how-it-works`/`generic-text-block` still carried it in both stores and on the
+  wire (1 hit).** `input_schema` checked first: both fields `source: llm`, no
+  `static` overwrite risk. Row backed up (`bak_rh_147_20260804`), then the false
+  clause `" and, where available, independently verified test data"` deleted from
+  `content_data.content` — the very next sentence already states the honest
+  machinery candidate 1 points at ("Each entry records the data source and
+  last-verified date…"), so nothing new was authored in the site's voice.
+- **Rerendered through the queue** (`page_rerender` item `e57e2669`, reason
+  `section_data_resolved` = the no-LLM re-template; all 4 sections pre-checked
+  non-NULL `content_data` so no writer escalation was possible). Orchestration
+  COMPLETED in 42s; component regenerated under a NEW id `5ce2fb2a…` (the known
+  id-instability landmine — verify by page+slot, not id).
+- **Wire verified**: `https://robot-hands.com/how-it-works.html` → 200,
+  `independently verified` ×0, the clean join present ×1, first fetch.
+
+**Dry run, with the before-state as the induced control:**
+
+| | BANNED | negated |
+|---|---|---|
+| before the rerender (claim deployed) | **1** — how-it-works, the exact sentence | 1 |
+| after | **0** | **1** |
+
+**The §How to verify expectation of "2 negated" is stale, and the shortfall is
+copy drift, not a broken guard.** Measured at the store: exactly ONE component on
+the site still contains the phrase at all — `gripper-detail`'s honest sentence,
+which the guard correctly suppresses. The `index`/`features` honest sentence was
+rewritten out of the live copy in the same post-filing wave that fixed
+gripper-catalog (the page no longer contains even the word "independent"). A
+broken guard would have shown the sentence FIRING, not vanishing. The regression
+fixtures (`TestGlobalBlocksTheLiveExternalVerificationOverclaims`) still pin both
+original sentences as must-block, unaffected by site copy.
+
+Fixed AND live → moved to `bugs_closed/`.
