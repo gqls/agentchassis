@@ -251,8 +251,14 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		Slug: function,
 	})
 	if pageName == "" {
-		pageName = function
-		pageURL = fmt.Sprintf("/tools/%s.html", function)
+		// bugs_open/080: this used to fall back to the hand-rolled flat
+		// /tools/<function>.html — the divergent-identity shape the bug is
+		// about, kept alive as an else-branch. An identity that cannot be
+		// canonicalised is refused, not hand-rolled; sanitiseFunction has
+		// already run, so reaching this means the function was empty or
+		// reduced to nothing.
+		params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
+		return nil, fmt.Errorf("tool function %q failed canonicalisation", function)
 	}
 	pageTitle := fmt.Sprintf("%s | %s", displayName, navSection)
 
@@ -376,8 +382,13 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	})
 
 	// --- Create companion guide page ---
-	guideName := pageName + "-guide"
-	guideURL := fmt.Sprintf("/guides/%s.html", guideName)
+	// Identity via the shared canonicaliser (bugs_open/080) — byte-identical to
+	// the old sprintf for every existing guide, and the single authority now.
+	guideName, guideURL, guideIDErr := companionGuideIdentity(pageName)
+	if guideIDErr != nil {
+		logger.Warn("CreateToolComponentAction: companion guide identity failed canonicalisation, guide skipped (non-fatal)",
+			zap.Error(guideIDErr))
+	}
 	guideTitle := fmt.Sprintf("Understanding %s | Guide", displayName)
 
 	// bugs_open/175. Byte-identical to deploy_tool_action's companion-guide upsert
@@ -389,26 +400,30 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	//
 	// Refresh is `title` ALONE, deliberately: a guide already written must not lose
 	// its sections to a tool regeneration. That is the existing behaviour, kept.
-	guidePage, guideErr := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
-		SiteID:             siteID,
-		Domain:             siteDomain,
-		Name:               guideName,
-		PageType:           "blog-post",
-		Source:             "tool-generator",
-		AdoptUnshippedRows: true,
-		Columns: []PageColumn{
-			Col("url", guideURL),
-			Col("title", guideTitle),
-			Col("nav_order", 200),
-			Col("in_header", false),
-			Col("in_footer", false),
-			Col("meta_description", composedGuideMetaDescription(displayName)),
-			JSONCol("sections", `["hero", "article-body", "call-to-action"]`),
-			Col("build_status", "planned"),
-			Col("status", "active"),
-		},
-		Refresh: []string{"title"},
-	}, logger)
+	var guidePage PageRoleResult
+	guideErr := guideIDErr
+	if guideErr == nil {
+		guidePage, guideErr = UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
+			SiteID:             siteID,
+			Domain:             siteDomain,
+			Name:               guideName,
+			PageType:           "blog-post",
+			Source:             "tool-generator",
+			AdoptUnshippedRows: true,
+			Columns: []PageColumn{
+				Col("url", guideURL),
+				Col("title", guideTitle),
+				Col("nav_order", 200),
+				Col("in_header", false),
+				Col("in_footer", false),
+				Col("meta_description", composedGuideMetaDescription(displayName)),
+				JSONCol("sections", `["hero", "article-body", "call-to-action"]`),
+				Col("build_status", "planned"),
+				Col("status", "active"),
+			},
+			Refresh: []string{"title"},
+		}, logger)
+	}
 
 	switch {
 	case guideErr != nil:

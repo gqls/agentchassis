@@ -315,18 +315,35 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// --- 4. Create tool page ---
+	//
+	// bugs_open/080 (concept register TL-010): this arm used to hand-roll
+	// `<bare>` @ /tools/<bare>.html while its sibling create_tool_component
+	// writes the canonical `tool-<bare>` @ /tools/<bare>/index.html — the same
+	// divergent-identity class the gap-planner was fixed for, on a different
+	// pair of surfaces. A NEW tool page now takes the canonical identity from
+	// datahelpers.CanonicalisePage. An EXISTING row under either name keeps its
+	// identity untouched (12 live legacy-shape rows, measured 2026-08-03):
+	// re-deploying under the canonical name while the legacy row stands would
+	// mint a second row — the exact duplicate this bug is about — so the lookup
+	// below reuses whatever identity is already there.
 	pageName := pageNameOverride
-	if pageName == "" {
-		// Derive from function: tool-ab-test-calculator → ab-test-calculator
-		pageName = strings.TrimPrefix(toolFunction, "tool-")
+	var pageURL string
+	if pageName != "" {
+		// Caller-supplied identity is an explicit escape hatch and keeps the
+		// historical URL shape.
+		pageURL = "/tools/" + pageName + ".html"
+	} else {
+		var err error
+		pageName, pageURL, err = resolveToolPageIdentity(ctx, params.DB, siteID, toolFunction)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pageTitle := pageTitleOverride
 	if pageTitle == "" {
 		pageTitle = toolDisplayName
 	}
-
-	pageURL := "/tools/" + pageName + ".html"
 
 	// Get next nav order for tools section
 	var maxNavOrder int
@@ -489,8 +506,13 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 
 	// --- 7. Create companion guide article ---
 	// A blog-post that explains the concept in depth and links to the tool.
-	guideName := pageName + "-guide"
-	guideURL := fmt.Sprintf("/guides/%s.html", guideName)
+	// Identity via the shared canonicaliser (bugs_open/080) — byte-identical to
+	// the old sprintf for every existing guide, and the single authority now.
+	guideName, guideURL, guideIDErr := companionGuideIdentity(pageName)
+	if guideIDErr != nil {
+		logger.Warn("DeployToolToSiteAction: companion guide identity failed canonicalisation, guide skipped (non-fatal)",
+			zap.Error(guideIDErr))
+	}
 	guideTitle := fmt.Sprintf("Understanding %s | Guide", toolDisplayName)
 
 	// bugs_open/175, and this is the arm with the live exposure: the guide name is
@@ -503,26 +525,30 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	// Refresh is `title` ALONE, deliberately: a guide that has already been
 	// written must not lose its sections to a tool redeploy. That is the existing
 	// behaviour, preserved.
-	guidePage, guideErr := UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
-		SiteID:             siteID,
-		Domain:             siteDomain,
-		Name:               guideName,
-		PageType:           "blog-post",
-		Source:             "tool-deployer",
-		AdoptUnshippedRows: true,
-		Columns: []PageColumn{
-			Col("url", guideURL),
-			Col("title", guideTitle),
-			Col("nav_order", 200),
-			Col("in_header", false),
-			Col("in_footer", false),
-			Col("meta_description", composedGuideMetaDescription(toolDisplayName)),
-			JSONCol("sections", `["hero", "article-body", "call-to-action"]`),
-			Col("build_status", "planned"),
-			Col("status", "active"),
-		},
-		Refresh: []string{"title"},
-	}, logger)
+	var guidePage PageRoleResult
+	guideErr := guideIDErr
+	if guideErr == nil {
+		guidePage, guideErr = UpsertPageForRole(ctx, params.DB, PageRoleUpsert{
+			SiteID:             siteID,
+			Domain:             siteDomain,
+			Name:               guideName,
+			PageType:           "blog-post",
+			Source:             "tool-deployer",
+			AdoptUnshippedRows: true,
+			Columns: []PageColumn{
+				Col("url", guideURL),
+				Col("title", guideTitle),
+				Col("nav_order", 200),
+				Col("in_header", false),
+				Col("in_footer", false),
+				Col("meta_description", composedGuideMetaDescription(toolDisplayName)),
+				JSONCol("sections", `["hero", "article-body", "call-to-action"]`),
+				Col("build_status", "planned"),
+				Col("status", "active"),
+			},
+			Refresh: []string{"title"},
+		}, logger)
+	}
 
 	switch {
 	case guideErr != nil:
@@ -600,6 +626,64 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		"cross_links_added": crossLinksAdded,
 		"content_item":      contentItem,
 	}, nil
+}
+
+// companionGuideIdentity derives the (name, url) for a tool's companion guide
+// through the shared canonicaliser — bugs_open/080: both tool surfaces used to
+// sprintf "/guides/<name>-guide.html" by hand, in two files. For role=blog-post
+// under parent "guides" the helper returns exactly that shape (measured
+// byte-convergent 2026-08-03), so this is convergence-enforcement, not a
+// behaviour change — and the helper is the single authority if the convention
+// ever moves.
+func companionGuideIdentity(toolPageName string) (string, string, error) {
+	name, url, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+		Role:          "blog-post",
+		Slug:          toolPageName + "-guide",
+		ParentSection: "guides",
+	})
+	if name == "" {
+		return "", "", fmt.Errorf("companion guide for %q failed canonicalisation", toolPageName)
+	}
+	return name, url, nil
+}
+
+// resolveToolPageIdentity returns the (name, url) a tool page should be
+// written under.
+//
+// bugs_open/080 / TL-010: a NEW tool takes the canonical identity from
+// datahelpers.CanonicalisePage — `tool-<bare>` @ /tools/<bare>/index.html —
+// converging this arm with create_tool_component. An EXISTING row under either
+// the legacy name (`<bare>`) or the canonical one keeps its stored identity
+// untouched: writing the canonical name while a legacy row stands would not
+// conflict on (site_id, name) and so would INSERT A SECOND ROW — the exact
+// duplicate-page failure this bug is about. 12 live legacy-shape rows measured
+// 2026-08-03; none may move.
+//
+// If both names exist (a collision the page_canonical_collision discovery
+// check reports), the canonical row wins.
+func resolveToolPageIdentity(ctx context.Context, db *sql.DB, siteID uuid.UUID, toolFunction string) (string, string, error) {
+	legacyName := strings.TrimPrefix(toolFunction, "tool-")
+	canonicalName, canonicalURL, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+		Role: "tool",
+		Slug: toolFunction,
+	})
+	if canonicalName == "" {
+		return "", "", fmt.Errorf("tool function %q failed canonicalisation", toolFunction)
+	}
+	var existingName, existingURL string
+	err := db.QueryRowContext(ctx, `
+		SELECT name, url FROM pages
+		WHERE site_id = $1 AND name IN ($2, $3)
+		ORDER BY (name = $3) DESC
+		LIMIT 1
+	`, siteID, legacyName, canonicalName).Scan(&existingName, &existingURL)
+	switch {
+	case err == sql.ErrNoRows:
+		return canonicalName, canonicalURL, nil
+	case err != nil:
+		return "", "", fmt.Errorf("resolve existing tool page identity: %w", err)
+	}
+	return existingName, existingURL, nil
 }
 
 // domainSlug returns a slug-safe version of the full domain.

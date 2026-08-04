@@ -167,15 +167,44 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 	pagesCreated := 0
 	itemsCreated := 0
 	skipped := 0
+	unnameable := 0
 	batchID := uuid.New()
 
 	for i, post := range posts {
-		// Sanitise name
-		name := post.Name
-		if name == "" {
-			name = fmt.Sprintf("blog-post-%d", i+1)
+		rawName := post.Name
+		if rawName == "" {
+			rawName = fmt.Sprintf("blog-post-%d", i+1)
 		}
-		name = strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+
+		// Default page type
+		rawPageType := post.PageType
+		if rawPageType == "" {
+			rawPageType = "blog-post"
+		}
+
+		// Canonicalise name / url / page_type through the shared helper, so this
+		// surface produces the same identity as the planner, adoption, gap-planner
+		// and tool paths for the same logical page — doc 029 Phase 0, bugs_open/080.
+		//
+		// Before this, the loop lowercased the LLM's name and synthesised
+		// "/blog/<name>.html" by hand — the exact shape bugs_open/080 was filed
+		// about, on a different surface. For role=blog-post with a clean slug the
+		// helper returns byte-identical output (measured fleet-wide 2026-08-03:
+		// zero existing names change), so only mistyped roles — a news-index, a
+		// guide — change shape, and those are the defect. A snake_case page_type
+		// is kebab'd instead of violating chk_page_type_kebab_case at INSERT.
+		name, url, pageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+			Role: rawPageType,
+			Slug: rawName,
+		})
+		if name == "" {
+			// An identity that cannot be canonicalised is refused, not
+			// hand-rolled — the silent fallback is how divergent rows are minted.
+			logger.Error("Blog post name failed canonicalisation, skipping",
+				zap.String("raw_name", rawName), zap.String("raw_page_type", rawPageType))
+			unnameable++
+			continue
+		}
 
 		// Default sections
 		sections := post.Sections
@@ -183,12 +212,6 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 			sections = []string{"hero", "article-body", "call-to-action"}
 		}
 		sectionsJSON, _ := json.Marshal(sections)
-
-		// Default page type
-		pageType := post.PageType
-		if pageType == "" {
-			pageType = "blog-post"
-		}
 
 		// Check growth budget for blog posts
 		budget, budgetErr := CheckPageGrowthBudget(ctx, params.DB, siteID, pageType, logger)
@@ -204,8 +227,7 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 			continue
 		}
 
-		// URL
-		url := fmt.Sprintf("/blog/%s.html", name)
+		// url comes from CanonicalisePage above — it is no longer synthesised here.
 
 		// Create page record
 		var pageID uuid.UUID
@@ -291,9 +313,10 @@ func CreateBlogPostsAction(ctx context.Context, params ActionParams) (interface{
 		zap.String("batch_id", batchID.String()))
 
 	return map[string]interface{}{
-		"pages_created":  pagesCreated,
-		"items_created":  itemsCreated,
-		"budget_skipped": skipped,
-		"batch_id":       batchID.String(),
+		"pages_created":           pagesCreated,
+		"items_created":           itemsCreated,
+		"budget_skipped":          skipped,
+		"canonicalisation_failed": unnameable,
+		"batch_id":                batchID.String(),
 	}, nil
 }
