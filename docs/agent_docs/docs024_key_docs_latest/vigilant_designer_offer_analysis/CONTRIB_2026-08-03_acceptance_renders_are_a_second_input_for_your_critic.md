@@ -167,6 +167,20 @@ would hit at scale, except a model will not hesitate the way a person did.**
   is reasoning about an image no human will ever see in that form. This is now the
   concrete case for the viewport-metadata question open against `Renders`.
 
+> **CORRECTED 2026-08-04 (bugfix_188 close-out) — §7's warning is now SCOPED, not
+> retired.** The shutter timing was fixed and is live: a render is captured **before**
+> the checks drive the page and its ref carries `Stage:"landing"`, printed on the note
+> line as `(desktop 1366x900@1x, landing state)`. Proven at the artefact the same
+> evening: a fresh simulator run passed 22/22 **including the Clear-pressing check**,
+> and the fetched desktop PNG shows the populated landing state (`bugs_closed/188` §7).
+> **What your critic must still handle:** (1) a **stage-less** ref is the driven state —
+> all failure evidence, every render captured before 2026-08-04, and the rare fallback
+> case where the landing capture itself failed — so gate on `stage == "landing"`, not on
+> the image's existence; (2) the full-page-capture artefacts stand unchanged: the sticky
+> nav can paint mid-page and a mobile full-page PNG is not a viewport view (`Viewport`
+> is on the ref now — use it). The "not reportable" rule above still applies to any
+> image without the landing stamp.
+
 **Also now closed, in your favour:** §5's `[UNFETCHED]` caveat is **spent**. The PNGs
 have been fetched with a real signed GET and read by a person — so the objects
 demonstrably exist and are readable with the adapter's own credentials, which is one

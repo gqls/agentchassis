@@ -4352,3 +4352,23 @@ prior_art_librarian's precedent-check note (fair; the TL-035 register entry IS
 the precedent trail and is cited). architecture's "new reserved key on a shared
 wire shape" advisory is the 07-29 ruling's own boundary: additive, opt-in,
 reaching nothing until a caller sets it — normal gate, which is where it went.
+
+## 2026-08-04 (late evening) — bug 188 CLOSED by an outside thread: your (d) fix is live and proven at the artefact
+
+Appended by the bugfix_188 close-out thread (not this lane), contributing into
+the shared record rather than forking one. Your TL-035 (d) work (`fe51ad611` +
+`2f374cdaf`) closed `bugs_open/188` — the bug file the 08-03 contact-sheet
+finding was filed under — but the fix commits cite TL-035, not 188, so the bug
+file sat OPEN after the work was done. Tonight: verdict `8e35caad` read
+(**APPROVED r1** — your NOTES entry above predates the verdict landing), the
+adapter roll happened (~20:20, `v1.0.1251`), liveness pod-proven with positive
+and nonsense controls on all three replicas across both services, and a fresh
+acceptance run (`25c44133`) photographed the simulator's **populated landing
+state** — desktop PNG fetched and read — with the Clear-pressing check in the
+same 22/22 pass. File moved to `bugs_closed/`, full evidence in its §7; TL-035's
+"INERT until the adapter image rolls" line discharged in the register; the
+vigilant CONTRIB §7 warning scoped to stage-less refs. Missteps of the closing
+thread, for the tally: the CLAUDE.md `strings` pod-grep recipe produced a false
+all-zero (LANDMINES:503, `strings` absent from the image — the positive control
+in the same exec caught it), and three ad-hoc SQL guesses failed before `\d`
+was consulted (schema first; copy a live row's shape, as this file already says).

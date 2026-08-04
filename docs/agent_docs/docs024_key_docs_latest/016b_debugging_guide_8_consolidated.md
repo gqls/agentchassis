@@ -10440,7 +10440,9 @@ reason", and folding it in is obviously right: one capture, no duplicated cost, 
 code path to drift. **What silently comes along is *when* — and the new purpose usually
 needed a different when.**
 
-**The worked case (`bugs_open/188`).** `captureEvidence` photographs a page *after*
+**The worked case (`bugs_closed/188`, closed 2026-08-04 — the capture was hoisted
+ahead of `evaluateOnPage` and the ref stamped with the state it shows).**
+`captureEvidence` photographed a page *after*
 `evaluateOnPage` has driven it, because P3 failure evidence should show the state a run
 failed in — correct, and the comment says so. TL-035 then reused that same capture to
 photograph runs that **passed**, explicitly so opting in would not double a failing run's
@@ -10476,7 +10478,7 @@ the artefact is of the wrong moment.**
 chosen for one alarm and reused for another, an audit row written where it was cheap
 rather than where it is true, a diagnostic dump taken after the recovery path ran.
 
-Related: `bugs_open/188`; TL-035 in `docs026_concept_register/register/tool-lifecycle.md`;
+Related: `bugs_closed/188`; TL-035 in `docs026_concept_register/register/tool-lifecycle.md`;
 `brochure_component_library/NOTES_brochure_component_library.md` 2026-08-03.
 
 ### An enforcement layer keyed on one identifier is blind to every producer that lacks it — and the coverage report keyed on the same identifier cannot see the gap (`bugs_closed/123`, 2026-08-03)

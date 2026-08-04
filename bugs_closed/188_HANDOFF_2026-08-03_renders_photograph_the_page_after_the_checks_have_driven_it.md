@@ -1,7 +1,7 @@
 # 188 — `Renders` photographs the page AFTER the checks have driven it, so a "look at a healthy page" is really a look at the aftermath of a test run
 
 **Filed** 2026-08-03, brochure component library lane.
-**Status** OPEN. Latent today, load-bearing the moment anything automated consumes `Renders`.
+**Status** **CLOSED 2026-08-04 — fixed AND live, behavioural proof at the artefact (§7).**
 **Mechanism** TL-035 (`capture_renders`) — the register entry carries the same finding.
 
 ---
@@ -121,3 +121,74 @@ every render by construction and that separation is load-bearing (TL-035's own l
   §7, which is the warning to the lane most likely to consume this next.
 - The `[UNFETCHED]` caveat that ran through TL-035's docs until this morning is **spent**:
   the PNGs have been fetched with a real signed GET and read.
+
+---
+
+## 7. CLOSE-OUT 2026-08-04 (evening) — fixed by the owning lane under TL-035 (d), verified live and closed by the bugfix_188 thread
+
+**The fix was candidate 1, and it shipped the morning after this file was written —
+under the register entry's number, not this bug's, which is why the file sat OPEN
+while the work was already done.** (The "a handoff outlives its work" shape: the
+asking file is the last to hear. Found by `git log` on the FILE this bug names,
+not by the bug number — the fix commits never say "188".)
+
+- **Fix commits:** `fe51ad611` — landing bytes captured after settle and **before**
+  `evaluateOnPage` (`run_checks_action.go:350-359`), uploaded only if every check
+  passes, ref stamped `Stage:"landing"`, note line says which state the image
+  shows. `2f374cdaf` — the council's advisories: a failed landing capture falls
+  back to an honestly-unstamped driven-state render (never silently zero renders),
+  and the post-settle guarantee is stated at the capture site. Owner delegated the
+  (d) call 2026-08-04.
+- **Council:** APPROVED round 1, submission `8e35caad-9567-4410-a47a-465f8e4f4939`,
+  5 advisories none high; `Council-Reviewed:` trailer on `2f374cdaf`. This
+  close-out adds no platform code, so no further council run.
+- **The §4 trade was decided by the owner's delegated call, and it is smaller than
+  §4 priced it:** the second capture is in-memory only and discarded on failure.
+  The invariant callers depend on — renders never add an **upload** to a failing
+  run — is preserved and pinned (`TestFailureEvidenceStaysDrivenStateAndUploadsOnce`,
+  run_checks_action_test.go:943: 0 renders, 1 screenshot, no stage stamp, exactly
+  1 upload, 2 in-memory shots). The shipped fix also implements candidate 3's
+  honest half (the `Stage` field on the ref), so a consumer never needs deploy
+  dates to know what an image shows — stage-less = driven state, by construction.
+- **§4's warning is respected:** `Renders` did not become a verdict input;
+  `failing_checks` stays null on every render.
+
+**Liveness (the bar for closing), proven at the artefact 2026-08-04 ~21:15 BST:**
+
+- `browser-runner-adapter-75c589f4db-54ltv` (image `v1.0.1251`, the only replica),
+  `grep -a -c` on `/app/browser-runner-adapter`: added string
+  `landing render capture failed` → **1**; positive control `run_checks complete`
+  → **1**; nonsense control → **0**. First attempt used the CLAUDE.md `strings`
+  recipe and returned 0 for target AND control — `strings` is absent from the
+  image (the LANDMINES:503 trap); only the positive control exposed it.
+- Both chassis replicas (`agent-chassis-5455ddcdcc-crnb6`/`-gpr92`):
+  `landing state` → **1** each, nonsense → **0** — the display half
+  (`Stage` parse + note-line tag) is live too.
+
+**Behavioural verification (§5), 2026-08-04 evening — the discriminating run:**
+
+- Work item `547da41f-0616-4ff1-b804-6ac72c4ac1f9` (`operator:bugfix_188`),
+  orchestration `25c44133-98f6-40ed-9590-7f06dc6c0a93` — the first simulator
+  acceptance run since the fix rolled. **All 22 checks passed**, including
+  `cleared-panel-refuses-to-invent-a-number@desktop` — so the checks DID press
+  Clear in this very run.
+- The note's render line now reads `(desktop 1366x900@1x, landing state)` /
+  `(mobile 390x844@3x, landing state)`. **Within-data control:** the 08-02 note
+  for the same tool reads bare `(desktop)` / `(mobile)` — same tool, same
+  category, the difference is exactly the shipped fields.
+- **The desktop PNG was fetched (signed GET, 616,700 bytes, 1366×3618) and READ:
+  it shows the tool as first served** — "Our typical run" preset selected, all
+  8 seats populated, the 70.1% headline computed, blocker chart ranked, reality
+  band drawn. Not the post-Clear empty panel §1 describes. Same run, checks drove
+  the page, photograph predates the driving.
+- **The negative direction (§5's "assert the negative too") is pinned by test
+  rather than induced live**: `TestFailureEvidenceStaysDrivenStateAndUploadsOnce`
+  asserts the failing path still photographs the driven state, and
+  `TestLandingCaptureFailureFallsBackToDrivenRender` (:972) pins the advisory
+  fallback. Inducing a live failure would mean mutating a shared page; the tests
+  assert the exact §5 requirement and were part of the council-reviewed change.
+
+**Left open, deliberately (not this bug):** the sticky-nav-paints-mid-page
+full-page-capture artefact and the mobile hamburger's single bar (§3) — both
+recorded in TL-035 and the vigilant CONTRIB. The hamburger observation may be a
+real page defect and still has no owner.
