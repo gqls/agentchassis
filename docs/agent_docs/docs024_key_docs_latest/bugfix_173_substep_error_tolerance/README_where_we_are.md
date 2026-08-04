@@ -106,3 +106,47 @@ change to shared machinery needs a heavier architecture review. I argued that th
 not need one, and the reviewers agreed with my reasoning — but two of them pointed out that I am
 the author, and the author is not really the right person to decide whether their own change
 needs reviewing. I think the reading is right. I would rather you agreed than assumed.
+
+---
+
+## 2026-08-04, end of day — it's live, it's proven, and the bug is closed
+
+The new build went out and carried the fix. I checked it at the running system rather than
+trusting the build, on both copies, including a deliberately-wrong probe to prove the check
+itself could come back negative — because a test that can only say "yes" isn't a test.
+
+Then I ran the real thing, which is the part that actually mattered and the reason I wouldn't
+close this earlier. I built two throwaway jobs, each with two steps, and made a step fail on
+purpose:
+
+- In the first, the job as a whole was set to "stop on any failure", but the failing step was
+  marked "tolerate me". **Both passes through the loop were skipped and the job finished
+  normally**, with a record of each skip.
+- In the second, the job was set to "tolerate everything", but the failing step was marked
+  "I must not be tolerated". **The job stopped dead at that step**, exactly as it should.
+
+The neat part is that I set each job's overall setting to the *opposite* of the step's. So if
+the fix hadn't worked, each run would have produced the other one's result — there's no way to
+pass both by luck.
+
+I also confirmed the failure genuinely happened rather than the job quietly skipping the whole
+thing, which would have looked like success for entirely the wrong reason. That distinction is
+the difference between a proof and a green tick.
+
+**So bug 173 is closed and filed away.** The throwaway test jobs have been deleted.
+
+**Two things I got wrong today, both now written up.** The first three attempts at the live
+test produced nothing at all, and I put it down to the system being busy — there's even a
+guideline saying that's usually the cause. It wasn't. My test job had one line written in the
+wrong style and was being rejected instantly, every time. The message had been received and
+thrown away within milliseconds, and one look at the system's own log would have told me on the
+first attempt. A ready-made explanation that fits the evidence is the most expensive kind of
+wrong, because it stops you looking. I'd also hidden the output of the command that sends the
+job, "to keep things tidy" — which is precisely how you fail to notice it silently doing
+nothing. Both mistakes are the same mistake: I threw away my own evidence and then reasoned
+about the gap.
+
+**Still open and still yours to answer if you want to**: the question from earlier about
+whether I should be the one deciding that my own change didn't need a heavier review. Nothing
+depends on it — the change is in and working — but two reviewers raised it and I'd rather it
+were settled by you than quietly by me.
