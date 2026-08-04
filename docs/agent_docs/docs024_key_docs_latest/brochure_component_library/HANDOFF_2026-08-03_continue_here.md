@@ -97,3 +97,28 @@ pipeline. What remains open is editorial, not technical (§5).
 `30dde02d1` (seed 296) · `1f375991f` (contact_sheet.py) · `d0a873f97` (viewport,
 Council-Submitted a18db904) · docs commit following this file. Artifact:
 "Acceptance renders — contact sheet" in the owner's gallery (private).
+
+---
+
+## ADDENDUM 2026-08-04 — §5 items 1–3 are resolved; this file stays the cold start
+
+- **§5.1 cadence: DONE.** Owner approved; `crontab -l` → Mondays 08:53,
+  `scripts/weekly_contact_sheet_refresh.sh` (auth pre-check → regenerate →
+  push-notify; log `~/acceptance_renders/refresh.log`). RUNBOOK §"The weekly
+  contact sheet" carries the gotchas: `/snap/bin` on the cron PATH (kubectl is a
+  snap — its absence reads as "token expired"), headless `claude -p` has NO
+  Artifact tool (measured, so the gallery page refreshes on request only), push
+  messages truncate ~200 chars. The artifact is a NEW url
+  (`14a45889-e1f0-46e9-969a-08295cc36650`) — the 08-03 one was deleted from the
+  gallery within a day; treat the URL as replaceable state.
+- **§5.2 camera: DONE — landing state, owner-delegated.** `fe51ad611`, council
+  `8e35caad` (Council-Submitted; READ THE VERDICT — open obligation). Renders
+  now capture before `evaluateOnPage` and carry `Stage:"landing"`; failure
+  evidence unchanged; note line gains `, landing state`. **INERT until the
+  adapter image rolls** — after the roll, verify with a real acceptance run:
+  the note line must carry the stage token, and the simulator's desktop render
+  must show the DEFAULT preset, not the post-Clear empty panel.
+- **§5.3 a18db904 verdict: READ — APPROVED r1**, one low-severity advisory
+  (profileTag refactor minimality). No action.
+- Still open: §5.4 (candidate 1) and §5.5 (watch fleet sweeps) — plus the
+  `8e35caad` verdict, and the post-roll verification above.

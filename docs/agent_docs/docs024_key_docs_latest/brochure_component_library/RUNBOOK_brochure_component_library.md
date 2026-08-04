@@ -916,3 +916,35 @@ Three things that will bite:
 **A render is not a verdict.** `Renders` is empty of `failing_checks` by
 construction and must never become signal — if something starts branching on a
 render's presence, the two-list design has been undone.
+
+## The weekly contact sheet (owner-approved cadence, added 2026-08-04)
+
+The owner asked for the TL-035 render contact sheet on a cadence. What runs:
+
+```
+crontab -l          # 53 8 * * 1 → weekly_contact_sheet_refresh.sh, Mondays 08:53
+tail ~/acceptance_renders/refresh.log     # every run logs here — check FIRST
+```
+
+`scripts/weekly_contact_sheet_refresh.sh` does three things: an auth pre-check
+(the kubeconfig token expires every ~3 days; on a dead token it push-notifies
+the owner instead of silently failing), regenerates
+`~/acceptance_renders/contact_sheet.html` via `contact_sheet.py --limit 8`, and
+push-notifies that the sheet is fresh.
+
+**The claude.ai gallery page does NOT auto-refresh** — measured 2026-08-04:
+headless `claude -p` carries no Artifact tool (checked the roster, not
+assumed). To refresh it, say in any interactive session: *"republish
+~/acceptance_renders/contact_sheet.html as an artifact updating
+https://claude.ai/code/artifact/14a45889-e1f0-46e9-969a-08295cc36650"*.
+If that URL 404s or errors as deleted, the owner removed it — publish fresh,
+then update `ARTIFACT_URL` in the wrapper and this section (it has already
+happened once: the 08-03 page 95bd1577… was gone by 08-04).
+
+Gotchas the first runs paid for:
+- **`/snap/bin` must be on the cron PATH** — kubectl is a snap; without it the
+  auth pre-check reports "token expired" for command-not-found.
+- **Push messages truncate ~200 chars on phones** — keep the actionable part
+  at the FRONT of the message.
+- To stop the cadence: `crontab -e` and delete the line. To change it, edit
+  the schedule there — the script itself is cadence-agnostic.

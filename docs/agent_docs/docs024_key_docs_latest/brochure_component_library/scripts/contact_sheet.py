@@ -121,13 +121,15 @@ def main():
         verdict = "PASSED" if "PASSED" in body.split("\n", 1)[0] else \
                   ("FAILED" if "FAILED" in body.split("\n", 1)[0] else "?")
         skipped = re.search(r"\((\d+) skipped", body)
-        # The tag is "(desktop)" on old notes and "(desktop 1366x900@1x)" once
-        # the viewport field ships — match anything in the parens, first word
-        # is the profile.
+        # The tag is "(desktop)" on old notes, "(desktop 1366x900@1x)" with the
+        # viewport field, and "(desktop 1366x900@1x, landing state)" once the
+        # TL-035 (d) camera change ships — match anything in the parens, first
+        # word is the profile, and the stage token decides the caption.
         uris = re.findall(r"(s3://\S+?\.png)\s*\(([^)]+)\)", body)
         imgs = []
         for uri, tag in uris:
             profile = tag.split()[0]
+            stage = "landing state" if "landing" in tag else "as driven by the checks"
             data, err = fetch_s3(uri, key_id, key)
             if err:
                 imgs.append("<p class='err'>%s: fetch failed — %s</p>" % (profile, err))
@@ -136,9 +138,10 @@ def main():
             jpg, mime, size = thumb(data, width)
             b64 = base64.b64encode(jpg).decode()
             imgs.append(
-                "<figure><figcaption>%s%s</figcaption>"
-                "<div class='frame'><img src='data:%s;base64,%s' alt='%s render'></div>"
-                "</figure>" % (profile, " %dx%d" % size if size else "", mime, b64, profile))
+                "<figure><figcaption>%s%s · %s</figcaption>"
+                "<div class='frame'><img src='data:%s;base64,%s' alt='%s render, %s'></div>"
+                "</figure>" % (profile, " %dx%d" % size if size else "", stage,
+                               mime, b64, profile, stage))
         cards.append("""
 <section class="card {cls}">
   <h2>{subject} — {verdict}</h2>
@@ -153,25 +156,40 @@ def main():
                      "run before calling it a defect)",
             imgs="".join(imgs) or "<p class='none'>no images</p>"))
 
-    html = """<!doctype html><meta charset="utf-8">
-<title>Acceptance renders — contact sheet</title>
+    html = """<title>Acceptance renders — contact sheet</title>
 <style>
- body{font:15px/1.5 system-ui;margin:2rem auto;max-width:860px;padding:0 1rem;background:#fafafa;color:#222}
- .banner{background:#fff3cd;border:1px solid #e0c97f;padding:.6rem 1rem;border-radius:6px}
- .card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:1rem;margin:1.2rem 0}
- .card.pass h2{color:#1a7f37}.card.fail h2{color:#b42318}
- .meta{color:#666;margin-top:-.5rem}
- .shots{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start}
- .frame{max-height:520px;overflow-y:auto;border:1px solid #eee}
- img{display:block;max-width:100%%}
- figcaption{font-size:.85rem;color:#555}
- .err,.none{color:#b42318}
+:root{--bg:#f7f8fa;--card:#fff;--ink:#1c2330;--muted:#5b6575;--line:#dde2ea;
+  --accent:#b45309;--pass:#1a7f37;--fail:#b42318;--frame:#eef1f5}
+@media (prefers-color-scheme: dark){:root{--bg:#141821;--card:#1c222e;--ink:#e6eaf2;
+  --muted:#98a2b3;--line:#2c3442;--accent:#e8a33d;--pass:#4ade80;--fail:#f87171;--frame:#10141c}}
+:root[data-theme="dark"]{--bg:#141821;--card:#1c222e;--ink:#e6eaf2;--muted:#98a2b3;
+  --line:#2c3442;--accent:#e8a33d;--pass:#4ade80;--fail:#f87171;--frame:#10141c}
+:root[data-theme="light"]{--bg:#f7f8fa;--card:#fff;--ink:#1c2330;--muted:#5b6575;
+  --line:#dde2ea;--accent:#b45309;--pass:#1a7f37;--fail:#b42318;--frame:#eef1f5}
+body{font:15px/1.55 system-ui;margin:2rem auto;max-width:880px;padding:0 1rem;
+  background:var(--bg);color:var(--ink)}
+.banner{border:1px solid var(--line);border-left:3px solid var(--accent);
+  background:var(--card);padding:.6rem 1rem;border-radius:6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;
+  padding:1rem;margin:1.2rem 0}
+.card.pass h2{color:var(--pass)}.card.fail h2{color:var(--fail)}
+.meta{color:var(--muted);margin-top:-.5rem}
+.shots{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start}
+.frame{max-height:520px;overflow-y:auto;border:1px solid var(--line);background:var(--frame)}
+img{display:block;max-width:100%%}
+figcaption{font-size:.85rem;color:var(--muted)}
+.err,.none{color:var(--fail)}
+.foot{color:var(--muted);font-size:.85rem}
 </style>
 <h1>Acceptance renders — contact sheet</h1>
-<p class="banner"><strong>A render is a look, never a verdict</strong> — and it shows the
-page <em>as the checks left it</em>, not as a visitor lands on it (interactive checks run
-before the camera fires). Scroll inside each frame.</p>
-%s""" % "".join(cards)
+<p class="banner"><strong>A render is a look, never a verdict.</strong> Images marked
+<em>landing state</em> show the page as a visitor arrives; images marked <em>as driven
+by the checks</em> were photographed after the tests interacted with the page (pressed
+buttons, cleared panels) — on those, an odd-looking state is usually the tests' doing,
+not the page's. Scroll inside each frame.</p>
+%s
+<p class="foot">Regenerated by <code>brochure_component_library/scripts/contact_sheet.py</code>
+— weekly by cron, or on demand.</p>""" % "".join(cards)
 
     out = os.path.expanduser(args.out)
     os.makedirs(os.path.dirname(out), exist_ok=True)

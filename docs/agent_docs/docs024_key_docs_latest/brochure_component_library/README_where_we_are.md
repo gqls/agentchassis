@@ -1598,3 +1598,21 @@ Still open for your call: whether the contact sheet should come to you on a sche
 weekly digest, say) or stay on-demand; and whether the camera should photograph the page
 BEFORE the checks interact with it — that changes what a photograph means, so it is not
 mine to decide.
+
+---
+
+2026-08-04 (brochure lane 2). Your two answers are done.
+
+The contact sheet now comes to you weekly: every Monday morning a scheduled job
+rebuilds it from the latest runs and sends you a notification saying it's ready. If
+the cluster login has expired that morning (it does every few days), you get a
+notification saying that instead — it will never just silently not arrive. The
+claude.ai page version refreshes whenever you ask any session to republish it; I
+republished it today with the latest eight runs. (The page you had is a fresh link
+now — the old one had been deleted, which is fine, they're disposable.)
+
+And the camera question, decided as delegated: the photographs will now show the
+page as a visitor first sees it, not as the tests leave it. Every image is also
+stamped with which of those two states it shows, so old and new photographs can
+never be confused. The change is written, reviewed and committed; it takes effect
+when the next software release rolls out.
