@@ -28,6 +28,7 @@ type fakePage struct {
 	stepErr        map[string]error // selector -> error to return from Do
 	steps          []criteriaStep   // recorded
 	shotErr        error            // error to return from Screenshot
+	failFirstShot  bool             // fail only the FIRST Screenshot call (landing capture), then succeed
 	shotTaken      bool             // recorded: Screenshot was called
 	shotStepsSeen  []int            // per Screenshot call: how many Do steps had run — 0 means the landing state
 	evalResult     interface{}      // canned Evaluate return (render_audit probe)
@@ -75,6 +76,10 @@ func (f *fakePage) Do(step criteriaStep) error {
 func (f *fakePage) Screenshot(fullPage bool) ([]byte, error) {
 	f.shotTaken = true
 	f.shotStepsSeen = append(f.shotStepsSeen, len(f.steps))
+	if f.failFirstShot {
+		f.failFirstShot = false
+		return nil, errors.New("landing capture failed (canned)")
+	}
 	if f.shotErr != nil {
 		return nil, f.shotErr
 	}
@@ -959,5 +964,31 @@ func TestFailureEvidenceStaysDrivenStateAndUploadsOnce(t *testing.T) {
 	}
 	if len(st.keys) != 1 {
 		t.Errorf("renders must never add an UPLOAD to a failing run: %d uploads", len(st.keys))
+	}
+}
+
+// Council 8e35caad (bug_historian): a failed landing capture must not become
+// zero renders — the fallback photographs the driven state, honestly unstamped.
+func TestLandingCaptureFailureFallsBackToDrivenRender(t *testing.T) {
+	ok := &fakePage{status: 200, counts: map[string]int{".tool-container": 1, "#tableWrap tr": 5, "#result": 1}, texts: map[string]string{"#result": "9"}, failFirstShot: true}
+	a := actionWith(map[string]*fakePage{"desktop": ok})
+	st := &fakeStore{}
+	a.store = st
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "r-fallback", URLs: []string{"u"}, Profiles: []string{"desktop"},
+		CriteriaJSON: criteriaDesktopMobile, Function: "tool-x", SiteID: "site-1",
+		CaptureRenders: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Renders) != 1 {
+		t.Fatalf("a failed landing capture must fall back, not vanish: %+v", out.Renders)
+	}
+	if got := out.Renders[0].Stage; got != "" {
+		t.Errorf("the fallback shows the driven state and must NOT claim landing: Stage=%q", got)
+	}
+	if len(st.keys) != 1 {
+		t.Errorf("expected exactly one upload from the fallback, got %d", len(st.keys))
 	}
 }

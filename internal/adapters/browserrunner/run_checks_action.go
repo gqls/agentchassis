@@ -340,9 +340,13 @@ func (a *RunChecksAction) Execute(ctx context.Context, req RunChecksRequest) (*R
 			}
 			// TL-035 (d): a render shows the LANDING state — the page as a
 			// visitor arrives, before any check clicks, fills or clears it.
-			// Capture the bytes now, decide later: they are uploaded only if
-			// every check passes. Best-effort like all evidence; a failed
-			// capture costs the render, never the verdict.
+			// This point is post-settle: a.open returns only after
+			// openChromium's settleDelay wait, so the JS-built DOM has
+			// rendered (council 8e35caad, editquality). Capture the bytes
+			// now, decide later: they are uploaded only if every check
+			// passes. Best-effort like all evidence; a failed capture falls
+			// back to a driven-state render in captureEvidence, never
+			// touches the verdict.
 			var landingPNG []byte
 			if req.CaptureRenders && a.store != nil && page.NavError() == "" {
 				if png, shotErr := page.Screenshot(true); shotErr == nil {
@@ -451,12 +455,24 @@ func (a *RunChecksAction) captureEvidence(ctx context.Context, page browserPage,
 		}
 	} else {
 		// A render is the landing state, captured before evaluateOnPage ran.
-		// nil means that capture failed and its warning is already logged.
-		if landingPNG == nil {
-			return ScreenshotRef{}, false, false
+		// nil means that capture failed (its warning is already logged) — fall
+		// back to photographing the page NOW, driven state, with NO landing
+		// stamp: an honestly-labelled render beats silently zero renders
+		// (council 8e35caad, bug_historian — splitting one guaranteed capture
+		// into an early best-effort one must not add a new way for a
+		// requested render to vanish).
+		if landingPNG != nil {
+			png = landingPNG
+			stage = "landing"
+		} else {
+			var err error
+			png, err = page.Screenshot(true)
+			if err != nil {
+				a.logger.Warn("driven-state fallback render also failed — render skipped, verdict unaffected",
+					zap.String("url", url), zap.String("profile", profile), zap.Error(err))
+				return ScreenshotRef{}, false, false
+			}
 		}
-		png = landingPNG
-		stage = "landing"
 	}
 	key := screenshotKey(req.SiteID, req.Function, req.RunID, profile, urlIdx)
 	uri, viewURL, err := a.store.Save(ctx, key, png)
