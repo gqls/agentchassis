@@ -1,14 +1,19 @@
 # Concept Index — master register
 
-**1,761 index table rows** — 1,758 measured clean 2026-08-04 after DOC-074
+**1,762 index table rows** — 1,758 measured clean 2026-08-04 after DOC-074
 (`concept-register-drift-check`) landed, **+1 for LNK-030** (`ChromeLinkPolicy`,
 added the same day with its entry and its row in one commit, per the
-platform-seams ruling), **and +1 for PBP-032** (the `content_data`
+platform-seams ruling), **+1 for PBP-032** (the `content_data`
 transport-envelope guard, `bugs_open/190`, row and entry added together — but
 see the correction below: the code shipped one commit EARLIER, which the
-platform-seams ruling says it should not have). **The drift pair was clean at
-1,759 rows and 1,759 unique entry ids, 0 rows without an entry and 0 entries
-without a row; re-run it after this commit rather than inheriting that pass.**
+platform-seams ruling says it should not have), **and +1 for PBP-033** (the
+duplicate-section collapse, `bugs_open/156`, row and entry added together — and
+one commit late for the *same* reason as PBP-032, by a different lane, hours
+apart on the same day; both are logged in `WRONG_CALLS.md` and the pair is the
+argument for making condition (2) a pattern-check rather than a thing to
+remember). **The drift pair was clean at 1,759 rows and 1,759 unique entry ids,
+0 rows without an entry and 0 entries without a row; re-run it after this commit
+rather than inheriting that pass.**
 
 > **NOTE on that +1, 2026-08-04:** the local drift harness reads at **`HEAD`**,
 > not the working tree, so it cannot see an entry until it is committed and
@@ -744,6 +749,7 @@ an ID prefix, or a status word.
 | PBP-030 | page-content-writer derives its own `section_plan` when a caller supplies none | live, falsy branch not yet exercised | `section_plan` moves from de-facto-REQUIRED to optional-with-derivation: the writer keeps a caller's plan verbatim, else plans locally and fails loudly rather than compiling an empty page — so no caller, present or future, can reproduce bugs_closed/087 | page-build-pipeline.md |
 | PBP-031 | save_page_sections finds its own structured sections (shared default + declared absence + opt-in refusal) | built, config half live, Go half inert till roll | Which collected_data path holds a section's content_data was the caller's to remember, so 4 of 6 callers silently wrote NULL — the only thing a re-render can regenerate from; the action now consults the validate gate's own default, reports CONTENT_DATA_REGRESSION, and offers require_sections_metadata as an opt-in refusal | page-build-pipeline.md |
 | PBP-032 | content_data transport-envelope guard (refuse, or losslessly decode, at both write seams) | built, inert till roll; save_page_sections call site lands separately | The LLM text-path envelope {type:text, result:<string>} was stored verbatim as content_data — the source every reasoned rerender regenerates from — so a good-looking page carried an armed regression; the guard decodes only on the parser's two lossless provenance tiers and REFUSES on every lossy one, keyed on the envelope signature rather than the key count | page-build-pipeline.md |
+| PBP-033 | duplicate-section collapse at save_page_sections (the save's first self-comparison) | built, inert till roll | Seven guards on this save all compared the incoming set against EXISTING rows or a floor and none compared it against ITSELF, so a doubled list passed all of them and vonc served a whole page twice; collapses only entries indistinguishable in every column the INSERT binds, honours plan-specified repetition, records the adjacency signature the producer hunt lacked | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
 | STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |

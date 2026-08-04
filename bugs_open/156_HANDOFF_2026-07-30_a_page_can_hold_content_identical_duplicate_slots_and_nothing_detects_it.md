@@ -250,3 +250,107 @@ curl -s -w "http_code=%{http_code}\n" https://vonc.com/about.html \
   `site_plan_sections` → `pages` → `page_components` regenerates it
   (LANDMINES, dartsonline lane). Here the plan is already correct at 6, so the
   cleanup is safe — but check that before hand-fixing any *other* page.
+
+---
+
+## Update 2026-08-04 — candidate 1 is BUILT, and this file's own proposed key was WRONG
+
+**Still OPEN.** The code is committed and **inert until the next chassis roll**; the bar is
+*fixed AND live*. Do not close it on the commit. Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_156_duplicate_sections/`.
+Council: correlation `1a3f4f27-a3b9-4388-b899-a36a911a976e`.
+
+### Validity re-measured before starting — and the premise had moved
+
+| this file's claim | 2026-08-04 | verdict |
+|---|---|---|
+| no unique index beyond the pkey | `\d page_components`: 9 indexes, only `page_components_pkey` unique | STANDS |
+| no guard compares sections to each other | read all seven refusal/record blocks; every one compares incoming against **existing rows** or a floor | STANDS |
+| `content_hash` never written | no writer fleet-wide | STANDS |
+| 17 duplicate groups, 6 content-identical | **12 groups, ZERO content-identical** | **CHANGED** |
+
+The vonc six are gone (fixed 07-30). So **there was nothing to repair**, and the guard had to
+be judged solely on whether it could ever destroy a live section — not on what it cleans up.
+
+### The correction that matters most: candidate 1's key would have deleted a live section
+
+This file's candidate 1 says to collapse on `(slot_name, md5(content_data))`. **Its own census
+footnote, forty lines above, says finetuning.uk/our-position-on-ai has two rows with NULL
+`content_data` on both.** Under the proposed key those two are "identical", so the literal
+recommendation would have deleted a live section on a shape this same file flags as a trap.
+The two halves were written for different readers — the footnote warns a future *measurer*,
+the candidate instructs a future *fixer* — and nothing joined them up.
+
+**Shipped rule instead:** collapse an entry only when **every value the INSERT would bind is
+equal, `position` excluded** — `slot_name`, `rendered_html`, `component_id` and
+`content_data`, each with the insert loop's own normalisations (nil and empty `content_data`
+both bind SQL NULL; an unparseable `component_id` binds NULL). Then the collapsed row would
+have been *indistinguishable from its survivor in the database*, so nothing representable can
+be lost. It still catches the whole recorded incident — vonc's six pairs matched on all four.
+
+`rendered_html` in the key is what fixes the NULL-content case. `component_id` is free
+narrowing.
+
+### What was built
+
+- `platform/orchestration/actions/save_sections_dedup.go` (new) — pure seam
+  (`collapseDuplicateSections`) + DB seam + the durable record. Sibling-file shape, so the
+  footprint in `save_page_sections_action.go` is one call and one result key.
+- Call site placed **immediately after the "sections reaching save" diagnostic** (so that log
+  keeps the TRUE arrival count) and **before every guard**. That placement is not tidiness —
+  see below.
+- `platform/orchestration/datahelpers/section_text.go` — comment-only cross-reference on
+  `SectionIdentityKey`, so the next person to widen it reads about the pre-persist rule.
+- 14 tests, each naming the mutation that makes it fail; all seven mutations were **run**.
+
+### Three things found while building it that this file did not know
+
+1. **A doubled list makes four other measurements lie.** The content-regression guard's
+   `newTextLen` is doubled, so a page truly cut to 13% of its deployed text reads as 26% and
+   clears the 25% floor. The completeness floor's numerator is doubled, so a save that saw 2
+   of 6 planned sections but emitted them twice scores 67% and clears the 0.5 floor. The
+   claims record and the `content_data` record both double-count.
+2. **The locked-slot path MANUFACTURES a duplicate of human-locked copy.** With a doubled
+   list the first copy of a locked slot consumes the lock and is discarded
+   (`lr.consumed = true`); the **second copy falls through and is INSERTed beside the locked
+   row**. So this defect does not merely duplicate agent-written sections — it can put a
+   second copy of a slot next to one a human locked. Independent argument for collapsing at
+   the save rather than relying on a post-hoc detector.
+3. **The plan guard had to be mirrored, with the failure direction INVERTED.**
+   `remove_duplicate_page_sections` refuses to delete a repetition the effective plan source
+   specifies (council trail `da3f2d9b`, owner decision 07-31). A save-time collapse ignoring
+   the plan would make the two halves disagree about the same question on the same table. So
+   the guard calls the same `datahelpers.PlanSpecifiedSectionCounts` with the same per-slot
+   accounting — but where the repair **fails closed** (an unreadable plan aborts it, because
+   it is about to DELETE), a collapse guard's conservative direction is **not collapsing**, so
+   a plan read error returns the incoming set untouched. Both mean "do nothing destructive".
+
+### The durable record, and why it is half the value
+
+This file records `[UNRECOVERABLE] the producer of that 12-entry list is not identifiable
+from retained data`. The guard writes `agent_error_log` with code
+`CONTENT_DUPLICATE_SECTIONS_COLLAPSED` carrying exactly what that hunt lacked: which
+extraction path built the list (`sections_source`), the metadata field and its origin, the
+step, the driving work item — and the **adjacency signature**, `adjacent` / `non_adjacent` /
+`mixed`, which preserves the `1,1,2,2,3,3` vs `1,2,3,1,2,3` distinction that ruled out the
+concurrent-save race. **Candidate 4 (find the producer) becomes tractable the first time this
+fires**, which is the first time it has been.
+
+### Candidate 3 (`populate content_hash`) — DELIBERATELY NOT DONE
+
+Recorded as a decision, not an omission. Seven Go call sites INSERT into `page_components`;
+only this one would populate the column, so `content_hash IS NULL` would read as "not a
+duplicate" for every row the other six wrote. A Go-marshal hash would also not equal a hash of
+the jsonb `::text` read back, so the column would carry a value nothing else can recompute — a
+third definition of section identity beside `SectionIdentityKey` and the guard's. **If it is
+ever wanted, the honest shape is a DB-side generated column `md5(content_data::text)`**, which
+covers all writers at once. Owned by nobody today.
+
+### What is still owed
+
+- **The roll.** Then the post-roll pod-grep and the induction in
+  `bugfix_156_duplicate_sections/RUNBOOK_duplicate_sections.md` — a **behavioural** induction,
+  not a grep: feed a save a doubled list and confirm 6 rows and one `agent_error_log` row.
+- **Council verdict** on `1a3f4f27-a3b9-4388-b899-a36a911a976e`.
+- Candidate 4 (the producer) still needs a fresh reproduction. The record above is what makes
+  it findable.

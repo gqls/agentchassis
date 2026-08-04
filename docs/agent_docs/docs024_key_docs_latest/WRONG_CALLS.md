@@ -20121,3 +20121,48 @@ COUNCIL trailer, which I had. Nothing checks the register half, which I did not 
 class is invisible to the tooling that exists today, and stays invisible unless someone
 notices by hand. That is the argument for making it a pattern-check rule, and it is why this
 entry names the check rather than just the mistake.
+
+## 2026-08-04 — the SECOND lane that day to ship a platform seam one commit before its register entry, and I had read the first one's write-up
+
+The entry immediately above this one was written hours earlier by the `bugs_open/190` lane:
+they shipped a guard with code, tests and a council trailer, and put the concept-register
+entry in the *next* commit. Condition (2) of the platform-seams ruling — *"registered in the
+concept register in the same commit that ships it"* — is the whole of the requirement since
+the 2026-07-29 narrowing retired condition (1).
+
+**I then did exactly the same thing, and I had read their entry** — it was on screen while I
+was deciding whether my guard warranted a register entry at all. I committed `84b7d561c`
+(the `bugs_open/156` duplicate-section collapse) with the code, the tests and a
+`Council-Submitted:` trailer, and PBP-033 went in the commit after.
+
+**What is worth more than the repeat is why reading the warning did not stop it.** I read
+their entry as *evidence for a question I was asking* — "do guards like mine get registered?"
+— and their write-up answered it convincingly (yes: CLM-018, the prune floor, PBP-031,
+PBP-032 all have entries). Having extracted the answer, I acted on it, and the *timing* half
+of their lesson went past unused. **A precedent consulted for its content is not a warning
+heeded**; I mined the entry for a fact and left its actual lesson on the page.
+
+There is a second layer, and it is the one I would want a successor to have. I had already
+been careful about the register: I checked whether the sibling guards were registered
+*specifically so that I would not skip mine*. That care is what made it feel handled. The
+decision "this needs an entry" and the act "the entry ships with the code" are different
+things, and satisfying the first is exactly what stops you noticing you have not done the
+second.
+
+**The cheap check, and it is the same one the 190 lane named** — which is itself the finding:
+one command, run before any commit under `platform/`, `internal/` or `pkg/` that adds a shared
+mechanism, requiring a non-empty result *in the same pathspec as the code*:
+
+```bash
+git status --short docs/agent_docs/docs026_concept_register/register/
+```
+
+I did not run it. They named it in their entry, hours before I committed.
+
+**Two independent lanes, same rule, same day, one having documented it for the other: that is
+not two mistakes, it is a missing control.** Neither the `commit-msg` nudge nor the `098`
+coverage report can see this class — both check the COUNCIL trailer, which we both had. The
+tally is now the argument: this belongs in `scripts/pattern-check.py` as a rule, the way the
+WRONG_CALLS tally earned `check_append_only_docs` its place. Filed here rather than built,
+because building it is a change to a shared pre-commit control and belongs to whoever owns
+that script — but the second occurrence in one day is the evidence it was waiting for.
