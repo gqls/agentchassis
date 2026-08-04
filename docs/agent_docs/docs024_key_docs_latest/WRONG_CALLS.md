@@ -20087,3 +20087,37 @@ something looks odd, because nothing looked odd. Everything I did was careful an
 landmine agreed with all of it; the failure cost a full council round and would have cost
 nothing to avoid. **The 173 lane wrote that entry for exactly the person I was that
 afternoon, and the entry reached me only because six LLM reviewers read it for me.**
+
+## 2026-08-04 — I shipped a platform seam one commit BEFORE its concept-register entry, which is the one condition the ordering exemption still requires
+
+The owner ruling of 2026-07-28, as narrowed on 2026-07-29, retired condition (1) of the
+platform-seam ordering exemption and left condition (2) as **the whole of the requirement**:
+a seam must be *"registered in the concept register in the same commit that ships it — not
+'later', because later is how a seam becomes folklore."*
+
+I shipped `ce675f019` (the `content_data` transport-envelope guard, `bugs_open/190`) with the
+code, the tests and the council trailer, and **no register entry**. PBP-032 went in the
+*next* commit. The gap was minutes, not days, and nobody was misled — but the ruling does not
+have a minutes exemption, and the reason it does not is that "I'll register it straight
+after" is precisely what every unregistered seam's author believed.
+
+**What made it easy to miss is worth more than the miss.** I had the seam rules loaded — I
+had already reasoned explicitly about RFC_010 and written the no-opt-in-field argument into
+both the commit message and the submission, because *that* half of the ruling was the one I
+expected to be challenged on. Having thought hard about one condition of a two-condition rule
+made me feel compliant with the rule. **A ruling you have partially satisfied reads as a
+ruling you have satisfied**, and the half you rehearse is the half you can defend, not
+necessarily the half that binds.
+
+The cheap check, and I am putting it in the lane's runbook rather than trusting memory:
+before committing anything under `platform/`, `internal/` or `pkg/` that adds a shared
+mechanism, run `git status --short docs/agent_docs/docs026_concept_register/register/` and
+require a non-empty result **in the same pathspec as the code**. It is one command, it
+answers the only question condition (2) asks, and it fires before the commit rather than
+after it.
+
+Not caught by a hook: the `commit-msg` nudge and the `098` coverage report both check the
+COUNCIL trailer, which I had. Nothing checks the register half, which I did not — so this
+class is invisible to the tooling that exists today, and stays invisible unless someone
+notices by hand. That is the argument for making it a pattern-check rule, and it is why this
+entry names the check rather than just the mistake.
