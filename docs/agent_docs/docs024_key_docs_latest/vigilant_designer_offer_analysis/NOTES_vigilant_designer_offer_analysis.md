@@ -239,3 +239,24 @@ family after the stale index one was cancelled; dedup slots freed correctly) com
 08:54:53 with a real deploy: `/glosario/index.html` committed to vm-sites at 08:54:48Z
 ("Rerender: glosario/index.html"). Browser-visible change on the live site, caused by the
 sweep. Cascade: 1 complete / 1 claimed / 20 triaged, draining ~1 per few minutes.
+
+## 2026-08-04 (mid-morning) — A0.3b WITNESSED: the write tail's first run, four real findings
+
+- Cascade fully drained first: **22/22 page_rerenders complete**, every page deployed.
+- render-audit-agent dispatched at the refreshed site (correlation `71374682`, run
+  `4c2ef5ec`); orchestration site → audit → **write_findings → complete** at 09:35:56.
+- **The .response unwrap PROVEN live** (the loud-fail arm never fired; payload parsed).
+  Output: **83 firm contrast measurements → capped at 60 LOUDLY (findings_capped:true,
+  23 dropped) → 4 unique items INSERTED + 56 in-run duplicates deduped onto them**;
+  3 over_image approximations reported-never-filed; 0 overflow; 0 unattributed images;
+  0 locked skips.
+- **The four rows are css-patch-agent's first-ever work items**, and they are REAL:
+  the site's gold accent rgb(184,149,42) at 2.68–2.85:1 on light backgrounds
+  (A.news-more-link on /index, SPAN.ag-eyebrow + DIV.ag-card-badge on /glosario), and
+  grey-on-grey SPAN.news-list-tag at 3.84:1 on /noticias. All born `detected`,
+  `page_id` SET (the r2 fix), spec carries the handler-contract keys
+  (category/description/suggestion/page_name/affected_url) + the structured measurement.
+  Key invariant held: `contrast_failure:<page>#<selector>`.
+- A0.3b's owed proof (handoff item 3) is CLOSED. Next: one more hand-fired sweep to
+  promote + dispatch these four — css-patch-agent's first dispatch; if the handler
+  misbehaves, that is a REAL finding for the A2 lane, recorded not hidden.
