@@ -309,3 +309,37 @@ work; I have not done it, partly because a fresh version of the platform was bei
 and deployed while I worked, and adding a new image to that traffic is the sort of thing
 better done on a quiet tree. It is written down as the one remaining task, with the three
 options and my recommendation.
+
+**2026-08-04, later — it is running on its own now, and the last bug was the best one.**
+The new check is packaged and deployed: it runs every morning at 06:55, on its own, and
+reports only what is *new* rather than the thousand things it already knows about. That
+was the last piece of the plan, so all eight items are done.
+
+Two things happened on the way that are worth telling you about.
+
+The first was a small failure that improved the design. The packaging step refused to
+include the recorded list of known problems, because the tool that builds these images
+deliberately ignores the documentation folder it was sitting in. Rather than argue with
+that, I moved the list *inside the program itself*. That turned out to be the honest
+version of what I'd written in the comments: the list is the check's own definition of
+"already known", so it should not be a separate file anybody can quietly edit. Now
+silencing a problem is impossible without a visible, reviewable change that someone can
+see and undo.
+
+The second was the real catch. I deployed the job and, rather than trusting that the
+deployment had worked, triggered a run. It never finished. The cause was mundane — the
+cluster couldn't fetch the program because I'd copied the setup from a similar daily job
+that uses freely-available software and therefore needs no credentials. But the *way* it
+failed is the part that matters: a job that cannot fetch its program is reported as
+**still running**, not as failed, for as long as it is allowed to run. So the check would
+have quietly done nothing every morning while appearing merely slow, and the daily record
+it writes — which exists specifically so we can tell "looked and found nothing" apart from
+"stopped running" — would never have appeared at all. A check whose whole purpose is not
+to die quietly would have died quietly, in its first week. It is fixed, and the trap is
+written down for everyone.
+
+There is nothing outstanding from the plan. Two things remain open for you rather than for
+me: the decision I put to you yesterday about whether the older daily check should start
+failing builds (it is now safe to, which it wasn't before), and simply confirming tomorrow
+that the new job runs by itself — the run I did by hand proves everything except the alarm
+clock.
