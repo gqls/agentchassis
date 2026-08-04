@@ -259,3 +259,84 @@ question.
 **Lines 2 and 3 are the load-bearing half.** A pass where all three slots move would
 mean the detector fires on everything and proves nothing about the predicate; the
 slots that must NOT move are what makes this discriminating.
+
+## 2026-08-04 (evening) — THE INDUCTION: fixed end to end, and my prediction was half wrong
+
+`nav-updater` on `mortgagecalculator.co.uk` (corr `99d39542-…`, orch
+`eaf85993-…`, COMPLETED), then a single-page rerender of the one deployed page
+(orch `620ecd88-…`, COMPLETED).
+
+**The detector fired, and it is the clean evidence:**
+
+```
+caller: actions/chrome_link_policy.go:199
+msg:    site chrome: marked a slot whose stored chrome links to a page the policy now refuses (bugs_open/191)
+slot:   header    href: /tools/stamp-duty/index.html    reason: target page has never been deployed
+pod:    agent-nav-updater-aa619d34-76x68  (image v1.0.1251)
+```
+
+**Exactly ONE occurrence — the header. Footer and head were not marked.** That is
+the discriminating result: the detector distinguishes between slots rather than
+firing on everything.
+
+**On the wire, before → after:**
+
+| | before | after |
+|---|---|---|
+| `site_components.header` CTA | `/tools/stamp-duty/index.html` | **absent** |
+| served `/guides/first-time-buyer/index.html` | `href="/tools/stamp-duty/index.html" class="header-cta"` | **`header-cta` count 0** |
+| that page's `last-modified` | Mon 03 Aug 11:06 GMT | **Tue 04 Aug 19:32 GMT** |
+| `/tools/stamp-duty/index.html` | 404 | 404 (unchanged — building it was the explicit anti-fix) |
+
+This also **discharges the round-2 render_guardian objection empirically**, not just
+by citation: the corrected `site_components` row reached a deployed page file
+through an ordinary page re-assembly, exactly as `assemblePage`'s fresh read
+predicted.
+
+### ⚠ MISSTEP 1 — my prediction's OBSERVABLE was contaminated; its MECHANISM was right
+
+I predicted footer and head would NOT move, and **all three slots moved.** Read
+literally, my prediction failed.
+
+The cause is that `nav-updater`'s live config carries **`"force_rerender": true`**,
+which I had not checked before predicting. Force re-renders every slot regardless
+of any mark, so `updated_at` could not discriminate — it was going to move for all
+three whatever my code did. The mechanism prediction (which slot gets **marked**)
+was exactly right, and the log line is the observable that was never contaminated.
+
+**Had the outcome been "the CTA is fixed", I could have claimed success from a run
+that never exercised the detector at all** — force alone re-renders the header, and
+the new CTA logic (which is in the same binary) would have produced the same
+corrected result. The `chrome_link_policy.go:199` line is the only thing that
+separates "my detector worked" from "something else re-rendered and the policy
+half did the rest".
+
+**The cheap check: read the trigger's own config before choosing what to observe.**
+One query — `default_config #>> '{workflow,steps}'` for `nav-updater` — would have
+shown `force_rerender: true` and told me to predict on the log line, not `updated_at`.
+
+### ⚠ MISSTEP 2 — I curled the homepage and nearly concluded there was no live defect
+
+First wire check was `https://mortgagecalculator.co.uk/` → **0** `header-cta`
+occurrences, `last-modified: Sun 02 Aug 23:17 GMT`. That reads as "no dead button
+is being served, so the bug was only ever in stored data".
+
+Wrong. That file **predates the 03 Aug chrome render** that created the bad CTA,
+and `/` is not one of this site's deployed `pages` rows at all. The site's single
+deployed page — `/guides/first-time-buyer/index.html`, `last-modified` 03 Aug
+**11:06**, six minutes after the chrome render — carried
+`href="/tools/stamp-duty/index.html" class="header-cta"` on the wire.
+
+**The cheap check: curl the pages the site actually DEPLOYED, taken from the `pages`
+table, not the URL you would type as a human.** A site's homepage is not necessarily
+a deployed row, and a served file older than the artefact you are testing cannot
+carry it — compare `last-modified` against the render timestamp before reading
+anything into an absence.
+
+### The fleet, after
+
+The corrected closing query returns **one** row: `lendzy.co.uk` →
+`/tools/price-cap-checker/index.html`, which **serves HTTP 200**. That is the
+false positive the bug file predicted and warned about (`deployed_at IS NULL` means
+"no recorded deploy", not "does not serve"). Its stored chrome will be corrected the
+next time anything renders that site's chrome; there is no live 404 to chase.
