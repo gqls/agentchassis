@@ -171,6 +171,14 @@ type collapsedDupGroup struct {
 // applied. Two entries with equal identities would write rows nothing can tell
 // apart.
 //
+// SectionData.ComponentName IS the slot_name — it is bound to that column
+// directly (`save_page_sections_action.go`, the INSERT: `slot_name` is $4 and
+// the argument is `section.ComponentName`). Stated because the two names differ
+// and a reader checking this key against the stated rule "(slot_name,
+// rendered_html, component_id, content_data)" would otherwise have to go and
+// confirm it; council round 1 (edit-quality seat, correlation 1a3f4f27) asked
+// exactly that question.
+//
 // idx is used only to make an unmarshallable content_data unique: if we cannot
 // compute the blob we cannot claim two entries are identical, so the guard
 // abstains for that entry rather than guessing. (Mirroring the INSERT exactly

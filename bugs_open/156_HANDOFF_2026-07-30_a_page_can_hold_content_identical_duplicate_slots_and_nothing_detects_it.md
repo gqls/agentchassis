@@ -354,3 +354,42 @@ covers all writers at once. Owned by nobody today.
 - **Council verdict** on `1a3f4f27-a3b9-4388-b899-a36a911a976e`.
 - Candidate 4 (the producer) still needs a fresh reproduction. The record above is what makes
   it findable.
+
+### Council verdict 2026-08-04 — **APPROVED round 1**, three advisory objections, none high
+
+`1a3f4f27-a3b9-4388-b899-a36a911a976e`. *"approved with 3 advisory objection(s) — none
+high-severity"*. Two were answerable with evidence and are answered; one is a real open
+question and is recorded below rather than closed.
+
+**Answered.**
+- *edit-quality (low): is `SectionData.ComponentName` the same thing as `slot_name`?* Yes —
+  the INSERT binds `slot_name` as `$4` and passes `section.ComponentName`. Checked, and a
+  comment now says so in `save_sections_dedup.go`, because the two names differ and the next
+  reader would otherwise have to go and confirm it too.
+- *reuse_agent (missing): the "no other identity/plan-count mechanism exists" claim rested on
+  my own reading, not an index check.* Fair. Confirmed by grep over `platform/ internal/ pkg/`
+  excluding tests: `SectionIdentityKey` and `PlanSpecifiedSectionCounts` are the **only** two
+  such functions fleet-wide. (Noting the standing caveat that the code index is frozen at
+  `d98010e8b` and would read a new symbol as absent, so grep is the right instrument here, not
+  `code_checks`.)
+
+**NOT answered — an open question for a human, raised by `bug_historian` at MEDIUM and worth
+carrying forward:**
+
+> *"the guard lands only in `SavePageSectionsAction`. `page_components` still has no DB-level
+> invariant… Six other Go call sites insert into `page_components`; today they write single
+> rows so this specific bug can't recur through them, **but that is a fact about CURRENT
+> callers, not an enforced mechanism**. Any future writer that emits a multi-row list bypasses
+> the guard entirely with no loud failure."*
+
+The seat is right, and it named the family: this is the `missingkey=zero` shape — one guarded
+call site, the underlying behaviour left generic. **My scope boundary is accurate and is not a
+defence**: "the other six cannot manufacture a doubled list" is true of the six that exist
+today and of nothing else.
+
+The shape that would actually close it is the one this file's candidate 3 gestures at, but
+**DB-side rather than in Go**: a generated column or partial unique index keyed on content
+identity, which covers every writer at once and cannot be forgotten by a new one. It is not
+urgent — live exposure is nil — and it is a schema change to a hot table, so it wants its own
+lane and its own measurement, not a rider on this one. **Scheduling it is an owner call**;
+recorded here and in **PBP-033**'s entry so it does not evaporate with this session.
