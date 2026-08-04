@@ -19352,3 +19352,30 @@ written in CLAUDE.md — *"a `[MEASURED]` figure is only evidence if the measure
 could have come out otherwise"*. I followed the marker rule in full: dated, sourced,
 JSON-shape-not-bare-word, three populations. Every one of those disciplines was
 satisfied by a query that was structurally incapable of returning anything else.
+
+---
+
+## 2026-08-04 — bugfix_140 lane: `kubectl apply` succeeded, so I nearly called the CronJob deployed
+
+**The claim.** `make deploy-component-render-check` printed `cronjob.batch/... created` and
+listed the CronJob with its schedule. That is a deployment succeeding, and it was very
+nearly the evidence I recorded for "the check is standing".
+
+**Why it was worthless.** The image could not be pulled — the manifest was copied from
+`component-fallback-check`, which pulls the PUBLIC `postgres:16-alpine` and so carries no
+`imagePullSecrets`, while this one pulls from the private `aqls/` repo. Every scheduled run
+would have failed. And it would have failed **invisibly**: a pod in `ImagePullBackOff`
+leaves its Job reporting `Running 0/1` until `activeDeadlineSeconds` expires — never
+`Failed` — so the daily check would have looked slow rather than dead, and the `doc_notes`
+row that exists precisely to distinguish "looked and found nothing" from "stopped running"
+would never have been written at all.
+
+**What caught it:** triggering one run instead of trusting the apply, then reading the POD
+rather than the Job — `get job` said `Running`, `get pods` said `ImagePullBackOff`.
+
+**The cheap check that would have caught it:** after deploying ANY new CronJob, create one
+Job from it and confirm the **pod** reaches `Completed`, then verify the job's ARTEFACT
+(its row, its file) rather than its status. Family: "a `complete` work item is not a
+repaired artefact", and "prove a deploy at the artefact, never at a status" — this is the
+same rule one level up, applied to the deploy itself rather than to the code in it.
+Prospective form: LANDMINES, footprint `imagePullSecrets`.
