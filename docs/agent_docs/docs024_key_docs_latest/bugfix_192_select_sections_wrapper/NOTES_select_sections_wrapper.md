@@ -388,3 +388,34 @@ that failing loud after the roll cannot break a legitimate build because
 `section_plan.ready_count > 0` whose `then_step` is the only route onward, and it runs
 **before** `load_current_section_content`, so it reads the FLAT plan and was never itself
 broken by the wrapper. Consistent with builds failing at `select_sections` and not earlier.
+
+## 2026-08-04 ~11:40 — the roll landed: v1.0.1250, both replicas pod-verified
+
+Owner deployed a fresh chassis. Pods `agent-chassis-88cf8787-4dzzx` (started 10:29:40Z)
+and `-5z5sn` (10:29:20Z), image `docker.io/aqls/agent-chassis:v1.0.1250`.
+
+**Grepped the RUNNING BINARY on BOTH replicas, never git and never the tag** — a roll is
+not evidence a fix shipped:
+
+| string | 4dzzx | 5z5sn | what it proves |
+|---|---|---|---|
+| `resolved via no configured path` | 1 | 1 | `extract_fields.required` is live |
+| `keys present at this level` | **2** | **2** | the loop diagnostic, **both** branches (map + string-JSON) |
+| `returning it unchanged rather than replacing it` | 1 | — | the fingerprint unwrap (2nd instance) |
+| `ExtractFieldsAction: Found via input_data prefix` | 1 | 1 | **positive control** — pre-existing, proves the probe reads the binary I think it does |
+
+The `2` is not a surprise to be explained away: I changed the message at **two** call
+sites in `getNestedValueForLoop`, so 1 would have meant a partial ship.
+
+**A note on the negative control I could NOT construct, stated rather than skipped.** The
+standing rule is to grep a string the change ADDED *and* one it REMOVED (expect 0). I have
+no clean removed string: every message I touched I **extended** rather than replaced
+(`"Fingerprint is not a map"` → `"Fingerprint is not a map, returning it unchanged…"`), so
+the old literal is a **prefix of the new one** and greps 1 on both old and new binaries —
+it discriminates nothing. What does the work instead is that the added strings are long and
+absent from any earlier build, plus the positive control proving the pipeline. Worth
+knowing for next time: **if you want a negative control, replace a string rather than
+extending it** — extending is friendlier to readers and destroys the cheapest deploy proof.
+
+**Dispatch timing respected:** ~300s must elapse after a chassis pod restart or the spawn
+is silently dropped. Induced the verification build at 10:37:50Z, **8m10s** after pod start.
