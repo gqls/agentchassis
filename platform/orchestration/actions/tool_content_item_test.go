@@ -211,7 +211,7 @@ func TestToolPageDeclaredSections_PriorityOrder(t *testing.T) {
 	mock.ExpectQuery("SELECT sections FROM pages").
 		WillReturnRows(sqlmock.NewRows([]string{"sections"}).AddRow([]byte(`["from-pages-table"]`)))
 
-	sections, source := toolPageDeclaredSections(context.Background(), db, zap.NewNop(), uuid.New(), "tool-x")
+	sections, source := declaredPageSections(context.Background(), db, zap.NewNop(), uuid.New(), "tool-x")
 
 	if source != "site_plan_tables" {
 		t.Errorf("source = %q, want %q", source, "site_plan_tables")
@@ -236,7 +236,7 @@ func TestToolPageDeclaredSections_SpecAspectBeatsPagesTable(t *testing.T) {
 	mock.ExpectQuery("SELECT sections FROM pages").
 		WillReturnRows(sqlmock.NewRows([]string{"sections"}).AddRow([]byte(`["from-pages-table"]`)))
 
-	sections, source := toolPageDeclaredSections(context.Background(), db, zap.NewNop(), uuid.New(), "tool-x")
+	sections, source := declaredPageSections(context.Background(), db, zap.NewNop(), uuid.New(), "tool-x")
 
 	if source != "site_specs" {
 		t.Errorf("source = %q, want %q", source, "site_specs")

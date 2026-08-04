@@ -30,13 +30,21 @@
 //   section-data reconciler) so multiple image
 //   completions for one page collapse to a single re-render via idx_swi_dedup.
 //
-// VERIFY BEFORE RELYING ON IT
-//   This emits needs_page with a page_name-only spec, on the assumption that
-//   page-build-handler re-derives page context (page_id, type, sections) from
-//   the page record by name — which is how reconcile-emitted needs_page items
-//   are consumed. If page-build-handler instead requires richer spec fields,
-//   switch this to flag needs_rebuild only and let reconcile re-emit, or copy
-//   the reconcile spec shape.
+// VERIFIED, AND GUARDED (bugs_open/187, 2026-08-03)
+//   The page_name-only spec is fine: page-build-handler does re-derive page
+//   context (page_id, type, sections) from the page record by name, which is how
+//   reconcile-emitted needs_page items are consumed. What was NOT true is the
+//   tacit half of that assumption — that a named page resolves any sections at
+//   all. It measured false: 14 of the items this action minted parked for ever
+//   in needs_human_review because the page they named declared none, so the
+//   handler had nothing to build and no-oped them into the review queue.
+//   The emit therefore asks the handler's own question first, at emit time and
+//   read-only: pageSectionsSatisfiable (page_section_satisfiability.go) walks
+//   load_page_sections_from_spec_action.go's fallbacks 1 to 3 and then the
+//   current-plan membership that licenses its sibling synthesis. Unsatisfiable →
+//   no item, an INFO log, and `needs_page_emit: skipped_sectionless_page` in the
+//   return map. The needs_rebuild flag half stays UNCONDITIONAL: flagging a page
+//   costs nothing, releases no dependency and parks nothing.
 //
 // WIRING (image-build-handler workflow — terminal step, after store + deploy):
 //   "flag_rebuild": {
@@ -129,7 +137,29 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 		return nil, fmt.Errorf("flag page for rebuild: %w", err)
 	}
 
-	// 2. Emit needs_page so page-build-handler re-renders through plan_sections.
+	// 2. Emit needs_page so page-build-handler re-renders through plan_sections —
+	//    but only when it would find sections to build. A page that resolves none
+	//    and is in no current plan cannot be re-rendered by the handler; the item
+	//    would no-op straight into needs_human_review and stay there
+	//    (bugs_open/187). The skip is surfaced, not swallowed: an INFO log the
+	//    fleet can grep and a disposition in the return map, because a guard that
+	//    declines silently is indistinguishable from one that never ran.
+	satisfiable, declared, sectionSource := pageSectionsSatisfiable(ctx, params.DB, logger, siteID, pageName)
+	if !satisfiable {
+		logger.Info("flag_page_image_rebuild: skipped_sectionless_page — the page resolves no sections and is in no current plan, so page-build-handler would park the item; see bugs_open/187",
+			zap.String("site_id", siteID.String()),
+			zap.String("page", pageName),
+			zap.String("sections_source", sectionSource))
+		return map[string]interface{}{
+			"rebuilt":         false,
+			"reason":          "sectionless_page",
+			"page_name":       pageName,
+			"flagged":         true,
+			"needs_page_emit": "skipped_sectionless_page",
+			"sections_source": sectionSource,
+		}, nil
+	}
+
 	batchID := uuid.New()
 	spec := fmt.Sprintf(`{"reason":"image_landed","page_name":%q}`, pageName)
 	itemKey := fmt.Sprintf("page_rerender:%s", pageName)
@@ -162,6 +192,13 @@ func FlagPageImageRebuildAction(ctx context.Context, params ActionParams) (inter
 	}
 
 	logger.Info("flag_page_image_rebuild: queued page re-render",
-		zap.String("site_id", siteID.String()), zap.String("page", pageName))
-	return map[string]interface{}{"rebuilt": true, "page_name": pageName}, nil
+		zap.String("site_id", siteID.String()), zap.String("page", pageName),
+		zap.String("sections_source", sectionSource),
+		zap.Int("declared_sections", len(declared)))
+	return map[string]interface{}{
+		"rebuilt":         true,
+		"page_name":       pageName,
+		"needs_page_emit": "raised",
+		"sections_source": sectionSource,
+	}, nil
 }

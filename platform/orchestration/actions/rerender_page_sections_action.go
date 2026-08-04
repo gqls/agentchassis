@@ -339,10 +339,18 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 				zap.String("page", pageName),
 				zap.String("section", s.slotName),
 				zap.String("reason", reason))
-			if err := escalateRerenderToWriter(ctx, params.DB, siteID, pageName, logger); err != nil {
+			disposition, err := escalateRerenderToWriter(ctx, params.DB, siteID, pageName, logger)
+			if err != nil {
 				return nil, fmt.Errorf("escalate to writer: %w", err)
 			}
-			out["escalated"] = true
+			// Either way this page is not re-rendered here — rendering a section
+			// with no content would blank it. Both facts are named in the output:
+			// `escalated` says an item was raised, `skipped` says nothing was
+			// re-rendered, and `escalation` says which of the two happened
+			// (bugs_open/187 added the skip; bugs_open/182 is why it is named).
+			out["escalation"] = disposition
+			out["escalated"] = disposition == "raised"
+			out["skipped"] = disposition != "raised"
 			out["section_count"] = len(stored)
 			return out, nil
 		}
@@ -774,9 +782,6 @@ func buildRerenderBaseData(ctx context.Context, db *sql.DB, siteID uuid.UUID, do
 	return base
 }
 
-// escalateRerenderToWriter emits a needs_page work item so page-build-handler
-// rebuilds the page through the writer (regenerate + backfill content_data).
-// Keyed needs_page:<page> so it co-dedups with reconcile_site_plan's items.
 // isSelfContainedSection reports whether a section's component renders entirely
 // from its own template, with no LLM-authored content_data to supply.
 //
@@ -800,10 +805,35 @@ func isSelfContainedSection(comp componentInfo) bool {
 	return level == "tool"
 }
 
-func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, logger *zap.Logger) error {
+// escalateRerenderToWriter emits a needs_page work item so page-build-handler
+// rebuilds the page through the writer (regenerate + backfill content_data).
+// Keyed needs_page:<page> so it co-dedups with reconcile_site_plan's items.
+//
+// GUARDED (bugs_open/187). The trigger for this escalation is a section with no
+// stored content_data, and that is not always a defect: a widget slot rendering
+// from something other than content_data legitimately carries none, so on a
+// page that declares no sections the escalation was a FALSE ALARM asking the
+// writer to rebuild from a section plan that does not exist. Four such items
+// parked in needs_human_review and nothing drained them. If the handler would
+// resolve no sections and the page is in no current plan, no item is emitted.
+//
+// Returns the disposition so the caller can put it in the action's output —
+// "raised", "skipped_sectionless_page", or "escalate_failed" alongside a
+// non-nil error. A no-op that only the absence of a row records is a silent
+// no-op (bugs_open/182).
+func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, logger *zap.Logger) (string, error) {
+	satisfiable, _, sectionSource := pageSectionsSatisfiable(ctx, db, logger, siteID, pageName)
+	if !satisfiable {
+		logger.Info("rerender_page_sections: skipped_sectionless_page — the page resolves no sections and is in no current plan, so the writer has no plan to rebuild from; see bugs_open/187",
+			zap.String("site_id", siteID.String()),
+			zap.String("page", pageName),
+			zap.String("sections_source", sectionSource))
+		return "skipped_sectionless_page", nil
+	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
+		return "escalate_failed", fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -824,7 +854,10 @@ func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		itemKey:      fmt.Sprintf("needs_page:%s", pageName),
 		batchID:      batchID,
 	}, logger); err != nil {
-		return fmt.Errorf("emit needs_page: %w", err)
+		return "escalate_failed", fmt.Errorf("emit needs_page: %w", err)
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return "escalate_failed", fmt.Errorf("commit: %w", err)
+	}
+	return "raised", nil
 }

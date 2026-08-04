@@ -143,9 +143,17 @@ type reviewRevalidator func(ctx context.Context, db *sql.DB, item parkedReviewIt
 // map yields 'unknown' and is counted in uncovered_types, so the coverage gap is
 // reported rather than silently read as "nothing to drain".
 //
-// All three v1 entries reduce to the same question — are the fields this item
+// The three v1 entries reduce to the same question — are the fields this item
 // names now populated on the currently-deployed component? — differing only in
 // which spec key carries the field list.
+//
+// needs_page (added 2026-08-03, bugs_open/187) asks a different one: was the
+// PAGE built? It was the largest uncovered type in the queue and the only one
+// with a producer-side defect behind it — 28 items minted for pages that
+// resolved no sections, parked for ever because nothing drained the type. Its
+// implementation lives in page_section_satisfiability.go, beside the resolver
+// the emit-side guards use, so the two ends of an item's life cannot answer the
+// same question differently.
 var reviewRevalidators = map[string]reviewRevalidator{
 	// spec.missing: ["cta_url", "secondary_cta_url"]
 	"unresolved_cta": revalidateNamedFields("missing"),
@@ -153,6 +161,8 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	"required_fields_missing": revalidateNamedFields("missing_fields"),
 	// spec.missing: [{"field":"email","source":"site_specs.identity.email"}, …]
 	"needs_section_data": revalidateNamedFields("missing"),
+	// spec.page_name: "tungsten-guide"
+	"needs_page": revalidateNeedsPage,
 }
 
 func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (interface{}, error) {

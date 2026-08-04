@@ -170,8 +170,13 @@ func TestSpecString(t *testing.T) {
 // cta_link_integrity workstream / bugs_open/023, which already knows a chunk of
 // them are false positives of its own excluded-area branch. Registering a
 // revalidator for it here would put two threads on one check.
+//
+// needs_page joined the set on 2026-08-03 (bugs_open/187): 28 items of that type
+// were parked and no revalidator existed for it, so items whose page was later
+// built by another route sat for ever. Its verdicts are pinned in
+// page_section_satisfiability_test.go.
 func TestRevalidatorCoverageIsDeliberate(t *testing.T) {
-	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data"}
+	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page"}
 	for _, itemType := range want {
 		if _, ok := reviewRevalidators[itemType]; !ok {
 			t.Errorf("revalidator for %q is missing", itemType)

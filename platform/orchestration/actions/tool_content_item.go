@@ -34,13 +34,15 @@
 // with the selector defect 176 records, stalled the entire fleet twice on
 // 2026-08-02.
 //
-// THE CONTRACT WITH THE HANDLER. The resolution below mirrors
+// THE CONTRACT WITH THE HANDLER. The resolution is declaredPageSections
+// (page_section_satisfiability.go), which mirrors
 // load_page_sections_from_spec_action.go's fallbacks 1 to 3, in its order, first
 // non-empty source winning — because the question asked here is exactly the
 // question the handler asks later, and an answer taken from a different source
-// order would be an answer to a different question. Keep the two in step: if the
-// loader gains a source or reorders its own, this must follow, or the guard
-// begins refusing items the handler could have built.
+// order would be an answer to a different question. It lived in this file until
+// bugs_open/187 found the same shape under two more needs_page emitters and
+// extracted it; the extraction was pure, and the tests in
+// tool_content_item_test.go passing unchanged is the proof of that.
 //
 // Two deliberate departures from the loader, both narrowing:
 //
@@ -48,7 +50,9 @@
 //     layout from a same-role sibling IN THE CURRENT PLAN, so it can only serve
 //     a page the plan already contains, and such a page has its own sections,
 //     which fallback 1 has already found. A tool page minted seconds ago is in
-//     no plan at all.
+//     no plan at all. THIS CALL SITE DOES NOT USE the shared resolver's
+//     pageInCurrentPlan arm for that reason — the needs_page emitters do, and
+//     their pages are not seconds old.
 //   - Read-only. The loader SYNCS a served result back into pages.sections. This
 //     runs at tool birth, judging a page whose shape is still being decided, and
 //     a guard that writes to the table it is judging changes the answer for
@@ -83,7 +87,6 @@ package actions
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -139,7 +142,7 @@ func raiseToolContentItem(ctx context.Context, params ActionParams, logger *zap.
 		return "insert_failed"
 	}
 
-	declared, sectionSource := toolPageDeclaredSections(ctx, params.DB, logger, req.siteID, req.pageName)
+	declared, sectionSource := declaredPageSections(ctx, params.DB, logger, req.siteID, req.pageName)
 
 	prose := make([]string, 0, len(declared))
 	for _, name := range declared {
@@ -210,93 +213,4 @@ func raiseToolContentItem(ctx context.Context, params ActionParams, logger *zap.
 		zap.String("sections_source", sectionSource),
 		zap.Strings("prose_sections", prose))
 	return "raised"
-}
-
-// toolPageDeclaredSections reads the sections a page declares, in the order
-// page-build-handler will read them, and returns the first non-empty source
-// along with the name the loader gives it ("site_plan_tables", "site_specs",
-// "pages_table", "none").
-//
-// Every failure returns what has been resolved so far rather than an error: a
-// source that cannot be read is a source that declares nothing, and the caller's
-// only decision is whether a writer would have anything to write.
-func toolPageDeclaredSections(ctx context.Context, db *sql.DB, logger *zap.Logger, siteID uuid.UUID, pageName string) ([]string, string) {
-	var sections []string
-
-	planRows, err := db.QueryContext(ctx, `
-		SELECT sps.component_name
-		FROM site_plan_sections sps
-		JOIN site_plans sp ON sp.id = sps.plan_id
-		WHERE sp.site_id = $1 AND sp.is_current = true AND sps.page_name = $2
-		ORDER BY sps.ordering
-	`, siteID, pageName)
-	if err != nil {
-		logger.Warn("toolPageDeclaredSections: site_plan_sections lookup failed", zap.Error(err))
-	} else {
-		for planRows.Next() {
-			var component string
-			if scanErr := planRows.Scan(&component); scanErr != nil {
-				logger.Warn("toolPageDeclaredSections: site_plan_sections scan failed", zap.Error(scanErr))
-				continue
-			}
-			if component != "" {
-				sections = append(sections, component)
-			}
-		}
-		planRows.Close()
-	}
-	if len(sections) > 0 {
-		return sections, "site_plan_tables"
-	}
-
-	// The older planner generation's store. Five sites still carry a current
-	// site_plan aspect and are served here, their table lookup above simply
-	// missing.
-	var planDataJSON []byte
-	if err := db.QueryRowContext(ctx, `
-		SELECT data FROM site_specs
-		WHERE site_id = $1 AND aspect = 'site_plan' AND is_current = true
-	`, siteID).Scan(&planDataJSON); err == nil && planDataJSON != nil {
-		var planData map[string]interface{}
-		if json.Unmarshal(planDataJSON, &planData) == nil {
-			if pages, ok := planData["pages"].([]interface{}); ok {
-				for _, pageRaw := range pages {
-					page, ok := pageRaw.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					if name, _ := page["name"].(string); name == pageName {
-						if declared, ok := page["sections"].([]interface{}); ok {
-							for _, s := range declared {
-								if sName, ok := s.(string); ok && sName != "" {
-									sections = append(sections, sName)
-								}
-							}
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-	if len(sections) > 0 {
-		return sections, "site_specs"
-	}
-
-	var sectionsJSON []byte
-	if err := db.QueryRowContext(ctx, `
-		SELECT sections FROM pages
-		WHERE site_id = $1 AND name = $2
-	`, siteID, pageName).Scan(&sectionsJSON); err == nil && sectionsJSON != nil {
-		if unmarshalErr := json.Unmarshal(sectionsJSON, &sections); unmarshalErr != nil {
-			logger.Warn("toolPageDeclaredSections: pages.sections is not an array of strings",
-				zap.Error(unmarshalErr))
-			sections = nil
-		}
-	}
-	if len(sections) > 0 {
-		return sections, "pages_table"
-	}
-
-	return nil, "none"
 }

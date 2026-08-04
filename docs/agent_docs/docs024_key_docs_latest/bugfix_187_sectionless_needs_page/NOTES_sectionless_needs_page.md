@@ -101,3 +101,35 @@ One shared resolver can serve both ends.
   that no systematic unpark path exists — the revalidator gap is real, and
   the two promoted rows are the manual precedent for what `revalidateNeedsPage`
   mechanises with evidence.
+
+## 2026-08-04 ~00:15 — implementation done; opus capped at the finish line; verified at HEAD+overlay
+
+- Implementation ran as an opus agent per the owner's instruction and died on
+  the weekly usage cap having completed ALL edits (resolver file including
+  `revalidateNeedsPage` with a live-measured slot-matching rationale — 95.7%
+  slot_name vs 87.5% function match, thames-water's double-mount case; both
+  emitter guards; map registration; 24 tests). This session (Fable) finished
+  the remaining verification. **Deviation from "use opus to fix": the cap is
+  hard until Aug 7; the last ~5% (test-harness fix + verification) is mine.**
+- **MISSTEP (the agent's, caught by running the tests): 3 FlagPageImageRebuild
+  tests fed `site_id` as literals in `StepConfig.Config`** —
+  `ExtractActionInputs` treats config strings as REFERENCES into collected
+  data (the `bugs_open/042` family), so extraction failed. Fixed by moving
+  inputs to `CollectedData`, which is also how the live workflow delivers
+  them. The production code was right; only the harness was wrong.
+- Verified against `git archive HEAD` + my 8 files overlaid (the tree carries
+  other sessions' WIP in the same package): `go build ./platform/...` exit 0,
+  `go test ./platform/orchestration/actions/...` exit 0. First attempt filled
+  /tmp (16G tmpfs at 97% — the concurrent chassis build lives there); moved
+  the check to $HOME/.cache and freed the archive immediately.
+- Mutation spot-checks, live, in the overlay: guard disabled via
+  `satisfiable && false` → the skip test FAILS on the unexpected `Begin` in
+  BOTH emitters (first attempt `if false` didn't compile — a compile error is
+  a guard in series, not a behavioural kill). Old symbol
+  `toolPageDeclaredSections`: 0 hits repo-wide — the pod-grep negative
+  control is armed. gofmt clean; 177's tests unchanged except the two
+  permitted call-site renames.
+- Council submitted: SUBMISSION_CORR `e2e87b04-2847-4ca5-bd63-f6f2d4aa1990`
+  (schema lessons: `plan` is an OBJECT with summary/edits/grounded_in/risks;
+  `create` is spelled `add`). Committing with `Council-Submitted:` per the
+  2026-07-30 rule.
