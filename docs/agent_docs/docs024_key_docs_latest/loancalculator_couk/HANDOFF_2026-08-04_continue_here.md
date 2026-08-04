@@ -128,7 +128,7 @@ Full write-ups in `NOTES`; the fleet-wide ones are in `LANDMINES.md`.
    published on every page. The footer's engineering note shipped site-wide and went
    FALSE the moment the orphan was retired.
 
-## 6. Post-roll check for v1.0.1250 (2026-08-04) — IN FLIGHT AT HANDOFF TIME
+## 6. Post-roll check for v1.0.1250 (2026-08-04) — ✅ DONE, PASSED
 
 The chassis rolled to **v1.0.1250 at 2026-08-04T10:29Z** (previous pods ~08-03 21:00).
 
@@ -148,7 +148,47 @@ tools/consolidation.html    b48c4a05cabb   34521 b
 tools/loan-vs-savings.html  06f9347699d5   27623 b
 ```
 
-**TO FINISH THIS CHECK:**
+### RESULT — the roll moved nothing, and my baseline was contaminated
+
+All three pages re-rendered on v1.0.1250 and all three came back with a **different
+md5**. That is the alarm signal, and it was **my own doing**, not the roll's:
+
+```
+index.html                  pre=bd4ea8c5ba39  post=05dee40c992d
+tools/consolidation.html    pre=b48c4a05cabb  post=be7bd8586779
+tools/loan-vs-savings.html  pre=06f9347699d5  post=fcf803a8e1e8
+```
+
+Diffing rather than guessing: the **only** change on each page is the footer comment
+— the 10-line engineering note replaced by the 2-line pointer, 12 lines changed,
+identical on all three, nothing else moved. That is open item (2) propagating
+exactly as designed.
+
+**So: v1.0.1250 renders these pages identically. Measured.** And `toolgolden
+--compare` against `GOLDEN_2026-08-03b`: **all 11 tools reproduce exactly.**
+
+> ⚠ **MISSTEP IN THE METHOD, worth more than the result.** I captured the pre-roll
+> baseline from pages carrying a **known pending change of my own** — the footer fix
+> was sitting in `site_components` waiting for each page's next re-render, and I had
+> written that down in this very file as item (2) before running the check. So the
+> baseline could never have matched, and "DIFFERS" was guaranteed before the roll
+> was involved at all.
+>
+> It survived only because the diff was unambiguous and attributable. A subtler
+> pending change would have produced a mismatch I could not have attributed — and
+> the standing advice for a mismatch ("re-run first, propagation lag clears") would
+> have been wrong here, because re-running would have reproduced it every time.
+>
+> **Before a post-roll byte check, establish that there is NOTHING pending.** Either
+> let every pending change propagate first, or predict the expected diff and assert
+> it exactly. A baseline is only a baseline if nothing else is in flight.
+
+### Item (2) status: 3 of 26 pages now carry the corrected footer
+
+`index`, `tool-consolidation`, `tool-loan-vs-savings` picked it up in this check.
+The other 23 still serve the old comment until they next re-render.
+
+**HOW TO RUN THIS CHECK NEXT TIME:**
 
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -c \
