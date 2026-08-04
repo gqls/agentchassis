@@ -569,21 +569,24 @@ func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageConte
 	// CRITICAL: Check if this is a validation error - DO NOT RETRY THESE
 	// Needles live in validation_drop.go, shared with the agentbase layer, which
 	// makes the same decision (bugs_open/034: the two lists had drifted).
-	errMsg := err.Error()
-	if needle := MatchedValidationNeedle(errMsg); needle != "" {
+	// bugs_open/195: typed code first, substring only as a fallback. The old
+	// MatchedValidationNeedle(err.Error()) call missed WORKFLOW_INVALID on
+	// capitalisation alone, so the fleet's commonest permanent config error
+	// took the transient branch and the durable record below was never written.
+	if match := MatchedPermanentFailure(err); match != "" {
 
 		msgCtx.Logger.Warn("Validation error detected - NOT retrying to prevent infinite loop",
 			zap.Error(err),
 			zap.String("message_type", msgCtx.ExecutionContext.MessageType),
-			zap.String("matched_needle", needle),
+			zap.String("matched_needle", match),
 			zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID))
 
 		// bugs_open/034: the drop below is deliberate, but it used to leave no
 		// trace a DB query could find. Persist the drop before returning nil.
-		p.recordDroppedValidationError(msgCtx, needle, err)
+		p.recordDroppedValidationError(msgCtx, match, err)
 
 		// For validation errors, send an error response but DON'T return the error
-		if domainErr, ok := err.(*errors.DomainError); ok {
+		if domainErr, ok := errors.AsDomainError(err); ok {
 			p.sendErrorResponse(ctx, msgCtx, domainErr)
 		} else {
 			p.sendErrorResponse(ctx, msgCtx, errors.InternalError("VAlidation failed", err))
@@ -592,8 +595,9 @@ func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageConte
 		// IMPORTANT: Return nil to prevent retry/requeue
 		return nil
 	}
-	// Check for specific error types
-	if domainErr, ok := err.(*errors.DomainError); ok {
+	// Check for specific error types. errors.AsDomainError, not a bare
+	// assertion: a wrapped DomainError must still be recognised (bugs_open/195).
+	if domainErr, ok := errors.AsDomainError(err); ok {
 		if domainErr.Code == errors.ErrInsufficientFuel {
 			observability.FuelExhausted.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, msgCtx.Headers["client_id"]).Inc()
 		}

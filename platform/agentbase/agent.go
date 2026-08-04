@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/config"
+	perrors "github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/gqls/agentchassis/platform/observability"
@@ -1185,13 +1186,15 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		// Check if this is a validation error. Needles are shared with the
 		// messaging layer (bugs_open/034: the two lists had drifted, so the same
 		// error could be retried here and dropped one layer down, or vice versa).
-		errMsg := err.Error()
-		if needle := messaging.MatchedValidationNeedle(errMsg); needle != "" {
+		// bugs_open/195: typed code first, substring only as a fallback — and
+		// this call must stay in lockstep with processor.go's handleError, which
+		// is why both go through the one shared seam (the drift 034 closed).
+		if match := messaging.MatchedPermanentFailure(err); match != "" {
 
 			contextLogger.Warn("Validation error in message processing - not calling handleProcessingError",
 				zap.Error(err),
 				zap.String("message_type", messageType),
-				zap.String("matched_needle", needle),
+				zap.String("matched_needle", match),
 				zap.String("correlation_id", execCtx.CorrelationID))
 
 			// Record metric but don't retry
@@ -1203,7 +1206,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			// label-only counter that cannot name the message. Persist a queryable
 			// row so the drop is investigable. Best-effort; the no-retry decision
 			// below is unchanged.
-			a.recordDroppedValidationError(execCtx, messageType, needle, err)
+			a.recordDroppedValidationError(execCtx, messageType, match, err)
 
 			// Just return - don't call handleProcessingError
 			// This prevents the error from being propagated and causing a retry
@@ -1212,6 +1215,11 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 		// For non-validation errors, handle normally
 		observability.MessagesFailed.WithLabelValues(a.AgentType, messageType).Inc()
+		// bugs_open/195: 034 made the DROP durable, conditional on the classifier
+		// recognising the error. This makes the record unconditional, so being
+		// WRONG about classification costs accuracy but can never again cost
+		// visibility — which is the failure mode that hid this bug for hours.
+		a.recordFailedProcessing(execCtx, messageType, err)
 		a.handleProcessingError(execCtx, err)
 	} else {
 		contextLogger.Info("Message processed successfully (agent.go)",
@@ -1315,6 +1323,69 @@ func (a *Agent) recordRejectedIncomingMessage(headers map[string]string, message
 // implementations: they exist separately only because the two layers reach
 // their db/logger/context through different structs. Change the row shape in
 // LogAgentError; do not fork the wrappers (council 180d7c68, reuse seat).
+// recordFailedProcessing persists a queryable row for a processing failure that
+// was NOT classified permanent — i.e. the message is handed to the normal error
+// path and, if a parent is awaiting it, retried under that parent's policy.
+//
+// bugs_open/195. bugs_closed/034 made the DROP durable, but conditionally: the
+// row is written inside the branch the classifier selects. That inherits every
+// gap in the classifier, and there was one — a case-sensitive substring list
+// that did not match "WORKFLOW_INVALID: Invalid workflow configuration", the
+// fleet's commonest permanent config error. The result was total invisibility:
+// no orchestration_states row, no agent_error_log row, no audit row, and one
+// pod log line that had rotated away within eight hours.
+//
+// So the record no longer depends on the classification being right. Getting
+// the class wrong now costs a wrong retry disposition, which is recoverable and
+// visible; it can never again cost the only evidence that anything happened.
+// Best-effort and non-blocking, exactly like its sibling above.
+func (a *Agent) recordFailedProcessing(execCtx *types.ExecutionContext, messageType string, procErr error) {
+	if a.db == nil || execCtx == nil || procErr == nil {
+		return
+	}
+
+	action := execCtx.Action
+	if action == "" {
+		action = "process_message"
+	}
+
+	// The typed code where there is one, so a query can group by real cause
+	// rather than by prose. Falls back to a generic code for untyped errors.
+	errorCode := string(perrors.CodeOf(procErr))
+	if errorCode == "" {
+		errorCode = "PROCESSING_FAILED"
+	}
+
+	// Detached from a.ctx for the same reason as the sibling: a failure during
+	// shutdown is exactly the one nobody can otherwise see.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	orchestration.LogAgentError(ctx, a.db, a.logger, orchestration.AgentErrorEntry{
+		OrchestrationID: execCtx.OrchestrationID,
+		AgentType:       a.AgentType,
+		AgentID:         a.AgentID,
+		PodName:         a.PodName,
+		StepName:        execCtx.StepName,
+		Action:          action,
+		ErrorMessage:    procErr.Error(),
+		ErrorCode:       errorCode,
+		Severity:        "error",
+		Context: map[string]interface{}{
+			"correlation_id":  execCtx.CorrelationID,
+			"message_id":      execCtx.MessageID,
+			"request_id":      execCtx.RequestID,
+			"client_id":       execCtx.ClientID,
+			"message_type":    messageType,
+			"from_agent_type": execCtx.FromAgentType,
+			"classification":  "transient",
+			"dropped_at":      "agentbase.processMessage",
+			"retried":         "parent-driven",
+			"note":            "processing failed and was NOT classified permanent, so it went to handleProcessingError (see bugs_open/195). This row exists so a MIS-classification is visible rather than silent; it does not itself imply the classification was wrong.",
+		},
+	})
+}
+
 func (a *Agent) recordDroppedValidationError(execCtx *types.ExecutionContext, messageType, matchedNeedle string, procErr error) {
 	if a.db == nil || execCtx == nil || procErr == nil {
 		return

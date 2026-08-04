@@ -125,14 +125,23 @@ A passing test proves nothing on its own. Copy first, restore in the **same** co
 the tree is shared and the window must be seconds:
 
 ```bash
-cp $F $SCRATCH/action.orig.go
-python3 - <<'PY'
-# ... re-introduce the defect ...
-PY
+BAK=$(mktemp) && cp "$F" "$BAK" && test -s "$BAK" || { echo "NO BACKUP - abort"; exit 1; }
+# ... re-introduce the defect (separate step) ...
 go test ./platform/orchestration/actions/ -run '<Tests>' -vet=off   # must FAIL
-cp $SCRATCH/action.orig.go $F
-diff $SCRATCH/action.orig.go $F && echo "restore clean"
+cp "$BAK" "$F"
+diff "$BAK" "$F" && echo "restore clean"
 ```
+
+> **CORRECTED 2026-08-04, same day — the version this replaced FAILED OPEN and left a
+> shared-tree source file mutated.** It wrote the backup to a fixed `$SCRATCH` path. That
+> directory had been cleared, so the `cp` failed, `set -e` did **not** stop the script, the
+> mutation applied anyway, and the restore then failed too. Only the trailing `diff` caught
+> it. Two rules, both learned the hard way: **(1) assert the backup EXISTS before mutating**
+> (`&& test -s "$BAK" ||` above) — a backup step whose failure is survivable is not a backup
+> step; **(2) prefer a file whose current state is COMMITTED**, because then
+> `git show HEAD:<path> > "$F"` restores it with no external state to lose. Also: never
+> nest a heredoc whose terminator appears in the text you are writing. Full account in
+> `WRONG_CALLS.md`.
 
 ## Running tests / build here
 

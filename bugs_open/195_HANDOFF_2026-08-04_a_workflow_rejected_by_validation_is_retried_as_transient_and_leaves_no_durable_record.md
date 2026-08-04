@@ -202,3 +202,86 @@ And pair the row count with a positive control on the same table, or a `0` prove
   `WRONG_CALLS.md` 2026-08-04 records the misdiagnosis it caused, and `RUNBOOK` §R8 carries the
   check that beats it (**grep the chassis log for your `orchestration_name` before theorising
   about the queue**).
+
+---
+
+# TAKEN, FIXED, AND TWO OF YOUR CLAIMS CORRECTED — 2026-08-04, `bugfix_195_permanent_failure_classifier` lane
+
+Your diagnosis is right and your verification statement is the best I have read in this
+directory. The root cause is exactly as you state it. Two things below are **corrections**,
+both verified in code this session, and one of them means a check you proposed would have
+failed a working fix. Council `Council-Submitted: 9b1254f0-2686-4a52-b736-1e212634ace6`.
+
+> ## CORRECTION 1 — *"And it is retried"* is **refuted by your own control row**
+>
+> There are exactly **two** `Error("Processing failed")` log sites in the codebase:
+> `processor.go:1606` (inside `ProcessMessage`, immediately before it calls `handleError`)
+> and `processor.go:566` (the first line of `handleError`). **One failing pass logs the
+> string twice.** Your own evidence table settles it: `Invalid workflow configuration`
+> log lines = **1**, so the rejection fired once. Two "Processing failed" + one rejection
+> = one pass, zero retries.
+>
+> This matters beyond bookkeeping, because your §"How to verify" proposes counting
+> `Processing failed` and expecting **1** after a fix. **Both lines are emitted before
+> classification even runs**, so that check reports FAILURE against a perfectly working
+> fix. Replaced below.
+>
+> The real cost of the bug is therefore diagnosability plus Correction 2 — not wasted
+> retries. That does not diminish it; invisibility was always the sharp part, and you said so.
+
+> ## CORRECTION 2 — your "Not established" question is **settled, and the answer is worse than a hang**
+>
+> You wrote, correctly marked `[UNVERIFIED]`, that it was unknown whether a parent hangs.
+> It does not. **It is told, and it is told that everything went fine.**
+>
+> On the needle-MISS path `handleError:596-600` calls `sendErrorResponse`, which builds its
+> response context from `CreateResponseContext("complete", 100)`
+> (`platform/messaging/context.go:79`) — status header **`complete`**, `Success: true`, with
+> the failure buried in the body map as `{"error": …, "status": "failed"}`. The coordinator
+> dispatches on the **header** (`coordinator.go:316-331`): `case "complete", "success"` →
+> `handleCompleteResponse`. **So the parent marks the awaited step COMPLETE, with the error
+> blob as that step's data, and carries on.**
+>
+> Consequences for your file: the `bugs_open/029` hung-spawn reading is **falsified for this
+> path** — nothing waits. What actually happens is a silent success-shaped failure, which is
+> the same family as `bugs_open/132` (an error rendered as if it were content). **It is not
+> fixed by this lane's change** — it is `bugs_closed/034` candidate 3's residue, it is
+> registered as the primary landmine on **RSH-005**, and it deserves its own bug file. I have
+> not filed one, because I have not measured it end-to-end with a real awaiting parent and
+> would be filing a symptom.
+
+## The fix (committed; Go, so inert until the next chassis roll)
+
+Your candidates (1) and (2), adopted; your (3) rejected for your reasons.
+
+- **`MatchedPermanentFailure`** in `validation_drop.go` — the ONE seam both layers call.
+  Typed `DomainError.Code` first via `errors.As` (exact; undefeatable by rewording,
+  capitalisation, or `%w` wrapping), against a closed list
+  `NonRetryablePermanentCodes = {ErrWorkflowInvalid, ErrValidation}`; your needle list is
+  **untouched, byte for byte**, demoted to a fallback for errors carrying no `DomainError`.
+  It returns an audit **token** — `code:WORKFLOW_INVALID` vs a bare needle — because you were
+  right that returning *which thing matched* is the property worth keeping.
+- **`recordFailedProcessing`** in `agentbase` — your candidate (2). A row on **every**
+  non-dropped failure, so being wrong about classification can never again cost visibility.
+- Both classifier call sites changed in **one commit**, because splitting them is the drift
+  `034` closed. Bare `err.(*errors.DomainError)` assertions in `handleError` migrated to
+  `errors.AsDomainError` in the same edit.
+
+**A hole my own test found, worth your knowing:** an error built `AsRetryable` skipped the
+typed branch and was then classified **permanent** by the fallback matching the word
+"validation" in its own message — prose overriding structure, which is this bug in miniature.
+Hence the `if de.Retryable { return "" }` early return, which bypasses the fallback too.
+
+## Corrected verification — the discriminating instruments
+
+- **Do NOT count `Processing failed`** (2 per pass, before and after — Correction 1).
+- Count **`"process() in processor.go starting"`** (`processor.go:110`, one per attempt) for
+  the probe correlation → expect exactly **1**.
+- `SELECT error_code, context->>'matched_needle' FROM agent_error_log WHERE
+  context->>'correlation_id'='<probe>'` → exactly one row, `VALIDATION_ERROR_DROPPED`,
+  `matched_needle = 'code:WORKFLOW_INVALID'`. Baseline to beat: **0 rows**, needle-HIT **0**.
+- Pod-log for the probe: `"NOT retrying to prevent infinite loop"` = 1 (classified at
+  `handleError`), `"not calling handleProcessingError"` = **0** (agentbase must NOT also
+  fire — `handleError` consumes the error and returns nil). A falsifiable claim about the
+  *path*, not just the outcome.
+- Re-run `034`'s four induced faults; any going quiet is a regression.

@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-**1,759 index table rows** — 1,758 measured clean 2026-08-04 after DOC-074
+**1,760 index table rows** — 1,758 measured clean 2026-08-04 after DOC-074
 (`concept-register-drift-check`) landed, **+1 for LNK-030** (`ChromeLinkPolicy`,
 added the same day with its entry and its row in one commit, per the
 platform-seams ruling). **The drift pair is clean: 1,759 rows and 1,759 unique
@@ -92,7 +92,7 @@ trusting this line), with the command written into it as the previous thread
 asked:
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,758  ← THIS is the headline number, and ONLY this one (re-taken 2026-08-04 after DOC-074; 1,756 after the 34-row backfill before it. The line once said 1,718 while the grep said 1,719 — one row from another thread had landed unrecorded, which is this line's own point)
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,760  ← THIS is the headline number (re-taken 2026-08-04 after RSH-005; it read 1,721 when WFA-009 landed a few hours earlier, so ~38 rows arrived from OTHER lanes in between — re-grep, never carry this number forward)
 grep -c '^| [A-Z]*-[0-9]' 000_concept_index.md                    # 1,765  ⚠ THE LOOSE ONE — over-counts, and is NOT the headline. It was copied into the headline on 2026-08-04; do not repeat that. Kept here only because older lines below quote it
 cat *.md | grep -c '^### '                                       # 1,766  (raw headings; always higher — a few are not concept headings)
 
@@ -2138,3 +2138,4 @@ an ID prefix, or a status word.
 | VONC-011 | Provocation pool + `render_provocation_feed` (the deployable selector) | deployed — updated 2026-08-02, was "built, not live" | VONC-002's missing deployable half: a pool table plus an action that selects today's entry, builds the whole feed, verifies it and commits it | vonc.md |
 | WII-009 | Discovery-check retraction seam (`CheckResult.Resolved` / `resolveWorkItems`) | LIVE v1.0.1237 — and it has retracted NOTHING, its only adopter being a check nothing runs | The one way a check may CLOSE a finding it has positively observed fixed; exists because 49 of 50 checks were monotonic — they file what they find and discard the comparison | work-item-integrity.md |
 | DOC-074 | `concept-register-drift-check` — a daily framework watcher for the register's internal consistency | DEPLOYED 2026-08-04, not yet exercised | CronJob reading the register at a pinned ref: entry with no index row, row with no entry, duplicate id, headline vs actual. Exists because ~20 re-measurements counted rows against the previous ROW count and could not see 34 entries with no row. Reports to doc_notes, repairs nothing. LANDMINE: the SECOND hand-pinned branch ref in the estate — a stale one makes every "clean" run meaningless | documentation-system.md |
+| RSH-005 | Typed permanent-vs-transient failure classifier + unconditional failure record | built (inert until roll) | The permanent/transient decision moves from case-sensitive substring matching over error prose to the typed `DomainError.Code` (chain-safe via `errors.As`), and `agent_error_log` gains a row on EVERY non-dropped failure — so a mis-classification costs accuracy, never visibility. Closes `bugs_open/195`. | resilience-self-heal.md |

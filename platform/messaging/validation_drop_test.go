@@ -1,7 +1,12 @@
 // FILE: platform/messaging/validation_drop_test.go
 package messaging
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/gqls/agentchassis/platform/errors"
+)
 
 // TestMatchedValidationNeedle pins the substring classifier behind the
 // dropped-validation-error branch (bugs_open/034). It documents BOTH halves:
@@ -70,4 +75,74 @@ func TestValidationNeedlesAreTheOnesBothLayersUsed(t *testing.T) {
 			t.Errorf("ValidationErrorNeedles[%d] = %q, want %q", i, ValidationErrorNeedles[i], w)
 		}
 	}
+}
+
+// TestMatchedPermanentFailure pins the typed classifier (bugs_open/195).
+//
+// The load-bearing case is ReproducesTheBug: the exact error a rejected
+// workflow produces returns "" from MatchedValidationNeedle — that IS the bug,
+// and the test asserts it explicitly so nobody "fixes" the needle list and
+// quietly removes the reason this seam exists.
+func TestMatchedPermanentFailure(t *testing.T) {
+	workflowInvalid := errors.New(errors.ErrWorkflowInvalid, "Invalid workflow configuration").
+		WithCause(fmt.Errorf("step 'done' with action 'complete' requires a topic")).
+		Build()
+
+	t.Run("ReproducesTheBug_needleMissesButCodeMatches", func(t *testing.T) {
+		// The whole of bugs_open/195 in two assertions.
+		if got := MatchedValidationNeedle(workflowInvalid.Error()); got != "" {
+			t.Errorf("the substring list is expected to MISS this error (that is the bug); got %q", got)
+		}
+		if got := MatchedPermanentFailure(workflowInvalid); got != "code:WORKFLOW_INVALID" {
+			t.Errorf("MatchedPermanentFailure = %q, want code:WORKFLOW_INVALID", got)
+		}
+	})
+
+	t.Run("SurvivesPercentWWrapping", func(t *testing.T) {
+		// The reason for errors.As over a bare type assertion.
+		wrapped := fmt.Errorf("processing message: %w", workflowInvalid)
+		if got := MatchedPermanentFailure(wrapped); got != "code:WORKFLOW_INVALID" {
+			t.Errorf("a %%w-wrapped DomainError must still classify; got %q", got)
+		}
+	})
+
+	t.Run("DegradesToNeedleWhenChainIsBroken", func(t *testing.T) {
+		// %v discards the chain. Documented, not desired: the fallback is why
+		// this degrades to "unclassified" rather than to a wrong answer.
+		flattened := fmt.Errorf("processing message: %v", workflowInvalid)
+		if got := MatchedPermanentFailure(flattened); got != "" {
+			t.Errorf("a %%v-flattened error carries no code and matches no needle; got %q", got)
+		}
+	})
+
+	t.Run("ExplicitlyRetryableIsNeverPermanent", func(t *testing.T) {
+		retryable := errors.New(errors.ErrValidation, "validation failed").
+			AsRetryable(nil).
+			Build()
+		// Note it would match the "validation" needle — the typed guard must win.
+		if got := MatchedPermanentFailure(retryable); got != "" {
+			t.Errorf("an author who said AsRetryable outranks the code list; got %q", got)
+		}
+	})
+
+	t.Run("UntypedTransientIsNotPermanent", func(t *testing.T) {
+		if got := MatchedPermanentFailure(fmt.Errorf("context deadline exceeded")); got != "" {
+			t.Errorf("MatchedPermanentFailure = %q, want empty", got)
+		}
+	})
+
+	t.Run("LegacyFallbackHazardPreserved", func(t *testing.T) {
+		// pq: invalid connection is a driver fault, not a validation error. It
+		// still matches, exactly as before — this fix does not narrow the
+		// fallback, and the hazard stays visible (bugs_closed/034 candidate 2).
+		if got := MatchedPermanentFailure(fmt.Errorf("pq: invalid connection")); got != "invalid" {
+			t.Errorf("fallback behaviour changed: got %q, want invalid", got)
+		}
+	})
+
+	t.Run("NilIsNotPermanent", func(t *testing.T) {
+		if got := MatchedPermanentFailure(nil); got != "" {
+			t.Errorf("MatchedPermanentFailure(nil) = %q, want empty", got)
+		}
+	})
 }

@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"go.uber.org/zap"
 )
@@ -47,8 +48,78 @@ import (
 // drop records WHICH needle fired, so a misclassification is a queryable row
 // rather than an invisible one.
 //
+// > **bugs_open/195 — that deferred structural fix is now DONE, and the reason
+// > it could not wait is that this list missed its own commonest input.** The
+// > fleet's most frequent permanent config error renders as
+// > "WORKFLOW_INVALID: Invalid workflow configuration (caused by: …)", which
+// > matches NONE of the four needles: "is required" loses to the wording
+// > ("requires a topic"), and "invalid" loses to the CAPITAL I, because the
+// > match is case-sensitive. So the error was classified transient, and
+// > recordDroppedValidationError — the durable record 034 built — was never
+// > reached, because the branch that calls it was never entered. See
+// > MatchedPermanentFailure below: typed first, this list only as a fallback
+// > for untyped errors. The needles are deliberately NOT case-folded, which
+// > would widen every hazard listed above to its capitalised variants too.
+//
 // Ordering matters only for which needle gets reported when several match.
 var ValidationErrorNeedles = []string{"is required", "validation", "invalid", "missing"}
+
+// NonRetryablePermanentCodes are the typed DomainError codes that mark a
+// processing failure PERMANENT: drop it, record it durably, never retry it.
+//
+// Closed and explicit, deliberately. The tempting shortcut — "classify on
+// DomainError.Retryable" — is far too wide: errors.InternalError() sets
+// Retryable false, so every genuinely transient internal fault would start
+// being dropped fleet-wide. A code earns its place here only when retrying it
+// can never succeed because the input is statically wrong.
+var NonRetryablePermanentCodes = []errors.ErrorCode{
+	errors.ErrWorkflowInvalid,
+	errors.ErrValidation,
+}
+
+// MatchedPermanentFailure classifies err as a permanent failure and returns an
+// audit token naming WHAT matched, or "" for "not permanent".
+//
+// The token is the point, and it is inherited from MatchedValidationNeedle
+// below: returning WHICH thing matched rather than a bool is what makes an
+// unanchored classification auditable after the fact. Typed matches report
+// "code:WORKFLOW_INVALID"; the legacy substring fallback reports the bare
+// needle, so the two are distinguishable in a query.
+//
+// Order matters: the typed code is exact and cannot be defeated by rewording,
+// capitalisation, or %w wrapping, so it is tried first. The substring fallback
+// remains only for errors that carry no DomainError at all.
+//
+// An error explicitly built AsRetryable is never permanent, whatever its code
+// and whatever its prose says — an author who wrote "retry this" outranks both
+// the list and the substring fallback. That early return is load-bearing, not
+// tidiness: without it an AsRetryable(ErrValidation) error skips the typed
+// branch and is then classified permanent by the fallback matching the word
+// "validation" in its own message. Structure must not be overridden by prose;
+// being overridden by prose is the entire bug this function exists to fix.
+//
+// Note what is deliberately NOT done: a non-retryable DomainError whose code is
+// not on the list still falls through to the substring fallback. Suppressing
+// that would be more principled — the error has already declared its type — but
+// it would move existing drops back to retry fleet-wide, which is exactly the
+// blast radius 034's lane deferred this work to avoid. This change only ever
+// ADDS permanent classifications; it removes none.
+func MatchedPermanentFailure(err error) string {
+	if err == nil {
+		return ""
+	}
+	if de, ok := errors.AsDomainError(err); ok {
+		if de.Retryable {
+			return ""
+		}
+		for _, code := range NonRetryablePermanentCodes {
+			if de.Code == code {
+				return "code:" + string(code)
+			}
+		}
+	}
+	return MatchedValidationNeedle(err.Error())
+}
 
 // MatchedValidationNeedle returns the first needle contained in errMsg, or ""
 // if none match. Returning the needle rather than a bool is the point: it is

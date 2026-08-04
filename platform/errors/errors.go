@@ -3,6 +3,7 @@ package errors
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -61,6 +62,31 @@ func (e *DomainError) Error() string {
 // Unwrap allows for error chain inspection
 func (e *DomainError) Unwrap() error {
 	return e.Cause
+}
+
+// AsDomainError finds a *DomainError anywhere in err's chain.
+//
+// bugs_open/195. This exists so callers stop writing `err.(*DomainError)`: a
+// bare type assertion sees only the outermost error, so it starts returning
+// false the moment anything wraps — including a `%w` wrap that deliberately
+// preserves the chain. Classification that silently degrades when someone adds
+// a wrapper is how a permanent failure gets retried for ever.
+func AsDomainError(err error) (*DomainError, bool) {
+	var de *DomainError
+	if stderrors.As(err, &de) {
+		return de, true
+	}
+	return nil, false
+}
+
+// CodeOf returns the ErrorCode carried anywhere in err's chain, or "" if the
+// chain holds no *DomainError. The code is exact where the message text is not:
+// it cannot be defeated by rewording or capitalisation (bugs_open/195).
+func CodeOf(err error) ErrorCode {
+	if de, ok := AsDomainError(err); ok {
+		return de.Code
+	}
+	return ""
 }
 
 // HTTPStatus returns the appropriate HTTP status code for the error
