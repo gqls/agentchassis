@@ -83,3 +83,72 @@ Written as `save_sections_dedup.go` (pure seam + DB seam + record) with the call
 `save_page_sections_action.go` immediately after the arrival diagnostic. Test file carries a
 named mutation per test in its header, because a test that could not have come out otherwise
 is not evidence.
+
+---
+
+## 2026-08-04 — the seven mutations, run rather than imagined
+
+Each produced exactly the predicted failure, and each restored file diffed byte-identical to
+the pristine copy afterwards (the file is untracked at that point, so `git checkout` cannot
+restore it — back it up to the scratchpad first, and `diff -q` the restore).
+
+| mutation | tests that went red |
+|---|---|
+| identity reduced to `slot_name` (**the rejected unique-index rule**) | LegitimateRepeatedSlots, NullContentDataWithDifferentHTML, DiffersOnlyByComponentID, IdentityJoinIsUnambiguous |
+| `rendered_html` dropped from the key (**the bug file's own candidate 1**) | NullContentDataWithDifferentHTML — **and only that one** |
+| guard returns its input unchanged | 6 tests |
+| `planned` map ignored | both plan tests |
+| `content_data` marshalled unconditionally (no nil/empty → NULL) | NilAndEmptyContentData |
+| adjacency signature hardcoded to `adjacent` | NonAdjacentDuplicates |
+| marshal error falls through to the NULL sentinel | AbstainsWhenUnmarshallable |
+
+The second row is the one worth keeping. It fails **one** test and no others, which is what
+tells me the suite discriminates between the shipped rule and the documented wrong answer
+rather than merely between working and broken code.
+
+## The measurement I nearly wrote down as evidence, and why it would have been worthless
+
+I was about to run the shipped guard over the whole live corpus and record "0 false positives
+fleet-wide". **That number could not have come out otherwise and would have proved nothing.**
+The census had already established that no live page has two rows with matching
+`md5(content_data::text)`; my rule requires that match **and more**; so the result is 0 by
+arithmetic, not by measurement. This is exactly the trap the standing rule names — a
+`[MEASURED]` figure is only evidence if the disconfirming result was reachable.
+
+**The version that IS disconfirmable, and why:** the census used the DB's own
+`md5(content_data::text)`, and my key marshals a jsonb-read **Go map**. Those are different
+rulers. Numeric representation in particular can round-trip differently (jsonb `1.0`, Go
+`float64(1)`, `json.Marshal` → `1`), so two rows the census called *different* could still
+collide under mine — a false positive on live data that no unit test in the package would see.
+That question has a reachable "yes".
+
+Ran it with the shipped `collapseDuplicateSections` (a throwaway in-package test reading a
+JSON dump; the code under test is the shipped function, not a SQL approximation of it) over
+**every** row that could possibly match — slot equality is necessary, so the duplicate
+`(page_id, slot_name)` groups are the COMPLETE population, not a sample:
+
+```
+live corpus: 28 rows over 12 pages, 0 collapsed
+positive control: a real live row (7102a697…/generic-text-block) duplicated verbatim IS collapsed
+```
+
+**The positive control is not decoration.** Without it, "0 collapsed" is indistinguishable
+from a harness that never called the guard — which is the failure shape this lane's own
+WRONG_CALLS neighbours are full of. The harness was deleted after the run; the corpus would go
+stale within days and a committed copy would be a fact nobody re-measures.
+
+## Two things I got wrong, both logged where they belong
+
+1. **I shipped the code one commit before its concept-register entry** — condition (2) of the
+   platform-seams ruling, the one thing it still requires. The `bugs_open/190` lane made the
+   identical mistake hours earlier and wrote it up, and **I read their write-up while deciding
+   whether my guard needed an entry at all** — took the fact I wanted from it and walked past
+   its lesson. In `WRONG_CALLS.md`, with the argument that two lanes on one rule on one day is
+   a missing control rather than two mistakes.
+2. **I nearly made a pathspec commit that would have broken HEAD for the whole fleet.** The
+   190 lane's call site was sitting in `save_page_sections_action.go` while its defining file
+   was staged-but-uncommitted; a pathspec commit takes their hunk and not their file, so HEAD
+   would have carried a call to an undefined symbol while my working tree built green. Caught
+   by `git ls-files` on the callee — not by anything that failed. Waited seven minutes for
+   their commit instead. Now a LANDMINES entry, because it fires with no symptom and the local
+   build is green throughout.
