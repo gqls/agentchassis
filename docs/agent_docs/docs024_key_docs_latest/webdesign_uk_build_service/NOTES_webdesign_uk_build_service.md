@@ -1056,3 +1056,36 @@ One thing worth knowing before you fire it: seed `309` (another lane) has since 
 `page-content-writer` its own `check_section_plan` + `plan_sections` steps, so a writer
 dispatched with no section plan now builds one instead of failing. That is a *different*
 fix for the same error string (`bugs_open/087`'s cause), and it is live too.
+
+---
+
+## 2026-08-04 ~20:30 — box ORDERED; 192 CLOSED; Phase 1 flipped; build re-driven
+
+**The box is ordered.** Mythic Beasts `vds:webdesign`, invoice 2026-08-04:
+VPS 8 (2 cores, 8 GB, 4 TB/mo) £25 + **52 GB SSD** (1 GB × 52) £4.16 + IPv4 £2 +
+Backup account £4 + Backup space 10 GB £0.80 = **£35.96 + VAT = £43.15/month.**
+Matches the §2b order sheet on every line (SSD ✓, IPv4 taken per the corrected
+advice ✓, backup space for the encrypted dumps ✓).
+
+**`bugs_open/192` → CLOSED, fixed at source, live on v1.0.1250** (`dcc6199e9`;
+diagnosis `a0e3ecee8`: the `section_plan` output_field was reused by an action
+that re-wraps it — one cause, both fallback paths). Chassis now on **v1.0.1251**,
+both replicas, started 19:19.
+
+**Phase 1 executed** (the invoice was the owner committing to the plan):
+`github_repo='vm-sites'`, `deploy_config={"target":"vm","capabilities":["backend"]}`.
+Verified by SELECT. The next successful page deploy therefore goes to the
+`vm-sites` repo, ready for the box's first pull — and the box is monitored from
+birth once 149 seats the check (the B1a idea.uk trap not recreated here).
+
+**Re-drive:** two `needs_page` items were `failed` (index 08:40, +1 at 09:02).
+Per the closed 192 ("failed attempt_count=1 is not terminal — re-dispatch via
+build-dispatch-loop"), reset both to `'triaged'` (the status the dispatcher's
+`status IN ('triaged'…)` query selects — read from the live
+`build-pipeline-trigger` config, not guessed), `error=NULL`, then fired
+`076_trigger_build_pipeline.sh` (manual heartbeat).
+**Gotcha:** 076 has SQL notes pasted ABOVE the shebang — `bash 076…` dies with a
+syntax error at line 3; extract from `#!/bin/bash` with awk first.
+Dispatch pending verification by payload (the kcat landmine: exit 0 proves
+nothing) — verify with an orchestration_states row for build-pipeline-trigger,
+then the items leaving 'triaged'.
