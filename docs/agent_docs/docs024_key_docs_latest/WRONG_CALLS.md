@@ -18657,3 +18657,59 @@ distribution from elsewhere. Same family as this file's 2026-08-03 entry (four
 guessed populations returning clean zeros); the new wrinkle is that here the
 population was real and well-measured — just *about something else* — so nothing
 looked empty or broken, and it took an outside reviewer to see it.
+
+---
+
+## 2026-08-04 — my census used the liveness predicate an OPEN bug in my own context says is wrong, and a second draft's verify block could never fail
+
+**Thread:** bugfix_080_canonical_collisions lane.
+**footprint:** any SQL with `build_status='deployed'` as liveness · any migration
+verify block with a LIKE pattern · bugs_open/185
+
+**Claim 1.** The first draft of 080's fleet collision census filtered live rows
+with `build_status='deployed'` — the exact blindness `bugs_open/185` is open
+about (28 shipped pages carry another status), in a session whose auto-loaded
+memory index cites 185. **What caught it:** an explore agent's report flagging
+`datahelpers.PageHasShippedPredicateFor` as the required predicate; re-ran under
+it. The numbers happened to match — this population carries no
+shipped-not-'deployed' rows — so nothing was concluded wrongly, but that is luck,
+not method. **The cheap check:** grep your own census SQL for `build_status`
+before trusting it; if the string appears outside the shared predicate, the query
+inherits 185.
+
+**Claim 2.** Seed 305's first draft asserted "the old exclusion list is gone"
+with a LIKE pattern that had a stray newline inside it — a verify block that
+matches nothing and therefore PASSES regardless of what is true, the same
+disconfirmability class as this file's 2026-08-03 entries. **What caught it:**
+re-reading the block before running it, asking "what result would make this
+RAISE". **The cheap check:** for every DO/RAISE verify, name the disconfirming
+state and confirm the pattern can actually match it — a verify that cannot fire
+is decoration wearing a guard's clothes.
+
+---
+
+## 2026-08-04 — bugfix_140 lane: my own growth-detector cleared a component's findings by going blind, and exited 0
+
+**The claim.** Having built the baseline comparison for `component-render-check`, I ran it
+against an unchanged corpus, got `0 NEW, 0 fixed, exit 0`, and was ready to call the
+mechanism proven.
+
+**Why that was worthless.** Self-comparison is the no-op case — it cannot come out any
+other way, so it is not evidence. The first mutation I tried then showed the mechanism was
+actually **wrong**: breaking one component's template made it unparseable, its 2 findings
+disappeared from the run, and the tool reported them as **"fixed"** and exited **0**. A
+broken template could therefore clear its own findings and pass — which is, precisely, the
+shape of blindness this entire lane exists to fix, reproduced inside the tool built to
+detect it.
+
+**What caught it:** mutating the input instead of re-running the clean case. The mutation
+was not even aimed at this — it was a botched attempt to un-gate a field (I removed an
+opening `{{if}}` and left its `{{end}}`), and the accident was more informative than the
+test I meant to run.
+
+**The cheap check that would have caught it:** for any comparator, ask what happens when an
+input goes MISSING, not just when it changes — a disappeared finding has two causes
+("fixed" and "no longer measured") with opposite meanings, and only one of them may pass.
+Fixed by classing those keys as `UNCOVERED` (fails the run) and by refusing to write a
+baseline while anything fails to parse. Family: "a gate's 0 findings has TWO causes,
+opposite fixes" and "a quiet test passes when the RULE is gone".
