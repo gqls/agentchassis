@@ -612,3 +612,58 @@ Re-measured on the correct instruments:
   control 0/0/0) — the fix survived a roll it did not initiate.
 
 ## Item 3 is CLOSED
+
+---
+
+# CLOSED 2026-08-04 — every item has an outcome, all shipped work is LIVE and pod-verified
+
+Verified on the CURRENT images (both rolled by other sessions after my deploys —
+so this is the fix surviving rolls it did not initiate, which is the real test):
+
+**`agent-chassis:v1.0.1247`**, both replicas:
+
+| control | want | cf7ns | rp867 |
+|---|---|---|---|
+| `notifying parent of FAILURE instead` (option b, added) | ≥1 | 2 | 2 |
+| `ERROR_FORWARD_TOO_LARGE` (option b, added) | ≥1 | 1 | 1 |
+| `PARTITION BY agent_type` (`bugs_closed/172`, added) | ≥1 | 1 | 1 |
+| **`Failed to notify parent of success` (REMOVED — negative control)** | **0** | **0** | **0** |
+
+**`web-scrape-adapter:v1.0.1246`**, all three replicas: `could not preserve content`
+= 1, `/pages/%s/page_%d.%s` = 1, **`%s/pages/page_%d.html` (removed) = 0**.
+
+## Final disposition of all six items
+
+| item | outcome |
+|---|---|
+| **1** — the rule held at 2 of 9 | **Owner ruled option (b)**: adopted at the 3 plumbing sites (`agentbase`, saga coordinator, timeout monitor) — LIVE. Council `d47b826e` APPROVED. The 4 adapter sites **decided: not adopting** (decision 3), with a stated reopen trigger |
+| **1b** — content still discarded | **Decision 4: no** — the 50KB inline cap stays. Decision 1 removed the correctness argument; readers want URI + head. Reopen trigger stated. The "two numbers, no stated intent" cap question is **resolved** by decision 2 |
+| **2** — `storage.pages` index-misaligned | **Nothing owed.** Its `[UNMEASURED]` is measured: no consumer of `storage.pages` exists outside `truncation.go`'s own position-independent workaround |
+| **3** — 5 of 6 fields unstored | **FIXED + LIVE.** Council `ee9f6210` APPROVED (round 4). Both layers shipped; `pageFieldsNeverUploaded` retired |
+| **4** — dead `MockProducer` | Already fixed by another session, 2026-07-31 (`76bd35dc1`) |
+| **0** — `upload_results` for extraction steps | **DONE** — live on `vet-practice-verifier`, note filed into `bugs_open/100` |
+
+## What this lane got wrong, for the next reader
+
+Four corrections, all logged in `WRONG_CALLS.md`, two caught by the council rather
+than by me:
+1. **The census** — "2 of 9" keyed on one log-message spelling; really 2 of 12
+   (I first said 13, one too many: `processor.go:2000` returns its error and is dead
+   code — my own detector's false positive, propagated by me into two documents).
+2. **Deploy target** — I wrote "needs a chassis roll" for a `web-scrape-adapter`
+   fix. Caught by my own pod-grep reading 0. New `LANDMINES` entry: this repo builds
+   fourteen binaries.
+3. **The residual's evidence** — justified with `llm_call_log` (model completion
+   sizes) a claim about scrape replies. Caught by the council's
+   `prior_art_librarian`. Conclusion survived on a valid instrument; the figure was
+   ~34× off, and content had been **destroyed 4 times** while I called the area quiet.
+4. **A detector validated only against known-bad files** flagged three correct sites
+   on its first fleet sweep.
+
+Also worth passing on: **two council rounds were killed by chassis rolls** and a
+third failed on infra, across four rolls in one evening — the documented "a roll
+KILLS an in-flight council" landmine, observed three times. The dead rows sit in
+`EXECUTING_STEP`/`FAILED` with no reaper; noted as a residual for whoever owns
+that cadence question, not filed as new by this lane.
+
+`bugs_open/` → `bugs_closed/`.
