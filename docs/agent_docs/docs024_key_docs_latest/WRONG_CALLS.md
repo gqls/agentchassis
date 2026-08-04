@@ -19526,3 +19526,57 @@ about someone else's state. Noted in the index header itself so the next session
 read its green as validation of their own uncommitted work. Same family as
 `a-baseline-that-reads-head-expires-when-you-commit`, inverted: there, committing
 destroyed the baseline; here, *not* committing made the check blind.
+
+---
+
+## 2026-08-04 — I extended a mechanism "in the same shape as" an existing one without reading it, and bypassed its lock guard (bugfix_191 lane)
+
+**The claim, and it was in a council submission.** Answering a gating objection, I added a
+detector that forces a chrome re-render when the stored header links somewhere the new
+policy refuses. I justified it *by analogy*: "same shape, and the same answer, as
+`bugs_open/166`'s `repointRetiredChromeSlot`: detect BEFORE the exit and let the slot
+through the exit's own force channel." I had read enough of 166 to know **where** it sits
+and **why**. I had not read **what it does**.
+
+What it does:
+
+```go
+UPDATE site_components
+SET component_id = $3, build_status = 'pending', updated_at = now()
+WHERE site_id = $1 AND slot_name = $2 AND `+pageComponentAgentWritableSQL("")+`
+```
+
+Three things I did not have: the supported signal (`build_status='pending'`, which the
+idempotence exit already honours), the **human-lock guard**, and the
+`RowsAffected()==0 means locked` handling. My version computed staleness above the loop
+and OR'd it into `force` — a second force channel beside the supported one, and **a path
+that would have forced a re-render of a slot a human had deliberately locked**
+(`bugs_open/069`). The 069 gate further down would have caught it, but only after the
+repoint path had already written.
+
+**What caught it.** Not me, and not my tests. Two council seats, independently, on round 3:
+`reuse_agent` — *"the plan never shows it checked whether 166 left a reusable
+staleness-detection helper to extend"* — and `guardian`, asking me to reconcile against
+the LANDMINES correction on that same exit, which says outright: *"do NOT clear
+`rendered_html` to force it... `build_status='pending'` is the supported signal (that is
+why the fix uses it)."*
+
+**Why my own tests could never have caught it.** Every test I wrote was written against my
+own design, so all six passed and three were mutation-proven. **Mutation testing proves a
+guard is load-bearing; it cannot tell you the guard you needed is missing.** The tests and
+the code shared an author and therefore shared a blind spot.
+
+**And I had the landmine.** The `SessionStart` hook prints entries matching files already
+dirty in the tree, and I *also* know to grep it for symbols. I grepped it for my own file
+paths at the start and never grepped it for the mechanism I was about to extend.
+
+**The cheap check.** *Before writing "same shape as X", open X and copy its predicate list.*
+Concretely: when you site a new function beside an existing one because it answers a
+related question at the same point, diff your `WHERE`/guard clauses against its
+`WHERE`/guard clauses — if the neighbour carries a conjunct you do not, that is either a
+bug in yours or a distinction you must be able to name. A `git grep -n "$(the neighbour's
+guard helper)"` takes seconds and would have shown `pageComponentAgentWritableSQL` on
+every sibling writer in that file.
+
+Generally: **an analogy is a hypothesis about code you have not read.** "Same shape as" is
+the phrasing that hides it, because it sounds like a citation.
