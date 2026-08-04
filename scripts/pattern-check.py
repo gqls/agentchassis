@@ -458,6 +458,12 @@ RUNTIME_FILL_ALLOWED = {
         "SQL, per row: is this template a shell, so '<no value>' is the mechanism?",
     "check_component_template_corrupted.go":
         "SQL, per row: is this template a shell, so build-time emptiness is intended?",
+    "rendercheck.go":
+        "named predicate componentIsRuntimeFillShell with the scope stated beside "
+        "it — the input is ONE component's template, never a page, so the "
+        "containment test cannot exempt an unrelated section (140 plan item 1). "
+        "The file is deliberately NOT main.go: this map keys on basename, and "
+        "allowing 'main.go' would exempt every cmd/ tool at once",
 }
 
 
