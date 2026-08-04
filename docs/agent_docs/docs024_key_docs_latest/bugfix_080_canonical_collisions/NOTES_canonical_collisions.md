@@ -158,3 +158,29 @@ order, all green:
 
 Residuals recorded where they live: the two decision items (the queue), retirement
 (098/RFC_011), queue surface (033). **This lane is done.**
+
+## 2026-08-04 (midday) — OWNER RULED on the two decision items; execution via RFC_011's mechanism
+
+**Ruling: "keep the page that the spec would ordinarily produce."** So: `/news` keeps
+`news-index` @ `/news/index.html` (re-typed → `news-index`, the relojistas repair);
+`/gripper-catalog` keeps `gripper-catalog-index` @ `/gripper-catalog/index.html`. Strays
+(`/news.html` `18d681af`, `/gripper-catalog.html` `64fab29e`) retire.
+
+**RFC_011 was DECIDED (option B) the evening of 08-03** — my "retirement has no mechanism"
+line above is superseded: `retract_page_deployment` is legitimate, proven (learning-center
+200→404 by the 098 lane), fired via `sql_for_agents/216_TRIGGER_page_retraction.sh`
+ALWAYS with `PAGE_IDS`. **Retraction only considers NON-ACTIVE pages**, so the strays were
+archived first.
+
+Executed so far:
+- ruling recorded in both items' `spec.decision` (+`decided_by`);
+- both strays `active` → `archived`;
+- kept news row re-typed `section-index` → `news-index` — spec triple now exact.
+
+**OWED:**
+- the 216 dispatch itself — **classifier-blocked for a session; the owner fires it**
+  (command in README/chat), then read `collected_data.retraction_audit` for refusals
+  (a still-linked page is refused with referrers named — that is the guard working);
+- two-part acceptance: both urls 404 now AND still 404 after the ~20:0x news refresh;
+- then the next completeness sweep closes both items via the check's own Resolved arm
+  (group loses its second active claimant) — induce one and watch, or let the schedule.
