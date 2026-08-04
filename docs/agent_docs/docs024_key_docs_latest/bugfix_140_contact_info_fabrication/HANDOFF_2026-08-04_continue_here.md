@@ -20,9 +20,13 @@ against the live corpus, WITH a committed baseline and mutation-proven growth de
 (CGV-030). The only thing left is a **carrier**: a Go binary needs an image and an
 overlay, unlike the mounted Python lint. Everything else about it is done and proven.
 
-RFC_009 B re-proven on the current chassis (`v1.0.1246`, both replicas, 08-04): compiled
-marker 2, negative control 0 — taken with `scripts/pick-pod-marker.py`, i.e. through the
-tool rather than by hand-picking a marker.
+RFC_009 B re-proven on the chassis **twice** during this session, because it rolled under
+me: first on `v1.0.1246`, then again on **`v1.0.1247`** (both replicas, 08-04) — compiled
+markers `a component must not assert…` 2 and `template invents` 1, negative control 0, on
+each replica. Markers chosen with `scripts/pick-pod-marker.py` rather than by hand, which
+is the point of having built it. *The second run exists because the first named a tag that
+was superseded seven minutes later: a proof carries the tag it was taken on, and a rolled
+fleet retires it.*
 
 ---
 
