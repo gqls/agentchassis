@@ -165,6 +165,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"empty_internal_href":           {catMechanical, "all 21 carry page_id"},
 	"cta_names_unknown_destination": {catMechanical, "all 47 carry page_id; sibling finding of misdirected_cta"},
 	"voice_tells":                   {catMechanical, "all 25 carry page_id; predicate is check_voice_tells"},
+	"literal_markdown":              {catMechanical, "bugs_open/184; predicate is check_literal_markdown; carries page_id; verifier deferred — write it against page-content-writer's rewrite remit, not the detector's predicate (page_rerender's trap); the check already retracts via Resolved on a clean positive re-scan"},
 	"required_fields_missing":       {catMechanical, "carries page_id and component_id"},
 	"dead_control":                  {catMechanical, "all 6 carry page_id"},
 	"unresolved_cta":                {catMechanical, "66 items, none completed yet"},

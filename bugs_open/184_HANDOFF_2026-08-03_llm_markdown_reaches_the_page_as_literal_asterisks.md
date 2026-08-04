@@ -73,3 +73,48 @@ Re-run the query above; expect 0 rows. Then confirm at the **artefact**, not the
 DB — `curl` the page and grep the visible text, because `content_data` and
 `rendered_html` are separate copies and a repair to one does not imply the other
 (see `bugs_open/097`).
+
+## Progress — 2026-08-03/04
+
+**Scope decided**: detect (candidate 1) + prompt hardening (candidate 3).
+Normalise-on-write (candidate 2) deliberately deferred — the render path has
+zero HTML escaping anywhere (`text/template`, not `html/template`), so a
+markdown→HTML converter at write time would be writing into an unescaping
+pipe, and mutating the shared `SavePageSectionsAction` choke point changes what
+that save guarantees for every writer. Named as future work in the register
+entry (CQ-019), not silently dropped.
+
+**Built, not yet enabled/applied/live:**
+- `platform/orchestration/actions/discovery_checks/check_literal_markdown.go` —
+  new discovery check, dual-surface (`content_data` + `rendered_html`, the
+  `check_unverified_claims`/093 precedent), letter-guarded regex patterns
+  (bold/code-span/heading) that do not fire on `3 * 4`, `#fff`, `#1 rated`,
+  JS `` `${x}` ``. Routes to `page-content-writer` for auto-repair (the
+  `check_placeholder_contact` precedent — this is a definite mechanical
+  defect, not a judgement call). Retracts via `CheckResult.Resolved`
+  following `check_required_fields_missing`'s shape (no hand-rolled status
+  filter; `resolveWorkItems` alone owns `workItemClosedStatuses`).
+  Unit-tested (`check_literal_markdown_test.go`), `go build`/`go vet`/`go test`
+  clean for the package (one pre-existing, unrelated failure in the same
+  package — `TestRegisteredVerifiersMatchClaimTimeoutExclusion` on
+  `page_canonical_collision` — confirmed via `git stash` to predate this
+  change and belong to a different concurrent thread's work).
+- `docs/agent_docs/sql_for_agents/303_enable_literal_markdown_check.sql` —
+  enables the check on `quality-discovery-agent`. **Apply AFTER the image is
+  live** (unregistered check names fail loudly since bugs_open/149 B4).
+- `docs/agent_docs/sql_for_agents/304_forbid_markdown_in_text_fields.sql` —
+  extends live STRICT RULE 9 of `page-content-writer`'s `generate_content`
+  prompt in place (scoped `replace()`, fail-loud verification, backup table),
+  measured live 2026-08-03 that `content-writer` and
+  `simple-content-writer-with-approval` don't carry this prompt block or the
+  `save_page_sections` write path, so they are not touched.
+- Concept register `CQ-019` added (`content-quality.md`, `000_concept_index.md`).
+
+**Still to do before this bug can close**: submit to the council gate; build +
+push + deploy an agent-chassis image carrying the new check (pod-verify the
+symbol); apply migration 303 (image first), then 304; let a discovery run fire
+on the three founding sites and confirm `page-content-writer` repairs the three
+rows; re-run this file's own SQL (expect 0 rows) AND curl the three live URLs
+(artefact-level, per the note above — `content_data` and `rendered_html` are
+separate copies). Bug stays OPEN until fixed AND live AND the three founding
+rows are verified clean at the artefact, not merely at the DB.
