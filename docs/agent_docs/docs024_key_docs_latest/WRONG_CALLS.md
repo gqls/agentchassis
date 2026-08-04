@@ -19067,3 +19067,45 @@ Corrected in place in the `RFC_012` addendum, with the working discriminator (sa
 `output_field` + transitively reachable over the **full** routing graph + **different**
 `action` → 2 hazards, 5 benign, 0 false negatives) and both failed detectors written up so
 whoever implements the standing check does not repeat them.
+
+## 2026-08-04 — my own forward-filed LANDMINE became "prior art" against my own submission, five minutes later
+
+**The claim that was wrong (the council's, caused by mine):** reviewing the `bugs_open/163`
+fix, the `prior_art_librarian` seat objected at MEDIUM that the landmine corpus "already
+carries entries keyed to exactly these symbol names (`parseSymbolQuery`, `symbolClauseFor`)
+… That is consistent with these symbols already existing (a prior, possibly unindexed,
+landing) rather than being genuinely new … if they already exist this is a DORMANT-MACHINERY
+rebuild, not a new mechanism."
+
+They existed in the corpus because **I had put them there**. Timeline, from the DB:
+
+| time | event |
+|---|---|
+| 09:25Z | council round 4 submitted |
+| **09:36:07Z** | my `LANDMINES.md` entry synced to `doc_notes` — its `footprint` names `answerCodeCheck`, `parseSymbolQuery`, `symbolClauseFor` |
+| **09:41:52Z** | council report written, citing that entry as possible evidence the fix already existed |
+
+**Why.** A landmine is written *prospectively*, about a trap in code you have just built — so
+its footprint names your new symbols by design. The prior-art seat reads the same corpus and
+cannot tell "this symbol is documented because it exists" from "this symbol is documented
+because its author filed a warning about it minutes ago". The seat said so honestly ("it
+could just be a forward-filed landmine anticipating this fix's own verification pitfall") and
+routed to code_checks — but note the trap it then names: the code index lags HEAD, **so an
+empty `code_checks` result cannot resolve it in either direction either.** Two independent
+instruments, both blind to a symbol added today.
+
+**What caught it:** reading the objection instead of banking the approval, then comparing the
+`doc_notes.created_at` against the `council_report.created_at`.
+
+**The cheap check that would have caught it:** when a review cites corpus evidence about
+YOUR OWN change, check whether you authored that evidence — `SELECT created_at, source FROM
+doc_notes WHERE body LIKE '%<your new symbol>%'` against the report's timestamp, ten seconds.
+
+**Generalisable, and this is the part worth keeping:** the standing family is *"your own
+action can silence your own detector"*. This is the **inverse** — your own action can make a
+detector **fire**, by planting evidence that reads as independent corroboration of the thing
+you are asserting. Filing a landmine, a register entry or a §9 pattern about work you are
+concurrently submitting **contaminates the prior-art surface for that submission**. It is not
+a reason to stop filing them; it is a reason to **say so in the submission's `grounded_in`**
+("the corpus entries naming these symbols are mine, filed <date>"), so the seat can discount
+them instead of spending a medium objection on them.
