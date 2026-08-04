@@ -13,6 +13,13 @@ the `SUMMARY_…` series.
 
 ## One-line state
 
+> **SUPERSEDING UPDATE, 2026-08-04 19:55 UTC — follow-on 1 is DONE and only follow-on 2
+> remains.** The owner ruled "flip it": the ungated `skip_field` class now **exits 1**,
+> live and proven in-cluster (commit `2b1684314`). RFC_009 B+C re-proven again on
+> **`v1.0.1251`** — the `v1.0.1250` numbers below were superseded within hours, as this
+> doc warned they would be. The single remaining item is watching the 06:55 UTC firing on
+> **2026-08-05**; everything else on this page is discharged.
+
 `bugs_closed/140` CLOSED. RFC_009 B and C live. The 68 `skip_field` fields gated
 (migration 295). **The element-level blindness the 08-03 recheck exposed is now covered by
 a STANDING check**: `component-render-check` runs daily at 06:55 UTC as a CronJob
@@ -66,17 +73,40 @@ Three findings from doing it that change what the next thread should believe:
 
 **Nothing from the 08-03 plan.** Two follow-ons, neither blocking:
 
-### 1. The lint's exit code (old plan item 3) — now genuinely unblocked
+### 1. ~~The lint's exit code (old plan item 3)~~ — **DONE 2026-08-04 evening, owner ruled "flip it"**
 
-The "68 predate it" rationale expired (count is 0). The reason to wait was that flipping it
-alone enforces a check satisfiable by a no-op gate (`<td>{{if .v}}{{.v}}{{end}}</td>` —
-same blank, finding cleared). **That objection is now answered**: the output-level check is
-live and catches exactly what the no-op leaves behind. Flipping
-`check_placeholder_fallbacks.py` to exit 1 on the ungated class is defensible today. It is
-still a decision, not a chore — it changes what an existing check does to other people's
-work, which is the point the owner was asked about in `README_where_we_are.md`.
+> **UPDATE 2026-08-04, 19:55 UTC.** No longer owed. The owner was asked and chose to
+> enforce; `check_placeholder_fallbacks.py` now exits **1** on the ungated `skip_field`
+> class as well as on a fabricated fact. Live: commit `2b1684314`, ConfigMap
+> `component-fallback-check-script-7862bfkf9t` applied, manual `--from=cronjob` run
+> **Completed with exit code 0 read off the pod**, `doc_notes` row 19:54:35Z. Clean at the
+> flip — 178 components — so the ratchet closed at zero and nothing is red.
+>
+> **Proven by mutation, and it had to be:** with the population at 0 an honest run exits 0
+> whichever version ships. Three fixtures through the pre-change script (pinned
+> `6f0808aea`) and the new one — clean `0→0`, **ungated `0→1`**, fabricated `1→1`.
+> Reproduce it from RUNBOOK §R9, which now also carries the apply command and the
+> read-the-exit-code-off-the-POD form.
+>
+> **Correction that mattered, made before the decision rather than after:** this lint
+> never gated a build and still doesn't. It is not in the pre-commit hook and no build
+> runs it. Flipping changed the daily Job's status and a session's exit code, nothing
+> else. Any doc telling you "ungated-only exits 0" predates 08-04 and is wrong.
+>
+> ⚠ **The known consequence, written down where it will be met:** a lane whose job goes
+> red can clear the finding with a no-op gate (`{{if .v}}{{.v}}{{end}}` in a fixed cell)
+> and leave the identical blank. `component-render-check` is the counter — run
+> `/tmp/rck --compare` before and after any such repair. LANDMINES, footprint
+> `check_placeholder_fallbacks.py`.
 
-### 2. Watch the first UNATTENDED firing (06:55 UTC)
+### 2. Watch the first UNATTENDED firing (06:55 UTC) — **STILL OWED; it is the ONLY thing owed**
+
+> **19:55 UTC 08-04: not checkable yet, and `LAST SCHEDULE <none>` is CORRECT, not a
+> fault.** The CronJob was created ~11:30 UTC, after that morning's 06:55 slot, so its
+> first unattended firing is **06:55 UTC on 2026-08-05**. Do not read the empty
+> LASTSCHEDULE as a broken schedule before then — and do not "fix" it.
+> (Verified this evening: the *sibling* `component-fallback-check` shows LASTSCHEDULE 12h
+> and its 06:40 run wrote a clean row, so the CronJob substrate itself is working.)
 
 The manual Job proves the image, the query, the credentials and the write. It does **not**
 prove the schedule. Check tomorrow:
@@ -130,7 +160,7 @@ a reviewable commit, by construction.
 ## Health checks
 
 ```bash
-python3 scripts/check_placeholder_fallbacks.py            # CLEAN across ~176. exit 2 = flake (now retries 3× first)
+python3 scripts/check_placeholder_fallbacks.py            # CLEAN across 178 (08-04 19:30). exit 1 = EITHER class since 08-04; exit 2 = flake (retries 3× first)
 python3 scripts/check_placeholder_fallbacks.py --selftest # 10 must-refuse / 14 must-allow
 go test ./platform/orchestration/actions/ -run TestFabricatedFallback
 go build -o /tmp/rck ./cmd/component-render-check/ && /tmp/rck --compare  # expect 0 NEW, 0 UNCOVERED, exit 0

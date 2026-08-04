@@ -343,3 +343,51 @@ me: the decision I put to you yesterday about whether the older daily check shou
 failing builds (it is now safe to, which it wasn't before), and simply confirming tomorrow
 that the new job runs by itself — the run I did by hand proves everything except the alarm
 clock.
+
+**2026-08-04, evening — your decision is in, and the daily check now has teeth.**
+
+You chose to let the older daily check start failing, so it does. One correction worth
+having on the record, because I raised it before you decided rather than after: that
+check never could fail a build, and still can't. Nothing runs it at commit time and
+nothing runs it in a build — it runs every morning at 06:40 and whenever a person types
+it. What changed is that the morning run can now go red, and that a person running it
+gets a failure back instead of a quiet report.
+
+Nothing went red today. That was the point of the timing: the 68 problems you asked to
+be fixed last week were all fixed, so the count was zero when I flipped it. A check that
+starts red is a check everybody learns to scroll past; this one starts green and only
+speaks up about something that arrives from now on. It ran clean this evening across 178
+components — four more than the last time we counted, all of them correctly built.
+
+The part I want to flag is how I proved it, because the obvious proof was worthless.
+With nothing wrong in the library, the check passes whether or not my change works — I
+could have shipped a version that does nothing at all and watched it "pass". So instead
+I fed it three made-up components: a correct one, a broken one of exactly the kind it now
+has to catch, and a fabrication of the old severe kind. Then I ran all three through
+*yesterday's* version of the check as well as today's. Yesterday's let the broken one
+through; today's catches it; neither is confused by the correct one. That comparison is
+the only version of this test that could have come out badly, which is what makes it
+worth anything.
+
+There is one honest risk in what you've approved, and it is worth naming. When a lane
+does hit this and their morning job goes red, the fastest way to make it green again is a
+cosmetic edit that satisfies the check while leaving the actual blank space on the page.
+That was the reason to wait, and the reason it's now safe is that the *new* check we
+built this week looks at the finished page rather than the recipe — so the cosmetic fix
+turns one job green and the other one red. I've written that trap down where somebody
+under time pressure will actually meet it, along with the two-command way to tell the
+difference.
+
+I also nearly recorded a false alarm on you. Checking that the morning job had run, I
+asked the database for its reports using the job's name, got nothing back, and for a
+moment believed a check we rely on had gone silent. It hadn't — the reports are filed
+under the script's name, not the job's, and its sibling does it the other way round. Two
+reports were sitting there, including that morning's. I caught it by reading the code
+that writes them before saying anything, but the fact that the wrong answer looks exactly
+like the alarming answer is the whole reason this class of mistake matters, so it's
+written down too.
+
+Left for tomorrow: the one thing I can't do tonight. The new morning check was deployed
+after yesterday's slot had passed, so its first unattended run is tomorrow at 06:55 —
+until then there is genuinely no way to tell a working alarm clock from a broken one. The
+run I did by hand proves everything except that.

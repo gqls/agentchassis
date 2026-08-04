@@ -886,3 +886,113 @@ quietly, in its first week.
 Caught only because I triggered a run rather than trusting `kubectl apply`'s success.
 **Deploying a CronJob is not running it.** LANDMINES entry added (footprint
 `imagePullSecrets`) and synced: read the POD, not the Job.
+
+---
+
+## 2026-08-04, evening — follow-on 1 done: the ungated class now exits 1 (owner ruling)
+
+Picked up from `HANDOFF_2026-08-04_continue_here.md`. Both follow-ons it left were
+looked at; one was decided and shipped, the other **cannot be checked yet** and that is
+not a failure — see the bottom of this entry.
+
+### First, re-verified what the handoff asserted, rather than carrying it
+
+The handoff's own rule is that a proof carries the tag it was taken on. It named
+`v1.0.1250`; the live tag was **`v1.0.1251`**, rolled 12 minutes before I looked. So the
+RFC_009 B+C pod-grep was re-run on both replicas:
+
+| marker | expected | crnb6 | gpr92 |
+|---|---|---|---|
+| `a component must not assert a contact detail, price or address nobody supplied` | 2 | 2 | 2 |
+| `template invents` | 1 | 1 | 1 |
+| `library_fabricated_hours` (C) | 1 | 1 | 1 |
+| `zzz_this_string_never_existed_140` (negative control) | 0 | 0 | 0 |
+
+Marker choice deliberately stops before the em-dash in `template invents %d business
+fact(s) … absent — %s`: `strings` splits at non-ASCII, so a marker containing `—`
+returns 0 against a binary that contains it (the standing landmine, footprint
+`strings /app/`).
+
+Everything else on the handoff's health-check list re-run and green: lint clean across
+**178** active components (was 177 at 06:40 — the library grew under me and stayed
+clean), `--selftest` 10/14, `go test -run TestFabricatedFallback` ok,
+`component-render-check --compare` 1023 findings / 0 NEW / 0 fixed / 0 UNCOVERED,
+`bugs_open/190` still exactly 2 rows.
+
+### MISSTEP — I read a healthy check as a dead one, with the runbook open
+
+Verifying the daily fallback check, I queried
+`doc_notes WHERE source='component_fallback_check'` — the CronJob's name, which
+`kubectl get cronjob` had just printed at me — and got `(0 rows)`. That is precisely the
+result a check that has stopped running produces, and for a moment I had "the daily
+check writes nothing" as a finding.
+
+It writes under **`check_placeholder_fallbacks`**, the SCRIPT's name. Two rows were
+there all along, including 06:40 that morning. What makes this worth recording rather
+than shrugging at:
+
+* the sibling check does the opposite — `component-render-check` writes under
+  `component_render_check`, its CronJob name. So verifying one correctly teaches you the
+  wrong rule for the other;
+* §R9 of our own RUNBOOK quotes the correct literal, and I had that file open;
+* it is a **false negative on the one query whose entire job is to distinguish "looked
+  and found nothing" from "stopped running"**.
+
+Caught by reading `write_doc_note()` before asserting it, so it is **not** a WRONG_CALLS
+row — nothing false was written down. It is a LANDMINE (added + synced, footprint
+`doc_notes.source`), which is the prospective form: the next session has no symptom
+either.
+
+### The flip itself, and why the honest run could not prove it
+
+Owner chose "flip it to exit 1". Four places stated the old rule — the `return` line,
+its rationale comment, the module docstring's SECOND CLASS note and its exit-code key,
+and the CronJob's inline comment — and all four moved in one commit (`2b1684314`). A
+file that argues with itself is how the next reader gets it wrong.
+
+**The proof is the interesting part.** The ungated population is 0, so a live run exits
+0 whether or not the flip works: an answer that could not have come out otherwise. So I
+mutated the input instead, running three fixtures through the pre-change script (pinned
+at `6f0808aea`, not `HEAD:` — a HEAD baseline dies the moment you commit) and the new
+one:
+
+```
+fixture        BEFORE    AFTER
+clean          exit 0    exit 0     no new false positive
+ungated        exit 0    exit 1     the flip — and proof the fixture reaches the arm
+fabricated     exit 1    exit 1     severe class unchanged
+```
+
+The middle row is the whole test: it disconfirms in the BEFORE column, which is what the
+live run cannot do.
+
+### Shipping it, and the carrier proof
+
+No make target exists for this one (unlike `component-render-check`) and no image to
+build — it runs on stock `postgres:16-alpine` with the script mounted from a
+kustomize-generated ConfigMap. So: `kubectl apply -k …/component-fallback-check/overlays/
+production/uk_001`, which created `component-fallback-check-script-7862bfkf9t` and
+repointed the CronJob. Proved BOTH directions before trusting it — added text present
+1×, the **removed** `return 1 if findings else 0` present **0×** — then triggered a real
+run: pod `Completed`, **exit code 0 read off the pod's `state.terminated.exitCode`**, not
+inferred from clean-looking logs, `doc_notes` row at 19:54:35Z confirmed by query. Both
+new commands are now in RUNBOOK §R9, which had never recorded how to ship a change to
+this script.
+
+Live at the flip: **clean, 178 components, exit 0.** The ratchet closes at zero, exactly
+as the decision assumed.
+
+### What the flip does NOT do, since the owner's own note called it "failing builds"
+
+It does not fail builds. Nothing gates on this lint at commit or build time — it is not
+in the pre-commit hook (deliberately: a DB round-trip must not block a shared commit).
+The flip changes the daily Job's status and a session's exit code, and nothing else. That
+correction was put to the owner before he decided, not after.
+
+### Follow-on 2 could NOT be checked, and the reason is arithmetic
+
+`component-render-check`'s first unattended firing is 06:55 UTC on **2026-08-05**. The
+CronJob was created ~11:30 UTC on 08-04, i.e. after that morning's slot, and it is 19:30
+UTC now. `LAST SCHEDULE <none>` is therefore **correct, not a fault** — there is no way
+to distinguish "the alarm clock works" from "it doesn't" until tomorrow morning. Left for
+the next session, with the read-the-POD warning restated in the handoff.
