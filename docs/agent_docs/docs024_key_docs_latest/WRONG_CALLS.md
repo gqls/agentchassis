@@ -19422,3 +19422,107 @@ Generally: *a queue theory explains an absent row; it does not explain an absent
 a log line showing the message was processed**.* When an explanation accounts for your
 evidence, ask what evidence it does **not** account for and go and look for that — and
 never suppress the output of the one command whose silent failure is a recorded landmine.
+
+---
+
+## 2026-08-04 — a `FILTER (shipped = 0)` count that swept up 18 sites the question was never about (bugfix_191 lane)
+
+**The claim I was one sentence from writing down.** bugs_open/191's fix gives the header
+CTA the nav's deployment filter, and the nav deliberately **disables** that filter on a
+first build. To defend extending the same escape to the CTA, I needed to know how often
+the escape is actually taken. `fable`'s plan had named the disconfirming result properly
+in advance — *"a crowd of established sites here disconfirms the escape defence"* — so I
+ran it:
+
+```sql
+SELECT count(*) FILTER (WHERE shipped = 0) AS sites_zero_shipped, count(*) AS sites_total
+FROM (SELECT s.id, count(*) FILTER (WHERE NOT (p.deployed_at IS NULL
+        AND COALESCE(p.build_status,'') <> 'deployed')) AS shipped
+      FROM sites s LEFT JOIN pages p ON p.site_id = s.id GROUP BY s.id) t;
+```
+
+→ **19 of 38.** Half the fleet. That is the disconfirming answer, and it was about to be
+written into the concept-register entry as `[MEASURED]`, dated, with its query inline —
+compliant with every marker rule we have, and **false**.
+
+**Why it is false.** `shipped = 0` is true of two populations that behave nothing alike:
+sites in a first build, and sites with **no pages at all**. Splitting on `pages_total = 0`:
+
+| bucket | sites |
+|---|---|
+| has shipped pages → strict path | 19 |
+| **no pages whatsoever** — chrome renders nothing either way, the rule is irrelevant | **18** |
+| has pages, none shipped → **actually takes the escape** | **1** (`webdesign.uk`) |
+
+The real escape population is **one genuinely young site**, which is what the design
+assumed. The design survived; the *evidence for it* had to be re-derived, and the first
+version of that evidence pointed the other way.
+
+**What caught it.** Not a tool. Reading my own output and asking what a "site" with zero
+shipped pages actually *is* — the 19/38 was too round and too high for a fleet I had just
+been told was mostly built, so I split the bucket before quoting it.
+
+**The cheap check.** *Before quoting a `count(*) FILTER (x = 0)`, ask what else is zero
+for a reason unrelated to your question* — and add the discriminating column to a
+`GROUP BY` rather than to the `WHERE`. Here, one `CASE` on `pages_total = 0` turned 19
+into 1. A `FILTER` clause written straight off the question in your head describes a small
+world, and an empty-denominator population hides inside it looking exactly like a hit.
+
+This is the `narrow-filter-defines-the-conclusion` / `a-filtered-count-can-ship-inside-a-denominator`
+family again, with a new spelling: here the filter was not too narrow, it was too **broad**
+in a dimension I had not thought to name.
+
+---
+
+## 2026-08-04 — I mutated the code by DELETING a block, and `[build failed]` nearly read as "the guard fired" (bugfix_191 lane)
+
+**The claim I nearly recorded.** Proving each new guard is disconfirmable by mutation (the
+`mutate-the-code-to-prove-the-guard` rule). To kill the first-build escape I sliced the
+`case deployedPages == 0:` arm out of `LoadChromeLinkPolicy` with a crude Python string
+splice, re-ran, and got:
+
+```
+########## MUTATION 3: delete the zero-deployed escape
+FAIL	github.com/gqls/agentchassis/platform/orchestration/actions [build failed]
+```
+
+My harness grepped for `FAIL|ok`. **`FAIL` is there.** Had I been tallying rather than
+reading, mutation 3 would have gone into the register and the submission as "proven", and
+the first-build guard would have been the one guard in the change that nothing had ever
+exercised — while its neighbours' genuine reds lent it credibility.
+
+**What caught it.** The bracketed `[build failed]` next to the package name, where a real
+failure names a test. My splice had removed the `case` and left the `switch` malformed.
+
+**The cheap check.** **Mutate a CONDITION, never delete a block.**
+`sed -i 's/case deployedPages == 0:/case deployedPages == -1:/'` keeps the mutant
+compiling, so the only thing that can turn the suite red is the guard itself. Generally:
+*a mutation that does not compile has tested nothing* — and a build failure is
+indistinguishable from a test failure in any output you are grepping rather than reading.
+Assert on the **named test** going red (`--- FAIL: TestX`), not on the string `FAIL`.
+
+---
+
+## 2026-08-04 — the concept-register drift harness reads HEAD, and I ran it to check an UNCOMMITTED entry (bugfix_191 lane)
+
+**The claim.** Added LNK-030 plus its index row, then ran
+`python3 scripts/test-concept-register-drift-local.py` to confirm the register still
+agreed with itself. It answered:
+
+> **Clean.** … **1758 concept entries**, **1758 index rows** … (ref HEAD = d96c9de5d208)
+
+Read fast, that is a green tick on my edit. It is not. **The harness reads at `HEAD`** —
+it says so in its own last line — so it had not seen my entry, my row, or my headline
+bump at all. It was reporting the state *before* my change, and it would have returned
+exactly the same "Clean" if my edit had been catastrophically malformed.
+
+**What caught it.** The counts. 1758/1758 is the number the index header already claimed,
+and I had just added one of each — a clean pass should have read 1759.
+
+**The cheap check.** *A checker that names its ref is telling you what it did not look
+at.* When a verification tool prints `HEAD`, `origin/main`, or a commit sha, your working
+tree is outside its scope by construction — commit first, then re-run, or the pass is
+about someone else's state. Noted in the index header itself so the next session does not
+read its green as validation of their own uncommitted work. Same family as
+`a-baseline-that-reads-head-expires-when-you-commit`, inverted: there, committing
+destroyed the baseline; here, *not* committing made the check blind.
