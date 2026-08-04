@@ -131,3 +131,61 @@ The 177 recipe: class completion rate before/after; for a guarded emitter, an
 induced emit against a section-less page yields a logged+surfaced skip and no
 row; positive control: the same emitter against a page with resolvable
 sections still mints.
+
+---
+
+## CLOSED 2026-08-04 — fixed AND live (v1.0.1248, pod-proven both replicas)
+
+**What shipped** (council `e2e87b04` APPROVED round 1, 5 advisories none high,
+each answered with a check — see lane NOTES; commit `12ae5824f`,
+`Council-Submitted` trailer; 090 run `b3dcb102` UNVERIFIABLE on tooling,
+refuting nothing, first-hand substitute stated per the 2026-07-31 ruling):
+
+- **One shared read-only satisfiability seam** —
+  `page_section_satisfiability.go` (`declaredPageSections` extracted pure from
+  177's guard, old symbol fully removed; `pageInCurrentPlan` mirrors only the
+  synthesis GATE, fail-open toward emitting; `pageSectionsSatisfiable`;
+  `revalidateNeedsPage`). Registered as **WII-010**.
+- **Emit guards** on the two 177-shaped emitters:
+  `flag_page_image_rebuild_action.go` (its "VERIFY BEFORE RELYING ON IT"
+  header replaced with the verified statement) and `escalateRerenderToWriter`.
+  Skip is observable: `skipped_sectionless_page` in log + return map.
+  `reconcile_site_plan` deliberately NOT guarded (015-shape gaps are real
+  findings).
+- **`needs_page` registered in `reviewRevalidators`** — resolved only on
+  positive name-matched evidence (slot_name via NormalizeComponentFunction;
+  95.7% live match measured, count-matching rejected); satisfiable-unbuilt →
+  still_holds "satisfiable now"; archived/sectionless/ambiguous → unknown.
+- **Sweep `sql_for_agents/300`**: 12 rows → wont_fix (not complete — no work
+  happened), original errors preserved, DO/RAISE census gate passed exactly.
+
+**Verification record:**
+- Unit: package green at `git archive HEAD` + fix overlay; 177's 8 tests pass
+  with only two call-site renames; two guard mutations killed live
+  (`satisfiable && false` → skip tests fail on the unexpected `Begin`).
+- Image before pod: v1.0.1247 (built 08:55, ~8h AFTER the fix commit) grepped
+  **without** the fix — a pinned/stale ref, `bugs_open/153`'s shape at the
+  image; 1248 grepped with it before push. **Pod, both replicas, one exec:
+  `declaredPageSections` 5, `skipped_sectionless_page` 3,
+  `toolPageDeclaredSections` 0** (non-zero on any pre-fix image).
+- Drain, live run post-roll: **26 parked needs_page rows auto-resolved with
+  per-section evidence** (incl. all 4 predicted: tungsten-guide, board-setup,
+  cases-index, thames-water), 6 stamped "satisfiable now", 10 honest unknowns
+  parked (5 reconcile real gaps, 4 plan-member sectionless tools, 1 archived
+  → human). This bug's census: 29 parked → 12, every survivor truthful.
+
+**Watch items (the live skip arm), not blockers:**
+- Next natural image-landing on a section-less non-plan page → expect a
+  `skipped_sectionless_page` log and NO new row; a sectioned page must still
+  mint (positive control). Emit frequency ~daily, so this proves itself fast:
+  `SELECT item_key, status, created_at FROM site_work_items WHERE
+   item_type='needs_page' AND created_at > '2026-08-04 08:34Z' ORDER BY 1;`
+- The 4 plan-member sectionless tool pages (robot-hands) park honestly until
+  the TL-009 owner call — the guard rightly cannot out-guess synthesis.
+
+**Left open, tracked elsewhere:** `bugs_open/033` (queue surface; needs_page
+is now a covered, drained type — contributed there); TL-009 (should tool
+pages declare sections); WII-004 (`page_rerender:` item_key prefix drift —
+documented, deliberately untouched).
+
+Lane docs: `docs024_key_docs_latest/bugfix_187_sectionless_needs_page/`.
