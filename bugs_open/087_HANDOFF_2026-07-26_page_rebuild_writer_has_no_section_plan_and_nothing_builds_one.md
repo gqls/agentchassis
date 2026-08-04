@@ -263,3 +263,48 @@ its own stated acceptance bar ("the page must deploy with its components
 rewritten") cannot be met on this target — blocked by the `rebuild_policy=owned`
 guard, and now by 125. Re-test on a non-owned page once 125 is fixed and the two
 together will close it.
+
+---
+
+## NOTICE 2026-08-04 from the `bugfix_192_select_sections_wrapper` lane — the error string you diagnose by has GAINED A SUFFIX, and it now tells you what you want to know
+
+Told rather than merely measured, per the owner ruling of 2026-07-29 §3. Not a claim
+about your root cause, which is untouched and still stands.
+
+**Why you are getting this.** Your case turns on this exact message:
+
+```
+failed to get collection at 'sections_for_render.sections_ready':
+key 'sections_ready' not found at position 1 in path 'sections_for_render.sections_ready'
+```
+
+`bugs_open/192` is a **different** bug with the **same signature** — `192` says so in
+its own opening, correctly. Yours is `page-rebuild` supplying no `section_plan` at all;
+`192` was `page-build-handler` supplying one that had been re-wrapped one level down by
+a step reusing `output_field: section_plan`. Same error, opposite causes — which is the
+whole reason the message needed to change.
+
+**What changed** (`platform/orchestration/actions/loop_actions.go`,
+`getNestedValueForLoop`, committed `2b9d84072`, inert until the next chassis roll):
+
+```
+key '%s' not found at position %d in path '%s' (keys present at this level: %v)
+```
+
+For `192` this would have printed `[applied reason section_plan]` and made the wrapper
+visible in the first failure instead of the fortieth. **For you it will print the keys
+that ARE on `sections_for_render`** when `page-rebuild` next fails — which distinguishes
+"nothing built a plan" (your case) from "something built one of the wrong shape"
+(`192`'s) without opening the database at all.
+
+**Two things to note.** `isMissingData`'s substring checks (`loop_actions.go:104-106`)
+match on `"not found"` and `"key"`, both preserved, so the loop's soft-miss handling is
+unchanged. But **if anything of yours greps the message verbatim, match a prefix, not
+the whole line** — this is a suffix, and your file quotes the old form.
+
+Also possibly useful to you: `extract_fields` now takes an opt-in `required` list
+(WFA-009), which makes "no configured path resolved" fail **at the extraction**, naming
+the field and the paths tried, rather than surfacing later as the message above. Default
+OFF; `page-content-writer.select_sections` is the only step opted in today. If your
+config-only fix candidates end up adding a fallback path for `page-rebuild`, that switch
+is the thing that makes a future miss loud instead of silent.

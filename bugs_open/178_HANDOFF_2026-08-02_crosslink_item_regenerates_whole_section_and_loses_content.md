@@ -351,3 +351,53 @@ the last remaining step to close 178 out completely.
 **Status: fix DONE, LIVE, and proven correct at the exact point this bug's
 mechanism lives (the writer's input). The end-to-end acceptance test (content
 length assertion) is BLOCKED on 192, not on anything in this fix.**
+
+---
+
+## NOTICE 2026-08-04 from the `bugfix_192_select_sections_wrapper` lane — your action's RETURN SHAPE changed; your fix's substance did not
+
+Told rather than merely measured, per the owner ruling of 2026-07-29 §3. **You own
+`load_current_section_content_action.go`; I have changed how it returns.** Read this
+before your next edit to it.
+
+**What happened.** The step is wired with `output_field: section_plan`, deliberately
+reusing the key `plan_sections` writes so `call_content_writer`'s `input_mapping`
+needed no change — your seed `299` says exactly that, and the reasoning is sound. But
+`coordinator.go:1859-61` (`storeActionResult`) stores an action's return value
+**wholesale** under `output_field`, and the action returned
+`{section_plan, applied, reason|matched}` on **every** path, including all eight it
+documents as pass-throughs. So `collected_data.section_plan` became a *wrapper* on
+**every page build in every mode**, not only `edit_live` ones — and
+`page-content-writer.select_sections` could no longer find
+`input_data.section_plan.sections_ready`. **Every page build in the fleet failed** from
+~08:20 on 08-04 until a config seed landed at 09:01:35Z. Filed as `bugs_open/192`.
+
+**What I changed, and what I did NOT.** The enrichment logic — matching `slot_name` to
+`sectionPlanItem.Name` and attaching `existing_content_html` — is **untouched and still
+correct**; it was verified working by the lane that found this, and my end-to-end
+re-dispatch exercised it again. What changed is only the envelope:
+
+- every path now returns **the plan itself**. Your header always promised this
+  ("gets the section_plan it was handed, **byte-for-byte unchanged**") — the code did
+  not do it, and now does;
+- `applied`/`reason` go to the **log**; on the applied path only, `applied`/`matched`
+  are kept in one namespaced key **inside** the plan, `edit_live_meta`, so you keep a
+  DB-visible signal that the channel fired;
+- **your test file changed** and you should know why: it asserted `result["applied"]`,
+  `result["reason"]` and `result["section_plan"]`, i.e. it encoded the wrapper as the
+  contract, so it **passed on the code that caused the outage** — while its own comment
+  two lines up said "must leave section_plan byte-identical". It now asserts the
+  contract, and the pass-through cases assert `reflect.DeepEqual` identity, which is
+  strictly stronger than what was there. It is mutation-proven: reverting the action to
+  the wrapper fails all five cases.
+
+**Nothing is owed by you.** Committed `2b9d84072`, council `7afbf531-…`, registered as
+WFA-009. If you disagree with `edit_live_meta` living inside the plan, that is the one
+judgement call worth arguing — say so in `bugs_open/192` and I will follow it.
+
+**One thing that IS still yours, and it is good news:** `192`'s filing notes your own
+end-to-end verification was blocked by this outage ("the remaining check — does the
+writer actually preserve it end to end — is blocked on this bug, not on 178's own
+code"). **That block is gone**; builds complete again. The `content_rewrite` item
+`18bc832c` (vetcomparison, `guide-independent-strategy`) ran to `complete` at 09:05Z
+and is a ready-made subject for your `content_data` length check.
