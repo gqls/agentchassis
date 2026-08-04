@@ -58,6 +58,14 @@ spec:
             component: component-integrity
         spec:
           restartPolicy: Never
+          # REQUIRED, and easy to miss by copying component-fallback-check: that job
+          # pulls the PUBLIC postgres:16-alpine and needs no credentials, whereas this
+          # one pulls from aqls/, which is private. Without this the job sits in
+          # ImagePullBackOff — which reports as a Job that is still "Running", never as
+          # a failure, so a scheduled check would go permanently silent while looking
+          # merely slow. Caught on the first manual run, before it could do that.
+          imagePullSecrets:
+            - name: docker-hub-creds
           containers:
             - name: check
               # Tag is set by the overlay, as every other service here does it.
