@@ -307,6 +307,35 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		)
 	}
 
+	// --- Collapse byte-identical duplicate sections (bugs_open/156) ---
+	// FIRST of this action's section-set operations, and deliberately AFTER the
+	// diagnostic above so that log keeps recording the TRUE arrival count.
+	//
+	// Placement is not tidiness. Every guard below compares the incoming set
+	// against existing rows or against a floor; none compares it against itself,
+	// so a list carrying each planned section twice passes all of them AND makes
+	// four of them measure a number that is not true:
+	//   - the content-regression guard's newTextLen is doubled, so a page truly
+	//     cut to 13% of its deployed text reads as 26% and clears the 25% floor;
+	//   - the completeness floor's numerator is doubled, so a save that saw 2 of
+	//     6 planned sections but emitted them twice scores 67% and clears 0.5;
+	//   - the claims record and the content_data record both double-count;
+	//   - and the locked-slot path in the insert loop MANUFACTURES a duplicate of
+	//     human-locked copy — the first copy consumes the lock and is discarded,
+	//     the second falls through and is INSERTed beside the locked row.
+	// Collapsing here is what makes all of those measure the truth.
+	//
+	// Nothing below can re-introduce a duplicate under this key: the Layer 2
+	// carry-forward appends only slots ABSENT from the set, and identity requires
+	// slot equality. Note SectionData.Position is left stale by the collapse —
+	// nothing after the enrichers reads it (the insert loop numbers from i+1), but
+	// do not add a reader without renumbering here.
+	// See save_sections_dedup.go for the identity rule and why a unique index on
+	// (page_id, slot_name) is the wrong fix.
+	sections, duplicatesCollapsed := dedupSectionsBeforePersist(ctx, params, siteID,
+		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+		pageName, pageURL, sectionsSource, metaField, metaFieldOrigin, sections)
+
 	// --- Preserve interactive tool sections (Layer 2) ---
 	// Interactive tools (games/simulators) exist ONLY as rendered_html in
 	// page_components — their bespoke <canvas>/JS markup is not in the page
@@ -387,6 +416,17 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				}
 			}
 		}
+	}
+
+	// --- Refuse or decode a stored LLM transport envelope (bugs_open/190) ---
+	// Placed HERE deliberately: after the Layer 2 carry-forward above, which is one
+	// of the two paths that recycles a stored envelope back into the section set,
+	// and so after the last point at which content_data can enter it — and before
+	// the history snapshot and the DELETE below, so a refused save writes nothing
+	// at all. See content_data_envelope_guard.go for the discriminator, the
+	// decode-vs-refuse policy and why this refusal takes no opt-in field.
+	if err := sanitizeSectionsContentData(ctx, params, siteID, pageName, sections); err != nil {
+		return nil, err
 	}
 
 	// --- Repair dead internal links before anything is persisted (bugs_open/079) ---
@@ -803,6 +843,10 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		"sections_source":            sectionsSource,
 		"metadata_field_origin":      metaFieldOrigin,
 		"sections_with_content_data": sectionsWithContentData,
+		// Reported on every save, not only a firing one (bugs_open/156): a zero
+		// here is the assertion that this save carried no byte-identical
+		// duplicates, which is a different statement from the key being absent.
+		"duplicate_sections_collapsed": duplicatesCollapsed,
 	}
 	// The floor's numbers are reported on a PASSING save too, not only when it
 	// refuses. "sections_saved: 2" without the denominator is the alarm presented

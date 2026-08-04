@@ -156,6 +156,22 @@ func NormaliseSectionText(rawJSON string) string {
 // there and give it its own function rather than widening this one — the two
 // tables are not interchangeable (site_plan_sections is the system of record,
 // page_components is downstream of it).
+//
+// THERE IS A THIRD, STRICTLY NARROWER RULE, AND IT IS NOT A FORK OF THIS ONE
+// (bugs_open/156, 2026-08-04). actions/save_sections_dedup.go collapses
+// byte-identical entries in the incoming set BEFORE they are persisted. It does
+// not call this function, precisely because of the precondition above: at that
+// point content_data is still a Go map and cannot meet the jsonb-canonical
+// requirement. Its key is (slot_name, rendered_html, component_id, content_data)
+// as the INSERT would bind them, which is a strict SUBSET of what this key
+// matches — equal json.Marshal output implies identical documents, hence
+// identical jsonb text after persist, so everything that guard collapses this
+// key would also have flagged. It can under-match relative to this one; it can
+// never over-match.
+//
+// If you change what this key means, read that file too: the subset relationship
+// is the only thing keeping the pre-persist and post-persist answers consistent,
+// and it is an argument, not a mechanism — nothing enforces it.
 func SectionIdentityKey(slotName, canonicalBlob string) string {
 	// NUL cannot appear in either part, so the join is unambiguous — "a"+"bc"
 	// and "ab"+"c" must not collide into one identity.
