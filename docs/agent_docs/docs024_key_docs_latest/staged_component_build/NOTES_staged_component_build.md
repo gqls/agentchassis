@@ -1732,3 +1732,38 @@ design lesson for whoever builds the next sibling action — check the target ac
 `ActionInputSpec` for an existing override field before concluding "nothing can express X,"
 not just its main resolution branch. Owner's call whether this is worth a follow-up
 refactor; not undertaken here without that call, given the cost/benefit above.
+
+## 2026-08-04 — cross-lane CONTRIB parked with the vigilant-designer/offer-analyser lane
+
+Owner asked whether tool/component testing could integrate with the decisions the visual
+designer and offer/benefit analysers make (that lane = `vigilant_designer_offer_analysis`,
+session `e0b18fd9-...`). Researched their actual state before answering: the live design
+pipeline persists decisions to `site_specs` (`design_intent`, `resolved_composition`), the
+A2 critic and B4 offer-analyser (benefit analysis inside it) are planned-not-built and will
+write findings via `write_findings` into the findings machinery — nothing on either side
+touches `doc_plans`/fences today, so any integration is new wiring, not extending a link.
+
+**The seam identified:** their findings assert claims about the SERVED page ("benefit
+surfaced?", "CTA present"), and their finding contract already carries an `acceptance_test`
+field — if page-shaped finding types populate that field in the browser-runner's existing
+check vocabulary (selector/type/text) instead of free prose, their verifiers gain the
+real-browser instrument (their planned NEW verifiers for exactly this class are static —
+lexicon re-scan, DB query) and our lane gets fence checks derived from decisions, which is
+P4's "dynamic generation of gates" arrived at bottom-up. The known design problem, named
+not solved: scope asymmetry — our fences are fleet-wide per subject (D4), their decisions
+are per-site, so per-site checks likely live on the finding, not in a fleet fence.
+
+**Owner ruling: wait until their thread matures, then suggest coordination.** So: CONTRIB
+parked in their directory now (`CONTRIB_2026-08-04_your_decisions_could_be_fence_checkable_
+when_your_vocabulary_settles.md`) — explicitly staged for their A2/B4 vocabulary-authoring
+moment, nothing asked of them today — plus a dated, attributed pointer appended to their
+current cold-start handoff so the note is found at the right moment rather than becoming
+folklore (same pattern as the gauntlet-lane CONTRIB precedent, and the reciprocal
+brochure-lane CONTRIBs already flowing both ways between these directories). The note
+hands them this lane's own council-caught lesson at the cheap moment: check whether the
+browser-runner + criteria vocabulary already expresses "verify the served page" before
+their verifiers grow a new mechanism for it — the `url_field` override + inline-workflow
+recipe means a page-scoped claim can be driven with zero new platform code already.
+
+Nothing built, nothing seeded, nothing routed at their queues. Next move is theirs, when
+they reach vocabulary authoring; ours is P3-backlog scope (owner call, still open).

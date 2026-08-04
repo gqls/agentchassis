@@ -71,3 +71,10 @@ first-user relationship; bugfix_149 owns checker-layer plumbing; 151/156 own
 content-duplication detection (inert, do not route work at it). This lane owns: the
 drain, the critic, the recompose handler, anti-brochure compose-time work, and (after A)
 the offer analyser.
+
+> **Cross-lane pointer added 2026-08-04 by `staged_component_build` (not this lane):**
+> when you reach A2's finding contract or B4's vocabulary, read
+> `CONTRIB_2026-08-04_your_decisions_could_be_fence_checkable_when_your_vocabulary_settles.md`
+> in this directory first — a one-field data-shape suggestion (populate `acceptance_test`
+> in the browser-runner's check vocabulary for page-shaped findings), parked now because
+> it is cheap at vocabulary-authoring time and a retrofit after. Nothing asked until then.
