@@ -65,6 +65,18 @@ bites on a rebuild — but a page-rebuild of either will fail with the reason
 That is the gate doing its job. It is recorded here so the failure is expected rather than
 mysterious, which is the failure mode `bugs_open/081` is about.
 
+## OWNER DECISION 2026-08-04 — candidate 1 AUTHORISED
+
+The owner has authorised the copy change on robot-hands.com ("I authorise the changes
+for robot-hands.com"), which resolves this file's ownership deadlock: the owning lane
+is dormant and the filing session declined to rewrite another lane's site voice
+unasked. **Whoever executes:** follow candidate 1 below exactly — the honest phrasing
+already exists on this same site (`index`/`features`, `gripper-detail`); edit the two
+components' `content_data` (NOT `rendered_html` — a rerender regenerates from source),
+check `input_schema` for `static`-source fields before authoring, rerender both pages,
+verify the sentences changed ON THE WIRE, then re-run the §"How to verify" dry run
+expecting **0 BANNED, 2 negated**.
+
 ## Fix candidates, ranked by what closes the door
 
 1. **Change the copy to describe what actually happens.** The site already has the honest

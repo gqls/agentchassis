@@ -77,6 +77,28 @@ it applies to every `jsonb::text LIKE` census in the estate. The broken pattern 
 there) and copied into `bugfix_168_deployed_asset_path`'s handoff — **that copy is
 still uncorrected; correcting it is a loose end.**
 
+## 4b. OWNER DECISIONS 2026-08-04 (evening) — all seven questions answered, and what was executed
+
+| # | decision | state |
+|---|---|---|
+| D1 | **Improvement loop stays OFF for now.** 204 findings stay parked; cadence stays manual | Recorded in `bugs_open/116` |
+| D2 | **Per-build checks steer DEFERRED** while D1 stands — sessions should stop attempting it | Recorded in `bugs_open/116` |
+| D3 | **Induce a successful deploy** | **DONE.** Probe D (spawn+call, spawned-pod tag v1.0.1251): robot-hands hero redeployed to its own derived path, proven at the artefact (200, new bytes). Evidence in `bugs_closed/179`. Bonus finding: the INLINE orchestrate path has NO storage client — only spawned asset-deployers can deploy; and `deploy_result` is empty even on success (git-adapter response overwrites the output_field) — verify at the served path, never the status |
+| D4 | **Build one page on finetuning.uk** to close `bugs_open/170` step 2 — authorised | **NOT YET RUN** — execution plan in that file's CONTRIB + authorisation block. Assert the header source marker takes the pool branch |
+| D5 | Cloudflare permissions question | Answered in the session reply; summarised below |
+| D6 | **robot-hands copy change AUTHORISED** (`bugs_open/147` candidate 1) | **NOT YET RUN** — exact execution steps now in that file's OWNER DECISION block: edit `content_data` not `rendered_html`, check `input_schema` static fields, rerender, verify ON THE WIRE, re-run claimscan expecting 0 BANNED / 2 negated |
+| D7 | **Restart vet collection** | **EXECUTED.** `vet-batch-verify` enabled 2026-08-04 ~20:00Z after verifying preconditions (spawned-pod tags v1.0.1251 ≥ the 1151 floor; the provenance prerequisite IS bug 100's fix, live). `ch-vet-collect` + `vet-sweep-continue` deliberately left off. First tick 20:01:55Z. **Successor: run bug 100's two-column acceptance once fresh `data_observations` rows land** (newest was still 2026-03-18 at 20:05Z), then close 100 |
+
+**D5 in one block, for whoever executes `bugs_open/132`:** a scoped Cloudflare API
+token (never the Global API Key), with: **Account → Workers Scripts → Edit** (deploy
+the 404 fix; Read alone suffices to EXPORT the live worker's source into the repo,
+which is the more urgent half — it is currently under no version control) ·
+**Zone → Workers Routes → Edit** (only if the route/binding must change — the worker
+exists, so likely not needed) · **Zone → Zone → Read** (zone enumeration). Scope it to
+the affected zones or the account as the owner prefers, supply it as
+`CLOUDFLARE_API_TOKEN` + the account id, and `wrangler` (or the raw API) can pull and
+deploy. First act should be the EXPORT, committed to the repo, before any edit.
+
 ## 5. Loose ends, in priority order
 
 1. **`bugs_open/116` needs an owner decision, not code.** All four candidates are

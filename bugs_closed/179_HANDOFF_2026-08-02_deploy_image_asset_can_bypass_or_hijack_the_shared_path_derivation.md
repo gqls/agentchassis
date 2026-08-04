@@ -33,11 +33,27 @@
 > Neither probe committed anything: `…/refusal-probe-179.jpg` and
 > `…/hero-179probe.jpg` both **404**.
 >
-> **[NOT DONE, stated rather than glossed]** a *successful* end-to-end deploy was not
-> induced. B failed at storage rather than deploying, so "a legitimate deploy still
-> works" rests on the unchanged code path, the unit tests, and B proving the guard is
-> not what stopped it — **not** on a fresh green deploy. A real one needs a valid
-> `s3_uri` and would commit an image to a live site, which is not this bug's to spend.
+> ~~**[NOT DONE]** a successful end-to-end deploy was not induced.~~ **DONE 2026-08-04
+> (evening), owner-authorised.** Probe D: the 081c spawn+call shape (a SPAWNED
+> asset-deployer, `agent_definitions.image_tag` **v1.0.1251** — checked, since spawned
+> pods run the row's tag, not the deployed image), redeploying robot-hands.com's own
+> hero to its own derived path. `COMPLETED`, and proven **at the artefact**:
+> `/assets/images/hero.jpg` 200 with new bytes (120584 → 125942; the deployer
+> re-optimises), timing matching the run. Same binary that refused probe A. The
+> over-refusal risk is closed by demonstration, not inference.
+>
+> **Two findings from getting there, worth more than the green result:**
+> - **Probe C (inline `agent_type: asset-deployer` orchestrate, valid `s3_uri`) FAILED
+>   with the same "storage client not available" as probe B.** So the inline chassis
+>   path can NEVER deploy — only a spawned asset-deployer carries storage credentials.
+>   This retro-weakens probe B slightly (its failure was the path, not only the bogus
+>   URI) while leaving the ordering proof intact (A refused BEFORE the storage step; B
+>   and C reached it), and probe D now supersedes B as the true healthy control.
+> - **`deploy_result` is EMPTY on the parent orchestration even for a successful
+>   deploy** — the git-adapter response overwrites the step's output_field, which is
+>   exactly why the action writes `{purpose}_url` into collected_data directly and why
+>   the house rule is "trust the rendered artefact, not the status". Verify deploys at
+>   the served path, never at `deploy_result`.
 >
 > Both findings are fixed in code (B on 2026-08-02, A here), live, and verified.
 > Moving to `bugs_closed/`.

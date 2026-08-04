@@ -72,6 +72,21 @@
 > | **3. A recurring fleet-wide scheduled task** | **Reverses an owner ruling.** This is **G1** and is an explicit separate owner go (`vigilant_designer_offer_analysis/PLAN_2026-08-02:17,144`). Migration `290` was written deliberately so that when G1 comes *"one flag flip is the whole change"*, and it *"deliberately does NOT touch `enabled`"*. |
 > | **4. Re-enable the improvement loop** | **OWNER RULING 2026-07-29** (`bugs_open/136:32-35`): *"the improvement loop is stopped **DELIBERATELY** … a **decision, not a defect** — do not re-file them as dead scheduled tasks and **do not re-enable them**."* This file already said 4 should not be the reason to turn it back on; that is now a ruling, not a preference. |
 >
+> ### OWNER DECISIONS 2026-08-04 — the questions this file routed upward are ANSWERED
+>
+> - **D1: the improvement loop stays OFF for now** (owner, 2026-08-04). The 204 parked
+>   findings stay parked; audit cadence stays manual. This re-affirms the 2026-07-29
+>   ruling — do not re-litigate it from this file.
+> - **D2: the per-build-checks steer is DEFERRED** (owner, 2026-08-04). The 2026-07-27
+>   steer ("checkers should run after every build or change") is not retracted, but it
+>   is not to be built while D1 stands. **Sessions should stop attempting this** — three
+>   have now walked the same ground. The seam map for when it unblocks is in
+>   `bugfix_116_link_check_coverage/` (PLAN §"What would change this plan").
+>
+> **Consequence:** this file stays OPEN as an accepted, owner-ruled state — a record
+> that coverage is manual by decision, not a work item. The revisit trigger is D1
+> changing, not time passing.
+>
 > ### 4. So what this bug actually needs
 >
 > **An owner decision, not a fix.** The ordering constraint is now visible and it is

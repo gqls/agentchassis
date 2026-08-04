@@ -298,3 +298,38 @@ work (the acceptance run, this file's `STATUS` line, whether the 2,970 unsourced
 historical rows need anything) is untouched and stays with whoever owns this bug.
 Vet collection has been off since March per this file's own text — first thing to
 check before expecting fresh rows.
+
+---
+
+## 2026-08-04 (evening) — OWNER DECISION "restart vet collection": EXECUTED. The acceptance run this file waits on is in motion.
+
+By session "bugfix 100", at the owner's explicit direction (decision D7, 2026-08-04).
+
+**One task enabled, per the standing rail** (*"Enable deliberately, one at a time"* —
+`vetcomparison/RUNBOOK` §Standing safety rails):
+
+- **Preconditions verified first.** The RUNBOOK's remaining prerequisite — *"making
+  the verifier persist per-price source_url"* — **is this very file's fix**, live
+  since v1.0.1192. And spawned pods run `agent_definitions.image_tag`, not the
+  deployed image, so the rows were checked: `vet-batch-processor`,
+  `vet-practice-verifier`, `domain-research-classifier` all **v1.0.1251**, above the
+  v1.0.1151 deny-list floor. The 2026-07-28 owner ruling stands: the verifiers STAY
+  on `scrape`.
+- `UPDATE scheduled_tasks SET enabled=true WHERE name='vet-batch-verify'` applied
+  2026-08-04 ~20:00Z; **first tick observed 20:01:55Z**.
+- **`ch-vet-collect` and `vet-sweep-continue` left DISABLED, deliberately.**
+
+**Still owed to close this file** — the two-column test, once fresh rows land
+(newest `data_observations` was still 2026-03-18 at 20:05Z; the first
+claim→scrape→store cycle takes time):
+
+```sql
+SELECT source_url, source_type, raw_data ? 'source_url' AS llm_claimed_it, collected_at
+FROM business_intel.data_observations ORDER BY collected_at DESC LIMIT 5;
+```
+
+`source_url` non-empty **AND** `llm_claimed_it` false → move this file to
+`bugs_closed/`. If provenance comes back empty, the chassis log line
+`no fetch provenance available` names the field it looked in — but chassis logs
+rotate in minutes, so check promptly or read the stored scrape artefacts
+(`upload_results` was flipped on for this step on 2026-08-03, above).

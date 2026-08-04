@@ -72,6 +72,13 @@ that the library says is switched off, and have done since it was switched off.
 > **So: whoever induces step 2 closes this.** Everything else on your list is done and
 > the evidence is above.
 >
+> **OWNER AUTHORISATION 2026-08-04: "build one page — you can."** The step-2 induction
+> (one page build on `finetuning.uk`, assert the header source marker is
+> `component-db:header-theme-chrome` = pool branch, not `component-db:professional-dark`
+> = pin branch) is now authorised. Whoever runs it: the two branches format the marker
+> differently, which is the only discriminator; and confirm leopardess's legitimate pin
+> is still honoured afterwards (the state check for that is §4 above, already passing).
+>
 > ## STATUS 2026-08-01 — FIXED AND COMMITTED (`e44e6dd06`), **~~NOT YET LIVE~~ → LIVE on v1.0.1246, see CONTRIB above**
 >
 > Worked by the `bugfix_170_chrome_pin_eligibility` lane
