@@ -948,3 +948,73 @@ domain served the Worker's JSON 404. So the Worker binding is *not* a zone route
 most likely a Workers Custom Domain or an account-level route, neither of which that
 endpoint lists. This decides how `api.webdesign.uk` should be wired. The token
 cannot reach account scope, so it needs a dashboard look.
+
+---
+
+## 2026-08-04 (later) — can the framework build dynamic sites? Measured, not read off the register
+
+Prompted by the owner. **The register is frozen at 2026-07-13 and its DYN-001 line
+("none built beyond tier 1 basics") is STALE** — the exact failure its own banner
+warns about (`bugs_open/106`). Everything below is from live code + live DB today.
+
+**BUILT AND LIVE — VM deploy is a real, per-site path:**
+- `git_deployer_actions.go:95-101` — deploy target resolves step config → the site's
+  own `sites.github_repo` → default `sites`. **"The per-site hop is what lets a
+  VM-hosted site (e.g. idea.uk → `vm-sites`) deploy somewhere other than the
+  B2-backed default without forking the workflow."**
+- Measured: **36 sites → default → B2; 2 sites → `vm-sites` → a box**
+  (`idea.uk`, `relojistas.com`). relojistas has **20 pages**, `last_deployed_at`
+  **2026-08-04**. So this is live, not archaeology.
+- Backend-site *class* exists: `deploy_config = {"target":"vm",
+  "capabilities":["backend"],"engine":{base_url,stats_key},"rss_feed":{…}}` on
+  relojistas.
+- `discovery_checks/check_backend_unreachable.go` probes `/health` on
+  `target='vm'` sites, NOOPs for static, self-clearing, alert-only.
+- Client-side dynamic is properly built (register DYN-007/009/012 `deployed`):
+  `data-runtime-fill` shells + client loaders + JSON feed, `js_snippets` library +
+  bundling, generation-time guards.
+
+**NOT BUILT — and this is the real boundary:**
+- **The framework does not generate backend code.** `site-engine` is ONE
+  hand-written Go service, same binary everywhere:
+  `/health /stats /events /intent /api/hit`
+  (`traffic_probe/deploy_setup/site-engine/service.go:85-89`). DYN-001 tier 2
+  ("agent-powered per-site backends") remains `aspirational` and that part of the
+  register is still accurate.
+- **CTS-049 `requires-backend` component gate: not built.** Verified two ways —
+  **no `semantic_tags` column on `site_components`** (information_schema, empty),
+  and **0 active agent definitions** matching `%requires-backend%`. So the planner
+  can neither be told a component needs a backend nor stopped from placing one.
+- No vmhost adapter to provision/remediate; the health check's own header names it
+  as future P5 work.
+
+**⇒ Corrects HANDOFF_2026-08-04 §3.** The `api.webdesign.uk` separate-hostname plan
+is probably the wrong shape. Better: make webdesign.uk a `vm-sites` site like
+relojistas, framework-build the pages onto the box, and put the chat on the same
+host as another nginx location proxied to a local port — which is *exactly*
+idea.uk's existing layout (`box/proxy_tool.conf`, `box/proxy_stripe.conf`, both
+`proxy_pass http://127.0.0.1:8080`; the Stripe webhook deliberately has its own
+location with **no** `limit_req` because Stripe retries in bursts and a 503 reads
+as an outage). Same origin ⇒ no CORS, no second certificate.
+
+### Misstep caught mid-measurement, worth recording
+
+I first "established" that `backend_unreachable` is enabled nowhere with
+`default_config ? 'checks'` … which returned **zero rows for every agent**. That
+was not a finding, it was the wrong key: no agent stores a `checks` array under
+that name. **The control is what caught it** — I re-asked with the same query shape
+for a sibling check and `%tool_health%` returned `design-discovery-agent` while
+`%backend_unreachable%` returned nothing. *Then* the comparison meant something.
+A query that finds nothing and a query that asks the wrong question look identical.
+
+### Contributed to `bugs_open/149` (B1a), not filed separately
+
+149's Group B1 already has "six registered checks configured in NO agent", better
+evidenced than mine. The **additive** point is second-order and survives their fix:
+`check_backend_unreachable.go:48` NOOPs unless `deploy_config->>'target'='vm'`, and
+of the two `vm-sites` boxes only relojistas carries that flag — **`idea.uk` has
+`deploy_config = {}` and is silently skipped. idea.uk is the box taking card
+payments.** So a freshly-seated check reports healthy backends while the only
+revenue-bearing box is never probed, and a NOOP returns an empty result rather than
+an error. One-row fix, but it must ship *with* the seating or the first clean run
+becomes the evidence that backends are fine. Committed `ff04e448d`.

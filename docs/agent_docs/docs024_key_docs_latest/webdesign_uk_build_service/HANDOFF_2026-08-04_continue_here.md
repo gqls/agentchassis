@@ -92,7 +92,56 @@ succeeded. Re-queue the failed `needs_page` item (its spec carries
 Those are two different delivery paths and they have to coexist.** Decide this
 before provisioning anything, because it determines what the box actually serves.
 
-**Recommended: keep the site static and put ONLY the API on the box.**
+> ### ⚠ CORRECTED later on 2026-08-04, after searching the code and the live DB
+>
+> **The recommendation below was written believing the framework only deploys
+> static sites. That is wrong, and the correction changes the shape of the work.**
+>
+> **The framework already builds AND deploys VM-hosted sites, today, in
+> production.** The mechanism is a per-site hop in the git deployer: a site whose
+> `sites.github_repo` is **`vm-sites`** deploys to the box instead of the
+> B2-backed default repo (`git_deployer_actions.go:95-101`, which names idea.uk as
+> the example). Measured live: **36 sites → default → B2; 2 sites → `vm-sites` →
+> a box** (`idea.uk`, `relojistas.com`). `relojistas.com` has 20 framework-built
+> pages and `last_deployed_at` of **today**.
+>
+> There is also a real backend-site *class*, not just a deploy target:
+> `deploy_config = {"target":"vm","capabilities":["backend"],"engine":{…}}`, and a
+> discovery check (`check_backend_unreachable`) that probes `/health` on exactly
+> those sites and NOOPs for static ones.
+>
+> **So `api.webdesign.uk` as a separate hostname is probably the WRONG shape.**
+> The cheaper and better-precedented option is to make webdesign.uk a `vm-sites`
+> site outright, exactly like relojistas.com: the framework builds the pages and
+> deploys them to the box, nginx serves them, and the chat API is another location
+> on the same host proxied to a local port. That is precisely idea.uk's existing
+> layout (`box/proxy_tool.conf`, `box/proxy_stripe.conf`, both
+> `proxy_pass http://127.0.0.1:8080`, with the Stripe webhook deliberately given
+> its own no-rate-limit location because Stripe retries in bursts).
+> **Same origin, so no CORS at all**, and no second hostname to certificate.
+>
+> **What is genuinely NOT built**, and is the real boundary: **the framework does
+> not generate backend code.** The `site-engine` is a single hand-written Go
+> service, the same binary on every box, exposing `/health`, `/stats`, `/events`,
+> `/intent`, `/api/hit`. Register `DYN-001` tier 2 ("agent-powered per-site
+> backends") is still `aspirational`. **The chat backend must therefore be written
+> once, by hand, as a service** — either added to `site-engine` or run alongside
+> it. Nothing generates it, and no agent will.
+>
+> Also not built, and relevant if you want the chat to arrive as a *component*:
+> the `requires-backend` capability gate (`CTS-049`). Verified today: there is
+> **no `semantic_tags` column on `site_components`**, and **0 active agent
+> definitions** reference `requires-backend`. So the planner cannot be told a
+> component needs a backend, and cannot be stopped from placing one on a static
+> site. Treat the chat as page markup plus a hand-written service, not as a
+> capability-gated component.
+>
+> **Read `SUMMARY_2026-08-04b_dynamic_site_capability.md` before designing this.**
+> The register's `dynamic-applications.md` is frozen at **2026-07-13** and its
+> DYN-001 line ("none built beyond tier 1 basics") is stale in exactly the way its
+> own banner warns about.
+
+**Superseded recommendation, kept for the trail: keep the site static and put ONLY the API on the box.**
 
 ```
 webdesign.uk          → Cloudflare → Worker (portfolio-sites-router) → B2   [static, framework-built]
