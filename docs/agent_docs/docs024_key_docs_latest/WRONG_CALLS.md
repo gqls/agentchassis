@@ -19645,3 +19645,48 @@ NULL`), never from what you would type as a human* — a site's homepage is ofte
 deployed row at all. And **before reading anything into an absence on a served file,
 compare its `last-modified` against the timestamp of the artefact you are looking for.**
 If the file is older, you have measured nothing.
+
+## 2026-08-04 — "a sibling collected_data key survives the await" — WRONG, refuted by the first live run of the code built on it
+- **the claim** (bugs_open/098 debt 5, LANDMINES entry, RFC_012 §2, four action-level tests): persist an awaited action's findings under a top-level sibling key and the response overwrite cannot destroy them.
+- **what was true:** the RESPONSE handler indeed never touches sibling keys — but `persistAwaitingStateWithRetry` (coordinator.go:2052) discards EVERY CollectedData mutation at park time by fresh-loading state and copying only awaited-request bookkeeping onto it. The sibling key never reaches the DB at all. My tests proved the in-memory contract; the loss is in the DB round-trip they never exercised.
+- **what caught it:** reading the durable record after a green run — the same habit that found the original defect. Run `e23b7257…`: strings-proven binary, absent key.
+- **the cheap check that would have caught it at build time:** after the step parks (status `AWAITING_RESPONSES`), SELECT the persisted `collected_data` and look for the key — one query, BEFORE the reply arrives. A verification that stops at the in-memory map is a verification of the wrong layer.
+- **residual truth:** the `agent_error_log` half (direct INSERT before dispatch) is durable and works; only the collected_data half was fiction.
+
+---
+
+## 2026-08-04 — my migration's DO/RAISE verify block was a decoration for the one case it most needed to catch
+
+**footprint:** `docs/agent_docs/sql_for_agents/*.sql` verify blocks · `DO $$ … RAISE EXCEPTION` · any `#>>`/`->>` result compared with `<>`, `=`, `NOT LIKE` · bugs_open/185 lane
+
+**The claim.** Migration 302 ended with a `DO $$ … RAISE EXCEPTION $$` block that I
+described, in the file and in a council submission, as verification that *"actually
+guards"* — explicitly contrasted with the known trap that a verify block of plain `SELECT`s
+cannot stop a `COMMIT`. It checked that the jsonb path's text contained `has_shipped`
+exactly once and still carried two other columns.
+
+**What caught it.** Three council seats independently, against a landmine I had not
+connected: **an absent `#>>` path yields NULL, every comparison against NULL is NULL, so no
+`IF` fires and the block passes silently.** Reproduced against the live row rather than
+taken on their word — same SELECT pointed at a nonexistent path:
+`q IS NULL: t` / `would any guard have FIRED? f`. All three of my guards sat green.
+
+So the block proved the query's CONTENT when the path resolved, and proved **nothing at
+all** when it did not — which is exactly what a path typo produces, and exactly what I
+wrote the block to catch. The migration happened to be correct, so nothing broke; the guard
+was never the reason I knew that.
+
+**The cheap check.** **A guard whose input can be NULL must assert the input exists
+FIRST.** One line:
+
+```sql
+IF q IS NULL THEN RAISE EXCEPTION 'NNN: jsonb path did not resolve — nothing was verified'; END IF;
+```
+
+The generalisation, and it is the same shape as three other entries in this file: **ask
+what your check returns when the thing it inspects is ABSENT rather than wrong.** A
+detector run against a tree with no defects, a census filtered to exclude its own
+disconfirming rows, a grep for a string that cannot be in the binary, and now a comparison
+against a NULL that cannot be false — all four are the same error, and all four produce a
+confident green. I have now made every one of them, in one week, while writing about the
+others.
