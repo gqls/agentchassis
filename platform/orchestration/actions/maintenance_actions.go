@@ -721,7 +721,7 @@ func findStalePages(ctx context.Context, db *sql.DB, siteID uuid.UUID, threshold
 		SELECT name FROM pages
 		WHERE site_id = $1
 		  AND build_status = 'deployed'
-		  AND status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("")+`
 		  AND deployed_at < NOW() - make_interval(days => $2)
 		ORDER BY deployed_at ASC
 	`, siteID, thresholdDays)
@@ -775,7 +775,7 @@ func findOrphanNavPages(ctx context.Context, db *sql.DB, siteID uuid.UUID) ([]st
 		WHERE site_id = $1
 		  AND (in_header = true OR in_footer = true)
 		  AND build_status NOT IN ('deployed')
-		  AND status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("")+`
 		ORDER BY name
 	`, siteID)
 	if err != nil {
@@ -977,7 +977,7 @@ func flagPagesForRebuild(ctx context.Context, db *sql.DB, siteID uuid.UUID, page
 		SET build_status = 'needs_rebuild', updated_at = NOW()
 		WHERE site_id = $1
 		  AND name IN (%s)
-		  AND status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("")+`
 	`, strings.Join(placeholders, ", "))
 
 	result, err := db.ExecContext(ctx, query, args...)
@@ -1045,7 +1045,7 @@ func loadActivePagesForLinkContext(ctx context.Context, db *sql.DB, siteID uuid.
 		       COALESCE(meta_description, '') as description,
 		       COALESCE(nav_order, 100) as nav_order
 		FROM pages
-		WHERE site_id = $1 AND status = 'active'
+		WHERE site_id = $1 AND `+datahelpers.PageWantedLivePredicateFor("")+`
 		ORDER BY nav_order ASC, name ASC
 	`, siteID)
 	if err != nil {

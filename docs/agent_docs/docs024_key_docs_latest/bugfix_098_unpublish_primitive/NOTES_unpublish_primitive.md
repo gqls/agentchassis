@@ -549,3 +549,40 @@ two statuses exist.
 Registered as **PBP-029** (+ index row; headline count re-measured 1,717 → 1,718, exactly
 my row). HEAD-isolation check: `git archive HEAD` + the 12 changed files builds and
 passes all three packages' suites.
+
+## 2026-08-04 — round 37593214 APPROVED (4 advisory, none high) — and its census objection was RIGHT
+
+`bug_historian` (medium + missing): the seven migrated sites were drawn from prior
+findings, not a stated audit — "worth a human grep sweep before calling debt 4 fully
+paid". **The sweep found five more `pages`-table lifecycle selectors I had missed**, all
+now migrated in the follow-up commit: `findStalePages` (maintenance:724 — sitting 26
+lines above the one I did migrate), `findOrphanNavPages` (:778), the name-list
+needs_rebuild UPDATE (:980), `loadActivePagesForLinkContext` (:1048), and
+`render_news_section_action.go:216` (a different file from render_news_section_html.go —
+near-namesakes are exactly how a census by memory fails). Also migrated: my own
+`loadActivePageFilePaths` COALESCE `=` form (NULL-identical in the `=` direction; only
+the `<>` complement differs and keeps its spelling).
+
+**Deliberately SKIPPED, and why:** `tool_acceptance_actions.go` (2 sites) is DIRTY in the
+tree — another session's WIP; editing it makes my commit take their half-finished work
+(the same-file-passenger rule). `check_page_canonical_collision.go:390` belongs to the
+080 lane's fresh PLAN-047 code, committed today — their lane's file, their call. Both are
+recorded here so the next sweep knows they are known, not missed.
+
+**Answers to the other advisory objections, so nobody re-derives them:**
+- `guardian` (init-order, low): the hoisted package vars call datahelpers functions at
+  package init — safe by the Go spec: an imported package is fully initialised before the
+  importer's package-level vars; `actions` imports `datahelpers`.
+- `guardian` (markPagesForRebuild WHERE, medium): the resulting clause is
+  `WHERE status = 'active' AND build_status = 'deployed' AND EXISTS (…sections…)` —
+  byte-identical to before; the 'deployed' arm is the state-machine source state and
+  stays hand-written.
+- `debug_historian` (pod-grep step, medium): debts 3+4 render byte-identical SQL, so the
+  binary carries NO new behavioural string to grep — the roll-proof for this lane is debt
+  5's added literal `retraction refused for page`, which ships in the same build.
+- `editquality` (mediums): real bookkeeping fault in my submission — multi-file edits
+  collapsed into single edit entries, and the test file wasn't listed as its own edit.
+  Nothing was actually skipped (the commit shows all files), but the lesson stands: ONE
+  edit entry PER FILE, and list the test files.
+- `architecture` (low): the "drift alarm, not semantic proof" caveat is now IN both
+  lockstep tests' doc comments.

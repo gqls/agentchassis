@@ -8,6 +8,10 @@
 // answers for it; a surface dropped from this query fails here immediately.
 // (Council round 5a965452, 098 debt 3: the lockstep used to be a comment
 // saying "CHANGE ONE, READ THE OTHER", and a comment is not a mechanism.)
+//
+// A green run here is a DRIFT ALARM only, not a semantic proof: it asserts the
+// surface's NAME appears in the SQL, not that the query reads it correctly
+// (council `architecture` seat, round 37593214 — do not over-trust it).
 package discovery_checks
 
 import (

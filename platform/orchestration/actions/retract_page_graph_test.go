@@ -206,6 +206,10 @@ func TestAuditRetractionPropagatesQueryErrors(t *testing.T) {
 // surface must be readable by the inbound side (union of the three inbound
 // queries) AND by the stranded side, because a surface only one side reads is
 // a disagreement about the same site waiting to be measured.
+//
+// A green run here is a DRIFT ALARM only, not a semantic proof: it asserts the
+// surface's NAME appears in the SQL, not that the query reads it correctly
+// (council `architecture` seat, round 37593214 — do not over-trust it).
 func TestRetractionAuditReadsEveryDeclaredLinkSurface(t *testing.T) {
 	if len(datahelpers.InboundLinkSurfaces) == 0 {
 		t.Fatal("datahelpers.InboundLinkSurfaces is empty — the lockstep contract has been deleted, not satisfied")

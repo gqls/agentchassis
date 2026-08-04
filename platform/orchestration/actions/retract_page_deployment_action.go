@@ -575,10 +575,14 @@ func loadRetractionCandidates(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 // answers the question that matters — "would deleting this file remove a live
 // page's artefact?" — rather than the weaker url-equality question.
 func loadActivePageFilePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]string, error) {
+	// The lifecycle arm is the shared helper; for the `=` direction the
+	// COALESCE form it replaces was NULL-identical (both reject a NULL
+	// status). Only the `<>` COMPLEMENT in loadRetractionCandidates differs
+	// on NULL and deliberately keeps its COALESCE spelling.
 	rows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(name,''), COALESCE(url,'')
 		  FROM pages
-		 WHERE site_id = $1 AND COALESCE(status,'') = 'active'`, siteID)
+		 WHERE site_id = $1 AND `+datahelpers.PageWantedLivePredicateFor("")+``, siteID)
 	if err != nil {
 		return nil, fmt.Errorf("load active page paths: %w", err)
 	}

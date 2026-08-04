@@ -213,7 +213,7 @@ func RenderNewsSectionAction(ctx context.Context, params ActionParams) (interfac
 	var insightsURL sql.NullString
 	_ = params.DB.QueryRowContext(ctx, `
 		SELECT url FROM pages
-		WHERE site_id = $1 AND page_type = 'news-index' AND status = 'active'
+		WHERE site_id = $1 AND page_type = 'news-index' AND `+datahelpers.PageWantedLivePredicateFor("")+`
 		LIMIT 1
 	`, siteID).Scan(&insightsURL)
 
