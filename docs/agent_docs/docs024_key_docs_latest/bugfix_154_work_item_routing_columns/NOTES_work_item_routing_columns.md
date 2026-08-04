@@ -1608,3 +1608,66 @@ rather than manufacturing one on production data — the fix has unit +
 mutation coverage and is now instrumented (`edit_live_meta.fallback_matched`),
 so the next real occurrence will self-report; full reasoning and the
 watch-query are in `bugs_open/178`'s new update, not duplicated here.
+
+---
+
+## 2026-08-04, even later — read both in-flight results; answered the REVISE with code evidence and resubmitted; diagnosis came back UNVERIFIABLE, not silent
+
+**Council round 1 (`56f9a5a2-…`): REVISE**, gated by `bug_historian` (HIGH —
+claims `save_page_sections_action.go` and `rerender_page_sections_action.go`
+share the same exact-slot_name-join exposure this fix patches). Two more
+objections at MEDIUM: `architecture` (root cause deferred, no owner) and
+`prior_art_librarian` (check for an existing content-identity matcher before
+building a new heuristic). 8 of 11 reviewers approved outright.
+
+**Checked `bug_historian`'s claim against the actual code rather than taking
+it on trust — it does not hold for either named file.**
+`rerender_page_sections_action.go:234-276` resolves `page_components.component_id`
+FIRST since `bugs_open/182`, immune to slot-name drift, falling back to
+name/function only when `component_id` is absent (observe-only log on
+disagreement, 13 live sections fleet-wide measured 2026-08-03). Materially
+different mechanism, already hardened, predating this bug.
+`save_page_sections_action.go` is delete+insert per build, not a stale-row
+join at all; its one slot_name-keyed lookup is `matchLockedRow`
+(`bugs_open/058`), a disclosed, narrow exception for human-locked rows. **On
+the evidence read, the "exact-name join with a silent miss" shape this fix
+targets is unique to `load_current_section_content_action.go`'s pre-fallback
+code** — the other two files were misidentified as siblings.
+
+**Checked `prior_art_librarian`'s pointer too**: `datahelpers.SectionIdentityKey`
+(`section_text.go:93-163`) is explicitly the wrong tool — its own doc comment
+states slot equality is *necessary*, not just sufficient ("Two different
+components in two different slots are not the same section rendered twice"),
+plus byte-identical content, built for exact-duplicate deletion
+(`bugs_open/156` round 2). This fallback answers the opposite question (same
+section, different slot, no byte-identity test available) for read-only
+enrichment. No existing mechanism already solves this.
+
+**Resubmitted, no code change** — `SUBMISSION_2026-08-04b_component_identity_drift_fallback_revise_response.json`,
+`RESUBMIT_CORR=56f9a5a2-4d37-4114-9442-239861acd36e`. Confirmed genuinely
+dispatched this time (`council-gate-orchestrate-0804-2021` seen executing
+`review_editquality` seconds after submitting) — not a repeat of the earlier
+`kcat` silent-drop. Verdict not yet read as of this entry.
+
+**The 090 diagnosis (`167d2cc2-…`) is NOT silent — it completed and returned
+`UNVERIFIABLE`** (`stopped_by: "scope-not-narrowing"`, 5 iterations). It never
+got the actual body of `plan_sections_action.go`'s Path 1/Path 2 logic despite
+that being the hypothesis's central claim, and critically **no
+`page_component_history` row predates the overwrite event under
+investigation** — there is no forensic trail for what wrote
+`slot_name='generic-text-block'` or when. Pulled the one pre-overwrite
+snapshot (`c5769938…`) directly: its `content_data` holds real prose
+(`heading`/`content` keys), confirming real content existed, but the table has
+no `slot_name` column so it can't answer the diagnosis's actual question. Root
+cause (candidate 3) stays open, now genuinely investigated rather than merely
+deferred.
+
+**One claim inside the diagnosis artifact needed checking before repeating
+it, and it was wrong**: it called `page_component_history`'s snapshot INSERT
+"a real bug" for writing `pc.id` instead of `pc.component_id`. Checked the
+schema — `page_component_history.component_id` **FKs to `page_components(id)`**,
+not `content_components`, so `pc.id` is correct. The diagnosis loop misread
+which table the column identifies. **[MEASURED]**, disconfirmable: `\d
+page_component_history` would have shown the FK pointing elsewhere had the
+claim been right. Not acted on; flagged here so nobody downstream repeats it
+from the artifact alone.

@@ -671,3 +671,94 @@ writer actually preserve it end to end — is blocked on this bug, not on 178's 
 code"). **That block is gone**; builds complete again. The `content_rewrite` item
 `18bc832c` (vetcomparison, `guide-independent-strategy`) ran to `complete` at 09:05Z
 and is a ready-made subject for your `content_data` length check.
+
+## UPDATE 2026-08-04, later still — both in-flight results read; council REVISE answered with code evidence and resubmitted; root-cause diagnosis came back UNVERIFIABLE
+
+**Council verdict on the fallback fix (round 1, `56f9a5a2-…`): REVISE**, decided by
+a HIGH-severity gating objection from `bug_historian`. Two further MEDIUM
+objections (`architecture`, `prior_art_librarian`). The other 8 reviewers
+approved, several explicitly endorsing the narrow opt-in scoping. Full verdict:
+`diagnosis_artifacts` kind=`council_report`, correlation `56f9a5a2-4d37-4114-9442-239861acd36e`.
+
+**`bug_historian`'s objection checked against the actual code, and it does not
+hold for either file it named:**
+- `rerender_page_sections_action.go:234-276` does **not** do the naive exact
+  slot_name join this fix patches. Since `bugs_open/182` it resolves
+  `page_components.component_id` FIRST — immune to naming drift — falling back
+  to the name/function map only when `component_id` is absent, and logging
+  observe-only when the two disagree (13 live sections fleet-wide, measured
+  2026-08-03). Already hardened, differently, before this bug existed.
+- `save_page_sections_action.go` is not a stale-row lookup at all — it deletes
+  the page's components and inserts a fresh row per section of the new
+  composition every time. Its only slot_name-keyed lookup is `matchLockedRow`,
+  a narrow, already-disclosed exception (`bugs_open/058`, human-locked rows
+  only).
+  Neither file shares the "exact-name join, silent miss, fabricate" shape this
+  fix targets. On the evidence read, that shape is unique to
+  `load_current_section_content_action.go`'s pre-fallback code.
+
+**`prior_art_librarian`'s objection checked too**: `datahelpers.SectionIdentityKey`
+(cited as possible prior art) is explicitly the wrong tool for this — its own doc
+comment (`datahelpers/section_text.go:93-163`) states slot equality is a
+**necessary** condition ("Two different components in two different slots are
+not the same section rendered twice, whatever their content_data happens to
+contain") plus byte-identical content, built for exact-duplicate deletion
+(`bugs_open/156` round 2). This fallback answers the opposite question — same
+section, different slot, no byte-identity available — for read-only enrichment,
+not deletion. No existing mechanism solves it.
+
+**`architecture`'s objection (root cause still open) stands** — see the
+diagnosis result below — but is now backed by a completed, if inconclusive,
+investigation rather than an untried gap.
+
+**Resubmitted** with these three answers folded into the rationale, no code
+change: `SUBMISSION_2026-08-04b_component_identity_drift_fallback_revise_response.json`,
+`RESUBMIT_CORR=56f9a5a2-4d37-4114-9442-239861acd36e` (same trail id, so round 2
+accumulates against round 1 per this repo's own practice). Confirmed genuinely
+dispatched, not a repeat of the earlier `kcat` silent-drop (`council-gate-orchestrate-0804-2021`,
+seen executing `review_editquality` seconds after submitting). **Verdict not yet
+read as of this update** — check before assuming either round's status:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='56f9a5a2-4d37-4114-9442-239861acd36e' AND kind='council_report'
+ORDER BY created_at;
+```
+If the second row is APPROVED, commit trailer `Council-Reviewed: 56f9a5a2-4d37-4114-9442-239861acd36e`.
+
+**The root-cause 090 diagnosis (`167d2cc2-…`) came back UNVERIFIABLE, not
+silent.** `status: "UNVERIFIABLE"`, `stopped_by: "scope-not-narrowing"` after 5
+iterations. It never obtained the actual body of `plan_sections_action.go`'s
+Path 1/Path 2 resolution logic despite that being the hypothesis's central
+claim, and — the real dead end — **no `page_component_history` row predates
+the 2026-08-04 09:04:48 overwrite event under investigation**, so there is no
+forensic trace of what wrote `slot_name='generic-text-block'` for this
+position, or when. Pulled the one pre-overwrite snapshot that does exist
+(`page_component_history` id `c5769938…`) directly: its `content_data` holds
+real prose (`heading`/`content` keys, the actual pre-overwrite article text) —
+confirming the position DID hold real content, consistent with this bug's
+original finding — but `page_component_history` has no `slot_name` column (see
+this file's earlier note), so it cannot answer the diagnosis's specific
+question either. **The mechanism remains genuinely unknown**, not merely
+unread — candidate 3 stays open with no lead.
+
+**One claim from the diagnosis loop itself needed checking before repeating
+it, and it was wrong**: its `NeededEvidence` field asserted `page_component_history`'s
+snapshot INSERT is "a real bug" because it writes `pc.id` instead of
+`pc.component_id`. Checked against schema: `page_component_history.component_id`
+**FKs to `page_components(id)`**, not to `content_components` — so `pc.id` is
+correct, not a bug. The diagnosis loop misread what the column identifies
+(the page's own slot row, not the fleet-shared library component). Not acted
+on; recorded here so it isn't repeated by whoever reads that artifact next.
+
+**Still open, in priority order (updated):**
+1. Council round 2 verdict — check before doing anything else with this bug.
+2. The root-cause mechanism (candidate 3) — now genuinely investigated and
+   still unknown, not just deferred. A future occurrence with a
+   `page_component_history` row that predates its own overwrite is the only
+   evidence class that could settle it; this one didn't have one.
+3. The ambiguous case (two-or-more unmatched sections/candidate slots) is
+   still unhandled by design — unknown severity, not yet observed.
+4. Watch for the fallback's first natural firing (query in the previous
+   update), subject to ~24h `orchestration_states` retention.
+5. Watch-list item unchanged for four updates: the shrink guard doesn't fire
+   on a whole-slot rename.
