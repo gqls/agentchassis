@@ -20048,3 +20048,42 @@ pattern, and I walked into it while deliberately trying to avoid it.
 - **Do not diff or grep a page during its own deploy.** The lane's standing guidance already
   says ~2 min behind `complete`; I queried on `status='complete'` and fetched immediately.
   `complete` is the work item's status, not the CDN's.
+
+---
+
+## 2026-08-04 — I read the code the landmine guards and never read the landmine
+
+**footprint:** `LANDMINES.md` · any symbol you are about to edit · bugs_open/193 lane
+
+**The claim.** I planned and implemented `bugs_open/193` — a change to
+`resolveSubstepContinueOnError`, `loop_actions.go`'s `continue_on_error` read, and the
+parse they share — and submitted it to the council **without ever grepping `LANDMINES.md`
+for those symbols**. I had read the surrounding code closely, quoted its comments, and
+measured its blast radius; I simply never asked whether the estate had already written down
+a trap for it.
+
+**What caught it.** The council, four seats at once, with `editquality` gating it [high]:
+there is an entry keyed to exactly those three symbols, added by the `bugs_open/173` lane
+**the same day**, whose second trap is *the central design point of my own change* —
+*"`ok && v` is WRONG… Presence and truth must be tested separately"* — and whose third trap
+pre-answers the "what about the third reader" question the seats then asked me.
+
+**The bitter part:** my own auto-loaded memory index carries the line *"grep LANDMINES for
+the SYMBOL you are about to trust — the SessionStart hook only matches files already DIRTY,
+so the shared helper you are reaching for is never shown"*. The hook did not show me this
+entry because `loop_expansion_handler.go` was clean when the session started. That is
+precisely the case the memory line exists for, and I still did not run the grep.
+
+**The cheap check.** One command, before writing any code, on every symbol in the change:
+
+```
+grep -n "resolveSubstepContinueOnError\|loop_actions.go\|shouldContinueLoopOnError" \
+  docs/agent_docs/docs024_key_docs_latest/LANDMINES.md
+```
+
+**The lesson is not "read the landmines" — I knew that.** It is that the reflex has to fire
+on the SYMBOL LIST, mechanically, at the same moment you decide what to touch — not when
+something looks odd, because nothing looked odd. Everything I did was careful and the
+landmine agreed with all of it; the failure cost a full council round and would have cost
+nothing to avoid. **The 173 lane wrote that entry for exactly the person I was that
+afternoon, and the entry reached me only because six LLM reviewers read it for me.**
