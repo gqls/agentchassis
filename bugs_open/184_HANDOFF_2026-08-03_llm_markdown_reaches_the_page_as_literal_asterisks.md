@@ -314,3 +314,68 @@ gaswholesalers `35057952-fc5e-405f-94e8-c7abe6826184`, webdesign.co.uk
 
 **Council**: still not resolved as of this update (poll query in the previous
 progress section) — not blocking, trailer already correct either way.
+
+## Progress — 2026-08-04 (continued 3) — the real blocker was the dispatch backlog, not routing
+
+**Item 2 from the previous note is answered: routing is generic, not
+item_type-specific.** `claim_work_item_action.go:94-105` claims by
+`status IN ('triaged','approved')` alone; the handler-existence check
+(`:126-214`) only verifies `agent_definitions` has a row for
+`handler_agent` — confirmed via `handler_coverage_test.go`'s
+`knownHandlerAgents` map, which already lists `page-content-writer` (it
+covers `check_placeholder_contact` too, same handler). `page-content-writer`'s
+own workflow (`load_work_item_actions.go` grep) has **no `item_type` branching
+anywhere** — it works from `spec` alone, so it is structurally
+item-type-agnostic. Nothing here was the blocker.
+
+**The actual blocker: `build-dispatch-loop` has no scheduled cadence, and
+these sites have large triaged backlogs ahead of the markdown items by
+priority.** `SELECT * FROM scheduled_tasks WHERE target_agent_type
+='build-dispatch-loop'` → **0 rows, fleet-wide** — nothing fires this
+dispatcher on its own; it only runs when something spawns/calls it directly
+(a scheduled discovery task, or `improvement-loop`'s own
+`spawn_dispatch`/`call_dispatch` steps). The 2026-08-04(continued 2)
+`improvement-loop` dispatch for all three sites DID reach and complete
+`call_dispatch` (confirmed via `processing_history`, ~6 min runtime for
+mortgagecalculator's run), but touched **zero** `literal_markdown` rows —
+verified by `attempt_count=0, claimed_by=NULL` on all 12 afterward. Root
+cause: `load_work_items`'s current live config caps at **`max_items: 5`**
+per invocation, ordered by `priority` (lower = sooner), and these items sat
+at priority 40 behind **9 items** (mortgagecalculator), **40 items**
+(gaswholesalers), and **113 items** (webdesign.co.uk) of higher-priority
+triaged work — `site_work_items` totals 23 / 84 / 251 triaged rows on those
+three sites respectively. None of that is `literal_markdown`-specific; it is
+a standing fleet-wide gap (no recurring `build-dispatch-loop` schedule exists
+at all) that this bug's repair step happened to walk into. **Worth its own
+bug filing** — not done here, out of scope for 184, but flagged so it isn't
+lost: sites accumulate triaged work indefinitely unless something manually
+dispatches `build-dispatch-loop`.
+
+**Action taken**: bumped `priority` to `5` on exactly the 12 `literal_markdown`
+rows (`UPDATE site_work_items SET priority=5 WHERE item_type='literal_markdown'
+AND status IN ('triaged','approved')` — 12 rows). This reorders only these
+rows within the existing, already-verified dispatch mechanism; it does not
+touch the mechanism itself and does not affect any other site's queue.
+
+**Dispatch mechanism, confirmed and now scripted.** `system.agent.generic
+.requests` is still wrong for this agent type (same stub-resolution issue as
+the 2026-08-04(continued 2) note). Working topic is
+`system.agent.scheduled.requests`, envelope mirrored exactly from
+`cmd/scheduler/main.go`'s `fireTrigger()` (`action=orchestrate`,
+`config.agent_type`, `input_data:{site_id,domain}`, and its header set
+including `from_agent_type=kafka-scheduler`). **Published via the container
+COMMAND, not piped stdin** — `kubectl run -i --rm | kcat -P` is the
+`kcat-publish-silently-drops` landmine (loses ~4/5 messages at exit 0);
+used `--command -- sh -c "... && echo PUBLISH_OK"` instead and confirmed
+`PUBLISH_OK` printed for all three fires. Correlation ids: mortgagecalculator
+`446fe9bb-401d-4cf1-a838-d749fde11af3`, gaswholesalers
+`96c323a0-a198-4e96-8b11-2a5f43a0fc4b`, webdesign.co.uk
+`eb3732c9-7663-47b3-8526-3ae0643548fd`. webdesign.co.uk has 10 markdown items
+against `max_items: 5`, so this first round will only clear half of them —
+expect to need a second dispatch there.
+
+**Still to do**: poll the three orchestrations to completion, check
+`attempt_count`/`error`/`status` on all 12 items, re-dispatch webdesign.co.uk
+if items remain `triaged`, then verify at the artefact per the standing
+note (`content_data` ≠ `rendered_html`, `bugs_open/097`) and confirm the
+check's `Resolved` retraction closes items on the next discovery pass.
