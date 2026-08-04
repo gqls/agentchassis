@@ -277,10 +277,13 @@ func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (inte
 // loadParkedReviewItems reads the queue, oldest first — the oldest items are the
 // ones most likely to be describing a page state that no longer exists.
 func loadParkedReviewItems(ctx context.Context, db *sql.DB, siteFilter, typeFilter string, maxItems int) ([]parkedReviewItem, error) {
-	query := `
+	// GATE 1 OF 3. The two write-time CAS guards in recordRevalidation must carry
+	// the same list or a widened selection reports rows it then fails to update —
+	// see workItemRevalidatableStatuses for why `unresolved`/`failed` are in it.
+	query := fmt.Sprintf(`
 		SELECT id::text, site_id, item_type, COALESCE(item_key, ''), COALESCE(spec, '{}'::jsonb)
 		FROM site_work_items
-		WHERE status = 'needs_human_review'`
+		WHERE status IN (%s)`, sqlInList(workItemRevalidatableStatuses))
 	args := []interface{}{}
 	if strings.TrimSpace(siteFilter) != "" {
 		siteID, err := uuid.Parse(strings.TrimSpace(siteFilter))
@@ -331,17 +334,21 @@ func applyRevalidation(ctx context.Context, db *sql.DB, item parkedReviewItem,
 		return false, fmt.Errorf("marshal revalidation record: %w", err)
 	}
 
+	// GATE 2 OF 3 — record-only. CAS on the status so a row that moved underneath
+	// the sweep is not written to; the list must match gate 1's.
 	if verdict.Verdict != revalidationResolved {
-		_, err = db.ExecContext(ctx, `
+		_, err = db.ExecContext(ctx, fmt.Sprintf(`
 			UPDATE site_work_items
 			SET result = COALESCE(result, '{}'::jsonb)
 			          || jsonb_build_object('revalidation', $2::jsonb)
-			WHERE id = $1::uuid AND status = 'needs_human_review'
-		`, item.ID, string(recordJSON))
+			WHERE id = $1::uuid AND status IN (%s)
+		`, sqlInList(workItemRevalidatableStatuses)), item.ID, string(recordJSON))
 		return false, err
 	}
 
-	res, err := db.ExecContext(ctx, `
+	// GATE 3 OF 3 — the close. Same list again: this is the one whose silent
+	// disagreement with gate 1 would look like "the sweep found nothing to do".
+	res, err := db.ExecContext(ctx, fmt.Sprintf(`
 		UPDATE site_work_items
 		SET status          = 'complete',
 		    completed_at    = NOW(),
@@ -349,8 +356,8 @@ func applyRevalidation(ctx context.Context, db *sql.DB, item parkedReviewItem,
 		    resolution_path = 'auto:revalidated',
 		    result = COALESCE(result, '{}'::jsonb)
 		          || jsonb_build_object('revalidation', $2::jsonb)
-		WHERE id = $1::uuid AND status = 'needs_human_review'
-	`, item.ID, string(recordJSON))
+		WHERE id = $1::uuid AND status IN (%s)
+	`, sqlInList(workItemRevalidatableStatuses)), item.ID, string(recordJSON))
 	if err != nil {
 		return false, err
 	}

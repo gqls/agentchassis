@@ -88,6 +88,60 @@ var workItemClosedStatuses = []string{
 	"cancelled",
 }
 
+// workItemRevalidatableStatuses is the set revalidate_review_queue may
+// re-examine and close on POSITIVE re-observation. It sits with its two
+// siblings above so the differences are visible rather than discovered:
+//
+//	terminal (dedup / ON CONFLICT):  complete verified rejected wont_fix cancelled failed unresolved
+//	closed   (retraction):           complete verified rejected wont_fix cancelled
+//	revalidatable (this list):       needs_human_review unresolved
+//
+// ⚠ `failed` IS DELIBERATELY ABSENT, AND THAT IS THE INTERESTING PART.
+// RFC_010 Decision 2 puts `unresolved` and `failed` together on the RETRACTION
+// path, and the obvious move was to copy the pair across. Measuring the other
+// consumers first is what stopped it: the widening's actual blast radius today
+// is not on `required_fields_missing` (0 rows) but on `needs_page` — **17
+// `failed` rows**, whose revalidator is a different one (revalidateNeedsPage,
+// "was the PAGE built?") and whose population this action's own header defers by
+// name: *"failures parked by FailWorkItemAction's status_override branch, which
+// does not increment attempt_count so they neither retry nor age out. Real
+// defect, open owner decision (033 D2), not this sweep's."* Adding `failed`
+// would quietly overrule that deferral from inside an unrelated change. It also
+// was never needed by the argument below, which is entirely about `unresolved`:
+// the two-strike counter brands items `unresolved`, never `failed`.
+// Blast radius as narrowed: 1 `needs_page` row, 0 of every other type.
+//
+// WHY `unresolved` IS HERE (2026-08-04). Until this, the sweep
+// selected `needs_human_review` alone — and it was BUILDING A QUEUE IT COULD NOT
+// THEN DRAIN. Every close it makes writes `complete` onto a row, which feeds
+// insertWorkItem's two-strike counter (`status IN ('complete','failed') AND
+// created_at > NOW() - INTERVAL '7 days'`, load_work_item_actions.go:1237).
+// Discovery re-raises the finding on the next pass; after the SECOND close
+// inside seven days the third re-raise is born `unresolved` — and `unresolved`
+// was not in this list, so the sweep could never see it again. Discovery-check
+// items do not set recurrenceExpected, so the counter is not skipped for them.
+// Measured 2026-08-04: 5 `required_fields_missing` item_keys already sit at 1
+// strike, i.e. one close away from that state.
+//
+// The semantics match RFC_010 Decision 2, which put `unresolved` on the
+// retraction path for the same reason: it does not mean "this stopped being a
+// problem", it means "we gave up". That is exactly the row that should close
+// when something POSITIVELY OBSERVES the condition healthy, and this sweep only ever closes on positive evidence (every named
+// field populated; every ambiguity resolves to 'unknown' and stays open).
+//
+// ⚠ IT IS INTERPOLATED IN THREE PLACES AND THEY MUST NOT DRIFT: the selection in
+// loadParkedReviewItems, and the two write-time CAS guards in
+// recordRevalidation. The guards re-check the status so a row that changed
+// underneath the sweep is not clobbered — so widening the selection alone would
+// select the new rows and then silently update nothing.
+//
+// ⚠ NOT for any `ON CONFLICT` clause — only workItemTerminalStatuses may be
+// interpolated there (see that list's comment; using another raises 42P10).
+var workItemRevalidatableStatuses = []string{
+	"needs_human_review",
+	"unresolved",
+}
+
 // sqlInList formats a Go string slice as a SQL IN literal list for
 // interpolation into a query string. No escaping — callers must supply
 // already-safe const values (these are package-level constants).
