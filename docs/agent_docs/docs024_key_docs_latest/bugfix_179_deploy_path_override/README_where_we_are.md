@@ -138,3 +138,24 @@ current live copy conveniently carries the "before" evidence: a stamp naming the
 switched-off header. I have queued a rebuild; if the fix works, the rebuilt page's
 stamp will name the correct header from the library instead. Both queued jobs are
 waiting on the shared build queue, which is busy but moving.
+
+**Later the same evening.** All three finished, each proven on the live system
+rather than taken on trust.
+
+The robot-hands wording fix is live: the page republished within the hour, the
+false phrase is gone from the live site, and the checking tool that polices these
+claims now scans the whole site clean — having first been shown to catch the old
+sentence, so the clean result means something.
+
+The header test closed too, with a twist worth knowing about. The page I rebuilt
+came out with the right header, but it turned out a page rebuild can never
+actually exercise the decision your fix changed — pages get their header copied
+from a pre-rendered store, so the decision never runs. What does run it is the
+component-linking step, which had never once executed in production. I ran it —
+after confirming from the code that it could not change anything on a site whose
+components are already correct — and watched it do exactly what the fix
+promises: it refused both switched-off pinned components, chose the correct
+library ones instead, and wrote nothing. Under the old code that same run would
+have reverted July's repair and blanked the site's header and footer. That bug
+is now closed, and the one about the vet data provenance closed earlier tonight,
+so the evening retired three open bugs.

@@ -331,3 +331,33 @@ page is `needs_rebuild` with 0 sections and nothing open against it — queued
 Deliberately did NOT touch `model-approach-selector-guide` (planned, 0 sections):
 its `needs_content_page` sits parked in `needs_human_review` beside the 177/178
 dep-blocked `tool_crosslink` interlock — not mine to promote.
+
+## 2026-08-04 (~22:00Z) — session end: 100, 147 AND 170 all closed tonight
+
+**147 CLOSED** (`43a4dd3b9`): wire-verified first fetch (200, claim ×0, clean join
+×1); dry run 0 BANNED with the before-state as the induced control (1 BANNED on the
+exact sentence pre-rerender). The file's "2 negated" expectation was stale copy
+drift — measured: exactly one component on the site still contains the phrase at
+all (gripper-detail's honest sentence, correctly suppressed); index/features was
+rewritten out since filing. A broken guard would have FIRED, not vanished.
+
+**170 CLOSED** (`060fc2ac2`) — and the misstep worth keeping: **the authorised
+induction recipe was unsatisfiable, and the page build I ran to satisfy it is what
+proved that.** The build stitched stored chrome byte-for-byte (1,031-byte exact
+match against `site_components.rendered_html`), so "build a page, assert the
+HEADER SOURCE marker" can never reach the pin branch — `InjectHeader` skips on the
+stitched site-header, and `RenderHeader`'s only other production caller is
+DEPRECATED. Rather than declare the induction impossible, traced the fix's OTHER
+runtime consumer: `link_site_components` — the write path the 170 CONTRIB itself
+called "the half that matters", never run in production. Read it first
+(`:210-213`: already-correct slot → `continue`, no write), confirmed finetuning's
+slots already held the pool answer, then dispatched the first-ever
+`site-component-linker` run (`eea9098d` → orch `e8732279`): both ineligible pins
+discarded with the fix's own warn, both slots pool-resolved, `linked: 0`, chrome
+untouched, leopardess preserved, no side-effect rerender. Counterfactual pre-fix:
+both slots relinked to deactivated components, chrome NULLed.
+
+Lane notes updated in `robot_hands/` and `bugfix_170_chrome_pin_eligibility/`;
+memory index + topic files updated for all three closures. The kcat/`kubectl run`
+dispatch route was classifier-blocked this session — the work-item route did
+everything and leaves an inspectable row each time; prefer it.
