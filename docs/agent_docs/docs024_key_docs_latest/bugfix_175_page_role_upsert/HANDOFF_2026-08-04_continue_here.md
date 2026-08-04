@@ -18,14 +18,25 @@ follow-ups that belong to other lanes**. No code is owed.
 | tranche | what it did | code | council |
 |---|---|---|---|
 | **1** | alias-aware predicate builders + 3 detectors converged | LIVE, **PROVEN** (gaswholesalers orphan finding, new predicate 3 vs old 0) | **APPROVED** `66d07687` |
-| **2** | render audit + both rerender queuers converged; 3 keeps recorded in the pattern-check allow-list | LIVE `v1.0.1247` (by ancestry) | REVISE → **answered, resubmitted** `b563a61c` |
-| **3** | planner's empty-page gate → `realisedPageHasShipped` + migration 302 | LIVE (symbol present, old symbol absent); migration already live | REVISE → **answered, resubmitted** `c881ef22` |
+| **2** | render audit + both rerender queuers converged; 3 keeps recorded in the pattern-check allow-list | LIVE `v1.0.1247`+ | **APPROVED** `b563a61c` (round 2) |
+| **3** | planner's empty-page gate → `realisedPageHasShipped` + migration 302 | LIVE (symbol present, old symbol absent); migration live | **APPROVED** `c881ef22` (round 2, 3rd attempt — two runs reaped) |
 
-**Pick up by:** checking those two correlations for a verdict.
+**ALL THREE TRANCHES ARE NOW COMMITTED, LIVE AND COUNCIL-APPROVED. No code is owed and
+nothing is pending.** What follows is the residue, all of it owned elsewhere or optional.
+
+**Superseded pick-up instruction:** checking those two correlations for a verdict.
 `SELECT metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='<corr>' AND kind='council_report' ORDER BY created_at;`
 If either is APPROVED, nothing to do but note it. If REVISE again, the objections come with
 the reviewers' own checks answered — read them against the bug file's answer tables first,
 because most of what has come back so far was already true in the code.
+
+## Follow-ups, none blocking
+
+0. **The silent fallback in `realisedPageHasShipped`** (`bug_historian` [medium], tranche 3's
+   approval). When `has_shipped` is absent the gate reverts to the old `build_status` test
+   with **no log** — so a caller wired wrong, or migration 302 reverted, would quietly
+   restore the buggy predicate. Deliberately not changed: live, approved, zero exposure, and
+   the honest fix is a Debug line in a per-page hot path that wants its own small round.
 
 ## Outstanding, and neither is mine to fix
 
