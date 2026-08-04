@@ -19580,3 +19580,68 @@ every sibling writer in that file.
 
 Generally: **an analogy is a hypothesis about code you have not read.** "Same shape as" is
 the phrasing that hides it, because it sounds like a citation.
+
+---
+
+## 2026-08-04 (evening) — I chose an observable the trigger itself overwrites, and a "success" would have proved nothing (bugfix_191 lane)
+
+**The claim I was set up to make.** Verifying `markStaleChromeLinkSlot` live, I wrote a
+prediction before the run (good) and picked `site_components.updated_at` as the signal:
+the header must move, **footer and head must not**. All three moved. Read literally, my
+prediction failed.
+
+The cause: `nav-updater`'s live config carries **`"force_rerender": true"`**, which I had
+not read. Force re-renders every slot regardless of any mark, so `updated_at` was going to
+move for all three whatever my code did.
+
+**The dangerous half is not the failed prediction — it is the success I could have
+claimed.** Force alone re-renders the header, and the policy fix (same binary) then
+produces the corrected CTA on its own. So "the dead button is gone" is fully consistent
+with the detector **never having run**. Two mechanisms in series, and the outcome only
+witnesses the second. I would have written "induced, confirmed" about a guard nothing had
+exercised.
+
+**What caught it.** The prediction. Because footer/head-must-not-move was written down in
+advance, "all three moved" was a visible contradiction rather than a detail to skim past,
+and chasing it surfaced `force_rerender`. Then the log line settled it properly:
+`chrome_link_policy.go:199` fired **once**, header only — an observable nothing else in
+the system can produce.
+
+**The cheap check.** *Read the trigger's own config before choosing what to observe:*
+`SELECT default_config #>> '{workflow,steps}' FROM agent_definitions WHERE type='<the
+trigger>' …`. One query. Generally: **an observable that your trigger also writes cannot
+witness your mechanism.** Prefer a signal only your code emits — a log line with a unique
+message — over a shared column like `updated_at`, `build_status` or a row count.
+
+Same family as `a-mutation-that-passes-may-have-hit-a-guard-in-series`, in the live
+direction: there a guard in series masked a failure; here a mechanism in series would have
+manufactured a pass.
+
+---
+
+## 2026-08-04 (evening) — I curled the homepage and nearly filed "the defect was never live" (bugfix_191 lane)
+
+**The claim I nearly wrote.** Checking whether `bugs_open/191`'s dead header button was
+actually being served, I curled `https://mortgagecalculator.co.uk/` and got **0**
+occurrences of `class="header-cta"`. Reading that straight: the bad CTA existed only in
+stored data and never reached a visitor — which would have downgraded the bug and made the
+whole fix look like housekeeping.
+
+**It was wrong twice over.** (1) `/` is **not one of that site's deployed `pages` rows** —
+its only deployed page is `/guides/first-time-buyer/index.html`. (2) The homepage file's
+`last-modified` was **Sun 02 Aug 23:17**, a day *before* the 03 Aug 11:01 chrome render
+that created the bad CTA. A file that predates the artefact cannot contain it, so its
+absence is guaranteed and carries no information.
+
+The deployed page, `last-modified` 03 Aug **11:06** — six minutes after that render —
+served `href="/tools/stamp-duty/index.html" class="header-cta"`, and that target returns
+404. The defect was live.
+
+**What caught it.** The `last-modified` header, which I had printed in the same command
+almost by reflex, and which made no sense next to a render timestamp I already knew.
+
+**The cheap check.** *Take the URLs to curl from the `pages` table (`deployed_at IS NOT
+NULL`), never from what you would type as a human* — a site's homepage is often not a
+deployed row at all. And **before reading anything into an absence on a served file,
+compare its `last-modified` against the timestamp of the artefact you are looking for.**
+If the file is older, you have measured nothing.
