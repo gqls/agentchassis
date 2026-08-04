@@ -455,3 +455,59 @@ Page Rule is answered at the edge and the origin is never contacted.
 
 `*webdesign.uk/*` covers the apex, `www`, and every path in one rule — verified on
 `/` and `/checkout`.
+
+## Ordering the box: the SSH key and the two DNS questions (2026-08-04)
+
+### The key to create (owner's admin key — paste the .pub into the order form)
+
+```bash
+ssh-keygen -t ed25519 -a 100 \
+  -C "owner webdesign-box admin 2026-08" \
+  -f ~/.ssh/webdesign_box_ed25519
+```
+
+- **ed25519**, not RSA — modern default, small, fast; Mythic accept it.
+- **Set a passphrase** — this is a human admin key to a box that will hold
+  customer transcripts and (later) Stripe test config.
+- Paste **only the `.pub`** into the order form; the private half never leaves
+  your machine. Then:
+
+```
+# ~/.ssh/config
+Host webdesign-box
+  HostName <ip-or-name Mythic gives you>
+  User root
+  IdentityFile ~/.ssh/webdesign_box_ed25519
+  IdentitiesOnly yes
+```
+
+**This is ONE of THREE keys in the design — do not conflate them:**
+
+| key | created by | created when | lives |
+|---|---|---|---|
+| admin login (this one) | owner, now | at order | owner's machine |
+| GitHub **deploy key** for `vm-sites` pulls | `provision-pullsync.sh` **on the box** | Phase 2 — the script pauses and asks you to add it on GitHub | `/var/lib/sitesync/.ssh/` |
+| (optional) a key for Claude sessions to reach the box | later, if wanted | when delegating box work | this machine |
+
+Do **not** pre-create the deploy key — the script generates it on the box so the
+private half never transits anywhere (and its `GIT_SSH_COMMAND` handling exists
+because of the `bugs_open/016` HOME trap; leave it to the script).
+
+### Forward DNS: give the box an infrastructure name, never the service name
+
+The order form asks for a hostname. Pick an infrastructure label
+(`webdesign-box1`, or under any zone you own). **Never point `webdesign.uk` (or
+any service domain) at the box** — with the tunnel there is no inbound to reach,
+service DNS is written by `cloudflared` at cutover (Phase 6), and a service
+record aimed at an origin is exactly the exposure class the 07-31 incident came
+from. The box's own name is a label for you and for `known_hosts`; nothing in
+the serving path uses it.
+
+### Reverse DNS: not needed — set it to the hostname if the form offers it
+
+Reverse DNS (PTR) matters for **outbound SMTP deliverability**, and this box
+sends no mail: enquiries are the customer's own mail client today, and any
+future notification goes over an HTTPS email API, not port 25. Nothing in the
+web path, the tunnel, GitHub pulls, Anthropic or Stripe calls ever consults the
+PTR. If Mythic's form offers reverse DNS, set it to match the hostname —
+tidiness, zero cost — and move on.
