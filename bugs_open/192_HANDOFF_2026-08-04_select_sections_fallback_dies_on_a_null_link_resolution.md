@@ -132,3 +132,63 @@ item) via `build-dispatch-loop` for its site, and confirm the
 failing at `process_sections_loop`. Then, separately, re-run 178's own
 verification: assert `page_components.content_data` length for the target
 slot grows only by the inserted link anchor, not a wholesale replacement.
+
+---
+
+## Third instance, from an unrelated lane: a BRAND-NEW site, on `needs_page`, not `content_rewrite`
+
+**Added 2026-08-04 ~08:30 by the `webdesign_uk_build_service` lane.** Contributing
+evidence only. Not diagnosed here, not competing with the owning thread, and the
+owed `090` run is still owed.
+
+**Why this instance is worth adding: it removes two possible scopings at once.**
+The two instances above are both `content_rewrite` items on **existing** sites.
+This one is a **`needs_page`** item on a site that was **created from nothing
+minutes earlier**, so:
+
+- **not scoped to `content_rewrite`** — the item type differs;
+- **not scoped to existing/adopted sites** — this site had no pages, no history and
+  no prior components. It was seeded and submitted fresh through
+  `082_submit_domain_unified.sh` today;
+- **not a stale-data or migration artefact** — every row involved was written
+  today by the current pipeline.
+
+So whatever `select_sections` is failing to find, it is failing on input the
+pipeline itself produced from scratch in the same run.
+
+```
+site:        webdesign.uk  (created 2026-08-04, first build)
+work item:   needs_page / page-build-handler / status=failed
+spec:        {"reason":"not_built","page_name":"index","page_role":"landing",
+              "plan_id":"4ecaa120-1fa6-4de1-9cd0-39d60c64b729"}
+error:       step process_sections_loop failed: failed to execute action loop:
+             failed to get collection at 'sections_for_render.sections_ready':
+             key 'sections_ready' not found at position 1 in path
+             'sections_for_render.sections_ready'
+chassis:     v1.0.1247
+correlation: a4f05bd6-a548-47a5-8bdb-059e8d75e429  (the submission)
+```
+
+**The rest of the cascade ran clean**, which narrows where to look: this is not a
+site whose upstream specs were missing. At the time of failure the site had
+**12 current `site_specs`** including `identity`, `classification`,
+`content_direction`, `design_intent`, `vertical_landscape`, `strategy`, `briefing`
+and `resolved_composition`; `needs_domain_research`, `needs_vertical_research`,
+`needs_strategy`, `needs_briefing`, `needs_site_plan` and `needs_composition` all
+reached `complete`, and several `needs_imagery` items completed too. **Only the
+page build failed.**
+
+**One difference from the other two instances that may or may not matter, flagged
+rather than asserted [UNVERIFIED]:** this site carries a **seeded, pinned
+`evidence_base` with a populated `facts[]` (7) and a large `banned_claims[]` (14)**,
+which is unusual — most sites have neither at first build. If the diagnosis ends up
+anywhere near the writer's constraint assembly, that is a variable worth excluding
+early. I have **not** tested whether removing it changes the outcome, and I would
+not read the co-occurrence as a cause: the other two instances have no such spec and
+fail identically.
+
+**Impact on this lane, for prioritisation:** webdesign.uk is the shopfront for the
+build-service product and **cannot produce its landing page** until this is fixed.
+No workaround is being applied here. Hand-building the page is specifically what an
+owner ruling now forbids (`CLAUDE.md` → Platform conventions, 2026-08-04), so this
+lane is genuinely blocked on 192 rather than merely inconvenienced by it.
