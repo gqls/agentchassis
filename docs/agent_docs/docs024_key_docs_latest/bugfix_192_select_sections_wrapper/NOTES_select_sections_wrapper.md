@@ -419,3 +419,56 @@ extending it** — extending is friendlier to readers and destroys the cheapest 
 
 **Dispatch timing respected:** ~300s must elapse after a chassis pod restart or the spawn
 is silently dropped. Induced the verification build at 10:37:50Z, **8m10s** after pod start.
+
+## 2026-08-04 ~11:50 — V3 PASSED, shim retired, and the by-value decision earned itself
+
+**V3, the check that could have come out either way:**
+
+```
+HANDLER=AWAITING_RESPONSES@call_content_writer  wrapper=false  flat=true
+```
+
+A `page-build-handler` run created **after** the v1.0.1250 roll carries
+`collected_data.section_plan` with **no `applied` key** and **with `sections_ready`** — the
+wrapper is gone at source, not merely tolerated. `t/…` would have meant the old binary was
+still serving or the fix had regressed.
+
+**Then seed `311` retired the shim — and the design decision paid off within the hour.**
+`308`'s third path existed only to tolerate the wrapper on the old binary. Removing it, I
+filtered on the **literal value** rather than deleting index 2, on the stated grounds that
+seed `309` (another lane) appends a fourth path and I could not know which side of me it
+would land. The result:
+
+```
+BEFORE 311:  [resolved_links…, input_data.section_plan.sections_ready,
+              input_data.section_plan.section_plan.sections_ready,   <- my shim
+              section_plan.sections_ready]                           <- 309, landed in between
+AFTER  311:  [resolved_links…, input_data.section_plan.sections_ready,
+              section_plan.sections_ready]                           <- 309's path, intact
+```
+
+**309 did land between 308 and 311.** An index-based delete would have removed *their* path
+and left mine — silently, with both seeds reporting success and the fallback list still
+looking plausible. That is the whole class of defect this bug is about, and I nearly
+shipped a second instance of it in the cleanup for the first.
+
+`311` also asserts outcomes rather than a length (`the shim is absent` + `the flat path is
+present` + `path 1 still leads` + `required survived`), precisely so it stays correct
+whichever order the two seeds arrive in. Number claimed from the **ledger** (highest was
+308, mine) rather than from `ls` (309 and 310 already sat on disk, unrecorded), and
+recorded the same minute — the mistake I made with 308 and was caught on.
+
+## 2026-08-04 ~11:55 — 309 is a SIBLING fix, not a rival, and its premise is worth knowing
+
+`309_page_content_writer_plans_its_own_sections.sql` fixes the **same error string from a
+different cause**: a caller that dispatches the writer with **no `section_plan` at all**
+(that is `bugs_open/087`'s `page-rebuild`). It gives `page-content-writer` its own
+`check_section_plan` + `plan_sections` steps and appends the fourth fallback path. It
+appends idempotently, and it does **not** touch `required` — so 308's opt-in survived it,
+verified above.
+
+So `select_sections` now has three live paths and two independent fixes behind it, and the
+`required` opt-in guards all of them: if a future caller satisfies none, it fails **at the
+extraction** naming what it tried, rather than two steps downstream. That is the outcome
+this lane wanted from the class fix, arriving via someone else's change — which is the
+argument for the opt-in having been worth shipping even with one consumer.
