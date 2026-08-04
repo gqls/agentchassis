@@ -5128,3 +5128,36 @@ that is also the thing you would want in the logs is not.
   `bugs_closed/118` / CLC-013, which fixed the same shape one layer up and explicitly did
   not touch link targets
 - **added:** 2026-08-04, bugfix_191_chrome_link_policy lane
+
+### A council run killed by a chassis roll looks exactly like a slow one for FOUR HOURS
+
+- **footprint:** `097_TRIGGER_council_review_v1.sh`, `orchestration_states.current_step`
+  where the row is a `council-gate` run, `diagnosis_artifacts` kind `council_report`,
+  any wait-for-verdict poll
+- **fires when:** you submit to the council gate and wait on the VERDICT ARTIFACT —
+  the documented advice, and correct in general ("a missing orchestration row is
+  almost always latency, not a dropped dispatch — do not retry on that evidence")
+- **the tell:** none, and that is the whole problem. A roll kills the pod mid-seat;
+  the orchestration row stays `EXECUTING_STEP` on whichever `review_*` step it had
+  reached, with no error, until the reaper marks it FAILED after **>4h** with
+  `reaper: stale EXECUTING_STEP for >4h; step=review_<seat>`. Until then it is
+  indistinguishable from a seat that is simply thinking, so a patient thread waits
+  four hours for a verdict that can never arrive. Measured 2026-08-03/04: **two of
+  five runs in one lane** died this way (`review_prior_art`, `review_editquality`),
+  on an estate that rolled `v1.0.1243 → 1247 → 1250 → 1251` inside a day.
+- **the check:** poll the ROW, not the artifact, and treat a stalled step as the
+  signal rather than waiting for the reaper —
+  ```sql
+  SELECT current_step, status, NOW()-updated_at AS since_update
+  FROM orchestration_states
+  WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+  ```
+  A council seat is an LLM call of 2–5 minutes. `EXECUTING_STEP` with `since_update`
+  past ~20 minutes on ONE step means the pod is gone; resubmit with
+  `RESUBMIT_CORR=<corr>` (the trail accumulates, and round counting is
+  orchestration-scoped so a resubmission is judged fresh). Do NOT read this as
+  licence to retry on a MISSING row — that really is dispatch latency, ~29 min
+  measured; the discriminator is a row that EXISTS and has stopped moving.
+- **source:** `bugs_open/185`'s council trail, 2026-08-03/04. Extends the existing
+  "a roll KILLS an in-flight council" entry with how to TELL and what the wait costs
+- **added:** 2026-08-04, bugfix_175_page_role_upsert lane
