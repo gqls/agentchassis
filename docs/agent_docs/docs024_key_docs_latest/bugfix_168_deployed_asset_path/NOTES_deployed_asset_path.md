@@ -1180,3 +1180,70 @@ that cannot match elsewhere in the file.** The rewritten harness does all three.
 `b4c64f433`. Build clean, `platform/orchestration/...` suite green. **Not live** — both replicas
 run `v1.0.1251`, which still carries the reverted adoption (`re-observed filled` greps 1). The
 revert and the widening both need the next roll.
+
+## Council `1cec55d2` — **APPROVED**, and four objections that were checked rather than filed
+
+### `editquality` (MEDIUM) — my own negative control was the shape I keep writing landmines about
+
+*"`strings.Count(body, "status = 'needs_human_review'") != 0` is exactly the shape LANDMINES.md
+warns about — the comment explaining a removal makes the removed symbol's negative control
+non-zero. If any surviving doc comment describes the old predicate in prose, this test fails on a
+correct fix."*
+
+**Right, and it needed code.** Nothing in the file carries that literal in prose today — but the
+test's whole job is to survive future edits, and **the most likely future edit is a comment
+explaining why the literal went.** I would have written that comment myself.
+
+Fixed by stripping `//` lines before the negative count. **Proven in BOTH directions**, which is
+the part worth copying: appended a comment containing the old literal → test still **passes**;
+reverted a real code gate to the literal → test **fails**, naming both the count and the survivor.
+A one-directional proof here would have been worthless.
+
+### `guardian` (MEDIUM) — "is any of the four types filed by more than one producer?" — IT IS
+
+The seat asked the co-dedup question the previous round's landmine names, and it **found
+something** [MEASURED 2026-08-04]:
+
+| type | Go producers | rows my widening exposes |
+|---|---|---|
+| `required_fields_missing` | 1 | 0 |
+| `needs_section_data` | 0 via `ItemType:` (inline INSERT — `plan_sections`' `createDeferredItems`) | 0 |
+| `unresolved_cta` | 0 via `ItemType:` (inline — `resolve_internal_links_action.go:257`) | 0 |
+| **`needs_page`** | **5** | **1** |
+
+**`needs_page` is genuinely multi-producer, and it is the only one of the four with a live row in
+scope.** Stated precisely: the risk is **pre-existing in kind, not introduced here** — the
+revalidator already applies `revalidateNeedsPage` to that type for `needs_human_review` rows, and
+this change extends its reach by exactly **one** row. But the guardian is right that the
+submission did not say so, and "measured needs_page's revalidator difference" is not the same as
+"counted its producers".
+
+⚠ **Recorded for the `bugs_open/187` lane, which owns `needs_page`'s revalidator** (added
+2026-08-03): one `unresolved` row of your type becomes closable by your revalidator after the next
+roll. Not asking you to act — telling you, per the owner ruling that other consumers must be told
+rather than merely measured.
+
+### `debug_historian` (MEDIUM) — "no deploy-verification step is named"
+
+Fair: the plan named none. Taken now, and **this change finally has a REAL negative control** —
+the first in this lane — because the revert **removes** a string rather than only adding one.
+
+**Pre-roll baseline, dated 2026-08-04, `v1.0.1251`, both replicas:**
+`re-observed filled` = **1** (the reverted adoption is in the running binary) and must read **0**
+after the roll. Positive control `auto:revalidated` = **2** on both, and must stay non-zero — it
+proves the grep and the pipeline, so a 0/0 result reads as "broken probe", not "clean revert".
+
+This is the inverse of the 08-03 measurement, where the change was purely additive and I had to
+say plainly that no negative control existed. **A revert is the one change shape where the
+`bugs_open/153` recipe applies in full.**
+
+### The two answered from the tree
+
+`sqlInList` exists (`work_items_common.go:151`) — the seat could not see it and said so. And the
+revert's byte-identity claim: `git diff ba3aae47f~1` over both files returns **0 lines**, which is
+stronger than the "cheap existence check" asked for.
+
+⚠ `guardian` and `tooling_provenance` both recorded that they **could not** verify things I can
+verify in seconds — Go source and a separate docs commit. **Third round running.** The pattern is
+now established enough to state as a rule: *the gate cannot read function bodies or other commits,
+so anything resting on either must be measured by the submitter and quoted, not asserted.*

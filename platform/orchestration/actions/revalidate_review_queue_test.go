@@ -212,7 +212,21 @@ func TestAllThreeStatusGatesUseTheSharedList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read source: %v", err)
 	}
-	body := string(src)
+	// COMMENTS ARE STRIPPED BEFORE THE NEGATIVE COUNT — council 1cec55d2,
+	// editquality (medium), and it is right: the assertion below is the shape
+	// LANDMINES.md names as "the comment explaining a removal makes the removed
+	// symbol's negative control non-zero". Nothing in the file carries the old
+	// literal in prose TODAY, but this test's whole job is to survive a future
+	// edit, and the most likely future edit is a comment explaining why the
+	// literal went. Scoping to code lines makes it fail only on a real drift.
+	var code []string
+	for _, line := range strings.Split(string(src), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "//") {
+			continue
+		}
+		code = append(code, line)
+	}
+	body := strings.Join(code, "\n")
 
 	shared := strings.Count(body, "sqlInList(workItemRevalidatableStatuses)")
 	if shared == 0 {
