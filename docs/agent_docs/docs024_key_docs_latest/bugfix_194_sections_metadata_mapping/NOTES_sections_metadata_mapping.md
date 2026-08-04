@@ -118,3 +118,77 @@ Seed 312 is the third and fourth hand-written copy of one key (055/065 page-buil
 page-rerender, 310 page-rebuild, now 312 ×2). The defect is not that four callers forgot a
 line; it is that **a saver depends on being told where its own input lives**, so forgetting is
 always available. The Go half follows.
+
+## 2026-08-04 ~21:12Z — council APPROVED round 1 (`b6023fc1`), and what I did about the objections
+
+`approved with 4 advisory objection(s) — none high-severity`. 12 seats ran, 5 abstained.
+The **architecture** seat approved with one low objection and read the change as
+*"RFC_010 being correctly exercised, not evaded"* — which was the ruling I most needed
+tested, since a shared-seam change arriving inside a bug patch is exactly what drew the
+REJECTED verdict on `bugs_closed/124`.
+
+Objections are advisory. I acted on the four that were cheap and made the change or its
+evidence better, and recorded the rest as open questions rather than pretending they were
+answered.
+
+**1. `prior_art_librarian` (medium) — "seed 312 is 'already applied, live' … attach the
+check before accepting the zero-blast-radius claim."** Right to insist, and note the shape:
+the *file existing* proves nothing about the *row*. Final census, live, all six callers:
+
+```
+page-build-handler      | page_content.response.sections_metadata | -    | -
+pageflow-builder        | page_content.response.sections_metadata | -    | -
+page-rebuild            | page_content.response.sections_metadata | -    | -
+page-rerender           | rerender_sections.sections_metadata     | -    | -
+site-work-orchestrator  | page_content.response.sections_metadata | -    | -
+tool-recreation-handler | (none)                                  | true | -
+                          ^ sections_metadata_field                 ^ expects_no  ^ requires
+```
+
+Five name the field, the sixth declares it has none, `require_sections_metadata` is on
+**nobody** — so the new default is consulted by zero live steps and the new refusal is
+reachable by nothing, both now readable off the schema instead of off my prose.
+
+**2. `bug_historian`'s "missing" item — should `tool-recreation-handler` be declared, or
+"left to drift the way `sections_metadata_field` itself drifted since 2026-02-18?"**
+Seeded: `313`, applied, `expects_no_sections_metadata: true`. It changes no behaviour (the
+default structurally cannot resolve on that caller either way) — it changes what a reader
+of the config can tell without reading two Go files. **Both branches of its verify block
+induced**, the second on a synthetic config rather than the live row: `expects_no… is
+<NULL>, expected true`, and `declares BOTH expects_no_sections_metadata and
+require_sections_metadata`.
+
+**3. `guardian` (low) — "confirm the new COUNT(*) is indexed/bounded rather than taking it
+on the author's word."** Measured: `idx_page_components_page` on `(page_id)` exists, and
+the per-page row count is **max 8, mean 2.3, across 520 pages**. So the added query is an
+index scan over at most 8 rows.
+
+**4. `debug_historian` (medium) — the post-deploy check tests BEHAVIOUR, not
+DEPLOYMENT.** Correct, and it is the fleet's most-repeated mistake. Named explicitly now,
+in the bug file and RUNBOOK R6: positive control `strings /app/agent-chassis | grep -c
+'loses the only thing the'` (a long literal from the new message — short ones compile to
+immediates and read 0 on a binary that fully supports them), **plus a discriminating
+negative** — `grep -c 'CONTENT_DATA_REGRESSION_V2'`, which must return 0. My change removes
+no string, so there is no natural negative control; a near-miss literal is the substitute,
+and it is what proves the grep discriminates rather than proving the pipeline.
+
+### The objections I did NOT close, and why they stay open rather than answered
+
+- **`guardian` (medium): seed 312 shipped before the gate ran.** True. The owner ruling of
+  2026-07-29 §2 is the answer and I will not dress it up as more than it is: *"review here
+  is after the fact, by design … do not claim an ordering constraint you do not have; do
+  not pretend you could have waited."* HEAD is shared and DB config is live on apply, so
+  there was no version of this that waited. The seat is right that it should be *named*,
+  which is what this paragraph is. Its labelling point is fair too — seed 312/313 are
+  `config_change` edits filed under `operation: add` because they are new files; the
+  operation vocabulary makes a file-shaped and a config-shaped edit indistinguishable.
+- **`bug_historian` (medium): for every live caller today the behaviour is still "log a
+  warning, still lose the data, still report success" — an improvement on silence, not the
+  fail-loud guard.** This is the sharpest objection in the round and it is correct. The
+  answer is deliberate (RFC_010: the refusal ships OFF, and the record is what makes the
+  opt-in a measurement instead of a guess) but it is a *deferral*, not a fix, and the seat
+  is right that a human should decide whether that closes 194. Surfaced to the owner.
+- **`reuse_agent` (low): a FOURTH `content_data`-adjacent error code** in an area a landmine
+  already calls fragmented. Justified in the file header, not re-litigated here.
+- **`render_guardian` / `bug_historian` (low/medium): PARTIAL content_data loss is
+  unreported.** Disclosed in the submission as risk 5, still true, still out of scope.
