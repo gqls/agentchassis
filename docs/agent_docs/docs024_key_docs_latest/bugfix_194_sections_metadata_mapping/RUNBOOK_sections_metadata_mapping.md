@@ -75,13 +75,55 @@ timeout 400 go test ./platform/orchestration/actions/ -run 'TestSavePageSections
 gofmt -l platform/orchestration/actions/
 ```
 
-## R6 — prove it shipped (never trust the tag or a green roll)
+## R6 — prove the Go half shipped (never trust the tag, the roll or a status)
+
+The council's `debug_historian` seat objected — rightly — that a 24h `agent_error_log`
+query tests BEHAVIOUR, not DEPLOYMENT. Both are needed and they are different checks.
 
 ```bash
-POD=$(kubectl get pods -n ai-persona-system -l app=agent-chassis -o name | head -1)
-kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c 'strings /app/agent-chassis | grep -c "<a string my change ADDED>"'   # expect >0
-kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c 'strings /app/agent-chassis | grep -c "<a string my change REMOVED>"' # expect 0
+for POD in $(kubectl get pods -n ai-persona-system -l app=agent-chassis -o name); do
+  echo "== $POD"
+  # POSITIVE: a LONG literal from the new message. Short strings compile to
+  # immediates and grep 0 on a binary that fully supports them.
+  kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c \
+    "grep -ac 'loses the only thing the' /app/agent-chassis"      # expect >0
+  # DISCRIMINATING NEGATIVE: this change REMOVES no string, so there is no natural
+  # negative control. A near-miss literal is the substitute — it proves the grep
+  # discriminates, where the positive alone only proves the pipeline.
+  kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c \
+    "grep -ac 'CONTENT_DATA_REGRESSION_V2' /app/agent-chassis"    # expect 0
+done
 ```
 
-**Gotcha:** the positive control alone proves the *pipeline*, never your spelling — run the
-negative one in the same exec, on every replica. And `logs deploy/X` reads one pod of N.
+`grep -ac` not `strings | grep -c`: some images have no `strings`. Every replica, same
+exec — `logs deploy/X` reads one pod of N, and a roll can leave one replica behind.
+No orchestration dispatch within ~300s of a pod (re)start; the spawn is silently dropped.
+
+## R7 — the two post-roll checks, with their disconfirming outcomes stated first
+
+**Acceptance.** `site-work-orchestrator` is directly dispatchable —
+`scripts/initial_messages/170_work_item_flow_build/075d_simple_maintain_trigger.sh` — so
+one of the two dormant callers CAN be proven live. Target a site whose pages are
+`rebuild_policy != 'owned'` (check the column first: `087`'s run was blocked by exactly
+that guard). Then R4 on the rebuilt page.
+
+- **Pass:** `content_data` non-NULL on every row at the new run's `updated_at`, **AND** the
+  save step's result carries `sections_source: 'metadata'`.
+- **Why both halves:** `content_data` can also arrive via the interactive carry-forward
+  (Layer 2), so the bare column check is a **false pass**. The run must say which route it
+  took, and it now does.
+- **Disconfirming:** still NULL, or `sections_source: 'html_parse'` — the writer's reply is
+  not reaching the save on that path, and the key name is not the fault.
+
+**No-regression, 24h after the roll.**
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -F'|' -c "
+SELECT agent_type, count(*), max(created_at) FROM agent_error_log
+WHERE error_code='CONTENT_DATA_REGRESSION' GROUP BY 1 ORDER BY 2 DESC;"
+```
+
+- **Pass:** zero rows for `page-build-handler` and `page-rerender`.
+- **Disconfirming:** any `page-rerender` row — the report's predicate is misconceived
+  (~320 runs/day would flood it), and the follow-up `require_sections_metadata` opt-in must
+  NOT proceed until that is understood.
