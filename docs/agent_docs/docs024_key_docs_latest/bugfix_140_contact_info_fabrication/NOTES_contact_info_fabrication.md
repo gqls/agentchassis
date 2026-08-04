@@ -829,3 +829,60 @@ Closing state, all four checks: lint clean across **177** active components (was
 the 08-03 handoff — the library grows daily, so date any component count); selftest 10/14;
 Go fixture test ok; `component-render-check` vs the committed baseline **0 NEW, 0 fixed,
 0 UNCOVERED, exit 0**.
+
+## 2026-08-04 — the carrier: it is STANDING, and the first manual run caught a silent-death bug
+
+`component-render-check` is deployed: daily CronJob at 06:55 UTC, image
+`docker.io/aqls/component-render-check:v1.0.1250`, baseline `go:embed`-ed. All eight items
+of the 08-03 plan are now discharged.
+
+### The dockerignore failure that improved the design
+
+`make build-component-render-check` failed: the dockerfile `COPY`-ed the baseline from
+`docs/`, which `.dockerignore` excludes (line 34). The fix is better than what it replaced
+— **`go:embed`**. The dockerfile comment had already claimed the baseline "must be
+versioned with the code that interprets it"; embedding *enforces* that claim instead of
+asserting it. There is now no file on disk and no ConfigMap to patch, so a finding cannot
+be silenced without a reviewable commit. Baseline moved to
+`cmd/component-render-check/baseline.json`, both paths named on the commit (git-mv
+landmine), verified with `git ls-tree -r HEAD` — old path 0 hits, new path present.
+
+`--compare` uses the embedded copy; `--baseline <path>` still overrides for a session
+comparing by hand; the CronJob passes `--compare --report` and therefore cannot be pointed
+at a different baseline at all.
+
+### Proof, in the order it was taken (each step could have failed)
+
+1. **Direct-Postgres path** — `env -i PATH=/usr/bin:/bin`, i.e. with `kubectl` genuinely
+   unreachable (`which kubectl` → `/snap/bin/kubectl`, confirmed absent from that PATH:
+   *the control could actually have failed*).
+2. **Embedded, not read from disk** — ran `--compare` from `/tmp`, no `baseline.json`
+   anywhere near it: `1023 findings, 0 NEW`.
+3. **Growth still detected through the embedded copy** — mutation B: exactly 1 NEW
+   `broken_img`, exit 1.
+4. **The IMAGE, both directions** (the trap another lane recorded the same day: an image
+   built after your commit can still lack it): embedded baseline key 29×, `UNCOVERED` 5×,
+   synthetic control 0, **and the REMOVED `/app/baseline.json` COPY path 0** — a negative
+   that had to move between the two builds.
+5. **The real image against the real DB** over a port-forward: `1023, 0 NEW`, exit 0.
+6. **In-cluster**: Job `component-render-check-manual-20260804-114721` Succeeded in ~20s.
+7. **The artefact, not the status**: `doc_notes` row `e99af550-…` queried directly.
+
+### THE BUG THE FIRST MANUAL RUN CAUGHT — and why it would have been silent for ever
+
+The first triggered Job sat five minutes and never finished. `ImagePullBackOff`: I had
+modelled the CronJob on `component-fallback-check`, which pulls the **public**
+`postgres:16-alpine` and therefore carries no `imagePullSecrets`. This pulls from the
+private `aqls/` repo and needs `docker-hub-creds`.
+
+**The nasty part is not the missing field, it is the reporting.** A pod in
+`ImagePullBackOff` leaves the **Job reporting `Running`, `0/1`, until
+`activeDeadlineSeconds` expires — never `Failed`.** So a scheduled check would have gone
+permanently silent *while looking merely slow*, and the `doc_notes` row that exists
+precisely to distinguish "looked and found nothing" from "stopped running" would simply
+never have been written. A check whose stated purpose is to not die quietly would have died
+quietly, in its first week.
+
+Caught only because I triggered a run rather than trusting `kubectl apply`'s success.
+**Deploying a CronJob is not running it.** LANDMINES entry added (footprint
+`imagePullSecrets`) and synced: read the POD, not the Job.
