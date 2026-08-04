@@ -229,3 +229,88 @@ is dispatch-and-verify, which needs fresh research into the live dispatch
 mechanism (item 1 above) rather than more of what's already been established
 here. A fresh session can start directly at item 1 without re-deriving
 anything above.
+
+## Progress — 2026-08-04 (continued 2) — discovery DISPATCHED, real findings confirmed, repair not yet triggered
+
+**Item 1 from above is SOLVED — the dispatch mechanism, found and used.**
+`system.agent.generic.requests` is the WRONG topic for a direct one-off
+dispatch of `quality-discovery-agent`: it resolves to a stub `agent_config`
+(`workflow.start_step: "complete"`, description *"No-op — scheduled task
+pre_query already did the work"*) and the orchestration fails at
+`ensure_site_record` with an empty error — three wasted dispatches before I
+caught this by reading `collected_data->'agent_config'` directly rather than
+trusting the `FAILED` status alone. **The correct topic is
+`system.agent.scheduled.requests`** — found by reading a spent one-shot
+`scheduled_tasks` row's own `target_topic` column rather than guessing from
+the council-gate trigger script's topic. Same envelope shape otherwise
+(`action: orchestrate`, `config: {agent_type: "..."}`,
+`input_data: {site_id, domain}`, same kcat headers). Confirmed working: all
+three `quality-discovery-agent` dispatches on this topic reached
+`status=COMPLETED` and produced real `site_work_items` rows.
+
+**Real findings, not a drill.** Detected `literal_markdown` items:
+- `mortgagecalculator.co.uk` — 1 item (the founding hero row).
+- `gaswholesalers.com` — 1 item (the founding pricing row).
+- `webdesign.co.uk` — **10 items across 10 distinct pages**, not the single
+  founding row. Verified genuine, not a check false-positive, by reading the
+  `spec->'findings'` payload directly: three `learn-*` coding-tutorial pages
+  carry backtick code terms (`` `true` ``, `` `ease` ``, `` `fetch()` ``) and
+  the `news` page alone carries **20 findings** — real `#`/`##` headings,
+  `**bold**` phrases, and code spans, on both `content_data` and
+  `rendered_html`. The bug's original manual query only ever sampled ONE row;
+  this site's blast radius was never fully measured before the check existed.
+  **This is the check doing exactly what it was built for — finding the class,
+  not just the three known instances — and it should be stated as such when
+  this bug closes, not narrowed back down to "3 rows".**
+
+Dispatch orchestration ids (for `orchestration_state_audit` lookups if
+needed): mortgagecalculator `04c928f4-ea47-4895-b606-fbf5ae6f7b22`,
+gaswholesalers `35057952-fc5e-405f-94e8-c7abe6826184`, webdesign.co.uk
+`228eff66-7136-43f4-aee2-48dd296e4b7c`.
+
+**NOT yet done — the new item 1, replacing the old one:**
+
+1. **All 12 items sit at `status='detected'`, which is NOT dispatchable.**
+   `run_discovery_checks`/`quality-discovery-agent`'s own workflow has only
+   three steps (`ensure_site_record` → `run_checks` → `complete`) — no
+   triage. Promotion from `detected` to `triaged`/`approved` (the only
+   statuses `workItemDispatchableStatuses` in `work_items_common.go` accepts)
+   happens via the `triage_detected_items` action, which lives in the
+   **`improvement-loop`** agent type, not in `quality-discovery-agent` itself.
+   I dispatched `improvement-loop` for all three sites the same way (same
+   topic/envelope), but it is a much heavier orchestrator — it spawns its OWN
+   design/completeness/quality discovery sub-agents first
+   (`spawn_quality_discovery` / `spawn_completeness_discovery` /
+   `spawn_design_discovery`, all still `EXECUTING_STEP` at last check, ~20s
+   in) before it presumably reaches triage. **Did not wait for these to
+   finish** — orchestration ids: mortgagecalculator
+   `8fb8d1ef-80c1-4431-8a71-623441c021ce`, gaswholesalers
+   `952ee804-78d5-4bc7-a246-8c255a2c6b34`, webdesign.co.uk
+   `cb71eca2-cde2-48e2-9fc3-5c25208c0b74`. **Next action for whoever
+   continues**: poll those three orchestrations (or just re-poll
+   `SELECT status, count(*) FROM site_work_items WHERE
+   item_type='literal_markdown' GROUP BY status` for a status other than
+   `detected` appearing) until they reach `complete`. If `triaged`/`approved`
+   items appear, check whether `page-content-writer` claims and repairs them
+   on its own normal cadence, or whether that too needs a manual dispatch —
+   **unverified, same caveat as before**: I have still not confirmed
+   `page-content-writer`'s routing table accepts `literal_markdown` items
+   (grep its `item_type` dispatch/routing before assuming — the check's
+   `HandlerAgent: "page-content-writer"` field is a claim, not a proof it will
+   be honoured).
+2. Once repaired (auto or manual): re-run the bug's own SQL (0 rows expected
+   for the ORIGINAL narrow pattern — but given webdesign.co.uk's real extent,
+   also re-run `check_literal_markdown`'s full pattern set, not just the
+   bold-only sample query, before declaring clean) **and** curl the affected
+   URLs (artefact-level, `content_data` ≠ `rendered_html`, bugs_open/097).
+   `webdesign.co.uk/news/index.html`, `/learn/code-regex-visualized`,
+   `/learn/design-physics-of-ui`, `/learn/index` and 6 more (see
+   `site_work_items.summary` for full page names) all need checking now, not
+   just the one hero/pricing/news row each site started with.
+3. Confirm the check's own retraction (`Resolved`) closes items on the NEXT
+   discovery pass once repaired, per its design — don't hand-close them.
+4. Close-out steps (move to `bugs_closed/`, ambiguous-number `git mv` caution,
+   optional 016b §9 entry) unchanged from the previous progress note.
+
+**Council**: still not resolved as of this update (poll query in the previous
+progress section) — not blocking, trailer already correct either way.
