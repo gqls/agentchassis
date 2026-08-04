@@ -18622,3 +18622,38 @@ same commit came back 2.
 recommending, not around it — a suggested command has not been tested until it has been
 run verbatim. Now mechanical: pick-pod-marker nominates printable-ASCII literals only,
 and the trap is a LANDMINES entry (footprint `strings /app/`).
+
+---
+
+## 2026-08-04 — I justified a claim about SCRAPE replies with a statistic about LLM completions, and it survived into a council submission
+
+**footprint:** `llm_call_log` cited as evidence about anything that is not an LLM
+call · any "max payload / max reply size" claim · bugs_open/158 lane
+
+**The claim.** Deciding how much of `bugs_open/158` item 3 to fix, I left one
+residual gap open (`stripResultForRetry`'s re-cut fields) and justified it in the
+code comment, the ticket, the handoff AND the council submission with:
+*"fleet-wide max reply payload ever recorded is 48,327 bytes across 47,577 calls —
+this function has never fired on measured traffic."*
+
+**What caught it.** The council's `prior_art_librarian` seat, which asked whether
+that figure "genuinely derives from webscrape-adapter reply traffic (the mechanism
+in question) or from an unrelated LLM-call table." It derives from `llm_call_log` —
+**the sizes of model completions**, a population with no relationship to scrape
+replies, which carry whole web pages. Measured on the right instruments:
+scrape-bearing orchestration rows average **1.6MB** and reach **5.45MB** — roughly
+34× my quoted mean. The conclusion I'd drawn happened to survive (checked properly
+via `degraded_for_transport`, this function's own marker: 0 of 3,246 rows), but the
+evidence I gave for it was about something else entirely, and content had in fact
+been **destroyed 4 times** in retention while I was calling the area quiet.
+
+**The cheap check.** **Name the population in the sentence, and check it answers the
+noun in your claim.** "Max *reply* size" cannot be evidenced by a table of *LLM
+call* sizes however convenient the columns are — and `llm_call_log` is convenient,
+which is exactly the trap: it is the one table in this platform with tidy byte
+counts, so it attracts questions it cannot answer. The instrument for "did this
+function fire" is almost always **that function's own marker**, not a size
+distribution from elsewhere. Same family as this file's 2026-08-03 entry (four
+guessed populations returning clean zeros); the new wrinkle is that here the
+population was real and well-measured — just *about something else* — so nothing
+looked empty or broken, and it took an outside reviewer to see it.
