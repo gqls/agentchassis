@@ -86,3 +86,31 @@ other lanes in the few hours since WFA-009 — never carry that number forward).
 **The fix is Go-only, so it is inert until the next chassis roll.** `195` therefore stays
 **OPEN**: the defect is still reproducible on the running binary. What closes it is the
 post-roll induction in the PLAN's verification section.
+
+## 2026-08-04 — verified the census I had SUBMITTED but not personally checked
+
+The blast-radius claim in my council submission — *"`ErrValidation` is built in exactly one
+non-test place, and that place sends it as a response rather than returning it through the
+classifier"* — came from the planning pass, not from my own grep. It is in `grounded_in`,
+so a reviewer will check it. I checked it first.
+
+**It holds, but not for the reason the plan gave.** The plan named
+`internal/agents/contentcreator/agent.go:226` as the construction site. My own grep found
+that site plus something the plan missed: `platform/errors/errors.go:194` is
+`return New(ErrValidation, "Validation failed")` **inside the public helper
+`func ValidationError(field, issue string)`** — so every caller of that helper produces an
+`ErrValidation`, and the blast radius is the helper's caller count, not one literal.
+
+Counted: `errors.ValidationError(` has exactly **one** real caller — the contentcreator
+line — and it is `a.sendErrorResponse(headers, errors.ValidationError("payload", "invalid
+JSON"))`, i.e. **sent as a response, never returned up the stack into the classifier**. So
+the submitted claim is true. But it was true by luck of the helper having one caller, not
+because there was one literal, and the reviewer would have been entitled to the sharper
+version.
+
+> **The irony, recorded because it is the same lesson one level up:** my first grep pattern
+> was `ValidationError(`, which matched **`recordDroppedValidationError(`** four times — a
+> substring hit on an unrelated symbol, which made the blast radius look 5× larger than it
+> is. **I was measuring a substring-matching bug with a substring match.** The fix is the
+> same in both places: match the thing, not text that contains the thing —
+> `grep -w`, or an exact boundary — and read the hits before counting them.
