@@ -152,3 +152,40 @@ stale within days and a committed copy would be a fact nobody re-measures.
    by `git ls-files` on the callee — not by anything that failed. Waited seven minutes for
    their commit instead. Now a LANDMINES entry, because it fires with no symptom and the local
    build is green throughout.
+
+---
+
+## 2026-08-04 — council APPROVED r1, and the pre-roll baseline measured with controls
+
+Verdict `1a3f4f27`: *"approved with 3 advisory objection(s) — none high-severity"*. Two
+answered with evidence (`ComponentName` IS bound to `slot_name` at the INSERT's `$4`;
+`SectionIdentityKey` + `PlanSpecifiedSectionCounts` are the only two such functions fleet-wide,
+by grep — deliberately not by `code_checks`, whose index is frozen at `d98010e8b` and reads a
+symbol added today as absent). The third, `bug_historian` at MEDIUM, is left OPEN and recorded:
+one guarded call site of seven, no DB-level invariant, and my own scope boundary is *a fact
+about current callers, not an enforced mechanism*. It is right, and the answer is a DB-side
+generated column, which is an owner call and its own lane.
+
+**Pre-roll baseline, both replicas, with a positive AND a negative control in the same exec:**
+
+```
+agent-chassis-5455ddcdcc-crnb6 / -gpr92
+  CONTENT_DUPLICATE_SECTIONS_COLLAPSED : 0    <- new; 0 before the roll, ≥1 after
+  DUPLICATE SECTIONS COLLAPSED         : 0    <- new
+  CONTENT_DUPLICATE_SECTIONS_REFUSED   : 0    <- NEGATIVE control (string this change never adds)
+  CONTENT_CLAIMS_FLOOR_DETAIL          : 1    <- POSITIVE control (already live)
+```
+
+The positive control is what makes the two zeros mean anything: without it, "0" is equally
+consistent with the grep being wrong, the pod being the wrong one, or `strings` failing. **So
+the bug is measurably NOT live and stays OPEN** — the bar is fixed AND live, and a roll here is
+whole-fleet and the owner's.
+
+## Not done, and named rather than left implicit
+
+- **The behavioural induction.** Cannot be run until the code is in a pod. The recipe and its
+  negative control are in RUNBOOK R5; the reason it is not optional is that a guard which
+  collapses nothing is indistinguishable from one that never ran.
+- **Finding the producer** (`156` candidate 4). Needs a fresh reproduction. The record this
+  guard writes is what makes it possible; nothing about it is possible today.
+- **The DB-level invariant.** The council's open objection. Owner call.
