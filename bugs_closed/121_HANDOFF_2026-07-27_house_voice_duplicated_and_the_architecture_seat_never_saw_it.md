@@ -148,3 +148,49 @@ handoff says it is rate-limited on owner-approved specs owned by other threads.
 **This bug is a spec it could review that no other thread owns** — a genuine
 two-substrate contract duplication, caught by a human after a ten-seat council
 passed it. If the seat needs a first case, this is one.
+
+---
+
+## 2026-08-04 — CLOSED. The fix has been live since 2026-07-27; only the filing was stale.
+
+**"Why it stays OPEN" above expired the same evening it was written.** Migration
+241 was applied on 2026-07-27 (commit `971ede672`, which records the guard
+refusing v1 and the corrected apply; backup table
+`bak_agent_definitions_pcw_voice_placeholder` still present), and the chassis
+carrying the injection rolled that day (v1.0.1177/1178). The file was never
+moved. This section closes it on fresh evidence, not on that history — every
+check below was re-run today against the current fleet by the closing session
+(which did not write the fix).
+
+**Re-verified 2026-08-04, all four layers:**
+
+1. **One canonical copy exists** — `agent_default_configs.voice_style_block`,
+   2,499 chars (`SELECT config_name, length(config->>'text') FROM
+   agent_default_configs WHERE config_name='voice_style_block'`).
+2. **The literal copy is gone from page-content-writer.** In the live
+   `generate_content` prompt_template (12,813 chars): `{{.voice_style}}` at
+   char 273, `'No em dashes, anywhere, ever'` at 0 (absent),
+   `'## Company Context'` survives at 291 — exactly the post-241 shape its own
+   guard asserted.
+3. **The running binary carries the injection.** Pod
+   `agent-chassis-5455ddcdcc-crnb6` (v1.0.1251): `voice_style_block` = 1,
+   `voicestyle` = 7, `FROM agent_default_configs WHERE config_name` = 1. Both
+   gate greps 241 demanded pass on the current image, not just the 07-27 one.
+4. **The placeholder resolves on real builds — the artefact, not the status.**
+   The 8 most recent `llm_call_log` rows whose `prompt_template` contains
+   `{{.voice_style}}` are all `page-content-writer` runs dated **2026-08-04**;
+   every `prompt_rendered` contains `'No em dashes, anywhere, ever'` and none
+   contains an unresolved `{{.voice_style}}`. The missingkey=zero failure mode
+   241 warned about is measurably not happening.
+
+content-creator's half was verified live in `971ede672` (voice_style in
+available_fields on a live run); its Go const remains deleted —
+`internal/agents/contentcreator/agent.go` reads `voicestyle.Get` today.
+
+The title's second half also resolved since filing: the architecture seat has
+now fired (see MEMORY "Architecture seat — FIRED AT LAST"; the drought was
+placement, not rate-limiting).
+
+**Meets the `/bugs_closed/` bar: fixed AND live, verified against the running
+system.** Closed by the 2026-08-04 bug-sweep session under the standing
+practice *a handoff outlives the work it asked for — close the asking file*.
