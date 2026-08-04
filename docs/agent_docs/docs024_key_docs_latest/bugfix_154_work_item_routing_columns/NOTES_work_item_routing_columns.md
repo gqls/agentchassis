@@ -1563,3 +1563,48 @@ only, matching the pattern the rest of this bug file's history already
 follows (image builds/rolls bundled into a later whole-fleet release rather
 than a one-off per-session deploy). Next continue-here names build+verify as
 the immediate next step.
+
+---
+
+## 2026-08-04, later same day — the owner rolled a fresh build; verified, resubmitted a dropped council run, dispatched the root-cause 090, caught my own bad plan for live-verification
+
+Told a fresh chassis build had been deployed. **Verified at the pod, not the
+tag**: `v1.0.1251`, both replicas, `strings /app/agent-chassis | grep -c
+"single-unmatched-prose-slot"` = 1 on each — the fix from this file's
+previous entry is live.
+
+**The first council submission had silently died** — 8.5h with zero
+`orchestration_states` rows by id or by payload, way past the ~29min this
+repo's docs cite as normal queue latency. Best-guess cause: `kcat -P`'s
+known silent-drop shape landed on top of a connectivity timeout I hit right
+at submission time. Resubmitted the same JSON fresh (not a
+`RESUBMIT_CORR` — nothing ever actually ran the first time, so there was no
+round to link); this one confirmed in-flight within a minute
+(`council-gate-orchestrate-0804-1926`). Lesson for next time: after a
+`097_TRIGGER` run that itself errors or times out on its OWN follow-up
+calls, don't trust the printed `SUBMISSION_CORR` alone — check for an
+orchestration row within a few minutes, not just before assuming it queued
+successfully.
+
+**Fired the root-cause 090** this file's own open list had been carrying:
+why does a build's resolved component name ever disagree with what an
+earlier build stored, given Path 1 should match an existing correctly-named
+component directly? Fresh slug so it doesn't dedupe against the earlier,
+already-completed 090 run (`178-crosslink-regenerates-whole-section`
+answered the HANDLER-GATE question; this one — `178-component-identity-drift-mechanism`,
+run corr `167d2cc2-0b98-405c-a1d7-d54d80ed37c9` — asks the drift question).
+Not read yet.
+
+**Caught my own mistake before acting on it**: had planned to live-verify
+the fallback against the 3 pages from the fleet measurement in the previous
+entry. On closer look, none of them work as a test case — their mismatched
+slots aren't in their pages' current plans AT ALL (extra components attached
+by some other route), so `plan_sections` never puts them in `sections_ready`
+for any build, and the fallback has nothing to fire against. The one page
+that DID exercise this failure (`guide-independent-strategy`) no longer
+does, because the run that discovered it already overwrote the stored slot
+to match the plan. **No known live repro exists right now.** Left it there
+rather than manufacturing one on production data — the fix has unit +
+mutation coverage and is now instrumented (`edit_live_meta.fallback_matched`),
+so the next real occurrence will self-report; full reasoning and the
+watch-query are in `bugs_open/178`'s new update, not duplicated here.

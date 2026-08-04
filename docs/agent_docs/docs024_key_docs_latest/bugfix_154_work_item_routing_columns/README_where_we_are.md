@@ -377,3 +377,29 @@ deliberately breaking their own fix first to make sure the tests would
 actually have caught it. Submitted it for review and wrote it up, but
 didn't build or ship it themselves — that's the next step for whoever picks
 this up next, or the next scheduled release.
+
+You told me a fresh build had gone out, so I checked — properly, on the
+actual running servers, not just by looking at the version number — and the
+fix is live on both of them. The review submission from before turned out
+to have silently vanished, most likely bad timing with a brief network
+hiccup right when it was sent; resubmitted it and this time it's genuinely
+in progress. I also asked the system's own diagnosis loop to have a go at
+the real open question — why a page's saved content and its current plan
+can disagree about what a section is called in the first place — since
+that's still not understood, only worked around. Haven't read its answer
+yet.
+
+One thing I want to be upfront about: I'd planned to prove the new fix
+works by testing it against the three mismatched pages found earlier
+today, and caught myself before doing that — those three don't actually
+fit. Their mismatches are a different shape (extra bits attached to a page
+that were never in its plan at all, not a case where the plan and the
+stored content genuinely disagree about the same section), so testing
+against them wouldn't have proven anything real. The only page that did
+show the actual problem no longer does, because fixing it earlier today
+already brought it back into line. So there's currently no live example to
+point at and say "watch this get fixed" — what there is instead is solid
+testing done in isolation, plus the fix now leaves a clear trace of itself
+in the system's own records the moment it ever fires for real, so the next
+person (or I, next time) can just check for that rather than manufacture a
+test case against real customer data.

@@ -583,6 +583,88 @@ one-off image).
 4. Watch-list item 4 from the prior update (shrink guard blind to a
    whole-slot rename) is unchanged by this fix and still open.
 
+## UPDATE 2026-08-04, later — deploy verified LIVE; council resubmitted after the first attempt silently dropped; root-cause 090 dispatched; a self-caught correction on how to live-verify
+
+**Deploy verified at the artefact, not the tag.** `v1.0.1251`, both replicas
+(`agent-chassis-5455ddcdcc-crnb6`, `agent-chassis-5455ddcdcc-gpr92`),
+pod-grepped: `strings /app/agent-chassis | grep -c "single-unmatched-prose-slot"`
+= 1 on both, plus the existing `"SECTION SHRINK"` positive control = 2 on
+both. **The fallback fix is live.**
+
+**The first council submission (`8a3e0315-…`) never reached the
+orchestrator** — checked ~8.5h after submitting: zero `orchestration_states`
+rows, by exact id AND by payload search on `fix_correlation_id`, far past
+the ~29-minute measured queue latency this repo's own docs cite. Likely
+cause: the trigger script's `kcat -P` publish landed right on top of a
+transient cluster connectivity blip this session hit at submission time
+(`Unable to connect to the server: dial tcp 10.10.10.10:443: i/o timeout`),
+and `kcat -P` is a known silent-failure shape (exits 0, sends nothing).
+**Resubmitted the identical JSON** (not a `RESUBMIT_CORR` — there was no
+actual prior round to link, since nothing ever ran): new correlation
+`Council-Submitted: 56f9a5a2-4d37-4114-9442-239861acd36e`, confirmed
+in-flight this time (`council-gate-orchestrate-0804-1926`, progressed
+`review_editquality` → `review_constitution` within the same minute).
+Verdict not yet landed as of this update — check before assuming either
+submission's status.
+
+**Dispatched the root-cause diagnosis** this file's own open list has
+carried since the previous update: why does a build's resolved component
+name ever disagree with an earlier build's stored `slot_name`, given
+`plan_sections`' Path 1 should match an existing, correctly-named component
+directly? Filed via `090_TRIGGER_needs_diagnosis_v1.sh` with a fresh slug
+(`178-component-identity-drift-mechanism` — deliberately distinct from the
+already-completed `178-crosslink-regenerates-whole-section` run, so it
+doesn't dedupe against stale results) and the full evidence trail for
+`guide-independent-strategy` in the symptom text. **Correlation:
+`2bcf9359-4603-472f-ba00-4d1d5f33f6c8` (intake), run correlation
+`167d2cc2-0b98-405c-a1d7-d54d80ed37c9` (use this one for artifacts).**
+Diagnose-dispatch-loop claimed it within the 180s the trigger waited.
+**Not yet read** — whoever picks this up next should read the verdict
+before doing anything else with it. Note the trigger's own advisory: local
+HEAD was 50 commits ahead of `origin/087_towards_multiple_domains` at
+dispatch time, so the diagnosis reads the PUSHED tree, not this session's
+commit — irrelevant to this particular question (it's about pre-existing
+history, not this session's fix) but worth knowing for any diagnosis that
+depends on very recent commits.
+
+**A correction, caught before it became a wasted live-verification
+attempt**: the previous update's fleet measurement (3/127 pages, 2.4%) is
+NOT a ready-made set of test cases for THIS fallback specifically, and
+citing it as one would have been a wrong call. Re-examined the mechanism:
+`load_page_sections_from_spec_action.go` sources a page's section list from
+`site_plan_sections` (the CURRENT plan) — so `plan_sections` only ever
+builds `sections_ready` entries for names the plan actually lists. The three
+measured pages' mismatched slots (`faq`, `tool-gripper-cycle-time-estimator`,
+`guide-list`, `image-hover-card-grid`) are **not in their pages' plans at
+all** — they are extra components attached via some other route (tool
+creation, FAQ addition), sitting on the page but never entering
+`sections_ready` for ANY build, edit_live or otherwise. Dispatching a
+`content_rewrite` item at one of those pages would not exercise the
+fallback — the mismatched slot simply never becomes a "ready section" to
+attempt a match against. This is a genuinely different shape from
+`guide-independent-strategy`'s case, where the PLAN's own named position
+resolved to a component that disagreed with what was stored — and that page
+no longer reproduces it either, because the run that discovered the bug
+already rewrote its stored slot to agree with the plan (`article-body`).
+
+**So there is currently no known live page that would exercise the
+fallback**, and manufacturing one on production data was judged out of
+scope for this session. What exists instead: solid unit + mutation-test
+coverage (previous update), a live deploy, and **instrumentation** —
+`edit_live_meta.fallback_matched` is now written into every `edit_live`
+build's `section_plan`, so the fallback will self-report the first time it
+fires naturally. **Next session: check for it** rather than trying to force
+a repro:
+```sql
+SELECT id, created_at, collected_data->'section_plan'->'edit_live_meta'
+FROM orchestration_states
+WHERE collected_data->'section_plan'->'edit_live_meta'->>'fallback_matched' = '1'
+ORDER BY created_at DESC LIMIT 10;
+```
+(subject to the usual `orchestration_states` retention — terminal rows live
+~24h, so this only sees recent activity; if nothing has fired yet fleet-wide,
+that is itself informative about how rare the unambiguous case actually is.)
+
 **One thing that IS still yours, and it is good news:** `192`'s filing notes your own
 end-to-end verification was blocked by this outage ("the remaining check — does the
 writer actually preserve it end to end — is blocked on this bug, not on 178's own

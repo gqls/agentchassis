@@ -1,139 +1,149 @@
-# HANDOFF 2026-08-04 (rev 3) — component-identity-drift gap: measured, fallback shipped for the unambiguous case, council submitted; NOT yet built/deployed
+# HANDOFF 2026-08-04 (rev 4) — fix LIVE and pod-verified; council verdict + root-cause diagnosis both in flight, unread; no live repro exists to test against
 
-**This revision replaces rev 2** (same file, same date — rev 2 itself
-replaced a morning version that had two wrong claims, both corrected in
-place; see `bugs_open/178`'s own file for the full corrected account). Rev 2
-left one open task at priority 1: design and implement a fix for the
-component-identity-drift gap, after measuring how often it actually
-happens. That is what this revision reports on. Read `bugs_open/178`'s own
-file in full before doing anything further — it is still the authoritative
-account, now with a new final update covering everything below.
+**This revision replaces rev 3** (same file, same date). Rev 3 shipped the
+component-identity-drift fallback as source+tests only, submitted to
+council, and left build/deploy/verify as the top open item. That is what
+this revision reports on, plus two background runs now in flight. Read
+`bugs_open/178`'s own file in full first — it is still the authoritative
+account, six updates deep now.
 
-## What happened since rev 2, in order
+## What happened since rev 3, in order
 
-1. Checked nobody else had touched this ground first (`git log` on
-   `bugs_open/178`'s file and `load_current_section_content_action.go` —
-   clear since `71ecbb013`).
-2. Went to verify rev 2's own hypothesis ("the selector can evidently pick a
-   different [fallback component] build to build") before trusting it as the
-   basis for a fix. **It was wrong as stated**: `article-body` and
-   `generic-text-block` each have exactly one active `content_components`
-   row under their own distinct `section_type` — there was never a choice
-   between competing candidates for this specific instance. The real
-   mechanism that produced a stored slot (`generic-text-block`) disagreeing
-   with a plan that has only ever said `article-body` (single plan, unchanged
-   since 2026-07-17) is still not reconstructed — flagged as `[UNVERIFIED]`
-   rather than asserted.
-3. Measured the RATE at one remove from the unresolved mechanism: not "how
-   often does resolution flip" (undefined without step 2's missing piece)
-   but "how many pages right now have a stored slot the current plan doesn't
-   name at all" — the condition that actually determines whether the
-   exact-name join fails, regardless of cause. **Result: 3 of 127 pages
-   checked (2.4%)**. Query and the three cases are in `bugs_open/178`'s new
-   update and `NOTES_work_item_routing_columns.md`'s 2026-08-04 entry.
-4. Implemented fix candidate 1 from `bugs_open/178`'s original list, for the
-   UNAMBIGUOUS case only: `load_current_section_content_action.go` now falls
-   back to attaching a page's one remaining prose-sized, unclaimed
-   `page_components` row when exactly one ready section misses the exact
-   `slot_name` join. Two-or-more on either side: left unmatched, exactly as
-   before — no guessing. Recorded as `edit_live_meta.fallback_matched`,
-   which doubles as ongoing fleet-wide instrumentation of this drift class.
-5. Three new test cases, mutation-tested against the pre-fix code (`git
-   stash` of just this file; all three failed as expected; restored,
-   verified green). Full package `go test ./platform/orchestration/actions/...`
-   green throughout, including the `bugs_open/192` regression tripwire.
-6. Submitted to the council gate:
-   `Council-Submitted: 8a3e0315-4576-4829-bf42-c0c8cdfc4e3a` — dispatched
-   (`RUN_ORCH_ID=e86e3e21-825e-4e46-9f0c-d911ce40ff3a`), no
-   `orchestration_states` row visible yet at submission time. Not treated as
-   a dropped dispatch on that alone (this repo's own note: publish→run start
-   has measured up to ~29 minutes under normal load) — check again before
-   assuming it stalled the way the FIRST 178 submission (`97ebadcf`) did.
-7. Committed source + tests + `bugs_open/178` update + workstream docs in
-   this pathspec (see git log for the exact hash — not filled in here to
-   avoid the same "commit hash guessed before it exists" trap this repo has
-   hit before).
+1. Owner rolled a fresh chassis build. **Verified at the pod, not the tag**:
+   `v1.0.1251`, both replicas (`agent-chassis-5455ddcdcc-crnb6`,
+   `agent-chassis-5455ddcdcc-gpr92`), `strings /app/agent-chassis | grep -c
+   "single-unmatched-prose-slot"` = 1 on each, plus the existing `"SECTION
+   SHRINK"` positive control = 2 on each. **The fallback fix from rev 3 is
+   live in production right now.**
+2. Checked the council submission from rev 3 (`8a3e0315-…`) — **it never
+   ran**. Zero `orchestration_states` rows by exact id or by payload search,
+   8.5h after submitting, far past the ~29min this repo's own docs cite as
+   normal queue latency. Likely cause: `kcat -P`'s known silent-drop shape
+   colliding with a connectivity timeout hit at submission time. **Do not
+   trust a printed `SUBMISSION_CORR` alone** — check for an orchestration
+   row within a few minutes of submitting, not just once, before moving on.
+3. Resubmitted the identical plan. New correlation, confirmed genuinely
+   in-flight this time: **`Council-Submitted: 56f9a5a2-4d37-4114-9442-239861acd36e`**.
+   As of this revision it has progressed through
+   `review_editquality` → `review_constitution` → `review_prior_art` —
+   still running, **verdict not yet read**. Check first:
+   ```sql
+   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+   WHERE correlation_id='56f9a5a2-4d37-4114-9442-239861acd36e' AND kind='council_report'
+   ORDER BY created_at;
+   ```
+   If APPROVED: commit trailer `Council-Reviewed: 56f9a5a2-4d37-4114-9442-239861acd36e`
+   on a follow-up commit (forward-only — do not amend the original). If
+   REVISE: read the objections (`SELECT body FROM doc_notes WHERE
+   categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1`) and decide
+   whether to answer them or leave as advisory-only, same as this bug's
+   first submission was left.
+4. Fired the root-cause diagnosis this file has been carrying as an open
+   item for two revisions: why does a build's resolved component name ever
+   disagree with what an earlier build stored, given `plan_sections`' Path 1
+   should match an existing correctly-named component directly? Fresh slug
+   (`178-component-identity-drift-mechanism`, distinct from the earlier,
+   already-answered `178-crosslink-regenerates-whole-section` run so it
+   doesn't dedupe against stale results). **Run correlation:
+   `167d2cc2-0b98-405c-a1d7-d54d80ed37c9`** (intake correlation
+   `2bcf9359-4603-472f-ba00-4d1d5f33f6c8`, use the run one for artifacts).
+   Claimed by `diagnose-dispatch-loop` within the 180s the trigger waited.
+   **Not read.** Check:
+   ```sql
+   SELECT status FROM site_work_items WHERE item_key='needs_diagnosis:178-component-identity-drift-mechanism';
+   SELECT body FROM doc_notes WHERE correlation_id='167d2cc2-0b98-405c-a1d7-d54d80ed37c9' ORDER BY created_at DESC LIMIT 1;
+   ```
+   Advisory note from the trigger: local HEAD was 50 commits ahead of
+   `origin/087_towards_multiple_domains` at dispatch time, so the diagnosis
+   read the pushed tree, not this session's own commit — irrelevant to this
+   specific question (it concerns history predating the fix) but worth
+   knowing if a future diagnosis run seems to be missing recent work.
+5. **Caught and corrected my own bad plan before executing it**: had
+   intended to live-verify the fallback against the 3 pages from rev 3's
+   fleet measurement. On re-examination, none of them exercise the
+   fallback — their mismatched slots aren't in their pages' current plans
+   AT ALL (extra components attached via some other route), so
+   `plan_sections` never puts them in `sections_ready` for any build, and
+   there is nothing for the fallback to match against. The one page that DID
+   show the real failure (`guide-independent-strategy`) no longer does,
+   because the run that discovered it already rewrote the stored slot to
+   agree with the plan. **There is currently no known live page that would
+   exercise this fallback.** Did not manufacture one on production data.
 
 ## State
 
-Source-and-tests only. **Not built, not deployed, not pod-verified, not
-live-verified against a real page.** This matches the pattern the rest of
-`bugs_open/178`'s history has followed (image builds bundled into a later
-whole-fleet release) but means: until an image is built and rolled, this
-fix changes nothing about what the fleet actually does. Do not report this
-as "fixed" or "closed" on the strength of the commit alone —
-`bugs_open/178` stays OPEN.
+The fix is **live and pod-verified**, backed by unit + mutation-test
+coverage, but has **no live end-to-end confirmation** (no known repro page
+exists right now — see point 5 above). This is a real, acknowledged gap,
+not an oversight to silently carry forward: don't upgrade this file's
+confidence level about the fix beyond "deployed, tested in isolation,
+unproven live" until either a natural occurrence is caught or a legitimate
+test scenario is found. `bugs_open/178` stays OPEN.
 
 ## OPEN — in priority order
 
-1. **Build, deploy, pod-verify, and live-verify.** Pod-grep marker once
-   built: `strings /app/agent-chassis | grep -c "single-unmatched-prose-slot"`
-   would need the log-line string embedded — check what's actually
-   grep-able post-build (the zap message text or a symbol name) before
-   relying on a specific string. Live verification: dispatch a real
-   `content_rewrite` item (with `spec.mode="edit_live"` patched in if it
-   predates `08d0515f3`) against one of the three pages named in this
-   session's fleet measurement (`bugs_open/178`'s new update names them),
-   and confirm `edit_live_meta.fallback_matched=1` plus an unchanged
-   `content_data` length (plus the inserted anchor) on the previously-
-   mismatched slot.
-2. **The ambiguous case is still open** — two-or-more unmatched sections, or
-   two-or-more candidate prose slots on one page, and the fallback correctly
-   refuses to guess, which means the original bug is still reachable there.
-   Not yet observed in the fleet (no page in the 2.4% showed more than one
-   unclaimed prose-sized slot at once) — unknown severity, not zero.
-3. **The actual mechanism is still undiagnosed.** Why can a build's resolved
-   component name for a page's section differ from what an earlier build
-   stored? This session found the specific hypothesis in rev 2 was wrong,
-   but did not replace it with a confirmed alternative. A `090` run against
-   this specific question (not the handler-gate question the first `090` run
-   for this bug already answered) would be the appropriately-scoped next
-   step per this repo's diagnosis-before-debugging default — this is exactly
-   the "cause is still non-obvious after a quick look" case it's for.
-4. **Council verdict** for `8a3e0315-4576-4829-bf42-c0c8cdfc4e3a` — check
-   before resubmitting or assuming stalled; the first 178 submission
-   (`97ebadcf`) DID stall (reached `review_constitution`, never advanced,
-   advisory only). If this one also stalls, that's now two-for-two on this
-   lane and possibly worth its own mention to whoever owns council-gate
-   reliability, not just a shrug.
-5. **Watch list, unchanged from rev 2**: the shrink guard doesn't fire on a
-   whole-slot rename (old slot gone, new slot appears) — a second, narrower
-   gap in that guard's coverage.
+1. **Read the council verdict** (`56f9a5a2-…`, query above) and the **090
+   diagnosis result** (`167d2cc2-…`, query above). Both were in flight, unread,
+   when this revision was written — this is the first thing a fresh session
+   should do, not new investigation.
+2. **Watch for the fallback's first natural firing** rather than
+   manufacturing a test:
+   ```sql
+   SELECT id, created_at, collected_data->'section_plan'->'edit_live_meta'
+   FROM orchestration_states
+   WHERE collected_data->'section_plan'->'edit_live_meta'->>'fallback_matched' = '1'
+   ORDER BY created_at DESC LIMIT 10;
+   ```
+   Subject to `orchestration_states`' ~24h terminal-row retention — a clean
+   result only means "not in the last ~24h of activity", not "never".
+3. **The ambiguous case is still open** (two-or-more unmatched sections, or
+   two-or-more candidate prose slots) — the fallback correctly refuses to
+   guess there, which means the original bug is still reachable. Severity
+   unknown; not yet observed.
+4. **The root-cause mechanism** (point 4 above) may resolve this once read —
+   don't re-investigate from scratch before checking its answer first.
+5. **Watch list, unchanged for three revisions**: the shrink guard doesn't
+   fire on a whole-slot rename (old slot gone, new slot appears) — a second,
+   narrower gap in that guard's coverage, separate from everything above.
 
 ## Landmines specific to this lane (carry-forward + one addition)
 
-- All landmines from the 2026-08-03 and rev-2 handoffs (shrink guard,
-  dependency release rules, dispatch quiet-spell reading,
-  `orchestration_states` retention, `output_field` shape-preservation,
-  `build-dispatch-loop` IS scheduled, `bugs_open/087` vs `192` error-string
-  collision) still apply unchanged.
-- **`content_components` has no `site_id`/`page_id` — it is a fleet-shared
-  library.** A component minted via `needs_new_component` for one page's
-  section is selectable by ANY other page whose plan names the same
-  `section_type`, forever after. This is background for the whole
-  drift-gap investigation, not specific to this fix, but easy to forget
-  when reading a single component's `description` field and assuming it
-  scopes the row to that page.
-- **A "the selector flips between competing candidates" theory needs a
-  COUNT, not a plausibility check** — `SELECT section_type, count(*) FROM
-  content_components WHERE component_level='section' AND is_active AND
-  forked_from IS NULL GROUP BY section_type HAVING count(*) > 1` before
-  trusting it as a root cause for any specific instance. It was 1 for both
-  components in this bug's own case, which is what falsified rev 2's guess.
+- All landmines from the 2026-08-03 and rev-2/rev-3 handoffs still apply
+  unchanged (shrink guard, dependency release rules, dispatch quiet-spell
+  reading, `orchestration_states` retention, `output_field`
+  shape-preservation, `build-dispatch-loop` IS scheduled,
+  `bugs_open/087` vs `192` error-string collision, `content_components` has
+  no site_id/page_id, "competing candidates" theories need a COUNT not a
+  plausibility check).
+- **A council/diagnosis trigger script printing a correlation ID is not
+  proof the dispatch landed.** This session's first council submission
+  printed a clean `SUBMISSION_CORR` and then silently never ran for 8.5h —
+  `kcat -P`'s documented silent-drop behaviour, likely triggered by a
+  connectivity blip at the exact moment of publish. Check for an
+  `orchestration_states` row within a few minutes of any such dispatch,
+  not just once right after triggering it, before treating the submission
+  as "sent and queued."
+- **A fleet-wide SQL measurement of "mismatched slots" is not automatically
+  a set of live test cases for a specific fix.** Check that the mismatch
+  actually reaches the code path under test (here: does the name appear in
+  the page's CURRENT PLAN at all, i.e. would `plan_sections` ever put it in
+  `sections_ready`?) before treating a measured row as a repro.
 
 ## Cold-start pointers
 
-- `bugs_open/178`'s own file — still the authoritative account, now five
-  updates deep, including this session's.
-- `NOTES_work_item_routing_columns.md`'s 2026-08-04 tail (two entries from
-  today: the 192-lane verification, then this session's measurement+fix).
+- `bugs_open/178`'s own file — still the authoritative account, six updates
+  deep now, including this session's deploy-verification and correction.
+- `NOTES_work_item_routing_columns.md`'s 2026-08-04 tail (three entries:
+  192-lane verification, the measurement+fix, and this deploy-verification
+  session).
 - `SUBMISSION_2026-08-04_component_identity_drift_fallback.json` — the
-  council submission this session filed, for its `grounded_in` evidence if
-  a verdict comes back with objections to answer.
+  council submission (now on its second, successful dispatch attempt).
 - Register entry PBP-028 (`docs026_concept_register/register/page-build-pipeline.md`)
-  still has an open review question about matching by `slot_name` — this
-  session's fleet measurement (2.4%, three concrete pages) is evidence worth
-  folding in when someone next edits that entry; not done this session.
+  still has an open review question about matching by `slot_name` — still
+  not folded in; the fleet measurement (2.4%) plus this session's correction
+  about what it actually measures are both worth adding when someone next
+  edits that entry.
 - Commits: `08d0515f3` (178's original fix), `2b9d84072`/`71ecbb013` (192's
-  fix + 178's correction), and this session's commit (see `git log -- \
-  platform/orchestration/actions/load_current_section_content_action.go`).
+  fix + 178's correction), `4b3f9f89b` (this bug's fallback fix, rev 3).
+  This revision (rev 4) made no code changes — docs only; check `git log`
+  for its own commit if one was made after this file was written.
