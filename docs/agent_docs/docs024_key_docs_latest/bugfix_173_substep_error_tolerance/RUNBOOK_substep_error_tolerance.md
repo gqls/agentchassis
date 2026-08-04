@@ -148,3 +148,88 @@ Concept register: new entry in `register/workflow-authoring.md`, **plus** the in
 `register/000_concept_index.md` — the index is a separate file and a new entry without its row
 is invisible to the count. Both in the **same commit as the code** (ordering-exemption
 condition 2).
+
+## R8 — Inducing a loop-substep failure on the live fleet (the whole procedure, with both traps)
+
+Used to close `173`. Reusable for any loop error-routing question.
+
+**Seed** `SEED_2026-08-04_induction_agents.sql` (in this directory). Two throwaway agents whose
+loop-level flag is the **opposite** of the substep's — that opposition is the design: a
+regression makes each run produce the *other* run's outcome, so the pass cannot be incidental.
+
+**Induced fault:** `SELECT 1/0` via `query_database`. Deterministic, read-only, cannot touch a
+production row. **Check the fault can actually fire before dispatching** — a fault that no-ops
+makes the tolerant branch read COMPLETED for the wrong reason:
+`QueryDatabaseAction` returns `return nil, fmt.Errorf("query failed: %w", err)` (a real Go
+error that fails the step), and `SELECT 1/0` really does raise `ERROR: division by zero`.
+
+**Dispatch** — envelope mirrors `097`, topic `system.agent.generic.requests`:
+
+```bash
+CORR=$(cat /proc/sys/kernel/random/uuid); ORCH=$(cat /proc/sys/kernel/random/uuid); echo "ORCH=$ORCH"
+jq -nc --arg a "test-173-tolerant-substep" \
+   '{action:"orchestrate",config:{agent_type:$a},input_data:{note:"induction"}}' \
+| kubectl -n kafka run -i --rm "kcat$(date +%s%N | tail -c 4)" \
+    --image=edenhill/kcat:1.7.1 --restart=Never -- \
+    kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    -t system.agent.generic.requests \
+    -H "correlation_id=$CORR" -H "request_id=$(cat /proc/sys/kernel/random/uuid)" \
+    -H "message_id=$(cat /proc/sys/kernel/random/uuid)" \
+    -H "orchestration_id=$ORCH" -H "orchestration_name=ind-$(date +%H%M%S)" \
+    -H "step_name=start" -H "client_id=demo_client" -H "message_type=request" \
+    -H "action=orchestrate" -H "from_agent_type=user" -H "from_agent_id=cli" \
+    -H "responses_topic=system.agent.generic.responses"
+```
+
+### ⚠ TRAP 1 — a terminal step is `complete_workflow`, NOT `complete`
+
+`{"action":"complete"}` is rejected with `step 'done' with action 'complete' requires a topic`
+— `complete` is a step **name** (172 live agents use it) whose **action** is
+`complete_workflow`. The orchestration dies at validation and **no `orchestration_states` row
+is ever created**, which looks exactly like queue latency.
+
+### ⚠ TRAP 2 — grep the chassis log BEFORE theorising about the queue
+
+An absent row has two very different causes and one of them is invisible from the DB. **This
+is the first thing to run, not the last:**
+
+```bash
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
+  kubectl -n ai-persona-system logs "$p" --since=25m | grep "<your orchestration_name>" | head -3
+done
+```
+
+- **not in the log** → genuinely queued or dropped; CLAUDE.md's "it is latency, do not retry"
+  applies (publish→start measured at 29 min).
+- **in the log** → latency is refuted outright. Now get the reason:
+
+```bash
+kubectl -n ai-persona-system logs <pod> --since=25m \
+ | grep '"correlation_id":"<corr>"' | grep '"level":"error"' \
+ | sed -E 's/.*"msg":"([^"]*)".*/\1/'
+# then pretty-print the failing line's "error" field with python3 -c 'import sys,json;...'
+```
+
+**And never redirect kcat's output** (`>/dev/null`) — `kcat -P` can send nothing at exit 0, so
+suppressing it makes that landmine unfalsifiable for you.
+
+### Reading the result — status is NOT the proof
+
+```sql
+SELECT orchestration_name, status, current_step,
+       collected_data ? 'run_loop_iter_0_error'             AS it0_err,
+       collected_data #>> '{run_loop_iter_0_error,skipped}' AS it0_skipped,
+       collected_data #>> '{run_loop_error_count}'          AS err_count
+FROM orchestration_states WHERE orchestration_name LIKE 'ind%' ORDER BY updated_at;
+```
+
+The tolerant run reads COMPLETED whether the fault fired or not — **the discriminating
+evidence is the `iter_N_error` records with `skipped=true`**, plus the log line
+`Skipping failed loop iteration, advancing to next  step=<loop>_iter_N_<substep>`.
+
+### ⚠ CLEANUP — owed whatever the outcome
+
+```sql
+DELETE FROM agent_definitions WHERE type IN ('test-173-tolerant-substep','test-173-strict-substep');
+SELECT count(*) FROM agent_definitions WHERE type LIKE 'test-173-%';   -- must be 0
+```
