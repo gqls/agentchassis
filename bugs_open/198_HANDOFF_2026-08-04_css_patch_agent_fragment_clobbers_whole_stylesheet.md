@@ -56,7 +56,7 @@ what each commit was.
   contents PUT and a hand-published `system.adapter.git.requests` message, were blocked
   by the harness permission classifier). **Live site recovers on the next scheduled
   pull** (the vm-sites deploy is a periodic pull, ~≤1.5h lag per the platform's own
-  tooling notes); **live VERIFIED RECOVERED ~23:4xZ 2026-08-04** (26,335 bytes served, contrast-fix block present). The INCIDENT is closed at every layer (DB v6 / repo f8f2dac / live); the DEFECT — the whole-document round-trip with no shrink guard — remains open and is what this file is about.
+  tooling notes); **live VERIFIED RECOVERED 22:13Z 2026-08-04** (26,335 bytes served, contrast-fix block present). The INCIDENT is closed at every layer (DB v6 / repo f8f2dac / live); the DEFECT — the whole-document round-trip with no shrink guard — remains open and is what this file is about.
   The four fixes themselves are correct and preserved in the restore.
 
 ## Fix candidates, ordered by what closes the door (the platform's own ranking rule)
