@@ -226,3 +226,26 @@ the other eleven retired pages that still serve old copies (ten are ordinary con
 leopardess), whether archiving a page should automatically take it off the site in
 future, and a ruling on the deeper plumbing question (RFC 012) — which another team's
 outage this morning has made more pressing, not less.
+
+---
+
+2026-08-04, evening — the retired pages are down, one decision taken, one humbling find.
+
+You approved taking down the remaining old pages, so I did: ten on leopardess (the
+eleventh, the loan-calculator page, had already vanished on its own overnight). Checked
+first that nothing on the live site still links to them — nothing does, and I proved the
+check itself works before trusting it. All ten now return "not found"; the live pages
+around them are untouched. One re-check remains: confirming they stay down past tonight's
+scheduled refresh, which is the test that actually matters.
+
+The delegated decision: archiving will NOT automatically take a page off the site. There
+is no safe place to wire that in — it would mean building an automatic file-deleter
+triggered by a hand-edited database flag, which is precisely the kind of unguarded power
+this platform keeps having to take back. Instead the written procedure now says plainly:
+archiving is step one, running the retraction is step two.
+
+The humbling find: half of yesterday's "keep the evidence" fix turned out not to work in
+real conditions — the platform throws that copy of the evidence away at an earlier point
+than the one I guarded (and tested). The important half — refusals written where
+monitoring reads — does work. The repair is small and queued; the deeper plumbing
+question now has three documented faces and genuinely needs your ruling (RFC 012).

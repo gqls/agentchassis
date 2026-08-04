@@ -176,3 +176,21 @@ service by applying its overlay alone:
 kubectl apply -k deployments/kustomize/services/git-adapter/overlays/production/uk_001
 kubectl -n ai-persona-system rollout status deployment/git-adapter --timeout=180s
 ```
+
+## Archiving a page? Retraction is the SECOND HALF of the procedure (decision 2026-08-04)
+
+Archiving is `pages.status='archived'` by hand — and by owner-delegated decision it does
+NOT trigger retraction automatically (no code seam exists; an automatic file-deleter on a
+hand-set flag is unguarded destructive authority). So the procedure is TWO steps, always:
+
+```sh
+# 1. archive (whatever SQL you were going to run), then:
+SITE_ID=<uuid> PAGE_IDS='["<page-uuid>"]' ./docs/agent_docs/sql_for_agents/216_TRIGGER_page_retraction.sh
+# 2. acceptance is TWO-PART: curl 404 now, AND still-404 after the next ~08:0x/20:0x
+#    refresh + zero new page_rerender rows for the page.
+```
+
+**Gotcha:** the audit you'll want afterwards is NOT in `collected_data.retraction_audit`
+— the await park discards it (coordinator.go:2052, RFC_012 addendum 2). Refusals ARE
+durable in `agent_error_log` (`action='retract_page_deployment'`); until debt 5b ships,
+a clean run's full audit lives only in pod logs, so read the refusal table and the curls.

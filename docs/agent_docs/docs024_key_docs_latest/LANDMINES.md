@@ -4644,14 +4644,22 @@ that is also the thing you would want in the logs is not.
   warning the action "returned" was never recorded anywhere a reader will look.
 - **the check:** for any action with `await_response: true`, ask where its
   findings live AFTER the await, not before it. If the answer is "in its return
-  value", they live nowhere. Persist them before dispatching: a top-level SIBLING
+  value", they live nowhere. ~~Persist them before dispatching: a top-level SIBLING
   collected_data key survives (the response handler writes ONLY the step-name and
-  `output_field` keys — `params.CollectedData` is the coordinator's live state
-  map, and side keys like `image_result`/`final_html` are the established
-  pattern), and anything that must outlive the orchestration row's ~24h terminal
-  retention goes to `agent_error_log` (see `retract_page_deployment_action.go`,
-  `retractionAuditKey` + `recordRetractionConditions`, for a worked example of
-  both sinks).
+  `output_field` keys)~~ — **CORRECTED 2026-08-04, by the first live run of the fix
+  that trusted it: the sibling key does NOT survive an awaited step either.**
+  `persistAwaitingStateWithRetry` (coordinator.go:2052) parks the step by loading
+  FRESH state from the DB and copying onto it only the awaited-request entries and
+  status — every CollectedData mutation from the step's execution is discarded at
+  park time (run `e23b7257…`: binary carries the key-writing code, strings-proven;
+  persisted record has no key). Sibling keys (`image_result`, `final_html`) work
+  ONLY on the non-awaited path, whose completion persist saves the live map. **The
+  only check that holds for an awaited action is a DIRECT DB WRITE before
+  dispatch** — `agent_error_log` via the package's INSERT shape (proven durable:
+  `recordRetractionConditions`, `retract_page_deployment_action.go`) — plus
+  RFC_012 addendum 2 for the class. And when you fix a detector or a sink, RE-RUN
+  it on the motivating case: the in-memory tests passed while the DB round-trip
+  lost everything.
 - **source:** bugs_open/098 debt 5, 2026-08-03 — the one real retraction's record
   held only the adapter's `{paths, success, …}`; candidates, refusals and the
   whole graph audit were discarded by the await, contradicting the action's own

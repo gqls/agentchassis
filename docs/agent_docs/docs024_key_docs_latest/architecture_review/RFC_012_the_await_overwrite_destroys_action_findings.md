@@ -250,3 +250,56 @@ primitive** (`extract_fields.required`, WFA-009). It deliberately does **not** t
    and it belongs to whoever answers (a).
 
 **Nothing in `bugs_open/192` is blocked on this**, exactly as §"Status" says of 098's fix.
+
+---
+
+# ADDENDUM 2 — 2026-08-04 (evening): a THIRD face, and it defeats this RFC's own worked example. The sibling-key escape hatch does NOT work for awaited actions.
+
+**Added by the filing lane itself (098), from the first live batch retraction after the
+fix shipped.** Run `e23b7257-e579-4766-9674-106eca5b66ba` — 10 pages retracted from
+leopardessconsulting.co.uk, adapter success, curls all 404 — completed on a binary that
+provably carries the fix (`strings /app/agent-chassis | grep -c retraction_audit` = 1 on
+the executing pod, with a pre-existing control = 1). **The persisted record still has no
+`retraction_audit` key.**
+
+## The mechanism, read not inferred
+
+`persistAwaitingStateWithRetry` (coordinator.go:2052) is what parks a step to await. It
+**loads FRESH state from the DB** (:2058), copies onto that fresh copy ONLY the awaited
+request entries (:2078-2080) and `Status`/`LastActivity` (:2083-2084), and saves the
+fresh copy. Every in-memory `CollectedData` mutation made during the step's execution —
+the action's sibling keys AND `storeActionResult`'s own step-name/output_field writes —
+is **discarded at park time**. The reply later lands on another fresh load
+(`handleCompleteResponse`), which is why an awaited step's record always ends up holding
+exactly the reply and nothing the action computed.
+
+So the class has three faces now, one per write path:
+1. `applyResponseToState` — replaces the step keys when the reply lands (§1 above);
+2. `storeActionResult` — same-name collisions between sequential steps (addendum 1, 192);
+3. `persistAwaitingStateWithRetry` — **discards ALL CollectedData mutations at park
+   time**, which makes face 1 mostly moot for awaited steps: the data it would have
+   replaced was never persisted at all.
+
+## What this corrects in the RFC above
+
+- §2's premise that the sibling-key pattern is a working escape hatch is **true only for
+  non-awaited actions** (where the ordinary step-completion persist saves the live map —
+  `image_result`, `final_html` all live on that path). For findings-plus-await actions —
+  the exact class this RFC is about — the sibling key is a NO-OP: my own tests proved the
+  in-memory contract and could not see the park-persist discard, and the first live run
+  did.
+- The LANDMINES entry this RFC cites gave the sibling key as "the check"; it is corrected
+  as of tonight (the durable half of the guidance — a direct DB row — stands and is the
+  only half that works).
+- **Option B must therefore be a DB-backed helper, not a reserved collected_data
+  namespace**: a namespace `applyResponseToState` never touches still dies at :2058's
+  fresh load. The cheap immediate fix for 098 (next session): persist the audit as an
+  always-on `agent_error_log` row alongside the refusal rows, whose INSERT path is proven
+  durable (that half of debt 5 works — the run's 0 refusal rows for 0 refusals is the
+  mechanism behaving, not failing).
+
+**Evidence:** run `e23b7257…` collected_data keys (no `retraction_audit`; `retraction`
+holds only the wrapped reply); pod `agent-chassis-5455ddcdcc-gpr92` strings census;
+coordinator.go:2052-2096 read in full. First-hand chain declared per the 2026-07-31
+ruling in place of a 090 run: three artefacts (binary, persisted row, source), each
+checked independently, agreeing.

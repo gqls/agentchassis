@@ -599,3 +599,29 @@ unguarded write on the `storeActionResult` side, with a fleet-wide outage attach
 the RFC now documents both faces of the class and is the natural place for the owner's
 ruling. Session handed off; the refreshed STATE block at the top of the HANDOFF is the
 cold-start.
+
+## 2026-08-04 (evening) — the population retracted; and the first live run REFUTED my own sibling-key fix
+
+**The batch retraction** (owner approval): census re-run first — still 14 stamped, but
+only **10** serving (standard-calc had gone 404 on its own since yesterday — observed,
+not diagnosed). Pre-flight audit by hand: 0/0/0 across all 10 with the `/services.html`
+positive control (11 body + 2 chrome). Dispatch `e23b7257…` with all 10 PAGE_IDS →
+adapter success, one commit, **10× 404, collateral 200**. Part 2 (post-refresh) owed.
+
+**MISSTEP, the one this lane exists to catch, and it is mine twice over:** the
+`retraction_audit` sibling key was ABSENT from the completed run's record — on a
+strings-verified binary. Cause read in full: `persistAwaitingStateWithRetry`
+(coordinator.go:2052) parks the step onto a FRESH DB load carrying only awaited-request
+bookkeeping; every CollectedData mutation dies there, before the reply-side overwrite I
+tested against could ever matter. My four tests proved the in-memory contract and never
+exercised the DB round-trip — **a verification of the wrong layer, again** (the check
+that would have caught it: SELECT the persisted row while the step is parked). Fixed
+records: RFC_012 addendum 2 (third face of the class; option B must be DB-backed),
+LANDMINES corrected in place, WRONG_CALLS row, bug file debt-5 correction. The
+`agent_error_log` half is proven durable and stands; **debt 5b** (always-on
+RETRACTION_AUDIT info row beside the refusal rows) is the one small code task left.
+
+**DECISION (owner-delegated): archiving does NOT auto-invoke retraction** — no seam
+exists, automatic deletion on a hand-set flag is the unguarded-authority class, and the
+runbook's two-step procedure (archive, then 216 with PAGE_IDS) is the mechanism. In the
+RUNBOOK; revisit only if the class outruns it.

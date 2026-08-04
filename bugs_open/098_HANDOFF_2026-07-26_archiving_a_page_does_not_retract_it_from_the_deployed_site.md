@@ -1,5 +1,34 @@
 # 098 — archiving a page removes it from every derivation but not from the deployed site, so its frozen listing keeps advertising a 404
 
+> ## STATUS 2026-08-04 (evening) — THE POPULATION IS RETRACTED, and the two open decisions are taken
+>
+> **The whole serving population is DOWN** (owner approval, this evening). Fresh census
+> first: still 14 stamped rows; curling all 14 found **10** serving — the 10 leopardess
+> pages. (`loancalculator.co.uk/tools/standard-calc.html`, 200 yesterday, was already 404
+> today — retracted by another lane or reconciled away; observed, not diagnosed.) Pre-flight
+> inbound audit by hand: 0 editorial / 0 chrome / 0 nav across all 10, with a positive
+> control (`/services.html`: 11 body + 2 chrome hits) proving the queries. Dispatched
+> through the platform (`page-retraction`, orchestration `e23b7257…`, ALWAYS with
+> `PAGE_IDS`): adapter success, one commit removing all 10 files from `gqls/sites`,
+> **all 10 URLs now 404, collateral (`/index.html`, `/services.html`) still 200.**
+> Acceptance part 2 — still-404 after the next news refresh (~08:0x/20:0x) plus zero new
+> `page_rerender` rows — is the one remaining check before this bug can close.
+>
+> **DECISION (owner-delegated, 2026-08-04): archiving does NOT invoke retraction
+> automatically.** Reasons, so nobody re-litigates: (1) nothing in code archives a page —
+> archiving is a hand-run SQL act, so there is no seam to hook, only a DB trigger or a
+> polling sweep to invent; (2) an automatic file-deleter keyed on a hand-set flag is
+> unguarded destructive authority — the exact class the 2026-08-02 ruling ("new authority
+> on a shared seam ships as an opt-in field, unsafe default OFF") and RFC 011's veto
+> exist to stop; (3) the deliberate path is proven and cheap: archive, then run
+> `216_TRIGGER_page_retraction.sh` with `PAGE_IDS` — now written into the RUNBOOK as the
+> archiving procedure's second half. Revisit only if the class recurs at a rate the
+> runbook step demonstrably fails to keep up with.
+>
+> Debt 5's collected_data half was found DEFEATED by this same run — see the corrected
+> debt list below and `RFC_012` addendum 2. Debt 5b (audit as an error-log row) is the
+> one small code task left on this bug.
+
 **Found:** 2026-07-26, while closing `bugs_closed/052`. Not a residual of 052's
 mechanism — 052's derivation defect is fixed and live. This is the *opposite*
 mechanism, and 052's fix cannot reach it by construction.
@@ -106,11 +135,18 @@ because every repair path skips archived rows on purpose.
 > 5. ~~**NEW, and arguably the most important** — the graph audit's findings never reach the
 >    durable record (see above). Fix by persisting the audit before dispatching, or by
 >    emitting a work item, rather than relying on `output_field` surviving an await.~~
->    **PAID 2026-08-03 (late) — LIVE 2026-08-04** (chassis digest `sha256:0e99ace…`, both
->    replicas: pod-grep `retraction refused for page` = 1 and `retraction_audit` = 1,
->    with pre-existing control `delete_file sent, awaiting response` = 1 proving the
->    pipeline; the change was purely additive so no removed-string negative exists).
->    Two sinks, two readers: the full audit now also lands in
+>    **PAID 2026-08-03 (late) — LIVE 2026-08-04, then HALF-CORRECTED the same evening by
+>    its first live batch run:** the `agent_error_log` half is LIVE and sound (direct
+>    INSERT before dispatch; run `e23b7257…` wrote 0 rows for 0 refusals, which is the
+>    mechanism behaving). **The `retraction_audit` collected_data half is DEFEATED on the
+>    awaited path**: `persistAwaitingStateWithRetry` (coordinator.go:2052) parks the step
+>    by fresh-loading state and copying only awaited-request bookkeeping onto it, so
+>    every CollectedData mutation — sibling key included — is discarded before the DB
+>    ever sees it. Proven: strings-verified binary, absent key, source read in full
+>    (RFC_012 addendum 2; LANDMINES corrected; WRONG_CALLS row). **Owed (debt 5b, small):**
+>    persist the audit as an always-on `agent_error_log` row (`RETRACTION_AUDIT`,
+>    severity info) beside the refusal rows — the INSERT path is the proven-durable one.
+>    Two sinks, two readers was the design: the audit now also lands in
 >    `collected_data.retraction_audit` — a top-level SIBLING key, which the await
 >    overwrite cannot touch because `applyResponseToState` writes only the step-name and
 >    `output_field` keys — and every refusal (plus a stranded-targets summary) becomes an
