@@ -243,3 +243,62 @@ some of those pages predate `content_data` capture entirely, exactly as this fil
    live. Pass requires **both** `content_data` non-NULL **and**
    `sections_source: 'metadata'` in the save's result: `content_data` can also arrive via
    the interactive carry-forward, so the bare column check is a false pass.
+
+---
+
+## 2026-08-04 ~21:20Z — CLOSED. What that means precisely, and what it does not
+
+**Council `b6023fc1-ae70-4486-b752-d399e9b1afcc`: APPROVED, round 1**, 4 advisory
+objections, none high-severity. The `architecture` seat read it as *"RFC_010 being
+correctly exercised, not evaded"*.
+
+### The close rests on the config half, which is LIVE. The Go half is prevention and is inert until the next roll.
+
+The defect as filed — *callers that never map `sections_metadata`, so every save through
+them NULLs `content_data`* — is **not reproducible on any live caller**. Final census:
+
+| caller | `sections_metadata_field` | declares none | requires |
+|---|---|---|---|
+| page-build-handler | `page_content.response.sections_metadata` | – | – |
+| page-rebuild | `page_content.response.sections_metadata` (310) | – | – |
+| page-rerender | `rerender_sections.sections_metadata` | – | – |
+| pageflow-builder | `page_content.response.sections_metadata` (312) | – | – |
+| site-work-orchestrator | `page_content.response.sections_metadata` (312) | – | – |
+| tool-recreation-handler | *(none — correct)* | **true** (313) | – |
+
+Every caller is now **explicit**: five name the field, the sixth declares it has none by
+design. That is what makes this closable rather than merely committed.
+
+**Committed and NOT yet live** (`47ee3ebce`, approved): the Go seam that stops a *future*
+caller reintroducing it — the shared default, the declaration, the opt-in refusal, and the
+`CONTENT_DATA_REGRESSION` record. Inert until the next chassis roll. Its two post-roll
+checks and their disconfirming outcomes are written down in advance in the lane's
+`RUNBOOK` R6/R7, and in **PBP-031**'s `verify-later`, so they survive this file being
+closed. **A reader who needs the prevention half to be live must check the pod, not this
+file.**
+
+### The strongest objection, recorded rather than answered — a human's call
+
+`bug_historian` (medium): *for every live caller today the behaviour is still "log a
+warning, still lose the data, still report success"* — better than silence, but not the
+fail-loud guard. That is correct and it is deliberate: RFC_010 says new authority ships
+with the unsafe default OFF, so `require_sections_metadata` is seeded on **nobody**, and the
+new record is what turns the later per-caller opt-in into a measurement instead of a guess.
+But a deferral is not a fix, and the seat is right that whether that suffices to close 194
+is a decision rather than a deduction. **Raised to the owner; the follow-on is the 24h
+`CONTENT_DATA_REGRESSION` reading, then a per-caller opt-in decision.**
+
+Also open, disclosed, unfixed: the **161 of 1,201** already-NULL rows (repair is re-running
+the build, never restoring the archive — the reason is in this file's own "naive restore"
+paragraph); **partial** `content_data` loss, outside the report's predicate on purpose; and
+the single-component writers of `bugs_open/136`.
+
+### What this case cost, and what it bought
+
+Two seeds live, one Go commit approved first round, seven tests with four mutations run
+against the shipped code, one landmine, two `WRONG_CALLS` entries, and one correction to a
+concept-register entry that had said "three callers" since before three of them existed —
+which is part of why this stayed invisible for six months.
+
+**Status: CLOSED — the filed defect is fixed AND live on every caller. Moving to
+`bugs_closed/`.**
