@@ -2684,3 +2684,39 @@ footer-only. Baselines in `/tmp/decomp-work/postroll1251/bulk/*.pre`.
 > inference had been stated as a measurement. What caught it: re-reading my own
 > sentence and running the two-line loop that prints the exception by name.
 > **A count you measured does not make the label you attached to it measured.**
+
+### The bulk verification: my prediction held, but I refuted it wrongly first
+
+Checking the first four completed pages, two read `canonical 0->1` and two read
+`canonical 0->0`. All four had identical URL shape, title and domain, so I treated the
+split as real and went looking for the mechanism: read `injectCanonicalLink`'s five
+skip conditions, then `injectPageJSONLD`'s, then `getPageInfo`'s query — and found the
+two injectors share a `page.Domain` input. Then checked JSON-LD as a discriminator:
+**absent on exactly the two pages missing the canonical, present on the other two.**
+
+That is a clean, corroborated story, and I was a step from writing up *"`PageInfo.Domain`
+is unpopulated for some pages, silently suppressing both canonical and structured
+data"* — a fleet-wide discoverability defect.
+
+**There is no defect. The two files were not pages.** They were seven lines of
+`{"error":"B2 returned error"…"NoSuchKey"}`, HTTP 200, because I fetched them inside
+their own deploy window. Re-fetched after propagation, all four read
+`canonical=1 jsonld=1 emptydesc=0 oldfooter=0`. **The prediction was right the whole
+time.**
+
+> **The corroboration was the trap, not the alarm.** I picked the JSON-LD check
+> *because* it shares `Domain` with the canonical path, so agreement would be
+> evidence — the right instinct. But both signals were computed **from the same
+> 7-line file**, so they could not possibly have disagreed. A second measurement over
+> a corrupt artefact is not a second measurement. Same family as the standing "two
+> checks blind the SAME way AGREE" rule, walked into while trying to apply it.
+>
+> **And it defeated my own landmine, written 40 minutes earlier in this session.**
+> That entry warns a zero has two causes — clean, or broken probe. **There is a
+> third: the artefact is not there.** Every grep returned 0, *including the two I
+> wanted at 0* (`oldfooter`, `emptydesc`), which is exactly why the row read as a
+> partial success rather than a failure. Both the landmine and the handoff recipe now
+> carry a `wc -c` + `DOCTYPE` guard as the first step, before any grep.
+>
+> `complete` is the WORK ITEM's status, not the CDN's. The lane's own guidance already
+> said ~2 min; I queried on `status='complete'` and fetched immediately.

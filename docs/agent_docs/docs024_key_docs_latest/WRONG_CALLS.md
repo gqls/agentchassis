@@ -20003,3 +20003,48 @@ what a comment-grep did to a binary probe — silently removing the disconfirmin
 this workstream.** The rule that keeps not sticking, stated as a procedure rather than a
 principle: *after writing a mutation, run `go build` FIRST; only a green build makes the
 subsequent test result mean anything.*
+
+## 2026-08-04 (same session, an hour later) — I read a deploy-window error blob as a platform finding, and got three files deep before printing the file
+
+Verifying the first four of 21 re-renders, two pages came back `canonical 0->0` while the
+other two read `0->1`. All four had identical URL shape, title and site. I took that as a
+real, discriminating result and went looking for the mechanism: read `injectCanonicalLink`'s
+five skip conditions, read `injectPageJSONLD`'s, read `getPageInfo`'s query — and found the
+two functions share a `page.Domain` dependency, then confirmed JSON-LD was absent on exactly
+the same two pages and present on the other two. **A beautifully consistent story: two
+independent head-injectors failing together on a shared input.** I was one step from writing
+up "PageInfo.Domain is not populated for some pages, silently suppressing both canonical and
+structured data" — a fleet-wide discoverability defect.
+
+There was no defect. **The two `.post` files were not HTML.** They were this:
+
+```json
+{ "error": "B2 returned error", "objectKey": "loancalculator.co.uk/guides/hidden-loan-fees.html",
+  "status": 404, "statusText": "Not Found", "body": "…<Code>NoSuchKey</Code>…" }
+```
+
+I had curled them **inside the deploy window**, between the object being replaced and the new
+one landing. Seven lines of JSON. Every grep I ran against them returned 0 — `canonical` 0,
+`ld+json` 0, and also `empty description` 0 and `old footer` 0, **which is why the row looked
+like a partial success rather than a failure**: the two greps I expected to go to zero did,
+and the two I expected to go to one also did. Re-fetched after propagation: all four pages
+`canonical=1 jsonld=1 emptydesc=0 oldfooter=0`. The prediction had been right all along.
+
+**What makes this worth logging is the shape of the corroboration.** The JSON-LD check was a
+genuinely good discriminator — I chose it precisely because it shares `Domain` with the
+canonical path, so agreement would be evidence. It agreed. But **both signals were computed
+from the same 7-line file**, so they could not disagree; a second measurement over a corrupt
+artefact is not a second measurement. This is the "two checks blind the SAME way AGREE"
+pattern, and I walked into it while deliberately trying to avoid it.
+
+**The cheap checks, in the order they would have fired:**
+- **Print the artefact's SIZE and first bytes before grepping it.** `16056 b`, `DOCTYPE`
+  present. A 7-line JSON body next to a 225-line page is not subtle — `wc -c` alone ends this
+  in one second. **Never grep a file you have not established is the kind of file you think.**
+- **A count of 0 from a fetched artefact has a third cause** beyond "clean" and "broken
+  probe": **the artefact is not there.** My own landmine, written 40 minutes earlier in this
+  same session, says *"a grep that matches nothing looks identical whether it is clean or your
+  probe is broken"* — and this is the third case it does not name.
+- **Do not diff or grep a page during its own deploy.** The lane's standing guidance already
+  says ~2 min behind `complete`; I queried on `status='complete'` and fetched immediately.
+  `complete` is the work item's status, not the CDN's.

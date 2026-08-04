@@ -118,7 +118,11 @@ own change and its own verification.
 >    out of 26.** This is the real acceptance test and it is baseline-free:
 > ```bash
 > while read u; do b=$(curl -s "https://loancalculator.co.uk$u");
->   echo "$b" | grep -q 'THE HAND-BUILT PAGES HAD NO FOOTER' && echo "OLD FOOTER $u";
+>   # GUARD FIRST: a deploy-window fetch returns a 7-line B2 {"error":…"NoSuchKey"} blob
+>   # at HTTP 200, and EVERY grep below then returns 0 — which reads as "clean".
+>   [ "$(printf %s "$b" | wc -c)" -lt 5000 ] && { echo "NOT A PAGE  $u"; continue; }
+>   printf %s "$b" | head -c 15 | grep -q DOCTYPE || { echo "NOT HTML    $u"; continue; }
+>   echo "$b" | grep -q 'THE HAND-BUILT PAGES HAD NO FOOTER' && echo "OLD FOOTER  $u";
 >   echo "$b" | grep -q '<link rel="canonical"'                || echo "NO CANONICAL $u";
 >   echo "$b" | grep -q '<meta name="description" content="">' && echo "EMPTY DESC  $u";
 > done < /tmp/decomp-work/postroll1251/urls.txt   # regenerate: SELECT url FROM pages WHERE site_id='0162cde4-…' AND status='active'
@@ -126,6 +130,15 @@ own change and its own verification.
 > Silence = all three clean. **Induce a non-zero first** (run it against a page you
 > know is stale) — a grep that matches nothing looks identical whether it is clean or
 > broken.
+>
+> ⚠ **The two guard lines are not decoration — they are there because I lost half an
+> hour to their absence tonight.** Fetching a page inside its own deploy window
+> returns a B2 error blob at HTTP 200; every grep against it returns 0, including the
+> ones you want at 0, so it reads as a *partial success*. Two independent checks over
+> that one blob agreed with each other and nearly bought a fleet-wide
+> "`PageInfo.Domain` is unpopulated" finding that does not exist. **`complete` is the
+> work item's status, not the CDN's — allow ~2 minutes.** Full write-up in
+> `WRONG_CALLS.md`, 2026-08-04.
 > 4. Then re-run `toolgolden --compare` (§6b) — 21 pages re-rendered is exactly when
 >    to re-confirm the calculators.
 >
