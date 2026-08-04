@@ -194,3 +194,37 @@ is live on the current image, and the closure stands.
 **Worth keeping as practice:** when the fleet rolls past the image you proved on, your LIVE
 claim has expired even though nothing about your code changed. Re-prove at the new artefact —
 it is one exec and it is the difference between a verified claim and an inherited one.
+
+## 2026-08-04 09:41Z — COUNCIL APPROVED (round 4), and the five advisory objections answered
+
+`decided_by: "approved with 5 advisory objection(s) — none high-severity"`, corr
+`da1d3a40-8ec1-4ea1-9c65-8c585ec2d013`, 3 seats abstained, `gated_by_truncation: false`.
+Four rounds: 1 and 3 killed by chassis rolls, 2 by the stale-step reaper, 4 landed in a quiet
+window. **Every objection was checkable and every one was checked** — banking the approval
+without reading them would have missed the most interesting finding of the whole lane.
+
+| seat | objection | disposition |
+|---|---|---|
+| `bug_historian` (MED) | the THIRD `splitSymbol` copy left unfixed — "a register entry mitigates but does not remove the exposure" | **Right. FILED as `bugs_open/189`**, per `bugs_closed/164`'s ruling that an adjacent defect gets filed, not deferred to a note. Not folded into this diff: widening scope after approval is worse than leaving it |
+| `guardian` (MED) | "a disposition filed into 181 is not confirmation the two edits are sequenced"; escalate to HIGH if 181 is uncoordinated | **Checked, condition NOT met.** `git log -- diagnose_code_lookup_action.go` shows no commit but mine; `grep -c "n == rowCap"` → **0**, so 181's cap defect is intact and un-touched; the disposition is present in their file |
+| `debug_historian` (MED) | no deploy-verification / pod-grep step in the plan | **Already done and now cited**: both replicas on v1.0.1245, re-proved on v1.0.1248, four probes 1/1/1/0 each. The plan predated the build, which is why it is absent there and present in NOTES |
+| `debug_historian` (MED) + `bug_historian` (LOW) + `guardian` (LOW) | the index-staleness landmine keyed to these very symbols is not in `grounded_in` | Fair on the submission's wording. The verification did honour it — the proof symbol (`ReadSymbolBody`) exists AT `d98010e8b`, chosen for that reason, and the landmine is this lane's own |
+| `prior_art_librarian` (MED) | the corpus already names `parseSymbolQuery`/`symbolClauseFor` — possible DORMANT-MACHINERY rebuild | **The entries are MINE, synced 09:36:07Z; the report is 09:41:52Z.** See below — this is the finding |
+| `architecture`, `reuse_agent` (missing) | do RFC_005 §3.2 and CTXK-002 actually exist? | Both verified present: `architecture_review/RFC_005_…md` and 3 occurrences of `CTXK-002` in `register/contextkit-toolchain.md` |
+
+### The finding: I contaminated my own prior-art surface, and both instruments were blind
+
+A landmine is written **prospectively** about code you have just built, so its `footprint`
+names your new symbols *by design*. Mine named `answerCodeCheck`, `parseSymbolQuery`,
+`symbolClauseFor` — and five minutes later the prior-art seat read them back as possible
+evidence that my "new" functions already existed. The seat behaved correctly, said openly
+that it might be "a forward-filed landmine", and routed to `code_checks` — **but the escape
+route is blind too**: the code index lags HEAD, so an empty `code_checks` cannot resolve it
+in either direction. Two independent instruments, both unable to see a symbol added today.
+
+This is the **inverse** of the standing "your own action can silence your own detector"
+family: your own action can make a detector **fire**, by planting what reads as independent
+corroboration of the very thing you are asserting. The remedy is not to stop filing — it is
+to **declare authored corpus evidence in `grounded_in`** ("the entries naming these symbols
+are mine, filed <date>"), so a seat can discount them instead of spending a MEDIUM on them.
+Logged in `WRONG_CALLS.md`; the sequencing evidence is the two timestamps above.
