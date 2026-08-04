@@ -2425,3 +2425,48 @@ mentions the retired page.
 each next re-renders. The source is correct and it self-heals; 26 forced deploys for
 an invisible comment is not proportionate. Third instance today of the same class —
 engineering prose in a shipped artefact — after `tool-loan-repayment` twice.
+
+## 2026-08-04 — post-roll check on v1.0.1250, and a baseline I contaminated myself
+
+**Result: the roll moved nothing.** Three pages re-rendered on the new image; the
+only difference on any of them is my own footer comment propagating (12 lines,
+identical diff on all three). `toolgolden --compare`: **11 of 11 reproduce exactly.**
+
+The render-path diff across this roll was **not** empty — `12ae5824f fix(187)`
+touches `rerender_page_sections_action.go` — so it could not be waved through on the
+usual "empty means it cannot move them" test. Reading it, the change is confined to
+the **escalation** branch (it guards a false-alarm `needs_page` and returns a
+disposition) and touches neither assembly nor template rendering. Pleasant to note:
+it cites `bugs_open/182` as its reason for naming a no-op, so that finding is
+already being used by another lane.
+
+### MISSTEP — I captured a baseline from pages with a KNOWN pending change
+
+All three pages came back DIFFERENT, which is the alarm signal. The cause was mine:
+the footer fix had been sitting in `site_components` since 08-03 waiting for each
+page's next re-render, and **I had written that down as an open item in the same
+handoff, hours before running the check.** So "DIFFERS" was guaranteed before the
+chassis was involved at all. I had built a check whose baseline could not hold.
+
+It survived only because the diff was unambiguous and attributable — one contiguous
+comment block, identical on all three pages. **A subtler pending change would have
+produced a mismatch I could not have attributed**, and the standing advice for a
+mismatch ("re-run first; propagation lag clears, a real fault reproduces") would
+have pointed the wrong way here: re-running reproduces this every time, so it reads
+as a real fault, and it is not.
+
+> **A baseline is only a baseline if nothing else is in flight.** Before a post-roll
+> byte check, establish that there is nothing pending — either let everything
+> propagate first, or predict the expected diff and assert it exactly rather than
+> asserting equality. The second is strictly better when something IS pending, and
+> it is what I ended up doing after the fact instead of before.
+
+Same family as the two baseline failures on 08-03 (`git show HEAD:`; the
+`~/projects/sites` working copy) — but a different mechanism. Those two were
+baselines that **moved**; this one was a baseline that was **wrong when taken**.
+Three instances in two days says the class is worth naming: *know what your
+"before" is a picture of, and what else is in flight when you take it.*
+
+**Side effect worth recording:** 3 of 26 pages (`index`, `tool-consolidation`,
+`tool-loan-vs-savings`) now carry the corrected footer; the other 23 still serve the
+old comment until they next re-render.
