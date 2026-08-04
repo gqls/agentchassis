@@ -132,4 +132,7 @@ commit split: surfaces in `9595c43fc`, detector in `96dd3015c` — independently
 pod-grep every replica (`page_canonical_collision` ≥1, negative control `"/tools/%s.html"` = 0)
 → apply seed 306 → induce completeness sweep on robot-hands → expect exactly items
 `page_canonical_collision:/news` + `:/gripper-catalog`, re-run files 0 new → move 080 to
-bugs_closed (both paths on the commit, `git ls-tree` check).
+bugs_closed (both paths on the commit, `git ls-tree` check). With the seed, also add
+`page_canonical_collision` to `liveConfiguredChecks` in
+`discovery_checks_registration_test.go:42` (its contract is to pin LIVE config, so it gains the
+entry when the config does, not before).
