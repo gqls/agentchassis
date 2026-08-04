@@ -467,3 +467,14 @@ two other sessions (both of whose test-package breakages healed while I watched 
 queue-noise per 033/071; the error-log route already has a fleet-wide reader), no
 coordinator change (merging responses instead of replacing them is a shared-mechanism
 redesign — architecture scope), debts 3 and 4 still open.
+
+## 2026-08-04 — the debt-5 council round was KILLED BY THE ROLL; resubmitted under the same trail
+
+Round 1 of `5a965452…` was created at 22:56:40 and FAILED at `review_editquality` with an
+EMPTY `__step_error` — both chassis pods restarted 22:56:19/22:56:41, i.e. the run was
+claimed in the exact window of the fleet roll the owner had announced. Fresh evidence for
+the standing memory line "a roll KILLS an in-flight council"; the empty step error is the
+tell that distinguishes a kill from a seat-level failure. Resubmitted 08-04 with
+`RESUBMIT_CORR=5a965452…` — the script makes the old correlation the new round's
+`fix_correlation_id` (097 line 75), so the commit trailer on `e35e549a8` still resolves.
+Round-2 run orchestration: `9e5352cf-7b1f-4d4f-ae83-09923d2baf30`.
