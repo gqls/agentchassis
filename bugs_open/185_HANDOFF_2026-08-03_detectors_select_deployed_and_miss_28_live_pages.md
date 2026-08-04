@@ -651,3 +651,50 @@ the pages that fall off are the highest nav_order — the least prominent, which
 defensible end to lose but not a free one. **Stated rather than discovered later:** the
 right follow-up is raising `max_pages` for the eight over-cap sites, which is config, not
 code, and belongs to whoever owns the audit cadence.
+
+
+---
+
+# TRANCHE 2 APPROVED 2026-08-04 — and two council runs in this lane have now been eaten by rolls
+
+**`b563a61c` → APPROVED** (2026-08-04 10:42), after the round-2 resubmission that answered
+every objection from the code. Tranche 2 is therefore **committed, live on `v1.0.1247`+ and
+council-approved**; the answers are in the table above.
+
+## The reap pattern, recorded because it looks exactly like latency
+
+**Two of this lane's council runs never reached a verdict.** Both died the same way:
+
+| run | died at | error |
+|---|---|---|
+| t2 round 1 | `review_prior_art` | `reaper: stale EXECUTING_STEP for >4h` |
+| t3 round 2 | `review_editquality` | `reaper: stale EXECUTING_STEP for >4h` |
+
+A chassis roll kills the pod mid-seat; the orchestration row stays `EXECUTING_STEP` until
+the reaper marks it FAILED four hours later. **In the meantime it is indistinguishable from
+an ordinary slow run** — the runbook's own advice ("a missing row is almost always latency,
+do not retry") is right in general and cost us four hours twice here.
+
+This estate rolled `v1.0.1243 → 1247 → 1250 → 1251` inside about a day, so the odds of a
+council run surviving are not good. **The discriminator, and it is cheap:** don't wait on
+the artifact, watch the orchestration row —
+
+```sql
+SELECT current_step, status, NOW()-updated_at AS since_update
+FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<corr>';
+```
+
+`EXECUTING_STEP` with `since_update` climbing past ~20 minutes on one seat means the pod is
+gone, not that the seat is thinking. Resubmit then, rather than discovering it four hours
+later. (The existing landmine says "a roll KILLS an in-flight council"; what this adds is
+**how to tell, and how long you will otherwise wait**.)
+
+**Tranche 3 resubmitted a third time** (`c881ef22`), content unchanged since round 2.
+
+## Scratchpad wiped mid-work — worth knowing
+
+The shared `/tmp` went 95% full → cleared (8%) between sessions, taking every submission
+JSON with it. They are regenerable from the bug file, which is why the answers live in the
+committed record and not only in a scratch file. **Nothing durable should ever exist only
+in the scratchpad.**
