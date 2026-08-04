@@ -207,3 +207,28 @@ wait on them.** Also owed from before, unchanged: A0.3b config tail, A0.4 drain 
   hold 115's two rows for A3.2. THEN the witnessed write_findings run (the .response
   nesting proves itself — the action fails loud on mismatch) — one specimen render-audit
   run covers both.
+
+## 2026-08-04 — A0.4 DONE: the drain proven live both ways; 171 CLOSED
+
+- Sweep dispatched 23:04Z (03rd) via the new `run_improvement_sweep_once.sh`; **queued
+  ~9.5h** before running 08:35Z — far beyond the measured 29-min norm; "queued != lost"
+  held, and nothing was retried (a retry would have double-run the site).
+  [ONE-OFF, UNMEASURED WHY] — overnight scheduler-lane quiet is the guess, not a finding.
+- **Orchestration `5d36d7ec` (correlation `44933795`)**: the 291 gate parsed live
+  (`audit_due: true`, fingerprint `f2fef661…`), full audit chain ran, triage promoted
+  **22**, `record_audit_pass` wrote `{at, fingerprint, passes_at_fingerprint: 1}`.
+- **Drain completed BOTH ways** within minutes: the stranded 07-19 `empty_section` closed
+  by RFC_010 retraction (`resolved_by: empty_sections`, section re-observed healthy at
+  25,576 chars); fresh `stale_sc_header` travelled detected→…→complete (rerender-pages,
+  08:41:31) with `site_components.header/head` visibly re-rendered at 08:41:22-23 and a
+  **19-page rerender cascade** filed behind it (22 page_rerender items triaged; dispatch
+  observed mid-item 08:45; drains in 5-item batches via build-pipeline-trigger).
+- **171 CLOSED** → `bugs_closed/171…` (closure section cites the orchestration id);
+  016b §10 row + related-pointer updated. `git ls-tree` shows exactly one 171 file at
+  HEAD (the git-mv landmine check).
+- Misstep en route: the trigger script's site lookup invented `sites.deleted_at`
+  (schema-first violated in one line; fixed + committed before any dispatch).
+- **CORRECTION to the 08-02 plan text**: the improvement-loop does NOT spawn
+  render-audit-agent (grep of its live config: no render-audit reference) — so A0.3b's
+  witnessed write_findings run is a SEPARATE render-audit-agent dispatch, still owed.
+  Fire it only after the rerender cascade settles (attribution + the site is mid-change).
