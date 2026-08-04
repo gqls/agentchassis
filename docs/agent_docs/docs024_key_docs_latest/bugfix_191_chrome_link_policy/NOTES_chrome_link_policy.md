@@ -197,3 +197,65 @@ confirmed present **at HEAD**, not merely in the working tree.
 Note this is a genuinely independent method, not the same check twice: grep reads
 text, the compiler resolves symbols. Two greps with different spellings would have
 agreed with each other and proved nothing.
+
+## 2026-08-04 (evening) — LIVE on v1.0.1251, proven with TWO REAL negative controls
+
+Pods `agent-chassis-5455ddcdcc-{crnb6,gpr92}`, image `v1.0.1251`, started 19:19Z —
+about 7½ hours after the last 191 commit (11:43Z). Timing is suggestive, not proof.
+
+⚠ **My planned negative control was WRONG and I caught it before running it.** The
+bug file and my own RUNBOOK said to expect `headerPages := loadResolverPageSet` to
+return 0. That is a **Go source expression**, not a string literal — it is not in the
+binary at all, so it would have returned 0 on *every* build ever made, including one
+that predates this fix entirely. A negative control that cannot fail is not a control.
+
+The real ones are the two log-message literals the change **deleted**:
+
+| grep (plain substring, never `-x`/`^`/`$`) | crnb6 | gpr92 | means |
+|---|---|---|---|
+| `LoadChromeLinkPolicy` | 2 | 2 | new symbol |
+| `markStaleChromeLinkSlot` | 2 | 2 | new symbol |
+| `ChromeLinkPolicy: site has NO deployed pages` | 1 | 1 | new literal |
+| `marked a slot whose stored chrome links` | 1 | 1 | new literal |
+| **`GetNavItems: site has NO deployed pages`** | **0** | **0** | **NEGATIVE — deleted by this change** |
+| **`GetNavItems: fetchable-page lookup failed`** | **0** | **0** | **NEGATIVE — deleted by this change** |
+| `GetNavItems: dropped nav items whose target page` | 1 | 1 | positive control (untouched) |
+| `repointRetiredChromeSlot` | 2 | 2 | positive control (untouched) |
+
+The two zeros are what discriminate: they are strings the binary WOULD carry if it
+predated this change, and the positive controls prove the grep pipeline works.
+
+## 2026-08-04 (evening) — the induction PREDICTION, written BEFORE the run
+
+Target `mortgagecalculator.co.uk`: 1 deployed page, 25 never deployed, no chrome lock,
+header CTA still `/tools/stamp-duty/index.html`, all three slots `build_status='rendered'`
+and untouched since 2026-08-03 11:01:35.
+
+⚠ **A raw SQL join over the stored hrefs says `/index.html` is "NEVER DEPLOYED", and
+that is my query being wrong, not a finding.** The one deployed page is
+`/guides/first-time-buyer/index.html`; there is no deployed `/index.html` row. But
+`loadFetchablePageSet` **injects `/` and `/index.html` unconditionally**
+(`nav_tables.go:260`), and `PageURLSet` normalises paths. So the policy's set is
+`{/, /index.html, /guides/first-time-buyer/index.html}` with `deployedPages = 1`
+(injected entries are not counted, which is why the count is returned separately).
+A join that models neither the injection nor the normalisation answers a different
+question.
+
+**Predicted, and each line can come out false:**
+
+1. `header` — holds `/tools/stamp-duty/index.html`, which the policy refuses →
+   MARKED `build_status='pending'` → re-rendered → `updated_at` MOVES.
+2. **`footer` — holds only `/index.html`, which the injection allows → NOT marked →
+   `updated_at` DOES NOT MOVE.**
+3. **`head` — holds only `/assets/...` paths, which `ClassifyLinkScope` calls
+   `LinkScopeAsset`, never `LinkScopePage` → NOT marked → `updated_at` DOES NOT MOVE.**
+4. The re-rendered header carries **no CTA to an undeployed page**: `chooseCTATargets`
+   prefers interactive pages (every tool here is undeployed → refused), so the button
+   either points at one of the two allowed URLs or is absent entirely.
+5. Chassis log carries `site chrome: marked a slot whose stored chrome links to a page
+   the policy now refuses (bugs_open/191)` naming `slot=header` and
+   `href=/tools/stamp-duty/index.html`.
+
+**Lines 2 and 3 are the load-bearing half.** A pass where all three slots move would
+mean the detector fires on everything and proves nothing about the predicate; the
+slots that must NOT move are what makes this discriminating.
