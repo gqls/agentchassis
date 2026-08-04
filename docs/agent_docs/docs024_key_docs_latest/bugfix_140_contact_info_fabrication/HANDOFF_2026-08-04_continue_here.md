@@ -16,8 +16,13 @@ the `SUMMARY_…` series.
 `bugs_closed/140` CLOSED. RFC_009 B and C live. The 68 `skip_field` fields gated
 (migration 295). **NEW: the element-level blindness the 08-03 recheck exposed now has a
 check — `cmd/component-render-check`, declaration-blind by construction, calibrated
-against the live corpus** (CGV-030). It is **NOT standing**: a Go binary needs an image
-and an overlay, unlike the mounted Python lint.
+against the live corpus, WITH a committed baseline and mutation-proven growth detection**
+(CGV-030). The only thing left is a **carrier**: a Go binary needs an image and an
+overlay, unlike the mounted Python lint. Everything else about it is done and proven.
+
+RFC_009 B re-proven on the current chassis (`v1.0.1246`, both replicas, 08-04): compiled
+marker 2, negative control 0 — taken with `scripts/pick-pod-marker.py`, i.e. through the
+tool rather than by hand-picking a marker.
 
 ---
 
@@ -63,11 +68,19 @@ Built and calibrated ≠ standing, and CGV-030 says so. It needs:
   `bugs-open-staleness-sweep` mould, (c) port the renderer to Python — **rejected**, that
   would be a replica of `executeGoTemplate` and the whole point is the production entry
   point. I would go (b).
-- **A baseline, before any exit code.** 1,023 findings is a census. The useful signal is
-  GROWTH: store today's set (component+field+shape) as a baseline row, then alert on
-  anything new. Without that, wiring it to a red/green result makes a red nobody clears —
-  the exact mistake RFC_009's exit-0 rationale was avoiding, arriving from the other side.
-- **`--emit-json` is already there** for whatever consumes it.
+- ~~**A baseline, before any exit code.**~~ **DONE 2026-08-04** (`d0b44e6b1`).
+  `--write-baseline` / `--baseline` compare on a `component\0field\0shape` key (counts
+  excluded, so a hole rendered twice is not a new defect); the baseline is a committed
+  reviewable file, so growth arrives as a diff and needs no new storage. Exit 1 on NEW **or
+  UNCOVERED**. Mutation-proven in three arms (RUNBOOK R11b) — and the first mutation found
+  a real defect in it: an unparseable component used to have its findings reported as
+  "fixed" with exit 0, i.e. the comparator passed by going blind. So the carrier below is
+  now genuinely the ONLY thing between this and standing.
+- **`--emit-json` is already there** for whatever consumes it (it carries `new_findings`,
+  `fixed_since_baseline` and `uncovered_since_baseline` when `--baseline` is given).
+- **Regenerating the baseline is a deliberate act.** Bank a real fix by re-running
+  `--write-baseline` and committing the diff; that keeps the "who cleared what" record in
+  git rather than in a mutable row.
 
 ### 2. Item 3 from the old plan — the lint's exit code — now unblocked, still a decision
 
