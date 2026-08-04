@@ -71,3 +71,28 @@ haven't run the query, the only thing I'm allowed to write is that I haven't run
 with the trailer that says "submitted, verdict not yet read" — there is a purpose-built trailer
 for exactly that, so no thread ever needs to invent a verdict. The ticket moves to the closed
 pile once the verdict is in and the change is in a shipped image.
+
+**2026-08-04, later.** The review council came back **approved**, first round, in four minutes
+rather than the half hour the runbook tells you to budget. Twelve reviewers were eligible, five
+sat it out as irrelevant to the change, and the rest approved. The one that pleased me: the
+reviewer whose objection *caused* this ticket to exist read the fix and said it was "the pattern
+being closed correctly, not reproduced".
+
+There was one advisory objection, and it was a good one. I had written, as part of my reasoning,
+that the diagnosis loop lets the model's own suggestions through without checking their shape —
+which is why it matters that two bits of code agree on how to read them. The reviewer pointed
+out that I had *cited* that rather than *checked* it, and that there is a known trap about
+exactly this sort of confident-sounding claim. Fair hit. I went and read the two places that
+produce those strings. It holds: one filters only blank entries and duplicates, the other
+explicitly gives up and passes the model's original text through when it can't make sense of it.
+So arbitrary text really does reach the code I changed — which makes the fix more worthwhile, not
+less, because that is precisely the situation where two disagreeing readers cause trouble.
+
+**Where it ends.** The change is committed, approved, and the ticket has moved to the closed
+pile. One thing I want to be straight about, because it would be easy to imply otherwise: the
+version currently running in the cluster was built a few minutes before my commit, so this fix
+is **not in the running system yet**. It goes out with the next build. I have closed the ticket
+anyway, and the reason is written into the closing note rather than left implied — this was a
+tidiness defect in the source code, not something misbehaving in production. There was never
+anything for a visitor or a customer to see, before or after. The duplicate is gone the moment
+the change is committed, and that is the thing this ticket was about.

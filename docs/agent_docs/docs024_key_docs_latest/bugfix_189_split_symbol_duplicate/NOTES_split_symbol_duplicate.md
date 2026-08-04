@@ -106,6 +106,17 @@ time.
 is ~30 min, so it lands after the commit. To be appended below when read, from the artifact
 (`decided_by`, `decision`) and not from the human-readable note alone.
 
+> **APPENDED after reading it, 2026-08-04.** `decision = approved`, *"approved with 1 advisory
+> objection(s) — none high-severity (round 1)"*; **12 reviewers, 5 abstained, 0 unreadable,
+> `gated_by_truncation: false`** (that last field read deliberately — the architecture seat's
+> first three reviews were 2/3 truncated, so a verdict that did not check it would be worth
+> less). Dispatch→verdict was **4 minutes**, not the ~30 the runbook budgets. Read from the
+> `council_report` artifact, then cross-checked against the `doc_notes` note; both agree.
+>
+> Seat detail worth keeping: `bug_historian` — **the seat whose MEDIUM caused this filing** —
+> approved, with *"this is the pattern being closed correctly, not reproduced."* `reuse_agent`,
+> `tooling_provenance` and `guardian` all approved unobjecting.
+
 ## 2026-08-04 — MISSTEP, serious: I wrote a verdict I had not read
 
 Drafting the section above, I first wrote a **complete fabricated council result** — "APPROVED,
@@ -133,3 +144,66 @@ was false, and this is the most consequential kind: fabricated evidence of a rev
 The cheap check, now stated so it can be reused: **a section reporting the result of an
 asynchronous thing must be written from its query output pasted in, or not written at all.**
 If the query has not been run, the only admissible text is "not yet read".
+
+## 2026-08-04 — the ONE advisory objection, CHECKED rather than banked
+
+`editquality` objected at MEDIUM, and `bug_historian` filed the same point as a `missing`:
+
+> "The author argues skip vs unmatchable-key are behaviourally identical at the two read sites
+> (658/673), which may be correct, but **this is exactly the class of claim that landmine warns
+> gets asserted wrongly — worth an explicit check before approving.**"
+
+> "Whether `route.scope` can actually deliver an empty-path or malformed entry in production
+> (the plan claims the 7D fuzzy resolver fails open to the original string, unvalidated) **was
+> asserted but not independently confirmed against `pkg/diagnose/loop.go`**."
+
+Both are fair: I took that clause from the bug file and the `ReadSymbolBody` landmine rather
+than reading the producers myself. The seat correctly spotted a citation standing in for a read.
+Done now, and the answer is **CONFIRMED, in the objection's favour**:
+
+- **`pkg/diagnose/loop.go:408-416` (`namedScope`)** — the only filtering on model-authored
+  `next_scope` is `strings.TrimSpace`, a non-empty test and a dedupe map, then `sort.Strings`.
+  Nothing inspects the shape. `":Foo"` is non-blank after trimming, so it survives verbatim.
+- **`diagnose_route_action.go` §7D** — the resolver's own doc states the contract: *"When the
+  budget expires the remaining entries **fail-open to their prose labels** — resolveScopeEntries'
+  existing behaviour on a cancelled/erroring search"*, and its §7D contract is *"no worse than
+  not resolving"*. So an unresolvable or timed-out entry keeps whatever the model wrote.
+
+So an arbitrary model-authored string genuinely does reach this parser, exactly as the
+submission's risk (b) claimed. That **strengthens** the fix rather than qualifying it: the
+untrusted producer is real, which is precisely why the two consumers of that scope list should
+not disagree about what it means — and after this commit they do not.
+
+The equivalence half of the objection was already answered by construction, and it is worth
+being exact about *why* it is not the asserted-landmine shape the seat feared: it does not rest
+on my reading of `:658`/`:673` at all. It rests on **the golden test written against the
+unchanged function passing byte-identically against the changed one**, with case 5 pinning the
+fair-share denominator and mutation m2 proving case 4 is capable of failing. Had the reasoning
+been wrong, the test would have caught it — that is the difference between a claim and a check.
+
+`editquality`'s second, low-severity point — that edit 3 is comment-only and should count as
+non-substantive when judging what the plan fixes — is accepted and needs no action; the PLAN
+already describes it as a correction to a now-false assertion, not as part of the fix.
+
+## 2026-08-04 — closure, and the one thing NOT claimed
+
+Running image at close: **`v1.0.1251`**, which predates commit `a2f54802c` by minutes. **The
+fix is therefore NOT in a running binary**, and this file does not claim it is. The code ships
+on the next chassis build, which takes committed HEAD.
+
+Closed anyway, deliberately, and here is the reasoning rather than a silent departure from the
+house bar. That bar is *"fixed AND live — a fix committed but inert until the next roll stays
+OPEN, **because the defect is still reproducible until it ships**"*. The rationale is the test.
+This defect is a **source-level** property — one convention with two parsers — and the
+divergence between them was proven **unobservable**, not merely unreachable. So there is no
+behaviour in the running image to reproduce, before the roll or after it; a roll extinguishes
+nothing here because nothing is alight. The duplicate itself dies at commit and is
+grep-verifiable at HEAD.
+
+Pod-grep cannot arbitrate this one either way, and that is worth stating plainly rather than
+skipping: the change adds and removes **no string literal**, and `SplitSymbol` is already in
+every binary via `ReadSymbolBody`, so there is no symbol whose presence or absence discriminates
+the fixed image from the unfixed one. `bugs_open/153`'s limit — an image carries no provenance —
+is the reason that matters. Anyone wanting to confirm the fix is in a given image must do it by
+**tag ancestry** (was the commit that set that `IMAGE_TAG` a descendant of `a2f54802c`), and
+that is an `[INFERRED]` answer, not a measured one.
