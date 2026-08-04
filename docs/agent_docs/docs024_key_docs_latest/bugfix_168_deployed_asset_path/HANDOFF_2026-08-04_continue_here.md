@@ -119,6 +119,28 @@ Also in `LANDMINES.md` (2026-08-04) with the code-side grep that finds closers, 
 >
 > Full working in `NOTES_deployed_asset_path.md` (bottom), including a mutation harness that was
 > **invalid on its first run** and how.
+>
+> **Council `1cec55d2` APPROVED it** (`e35044546` answers the objections). Two are worth carrying:
+> the `editquality` seat caught that **my own negative control was the shape I keep writing
+> landmines about** — it counted the removed literal over the whole file, so a future comment
+> explaining the removal would fail the test on a correct fix (now strips `//` lines; proven in both
+> directions). And the `guardian` seat asked the co-dedup question and **found something**:
+> **`needs_page` has 5 Go producers**, and it is the only one of the four types with a live row in
+> scope (1). Pre-existing in kind — the revalidator already serves that type — but the
+> `bugs_open/187` lane is told.
+>
+> **VERIFY AFTER THE NEXT ROLL. This is the one change in this lane with a REAL negative control**,
+> because a revert removes a string:
+> ```bash
+> for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | sed 's|pod/||'); do
+>   N=$(kubectl -n ai-persona-system exec $POD -- sh -c "strings /app/agent-chassis | grep -c 're-observed filled'" 2>/dev/null|tail -1); N=${N:-0}
+>   P=$(kubectl -n ai-persona-system exec $POD -- sh -c "strings /app/agent-chassis | grep -c 'auto:revalidated'" 2>/dev/null|tail -1); P=${P:-0}
+>   echo "$POD removed_expect_0=$N positive_control_expect_nonzero=$P"
+> done
+> ```
+> Baseline dated **2026-08-04, `v1.0.1251`, both replicas: `re-observed filled` = 1, `auto:revalidated` = 2.**
+> After the roll the first must be **0** and the second must stay non-zero — a 0/0 means the probe
+> broke, not that the revert landed.
 
 ## 4b. The original options, kept because the reasoning is the record
 
