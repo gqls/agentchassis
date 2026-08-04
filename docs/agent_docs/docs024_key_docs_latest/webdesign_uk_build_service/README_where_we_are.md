@@ -746,3 +746,32 @@ one that saves a tenner a month by putting the live payment keys, an anonymous
 chat that spends money, and every future site behind one kernel. One bad day
 there takes all the revenue at once, and we've already had the near-miss with
 the firewall-resetting script.
+
+---
+
+**2026-08-04, night. The order sheet for the new machine.**
+
+Full spec, checked against what Mythic Beasts actually sell tonight rather than
+memory: their virtual server line, 2 cores, 8 GB of memory (up from 4, since
+you've said more sites are coming to this box), 50 GB on SSD, Ubuntu 24.04, in
+one of their UK sites so customer conversations stay in the country. Their
+pricing starts under a fiver a month and a year costs ten months.
+
+One correction to what I told you before. I'd said you needn't pay for an IPv4
+address. Then I checked, and GitHub and Stripe, of all things, still have no
+IPv6 presence at all, and those are precisely the deploy path and the money
+path. Mythic Beasts do provide a free translation service that bridges the gap,
+so going without would work, but for what it costs, take the address: it keeps
+the two paths that matter most off shared infrastructure. Nothing will ever
+connect to it inbound either way; everything still arrives through the tunnel.
+
+On backup: the trick is that almost nothing on this box needs backing up,
+because almost everything on it is rebuilt from the repository on demand. The
+pages, the configuration, the chat service itself: all versioned, all
+re-creatable by running the provisioning script again. The one thing that is
+genuinely unique is the conversations and orders, and those get dumped nightly,
+encrypted, and pushed off the box to our storage, the same pattern our island
+box has been using. Mythic's own backup add-on is worth having as a second copy
+of those dumps, but it's the belt, not the braces. And before go-live we restore
+one dump once, deliberately, because a backup that has never been restored is a
+hope, not a backup.

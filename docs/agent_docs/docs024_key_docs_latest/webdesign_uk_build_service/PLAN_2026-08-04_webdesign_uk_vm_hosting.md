@@ -125,6 +125,68 @@ isolation decision).
   trouble: one compromise or one bad provisioning run takes all revenue at once
   — and we have already *had* the bad provisioning run (`ufw --force reset`).
 
+## 2b. The order sheet (owner question, 2026-08-04 evening: "full spec — ssd? backup?")
+
+Checked against mythic-beasts.com on 2026-08-04 (virtual servers page + IPv6
+support pages), not from memory. Their configurator prices the combination;
+the page states "from £4.90/month", annual = 12 months for the price of 10.
+
+| knob | order | why |
+|---|---|---|
+| Product | Virtual Server (VPS) | dedicated cores buy nothing for an I/O-bound chat that spends its life waiting on the Anthropic API |
+| Cores | **2** | concurrency is capped by the §5.1 spend ceiling long before CPU |
+| RAM | **8 GB** | was 4; the owner has since said more product sites are coming to this box (§2a) — 8 saves the resize |
+| Storage | **50 GB SSD** — their page offers "choice of SSD or HDD"; **take SSD** | transcripts/orders are text; container-less Go binaries are small; 50 is comfortable headroom |
+| OS | Ubuntu 24.04 LTS | estate standard; keeps the `setup.sh`/provision lineage usable |
+| Zone | **UK (Cambridge or London)** | chat transcripts are customer data from UK businesses; keep them in the UK. Latency to Cloudflare LHR is a bonus |
+| IPv4 | **take one** — CORRECTED, see below | ~pennies against the product's £1,200 price point |
+| Bandwidth | smallest tier | static pages ship from the box via CF; chat traffic is tiny |
+| Add-ons | **"Backup space"** add-on: optional second copy; our own backup is the load-bearing one (below) | |
+
+### The IPv4 correction (this section supersedes "IPv4: not required" in §2, Phase 2 and HANDOFF §4)
+
+Measured 2026-08-04: **`github.com` and `api.stripe.com` have no AAAA records at
+all.** An IPv6-only box cannot reach either natively — and those are the
+**deploy path** (`sitesync` pulls from GitHub every 5 minutes) and the **money
+path** (Stripe API calls at P3). `api.anthropic.com` and the Cloudflare tunnel
+edge are both natively v6, so the chat and ingress are unaffected.
+
+Mythic Beasts provide **free NAT64/DNS64** for IPv6-only servers (confirmed on
+their IPv6 support page; resolvers `2a00:1098:0:80:1000::12`,
+`2a00:1098:0:82:1000::10`), so IPv6-only **does work** — git pulls and Stripe
+calls transit their shared NAT64. That is fine for P1.
+
+**But take the IPv4 anyway:** it removes a shared-infrastructure dependency from
+the two paths that matter most (deploys self-heal on the 5-minute timer, but
+Stripe calls at P3 would fail closed during any NAT64 wobble), and it costs a
+rounding error. The frugal variant — IPv6-only now, add IPv4 when Stripe goes
+live — is legitimate; say which at order time so nginx/`cloudflared` are
+configured once. **Inbound is unaffected either way**: everything arrives
+through the tunnel, so the IPv4 is never listened on and needs no firewall
+thought.
+
+### Backup, designed rather than bought
+
+The box is **rebuildable by design** — that is what the pull model buys:
+
+| data | uniqueness | protection |
+|---|---|---|
+| site pages | none — `vm-sites` repo is the source of truth | re-pull; nothing to back up |
+| nginx conf, units, provision scripts | none — versioned in this repo (`box/`) | re-run provisioning |
+| chat service binary | none — built from this repo | redeploy |
+| **transcripts, orders, request log** | **THE unique data** — and per §5.1 it is the demand signal P1 exists to collect | **nightly dump → encrypt → push to `personae-prod-uk001-backups` (B2)**, the island's proven pattern (`pg_dump` + off-box copy). Off-box copy is push-from-box, outbound-only — consistent with the tunnel posture |
+
+So recovery-time is: provision script + first `sitesync` pull + restore last
+night's dump. The Mythic "Backup space" add-on is worth taking as a *second*
+copy of the dumps (different provider trust domain than B2), but it is not the
+primary — a provider-side backup of a box whose disk is 95% rebuildable
+artefacts protects the wrong bytes.
+
+**Two rules that make it a backup rather than a hope:** encrypt before upload
+(transcripts are customer conversations; B2 is a shared bucket), and **restore
+one dump, once, before go-live** — an untested backup is a `[UNMEASURED]` claim
+with your revenue attached. Put the restore drill in the provisioning runbook.
+
 ## 3. Phases
 
 Ordering is chosen so **nothing is ever publicly broken**: the holding 302 stays
