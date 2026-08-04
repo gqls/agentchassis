@@ -1883,6 +1883,23 @@ deploy-bugs-open-staleness-sweep: ## Deploy the weekly bugs_open/ staleness swee
 	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob bugs-open-staleness-sweep
 
+.PHONY: push-component-render-check
+push-component-render-check: ## Push the component-render-check CronJob image
+	docker push $(REGISTRY)/component-render-check:$(IMAGE_TAG)
+
+.PHONY: deploy-component-render-check
+deploy-component-render-check: ## Deploy the daily component-render-check CronJob (CGV-030)
+	@echo "$(YELLOW)Deploying component-render-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/component-render-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob component-render-check
+
+.PHONY: component-render-check-now
+component-render-check-now: ## Trigger an immediate component-render-check run
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/component-render-check \
+		component-render-check-manual-$$(date +%Y%m%d-%H%M%S)
+
 .PHONY: bugs-open-staleness-sweep-now
 bugs-open-staleness-sweep-now: ## Trigger an immediate sweep run (creates a Job from the CronJob)
 	@echo "$(YELLOW)Triggering immediate bugs_open staleness sweep...$(NC)"
