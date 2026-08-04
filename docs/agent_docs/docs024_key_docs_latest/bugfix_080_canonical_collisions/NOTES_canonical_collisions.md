@@ -83,3 +83,53 @@ sweep: exactly 2 items, both robot-hands). NOT applied — inert until my image 
 Another lane rolled a fresh chassis while this was in flight (user note ~21:00). My changes are
 uncommitted so they are NOT in that image; council submission timed after the roll settles
 (a roll kills an in-flight council run).
+
+## 2026-08-04 (morning) — committed, APPROVED r1, seed 305 live; blocked on the whole-fleet release
+
+Commits: `9595c43fc` (surfaces A–D + tests), `96dd3015c` (detector + verifier + PLAN-047 register
+entry same-commit + seeds 305/306), lane docs. Clean `git archive HEAD` builds and all tests pass.
+Seed numbering collided mid-task (another session minted its own 302/303) → renumbered to 305/306.
+Local docker build of chassis at v1.0.1248 proved HEAD dockerises; NOT deployed — releases are
+whole-fleet, owner-run (memory ruling 2026-08-03). **Seed 305 APPLIED + verified live** (6-entry
+exclusion list confirmed by its own fenced replace).
+
+**Council: APPROVED round 1** (corr `83710c81`, 6 advisory objections, none high, 4 abstained).
+The four checkable objections, checked:
+
+1. **"Which upsert helper does each surface feed — three helpers, opposite collision policies"**
+   (editquality/bug_historian/reuse/guardian/constitution/debug_historian, the recurring one):
+   - `create_blog_posts` → its own `ON CONFLICT (site_id, name) DO UPDATE SET title, page_type,
+     sections, page_spec` (`:241`). Two runs producing the same canonical name now collide-and-
+     update — the intended policy for a plan-authority surface. Compatible.
+   - `deploy_tool` → `UpsertPageForRole` (`:386`, `:531`), the refuse-shipped/adopt-unshipped
+     seam. `resolveToolPageIdentity` runs BEFORE it: an existing row under either name is reused
+     (refresh path, no second row possible); a fresh canonical name creates. A SELECT→upsert race
+     lands in UpsertPageForRole's explicit conflict branch, which refuses rather than duplicates.
+     Compatible — and NOT a fourth helper: it resolves *which identity to ask for*, then routes
+     through the existing seam; the three helpers answer *what to do on collision*.
+   - `create_tool_component` → plain INSERT, no ON CONFLICT (`:289` region): a collision errors
+     loudly and rolls back the component — no silent second row. Compatible.
+2. **debug_historian: hand-rolled `status='active'` claimant predicate.** The enumerate-first
+   discipline was done before the predicate was chosen — `GROUP BY status` → exactly
+   {active 561, archived 27} (RUNBOOK). "Claimant" is a different question from "has shipped"
+   (`PageHasShippedPredicateFor`): an archived-but-still-served page (098's class) is deliberately
+   NOT a claimant here — its remedy is 098's retraction question, not a which-row-survives
+   decision. Check and verifier share the predicate, so they cannot disagree.
+3. **prior_art_librarian: the absence claim needs a directory check, not a grep.** Done before
+   building: the explore pass enumerated all 85 files in discovery_checks/ and every Register()
+   call site (52 checks); no name/URL collision detector exists under any name. The
+   scheduled_tasks claim is now self-verifying: 305's fenced pre-check REQUIRED the exact 4-entry
+   list and passed.
+4. **guidelines: recurrenceExpected on the shared insert path.** `WorkItemSpec` carries no such
+   field (remit.go records the limitation). Two-strike counts only complete/failed; our items are
+   needs_human_review → wont_fix (suppressed by the check's own arm) or complete-via-human. Two
+   human completes within 7 days would born-unresolved a third file — acceptable, documented here.
+
+guardian's containment note (three surfaces + check in one plan) is partially answered by the
+commit split: surfaces in `9595c43fc`, detector in `96dd3015c` — independently revertable.
+
+**STILL OWED to close 080:** owner's whole-fleet release at a tag whose HEAD ≥ `96dd3015c` →
+pod-grep every replica (`page_canonical_collision` ≥1, negative control `"/tools/%s.html"` = 0)
+→ apply seed 306 → induce completeness sweep on robot-hands → expect exactly items
+`page_canonical_collision:/news` + `:/gripper-catalog`, re-run files 0 new → move 080 to
+bugs_closed (both paths on the commit, `git ls-tree` check).

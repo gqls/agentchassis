@@ -1,5 +1,53 @@
 # 080 — `content-gap-planner`'s `new_page` bypasses `CanonicalisePage`, so two creation surfaces disagree on a page's name and URL (FIX LIVE on v1.0.1177 — OPEN for the duplicate rows it does not repair)
 
+> ## STATUS 2026-08-04 — the CLASS is closed and the DETECTOR is built; OPEN only for the roll + seed that arm it
+>
+> Taken up by the `bugfix_080_canonical_collisions` lane (cold-start:
+> `docs024_key_docs_latest/bugfix_080_canonical_collisions/`). Committed
+> `9595c43fc` + `96dd3015c`, council corr `83710c81` (submitted; trailer
+> `Council-Submitted:`). What changed:
+>
+> - **The damage is WORSE than this file records, re-measured 2026-08-04.**
+>   robot-hands.com serves **TWO** live duplicate pairs, not one: `/news` (below)
+>   AND `/gripper-catalog.html` beside `/gripper-catalog/index.html` — both 200,
+>   both `active`+`deployed`. The second pair was invisible to every survey in
+>   this file because they all keyed on `page_type` or on the news family; a
+>   census keyed on **URL shape** (flat `/x.html` vs nested `/x/index.html`)
+>   finds 6 collision groups on 2 sites, exactly 2 with two ACTIVE claimants.
+>   Also: webdesign.co.uk's `news` row went `planned` → **deployed** since the
+>   last correction, and `/news.html`'s stray carries a **self-referential
+>   `rel=canonical`** while `robot-hands.com/sitemap.xml` 404s.
+> - **Class closed at the remaining writers** (the "five surfaces" count below is
+>   stale — there were 8 Go surfaces INSERTing into `pages` by 2026-08-03):
+>   `create_blog_posts` (hand-rolled 080's exact shape; canonicalisation measured
+>   a no-op for all 79 existing rows), `deploy_tool` (TL-010 — new tools
+>   canonical, existing rows reused under either name so the 12 live legacy-shape
+>   pages are NOT re-keyed), `create_tool_component` (silent flat-URL fallback now
+>   refuses; companion-guide identity shared + byte-convergent). `adopt_verbatim`
+>   stays exempt by design (crawled URL is the feature) with its name mirror
+>   pinned as a CanonicalisePage fixed point by test.
+> - **Fix candidate 3 is BUILT: `page_canonical_collision` discovery check +
+>   verifier** (PLAN-047; two signals union-merged — the name signal alone MISSES
+>   `/gripper-catalog`, whose stray is typed `content`). Files ONE
+>   `needs_human_review` decision item per group when ≥2 claimants are active,
+>   carrying the decided section-index convention; suppresses re-filing after a
+>   human `wont_fix`; retracts its own stale items (RFC_010 seam). **INERT until
+>   (a) a whole-fleet release carries a HEAD ≥ `96dd3015c` and (b) seed
+>   `306_enable_page_canonical_collision.sql` is applied — image → seed.** Seed
+>   `305` (claim-timeout lockstep) is applied and verified live 2026-08-04.
+> - **The live rows stay untouched — deliberately** (user ruling 2026-08-03:
+>   detect and file only). Retiring a live page has no mechanism
+>   (`bugs_open/098` → RFC_011) and re-typing a shipped row was declined by
+>   `bugs_closed/081`. The decision arrives as the check's first two items.
+>
+> **To close this case:** after the next release, pod-grep
+> `page_canonical_collision` (+ negative control `"/tools/%s.html"` expect 0) on
+> every replica, apply seed 306, induce one completeness-discovery sweep on
+> robot-hands.com, and confirm exactly 2 items with keys
+> `page_canonical_collision:/news` and `page_canonical_collision:/gripper-catalog`
+> (re-run → 0 new). Then this file moves to `bugs_closed/` — the residual
+> which-row-survives decision lives on in those two items, not in this file.
+
 > ## STATUS 2026-07-27 — candidate 1 applied, council APPROVED, **LIVE on v1.0.1177**
 >
 > **Rolled 19:22:02Z.** Verified in the running pod, not the tag:

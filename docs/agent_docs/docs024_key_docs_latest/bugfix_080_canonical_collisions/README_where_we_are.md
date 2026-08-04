@@ -21,3 +21,19 @@ the tool deployer, a hidden fallback in the tool-page creator), pin the one that
 purpose so it cannot drift, and build the alarm — a check that spots two pages claiming the same
 canonical identity, filing a decision item when both are live. Measured first: none of the
 changes moves any existing page.
+
+## 2026-08-04 — written, reviewed, approved; waiting only on the next release
+
+All of it is coded, tested and committed, and the review council approved it first time (six
+minor advisories, none blocking — mostly asking me to double-check which database write each
+changed path ends up using; I checked all three and wrote the answers down). One database-side
+safety catch is already live: the timeout sweeper can no longer auto-complete these decision
+items past their verifier — and fixing that up also closed a gap another thread had declared but
+never switched on.
+
+What's left needs the next fleet release, which is yours to run: once an image built from
+today's code is live, I switch the new alarm on, watch it find exactly the two robot-hands
+duplicates we know about, and then close the ticket. The "which copy of the page survives"
+question lands in the review queue as two concrete decision items — the machinery to actually
+retire the losing copy is still the vetoed/redesign question from the other workstream, so
+nothing on the live sites changes until a human decides.
