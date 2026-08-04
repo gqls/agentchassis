@@ -4856,3 +4856,38 @@ that is also the thing you would want in the logs is not.
 - **the check:** re-grep the CURRENT pods, not the tag you proved on: `kubectl get pods -n ai-persona-system -l app=agent-chassis -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image --no-headers`, then `kubectl exec … -- sh -c 'strings /app/agent-chassis | grep -c "<a string YOUR change added>"'` on **every** replica, with a positive and a negative control. Because `make build-*` builds from committed HEAD, a later lane's build normally carries your fix for free — "normally" is the trap, and one exec settles it. Cite the claim as "live on `<tag>` as at `<date>`", never bare "live"
 - **source:** `bugfix_163_symbol_lookup` lane, 2026-08-04 — proved on v1.0.1245, re-proved on v1.0.1248 rather than inheriting the claim
 - **added:** 2026-08-04, bugfix_163_symbol_lookup lane
+
+### `make build-*` fails with a LINKER error naming the Go toolchain, and the cause is a full 16G `/tmp` tmpfs — while `df /` shows hundreds of GB free
+
+- **footprint:** `make build-<service>` · `go build` · `/tmp` · `/tmp/claude-1000` ·
+  `TMPDIR` · `no space left on device` · `mapping output file failed`
+- **fires when:** you build any service image, or run `go build ./...`, on the dev box.
+  Compilation succeeds; the **link** step fails. The message points at the toolchain and
+  looks like a Go or module problem:
+  `.../pkg/tool/linux_amd64/link: mapping output file failed: no space left on device`
+- **the tell, and why it misleads:** `df -h /` shows the root disk healthy (185G free,
+  80% used, measured 2026-08-04). **`/tmp` is a separate 16G tmpfs**, and Go links
+  through it. Check the right filesystem: `df -h /tmp`. On 2026-08-04 it was at **100%**
+  with 384K free, so *every* concurrent session's builds were failing and none of them
+  could see why from `df` alone.
+- **what fills it:** `/tmp/claude-1000` — per-session Claude scratchpads — held **14G
+  across 92 session directories**, the largest single one 3.5G. They are not reaped when
+  a session ends, so on a box running dozens of concurrent sessions this fills steadily
+  and silently. A failed `go build` also leaves its `/tmp/go-build*` behind (Go removes
+  these only on success), so a full tmpfs is self-perpetuating: ~760MB of orphans were
+  sitting there from earlier failed builds.
+- **the check, before you conclude the build is broken:**
+  `df -h /tmp` and `du -sh /tmp/claude-1000/*/ | sort -rh | head`. Then
+  `pgrep -a "go |compile|link"` — with **no** live go process, any `/tmp/go-build*` is
+  orphaned scratch and safe to remove; with one, it is not.
+- **the trap inside the fix:** **do not sweep `/tmp/claude-1000/*` blind.** Many of those
+  directories belong to sessions that are **live right now** (cross-check the ids against
+  recently-modified `~/.claude/projects/*/…/*.jsonl`). Deleting an active session's
+  scratchpad destroys work in flight that no git hook is protecting, because scratchpad
+  files are deliberately outside the repo. Clear your **own** session's orphans, and
+  escalate the rest rather than guessing. Alternatively set `TMPDIR` to a path on the
+  root disk for the build only — it needs no cleanup decision at all.
+- **source:** hit directly 2026-08-04 by the `bugfix_192_select_sections_wrapper` lane
+  while running `go build ./...` as a final check; `./platform/...` had compiled clean
+  moments earlier because that package set never reaches a link step.
+- **added:** 2026-08-04, bugfix_192_select_sections_wrapper lane
