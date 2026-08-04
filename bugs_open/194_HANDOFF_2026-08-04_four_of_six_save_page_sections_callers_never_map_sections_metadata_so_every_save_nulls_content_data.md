@@ -141,3 +141,23 @@ not seen fail is a claim, not a check.
 The first two are dormant and are the same pair `bugs_open/087` found broken in the other
 direction; the third runs a different writer flow whose response shape is **[UNMEASURED]** —
 read its writer's output keys before copying the line.
+
+---
+
+## 2026-08-04 ~19:40Z — CLAIMED by a bug-clearing thread (session `da43ef00`)
+
+Taking the remaining three instances, and the framework question behind them: a per-caller
+config key that four of six callers forgot is the *same defect class* `bugs_closed/087` just
+fixed at source in the writer. Working lane:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_194_sections_metadata_mapping/`.
+Verified still valid at claim time — live config read, `page-rebuild` carries the key,
+the other three are still absent:
+
+```
+page-build-handler      | "page_content.response.sections_metadata"
+page-rerender           | "rerender_sections.sections_metadata"
+page-rebuild            | "page_content.response.sections_metadata"   -- 310, this file
+pageflow-builder        | (null)
+site-work-orchestrator  | (null)
+tool-recreation-handler | (null)
+```
