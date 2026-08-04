@@ -260,3 +260,24 @@ sweep. Cascade: 1 complete / 1 claimed / 20 triaged, draining ~1 per few minutes
 - A0.3b's owed proof (handoff item 3) is CLOSED. Next: one more hand-fired sweep to
   promote + dispatch these four — css-patch-agent's first dispatch; if the handler
   misbehaves, that is a REAL finding for the A2 lane, recorded not hidden.
+
+## 2026-08-04 (late morning) — css-patch maiden run: correct fixes, CATASTROPHIC persist; bugs_open/198
+
+- Second sweep (corr `2a793014`): the 291 gate's CHANGED-FINGERPRINT branch witnessed
+  (`f2fef661…` → `7f08d0b3…`, audit_due=true) — both live decision shapes now proven.
+  Triage promoted 10; all four contrast items dispatched to css-patch-agent.
+- **The LLM fixes were CORRECT** (e.g. #b8952a → #7a6010, targeted, minimal — the r2
+  spec-contract work did its job) — **and the persist destroyed the stylesheet**: the
+  model returned only the new rule as `patched_css`; save_css_to_db + deploy_css write
+  `patched_css` as the WHOLE document with no shrink guard. css_themes 25,816 → 149
+  chars (v2–v5), four `CSS fix: <no value>` commits at vm-sites, **live site synced the
+  149-byte file ~10:00Z** — relojistas served unstyled. The 012 class via prompt
+  non-compliance; full mechanism + fix candidates in `bugs_open/198`.
+- **Containment**: css_themes RESTORED (v6, 26,152 chars = ee123e31a base + the four
+  fixes under a provenance comment). vm-sites/live restore BLOCKED by the harness
+  permission classifier on both outward channels (gh PUT; hand-published
+  system.adapter.git.requests message) — STOPPED per its instruction and handed to the
+  owner with exact commands. The `<no value>` commit-message defect recorded in 198 too.
+- The catch chain worth naming: item said `complete` → checked the ARTEFACT (live css
+  grep) → found the miss → read the workflow → found the clobber BEFORE the live sync
+  landed the damage visibly. "Trust the rendered artefact, not the status" — again.
