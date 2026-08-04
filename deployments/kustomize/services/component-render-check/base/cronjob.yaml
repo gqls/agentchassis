@@ -1,0 +1,88 @@
+# deployments/kustomize/services/component-render-check/base/cronjob.yaml
+#
+# CGV-030 — the OUTPUT-level empty-element check, made standing. Sibling of
+# component-fallback-check (CGV-029) and deliberately a SEPARATE job rather than a
+# second command in that one.
+#
+# WHY A SEPARATE JOB. The two checks answer different questions and must be able to
+# fail independently: CGV-029 asks "does any template INVENT a business fact" (a lie
+# on a page — severe, fails its job) and this asks "can any template render a HOLE"
+# (a broken-looking page — a census of ~1,000, so only GROWTH may fail). Folding this
+# into that job would mean one exit code for two populations with different bars, and
+# the first red would train everyone to ignore both. They share a schedule window and
+# nothing else.
+#
+# WHY AN IMAGE AND NOT A ConfigMap SCRIPT, unlike its sibling. The whole point of this
+# check is that it renders through the PRODUCTION entry point — actions.RenderTemplate,
+# the same Go function the platform itself renders with. A Python re-implementation
+# would be a replica, and a replica proves the replica works (the exact reasoning in
+# RUNBOOK R10). So it is a Go binary, and a Go binary needs an image.
+#
+# THE BASELINE TRAVELS IN THE IMAGE, not in a ConfigMap. It is the check's own
+# definition of "already known", so it must be versioned with the code that reads it;
+# a ConfigMap baseline could be edited to silence a finding with no diff anybody
+# reviews. Banking a real fix is therefore: re-run --write-baseline, commit the diff,
+# rebuild. Visible, reviewable, revertable.
+#
+# CONNECTS TO POSTGRES DIRECTLY — never kubectl exec. ai-persona-app has no pods/exec
+# RBAC in this namespace (the constraint single-owner-carriers-check and
+# bugs-open-staleness-sweep both hit). The binary detects this itself: PG_CLIENTS_HOST
+# being set switches it off the kubectl path, the same convention the Python lint uses.
+# Proven before deploy by running the binary with kubectl absent from PATH entirely.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: component-render-check
+  labels:
+    app: component-render-check
+    component: component-integrity
+spec:
+  # Daily, 06:55 UTC — after component-fallback-check (06:40) so the two never contend
+  # for the same connection window, and clear of database-backup (02:00), the weekly
+  # staleness sweep (06:00) and single-owner-carriers-check (06:20).
+  schedule: "55 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # ~180 components x (1 + fields) renders. Measured ~30s by hand against the live
+      # library; 600s is a wide margin that still stops a hung job blocking tomorrow's.
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: component-render-check
+            component: component-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/component-render-check:latest
+              # The image's CMD is already
+              #   --baseline /app/baseline.json --report
+              # so the job fails ONLY on a NEW finding or an UNCOVERED one (a component
+              # that stopped parsing, whose findings would otherwise read as "fixed" —
+              # a pass bought by going blind, found by mutation 2026-08-04). The ~1,000
+              # known findings never fail it; a permanently-red job is a job everybody
+              # learns to ignore, which is the mistake this check was sequenced to avoid.
+              # --report writes ONE doc_notes row per run, clean or not, so "looked and
+              # found nothing" stays distinguishable from "stopped running".
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

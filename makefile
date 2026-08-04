@@ -174,6 +174,14 @@ build-reasoning-agent: ## Build reasoning-agent (committed HEAD; REF=<ref> to pi
 build-web-search-adapter: ## Build web-search-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
 	$(call ref_build,web-search-adapter)
 
+# Not a service — a CronJob image (CGV-030). It ships the component-render-check
+# binary AND the baseline it is measured against, so the pair can never disagree.
+# Committed-HEAD build matters more than usual here: a working-tree build could
+# bake in an uncommitted baseline, i.e. a silenced finding with no diff to review.
+.PHONY: build-component-render-check
+build-component-render-check: ## Build component-render-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,component-render-check)
+
 .PHONY: build-web-scrape-adapter
 build-web-scrape-adapter: ## Build web-scrape-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
 	$(call ref_build,web-scrape-adapter)

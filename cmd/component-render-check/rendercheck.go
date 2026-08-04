@@ -30,6 +30,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -43,6 +44,7 @@ import (
 	"time"
 
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -65,6 +67,36 @@ type component struct {
 	Template string `json:"html_template"`
 }
 
+// dbConn returns a direct Postgres handle when PG_CLIENTS_HOST is set, and nil
+// otherwise. Two routes exist for the same reason the Python lint has two: a
+// session at a terminal reaches the DB through `kubectl exec`, but the CronJob
+// CANNOT — the ai-persona-app service account has no pods/exec RBAC in this
+// namespace, and a kubectl-only tool fails there in a way that looks like a
+// clean run if you are not watching exit codes. PG_CLIENTS_HOST being set is how
+// the CronJob declares itself, exactly as check_placeholder_fallbacks.py does.
+func dbConn() (*sql.DB, error) {
+	host := os.Getenv("PG_CLIENTS_HOST")
+	if host == "" {
+		return nil, nil
+	}
+	pw := os.Getenv("CLIENTS_DB_PASSWORD")
+	if pw == "" {
+		return nil, fmt.Errorf("PG_CLIENTS_HOST is set but CLIENTS_DB_PASSWORD is not — " +
+			"refusing to guess a connection")
+	}
+	port := os.Getenv("PG_CLIENTS_PORT")
+	if port == "" {
+		port = "5432"
+	}
+	dsn := fmt.Sprintf("host=%s port=%s user=clients_user password=%s dbname=clients_db sslmode=disable",
+		host, port, pw)
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, err
+	}
+	return db, db.Ping()
+}
+
 func loadComponents(path string) ([]component, error) {
 	var body []byte
 	var err error
@@ -73,6 +105,18 @@ func loadComponents(path string) ([]component, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if db, derr := dbConn(); derr != nil || db != nil {
+		if derr != nil {
+			return nil, derr
+		}
+		defer db.Close()
+		// No retry loop here: this is a single query over a local socket, not the
+		// ~2 MB kubectl exec stream whose truncation the retry below exists for.
+		var raw string
+		if err := db.QueryRow(query).Scan(&raw); err != nil {
+			return nil, fmt.Errorf("component query failed: %w", err)
+		}
+		body = []byte(raw)
 	} else {
 		var last error
 		for attempt := 0; attempt < 3; attempt++ {
@@ -380,6 +424,28 @@ func findingKey(f finding) string {
 	return f.Component + "\x00" + f.Field + "\x00" + f.Shape
 }
 
+// writeDocNote records the run in doc_notes on EVERY run, clean or not — the
+// convention check_placeholder_fallbacks.py established for the same reason: a
+// check that only speaks when it fails is indistinguishable from one that has
+// stopped running, which is the exact ambiguity bugs_open/140 hit. Best-effort:
+// a failure to record must never become a failure to report.
+func writeDocNote(body string) {
+	db, err := dbConn()
+	if err != nil || db == nil {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "(could not record run: %v)\n", err)
+		}
+		return
+	}
+	defer db.Close()
+	_, err = db.Exec(`INSERT INTO doc_notes (subject_type, subject_key, body, categories, source)
+	                  VALUES ('pipeline', 'component-library', $1, '["component-integrity"]'::jsonb,
+	                          'component_render_check')`, body)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "(could not write doc_notes: %v)\n", err)
+	}
+}
+
 type baselineFile struct {
 	Note string   `json:"note"`
 	Keys []string `json:"keys"`
@@ -431,6 +497,7 @@ func main() {
 	emitJSON := flag.Bool("emit-json", false, "machine-readable findings on stdout")
 	baseline := flag.String("baseline", "", "compare against a baseline file; exit 1 if any finding is NEW")
 	writeBase := flag.String("write-baseline", "", "write the current findings as a baseline file and exit 0")
+	report := flag.Bool("report", false, "also write a doc_notes row (used by the CronJob)")
 	flag.Parse()
 
 	if *baseline != "" && *only != "" {
@@ -604,6 +671,22 @@ func main() {
 	}
 
 	if *baseline != "" {
+		summary := fmt.Sprintf("component-render-check vs baseline: %d findings across %d analysed "+
+			"components, %d NEW, %d fixed, %d UNCOVERED", len(findings), checked,
+			len(newFindings), len(fixedKeys), len(uncoveredKeys))
+		if *report {
+			detail := summary
+			for _, f := range newFindings {
+				detail += fmt.Sprintf("\nNEW  %s .%s %s x%d", f.Component, f.Field, f.Shape, f.Count)
+			}
+			for _, k := range uncoveredKeys {
+				detail += "\nUNCOVERED  " + k
+			}
+			for _, k := range fixedKeys {
+				detail += "\nfixed  " + k
+			}
+			writeDocNote(detail)
+		}
 		fmt.Printf("component-render-check vs baseline %s: %d findings now, %d NEW, %d fixed, %d UNCOVERED\n\n",
 			*baseline, len(findings), len(newFindings), len(fixedKeys), len(uncoveredKeys))
 		if len(newFindings) > 0 {
