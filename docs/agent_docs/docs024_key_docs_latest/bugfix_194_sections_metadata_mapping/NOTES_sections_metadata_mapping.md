@@ -90,3 +90,31 @@ absence would be an artefact of the table rather than a fact about the fleet. It
 **the two callers a Go-side default would newly re-route are both dormant over 9 days.**
 That is good for blast radius and bad for provability — a live run cannot prove them, so
 whatever ships needs offline proof that can fail.
+
+## 2026-08-04 ~20:05Z — seed 312 applied: the two callers that HAVE the data now map it
+
+`docs/agent_docs/sql_for_agents/312_pageflow_and_site_work_orchestrator_preserve_content_data.sql`,
+snapshot taken first, both `UPDATE 1`, verify block `NOTICE ... OK`. Post-apply census: five of
+six callers name the field; `tool-recreation-handler` is the sixth and is correct absent.
+
+**Both branches of the verify block were INDUCED before the seed was trusted**, run alone
+against the unmodified rows:
+
+```
+ERROR:  194/312: pageflow-builder sections_metadata_field is <NULL>, expected page_content.response.sections_metadata
+ERROR:  194/312: site-work-orchestrator sections_metadata_field is <NULL>, expected page_content.response.sections_metadata
+```
+
+The second one needed its own run: the two checks are in series inside one `DO`, so the first
+`RAISE` aborts the block and the site-work half would never have been exercised. **A verify
+block with two guards in series has only been proven for the guard that fired** — inducing the
+first one is not evidence about the second, which is the same "a mutation that passes may have
+hit a guard in series" shape recorded in MEMORY, seen here in the checking code rather than in
+the code under test.
+
+## Why this seed is NOT the fix, only half of it
+
+Seed 312 is the third and fourth hand-written copy of one key (055/065 page-build-handler, 034
+page-rerender, 310 page-rebuild, now 312 ×2). The defect is not that four callers forgot a
+line; it is that **a saver depends on being told where its own input lives**, so forgetting is
+always available. The Go half follows.
