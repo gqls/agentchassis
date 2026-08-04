@@ -14,11 +14,11 @@ the `SUMMARY_…` series.
 ## One-line state
 
 `bugs_closed/140` CLOSED. RFC_009 B and C live. The 68 `skip_field` fields gated
-(migration 295). **NEW: the element-level blindness the 08-03 recheck exposed now has a
-check — `cmd/component-render-check`, declaration-blind by construction, calibrated
-against the live corpus, WITH a committed baseline and mutation-proven growth detection**
-(CGV-030). The only thing left is a **carrier**: a Go binary needs an image and an
-overlay, unlike the mounted Python lint. Everything else about it is done and proven.
+(migration 295). **The element-level blindness the 08-03 recheck exposed is now covered by
+a STANDING check**: `component-render-check` runs daily at 06:55 UTC as a CronJob
+(CGV-030), image `v1.0.1250`, baseline `go:embed`-ed into the binary, proven in-cluster —
+manual Job Succeeded, `doc_notes` row verified by query, not inferred. **All eight plan
+items from the 08-03 handoff are discharged.**
 
 RFC_009 B re-proven on the chassis **twice** during this session, because it rolled under
 me: first on `v1.0.1246`, then again on **`v1.0.1247`** (both replicas, 08-04) — compiled
@@ -58,43 +58,52 @@ Three findings from doing it that change what the next thread should believe:
 
 ---
 
-## What is OWED — two things, in order
+## What is OWED
 
-### 1. Make `component-render-check` standing (the only real gap)
+**Nothing from the 08-03 plan.** Two follow-ons, neither blocking:
 
-Built and calibrated ≠ standing, and CGV-030 says so. It needs:
-
-- **A carrier.** The intended one is the `component-fallback-check` CronJob (proven to
-  fire unattended, direct Postgres, no `kubectl` — the `ai-persona-app` SA has no
-  `pods/exec` RBAC). But that CronJob mounts a **ConfigMap of a Python file**; a Go binary
-  needs an image. Cheapest honest options: (a) add the binary to an existing image the
-  CronJob could run, (b) give it its own tiny image + overlay in the
-  `bugs-open-staleness-sweep` mould, (c) port the renderer to Python — **rejected**, that
-  would be a replica of `executeGoTemplate` and the whole point is the production entry
-  point. I would go (b).
-- ~~**A baseline, before any exit code.**~~ **DONE 2026-08-04** (`d0b44e6b1`).
-  `--write-baseline` / `--baseline` compare on a `component\0field\0shape` key (counts
-  excluded, so a hole rendered twice is not a new defect); the baseline is a committed
-  reviewable file, so growth arrives as a diff and needs no new storage. Exit 1 on NEW **or
-  UNCOVERED**. Mutation-proven in three arms (RUNBOOK R11b) — and the first mutation found
-  a real defect in it: an unparseable component used to have its findings reported as
-  "fixed" with exit 0, i.e. the comparator passed by going blind. So the carrier below is
-  now genuinely the ONLY thing between this and standing.
-- **`--emit-json` is already there** for whatever consumes it (it carries `new_findings`,
-  `fixed_since_baseline` and `uncovered_since_baseline` when `--baseline` is given).
-- **Regenerating the baseline is a deliberate act.** Bank a real fix by re-running
-  `--write-baseline` and committing the diff; that keeps the "who cleared what" record in
-  git rather than in a mutable row.
-
-### 2. Item 3 from the old plan — the lint's exit code — now unblocked, still a decision
+### 1. The lint's exit code (old plan item 3) — now genuinely unblocked
 
 The "68 predate it" rationale expired (count is 0). The reason to wait was that flipping it
 alone enforces a check satisfiable by a no-op gate (`<td>{{if .v}}{{.v}}{{end}}</td>` —
-same blank, finding cleared). **That objection is now answerable**: the output-level check
-exists and catches exactly what the no-op leaves behind. So flipping it is defensible as
-soon as (1) is standing. Flipping it BEFORE (1) is standing is the same trap in a new coat.
+same blank, finding cleared). **That objection is now answered**: the output-level check is
+live and catches exactly what the no-op leaves behind. Flipping
+`check_placeholder_fallbacks.py` to exit 1 on the ungated class is defensible today. It is
+still a decision, not a chore — it changes what an existing check does to other people's
+work, which is the point the owner was asked about in `README_where_we_are.md`.
 
----
+### 2. Watch the first UNATTENDED firing (06:55 UTC)
+
+The manual Job proves the image, the query, the credentials and the write. It does **not**
+prove the schedule. Check tomorrow:
+
+```bash
+kubectl -n ai-persona-system get cronjob component-render-check     # LASTSCHEDULE set?
+kubectl -n ai-persona-system get pods -l app=component-render-check # pod Completed, not BackOff
+```
+```sql
+SELECT created_at, left(body,120) FROM doc_notes
+WHERE source='component_render_check' ORDER BY created_at DESC LIMIT 3;
+```
+
+⚠ **Read the POD, not the Job.** `ImagePullBackOff` leaves the Job reporting `Running`
+with `0/1` for its whole deadline — it is never `Failed`, so a dead check looks like a slow
+one. That is exactly how this nearly shipped broken (LANDMINES, footprint
+`imagePullSecrets`).
+
+### Banking a fix, when someone fixes a real hole
+
+The baseline is embedded, so it is deliberately not editable in place:
+
+```bash
+go build -o /tmp/rck ./cmd/component-render-check/
+/tmp/rck --write-baseline cmd/component-render-check/baseline.json   # regenerate
+git commit cmd/component-render-check/baseline.json -m "..."         # the diff IS the record
+make build-component-render-check push-component-render-check deploy-component-render-check
+```
+
+There is no ConfigMap to patch and no file in the image to edit — silencing a finding costs
+a reviewable commit, by construction.
 
 ## Explicitly NOT owed
 
@@ -107,6 +116,9 @@ soon as (1) is standing. Flipping it BEFORE (1) is standing is the same trap in 
 - **No council verdict outstanding.** Nothing this session touched a shared seam: two new
   files under `cmd/`/`scripts/`, one hook, one allow-list entry, one Python retry. The
   config-migration review gap is item 8 and is the owner's.
+- **Nothing about the carrier.** Image built from committed HEAD, pushed, CronJob
+  deployed and run; makefile has `build-`/`push-`/`deploy-component-render-check` and
+  `component-render-check-now`.
 - **`bugs_open/190` is filed, not owned.** Its fix candidate 1 (guard the `content_data`
   write seam) needs a writer census first, which is stated in the file as `[UNMEASURED]`.
 
