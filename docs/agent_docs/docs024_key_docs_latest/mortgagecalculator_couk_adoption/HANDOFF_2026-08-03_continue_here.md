@@ -36,6 +36,30 @@ styled rebuild. It is the ONLY page whose URL does not change (`/index.html` →
 
 ## 3. How to hold and release this site — the controls that actually work
 
+> **⚠ CORRECTED 2026-08-04 — THE LOCK DOES NOT HOLD EVERYTHING, AND THIS SECTION SAID IT
+> DID.** The line "(a) SITE LOCK — holds everything" is **false**, and it cost the owner's
+> homepage. On 2026-08-04 at 19:45 UTC `/index.html` was rerendered and deployed over the
+> live original — **while `locked_at` was continuously set since 2026-08-03 10:30 and the
+> §3 gate query still answered `NOT SELECTABLE — held`.** Both facts were true at once.
+>
+> **What the lock actually holds is the QUEUE.** `s.locked_at IS NULL` lives in
+> `build-pipeline-trigger`'s `find_dispatchable_site` query, so it gates *work-item
+> dispatch* and nothing else. **A direct `orchestrate` publish to Kafka never consults
+> it** — which is precisely what `TRIGGER_nav_rebuild.sh` and `049b_deploy_single_page.sh`
+> do, and what this lane used all through 08-03 *because* it bypasses the lock. The same
+> door is open to every other session, and another lane verifying `bugs_open/191`'s fix
+> walked through it.
+>
+> **So the lock is a control over the scheduler, not over the site.** For a page that must
+> not change, the lock is necessary and not sufficient. The only thing that actually
+> protects `/index.html` is that its URL is the one that overwrites live content — so
+> **keep a git restore point and check the artefact, do not infer safety from `locked_at`.**
+> Restore point for the original homepage: `gqls/sites` **`825a36994`** (11,125 bytes,
+> 28 links). Restored on owner decision as `59e4eb9ae`, verified at the wire.
+>
+> Corollary that matters more than the incident: **"0 armed" and "locked" together still
+> do not mean "nothing can change".** They mean nothing can change *via the queue*.
+
 **Two controls, and you need to understand both.**
 
 ```sql

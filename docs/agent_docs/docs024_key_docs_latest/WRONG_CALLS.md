@@ -20221,3 +20221,19 @@ every real endpoint. The cheap check: prove an allowlist with a call the control
 gates — an EPP login, a real `/zones` list — never the handshake, never the verify endpoint.
 Same shape as "a PASS from a BLIND check": the pass is real, it just isn't a pass of the
 thing you named.
+
+**2026-08-04 — mortgagecalculator_couk_adoption: "Site locked, 0 armed — nothing is queued that can move without you."**
+Told to the owner about his live production homepage. Both measurements were correct and
+re-checkable: `locked_at` was continuously set for 33 hours, and the dispatch gate's own
+query answered `NOT SELECTABLE — held`. **The homepage was rerendered over the live original
+anyway**, 19:45 UTC the next day. `s.locked_at IS NULL` exists only in
+`find_dispatchable_site` — it gates **work-item dispatch**, not the site. A direct
+`orchestrate` publish to Kafka never consults it. The aggravating part is that I was
+*using* that bypass myself all session (`TRIGGER_nav_rebuild.sh`, `049b_deploy_single_page.sh`)
+**because** it ignores the lock, wrote that down, and still generalised "the queue is held"
+to "the site is held". The cheap check is not a better lock query — it is asking the
+artefact instead of the control: `git log --format='%h %ci %s' -- <domain>/index.html`
+named the offending deploy in one line, and a stored restore point (`825a36994`) made the
+repair a 40-second push. **A control you personally routed around is not a control you may
+cite as protection** — and the two facts sat in the same session's notes without colliding,
+which is how a true measurement ships a false assurance.

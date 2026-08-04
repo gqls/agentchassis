@@ -378,3 +378,68 @@ What I'd suggest: have a look at the test page now it's styled. If it reads righ
 you, the sensible next step is a batch of two or three more guides — not the homepage —
 so you can see them as a set with the navigation filling in. I'd fix the Get Started
 button first so it doesn't ship broken onto each one.
+
+---
+
+## 4 August, late evening — your homepage was rebuilt overnight, and I've put it back
+
+I need to tell you something went wrong, and then that it's fixed.
+
+**Your homepage was replaced.** Last night at 19:45 the platform rebuilt `/index.html`
+and deployed it over the live original — the one page we had both agreed nobody would
+touch until you'd seen a styled rebuild and said go. You have it back now: I restored the
+original at your instruction and checked it at the wire. It's the file you had, byte for
+byte, 28 links and all.
+
+**Nothing else was affected.** I checked all 33 files of your site against the safety
+copy: everything matches except `robots.txt`, which Cloudflare rewrites and always shows
+as different. Your calculators — repayment, affordability, simple, overpayment — were
+never touched and are serving fine.
+
+### Why the lock didn't stop it, which is the part I got wrong
+
+I told you the site was locked and that nothing could move without you. The lock was on
+the whole time — it never lapsed, and I re-checked it. But it turns out the lock only
+controls the *queue*: the scheduler that picks sites and works through their to-do lists.
+It does not stop a job that's fired at the site directly.
+
+That distinction matters because firing directly is exactly what I was doing all through
+yesterday — it's how I rebuilt the test page while keeping everything else frozen. I used
+that door deliberately, and then told you the building was locked. Another session, fixing
+the very bug I'd filed about your Get Started button, needed a live site to test against.
+Yours was the example named in the bug report, so they used it, and the homepage came along
+with it.
+
+I've corrected the handoff notes so the next person doesn't inherit the same wrong belief,
+and written it up as a mistake rather than quietly fixing it, because "locked" reading as
+"safe" is the kind of thing that will catch someone else.
+
+### One thing worth knowing about the rebuilt version
+
+It wasn't broken, and it's worth saying why I still recommended putting the old one back.
+
+The rebuild was clean — properly styled, no jargon glitches, and the broken "Get Started"
+button I flagged yesterday was **gone**, which is the proof that the fix works. But its
+internal links dropped from 28 to 4. The system refuses to link to pages that haven't been
+built yet, and most of your site hasn't been rebuilt. So the front door stopped pointing at
+your calculators. They still worked, but a visitor landing on the homepage couldn't find
+them.
+
+That's the same lesson as yesterday, one level up: **the homepage can only be rebuilt after
+enough of the site exists for it to link to.** It's not a fault in the rebuild, it's an
+ordering problem, and it's a good argument for leaving the homepage until last rather than
+first.
+
+### Where that leaves us
+
+Your site is exactly as it was. The good news from yesterday still stands: the ordering is
+proven, the test guide looks right, and the button fault I found has been fixed properly by
+another session and is live.
+
+I haven't started the batch of two or three guides yet — finding the homepage changed took
+priority. That's the next thing, and it's unaffected by any of this, because those pages go
+to new addresses and can't overwrite anything of yours.
+
+One honest caveat I'd rather you heard from me: I can hold the queue, but I can't stop
+another session firing at your site directly, and neither can the lock. What I can do is
+keep a restore point and check the pages afterwards — which is what caught this.

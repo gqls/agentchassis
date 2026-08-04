@@ -683,3 +683,94 @@ button — and chrome ships on every page, so this scales with the batch.
 Also still present, unchanged: **`bugs_open/184`** — literal `**Decision Engine**`
 asterisks in the hero. Assemble-only re-ships stored HTML, so a rerender cannot fix it.
 And `/assets/images/favicon.png` **404s** (referenced twice from the head component).
+
+---
+
+## 2026-08-04 ~21:40–21:50 UTC — the homepage was rebuilt over the live original, and the lock did not stop it
+
+### What happened
+
+Returning to run the next batch, I found the state materially changed by other sessions:
+
+| | 08-03 handoff | 08-04 21:40 |
+|---|---|---|
+| chassis | v1.0.1238 | **v1.0.1251** |
+| deployed pages | 1 | **2 — `index` had joined it** |
+| armed items | 0 | **21** |
+| `site_components` | 11:01, header 2,125 B | **re-rendered 19:41, header 2,052 B** |
+
+`/index.html` was rerendered and deployed at **19:45:55 UTC** (`gqls/sites` `fe6b81926`),
+replacing the 11,125-byte original with a 27,546-byte framework rebuild — the one page the
+owner had reserved, because it is the only URL that overwrites live content.
+
+### The correction that matters: THE LOCK NEVER LAPSED
+
+`locked_at` has been continuously set since 2026-08-03 10:30:34, by this lane, and the §3
+gate query still answers `NOT SELECTABLE — held`. **The lock held and the page changed
+anyway**, because `s.locked_at IS NULL` lives only in `find_dispatchable_site` — the
+**work-item dispatch** gate. A direct `orchestrate` publish to Kafka never reads it.
+
+That is not an obscure path: it is exactly what `TRIGGER_nav_rebuild.sh` and
+`049b_deploy_single_page.sh` do, and **what I used all through 08-03 precisely because it
+bypasses the lock.** I used the bypass, documented that I was using it, and still wrote
+"nothing is queued that can move without you" — true of the queue, false of the site. The
+`bugs_open/191` lane needed a live site to verify their fix; ours was the reproduction I
+had named in the bug file.
+
+> **`[WRONG CALL]` — "Site locked, 0 armed, nothing can move." Two true measurements, one
+> false conclusion.** Both readings were correct and neither covered the direct-dispatch
+> door. The cheap check I never ran: **`git log` the artefact**, not the lock —
+> `git log --format='%h %ci %s' -- mortgagecalculator.co.uk/index.html`, which named the
+> rerender in one line. Logged in `WRONG_CALLS.md`; landmine appended for the lock itself.
+
+### Assessing the damage before reacting — and one false alarm of my own
+
+First integrity sweep reported **all 33 files differing**. That was **my check breaking, not
+the site**: the session scratchpad had been relocated by another lane's commit, `curl -o`
+failed silently, and every `sha256sum` compared against a missing file. `curl -sf` plus a
+fetch-failure branch fixed it. **A comparison against a file that does not exist reports
+"differs" for everything — which reads exactly like catastrophe.**
+
+Real state, once measured properly: **33 files, 1 differing (`robots.txt`, Cloudflare).**
+Nothing but the homepage had changed.
+
+Then the functional question. The rebuild's markers looked alarming (`css/style.css` →
+`assets/css/styles.css`, 8 × `site-header`), but the honest read is narrower:
+
+- **No calculator was lost.** The old homepage had **0** `<input>` and **0** `id=` —
+  verified with two independent tools, because a mortgage site's homepage scoring zero
+  form fields is exactly the sort of number that is usually a broken grep. It was a
+  **28-link landing page**; the calculators are separate files (`repayment.html`,
+  `simple.html`, …), untouched and still 200.
+- **The rebuild was technically clean** — and it is the proof that `191`'s fix works:
+  **no `header-cta` element at all**, because with no deployable target the gated template
+  now renders no button instead of a 404. Zero literal markdown. v1.0.1251 carries
+  `LoadChromeLinkPolicy` (pod-grep: 2).
+- **The real cost was navigation: 28 internal links → 4.** The front door stopped pointing
+  at the calculators, because the platform correctly refuses to link unbuilt pages. Nothing
+  was broken; the site was just **rebuilt ahead of its own content**, which is the same
+  ordering lesson as 08-03 one level up.
+
+### Resolution
+
+Owner chose restore. Put back `825a36994` — the last owner-approved state (import + the two
+deliberate crawl-link fixes; the 08-03 logo fixes touched guides, never `index.html`).
+Committed `59e4eb9ae`, pushed **rebased, never merged** (a merge makes the deploy's
+`git diff HEAD~1 HEAD` drop the domain while still going green). Live in ~40 s: 11,125
+bytes, 28 links, all five calculator pages 200, whole-site sweep back to 1 of 33.
+
+Owner also chose to defer **only** the two site-wide `needs_rerender` items (priority 99
+and 30, "26 pages missing header/footer") and leave the 19 audit findings armed for
+whoever owns them. Verified afterwards that **no armed item targets the homepage** — the
+one whose `item_key` matched `%index%` is the guide's link to
+`/tools/affordability/index.html`, i.e. the target URL, not the page. Checked rather than
+assumed.
+
+### `bugs_open/191` — filed by this lane 08-03, FIXED by another session 08-04
+
+Three commits and three council rounds (`d32692882`, `6ae203679`, `007814ff1`), live in
+v1.0.1251. They took **fix candidate 2**, the structural one — a shared
+`LoadChromeLinkPolicy` replacing `loadResolverPageSet` — not my smaller candidate 1, and
+handled the first-build escape the bug file flagged. **I went to implement candidate 1 and
+found it already done**; `git log` on the file was the whole check, and running it first
+is the cheapest step in this workflow.
