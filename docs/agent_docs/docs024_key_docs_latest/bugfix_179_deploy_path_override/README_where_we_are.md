@@ -1,0 +1,69 @@
+# Where we are — the deploy path that callers could choose (179)
+
+Plain-prose log, append-only, newest at the bottom.
+
+---
+
+## 2026-08-04, early morning
+
+This is the second bug this session took on. The first one (116, about link
+checking) turned out to be waiting on a decision from you rather than on any code,
+so I wrote up why and handed it back. This one was a real fix, and it is done bar
+the roll.
+
+**The problem, in one sentence.** When the platform publishes an image to a site,
+it works out where the file should go from two facts — what the image is for, and
+what it is called. Everything that later needs to find that image works the path out
+the same way, from the same two facts. That agreement is the whole point: writer and
+readers cannot disagree if neither is allowed its own opinion. But the deploy step
+had a back door — a caller could pass in a path of its own, and that path won. A
+file put there is one that nothing else in the system can find, because everything
+else is still working the path out from the two facts.
+
+**What made it worse than the ticket said, and this is the part worth knowing.** The
+ticket had measured the risk and found it empty — nobody, anywhere in the system's
+whole history, had ever passed one of these paths in. So it read as a door nobody
+had opened. But when I looked at *how* the deploy step reads its inputs, it does not
+just look where you would expect. It searches the entire bundle of data flowing
+through that job, up to twenty levels deep, for anything called by that name. So a
+stray value with the right name, sitting in some unrelated sub-result, would have
+been picked up and used to redirect where the file was published — **without anyone
+choosing it.** The measurement was correct and the conclusion drawn from it was too
+comfortable: counting who had deliberately used the door tells you nothing about a
+door that can blow open.
+
+**What I did.** Took the back door out entirely, rather than putting a lock on it. If
+someone deliberately asks for a custom path, the step now declines and says why,
+before it downloads anything or writes anything to the site's repository — declining
+politely, so the job finishes and the task is marked resolved rather than retrying
+for ever against something that will never let it through. If a value only turns up
+via that deep search, it is now ignored rather than refused: refusing would mean a
+stray key somewhere could block perfectly good publishing across the whole fleet,
+and that would be a worse bug than the one I was fixing.
+
+**And I fixed the class, not just the case.** There is now a test that fails the
+build if *anyone anywhere* in the codebase hand-builds one of these path objects
+outside the single place that owns them. When I wrote it there was exactly one such
+place in the entire codebase — the one I was deleting. So the door cannot be rebuilt
+somewhere else by someone who has not read any of this.
+
+**On being sure it works.** I deliberately broke my own fix six different ways to
+check each test actually catches something — including moving the safety check to
+the wrong place in the sequence, and re-wiring it to the over-eager search I just
+described. Each break was caught by exactly one test and no others, which is what
+tells you the tests are doing work rather than decorating.
+
+Two things went wrong that are worth recording. Both times, an explanatory comment
+I wrote broke one of my own tests — once because naming a function in a comment
+above the safety check made the test think the check was in the wrong place, and
+once because the check's own comment mentions the thing it deliberately does not
+use. Both were the tests being right and me being careless, and both are now
+written down where the next person will hit them.
+
+**Where it stands.** The code and the configuration are committed, the database
+change is applied and verified, and it has gone to the review council — that was
+still running when I wrote this. The one thing left is for the fix to reach the live
+system on the next build, and then to prove it there by actually trying a custom
+path and watching it be declined. Until that happens the ticket stays open, because
+the rule here is that a fix that is committed but not yet running is still
+reproducible in production.
