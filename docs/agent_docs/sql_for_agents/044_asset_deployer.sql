@@ -27,7 +27,7 @@ INSERT INTO agent_definitions (
                          "deploy_asset": {
                              "action": "deploy_image_asset",
                              "config": {
-                                 "input_fields": ["s3_uri", "deploy_path", "purpose", "domain"]
+                                 "input_fields": ["s3_uri", "purpose", "domain", "asset_key"]
                              },
                              "next_step": "complete",
                              "description": "Download from S3, optimize by purpose, commit to git",
@@ -54,7 +54,7 @@ INSERT INTO agent_definitions (
              'experimental',
              'specialist',
              '["image", "deploy", "asset", "git"]'::jsonb,
-             '{"required": ["domain", "s3_uri"], "optional": ["deploy_path", "purpose"], "description": "Provide domain + s3_uri. Optional deploy_path overrides default path. Optional purpose (default: hero) controls resize dimensions."}'::jsonb,
+             '{"required": ["domain", "s3_uri"], "optional": ["purpose", "asset_key"], "description": "Provide domain + s3_uri. Optional purpose (default: hero) controls resize dimensions; optional asset_key fixes the filename when it differs from purpose. The deploy PATH is derived from (asset_key, purpose) and cannot be chosen — an explicit deploy_path is refused (bugs_open/179 finding A)."}'::jsonb,
              '{"produces": {"deploy_result": "Git commit result with image_url, output_path, size_bytes"}}'::jsonb
          )
     ON CONFLICT (type, version) DO UPDATE SET
