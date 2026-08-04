@@ -605,3 +605,49 @@ over `strings` output.**
 - **Council:** t1 APPROVED. t2's first run was **reaped** (`stale EXECUTING_STEP for >4h;
   step=review_prior_art`) when a roll killed the pod mid-seat — resubmitted unchanged.
   t3 REVISE → answered → resubmitted (round 2).
+
+
+---
+
+# TRANCHE 2 ROUND 2 — REVISE answered; every objection was checkable, and one changed the record
+
+Round 1 (after the reap) came back **REVISE**, gated by `render_guardian` [high]. Same
+pattern as tranche 3's: **the code was right in every case and my submission never showed
+it.** That is now three rounds in a row where the gate caught a documentation gap rather
+than a defect — worth noting as a pattern about my submissions, not about the code.
+
+| objection | answer |
+|---|---|
+| **`render_guardian` [high], GATING** — "widening these queuers only helps if the item carries `spec.reason`; a reason-less `page_rerender` is ASSEMBLE-ONLY and deploys old HTML under a green tick" | **Both queuers already stamp it.** `render_news_section_html.go:141` and `render_directory_action.go:398` both emit `{"reason":"section_data_resolved",…}`, and the news one carries a 10-line comment explaining that the reason is what selects scoped mode and is part of the dedup key. The landmine is real; these two are on the right side of it. My submission simply never said so. |
+| **`render_guardian` [high]** — same question for the directory cousin | Same answer, line 398. |
+| **`guardian` [medium]** — "the render audit has no `status='active'`, unlike the queuers" | It has one **now**, and not by my hand: the **098 lane adopted this seam** (commit `6a7ab87a8`) and added the complementary axis `PageWantedLivePredicateFor` (`status = 'active'`), applying it to the very query I converged. The audit now names **both** axes explicitly — lifecycle and liveness — which is a better outcome than the objection asked for. |
+| **`editquality` [medium]** — "is there a parallel directory-queuer test still pinning the old spelling?" | No. Both queuers' tests live in ONE file (`render_news_section_rerender_test.go`), which was updated; `grep` for the old spelling across all `_test.go` finds only unrelated files (a fix-plan fixture using it as sample text, and `chrome_selection_test`'s false-positive-class list). |
+| **`debug_historian` [medium]** — "risk #4 predicts the predicate string count rises 5→8; Go dedupes identical literals, so that count is not yours to predict" | **Correct, and the claim is withdrawn.** It is the WRONG_CALLS 2026-07-27 shape exactly. The predicate is built at RUNTIME by a function, so it is not a literal in the binary at all. The right probe is the **function symbol**, and this lane has since learned the same lesson twice more (see the 2026-08-04 entry: a comment-grep and a `strings`-blob grep). Post-roll verification for this tranche is by symbol + ancestry, already recorded above. |
+| **`prior_art_librarian` [medium]** — "the DEAD claim for `GetHeaderNavFromPages`/`GetFooterNavFromPages` is a load-bearing absence with no lookup shown" | Fair — here it is: `grep -rn "GetHeaderNavFromPages\|GetFooterNavFromPages" --include=*.go platform/ internal/` returns the definitions, two doc-comment mentions in `nav_tables.go`, and the two call sites **inside `/* */` comment blocks** at `component_library.go:2064,2114`. No live caller. |
+| **`prior_art_librarian` [low]** — "does `check_handrolled_shipped_predicate` actually exist, or is it asserted?" | It exists: `scripts/pattern-check.py`, added in `e9c78a84f` and **registered in `main()`'s check tuple in `b95cb12d2`** — which is its own story: it was written but left unregistered (dead) for a day, found while adding the next check. |
+
+## `bug_historian` [medium] — the cap. Half right, and the half that is right is measured
+
+The objection: adding 36 pages to a queue capped at 25/site silently pushes pages out.
+
+**It is not silent** — `request_render_audit_action.go:157-162` computes `truncated` and logs
+`Warn("page list TRUNCATED by max_pages — a clean result covers only the audited pages")`,
+and returns `pages_total` alongside the audited count. That guard already exists.
+
+**But the consequence is real and now measured.** Sites over the 25 cap, before → after:
+
+| site | was | now |
+|---|---|---|
+| finetuning.uk | 40 | 45 |
+| ai-agent-orchestration.com | 33 | 38 |
+| **gamesdesign.co.uk** | **25** | **34** |
+| **leopardessconsulting.co.uk** | **25** | **34** |
+| robot-hands.com | 30 | 31 |
+| gaswholesalers.com | 27 | 31 |
+
+Six sites were **already** truncating before this change. **Two cross the line because of it**
+(gamesdesign, leopardess: exactly at cap → over), and since the order is `nav_order, name`,
+the pages that fall off are the highest nav_order — the least prominent, which is the
+defensible end to lose but not a free one. **Stated rather than discovered later:** the
+right follow-up is raising `max_pages` for the eight over-cap sites, which is config, not
+code, and belongs to whoever owns the audit cadence.
