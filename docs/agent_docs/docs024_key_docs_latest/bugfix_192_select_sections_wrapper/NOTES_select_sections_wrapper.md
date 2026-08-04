@@ -211,3 +211,22 @@ would be easy to cite the run id and imply corroboration it never gave.
 - **Not this bug, still open, nobody on it:** the overnight
   `process_sections_loop_iter_N_generate_content` failures (21:00–01:00, ~38 runs).
   `192`'s filing counted them as this bug; they are not.
+
+## 2026-08-04 ~10:55 — second proof, because n=1 is not a rate
+
+The first pass left the post-seed sample at **one** successful run, which is a fact and
+not a rate. Re-queued the second item `192`'s filer nominated (`9e9ec430`, vetcomparison
+`guide-cma-compliance`). Every `page-content-writer` run created since the seed:
+
+```
+orch     | status    | current_step          | has_sections | created_at
+25652dd0 | COMPLETED | complete              | t            | 09:21:02   <- 2nd re-dispatch
+0511e4d1 | COMPLETED | complete              | t            | 09:03:47   <- 1st re-dispatch
+0733d0cc | FAILED    | process_sections_loop | f            | 09:01:33   <- started 2s BEFORE the seed
+```
+
+**2 of 2 post-seed runs COMPLETED, 0 failures**, both with
+`sections_for_render ? 'sections_ready'` true; the single failure in the window
+pre-dates the seed by two seconds on `created_at`. Still a small sample — traffic is
+low — so the honest claim is "the mechanism is proven on both items that were parked on
+it", not "the fleet failure rate is now zero".
