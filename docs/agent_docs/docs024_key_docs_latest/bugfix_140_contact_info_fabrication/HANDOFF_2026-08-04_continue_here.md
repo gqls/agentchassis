@@ -1,9 +1,9 @@
-# HANDOFF 2026-08-04 — bugfix 140 / RFC_009 · **the plan is worked; the element-level check EXISTS and is not yet standing**
+# HANDOFF 2026-08-04 — bugfix 140 / RFC_009 · **all eight plan items discharged; the element-level check is STANDING**
 
 **Read this first.** This supersedes `HANDOFF_2026-08-03_continue_here.md`. That doc set
-out eight items; **six are done and item 1 is built and calibrated**. Nothing is
-half-finished in a way that bites: every commit is narrow, everything that ships is
-proven, and the two things still owed are named below with what they need.
+out eight items; **all eight are done**, and item 1's check is deployed, running daily and
+proven in the cluster. Nothing is half-finished. Every commit is narrow, everything that
+ships is proven at the artefact, and the two non-blocking follow-ons are named below.
 
 History: `NOTES_…` (technical, with this session's three missteps),
 `README_where_we_are.md` (plain prose, the owner's), `RUNBOOK_…` §R11 (the new commands),
@@ -20,13 +20,15 @@ a STANDING check**: `component-render-check` runs daily at 06:55 UTC as a CronJo
 manual Job Succeeded, `doc_notes` row verified by query, not inferred. **All eight plan
 items from the 08-03 handoff are discharged.**
 
-RFC_009 B re-proven on the chassis **twice** during this session, because it rolled under
-me: first on `v1.0.1246`, then again on **`v1.0.1247`** (both replicas, 08-04) — compiled
-markers `a component must not assert…` 2 and `template invents` 1, negative control 0, on
-each replica. Markers chosen with `scripts/pick-pod-marker.py` rather than by hand, which
-is the point of having built it. *The second run exists because the first named a tag that
-was superseded seven minutes later: a proof carries the tag it was taken on, and a rolled
-fleet retires it.*
+RFC_009 B re-proven on the chassis **three times** during this session, because it kept
+rolling under me: `v1.0.1246`, then `v1.0.1247`, then **`v1.0.1250`** (both replicas each
+time) — compiled markers `a component must not assert…` 2, `template invents` 1,
+`library_fabricated_hours` 1 (C), negative control 0, on every replica. Markers chosen with
+`scripts/pick-pod-marker.py` rather than by hand, which is the point of having built it.
+*Each re-run exists because the previous proof named a tag that was superseded within the
+hour: a proof carries the tag it was taken on, and a rolled fleet retires it.* **The live
+tag when this was written is `v1.0.1250` — check `kubectl get deploy agent-chassis -o
+jsonpath='{...image}'` before quoting any of these numbers.*
 
 ---
 
@@ -40,7 +42,9 @@ fleet retires it.*
 | 7 | `bugs_open/190` — the two undecoded-envelope rows, with per-row repairability MEASURED through the live parser | `ba91d07a4` |
 | 4 | queue read + contributed into the finetuning lane; **no work fired** | `03e485d55` |
 | 8 | the config-migration review gap put to the owner in prose | `cf7879e85` |
-| 1 | `cmd/component-render-check/rendercheck.go` + pattern-check allow-list | `c6ae2e300`, `bb8be9cd1`, `c77795cf9`, CGV-030 |
+| 1 | `cmd/component-render-check` — the check itself | `c6ae2e300`, `bb8be9cd1`, `c77795cf9` |
+| 1 | its baseline + mutation-proven growth detection (and the blind-pass defect a mutation found) | `d0b44e6b1`, `fd872bc91` |
+| 1 | the CARRIER: direct-Postgres path, image, daily CronJob, make targets, `go:embed`-ed baseline | `0971af4f6`, `7a150dc7e`, `83755f449`, `1194e42f0`, CGV-030 |
 | — | paper trail: LANDMINE (synced) + WRONG_CALLS row for the `strings`/non-ASCII trap | `b2e2b2953` |
 
 Three findings from doing it that change what the next thread should believe:
@@ -107,9 +111,8 @@ a reviewable commit, by construction.
 
 ## Explicitly NOT owed
 
-- **No pod-grep outstanding for RFC_009.** Verified 08-03 evening, both replicas, compiled
-  markers + negative control (table in the previous handoff). A fresh chassis was building
-  as this session closed; if you need to re-prove it, use
+- **No pod-grep outstanding for RFC_009.** Re-proven on `v1.0.1250`, both replicas, B and C
+  markers + negative control. To re-prove after the next roll, use
   `scripts/pick-pod-marker.py 87ea0a5e7` rather than picking a marker by hand.
 - **No rerenders owed** (item 4 stands: the residual rows route through existing queue
   items, and one of them is protectively refused).
@@ -130,8 +133,9 @@ a reviewable commit, by construction.
 python3 scripts/check_placeholder_fallbacks.py            # CLEAN across ~176. exit 2 = flake (now retries 3× first)
 python3 scripts/check_placeholder_fallbacks.py --selftest # 10 must-refuse / 14 must-allow
 go test ./platform/orchestration/actions/ -run TestFabricatedFallback
-go build -o /tmp/rck ./cmd/component-render-check/ && /tmp/rck | head -3   # expect "139 active components analysed"
-kubectl get cronjob component-fallback-check -n ai-persona-system          # LASTSUCCESS today
+go build -o /tmp/rck ./cmd/component-render-check/ && /tmp/rck --compare  # expect 0 NEW, 0 UNCOVERED, exit 0
+kubectl get cronjob component-fallback-check component-render-check -n ai-persona-system   # LASTSCHEDULE today
+kubectl -n ai-persona-system get pods -l app=component-render-check        # Completed — read the POD, not the Job
 ```
 
 ```sql
