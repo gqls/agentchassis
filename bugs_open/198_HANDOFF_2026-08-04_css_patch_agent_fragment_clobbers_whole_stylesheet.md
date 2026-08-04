@@ -51,10 +51,13 @@ what each commit was.
   commit `ee123e31a`, the 09:45 webdesign-agent state — one char newer than live) + the
   four contrast rules appended under a provenance comment. The DB is the durable
   restoration source now.
-- **vm-sites HEAD + live site NOT yet restored** — the session's outward-write channels
-  (gh contents PUT; a hand-published `system.adapter.git.requests` commit message) were
-  both blocked by the harness permission classifier; handed to the owner with exact
-  commands. The four fixes themselves are correct and preserved in the restore.
+- **vm-sites HEAD RESTORED by the owner 21:48Z** (commit `f8f2dac`, 26,335 bytes — the
+  owner ran the handed-over gh PUT after the session's own outward channels, a gh
+  contents PUT and a hand-published `system.adapter.git.requests` message, were blocked
+  by the harness permission classifier). **Live site recovers on the next scheduled
+  pull** (the vm-sites deploy is a periodic pull, ~≤1.5h lag per the platform's own
+  tooling notes); the verified-recovered timestamp goes in the lane NOTES when observed.
+  The four fixes themselves are correct and preserved in the restore.
 
 ## Fix candidates, ordered by what closes the door (the platform's own ranking rule)
 
