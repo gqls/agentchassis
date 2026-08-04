@@ -613,3 +613,157 @@ And one attribution corrected before it shipped: the case-studies-grid `<img src
 ai-agent-orchestration.com `/index.html` was rendered TODAY via `card1..5_image_url` —
 referenced, bare, **no schema entry at all** — i.e. the third unchecked population
 (schema-absent), distinct from both the undeclared-`on_missing` and wrong-flavour ones.
+
+## 2026-08-03 late → 08-04 — the plan was WORKED: 6 of 8 items done, item 1 built and calibrated
+
+Taken in the handoff's own order (what closes the door first), except that items 2/5/6/7/8
+are small and were cleared while item 1 was being designed. Commits are narrow, one per
+task, per CLAUDE.md.
+
+### Item 2 — the trailer gate (`9cfab6f4d`)
+
+Placed in `.githooks/commit-msg`'s BLOCKING half, beside the D2 direction gate — NOT in
+`council-coverage-nudge.sh`, which the hook wraps with `|| true` and which therefore
+cannot block by design. Its existing warning for the same shape stays as a second layer
+for standalone runs.
+
+Tested all five shapes before committing: `pending` → exit 1, `TODO` → exit 1, full UUID
+→ 0, 8-char hex prefix → 0, **no trailer at all → 0**. That last case is the one that
+matters: review stays advisory, and an absent trailer must never be blocked. The commit
+message says in as many words that this narrows an owner ruling and why (it refuses a
+false CLAIM, it does not require review).
+
+### Item 6 — the lint's fetch retry (`6f0808aea`), and a second flake shape nobody had noticed
+
+Three attempts with backoff in `load()`. While writing it I found the flake has **two**
+shapes, not one:
+
+- `rc != 0` — the documented one (`unexpected EOF`), previously exit 2. Fine.
+- **`rc == 0` with a truncated body** — previously fell straight into `json.loads` and
+  raised an uncaught `JSONDecodeError`, i.e. **exit 1**. Exit 1 is the FINDINGS code. A
+  stream flake was therefore indistinguishable from "the lint found a fabricated fact".
+
+Proven with a stub `kubectl` on `PATH` emitting `[{"name":"x","html_template":"<div>` at
+rc=0: three attempts logged, final exit 2. Also the honest reason a `--selftest`-only
+proof would not have done: the selftest never touches `load()`.
+
+### Item 5 — `pick-pod-marker`, and it caught a trap in ITSELF (`eadf3a77e`, DOC-073)
+
+Validated on `87ea0a5e7`, the incident's own commit: `declared skip_field but never
+gated` classified `[comment] NOT in the binary`, `template invents %d business fact(s)…`
+verified compiled.
+
+**MISSTEP — the tool's first suggested probe returned 0 on every replica for a marker
+the binary contains.** The literal spanned a `U+2026`; `strings` splits its output at
+multibyte sequences, so no output line carries the whole marker. I had verified
+"the bytes are in the blob" and shipped "the string is on one ASCII line" — two
+different questions. **The negative control could not catch this**: it was 0 for the
+right reason while the positive was 0 for the wrong one. Markers are now
+printable-ASCII only; re-probed end to end, 2 / 0-negative on every replica (across a
+mid-session roll — the replicaset changed between probes and the numbers held, which is
+a better result than a stable one). LANDMINES entry (footprint `strings /app/`) +
+WRONG_CALLS row: `b2e2b2953`. **The cheap check: run the command you are recommending,
+verbatim, through the pipeline you are recommending.**
+
+### Item 7 — `bugs_open/190` (`ba91d07a4`), and what it is NOT
+
+Both envelope rows found and characterised. The important part is that the CAUSE was
+already diagnosed in-tree — `json_envelope.go`'s header *is* the diagnosis, and names
+the very finetuning page as its 2026-07-16 manual repair. So 190 is a **residue** bug,
+not a mechanism bug: the parse fix acted on responses arriving after it, and nobody
+looked underneath the `rendered_html` that the manual repair had made good.
+
+Measured rather than assumed, by running the LIVE parser (`ParseLLMJSONWithProvenance`,
+via a scratch module with a `replace` to this tree) on both trapped payloads:
+
+| row | verdict |
+|---|---|
+| `d2e9644b` finetuning article-body | recovers via `repaired` — one `content` key, 11,141 chars: **fully repairable** |
+| `25c73a1c` gaswholesalers Pricing Tiers | recovers via `prose_around` — 7 keys but **131 chars total** of a 1,364-char answer: **NOT repairable**, the real content is in the markdown tail recovery correctly refuses to guess at |
+
+That table is the whole reason to run the parser instead of assuming: half this defect is
+mechanically fixable and half is not, and no amount of reading the code tells you which.
+016b §9 pattern added: *fixing a parser does not fix the rows it already mis-parsed.*
+
+### Item 4 — the residual rows: read the queue, contribute, fire NOTHING (`03e485d55`)
+
+The rechecked handoff withdrew the rerender plan; this confirms why, with the actual
+errors. Contributed into `finetuning_uk_service/NOTES` (their lane, attributed, no items
+claimed):
+
+- **The blog rebuild's failure is PROTECTIVE, not a stall.** `needs_page` `d96aee06`
+  failed at `save_sections`: the run re-confirmed **1 of 3 stored sections (33% <
+  `prune_floor_ratio` 0.50)**, so the save was refused WHOLE and nothing was written —
+  the stored blank hero survives *because* the guard worked. A parallel rerender would
+  have been the 2026-07-16 mistake exactly.
+- **The `insights`/`ai-guides` empty_sections are DOWNSTREAM of a missing component.**
+  The sections are `article-grid`/`category-section`, and the `needs_new_component` items
+  that would create those templates have themselves failed **3×** at `store_component`:
+  "template variables and schema fields do not match" — the 287 desync class. The
+  empty_section items cannot resolve until component generation passes that gate. So
+  "unresolved after 3 attempts" was never about content.
+
+### Item 8 — the config-migration review gap, put to the owner in prose (`cf7879e85`)
+
+Written into `README_where_we_are.md` in the owner's register, with a recommendation
+(widen the trigger) rather than a menu, and the reason it is his call.
+
+### Item 1 — `component-render-check` (`c6ae2e300`, `bb8be9cd1`, `c77795cf9`; CGV-030)
+
+`cmd/component-render-check/rendercheck.go`. Renders every active component through
+`actions.RenderTemplate` twice per referenced field — all fields present, then that field
+absent — and flags an empty-element shape whose count RISES on absence. It never reads a
+declaration, which is the point: the flavour blindness cannot recur.
+
+**Calibration, live corpus:** 139 of 176 active components carry referenced fields;
+**1,023 absence findings**. All three of 08-03's production incidents are caught:
+
+| incident | population it belongs to | caught as |
+|---|---|---|
+| `call-to-action.headline` | undeclared `on_missing` | `empty_heading` |
+| `case-studies-grid.card1..5_image_url` | **no schema entry at all** | `broken_img` ×5 |
+| `featured_article.featured_title` | declared `skip_section` (wrong flavour) | `empty_heading` |
+
+**And the negative arm holds inside the same component**: `featured_article.featured_image`,
+gated by 295, produces NO finding while its ungated sibling is flagged. That is the check
+discriminating, not merely firing — the distinction this lane keeps having to make.
+
+Three design decisions worth keeping:
+
+1. **The positive control is per FIELD, not per component.** Every referenced field is
+   synthesised with a unique `RCKMARK_<path>` marker; if the marker never reaches the
+   baseline render, the absence test for that field is meaningless and is reported as
+   `POSITIVE CONTROL FAILED` rather than silently counted. 30 fields land there, and
+   they are informative rather than broken: `background_image`, `autoplay`,
+   `show_load_more`, `reverse` (condition/attribute-only fields), and every
+   `empty_state_text` (an `{{else}}`-branch field — you make it render by emptying the
+   LIST, not by removing the field, which is a probe arm this check does not have).
+2. **Hardcoded empties are their own class, not a finding.** ~44 components are blank at
+   full data — JS-filled tool placeholders, mostly. Blaming that on whichever field was
+   removed would have produced 44 components' worth of noise attributed to arbitrary
+   fields. Baseline-subtract instead: a finding is only a shape whose count INCREASED.
+3. **`RenderContext`-supplied keys are skipped by REFLECTING its json tags**, not by a
+   hand-maintained list — the `about-commercial-block.domain` collision, mechanised. 55
+   component.field pairs are skipped this way and listed explicitly.
+
+**MISSTEP — the runtime-fill predicate, caught by our own pattern check.** I wrote a bare
+`strings.Contains(tpl, "data-runtime-fill")`; `scripts/pattern-check.py` flagged it
+(`bugs_open/137`: nine bare tests, one page-shaped input, every unrelated section
+exempted). Fixed as a named predicate with its scope stated beside it. Then a **second**
+trap in the fix: the allow-list keys on BASENAME, so allow-listing `main.go` would have
+exempted **every `cmd/` tool in the tree** — the declaring-a-key-silences-your-own-detector
+shape. Renamed the file to `rendercheck.go` so the allow-list entry is unique.
+
+**Calibration mode is deliberate: exit 0 with the report, exit 2 on load failure.** 1,023
+is a census, not a to-do list. The standing form needs a stored baseline and
+alert-on-growth; and item 3 (flipping the LINT's exit code) is still sequenced after this
+exists, because on its own it would enforce a check satisfiable by a no-op gate.
+
+### What is NOT done, stated plainly
+
+- **The CronJob wiring for item 1.** The Python lint is mounted as a ConfigMap; a Go
+  binary needs an image and an overlay. Built and calibrated ≠ standing, and the register
+  entry says so.
+- **Item 3** (the lint's exit code) — unchanged, still a decision, now unblocked.
+- No council submission for any of this: the two Go/script additions are new files under
+  `cmd/` and `scripts/` with no shared-seam change, and the config-migration gap is item 8.
