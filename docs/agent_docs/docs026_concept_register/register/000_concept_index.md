@@ -1,12 +1,26 @@
 # Concept Index — master register
 
-**1,764 index table rows**, re-measured 2026-08-04 after PBP-030 (the writer
-derives its own `section_plan`, `bugs_closed/087`) landed. **The drift pair is
-clean: 1,764 rows and 1,764 unique entry ids, 0 rows without an entry and 0
-entries without a row.** Note the baseline: the headline below said **1,756** and
-the grep said **1,763** before this row was added, so seven rows from other
-threads had landed unrecorded in the seven hours since the backfill — which is
-exactly why this file says re-run the pair rather than trust the number. A
+**1,758 index table rows**, re-measured 2026-08-04 after DOC-074
+(`concept-register-drift-check`) landed. **The drift pair is clean: 1,758 rows
+and 1,758 unique entry ids, 0 rows without an entry and 0 entries without a
+row.**
+
+> **CORRECTED 2026-08-04, and this is what earned the watcher below.** The
+> paragraph that stood here said **1,764**, and its drift-pair claim was sound —
+> the pair genuinely was clean when it was run. The figure was not: it came from
+> the LOOSER `grep -c '^| [A-Z]*-[0-9]'` further down this file, not from the
+> documented headline command. **Three different numbers live in this header and
+> they are all correct answers to different questions** — measured the same
+> minute: documented row regex **1,758**, loose row regex **1,765**, raw `###`
+> heading count **1,766**. The loose regex over-counts (it matches prose lines
+> and ids of other shapes); the heading count includes non-concept headings. Only
+> the first is "index table rows". Nothing was wrong with the register itself —
+> this was a number picked up from the wrong line of its own header, by a careful
+> session, within seven hours of the last correction. That is precisely why the
+> fourth check in `concept-register-drift-check` compares this headline against
+> the actual count on a clock: **it caught this one on its first run.**
+
+A
 same-day collision was caught here too: `PBP-021` was already
 `load_page_record lookup semantics`, so this entry took `PBP-030` — **grep the
 category file for the id you are about to claim; the highest `### ` heading in
@@ -70,18 +84,31 @@ trusting this line), with the command written into it as the previous thread
 asked:
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,756  ← THIS is the headline number (re-taken 2026-08-04 after the 34-row backfill; 1,722 after ADP-018 before it. The line once said 1,718 while the grep said 1,719 — one row from another thread had landed unrecorded, which is this line's own point)
-cat *.md | grep -c '^### '                                       # 1,764  (raw headings; always higher — a few are not concept headings)
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,758  ← THIS is the headline number, and ONLY this one (re-taken 2026-08-04 after DOC-074; 1,756 after the 34-row backfill before it. The line once said 1,718 while the grep said 1,719 — one row from another thread had landed unrecorded, which is this line's own point)
+grep -c '^| [A-Z]*-[0-9]' 000_concept_index.md                    # 1,765  ⚠ THE LOOSE ONE — over-counts, and is NOT the headline. It was copied into the headline on 2026-08-04; do not repeat that. Kept here only because older lines below quote it
+cat *.md | grep -c '^### '                                       # 1,766  (raw headings; always higher — a few are not concept headings)
 
 # ── THE DRIFT PAIR. Run BOTH and diff them; the row count alone is blind to
 # the failure this pair caught on 2026-08-04 (34 entries with no index row).
-cat *.md | grep -oE '^### [A-Z]{2,4}-[0-9]{3}' | sed 's/^### //' | sort -u > /tmp/h.txt   # 1,756 entry ids
-grep -oE '^\| [A-Z]{2,4}-[0-9]{3} ' 000_concept_index.md | tr -d '| ' | sort -u > /tmp/r.txt  # 1,756 indexed ids
+cat *.md | grep -oE '^### [A-Z]{2,4}-[0-9]{3}' | sed 's/^### //' | sort -u > /tmp/h.txt   # 1,758 entry ids
+grep -oE '^\| [A-Z]{2,4}-[0-9]{3} ' 000_concept_index.md | tr -d '| ' | sort -u > /tmp/r.txt  # 1,758 indexed ids
 comm -23 /tmp/h.txt /tmp/r.txt   # entries with NO index row — was 34, now EMPTY
 comm -13 /tmp/h.txt /tmp/r.txt   # index rows with NO entry — has always been empty
 # Why it drifts one way only: adding an entry is two edits in two files and only
 # the first is load-bearing for the author, so the index row is the half that
 # gets skipped. Nothing before 2026-08-04 ever compared the two.
+#
+# THIS PAIR NOW RUNS WITHOUT YOU, DAILY — `concept-register-drift-check` (DOC-074),
+# a CronJob that reads this directory at a pinned ref and writes its verdict to
+# doc_notes. It runs the same four comparisons, including the headline-vs-actual
+# one that caught a wrong figure here within seven hours of the last correction.
+# Read the latest verdict:
+#   SELECT created_at, body FROM doc_notes
+#    WHERE subject_key = 'concept-register-drift'
+#    ORDER BY created_at DESC LIMIT 1;
+# It REPORTS and never repairs: a backfilled row needs a summary written by
+# someone who understands the concept. Run the commands above yourself when you
+# edit the register — the watcher is the safety net, not the procedure.
 ls *.md | grep -vc 000_concept_index                             # 109    (files)
 ```
 
@@ -2101,3 +2128,4 @@ an ID prefix, or a status word.
 | TL-031 | Attribute assertion at Tier 2 (`attribute_absent` / `attribute_matches`) | deployed | Closes the largest measured gap in the experience register — 13 of 38 deferred clauses across 9 of 9 entries, the `no-inert-control` invariant it exists to enforce and could not check | tool-lifecycle.md |
 | VONC-011 | Provocation pool + `render_provocation_feed` (the deployable selector) | deployed — updated 2026-08-02, was "built, not live" | VONC-002's missing deployable half: a pool table plus an action that selects today's entry, builds the whole feed, verifies it and commits it | vonc.md |
 | WII-009 | Discovery-check retraction seam (`CheckResult.Resolved` / `resolveWorkItems`) | LIVE v1.0.1237 — and it has retracted NOTHING, its only adopter being a check nothing runs | The one way a check may CLOSE a finding it has positively observed fixed; exists because 49 of 50 checks were monotonic — they file what they find and discard the comparison | work-item-integrity.md |
+| DOC-074 | `concept-register-drift-check` — a daily framework watcher for the register's internal consistency | built, self-tested, NOT yet deployed | CronJob reading the register at a pinned ref: entry with no index row, row with no entry, duplicate id, headline vs actual. Exists because ~20 re-measurements counted rows against the previous ROW count and could not see 34 entries with no row. Reports to doc_notes, repairs nothing. LANDMINE: the SECOND hand-pinned branch ref in the estate — a stale one makes every "clean" run meaningless | documentation-system.md |

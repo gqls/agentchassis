@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1249
+IMAGE_TAG ?= v1.0.1250
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -1893,6 +1893,33 @@ bugs-open-staleness-sweep-logs: ## Follow logs from the latest sweep job
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) logs -f "$$LATEST"; \
 	else \
 		echo "No sweep pods found"; \
+	fi
+
+.PHONY: deploy-concept-register-drift-check
+deploy-concept-register-drift-check: ## Deploy the daily concept-register drift CronJob
+	@echo "$(YELLOW)Deploying concept-register-drift-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/concept-register-drift-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob concept-register-drift-check
+
+.PHONY: concept-register-drift-check-now
+concept-register-drift-check-now: ## Trigger an immediate register drift check (creates a Job from the CronJob)
+	@echo "$(YELLOW)Triggering immediate concept-register drift check...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/concept-register-drift-check \
+		concept-register-drift-check-manual-$$(date +%Y%m%d-%H%M%S)
+	@echo "$(GREEN)Job created. Watch with:$(NC)"
+	@echo "  make concept-register-drift-check-logs"
+
+.PHONY: concept-register-drift-check-logs
+concept-register-drift-check-logs: ## Follow logs from the latest register drift check job
+	@LATEST=$$(KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods \
+		-l app=concept-register-drift-check --sort-by=.metadata.creationTimestamp \
+		-o jsonpath='{.items[-1].metadata.name}' 2>/dev/null); \
+	if [ -n "$$LATEST" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) logs -f "$$LATEST"; \
+	else \
+		echo "No drift-check pods found"; \
 	fi
 
 

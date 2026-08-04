@@ -1,0 +1,116 @@
+# deployments/kustomize/services/concept-register-drift-check/base/cronjob.yaml
+#
+# A watcher for the concept register's internal consistency, asked for by the
+# owner on 2026-08-04 and deliberately placed IN THE FRAMEWORK rather than in a
+# session's local CLI.
+#
+# WHY IN THE FRAMEWORK. The defect it watches for (34 concepts with a register
+# entry and no index row) ran unnoticed for three weeks while ~20 sessions each
+# re-measured the index and each confirmed their own row had landed. Every one of
+# those sessions was following the convention in the file's header. The failure
+# was not that people skipped the check — it is that the check they were told to
+# run could not see this. A convention that decays silently needs something that
+# runs whether or not anyone remembers it, and a pre-commit hook is not that: it
+# only fires for a session that is already committing to the register, which is
+# the one session most likely to have got it right.
+#
+# NOT a chassis agent_definitions row + scheduled_tasks trigger, for the same
+# reason bugs-open-staleness-sweep (DOC-071, RFC_005 §3.3) is not: there is no
+# generic action to list a repo directory and read arbitrary non-.go files, and
+# the one function that came close was closed as a hazard (bugs_closed/145).
+# This pass is also zero-LLM-cost — it is two regexes and a set difference — so
+# an agent would add cost and a queue without adding judgement.
+#
+# Modelled directly on bugs-open-staleness-sweep, which is modelled on the
+# database-backup CronJob: postgres:16-alpine (psql already present), Postgres
+# reached DIRECTLY (never kubectl exec — ai-persona-app has no pods/exec RBAC in
+# this namespace), repo content read through the GitHub Contents/Trees API with a
+# read-only token.
+#
+# ⚠ THE SECOND HAND-PINNED REF. REGISTER_REF below is the SECOND manifest in this
+# estate pinning a branch by hand (bugs-open-staleness-sweep's SWEEP_REF is the
+# first). That is a real cost of copying the pattern and it is named here rather
+# than hidden: when the platform's live working branch changes, BOTH need
+# bumping, and a stale one fails silently in the worst way — it would report on a
+# register nobody is editing, so every finding would be unfalsifiable and every
+# "clean" run would be meaningless. The check refuses to run rather than fall
+# back if the ref does not resolve, but it cannot tell that a ref which DOES
+# resolve is no longer the one in use. Grep both manifests for the branch name
+# when you move.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: concept-register-drift-check
+  labels:
+    app: concept-register-drift-check
+    component: doc-review
+spec:
+  # Daily. The register is edited on most working days — it took one day for the
+  # first live drift to appear after 2026-08-04's backfill — so a weekly cadence
+  # would let a session search a register that has been wrong for six days.
+  # 06:50 UTC keeps it clear of the other doc/infra jobs (database-backup 02:00,
+  # bugs-open-staleness-sweep Sun 06:00, single-owner-carriers-check 06:20,
+  # component-fallback-check 06:40).
+  schedule: "50 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: concept-register-drift-check
+            component: doc-review
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              env:
+                # No default in check.py itself — it refuses rather than
+                # silently reading a stale ref. See the warning above.
+                - name: REGISTER_REF
+                  value: "087_towards_multiple_domains"
+                - name: REGISTER_REPO_OWNER
+                  value: "gqls"
+                - name: REGISTER_REPO_NAME
+                  value: "agentchassis"
+                - name: PG_CLIENTS_HOST
+                  value: "postgres-clients"
+                - name: GITHUB_READ_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: GITHUB_READ_TOKEN
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "250m"
+          volumes:
+            - name: check-script
+              configMap:
+                name: concept-register-drift-check-script
+                defaultMode: 0555
