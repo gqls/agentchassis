@@ -31,6 +31,7 @@ package main
 
 import (
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -451,10 +452,29 @@ type baselineFile struct {
 	Keys []string `json:"keys"`
 }
 
+// The baseline is EMBEDDED, not mounted, and that is the whole design.
+//
+// It is the check's own definition of "already known", so it must be inseparable
+// from the code that interprets it. A baseline in a ConfigMap (or COPYed into an
+// image from elsewhere) could be edited to silence a finding with no diff anybody
+// reviews — which is precisely the class of quiet, unreviewed clearing this check
+// exists to catch. Embedded, banking a real fix is: --write-baseline, commit the
+// diff, rebuild. Visible, reviewable, revertable, and impossible to do by accident.
+//
+// `--baseline <path>` still overrides, for a session comparing against an older
+// baseline by hand. It cannot be overridden in the CronJob, which passes no flag.
+//
+//go:embed baseline.json
+var embeddedBaseline []byte
+
 func loadBaseline(path string) (map[string]bool, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+	b := embeddedBaseline
+	if path != "" {
+		var err error
+		b, err = os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	var bf baselineFile
 	if err := json.Unmarshal(b, &bf); err != nil {
@@ -495,12 +515,14 @@ func main() {
 	jsonPath := flag.String("json", "", "read components from a file instead of the cluster")
 	only := flag.String("component", "", "check a single component by name")
 	emitJSON := flag.Bool("emit-json", false, "machine-readable findings on stdout")
-	baseline := flag.String("baseline", "", "compare against a baseline file; exit 1 if any finding is NEW")
+	compare := flag.Bool("compare", false, "compare against the EMBEDDED baseline; exit 1 on a NEW or UNCOVERED finding")
+	baseline := flag.String("baseline", "", "compare against a baseline FILE instead of the embedded one")
 	writeBase := flag.String("write-baseline", "", "write the current findings as a baseline file and exit 0")
 	report := flag.Bool("report", false, "also write a doc_notes row (used by the CronJob)")
 	flag.Parse()
 
-	if *baseline != "" && *only != "" {
+	comparing := *compare || *baseline != ""
+	if comparing && *only != "" {
 		fmt.Fprintln(os.Stderr, "--baseline with --component would report every other component's "+
 			"findings as FIXED — refusing (compare whole runs, or use --write-baseline on a full run)")
 		os.Exit(2)
@@ -617,7 +639,7 @@ func main() {
 	// slowly stops describing the tree.
 	var newFindings []finding
 	var fixedKeys, uncoveredKeys []string
-	if *baseline != "" {
+	if comparing {
 		base, err := loadBaseline(*baseline)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -658,7 +680,7 @@ func main() {
 			"skipped_context_collisions": skippedCtx, "unanalysed": unanalysed,
 			"components_checked": checked,
 		}
-		if *baseline != "" {
+		if comparing {
 			out["new_findings"] = newFindings
 			out["fixed_since_baseline"] = fixedKeys
 			out["uncovered_since_baseline"] = uncoveredKeys
@@ -670,7 +692,7 @@ func main() {
 		return
 	}
 
-	if *baseline != "" {
+	if comparing {
 		summary := fmt.Sprintf("component-render-check vs baseline: %d findings across %d analysed "+
 			"components, %d NEW, %d fixed, %d UNCOVERED", len(findings), checked,
 			len(newFindings), len(fixedKeys), len(uncoveredKeys))
@@ -687,8 +709,12 @@ func main() {
 			}
 			writeDocNote(detail)
 		}
+		src := *baseline
+		if src == "" {
+			src = "(embedded)"
+		}
 		fmt.Printf("component-render-check vs baseline %s: %d findings now, %d NEW, %d fixed, %d UNCOVERED\n\n",
-			*baseline, len(findings), len(newFindings), len(fixedKeys), len(uncoveredKeys))
+			src, len(findings), len(newFindings), len(fixedKeys), len(uncoveredKeys))
 		if len(newFindings) > 0 {
 			fmt.Println("NEW since the baseline — a component started being able to render a hole:")
 			for _, f := range newFindings {

@@ -63,7 +63,7 @@ spec:
               # Tag is set by the overlay, as every other service here does it.
               image: docker.io/aqls/component-render-check:latest
               # The image's CMD is already
-              #   --baseline /app/baseline.json --report
+              #   --compare --report
               # so the job fails ONLY on a NEW finding or an UNCOVERED one (a component
               # that stopped parsing, whose findings would otherwise read as "fixed" —
               # a pass bought by going blind, found by mutation 2026-08-04). The ~1,000
